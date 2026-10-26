@@ -1,6 +1,7 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { RemoteError } from "@/backend/error/RemoteErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { quoteShellWord } from "@/backend/remote/SshOptions";
 import setupTemplate from "@/scripts/pages_setup.sh?raw";
 import serviceManager from "@/scripts/runner/service-manager.sh?raw";
@@ -19,6 +20,10 @@ import runnerLines from "@/scripts/runner/lines.mjs?raw";
 import runnerOutput from "@/scripts/runner/output.mjs?raw";
 import runnerResult from "@/scripts/runner/result.mjs?raw";
 import runnerWire from "@/scripts/runner/wire.mjs?raw";
+import runnerJobs from "@/scripts/runner/jobs.mjs?raw";
+import runnerAdmission from "@/scripts/runner/admission.mjs?raw";
+import runnerInterpreters from "@/scripts/runner/interpreters.mjs?raw";
+import runnerProcesses from "@/scripts/runner/processes.mjs?raw";
 import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import type { RunnerService } from "./RunnerService";
@@ -39,7 +44,24 @@ const setupScript = setupTemplate
   .replace("__PAGES_RUNNER_OUTPUT__", () => runnerOutput)
   .replace("__PAGES_RUNNER_RESULT__", () => runnerResult)
   .replace("__PAGES_RUNNER_WIRE__", () => runnerWire)
+  .replace("__PAGES_RUNNER_JOBS__", () => runnerJobs)
+  .replace("__PAGES_RUNNER_ADMISSION__", () => runnerAdmission)
+  .replace("__PAGES_RUNNER_INTERPRETERS__", () => runnerInterpreters)
+  .replace("__PAGES_RUNNER_PROCESSES__", () => runnerProcesses)
   .replace("__PAGES_RUNNER_GITHUB__", () => runnerGitHub);
+
+// A command line is one argument of the local ssh process and of the remote
+// shell; Linux limits one argument to 128 KiB, the artifact is larger.
+const TRANSFER_PART_CHARACTERS = 65_536;
+
+/** The base64 artifact in parts that each fit one command line. */
+function transferParts(): readonly string[] {
+  const encoded = Buffer.from(setupScript).toString("base64");
+  const parts: string[] = [];
+  for (let start = 0; start < encoded.length; start += TRANSFER_PART_CHARACTERS)
+    parts.push(encoded.slice(start, start + TRANSFER_PART_CHARACTERS));
+  return parts;
+}
 
 /** Runs the lines under a POSIX shell, whichever login shell the user has. */
 function shellCommand(lines: readonly string[]): string {
@@ -101,9 +123,28 @@ export class RunnerSetupService {
       );
       const session = this.sessions.session(connectionId);
       const sha256 = createHash("sha256").update(setupScript).digest("hex");
-      const result = await session.run(this.transferCommand(sha256), 30_000);
-      if (result.exitCode !== 0 || result.stdout.trim() !== sha256)
-        throw new Error("Setup transfer or verification failed");
+      const upload = `.pages-setup.${randomUUID()}.b64`;
+      try {
+        for (const [index, part] of transferParts().entries()) {
+          const appended = await session.run(
+            this.appendCommand(upload, part, index === 0),
+            30_000,
+          );
+          if (appended.exitCode !== 0) throw new Error("Setup transfer failed");
+        }
+        const result = await session.run(
+          this.transferCommand(upload, sha256),
+          30_000,
+        );
+        if (result.exitCode !== 0 || result.stdout.trim() !== sha256)
+          throw new Error("Setup transfer or verification failed");
+      } finally {
+        await session
+          .run(this.discardCommand(upload), 15_000)
+          .catch((error: unknown) =>
+            logCaughtError("RunnerSetupService", error),
+          );
+      }
       const current = await this.connections.requireUsable(
         userId,
         connectionId,
@@ -195,18 +236,41 @@ export class RunnerSetupService {
     ]);
   }
 
-  private transferCommand(sha256: string): string {
-    const encoded = Buffer.from(setupScript).toString("base64");
+  private appendCommand(
+    upload: string,
+    part: string,
+    isFirst: boolean,
+  ): string {
     return shellCommand([
       "set -eu",
       "umask 077",
       `directory=\"$HOME\"/${quoteShellWord(this.directory)}`,
       'test ! -L "$directory"',
       'mkdir -p -- "$directory"',
+      `upload=\"$directory\"/${quoteShellWord(upload)}`,
+      'test ! -L "$upload"',
+      `printf '%s' ${quoteShellWord(part)} ${isFirst ? ">" : ">>"} \"$upload\"`,
+    ]);
+  }
+
+  private discardCommand(upload: string): string {
+    return shellCommand([
+      `rm -f -- \"$HOME\"/${quoteShellWord(this.directory)}/${quoteShellWord(upload)}`,
+    ]);
+  }
+
+  private transferCommand(upload: string, sha256: string): string {
+    return shellCommand([
+      "set -eu",
+      "umask 077",
+      `directory=\"$HOME\"/${quoteShellWord(this.directory)}`,
+      'test ! -L "$directory"',
+      `upload=\"$directory\"/${quoteShellWord(upload)}`,
+      'test -f "$upload" && test ! -L "$upload"',
       'target="$directory/pages_setup.sh"',
       'temporary=$(mktemp "$directory/.pages-setup.XXXXXX")',
       "trap 'rm -f -- \"$temporary\"' EXIT HUP INT TERM",
-      `printf '%s' ${quoteShellWord(encoded)} | base64 -d > \"$temporary\"`,
+      'base64 -d < "$upload" > "$temporary"',
       `test \"$(sha256sum -- \"$temporary\" | cut -d ' ' -f 1)\" = ${quoteShellWord(sha256)}`,
       'bash -n -- "$temporary"',
       'test ! -L "$target"',

@@ -58,6 +58,8 @@ export type AgentPlanWriteOperation =
 export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "remoteModel",
   "remoteInterpreter",
+  "remoteInterpreterRemoved",
+  "remoteCatalogStale",
   "remoteContainer",
   "remoteOffline",
   "remoteIdentity",
@@ -639,6 +641,8 @@ export interface AgentPlanControlEntry {
   readonly blockers: Readonly<
     Record<"delete" | "play" | "pause" | "resume" | "stop", string | null>
   >;
+  /** The server's start check per node, for example behind `plan_invalid`; only for editors. */
+  readonly issues?: readonly AgentPlanIssueEntry[];
   readonly runId?: string;
   readonly planRevision?: number;
   readonly continuationVersion?: number;

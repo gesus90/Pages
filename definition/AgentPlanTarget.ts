@@ -158,6 +158,8 @@ export function withPlanTargetFollowed<Plan extends AgentPlanInput>(
 export type AgentPlanTargetProblem =
   | "remoteModel"
   | "remoteInterpreter"
+  | "remoteInterpreterRemoved"
+  | "remoteCatalogStale"
   | "remoteContainer"
   | "remoteOffline"
   | "remoteIdentity"
@@ -178,12 +180,20 @@ export interface AgentPlanRemoteStatus {
   readonly hasOpenCodeAccess?: boolean;
   readonly workspaceId: string;
   readonly problem:
-    "remoteOffline" | "remoteIdentity" | "remoteWorkspace" | null;
+    | "remoteOffline"
+    | "remoteIdentity"
+    | "remoteWorkspace"
+    | "remoteRunnerUpdate"
+    | "remoteCatalogStale"
+    | null;
   readonly tools: readonly ToolInventory[];
   readonly hasModelCatalog: boolean;
+  readonly isToolCatalogCurrent?: boolean;
   readonly interpreterIds?: readonly string[];
   readonly modelIds?: readonly string[];
   readonly catalogRevision?: string;
+  readonly catalogCheckedAt?: string;
+  readonly removedInterpreterIds?: readonly string[];
 }
 
 /** A node that its remote target cannot execute. */
@@ -201,6 +211,8 @@ function nodeTargetProblem(
   if (target.kind !== "remote") return null;
   if (status?.problem) return status.problem;
   if (node.type === "agent") return agentTargetProblem(node, target, status);
+  if (status?.removedInterpreterIds?.includes(node.interpreterProfileId))
+    return "remoteInterpreterRemoved";
   if (
     status?.interpreterIds &&
     !status.interpreterIds.includes(node.interpreterProfileId)
@@ -260,6 +272,7 @@ function cliTargetProblem(
   configuration: AgentPlanConfiguration,
   status: AgentPlanRemoteStatus,
 ): AgentPlanTargetProblem | null {
+  if (status.isToolCatalogCurrent === false) return "remoteCatalogStale";
   const tool = configurationTool(configuration);
   const installed = status.tools.find((entry) => entry.tool === tool);
   if (!installed) return "remoteToolMissing";

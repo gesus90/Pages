@@ -390,6 +390,26 @@ cat > "$schedule_temporary" <<'SCHEDULE'
 __PAGES_RUNNER_SCHEDULE__
 SCHEDULE
 mv -f -- "$schedule_temporary" "$runner_directory/schedule.mjs"
+jobs_temporary=$(mktemp "$runner_directory/.jobs.XXXXXX")
+cat > "$jobs_temporary" <<'JOBS'
+__PAGES_RUNNER_JOBS__
+JOBS
+mv -f -- "$jobs_temporary" "$runner_directory/jobs.mjs"
+admission_temporary=$(mktemp "$runner_directory/.admission.XXXXXX")
+cat > "$admission_temporary" <<'ADMISSION'
+__PAGES_RUNNER_ADMISSION__
+ADMISSION
+mv -f -- "$admission_temporary" "$runner_directory/admission.mjs"
+interpreters_temporary=$(mktemp "$runner_directory/.interpreters.XXXXXX")
+cat > "$interpreters_temporary" <<'INTERPRETERS'
+__PAGES_RUNNER_INTERPRETERS__
+INTERPRETERS
+mv -f -- "$interpreters_temporary" "$runner_directory/interpreters.mjs"
+processes_temporary=$(mktemp "$runner_directory/.processes.XXXXXX")
+cat > "$processes_temporary" <<'PROCESSES'
+__PAGES_RUNNER_PROCESSES__
+PROCESSES
+mv -f -- "$processes_temporary" "$runner_directory/processes.mjs"
 journal_temporary=$(mktemp "$runner_directory/.journal.XXXXXX")
 cat > "$journal_temporary" <<'JOURNAL'
 __PAGES_RUNNER_JOURNAL__

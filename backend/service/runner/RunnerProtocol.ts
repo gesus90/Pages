@@ -1,4 +1,5 @@
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
+import { mergeRunnerCatalog } from "./RunnerCatalog";
 import type {
   RunnerJob,
   RunnerMessage,
@@ -9,7 +10,7 @@ import type {
 const TRANSITIONS: Readonly<
   Record<RunnerJob["status"], readonly RunnerJob["status"][]>
 > = {
-  queued: ["accepted", "lost"],
+  queued: ["queued", "accepted", "failed", "interrupted", "lost"],
   accepted: ["running", "failed", "interrupted", "lost"],
   running: ["running", "completed", "failed", "interrupted", "lost"],
   completed: [],
@@ -28,6 +29,16 @@ export function applyRunnerMessage(
 } {
   if (message.sessionId !== state.sessionId)
     throw new Error("Runner session mismatch");
+  if (message.type === "catalog")
+    return {
+      state: { ...state, catalog: mergeRunnerCatalog(state.catalog, message) },
+      reply: {
+        version: 1,
+        type: "catalog-ack",
+        sessionId: state.sessionId,
+        generation: message.catalog.generation,
+      },
+    };
   if (message.type === "heartbeat")
     return {
       state,
@@ -60,6 +71,7 @@ export function applyRunnerMessage(
   requireTransition(state, message);
   const updated = {
     ...state,
+    lastContactAt: new Date().toISOString(),
     sequence: message.sequence,
     lastEventId: message.eventId,
     lastEventDigest: planContentDigest(message),
@@ -67,6 +79,17 @@ export function applyRunnerMessage(
       job.jobId === message.job.jobId
         ? {
             ...message.job,
+            ...(job.cancellation
+              ? {
+                  cancellation: {
+                    ...job.cancellation,
+                    ...(message.job.cancellation?.requestedAt ===
+                    job.cancellation.requestedAt
+                      ? message.job.cancellation
+                      : {}),
+                  },
+                }
+              : {}),
             ...(message.delta ? { execution: job.execution } : {}),
           }
         : job,
@@ -116,7 +139,14 @@ function reconcileRunner(
       return { ...job, status: "lost" };
     return job;
   });
-  const reconciled = { ...state, jobs };
+  const reconciled = {
+    ...state,
+    jobs,
+    catalog: mergeRunnerCatalog(state.catalog, message),
+    communicationVersion: message.communicationVersion,
+    runnerVersion: message.runnerVersion,
+    lastContactAt: new Date().toISOString(),
+  };
   return {
     state: reconciled,
     reply: {
@@ -124,6 +154,7 @@ function reconcileRunner(
       type: "reconcile",
       state: reconciled,
       outputJournalVersion: 2,
+      communicationVersion: 1,
     },
   };
 }
@@ -159,12 +190,35 @@ function requireTransition(
     planContentDigest(previous.launch) !== planContentDigest(message.job.launch)
   )
     throw new Error("Runner launch changed");
+  requireLaunch(previous, message);
+}
+
+function requireLaunch(
+  previous: RunnerJob,
+  message: Extract<RunnerMessage, { type: "event" }>,
+): void {
   if (
-    previous.execution &&
-    message.job.status !== "lost" &&
-    !message.job.launch
+    !previous.execution ||
+    message.job.status === "lost" ||
+    message.job.launch ||
+    isUnlaunchedQueueReport(previous, message)
   )
-    throw new Error("Runner launch confirmation required");
+    return;
+  throw new Error("Runner launch confirmation required");
+}
+
+/** Without a worker, a queued job may only keep waiting, end by its stop or be refused with a named reason. */
+function isUnlaunchedQueueReport(
+  previous: RunnerJob,
+  message: Extract<RunnerMessage, { type: "event" }>,
+): boolean {
+  if (previous.status !== "queued") return false;
+  const status = message.job.status;
+  return (
+    status === "queued" ||
+    (status === "interrupted" && previous.cancellation !== undefined) ||
+    (status === "failed" && message.result?.failureCode !== undefined)
+  );
 }
 
 function requireCommand(

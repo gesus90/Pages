@@ -8,7 +8,7 @@ import {
 
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
-import { requestCancellation } from "./AgentPlanRunState";
+import { detachedStopRun, requestCancellation } from "./AgentPlanRunState";
 import {
   preparePlanContinuation,
   planWritingWorkspaces,
@@ -49,14 +49,7 @@ export class AgentPlanRunCommands {
     await this.dependencies.writes.run(async () => {
       const active = this.dependencies.active.get(id);
       if (!active) {
-        const run = await this.dependencies.runs.find(id);
-        if (journal && run)
-          await this.dependencies.runs.update(
-            run,
-            undefined,
-            undefined,
-            journal,
-          );
+        await this.stopDetached(id, journal);
         return;
       }
       const previous = structuredClone(active.view);
@@ -189,6 +182,37 @@ export class AgentPlanRunCommands {
       await previousRelease?.();
       await release?.();
     };
+  }
+
+  /** A finished run only journals the request; an orphaned active run ends without its engine. */
+  private async stopDetached(
+    id: string,
+    journal?: AgentPlanRunJournal,
+  ): Promise<void> {
+    const run = await this.dependencies.runs.find(id);
+    if (!run) return;
+    if (!isActivePlanRun(run.status)) {
+      if (journal)
+        await this.dependencies.runs.update(run, undefined, undefined, journal);
+      return;
+    }
+    await this.dependencies.runs.update(
+      detachedStopRun(run),
+      undefined,
+      undefined,
+      journal,
+    );
+    // A runner fact between both reads may have ended the last remote job already.
+    const stored = await this.dependencies.runs.find(id);
+    if (
+      stored?.status === "stopping" &&
+      !stored.steps.some((step) => step.status === "running")
+    )
+      await this.dependencies.runs.update({
+        ...stored,
+        status: "cancelled",
+        endedAt: new Date().toISOString(),
+      });
   }
 
   private schedulePump(): void {

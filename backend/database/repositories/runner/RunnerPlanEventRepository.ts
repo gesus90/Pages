@@ -101,7 +101,12 @@ export class RunnerPlanEventRepository {
     });
   }
 
-  /** Loads the current immutable continuation basis and updates only its public progress. */
+  /**
+   * Loads the current immutable continuation basis and updates only its public progress.
+   *
+   * @remarks
+   * A reducer that returns the loaded run object itself writes nothing.
+   */
   public async apply(
     transaction: DatabaseTransaction,
     runId: string,
@@ -128,10 +133,15 @@ export class RunnerPlanEventRepository {
       { run_id: runId },
     );
     if (!row) throw new Error("Unknown runner plan run");
+    const current = readPlanRun(
+      JSON.parse(readTextColumn(row, 0, "view_json")),
+    );
     const result = reduce(
-      readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json"))),
+      current,
       JSON.parse(readTextColumn(row, 1, "snapshot_json")),
     );
+    // An unchanged settled run keeps its recovery revision for concurrent recovery commands.
+    if (result.run === current) return;
     await this.progress.persist(transaction, result.run, result.checkpoint);
     if (history)
       await persistRunnerSessionEvents(transaction, result.run, history);

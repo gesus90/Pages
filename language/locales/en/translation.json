@@ -752,7 +752,8 @@
         "plan_definition_changed": "The AGENT.md of the agent is missing or does not match the started revision.",
         "plan_placeholder_unresolved": "The prompt still contains a parameter placeholder; nothing was sent.",
         "plan_runner_lost": "The remote process was lost without an exit record. No automatic restart.",
-        "plan_runner_update_required": "Runner 1.9.0 required: This runner still limits cumulative CLI output. Update it explicitly.",
+        "plan_runner_update_required": "Runner 1.10 or newer is required: remote execution needs its communication contract. Update the runner explicitly.",
+        "plan_runner_admission_failed": "The runner could not reserve an execution slot on its host; the job did not start.",
         "plan_runner_storage_failed": "Runner history storage failed. Confirmed output and checkpoints have been preserved.",
         "plan_runner_event_limit": "A native CLI event exceeds its separate message limit.",
         "plan_runner_result_limit": "The final agent answer exceeds this node’s separate result limit.",
@@ -1284,6 +1285,8 @@
         "tool": "Pages runner",
         "toolsNone": "No tools found",
         "versionUnknown": "version unknown",
+        "communicationUpgrade": "Runner {{version}}: new remote runs require Runner 1.10 or newer. Running jobs are still reconciled; update it explicitly.",
+        "versionBefore110": "older than 1.10",
         "toolName": {
           "codex": "Codex",
           "claude": "Claude Code",
@@ -3987,7 +3990,7 @@
       "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
       "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
       "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
-      "remoteRunnerUpdate": "Update runner: resource parameters, file delivery and Pages access require Runner 1.6.0 or later, OpenCode nodes Runner 1.7.0.",
+      "remoteRunnerUpdate": "Update the runner: remote execution requires Runner 1.10 or newer. Nothing starts here until it is updated explicitly; running jobs are still reconciled.",
       "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
       "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason."
     },
@@ -4378,9 +4381,11 @@
         "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
         "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
         "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
-        "remoteRunnerUpdate": "Update runner: resource parameters, file delivery and Pages access require Runner 1.6.0 or later, OpenCode nodes Runner 1.7.0.",
+        "remoteRunnerUpdate": "Update the runner: remote execution requires Runner 1.10 or newer. Nothing starts here until it is updated explicitly; running jobs are still reconciled.",
         "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
-        "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason."
+        "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason.",
+        "remoteCatalogStale": "This runner's inventory is stale or incomplete. Known profiles stay visible but start only after a complete, current report from the connected runner.",
+        "remoteInterpreterRemoved": "A complete inventory of the runner no longer lists this interpreter. Install it on the remote host or choose a reported interpreter."
       },
       "state": {
         "none": {
@@ -5079,6 +5084,49 @@
       "ok": "Succeeded",
       "denied": "Denied",
       "failed": "Failed"
+    },
+    "communication": {
+      "title": "Remote execution",
+      "confirmed": "Last confirmed state",
+      "connection": "Runner connection",
+      "contact": "Last confirmed contact",
+      "observed": "Last worker observation",
+      "job": "Job",
+      "attempt": "Attempt",
+      "session": "Runner session",
+      "unknown": "State unknown; no process termination has been confirmed.",
+      "catalogChecked": "Inventory checked: {{at}}",
+      "stopPending": "Stop requested and stored. Delivery to this attempt is pending.",
+      "stopReceived": "Runner received the stop request. Process termination is not yet confirmed.",
+      "stopConfirmed": "The targeted attempt has ended; cleanup is confirmed.",
+      "stopUnconfirmed": "The runner cancelled the attempt, but process cleanup is not confirmed. Do not start a replacement while processes of this attempt may still be alive.",
+      "disconnected": "Contact lost. The last confirmed state does not prove that the process is still running or has stopped. Reconnect the same runner to reconcile; do not start a replacement while its state is unknown.",
+      "status": {
+        "queued": "Queued",
+        "accepted": "Worker launch confirmed",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "interrupted": "Cancelled",
+        "lost": "Process lost; result unknown"
+      },
+      "connectionState": {
+        "connected": "Connected",
+        "lost": "Contact lost",
+        "unknown": "Unknown"
+      },
+      "queue": {
+        "capacity": "Waiting for one of four host execution slots.",
+        "workspace": "Waiting for an overlapping workspace or the same Git branch to be released."
+      },
+      "profile": {
+        "current": "Current",
+        "unreachable": "Known profile; runner temporarily unreachable",
+        "stale": "Known profile; inventory stale or incomplete",
+        "removed": "Profile removed by a complete inventory",
+        "incompatible": "Runner 1.10 or newer is required"
+      },
+      "workerStale": "No recent worker confirmation. The process state is unknown even while the runner is connected."
     }
   },
   "mcpDuration": {

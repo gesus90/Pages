@@ -57,6 +57,13 @@ export function PlanRemoteStatus({
           ) : null}
         </>
       )}
+      {status.catalogCheckedAt ? (
+        <p>
+          {t("plans.communication.catalogChecked", {
+            at: status.catalogCheckedAt,
+          })}
+        </p>
+      ) : null}
       <p>{t("plans.execution.remotePause")}</p>
       <a className="underline" href="/settings/agents">
         {t("plans.execution.runnerSettings")}

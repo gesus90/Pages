@@ -74,7 +74,7 @@ export const PLAN_RESOURCE_READ_TOOLS: readonly {
       name: "read_plan_control",
       title: "Read plan controls",
       description:
-        "Reads planId, revision, actual status, canEdit/canDelete/canPlay/canPause/canResume/canStop and per-action blockers under current resource rights. An own currently readable run additionally includes runId, applied planRevision and continuationVersion; another executor's IDs, results and failures stay private. Recheck after any asynchronous action or conflict. Pausing/stopping acknowledge requests, not completed work. Direct scripts require active administrator mode and an executable configured profile.",
+        "Reads planId, revision, actual status, canEdit/canDelete/canPlay/canPause/canResume/canStop and per-action blockers under current resource rights. For editors, issues names each node the server start check refuses (nodeId, port, problem), for example behind plan_invalid. An own currently readable run additionally includes runId, applied planRevision and continuationVersion; another executor's IDs, results and failures stay private. Recheck after any asynchronous action or conflict. Pausing/stopping acknowledge requests, not completed work. Direct scripts require active administrator mode and an executable configured profile.",
       properties: { planId: IDENTIFIER_SCHEMA },
       required: ["planId"],
     }),

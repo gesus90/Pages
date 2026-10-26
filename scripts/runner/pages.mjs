@@ -45,7 +45,10 @@ export function pagesRequest(socketPath, jobId, request) {
         const message = JSON.parse(reply);
         if (!message.ok) {
           const failure = new Error("Pages access refused");
-          failure.code = pagesFailure(message);
+          failure.code =
+            message.code === "pages_transport_unavailable"
+              ? message.code
+              : pagesFailure(message);
           reject(failure);
           return;
         }
@@ -89,7 +92,15 @@ export async function startPagesRelay(directory, request) {
           const result = await request(message.jobId, message.request);
           socket.end(JSON.stringify({ ok: true, result }));
         } catch (error) {
-          socket.end(JSON.stringify({ ok: false, code: pagesFailure(error) }));
+          socket.end(
+            JSON.stringify({
+              ok: false,
+              code:
+                error.code === "pages_transport_unavailable"
+                  ? error.code
+                  : pagesFailure(error),
+            }),
+          );
         }
       })();
     });

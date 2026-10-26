@@ -26,10 +26,7 @@ import type {
   RemotePlanParameters,
 } from "./AgentPlanRemoteParameters";
 import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
-import {
-  remoteCliModels,
-  remoteOpenRouterModels,
-} from "./AgentPlanRemoteCatalog";
+import { AgentPlanRemoteSources } from "./AgentPlanRemoteSources";
 import type { AgentPlanRemoteStatus } from "@/definition/AgentPlanTarget";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import type { AgentPlanInput } from "@/definition/AgentPlan";
@@ -54,6 +51,8 @@ import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { RunnerService } from "@/backend/service/runner/RunnerService";
 import type { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpenRouterService";
+
+const OBSERVATION_STALE_MILLISECONDS = 45_000;
 
 const CANCELLED_BEFORE_DISPATCH: Partial<AgentPlanStepResult> = {
   status: "cancelled",
@@ -106,85 +105,10 @@ export class AgentPlanRemoteExecution {
     readonly interpreters: readonly AgentPlanInterpreter[];
     readonly statuses: readonly AgentPlanRemoteStatus[];
   }> {
-    const targets = await this.dependencies.targets.list(userId, projectId);
-    const choices = await this.dependencies.targets.choices(userId);
-    const models: PageAgentModel[] = [];
-    const interpreters: AgentPlanInterpreter[] = [];
-    const statuses: AgentPlanRemoteStatus[] = [];
-    for (const target of targets) {
-      const runnerProblem = await this.dependencies.runners.availability(
-        target.connectionId,
-      );
-      const isWorkspaceUsable = choices.find(
-        (entry) => entry.workspaceId === target.workspaceId,
-      )?.isUsable;
-      const problem =
-        runnerProblem ?? (isWorkspaceUsable ? null : "remoteWorkspace");
-      const status: AgentPlanRemoteStatus = {
-        workspaceId: target.workspaceId,
-        problem,
-        tools: [],
-        hasModelCatalog: false,
-        hasPagesAccess: this.dependencies.runners.supportsPagesAccess(
-          target.connectionId,
-        ),
-        hasOpenCodeAccess: this.dependencies.runners.supportsOpenCode(
-          target.connectionId,
-        ),
-      };
-      statuses.push(status);
-      if (problem) continue;
-      try {
-        const programs = await this.dependencies.runners.ready(
-          userId,
-          target.connectionId,
-        );
-        for (const program of programs)
-          interpreters.push({
-            id: `${target.workspaceId}-${program.id}`,
-            name: `${target.connectionName} / ${target.workspaceName} / ${program.name}`,
-            runnerWorkspaceId: target.workspaceId,
-            status: "ok",
-            version: program.version,
-            error: null,
-          });
-        const tools = await this.dependencies.runners.cliInventory(
-          userId,
-          target.connectionId,
-        );
-        models.push(
-          ...remoteCliModels(
-            target,
-            tools,
-            this.dependencies.runners.supportsOpenCode(target.connectionId),
-          ),
-        );
-        const readyStatus = {
-          ...status,
-          tools,
-          interpreterIds: programs.map(
-            (program) => `${target.workspaceId}-${program.id}`,
-          ),
-        };
-        statuses[statuses.length - 1] = readyStatus;
-        const catalog = await this.dependencies.provider.catalog(
-          userId,
-          target.connectionId,
-        );
-        if (catalog.operation !== "catalog") continue;
-        statuses[statuses.length - 1] = {
-          ...readyStatus,
-          hasModelCatalog: catalog.freeModels.length > 0,
-          modelIds: catalog.freeModels.map((model) => model.id),
-          catalogRevision: catalog.syncedAt,
-        };
-        models.push(...remoteOpenRouterModels(target, catalog));
-      } catch {
-        // Unavailable targets stay editable, but offer no executable model route.
-        continue;
-      }
-    }
-    return { models, interpreters, statuses };
+    return new AgentPlanRemoteSources(this.dependencies).read(
+      userId,
+      projectId,
+    );
   }
 
   /** Verifies exact catalog selection and current workspace access before saving a model copy. */
@@ -375,6 +299,60 @@ export class AgentPlanRemoteExecution {
       throw new AgentError("plan_access_denied");
   }
 
+  /** Replays an authorized owner's stop against every original remote attempt, even after reload or restart. */
+  public async stop(run: AgentPlanRun): Promise<void> {
+    for (const step of run.steps) {
+      const execution = step.execution;
+      if (execution?.target.kind !== "remote") continue;
+      const job = await this.dependencies.runners.progress(
+        execution.target.connectionId,
+        run.id,
+        execution.attemptId,
+      );
+      if (job)
+        await this.dependencies.runners.cancel(
+          execution.target.connectionId,
+          job.jobId,
+        );
+    }
+  }
+
+  /** Adds current transport health to confirmed job facts without mutating the stored execution state. */
+  public async withProgress(run: AgentPlanRun): Promise<AgentPlanRun> {
+    const steps = await Promise.all(
+      run.steps.map(async (step) => {
+        const execution = step.execution;
+        if (execution?.target.kind !== "remote") return step;
+        const job = await this.dependencies.runners.progress(
+          execution.target.connectionId,
+          run.id,
+          execution.attemptId,
+        );
+        if (!job) return step;
+        return {
+          ...step,
+          remote: {
+            ...step.remote,
+            jobId: job.jobId,
+            sessionId: job.sessionId,
+            status: job.status,
+            cancellation: job.cancellation,
+            queueReason: job.queueReason,
+            observedAt: job.observedAt,
+            isObservationStale: isObservationStale(job),
+            startedAt: step.remote?.startedAt ?? null,
+            endedAt: step.remote?.endedAt ?? null,
+            closeout: step.remote?.closeout ?? ("pending" as const),
+            contact: this.dependencies.runners.contact(
+              execution.target.connectionId,
+            ),
+          },
+        };
+      }),
+    );
+    return { ...run, steps };
+  }
+
   private canUsePages(
     step: AgentPlanStep | AgentPlanScript,
     target: AgentPlanRemoteTarget,
@@ -412,7 +390,10 @@ export class AgentPlanRemoteExecution {
   ): Promise<Partial<AgentPlanStepResult>> {
     for (;;) {
       if (signal.aborted)
-        this.dependencies.runners.cancel(remote.target.connectionId, job.jobId);
+        await this.dependencies.runners.cancel(
+          remote.target.connectionId,
+          job.jobId,
+        );
       const current = await this.dependencies.runs.find(run.id);
       const step = current?.steps.find((entry) => entry.id === remote.step.id);
       if (!step) throw new AgentError("plan_context_changed");
@@ -464,6 +445,16 @@ export class AgentPlanRemoteExecution {
     if (!target) throw new AgentError("plan_access_denied");
     return target;
   }
+}
+
+/** The runner confirms a quiet worker every 15 to 30 seconds; 45 seconds without it leave the process state unknown. */
+function isObservationStale(job: RunnerJob): boolean {
+  if (job.status !== "accepted" && job.status !== "running") return false;
+  const observedAt = Date.parse(job.observedAt ?? "");
+  return (
+    !Number.isFinite(observedAt) ||
+    Date.now() - observedAt > OBSERVATION_STALE_MILLISECONDS
+  );
 }
 
 async function resolvedCommand(

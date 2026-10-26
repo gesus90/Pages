@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logEvent } from "@/backend/logging/Logger";
 import { requirePlanModelResources } from "@/backend/service/agents/AgentPlanModel";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { applyRunnerPlanEvent } from "./RunnerPlanEvents";
@@ -12,6 +13,7 @@ import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { RunnerPlanEventRepository } from "@/backend/database/repositories/runner/RunnerPlanEventRepository";
 import type {
+  RunnerJob,
   RunnerMessage,
   RunnerReply,
   RunnerState,
@@ -58,12 +60,24 @@ function isHistoryPacket(
 export class RunnerPlanEventService {
   private readonly repository: RunnerPlanEventRepository;
   private readonly access: BindingAccess;
+  private isRunOwned: (runId: string) => boolean;
   public constructor(
     repository: RunnerPlanEventRepository,
     access: BindingAccess,
   ) {
     this.access = access;
     this.repository = repository;
+    // Until the plan engine attaches, every run counts as owned and never settles here.
+    this.isRunOwned = () => true;
+  }
+
+  /**
+   * Lets runner facts settle a stopped run that no engine of this process owns.
+   *
+   * @param isOwned - Whether the plan engine of this process still drives the run.
+   */
+  public attachRunOwnership(isOwned: (runId: string) => boolean): void {
+    this.isRunOwned = isOwned;
   }
 
   /** Authorizes a durable job binding; it queues metadata only and never dispatches execution. */
@@ -169,23 +183,48 @@ export class RunnerPlanEventService {
         await this.repository.appendHistory(transaction, job, history);
         continue;
       }
+      const binding = job.plan;
       await this.repository.apply(
         transaction,
-        job.plan.runId,
-        (run, snapshot) =>
-          applyRunnerPlanEvent(
+        binding.runId,
+        (run, snapshot) => {
+          const result = applyRunnerPlanEvent(
             {
               connectionId,
               job,
+              isDetached: !this.isRunOwned(binding.runId),
               ...(message.type === "event" ? { event: message } : {}),
             },
             run,
             snapshot,
-          ),
+          );
+          if (result.isSettled) logSettledStepFact(connectionId, job);
+          return result;
+        },
         message.type === "event" && job.liveHistoryVersion === 1
-          ? { stepId: job.plan.stepId, events: history }
+          ? { stepId: binding.stepId, events: history }
           : undefined,
       );
     }
   }
+}
+
+function logSettledStepFact(connectionId: string, job: RunnerJob): void {
+  logEvent({
+    level: "warn",
+    event: "runner.plan_event.settled_step",
+    component: "RunnerPlanEventService",
+    message:
+      "Runner fact for an already settled plan step acknowledged without changing the plan",
+    metadata: {
+      reason: "plan_step_settled",
+      connectionId,
+      jobId: job.jobId,
+      runnerSessionId: job.sessionId,
+      runId: job.plan?.runId,
+      stepId: job.plan?.stepId,
+      attemptId: job.plan?.attemptId,
+      status: job.status,
+    },
+  });
 }

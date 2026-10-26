@@ -1,4 +1,9 @@
-import { data as routeData, useLoaderData, useLocation } from "react-router";
+import {
+  data as routeData,
+  redirect,
+  useLoaderData,
+  useLocation,
+} from "react-router";
 
 import { PlanRetiredNotice } from "@/app/components/agents/plans/plan-retired-notice";
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
@@ -81,6 +86,13 @@ export async function loader({
         "Set-Cookie",
         await rememberSelectedPlan(request, user.id, page.selected.id),
       );
+    // Actions revalidate /agents/plans.data, which the path-bound selection
+    // cookie does not reach; naming the plan keeps it open after Start or Stop.
+    if (page.selected && query.get("planId") === null && workspace === null)
+      throw redirect(
+        `/agents/plans?planId=${encodeURIComponent(page.selected.id)}`,
+        { headers: responseHeaders },
+      );
     return routeData(
       {
         ...page,
@@ -89,6 +101,7 @@ export async function loader({
       { headers: responseHeaders },
     );
   } catch (error: unknown) {
+    if (error instanceof Response) throw error;
     logCaughtError("agent_plans", error);
 
     throw agentFailureResponse(error);

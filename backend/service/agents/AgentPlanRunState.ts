@@ -168,13 +168,83 @@ export function interruptedPlanRun(run: AgentPlanRun): AgentPlanRun {
   };
 }
 
-/** Direct scripts and request agents share the existing two execution slots; ACP has its own admission. */
+function detachedStopStep(step: AgentPlanStepResult): AgentPlanStepResult {
+  if (step.status === "waiting" || step.status === "paused")
+    return {
+      ...step,
+      status: "cancelled",
+      cancellation: "not_started",
+      isBlocked: false,
+    };
+  if (step.status !== "running") return step;
+  // Only a remote job outlives the process that started it; its runner reports its end.
+  if (step.execution?.target.kind === "remote")
+    return { ...step, cancellation: "requested" };
+  return {
+    ...step,
+    status: "failed",
+    cancellation: "requested",
+    error: "plan_interrupted",
+  };
+}
+
+/**
+ * The stop of a run that no engine of this process drives anymore.
+ *
+ * @remarks
+ * Such a run outlived a Pages restart because a remote job still owned
+ * work. Nothing schedules it again, so its open nodes end without starting.
+ * The run closes as cancelled once no remote job runs; otherwise it stays
+ * stopping until the runner reports the end of each targeted attempt.
+ */
+export function detachedStopRun(run: AgentPlanRun): AgentPlanRun {
+  const steps = run.steps.map(detachedStopStep);
+  const isSettled = !steps.some((step) => step.status === "running");
+  return {
+    ...run,
+    stopRequested: true,
+    status: isSettled ? "cancelled" : "stopping",
+    ...(isSettled ? { endedAt: new Date().toISOString() } : {}),
+    steps,
+  };
+}
+
+/**
+ * Closes a run that no engine drives once none of its steps runs anymore.
+ *
+ * @remarks
+ * Such a run outlived a Pages restart because a remote job still owned work.
+ * An explicit stop ends it as cancelled. A shutdown or crash ends it the way
+ * the engine ends an interrupted run, so its executor can resume or restart
+ * it; nothing starts again by itself. A pausing run and a run with a running
+ * step are returned unchanged.
+ *
+ * @param run - The stored run.
+ * @returns The settled run, or `run` itself when nothing changes.
+ */
+export function settleDetachedRun(run: AgentPlanRun): AgentPlanRun {
+  if (run.steps.some((step) => step.status === "running")) return run;
+  if (run.status === "stopping" && run.stopRequested)
+    return endedPlanRun(run, "cancelled");
+  if (run.status === "stopping" || run.status === "running")
+    return interruptedPlanRun(endedPlanRun(run, "failed"));
+  return run;
+}
+
+/**
+ * Direct scripts and request agents share the existing two execution slots; ACP has its own admission.
+ *
+ * @remarks
+ * Remote steps run on their runner host, which admits and queues them with a
+ * visible reason. Holding Pages slots for them let two long remote runs keep
+ * every other remote run waiting without any reason.
+ */
 export function isRequestStep(active: ActivePlanRun, id: string): boolean {
+  if (active.snapshot.remoteSteps?.some((entry) => entry.step.id === id))
+    return false;
   const step = active.snapshot.steps.find((entry) => entry.step.id === id);
   return (
     (step !== undefined && !isAcpProvider(step.provider)) ||
-    active.snapshot.remoteSteps?.some((entry) => entry.step.id === id) ===
-      true ||
     active.snapshot.plan.nodes.some(
       (node) => node.id === id && node.type === "script",
     )

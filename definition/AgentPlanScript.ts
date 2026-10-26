@@ -135,6 +135,8 @@ export type AgentPlanScriptIssue =
  * since the server started or the path changed.
  */
 export interface AgentPlanInterpreter {
+  readonly remoteState?:
+    "current" | "unreachable" | "stale" | "removed" | "incompatible";
   readonly runnerWorkspaceId?: string;
   readonly id: string;
   readonly name: string;

@@ -137,6 +137,8 @@ export async function createAgentPlanService(input: {
     sessions,
     pageAgentSessions,
   });
+  // The runner services are built first; runner facts learn which runs an engine still drives.
+  input.agents.runnerService.attachRunOwnership((id) => engine.isActive(id));
   const preparation = new AgentPlanPreparation({
     workspaceCatalog,
     remoteExecution,

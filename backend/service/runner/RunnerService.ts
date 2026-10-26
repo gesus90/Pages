@@ -16,6 +16,11 @@ import {
 import { runnerExecutionSchema } from "@/definition/RunnerExecution";
 import { applyRunnerMessage } from "./RunnerProtocol";
 import { RunnerObservation } from "./RunnerObservation";
+import { RunnerCancellation } from "./RunnerCancellation";
+import { RunnerContacts } from "./RunnerContacts";
+import { isRunnerCatalogCurrent } from "./RunnerCatalog";
+import type { RunnerCatalog } from "@/definition/RunnerProtocol";
+import type { RunnerContact } from "./RunnerContacts";
 import type {
   RunnerExecution,
   RunnerInterpreter,
@@ -52,7 +57,6 @@ export interface RunnerAuthentication {
 }
 
 const GRANT_MILLISECONDS = 120_000;
-const HEARTBEAT_MILLISECONDS = 45_000;
 
 function digest(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -69,6 +73,17 @@ function isStableConnection(connection: RemoteConnectionView): boolean {
   );
 }
 
+/** Runner 1.10 probes its tools after registration; its catalog holds the latest probe. */
+function runnerTools(
+  runner: RunnerRecord | null,
+  reported: readonly ToolInventory[] | undefined,
+): readonly ToolInventory[] | null {
+  if (!runner) return null;
+  if (runner.state.communicationVersion === 1)
+    return runner.state.catalog?.tools ?? null;
+  return reported ?? null;
+}
+
 function matches(token: string, expected: string): boolean {
   return timingSafeEqual(
     Buffer.from(digest(token), "hex"),
@@ -82,7 +97,7 @@ export class RunnerService {
   private readonly events: RunnerPlanEventService | undefined;
   private readonly connections: RemoteConnectionService;
   private readonly grants = new Map<string, RegistrationGrant>();
-  private readonly heartbeats = new Map<string, number>();
+  private readonly contacts = new RunnerContacts();
   private readonly writes = new SerialQueue();
   private readonly channels = new Map<string, (reply: RunnerReply) => void>();
   private readonly interpreters = new Map<
@@ -98,7 +113,8 @@ export class RunnerService {
   private readonly outputExecutors = new Set<string>();
   private readonly knownOutputVersions = new Map<string, 1 | 2>();
   private readonly observation = new RunnerObservation();
-  private readonly cancellationTimes = new Map<string, number>();
+  private readonly communicationExecutors = new Set<string>();
+  private readonly cancellation: RunnerCancellation;
 
   public constructor(
     repository: RunnerRepository,
@@ -108,6 +124,11 @@ export class RunnerService {
     this.repository = repository;
     this.events = events;
     this.connections = connections;
+    this.cancellation = new RunnerCancellation({
+      repository,
+      writes: this.writes,
+      deliver: (connectionId, reply) => this.deliver(connectionId, reply),
+    });
   }
 
   /** Lists actual SSH registrations; absent runners never generate invented agent rows. */
@@ -222,7 +243,7 @@ export class RunnerService {
         message,
       );
       if (replay) {
-        this.heartbeats.set(connectionId, Date.now());
+        this.heartbeat(connectionId);
         return replay;
       }
       this.rememberOutputCapability(
@@ -242,9 +263,11 @@ export class RunnerService {
               message,
             }) ?? Promise.resolve(),
         );
-      this.heartbeats.set(connectionId, Date.now());
-      this.clearTerminalCancellation(connectionId, message);
+      this.heartbeat(connectionId);
       if (message.type === "reconcile") {
+        if (message.communicationVersion === 1)
+          this.communicationExecutors.add(connectionId);
+        else this.communicationExecutors.delete(connectionId);
         if (message.liveHistoryVersion === 1)
           this.liveExecutors.add(connectionId);
         else this.liveExecutors.delete(connectionId);
@@ -260,9 +283,8 @@ export class RunnerService {
         if (message.openCodeExecutorVersion === 1)
           this.openCodeExecutors.add(connectionId);
         else this.openCodeExecutors.delete(connectionId);
-        if (message.executorVersion === 1)
-          this.interpreters.set(connectionId, message.interpreters ?? []);
-        else this.interpreters.delete(connectionId);
+        if (message.executorVersion === 1 && message.interpreters)
+          this.interpreters.set(connectionId, message.interpreters);
         if (message.tools) this.tools.set(connectionId, message.tools);
         else this.tools.delete(connectionId);
       }
@@ -346,9 +368,8 @@ export class RunnerService {
 
   /** Drops live status after a closed or expired socket. */
   public disconnected(connectionId: string): void {
-    this.heartbeats.delete(connectionId);
-    this.interpreters.delete(connectionId);
-    this.tools.delete(connectionId);
+    this.contacts.forget(connectionId);
+    this.communicationExecutors.delete(connectionId);
     this.cliExecutors.delete(connectionId);
     this.githubProbes.delete(connectionId);
     this.pagesExecutors.delete(connectionId);
@@ -376,9 +397,7 @@ export class RunnerService {
     if (!record) return { isPaired: false, isReady: false };
     const revision = await this.connections.scopeForRunner(connectionId);
     const isPaired = record.connectionRevision === revision;
-    const isOnline =
-      Date.now() - (this.heartbeats.get(connectionId) ?? 0) <
-      HEARTBEAT_MILLISECONDS;
+    const isOnline = this.contacts.isOnline(connectionId);
     return {
       isPaired,
       isReady: isPaired && isOnline && this.interpreters.has(connectionId),
@@ -405,6 +424,7 @@ export class RunnerService {
     send: (reply: RunnerReply) => void,
   ): () => void {
     this.channels.set(connectionId, send);
+    this.cancellation.replay(connectionId);
     this.observation.attach(connectionId, (reply) =>
       this.deliver(connectionId, reply),
     );
@@ -431,6 +451,16 @@ export class RunnerService {
     connectionId: string,
   ): Promise<readonly RunnerInterpreter[]> {
     await this.requireOnline(userId, connectionId);
+    if (this.communicationExecutors.has(connectionId)) {
+      const catalog = await this.catalog(connectionId);
+      if (!isRunnerCatalogCurrent(catalog))
+        throw new AgentError("plan_remote_unavailable");
+      return (
+        catalog?.interpreters.filter(
+          (entry) => !catalog.removedInterpreterIds.includes(entry.id),
+        ) ?? []
+      );
+    }
     const interpreters = this.interpreters.get(connectionId);
     if (!interpreters) throw new Error("Runner executor unavailable");
     return interpreters;
@@ -476,6 +506,8 @@ export class RunnerService {
     connectionId: string,
   ): Promise<readonly ToolInventory[]> {
     await this.ready(userId, connectionId);
+    if (this.communicationExecutors.has(connectionId))
+      return (await this.catalog(connectionId))?.tools ?? [];
     return this.cliExecutors.has(connectionId) &&
       this.outputExecutors.has(connectionId)
       ? (this.tools.get(connectionId) ?? [])
@@ -485,20 +517,71 @@ export class RunnerService {
   /** Distinguishes invalid pairing from a disconnected or outdated executor. */
   public async availability(
     connectionId: string,
-  ): Promise<"remoteIdentity" | "remoteOffline" | null> {
+  ): Promise<
+    | "remoteIdentity"
+    | "remoteOffline"
+    | "remoteRunnerUpdate"
+    | "remoteCatalogStale"
+    | null
+  > {
     const status = await this.status(connectionId);
     if (!status.isPaired) return "remoteIdentity";
-    return status.isReady ? null : "remoteOffline";
+    if (!status.isReady) return "remoteOffline";
+    if (!this.communicationExecutors.has(connectionId))
+      return "remoteRunnerUpdate";
+    return isRunnerCatalogCurrent(await this.catalog(connectionId))
+      ? null
+      : "remoteCatalogStale";
   }
 
-  /** Cancellation is explicit and targets the original durable claim only. */
-  public cancel(connectionId: string, jobId: string): void {
-    if (!this.channels.has(connectionId)) return;
-    const key = `${connectionId}:${jobId}`;
-    const now = Date.now();
-    if (now - (this.cancellationTimes.get(key) ?? 0) < 2_000) return;
-    this.cancellationTimes.set(key, now);
-    this.deliver(connectionId, { version: 1, type: "cancel", jobId });
+  /** Reads retained metadata only for the still-current authenticated SSH identity. */
+  public async catalog(
+    connectionId: string,
+  ): Promise<RunnerCatalog | undefined> {
+    const record = await this.repository.find(connectionId);
+    if (
+      !record ||
+      record.connectionRevision !==
+        (await this.connections.scopeForRunner(connectionId))
+    )
+      return undefined;
+    return record.state.catalog;
+  }
+
+  /** Persists stop intent against the original durable claim before delivery. */
+  public async cancel(connectionId: string, jobId: string): Promise<void> {
+    await this.cancellation.request(connectionId, jobId);
+  }
+
+  /** Returns journal facts for an already-authorized exact run and attempt. */
+  public async progress(
+    connectionId: string,
+    runId: string,
+    attemptId: string,
+  ): Promise<RunnerJob | undefined> {
+    const record = await this.repository.find(connectionId);
+    return record?.state.jobs.find(
+      (job) => job.plan?.runId === runId && job.plan.attemptId === attemptId,
+    );
+  }
+
+  /** Transport liveness is independent of process output and last confirmed job state. */
+  public contact(connectionId: string): RunnerContact {
+    return this.contacts.contact(connectionId);
+  }
+
+  /**
+   * Lets runner facts settle a stopped plan run that no engine of this process drives.
+   *
+   * @param isOwned - Whether the plan engine still drives the run.
+   */
+  public attachRunOwnership(isOwned: (runId: string) => boolean): void {
+    this.events?.attachRunOwnership(isOwned);
+  }
+
+  /** Called only by the authenticated current channel after validating its session. */
+  public heartbeat(connectionId: string): void {
+    this.contacts.seen(connectionId);
   }
 
   /** Requests fresh CLI login and picker facts without signing in or starting a model turn. */
@@ -553,6 +636,8 @@ export class RunnerService {
     connectionId: string,
     execution: RunnerExecution | undefined,
   ): void {
+    if (execution && !this.communicationExecutors.has(connectionId))
+      throw new AgentError("plan_runner_update_required");
     if (execution?.program.kind !== "cli") return;
     if (
       !this.outputExecutors.has(connectionId) ||
@@ -569,19 +654,6 @@ export class RunnerService {
       this.detach(connectionId);
       this.disconnected(connectionId);
     }
-  }
-
-  private clearTerminalCancellation(
-    connectionId: string,
-    message: RunnerMessage,
-  ): void {
-    if (
-      message.type === "event" &&
-      ["completed", "failed", "interrupted", "lost"].includes(
-        message.job.status,
-      )
-    )
-      this.cancellationTimes.delete(`${connectionId}:${message.job.jobId}`);
   }
 
   private async connectionView(
@@ -601,12 +673,11 @@ export class RunnerService {
       isStable: isStableConnection(connection),
       runnerId: record?.runnerId ?? null,
       needsPairing: record !== null && runner === null,
-      isOnline:
-        runner !== null &&
-        Date.now() - (this.heartbeats.get(connection.id) ?? 0) <
-          HEARTBEAT_MILLISECONDS,
-      tools: runner ? (this.tools.get(connection.id) ?? null) : null,
+      isOnline: runner !== null && this.contacts.isOnline(connection.id),
+      tools: runnerTools(runner, this.tools.get(connection.id)),
       outputJournalVersion,
+      runnerVersion: record?.state.runnerVersion ?? null,
+      communicationVersion: record?.state.communicationVersion ?? null,
     };
   }
 

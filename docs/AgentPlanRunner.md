@@ -75,3 +75,7 @@ Der neue Verlauf wird im vorhandenen Sitzungsjournal atomar mit Ereignisbeleg un
 Neue Remote-CLI-Knoten benötigen Runner 1.9.0 und dessen Chunk-Fähigkeit. Die private Rohhistory wird während des Laufs in 4-MiB-Chunks geschrieben; eine kumulative 32-MiB-Grenze gibt es nicht mehr. Native terminale Ergebnisse und bestätigter Closeout bleiben separat und erzeugen höchstens einen Erfolgscheckpoint. Der bestehende Ergebnisstring samt Remote-Herkunft bleibt für Parameterbindungen erhalten.
 
 Die öffentliche Konsole hält 150 Ereignisse, lädt frühere Abschnitte über Sequenzcursor und streamt den erlaubten vollständigen Download aus dem Session-Journal. Alte Retention, fehlender Verlauf und konkrete Lesefehler werden angezeigt. Einzelereignis-, Ergebnis- und Dateisystemgrenzen sowie Upgrade und Recovery stehen in [PagesRunner.md](./PagesRunner.md#fortlaufende-ausgabe-und-getrenntes-ergebnis-page-161-runner-190). Eine History-Abfrage startet und rekonstruiert keinen Agenten.
+
+## Remote-Kommunikation (PAGE-165)
+
+Runner 1.10.0 ist für neue Remote-Starts erforderlich. Mehrere Remote-Läufe laufen unabhängig parallel, höchstens vier je Host-Konto; wartende Jobs nennen `capacity` oder `workspace`. Profile verschwinden bei Verbindungsproblemen nicht mehr, sondern zeigen ihren Zustand. Stop wird dauerhaft gespeichert, versuchsgebunden zugestellt und getrennt nach angefordert, empfangen und bestätigt angezeigt. Fristen, Zustände, Upgrade und Rollback beschreibt [PagesRunner.md](./PagesRunner.md#remote-kommunikation-parallele-läufe-und-stop-page-165-runner-1100).

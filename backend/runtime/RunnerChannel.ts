@@ -83,6 +83,40 @@ async function receiveAuxiliary(
   return false;
 }
 
+function isSessionHeartbeat(input: unknown, sessionId: string): boolean {
+  return (
+    typeof input === "object" &&
+    input !== null &&
+    "type" in input &&
+    input.type === "heartbeat" &&
+    "version" in input &&
+    input.version === 1 &&
+    "sessionId" in input &&
+    input.sessionId === sessionId
+  );
+}
+
+/** Connects the execution, provider and GitHub senders once per reconciled socket. */
+function attachSenders(
+  socket: WebSocket,
+  auth: RunnerAuthentication,
+  services: RunnerChannelServices,
+  isCurrent: () => boolean,
+): () => void {
+  const send = (command: unknown): void => {
+    if (!isCurrent()) throw new Error("Runner channel superseded");
+    sendPacket(socket, command);
+  };
+  const detachProvider = services.openRouter.attach(auth.connectionId, send);
+  const detachGitHub = services.github.attach(auth.connectionId, send);
+  const detachRunner = services.runners.attach(auth.connectionId, send);
+  return () => {
+    detachProvider();
+    detachGitHub();
+    detachRunner();
+  };
+}
+
 function attach(
   socket: WebSocket,
   auth: RunnerAuthentication,
@@ -91,8 +125,7 @@ function attach(
 ): void {
   const queue = new SerialQueue();
   const service = services.runners;
-  let detachGitHub: (() => void) | undefined;
-  let detachProvider: (() => void) | undefined;
+  let detachSenders: (() => void) | undefined;
   let lastSeen = Date.now();
   let hasReconciled = false;
   let pendingMessages = 0;
@@ -109,6 +142,25 @@ function attach(
   };
   sendPacket(socket, registration);
   socket.on("message", (buffer, isBinary) => {
+    let input: unknown;
+    try {
+      if (isBinary || !isCurrent())
+        throw new Error("Runner channel unavailable");
+      input = JSON.parse(buffer.toString());
+      if (hasReconciled && isSessionHeartbeat(input, auth.sessionId)) {
+        lastSeen = Date.now();
+        service.heartbeat(auth.connectionId);
+        sendPacket(socket, {
+          version: 1,
+          type: "heartbeat",
+          sessionId: auth.sessionId,
+        });
+        return;
+      }
+    } catch {
+      socket.close(1008, "Invalid runner packet");
+      return;
+    }
     if (pendingMessages >= 32) {
       socket.close(1008, "Runner queue limit");
       return;
@@ -118,7 +170,6 @@ function attach(
       try {
         if (!isCurrent()) throw new Error("Runner channel superseded");
         if (isBinary) throw new Error("Runner text messages required");
-        const input: unknown = JSON.parse(buffer.toString());
         if (
           hasReconciled &&
           (await receiveAuxiliary(auth.connectionId, input, services, (reply) =>
@@ -135,27 +186,11 @@ function attach(
         )
           throw new Error("Runner reconciliation required");
         const reply = await service.receive(auth.connectionId, input);
+        if (!isCurrent()) return;
         hasReconciled = true;
         lastSeen = Date.now();
         sendPacket(socket, reply);
-        detachProvider ??= services.openRouter.attach(
-          auth.connectionId,
-          (command) => {
-            if (!isCurrent()) throw new Error("Runner channel superseded");
-            sendPacket(socket, command);
-          },
-        );
-        detachGitHub ??= services.github.attach(
-          auth.connectionId,
-          (command) => {
-            if (!isCurrent()) throw new Error("Runner channel superseded");
-            sendPacket(socket, command);
-          },
-        );
-        service.attach(auth.connectionId, (command) => {
-          if (!isCurrent()) throw new Error("Runner channel superseded");
-          sendPacket(socket, command);
-        });
+        detachSenders ??= attachSenders(socket, auth, services, isCurrent);
       } catch (error: unknown) {
         logCaughtError("RunnerChannel", error);
         socket.close(1011, "Runner checkpoint failed; see Pages diagnostics");
@@ -167,8 +202,7 @@ function attach(
   socket.on("error", (error) => logCaughtError("RunnerChannel", error));
   socket.once("close", () => {
     clearInterval(timer);
-    detachProvider?.();
-    detachGitHub?.();
+    detachSenders?.();
     if (isCurrent()) service.detach(auth.connectionId);
     if (isCurrent()) service.disconnected(auth.connectionId);
   });

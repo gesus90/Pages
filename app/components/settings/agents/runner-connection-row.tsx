@@ -63,6 +63,32 @@ function ToolInventoryList({
   );
 }
 
+/** A reconciled runner without the 1.10 contract keeps its jobs but starts nothing new. */
+function RunnerCommunicationUpgrade({
+  connection,
+}: {
+  readonly connection: RunnerConnectionView;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  // Only a reconciliation of this Pages process tells which contract the runner speaks.
+  if (
+    !connection.runnerId ||
+    !connection.outputJournalVersion ||
+    connection.communicationVersion === 1
+  )
+    return null;
+  return (
+    <p role="status" className="mt-1 text-xs text-warning">
+      {t("settings.agents.runner.communicationUpgrade", {
+        // Runners before 1.10 do not report their version over the channel.
+        version:
+          connection.runnerVersion ??
+          t("settings.agents.runner.versionBefore110"),
+      })}
+    </p>
+  );
+}
+
 /** Renders actual SSH registrations without inventing installed providers or accounts. */
 export function RunnerConnectionRow({
   connection,
@@ -86,6 +112,7 @@ export function RunnerConnectionRow({
             {t("plans.console.outputUpgrade")}
           </p>
         ) : null}
+        <RunnerCommunicationUpgrade connection={connection} />
       </td>
       <td className="px-3 py-3">{connection.departmentName ?? "—"}</td>
       <td className="px-3 py-3">

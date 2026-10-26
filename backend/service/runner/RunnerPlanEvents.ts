@@ -5,6 +5,7 @@ import { planStepExecutionSchema } from "@/definition/AgentPlanExecution";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
 import { recordRemoteAgentResult } from "@/backend/service/agents/AgentPlanRemoteResult";
+import { settleDetachedRun } from "@/backend/service/agents/AgentPlanRunState";
 import { runnerPlanCheckpoint } from "./RunnerPlanCheckpoint";
 import type {
   AgentPlanRun,
@@ -19,6 +20,8 @@ interface EventInput {
   readonly connectionId: string;
   readonly job: RunnerJob;
   readonly event?: PlanEvent;
+  /** No engine of this Pages process owns the run, for example after a restart. */
+  readonly isDetached?: boolean;
 }
 
 function boundStep(
@@ -54,24 +57,23 @@ function boundStep(
   return step;
 }
 
-function requireProgress(
-  input: EventInput,
-  run: AgentPlanRun,
-  step: AgentPlanStepResult,
-): void {
-  if (run.status === "paused" || run.status === "succeeded")
-    throw new Error("Runner run does not admit progress");
-  if (!isActivePlanRun(run.status) && step.status !== "running")
-    throw new Error("Runner terminal run only admits outstanding cleanup");
-  if (step.status !== "waiting" && step.status !== "running")
-    throw new Error("Runner step already terminal");
-  requireCompletionEvidence(input);
+/**
+ * Whether the plan still takes progress of this step.
+ *
+ * A settled step keeps its result: a late or repeated runner fact is still
+ * acknowledged in the runner journal, so it cannot block the events of every
+ * other run on the same connection.
+ */
+function admitsProgress(run: AgentPlanRun, step: AgentPlanStepResult): boolean {
+  if (run.status === "paused" || run.status === "succeeded") return false;
+  if (!isActivePlanRun(run.status) && step.status !== "running") return false;
+  return step.status === "waiting" || step.status === "running";
 }
 
 function requireCompletionEvidence(input: EventInput): void {
   const { job, event } = input;
-  if (job.status === "queued")
-    throw new Error("Runner cannot dispatch from reconciliation");
+  if (job.status === "queued" && (!event || event.result || job.launch))
+    throw new Error("Runner queue status requires an unlaunched event");
   if ((job.status === "completed" || job.status === "failed") && !event?.result)
     throw new Error("Runner completion evidence required");
   if (job.status === "completed") requireSuccessfulCompletion(input);
@@ -118,7 +120,6 @@ function updatedStep(
   step: AgentPlanStepResult,
 ): AgentPlanStepResult {
   const { job, event } = input;
-  if (job.status === "queued") throw new Error("Runner dispatch required");
   const status = stepStatus(job);
   const now = new Date().toISOString();
   const output =
@@ -149,7 +150,6 @@ function remoteProgress(
 ): NonNullable<AgentPlanStepResult["remote"]> {
   const { job, event } = input;
   const { now, status } = timing;
-  if (job.status === "queued") throw new Error("Runner launch required");
   return {
     jobId: job.jobId,
     sessionId: job.sessionId,
@@ -210,13 +210,24 @@ function runnerFailureCode(job: RunnerJob, input: EventInput): string | null {
 function updatedRun(
   run: AgentPlanRun,
   step: AgentPlanStepResult,
+  isDetached: boolean,
 ): AgentPlanRun {
   const steps = run.steps.map((entry) => (entry.id === step.id ? step : entry));
-  const result = { ...run, steps };
-  return result;
+  const result: AgentPlanRun = { ...run, steps };
+  // An engine closes its own runs; only a run without one settles here.
+  return isDetached ? settleDetachedRun(result) : result;
 }
 
-/** Applies only the attempt dispatched from this exact immutable snapshot and remote connection. */
+/**
+ * Applies only the attempt dispatched from this exact immutable snapshot and remote connection.
+ *
+ * @remarks
+ * A step the plan has already settled stays unchanged and is marked
+ * `isSettled`; a still queued job changes nothing either. In both cases the
+ * returned run is the given object, so callers can skip the write. Queue,
+ * observation and stop facts stay in the runner journal and are added when a
+ * run is read, so stored run views keep the format of earlier versions.
+ */
 export function applyRunnerPlanEvent(
   input: EventInput,
   run: AgentPlanRun,
@@ -224,15 +235,18 @@ export function applyRunnerPlanEvent(
 ): {
   readonly run: AgentPlanRun;
   readonly checkpoint?: AgentPlanCheckpointInput;
+  readonly isSettled?: boolean;
 } {
   const step = boundStep(input, run, snapshot);
-  requireProgress(input, run, step);
+  requireCompletionEvidence(input);
+  if (!admitsProgress(run, step)) return { run, isSettled: true };
+  if (input.job.status === "queued") return { run };
   const updated = recordRemoteAgentResult(
     snapshot,
     input.job.execution,
     updatedStep(input, step),
   );
-  const result = updatedRun(run, updated);
+  const result = updatedRun(run, updated, input.isDetached === true);
   return {
     run: result,
     ...(updated.status === "succeeded"

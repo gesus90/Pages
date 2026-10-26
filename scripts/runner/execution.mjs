@@ -1,19 +1,12 @@
 import { spawn } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
-import {
-  chmod,
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  readdir,
-  realpath,
-  rm,
-  stat,
-} from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { chmod, lstat, mkdir, open, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { accountTasks, cleanup } from "./processes.mjs";
+import { interpreters } from "./interpreters.mjs";
+export { interpreters, interpreterCatalog } from "./interpreters.mjs";
 import { spawnCli } from "./cli.mjs";
 import {
   preparePagesFiles,
@@ -29,32 +22,6 @@ export { store, readRecord, identity } from "./journal.mjs";
 
 const credentials =
   /\b(?:sk-[a-zA-Z0-9_-]{12,}|gh[pousr]_[a-zA-Z0-9]{12,}|github_pat_[a-zA-Z0-9_]+|Bearer\s+\S+|(?:api[_ -]?key|access[_ -]?token|password|client[_ -]?secret)["']?\s*[=:]\s*["']?[^\s"']+)/gi;
-
-/** Discovers only fixed runner-owned interpreter paths, with content-bound identities. */
-export async function interpreters() {
-  const profiles = [];
-  for (const [id, name, path] of [
-    ["bash", "Bash", "/usr/bin/bash"],
-    ["python3", "Python 3", "/usr/bin/python3"],
-    ["node", "Node.js", process.execPath],
-  ]) {
-    try {
-      const binary = await readFile(path);
-      const metadata = await stat(path);
-      if (!metadata.isFile() || !(metadata.mode & 0o111)) continue;
-      profiles.push({
-        id,
-        name,
-        path,
-        digest: createHash("sha256").update(binary).digest("hex"),
-        version: `${name} · ${createHash("sha256").update(binary).digest("hex").slice(0, 12)}`,
-      });
-    } catch {
-      continue;
-    }
-  }
-  return profiles;
-}
 
 let knownSecrets = [];
 
@@ -95,6 +62,20 @@ export async function claimJob(directory, job) {
     throw error;
   }
   await store(join(folder, "claim.json"), job);
+  // A stop that arrived during admission must not start the worker.
+  if (await cancellationFor(directory, job)) {
+    await store(join(folder, "result.json"), {
+      status: "interrupted",
+      result: {
+        output: null,
+        closeout: "confirmed",
+        exitCode: null,
+        signal: null,
+        reason: "cancelled",
+      },
+    });
+    return;
+  }
   const child = spawn(
     process.execPath,
     [fileURLToPath(import.meta.url), "--job", folder],
@@ -115,46 +96,6 @@ export async function claimJob(directory, job) {
     /* The durable claim reconciles as lost if launch never confirms. */
   });
   child.unref();
-}
-
-async function ownedProcesses(marker) {
-  const owned = [];
-  for (const entry of await readdir("/proc")) {
-    if (!/^\d+$/.test(entry)) continue;
-    try {
-      if ((await stat(`/proc/${entry}`)).uid !== process.getuid()) continue;
-      const environment = await readFile(`/proc/${entry}/environ`, "utf8");
-      if (environment.split("\0").includes(`PAGES_REMOTE_JOB=${marker}`))
-        owned.push(Number(entry));
-    } catch (error) {
-      if (!["ENOENT", "ESRCH", "EACCES"].includes(error.code)) throw error;
-    }
-  }
-  return owned;
-}
-
-async function cleanup(folder, jobId) {
-  const child = await readRecord(join(folder, "child.json"));
-  if (child && (await identity(child.processId)) === child.identity) {
-    try {
-      process.kill(-child.processId, "SIGKILL");
-    } catch (error) {
-      if (error.code !== "ESRCH") throw error;
-    }
-  }
-  for (const pid of await ownedProcesses(jobId)) {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch (error) {
-      if (error.code !== "ESRCH") throw error;
-    }
-  }
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  const remaining = await ownedProcesses(jobId);
-  const alive = await Promise.all(remaining.map(identity));
-  if (alive.some(Boolean)) return "failed";
-  await rm(join(folder, "runtime"), { recursive: true, force: true });
-  return "confirmed";
 }
 
 async function failedHistory(folder, job, launch) {
@@ -194,6 +135,7 @@ async function failedHistory(folder, job, launch) {
 export async function observeJob(directory, job) {
   const folder = join(directory, "jobs", job.jobId);
   const claim = await readRecord(join(folder, "claim.json"));
+  const cancellation = await cancellationFor(directory, job);
   if (!claim) {
     if (
       job.status === "queued" &&
@@ -247,6 +189,7 @@ export async function observeJob(directory, job) {
   }
   const observedHistory = {
     history,
+    ...(cancellation ? { cancellation } : {}),
     ...(historyLength !== undefined ? { historyLength } : {}),
   };
   if (result) return { launch, ...observedHistory, ...result };
@@ -275,13 +218,65 @@ export async function observeJob(directory, job) {
   return { launch, ...observedHistory, ...lost };
 }
 
-/** Cancellation survives a disconnected channel and is acknowledged through terminal cleanup evidence. */
-export async function cancelJob(directory, jobId) {
-  if (!/^[a-f0-9-]{36}$/.test(jobId)) throw new Error("Invalid cancellation");
-  const folder = join(directory, "jobs", jobId);
-  if ((await readRecord(join(folder, "cancel.json")))?.requested) return;
-  if (await readRecord(join(folder, "claim.json")))
-    await store(join(folder, "cancel.json"), { requested: true });
+/** Validates persisted delivery against the exact session and attempt before acknowledging it. */
+export async function cancellationFor(directory, job) {
+  const request = await readRecord(
+    join(directory, "jobs", `${job.jobId}.cancel.json`),
+  );
+  if (!request) return null;
+  if (
+    request.sessionId !== job.sessionId ||
+    request.attemptId !== job.plan?.attemptId
+  )
+    throw new Error("Runner cancellation identity mismatch");
+  return { requestedAt: request.requestedAt, receivedAt: request.receivedAt };
+}
+
+async function endQueuedJob(directory, job, terminal) {
+  const folder = join(directory, "jobs", job.jobId);
+  if (await readRecord(join(folder, "claim.json"))) return;
+  await mkdir(folder, { recursive: true, mode: 0o700 });
+  await store(join(folder, "claim.json"), job);
+  await store(join(folder, "result.json"), {
+    status: terminal.status,
+    result: {
+      output: null,
+      closeout: "confirmed",
+      exitCode: null,
+      signal: null,
+      ...terminal.result,
+    },
+  });
+}
+
+/** A queued cancellation has a terminal record without ever creating a worker. */
+export async function cancelQueuedJob(directory, job) {
+  await endQueuedJob(directory, job, {
+    status: "interrupted",
+    result: { reason: "cancelled" },
+  });
+}
+
+/** A host that cannot admit work ends only this queued job, with a named reason. */
+export async function refuseQueuedJob(directory, job) {
+  await endQueuedJob(directory, job, {
+    status: "failed",
+    result: { reason: "spawn", failureCode: "plan_runner_admission_failed" },
+  });
+}
+
+/** Stop delivery uses an independent small file, including jobs that have never launched. */
+export async function cancelJob(directory, job) {
+  if (!/^[a-f0-9-]{36}$/u.test(job.jobId) || !job.plan || !job.cancellation)
+    throw new Error("Invalid cancellation");
+  await mkdir(join(directory, "jobs"), { recursive: true, mode: 0o700 });
+  if (await cancellationFor(directory, job)) return;
+  await store(join(directory, "jobs", `${job.jobId}.cancel.json`), {
+    sessionId: job.sessionId,
+    attemptId: job.plan.attemptId,
+    requestedAt: job.cancellation.requestedAt,
+    receivedAt: new Date().toISOString(),
+  });
 }
 
 async function checkedCommand(job, folder) {
@@ -300,7 +295,9 @@ async function checkedCommand(job, folder) {
     (await realpath(command.workspace)) !== command.workspace ||
     !(await stat(command.workspace)).isDirectory()
   )
-    throw new Error("Workspace changed");
+    throw Object.assign(new Error("Workspace changed"), {
+      failureCode: "plan_context_changed",
+    });
   const runtime = join(folder, "runtime");
   await mkdir(runtime, { mode: 0o700 });
   if (command.program.kind === "script") {
@@ -312,7 +309,9 @@ async function checkedCommand(job, folder) {
       profile.path !== command.program.interpreter.path ||
       profile.digest !== command.program.interpreter.digest
     )
-      throw new Error("Interpreter changed");
+      throw Object.assign(new Error("Interpreter changed"), {
+        failureCode: "plan_script_interpreter_unavailable",
+      });
     const script = await open(join(runtime, "source.cjs"), "wx", 0o600);
     try {
       await script.writeFile(command.program.source);
@@ -324,7 +323,11 @@ async function checkedCommand(job, folder) {
   return command;
 }
 
-function spawnScript(command, folder, jobId) {
+// RLIMIT_NPROC counts all threads of the account, so a fixed 128 fails every fork
+// as soon as parallel agents run; scripts get this headroom above current use.
+const SCRIPT_TASK_HEADROOM = 256;
+
+function spawnScript(command, folder, jobId, accountTaskCount) {
   const runtime = join(folder, "runtime");
   const interpreter = command.program.interpreter;
   const nodeArguments =
@@ -333,7 +336,7 @@ function spawnScript(command, folder, jobId) {
       : [];
   const limits = [
     `--cpu=${command.timeoutSeconds + 1}`,
-    "--nproc=128",
+    `--nproc=${accountTaskCount + SCRIPT_TASK_HEADROOM}`,
     "--nofile=128",
     "--fsize=10485760",
     "--core=0",
@@ -439,7 +442,7 @@ async function processJob(command, folder, context) {
   const child =
     command.program.kind === "cli"
       ? await spawnCli(command, jobId, signal, folder)
-      : spawnScript(command, folder, jobId);
+      : spawnScript(command, folder, jobId, await accountTasks());
   let failure = null;
   let cleanupWork = null;
   const stop = () => {
@@ -596,7 +599,7 @@ async function executeWorker(folder) {
   const cancel = setInterval(() => {
     if (isCancelReadBusy) return;
     isCancelReadBusy = true;
-    void readRecord(join(folder, "cancel.json"))
+    void cancellationFor(privateRoot, job)
       .then((record) => {
         if (record) controller.abort("cancelled");
       })
@@ -621,7 +624,10 @@ async function executeWorker(folder) {
           void pagesRequest(join(privateRoot, "pages.sock"), job.jobId, {
             kind: "lease",
           })
-            .catch(() => controller.abort("cancelled"))
+            .catch((error) => {
+              if (error.code && error.code !== "pages_transport_unavailable")
+                controller.abort("cancelled");
+            })
             .finally(() => {
               leaseBusy = false;
             });
@@ -629,7 +635,10 @@ async function executeWorker(folder) {
       : null;
   let result;
   try {
+    if (await cancellationFor(privateRoot, job)) controller.abort("cancelled");
+    controller.signal.throwIfAborted();
     let command = await checkedCommand(job, folder);
+    controller.signal.throwIfAborted();
     if (command.pagesAccess === 1)
       command = await preparePagesFiles(
         command,
@@ -653,6 +662,7 @@ async function executeWorker(folder) {
       output: null,
       exitCode: null,
       signal: null,
+      ...(error.failureCode ? { failureCode: error.failureCode } : {}),
       ...(["ENOSPC", "EDQUOT", "EACCES", "EROFS", "EIO"].includes(error.code)
         ? { storageError: error.code }
         : {}),

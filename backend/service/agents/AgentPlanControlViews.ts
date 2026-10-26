@@ -71,7 +71,23 @@ export async function readPlanControlEntry(
       ),
       stop: runBlocker(control.canStop, run, "run_terminal_or_stopping", plan),
     },
+    ...startIssues(plan, control),
     ...readableRunMetadata(run),
+  };
+}
+
+/** A start refusal names its nodes and reasons instead of a bare `plan_invalid`. */
+function startIssues(
+  plan: AgentPlanView,
+  control: AgentPlanControl,
+): Pick<AgentPlanControlEntry, "issues"> {
+  if (!plan.canEdit || !control.issues?.length) return {};
+  return {
+    issues: control.issues.map((issue) => ({
+      nodeId: issue.nodeId,
+      port: issue.port,
+      problem: issue.reason,
+    })),
   };
 }
 

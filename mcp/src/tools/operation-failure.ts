@@ -75,6 +75,8 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   remoteParameter: true,
   remoteModel: true,
   remoteInterpreter: true,
+  remoteInterpreterRemoved: true,
+  remoteCatalogStale: true,
   remoteContainer: true,
   remoteOffline: true,
   remoteIdentity: true,

@@ -752,7 +752,8 @@
         "plan_definition_changed": "Die AGENT.md des Agenten fehlt oder passt nicht zur gestarteten Revision.",
         "plan_placeholder_unresolved": "Der Auftrag enthielte noch einen Parameter-Platzhalter; es wurde nichts gesendet.",
         "plan_runner_lost": "Der Remote-Prozess ist ohne Exit-Beleg verloren gegangen (lost). Kein automatischer Neustart.",
-        "plan_runner_update_required": "Runner 1.9.0 erforderlich: Dieser Runner begrenzt noch die kumulative CLI-Ausgabe. Bitte ausdrücklich aktualisieren.",
+        "plan_runner_update_required": "Runner 1.10 oder neuer erforderlich: Remote-Ausführung braucht dessen Kommunikationsvertrag. Bitte den Runner ausdrücklich aktualisieren.",
+        "plan_runner_admission_failed": "Der Runner konnte auf seinem Host keinen Ausführungsplatz reservieren; der Job wurde nicht gestartet.",
         "plan_runner_storage_failed": "Die Speicherung des Runner-Verlaufs ist fehlgeschlagen. Bestätigte Ausgabe und Checkpoints bleiben erhalten.",
         "plan_runner_event_limit": "Ein natives CLI-Ereignis überschreitet sein separates Nachrichtenlimit.",
         "plan_runner_result_limit": "Die finale Agent-Antwort überschreitet das separate Ergebnislimit dieses Knotens.",
@@ -1284,6 +1285,8 @@
         "tool": "Pages-Runner",
         "toolsNone": "Keine Werkzeuge gefunden",
         "versionUnknown": "Version unbekannt",
+        "communicationUpgrade": "Runner {{version}}: Neue Remote-Läufe brauchen Runner 1.10 oder neuer. Laufende Jobs werden weiter abgeglichen; bitte ausdrücklich aktualisieren.",
+        "versionBefore110": "älter als 1.10",
         "toolName": {
           "codex": "Codex",
           "claude": "Claude Code",
@@ -3987,7 +3990,7 @@
       "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
       "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
       "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
-      "remoteRunnerUpdate": "Runner aktualisieren: Ressourcenparameter, Dateiübergabe und Pages-Zugang benötigen Runner 1.6.0 oder neuer, OpenCode-Knoten Runner 1.7.0.",
+      "remoteRunnerUpdate": "Runner aktualisieren: Remote-Ausführung braucht Runner 1.10 oder neuer. Bis zur ausdrücklichen Aktualisierung startet hier nichts; laufende Jobs werden weiter abgeglichen.",
       "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen.",
       "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund."
     },
@@ -4378,9 +4381,11 @@
         "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
         "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
         "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
-        "remoteRunnerUpdate": "Runner aktualisieren: Ressourcenparameter, Dateiübergabe und Pages-Zugang benötigen Runner 1.6.0 oder neuer, OpenCode-Knoten Runner 1.7.0.",
+        "remoteRunnerUpdate": "Runner aktualisieren: Remote-Ausführung braucht Runner 1.10 oder neuer. Bis zur ausdrücklichen Aktualisierung startet hier nichts; laufende Jobs werden weiter abgeglichen.",
         "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen.",
-        "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund."
+        "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund.",
+        "remoteCatalogStale": "Das Inventar dieses Runners ist veraltet oder unvollständig. Bekannte Profile bleiben sichtbar, starten aber erst nach einer vollständigen aktuellen Meldung des verbundenen Runners.",
+        "remoteInterpreterRemoved": "Der Interpreter fehlt laut vollständigem Inventar des Runners. Ihn auf dem Remote-Host installieren oder einen gemeldeten Interpreter wählen."
       },
       "state": {
         "none": {
@@ -5079,6 +5084,49 @@
       "ok": "Erfolgreich",
       "denied": "Abgelehnt",
       "failed": "Fehlgeschlagen"
+    },
+    "communication": {
+      "title": "Remote-Ausführung",
+      "confirmed": "Zuletzt bestätigter Zustand",
+      "connection": "Runner-Verbindung",
+      "contact": "Letzter bestätigter Kontakt",
+      "observed": "Letzte Worker-Beobachtung",
+      "job": "Job",
+      "attempt": "Versuch",
+      "session": "Runner-Sitzung",
+      "unknown": "Zustand unbekannt; ein Prozessende ist nicht bestätigt.",
+      "catalogChecked": "Inventar geprüft: {{at}}",
+      "stopPending": "Stop angefordert und gespeichert. Zustellung an diesen Versuch steht aus.",
+      "stopReceived": "Runner hat Stop empfangen. Das Prozessende ist noch nicht bestätigt.",
+      "stopConfirmed": "Der gezielte Versuch ist beendet; die Bereinigung ist bestätigt.",
+      "stopUnconfirmed": "Der Runner hat den Versuch abgebrochen, die Prozessbereinigung ist aber nicht bestätigt. Keinen Ersatzlauf starten, solange Prozesse dieses Versuchs leben könnten.",
+      "disconnected": "Kontakt verloren. Der zuletzt bestätigte Zustand beweist weder einen noch laufenden noch einen beendeten Prozess. Denselben Runner wieder verbinden und abgleichen; bei unbekanntem Zustand keinen Ersatzlauf starten.",
+      "status": {
+        "queued": "Wartend",
+        "accepted": "Worker-Start bestätigt",
+        "running": "Laufend",
+        "completed": "Beendet",
+        "failed": "Fehlgeschlagen",
+        "interrupted": "Abgebrochen",
+        "lost": "Prozess verloren; Ergebnis unbekannt"
+      },
+      "connectionState": {
+        "connected": "Verbunden",
+        "lost": "Kontakt verloren",
+        "unknown": "Unbekannt"
+      },
+      "queue": {
+        "capacity": "Wartet auf einen der vier Ausführungsplätze des Hosts.",
+        "workspace": "Wartet auf die Freigabe eines überlappenden Arbeitsverzeichnisses oder desselben Git-Branches."
+      },
+      "profile": {
+        "current": "Aktuell",
+        "unreachable": "Bekanntes Profil; Runner vorübergehend nicht erreichbar",
+        "stale": "Bekanntes Profil; Inventar veraltet oder unvollständig",
+        "removed": "Profil laut vollständigem Inventar entfernt",
+        "incompatible": "Runner 1.10 oder neuer erforderlich"
+      },
+      "workerStale": "Keine aktuelle Worker-Bestätigung. Der Prozesszustand ist unbekannt, auch wenn der Runner verbunden ist."
     }
   },
   "mcpDuration": {

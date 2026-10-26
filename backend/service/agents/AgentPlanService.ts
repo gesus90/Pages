@@ -487,10 +487,13 @@ export class AgentPlanService {
         userId,
         resources.ticketAssets,
       );
-    return withPlanProgress(run, {
+    const progress = await withPlanProgress(run, {
       projectId: resources.projectId,
       tasks: this.dependencies.tasks,
     });
+    return (
+      this.dependencies.remoteExecution?.withProgress(progress) ?? progress
+    );
   }
 
   /** Other workspace users or plan owners cannot stop an executor's private run. */
@@ -503,6 +506,7 @@ export class AgentPlanService {
     if (!(await this.dependencies.access.require(userId, run.planId)).canEdit)
       throw new AgentError("plan_access_denied");
     await this.dependencies.engine.stop(id, journal);
+    await this.dependencies.remoteExecution?.stop(run);
     return this.run(userId, id);
   }
 

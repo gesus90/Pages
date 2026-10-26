@@ -166,6 +166,17 @@ export class AgentPlanRunEngine {
     await this.commands.stop(id, journal);
   }
 
+  /**
+   * Whether this process still drives the run.
+   *
+   * @remarks
+   * A run of an earlier process keeps its durable remote jobs, but nothing
+   * here schedules, finalizes or releases it anymore.
+   */
+  public isActive(id: string): boolean {
+    return this.active.has(id);
+  }
+
   /** Persists an explicit pause before releasing the execution gate. */
   public async pause(id: string, journal?: AgentPlanRunJournal): Promise<void> {
     await this.commands.pause(id, journal);

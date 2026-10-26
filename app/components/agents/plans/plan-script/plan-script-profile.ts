@@ -42,6 +42,21 @@ export function planScriptProfileText(
   translate: TFunction,
 ): PlanScriptProfileText {
   const status = translate(`plans.scripts.status.${state.kind}`);
+  if (
+    (state.kind === "error" || state.kind === "unchecked") &&
+    state.profile.remoteState &&
+    state.profile.remoteState !== "current"
+  ) {
+    const reason = translate(
+      `plans.communication.profile.${state.profile.remoteState}`,
+    );
+    return {
+      status: reason,
+      short: reason,
+      reason,
+      tone: state.kind === "error" ? "destructive" : "neutral",
+    };
+  }
   if (state.kind === "ok")
     return {
       status,

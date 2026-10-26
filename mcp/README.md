@@ -2030,7 +2030,10 @@ omit these retired operations receive their normal capability denial.
 Remote plan validation also preserves node-specific `graph_invalid` findings:
 `remoteToolMissing`, `remoteLogin`, `remoteLoginUnknown`, `remoteCatalog`,
 `remoteModel`, `remoteOffline`, `remoteIdentity`, `remoteWorkspace`,
-`remoteInterpreter`, `remoteOptions` and `remoteContainer`. These are public
+`remoteInterpreter`, `remoteInterpreterRemoved` (confirmed removal),
+`remoteCatalogStale` (stale or incomplete inventory), `remoteOptions` and
+`remoteContainer`. Runner communication requires Runner 1.10 or newer; older
+runners report `remoteRunnerUpdate`. These are public
 business reasons, never CLI diagnostics or credentials. Remote CLI choices come
 from the runner's authenticated picker; saving a plan never signs in or starts it.
 
@@ -2322,7 +2325,10 @@ or model reference may be refused even when an unchanged old draft can still be
 saved. This is an explicit refusal, never an omitted node or local fallback.
 
 `read_plan_control` returns plan ID/revision, actual shared execution status,
-`canEdit`, `canDelete`, run actions and per-action blockers. Another executor's
+`canEdit`, `canDelete`, run actions and per-action blockers. For editors,
+`issues` lists every node the server start check refuses as `nodeId`, `port`
+and `problem` (the remote reasons above), so `plan_invalid` always names its
+nodes. Another executor's
 run ID, failures and results stay private. An own run with current resource
 access includes `runId`, applied `planRevision` and `continuationVersion`.
 `read_plan` keeps the account's own-run `state` for compatibility, with live

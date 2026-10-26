@@ -148,7 +148,9 @@ export const AGENT_ERROR_MESSAGES = {
   plan_history_corrupt:
     "A session history chunk is missing or failed its integrity check.",
   plan_runner_update_required:
-    "Runner 1.9.0 or later is required for chunked CLI output. Update the remote runner explicitly.",
+    "Runner 1.10 or later is required for remote execution. Update the remote runner explicitly.",
+  plan_runner_admission_failed:
+    "The runner could not reserve an execution slot on its host; the job did not start.",
   plan_runner_failed: "The runner ended its turn with an error.",
   plan_runner_incomplete: "The runner ended without completing its turn.",
   plan_runner_permission_denied:

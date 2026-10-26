@@ -10,9 +10,25 @@ import { planStepExecutionSchema } from "./AgentPlanExecution.js";
 import type { ToolInventory } from "./RemoteSetup.js";
 import { runnerLiveBatchSchema } from "./RunnerLiveHistory";
 import { runnerTerminalSchema } from "./RunnerTerminal";
+import {
+  runnerCancellationSchema,
+  runnerQueueReasonSchema,
+} from "./RunnerCommunication";
 
 /** Wire version shared by Pages and an outbound runner connection. */
 export const RUNNER_PROTOCOL_VERSION = 1;
+
+/** Runner 1.10: one atomic, monotonically numbered inventory of the authenticated remote host. */
+export const runnerCatalogSchema = z.object({
+  generation: z.number().int().positive().safe(),
+  checkedAt: z.string().datetime(),
+  isComplete: z.boolean(),
+  areToolsComplete: z.boolean(),
+  interpreters: z.array(runnerInterpreterSchema).max(16),
+  tools: z.array(toolInventorySchema).max(3),
+  removedInterpreterIds: z.array(z.string().max(100)).max(16),
+});
+export type RunnerCatalog = z.infer<typeof runnerCatalogSchema>;
 const identifier = z.string().uuid();
 
 /** Immutable Pages identity attached by dispatch, never chosen by a runner event. */
@@ -36,6 +52,9 @@ export const runnerJobSchema = z.object({
   plan: runnerPlanBindingSchema.optional(),
   execution: runnerExecutionSchema.optional(),
   launch: runnerLaunchSchema.optional(),
+  cancellation: runnerCancellationSchema.optional(),
+  queueReason: runnerQueueReasonSchema.nullable().optional(),
+  observedAt: z.string().datetime().optional(),
   liveHistoryVersion: z.literal(1).optional(),
   /** Runner 1.9.0: bounded journals without a lifetime raw-output limit. */
   outputJournalVersion: z.literal(2).optional(),
@@ -61,6 +80,10 @@ export const runnerStateSchema = z.object({
   sessionId: identifier,
   sequence: z.number().int().nonnegative(),
   lastEventId: identifier.nullable(),
+  catalog: runnerCatalogSchema.optional(),
+  communicationVersion: z.literal(1).optional(),
+  runnerVersion: z.string().max(40).optional(),
+  lastContactAt: z.string().datetime().optional(),
   lastEventDigest: z
     .string()
     .regex(/^[a-f0-9]{64}$/u)
@@ -71,6 +94,11 @@ export type RunnerState = z.infer<typeof runnerStateSchema>;
 
 /** The causes a runner may name for a failed OpenCode node, each a Pages agent error code. */
 export const REMOTE_OPENCODE_FAILURES = [
+  "plan_script_interpreter_unavailable",
+  "plan_context_changed",
+  "plan_workspace_conflict",
+  "plan_runner_storage_failed",
+  "plan_runner_admission_failed",
   "provider_auth_failed",
   "provider_quota_exhausted",
   "provider_rate_limited",
@@ -89,6 +117,12 @@ export const REMOTE_OPENCODE_FAILURES = [
 export const runnerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     version: z.literal(1),
+    type: z.literal("catalog"),
+    sessionId: identifier,
+    catalog: runnerCatalogSchema,
+  }),
+  z.object({
+    version: z.literal(1),
     type: z.literal("heartbeat"),
     sessionId: identifier,
   }),
@@ -98,6 +132,9 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     sessionId: identifier,
     sequence: z.number().int().nonnegative(),
     jobs: z.array(runnerJobSchema).max(1000),
+    communicationVersion: z.literal(1).optional(),
+    runnerVersion: z.string().max(40).optional(),
+    catalog: runnerCatalogSchema.optional(),
     interpreters: z.array(runnerInterpreterSchema).max(16).optional(),
     /** Tools the runner found and what they reported; a runner before 1.3.0 sends none. */
     tools: z.array(toolInventorySchema).max(3).optional(),
@@ -179,6 +216,12 @@ export interface RunnerRegistrationReply {
 export type RunnerReply =
   | {
       readonly version: 1;
+      readonly type: "catalog-ack";
+      readonly sessionId: string;
+      readonly generation: number;
+    }
+  | {
+      readonly version: 1;
       readonly type: "observation";
       readonly planId: string;
       readonly leaseMilliseconds: number;
@@ -186,7 +229,14 @@ export type RunnerReply =
     }
   | { readonly version: 1; readonly type: "refresh-tools" }
   | { readonly version: 1; readonly type: "dispatch"; readonly job: RunnerJob }
-  | { readonly version: 1; readonly type: "cancel"; readonly jobId: string }
+  | {
+      readonly version: 1;
+      readonly type: "cancel";
+      readonly jobId: string;
+      readonly sessionId?: string;
+      readonly attemptId?: string;
+      readonly requestedAt?: string;
+    }
   | {
       readonly version: 1;
       readonly type: "heartbeat";
@@ -203,6 +253,7 @@ export type RunnerReply =
       readonly type: "reconcile";
       readonly state: RunnerState;
       readonly outputJournalVersion?: 2;
+      readonly communicationVersion?: 1;
     };
 
 /** Secret-free remote row in Settings → Agents. Only registered SSH connections appear. */
@@ -220,4 +271,6 @@ export interface RunnerConnectionView {
   readonly tools: readonly ToolInventory[] | null;
   /** Null until reconciliation; 1 means the old executor still has a cumulative output cap. */
   readonly outputJournalVersion?: 1 | 2 | null;
+  readonly runnerVersion?: string | null;
+  readonly communicationVersion?: 1 | null;
 }

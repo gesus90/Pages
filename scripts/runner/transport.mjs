@@ -5,22 +5,16 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
-import {
-  claimJob,
-  observeJob,
-  cancelJob,
-  interpreters,
-  store,
-} from "./execution.mjs";
+import { cancelJob, interpreterCatalog, store } from "./execution.mjs";
 import { githubAccess } from "./github.mjs";
 import { cliInventory } from "./cli.mjs";
 import { startPagesRelay } from "./pages.mjs";
-import { liveBatch } from "./live.mjs";
+import { RunnerJobs } from "./jobs.mjs";
 import { RunnerSchedule } from "./schedule.mjs";
 import { handleProvider } from "./provider.mjs";
 import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 
-const RUNNER_VERSION = "1.9.0";
+const RUNNER_VERSION = "1.10.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -48,6 +42,8 @@ if ((await lstat(directory)).isSymbolicLink())
 await chmod(directory, 0o700);
 
 const INVENTORY_MAXIMUM_AGE_MILLISECONDS = 600000;
+// Half of Pages' ten-minute catalog age, so one lost refresh never makes a connected runner stale.
+const CATALOG_REFRESH_MILLISECONDS = 300000;
 let inventory = { checkedAt: 0, tools: [] };
 
 /** What the tools themselves report; a version they do not print stays unknown. */
@@ -122,7 +118,6 @@ let socket;
 let reconciliation = Promise.resolve(null);
 let requestJobPoll = null;
 const schedule = new RunnerSchedule();
-const jobSnapshots = new Map();
 const completionNotices = new Set();
 const pagesRequests = new Map();
 const stopPagesRelay = await startPagesRelay(
@@ -145,7 +140,11 @@ const stopPagesRelay = await startPagesRelay(
         pagesRequests.size >= 32 ||
         Date.now() - startedAt >= 20000
       ) {
-        reject(new Error("Pages channel unavailable"));
+        reject(
+          Object.assign(new Error("Pages channel unavailable"), {
+            code: "pages_transport_unavailable",
+          }),
+        );
         return;
       }
       const job = configuration.jobs.find((entry) => entry.jobId === jobId);
@@ -160,7 +159,11 @@ const stopPagesRelay = await startPagesRelay(
       const timer = setTimeout(
         () => {
           pagesRequests.delete(requestId);
-          reject(new Error("Pages channel timeout"));
+          reject(
+            Object.assign(new Error("Pages channel timeout"), {
+              code: "pages_transport_unavailable",
+            }),
+          );
         },
         Math.max(1, 20000 - (Date.now() - startedAt)),
       );
@@ -177,9 +180,13 @@ const stopPagesRelay = await startPagesRelay(
 );
 let isProviderBusy = false;
 let isGitHubBusy = false;
-const progressSnapshots = new Map();
-let pendingSentAt = 0;
-let lastPolledJobId = null;
+const jobs = new RunnerJobs({
+  configuration,
+  directory,
+  persist,
+  schedule,
+  completionNotices,
+});
 let wake = null;
 // A stop signal ends the wait between reconnects at once instead of after up to a minute.
 const sleep = (milliseconds) =>
@@ -190,159 +197,16 @@ const sleep = (milliseconds) =>
       resolve();
     };
   });
+let persistence = Promise.resolve();
 async function persist() {
-  await store(file, configuration);
-}
-function eventPacket(event) {
-  const job = { ...event.job };
-  delete job.execution;
-  return { ...event, delta: true, job };
-}
-function observedStatus(job, observed) {
-  if (job.status === "queued" && observed.launch) return "accepted";
-  if (job.status === "accepted") return "running";
-  return observed.status;
-}
-function pollingOrder() {
-  const previous = configuration.jobs.findIndex(
-    (job) => job.jobId === lastPolledJobId,
-  );
-  const jobs = [
-    ...configuration.jobs.slice(previous + 1),
-    ...configuration.jobs.slice(0, previous + 1),
-  ];
-  // Diagnostic backlogs must not block another job's dispatch or terminal result.
-  return jobs.sort(
-    (first, second) =>
-      Number(completionNotices.has(second.jobId)) -
-      Number(completionNotices.has(first.jobId)),
-  );
-}
-async function pollJobs(channel) {
-  if (channel.readyState !== WebSocket.OPEN) return;
-  if (configuration.pending) {
-    sendRunnerPacket(channel, eventPacket(configuration.pending));
-    pendingSentAt = Date.now();
-    return;
-  }
-  for (const job of pollingOrder()) {
-    if (completionNotices.delete(job.jobId)) {
-      schedule.checked.delete(job.jobId);
-      jobSnapshots.delete(job.jobId);
-    }
-    const isTerminal = ["completed", "failed", "interrupted", "lost"].includes(
-      job.status,
-    );
-    if (isTerminal && (job.historyCursor ?? 0) >= (job.historyLength ?? 0))
-      continue;
-    if (!jobSnapshots.has(job.jobId) && !schedule.isDue(job)) continue;
-    if (job.status === "queued") await claimJob(directory, job);
-    let snapshot =
-      job.outputJournalVersion === 2 ? null : jobSnapshots.get(job.jobId);
-    if (!snapshot) {
-      const checkedAt = Date.now();
-      snapshot = { observed: await observeJob(directory, job), checkedAt };
-    }
-    const { observed, checkedAt } = snapshot;
-    if (!observed) {
-      schedule.polled(job, checkedAt);
-      continue;
-    }
-    const history = liveBatch(observed.history, job.historyCursor ?? 0);
-    const status = observedStatus(job, observed);
-    if (
-      status === "running" &&
-      job.status === "running" &&
-      !history.length &&
-      progressSnapshots.get(job.jobId) === JSON.stringify(observed.result)
-    ) {
-      schedule.polled(job, checkedAt);
-      continue;
-    }
-    const hasMoreHistory =
-      (observed.historyLength ?? observed.history?.at(-1)?.sequence ?? 0) >
-      (history.at(-1)?.sequence ?? job.historyCursor ?? 0);
-    const updated = {
-      ...job,
-      status,
-      ...(job.liveHistoryVersion === 1
-        ? { historyCursor: history.at(-1)?.sequence ?? job.historyCursor ?? 0 }
-        : {}),
-      ...(observed.launch ? { launch: observed.launch } : {}),
-      ...(observed.historyFailure
-        ? { historyFailure: observed.historyFailure }
-        : {}),
-      ...(job.liveHistoryVersion === 1 &&
-      ["completed", "failed", "interrupted", "lost"].includes(status)
-        ? {
-            historyLength:
-              observed.historyLength ?? observed.history?.at(-1)?.sequence ?? 0,
-          }
-        : {}),
-    };
-    const event = {
-      version: 1,
-      type: "event",
-      sessionId: configuration.sessionId,
-      eventId: randomUUID(),
-      sequence: configuration.sequence + 1,
-      job: updated,
-      ...(history.length ? { history } : {}),
-      ...(isTerminal ||
-      (["queued", "accepted"].includes(job.status) && status !== "lost")
-        ? {}
-        : {
-            result: observed.result,
-          }),
-    };
-    // Drain this snapshot alone. New CLI output waits for the next cadence, even while acknowledgements arrive.
-    if (
-      hasMoreHistory ||
-      updated.status === "accepted" ||
-      (updated.status === "running" && observed.status !== "running")
+  const snapshot = structuredClone(configuration);
+  persistence = persistence
+    .catch(() =>
+      console.error("Runner journal write retry after a failed checkpoint."),
     )
-      jobSnapshots.set(job.jobId, snapshot);
-    else {
-      jobSnapshots.delete(job.jobId);
-      schedule.polled(job, checkedAt);
-    }
-    progressSnapshots.set(job.jobId, JSON.stringify(observed.result));
-    lastPolledJobId = job.jobId;
-    configuration.pending = event;
-    await persist();
-    sendRunnerPacket(channel, eventPacket(event));
-    pendingSentAt = Date.now();
-    return;
-  }
+    .then(() => store(file, snapshot));
+  await persistence;
 }
-async function receiveJob(message) {
-  if (message.type === "dispatch") {
-    const previous = configuration.jobs.find(
-      (entry) => entry.jobId === message.job.jobId,
-    );
-    if (!previous) {
-      configuration.jobs.push(message.job);
-      await persist();
-    }
-    if ((!previous || previous.status === "queued") && !configuration.pending)
-      await claimJob(directory, message.job);
-  } else if (message.type === "cancel")
-    await cancelJob(directory, message.jobId);
-  else if (
-    message.type === "ack" &&
-    configuration.pending?.eventId === message.eventId
-  ) {
-    configuration.sequence = message.sequence;
-    configuration.jobs = configuration.jobs.map((job) =>
-      job.jobId === configuration.pending.job.jobId
-        ? configuration.pending.job
-        : job,
-    );
-    configuration.pending = null;
-    await persist();
-  }
-}
-
 /** The counterpart must be the Pages that registered this runner, not whatever answers at the address. */
 function requireKnownCounterpart(message) {
   if (message.connectionId !== connectionId)
@@ -351,6 +215,24 @@ function requireKnownCounterpart(message) {
     throw new UnrecoverableError("Counterpart names another runner identity.");
   if (configuration.sessionId && configuration.sessionId !== message.sessionId)
     throw new UnrecoverableError("Counterpart names another runner session.");
+}
+
+async function currentCatalog(refreshTools = false) {
+  const probe = await interpreterCatalog();
+  const tools = refreshTools ? await toolInventory() : inventory.tools;
+  const catalog = {
+    generation: (configuration.catalog?.generation ?? 0) + 1,
+    checkedAt: new Date().toISOString(),
+    isComplete: probe.isComplete,
+    // The last completed probe stays authoritative; the worker rechecks login and model at start.
+    areToolsComplete: inventory.checkedAt > 0,
+    interpreters: probe.interpreters,
+    tools,
+    removedInterpreterIds: [],
+  };
+  configuration.catalog = catalog;
+  await persist();
+  return catalog;
 }
 
 async function receiveRegistration(message, channel) {
@@ -373,15 +255,18 @@ async function receiveRegistration(message, channel) {
     openCodeExecutorVersion: 1,
     liveHistoryVersion: 1,
     outputJournalVersion: 2,
-    interpreters: await interpreters(),
-    tools: await toolInventory(),
+    communicationVersion: 1,
+    runnerVersion: RUNNER_VERSION,
+    catalog: await currentCatalog(),
+    interpreters: configuration.catalog.interpreters,
+    tools: configuration.catalog.tools,
   });
 }
 
 async function receiveReconciliation(message) {
-  if (message.outputJournalVersion !== 2)
+  if (message.outputJournalVersion !== 2 || message.communicationVersion !== 1)
     throw new UnrecoverableError(
-      "Pages does not support Runner 1.9.0 chunk journals; upgrade Pages explicitly.",
+      "Pages does not support Runner 1.10 communication; upgrade Pages explicitly.",
     );
   if (message.state.sessionId !== configuration.sessionId)
     throw new UnrecoverableError("Counterpart reconciled another session.");
@@ -392,7 +277,19 @@ async function receiveReconciliation(message) {
     configuration.pending = null;
   configuration.sequence = message.state.sequence;
   configuration.jobs = message.state.jobs;
-  jobSnapshots.clear();
+  // A restored configuration must not number its inventories below what Pages already holds.
+  const knownGeneration = message.state.catalog?.generation ?? 0;
+  if (
+    configuration.catalog &&
+    configuration.catalog.generation < knownGeneration
+  )
+    configuration.catalog = {
+      ...configuration.catalog,
+      generation: knownGeneration,
+    };
+  jobs.clear();
+  for (const job of configuration.jobs)
+    if (job.cancellation) await cancelJob(directory, job);
   await persist();
   attempts = 0;
 }
@@ -436,30 +333,45 @@ function receivePagesResult(message) {
   }
 }
 
-function pollingDelay() {
-  if (configuration.pending) {
-    const job =
-      configuration.jobs.find(
-        (entry) => entry.jobId === configuration.pending.job.jobId,
-      ) ?? configuration.pending.job;
-    return Math.max(0, pendingSentAt + schedule.interval(job) - Date.now());
-  }
-  if (completionNotices.size) return 0;
-  return schedule.delay(configuration.jobs);
-}
-
 function createJobPolling(channel, state, enqueue) {
   const poll = () => {
     clearTimeout(state.poll);
     if (!state.isReconciled || channel.readyState !== WebSocket.OPEN) return;
     state.poll = setTimeout(() => {
       enqueue(async () => {
-        await pollJobs(channel);
+        await jobs.poll(channel);
         poll();
       });
-    }, pollingDelay());
+    }, jobs.delay());
   };
   return poll;
+}
+
+/** Interpreters are rechecked periodically; CLI tools only after registration or an explicit refresh. */
+function createCatalogRefresh(channel, state) {
+  return (refreshTools) => {
+    if (
+      state.isCatalogBusy ||
+      socket !== channel ||
+      channel.readyState !== WebSocket.OPEN
+    )
+      return;
+    state.isCatalogBusy = true;
+    void currentCatalog(refreshTools)
+      .then((catalog) => {
+        if (socket === channel && channel.readyState === WebSocket.OPEN)
+          sendRunnerPacket(channel, {
+            version: 1,
+            type: "catalog",
+            sessionId: configuration.sessionId,
+            catalog,
+          });
+      })
+      .catch(() => channel.close())
+      .finally(() => {
+        state.isCatalogBusy = false;
+      });
+  };
 }
 
 function startHeartbeat(channel) {
@@ -476,6 +388,10 @@ function startHeartbeat(channel) {
       channel.close();
     }
   }, 15000);
+}
+
+function closeChannel(channel) {
+  channel.close();
 }
 
 async function connect() {
@@ -496,8 +412,10 @@ async function connect() {
       heartbeat: null,
       deadline: null,
       poll: null,
+      catalogTimer: null,
+      isCatalogBusy: false,
     };
-    const timeout = setTimeout(() => channel.close(), 15000);
+    const timeout = setTimeout(() => closeChannel(channel), 15000);
     const enqueue = (work) => {
       if (state.pendingMessages >= 32) {
         console.error(
@@ -534,12 +452,62 @@ async function connect() {
     };
     const deadline = () => {
       clearTimeout(state.deadline);
-      state.deadline = setTimeout(() => channel.close(), 45000);
+      state.deadline = setTimeout(() => closeChannel(channel), 45000);
     };
     const poll = createJobPolling(channel, state, enqueue);
     requestJobPoll = poll;
     channel.addEventListener("error", () => channel.close());
-    channel.addEventListener("message", (event) =>
+    channel.addEventListener("message", (event) => {
+      let control;
+      try {
+        if (
+          typeof event.data !== "string" ||
+          Buffer.byteLength(event.data) > MAXIMUM_RUNNER_PACKET_BYTES
+        )
+          throw new Error("Runner message exceeds wire budget");
+        control = JSON.parse(event.data);
+        if (control.version !== 1)
+          throw new UnrecoverableError("Unsupported protocol version.");
+      } catch (error) {
+        if (error instanceof UnrecoverableError) unrecoverable = error;
+        channel.close();
+        return;
+      }
+      if (socket !== channel || channel.readyState !== WebSocket.OPEN) return;
+      if (
+        state.isReconciled &&
+        control.type === "heartbeat" &&
+        control.sessionId === configuration.sessionId
+      ) {
+        deadline();
+        return;
+      }
+      if (state.isReconciled && control.type === "cancel") {
+        const job = configuration.jobs.find(
+          (entry) => entry.jobId === control.jobId,
+        );
+        if (
+          !job ||
+          control.sessionId !== job.sessionId ||
+          control.attemptId !== job.plan?.attemptId ||
+          !control.requestedAt ||
+          !Number.isFinite(Date.parse(control.requestedAt))
+        ) {
+          channel.close();
+          return;
+        }
+        void cancelJob(directory, {
+          ...job,
+          cancellation: { requestedAt: control.requestedAt },
+        })
+          .then(() => {
+            schedule.checked.delete(job.jobId);
+            completionNotices.add(job.jobId);
+            poll();
+          })
+          .catch(() => channel.close());
+        return;
+      }
       enqueue(async () => {
         if (
           typeof event.data !== "string" ||
@@ -561,11 +529,20 @@ async function connect() {
           clearTimeout(timeout);
           poll();
           state.heartbeat = startHeartbeat(channel);
+          const refreshCatalog = createCatalogRefresh(channel, state);
+          refreshCatalog(true);
+          state.catalogTimer = setInterval(
+            () => refreshCatalog(false),
+            CATALOG_REFRESH_MILLISECONDS,
+          );
           deadline();
           return;
         }
         if (!state.isReconciled) throw new Error("Reconciliation required");
-        if (message.type === "pages-result") {
+        if (message.type === "catalog-ack") {
+          if (message.sessionId !== configuration.sessionId)
+            throw new Error("Runner catalog session mismatch");
+        } else if (message.type === "pages-result") {
           receivePagesResult(message);
         } else if (message.type === "observation") {
           schedule.observe(message, configuration.jobs);
@@ -579,11 +556,11 @@ async function connect() {
         else if (message.type === "github-access")
           receiveGitHub(message, channel);
         else {
-          await receiveJob(message);
+          await jobs.receive(message);
           poll();
         }
-      }),
-    );
+      });
+    });
     channel.addEventListener("close", () => {
       ready(null);
       state.isReconciled = false;
@@ -591,9 +568,14 @@ async function connect() {
       clearInterval(state.heartbeat);
       clearTimeout(state.poll);
       clearTimeout(state.deadline);
+      clearInterval(state.catalogTimer);
       for (const pending of pagesRequests.values()) {
         clearTimeout(pending.timer);
-        pending.reject(new Error("Pages channel closed"));
+        pending.reject(
+          Object.assign(new Error("Pages channel closed"), {
+            code: "pages_transport_unavailable",
+          }),
+        );
       }
       pagesRequests.clear();
       void state.chain.then(resolve, resolve);

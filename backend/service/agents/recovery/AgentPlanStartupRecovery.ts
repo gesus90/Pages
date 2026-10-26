@@ -7,6 +7,7 @@ import {
 import { classifyPlanFailure } from "./AgentPlanFailure";
 import { interruptedLoopRuns } from "./AgentPlanLoopRecovery";
 import { endInterruptedScript } from "../AgentPlanScriptRecovery";
+import { settleDetachedRun } from "../AgentPlanRunState";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -114,6 +115,9 @@ export class AgentPlanStartupRecovery {
       };
       await this.dependencies.runs.interrupt(run);
     }
+    await this.settleRemoteRuns(
+      unfinished.filter((run) => !requiresLocalRecovery(run)),
+    );
     const hasNoProcesses =
       this.dependencies.hasNoProcesses ?? hasNoSessionProcesses;
     for (const reserved of await this.dependencies.runs.reserving()) {
@@ -132,6 +136,14 @@ export class AgentPlanStartupRecovery {
       );
       if (!isRetained && (await hasNoProcesses(run)))
         await this.dependencies.runs.release(run.id);
+    }
+  }
+
+  /** A remote run whose jobs all ended before this start gets no later runner fact. */
+  private async settleRemoteRuns(runs: readonly AgentPlanRun[]): Promise<void> {
+    for (const remote of runs) {
+      const settled = settleDetachedRun(remote);
+      if (settled !== remote) await this.dependencies.runs.interrupt(settled);
     }
   }
 

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { runnerTerminalSchema } from "./RunnerTerminal";
 import { planRemoteResourceSchema } from "./AgentPlanRemoteAccess";
+import {
+  runnerCancellationSchema,
+  runnerContactSchema,
+  runnerQueueReasonSchema,
+} from "./RunnerCommunication.js";
 
 const identifier = z.string().min(1).max(100);
 
@@ -68,6 +73,7 @@ export const planRemoteProgressSchema = z
     jobId: z.string().uuid(),
     sessionId: z.string().uuid(),
     status: z.enum([
+      "queued",
       "accepted",
       "running",
       "completed",
@@ -76,6 +82,11 @@ export const planRemoteProgressSchema = z
       "lost",
     ]),
     launchId: z.string().uuid().optional(),
+    observedAt: z.string().datetime().optional(),
+    isObservationStale: z.boolean().optional(),
+    cancellation: runnerCancellationSchema.optional(),
+    queueReason: runnerQueueReasonSchema.nullable().optional(),
+    contact: runnerContactSchema.optional(),
     liveHistoryVersion: z.literal(1).optional(),
     outputJournalVersion: z.literal(2).optional(),
     terminal: runnerTerminalSchema.optional(),

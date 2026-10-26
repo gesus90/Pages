@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { PlanRemoteAccessDetails } from "./plan-remote-access-details";
+import { PlanRunCommunication } from "./plan-run-communication";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
@@ -77,6 +78,7 @@ export function PlanExecutionDetails({
     <section className="mb-3 space-y-2">
       <h4 className="font-semibold">{t("plans.execution.snapshot")}</h4>
       <ExecutionRows rows={rows} />
+      <PlanRunCommunication step={step} />
       <PlanRemoteAccessDetails step={step} />
       <details className="pt-1">
         <summary className="cursor-pointer text-muted-foreground">
