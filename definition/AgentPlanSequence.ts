@@ -31,9 +31,18 @@ function boundaryRank(node: AgentPlanNode): number {
     : 1;
 }
 
+/** Orders identifiers by code unit, which is stable across locales; identifiers are unique, so no tie exists. */
 function compareIds(first: string, second: string): number {
-  if (first === second) return 0;
   return first < second ? -1 : 1;
+}
+
+/** Reads a map entry, falling back to a default for an id that has none yet. */
+function lookup<Value>(
+  map: ReadonlyMap<string, Value>,
+  id: string,
+  fallback: Value,
+): Value {
+  return map.get(id) ?? fallback;
 }
 
 /**
@@ -89,18 +98,20 @@ function flowDepths(
   const incoming = new Map([...reached].map((id) => [id, 0]));
   for (const id of reached)
     for (const next of successors.get(id) ?? [])
-      incoming.set(next, (incoming.get(next) ?? 0) + 1);
+      incoming.set(next, lookup(incoming, next, 0) + 1);
   const candidates = new Map<string, number>();
   const settled = new Map<string, number>();
   const ready = [...reached].filter((id) => incoming.get(id) === 0);
-  while (ready.length > 0) {
-    const current = ready.pop();
-    if (current === undefined) continue;
-    const depth = candidates.get(current) ?? 0;
+  for (
+    let current = ready.pop();
+    current !== undefined;
+    current = ready.pop()
+  ) {
+    const depth = lookup(candidates, current, 0);
     settled.set(current, depth);
     for (const next of successors.get(current) ?? []) {
-      candidates.set(next, Math.max(candidates.get(next) ?? 0, depth + 1));
-      const remaining = (incoming.get(next) ?? 0) - 1;
+      candidates.set(next, Math.max(lookup(candidates, next, 0), depth + 1));
+      const remaining = lookup(incoming, next, 0) - 1;
       incoming.set(next, remaining);
       if (remaining === 0) ready.push(next);
     }
@@ -135,14 +146,13 @@ export function planFlowSequence(
     .map((node) => node.id);
   const reached = reachableFrom(starts, successors);
   const depths = flowDepths(reached, successors);
+  const ranks = new Map(
+    [...nodes].map(([id, node]) => [id, boundaryRank(node)] as const),
+  );
   const order = [...depths.keys()].sort((first, second) => {
-    const firstNode = nodes.get(first);
-    const secondNode = nodes.get(second);
-    const rank =
-      (firstNode ? boundaryRank(firstNode) : 1) -
-      (secondNode ? boundaryRank(secondNode) : 1);
+    const rank = lookup(ranks, first, 1) - lookup(ranks, second, 1);
     if (rank !== 0) return rank;
-    const depth = (depths.get(first) ?? 0) - (depths.get(second) ?? 0);
+    const depth = lookup(depths, first, 0) - lookup(depths, second, 0);
     return depth === 0 ? compareIds(first, second) : depth;
   });
   const gaps = [...nodes.keys()]

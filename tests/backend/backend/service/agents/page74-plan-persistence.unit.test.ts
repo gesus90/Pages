@@ -16,6 +16,7 @@ it("pins legacy nodes exactly once, persists independent configuration, and reje
   const { world, plan, agentId } = await templateFixture();
   const database = new PlanDatabase();
   database.agents.add(agentId);
+  database.connections.add("connection-model-a");
   const legacy = {
     ...plan,
     nodes: plan.nodes.map((node) => {

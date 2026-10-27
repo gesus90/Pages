@@ -22,8 +22,8 @@ import type { PageAgentSharingRequest } from "./PageAgentOperationInput";
 
 /** Changes one call may carry; each change batch stays bounded independently of the saved graph. */
 const MAXIMUM_CHANGES = 200;
+/** Plan names and the name filter of list_plans share the limit the tool schema offers. */
 const MAXIMUM_NAME_LENGTH = 120;
-const MAXIMUM_TEXT_FILTER_LENGTH = 200;
 
 /** Node fields a change may set, by the kind of node; positions are always settable. */
 export const AGENT_PLAN_NODE_FIELDS: Readonly<
@@ -298,7 +298,7 @@ export function readPlanListRequest(input: unknown): AgentPlanListRequest {
     text !== undefined &&
     (typeof text !== "string" ||
       !text.trim() ||
-      text.length > MAXIMUM_TEXT_FILTER_LENGTH)
+      text.length > MAXIMUM_NAME_LENGTH)
   )
     throw invalid();
   return {

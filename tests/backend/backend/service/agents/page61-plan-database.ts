@@ -38,6 +38,8 @@ export class PlanDatabase {
   public runs: StoredRun[] = [];
   public readonly workspaces = new Map([["workspace", "project"]]);
   public readonly agents = new Set(["agent"]);
+  /** Connections a pinned node may name; a test adds the ones its plan uses. */
+  public readonly connections = new Set<string>();
 
   /** Stores a plan row as a previous save would have left it. */
   public insert(plan: AgentPlan): void {
@@ -92,6 +94,10 @@ export class PlanDatabase {
       const project = this.workspaces.get(parameter(parameters, "id"));
       return project === undefined ? [] : [[project]];
     }
+    if (statement.includes("FROM agent_connections"))
+      return this.connections.has(parameter(parameters, "id"))
+        ? [[parameter(parameters, "id")]]
+        : [];
     if (statement.includes("FROM agent_execution_profiles"))
       return this.agents.has(parameter(parameters, "id"))
         ? [[parameter(parameters, "id")]]

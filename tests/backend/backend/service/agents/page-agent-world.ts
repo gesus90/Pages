@@ -129,9 +129,10 @@ const PASSED: AgentCheckSummary = {
 function connectionRecord(
   id: string,
   provider: AgentProviderId,
+  isActive = true,
 ): AgentConnectionRecord {
   return {
-    isActive: true,
+    isActive,
     id,
     name: `Connection ${id}`,
     provider,
@@ -299,6 +300,11 @@ class MemoryConnections extends AgentConnectionRepository {
     this.world = world;
   }
 
+  /** The records of every connection of a released model. */
+  public override async list(): Promise<readonly AgentConnectionRecord[]> {
+    return this.world.connectionRecords();
+  }
+
   /** The connection record. */
   public override async find(
     id: string,
@@ -454,6 +460,7 @@ export class PageAgentWorld {
       connection: connectionRecord(
         connectionId,
         options.provider ?? "openrouter",
+        options.isActive ?? true,
       ),
       isVerified: options.isVerified ?? true,
       scope: options.scope ?? GLOBAL_CONNECTION_SCOPE,
@@ -532,6 +539,11 @@ export class PageAgentWorld {
   /** The stored user agents. */
   public storedAgents(): readonly AgentProfile[] {
     return this.profiles.filter((profile) => profile.ownerId !== undefined);
+  }
+
+  /** The connection records of the released models, one per connection. */
+  public connectionRecords(): readonly AgentConnectionRecord[] {
+    return [...this.models.values()].map((facts) => facts.connection);
   }
 
   /** The facts of the connection of a released model. */

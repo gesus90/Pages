@@ -183,7 +183,8 @@ it("keeps hidden partial updates still, then scrolls the expanded failure and re
   eventCount = 2;
   await screen.findByRole("alert");
   expect(screen.getByText("Retained text")).toBeTruthy();
-  expect(scroll).toHaveBeenCalledWith({ block: "end" });
+  // The list scrolls in an effect, not synchronously with the render.
+  await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "end" }));
 });
 
 it("keeps the launcher filled, centered and operable with distinct open, active and keyboard focus states", async () => {

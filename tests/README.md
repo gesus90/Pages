@@ -46,6 +46,14 @@ Select by the behavior under test, not the source directory or extension:
   mock UI dependencies when a Node route test requires them.
 - Shared executable contracts and utilities may have tests in either scope as
   appropriate to their behavior. Avoid duplicating the same behavioral assertions.
+  Both reports measure `definition/`, `language/` and `app/lib/`, and each report
+  counts only what its own tests execute. A module that both reports measure
+  therefore has a test file in `tests/backend/` and one in `tests/frontend/`; the
+  files are identical apart from their location (only the Testing Library cleanup
+  that the Frontend setup registers is repeated inside the Backend copy). A
+  Backend test that needs a DOM (`app/root.tsx`, `app/lib/wiki-highlight.ts`, the
+  draft hooks) selects it per file with `// @vitest-environment jsdom`; the Backend
+  config itself stays on Node.
 - Only `*.unit.test.ts` and `*.unit.test.tsx` in the selected directory are
   discovered automatically: no manual registration or broad directory inclusion
   is needed for new Backend or Frontend units. A `.integration.test.ts`, `.test.ts`, `.spec.ts`
@@ -56,7 +64,8 @@ Select by the behavior under test, not the source directory or extension:
   or jsdom environment, scripts and direct test-source imports, including fixtures.
 
 Use imports from `vitest`; test globals are disabled. Production aliases
-`@/app`, `@/assets`, `@/backend`, `@/definition` and `@/language` resolve to the
+`@/app`, `@/assets`, `@/backend`, `@/definition`, `@/language` and `@/scripts`
+(the runner scripts that Pages imports as raw text) resolve to the
 same source directories in both configs so existing imports and mock targets
 stay consistent.
 There are no test-directory aliases and no root-wide `@` alias: neither scope
@@ -67,7 +76,8 @@ imports are not part of this structure.
 
 Backend has no setup file because Node unit tests need no global initialization.
 Frontend setup registers Testing Library cleanup after each test, including hook
-rendering. jsdom simulates a DOM; no browser automation provider is installed.
+rendering, and stubs what jsdom lacks (`matchMedia`, `document.fonts`,
+`Element.prototype.scrollIntoView`). jsdom simulates a DOM; no browser automation provider is installed.
 Mocks and environment/global stubs are restored between tests. Future tests must
 also reset their own mutable mocks and fake timers when used.
 

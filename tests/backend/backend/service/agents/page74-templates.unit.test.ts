@@ -181,7 +181,7 @@ it("copies the newly assigned template when an API update repairs an agent node"
   });
 });
 
-it("keeps automatic personal model access unambiguous and rechecks the person's grant", async () => {
+it("no longer picks a personal model access for a node without a model, and rechecks the person's grant for a named one", async () => {
   const { world, agentId, plan } = await templateFixture();
   world.addModel("personal", {
     model: "model-model-a",
@@ -197,32 +197,23 @@ it("keeps automatic personal model access unambiguous and rechecks the person's 
     projectId: null,
     configuration: { ...node.configuration, modelProfileId: "" },
   };
+  // The model belongs to the node; nothing is chosen on the node's behalf.
+  await expect(
+    world.administration.resolveDefinition("owner", selection),
+  ).rejects.toMatchObject({ code: "model_assignment_missing" });
+  const named = {
+    ...selection,
+    configuration: {
+      ...selection.configuration,
+      modelProfileId: "personal",
+    },
+  };
   expect(
-    (await world.administration.resolveDefinition("owner", selection))
+    (await world.administration.resolveDefinition("owner", named))
       .accessAgentId,
   ).toBe("personal");
-  world.addModel("second-personal", {
-    model: "model-model-a",
-    efforts: ["low", "high"],
-    targets: [{ kind: "person", targetId: "owner" }],
-  });
-  await expect(
-    world.administration.resolveDefinition("owner", selection),
-  ).rejects.toMatchObject({ code: "personal_access_selection_required" });
-  expect(
-    (
-      await world.administration.resolveDefinition("owner", {
-        ...selection,
-        configuration: {
-          ...selection.configuration,
-          modelProfileId: "personal",
-        },
-      })
-    ).accessAgentId,
-  ).toBe("personal");
   world.withdrawModel("personal");
-  world.withdrawModel("second-personal");
   await expect(
-    world.administration.resolveDefinition("owner", selection),
-  ).rejects.toMatchObject({ code: "personal_access_missing" });
+    world.administration.resolveDefinition("owner", named),
+  ).rejects.toMatchObject({ code: "agent_usage_denied" });
 });

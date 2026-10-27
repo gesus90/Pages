@@ -145,6 +145,13 @@ export class PagesClient {
     }
 
     const authorization = await this.auth.getAuthorizationHeader();
+
+    // The caller may abort while the credentials resolve; the abort listener
+    // below is registered later and would never hear that event.
+    if (options.signal?.aborted) {
+      throw new RequestAbortedError();
+    }
+
     const headers: Record<string, string> = { Accept: "application/json" };
 
     if (authorization !== null) {

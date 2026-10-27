@@ -199,6 +199,24 @@ function withAgentDefaults(
   return { ...plan, nodes: [...plan.nodes, { ...step, bindings }, ...values] };
 }
 
+/** Parameter names name one value each, so a client and a person can find it by name. */
+function requireFreeName(
+  plan: AgentPlanInput,
+  node: AgentPlanNode,
+  exceptId: string | null,
+): void {
+  if (
+    node.type === "parameter" &&
+    plan.nodes.some(
+      (entry) =>
+        entry.type === "parameter" &&
+        entry.name === node.name &&
+        entry.id !== exceptId,
+    )
+  )
+    throw refused("element_exists");
+}
+
 function addNode(
   plan: AgentPlanInput,
   change: Extract<AgentPlanChange, { action: "addNode" }>,
@@ -228,6 +246,7 @@ function addNode(
     id,
     type: change.type,
   });
+  requireFreeName(plan, node, null);
   if (node.type === "agent") {
     const added = withAgentDefaults(plan, node, context);
     return {
@@ -271,6 +290,7 @@ function updateNode(
       ...node,
       configuration: patchPlanConfiguration(node, configuration, context),
     });
+  requireFreeName(plan, node, node.id);
   return replacePlanNode(plan, node);
 }
 

@@ -1,5 +1,5 @@
 import { ARCHIVED_LINK_COLOR } from "@/app/lib/phase-plan/plan-colors";
-import { parsePlanDate } from "@/app/lib/phase-plan/plan-dates";
+import { DAY_IN_MS, parsePlanDate } from "@/app/lib/phase-plan/plan-dates";
 import {
   LANE_ORDER,
   assignGroup,
@@ -158,7 +158,7 @@ export function layoutLanes(input: LaneLayoutInput): {
   readonly bodyHeight: number;
 } {
   const { dated, timeToX, bufferMs, pixelsPerDay, trackWidth } = input;
-  const bufferPx = bufferMs * pixelsPerDay;
+  const bufferPx = (bufferMs / DAY_IN_MS) * pixelsPerDay;
   const lanes: LaneLayout[] = [];
   let laneTop = 0;
 

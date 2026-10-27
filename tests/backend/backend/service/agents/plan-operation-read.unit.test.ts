@@ -101,6 +101,18 @@ it("finds plans by a part of their name and pages through them", async () => {
   expect(next.nextCursor).toBeNull();
 });
 
+it("keeps the name filter within the 120 characters list_plans offers", async () => {
+  const longest = (await world.call("reader", "plans.list", {
+    text: "a".repeat(120),
+  })) as AgentPlanList;
+  const refused = await refusal(
+    world.call("reader", "plans.list", { text: "a".repeat(121) }),
+  );
+
+  expect(longest).toEqual({ plans: [], total: 0, nextCursor: null });
+  expect(refused.code).toBe("INVALID_REQUEST");
+});
+
 it("reads one plan with labelled nodes, flow edges and the Play check", async () => {
   world.addRun({ id: "run-1", planId: "plan-a", startedAt: startedAt(1) });
 
@@ -120,8 +132,18 @@ it("reads one plan with labelled nodes, flow edges and the Play check", async ()
     bindings: { ticket: { kind: "source", nodeId: "ticket" } },
   });
   expect(plan.edges).toEqual([
-    { from: "start", to: "review" },
-    { from: "review", to: "end" },
+    {
+      from: "start",
+      to: "review",
+      fromPort: "flow-out",
+      toPort: "flow-in",
+    },
+    {
+      from: "review",
+      to: "end",
+      fromPort: "flow-out",
+      toPort: "flow-in",
+    },
   ]);
   expect(plan.status).toMatchObject({
     state: "idle",
@@ -196,7 +218,14 @@ it("lists workspaces and the agents of one with their inputs", async () => {
       { name: "ticket", type: "ticket", isRequired: false },
     ],
   });
-  expect(none).toEqual({ workspaces: [], agents: [] });
+  // A person without any workspace sees no source, but still the limits of a plan.
+  expect(none).toMatchObject({
+    workspaces: [],
+    agents: [],
+    models: [],
+    remoteTargets: [],
+    limits: { nodes: 500, edges: 500, changes: 200 },
+  });
   expect(
     (
       await refusal(

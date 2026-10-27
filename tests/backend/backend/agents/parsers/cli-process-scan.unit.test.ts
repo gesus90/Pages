@@ -8,6 +8,10 @@ import {
   RUN_INSTANCE_VARIABLE,
 } from "@/backend/agents/cli/CliProcessScan";
 
+// `systemctl` is a subprocess boundary; its own behavior has its own tests.
+const units = vi.hoisted(() => ({ stopWorkerUnits: vi.fn() }));
+vi.mock("@/backend/agents/cli/CliWorkerUnit", () => units);
+
 /** Environ contents of a fake process file system, by directory entry. */
 const processTable = vi.hoisted(() => ({
   entries: new Map<string, string | Error>(),
@@ -60,6 +64,7 @@ function withheld(): Error {
 }
 
 beforeEach(() => {
+  units.stopWorkerUnits.mockReset().mockResolvedValue(0);
   processTable.entries.clear();
   processTable.starts.clear();
   processTable.foreign.clear();
@@ -207,6 +212,37 @@ describe("endTaggedProcesses", () => {
     vi.useFakeTimers();
   });
 
+  it("stops the worker units of the session by its tag before it scans for processes", async () => {
+    const order: string[] = [];
+    units.stopWorkerUnits.mockImplementation(async () => {
+      order.push("units");
+      processTable.entries.set("4001", tagged("run-a"));
+      return 1;
+    });
+    vi.spyOn(process, "kill").mockImplementation((id) => {
+      order.push(`kill ${String(id)}`);
+      processTable.entries.delete(String(id));
+      return true;
+    });
+    const closeout = endTaggedProcesses("run-a");
+    await vi.advanceTimersByTimeAsync(2_000);
+    await expect(closeout).resolves.toEqual({ found: 1, remaining: 0 });
+    expect(units.stopWorkerUnits).toHaveBeenCalledExactlyOnceWith("run-a");
+    expect(order).toEqual(["units", "kill 4001"]);
+  });
+
+  it("still scans for processes when a worker unit cannot be stopped", async () => {
+    units.stopWorkerUnits.mockRejectedValue(new Error("no service manager"));
+    processTable.entries.set("4001", tagged("run-a"));
+    vi.spyOn(process, "kill").mockImplementation((id) => {
+      processTable.entries.delete(String(id));
+      return true;
+    });
+    const closeout = endTaggedProcesses("run-a");
+    await vi.advanceTimersByTimeAsync(2_000);
+    await expect(closeout).resolves.toEqual({ found: 1, remaining: 0 });
+  });
+
   it("reports an empty closeout without signalling or waiting", async () => {
     const kill = vi.spyOn(process, "kill");
     await expect(endTaggedProcesses("run-a")).resolves.toEqual({
@@ -255,6 +291,12 @@ describe("endTaggedProcesses", () => {
       "4001:SIGKILL",
       "4002:SIGKILL",
     ]);
+  });
+});
+
+describe("endTaggedProcesses within the scope of a session", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
   });
 
   it("ends the tagged processes beside an older unreadable one within a scope", async () => {

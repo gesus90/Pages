@@ -286,7 +286,7 @@ it("offers a Claude Code node in YOLO every native tool and approves nothing it 
   expect(turn.effective).toMatchObject({
     sessionMode: "bypassPermissions",
     permissionMode: "yolo",
-    isolation: "bubblewrap",
+    isolation: "bubblewrap; no limited unit",
   });
   const created = fake.calls.find((call) => call.method === "session/new");
   const options = JSON.stringify(created?.params);

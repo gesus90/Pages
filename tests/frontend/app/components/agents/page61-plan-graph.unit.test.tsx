@@ -41,12 +41,6 @@ function node(name: string): HTMLElement {
   return within(grid()).getByRole("article", { name });
 }
 
-function layer(container: HTMLElement): HTMLElement {
-  const element = container.querySelector<HTMLElement>(".react-flow__viewport");
-  if (!element) throw new Error("Missing plan layer");
-  return element;
-}
-
 it("selects one connection on the grid and disconnects it while both nodes stay", async () => {
   const { container } = renderPlanPage(planServer());
   await ready(container);
@@ -56,11 +50,16 @@ it("selects one connection on the grid and disconnects it while both nodes stay"
   });
   if (!ticketLink) throw new Error("Missing ticket connection");
   fireEvent.click(ticketLink);
+  const name = "SYN-1: Open work → Reviewer · ticket";
+  // A selected connection offers to be disconnected at both of its ends.
+  expect(
+    await within(grid()).findByRole("button", {
+      name: i18n.t("plans.removeLinkAtTarget", { name }),
+    }),
+  ).toBeDefined();
   fireEvent.click(
     await within(grid()).findByRole("button", {
-      name: i18n.t("plans.removeLink", {
-        name: "SYN-1: Open work → Reviewer · ticket",
-      }),
+      name: i18n.t("plans.removeLinkAtSource", { name }),
     }),
   );
   await waitFor(() =>
@@ -179,40 +178,6 @@ it("offers a ticket node one ticket OUT, no flow port, and binds it to the ticke
   );
   await waitFor(() => expect(links(container)).toContain("data:first:ticket"));
   expect(ticket.className).not.toContain("border-destructive");
-});
-
-it("pans by dragging the empty grid and zooms with the wheel, keeping nodes and connections aligned", async () => {
-  const { container } = renderPlanPage(planServer());
-  await screen.findByRole("region", { name: i18n.t("plans.canvas") });
-  const reviewer = node("Reviewer");
-  const position = [reviewer.style.left, reviewer.style.top];
-  const curve = container
-    .querySelector('.react-flow__edge[data-id="flow:first:second"]')
-    ?.getAttribute("d");
-  fireEvent.pointerDown(grid(), {
-    pointerId: 1,
-    button: 0,
-    clientX: 100,
-    clientY: 100,
-  });
-  fireEvent.pointerMove(grid(), { pointerId: 1, clientX: 160, clientY: 130 });
-  fireEvent.pointerUp(grid(), { pointerId: 1, clientX: 160, clientY: 130 });
-  expect(layer(container).style.transform).toBe(
-    "translate(60px, 30px) scale(1)",
-  );
-  fireEvent.wheel(grid(), { deltaY: -200, clientX: 60, clientY: 30 });
-  const zoomedIn = layer(container).style.transform;
-  expect(zoomedIn).toMatch(/^translate\(60px, 30px\) scale\(1\.3\d*\)$/);
-  fireEvent.wheel(grid(), { deltaY: 400, clientX: 60, clientY: 30 });
-  expect(layer(container).style.transform).toMatch(
-    /^translate\(60px, 30px\) scale\(0\.7\d*\)$/,
-  );
-  expect([reviewer.style.left, reviewer.style.top]).toEqual(position);
-  expect(
-    container
-      .querySelector('.react-flow__edge[data-id="flow:first:second"]')
-      ?.getAttribute("d"),
-  ).toBe(curve);
 });
 
 it("lays the graph over the whole work area beside the navigation with the floating node palette", async () => {

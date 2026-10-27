@@ -564,6 +564,10 @@ async function connect() {
           ready(channel.readyState === WebSocket.OPEN ? channel : null);
           clearTimeout(timeout);
           poll();
+          // A repeated reconciliation must replace the timers, not add a second
+          // set whose handles are lost and keep the process alive after close.
+          clearInterval(state.heartbeat);
+          clearInterval(state.catalogTimer);
           state.heartbeat = startHeartbeat(channel);
           const refreshCatalog = createCatalogRefresh(channel, state);
           refreshCatalog(true);

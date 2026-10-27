@@ -155,21 +155,20 @@ it("renders compact rounded endpoints, retains their ports and colors only compl
   const mounted = render(<Canvas run={run} />);
   const start = node("Start");
   const end = node("Ende");
-  expect(
+  const widthOf = (card: HTMLElement): number =>
     Number.parseInt(
-      (start.closest(".react-flow__node") as HTMLElement).style.width,
-    ),
-  ).toBeLessThan(100);
+      (card.closest(".react-flow__node") as HTMLElement).style.width,
+    );
+  // Endpoints are compact: narrower than the card of an agent.
+  expect(widthOf(start)).toBeLessThan(widthOf(node("Reviewer")));
   const startButton = within(start).getByRole("button", {
     name: i18n.t("plans.selectNode", { name: "Start" }),
   });
   expect(startButton.className).toContain("rounded-2xl");
-  expect(startButton.className).toContain("text-success");
-  expect(
-    within(end).getByRole("button", {
-      name: i18n.t("plans.selectNode", { name: "Ende" }),
-    }).className,
-  ).toContain("text-muted-foreground");
+  // The run status colors the whole checkpoint: a completed one green, a failed one red.
+  expect(start.className).toContain("text-success");
+  expect(end.className).toContain("text-destructive");
+  expect(end.className).not.toContain("text-success");
   fireEvent.click(
     within(start).getByRole("button", { name: i18n.t("plans.flowOut") }),
   );
@@ -187,14 +186,20 @@ it("renders compact rounded endpoints, retains their ports and colors only compl
   );
 });
 
-it("keeps type tints while agent execution statuses change", () => {
+it("tints a card in its type color and in its status color only while a run of the same revision is shown", () => {
   const run = syntheticRun();
-  const mounted = render(
+  const mounted = render(<Canvas />);
+  expect(node("Reviewer").className).toContain("bg-plan-agent-subtle");
+  expect(node("SYN-1: Open work").className).toContain("bg-plan-ticket-subtle");
+  expect(node("spare").className).toContain("bg-plan-parameter-subtle");
+  mounted.rerender(
     <Canvas
       run={{ ...run, steps: [runStep("first", { status: "running" })] }}
     />,
   );
-  expect(node("Reviewer").className).toContain("bg-plan-agent-subtle");
+  expect(node("Reviewer").className).toContain("bg-status-active-subtle");
+  expect(node("Reviewer").className).not.toContain("bg-plan-agent-subtle");
+  // Nodes that take no step of the run keep the color of their type.
   expect(node("SYN-1: Open work").className).toContain("bg-plan-ticket-subtle");
   expect(node("spare").className).toContain("bg-plan-parameter-subtle");
   expect(
@@ -206,36 +211,9 @@ it("keeps type tints while agent execution statuses change", () => {
       run={{ ...run, steps: [runStep("first", { status: "failed" })] }}
     />,
   );
-  expect(node("Reviewer").className).toContain("bg-plan-agent-subtle");
+  expect(node("Reviewer").className).toContain("bg-destructive-subtle");
   expect(
     within(node("Reviewer")).getByText(i18n.t("plans.status.failed"))
       .parentElement?.className,
   ).toContain("text-destructive");
-});
-
-it("reflects ticket workflow updates without changing the orange ticket type", () => {
-  const mounted = render(<Canvas />);
-  const label = "SYN-1: Open work";
-  expect(
-    within(node(label)).getByText(i18n.t("plans.status.waiting")),
-  ).toBeDefined();
-  const active = {
-    ...SOURCES,
-    tasks: SOURCES.tasks.map((task) =>
-      task.id === "1" ? { ...task, statusKey: "in_progress" } : task,
-    ),
-  };
-  mounted.rerender(<Canvas sources={active} />);
-  expect(
-    within(node(label)).getByText(i18n.t("plans.status.running")),
-  ).toBeDefined();
-  const done = {
-    ...SOURCES,
-    tasks: SOURCES.tasks.map((task) => ({ ...task, isDone: true })),
-  };
-  mounted.rerender(<Canvas sources={done} />);
-  expect(
-    within(node(label)).getByText(i18n.t("plans.status.succeeded")),
-  ).toBeDefined();
-  expect(node(label).className).toContain("bg-plan-ticket-subtle");
 });

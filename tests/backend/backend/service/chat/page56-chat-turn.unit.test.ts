@@ -16,7 +16,7 @@ beforeEach(() => {
   chat = new ChatAgentWorld();
 });
 
-it("runs a read and combined update within one chat request and reports the actual outcomes to Pica", async () => {
+it("reports the refusal of a retired agent update to Pica and changes nothing", async () => {
   const id = await chat.seed();
   const answer = await chat.send(
     "Ändere Titel, Anweisung und Zahlenparameter des Agents.",
@@ -27,58 +27,40 @@ it("runs a read and combined update within one chat request and reports the actu
         expectedRevision: 1,
         name: "Changed",
         instruction: "Review {{topic}}.",
-        parameterChanges: [
-          {
-            action: "update",
-            name: "amount",
-            fields: { defaultValue: { type: "number", number: 12.5 } },
-          },
-        ],
       }),
-      "Agent geändert: Titel, Anweisung und Zahlenparameter; übrige Konfiguration erhalten.",
+      "Agents lassen sich nicht mehr ändern; die Konfiguration gehört in den Plan-Node.",
     ],
   );
-  expect(answer.answer.content).toContain("Agent geändert");
+  expect(answer.answer.content).toContain("Plan-Node");
   expect(chat.stored(id)).toMatchObject({
-    name: "Changed",
-    revision: 2,
-    configuration: {
-      markdown: "Review {{topic}}.",
-      parameters: [
-        PARAMETERS[0],
-        { ...PARAMETERS[1], defaultValue: { type: "number", number: 12.5 } },
-        PARAMETERS[2],
-      ],
-    },
+    name: "Synthetic reviewer",
+    revision: 1,
+    configuration: { parameters: PARAMETERS },
   });
   expect(chat.prompts[2].prompt).toContain('"operation":"agents.update"');
-  expect(chat.prompts[2].prompt).toContain('"changed":true,"revision":2');
-  expect(chat.prompts[0].instructions).toContain(
-    "nur auf ausdrücklichen Wunsch",
-  );
-  expect(chat.prompts[0].instructions).toContain(
-    "überschreibe sie nicht automatisch",
-  );
+  expect(chat.prompts[2].prompt).toContain("operation_retired");
+  expect(chat.prompts[2].prompt).not.toContain('"changed":true');
+  expect(chat.prompts[0].instructions).toContain("abgelöst");
+  expect(chat.prompts[0].instructions).toContain("operation_retired");
+  expect(chat.prompts[0].instructions).not.toContain("überschreibe sie nicht");
 });
 
-it("supports create_agent functionality through the Pages action protocol", async () => {
+it("creates no agent when Pica requests the retired create action", async () => {
   const reply = await chat.send("Erstelle einen Agent namens Synthese.", [
     modelAction("agents.models.list"),
     modelAction("agents.create", {
       name: "Synthese",
       instruction: "Summarize.",
     }),
-    "Agent Synthese erstellt.",
+    "Agents lassen sich nicht mehr erstellen.",
   ]);
-  expect(reply.answer.content).toBe("Agent Synthese erstellt.");
-  expect(chat.world.storedAgents()).toMatchObject([
-    { name: "Synthese", ownerId: "igor" },
-  ]);
-  expect(chat.prompts[2].prompt).toContain('"ok":true');
+  expect(reply.answer.content).toBe("Agents lassen sich nicht mehr erstellen.");
+  expect(chat.world.storedAgents()).toEqual([]);
+  expect(chat.prompts[2].prompt).toContain("operation_retired");
 });
 
 it.each(["de", "en"] as const)(
-  "accepts LÖSCHEN for agent deletion with %s interface language",
+  "accepts LÖSCHEN as the typed confirmation with %s interface language and still refuses the retired deletion",
   async (language) => {
     const id = await chat.seed();
     const reply = await chat.send(
@@ -91,8 +73,9 @@ it.each(["de", "en"] as const)(
       language,
     );
     expect(reply.answer.content).toBe("Agent entfernt.");
-    expect(chat.prompts[2].prompt).toContain('"deleted":true');
-    expect(chat.world.storedAgents()).toEqual([]);
+    expect(chat.prompts[2].prompt).not.toContain("CONFIRMATION_REQUIRED");
+    expect(chat.prompts[2].prompt).toContain("operation_retired");
+    expect(chat.world.storedAgents()).toHaveLength(1);
   },
 );
 
@@ -150,38 +133,25 @@ it("consumes one typed confirmation even if Pica requests more than one agent de
   await chat.send("Entferne die Agents. LÖSCHEN", [
     modelAction("agents.delete", { agentId: first, expectedRevision: 1 }),
     modelAction("agents.delete", { agentId: second, expectedRevision: 1 }),
-    "Ersten Agent entfernt; für den zweiten benötige ich erneut LÖSCHEN.",
+    "Ersten Agent geprüft; für den zweiten benötige ich erneut LÖSCHEN.",
   ]);
-  expect(chat.prompts[2].prompt).toContain('"deleted":true');
+  expect(chat.prompts[2].prompt).toContain("operation_retired");
   expect(chat.prompts[2].prompt).toContain("CONFIRMATION_REQUIRED");
-  expect(chat.world.storedAgents().map((agent) => agent.id)).toEqual([second]);
+  expect(chat.world.storedAgents()).toHaveLength(2);
 });
 
-it("passes authorization errors and revision conflicts back for a comprehensible explanation", async () => {
+it("passes an authorization error back for a comprehensible explanation", async () => {
   const id = await chat.seed();
   vi.spyOn(chat.tools, "run").mockResolvedValueOnce({
     ok: false,
     error: "FORBIDDEN",
   });
-  await chat.send("Benenne den Agent um.", [
-    modelAction("agents.update", {
-      agentId: id,
-      expectedRevision: 1,
-      name: "Denied",
-    }),
-    "Mir fehlt die Berechtigung zum Ändern dieses Agents.",
+  await chat.send("Zeige den Agent.", [
+    modelAction("agents.read", { agentId: id }),
+    "Mir fehlt die Berechtigung zum Lesen dieses Agents.",
   ]);
   expect(chat.prompts[1].prompt).toContain("FORBIDDEN");
   expect(chat.prompts[0].instructions).toContain("fehlende Berechtigung");
-  await chat.send("Benenne den Agent um.", [
-    modelAction("agents.update", {
-      agentId: id,
-      expectedRevision: 2,
-      name: "Stale",
-    }),
-    "Der Agent wurde zwischenzeitlich geändert.",
-  ]);
-  expect(chat.prompts.at(-1)?.prompt).toContain('"error":"CONFLICT"');
   expect(chat.stored(id).name).toBe("Synthetic reviewer");
 });
 
@@ -215,7 +185,7 @@ it("does not expose upstream diagnostics when an unexpected operation error occu
   });
 });
 
-it("keeps the read revision and access facts available when a long instruction is truncated for the model", async () => {
+it("hands a long instruction to the model complete, together with the read revision and access facts", async () => {
   const id = await chat.seed();
   const source = chat.stored(id);
   if (!source.configuration) throw new Error("Missing synthetic configuration");
@@ -224,16 +194,13 @@ it("keeps the read revision and access facts available when a long instruction i
     ...source,
     configuration: { ...source.configuration, markdown },
   });
-  await chat.send("Ändere nur den Titel des Agents.", [
+  await chat.send("Zeige den Agent.", [
     modelAction("agents.read", { agentId: id }),
-    modelAction("agents.update", {
-      agentId: id,
-      expectedRevision: 2,
-      name: "Long agent renamed",
-    }),
-    "Titel geändert, Anweisung erhalten.",
+    "Agent gelesen, Anweisung gekürzt.",
   ]);
-  expect(chat.prompts[1].prompt).toContain("[gekürzt]");
+  // A result is complete or refused; the history and attachments are the only texts cut for the prompt.
+  expect(chat.prompts[1].prompt).not.toContain("[gekürzt]");
+  expect(chat.prompts[1].prompt).toContain(markdown);
   expect(chat.prompts[1].prompt).toContain('"revision":2');
   expect(chat.prompts[1].prompt).toContain('"canEdit":true');
   expect(chat.stored(id).configuration?.markdown).toBe(markdown);

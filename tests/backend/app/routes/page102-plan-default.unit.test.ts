@@ -65,7 +65,17 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 
-it("opens the readable plan named Task2 when the address names no plan", async () => {
+async function thrownResponse(work: Promise<unknown>): Promise<Response> {
+  try {
+    await work;
+  } catch (error: unknown) {
+    if (error instanceof Response) return error;
+    throw error;
+  }
+  throw new Error("Expected a thrown response.");
+}
+
+it("redirects to the readable plan named Task2 when the address names no plan", async () => {
   serve([plan("alpha", "Alpha"), plan("task-two", "Task2")]);
   const request = new Request("http://pages.invalid/agents/plans");
   let destination: string | null = null;
@@ -77,6 +87,13 @@ it("opens the readable plan named Task2 when the address names no plan", async (
     destination = error.headers.get("Location");
   }
   expect(destination).toBe("/agents/plans?planId=task-two");
+  const redirect = await thrownResponse(open());
+  expect(redirect.status).toBe(302);
+  expect(redirect.headers.get("Location")).toBe(
+    "/agents/plans?planId=task-two",
+  );
+  expect(redirect.headers.get("Cache-Control")).toBe("no-store");
+  expect(redirect.headers.get("Set-Cookie")).toContain("pages_plan_selection=");
   expect(service.visible).toHaveBeenCalledExactlyOnceWith("owner");
   expect(service.page).toHaveBeenCalledExactlyOnceWith("owner", {
     planId: "task-two",

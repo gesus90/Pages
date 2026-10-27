@@ -98,24 +98,25 @@ beforeEach(() => {
   world.addModel("model-1", { efforts: ["low", "medium"] });
 });
 
-it("offers every agent operation to a verified personal credential", async () => {
+it("offers the agent reads and none of the retired agent writes to a verified personal credential", async () => {
   const response = await api().handle("owner-token", {
     operation: "verify",
     parameters: {},
   });
 
   const offered = (response as { tools: readonly string[] }).tools;
-  for (const operation of [
-    ...PAGE_AGENT_READ_OPERATIONS,
-    ...PAGE_AGENT_WRITE_OPERATIONS,
-  ])
+  for (const operation of PAGE_AGENT_READ_OPERATIONS)
     expect(offered).toContain(operation);
+  for (const operation of PAGE_AGENT_WRITE_OPERATIONS)
+    expect(offered).not.toContain(operation);
 });
 
-it("serves the operations through the same API as every other one", async () => {
-  const created = await api().handle("owner-token", {
-    operation: "agents.create",
-    parameters: { operationId: "create-1", name: "Reviewer" },
+it("serves the reads through the same API as every other one", async () => {
+  world.seedAgent({
+    id: "reviewer",
+    ownerId: "owner",
+    modelProfileId: "model-1",
+    name: "Reviewer",
   });
   const listed = await api().handle("owner-token", {
     operation: "agents.list",
@@ -126,10 +127,6 @@ it("serves the operations through the same API as every other one", async () => 
     parameters: {},
   });
 
-  expect(created).toMatchObject({
-    apiVersion: "1",
-    result: { changed: true, revision: 1 },
-  });
   expect(listed).toMatchObject({
     apiVersion: "1",
     result: { total: 1, agents: [{ name: "Reviewer", ownerId: "owner" }] },
@@ -137,20 +134,18 @@ it("serves the operations through the same API as every other one", async () => 
   expect(hidden).toMatchObject({ result: { total: 0, agents: [] } });
 });
 
-it("takes the owner from the credential, whatever the request names", async () => {
+it("refuses a retired agent write for every credential, whatever owner the request names", async () => {
   await expect(
     api().handle("other-token", {
       operation: "agents.create",
       parameters: { operationId: "create-1", name: "Mine", ownerId: "owner" },
     }),
-  ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
-
-  await api().handle("other-token", {
-    operation: "agents.create",
-    parameters: { operationId: "create-2", name: "Mine" },
+  ).rejects.toMatchObject({
+    code: "INVALID_REQUEST",
+    details: { reason: "operation_retired" },
   });
 
-  expect(world.storedAgents()).toMatchObject([{ ownerId: "other" }]);
+  expect(world.storedAgents()).toEqual([]);
 });
 
 it("refuses an unknown credential before anything is read", async () => {

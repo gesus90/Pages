@@ -13,6 +13,10 @@ import type { ServerBuild } from "react-router";
 vi.mock("@/backend/runtime/StaticAssets", () => ({
   serveStaticAsset: vi.fn(async () => false),
 }));
+// The executable plan catalog of the independent MCP package stays out of Pages tests.
+vi.mock("@/backend/service/chat/PicaPlanTools", () => ({
+  registerPicaPlanTools: vi.fn(),
+}));
 // Without an initialized log file, every request start is mirrored to stderr.
 vi.mock("@/backend/logging/LogFallback", async (importOriginal) => ({
   ...(await importOriginal<object>()),

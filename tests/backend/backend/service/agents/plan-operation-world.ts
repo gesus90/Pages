@@ -378,6 +378,10 @@ export class PlanWorld {
     const stored = new Map(keys);
     const transaction: DatabaseTransaction = {
       query: async (statement, parameters = {}) => {
+        if (statement.includes("FROM agent_plans")) {
+          const plan = this.plans.get(String(parameters.id));
+          return plan ? [[plan.revision]] : [];
+        }
         if (!statement.includes("FROM agent_operation_keys"))
           throw new Error("Unexpected query");
         const entry = keys.get(

@@ -285,7 +285,8 @@ it("saves once for a held key and ignores Ctrl+Shift+S", async () => {
 
 it("keeps a refused save visible until it is closed", async () => {
   const server = planServer();
-  server.failure = "plan_conflict";
+  // A revision conflict opens its own dialog; any other refusal stays in the notice.
+  server.failure = "plan_name_taken";
   const { container } = renderPlanPage(server);
   await ready(container);
   await removeWriter();
@@ -294,7 +295,7 @@ it("keeps a refused save visible until it is closed", async () => {
   const alert = await notices.findByRole("alert");
   expect(alert.textContent).toContain(i18n.t("plans.flow.storage.failed"));
   expect(alert.textContent).toContain(
-    i18n.t("settings.agents.error.plan_conflict"),
+    i18n.t("settings.agents.error.plan_name_taken"),
   );
   fireEvent.click(
     within(alert).getByRole("button", {
@@ -302,6 +303,21 @@ it("keeps a refused save visible until it is closed", async () => {
     }),
   );
   expect(notices.queryByRole("alert")).toBeNull();
+  expect(server.saved).toHaveLength(0);
+});
+
+it("opens the revision conflict dialog when the save is refused because the plan changed", async () => {
+  const server = planServer();
+  server.failure = "plan_conflict";
+  const { container } = renderPlanPage(server);
+  await ready(container);
+  await removeWriter();
+  pressSave();
+  expect(
+    await screen.findByRole("dialog", {
+      name: i18n.t("plans.execution.conflictTitle"),
+    }),
+  ).toBeDefined();
   expect(server.saved).toHaveLength(0);
 });
 

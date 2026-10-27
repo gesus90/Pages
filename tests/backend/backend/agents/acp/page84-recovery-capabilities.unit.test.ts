@@ -8,9 +8,13 @@ vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
   endTaggedProcesses: vi.fn(async () => ({ found: 0, remaining: 0 })),
 }));
 
-it.each(["codex_cli", "claude_code"] as const)(
-  "records %s's actually announced capabilities and adapter version without attempting plan session resume",
-  async (provider) => {
+it.each([
+  { provider: "codex_cli", canContinue: true },
+  // Claude Code plan sessions are not kept on disk, so no later process can continue them.
+  { provider: "claude_code", canContinue: false },
+] as const)(
+  "records the continuation of $provider and its adapter version without attempting plan session resume",
+  async ({ provider, canContinue }) => {
     const started = startAcpSession(
       {
         continuation: {
@@ -24,8 +28,8 @@ it.each(["codex_cli", "claude_code"] as const)(
 
     expect(turn.failure).toBeNull();
     expect(started.observer.capabilities).toHaveBeenCalledExactlyOnceWith({
-      canLoad: true,
-      canResume: true,
+      canLoad: canContinue,
+      canResume: canContinue,
       adapter:
         provider === "codex_cli"
           ? "@agentclientprotocol/codex-acp 2.2.2"

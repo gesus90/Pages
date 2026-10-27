@@ -2,9 +2,8 @@ import { RouterContextProvider } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { action } from "@/app/routes/page-agents";
+import { action, loader } from "@/app/routes/page-agents";
 import { loader as ticketChoices } from "@/app/routes/agent-ticket-choices";
-import { AgentError } from "@/backend/error/AgentErrors";
 
 import { TICKET_ACTOR } from "../../backend/service/agents/page55-ticket-fixture";
 
@@ -27,14 +26,22 @@ function context(): RouterContextProvider {
   return provider;
 }
 
-async function remove(
-  confirmation: string,
+async function submit(
+  method: string,
   intent = "delete-agent",
 ): Promise<Response> {
   return action({
     request: new Request("http://synthetic.invalid/agents/agents", {
-      method: "POST",
-      body: new URLSearchParams({ intent, agentId: "agent", confirmation }),
+      method,
+      ...(method === "POST"
+        ? {
+            body: new URLSearchParams({
+              intent,
+              agentId: "agent",
+              confirmation: "LÖSCHEN",
+            }),
+          }
+        : {}),
     }),
     context: context(),
     params: {},
@@ -43,25 +50,27 @@ async function remove(
   });
 }
 
-it("requires explicit confirmation and delegates deletion under the authenticated user", async () => {
-  expect((await remove("")).status).toBe(400);
+it("sends an old form submission to the plan editor without deleting an agent", async () => {
+  const response = await submit("POST");
+  expect(response.status).toBe(303);
+  expect(response.headers.get("Location")).toBe(
+    "/agents/plans?notice=direct-models",
+  );
   expect(service.remove).not.toHaveBeenCalled();
-  const response = await remove("LÖSCHEN");
-  expect(response.status).toBe(200);
-  expect(response.headers.get("Cache-Control")).toBe("no-store");
-  expect(await response.json()).toEqual({ ok: true, intent: "delete-agent" });
-  expect(service.remove).toHaveBeenCalledExactlyOnceWith("owner", "agent");
+  expect(service.save).not.toHaveBeenCalled();
 });
 
-it("returns a safe denial when server-side ownership verification refuses deletion", async () => {
-  service.remove.mockRejectedValue(new AgentError("agent_usage_denied"));
-  const response = await remove("LÖSCHEN");
-  expect(response.status).toBe(403);
-  expect(await response.json()).toMatchObject({
-    ok: false,
-    intent: "delete-agent",
-    error: "agent_usage_denied",
-  });
+it("answers anything but a POST with method not allowed", async () => {
+  expect((await submit("PUT")).status).toBe(405);
+  expect(service.remove).not.toHaveBeenCalled();
+});
+
+it("redirects the retired definition page to the plan editor", () => {
+  const response = loader();
+  expect(response.status).toBe(302);
+  expect(response.headers.get("Location")).toBe(
+    "/agents/plans?notice=direct-models",
+  );
 });
 
 it("gets ticket choices from the authenticated user's authorized service boundary", async () => {

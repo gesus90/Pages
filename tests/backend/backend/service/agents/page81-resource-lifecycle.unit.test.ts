@@ -225,7 +225,8 @@ it("continues to occupy capacity when startup recovery cannot prove process deat
     state: "idle",
     since: "2026-10-16",
   });
-  world.cleanup.mockRejectedValueOnce(new Error("unknown"));
+  // Neither the startup check nor the bounded recheck for the waiting request can prove it.
+  world.cleanup.mockRejectedValue(new Error("unknown"));
   await world.scheduler.recover();
   const start = vi.fn(async () => nativeSession());
   const controller = new AbortController();
@@ -238,6 +239,30 @@ it("continues to occupy capacity when startup recovery cannot prove process deat
   expect(start).not.toHaveBeenCalled();
   controller.abort();
   await rejection;
+  await world.scheduler.shutdown();
+});
+
+it("admits the waiting request once a later check proves the uncertain lease gone", async () => {
+  const world = resourceWorld();
+  world.records.set("old", {
+    ...owner("old"),
+    state: "idle",
+    since: "2026-10-16",
+  });
+  world.cleanup.mockRejectedValueOnce(new Error("unknown"));
+  await world.scheduler.recover();
+  expect(world.scheduler.snapshot().active[0]?.state).toBe("cleanup_failed");
+  const start = vi.fn(async () => nativeSession());
+  const pending = world.scheduler.open(
+    owner("new"),
+    new AbortController().signal,
+    start,
+  );
+  await vi.advanceTimersByTimeAsync(1000);
+  await (await pending).close();
+  expect(world.cleanup).toHaveBeenCalledTimes(2);
+  expect(world.records.has("old")).toBe(false);
+  expect(start).toHaveBeenCalledOnce();
   await world.scheduler.shutdown();
 });
 

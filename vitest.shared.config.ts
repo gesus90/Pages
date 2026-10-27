@@ -14,6 +14,7 @@ export default defineConfig({
       "@/scripts": fileURLToPath(new URL("./scripts", import.meta.url)),
       "@/definition": fileURLToPath(new URL("./definition", import.meta.url)),
       "@/language": fileURLToPath(new URL("./language", import.meta.url)),
+      "@/scripts": fileURLToPath(new URL("./scripts", import.meta.url)),
     },
   },
   test: {

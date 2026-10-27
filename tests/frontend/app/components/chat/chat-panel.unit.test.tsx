@@ -1,4 +1,10 @@
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 
 import {
@@ -251,7 +257,8 @@ it("keeps a running answer through closing and reopening the panel", async () =>
   expect(picaAnswers()).toHaveLength(1);
   expect(ownMessages()).toHaveLength(1);
   expect(screen.queryByText(THINKING)).toBeNull();
-  expect(scroll).toHaveBeenCalledWith({ block: "end" });
+  // The list scrolls in an effect, not synchronously with the render.
+  await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "end" }));
 });
 
 it("sends once and keeps the input empty when Enter and Abschicken arrive before the panel updates", async () => {

@@ -30,6 +30,17 @@ const stores = vi.hoisted(
     [] as { directory: string; remove: (names: string[]) => Promise<void> }[],
 );
 
+vi.mock("@/backend/storage/TicketFileStore", () => ({
+  TicketFileStore: class {
+    public readonly directory: string;
+    public readonly remove = vi.fn(async (): Promise<void> => {});
+
+    public constructor(directory: string) {
+      this.directory = directory;
+      stores.push(this);
+    }
+  },
+}));
 vi.mock("@/backend/storage/WikiFileStore", () => ({
   WikiFileStore: class {
     public readonly directory: string;
@@ -67,11 +78,12 @@ describe("ProjectDeletionStorage", () => {
     return { runs, storage: new ProjectDeletionStorage(runs, "/data") };
   }
 
-  it("keeps the wiki and the ticket attachments in their own directories next to the database", () => {
+  it("keeps the wiki attachments in their own directory and hands the data directory to the ticket store", () => {
     storage();
+    // The ticket store resolves its `assets/` folders and the legacy folder itself.
     expect(stores.map(({ directory }) => directory)).toEqual([
       path.join("/data", "wiki-attachments"),
-      path.join("/data", "ticket-attachments"),
+      "/data",
     ]);
   });
 

@@ -181,6 +181,7 @@ it("bounds shutdown of an unresponsive execution without pretending its run or r
   await vi.advanceTimersByTimeAsync(30000);
   await rejection;
   expect(stored.get(run.id)?.status).toBe("stopping");
-  expect(stored.get(run.id)?.stopRequested).toBe(true);
+  // A shutdown interrupts the run; it is no stop decision of the executor.
+  expect(stored.get(run.id)?.stopRequested).toBe(false);
   expect(vi.getTimerCount()).toBe(0);
 });

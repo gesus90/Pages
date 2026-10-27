@@ -165,10 +165,11 @@ it("adds, connects, binds and removes nodes; the stored structure reads back", a
   expect(plan.name).toBe("Review and check");
   expect(plan.revision).toBe(2);
   expect(plan.nodes.map((node) => node.id)).not.toContain("ticket");
+  const flow = { fromPort: "flow-out", toPort: "flow-in" };
   expect(plan.edges).toEqual([
-    { from: "start", to: "review" },
-    { from: "review", to: "check" },
-    { from: "check", to: "end" },
+    { from: "start", to: "review", ...flow },
+    { from: "review", to: "check", ...flow },
+    { from: "check", to: "end", ...flow },
   ]);
   expect(plan.nodes.find((node) => node.id === "check")).toMatchObject({
     bindings: { notes: { kind: "result", stepId: "review" } },
@@ -388,6 +389,40 @@ it("refuses a taken name, a value of the wrong format and a node that is no para
   expect(malformed.details).toEqual({ reason: "parameter_value_invalid" });
   expect(notParameter.code).toBe("NOT_FOUND");
   expect(world.saves).toBe(0);
+});
+
+it("refuses to rename a parameter to a name another parameter holds, and allows keeping its own", async () => {
+  const created = await change("owner", "plans.parameter.create", {
+    operationId: "second-parameter",
+    planId: "plan-a",
+    expectedRevision: 1,
+    name: "limit",
+    value: { type: "number", number: 1 },
+    format: "number",
+  });
+  const [secondId] = created.createdNodeIds;
+
+  const taken = await refusal(
+    world.call("owner", "plans.parameter.update", {
+      operationId: "rename-taken",
+      planId: "plan-a",
+      expectedRevision: 2,
+      parameterId: secondId,
+      name: "repository",
+    }),
+  );
+  await change("owner", "plans.parameter.update", {
+    operationId: "keep-name",
+    planId: "plan-a",
+    expectedRevision: 2,
+    parameterId: secondId,
+    name: "limit",
+    value: { type: "number", number: 2 },
+    format: "number",
+  });
+
+  expect(taken.details).toEqual({ reason: "element_exists" });
+  expect((await read("owner", "plan-a")).revision).toBe(3);
 });
 
 it("lets only the owner change a plan; a hidden plan is missing", async () => {

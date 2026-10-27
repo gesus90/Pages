@@ -3,7 +3,6 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   DEFAULT_AGENT_RUN_OPTIONS,
-  DEFAULT_ACP_RUN_OPTIONS,
   acpRunOptions,
   emptyAgentConfiguration,
 } from "@/definition/AgentConfiguration";
@@ -91,7 +90,7 @@ it.each(ACP_RUNNERS)(
 );
 
 it.each(ACP_RUNNERS)(
-  "keeps an earlier write mode unchanged when another field of an existing $provider agent changes, and never makes it YOLO",
+  "leaves an earlier write mode of an existing $provider agent untouched, because MCP can no longer change an agent",
   async ({ model }) => {
     world.seedAgent({
       id: "legacy",
@@ -102,34 +101,33 @@ it.each(ACP_RUNNERS)(
     expect(world.storedAgents()[0]?.configuration?.run).toEqual(
       DEFAULT_AGENT_RUN_OPTIONS,
     );
-    await world.call("owner", "agents.update", {
-      operationId: "rename-legacy",
-      agentId: "legacy",
-      expectedRevision: 1,
-      name: "Renamed",
-    });
-    expect(world.storedAgents()[0]).toMatchObject({
-      name: "Renamed",
-      configuration: { run: DEFAULT_AGENT_RUN_OPTIONS },
-    });
+    await expect(
+      world.call("owner", "agents.update", {
+        operationId: "rename-legacy",
+        agentId: "legacy",
+        expectedRevision: 1,
+        name: "Renamed",
+      }),
+    ).rejects.toMatchObject({ details: { reason: "operation_retired" } });
+    expect(world.storedAgents()[0]?.name).not.toBe("Renamed");
+    expect(world.storedAgents()[0]?.configuration?.run).toEqual(
+      DEFAULT_AGENT_RUN_OPTIONS,
+    );
   },
 );
 
 it.each(ACP_RUNNERS)(
-  "gives a $provider agent created over MCP the read-only mode, which MCP shows and cannot change",
+  "creates no $provider agent over MCP, because the operation is retired",
   async ({ model }) => {
-    const created = (await world.call("owner", "agents.create", {
-      operationId: "create-acp",
-      name: "Reviewer",
-      modelProfileId: model,
-      reasoningEffort: "high",
-    })) as { readonly id: string };
-    expect(world.storedAgents()[0]?.configuration?.run).toEqual(
-      DEFAULT_ACP_RUN_OPTIONS,
-    );
-    expect(
-      await world.call("owner", "agents.read", { agentId: created.id }),
-    ).toMatchObject({ agent: { run: DEFAULT_ACP_RUN_OPTIONS } });
+    await expect(
+      world.call("owner", "agents.create", {
+        operationId: "create-acp",
+        name: "Reviewer",
+        modelProfileId: model,
+        reasoningEffort: "high",
+      }),
+    ).rejects.toMatchObject({ details: { reason: "operation_retired" } });
+    expect(world.storedAgents()).toEqual([]);
   },
 );
 

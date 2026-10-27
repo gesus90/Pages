@@ -75,10 +75,6 @@ function canvas(): HTMLElement {
   return screen.getByRole("region", { name: i18n.t("plans.canvas") });
 }
 
-function card(name: string): HTMLElement {
-  return within(canvas()).getByRole("article", { name });
-}
-
 function frame(): HTMLElement {
   return within(canvas()).getByRole("region", {
     name: i18n.t("plans.groups.frame", { name: GROUP }),
@@ -125,67 +121,9 @@ async function addMembers(dialog: HTMLElement): Promise<void> {
       within(dialog).getByRole("list", { name: i18n.t("plans.groups.order") }),
     ).findByText(new RegExp(name));
   }
-  fireEvent.click(
-    within(dialog).getByRole("button", {
-      name: i18n.t("plans.groups.addPort"),
-    }),
-  );
-  fireEvent.change(
-    within(dialog).getByRole("textbox", {
-      name: i18n.t("plans.groups.portName"),
-    }),
-    { target: { value: "shared" } },
-  );
 }
 
-/** Each member reads the boundary port through the handle beside it. */
-function bindInternalPorts(): void {
-  for (const name of ["Test 2", "Test 1"]) {
-    fireEvent.click(
-      within(frame()).getByRole("button", {
-        name: i18n.t("plans.groups.portToMember", { name: "shared" }),
-      }),
-    );
-    fireEvent.click(
-      within(card(name)).getByRole("button", {
-        name: i18n.t("plans.bindPort", { parameter: "shared", name }),
-      }),
-    );
-  }
-}
-
-function connectOuterGraph(): void {
-  fireEvent.click(
-    within(card("Start")).getByRole("button", {
-      name: i18n.t("plans.flowOut"),
-    }),
-  );
-  fireEvent.click(
-    within(frame()).getAllByRole("button", {
-      name: i18n.t("plans.flowIn"),
-    })[0] ?? document.body,
-  );
-  fireEvent.click(
-    within(frame()).getAllByRole("button", {
-      name: i18n.t("plans.flowOut"),
-    })[0] ?? document.body,
-  );
-  fireEvent.click(
-    within(card("Ende")).getByRole("button", { name: i18n.t("plans.flowIn") }),
-  );
-  fireEvent.click(
-    within(card("spare")).getByRole("button", {
-      name: i18n.t("plans.valueOut"),
-    }),
-  );
-  fireEvent.click(
-    within(frame()).getByRole("button", {
-      name: i18n.t("plans.bindPort", { parameter: "shared", name: GROUP }),
-    }),
-  );
-}
-
-it("edits a group from its node menu on the canvas and saves an ordered subgraph with a visible shared port", async () => {
+it("edits a group from its node menu on the canvas and saves its agents in order, without any boundary port", async () => {
   const server = groupServer();
   const rendered = renderPlanPage(server);
   await screen.findByRole("region", { name: i18n.t("plans.canvas") });
@@ -197,24 +135,15 @@ it("edits a group from its node menu on the canvas and saves an ordered subgraph
       .filter((tab) => !tab.closest("[data-plan-palette]")),
   ).toHaveLength(0);
   const dialog = await openGroupDialog();
+  // A group is a session container (PAGE-113): no port can be added to it any more.
+  expect(
+    within(dialog).queryByRole("button", {
+      name: i18n.t("plans.groups.addPort"),
+    }),
+  ).toBeNull();
   await addMembers(dialog);
   closeDialog(dialog);
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  bindInternalPorts();
-  connectOuterGraph();
-  const reopened = await openGroupDialog();
-  expect(
-    within(reopened).getByRole("combobox", {
-      name: i18n.t("plans.groups.externalSource", { name: "shared" }),
-    }).textContent,
-  ).toContain("spare");
-  fireEvent.change(
-    within(reopened).getByRole("textbox", {
-      name: i18n.t("plans.groups.portName"),
-    }),
-    { target: { value: "common" } },
-  );
-  closeDialog(reopened);
   pressSave();
   await waitFor(() => expect(server.saved).toHaveLength(1));
   const group = server.saved[0]?.nodes.find((node) => node.type === "group");
@@ -223,34 +152,19 @@ it("edits a group from its node menu on the canvas and saves an ordered subgraph
     "agent-1",
     "agent-0",
   ]);
-  expect(group.bindings.common).toEqual({ kind: "source", nodeId: "spare" });
-  expect(group.bindings.shared).toBeUndefined();
-  expect(group.steps.map((step) => step.bindings.shared)).toEqual([
-    { kind: "source", nodeId: group.parameters[0]?.id },
-    { kind: "source", nodeId: group.parameters[0]?.id },
-  ]);
-  expect(server.saved[0]?.edges).toHaveLength(2);
+  expect(group.parameters).toEqual([]);
+  expect(group.bindings).toEqual({});
   rendered.unmount();
   renderPlanPage(server);
   await screen.findByRole("region", { name: i18n.t("plans.canvas") });
   const saved = await openGroupDialog();
-  expect(
+  const order = within(
     within(saved).getByRole("list", { name: i18n.t("plans.groups.order") }),
-  ).toBeDefined();
-  fireEvent.click(
-    within(saved).getByRole("button", {
-      name: i18n.t("plans.groups.removePort"),
-    }),
   );
-  closeDialog(saved);
-  // Without the port the members lose their source; the cards mark the issue
-  // and the panel keeps Play disabled until the graph can be run.
-  await waitFor(() =>
-    expect(card("Test 2").className).toContain("border-destructive"),
-  );
-  expect(card("Test 1").className).toContain("border-destructive");
-  expect(screen.getByRole("button", { name: "Play" })).toHaveProperty(
-    "disabled",
-    true,
-  );
+  expect(
+    order.getAllByRole("listitem").map((item) => item.textContent),
+  ).toEqual([
+    expect.stringContaining("Test 2"),
+    expect.stringContaining("Test 1"),
+  ]);
 }, 20_000);

@@ -146,9 +146,8 @@ export function isPlanLoopRuns(runs: unknown): runs is number {
  * exponents, spaces, leading zeros and expressions are refused, never rounded.
  */
 export function readPlanLoopRunsText(text: string): number | null {
-  if (!/^[1-9][0-9]{0,2}$/u.test(text)) return null;
-  const runs = Number(text);
-  return isPlanLoopRuns(runs) ? runs : null;
+  // The pattern admits exactly the whole numbers 1 to 999.
+  return /^[1-9][0-9]{0,2}$/u.test(text) ? Number(text) : null;
 }
 
 /** Whether the end condition counts for this loop: enabled and in `max` mode. */

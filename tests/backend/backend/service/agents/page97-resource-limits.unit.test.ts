@@ -259,6 +259,8 @@ it("keeps failed cleanup occupied after reducing unlimited mode and admits only 
   await session.turn;
   expect(world.scheduler.snapshot().active[0]?.state).toBe("idle");
   await session.close();
+  // The recheck of a waiting request finds the leftover process still there.
+  world.cleanup.mockResolvedValue({ remaining: 1 });
   world.scheduler.updateMaxConcurrentAcpSessions(1);
   const start = vi.fn(async () => nativeSession());
   const pending = world.scheduler.open(

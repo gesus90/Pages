@@ -12,15 +12,26 @@ vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async () => ({
     agentPlanService: service,
     agentPlanManagement: { remove: service.remove },
-  }),
+  }));
+const services = vi.hoisted(() => ({
+  agentPlanService: { visible: vi.fn() },
+  agentPlanManagement: { remove: vi.fn() },
 }));
+vi.mock("@/app/lib/services.server", () => ({
+  getApplicationServices: async () => services,
+}));
+
+const DELETED = { id: "plan", projectId: "project" };
+const SAME_PROJECT = { id: "sibling", projectId: "project" };
+const OTHER_PROJECT = { id: "other", projectId: "elsewhere" };
 
 beforeEach(() => {
   vi.resetAllMocks();
   service.visible.mockResolvedValue([]);
+  services.agentPlanService.visible.mockResolvedValue([]);
 });
 
-async function remove(planId: string): Promise<Response> {
+async function remove(fields: Record<string, string>): Promise<Response> {
   const provider = new RouterContextProvider();
   provider.set(authenticatedUserContext, TICKET_ACTOR);
   return action({
@@ -32,6 +43,7 @@ async function remove(planId: string): Promise<Response> {
         revision: "3",
         requestKey: "request-1",
       }),
+      body: new URLSearchParams({ intent: "delete-plan", ...fields }),
     }),
     context: provider,
     params: {},
@@ -61,11 +73,61 @@ it("redirects to a remaining plan of the same project and defers persistence unt
   const response = await remove("plan");
   expect(response.headers.get("Location")).toBe("/agents/plans?planId=next");
   expect(response.headers.get("Set-Cookie")).toBeNull();
+it("deletes with the revision as the authenticated user and clears the selection of the last plan", async () => {
+  services.agentPlanService.visible
+    .mockResolvedValueOnce([DELETED])
+    .mockResolvedValueOnce([]);
+  const response = await remove({
+    planId: "plan",
+    revision: "3",
+    requestKey: "dialog",
+  });
+  expect(services.agentPlanManagement.remove).toHaveBeenCalledExactlyOnceWith(
+    "owner",
+    "plan",
+    { revision: 3, requestKey: "page-dialog" },
+  );
+  expect(response.status).toBe(302);
+  expect(response.headers.get("Location")).toBe("/agents/plans");
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(response.headers.get("Set-Cookie")).toContain("pages_plan_selection=");
+  expect(response.headers.get("Set-Cookie")).toContain("Max-Age=0");
+});
+
+it("opens a plan of the same project first and remembers it", async () => {
+  services.agentPlanService.visible
+    .mockResolvedValueOnce([DELETED, OTHER_PROJECT, SAME_PROJECT])
+    .mockResolvedValueOnce([OTHER_PROJECT, SAME_PROJECT]);
+  const response = await remove({
+    planId: "plan",
+    revision: "1",
+    requestKey: "dialog",
+  });
+  expect(response.headers.get("Location")).toBe("/agents/plans?planId=sibling");
+  expect(response.headers.get("Set-Cookie")).not.toContain("Max-Age=0");
+});
+
+it("falls back to the first readable plan of another project", async () => {
+  services.agentPlanService.visible
+    .mockResolvedValueOnce([DELETED])
+    .mockResolvedValueOnce([OTHER_PROJECT]);
+  const response = await remove({
+    planId: "plan",
+    revision: "1",
+    requestKey: "dialog",
+  });
+  expect(response.headers.get("Location")).toBe("/agents/plans?planId=other");
 });
 
 it("returns a safe denial when the service refuses a user without the right", async () => {
-  service.remove.mockRejectedValue(new AgentError("plan_access_denied"));
-  const response = await remove("plan");
+  services.agentPlanManagement.remove.mockRejectedValue(
+    new AgentError("plan_access_denied"),
+  );
+  const response = await remove({
+    planId: "plan",
+    revision: "1",
+    requestKey: "dialog",
+  });
   expect(response.status).toBe(403);
   expect(await response.json()).toEqual({
     ok: false,
@@ -74,12 +136,33 @@ it("returns a safe denial when the service refuses a user without the right", as
   });
 });
 
-it("reports an active run as a conflict and rejects a missing plan", async () => {
-  service.remove.mockRejectedValue(new AgentError("plan_running"));
-  const running = await remove("plan");
+it("reports an active run as a conflict", async () => {
+  services.agentPlanManagement.remove.mockRejectedValue(
+    new AgentError("plan_running"),
+  );
+  const running = await remove({
+    planId: "plan",
+    revision: "1",
+    requestKey: "dialog",
+  });
   expect(running.status).toBe(409);
   expect(await running.json()).toMatchObject({ error: "plan_running" });
-  const missing = await remove("");
-  expect(missing.status).toBe(400);
-  expect(service.remove).toHaveBeenCalledOnce();
 });
+
+const INCOMPLETE_REQUESTS: readonly {
+  readonly fields: Record<string, string>;
+}[] = [
+  { fields: { planId: "", revision: "1", requestKey: "dialog" } },
+  { fields: { planId: "plan", revision: "0", requestKey: "dialog" } },
+  { fields: { planId: "plan", revision: "x", requestKey: "dialog" } },
+  { fields: { planId: "plan", revision: "1" } },
+];
+
+it.each(INCOMPLETE_REQUESTS)(
+  "rejects an incomplete deletion request $fields",
+  async ({ fields }) => {
+    const response = await remove(fields);
+    expect(response.status).toBe(400);
+    expect(services.agentPlanManagement.remove).not.toHaveBeenCalled();
+  },
+);

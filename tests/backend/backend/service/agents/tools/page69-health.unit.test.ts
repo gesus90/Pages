@@ -25,6 +25,7 @@ vi.mock("@/backend/agents/cli/CliPlanIsolation", () => ({
 vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
   RUN_INSTANCE_VARIABLE: "PAGES_RUN_INSTANCE",
   readServerScope: async () => ({ earliestStart: 0 }),
+  readSpawnScope: async () => ({ earliestStart: 0 }),
   endTaggedProcesses: async () => ({ found: 0, remaining: 0 }),
 }));
 

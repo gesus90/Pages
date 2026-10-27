@@ -39,9 +39,15 @@ vi.mock("@/backend/runtime/AgentToolsStartup", () => ({
   startAgentTools: vi.fn(async () => undefined),
 }));
 
-vi.mock("node:os", () => ({
+vi.mock("node:os", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   homedir: () => "/home/pages",
-  networkInterfaces: vi.fn(),
+  // The Pica browser network guard lists the interfaces while it is imported.
+  networkInterfaces: vi.fn(() => ({})),
+}));
+// The executable plan catalog of the independent MCP package stays out of Pages tests.
+vi.mock("@/backend/service/chat/PicaPlanTools", () => ({
+  registerPicaPlanTools: vi.fn(),
 }));
 vi.mock("node:http", async (importOriginal) => ({
   ...(await importOriginal<object>()),

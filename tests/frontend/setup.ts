@@ -65,3 +65,33 @@ for (const [name, value] of [
     configurable: true,
     get: () => value,
   });
+
+/** A media query that never matches and never changes, as a quiet desktop browser reports. */
+class StaticMediaQueryList extends EventTarget implements MediaQueryList {
+  public readonly matches = false;
+  public readonly media: string;
+  public onchange: MediaQueryList["onchange"] = null;
+
+  /** Remembers the query text that `media` reports. */
+  public constructor(media: string) {
+    super();
+    this.media = media;
+  }
+
+  /** The deprecated listener API is not used; the change event goes through `addEventListener`. */
+  public addListener(): void {}
+
+  /** The deprecated listener API is not used; the change event goes through `removeEventListener`. */
+  public removeListener(): void {}
+}
+
+// jsdom has neither media queries nor the font loading API; the scroll edges of every viewport observe both.
+window.matchMedia = (query: string): MediaQueryList =>
+  new StaticMediaQueryList(query);
+Object.defineProperty(document, "fonts", {
+  configurable: true,
+  value: new EventTarget(),
+});
+
+// jsdom does not implement scrolling; pickers scroll their active option into view.
+Element.prototype.scrollIntoView ??= (): void => {};

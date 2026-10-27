@@ -32,7 +32,11 @@ async function engineWorld(shouldFailSecond: boolean): Promise<EngineWorld> {
     steps: {
       closeGroups: async () => {},
       run: async (run, snapshot, step, control) => {
-        expect(snapshot).toBe(fixture.snapshot);
+        // The engine freezes its own copy of the snapshot, with execution facts, when the run starts.
+        expect(snapshot).not.toBe(fixture.snapshot);
+        expect(snapshot.steps.map((entry) => entry.step.id)).toEqual(
+          fixture.snapshot.steps.map((entry) => entry.step.id),
+        );
         calls.push(step.step.id);
         if (step.step.id === "a") await first.promise;
         if (control.signal.aborted)
@@ -109,7 +113,18 @@ it("preserves live pause/resume semantics and checkpoints every successful origi
       { id: "c", status: "paused" },
     ],
   });
-  await Promise.all([world.engine.resume(run.id), world.engine.resume(run.id)]);
+  // Only one of two parallel resumes adopts the continuation; the other finds the run no longer paused.
+  const resumed = await Promise.allSettled([
+    world.engine.resume(run.id),
+    world.engine.resume(run.id),
+  ]);
+  expect(resumed.map((entry) => entry.status)).toEqual([
+    "fulfilled",
+    "rejected",
+  ]);
+  expect(resumed[1]).toMatchObject({
+    reason: { code: "plan_run_unavailable" },
+  });
   await vi.advanceTimersByTimeAsync(0);
 
   expect(world.calls).toEqual(["a", "b", "c"]);

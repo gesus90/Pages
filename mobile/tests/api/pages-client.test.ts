@@ -201,4 +201,33 @@ describe("PagesClient failures", () => {
       client.getJson("/", parseName, { signal: controller.signal }),
     ).rejects.toBeInstanceOf(RequestAbortedError);
   });
+
+  it("sends nothing when the caller aborts while the credentials resolve", async () => {
+    const controller = new AbortController();
+    const fetchImplementation = jest.fn<
+      Promise<Response>,
+      Parameters<typeof fetch>
+    >();
+    let release: (header: string | null) => void = () => undefined;
+    const auth: AuthProvider = {
+      getAuthorizationHeader: () =>
+        new Promise<string | null>((resolve) => {
+          release = resolve;
+        }),
+    };
+    const client = new PagesClient({
+      baseUrl: "https://a.example.com",
+      fetchImplementation,
+      auth,
+    });
+    const running = client
+      .getJson("/", parseName, { signal: controller.signal })
+      .catch((caught: unknown) => caught);
+
+    controller.abort();
+    release("Bearer token");
+
+    await expect(running).resolves.toBeInstanceOf(RequestAbortedError);
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
 });

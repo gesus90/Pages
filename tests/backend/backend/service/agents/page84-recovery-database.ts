@@ -36,8 +36,15 @@ interface AttemptRow {
   readonly result: string;
 }
 
+interface ContinuationRow {
+  readonly runId: string;
+  readonly version: number;
+  readonly snapshot: string;
+}
+
 interface RecoveryRows {
   readonly runs: Map<string, RunRow>;
+  readonly continuations: ContinuationRow[];
   readonly checkpoints: CheckpointRow[];
   readonly attempts: AttemptRow[];
   readonly locks: Map<string, string>;
@@ -63,6 +70,7 @@ export class RecoveryDatabase {
   private readonly queue = new SerialQueue();
   private rows: RecoveryRows = {
     runs: new Map(),
+    continuations: [],
     checkpoints: [],
     attempts: [],
     locks: new Map(),
@@ -237,6 +245,14 @@ export class RecoveryDatabase {
       });
       return;
     }
+    if (statement.includes("INSERT INTO agent_plan_continuations")) {
+      this.rows.continuations.push({
+        runId: requiredText(parameters, "id"),
+        version: requiredNumber(parameters, "version"),
+        snapshot: requiredText(parameters, "snapshot"),
+      });
+      return;
+    }
     if (statement.includes("INSERT INTO agent_plan_repair_attempts")) {
       this.throwFault("attempt");
       this.rows.attempts.push({
@@ -288,6 +304,13 @@ export class RecoveryDatabase {
   private updateRun(parameters: SqlParameters): void {
     this.throwFault("progress");
     const row = this.rows.runs.get(requiredText(parameters, "id"));
+    // Adopting a continuation advances the revision inside the same statement.
+    if (row && parameters.previous_revision === undefined) {
+      row.status = requiredText(parameters, "status");
+      row.view = requiredText(parameters, "view");
+      row.revision += 1;
+      return;
+    }
     if (!row || row.revision !== parameters.previous_revision)
       throw new Error("Synthetic compare-and-set conflict");
     row.status = requiredText(parameters, "status");

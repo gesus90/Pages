@@ -137,29 +137,56 @@ it("refuses missing continuation support at the first group turn and closes the 
   expect(sessions.instanceId("run/group")).toBeUndefined();
 });
 
-it.each(["openrouter", "claude_code"] as const)(
-  "refuses %s before opening a group session",
-  async (provider) => {
-    const input = await sessionInput();
-    const execution: PlanExecution = { run: vi.fn(), open: vi.fn() };
-    const sessions = new AgentPlanGroupSessions(execution);
-    await expect(
-      sessions.turn({
-        key: "run/group",
-        input: {
-          ...input,
-          agent: {
-            ...input.agent,
-            connection: { ...input.agent.connection, provider },
-          },
+it("refuses an API provider before opening a group session", async () => {
+  const input = await sessionInput();
+  const execution: PlanExecution = { run: vi.fn(), open: vi.fn() };
+  const sessions = new AgentPlanGroupSessions(execution);
+  await expect(
+    sessions.turn({
+      key: "run/group",
+      input: {
+        ...input,
+        agent: {
+          ...input.agent,
+          connection: { ...input.agent.connection, provider: "openrouter" },
         },
-        signal: new AbortController().signal,
-        observer: { started: vi.fn(), identified: vi.fn() },
-      }),
-    ).rejects.toBeInstanceOf(AgentError);
-    expect(execution.open).not.toHaveBeenCalled();
-  },
-);
+      },
+      signal: new AbortController().signal,
+      observer: { started: vi.fn(), identified: vi.fn() },
+    }),
+  ).rejects.toBeInstanceOf(AgentError);
+  expect(execution.open).not.toHaveBeenCalled();
+});
+
+it("opens a group session over ACP for a claude_code connection", async () => {
+  const input = await sessionInput();
+  const close = vi.fn(async () => ({
+    exit: { code: 0, signal: null },
+    endedAt: "now",
+    leftovers: 0,
+    isConfirmed: true,
+  }));
+  const execution: PlanExecution = {
+    run: vi.fn(),
+    open: vi.fn(async () => ({ turn: Promise.resolve(groupTurn()), close })),
+  };
+  const sessions = new AgentPlanGroupSessions(execution);
+  await sessions
+    .turn({
+      key: "run/group",
+      input: {
+        ...input,
+        agent: {
+          ...input.agent,
+          connection: { ...input.agent.connection, provider: "claude_code" },
+        },
+      },
+      signal: new AbortController().signal,
+      observer: { started: vi.fn(), identified: vi.fn() },
+    })
+    .catch(() => undefined);
+  expect(execution.open).toHaveBeenCalledOnce();
+});
 
 it("delivers a workspace boundary only to connected children without blocking an unconnected child", async () => {
   const fixture = await groupFixture();

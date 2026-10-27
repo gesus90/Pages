@@ -151,12 +151,19 @@ export function planGroupEdges(
   group: AgentPlanGroup,
 ): readonly AgentPlanEdge[] {
   if (group.edges) return group.edges;
-  return group.steps.slice(1).map((step, index) => ({
-    from: group.steps[index]?.id ?? step.id,
-    to: step.id,
-    fromPort: "flow-out",
-    toPort: "flow-in",
-  }));
+  return group.steps.flatMap((step, index): AgentPlanEdge[] => {
+    const previous = group.steps[index - 1];
+    return previous
+      ? [
+          {
+            from: previous.id,
+            to: step.id,
+            fromPort: "flow-out",
+            toPort: "flow-in",
+          },
+        ]
+      : [];
+  });
 }
 
 /** Members without an internal predecessor: where the outer flow enters the group. */

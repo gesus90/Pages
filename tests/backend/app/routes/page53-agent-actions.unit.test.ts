@@ -24,17 +24,14 @@ beforeEach(() => {
   });
 });
 
-async function remove(): Promise<Response> {
+async function submit(intent: string): Promise<Response> {
   const context = new RouterContextProvider();
   context.set(authenticatedUserContext, TICKET_ACTOR);
   const url = new URL("http://synthetic.invalid/settings/agents");
   return action({
     request: new Request(url, {
       method: "POST",
-      body: new URLSearchParams({
-        intent: "delete-profile",
-        profileId: "linked",
-      }),
+      body: new URLSearchParams({ intent, profileId: "linked" }),
     }),
     context,
     params: {},
@@ -43,27 +40,36 @@ async function remove(): Promise<Response> {
   });
 }
 
-it("deletes for the authenticated admin without a confirmation word", async () => {
-  const response = await remove();
-  expect(response.status).toBe(200);
-  expect(response.headers.get("Cache-Control")).toBe("no-store");
-  expect(await response.json()).toEqual({ ok: true, intent: "delete-profile" });
-  expect(services.agentProfileService.remove).toHaveBeenCalledExactlyOnceWith(
-    expect.objectContaining({ userId: "owner" }),
-    "linked",
-  );
-});
+it.each([
+  "save-profile",
+  "delete-profile",
+  "profile-usages",
+  "delete-assignment",
+])(
+  "answers the retired profile intent %s as gone for the authenticated admin",
+  async (intent) => {
+    const response = await submit(intent);
+    expect(response.status).toBe(410);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      ok: false,
+      intent: "",
+      error: "profile_management_retired",
+    });
+    expect(services.agentProfileService.remove).not.toHaveBeenCalled();
+  },
+);
 
 it.each([
   { isActive: true, isAdmin: false, mode: "role" },
   { isActive: true, isAdmin: true, mode: "role" },
   { isActive: false, isAdmin: true, mode: "admin" },
-])("refuses deletion for %j", async (actor) => {
+])("refuses a retired profile intent for %j", async (actor) => {
   services.administrationService.getContext.mockResolvedValue({
     userId: "owner",
     ...actor,
   });
-  const response = await remove();
+  const response = await submit("delete-profile");
   expect(response.status).toBe(403);
   expect(await response.json()).toMatchObject({
     ok: false,
@@ -72,11 +78,6 @@ it.each([
   expect(services.agentProfileService.remove).not.toHaveBeenCalled();
 });
 
-it("reports storage errors without disclosing internal diagnostics", async () => {
-  services.agentProfileService.remove.mockRejectedValue(
-    new Error("Sensitive database diagnostic"),
-  );
-  const response = await remove();
-  expect(response.status).toBe(500);
-  expect(await response.json()).toMatchObject({ ok: false, error: "general" });
+it("rejects an unknown intent as a bad request for the admin", async () => {
+  expect((await submit("no-such-intent")).status).toBe(400);
 });

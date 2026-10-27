@@ -60,7 +60,10 @@ export function createFakeServer(outcome: ListenOutcome = {}): {
   vi.spyOn(server, "listen").mockImplementation(
     (...parameters: unknown[]): Server => {
       const port = parameters[0];
-      const callback = parameters[1];
+      // `listen(port, address, callback)`: the address may be absent.
+      const callback = parameters.find(
+        (parameter) => typeof parameter === "function",
+      );
 
       if (typeof port === "number") {
         listenedPorts.push(port);

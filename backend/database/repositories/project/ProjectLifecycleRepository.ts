@@ -22,6 +22,7 @@ const OWNED_PROJECT_DELETIONS = [
   "DELETE FROM discord_deliveries WHERE project_id = $project_id;",
   "DELETE FROM github_external_issues WHERE project_id = $project_id;",
   "DELETE FROM github_pull_requests WHERE project_id = $project_id;",
+  "DELETE FROM runner_deploy_keys WHERE project_id = $project_id;",
   "DELETE FROM milestone_dependencies WHERE project_id = $project_id;",
   "DELETE FROM milestones WHERE project_id = $project_id;",
   "DELETE FROM workflow_statuses WHERE project_id = $project_id;",

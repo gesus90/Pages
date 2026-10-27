@@ -241,18 +241,13 @@ function detachNode<Plan extends AgentPlanInput>(
 /** Puts the node into a loop; a node that came from the outer grid gives up its outer connections first. */
 function attachToLoop<Plan extends AgentPlanInput>(
   state: MoveState<Plan>,
-  loopId: string,
-): PlanFrameMove<Plan> | AgentPlanGroupRefusal {
+  loop: AgentPlanLoop,
+): PlanFrameMove<Plan> {
   const entered = state.isOuterGridFree
     ? null
     : leaveOuter(state.plan, state.node);
   const plan = entered?.plan ?? state.plan;
   const node = entered?.node ?? state.node;
-  const loop = plan.nodes.find(
-    (entry): entry is AgentPlanLoop =>
-      entry.type === "loop" && entry.id === loopId,
-  );
-  if (!loop) return "missingAgent";
   const placed: AgentPlanLoop = { ...loop, steps: [...loop.steps, node] };
   return {
     plan: {
@@ -297,7 +292,7 @@ export function placePlanLoopNode<Plan extends AgentPlanInput>(
     };
   const left = detachNode(plan, found, placement, context);
   if (typeof left === "string") return left;
-  if (target) return attachToLoop(left, target.id);
+  if (target) return attachToLoop(left, target);
   return {
     plan: { ...left.plan, nodes: [...left.plan.nodes, left.node] },
     removedEdges: left.removedEdges,

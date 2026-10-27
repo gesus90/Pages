@@ -67,10 +67,11 @@ it("round-trips an ordered group and freezes the same boundary value for both ag
   ]);
 });
 
-it("rejects missing values, wrong types, deleted ports and groups with fewer than two agents", async () => {
+it("rejects missing values, wrong types, deleted ports and groups without an agent", async () => {
   const { plan, group, source } = await groupFixture();
   for (const [changed, reason] of [
-    [{ ...group, bindings: {} }, "required"],
+    // The instruction names the parameter, and a predecessor's result is never taken on its own.
+    [{ ...group, bindings: {} }, "resultMissing"],
     [
       {
         ...group,
@@ -83,8 +84,10 @@ it("rejects missing values, wrong types, deleted ports and groups with fewer tha
       },
       "type",
     ],
-    [{ ...group, parameters: [] }, "source"],
-    [{ ...group, steps: group.steps.slice(0, 1) }, "groupSize"],
+    // Without the port, the binding names no node any more and nothing fills the input.
+    [{ ...group, parameters: [] }, "required"],
+    // A group needs one agent to run; a single agent is a valid group.
+    [{ ...group, steps: [] }, "groupSize"],
   ] as const) {
     const issues = planExecutionIssues(
       {
@@ -97,6 +100,19 @@ it("rejects missing values, wrong types, deleted ports and groups with fewer tha
     );
     expect(issues.some((issue) => issue.reason === reason)).toBe(true);
   }
+});
+
+it("accepts a group with a single agent", async () => {
+  const { plan, group, source } = await groupFixture();
+  const single = { ...group, steps: group.steps.slice(0, 1) };
+  const issues = planExecutionIssues(
+    {
+      ...plan,
+      nodes: plan.nodes.map((node) => (node.id === group.id ? single : node)),
+    },
+    [source],
+  );
+  expect(issues.some((issue) => issue.reason === "groupSize")).toBe(false);
 });
 
 it("compares resolved adapter IDs and every shared runtime field, independently of model names", async () => {
@@ -136,7 +152,7 @@ it("compares resolved adapter IDs and every shared runtime field, independently 
   }
 });
 
-it("refuses OpenRouter and direct Claude as distinct technical adapters even with the same model label", async () => {
+it("refuses OpenRouter beside direct Claude Code as distinct technical adapters even with the same model label", async () => {
   const { plan, group, source } = await groupFixture();
   const providers = ["openrouter", "claude_code"] as const;
   const changed = {
@@ -161,8 +177,8 @@ it("refuses OpenRouter and direct Claude as distinct technical adapters even wit
   );
   expect(issues).toEqual(
     expect.arrayContaining([
+      // OpenRouter is no ACP adapter at all, and direct Claude Code differs from the first member.
       { nodeId: "first", port: "provider/adapter", reason: "groupProvider" },
-      { nodeId: "second", port: "provider/adapter", reason: "groupProvider" },
       {
         nodeId: "second",
         port: "provider/adapter",
