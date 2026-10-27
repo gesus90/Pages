@@ -30,6 +30,8 @@ export interface PagesAgentApiIdentity {
 
 /** Business operations Pages may offer to a verified identity. */
 export type PagesAgentApiBusinessOperation =
+  | "ticket.work.read"
+  | "ticket.work.save"
   | "assets.download.prepare"
   | "projects.names.list"
   | "chat.sessions.list"

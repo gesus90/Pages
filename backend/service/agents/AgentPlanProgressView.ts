@@ -1,7 +1,13 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
-import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
+import type {
+  AgentPlanProgress,
+  AgentPlanProgressItem,
+} from "@/definition/AgentPlanProgress";
+import type { AgentChecklistItem } from "@/definition/AgentTicketChecklist";
 import type {
   AgentPlanTasks,
   AgentPlanTicketChecklist,
@@ -10,50 +16,96 @@ import type {
 function contractItems(
   step: AgentPlanStepResult,
 ): readonly AgentPlanProgressItem[] {
-  const record = step.session;
-  return (record?.contract?.todos ?? []).map((item) => ({
+  return (step.session?.contract?.todos ?? []).map((item) => ({
     id: item.ticket ? `${item.ticket.id}:${item.ticket.itemId}` : item.id,
     text: sanitizePlanOutput(item.text),
+    ...(item.ticket ? { ticket: item.ticket } : {}),
     status:
-      record?.acceptance?.todos.find((entry) => entry.id === item.id)?.status ??
-      "unreported",
+      step.session?.acceptance?.todos.find((entry) => entry.id === item.id)
+        ?.status ?? "unreported",
   }));
 }
 
-async function liveItems(
+function progressTicketIds(
   step: AgentPlanStepResult,
-  readTicket: (id: string) => Promise<AgentPlanTicketChecklist>,
-): Promise<readonly AgentPlanProgressItem[]> {
-  const contract = step.session?.contract;
-  if (!contract) return [];
-  const unbound = contractItems(step).filter((item) =>
-    contract.todos.some(
-      (entry) => entry.ticket === null && entry.id === item.id,
-    ),
+  bindings: Readonly<Record<string, readonly string[]>> | undefined,
+): readonly string[] {
+  return (
+    bindings?.[step.id] ??
+    step.session?.contract?.tickets.map((ticket) => ticket.id) ??
+    []
   );
-  const tickets = await Promise.all(
-    contract.tickets.map((ticket) => readTicket(ticket.id)),
-  );
-  return [
-    ...unbound,
-    ...tickets.flatMap((ticket) =>
-      ticket.checklist.items
-        .filter((item) => item.source === "description")
-        .map((item): AgentPlanProgressItem => ({
-          id: `${ticket.id}:${item.id}`,
-          text: sanitizePlanOutput(item.text),
-          status: item.checked ? "done" : "open",
-        })),
-    ),
-  ];
 }
 
-/** Projects authorized live checkboxes separately from the runner's historical acceptance. */
+function observedStatus(
+  step: AgentPlanStepResult,
+  ticket: AgentPlanTicketChecklist,
+  item: AgentChecklistItem,
+): AgentPlanProgressItem["status"] {
+  if (item.checked) return "done";
+  const activity = step.session?.activity;
+  const startedAt = step.session?.startedAt;
+  const isCurrent =
+    step.status === "running" &&
+    activity &&
+    startedAt &&
+    Date.parse(activity.reportedAt) >= Date.parse(startedAt);
+  // A title alone cannot identify ticket work. The agent must explicitly name its stable entry ID.
+  const marker = `${ticket.key}#${item.id}`;
+  return isCurrent &&
+    activity.titles.some(
+      (title) => title === marker || title.startsWith(`${marker} `),
+    )
+    ? "active"
+    : "open";
+}
+
+async function liveProgress(
+  step: AgentPlanStepResult,
+  ticketIds: readonly string[],
+  readTicket: (id: string) => Promise<AgentPlanTicketChecklist>,
+): Promise<Pick<AgentPlanProgress, "todos" | "tickets" | "availability">> {
+  try {
+    const tickets = await Promise.all([...new Set(ticketIds)].map(readTicket));
+    return {
+      availability: "observed",
+      tickets: tickets.map((ticket) => ({
+        id: ticket.id,
+        key: ticket.key,
+        contentHash: ticket.checklist.contentHash,
+      })),
+      todos: [
+        ...contractItems(step).filter((item) => !item.ticket),
+        ...tickets.flatMap((ticket) =>
+          ticket.checklist.items.map((item) => ({
+            id: `${ticket.id}:${item.id}`,
+            text: sanitizePlanOutput(item.text),
+            ticket: { id: ticket.id, key: ticket.key, itemId: item.id },
+            status: observedStatus(step, ticket, item),
+          })),
+        ),
+      ],
+    };
+  } catch (error: unknown) {
+    logCaughtError("AgentPlanProgressView", error);
+    return {
+      availability: "unavailable",
+      todos: contractItems(step).map((item) => ({
+        ...item,
+        status: "missing",
+      })),
+    };
+  }
+}
+
+/** Projects current authorized ticket checkboxes without altering execution or historical acceptance. */
 export async function withPlanProgress(
   run: AgentPlanRun,
   context: {
     readonly projectId: string;
     readonly tasks: Pick<AgentPlanTasks, "checklist">;
+    /** Per-node ticket bindings from the run's private snapshot, including remote nodes. */
+    readonly stepTickets?: Readonly<Record<string, readonly string[]>>;
   },
 ): Promise<AgentPlanRun> {
   const tickets = new Map<string, Promise<AgentPlanTicketChecklist>>();
@@ -67,18 +119,28 @@ export async function withPlanProgress(
   const observedAt = new Date().toISOString();
   const steps = await Promise.all(
     run.steps.map(async (step): Promise<AgentPlanStepResult> => {
-      if (!step.session?.contract) return step;
+      const contract = step.session?.contract;
+      const ticketIds = progressTicketIds(step, context.stepTickets);
+      if (!contract && ticketIds.length === 0) return step;
       const isLive =
         ["running", "pausing", "paused", "stopping"].includes(run.status) &&
         (step.status === "running" || step.status === "paused");
+      const readsTicket = isLive || ticketIds.length > 0;
+      const projection = readsTicket
+        ? await liveProgress(step, ticketIds, readTicket)
+        : { todos: contractItems(step) };
       return {
         ...step,
         progress: {
-          source: isLive ? "live" : "historical",
+          source: readsTicket ? "live" : "historical",
           observedAt,
-          todos: isLive
-            ? await liveItems(step, readTicket)
-            : contractItems(step),
+          scope: {
+            runId: run.id,
+            stepId: step.id,
+            attemptId:
+              step.session?.attemptId ?? step.execution?.attemptId ?? null,
+          },
+          ...projection,
         },
       };
     }),

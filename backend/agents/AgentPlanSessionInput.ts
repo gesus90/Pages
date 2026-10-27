@@ -1,6 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { readAgentObject } from "./AgentPayload";
+import { readCompletionGate } from "./AgentPlanWorkInput";
 import { readPlanProviderFailure, readPlanRetry } from "./AgentPlanRetryInput";
 import {
   readPlanContinuationCapabilities,
@@ -136,6 +137,9 @@ function readContract(input: unknown): AgentPlanContract | null {
     ...(contract.completion === "todos"
       ? { completion: "todos" as const }
       : {}),
+    ...(contract.completionGate === undefined
+      ? {}
+      : { completionGate: readCompletionGate(contract.completionGate) }),
     todos: contract.todos.map(readItem),
     criteria: contract.criteria.map(readItem),
     tickets: contract.tickets.map((entry: unknown) => {

@@ -10,6 +10,7 @@ import {
   sessionOperations,
 } from "./mcp/AgentOperationCatalog";
 
+import type { AgentPlanWorkGate } from "./agents/AgentPlanWorkGate";
 import type { AgentTicketAssetService } from "./agents/AgentTicketAssetService";
 import type { AgentAsset } from "@/definition/PagesAgentWrites";
 import type { AgentAssetDownloadService } from "./agents/AgentAssetDownloadService";
@@ -54,6 +55,7 @@ function isRunTicketCall(scope: AgentRunScope, parameters: unknown): boolean {
 
 /** Verifies personal stdio credentials and dispatches the implemented operations. */
 export class PagesAgentApiService {
+  private readonly workGate: AgentPlanWorkGate | undefined;
   private readonly personal: PersonalAgentTokenService;
   private readonly projects: AgentProjectService;
   private readonly operations: AgentOperationRouter;
@@ -68,6 +70,7 @@ export class PagesAgentApiService {
     operations: AgentOperationRouter,
     capabilities:
       | {
+          readonly workGate?: AgentPlanWorkGate;
           readonly runs?: AgentRunCredentialService;
           readonly downloads?: AgentAssetDownloadService;
           readonly upload?: (
@@ -78,6 +81,10 @@ export class PagesAgentApiService {
       | AgentRunCredentialService
       | null = null,
   ) {
+    this.workGate =
+      capabilities && !("verify" in capabilities)
+        ? capabilities.workGate
+        : undefined;
     this.personal = personal;
     this.projects = projects;
     this.operations = operations;
@@ -275,6 +282,20 @@ export class PagesAgentApiService {
     | PagesAgentStructuredReadResponse
     | PagesAgentWriteResponse
   > {
+    if (
+      input.operation === "ticket.work.read" ||
+      input.operation === "ticket.work.save"
+    ) {
+      if (!this.workGate) throw new AgentOperationError("FORBIDDEN");
+      return {
+        apiVersion: "1",
+        result: await this.workGate.handle(
+          identity,
+          input.operation,
+          input.parameters,
+        ),
+      };
+    }
     if (input.operation === PROJECT_NAMES_OPERATION)
       return this.projectNames(identity, input.parameters);
     if (REVERIFIED_OPERATIONS.includes(input.operation))

@@ -8,6 +8,7 @@ import { AgentTicketSearchService } from "./AgentTicketSearchService";
 import { AgentTicketService } from "./AgentTicketService";
 import { AgentTicketTransaction } from "./AgentTicketTransaction";
 import { AgentTicketTreeService } from "./AgentTicketTreeService";
+import { AgentPlanWorkGate } from "./AgentPlanWorkGate";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { Database } from "@/backend/database/Database";
@@ -62,7 +63,13 @@ export function createAgentPlanningServices(
   };
 
   return {
-    tickets: new AgentTicketService(shared),
+    tickets: new AgentTicketService({
+      ...shared,
+      workGate: new AgentPlanWorkGate(
+        dependencies.database,
+        dependencies.users,
+      ),
+    }),
     milestones: new AgentMilestoneService(shared),
     reads: new AgentPlanningReadService(dependencies),
     search: new AgentTicketSearchService(dependencies),

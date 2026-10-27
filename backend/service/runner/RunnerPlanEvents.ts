@@ -6,6 +6,7 @@ import { planStepExecutionSchema } from "@/definition/AgentPlanExecution";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
 import { recordRemoteAgentResult } from "@/backend/service/agents/AgentPlanRemoteResult";
+import { planWorkStep } from "@/backend/service/agents/AgentPlanWorkContext";
 import { settleDetachedRun } from "@/backend/service/agents/AgentPlanRunState";
 
 import { runnerPlanCheckpoint } from "./RunnerPlanCheckpoint";
@@ -245,16 +246,42 @@ export function applyRunnerPlanEvent(
   requireCompletionEvidence(input);
   if (!admitsProgress(run, step)) return { run, isSettled: true };
   if (input.job.status === "queued") return { run };
-  const updated = recordRemoteAgentResult(
+  const recorded = recordRemoteAgentResult(
     snapshot,
     input.job.execution,
     updatedStep(input, step),
+  );
+  const updated = pendingTicketGate(
+    recorded,
+    snapshot,
+    input.isDetached === true,
   );
   const result = updatedRun(run, updated, input.isDetached === true);
   return {
     run: result,
     ...(updated.status === "succeeded"
       ? { checkpoint: runnerPlanCheckpoint(result, snapshot, updated) }
+      : {}),
+  };
+}
+
+/** A completed remote process cannot create an immutable success before the server's work check. */
+function pendingTicketGate(
+  step: AgentPlanStepResult,
+  snapshot: unknown,
+  isDetached: boolean,
+): AgentPlanStepResult {
+  if (
+    step.status !== "succeeded" ||
+    !planWorkStep(readAgentObject(snapshot), step.id)?.completionGate
+  )
+    return step;
+  return {
+    ...step,
+    status: isDetached ? "failed" : "running",
+    error: isDetached ? "plan_work_gate_unavailable" : null,
+    ...(step.session
+      ? { session: { ...step.session, resultCode: isDetached ? -1 : null } }
       : {}),
   };
 }

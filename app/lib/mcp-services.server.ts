@@ -43,6 +43,7 @@ import { OAuthRepository } from "@/backend/database/repositories/mcp/OAuthReposi
 import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
 import { PairingService } from "@/backend/service/mcp/PairingService";
+import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
@@ -357,6 +358,7 @@ function createBinaryAssetServices(input: {
         operations,
         {
           runs: runCredentials,
+          workGate: new AgentPlanWorkGate(database, users),
           downloads: agentAssetDownloadService,
           upload: runnerAssetUpload(async () => ({
             agentUploadTicketService,

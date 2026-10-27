@@ -1,3 +1,4 @@
+import type { AgentPlanCompletionGate } from "./AgentPlanWork.js";
 import type { AgentReadChunk } from "./AgentReadChunks.js";
 import type {
   AgentPlanExecutionTarget,
@@ -183,6 +184,7 @@ export interface AgentPlanAgentNodeEntry extends AgentPlanNodeBase {
   readonly executionTarget?: AgentPlanExecutionTarget;
   /** Progress scope only; neither mode gates execution. Absent means `report`. */
   readonly completion?: "report" | "todos";
+  readonly completionGate?: AgentPlanCompletionGate;
   readonly configuration?: AgentPlanConfigurationEntry;
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }

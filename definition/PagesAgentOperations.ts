@@ -1,5 +1,6 @@
 import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation.js";
 
+import type { AgentPlanWorkView } from "./AgentPlanWork.js";
 import type { AgentAssetDownload } from "./AgentAssetTransfer.js";
 import type {
   AgentTicketDescriptionRange,
@@ -187,6 +188,7 @@ export interface AgentWikiSearch {
 export interface PagesAgentReadResponse {
   readonly apiVersion: "1";
   readonly result:
+    | AgentPlanWorkView
     | AgentAssetDownload
     | AgentProjectReference
     | AgentProjectList

@@ -15,6 +15,7 @@ import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
+import type { AgentPlanTicketChecklist } from "./AgentPlanTasks";
 
 type CommandBasis = Omit<RunnerExecution, "program" | "timeoutSeconds">;
 
@@ -68,6 +69,7 @@ export function remoteScriptCommand(
 export function remoteModelCommand(
   step: AgentPlanStep,
   basis: CommandBasis,
+  tickets: readonly AgentPlanTicketChecklist[] = [],
 ): RunnerExecution {
   const configuration = step.configuration;
   if (!configuration?.runnerRoute) throw new AgentError("plan_context_changed");
@@ -80,9 +82,10 @@ export function remoteModelCommand(
     if (options.access === "workspace_write" || options.browser)
       throw new AgentError("plan_context_changed");
     const isReadOnly = options.access === "read_only";
-    const contract = buildPlanContract(step.instruction, [], {
+    const contract = buildPlanContract(step.instruction, tickets, {
       isReadOnly,
       completion: step.completion,
+      completionGate: step.completionGate,
     });
     const assignment = renderPlanAssignment({
       contract,

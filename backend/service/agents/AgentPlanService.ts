@@ -34,6 +34,7 @@ import { AgentPlanCloning } from "./AgentPlanCloning";
 import { requirePlanModelResources } from "./AgentPlanModel";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 
+import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanCloneInput } from "./AgentPlanClone";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
@@ -74,6 +75,7 @@ import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 
 interface PlanDependencies {
+  readonly workGate?: AgentPlanWorkGate;
   readonly workspaceCatalog?: AgentPlanWorkspaces;
   readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly remoteTargets?: AgentPlanRemoteTargets;
@@ -495,10 +497,11 @@ export class AgentPlanService {
     const progress = await withPlanProgress(run, {
       projectId: resources.projectId,
       tasks: this.dependencies.tasks,
+      stepTickets: resources.stepTickets,
     });
-    return (
-      this.dependencies.remoteExecution?.withProgress(progress) ?? progress
-    );
+    const scoped =
+      (await this.dependencies.workGate?.withProgress(progress)) ?? progress;
+    return this.dependencies.remoteExecution?.withProgress(scoped) ?? scoped;
   }
 
   /** Other workspace users or plan owners cannot stop an executor's private run. */

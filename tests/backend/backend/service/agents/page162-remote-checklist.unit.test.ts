@@ -1,0 +1,103 @@
+import { expect, it, vi } from "vitest";
+
+import { remoteTodoChecklists } from "@/backend/service/agents/AgentPlanRemoteChecklist";
+import { remoteModelCommand } from "@/backend/service/agents/AgentPlanRemoteCommand";
+
+import { progressTicket } from "./page162-progress-fixture";
+import { remoteTodoParameters, remoteTodoStep } from "./page162-remote-fixture";
+
+it("reads the executor's current checklist and puts real ticket IDs into a remote TODO contract", async () => {
+  const ticket = progressTicket("- [ ] Implement the actual ticket");
+  const checklist = vi.fn(async () => ticket);
+  const step = remoteTodoStep();
+  const tickets = await remoteTodoChecklists({
+    step,
+    parameters: remoteTodoParameters(),
+    tasks: { checklist },
+    userId: "executor",
+    projectId: "project",
+  });
+  expect(checklist).toHaveBeenCalledExactlyOnceWith(
+    "executor",
+    "project",
+    "ticket",
+  );
+  const command = remoteModelCommand(
+    step,
+    {
+      version: 1,
+      revision: 1,
+      workspace: "/remote/authorized",
+      outputBytes: 65536,
+      pagesAccess: 1,
+      input: "{}",
+    },
+    tickets,
+  );
+  if (command.program.kind !== "cli") throw new Error("Expected a CLI command");
+  expect(command.program.prompt).toContain("SYN-ticket (ID `ticket`)");
+  expect(command.program.prompt).toContain(ticket.checklist.items[0]?.id);
+  expect(command.program.prompt).toContain("Implement the actual ticket");
+  expect(command.program.prompt).not.toContain("Stale empty planning snapshot");
+  expect(command.program.prompt).toContain("read-only");
+});
+
+it("keeps report-mode remote commands independent of new checklist reads", async () => {
+  const checklist = vi.fn();
+  const result = await remoteTodoChecklists({
+    step: { ...remoteTodoStep(), completion: "report" },
+    parameters: remoteTodoParameters(),
+    tasks: { checklist },
+    userId: "executor",
+    projectId: "project",
+  });
+  expect(result).toEqual([]);
+  expect(checklist).not.toHaveBeenCalled();
+});
+
+it("retains an empty planning list without inventing T1/K1 ticket tasks", async () => {
+  const result = await remoteTodoChecklists({
+    step: remoteTodoStep(),
+    parameters: remoteTodoParameters(),
+    tasks: { checklist: async () => progressTicket() },
+    userId: "executor",
+    projectId: "project",
+  });
+  expect(result[0]?.checklist.items).toEqual([]);
+});
+
+it("refuses an unreadable binding without falling back to stale remote Markdown", async () => {
+  const input = {
+    step: remoteTodoStep(),
+    parameters: remoteTodoParameters(),
+    userId: "executor",
+    projectId: "project",
+  };
+  await expect(
+    remoteTodoChecklists({ ...input, tasks: undefined }),
+  ).rejects.toMatchObject({ code: "plan_binding_invalid" });
+  await expect(
+    remoteTodoChecklists({
+      ...input,
+      tasks: {
+        checklist: async () => {
+          throw new Error("Current permission refused");
+        },
+      },
+    }),
+  ).rejects.toThrow("Current permission refused");
+});
+
+it("leaves a remote node without ticket parameters unbound", async () => {
+  const checklist = vi.fn();
+  await expect(
+    remoteTodoChecklists({
+      step: remoteTodoStep(),
+      parameters: undefined,
+      tasks: { checklist },
+      userId: "executor",
+      projectId: "project",
+    }),
+  ).resolves.toEqual([]);
+  expect(checklist).not.toHaveBeenCalled();
+});

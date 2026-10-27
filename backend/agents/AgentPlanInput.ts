@@ -19,6 +19,7 @@ import {
 import { readPlanConfiguration } from "./AgentPlanConfigurationInput";
 import { readPlanLoopCondition } from "./AgentPlanLoopInput";
 import { readAgentObject } from "./AgentPayload";
+import { readCompletionGate } from "./AgentPlanWorkInput";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type {
@@ -162,6 +163,9 @@ function readStepNode(
         ? node.personalAgentId
         : readPlanText(node.personalAgentId),
     instruction: node.instruction,
+    ...(node.completionGate === undefined
+      ? {}
+      : { completionGate: readCompletionGate(node.completionGate) }),
     ...readExecutionTarget(node.executionTarget),
     ...(node.configuration === undefined
       ? {}
@@ -392,6 +396,7 @@ function readGroupNode(
     if (raw.type !== "agent") throw new AgentError("plan_invalid");
     const step = readPlanNode(raw);
     if (step.type !== "agent") throw new AgentError("plan_invalid");
+    if (step.completionGate) throw new AgentError("plan_work_gate_unavailable");
     return step;
   });
   const ports: readonly unknown[] = node.parameters;
@@ -439,6 +444,8 @@ function readLoopNode(
     throw new AgentError("plan_loop_runs_invalid");
   const steps = node.steps.map((input: unknown): AgentPlanLoopMember => {
     const member = readPlanNode(input);
+    if (member.type === "agent" && member.completionGate)
+      throw new AgentError("plan_work_gate_unavailable");
     if (member.type === "loop" || member.type === "group")
       throw new AgentError("plan_loop_nested");
     if (member.type !== "agent" && member.type !== "script")

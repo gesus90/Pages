@@ -45,15 +45,18 @@ export function PlanStatusDetails({
       role="region"
       aria-label={t("plans.progress.open")}
       containerClassName="min-h-0 flex-1"
-      className="flex flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border/80 px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none @2xl/status:grid @2xl/status:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] @2xl/status:overflow-hidden"
+      className="flex flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border/80 px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
     >
+      {step.script ? null : (
+        <PlanStatusTodos key={step.id} step={step} number={number} />
+      )}
       <ScrollViewport
         axis="vertical"
         tabIndex={0}
         role="region"
         aria-label={t("plans.progress.step", { number })}
-        containerClassName="min-w-0 shrink-0 @2xl/status:min-h-0"
-        className="overflow-visible overscroll-contain pr-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none @2xl/status:overflow-x-hidden @2xl/status:overflow-y-auto @2xl/status:border-r @2xl/status:border-border/80 @2xl/status:pr-4"
+        containerClassName="min-w-0 shrink-0"
+        className="overflow-visible overscroll-contain pr-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -89,9 +92,6 @@ export function PlanStatusDetails({
           )}
         </Button>
       </ScrollViewport>
-      {step.script ? null : (
-        <PlanStatusTodos key={step.id} step={step} number={number} />
-      )}
     </ScrollViewport>
   );
 }

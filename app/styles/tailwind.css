@@ -115,6 +115,9 @@
   --color-plan-progress-done: #258c42;
   --color-plan-progress-waiting: #d5dbe4;
   --color-plan-progress-label: #ffffff;
+  --color-plan-todo-done: #087d59;
+  --color-plan-todo-label: #ffffff;
+  --color-plan-todo-done-text: #087253;
   --color-status-active: #b94b08;
   --color-status-active-subtle: #fff1e6;
 
@@ -403,6 +406,9 @@
     --color-plan-progress-done: #51df5c;
     --color-plan-progress-waiting: #3d4858;
     --color-plan-progress-label: #ffffff;
+    --color-plan-todo-done: #087d59;
+    --color-plan-todo-label: #ffffff;
+    --color-plan-todo-done-text: #75e4ab;
     --color-status-active: #fb923c;
     --color-status-active-subtle: #2a1b11;
 

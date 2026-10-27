@@ -735,6 +735,9 @@
         "plan_run_unavailable": "Dieser Plan hat bereits einen aktiven oder pausierten Lauf; stoppen Sie ihn vor einem neuen Start. Oder der gewählte Lauf ist nicht mehr aktiv.",
         "plan_run_option_unsupported": "Der Runner kann die Laufoptionen dieses Agenten nicht durchsetzen, etwa „Nur lesen“ zusammen mit Shell. Passe die Laufoptionen an.",
         "plan_mcp_unavailable": "Der Knoten braucht den Pages-MCP-Adapter für Agent-Sitzungen, aber dieser Server hat keinen.",
+        "plan_work_gate_failed": "Die aktuelle Ticket-Arbeit ist noch nicht bestätigt. Relevante TODOs erledigen und alle Pflichtprüfungen mit tatsächlichen Nachweisen bestätigen, bevor der Abschluss oder ein Folgeschritt starten darf.",
+        "plan_work_gate_unavailable": "Die verpflichtende Ticketprüfung braucht TODO-Fortschritt, gebundene Tickets und eine schreibfähige CLI-Sitzung. Gruppen- und Loop-Mitglieder werden in Version 1 nicht unterstützt.",
+        "plan_work_gate_write_required": "Vor dem Start dieses Knotens braucht die ausführende Person aktuelle Schreibrechte für Ticket und Projekt.",
         "codex_permission_mode_required": "Codex-CLI-Agents laufen nur in „Nur Lesen“ oder „YOLO“. Wähle einen der beiden Modi für diesen Agenten.",
         "claude_permission_mode_required": "Claude-Code-Agents laufen nur in „Nur Lesen“ oder „YOLO“. Wähle einen der beiden Modi für diesen Agenten.",
         "plan_acp_adapter_missing": "Codex ACP ist nicht betriebsbereit. Unter Einstellungen → Agents → Tools die verwaltete Installation und Diagnose prüfen.",
@@ -4716,17 +4719,18 @@
       "todoList": "Agent-TODO-Liste, vertikal scrollbar",
       "todoCount": "{{completed}}/{{total}} erledigt",
       "noTodos": "Für diesen Schritt wurde keine TODO-Liste gemeldet.",
-      "emptyTodos": "Die gemeldete TODO-Liste enthält keine Einträge.",
+      "emptyTodos": "Noch keine Arbeitsliste.",
       "source": {
-        "live": "Ticket-TODOs · kein aktueller Punkt gemeldet",
+        "live": "Aktueller beobachteter Ticketstand · ungewichteter Checklist-Fortschritt",
         "historical": "Gespeicherte TODO-Liste dieses Schritts",
         "contract": "Aufgaben dieses Schritts · Fortschritt noch nicht gemeldet"
       },
       "todoState": {
         "done": "Erledigt",
-        "open": "Offen",
+        "open": "Als Nächstes",
         "missing": "Meldung fehlt oder Eintrag nicht mehr vorhanden",
-        "unreported": "Fortschritt noch nicht gemeldet"
+        "unreported": "Fortschritt noch nicht gemeldet",
+        "active": "Gerade in Arbeit"
       },
       "state": {
         "idle": "Bereit",
@@ -4753,7 +4757,9 @@
       "gap": {
         "unreachable": "nicht erreichbar – ohne Nummer",
         "cycle": "im Zyklus – ohne Nummer"
-      }
+      },
+      "todoLabel": "TODOs",
+      "todoSummary": "{{completed}} erledigt · {{active}} in Arbeit · {{open}} als Nächstes"
     },
     "loops": {
       "defaultName": "Loop",
@@ -5151,6 +5157,16 @@
         "signal_denied": "Ein zugeordneter Prozess konnte nicht signalisiert werden.",
         "exit_timeout": "Ein zugeordneter Prozess lief nach der Kill-Frist weiter."
       }
+    },
+    "workGate": {
+      "label": "Ticket-Abschlussprüfung verbindlich machen (Version 1)",
+      "hint": "Aktuelle relevante TODOs, begründete Ausnahmen und Nachweise aller Pflichtprüfungen sperren Abschluss und Folgeschritte. Andere Pläne behalten ihren Fortschrittsmodus.",
+      "checks": "Pflichtprüfungen, eine pro Zeile",
+      "scope": "Auftrag {{ticket}} · Scope-Revision {{revision}}",
+      "pending": "Abschlussprüfung offen oder veraltet",
+      "confirmed": "Aktueller Auftrag und Pflichtprüfungen bestätigt",
+      "excluded": "Außerhalb dieses Auftrags: {{title}} · {{reason}}",
+      "missingCheck": "Nachweis fehlt"
     }
   },
   "mcpDuration": {

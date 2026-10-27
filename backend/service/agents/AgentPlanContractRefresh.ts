@@ -25,7 +25,10 @@ function reconcileItems(
   previous: readonly AgentPlanContractItem[],
   prefix: string,
 ): readonly AgentPlanContractItem[] {
-  let nextId = previous.length;
+  let nextId = Math.max(
+    0,
+    ...previous.map((item) => Number(item.id.slice(prefix.length)) || 0),
+  );
   return current.map((item) => {
     const original = previous.find((entry) => sameRequirement(item, entry));
     return { ...item, id: original?.id ?? `${prefix}${++nextId}` };
@@ -50,6 +53,7 @@ export function refreshPlanContract(
   const current = buildPlanContract(instruction, tickets, {
     ...options,
     completion: previous.completion,
+    completionGate: previous.completionGate,
   });
   return {
     ...current,

@@ -200,6 +200,11 @@ export class AgentPlanRunRepository {
         : {}),
       ...(remoteWorkspaceIds.length ? { remoteWorkspaceIds } : {}),
       projectId: first.projectId,
+      stepTickets: Object.fromEntries(
+        [...references]
+          .reverse()
+          .flatMap((entry) => Object.entries(entry.stepTickets ?? {})),
+      ),
       workspaceIds: [
         ...new Set(references.flatMap((entry) => entry.workspaceIds)),
       ],

@@ -1,4 +1,5 @@
 import { createPlanWorkspaceAccess } from "./plan-access-services.server";
+import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import { AgentPlanRemoteParameters } from "@/backend/service/agents/AgentPlanRemoteParameters";
 import { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
@@ -149,6 +150,7 @@ export async function createAgentPlanService(input: {
     tasks,
   });
   const service = new AgentPlanService({
+    workGate: new AgentPlanWorkGate(input.database, input.users),
     workspaceCatalog,
     remoteExecution,
     remoteTargets,
@@ -362,6 +364,7 @@ function createRemoteExecution(
     api: input.api,
   });
   const remoteExecution = new AgentPlanRemoteExecution({
+    tasks: new AgentPlanTasks(input.tasks, input.users),
     parameters,
     pages,
     targets: remoteTargets,
@@ -386,6 +389,7 @@ function createPlanEngine(
   },
 ): AgentPlanRunEngine {
   return new AgentPlanRunEngine({
+    workGate: new AgentPlanWorkGate(input.database, input.users),
     remoteExecution: parts.remoteExecution,
     scripts: new AgentPlanScriptRunner(parts.scripts),
     runs: parts.runs,

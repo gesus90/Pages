@@ -106,15 +106,21 @@ function forSession(
       return [
         ...PAGES_AGENT_TICKET_READ_OPERATIONS,
         ...PAGES_AGENT_WRITE_OPERATIONS,
+        "ticket.work.read" as const,
+        "ticket.work.save" as const,
       ].filter(
         (operation) =>
           operation !== "chat.sessions.delete" &&
           scope.operations.includes(operation),
       );
     case "read":
-      return readingOperations(isAdmin);
+      return [...readingOperations(isAdmin), "ticket.work.read"];
     case "full":
-      return ownerOperations(isAdmin);
+      return [
+        ...ownerOperations(isAdmin),
+        "ticket.work.read",
+        "ticket.work.save",
+      ];
   }
 }
 

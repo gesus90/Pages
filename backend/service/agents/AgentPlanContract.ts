@@ -5,6 +5,7 @@ import type {
   AgentPlanContract,
   AgentPlanContractItem,
 } from "@/definition/AgentPlanSession";
+import type { AgentPlanCompletionGate } from "@/definition/AgentPlanWork";
 import type { AgentPlanTicketChecklist } from "./AgentPlanTasks";
 
 /** The todo of a node whose instruction and tickets list none. */
@@ -27,6 +28,7 @@ export const REPORT_EVIDENCE_PLACEHOLDER = "<proof>";
 
 /** How a node may work, as far as its contract has to say it. */
 export interface AgentPlanContractOptions {
+  readonly completionGate?: AgentPlanCompletionGate;
   /**
    * The session changes neither files nor Pages data, as a Codex CLI agent in
    * "Nur Lesen": it reports its tickets instead of setting their entries.
@@ -50,6 +52,12 @@ export interface AgentPlanAssignment extends AgentPlanContractOptions {
 }
 
 function completionInstruction(assignment: AgentPlanAssignment): string {
+  if (assignment.contract.completionGate)
+    return (
+      "This node explicitly requires the versioned ticket work gate. Read ticket, checklist and read_ticket_work. Before implementation reuse or create concrete TODOs with real IDs, then save_ticket_work action scope, classifying EVERY current entry: relevant or excluded with a concrete reason. Keep completed foreign work unchanged. Tick actual completed work immediately with current revisions. When requirements change, read and reconcile scope again with a reason; new/unclassified items block completion. Before Review and the final JSON, read fresh ticket/checklist/work; call save_ticket_work action confirm with the saved scope, factual evidence for every relevant completed entry, and each required check's actual command, exitCode 0 and evidence. Required checks: " +
+      assignment.contract.completionGate.requiredChecks.join(", ") +
+      ". Missing, stale or unproven work fails the node and blocks successors even after exit 0. Keep evidence in these separate metadata calls; preserve the exact final JSON contract of the assignment. Never claim success when confirmation is refused."
+    );
   if (assignment.requiresAcceptance)
     return `${assignment.acceptanceScope === "node" ? "This OpenCode node requires business acceptance." : "This is an internal group step."} Complete every todo and criterion and include a valid pages-report with the required IDs, done todos, met criteria and real evidence. Missing or invalid reports, open todos, unmet criteria and missing evidence fail this step and block all later steps. Report unfinished work honestly; do not invent completion.`;
   return "Regular runner completion releases the next steps automatically, without business acceptance or manual confirmation. A missing, invalid or incomplete report, unmet criteria, missing proof and ticket changes are diagnostic information only and never fail execution or block successors.";
@@ -140,6 +148,9 @@ export function buildPlanContract(
   if (!isTodoList) addDefaults(todos, criteria, options);
   return {
     ...(isTodoList ? { completion: "todos" as const } : {}),
+    ...(options.completionGate
+      ? { completionGate: options.completionGate }
+      : {}),
     todos,
     criteria,
     tickets: tickets.map(({ id, key, checklist }) => ({
@@ -187,7 +198,9 @@ function todoMcpLines(assignment: AgentPlanAssignment): readonly string[] {
   return [
     `- The Pages MCP server is connected for ticket ${keys}. Call \`read_ticket\` for its status and the status IDs of its project, and \`read_ticket_checklist\` for the entries and the current revision.`,
     '- Before you start the work, move the ticket to its in-progress status ("In Arbeit") with `set_ticket_status` unless it already has it; `expectedStatusId` is the status you read.',
+    "- Read the full assignment, current description, checklist and relevant attachments before planning. Reuse equivalent concrete ticket tasks and add only missing work with the available revision-protected description tools. Preserve acceptance criteria, unrelated work and completed items. If the required ticket writes are unavailable, report the blocker instead of pretending to have created a work list.",
     "- Tick every todo as soon as it is really done, do not wait for the end: `set_ticket_checklist_items` with the ticket ID, `expectedRevision`, `items` of `{itemId, checked: true}` and a new `operationId` (or `set_ticket_checklist_item` for one). Never tick a todo you did not finish. After a `CONFLICT`, read the checklist again and continue with what it holds now.",
+    "- If your adapter reports ACP plan activity, begin the title of an actually in-progress ticket task with its exact ticket key, # and checklist ID (for example KEY-12#md-… followed by its text). Pages can then associate that explicit activity with the real entry. A plain title or the first open checkbox does not prove that work is active.",
     '- When every current todo is done, move the ticket to its review status ("Review") the same way. Never set it to done.',
     "- Changes of the ticket by others, new revisions and your own writes do not stop the run: read again, take over the current list and continue without redoing finished work.",
   ];

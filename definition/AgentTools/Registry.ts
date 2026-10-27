@@ -1,3 +1,4 @@
+import { PLAN_WORK_READ_TOOL } from "./PlanWork.js";
 import { ASSET_DOWNLOAD_TOOL } from "./AssetDownload.js";
 import { ADMIN_READ_TOOLS } from "./Administration.js";
 import { AGENT_READ_TOOLS } from "./Agents.js";
@@ -33,6 +34,7 @@ import type { PagesAgentApiBusinessOperation } from "../PagesAgentApi.js";
 
 /** Fixed read-only tool descriptions; Pages determines which operations an identity may use. */
 const READ_TOOL_ENTRIES = [
+  { operation: "ticket.work.read", tool: PLAN_WORK_READ_TOOL },
   { operation: "assets.download.prepare", tool: ASSET_DOWNLOAD_TOOL },
   { operation: "chat.sessions.list", tool: CHAT_SESSIONS_LIST_TOOL },
   ...EXTENSION_READ_TOOLS,

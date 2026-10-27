@@ -17,12 +17,16 @@ import type {
 /** The agent API operations a session may call, and the MCP tools that call them. */
 const SESSION_OPERATIONS = [
   "ticket.read",
+  "ticket.work.read",
+  "ticket.work.save",
   "ticket.checklist.read",
   "ticket.checklist.setItem",
   "ticket.checklist.setItems",
 ] as const;
 const SESSION_TOOLS = [
   "read_ticket",
+  "read_ticket_work",
+  "save_ticket_work",
   "read_ticket_checklist",
   "set_ticket_checklist_item",
   "set_ticket_checklist_items",

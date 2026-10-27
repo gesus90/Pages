@@ -131,5 +131,8 @@ export function elapsedTime(
   const seconds = Math.floor((Date.parse(end) - Date.parse(start)) / 1000);
   if (!Number.isFinite(seconds) || seconds < 0) return "—";
   const minutes = Math.floor(seconds / 60);
-  return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  const remainder = `${String(minutes % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  return seconds < 3600
+    ? remainder
+    : `${Math.floor(seconds / 3600)}:${remainder}`;
 }

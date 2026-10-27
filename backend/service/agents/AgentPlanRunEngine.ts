@@ -34,22 +34,23 @@ import {
   interruptedPlanRun,
 } from "./AgentPlanRunState";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
-import { createPlanCheckpoint } from "./recovery/AgentPlanCheckpoint";
 import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
 import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
 import { planRecoveryReason } from "./recovery/AgentPlanFailure";
 import { dispatchPlanScript } from "./AgentPlanScriptDispatch";
-import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
+import {
+  guardPlanWorkDispatch,
+  settlePlanWorkResult,
+  completedPlanWorkCheckpoint,
+} from "./AgentPlanWorkDispatch";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { RecoveredRunStart } from "./AgentPlanRunStart";
 import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { ActivePlanRun } from "./AgentPlanRunState";
-import type { AcpResourceScheduler } from "./AcpResourceScheduler";
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import type { DatabaseTransaction } from "@/backend/database/Database";
-import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type {
   AgentPlanNode,
   AgentPlanRun,
@@ -58,11 +59,10 @@ import type {
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
-import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
-import type { AgentPlanStepStart } from "./AgentPlanStepStart";
-import type { AgentRunArchive } from "./AgentRunArchive";
-import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
-import type { AgentPlanScriptRunner } from "./AgentPlanScriptRunner";
+
+import type { EngineDependencies } from "./AgentPlanEngineDependencies";
+
+export type { EngineDependencies } from "./AgentPlanEngineDependencies";
 
 /**
  * Creates the record of a new run inside a transaction that the caller opens.
@@ -77,22 +77,6 @@ export type AgentPlanRunRecording = (
 
 /** How long a stopped run may take to close before the caller gives up waiting. */
 const STOP_WAIT_MILLISECONDS = 30_000;
-
-/** Runtime boundaries shared with the run command aggregate. */
-export interface EngineDependencies {
-  readonly remoteExecution?: AgentPlanRemoteExecution;
-  readonly scripts?: Pick<AgentPlanScriptRunner, "run">;
-  readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun">;
-  readonly runs: Pick<
-    AgentPlanRunRepository,
-    "insert" | "create" | "update" | "find"
-  >;
-  readonly start: Pick<AgentPlanStepStart, "control">;
-  readonly steps: Pick<AgentPlanStepRunner, "run" | "closeGroups"> &
-    Partial<Pick<AgentPlanStepRunner, "revise">>;
-  readonly archive?: AgentRunArchive;
-  readonly files?: AgentDefinitionFiles;
-}
 
 /** Event-driven DAG scheduling; native ACP capacity is admitted by the shared resource service. */
 export class AgentPlanRunEngine {
@@ -530,15 +514,17 @@ export class AgentPlanRunEngine {
       component: "AgentPlanRunEngine",
       message: "Agent plan step started",
     });
-    const changes = await this.outcome(active, node, controller).catch(
-      (error: unknown): Partial<AgentPlanStepResult> => {
+    const changes = await this.outcome(active, node, controller)
+      .then((result) =>
+        settlePlanWorkResult(this.dependencies.workGate, active, node, result),
+      )
+      .catch((error: unknown): Partial<AgentPlanStepResult> => {
         logCaughtError("AgentPlanRunEngine", error);
         return {
           status: "failed",
           error: error instanceof AgentError ? error.code : "plan_step_failed",
         };
-      },
-    );
+      });
     logEvent({
       level: changes.status === "failed" ? "error" : "info",
       event: "agent.step.completed",
@@ -563,10 +549,7 @@ export class AgentPlanRunEngine {
         active.controllers.delete(node.id);
         active.dispatched.delete(node.id);
         try {
-          const checkpoint =
-            changes.status === "succeeded" && !changes.remote
-              ? createPlanCheckpoint(active.view, active.snapshot, node.id)
-              : undefined;
+          const checkpoint = completedPlanWorkCheckpoint(active, node, changes);
           await this.dependencies.runs.update(active.view, checkpoint);
         } catch (error: unknown) {
           logCaughtError("AgentPlanRunEngine", error);
@@ -598,6 +581,7 @@ export class AgentPlanRunEngine {
     node: AgentPlanNode,
     controller: AbortController,
   ): Promise<Partial<AgentPlanStepResult>> {
+    await guardPlanWorkDispatch(this.dependencies.workGate, active, node.id);
     const isStopped = active.view.stopRequested || controller.signal.aborted;
     const remote = dispatchRemotePlanStep(
       this.dependencies.remoteExecution,

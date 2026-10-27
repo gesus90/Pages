@@ -735,6 +735,9 @@
         "plan_run_unavailable": "This plan already has an active or paused run; stop it before starting again. Or the selected run is no longer active.",
         "plan_run_option_unsupported": "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
         "plan_mcp_unavailable": "The node needs the Pages MCP adapter for agent sessions, but this server has none.",
+        "plan_work_gate_failed": "Current ticket work is not confirmed. Complete relevant TODOs and confirm actual evidence for every required check before completion or a successor can start.",
+        "plan_work_gate_unavailable": "The required ticket check needs TODO progress, bound tickets and a writable CLI session. Group and loop members are not supported in version 1.",
+        "plan_work_gate_write_required": "The executor needs current ticket and project write rights before this node starts.",
         "codex_permission_mode_required": "Codex CLI agents run only in “Read only” or “YOLO”. Choose one of the two modes for this agent.",
         "claude_permission_mode_required": "Claude Code agents run only in “Read only” or “YOLO”. Choose one of the two modes for this agent.",
         "plan_acp_adapter_missing": "Codex ACP is not ready. Check the managed installation and diagnostics under Settings → Agents → Tools.",
@@ -4716,17 +4719,18 @@
       "todoList": "Agent TODO list, scroll vertically",
       "todoCount": "{{completed}}/{{total}} done",
       "noTodos": "No TODO list was reported for this step.",
-      "emptyTodos": "The reported TODO list has no entries.",
+      "emptyTodos": "No work list yet.",
       "source": {
-        "live": "Ticket TODOs · no current item reported",
+        "live": "Current observed ticket state · unweighted checklist progress",
         "historical": "Saved TODO list of this step",
         "contract": "Tasks of this step · progress not reported yet"
       },
       "todoState": {
         "done": "Done",
-        "open": "Open",
+        "open": "Up next",
         "missing": "Report missing or item no longer present",
-        "unreported": "Progress not reported yet"
+        "unreported": "Progress not reported yet",
+        "active": "In progress now"
       },
       "state": {
         "idle": "Idle",
@@ -4753,7 +4757,9 @@
       "gap": {
         "unreachable": "unreachable – no number",
         "cycle": "in a cycle – no number"
-      }
+      },
+      "todoLabel": "TODOs",
+      "todoSummary": "{{completed}} done · {{active}} in progress · {{open}} up next"
     },
     "loops": {
       "defaultName": "Loop",
@@ -5151,6 +5157,16 @@
         "signal_denied": "An owned process could not be signalled.",
         "exit_timeout": "An owned process remained alive beyond the kill deadline."
       }
+    },
+    "workGate": {
+      "label": "Require ticket completion checks (version 1)",
+      "hint": "Current relevant TODOs, explained exclusions and evidence for every required check gate completion and successors. Other plans retain their progress mode.",
+      "checks": "Required checks, one per line",
+      "scope": "Work {{ticket}} · scope revision {{revision}}",
+      "pending": "Completion check pending or stale",
+      "confirmed": "Current work and required checks confirmed",
+      "excluded": "Outside this assignment: {{title}} · {{reason}}",
+      "missingCheck": "Evidence missing"
     }
   },
   "mcpDuration": {

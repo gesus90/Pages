@@ -5,6 +5,8 @@ import { cn } from "@/app/lib/cn";
 
 import { PlanPaletteButton } from "./plan-palette-button";
 import { PlanStatusSequence } from "./plan-status-sequence";
+import { PlanStatusDonut } from "./plan-status-donut";
+import { PlanStatusTodoCount } from "./plan-status-todo-count";
 import { elapsedTime } from "./plan-run-status-model";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -85,36 +87,13 @@ function RunDonut({
   const completed = steps.filter((step) => step.status === "succeeded").length;
   const total = steps.length || preview.steps.length;
   const label = t("plans.progress.count", { completed, total });
-  const fraction = steps.length ? completed / steps.length : 0;
   return (
     <div
       className="flex shrink-0 items-center gap-1.75 border-l border-border pl-3"
       role="img"
       aria-label={total ? label : t("plans.progress.unknownTotal")}
     >
-      <svg viewBox="0 0 56 56" aria-hidden="true" className="size-6 -rotate-90">
-        <circle
-          cx="28"
-          cy="28"
-          r="24"
-          fill="none"
-          stroke="var(--color-plan-progress-waiting)"
-          strokeWidth="7"
-        />
-        {fraction > 0 ? (
-          <circle
-            cx="28"
-            cy="28"
-            r="24"
-            fill="none"
-            stroke="var(--color-plan-progress-done)"
-            strokeWidth="7"
-            strokeLinecap="round"
-            pathLength="100"
-            strokeDasharray={`${fraction * 100} 100`}
-          />
-        ) : null}
-      </svg>
+      <PlanStatusDonut completed={completed} total={total} />
       <span aria-hidden="true" className="min-w-0">
         <span className="block text-xs leading-4.5 font-medium tabular-nums">
           {total ? `${completed}/${total}` : "—"}
@@ -125,7 +104,7 @@ function RunDonut({
   );
 }
 
-/** The unchanged compact head of the floating status panel. */
+/** The existing status head with an independent checklist count before the clock. */
 export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
   const { t } = useTranslation();
   const toggle = t(
@@ -140,7 +119,7 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
         isReady={props.isReady}
       />
       <RunDonut steps={props.steps} preview={props.preview} />
-      <div className="order-last flex w-full min-w-0 border-border @2xl/status:order-0 @2xl/status:w-auto @2xl/status:flex-1 @2xl/status:border-l">
+      <div className="flex w-full min-w-0 border-border @2xl/status:w-auto @2xl/status:flex-1 @2xl/status:border-l">
         {props.run && props.steps.length ? (
           <PlanStatusSequence
             run={props.run}
@@ -153,10 +132,13 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
           <PlanPendingSequence preview={props.preview} error={props.error} />
         )}
       </div>
+      <PlanStatusTodoCount
+        step={props.steps.find((step) => step.id === props.selectedId)}
+      />
       <span
         title={t("plans.progress.elapsed")}
         aria-label={`${t("plans.progress.elapsed")}: ${duration}`}
-        className="ml-auto flex shrink-0 items-center gap-1.5 border-l border-border pl-3 text-xs leading-4.5 font-medium tabular-nums @2xl/status:ml-0"
+        className="flex shrink-0 items-center gap-1.5 border-l border-border pl-3 text-xs leading-4.5 font-medium tabular-nums"
       >
         <Clock3 aria-hidden="true" className="size-4" />
         {duration}

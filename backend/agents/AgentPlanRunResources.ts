@@ -2,6 +2,7 @@ import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 
 import { readPlanText } from "./AgentPlanInput";
 import { readAgentObject } from "./AgentPayload";
+import { readPlanStepTickets } from "./AgentPlanStepTickets";
 
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
@@ -9,6 +10,8 @@ import type { AgentTicketAsset } from "@/definition/AgentTicketParameter";
 
 /** Live read checks use identifiers from the private snapshot, never copied resource content. */
 export interface AgentPlanRunResources {
+  /** Node-scoped ticket IDs from the pinned execution basis, including remote parameters. */
+  readonly stepTickets?: Readonly<Record<string, readonly string[]>>;
   readonly remoteWorkspaceIds?: readonly string[];
   /** The plan target the run started with; absent for the Pages host and older runs. */
   readonly executionTarget?: AgentPlanExecutionTarget;
@@ -96,6 +99,7 @@ export function readPlanRunResources(input: unknown): AgentPlanRunResources {
   }
   addRemoteResources(snapshot, { ticketIds, wikiIds, ticketAssets });
   return {
+    stepTickets: readPlanStepTickets(input),
     remoteWorkspaceIds: remoteWorkspaceIds(snapshot),
     ...planTarget(plan),
     projectId: readPlanText(plan.projectId),

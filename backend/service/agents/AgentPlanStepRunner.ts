@@ -314,11 +314,11 @@ export class AgentPlanStepRunner {
       prepared.options,
     );
     const isReadOnly = reach === "read";
-    const completion = step.step.completion ?? "report";
     const instruction = prepared.instruction ?? step.step.instruction;
     const contract = buildPlanContract(instruction, tickets, {
       isReadOnly,
-      completion,
+      completion: step.step.completion,
+      completionGate: step.step.completionGate,
     });
     const groupKey = `${run.id}/${node.sessionGroup ?? step.step.id}`;
     const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
@@ -343,7 +343,7 @@ export class AgentPlanStepRunner {
             ? 0
             : prepared.options.timeoutMinutes * 60_000,
           reach,
-          canSetStatus: completion === "todos",
+          canSetStatus: step.step.completion === "todos",
         });
     const input = await this.sessionInput(node, prepared, {
       contract,

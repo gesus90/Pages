@@ -1,4 +1,5 @@
 import type { AgentPlanActivity } from "./AgentPlanProgress";
+import type { AgentPlanCompletionGate } from "./AgentPlanWork";
 import type { CliProviderId } from "./AgentConnection";
 import type { AcpProviderId, AgentRunOptions } from "./AgentConfiguration";
 import type { AgentPlanContinuationCapabilities } from "./AgentPlanRecovery";
@@ -65,6 +66,8 @@ export interface AgentPlanContractItem {
  * has no criteria. The pinned prompt keeps the original assignment.
  */
 export interface AgentPlanContract {
+  /** Explicit mandatory ticket acceptance, independently versioned from diagnostic progress. */
+  readonly completionGate?: AgentPlanCompletionGate;
   /** Absent in records of nodes that completed by report. */
   readonly completion?: AgentPlanCompletion;
   readonly todos: readonly AgentPlanContractItem[];

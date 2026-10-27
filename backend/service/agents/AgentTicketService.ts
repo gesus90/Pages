@@ -30,6 +30,7 @@ import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
 import type { WorkflowStatus, WorkItemDetail } from "@/definition/Task";
 import type { AgentTaskContext } from "./AgentTaskAccess";
+import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
 import type { AgentTicketAnnouncer } from "./AgentTicketAnnouncer";
 import type {
   AgentTicketCompleted,
@@ -40,6 +41,7 @@ import type {
 
 /** The server-owned collaborators of ticket writes. */
 export interface AgentTicketServiceDependencies {
+  readonly workGate?: Pick<AgentPlanWorkGate, "guardStatus">;
   readonly transaction: AgentTicketTransaction;
   readonly announcer: AgentTicketAnnouncer;
 }
@@ -237,7 +239,19 @@ export class AgentTicketService {
       revisit: async (context, stored) => {
         await context.tasks.getById(context.actor, stored.ticketId);
       },
-      work: (context) => this.changeField(context, request),
+      work: async (context) => {
+        if (request.field === "status")
+          await this.dependencies.workGate?.guardStatus(
+            identity,
+            {
+              ticketId:
+                "id" in request.ticket ? request.ticket.id : request.ticket.key,
+              statusId: request.value,
+            },
+            context,
+          );
+        return this.changeField(context, request);
+      },
     });
   }
 

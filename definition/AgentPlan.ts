@@ -1,3 +1,4 @@
+import type { AgentPlanCompletionGate } from "./AgentPlanWork";
 import type {
   AgentPlanExecutionTarget,
   AgentPlanRemoteTarget,
@@ -72,6 +73,8 @@ export interface AgentPlanStep extends AgentPlanPosition {
   readonly configuration?: AgentPlanConfiguration;
   /** Absent means `report`, the completion of every node before this field existed. */
   readonly completion?: AgentPlanCompletion;
+  /** Standalone-node opt-in for current ticket scope, required checks and successor gating. */
+  readonly completionGate?: AgentPlanCompletionGate;
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
 

@@ -23,6 +23,7 @@ import {
   validateRemoteParameterPrompt,
 } from "./AgentPlanRemoteParameters";
 import { AgentPlanRemoteSources } from "./AgentPlanRemoteSources";
+import { remoteTodoChecklists } from "./AgentPlanRemoteChecklist";
 
 import type {
   AgentPlanRemoteParameters,
@@ -53,6 +54,7 @@ import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { RunnerService } from "@/backend/service/runner/RunnerService";
 import type { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpenRouterService";
+import type { AgentPlanTasks } from "./AgentPlanTasks";
 
 const OBSERVATION_STALE_MILLISECONDS = 45_000;
 
@@ -73,6 +75,7 @@ export interface RemotePlanStep {
 }
 
 interface RemoteExecutionDependencies {
+  readonly tasks?: Pick<AgentPlanTasks, "checklist">;
   readonly parameters?: AgentPlanRemoteParameters;
   readonly pages?: RunnerPagesAccessService;
   readonly targets: AgentPlanRemoteTargets;
@@ -195,7 +198,14 @@ export class AgentPlanRemoteExecution {
       command = remoteScriptCommand(step, target, interpreters, basis);
     else {
       await this.validateModel(userId, plan, step);
-      command = remoteModelCommand(step, basis);
+      const tickets = await remoteTodoChecklists({
+        step,
+        parameters,
+        tasks: this.dependencies.tasks,
+        userId,
+        projectId: plan.projectId,
+      });
+      command = remoteModelCommand(step, basis, tickets);
       if (parameters && command.program.kind !== "script")
         await validateRemoteParameterPrompt(
           step,
@@ -287,7 +297,10 @@ export class AgentPlanRemoteExecution {
     }
     // Closeout changes persisted access metadata; continuation compares the exact durable view.
     const current = await this.dependencies.runs.find(run.id);
-    return current?.steps.find((step) => step.id === remote.step.id) ?? result;
+    return completedGatedRemote(
+      remote,
+      current?.steps.find((step) => step.id === remote.step.id) ?? result,
+    );
   }
 
   /** Rechecks remote resource access before disclosing historical output, without requiring online status. */
@@ -409,6 +422,12 @@ export class AgentPlanRemoteExecution {
       const current = await this.dependencies.runs.find(run.id);
       const step = current?.steps.find((entry) => entry.id === remote.step.id);
       if (!step) throw new AgentError("plan_context_changed");
+      if (
+        remote.step.type === "agent" &&
+        remote.step.completionGate &&
+        step.remote?.status === "completed"
+      )
+        return completedGatedRemote(remote, step);
       if (step.remote && step.status !== "running" && step.status !== "waiting")
         return step;
       await new Promise<void>((resolve) => setTimeout(resolve, 250));
@@ -457,6 +476,25 @@ export class AgentPlanRemoteExecution {
     if (!target) throw new AgentError("plan_access_denied");
     return target;
   }
+}
+
+/** Only the engine may turn this provisional runner result into accepted, checkpointed success. */
+function completedGatedRemote(
+  remote: RemotePlanStep,
+  step: Partial<AgentPlanStepResult>,
+): Partial<AgentPlanStepResult> {
+  if (
+    remote.step.type !== "agent" ||
+    !remote.step.completionGate ||
+    step.status !== "running" ||
+    step.remote?.status !== "completed"
+  )
+    return step;
+  return {
+    ...step,
+    status: "succeeded",
+    ...(step.session ? { session: { ...step.session, resultCode: 0 } } : {}),
+  };
 }
 
 /** The runner confirms a quiet worker every 15 to 30 seconds; 45 seconds without it leave the process state unknown. */

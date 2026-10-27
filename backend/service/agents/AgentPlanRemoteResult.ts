@@ -47,6 +47,7 @@ function remoteAgentResult(
   const contract = buildPlanContract(node.instruction, [], {
     isReadOnly: options.access === "read_only",
     completion: node.completion,
+    completionGate: node.completionGate,
   });
   const acceptance = evaluatePlanAcceptance(contract, result.output ?? "", {
     checked: new Map(),

@@ -2,6 +2,12 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  plan_work_gate_failed:
+    "The required ticket work confirmation is missing or stale. Read current relevant TODOs and prove every required check before completion or a successor can start.",
+  plan_work_gate_unavailable:
+    "The required ticket work gate needs TODO progress, bound tickets and a writable CLI session.",
+  plan_work_gate_write_required:
+    "The executor needs current ticket and project write rights before this gated node can start.",
   parameter_asset_conflict:
     "The source revision or replay metadata changed. Read the current attachment digest and use the original operation ID only for identical retries.",
   parameter_asset_write_denied:

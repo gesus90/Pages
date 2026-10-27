@@ -10,6 +10,7 @@ import {
 } from "@/definition/AgentPlanConfiguration";
 import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { PlanExecutionTargetField } from "./plan-execution-target-field";
+import { PlanCompletionGateField } from "./plan-completion-gate-field";
 import { PlanRemoteStatus } from "./plan-remote-status";
 import {
   PlanNodeContentFields,
@@ -70,6 +71,7 @@ function PlanCompletionField(props: {
       <Select
         id={`plan-completion-${step.id}`}
         ariaLabel={t("plans.completion.label")}
+        disabled={step.completionGate !== undefined}
         value={step.completion ?? "report"}
         options={[
           { value: "report", label: t("plans.completion.report") },
@@ -177,6 +179,12 @@ export function PlanNodeConfigurationFields(props: {
           isGroupStep={props.isGroupStep}
           onChange={props.onChange}
         />
+        {props.isGroupStep ? null : (
+          <PlanCompletionGateField
+            step={props.step}
+            onChange={props.onChange}
+          />
+        )}
       </details>
     </fieldset>
   );

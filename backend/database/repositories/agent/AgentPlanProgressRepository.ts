@@ -128,6 +128,52 @@ function requireCompletionCheckpoint(
     throw new AgentPlanRecoveryError("checkpoint_invalid");
 }
 
+function hasTicketWorkGate(snapshot: unknown, stepId: string): boolean {
+  const plan = readAgentObject(readAgentObject(snapshot).plan);
+  const nodes: readonly unknown[] = Array.isArray(plan.nodes) ? plan.nodes : [];
+  return nodes.some((entry) => {
+    const node = readAgentObject(entry);
+    return (
+      node.id === stepId && readAgentObject(node.completionGate).version === 1
+    );
+  });
+}
+
+function isTicketGateResult(
+  step: AgentPlanStepResult,
+  checkpoint: AgentPlanCheckpointInput | undefined,
+): boolean {
+  if (step.status === "succeeded")
+    return (
+      checkpoint?.stepId === step.id &&
+      step.session?.acceptance?.verdict === "accepted"
+    );
+  return (
+    step.status === "failed" &&
+    step.error === "plan_work_gate_failed" &&
+    step.session?.resultCode === -1
+  );
+}
+
+function settlesRemoteTicketGate(input: {
+  readonly snapshot: unknown;
+  readonly stored: AgentPlanStepResult;
+  readonly next: AgentPlanStepResult;
+  readonly checkpoint: AgentPlanCheckpointInput | undefined;
+}): boolean {
+  const { stored, next } = input;
+  return (
+    stored.status === "running" &&
+    stored.remote?.status === "completed" &&
+    hasTicketWorkGate(input.snapshot, next.id) &&
+    isTicketGateResult(next, input.checkpoint) &&
+    stored.execution !== undefined &&
+    next.execution !== undefined &&
+    planContentDigest(planStepExecutionSchema.parse(stored.execution)) ===
+      planContentDigest(planStepExecutionSchema.parse(next.execution))
+  );
+}
+
 /** Run progress, successful completion and workspace release form one transaction. */
 export class AgentPlanProgressRepository {
   private readonly database: Pick<Database, "transaction">;
@@ -156,14 +202,22 @@ export class AgentPlanProgressRepository {
           const retained = stored?.resourceAccess
             ? { ...step, resourceAccess: stored.resourceAccess }
             : step;
+          const isGateResult =
+            stored &&
+            settlesRemoteTicketGate({
+              snapshot: previous.snapshot,
+              stored,
+              next: step,
+              checkpoint,
+            });
           return stored?.remote
             ? {
                 ...retained,
-                status: stored.status,
+                status: isGateResult ? step.status : stored.status,
                 output: stored.output,
-                error: stored.error,
+                error: isGateResult ? step.error : stored.error,
                 remote: stored.remote,
-                session: stored.session,
+                session: isGateResult ? step.session : stored.session,
                 cancellation: stored.cancellation,
               }
             : retained;

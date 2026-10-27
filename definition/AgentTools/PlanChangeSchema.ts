@@ -248,6 +248,23 @@ const NODE_FIELDS: ToolProperties = {
     ],
   },
   completion: { enum: ["report", "todos"] },
+  completionGate: {
+    type: "object",
+    description:
+      "Version 1 requires completion todos on a standalone agent node; group and loop members refuse this opt-in.",
+    properties: {
+      version: { const: 1 },
+      requiredChecks: {
+        type: "array",
+        minItems: 1,
+        maxItems: 30,
+        uniqueItems: true,
+        items: { type: "string", minLength: 1, maxLength: 2000 },
+      },
+    },
+    required: ["version", "requiredChecks"],
+    additionalProperties: false,
+  },
   taskId: PLAN_NODE_IDENTIFIER_SCHEMA,
   name: {
     type: "string",

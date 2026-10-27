@@ -17,6 +17,7 @@ export const PLAN_NODE_FIELDS = {
     "instruction",
     "executionTarget",
     "completion",
+    "completionGate",
     "configuration",
   ],
   script: [

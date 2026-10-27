@@ -1,3 +1,4 @@
+import { PLAN_WORK_SAVE_TOOL } from "./PlanWork.js";
 import { ADMIN_WRITE_TOOLS } from "./Administration.js";
 import { AGENT_WRITE_TOOLS } from "./Agents.js";
 import { ASSET_UPLOAD_TOOL } from "./AssetUpload.js";
@@ -50,9 +51,10 @@ import type { PagesAgentWriteOperation } from "../PagesAgentWrites.js";
 
 /** Fixed write contracts; Pages resolves write permission afresh for each list and call. */
 export const WRITE_TOOLS: readonly {
-  readonly operation: PagesAgentWriteOperation;
+  readonly operation: PagesAgentWriteOperation | "ticket.work.save";
   readonly tool: Tool;
 }[] = [
+  { operation: "ticket.work.save", tool: PLAN_WORK_SAVE_TOOL },
   { operation: "chat.sessions.delete", tool: CHAT_SESSIONS_DELETE_TOOL },
   ...EXTENSION_WRITE_TOOLS,
   ...ADMIN_WRITE_TOOLS,
