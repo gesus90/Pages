@@ -11,7 +11,11 @@ export function planCatalogRefresh(
 ): PlanCatalogRefresh {
   const query = new URLSearchParams({ refresh: "1" });
   if (page.selected) query.set("planId", page.selected.id);
-  else if (workspaceId) query.set("workspaceId", workspaceId);
+  else if (
+    workspaceId &&
+    page.workspaces.some((workspace) => workspace.id === workspaceId)
+  )
+    query.set("workspaceId", workspaceId);
   return {
     url: `/agent-api/plan-sources?${query}`,
     etag: planPollingEtag({

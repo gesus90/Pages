@@ -7,6 +7,7 @@ import {
 
 import { PlanRetiredNotice } from "@/app/components/agents/plans/plan-retired-notice";
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
+import { usePlanSelectionPreference } from "@/app/components/agents/plans/use-plan-selection-preference";
 import { defaultPlanId } from "@/app/lib/agent-plan-default";
 import { planCatalogRefresh } from "@/app/lib/agent-plan-catalog.server";
 import {
@@ -14,10 +15,7 @@ import {
   createPlanAction,
   deletePlanAction,
 } from "@/app/lib/agent-plan-management.server";
-import {
-  lastSelectedPlan,
-  rememberSelectedPlan,
-} from "@/app/lib/agent-plan-selection.server";
+import { lastSelectedPlan } from "@/app/lib/agent-plan-selection.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
@@ -30,6 +28,10 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
+import type {
+  PlanSelectionPreference,
+  PlanSelectionScope,
+} from "@/app/lib/agent-plan-selection";
 import type { PlanCatalogRefresh } from "@/app/components/agents/plans/use-plan-catalog-refresh";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type {
@@ -43,16 +45,12 @@ import type { Route } from "./+types/agent-plans";
 interface AgentPlansView extends AgentPlanPage {
   readonly opening: AgentPlanOpening;
   readonly catalogRefresh?: PlanCatalogRefresh;
+  readonly selectionPreference: PlanSelectionPreference;
 }
 
 /** Graphs and execution results are always private, uncacheable responses. */
-export const headers: Route.HeadersFunction = ({
-  parentHeaders,
-  loaderHeaders,
-}) => {
+export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
   const response = new Headers(parentHeaders);
-  const selection = loaderHeaders.get("Set-Cookie");
-  if (selection) response.append("Set-Cookie", selection);
   response.set("Cache-Control", "no-store");
   return response;
 };
@@ -73,32 +71,35 @@ export async function loader({
     if (!user) throw new AgentError("plan_access_denied");
     const query = new URL(request.url).searchParams;
     const workspace = query.get("workspaceId");
+    const remembered = await lastSelectedPlan(request, user.id);
+    const requested = query.get("planId");
     const services = await getApplicationServices();
     const page = await openPlan(services.agentPlanService, user.id, {
-      planId:
-        query.get("planId") ??
-        (workspace === null ? await lastSelectedPlan(request, user.id) : null),
+      planId: requested ?? (workspace === null ? remembered : null),
       workspaceId: workspace === null ? null : readPlanText(workspace),
+      isRestoring:
+        requested === null && workspace === null && remembered !== null,
     });
-    const responseHeaders = new Headers(AGENT_NO_STORE);
-    if (page.selected)
-      responseHeaders.append(
-        "Set-Cookie",
-        await rememberSelectedPlan(request, user.id, page.selected.id),
-      );
-    // Actions revalidate /agents/plans.data, which the path-bound selection
-    // cookie does not reach; naming the plan keeps it open after Start or Stop.
-    if (page.selected && query.get("planId") === null && workspace === null)
+    // Pin the opened plan in the address so another tab's preference cannot
+    // change this editor's selection during catalog/action revalidation.
+    if (page.selected && requested === null && workspace === null)
       throw redirect(
         `/agents/plans?planId=${encodeURIComponent(page.selected.id)}`,
-        { headers: responseHeaders },
+        {
+          headers: AGENT_NO_STORE,
+        },
       );
     return routeData(
       {
         ...page,
         catalogRefresh: planCatalogRefresh(page, workspace),
+        selectionPreference: openingPreference(
+          { userId: user.id, origin: new URL(request.url).origin },
+          page,
+          { workspace, requested, remembered },
+        ),
       },
-      { headers: responseHeaders },
+      { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {
     if (error instanceof Response) throw error;
@@ -106,6 +107,27 @@ export async function loader({
 
     throw agentFailureResponse(error);
   }
+}
+
+/** Keeps a valid previous choice when an unrelated explicit link or workspace could not open. */
+function openingPreference(
+  scope: PlanSelectionScope,
+  page: AgentPlanPage,
+  selection: {
+    readonly workspace: string | null;
+    readonly requested: string | null;
+    readonly remembered: string | null;
+  },
+): PlanSelectionPreference {
+  const { workspace, requested, remembered } = selection;
+  return {
+    ...scope,
+    planId: page.selected?.id ?? null,
+    discardedPlanId:
+      workspace === null && (requested === null || requested === remembered)
+        ? remembered
+        : null,
+  };
 }
 
 /**
@@ -178,11 +200,12 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
 export default function AgentPlansRoute(): React.ReactElement {
   const page = useLoaderData<typeof loader>();
   const location = useLocation();
+  usePlanSelectionPreference(page.selectionPreference);
   return (
     <>
       <PlanRetiredNotice />
       <PlanPage
-        key={`${page.selected?.id ?? "new"}:${location.key}`}
+        key={`${page.userId}:${page.selected?.id ?? "new"}:${location.key}`}
         page={page}
         opening={page.opening}
         catalogRefresh={page.catalogRefresh}
@@ -208,7 +231,13 @@ async function readablePage(
   selection: { readonly planId: string; readonly workspaceId: string | null },
 ): Promise<AgentPlanPage | null> {
   try {
-    return await service.page(userId, selection);
+    const page = await service.page(userId, selection);
+    if (
+      selection.workspaceId &&
+      page.selected?.workspaceId !== selection.workspaceId
+    )
+      return null;
+    return page;
   } catch (error: unknown) {
     if (error instanceof AgentError && error.code === "plan_access_denied")
       return null;
@@ -229,22 +258,53 @@ async function openPlan(
   selection: {
     readonly planId: string | null;
     readonly workspaceId: string | null;
+    readonly isRestoring: boolean;
   },
-): Promise<AgentPlansView> {
+): Promise<Omit<AgentPlansView, "selectionPreference">> {
   const isDefault = selection.planId === null;
   const planId =
     selection.planId === null
-      ? defaultPlanId(await service.visible(userId), userId)
+      ? defaultPlanId(
+          (await service.visible(userId)).filter(
+            (plan) =>
+              selection.workspaceId === null ||
+              plan.workspaceId === selection.workspaceId,
+          ),
+          userId,
+        )
       : readRequestedPlan(selection.planId);
   const page =
     planId === null
       ? null
-      : await readablePage(service, userId, { ...selection, planId });
-  if (page) return { ...page, opening: isDefault ? "default" : "requested" };
+      : await readablePage(service, userId, {
+          planId,
+          workspaceId: selection.workspaceId,
+        });
+  if (page && !(selection.isRestoring && page.selected?.isWorkspaceMissing))
+    return { ...page, opening: isDefault ? "default" : "requested" };
   return {
-    ...(await service.page(userId, { ...selection, planId: null })),
+    ...(await emptyPage(service, userId, selection.workspaceId)),
     opening: isDefault ? "defaultMissing" : "requestedMissing",
   };
+}
+
+/** An invalid workspace leaves the regular empty editor rather than retrying the inaccessible context. */
+async function emptyPage(
+  service: AgentPlanService,
+  userId: string,
+  workspaceId: string | null,
+): Promise<AgentPlanPage> {
+  try {
+    return await service.page(userId, { planId: null, workspaceId });
+  } catch (error: unknown) {
+    if (
+      !(error instanceof AgentError) ||
+      error.code !== "plan_access_denied" ||
+      workspaceId === null
+    )
+      throw error;
+    return service.page(userId, { planId: null, workspaceId: null });
+  }
 }
 
 function readPlanContent(formData: FormData): AgentPlanInput {

@@ -4,10 +4,6 @@ import { readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 
-import {
-  forgetSelectedPlan,
-  rememberSelectedPlan,
-} from "./agent-plan-selection.server";
 import { AGENT_NO_STORE } from "./settings-actions/settings-agents-response.server";
 
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
@@ -113,7 +109,7 @@ export async function clonePlanAction(
  *
  * @param userId - The owner.
  * @param services - The plan services.
- * @param request - The request, whose cookies keep the selection.
+ * @param request - The submitted removal; the destination page commits the new selection.
  */
 export async function deletePlanAction(
   userId: string,
@@ -134,17 +130,10 @@ export async function deletePlanAction(
   const next =
     remaining.find((plan) => plan.projectId === deleted?.projectId) ??
     remaining[0];
-  const headers = new Headers(AGENT_NO_STORE);
-  headers.append(
-    "Set-Cookie",
-    next
-      ? await rememberSelectedPlan(request.request, userId, next.id)
-      : await forgetSelectedPlan(request.request),
-  );
   return redirect(
     next
       ? `/agents/plans?planId=${encodeURIComponent(next.id)}`
       : "/agents/plans",
-    { headers },
+    { headers: AGENT_NO_STORE },
   );
 }

@@ -67,14 +67,23 @@ beforeEach(() => {
 
 it("opens the readable plan named Task2 when the address names no plan", async () => {
   serve([plan("alpha", "Alpha"), plan("task-two", "Task2")]);
-  const page = await open();
-  expect(page.opening).toBe("default");
-  expect(page.selected?.id).toBe("task-two");
+  const request = new Request("http://pages.invalid/agents/plans");
+  let destination: string | null = null;
+  try {
+    await loader(routeArguments(request, TICKET_ACTOR, {}));
+  } catch (error: unknown) {
+    if (!(error instanceof Response)) throw error;
+    expect(error.status).toBe(302);
+    destination = error.headers.get("Location");
+  }
+  expect(destination).toBe("/agents/plans?planId=task-two");
   expect(service.visible).toHaveBeenCalledExactlyOnceWith("owner");
   expect(service.page).toHaveBeenCalledExactlyOnceWith("owner", {
     planId: "task-two",
     workspaceId: null,
   });
+  const page = await open("?planId=task-two");
+  expect(page.selected?.id).toBe("task-two");
 });
 
 it("lets a plan identifier in the address take precedence over Task2", async () => {

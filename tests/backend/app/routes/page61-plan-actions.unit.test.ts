@@ -7,13 +7,17 @@ import { AgentError } from "@/backend/error/AgentErrors";
 
 import { TICKET_ACTOR } from "../../backend/service/agents/page55-ticket-fixture";
 
-const service = vi.hoisted(() => ({ remove: vi.fn() }));
+const service = vi.hoisted(() => ({ remove: vi.fn(), visible: vi.fn() }));
 vi.mock("@/app/lib/services.server", () => ({
-  getApplicationServices: async () => ({ agentPlanService: service }),
+  getApplicationServices: async () => ({
+    agentPlanService: service,
+    agentPlanManagement: { remove: service.remove },
+  }),
 }));
 
 beforeEach(() => {
   vi.resetAllMocks();
+  service.visible.mockResolvedValue([]);
 });
 
 async function remove(planId: string): Promise<Response> {
@@ -22,7 +26,12 @@ async function remove(planId: string): Promise<Response> {
   return action({
     request: new Request("http://synthetic.invalid/agents/plans", {
       method: "POST",
-      body: new URLSearchParams({ intent: "delete-plan", planId }),
+      body: new URLSearchParams({
+        intent: "delete-plan",
+        planId,
+        revision: "3",
+        requestKey: "request-1",
+      }),
     }),
     context: provider,
     params: {},
@@ -33,10 +42,25 @@ async function remove(planId: string): Promise<Response> {
 
 it("deletes as the authenticated user and returns to the plan list", async () => {
   const response = await remove("plan");
-  expect(service.remove).toHaveBeenCalledExactlyOnceWith("owner", "plan");
+  expect(service.remove).toHaveBeenCalledExactlyOnceWith("owner", "plan", {
+    revision: 3,
+    requestKey: "page-request-1",
+  });
   expect(response.status).toBe(302);
   expect(response.headers.get("Location")).toBe("/agents/plans");
   expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(response.headers.get("Set-Cookie")).toBeNull();
+});
+
+it("redirects to a remaining plan of the same project and defers persistence until it opens", async () => {
+  service.visible.mockResolvedValueOnce([{ id: "plan", projectId: "project" }]);
+  service.visible.mockResolvedValueOnce([
+    { id: "elsewhere", projectId: "another-project" },
+    { id: "next", projectId: "project" },
+  ]);
+  const response = await remove("plan");
+  expect(response.headers.get("Location")).toBe("/agents/plans?planId=next");
+  expect(response.headers.get("Set-Cookie")).toBeNull();
 });
 
 it("returns a safe denial when the service refuses a user without the right", async () => {
