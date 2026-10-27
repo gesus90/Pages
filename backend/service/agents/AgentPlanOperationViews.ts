@@ -174,6 +174,7 @@ export function planDetail(
       nodeId: issue.nodeId,
       port: issue.port,
       problem: issue.reason,
+      ...(issue.asset ? { asset: issue.asset } : {}),
     }),
   );
   return {

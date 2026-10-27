@@ -15,6 +15,7 @@ import type { AgentModelSelection } from "@/definition/AgentModelSelection";
 
 /** Immutable metadata resolved once at request start, without credentials. */
 export interface ResolvedAgentAssignment {
+  readonly supportsImages?: boolean;
   readonly connection: AgentConnectionRecord;
   readonly model: string;
   readonly reasoningEffort: string | null;
@@ -99,6 +100,9 @@ export async function resolveAgentAssignment(
   if (effort !== null && !model?.reasoningEfforts.includes(effort))
     throw new AgentExecutionError("reasoningUnsupported");
   return {
+    ...(model?.supportsImages === undefined
+      ? {}
+      : { supportsImages: model.supportsImages }),
     connection: { ...connection },
     model: model?.id ?? assignment.model,
     reasoningEffort: effort,

@@ -307,13 +307,17 @@ export class AcpSession implements PlanSession {
   ): Promise<PlanSessionTurn> {
     if (this.hasConfigurationChanged())
       return this.ended("failed", "plan_context_changed");
+    const capabilities =
+      this.context.request.modelSupportsImages === false
+        ? { ...this.promptCapabilities, image: false }
+        : this.promptCapabilities;
     const prompt: ContentBlock[] = [
       ...acpTicketAssetPrompt(
         request.prompt,
         await readTicketAssetInput(request),
-        this.promptCapabilities,
+        capabilities,
       ),
-      ...((await request.promptContent?.(this.promptCapabilities)) ?? []),
+      ...((await request.promptContent?.(capabilities)) ?? []),
     ];
     this.isPrompting = true;
     const response = await this.connection.agent

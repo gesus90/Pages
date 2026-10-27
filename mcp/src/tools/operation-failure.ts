@@ -1,5 +1,4 @@
 import { AGENT_LIMIT_CONSTRAINTS } from "../../../definition/PagesAgentOperations.js";
-
 import { isRecord } from "../is-record.js";
 
 import type {
@@ -68,6 +67,7 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   remoteTicketUnavailable: true,
   remoteWikiUnavailable: true,
   remoteWorkspaceParameter: true,
+  remoteAssetRunner: true,
   remoteAssetUnavailable: true,
   remoteAssetType: true,
   remoteAssetsTooLarge: true,
@@ -272,7 +272,7 @@ function readIssue(input: unknown): AgentPlanIssueEntry | undefined {
   const port = readIssueText(issue.port);
   if (nodeId === undefined || port === undefined) return undefined;
   return isIssueProblem(issue.problem)
-    ? { nodeId, port, problem: issue.problem }
+    ? { nodeId, port, problem: issue.problem, ...readAssetIssue(issue.asset) }
     : undefined;
 }
 
@@ -311,4 +311,25 @@ function failureDetails(
   if (code === "INVALID_REQUEST" || code === "FORBIDDEN")
     return readReason(details);
   return undefined;
+}
+
+function readAssetIssue(input: unknown): Pick<AgentPlanIssueEntry, "asset"> {
+  if (!isRecord(input)) return {};
+  const { id, name, cause } = input;
+  if (
+    typeof id !== "string" ||
+    id.length > 100 ||
+    typeof name !== "string" ||
+    name.length > 300 ||
+    typeof cause !== "string" ||
+    ![
+      "parameter_asset_unavailable",
+      "parameter_assets_too_large",
+      "parameter_asset_type_unsupported",
+      "parameter_ticket_changed",
+      "parameter_asset_reference_unsupported",
+    ].includes(cause)
+  )
+    return {};
+  return { asset: { id, name, cause } };
 }

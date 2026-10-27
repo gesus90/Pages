@@ -75,6 +75,7 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "remoteTicketUnavailable",
   "remoteWikiUnavailable",
   "remoteWorkspaceParameter",
+  "remoteAssetRunner",
   "remoteAssetUnavailable",
   "remoteAssetType",
   "remoteAssetsTooLarge",
@@ -123,6 +124,11 @@ export type AgentPlanIssueProblem = (typeof AGENT_PLAN_ISSUE_PROBLEMS)[number];
 
 /** One finding of the graph check: the node and port it concerns, and what is wrong. */
 export interface AgentPlanIssueEntry {
+  readonly asset?: {
+    readonly id: string;
+    readonly name: string;
+    readonly cause: string;
+  };
   readonly nodeId: string | null;
   readonly port: string | null;
   readonly problem: AgentPlanIssueProblem;

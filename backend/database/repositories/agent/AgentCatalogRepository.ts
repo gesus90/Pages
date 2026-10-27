@@ -28,6 +28,9 @@ interface CatalogRefreshResult {
 function serializeModels(models: readonly AgentCatalogModel[]): string {
   return JSON.stringify(
     models.map((model) => ({
+      ...(model.supportsImages === undefined
+        ? {}
+        : { image_input: model.supportsImages }),
       id: model.id,
       name: model.name,
       context_length: model.contextWindow,

@@ -1,7 +1,10 @@
+import { createHash } from "node:crypto";
+
+import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { detectFileType } from "@/backend/service/wiki/WikiFileTypes";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { assetRepresentation } from "./AgentAssetRepresentations";
 import { ticketAssetReferences } from "./AgentTicketAssetReferences";
 
 import type { Readable } from "node:stream";
@@ -84,23 +87,39 @@ export class AgentTicketAssetService {
   ): Promise<{
     readonly fileName: string;
     readonly content: AgentTicketAssetContent["content"];
+    readonly original: NonNullable<AgentTicketAssetContent["original"]>;
+    readonly bytes: Buffer;
     readonly size: number;
   }> {
+    let fileName = asset.id;
     try {
       const opened = await this.open(actor, asset);
+      fileName = opened.fileName;
       const bytes = await readBytes(opened.stream);
       if (bytes.length !== opened.size)
         throw new AgentError("parameter_asset_unavailable");
+      const representation = await assetRepresentation(bytes);
       return {
         fileName: opened.fileName,
-        content: fileContent(bytes),
+        content: representation.content,
+        original: {
+          mimeType: representation.mimeType,
+          size: bytes.length,
+          digest: createHash("sha256").update(bytes).digest("hex"),
+        },
+        bytes,
         size: bytes.length,
       };
     } catch (error: unknown) {
       logCaughtError("AgentTicketAssetService", error);
 
-      if (error instanceof AgentError) throw error;
-      throw new AgentError("parameter_asset_unavailable");
+      throw new AgentAssetError(
+        error instanceof AgentError
+          ? error.code
+          : "parameter_asset_unavailable",
+        asset,
+        fileName,
+      );
     }
   }
 
@@ -137,24 +156,5 @@ async function readBytes(stream: Readable): Promise<Buffer> {
     return Buffer.concat(chunks);
   } finally {
     stream.destroy();
-  }
-}
-
-function fileContent(bytes: Buffer): AgentTicketAssetContent["content"] {
-  if (detectFileType(bytes).contentType === "image/png")
-    return {
-      type: "image",
-      mimeType: "image/png",
-      base64: bytes.toString("base64"),
-    };
-  try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(text))
-      throw new Error("Binary file");
-    return { type: "text", text };
-  } catch (caughtError: unknown) {
-    logCaughtError("AgentTicketAssetService", caughtError);
-
-    throw new AgentError("parameter_asset_type_unsupported");
   }
 }

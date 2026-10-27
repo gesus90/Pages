@@ -223,6 +223,11 @@ export type AgentPlanStepStatus =
 
 /** Blocked waiting steps and confirmed cancellations remain distinguishable. */
 export interface AgentPlanStepResult {
+  readonly assetFailure?: {
+    readonly id: string;
+    readonly name: string;
+    readonly cause: string;
+  };
   readonly resourceAccess?: PlanRemoteAccess;
   readonly execution?: AgentPlanStepExecution;
   readonly remote?: AgentPlanRemoteProgress;

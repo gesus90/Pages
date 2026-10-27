@@ -10,6 +10,7 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
+import { assetFailure } from "./AgentPlanStepFailure";
 import { retiredPlanGroupSession } from "./AgentPlanGroupRetirement";
 import { createPlanSessionObserver } from "./AgentPlanSessionObserver";
 import { guardPlanStepStart } from "./AgentPlanStepDispatch";
@@ -623,7 +624,12 @@ export class AgentPlanStepRunner {
         cancellation: node.hasStarted ? "confirmed" : "not_started",
         session: node.record,
       };
-    return { status: "failed", error: errorCode(error), session: node.record };
+    return {
+      status: "failed",
+      error: errorCode(error),
+      session: node.record,
+      ...assetFailure(error),
+    };
   }
 
   private async pin(node: NodeRun, prompt: string): Promise<void> {

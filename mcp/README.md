@@ -2579,3 +2579,38 @@ the human administrator in a separate panel display; they never enter model prom
 stored conversations, audit or replay records. Closing the panel, switching sessions,
 sending another message or dismissing the display clears it; after response loss,
 use the existing password-reset workflow.
+
+### Authorized original files and edited results
+
+`prepare_asset_download({link})` accepts canonical Pages ticket/wiki/agent-asset
+links, never external URLs or host paths. It returns the original filename,
+MIME, size, SHA-256, representation status and a one-use five-minute binary
+GET capability. Resolve `downloadPath` on the configured Pages instance and send
+only the named `X-Pages-Download-Ticket` header; never follow redirects or send
+Authorization with it. Access, revocation and the pinned digest are checked
+again at download. Save bytes in the authorized workspace and verify their
+size/digest. PNG/JPEG/WebP are image sources, SVG and UTF-8 are source text;
+PDF extraction can be bounded, encrypted, missing text or unreadable. An
+original download is not a claim of model image understanding. External badge
+URLs remain unfetched sources, and fenced/inline examples do not request files.
+
+For `prepare_asset_upload`, `ticketId` or `pageId` selects an existing writable
+destination. Wiki returns require `operationId`; ticket returns should also
+supply it. The binary POST returns a permanent link after storage commits.
+Keep the operation ID and repeat it with identical metadata/bytes after response
+loss; changed replay input returns CONFLICT. `sourceAttachmentId` together with
+its SHA-256 `expectedDigest` records provenance. `replace: true` explicitly
+selects a replacement revision and rejects an already replaced or changed
+source. Originals remain downloadable. Unchanged bytes with selected provenance
+are refused instead of being advertised as an edit. New content does not need
+a separate confirmation. Read-only and Pica profiles gain no file-write or
+upload permission; full plan sessions can upload only while their originating
+credential remains valid. Output limits are 10 MiB and 64 files per runner step.
+Use an actual available raster editor for image changes and report its absence.
+Never put binary bytes or local paths into normal MCP JSON fields.
+
+Asset-specific plan failures include the safe file identity, name and cause;
+`remoteAssetRunner` requires Runner 1.12.0 and asset contract v2. It never
+silently redirects work to the Pages host.
+
+New derivatives may name `sourceType` (`ticket`, `wiki`, `agent`) with `sourceAttachmentId` and `expectedDigest` when source and destination differ. The server reauthorizes the source separately and returns `sourceType`/`sourceLink`. Explicit replacement remains restricted to the selected attachment owner; it never replaces a file in another destination. PDF extract text is transient transfer content and is never stored in the public resource-evidence manifest.

@@ -13,6 +13,7 @@ export interface AcpSessionRequest extends Pick<
   /** The complete prompt; it is sent unchanged as one text block. */
   readonly prompt: string;
   readonly model: string;
+  readonly modelSupportsImages?: boolean;
   /** `null` leaves the effort to the model's default, as the agent stores it. */
   readonly reasoningEffort: string | null;
   readonly mcpServers: readonly McpServer[];

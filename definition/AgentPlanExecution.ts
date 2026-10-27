@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { runnerTerminalSchema } from "./RunnerTerminal";
-import { planRemoteResourceSchema } from "./AgentPlanRemoteAccess";
+import { runnerTerminalSchema } from "./RunnerTerminal.js";
+import { planRemoteResourceSchema } from "./AgentPlanRemoteAccess.js";
 import {
   runnerCancellationSchema,
   runnerContactSchema,

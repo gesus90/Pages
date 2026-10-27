@@ -88,7 +88,7 @@ export class RunnerService {
   private readonly tools = new Map<string, readonly ToolInventory[]>();
   private readonly cliExecutors = new Set<string>();
   private readonly githubProbes = new Set<string>();
-  private readonly pagesExecutors = new Set<string>();
+  private readonly pagesExecutors = new Map<string, 1 | 2>();
   private readonly openCodeExecutors = new Set<string>();
   private readonly liveExecutors = new Set<string>();
   private readonly outputExecutors = new Set<string>();
@@ -239,8 +239,8 @@ export class RunnerService {
         if (message.liveHistoryVersion === 1)
           this.liveExecutors.add(connectionId);
         else this.liveExecutors.delete(connectionId);
-        if (message.pagesAccessVersion === 1)
-          this.pagesExecutors.add(connectionId);
+        if (message.pagesAccessVersion)
+          this.pagesExecutors.set(connectionId, message.pagesAccessVersion);
         else this.pagesExecutors.delete(connectionId);
         if (message.githubAccessVersion === 1)
           this.githubProbes.add(connectionId);
@@ -455,6 +455,11 @@ export class RunnerService {
   /** Older runners retain text execution but cannot receive resource/Pages requests. */
   public supportsPagesAccess(connectionId: string): boolean {
     return this.pagesExecutors.has(connectionId);
+  }
+
+  /** Asset v2 preserves original MIME, source metadata and authorized workspace copies. */
+  public supportsAssetFiles(connectionId: string): boolean {
+    return this.pagesExecutors.get(connectionId) === 2;
   }
 
   /** Runners before 1.7.0 list OpenCode by version only and cannot run it over ACP. */

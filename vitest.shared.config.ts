@@ -11,6 +11,7 @@ export default defineConfig({
       "@/app": fileURLToPath(new URL("./app", import.meta.url)),
       "@/assets": fileURLToPath(new URL("./assets", import.meta.url)),
       "@/backend": fileURLToPath(new URL("./backend", import.meta.url)),
+      "@/scripts": fileURLToPath(new URL("./scripts", import.meta.url)),
       "@/definition": fileURLToPath(new URL("./definition", import.meta.url)),
       "@/language": fileURLToPath(new URL("./language", import.meta.url)),
     },

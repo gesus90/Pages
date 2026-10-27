@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { PlanAssetEntry } from "./plan-asset-entry";
+
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 /** Shows the frozen resource versions and Pages-owned transmission/access evidence. */
@@ -15,9 +17,17 @@ export function PlanRemoteAccessDetails({
     step.error === "parameter_ticket_changed"
       ? "plans.remoteAccess.referencesChanged"
       : `settings.agents.error.${step.error}`;
-  if (resources.length === 0 && !access) return null;
+  if (resources.length === 0 && !access && !step.assetFailure) return null;
   return (
     <section className="mt-3 space-y-3 border-t border-border pt-3">
+      {step.assetFailure ? (
+        <p role="alert" className="text-destructive wrap-anywhere">
+          {t("plans.remoteAccess.assetFailure", {
+            ...step.assetFailure,
+            cause: t(`settings.agents.error.${step.assetFailure.cause}`),
+          })}
+        </p>
+      ) : null}
       {step.status === "failed" && step.error ? (
         <p role="alert" className="text-destructive wrap-anywhere">
           {t(errorKey, {
@@ -55,13 +65,10 @@ export function PlanRemoteAccessDetails({
             {access.files.length ? (
               <ul className="mt-1 space-y-1">
                 {access.files.map((file) => (
-                  <li
-                    key={`${file.parameter}-${file.digest}`}
-                    className="min-w-0 wrap-anywhere"
-                  >
-                    {file.parameter} · {file.name} · {file.type} ·{" "}
-                    {t("plans.remoteAccess.bytes", { count: file.size })}
-                  </li>
+                  <PlanAssetEntry
+                    key={`${file.parameter}-${file.asset?.id ?? file.name}-${file.digest}`}
+                    file={file}
+                  />
                 ))}
               </ul>
             ) : (

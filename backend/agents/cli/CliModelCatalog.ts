@@ -236,6 +236,9 @@ function readOpenCodeModel(
       : reasoningWithoutLevels(
           capabilities.reasoning === true ? "automatic" : "none",
         )),
+    ...(typeof readAgentObject(capabilities.input).image === "boolean"
+      ? { supportsImages: readAgentObject(capabilities.input).image === true }
+      : {}),
     ...(typeof capabilities.toolcall === "boolean"
       ? { isToolCapable: capabilities.toolcall }
       : {}),

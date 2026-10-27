@@ -45,9 +45,14 @@ export function ticketAssetPayload(
   for (const asset of assets) {
     blocks.push(textBlock(format, ticketAssetLabel(asset)));
     blocks.push(
-      asset.content.type === "text"
-        ? textBlock(format, asset.content.text)
-        : imageBlock(format, asset.content),
+      asset.content.type === "image"
+        ? imageBlock(format, asset.content)
+        : textBlock(
+            format,
+            asset.content.type === "text"
+              ? asset.content.text
+              : `Original file only: ${asset.content.reason}. No model content available.`,
+          ),
     );
   }
   return blocks;

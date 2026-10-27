@@ -202,6 +202,13 @@ export class AgentPlanRemoteExecution {
           parameters,
           command.program.prompt,
         );
+      if (
+        parameters?.assets.length &&
+        !this.dependencies.runners.supportsAssetFiles(target.connectionId)
+      )
+        throw new AgentPlanValidationError([
+          { nodeId: step.id, port: null, reason: "remoteAssetRunner" },
+        ]);
       if (parameters?.resources.length && command.pagesAccess !== 1)
         throw new AgentError("plan_mcp_unavailable");
     }
@@ -364,7 +371,7 @@ export class AgentPlanRemoteExecution {
   ): boolean {
     return (
       step.type === "agent" &&
-      Boolean(step.configuration?.runnerRoute?.tool) &&
+      Boolean(step.configuration?.runnerRoute) &&
       Boolean(this.dependencies.pages) &&
       this.dependencies.runners.supportsPagesAccess(target.connectionId)
     );

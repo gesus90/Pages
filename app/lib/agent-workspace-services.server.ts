@@ -89,11 +89,22 @@ export function createAgentConfigurationServices(input: {
   );
   const users = new UserRepository(database);
   const assets = new AgentTicketAssetService(input.ticketAssets);
-  const tickets = new AgentTicketParameterService(async (userId) => {
-    const actor = await users.findById(userId);
-    if (!actor?.isActive) throw new AgentError("agent_usage_denied");
-    return createAgentTaskContext(database, actor, "chat");
-  }, assets);
+  const tickets = new AgentTicketParameterService(
+    async (userId) => {
+      const actor = await users.findById(userId);
+      if (!actor?.isActive) throw new AgentError("agent_usage_denied");
+      return createAgentTaskContext(database, actor, "chat");
+    },
+    assets,
+    async (userId, pageId) => {
+      const actor = (await authorization.snapshot()).accounts.find(
+        (entry) => entry.userId === userId,
+      );
+      if (!actor?.isActive)
+        throw new AgentError("parameter_reference_unavailable");
+      return content.wiki(actor, pageId);
+    },
+  );
   const agentWorkspaceService = new AgentWorkspaceService({
     workspaces: new AgentWorkspaceRepository(database),
     authorization,

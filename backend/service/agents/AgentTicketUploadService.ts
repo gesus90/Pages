@@ -5,9 +5,12 @@ import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import { TicketFileStore } from "@/backend/storage/TicketFileStore";
 
+import { translateAssetWriteError } from "./AgentAssetWriteErrors";
+import { attachmentReturnTarget } from "./AgentAttachmentReturnTarget";
+import { AgentAttachmentReturnService } from "./AgentAttachmentReturnService";
 import { createAgentTaskContext } from "./AgentTaskAccess";
-import { translateAgentTicketError } from "./AgentTicketErrors";
 
+import type { AuthorizedAssetReturn } from "./AgentAttachmentReturnService";
 import type { Database } from "@/backend/database/Database";
 import type { UploadedFile } from "@/backend/service/WikiService";
 import type { UploadLimitSource } from "@/backend/service/task/TaskAttachmentService";
@@ -39,7 +42,7 @@ export class AgentTicketUploadService {
       const { actor, attachments } = await this.context(identity);
       await attachments.authorizeUpload(actor, ticketId);
     } catch (error: unknown) {
-      throw translateAgentTicketError(error);
+      throw translateAssetWriteError(error);
     }
   }
 
@@ -48,8 +51,15 @@ export class AgentTicketUploadService {
     file: UploadedFile,
     revalidate: () => Promise<AgentIdentity>,
     ticketId: string,
+    request?: AuthorizedAssetReturn,
   ): Promise<AgentAsset> {
     try {
+      if (request)
+        return await new AgentAttachmentReturnService({
+          database: this.database,
+          directory: this.directory,
+          limits: this.limits,
+        }).upload(file, revalidate, ticketId, request);
       const identity = await revalidate();
       const { actor, attachments } = await this.context(identity);
       const attachment = await attachments.upload(
@@ -72,7 +82,45 @@ export class AgentTicketUploadService {
         expiresAt: null,
       };
     } catch (error: unknown) {
-      throw translateAgentTicketError(error);
+      throw translateAssetWriteError(error);
+    }
+  }
+
+  /** Authorizes an existing wiki destination through its own attachment access policy. */
+  public async authorizeWiki(
+    identity: AgentIdentity,
+    pageId: string,
+  ): Promise<void> {
+    try {
+      const { actor } = await this.context(identity);
+      const target = attachmentReturnTarget({
+        scope: this.database,
+        actor,
+        directory: this.directory,
+        limits: this.limits,
+        destination: { type: "wiki", id: pageId },
+      });
+      await target.authorize();
+    } catch (error: unknown) {
+      throw translateAssetWriteError(error);
+    }
+  }
+
+  /** Returns a permanent wiki attachment with the same bounded replay and revision contract as tickets. */
+  public async uploadWiki(
+    file: UploadedFile,
+    revalidate: () => Promise<AgentIdentity>,
+    pageId: string,
+    request: AuthorizedAssetReturn,
+  ): Promise<AgentAsset> {
+    try {
+      return await new AgentAttachmentReturnService({
+        database: this.database,
+        directory: this.directory,
+        limits: this.limits,
+      }).upload(file, revalidate, { type: "wiki", id: pageId }, request);
+    } catch (error: unknown) {
+      throw translateAssetWriteError(error);
     }
   }
 
@@ -82,6 +130,8 @@ export class AgentTicketUploadService {
     >;
     readonly attachments: TaskAttachmentService;
   }> {
+    if (identity.run && identity.run.reach !== "full")
+      throw new AgentOperationError("FORBIDDEN");
     if (!identity.isAdmin && !identity.permissions.includes("write"))
       throw new AgentOperationError("FORBIDDEN");
     const actor = await new UserRepository(this.database).findById(

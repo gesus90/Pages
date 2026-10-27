@@ -7,6 +7,11 @@ import {
   scanAgentPlaceholders,
 } from "@/definition/AgentParameters";
 
+import {
+  ticketAssetReferences,
+  externalAssetNotes,
+} from "./AgentTicketAssetReferences";
+
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type {
   ResolvedAgentTicket,
@@ -44,6 +49,7 @@ interface ParameterResolution {
   readonly directory: string | null;
   readonly version: string | null;
   readonly ticket?: ResolvedAgentTicket;
+  readonly assetInput?: AgentTicketInput;
 }
 
 function readBindings(
@@ -142,10 +148,23 @@ async function resolveParameter(
   return {
     replacements: {
       [`${name}.link`]: wiki.link,
-      [`${name}.markdown`]: wiki.markdown,
+      [`${name}.markdown`]: wiki.markdown + externalAssetNotes(wiki.markdown),
     },
     directory: null,
     version: wiki.version,
+    assetInput: {
+      parameter: name,
+      owner: "wiki",
+      ticket: {
+        id: bound.pageId,
+        key: wiki.link,
+        title: wiki.link,
+        description: wiki.markdown,
+        markdown: wiki.markdown,
+        version: wiki.version,
+        assets: ticketAssetReferences(wiki.markdown),
+      },
+    },
   };
 }
 
@@ -197,6 +216,14 @@ export async function bindAgentParameters(
           ticket: resolved.ticket,
         });
     }
+    if (
+      resolved.assetInput &&
+      placeholders.some(
+        (entry) =>
+          entry.name === parameter.name && entry.property === "markdown",
+      )
+    )
+      assetInputs.push(resolved.assetInput);
     if (parameter.name === configuration.directoryParameter)
       directory = resolved.directory;
     if (resolved.version !== null)

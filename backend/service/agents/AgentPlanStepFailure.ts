@@ -1,7 +1,10 @@
+import { AgentAssetReferenceError } from "@/backend/error/AgentAssetReferenceError";
+import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 
+import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { PlanSessionClosed } from "@/backend/agents/AgentPlanExecution";
 import type {
   AgentPlanSessionRecord,
@@ -72,4 +75,26 @@ export function planAcceptanceFailure(
 /** Identifies adapters with mandatory acceptance. */
 export function requiresAcceptance(step: AgentPlanStepSnapshot): boolean {
   return Boolean(step.groupId) || step.provider === "opencode";
+}
+
+/** Carries a safe filename diagnosis into run details without storage paths. */
+export function assetFailure(
+  error: unknown,
+): Pick<AgentPlanStepResult, "assetFailure"> {
+  if (error instanceof AgentAssetReferenceError)
+    return {
+      assetFailure: {
+        id: "reference",
+        name: error.fileName,
+        cause: error.code,
+      },
+    };
+  if (!(error instanceof AgentAssetError)) return {};
+  return {
+    assetFailure: {
+      id: error.asset.id,
+      name: error.fileName,
+      cause: error.code,
+    },
+  };
 }

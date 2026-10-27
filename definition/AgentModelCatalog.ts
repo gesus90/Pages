@@ -1,5 +1,6 @@
-import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import { AGENT_PROVIDERS } from "./AgentConnection";
+
+import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentProviderId } from "./AgentConnection";
 
 /** Persisted per-connection cadence, in hours; zero requires explicit refresh. */
@@ -18,6 +19,8 @@ export type AgentReasoningSupport = "levels" | "automatic" | "none" | "unknown";
 
 /** Only whitelisted model metadata crosses the admin boundary. */
 export interface AgentCatalogModel {
+  /** Present only when the model catalog explicitly advertises image input support. */
+  readonly supportsImages?: boolean;
   readonly id: string;
   readonly name: string;
   readonly contextWindow: number | null;

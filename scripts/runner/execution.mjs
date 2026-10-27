@@ -12,6 +12,7 @@ export { interpreters, interpreterCatalog } from "./interpreters.mjs";
 import { spawnCli } from "./cli.mjs";
 import {
   preparePagesFiles,
+  modelAssetContent,
   pagesRequest,
   pagesFailure,
   notifyJobCompletion,
@@ -493,6 +494,12 @@ async function modelJob(command, folder, signal) {
     !provider.models.some((entry) => entry.id === program.model && entry.isFree)
   )
     throw new Error("Model route changed");
+  const selected = provider.models.find((entry) => entry.id === program.model);
+  const content = await modelAssetContent(
+    folder,
+    program.prompt,
+    selected?.supportsImages,
+  );
   const response = await fetch(
     "https://openrouter.ai/api/v1/chat/completions",
     {
@@ -505,7 +512,7 @@ async function modelJob(command, folder, signal) {
       },
       body: JSON.stringify({
         model: program.model,
-        messages: [{ role: "user", content: program.prompt }],
+        messages: [{ role: "user", content }],
         max_tokens: 512,
       }),
     },
@@ -640,7 +647,10 @@ async function executeWorker(folder) {
   } catch (error) {
     result = {
       ...(job.execution.pagesAccess === 1
-        ? { resourceError: pagesFailure(error) }
+        ? {
+            resourceError: pagesFailure(error),
+            assetFailure: error.assetFailure,
+          }
         : {}),
       output: null,
       exitCode: null,

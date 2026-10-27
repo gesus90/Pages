@@ -62,7 +62,7 @@ it.each(["codex_cli", "claude_code"] as const)(
   },
 );
 
-it("reports missing image capability explicitly without sending a partial prompt", async () => {
+it("reports missing image capability in a complete text prompt without implying image understanding", async () => {
   const world = ticketAssetWorld();
   const ticket = await world.service.resolve("executor", TICKET.id);
   const ticketInputs = [{ parameter: "ticket", ticket }];
@@ -76,14 +76,14 @@ it("reports missing image capability explicitly without sending a partial prompt
     },
   );
   try {
-    expect((await started.session.turn).errorCode).toBe(
-      "parameter_asset_transfer_unsupported",
+    expect((await started.session.turn).errorCode).toBeNull();
+    const call = started.calls.find(
+      (entry) => entry.method === methods.agent.session.prompt,
     );
-    expect(
-      started.calls.some(
-        (call) => call.method === methods.agent.session.prompt,
-      ),
-    ).toBe(false);
+    const blocks = readAgentObject(call?.params).prompt;
+    expect(JSON.stringify(blocks)).toContain("no image has been viewed");
+    expect(JSON.stringify(blocks)).toContain(TEXT.replaceAll("\n", "\\n"));
+    expect(JSON.stringify(blocks)).not.toContain('"type":"image"');
   } finally {
     await started.session.close();
   }

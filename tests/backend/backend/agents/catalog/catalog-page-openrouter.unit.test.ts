@@ -36,6 +36,7 @@ describe("parseCatalogPage for OpenRouter", () => {
     expect(page).toEqual({
       models: [
         {
+          supportsImages: false,
           id: "vendor/model",
           name: "Vendor Model",
           contextWindow: 128_000,

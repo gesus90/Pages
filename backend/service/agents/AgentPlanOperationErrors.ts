@@ -59,6 +59,7 @@ function translateAgentError(error: AgentError): AgentOperationError {
         nodeId: issue.nodeId,
         port: issue.port,
         problem: issue.reason,
+        ...(issue.asset ? { asset: issue.asset } : {}),
       }));
     return new AgentOperationError("INVALID_REQUEST", {
       reason: "graph_invalid",

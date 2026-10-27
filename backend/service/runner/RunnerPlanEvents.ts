@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { planStepExecutionSchema } from "@/definition/AgentPlanExecution";
@@ -6,7 +7,9 @@ import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
 import { recordRemoteAgentResult } from "@/backend/service/agents/AgentPlanRemoteResult";
 import { settleDetachedRun } from "@/backend/service/agents/AgentPlanRunState";
+
 import { runnerPlanCheckpoint } from "./RunnerPlanCheckpoint";
+
 import type {
   AgentPlanRun,
   AgentPlanStepResult,
@@ -131,6 +134,7 @@ function updatedStep(
     status,
     output: output === null ? null : sanitizePlanOutput(output),
     error: event?.result?.resourceError ?? runnerFailureCode(job, input),
+    assetFailure: remoteAssetFailure(event, step),
     ...(job.status === "interrupted"
       ? {
           cancellation:
@@ -253,4 +257,11 @@ export function applyRunnerPlanEvent(
       ? { checkpoint: runnerPlanCheckpoint(result, snapshot, updated) }
       : {}),
   };
+}
+
+function remoteAssetFailure(
+  event: EventInput["event"],
+  step: AgentPlanStepResult,
+): AgentPlanStepResult["assetFailure"] {
+  return event?.result?.assetFailure ?? step.assetFailure;
 }

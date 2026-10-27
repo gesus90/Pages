@@ -1,6 +1,8 @@
+import { isApiProvider } from "@/definition/AgentConnection";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { isAcpPermissionMode } from "@/definition/AgentConfiguration";
 
+import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
@@ -39,4 +41,17 @@ export function unsupportedRunOption(
   return isAcpPermissionMode(options.access)
     ? null
     : acpDriverFor(provider).errors.modeRequired;
+}
+
+/** Keeps Pica's narrower restrictions separate from plan permission modes. */
+export function sessionRunOptionError(
+  input: AgentPlanSessionInput,
+): AgentErrorCode | null {
+  const provider = input.agent.connection.provider;
+  if (isApiProvider(provider)) return "provider_invalid";
+  if (input.chat && provider === "opencode")
+    return input.options.access === "read_only"
+      ? null
+      : "opencode_chat_mode_required";
+  return unsupportedRunOption(provider, input.options);
 }

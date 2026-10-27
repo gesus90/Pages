@@ -26,11 +26,9 @@ import type { PagesAgentApiBusinessOperation } from "@/definition/PagesAgentApi"
 /** Reading the project names; it needs no capability and is answered without the router. */
 export const PROJECT_NAMES_OPERATION = "projects.names.list" as const;
 
-// The upload itself only accepts a personal credential, so a session would fail halfway.
-const UPLOAD_OPERATION = "assets.upload.prepare";
-
 /** Every reading operation besides the administrator reads. */
 const READING_OPERATIONS: readonly PagesAgentApiBusinessOperation[] = [
+  "assets.download.prepare",
   PROJECT_NAMES_OPERATION,
   ...PAGES_AGENT_READ_OPERATIONS,
   ...PAGES_AGENT_TICKET_READ_OPERATIONS,
@@ -55,6 +53,7 @@ export function ownerOperations(
   isAdmin: boolean,
 ): readonly PagesAgentApiBusinessOperation[] {
   return [
+    "assets.download.prepare",
     PROJECT_NAMES_OPERATION,
     ...PAGES_AGENT_READ_OPERATIONS,
     ...PAGES_AGENT_TICKET_READ_OPERATIONS,
@@ -115,9 +114,7 @@ function forSession(
     case "read":
       return readingOperations(isAdmin);
     case "full":
-      return ownerOperations(isAdmin).filter(
-        (operation) => operation !== UPLOAD_OPERATION,
-      );
+      return ownerOperations(isAdmin);
   }
 }
 

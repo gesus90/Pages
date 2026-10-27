@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { assetFailureSchema } from "./AgentPlanRemoteAccess";
 import { runnerResourceErrorSchema } from "./RunnerPagesAccess";
 import {
   runnerExecutionSchema,
@@ -155,7 +156,7 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     executorVersion: z.literal(1).optional(),
     cliExecutorVersion: z.literal(1).optional(),
     githubAccessVersion: z.literal(1).optional(),
-    pagesAccessVersion: z.literal(1).optional(),
+    pagesAccessVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     /** Runner 1.7.0 reports OpenCode's catalog and runs OpenCode nodes over ACP. */
     openCodeExecutorVersion: z.literal(1).optional(),
     /** Runner 1.8.0 supports expiring viewers and bounded CLI journal batches. */
@@ -176,6 +177,7 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
       .object({
         output: z.string().max(100_000).nullable(),
         resourceError: runnerResourceErrorSchema.optional(),
+        assetFailure: assetFailureSchema.optional(),
         /** A stable cause the runner recognized in an OpenCode ACP failure; never provider text. */
         failureCode: z.enum(REMOTE_OPENCODE_FAILURES).optional(),
         stderr: z.string().max(65536).optional(),

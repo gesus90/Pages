@@ -102,6 +102,11 @@ export interface AgentUploadTicket {
 
 /** Public asset handle, with a stable authenticated download path. */
 export interface AgentAsset {
+  readonly digest?: string;
+  readonly sourceAttachmentId?: string;
+  readonly sourceType?: "ticket" | "wiki" | "agent";
+  readonly sourceLink?: string;
+  readonly replaces?: boolean;
   readonly assetId: string;
   readonly link: string;
   readonly fileName: string;

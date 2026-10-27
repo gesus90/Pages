@@ -139,7 +139,7 @@ it("lets a YOLO session call every operation of its executor under the normal Pa
   const tools = await offered("full-owner");
   expect(tools).toContain("plans.parameter.create");
   expect(tools).toContain("ticket.checklist.setItem");
-  expect(tools).not.toContain("assets.upload.prepare");
+  expect(tools).toContain("assets.upload.prepare");
   for (const operation of AGENT_ADMIN_WRITE_OPERATIONS)
     expect(tools).not.toContain(operation);
   const changed = await api().handle("full-owner", PARAMETER_CHANGE);
@@ -154,13 +154,18 @@ it("lets a YOLO session call every operation of its executor under the normal Pa
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
-it("never lets a session rotate, revoke or upload with its credential", async () => {
-  for (const operation of [
-    "credential.rotate",
-    "credential.revoke",
-    "assets.upload.prepare",
-  ])
+it("never lets a session rotate or revoke its credential", async () => {
+  for (const operation of ["credential.rotate", "credential.revoke"])
     await expect(
       api().handle("full-owner", { operation, parameters: {} }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
+it("keeps upload preparation forbidden for read-only sessions", async () => {
+  await expect(
+    api().handle("read-owner", {
+      operation: "assets.upload.prepare",
+      parameters: {},
+    }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });

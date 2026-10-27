@@ -1,6 +1,7 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 
+import { readAssetUploadInput } from "./AgentAssetReturnInput";
 import { readAgentWikiCreate } from "./AgentWikiCreateValidation";
 
 import type { AgentTicketUploadService } from "./AgentTicketUploadService";
@@ -42,29 +43,18 @@ export class AgentWriteOperationService {
     token: string,
     input: unknown,
   ): Promise<PagesAgentWriteResponse> {
+    if (identity.run && identity.run.reach !== "full")
+      throw new AgentOperationError("FORBIDDEN");
     if (!identity.isAdmin && !identity.permissions.includes("write"))
       throw new AgentOperationError("FORBIDDEN");
-    const request = parameters(input);
-    if (
-      Object.keys(request).some(
-        (key) => !["fileName", "ticketId"].includes(key),
-      ) ||
-      typeof request.fileName !== "string" ||
-      (request.ticketId !== undefined &&
-        (typeof request.ticketId !== "string" ||
-          !/^[0-9a-f-]{36}$/i.test(request.ticketId)))
-    )
-      throw new AgentOperationError("INVALID_REQUEST");
-    const fileName = this.dependencies.assets.validateFileName(
-      request.fileName,
-    );
-    const ticketId =
-      typeof request.ticketId === "string" ? request.ticketId : undefined;
-    if (ticketId) {
-      if (!this.dependencies.ticketUploads)
-        throw new AgentOperationError("INVALID_REQUEST");
-      await this.dependencies.ticketUploads.authorize(identity, ticketId);
-    }
+    const {
+      fileName: requestedName,
+      ticketId,
+      pageId,
+      request: returnRequest,
+    } = readAssetUploadInput(input);
+    const fileName = this.dependencies.assets.validateFileName(requestedName);
+    await this.authorizeDestination(identity, { ticketId, pageId });
     const limits = await this.dependencies.wiki.getSettings();
     return {
       apiVersion: "1",
@@ -73,7 +63,9 @@ export class AgentWriteOperationService {
           token,
           identity.userId,
           fileName,
-          ticketId,
+          returnRequest
+            ? { ticketId, pageId, request: returnRequest }
+            : ticketId,
         ),
         header: "X-Pages-Upload-Ticket",
         uploadPath: "/api/v1/agent-assets",
@@ -96,5 +88,17 @@ export class AgentWriteOperationService {
       apiVersion: "1",
       result: await this.dependencies.create.create(actor, request),
     };
+  }
+  private async authorizeDestination(
+    identity: AgentIdentity,
+    destination: { readonly ticketId?: string; readonly pageId?: string },
+  ): Promise<void> {
+    if (!destination.ticketId && !destination.pageId) return;
+    const service = this.dependencies.ticketUploads;
+    if (!service) throw new AgentOperationError("INVALID_REQUEST");
+    if (destination.ticketId)
+      await service.authorize(identity, destination.ticketId);
+    if (destination.pageId)
+      await service.authorizeWiki(identity, destination.pageId);
   }
 }

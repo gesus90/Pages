@@ -1,5 +1,4 @@
 import { agentPlaywrightServer } from "@/backend/service/agents/tools/AgentPlaywrightSession";
-
 import {
   pinnedAgentToolDriver,
   agentToolAdapterVersion,
@@ -8,7 +7,6 @@ import {
   superviseAgentToolSession,
 } from "@/backend/service/agents/tools/AgentToolSession";
 import { providerToolIds } from "@/backend/service/agents/tools/AgentToolRegistry";
-
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
@@ -25,11 +23,17 @@ import {
 } from "@/definition/AgentConnection";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
+import {
+  assetSession,
+  sessionAssetWorkspace,
+  prepareSessionAssets,
+  cleanupSessionAssets,
+} from "./CliAssetWorkspace";
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { createCliEnvironment } from "./CliEnvironment";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { closeCliSession } from "./CliSessionCloseout";
-import { unsupportedRunOption } from "./CliSessionPlans";
+import { sessionRunOptionError } from "./CliSessionPlans";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AgentToolId } from "@/definition/AgentTools";
@@ -44,7 +48,6 @@ import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceS
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
 import type { AcpSessionRequest } from "@/backend/agents/acp/AcpSession";
-import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type {
   AcpPermissionMode,
   NativeAcpProviderId,
@@ -205,7 +208,9 @@ export class CliSessionExecution implements PlanSessionRunner {
         })
       : undefined;
     let hasVerified = false;
+    const assets = sessionAssetWorkspace(input);
     try {
+      input = await prepareSessionAssets(input, assets);
       const start = await this.verify(input, signal, locations);
       hasVerified = true;
       const watched = tools
@@ -216,13 +221,18 @@ export class CliSessionExecution implements PlanSessionRunner {
         observer: watched,
       });
       return tools
-        ? superviseAgentToolSession(tools, input.instanceId, session)
-        : session;
+        ? superviseAgentToolSession(
+            tools,
+            input.instanceId,
+            assetSession(session, assets),
+          )
+        : assetSession(session, assets);
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
 
       if (!(error instanceof AcpCleanupUnconfirmedError))
         tools?.supervisor.release(input.instanceId);
+      await cleanupSessionAssets(assets, error);
       const provider = input.agent.connection.provider;
       if (hasVerified && !isApiProvider(provider))
         await this.dependencies.store
@@ -583,19 +593,6 @@ export class CliSessionExecution implements PlanSessionRunner {
   }
 }
 
-/** Keeps Pica's narrower restrictions separate from plan permission modes. */
-function sessionRunOptionError(
-  input: AgentPlanSessionInput,
-): AgentErrorCode | null {
-  const provider = input.agent.connection.provider;
-  if (isApiProvider(provider)) return "provider_invalid";
-  if (input.chat && provider === "opencode")
-    return input.options.access === "read_only"
-      ? null
-      : "opencode_chat_mode_required";
-  return unsupportedRunOption(provider, input.options);
-}
-
 /** Lets the session talk to its started adapter and reports the start. */
 function connectChild(
   child: CliSessionProcess,
@@ -643,6 +640,7 @@ function acpSessionRequest(
     ticketInputs: input.ticketInputs,
     readTicketAssets: input.readTicketAssets,
     model: input.agent.model,
+    modelSupportsImages: input.agent.supportsImages,
     reasoningEffort: input.agent.reasoningEffort,
     mcpServers: input.chat?.mcpServers ?? launch.mcpServers,
     sessionMeta: launch.sessionMeta,

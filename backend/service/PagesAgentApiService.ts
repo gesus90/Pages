@@ -10,6 +10,9 @@ import {
   sessionOperations,
 } from "./mcp/AgentOperationCatalog";
 
+import type { AgentTicketAssetService } from "./agents/AgentTicketAssetService";
+import type { AgentAsset } from "@/definition/PagesAgentWrites";
+import type { AgentAssetDownloadService } from "./agents/AgentAssetDownloadService";
 import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
 import type { AgentOperationRouter } from "./agents/AgentOperationRouter";
 import type {
@@ -55,17 +58,68 @@ export class PagesAgentApiService {
   private readonly projects: AgentProjectService;
   private readonly operations: AgentOperationRouter;
   private readonly runs: AgentRunCredentialService | null;
+  private readonly downloads: AgentAssetDownloadService | null;
+  private readonly publish:
+    ((ticket: string, bytes: Buffer) => Promise<AgentAsset>) | undefined;
 
   public constructor(
     personal: PersonalAgentTokenService,
     projects: AgentProjectService,
     operations: AgentOperationRouter,
-    runs: AgentRunCredentialService | null = null,
+    capabilities:
+      | {
+          readonly runs?: AgentRunCredentialService;
+          readonly downloads?: AgentAssetDownloadService;
+          readonly upload?: (
+            ticket: string,
+            bytes: Buffer,
+          ) => Promise<AgentAsset>;
+        }
+      | AgentRunCredentialService
+      | null = null,
   ) {
     this.personal = personal;
     this.projects = projects;
     this.operations = operations;
-    this.runs = runs;
+    this.publish =
+      capabilities && !("verify" in capabilities)
+        ? capabilities.upload
+        : undefined;
+    this.runs =
+      capabilities && "verify" in capabilities
+        ? capabilities
+        : (capabilities?.runs ?? null);
+    this.downloads =
+      capabilities && "verify" in capabilities
+        ? null
+        : (capabilities?.downloads ?? null);
+  }
+
+  /** Receives only the private runner binary channel; the upload capability revalidates its originating scope. */
+  public async uploadAsset(ticket: string, bytes: Buffer): Promise<AgentAsset> {
+    if (!this.publish) throw new AgentOperationError("FORBIDDEN");
+    return this.publish(ticket, bytes);
+  }
+
+  /** Binary runner reads use the same one-use authority and live file policy as ordinary Agent tools. */
+  public async downloadAsset(
+    token: string,
+    link: string,
+    digest?: string,
+  ): Promise<Awaited<ReturnType<AgentTicketAssetService["read"]>>> {
+    const identity = await this.verify(token);
+    if (
+      identity.run &&
+      !sessionOperations(identity.run, identity.isAdmin).includes(
+        "assets.download.prepare",
+      )
+    )
+      throw new AgentOperationError("FORBIDDEN");
+    if (!this.downloads) throw new AgentOperationError("INVALID_REQUEST");
+    const ticket = await this.downloads.prepare(identity, token, { link });
+    if (digest !== undefined && ticket.digest !== digest)
+      throw new AgentOperationError("CONFLICT");
+    return this.downloads.consume(ticket.ticket);
   }
 
   /**
@@ -150,6 +204,8 @@ export class PagesAgentApiService {
       return this.personal.revokeCredential(token);
     if (input.operation === "assets.upload.prepare")
       return this.operations.prepareUpload(identity, token, input.parameters);
+    if (input.operation === "assets.download.prepare")
+      return this.prepareDownload(identity, token, input.parameters);
     return this.dispatch(identity, token, input);
   }
 
@@ -161,7 +217,7 @@ export class PagesAgentApiService {
    * The operations themselves still check the current rights of the executor,
    * so the scope can only narrow them. A refused operation fails here, also
    * when a client calls it directly instead of through a listed tool. A
-   * session cannot rotate or revoke its credential and cannot upload files.
+   * session cannot rotate or revoke its credential. Only a full session may issue an upload capability; read-only and ticket-limited sessions cannot.
    */
   private async handleSession(
     identity: AgentIdentity,
@@ -189,7 +245,23 @@ export class PagesAgentApiService {
       (scope.reach === "tickets" && !isRunTicketCall(scope, input.parameters))
     )
       throw new AgentOperationError("FORBIDDEN");
+    if (input.operation === "assets.upload.prepare")
+      return this.operations.prepareUpload(identity, token, input.parameters);
+    if (input.operation === "assets.download.prepare")
+      return this.prepareDownload(identity, token, input.parameters);
     return this.dispatch(identity, token, input);
+  }
+
+  private async prepareDownload(
+    identity: AgentIdentity,
+    token: string,
+    input: unknown,
+  ): Promise<PagesAgentReadResponse> {
+    if (!this.downloads) throw new AgentOperationError("INVALID_REQUEST");
+    return {
+      apiVersion: "1",
+      result: await this.downloads.prepare(identity, token, input),
+    };
   }
 
   /** Runs an operation the credential may call, with the executor's current rights. */

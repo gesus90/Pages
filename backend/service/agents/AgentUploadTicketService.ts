@@ -4,6 +4,8 @@ import {
   hashAgentCredential,
 } from "@/backend/security/AgentCredential";
 
+import type { AuthorizedAssetReturn } from "./AgentAttachmentReturnService";
+import type { AgentAssetReturn } from "@/definition/AgentAssetTransfer";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 
 interface UploadAuthority {
@@ -11,6 +13,8 @@ interface UploadAuthority {
   readonly userId: string;
   readonly fileName: string;
   readonly ticketId?: string;
+  readonly pageId?: string;
+  readonly request?: AgentAssetReturn;
   readonly issuedAt: number;
   readonly expiresAt: number;
 }
@@ -34,7 +38,13 @@ export class AgentUploadTicketService {
     token: string,
     userId: string,
     fileName: string,
-    ticketId?: string,
+    destination?:
+      | string
+      | {
+          readonly ticketId?: string;
+          readonly pageId?: string;
+          readonly request?: AgentAssetReturn;
+        },
   ): { readonly ticket: string; readonly expiresAt: number } {
     for (const [hash, authority] of this.tickets) {
       if (authority.expiresAt <= Date.now()) this.tickets.delete(hash);
@@ -46,7 +56,11 @@ export class AgentUploadTicketService {
       credentialHash: hashAgentCredential(token),
       userId,
       fileName,
-      ticketId,
+      ticketId:
+        typeof destination === "string" ? destination : destination?.ticketId,
+      pageId: typeof destination === "object" ? destination.pageId : undefined,
+      request:
+        typeof destination === "object" ? destination.request : undefined,
       issuedAt,
       expiresAt,
     });
@@ -57,6 +71,8 @@ export class AgentUploadTicketService {
   public async consume(ticket: string): Promise<{
     readonly fileName: string;
     readonly ticketId?: string;
+    readonly pageId?: string;
+    readonly request?: AuthorizedAssetReturn;
     readonly revalidate: () => Promise<AgentIdentity>;
   }> {
     const hash = hashAgentCredential(ticket);
@@ -77,6 +93,10 @@ export class AgentUploadTicketService {
     return {
       fileName: authority.fileName,
       ticketId: authority.ticketId,
+      pageId: authority.pageId,
+      request: authority.request
+        ? { ...authority.request, credentialHash: authority.credentialHash }
+        : undefined,
       revalidate,
     };
   }

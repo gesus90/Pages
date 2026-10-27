@@ -2,7 +2,7 @@ import { Readable } from "node:stream";
 
 import { expect, it } from "vitest";
 
-import { AgentError } from "@/backend/error/AgentErrors";
+import { AGENT_ERROR_MESSAGES, AgentError } from "@/backend/error/AgentErrors";
 import { ticketAssetReferences } from "@/backend/service/agents/AgentTicketAssetReferences";
 import { MAX_TICKET_ASSET_BYTES } from "@/backend/service/agents/AgentTicketAssetService";
 
@@ -25,7 +25,11 @@ it("reads complete PNG and UTF-8 contents through each file's own authorized ser
       base64: PNG.toString("base64"),
     },
   });
-  expect(contents[1].content).toEqual({ type: "text", text: TEXT });
+  expect(contents[1].content).toEqual({
+    type: "text",
+    text: TEXT,
+    representation: "source",
+  });
   expect(world.open).toHaveBeenCalledWith(TICKET_ACTOR, "text");
   expect(world.context).toHaveBeenCalledWith("executor");
 });
@@ -45,24 +49,30 @@ it.each(["png", "text", TICKET.id])(
   },
 );
 
-it("refuses deleted files, stream failures, unsupported binary files and truncated storage", async () => {
+it("refuses deleted files, stream failures and truncated storage, while labelling unsupported originals", async () => {
   const world = ticketAssetWorld();
   const ticket = await world.service.resolve("executor", TICKET.id);
   world.files.delete("png");
   await expect(
     world.service.readAssets("executor", [{ parameter: "ticket", ticket }]),
-  ).rejects.toThrow(new AgentError("parameter_asset_unavailable"));
+  ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_asset_unavailable);
   world.files.set("png", Buffer.from([0, 1, 2]));
   await expect(
     world.service.readAssets("executor", [{ parameter: "ticket", ticket }]),
-  ).rejects.toThrow(new AgentError("parameter_asset_type_unsupported"));
+  ).resolves.toMatchObject([
+    {
+      content: { type: "file", reason: "unsupported-model-content" },
+      original: { mimeType: "application/octet-stream" },
+    },
+    { content: { type: "text", text: TEXT, representation: "source" } },
+  ]);
   world.open.mockImplementation(async () => ({
     attachment: { fileName: "text.txt", size: 5 },
     stream: Readable.from([Buffer.from("shorter than expected")]),
   }));
   await expect(
     world.service.readAssets("executor", [{ parameter: "ticket", ticket }]),
-  ).rejects.toThrow(new AgentError("parameter_asset_unavailable"));
+  ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_asset_unavailable);
   world.open.mockImplementation(async () => ({
     attachment: { fileName: "text.txt", size: 5 },
     stream: new Readable({
@@ -73,7 +83,7 @@ it("refuses deleted files, stream failures, unsupported binary files and truncat
   }));
   await expect(
     world.service.readAssets("executor", [{ parameter: "ticket", ticket }]),
-  ).rejects.toThrow(new AgentError("parameter_asset_unavailable"));
+  ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_asset_unavailable);
 });
 
 it("does not silently adopt changed ticket references and bounds the total transfer", async () => {
@@ -90,7 +100,7 @@ it("does not silently adopt changed ticket references and bounds the total trans
       id: "png",
       link: "/aufgaben/attachments/png",
     }),
-  ).rejects.toThrow(new AgentError("parameter_assets_too_large"));
+  ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_assets_too_large);
 });
 
 it("discovers used reference links and agent assets, deduplicates and ignores code examples", async () => {
@@ -109,13 +119,13 @@ it("discovers used reference links and agent assets, deduplicates and ignores co
         link: "/agent-assets/text",
       })
     ).content,
-  ).toEqual({ type: "text", text: TEXT });
+  ).toEqual({ type: "text", text: TEXT, representation: "source" });
 });
 
-it("rejects external image references explicitly and never fetches the network", () => {
-  expect(() =>
+it("keeps external image references outside the Pages file manifest and never fetches the network", () => {
+  expect(
     ticketAssetReferences("![image](https://outside.invalid/image.png)"),
-  ).toThrow(new AgentError("parameter_asset_reference_unsupported"));
+  ).toEqual([]);
   expect(
     ticketAssetReferences("[documentation](https://outside.invalid/docs)"),
   ).toEqual([]);
@@ -128,10 +138,10 @@ it("reauthorizes original assets for historical results even after their ticket 
   world.denied.add("text");
   await expect(
     world.service.requireAssets("executor", ticket.assets),
-  ).rejects.toThrow(new AgentError("parameter_asset_unavailable"));
+  ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_asset_unavailable);
 });
 
-it("rejects invalid UTF-8 and totals files across parameters before transmitting", async () => {
+it("labels invalid UTF-8 as original-only and totals files across parameters before transmitting", async () => {
   const world = ticketAssetWorld("Description");
   world.files.set("png", Buffer.from([0xc3, 0x28]));
   await expect(
@@ -140,7 +150,10 @@ it("rejects invalid UTF-8 and totals files across parameters before transmitting
       id: "png",
       link: "/aufgaben/attachments/png",
     }),
-  ).rejects.toThrow(new AgentError("parameter_asset_type_unsupported"));
+  ).resolves.toMatchObject({
+    content: { type: "file", reason: "unsupported-model-content" },
+    original: { mimeType: "application/octet-stream" },
+  });
   world.files.set("png", Buffer.alloc(MAX_TICKET_ASSET_BYTES / 2 + 1, 65));
   const ticket = await world.service.resolve("executor", TICKET.id);
   await expect(
@@ -148,7 +161,7 @@ it("rejects invalid UTF-8 and totals files across parameters before transmitting
       { parameter: "one", ticket },
       { parameter: "two", ticket },
     ]),
-  ).rejects.toThrow(new AgentError("parameter_assets_too_large"));
+  ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_assets_too_large);
 });
 
 it("refuses an inactive executor on file transmission and historical reads", async () => {
@@ -159,5 +172,5 @@ it("refuses an inactive executor on file transmission and historical reads", asy
   ).rejects.toThrow(new AgentError("parameter_ticket_unavailable"));
   await expect(
     world.service.requireAssets("inactive", ticket.assets),
-  ).rejects.toThrow(new AgentError("parameter_asset_unavailable"));
+  ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_asset_unavailable);
 });

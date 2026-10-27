@@ -269,17 +269,23 @@ export class AgentPlanPreparation {
     const template = planStepTemplate(step, catalog);
     if (!template) throw new AgentError("configuration_invalid");
     const bindings = planBindings(flat, step, tasks, template.parameters);
-    const prepared = await this.dependencies.parameters.prepare(
-      userId,
-      {
-        agentId: step.agentId,
-        personalAgentId: step.personalAgentId,
-        workspaceId: plan.workspaceId,
-        configuration: step.configuration,
-      },
-      bindings,
-      template,
-    );
+    const prepared = await this.dependencies.parameters
+      .prepare(
+        userId,
+        {
+          agentId: step.agentId,
+          personalAgentId: step.personalAgentId,
+          workspaceId: plan.workspaceId,
+          configuration: step.configuration,
+        },
+        bindings,
+        template,
+      )
+      .catch((error: unknown) => {
+        const issues = remoteReferenceIssues(plan, step, error);
+        if (issues.length) throw new AgentPlanValidationError(issues);
+        throw error;
+      });
     const { provider } = resolved.assignment.connection;
     requirePreparedRuntime(plan, { provider, prepared, template });
     const taskIds = Object.values(step.bindings).flatMap((binding) => {

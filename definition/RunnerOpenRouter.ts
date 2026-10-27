@@ -14,6 +14,7 @@ const catalogModelSchema = z
   .object({
     id: modelId,
     name: z.string().max(300),
+    supportsImages: z.boolean().optional(),
     contextLength: statedLimit,
     maxOutputTokens: statedLimit,
   })

@@ -89,6 +89,11 @@ function catalogModel(model, apiKey) {
     id: model.id,
     name: model.name,
     isFree,
+    ...(Array.isArray(model.architecture?.input_modalities)
+      ? {
+          supportsImages: model.architecture.input_modalities.includes("image"),
+        }
+      : {}),
     contextLength: limit(model.context_length),
     maxOutputTokens: limit(model.top_provider?.max_completion_tokens),
   };
@@ -99,6 +104,9 @@ function listedModel(model) {
   return {
     id: model.id,
     name: model.name,
+    ...(typeof model.supportsImages === "boolean"
+      ? { supportsImages: model.supportsImages }
+      : {}),
     contextLength: model.contextLength ?? null,
     maxOutputTokens: model.maxOutputTokens ?? null,
   };

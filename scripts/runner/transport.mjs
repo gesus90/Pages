@@ -16,7 +16,7 @@ import { RunnerSchedule } from "./schedule.mjs";
 import { handleProvider } from "./provider.mjs";
 import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 
-const RUNNER_VERSION = "1.11.0";
+const RUNNER_VERSION = "1.12.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -253,7 +253,7 @@ async function receiveRegistration(message, channel) {
     executorVersion: 1,
     cliExecutorVersion: 1,
     githubAccessVersion: 1,
-    pagesAccessVersion: 1,
+    pagesAccessVersion: 2,
     openCodeExecutorVersion: 1,
     liveHistoryVersion: 1,
     outputJournalVersion: 2,
@@ -354,6 +354,7 @@ function receivePagesResult(message) {
     else {
       const failure = new Error("Pages access refused");
       failure.code = message.error;
+      failure.assetFailure = message.assetFailure;
       pending.reject(failure);
     }
   }

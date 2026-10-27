@@ -174,12 +174,37 @@ export class AgentParameterService {
         ? (references.get(directoryValue.workspaceId) ?? null)
         : null;
     return {
-      parameters,
+      parameters: {
+        ...parameters,
+        assetInputs: await this.pinInputs(userId, parameters.assetInputs),
+      },
       workspace,
       directory,
       references: [...references.values()],
       tickets,
       wiki,
     };
+  }
+  private async pinInputs(
+    userId: string,
+    inputs: readonly AgentTicketInput[],
+  ): Promise<readonly AgentTicketInput[]> {
+    if (!inputs.some((input) => input.ticket.assets.length > 0)) return inputs;
+    const contents = await this.readTicketAssets(userId, inputs);
+    return inputs.map((input) => ({
+      ...input,
+      originals: Object.fromEntries(
+        contents
+          .filter((file) => file.parameter === input.parameter)
+          .map((file) => {
+            if (!file.original)
+              throw new AgentError("parameter_asset_transfer_unsupported");
+            return [
+              `${file.asset.source}:${file.asset.id}`,
+              file.original.digest,
+            ];
+          }),
+      ),
+    }));
   }
 }

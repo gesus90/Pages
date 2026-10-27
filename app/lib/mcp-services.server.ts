@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { AgentAssetDownloadService } from "@/backend/service/agents/AgentAssetDownloadService";
+import { createAgentAssetReaders } from "@/backend/service/agents/AgentAssetReaders";
 import { AgentTicketUploadService } from "@/backend/service/agents/AgentTicketUploadService";
 import { TicketAssetAuditService } from "@/backend/service/task/TicketAssetAuditService";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
@@ -49,6 +51,8 @@ import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredent
 import { OAuthService } from "@/backend/service/mcp/OAuthService";
 import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
 
+import { runnerAssetUpload } from "./agent-asset-return.server";
+
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { AgentPlanningServices } from "@/backend/service/agents/AgentPlanningServices";
 import type { AgentWikiCreateDependencies } from "@/backend/service/agents/AgentWikiCreateService";
@@ -71,6 +75,7 @@ export interface McpApplicationServices {
   /** The same operation catalog for the chat agent: UI role mode, changes marked as AI actions. */
   readonly chatOperationRouter: AgentOperationRouter;
   readonly agentUploadTicketService: AgentUploadTicketService;
+  readonly agentAssetDownloadService: AgentAssetDownloadService;
   readonly pagesEventPublisher: PagesEventPublisher;
   readonly pagesAgentApiService: PagesAgentApiService;
   readonly personalAgentTokenService: PersonalAgentTokenService;
@@ -307,6 +312,68 @@ function createAssetServices(
   };
 }
 
+function createBinaryAssetServices(input: {
+  readonly database: Database;
+  readonly users: Pick<UserService, "getById">;
+  readonly identities: AgentIdentityService;
+  readonly personalAgentTokenService: PersonalAgentTokenService;
+  readonly workspace: Parameters<typeof createAssetServices>[1];
+}): ReturnType<typeof createAssetServices> & {
+  readonly apiFor: (operations: AgentOperationRouter) => PagesAgentApiService;
+  readonly runCredentials: AgentRunCredentialService;
+  readonly agentUploadTicketService: AgentUploadTicketService;
+  readonly agentAssetDownloadService: AgentAssetDownloadService;
+} {
+  const { database, users, identities, personalAgentTokenService, workspace } =
+    input;
+  const runCredentials = new AgentRunCredentialService(
+    new AgentRunCredentialRepository(database),
+    identities,
+  );
+  const authority = new AgentUploadAuthorityService(
+    personalAgentTokenService,
+    runCredentials,
+  );
+  const agentUploadTicketService = new AgentUploadTicketService((hash) =>
+    authority.verify(hash),
+  );
+  const { staging, agentAssetService, agentTicketUploadService } =
+    createAssetServices(database, workspace);
+  const agentAssetDownloadService = new AgentAssetDownloadService({
+    users,
+    assets: createAgentAssetReaders({
+      database,
+      directory: workspace.directory,
+      wiki: workspace.wikiService,
+      assets: agentAssetService,
+    }),
+    verify: (hash) => authority.verify(hash),
+  });
+  return {
+    apiFor: (operations) =>
+      new PagesAgentApiService(
+        personalAgentTokenService,
+        new AgentProjectService(new ProjectRepository(database)),
+        operations,
+        {
+          runs: runCredentials,
+          downloads: agentAssetDownloadService,
+          upload: runnerAssetUpload(async () => ({
+            agentUploadTicketService,
+            agentTicketUploadService,
+            agentAssetService,
+          })),
+        },
+      ),
+    staging,
+    agentAssetService,
+    agentTicketUploadService,
+    runCredentials,
+    agentUploadTicketService,
+    agentAssetDownloadService,
+  };
+}
+
 /** Wires the API/services/repositories without opening another database or reading credential files. */
 export function createMcpServices(
   database: Database,
@@ -334,12 +401,20 @@ export function createMcpServices(
   const identities = new AgentIdentityService(users, administration);
   const { personalAgentTokenService, pairingService } =
     createPersonalAuthorization(database, identities);
-  const authority = new AgentUploadAuthorityService(personalAgentTokenService);
-  const agentUploadTicketService = new AgentUploadTicketService((hash) =>
-    authority.verify(hash),
-  );
-  const { staging, agentAssetService, agentTicketUploadService } =
-    createAssetServices(database, workspace);
+  const {
+    staging,
+    agentAssetService,
+    agentTicketUploadService,
+    apiFor,
+    agentUploadTicketService,
+    agentAssetDownloadService,
+  } = createBinaryAssetServices({
+    database,
+    users,
+    identities,
+    personalAgentTokenService,
+    workspace,
+  });
   const pagesEventPublisher = workspace.events ?? new PagesEventPublisher();
   const creation = {
     database,
@@ -392,20 +467,15 @@ export function createMcpServices(
       workspace.pageAgents,
     ),
     agentUploadTicketService,
+    agentAssetDownloadService,
     pagesEventPublisher,
     personalAgentTokenService,
     pairingService,
-    pagesAgentApiService: new PagesAgentApiService(
-      personalAgentTokenService,
-      new AgentProjectService(new ProjectRepository(database)),
+    pagesAgentApiService: apiFor(
       createMcpOperationRouter(
         routers,
         workspace.agentWorkspaces,
         workspace.pageAgents,
-      ),
-      new AgentRunCredentialService(
-        new AgentRunCredentialRepository(database),
-        identities,
       ),
     ),
   };

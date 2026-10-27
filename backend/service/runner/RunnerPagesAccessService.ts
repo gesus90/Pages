@@ -1,3 +1,8 @@
+import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
+import { AgentAssetError } from "@/backend/error/AgentAssetError";
+import { assetFailure } from "@/backend/service/agents/AgentPlanStepFailure";
+import { remoteAssetFile } from "@/backend/service/agents/AgentAssetRemoteFile";
+import { ticketAssetReference } from "@/backend/service/agents/AgentTicketAssetReferences";
 import { runnerPagesRequestSchema } from "@/definition/RunnerPagesAccess";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -5,6 +10,10 @@ import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
 import { planSessionReach } from "@/backend/service/agents/AgentPlanSessionAccess";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 
+import { RunnerAssetUploads } from "./RunnerAssetUploads";
+
+import type { AgentErrorCode } from "@/backend/error/AgentErrors";
+import type { PlanRemoteFile } from "@/definition/AgentPlanRemoteAccess";
 import type { AgentPlanRemoteAccessRepository } from "@/backend/database/repositories/agent/AgentPlanRemoteAccessRepository";
 import type { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -17,6 +26,8 @@ import type { RunnerPagesRequest } from "@/definition/RunnerPagesAccess";
 import type { RunnerService } from "./RunnerService";
 
 interface ActivePagesAccess {
+  readonly attemptId: string;
+  readonly downloads: Map<string, PlanRemoteFile>;
   readonly run: AgentPlanRun;
   readonly remote: RemotePlanStep;
   readonly token: string;
@@ -36,10 +47,14 @@ interface PagesAccessDependencies {
 /** A live step capability held only by Pages; the remote host never receives its credential. */
 export class RunnerPagesAccessService {
   private readonly dependencies: PagesAccessDependencies;
+  private readonly uploads: RunnerAssetUploads;
   private readonly active = new Map<string, ActivePagesAccess>();
 
   public constructor(dependencies: PagesAccessDependencies) {
     this.dependencies = dependencies;
+    this.uploads = new RunnerAssetUploads(async (ticket, bytes) =>
+      (await dependencies.api()).uploadAsset(ticket, bytes),
+    );
   }
 
   /** A restarted Pages process never restores a previous step's in-memory capability. */
@@ -94,7 +109,13 @@ export class RunnerPagesAccessService {
       },
       options.timeoutMinutes === 0 ? 0 : options.timeoutMinutes * 60_000,
     );
-    this.active.set(attemptId, { run, remote, ...issued });
+    this.active.set(attemptId, {
+      run,
+      remote,
+      attemptId,
+      downloads: new Map(),
+      ...issued,
+    });
     await this.dependencies.evidence.write(run.id, attemptId, () => ({
       files: [],
       pages: "active",
@@ -108,6 +129,7 @@ export class RunnerPagesAccessService {
     stepId: string,
     attemptId: string,
   ): Promise<void> {
+    this.uploads.close(attemptId);
     if (!this.active.delete(attemptId)) return;
     await this.dependencies.credentials.revoke(runId, stepId);
     await this.dependencies.evidence.write(runId, attemptId, (previous) => ({
@@ -125,8 +147,10 @@ export class RunnerPagesAccessService {
     const message = runnerPagesRequestSchema.parse(input);
     if (Buffer.byteLength(JSON.stringify(message)) > 65536)
       throw new Error("Remote Pages request too large");
+    let attemptId: string | undefined;
     try {
       const access = await this.requireAccess(connectionId, message);
+      attemptId = access.attemptId;
       const result = await this.dispatch(access, message);
       return {
         version: 1,
@@ -143,6 +167,7 @@ export class RunnerPagesAccessService {
         ok: false,
         error:
           error instanceof AgentError ? error.code : "plan_mcp_unavailable",
+        ...this.uploadFailure(error, message, attemptId),
       };
     }
   }
@@ -186,9 +211,10 @@ export class RunnerPagesAccessService {
     const { request } = message;
     const prepared = access.remote.parameters;
     if (!prepared) throw new AgentError("plan_mcp_unavailable");
+    if (request.kind === "upload") return this.upload(access, request);
+    if (request.kind === "download") return this.download(access, request);
     if (request.kind === "lease") return { active: true };
-    if (request.kind === "prepare")
-      return { files: prepared.assets.map((asset) => asset.file) };
+    if (request.kind === "prepare") return this.prepareManifest(access);
     if (request.kind === "asset") return this.asset(access, request);
     const api = await this.dependencies.api();
     if (request.kind === "list") {
@@ -235,7 +261,7 @@ export class RunnerPagesAccessService {
         files: [
           ...(previous?.files ?? []).filter(
             (file) =>
-              file.digest !== asset.file.digest ||
+              file.asset?.link !== asset.reference.link ||
               file.parameter !== asset.file.parameter,
           ),
           asset.file,
@@ -247,6 +273,209 @@ export class RunnerPagesAccessService {
       size: bytes.length,
       done: request.offset + chunk.length === bytes.length,
     };
+  }
+
+  private async upload(
+    access: ActivePagesAccess,
+    request: Extract<RunnerPagesRequest["request"], { kind: "upload" }>,
+  ): Promise<unknown> {
+    const identity = await (await this.dependencies.api()).verify(access.token);
+    if (identity.run?.reach !== "full")
+      throw new AgentError("plan_access_denied");
+    const result = await this.uploads.receive(access.attemptId, request);
+    if ("link" in result) {
+      const outcome = result.expiresAt === null ? "uploaded" : "staged";
+      const asset = ticketAssetReference(result.link);
+      if (asset)
+        await this.dependencies.evidence.write(
+          access.run.id,
+          access.attemptId,
+          (previous) => ({
+            pages: "active",
+            events: previous?.events ?? [],
+            files: [
+              ...(previous?.files ?? []).filter(
+                (file) =>
+                  file.asset?.link !== result.link || file.outcome !== outcome,
+              ),
+              {
+                parameter: "output",
+                name: result.fileName,
+                type: result.contentType,
+                size: result.size,
+                digest: request.digest,
+                asset,
+                representation: "original",
+                outcome,
+              },
+            ],
+          }),
+        );
+    }
+    return result;
+  }
+
+  private async prepareManifest(access: ActivePagesAccess): Promise<unknown> {
+    const prepared = access.remote.parameters;
+    if (!prepared) throw new AgentError("plan_mcp_unavailable");
+    const files = [];
+    for (const asset of prepared.assets) {
+      const current = await this.dependencies.parameters.readAssetContent(
+        access.run.userId,
+        asset,
+        prepared,
+      );
+      files.push({
+        ...asset.file,
+        textExtract:
+          current.content.type === "text" &&
+          current.content.representation === "text-extract"
+            ? current.content.text
+            : undefined,
+      });
+      if (Buffer.byteLength(JSON.stringify(files)) > 1024 * 1024)
+        throw new AgentAssetError(
+          "parameter_assets_too_large",
+          asset.reference,
+          asset.file.name,
+        );
+    }
+    return { files };
+  }
+
+  private async download(
+    access: ActivePagesAccess,
+    request: Extract<RunnerPagesRequest["request"], { kind: "download" }>,
+  ): Promise<unknown> {
+    const reference = ticketAssetReference(request.link);
+    if (!reference || reference.link !== request.link)
+      throw new AgentError("parameter_asset_reference_unsupported");
+    const pinned = access.downloads.get(reference.link);
+    const file = await (
+      await this.dependencies.api()
+    ).downloadAsset(
+      access.token,
+      reference.link,
+      pinned?.digest ?? request.digest,
+    );
+    const metadata = remoteAssetFile("tool", reference, file);
+    const known = [
+      ...(access.remote.parameters?.assets.map((asset) => asset.file) ?? []),
+      ...access.downloads.values(),
+    ];
+    if (
+      !pinned &&
+      (known.length >= 64 ||
+        known.reduce((total, entry) => total + entry.size, file.size) >
+          10 * 1024 * 1024)
+    )
+      throw new AgentAssetError(
+        "parameter_assets_too_large",
+        reference,
+        file.fileName,
+      );
+    if (request.offset > file.size)
+      throw new AgentAssetError(
+        "parameter_asset_unavailable",
+        reference,
+        file.fileName,
+      );
+    access.downloads.set(reference.link, metadata);
+    await this.dependencies.evidence.write(
+      access.run.id,
+      access.attemptId,
+      (previous) => ({
+        pages: "active",
+        events: previous?.events ?? [],
+        files: [
+          ...(previous?.files ?? []).filter(
+            (entry) =>
+              entry.asset?.link !== reference.link ||
+              entry.parameter !== "tool",
+          ),
+          metadata,
+        ],
+      }),
+    );
+    const bytes = file.bytes.subarray(
+      request.offset,
+      request.offset + 512 * 1024,
+    );
+    return {
+      file: {
+        ...metadata,
+        textExtract:
+          file.content.type === "text" &&
+          file.content.representation === "text-extract"
+            ? file.content.text
+            : undefined,
+      },
+      base64: bytes.toString("base64"),
+      size: file.size,
+      done: request.offset + bytes.length === file.size,
+    };
+  }
+
+  private uploadFailure(
+    error: unknown,
+    message: RunnerPagesRequest,
+    attemptId: string | undefined,
+  ): Readonly<Record<string, unknown>> {
+    if (message.request.kind !== "upload" || !attemptId)
+      return assetFailure(error);
+    if (error instanceof AgentError)
+      return {
+        assetFailure: {
+          id: "output",
+          name: this.uploads.fileName(attemptId, message.request.ticket),
+          cause: error.code,
+        },
+      };
+    if (!(error instanceof AgentOperationError)) return assetFailure(error);
+    const codes: Partial<Record<AgentOperationError["code"], AgentErrorCode>> =
+      {
+        CONFLICT: "parameter_asset_conflict",
+        FORBIDDEN: "parameter_asset_write_denied",
+        INVALID_REQUEST: "parameter_asset_output_invalid",
+        NOT_FOUND: "parameter_asset_unavailable",
+        PAYLOAD_TOO_LARGE: "parameter_assets_too_large",
+      };
+    const cause = codes[error.code] ?? "parameter_asset_unavailable";
+    return {
+      error: cause,
+      assetFailure: {
+        id: "output",
+        name: this.uploads.fileName(attemptId, message.request.ticket),
+        cause,
+      },
+    };
+  }
+
+  private rememberUpload(
+    access: ActivePagesAccess,
+    parameters: Readonly<Record<string, unknown>>,
+    result: Awaited<ReturnType<PagesAgentApiService["handle"]>>,
+  ): void {
+    if (
+      !("result" in result) ||
+      !("ticket" in result.result) ||
+      typeof result.result.ticket !== "string"
+    )
+      return;
+    const operationId =
+      typeof parameters.operationId === "string"
+        ? parameters.operationId
+        : result.result.ticket;
+    const name =
+      typeof parameters.fileName === "string"
+        ? sanitizeFileName(parameters.fileName)
+        : "output";
+    this.uploads.register(
+      access.attemptId,
+      result.result.ticket,
+      operationId,
+      name,
+    );
   }
 
   private async call(
@@ -264,6 +493,8 @@ export class RunnerPagesAccessService {
         operation: entry.operation,
         parameters: request.arguments,
       });
+      if (entry.operation === "assets.upload.prepare")
+        this.rememberUpload(access, request.arguments, result);
       outcome = "ok";
       return result;
     } catch (error: unknown) {

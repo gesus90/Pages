@@ -375,6 +375,11 @@ cat > "$pages_temporary" <<'PAGES'
 __PAGES_RUNNER_PAGES__
 PAGES
 mv -f -- "$pages_temporary" "$runner_directory/pages.mjs"
+asset_return_temporary=$(mktemp "$runner_directory/.asset-return.XXXXXX")
+cat > "$asset_return_temporary" <<'ASSETRETURN'
+__PAGES_RUNNER_ASSET_RETURN__
+ASSETRETURN
+mv -f -- "$asset_return_temporary" "$runner_directory/asset-return.mjs"
 opencode_temporary=$(mktemp "$runner_directory/.opencode.XXXXXX")
 cat > "$opencode_temporary" <<'OPENCODE'
 __PAGES_RUNNER_OPENCODE__

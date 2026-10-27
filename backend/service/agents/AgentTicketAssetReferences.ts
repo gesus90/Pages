@@ -1,3 +1,4 @@
+import { AgentAssetReferenceError } from "@/backend/error/AgentAssetReferenceError";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { parseMarkdown, walkMarkdown } from "./RelativeLinkScanner";
@@ -49,11 +50,34 @@ export function ticketAssetReferences(
     const reference = ticketAssetReference(url);
     if (reference) references.set(reference.link, reference);
     else if (
-      node.type === "image" ||
-      node.type === "imageReference" ||
-      /\.(?:png|txt)(?:[?#]|$)/i.test(url)
+      !/^(?:https?:)?\/\//iu.test(url) &&
+      (node.type === "image" ||
+        node.type === "imageReference" ||
+        /\.(?:png|jpe?g|webp|svg|pdf|txt|md|json|html|css)(?:[?#]|$)/iu.test(
+          url,
+        ))
     )
-      throw new AgentError("parameter_asset_reference_unsupported");
+      throw new AgentAssetReferenceError(url);
   });
   return [...references.values()];
+}
+
+/** External sources remain references; this scanner never authorizes a network request. */
+export function externalAssetNotes(markdown: string): string {
+  const tree = parseMarkdown(markdown);
+  const definitions = new Map<string, string>();
+  walkMarkdown(tree, (node) => {
+    if (node.type === "definition") definitions.set(node.identifier, node.url);
+  });
+  const sources = new Set<string>();
+  walkMarkdown(tree, (node) => {
+    let url: string | undefined;
+    if (node.type === "image" || node.type === "link") url = node.url;
+    if (node.type === "imageReference" || node.type === "linkReference")
+      url = definitions.get(node.identifier);
+    if (url && /^(?:https?:)?\/\//iu.test(url) && !ticketAssetReference(url))
+      sources.add(url);
+  });
+  if (!sources.size) return "";
+  return `\n\nPages external image sources (reference only; not downloaded, imported or viewed; use an authorized HTTP tool if required):\n${JSON.stringify([...sources].map((url) => ({ url, status: "not-fetched" })))}`;
 }

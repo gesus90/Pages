@@ -30,12 +30,18 @@ import type {
 
 /** A stable port reference lets the editor and server explain the same invalid connection. */
 export interface AgentPlanIssue {
+  readonly asset?: {
+    readonly id: string;
+    readonly name: string;
+    readonly cause: string;
+  };
   readonly nodeId: string | null;
   readonly port: string | null;
   readonly reason:
     | "remoteTicketUnavailable"
     | "remoteWikiUnavailable"
     | "remoteWorkspaceParameter"
+    | "remoteAssetRunner"
     | "remoteAssetUnavailable"
     | "remoteAssetType"
     | "remoteAssetsTooLarge"

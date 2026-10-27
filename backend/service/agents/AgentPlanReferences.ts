@@ -3,6 +3,7 @@ import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { assetFailure } from "./AgentPlanStepFailure";
 import { validatePlanGraph } from "./AgentPlanGraph";
 import { remoteParameterError } from "./AgentPlanRemoteParameters";
 
@@ -180,7 +181,11 @@ export function remoteReferenceIssues(
   error: unknown,
 ): readonly AgentPlanIssue[] {
   return allPlanSteps(withInheritedPlanTarget(plan)).flatMap((step) => {
-    if (step.executionTarget?.kind !== "remote") return [];
+    if (
+      step.executionTarget?.kind !== "remote" &&
+      !assetFailure(error).assetFailure
+    )
+      return [];
     return (step.configuration?.template.parameters ?? []).flatMap(
       (parameter) => {
         const binding = step.bindings[parameter.name];

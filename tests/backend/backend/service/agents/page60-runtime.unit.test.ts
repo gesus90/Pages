@@ -5,7 +5,7 @@ import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import { ApiTextExecution } from "@/backend/agents/providers/ApiTextExecution";
 import { createTextProviderRequest } from "@/backend/agents/providers/TextProviderPayload";
 import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
-import { AgentError } from "@/backend/error/AgentErrors";
+import { AGENT_ERROR_MESSAGES, AgentError } from "@/backend/error/AgentErrors";
 import { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import { planBindings } from "@/backend/service/agents/AgentPlanBindings";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
@@ -120,7 +120,7 @@ it("reauthorizes before the API request and preserves safe asset errors without 
   world.denied.add("text");
   await expect(
     execution.run(prepared.input, new AbortController().signal),
-  ).rejects.toThrow(new AgentError("parameter_asset_unavailable"));
+  ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_asset_unavailable);
   expect(request).toHaveBeenCalledTimes(1);
 });
 

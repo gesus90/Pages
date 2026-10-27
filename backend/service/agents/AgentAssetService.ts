@@ -178,6 +178,8 @@ export class AgentAssetService {
   }
 
   private requireWrite(identity: AgentIdentity): void {
+    if (identity.run && identity.run.reach !== "full")
+      throw new AgentOperationError("FORBIDDEN");
     if (!identity.isAdmin && !identity.permissions.includes("write"))
       throw new AgentOperationError("FORBIDDEN");
   }

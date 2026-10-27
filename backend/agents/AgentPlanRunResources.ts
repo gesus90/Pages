@@ -2,6 +2,8 @@ import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 
 import { readPlanText } from "./AgentPlanInput";
 import { readAgentObject } from "./AgentPayload";
+
+import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type { AgentTicketAsset } from "@/definition/AgentTicketParameter";
 
@@ -203,4 +205,21 @@ function addRemoteResources(
       });
     }
   }
+}
+
+/** Combines pinned resources and server-recorded tool downloads for historical result authorization. */
+export function allRunAssetReferences(
+  run: Pick<AgentPlanRun, "steps">,
+  pinned: readonly AgentTicketAsset[] = [],
+): readonly AgentTicketAsset[] {
+  const references = new Map<string, AgentTicketAsset>();
+  for (const asset of pinned)
+    references.set(`${asset.source}:${asset.id}`, asset);
+  for (const step of run.steps) {
+    for (const file of step.resourceAccess?.files ?? []) {
+      if (file.asset)
+        references.set(`${file.asset.source}:${file.asset.id}`, file.asset);
+    }
+  }
+  return [...references.values()];
 }

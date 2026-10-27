@@ -1,3 +1,4 @@
+import { agentAssetRepresentation } from "@/definition/AgentTicketParameter";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { AgentTicketAssetContent } from "@/definition/AgentTicketParameter";
@@ -21,5 +22,15 @@ export function ticketAssetLabel(asset: AgentTicketAssetContent): string {
     ticketKey: asset.ticketKey,
     asset: asset.asset,
     fileName: asset.fileName,
+    owner: asset.owner,
+    original: asset.original,
+    path: asset.path,
+    representation: asset.original
+      ? agentAssetRepresentation(asset.content)
+      : undefined,
+    modelContent:
+      asset.content.type === "file" ? asset.content.reason : undefined,
+    isTruncated:
+      asset.content.type === "text" ? asset.content.isTruncated : undefined,
   });
 }

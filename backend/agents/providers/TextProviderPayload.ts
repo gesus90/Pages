@@ -170,6 +170,18 @@ export function createTextProviderRequest(
   input: TextExecutionInput,
   assets: readonly AgentTicketAssetContent[] = [],
 ): TextProviderRequest {
+  if (input.agent.supportsImages === false)
+    assets = assets.map((asset) =>
+      asset.content.type === "image"
+        ? {
+            ...asset,
+            content: {
+              type: "file",
+              reason: "model-image-capability-unavailable",
+            },
+          }
+        : asset,
+    );
   if (provider === "google_ai_studio") return googleRequest(input, assets);
   if (provider === "anthropic") return anthropicRequest(input, assets);
   if (provider === "openai" && input.webSearch === true)

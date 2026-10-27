@@ -1,3 +1,4 @@
+import { ASSET_DOWNLOAD_TOOL } from "./AssetDownload.js";
 import { ADMIN_READ_TOOLS } from "./Administration.js";
 import { AGENT_READ_TOOLS } from "./Agents.js";
 import { CHAT_SESSIONS_LIST_TOOL } from "./ChatSessions.js";
@@ -32,6 +33,7 @@ import type { PagesAgentApiBusinessOperation } from "../PagesAgentApi.js";
 
 /** Fixed read-only tool descriptions; Pages determines which operations an identity may use. */
 const READ_TOOL_ENTRIES = [
+  { operation: "assets.download.prepare", tool: ASSET_DOWNLOAD_TOOL },
   { operation: "chat.sessions.list", tool: CHAT_SESSIONS_LIST_TOOL },
   ...EXTENSION_READ_TOOLS,
   ...ADMIN_READ_TOOLS,

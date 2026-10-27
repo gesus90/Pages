@@ -1,11 +1,14 @@
 import { createHash } from "node:crypto";
 
 import { scanAgentPlaceholders } from "@/definition/AgentParameters";
+import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { MAX_RUNNER_PROMPT_CHARACTERS } from "@/definition/RunnerExecution";
 
+import { assetFailure } from "./AgentPlanStepFailure";
+import { remoteAssetFile } from "./AgentAssetRemoteFile";
 import { bindAgentParameters } from "./AgentParameterBinding";
 import { planBindings } from "./AgentPlanBindings";
 import {
@@ -14,6 +17,7 @@ import {
 } from "./AgentTicketAssetReferences";
 import { MAX_TICKET_ASSET_BYTES } from "./AgentTicketAssetService";
 
+import type { AgentTicketAssetContent } from "@/definition/AgentTicketParameter";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
@@ -137,12 +141,7 @@ export class AgentPlanRemoteParameters {
           },
           collection,
         );
-        if (
-          assets.length > 64 ||
-          assets.reduce((total, asset) => total + asset.file.size, 0) >
-            MAX_TICKET_ASSET_BYTES
-        )
-          throw new AgentError("parameter_assets_too_large");
+        requireAssetBudget(assets);
       } catch (error: unknown) {
         issues.push(
           ...remoteParameterError(
@@ -195,6 +194,18 @@ export class AgentPlanRemoteParameters {
     asset: RemoteParameterAsset,
     prepared: RemotePlanParameters,
   ): Promise<Buffer> {
+    return (await this.readAssetContent(userId, asset, prepared)).bytes;
+  }
+
+  /** Resolves transient model content only after the same source, owner and original-digest checks. */
+  public async readAssetContent(
+    userId: string,
+    asset: RemoteParameterAsset,
+    prepared: RemotePlanParameters,
+  ): Promise<{
+    readonly bytes: Buffer;
+    readonly content: AgentTicketAssetContent["content"];
+  }> {
     const expected =
       asset.owner.type === "ticket"
         ? prepared.tickets[asset.owner.id]?.assets
@@ -221,8 +232,12 @@ export class AgentPlanRemoteParameters {
       fileDigest(file.bytes) !== asset.file.digest ||
       file.bytes.length !== asset.file.size
     )
-      throw new AgentError("parameter_ticket_changed");
-    return file.bytes;
+      throw new AgentAssetError(
+        "parameter_ticket_changed",
+        asset.reference,
+        asset.file.name,
+      );
+    return { bytes: file.bytes, content: file.content };
   }
 
   private async collectReference(
@@ -245,15 +260,12 @@ export class AgentPlanRemoteParameters {
         name: ticket.key,
         version: planContentDigest(ticket.version),
       });
-      for (const reference of context.shouldTransfer ? ticket.assets : [])
-        collection.assets.push(
-          await this.pinAsset(
-            userId,
-            parameter,
-            { type: "ticket", id: ticket.id },
-            reference,
-          ),
-        );
+      await this.collectAssets(
+        userId,
+        { type: "ticket", id: ticket.id },
+        context.shouldTransfer ? ticket.assets : [],
+        { parameter, collection },
+      );
     }
     if (bound?.type === "wiki") {
       const page = await this.wiki(userId, bound.pageId);
@@ -265,17 +277,12 @@ export class AgentPlanRemoteParameters {
         name: page.link,
         version: page.version,
       });
-      for (const reference of context.shouldTransfer
-        ? ticketAssetReferences(page.markdown)
-        : [])
-        collection.assets.push(
-          await this.pinAsset(
-            userId,
-            parameter,
-            { type: "wiki", id: bound.pageId },
-            reference,
-          ),
-        );
+      await this.collectAssets(
+        userId,
+        { type: "wiki", id: bound.pageId },
+        context.shouldTransfer ? ticketAssetReferences(page.markdown) : [],
+        { parameter, collection },
+      );
     }
     if (bound?.type === "workspace") {
       const workspace = (
@@ -291,6 +298,23 @@ export class AgentPlanRemoteParameters {
         name: workspace.workspaceName,
         version: String(workspace.workspaceRevision),
       });
+    }
+  }
+
+  private async collectAssets(
+    userId: string,
+    owner: RemoteParameterAsset["owner"],
+    references: readonly AgentTicketAsset[],
+    context: {
+      readonly parameter: string;
+      readonly collection: RemoteParameterCollection;
+    },
+  ): Promise<void> {
+    for (const reference of references) {
+      context.collection.assets.push(
+        await this.pinAsset(userId, context.parameter, owner, reference),
+      );
+      requireAssetBudget(context.collection.assets);
     }
   }
 
@@ -313,13 +337,11 @@ export class AgentPlanRemoteParameters {
     return {
       owner,
       reference,
-      file: {
-        parameter,
-        name: file.name,
-        type: file.type,
-        size: file.bytes.length,
-        digest: fileDigest(file.bytes),
-      },
+      file: remoteAssetFile(parameter, reference, {
+        fileName: file.name,
+        original: file.original,
+        content: file.content,
+      }),
     };
   }
 
@@ -329,18 +351,19 @@ export class AgentPlanRemoteParameters {
   ): Promise<{
     readonly bytes: Buffer;
     readonly name: string;
-    readonly type: PlanRemoteFile["type"];
+    readonly type: string;
+    readonly content: AgentTicketAssetContent["content"];
+    readonly original: NonNullable<AgentTicketAssetContent["original"]>;
   }> {
     const actor = await this.dependencies.users.getById(userId);
     if (!actor?.isActive) throw new AgentError("parameter_asset_unavailable");
     const file = await this.dependencies.assets.read(actor, reference);
     return {
       name: file.fileName,
-      type: file.content.type === "image" ? "image/png" : "text/plain",
-      bytes:
-        file.content.type === "image"
-          ? Buffer.from(file.content.base64, "base64")
-          : Buffer.from(file.content.text, "utf8"),
+      type: file.original.mimeType,
+      bytes: file.bytes,
+      content: file.content,
+      original: file.original,
     };
   }
 }
@@ -374,7 +397,16 @@ export function remoteParameterError(
     )
       reason = "remoteAssetUnavailable";
   }
-  return new AgentPlanValidationError([{ nodeId, port, reason }]);
+  return new AgentPlanValidationError([
+    {
+      nodeId,
+      port,
+      reason,
+      ...(assetFailure(error).assetFailure
+        ? { asset: assetFailure(error).assetFailure }
+        : {}),
+    },
+  ]);
 }
 
 /** Binds frozen remote content through the existing non-recursive parameter binder. */
@@ -465,4 +497,28 @@ export function requireRemotePromptSize(
       reason: "remotePromptTooLarge",
     })),
   );
+}
+
+function requireAssetBudget(assets: readonly RemoteParameterAsset[]): void {
+  const originalBytes = assets.reduce(
+    (total, asset) => total + asset.file.size,
+    0,
+  );
+  const manifestBytes =
+    Buffer.byteLength(JSON.stringify(assets.map((asset) => asset.file))) +
+    assets.reduce((total, asset) => total + (asset.file.modelSize ?? 0), 0);
+  if (
+    assets.length <= 64 &&
+    originalBytes <= MAX_TICKET_ASSET_BYTES &&
+    manifestBytes <= 1024 * 1024
+  )
+    return;
+  const last = assets.at(-1);
+  if (last)
+    throw new AgentAssetError(
+      "parameter_assets_too_large",
+      last.reference,
+      last.file.name,
+    );
+  throw new AgentError("parameter_assets_too_large");
 }

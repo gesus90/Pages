@@ -1,3 +1,4 @@
+import { cleanupPagesFiles } from "./pages.mjs";
 import { readdir, readFile, stat, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { identity, readRecord, store } from "./journal.mjs";
@@ -198,8 +199,10 @@ export async function cleanup(folder, jobId, options = {}) {
         if (!isConfirmed) return failedCleanup(options, "signal_denied");
         if (scan.isUncertain)
           return failedCleanup(options, "process_scan_unavailable");
-        if (options.removeRuntime !== false)
+        if (options.removeRuntime !== false) {
+          await cleanupPagesFiles(folder);
           await rm(join(folder, "runtime"), { recursive: true, force: true });
+        }
         return "confirmed";
       }
     } else emptySince = null;

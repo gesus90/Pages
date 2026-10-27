@@ -97,7 +97,10 @@ function issueCause(issue: AgentPlanIssue, translate: TFunction): string {
     keys.unshift(`plans.panel.issueCause.${issue.reason}`);
   if (issue.nodeId !== null && port && issue.reason === "required")
     keys.unshift("plans.panel.issueCause.requiredPort");
-  return translate(keys, { port });
+  const cause = translate(keys, { port });
+  return issue.asset
+    ? `${cause} · ${translate("plans.remoteAccess.assetFailure", { ...issue.asset, cause: translate(`settings.agents.error.${issue.asset.cause}`) })}`
+    : cause;
 }
 
 /**

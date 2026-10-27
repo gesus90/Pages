@@ -203,6 +203,19 @@ function isZeroPrice(price: string | null): boolean {
   return price !== null && /^0+(?:\.0+)?(?:[eE][+-]?\d+)?$/.test(price);
 }
 
+function readImageCapability(entry: unknown): {
+  readonly supportsImages?: boolean;
+} {
+  const model = readAgentObject(entry);
+  if (typeof model.image_input === "boolean")
+    return { supportsImages: model.image_input };
+  const modalities = readAgentObject(model.architecture).input_modalities;
+  return Array.isArray(modalities) &&
+    modalities.every((item) => typeof item === "string")
+    ? { supportsImages: modalities.includes("image") }
+    : {};
+}
+
 function readModel(entry: unknown, provider: ApiProviderId): AgentCatalogModel {
   const model = readAgentObject(entry);
   const id = provider === "google_ai_studio" ? model.name : model.id;
@@ -217,6 +230,7 @@ function readModel(entry: unknown, provider: ApiProviderId): AgentCatalogModel {
       ? model.inputTokenLimit
       : model.context_length;
   return {
+    ...readImageCapability(entry),
     id,
     name:
       readText(model.displayName ?? model.display_name ?? model.name, 200) ??
@@ -356,8 +370,7 @@ function readStoredToolCall(entry: unknown): {
 export function parseStoredCatalog(
   entries: unknown,
 ): readonly AgentCatalogModel[] {
-  // Snapshots hold only models already accepted at refresh time, so the
-  // provider's modality metadata is neither stored nor checked again.
+  // Snapshots retain the explicit input capability, including text-only models.
   return readEntries(entries).map((entry) => {
     const model = {
       ...readModel(entry, "openrouter"),

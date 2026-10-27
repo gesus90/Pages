@@ -3,7 +3,10 @@ import {
   planRemoteProgressSchema,
 } from "@/definition/AgentPlanExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { planRemoteAccessSchema } from "@/definition/AgentPlanRemoteAccess";
+import {
+  assetFailureSchema,
+  planRemoteAccessSchema,
+} from "@/definition/AgentPlanRemoteAccess";
 
 import { readPlanProgress } from "./AgentPlanProgressInput";
 import { readPlanText } from "./AgentPlanInput";
@@ -38,6 +41,7 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     id: readPlanText(step.id),
 
     ...readExecutionMetadata(step),
+
     ...(step.groupId === undefined
       ? {}
       : { groupId: readPlanText(step.groupId) }),
@@ -77,8 +81,14 @@ export function isStepStatus(input: unknown): input is AgentPlanStepStatus {
 
 function readExecutionMetadata(
   step: Record<string, unknown>,
-): Pick<AgentPlanStepResult, "execution" | "remote" | "resourceAccess"> {
+): Pick<
+  AgentPlanStepResult,
+  "execution" | "remote" | "resourceAccess" | "assetFailure"
+> {
   return {
+    ...(step.assetFailure === undefined
+      ? {}
+      : { assetFailure: assetFailureSchema.parse(step.assetFailure) }),
     ...(step.resourceAccess === undefined
       ? {}
       : { resourceAccess: planRemoteAccessSchema.parse(step.resourceAccess) }),

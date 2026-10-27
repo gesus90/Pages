@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+
+import { allRunAssetReferences } from "@/backend/agents/AgentPlanRunResources";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
@@ -12,6 +14,7 @@ import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
+
 import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { readPlanSources } from "./AgentPlanSources";
 import { readPlanPage } from "./AgentPlanPage";
@@ -30,6 +33,7 @@ import { AgentPlanScripts } from "./AgentPlanScripts";
 import { AgentPlanCloning } from "./AgentPlanCloning";
 import { requirePlanModelResources } from "./AgentPlanModel";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
+
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanCloneInput } from "./AgentPlanClone";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
@@ -482,10 +486,11 @@ export class AgentPlanService {
       await this.dependencies.parameters.requireWiki(userId, pageId);
     for (const ticketId of resources.ticketIds)
       await this.dependencies.parameters.requireTicket(userId, ticketId);
-    if (resources.ticketAssets?.length)
+    const ticketAssets = allRunAssetReferences(run, resources.ticketAssets);
+    if (ticketAssets.length)
       await this.dependencies.parameters.requireTicketAssets(
         userId,
-        resources.ticketAssets,
+        ticketAssets,
       );
     const progress = await withPlanProgress(run, {
       projectId: resources.projectId,

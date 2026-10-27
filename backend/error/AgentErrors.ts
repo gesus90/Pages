@@ -2,6 +2,12 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  parameter_asset_conflict:
+    "The source revision or replay metadata changed. Read the current attachment digest and use the original operation ID only for identical retries.",
+  parameter_asset_write_denied:
+    "This run cannot upload files. Check the executor write rights and full workspace/tool mode; read-only and Pica cannot edit or upload.",
+  parameter_asset_output_invalid:
+    "The output file or upload metadata is invalid, or the selected source is byte-identical. Make a real edit and verify filename, content and destination before returning it.",
   zai_account_type_invalid:
     "Choose the z.ai account type: Coding Plan subscription or standard prepaid API.",
   profile_management_retired:
@@ -229,7 +235,7 @@ export const AGENT_ERROR_MESSAGES = {
   parameter_asset_unavailable:
     "A ticket asset is missing, deleted, unreadable or not accessible to the executing user. No incomplete input was sent.",
   parameter_asset_type_unsupported:
-    "Ticket assets support PNG images and UTF-8 text files. A selected file has an unsupported format.",
+    "Asset model content supports PNG, JPEG, WebP and UTF-8 sources. PDF extracts and original-only files are labelled separately.",
   parameter_asset_transfer_unsupported:
     "This runner or handoff cannot deliver ticket assets. Use an API agent or an ACP adapter with image support, and bind the ticket to each receiving agent.",
   parameter_asset_reference_unsupported:

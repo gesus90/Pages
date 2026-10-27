@@ -8,14 +8,7 @@ export function validatePlanParameterContext(
   step: AgentPlanStepSnapshot,
   live: PreparedAgentParameters,
 ): void {
-  for (const input of step.prepared.parameters.assetInputs ?? []) {
-    const current = live.parameters.tickets[input.parameter];
-    if (
-      !current ||
-      JSON.stringify(current.assets) !== JSON.stringify(input.ticket.assets)
-    )
-      throw new AgentError("parameter_ticket_changed");
-  }
+  validateAssetInputs(step, live);
   for (const previous of [
     step.prepared.workspace,
     ...step.prepared.references,
@@ -31,5 +24,33 @@ export function validatePlanParameterContext(
       JSON.stringify(current.github) !== JSON.stringify(previous.github)
     )
       throw new AgentError("plan_context_changed");
+  }
+}
+
+function validateAssetInputs(
+  step: AgentPlanStepSnapshot,
+  live: PreparedAgentParameters,
+): void {
+  for (const input of step.prepared.parameters.assetInputs ?? []) {
+    const current =
+      input.owner === "wiki"
+        ? live.parameters.assetInputs.find(
+            (entry) =>
+              entry.owner === "wiki" && entry.parameter === input.parameter,
+          )?.ticket
+        : live.parameters.tickets[input.parameter];
+    const liveInput = live.parameters.assetInputs.find(
+      (entry) => entry.parameter === input.parameter,
+    );
+    if (
+      input.originals &&
+      JSON.stringify(input.originals) !== JSON.stringify(liveInput?.originals)
+    )
+      throw new AgentError("parameter_ticket_changed");
+    if (
+      !current ||
+      JSON.stringify(current.assets) !== JSON.stringify(input.ticket.assets)
+    )
+      throw new AgentError("parameter_ticket_changed");
   }
 }

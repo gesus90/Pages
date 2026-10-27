@@ -82,11 +82,13 @@ export class AgentRunCredentialService {
    * valid session credential.
    */
   public async verify(token: string): Promise<AgentIdentity | null> {
+    return this.verifyHash(hashAgentCredential(token));
+  }
+
+  /** Revalidates ephemeral binary capabilities without retaining a clear run credential. */
+  public async verifyHash(hash: string): Promise<AgentIdentity | null> {
     if (this.identities === null) return null;
-    const stored = await this.repository.findValid(
-      hashAgentCredential(token),
-      Date.now(),
-    );
+    const stored = await this.repository.findValid(hash, Date.now());
     if (!stored) return null;
     const identity = await this.identities.verify(stored.userId);
     return { ...identity, run: stored.scope };
