@@ -19,6 +19,18 @@ const CONTROL = {
   frontierStepIds: ["a", "b"],
 };
 
+const REJECTION = {
+  id: "rejection",
+  createdAt: "2026-10-28T12:00:00.000Z",
+  action: "play",
+  planRevision: 3,
+  isSavedRevision: true,
+  error: "plan_workspace_conflict",
+  conflict: null,
+  reservation: "unknown",
+  targetResolution: "unknown",
+};
+
 describe("reading a plan polling response", () => {
   it("answers the control state of a plan", () => {
     expect(
@@ -53,6 +65,39 @@ describe("reading a plan polling response", () => {
         issue: "graph",
         issues: [{ nodeId: null, port: null, reason: "name" }],
       },
+    });
+  });
+
+  it("retains the current plan's workspace-conflict details", () => {
+    const workspaceConflict = {
+      kind: "reserved",
+      targets: [
+        {
+          kind: "remote",
+          workspaceId: "workspace",
+          path: "/synthetic/repository",
+          connectionName: "Synthetic host",
+          workspaceName: "Synthetic copy",
+        },
+      ],
+      nodes: [{ id: "a", name: "Review" }],
+    };
+    expect(
+      readPlanPollingResponse({
+        ok: true,
+        control: { ...CONTROL, workspaceConflict },
+      }),
+    ).toMatchObject({ control: { workspaceConflict } });
+  });
+
+  it("keeps a past refusal separate from the current Play availability", () => {
+    expect(
+      readPlanPollingResponse({
+        ok: true,
+        control: { ...CONTROL, canPlay: true, lastStartRejection: REJECTION },
+      }),
+    ).toMatchObject({
+      control: { canPlay: true, lastStartRejection: REJECTION },
     });
   });
 
@@ -130,6 +175,26 @@ describe("refusing a malformed polling response", () => {
         control: {
           ...CONTROL,
           issues: [{ nodeId: null, port: null, reason: "bogus" }],
+        },
+      },
+    },
+    {
+      label: "a malformed workspace conflict",
+      response: {
+        ok: true,
+        control: {
+          ...CONTROL,
+          workspaceConflict: { kind: "reserved", targets: [], nodes: [3] },
+        },
+      },
+    },
+    {
+      label: "a malformed past refusal",
+      response: {
+        ok: true,
+        control: {
+          ...CONTROL,
+          lastStartRejection: { ...REJECTION, reservation: "free" },
         },
       },
     },

@@ -191,16 +191,18 @@ function readCompletion(input: unknown): AgentPlanCompletion {
 }
 
 /** Reads declared inputs or outputs: text entries with a name and further flags. */
-function readScriptEntries(
-  input: unknown,
-): readonly { readonly name: string; readonly isRequired: unknown }[] {
+function readScriptEntries(input: unknown): readonly {
+  readonly name: string;
+  readonly isRequired: unknown;
+  readonly policy: unknown;
+}[] {
   if (!Array.isArray(input) || input.length > 64)
     throw new AgentError("plan_script_invalid");
   return input.map((entry: unknown) => {
-    const { name, type, isRequired } = readPlanObject(entry);
+    const { name, type, isRequired, policy } = readPlanObject(entry);
     if (typeof name !== "string" || type !== "text")
       throw new AgentError("plan_script_invalid");
-    return { name, isRequired };
+    return { name, isRequired, policy };
   });
 }
 
@@ -213,7 +215,11 @@ function readScriptInputs(input: unknown): readonly AgentPlanScriptInput[] {
 }
 
 function readScriptOutputs(input: unknown): readonly AgentPlanScriptOutput[] {
-  return readScriptEntries(input).map(({ name }) => ({ name, type: "text" }));
+  return readScriptEntries(input).map(({ name, policy }) => {
+    if (policy !== undefined && policy !== "report" && policy !== "gate")
+      throw new AgentError("plan_script_invalid");
+    return { name, type: "text", ...(policy ? { policy } : {}) };
+  });
 }
 
 /**

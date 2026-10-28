@@ -8,6 +8,10 @@ import {
   ungroupPlanGroup,
 } from "@/definition/AgentPlanGroupEdit";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
+import {
+  planFrameMoveNeedsRepair,
+  planFrameUngroupNeedsRepair,
+} from "@/definition/AgentPlanFrameSafety";
 import { findPlanBindingTarget } from "@/definition/AgentPlanGroupEdit";
 import {
   disconnectLoopFlow,
@@ -463,6 +467,8 @@ function ungroupContainer(
     )
   )
     throw refused("element_missing");
+  if (planFrameUngroupNeedsRepair(plan, group.id))
+    throw refused("plan_frame_repair_required");
   const ungroup = group.type === "loop" ? ungroupPlanLoop : ungroupPlanGroup;
   const result = ungroup(plan, group.id, (step) => {
     const position =
@@ -535,5 +541,7 @@ function placeMember(
           context.agents,
         );
   if (typeof result === "string") throw refused("graph_invalid");
+  if (planFrameMoveNeedsRepair(plan, change.nodeId, change.groupId, result))
+    throw refused("plan_frame_repair_required");
   return { plan: result.plan, createdNodeIds: [] };
 }

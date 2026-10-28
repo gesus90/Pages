@@ -1,14 +1,18 @@
 import {
   CONFIRMATION_SCHEMA,
+  CURSOR_SCHEMA,
   IDENTIFIER_SCHEMA,
   REVISION_SCHEMA,
   buildReadTool,
   buildWriteTool,
 } from "./ToolDefinition.js";
+import { AGENT_READ_LIMITS } from "../AgentReadChunks.js";
+import { AGENT_PLAN_SESSION_READ_LIMITS } from "../AgentPlanSessionEvents.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
 import type {
   AgentPlanCommandOperation,
+  AgentPlanRecoveryCommandOperation,
   AgentPlanReadOperation,
 } from "../AgentPlanOperations.js";
 
@@ -23,13 +27,97 @@ export const PLAN_RESOURCE_READ_TOOLS: readonly {
   readonly tool: Tool;
 }[] = [
   {
+    operation: "plans.run.session.events.read",
+    tool: buildReadTool({
+      name: "read_plan_run_session_events",
+      title: "Read an own plan attempt's retained session events",
+      description:
+        "Reads the same redacted ACP event journal as the editor for an authorized plan/run/node/attempt. Take step.attemptId from read_plan_run or a prior retryAttempts ID from read_plan_run_diagnostics; loop iterations retain separate attempts. A prior retry requires its retained journal and original owner/node binding; an unavailable journal returns INVALID_REQUEST with reason plan_history_unavailable. Recheck retained history or use the recorded run diagnostic; no empty successful history is invented. Current executor and snapshot resource rights are rechecked on every page; foreign or mismatched identities are refused. after is an exclusive sequence cursor, before an optional exclusive upper bound, limit is 1..32 (default 16). history.cursor, hasMore, retainedFrom and source distinguish more events, retention gaps and legacy record fallback; isTruncated marks shortened event text. Pin before while chunking a growing journal. Large replies use snapshot-bound UTF-8 JSON chunks: concatenate text, verify sha256 and parse JSON before advancing the event cursor. A changed snapshot rejects the chunk cursor rather than mixing pages. Reads retained events only, including channel when recorded; does not reconstruct missing attempts, start a process, send instructions or offer native session recovery.",
+      properties: {
+        planId: IDENTIFIER_SCHEMA,
+        runId: IDENTIFIER_SCHEMA,
+        stepId: IDENTIFIER_SCHEMA,
+        attemptId: {
+          ...IDENTIFIER_SCHEMA,
+          maxLength: AGENT_PLAN_SESSION_READ_LIMITS.attemptIdLength,
+        },
+        after: {
+          type: "integer",
+          minimum: 0,
+          maximum: Number.MAX_SAFE_INTEGER,
+        },
+        before: {
+          type: "integer",
+          minimum: 1,
+          maximum: Number.MAX_SAFE_INTEGER,
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: AGENT_PLAN_SESSION_READ_LIMITS.eventPage,
+        },
+        cursor: CURSOR_SCHEMA,
+        maxBytes: {
+          type: "integer",
+          minimum: AGENT_READ_LIMITS.minimumChunkBytes,
+          maximum: AGENT_READ_LIMITS.chunkBytes,
+        },
+      },
+      required: ["planId", "runId", "stepId", "attemptId"],
+    }),
+  },
+  {
     operation: "plans.run.recovery.read",
     tool: buildReadTool({
       name: "read_plan_run_recovery",
       title: "Read own plan run recovery availability",
       description:
-        "Reads existing recovery and restart availability with concrete blockers for exactly this planId and own runId. Rechecks current plan and all snapshot resource rights. Recovery after process loss is distinct from resume_plan at a durable pause boundary; a restart/recovery creates a new run ID through the existing editor workflow. This read starts nothing and grants no provider resume capability. Recovery commands stay on the editor commandSurface; never emulate them with play_plan or report a new run as the old run's continuation.",
+        "Reads recovery, restart and cleanup availability with concrete blockers for exactly this planId and own runId. continuationStatus distinguishes no linked run from an available or inaccessible continuation; continuedBy contains its ID only after rechecking that run's current access. latestCleanupFailure preserves the last authorized scan/resource failure with timestamp, original run/revision and known attempt; it is historical, not a current lock assertion. cleanupResources names this run's recorded local session, local script, remote attempt or loop by node ID and filtered name with unconfirmed closeout; it never contains process or native-session IDs. An empty process scan alone cannot confirm every session resource. Rechecks current plan and snapshot resource rights. restart_plan_run and continue_plan_run start a new linked run only on explicit request; release_plan_run requests cleanup without starting a run. Recovery after process loss is distinct from resume_plan at a durable pause boundary. This read starts nothing; never emulate recovery with play_plan.",
       properties: { planId: IDENTIFIER_SCHEMA, runId: IDENTIFIER_SCHEMA },
+      required: ["planId", "runId"],
+    }),
+  },
+  {
+    operation: "plans.run.diagnostics.read",
+    tool: buildReadTool({
+      name: "read_plan_run_diagnostics",
+      title: "Read one own plan attempt's diagnostics",
+      description:
+        "Reads one run node's recorded execution, target, attempt, exit, closeout, error, acceptance verdict and separate result, stdout and stderr. Streams explicitly say complete, partial, unknown or missing; this describes retained text, not business success. isFiltered marks masking or shortening known to Pages. timingBasis identifies remote observation times rather than proven process times. Supply both loopId and iteration for a loop member. The executor's current plan and resource rights are rechecked. Large responses are UTF-8-safe snapshot-bound JSON chunks: pass nextCursor with the same arguments and maxBytes, concatenate text in order, verify sha256 and parse JSON. This reads stored evidence only; no execution or cleanup is requested.",
+      properties: {
+        planId: IDENTIFIER_SCHEMA,
+        runId: IDENTIFIER_SCHEMA,
+        stepId: IDENTIFIER_SCHEMA,
+        loopId: IDENTIFIER_SCHEMA,
+        iteration: { type: "integer", minimum: 1 },
+        cursor: CURSOR_SCHEMA,
+        maxBytes: {
+          type: "integer",
+          minimum: AGENT_READ_LIMITS.minimumChunkBytes,
+          maximum: AGENT_READ_LIMITS.chunkBytes,
+        },
+      },
+      required: ["planId", "runId", "stepId"],
+    }),
+  },
+  {
+    operation: "plans.run.checkpoint.read",
+    tool: buildReadTool({
+      name: "read_plan_run_checkpoint",
+      title: "Read an own plan run checkpoint",
+      description:
+        "Reads an immutable completion checkpoint of this executor's run after current plan and resource authorization. Supply version to select one; without it, the latest is returned or null if none exists. The checkpoint content is JSON text and isFiltered marks masked or shortened values. Process and native-session identifiers are omitted; output digests remain the stored original. Large responses use snapshot-bound UTF-8 chunks: concatenate text in order, verify sha256, parse the outer JSON and then parse checkpoint.content. Pin version while paging. This reads evidence only and starts nothing.",
+      properties: {
+        planId: IDENTIFIER_SCHEMA,
+        runId: IDENTIFIER_SCHEMA,
+        version: { type: "integer", minimum: 1 },
+        cursor: CURSOR_SCHEMA,
+        maxBytes: {
+          type: "integer",
+          minimum: AGENT_READ_LIMITS.minimumChunkBytes,
+          maximum: AGENT_READ_LIMITS.chunkBytes,
+        },
+      },
       required: ["planId", "runId"],
     }),
   },
@@ -74,8 +162,12 @@ export const PLAN_RESOURCE_READ_TOOLS: readonly {
       name: "read_plan_control",
       title: "Read plan controls",
       description:
-        "Reads planId, revision, actual status, canEdit/canDelete/canPlay/canPause/canResume/canStop and per-action blockers under current resource rights. For editors, issues names each node the server start check refuses (nodeId, port, problem), for example behind plan_invalid. An own currently readable run additionally includes runId, applied planRevision and continuationVersion; another executor's IDs, results and failures stay private. Recheck after any asynchronous action or conflict. Pausing/stopping acknowledge requests, not completed work. Direct scripts require active administrator mode and an executable configured profile.",
-      properties: { planId: IDENTIFIER_SCHEMA },
+        "Reads planId, revision, actual status, canEdit/canDelete/canPlay/canPause/canResume/canStop and per-action blockers under current resource rights. For editors, issues names each node the server start check refuses (nodeId, port, problem), for example behind plan_invalid. workspaceConflict names only this plan's affected nodes and authorized targets: for reserved, wait for the other run's confirmed closeout or choose another copy; for parallel_writers, order the nodes with flow or choose separate copies. lastStartRejection is this requester's most recent recorded workspace refusal or stable preparation error before a run existed; historical graph findings contain nodeId, port and problem, and issueDetailsFiltered marks omitted asset details or additional findings. Some other failure classes are not recorded. Set includeStartRejections=true to additionally read one own history entry. Pass its nextBefore as beforeRejectionId for the next older entry with the same planId. Null nextBefore means complete. Immutable entry ordering is stable across new refusals; unknown or foreign cursors return an empty page. Every page rechecks current editor and target rights; run-scoped credentials cannot read history. It is historical evidence, not current availability. Revoked target details are removed. Another executor's identity remains private. An own currently readable run additionally includes runId, applied planRevision and continuationVersion. Recheck after any asynchronous action or conflict; this is a momentary check and the server checks again on start. Pausing/stopping acknowledge requests, not completed work. Direct scripts require active administrator mode and an executable configured profile.",
+      properties: {
+        planId: IDENTIFIER_SCHEMA,
+        includeStartRejections: { type: "boolean", const: true },
+        beforeRejectionId: IDENTIFIER_SCHEMA,
+      },
       required: ["planId"],
     }),
   },
@@ -83,9 +175,72 @@ export const PLAN_RESOURCE_READ_TOOLS: readonly {
 
 /** Explicit saved-revision commands never run as a side effect of graph editing. */
 export const PLAN_RESOURCE_WRITE_TOOLS: readonly {
-  readonly operation: AgentPlanCommandOperation;
+  readonly operation:
+    AgentPlanCommandOperation | AgentPlanRecoveryCommandOperation;
   readonly tool: Tool;
 }[] = [
+  {
+    operation: "plans.run.recovery.release",
+    tool: buildWriteTool({
+      name: "release_plan_run",
+      title: "Clean up and release an ended plan run",
+      description:
+        "Explicitly requests cleanup of this executor's original run and releases only its reservations after process exit and closeout are confirmed. No run is started or resumed. Read read_plan_run_recovery first and pass its recovery revision; use a new operationId for a different decision. An identical retry for this run replays the result, and the same operationId with changed arguments on this run conflicts. Cleanup may initially return plan_recovery_cleanup_unconfirmed while the original runner confirms shutdown; re-read and retry. A failed local scan or script-resource cleanup may include cleanupFailure with the affected stepId, resource kind and fixed reason. The latest bounded scan/resource failure is stored separately and returned as latestCleanupFailure by read_plan_run_recovery; it remains historical after later successful cleanup. A live or unknown process never permits release. Current plan, workspace and run rights still apply.",
+      properties: {
+        planId: IDENTIFIER_SCHEMA,
+        runId: IDENTIFIER_SCHEMA,
+        expectedRecoveryRevision: {
+          type: "integer",
+          minimum: 0,
+          maximum: Number.MAX_SAFE_INTEGER,
+        },
+      },
+      isDestructive: true,
+      isOpenWorld: true,
+    }),
+  },
+  {
+    operation: "plans.run.recovery.restart",
+    tool: buildWriteTool({
+      name: "restart_plan_run",
+      title: "Start a new run from the beginning",
+      description:
+        "Only on an explicit separate user request, starts the selected saved plan revision from the beginning as a new run linked to this executor's original run. Every node can run again and repeat side effects; confirmRepeat must be true after the person has been told this. Read read_plan_run_recovery first and use its recovery revision and current plan revision. The original run and its evidence remain unchanged. Current rights and confirmed cleanup are required; unknown processes block execution. Identical retries replay the same new run, while changed arguments under the same operationId conflict.",
+      properties: {
+        planId: IDENTIFIER_SCHEMA,
+        runId: IDENTIFIER_SCHEMA,
+        expectedRecoveryRevision: { type: "integer", minimum: 0 },
+        expectedPlanRevision: REVISION_SCHEMA,
+        confirmRepeat: { type: "boolean", const: true },
+      },
+      isDestructive: true,
+      isOpenWorld: true,
+    }),
+  },
+  {
+    operation: "plans.run.recovery.resume",
+    tool: buildWriteTool({
+      name: "continue_plan_run",
+      title: "Continue an ended run from its verified state",
+      description:
+        "Only on an explicit separate user request, starts a new run linked to this executor's original run and reuses only verified completed results. Read read_plan_run_recovery first: pass its current plan and recovery revisions, choose an available native_resume or new_session mode and list every reviewStepId whose possible effects the person has explicitly reviewed. Failed or interrupted work runs as a new attempt; the original run and evidence remain unchanged. Current rights, matching checkpoints and confirmed cleanup are required. This is distinct from resume_plan at a live pause boundary. Identical retries replay the same new run; changed arguments under the same operationId conflict.",
+      properties: {
+        planId: IDENTIFIER_SCHEMA,
+        runId: IDENTIFIER_SCHEMA,
+        expectedRecoveryRevision: { type: "integer", minimum: 0 },
+        expectedPlanRevision: REVISION_SCHEMA,
+        mode: { type: "string", enum: ["native_resume", "new_session"] },
+        reviewedStepIds: {
+          type: "array",
+          items: IDENTIFIER_SCHEMA,
+          maxItems: 100,
+          uniqueItems: true,
+        },
+      },
+      isDestructive: true,
+      isOpenWorld: true,
+    }),
+  },
   {
     operation: "plans.clone",
     tool: buildWriteTool({

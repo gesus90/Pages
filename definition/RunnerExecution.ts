@@ -62,6 +62,8 @@ export const runnerExecutionSchema = z
     outputBytes: z.number().int().min(1).max(65536),
     input: z.string().max(1048576),
     hasOutput: z.boolean().optional(),
+    /** Runner 1.13.0 returns only the final CLI payload, without a provenance prefix. */
+    resultPayloadVersion: z.literal(1).optional(),
     /** Requires Runner 1.6.0; credentials and file contents never belong to a durable command. */
     pagesAccess: z.literal(1).optional(),
     program: z.discriminatedUnion("kind", [

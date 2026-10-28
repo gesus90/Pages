@@ -2,7 +2,7 @@ import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-/** Reads bounded JSON; wiki text accepts its 1 MiB content budget in a larger envelope of UTF-8 JSON, cancelling an oversized stream before parsing it. */
+/** Reads bounded JSON; wiki and plan edits have larger, separately bounded envelopes. */
 export async function readAgentJson(
   request: Request,
 ): Promise<Readonly<Record<string, unknown>>> {
@@ -67,12 +67,23 @@ function requireEnvelopeBudget(
   envelope: Readonly<Record<string, unknown>>,
   length: number,
 ): void {
-  const allowsWikiText =
-    envelope.operation === "wiki.page.create" ||
-    envelope.operation === "wiki.page.setContent";
-  if (!allowsWikiText && length > PAGES_AGENT_LIMITS.requestBytes)
+  const limit = envelopeLimit(envelope.operation);
+  if (length > limit)
     throw new AgentOperationError("PAYLOAD_TOO_LARGE", {
       constraint: "requestBytes",
-      limit: PAGES_AGENT_LIMITS.requestBytes,
+      limit,
     });
+}
+
+function envelopeLimit(operation: unknown): number {
+  if (operation === "wiki.page.create" || operation === "wiki.page.setContent")
+    return PAGES_AGENT_LIMITS.wikiEnvelopeBytes;
+  if (
+    operation === "plans.create" ||
+    operation === "plans.update" ||
+    operation === "plans.parameter.create" ||
+    operation === "plans.parameter.update"
+  )
+    return PAGES_AGENT_LIMITS.planWriteEnvelopeBytes;
+  return PAGES_AGENT_LIMITS.requestBytes;
 }

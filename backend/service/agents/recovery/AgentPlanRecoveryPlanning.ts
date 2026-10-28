@@ -90,7 +90,8 @@ export function continuedRun(
 /** A restart needs an ended run and no other active run of the plan. */
 export function restartOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
   if (!facts.plan.canEdit) return blocked("plan_read_only");
-  if (isActivePlanRun(facts.run.status)) return blocked("run_active");
+  if (isActivePlanRun(facts.run.status) || facts.isEngineActive !== false)
+    return blocked("run_active");
   if (facts.latest && isActivePlanRun(facts.latest.status))
     return blocked("plan_run_active");
   return AVAILABLE;
@@ -123,8 +124,8 @@ export function resumeOption(
 export function releaseOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
   if (!facts.plan.canEdit) return blocked("plan_read_only");
   if (
-    isActivePlanRun(facts.run.status) &&
-    (!facts.run.stopRequested || facts.isEngineActive !== false)
+    facts.isEngineActive !== false ||
+    (isActivePlanRun(facts.run.status) && !facts.run.stopRequested)
   )
     return blocked("run_active");
   return facts.isReserved ? AVAILABLE : blocked("nothing_to_release");
@@ -147,7 +148,11 @@ export function planResume(facts: RecoveryFacts): ResumePlan {
     if (step.status !== "succeeded" || facts.groupIds.includes(step.id))
       continue;
     const checkpoint = checkpoints.find((entry) => entry.stepId === step.id);
-    if (checkpoint?.result.outputDigest === planContentDigest(step.output))
+    if (
+      checkpoint?.result.outputDigest === planContentDigest(step.output) &&
+      planContentDigest(checkpoint.result.report ?? null) ===
+        planContentDigest(step.report ?? null)
+    )
       reused.push(step);
     else unverified.push(step.id);
   }

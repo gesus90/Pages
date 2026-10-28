@@ -8,7 +8,11 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
-import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import {
+  allPlanRunResults,
+  hasUnconfirmedLoopCloseout,
+} from "@/definition/AgentPlanLoopResults";
+import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import {
   loopIterationCheckpoints,
   requireImmutableIterations,
@@ -33,12 +37,7 @@ interface StoredProgress {
 }
 
 function isCleanupUnconfirmed(step: AgentPlanStepResult): boolean {
-  if (
-    step.execution?.target.kind === "remote" &&
-    step.cancellation === "requested" &&
-    step.remote?.closeout !== "confirmed"
-  )
-    return true;
+  if (isRemoteCloseoutUnconfirmed(step)) return true;
   return [
     step.remote?.closeout,
     step.session?.closeout,
@@ -56,6 +55,7 @@ function successfulWorkDigest(step: AgentPlanStepResult): string {
     remote: step.remote ? planRemoteProgressSchema.parse(step.remote) : null,
     output: step.output,
     script: step.script ?? null,
+    report: step.report ?? null,
     session: session
       ? {
           instanceId: session.instanceId,
@@ -139,9 +139,34 @@ function hasTicketWorkGate(snapshot: unknown, stepId: string): boolean {
   });
 }
 
-function isTicketGateResult(
+function hasRemoteAcceptanceGate(snapshot: unknown, stepId: string): boolean {
+  const basis = readAgentObject(snapshot);
+  const steps: readonly unknown[] = Array.isArray(basis.remoteSteps)
+    ? basis.remoteSteps
+    : [];
+  return steps.some((entry) => {
+    const remote = readAgentObject(entry);
+    const program = readAgentObject(readAgentObject(remote.command).program);
+    return (
+      readAgentObject(remote.step).id === stepId &&
+      program.kind === "cli" &&
+      readAgentObject(program.route).tool === "opencode" &&
+      remote.acceptanceContract !== undefined
+    );
+  });
+}
+
+const REMOTE_ACCEPTANCE_FAILURES = new Set([
+  "opencode_acceptance_failed",
+  "opencode_acceptance_unavailable",
+  "opencode_acceptance_contract_unavailable",
+]);
+
+function isAllowedGateResult(
   step: AgentPlanStepResult,
   checkpoint: AgentPlanCheckpointInput | undefined,
+  ticketGate: boolean,
+  acceptanceGate: boolean,
 ): boolean {
   if (step.status === "succeeded")
     return (
@@ -150,23 +175,28 @@ function isTicketGateResult(
     );
   return (
     step.status === "failed" &&
-    step.error === "plan_work_gate_failed" &&
+    ((ticketGate && step.error === "plan_work_gate_failed") ||
+      (acceptanceGate &&
+        step.error !== null &&
+        REMOTE_ACCEPTANCE_FAILURES.has(step.error))) &&
     step.session?.resultCode === -1
   );
 }
 
-function settlesRemoteTicketGate(input: {
+function settlesRemoteGate(input: {
   readonly snapshot: unknown;
   readonly stored: AgentPlanStepResult;
   readonly next: AgentPlanStepResult;
   readonly checkpoint: AgentPlanCheckpointInput | undefined;
 }): boolean {
   const { stored, next } = input;
+  const ticketGate = hasTicketWorkGate(input.snapshot, next.id);
+  const acceptanceGate = hasRemoteAcceptanceGate(input.snapshot, next.id);
   return (
     stored.status === "running" &&
     stored.remote?.status === "completed" &&
-    hasTicketWorkGate(input.snapshot, next.id) &&
-    isTicketGateResult(next, input.checkpoint) &&
+    (ticketGate || acceptanceGate) &&
+    isAllowedGateResult(next, input.checkpoint, ticketGate, acceptanceGate) &&
     stored.execution !== undefined &&
     next.execution !== undefined &&
     planContentDigest(planStepExecutionSchema.parse(stored.execution)) ===
@@ -204,7 +234,7 @@ export class AgentPlanProgressRepository {
             : step;
           const isGateResult =
             stored &&
-            settlesRemoteTicketGate({
+            settlesRemoteGate({
               snapshot: previous.snapshot,
               stored,
               next: step,
@@ -218,6 +248,7 @@ export class AgentPlanProgressRepository {
                 error: isGateResult ? step.error : stored.error,
                 remote: stored.remote,
                 session: isGateResult ? step.session : stored.session,
+                report: stored.report,
                 cancellation: stored.cancellation,
               }
             : retained;
@@ -316,6 +347,7 @@ export class AgentPlanProgressRepository {
       },
     );
     const hasUnconfirmedCleanup =
+      hasUnconfirmedLoopCloseout(run) ||
       allPlanRunResults(run).some(isCleanupUnconfirmed);
     if (!isActivePlanRun(run.status) && !hasUnconfirmedCleanup)
       await transaction.execute(

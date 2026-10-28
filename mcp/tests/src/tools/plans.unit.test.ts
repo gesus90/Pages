@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { operationFailure } from "../../../src/tools/operation-failure.ts";
-import { PLAN_READ_TOOLS, PLAN_WRITE_TOOLS } from "../../../src/tools/plans.ts";
+import { PLAN_WRITE_TOOLS } from "../../../src/tools/plans.ts";
 import { READ_TOOLS } from "../../../src/tools/registry.ts";
 import { WRITE_TOOLS } from "../../../src/tools/write-registry.ts";
 
@@ -16,12 +16,59 @@ function rejection(details: unknown): Response {
 }
 
 function toolOf(name: string): (typeof PLAN_WRITE_TOOLS)[number]["tool"] {
-  const entry = [...PLAN_READ_TOOLS, ...PLAN_WRITE_TOOLS].find(
+  const entry = [...READ_TOOLS, ...WRITE_TOOLS].find(
     ({ tool }) => tool.name === name,
   );
   if (!entry) throw new Error(`missing tool ${name}`);
   return entry.tool;
 }
+
+describe("plan refusal history", () => {
+  it("adds scoped history paging to the existing read-only control tool", () => {
+    const tool = toolOf("read_plan_control");
+    expect(tool.inputSchema.required).toEqual(["planId"]);
+    expect(tool.inputSchema.properties?.includeStartRejections).toEqual({
+      type: "boolean",
+      const: true,
+    });
+    expect(tool.inputSchema.properties?.beforeRejectionId).toMatchObject({
+      type: "string",
+      minLength: 1,
+    });
+    expect(tool.annotations?.readOnlyHint).toBe(true);
+    expect(tool.description).toContain("nextBefore");
+    expect(tool.description).toContain(
+      "run-scoped credentials cannot read history",
+    );
+  });
+});
+
+describe("plan session event reads", () => {
+  it("requires the complete attempt key and bounded sequence pagination", () => {
+    const tool = toolOf("read_plan_run_session_events");
+    expect(tool.inputSchema.required).toEqual([
+      "planId",
+      "runId",
+      "stepId",
+      "attemptId",
+    ]);
+    expect(tool.inputSchema.properties?.limit).toEqual({
+      type: "integer",
+      minimum: 1,
+      maximum: 32,
+    });
+    expect(tool.annotations).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+    });
+    expect(tool.description).toContain("retainedFrom");
+    expect(tool.description).toContain("legacy record fallback");
+    expect(tool.description).toContain(
+      "Current executor and snapshot resource rights",
+    );
+  });
+});
 
 describe("plan tools", () => {
   it("registers every plan operation once, reads as reads and writes as writes", () => {
@@ -36,7 +83,10 @@ describe("plan tools", () => {
       "plans.runs.list",
       "plans.run.read",
       "plans.run.reports.read",
+      "plans.run.session.events.read",
       "plans.run.recovery.read",
+      "plans.run.diagnostics.read",
+      "plans.run.checkpoint.read",
       "plans.capabilities.read",
       "plans.templates.list",
       "plans.templates.read",
@@ -52,6 +102,9 @@ describe("plan tools", () => {
       "plans.parameter.create",
       "plans.parameter.update",
       "plans.parameter.remove",
+      "plans.run.recovery.release",
+      "plans.run.recovery.restart",
+      "plans.run.recovery.resume",
       "plans.clone",
       "plans.templates.save",
       "plans.delete",
@@ -66,6 +119,23 @@ describe("plan tools", () => {
     expect(toolOf("read_plan").inputSchema.required).toEqual(["planId"]);
     expect(toolOf("list_plans").inputSchema.required).toBeUndefined();
     expect(toolOf("list_plan_runs").inputSchema.required).toEqual(["planId"]);
+    expect(toolOf("restart_plan_run").inputSchema.required).toEqual([
+      "operationId",
+      "planId",
+      "runId",
+      "expectedRecoveryRevision",
+      "expectedPlanRevision",
+      "confirmRepeat",
+    ]);
+    expect(toolOf("continue_plan_run").inputSchema.required).toEqual([
+      "operationId",
+      "planId",
+      "runId",
+      "expectedRecoveryRevision",
+      "expectedPlanRevision",
+      "mode",
+      "reviewedStepIds",
+    ]);
     expect(toolOf("create_plan").inputSchema.required).toEqual([
       "operationId",
       "name",
@@ -103,7 +173,52 @@ describe("plan tools", () => {
   });
 });
 
+it("requires the plan, run and node of a diagnostic", () => {
+  expect(toolOf("read_plan_run_diagnostics").inputSchema.required).toEqual([
+    "planId",
+    "runId",
+    "stepId",
+  ]);
+});
+
+it("offers the same optional default execution target on plan creation and update", () => {
+  for (const name of ["create_plan", "update_plan"]) {
+    const schema = toolOf(name).inputSchema;
+    expect(schema.required).not.toContain("executionTarget");
+    expect(schema.properties?.executionTarget).toMatchObject({
+      oneOf: [
+        { properties: { kind: { const: "local" } }, required: ["kind"] },
+        {
+          properties: {
+            kind: { const: "remote" },
+            workspaceId: { type: "string", minLength: 1, maxLength: 100 },
+          },
+          required: ["kind", "workspaceId"],
+        },
+      ],
+    });
+  }
+});
+
+it("requires the plan and run of a checkpoint, with optional version and chunk fields", () => {
+  const tool = toolOf("read_plan_run_checkpoint");
+  expect(tool.inputSchema.required).toEqual(["planId", "runId"]);
+  expect(tool.inputSchema.properties).toHaveProperty("version");
+  expect(tool.inputSchema.properties).toHaveProperty("cursor");
+  expect(tool.inputSchema.properties).toHaveProperty("maxBytes");
+});
+
 describe("plan graph refusals", () => {
+  it.each(["scriptReportTarget", "scriptReportGate"] as const)(
+    "retains the explicit report-policy finding %s",
+    async (problem) => {
+      const issues = [{ nodeId: "review", port: "flow-out", problem }];
+      const failure = await operationFailure(
+        rejection({ reason: "graph_invalid", issues }),
+      );
+      expect(failure?.details).toEqual({ reason: "graph_invalid", issues });
+    },
+  );
   it("keeps the findings of a refused graph", async () => {
     const issues = [
       { nodeId: "a", port: "flow-in", problem: "flowIn" },

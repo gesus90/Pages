@@ -3,6 +3,7 @@ import {
   planRemoteProgressSchema,
 } from "@/definition/AgentPlanExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { planScriptAssessmentSchema } from "@/definition/AgentPlanScriptReport";
 import {
   assetFailureSchema,
   planRemoteAccessSchema,
@@ -31,8 +32,9 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     cancellation !== "not_started"
   )
     throw new AgentError("plan_invalid");
+  if (typeof step.isBlocked !== "boolean") throw new AgentError("plan_invalid");
+  const display = readStepDisplay(step.isDisplayFiltered);
   if (
-    typeof step.isBlocked !== "boolean" ||
     (output !== null && typeof output !== "string") ||
     (error !== null && typeof error !== "string")
   )
@@ -42,25 +44,65 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
 
     ...readExecutionMetadata(step),
 
-    ...(step.groupId === undefined
-      ? {}
-      : { groupId: readPlanText(step.groupId) }),
-    ...(step.failedStepId === undefined
-      ? {}
-      : { failedStepId: readPlanText(step.failedStepId) }),
+    ...readStepReferences(step),
     name: readPlanText(step.name, 120),
     status,
     cancellation,
     isBlocked: step.isBlocked,
     output,
     error,
+    ...display,
     session: readPlanSessionRecord(step.session),
+    ...readStepArtifacts(step),
+  };
+}
+
+function readStepDisplay(
+  filtered: unknown,
+): Pick<AgentPlanStepResult, "isDisplayFiltered"> {
+  if (filtered !== undefined && typeof filtered !== "boolean")
+    throw new AgentError("plan_invalid");
+  return filtered === undefined ? {} : { isDisplayFiltered: filtered };
+}
+
+function readStepArtifacts(
+  step: Record<string, unknown>,
+): Pick<AgentPlanStepResult, "script" | "report" | "progress"> {
+  return {
     ...(step.script === undefined
       ? {}
       : { script: readPlanScriptRun(step.script) }),
+    ...(step.report === undefined
+      ? {}
+      : { report: readScriptReport(step.report) }),
     ...(step.progress === undefined
       ? {}
       : { progress: readPlanProgress(step.progress) }),
+  };
+}
+
+function readScriptReport(
+  input: unknown,
+): ReturnType<typeof planScriptAssessmentSchema.parse> {
+  const parsed = planScriptAssessmentSchema.safeParse(input);
+  if (!parsed.success) throw new AgentError("plan_invalid");
+  return parsed.data;
+}
+
+/** Reads optional references without assigning a cause to historical records. */
+function readStepReferences(
+  step: Record<string, unknown>,
+): Pick<AgentPlanStepResult, "groupId" | "failedStepId" | "blockedByStepId"> {
+  return {
+    ...(step.groupId === undefined
+      ? {}
+      : { groupId: readPlanText(step.groupId) }),
+    ...(step.failedStepId === undefined
+      ? {}
+      : { failedStepId: readPlanText(step.failedStepId) }),
+    ...(step.blockedByStepId === undefined
+      ? {}
+      : { blockedByStepId: readPlanText(step.blockedByStepId) }),
   };
 }
 

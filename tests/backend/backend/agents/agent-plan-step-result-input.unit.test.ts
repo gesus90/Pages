@@ -56,6 +56,15 @@ it("reads a node result without optional parts", () => {
   });
 });
 
+it.each([true, false])(
+  "preserves the display filtering flag %s",
+  (displayFiltered) => {
+    expect(
+      readPlanStepResult(stepResult({ isDisplayFiltered: displayFiltered })),
+    ).toMatchObject({ isDisplayFiltered: displayFiltered });
+  },
+);
+
 it("reads every optional part of a node result", () => {
   expect(
     readPlanStepResult(
@@ -104,6 +113,7 @@ it.each<[string, RecordFields]>([
   ["an unknown status", { status: "done" }],
   ["an unknown cancellation", { cancellation: "maybe" }],
   ["a blocked flag that is no boolean", { isBlocked: 1 }],
+  ["a display filtering flag that is no boolean", { isDisplayFiltered: 1 }],
   ["an output that is no text", { output: 1 }],
   ["an error that is no text", { error: {} }],
   ["an invalid script record", { script: { ...SCRIPT_RUN, uid: -1 } }],

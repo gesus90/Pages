@@ -1,6 +1,11 @@
 import type { AgentPlanAcceptance } from "./AgentPlanSession";
 import type { AgentPlanRun } from "./AgentPlan";
 import type { AgentPlanScriptRun } from "./AgentPlanScript";
+import type { AgentPlanScriptAssessment } from "./AgentPlanScriptReport";
+import type {
+  AgentPlanCleanupResource,
+  AgentPlanCleanupFailureRecord,
+} from "./AgentPlanCleanupResource";
 
 /** Additive reasons keep older run statuses readable without reopening old failures. */
 export interface AgentPlanRecoveryReason {
@@ -91,6 +96,7 @@ export interface AgentPlanCheckpointInput {
   readonly result: {
     /** Process evidence; stdout is null here because the declared data is stored once in output. */
     readonly script?: AgentPlanScriptRun;
+    readonly report?: AgentPlanScriptAssessment;
     readonly output: string | null;
     /** Inline assets and credential-shaped text may be omitted from this display copy. */
     readonly isOutputReduced: boolean;
@@ -113,6 +119,8 @@ export interface AgentPlanCheckpointInput {
 export interface AgentPlanCheckpoint extends AgentPlanCheckpointInput {
   readonly version: number;
   readonly runRevision: number;
+  /** Present on a display copy when credential-shaped text was filtered. */
+  readonly isDisplayFiltered?: boolean;
 }
 
 interface RecoveryCommandIdentity {
@@ -138,6 +146,8 @@ export type AgentPlanRecoveryCommand = RecoveryCommandIdentity &
     | {
         readonly action: "resume";
         readonly mode: AgentPlanRecoveryMode;
+        /** The saved plan revision deliberately selected for the continuation. */
+        readonly revision?: number;
         /** Started nodes whose possible side effects the executor reviewed; each runs again. */
         readonly reviewedStepIds: readonly string[];
       }
@@ -220,7 +230,8 @@ export type AgentPlanRecoveryErrorCode =
   | "checkpoint_too_large"
   | "review_required"
   | "cleanup_unconfirmed"
-  | "native_resume_unavailable";
+  | "native_resume_unavailable"
+  | "diagnostic_unavailable";
 
 /** The state of a run after a disturbance and what its executor can do now. */
 export interface AgentPlanRecoveryView {
@@ -238,6 +249,10 @@ export interface AgentPlanRecoveryView {
   readonly continuedBy: string | null;
   /** Whether processes or working copies of the run are still held because their end is unproven. */
   readonly isCleanupUnconfirmed: boolean;
+  /** Recorded sources of unconfirmed cleanup while this run still holds reservations. */
+  readonly cleanupResources: readonly AgentPlanCleanupResource[];
+  /** Last stored failure is historical and survives later successful cleanup. */
+  readonly latestCleanupFailure?: AgentPlanCleanupFailureRecord | null;
   readonly restart: AgentPlanRecoveryOption;
   readonly resume: AgentPlanRecoveryOption & {
     readonly modes: readonly {

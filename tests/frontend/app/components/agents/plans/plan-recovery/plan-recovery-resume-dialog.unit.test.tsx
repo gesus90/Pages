@@ -65,6 +65,7 @@ it("closes once the decision started a new run", async () => {
   expect(submit).toHaveBeenCalledWith({
     action: "resume",
     mode: "new_session",
+    revision: 3,
     reviewedStepIds: [],
   });
 });

@@ -209,6 +209,8 @@ function playTitle(props: PlanRunActionsProps, translate: TFunction): string {
   if (!control) return translate("plans.panel.checking");
   if (["running", "pausing", "paused", "stopping"].includes(control.status))
     return translate("plans.panel.stopFirst");
+  if (control.issue === "plan_workspace_conflict")
+    return translate("settings.agents.error.plan_workspace_conflict");
   return control.issue || control.issues?.length
     ? translate("plans.panel.blockedHint")
     : translate("plans.panel.newRunHint");

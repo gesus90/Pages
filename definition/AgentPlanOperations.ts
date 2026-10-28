@@ -1,4 +1,14 @@
 import type { AgentPlanCompletionGate } from "./AgentPlanWork.js";
+import type { AgentPlanDiagnostic } from "./AgentPlanDiagnostics.js";
+import type { AgentPlanSessionEvents } from "./AgentPlanSessionEvents.js";
+import type { AgentPlanRemoteStatusProblem } from "./AgentPlanRemoteStatus.js";
+import type { AgentPlanWorkspaceConflict } from "./AgentPlanWorkspaceConflict.js";
+import type { AgentPlanRecoveryEntry } from "./AgentPlanRecoveryEntry.js";
+export type { AgentPlanRecoveryEntry } from "./AgentPlanRecoveryEntry.js";
+import type {
+  AgentPlanStartRejection,
+  AgentPlanStartRejectionPage,
+} from "./AgentPlanStartRejection.js";
 import type { AgentReadChunk } from "./AgentReadChunks.js";
 import type {
   AgentPlanExecutionTarget,
@@ -29,6 +39,9 @@ export const AGENT_PLAN_READ_OPERATIONS = [
 export const AGENT_PLAN_RESOURCE_READ_OPERATIONS = [
   "plans.capabilities.read",
   "plans.run.recovery.read",
+  "plans.run.diagnostics.read",
+  "plans.run.session.events.read",
+  "plans.run.checkpoint.read",
   "plans.templates.list",
   "plans.templates.read",
   "plans.control.read",
@@ -118,6 +131,8 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "number",
   "scriptUnavailable",
   "scriptConfiguration",
+  "scriptReportTarget",
+  "scriptReportGate",
   "loopScriptUnsupported",
 ] as const;
 
@@ -249,7 +264,11 @@ export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
     readonly type: "text";
     readonly isRequired: boolean;
   }[];
-  readonly outputs: readonly { readonly name: string; readonly type: "text" }[];
+  readonly outputs: readonly {
+    readonly name: string;
+    readonly type: "text";
+    readonly policy?: "report" | "gate";
+  }[];
   readonly timeoutSeconds: number;
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }
@@ -376,6 +395,8 @@ export interface AgentPlanDetail extends Omit<
   AgentPlanSummary,
   "state" | "latestRun"
 > {
+  /** The stored default target, or null when an older plan did not name one. */
+  readonly executionTarget: AgentPlanExecutionTarget | null;
   readonly nodes: readonly AgentPlanNodeEntry[];
   readonly edges: readonly AgentPlanEdgeEntry[];
   /** Text values of older plans, which `variable` nodes refer to. */
@@ -436,6 +457,14 @@ export interface AgentPlanInterpreterEntry {
 /** What a plan can be built from: workspaces, and the agents and interpreter profiles of one of them. */
 export interface AgentPlanSourceList {
   readonly remoteTargets?: readonly AgentPlanRemoteTarget[];
+  /** Current capability facts for visible remote workspaces of this project. */
+  readonly remoteStatus?: readonly {
+    readonly workspaceId: string;
+    readonly problem: AgentPlanRemoteStatusProblem | null;
+    readonly hasPagesAccess: boolean;
+    readonly hasOpenCodeAccess: boolean;
+    readonly hasExactResultPayload: boolean;
+  }[];
   readonly workspaces: readonly AgentPlanWorkspaceEntry[];
   /** Empty unless a workspace was named. */
   readonly agents: readonly AgentPlanAgentEntry[];
@@ -479,6 +508,8 @@ export interface AgentPlanRunStepEntry {
   readonly name: string;
   readonly status: "waiting" | AgentPlanRunStatus;
   readonly isBlocked: boolean;
+  /** A failed or cancelled predecessor that prevented this node from running. */
+  readonly blockedByStepId?: string;
   readonly error: string | null;
   /** Diagnostic progress, independent of execution status; `rejected` is historical. */
   readonly verdict: "accepted" | "open" | "rejected" | null;
@@ -527,7 +558,11 @@ export interface AgentPlanReport {
   readonly endedAt: string | null;
   /** The final, redacted result text of the node. */
   readonly output: string | null;
+  /** Whether display filtering changed or shortened the stored output. */
+  readonly isOutputFiltered: boolean;
   readonly error: string | null;
+  /** A failed or cancelled predecessor, when the node did not run because of it. */
+  readonly blockedByStepId?: string;
   readonly verdict: "accepted" | "open" | "rejected" | null;
   readonly summary: string | null;
   readonly todos: readonly {
@@ -572,18 +607,33 @@ export type AgentPlanReadResult =
   | AgentPlanReportList
   | { readonly capabilities: AgentPlanCapabilities }
   | { readonly recovery: AgentPlanRecoveryEntry }
+  | { readonly diagnostic: AgentPlanDiagnostic }
+  | { readonly sessionEvents: AgentPlanSessionEvents }
+  | { readonly checkpoint: AgentPlanCheckpointEntry | null }
   | { readonly templates: readonly AgentPlanTemplateEntry[] }
   | { readonly template: AgentPlanTemplateEntry }
   | { readonly control: AgentPlanControlEntry };
 
 /** Additive contract revision, independently observable from a client's MCP bundle version. */
-export const AGENT_PLAN_CONTRACT_VERSION = 2;
+export const AGENT_PLAN_CONTRACT_VERSION = 12;
+
+/** An immutable, owner-authorized checkpoint projection encoded as JSON text. */
+export interface AgentPlanCheckpointEntry {
+  readonly version: number;
+  /** Parse after reassembling any outer read chunks; process and native-session identifiers are omitted. */
+  readonly content: string;
+  /** At least one stored text value was masked or shortened for display. */
+  readonly isFiltered: boolean;
+}
 
 /** Implementation discovery never substitutes for current per-plan access and availability. */
 export interface AgentPlanCapabilities {
   readonly contractVersion: number;
   readonly operations: readonly (
-    AgentPlanReadOperation | AgentPlanWriteOperation | AgentPlanCommandOperation
+    | AgentPlanReadOperation
+    | AgentPlanWriteOperation
+    | AgentPlanCommandOperation
+    | AgentPlanRecoveryCommandOperation
   )[];
   readonly cloneSharing: "create_default";
   readonly resume: "durable_pause_boundary";
@@ -593,31 +643,6 @@ export interface AgentPlanCapabilities {
     readonly http: "unavailable";
     readonly pica: "target_bound_message";
   };
-}
-
-/** Existing recovery availability, projected without checkpoints, prompts or provider-session identifiers. */
-export interface AgentPlanRecoveryEntry {
-  readonly planId: string;
-  readonly runId: string;
-  readonly revision: number;
-  readonly planRevision: number;
-  readonly currentPlanRevision: number;
-  readonly state: string;
-  readonly restart: {
-    readonly available: boolean;
-    readonly reason: string | null;
-  };
-  readonly resume: {
-    readonly available: boolean;
-    readonly reason: string | null;
-    readonly modes: readonly {
-      readonly mode: string;
-      readonly available: boolean;
-    }[];
-  };
-  readonly blockers: readonly string[];
-  /** Recovery commands remain on the existing editor workflow; pause/resume never stand in for them. */
-  readonly commandSurface: "editor";
 }
 
 /** Existing editor templates are append-only; update/delete are not product operations. */
@@ -639,6 +664,10 @@ export interface AgentPlanControlEntry {
   readonly planId: string;
   readonly revision: number;
   readonly status: AgentPlanRunStatus | "idle";
+  /** The requester's previous workspace refusal, not the current Play state. */
+  readonly lastStartRejection?: AgentPlanStartRejection;
+  /** Requested separately so routine status polling does not traverse history. */
+  readonly startRejectionHistory?: AgentPlanStartRejectionPage;
   readonly canEdit: boolean;
   readonly canDelete: boolean;
   readonly canPlay: boolean;
@@ -651,6 +680,8 @@ export interface AgentPlanControlEntry {
   >;
   /** The server's start check per node, for example behind `plan_invalid`; only for editors. */
   readonly issues?: readonly AgentPlanIssueEntry[];
+  /** The editor's own affected nodes and targets, never the other run or owner. */
+  readonly workspaceConflict?: AgentPlanWorkspaceConflict;
   readonly runId?: string;
   readonly planRevision?: number;
   readonly continuationVersion?: number;
@@ -668,6 +699,34 @@ export const AGENT_PLAN_COMMAND_OPERATIONS = [
 ] as const;
 export type AgentPlanCommandOperation =
   (typeof AGENT_PLAN_COMMAND_OPERATIONS)[number];
+
+/** Explicit recovery decisions use the existing recovery journal. */
+export const AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS = [
+  "plans.run.recovery.release",
+  "plans.run.recovery.restart",
+  "plans.run.recovery.resume",
+] as const;
+export type AgentPlanRecoveryCommandOperation =
+  (typeof AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS)[number];
+
+/** A journaled decision; the revision belongs to the source run's recovery history. */
+interface AgentPlanRecoveryCommandIdentity {
+  readonly planId: string;
+  readonly runId: string;
+  readonly commandId: string;
+  readonly recoveryRevision: number;
+}
+
+/** A release never starts a run; a restart or continuation names its new run. */
+export type AgentPlanRecoveryCommandResult = AgentPlanRecoveryCommandIdentity &
+  (
+    | { readonly outcome: "released" }
+    | {
+        readonly outcome: "started";
+        readonly action: "restart" | "resume";
+        readonly startedRunId: string;
+      }
+  );
 
 /** Journaled command acknowledgement; run contents always require a fresh private read. */
 export interface AgentPlanCommandResult {

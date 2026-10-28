@@ -1,6 +1,7 @@
 import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation.js";
 
 import type { AgentPlanWorkView } from "./AgentPlanWork.js";
+import type { AgentPlanCleanupFailure } from "./AgentPlanCleanupResource.js";
 import type { AgentAssetDownload } from "./AgentAssetTransfer.js";
 import type {
   AgentTicketDescriptionRange,
@@ -91,6 +92,8 @@ export type PagesAgentReadOperation =
 /** Fixed wire limits, including the whole serialized UTF-8 response envelope. */
 export const PAGES_AGENT_LIMITS = {
   requestBytes: 65_536,
+  /** Plan edits can carry an editor-sized field, including JSON escaping. */
+  planWriteEnvelopeBytes: 2 * 1_048_576,
   wikiContentBytes: 1_048_576,
   /** Worst-case JSON escaping of wiki text, plus the metadata budget. */
   wikiEnvelopeBytes: 6 * 1_048_576 + 65_536,
@@ -302,6 +305,7 @@ export const AGENT_REJECTION_REASONS = [
   "line_out_of_range",
   "column_out_of_range",
   "graph_invalid",
+  "plan_frame_repair_required",
   "parameter_value_invalid",
   "workspace_unavailable",
   "element_missing",
@@ -312,9 +316,22 @@ export const AGENT_REJECTION_REASONS = [
   "plan_schema_unsupported",
   "plan_running",
   "plan_run_unavailable",
+  "plan_history_unavailable",
+  "plan_start_rejection_record_failed",
   "plan_remote_unavailable",
+  "plan_runner_payload_update_required",
   "plan_context_changed",
   "plan_workspace_conflict",
+  "plan_recovery_cleanup_unconfirmed",
+  "plan_recovery_diagnostic_unavailable",
+  "plan_recovery_action_unavailable",
+  "plan_recovery_revision_conflict",
+  "plan_recovery_idempotency_conflict",
+  "plan_recovery_review_required",
+  "plan_recovery_native_resume_unavailable",
+  "plan_recovery_checkpoint_invalid",
+  "plan_recovery_checkpoint_too_large",
+  "plan_recovery_workflow_unavailable",
   "plan_script_permission_denied",
   "plan_script_interpreter_unavailable",
   "plan_continuation_deleted",
@@ -331,6 +348,13 @@ export interface AgentRejectionReason {
 export interface AgentPlanGraphRejection {
   readonly reason: "graph_invalid";
   readonly issues: readonly AgentPlanIssueEntry[];
+  readonly issueDetailsFiltered?: boolean;
+}
+
+/** A failed cleanup scan for one resource of the caller's own run. */
+export interface AgentPlanCleanupRejection {
+  readonly reason: "plan_recovery_cleanup_unconfirmed";
+  readonly cleanupFailure: AgentPlanCleanupFailure;
 }
 
 export type AgentOperationDetails =
@@ -338,4 +362,5 @@ export type AgentOperationDetails =
   | AgentLimitDetails
   | AgentRevisionConflict
   | AgentRejectionReason
+  | AgentPlanCleanupRejection
   | AgentPlanGraphRejection;

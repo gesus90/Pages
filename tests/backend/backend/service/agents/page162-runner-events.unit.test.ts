@@ -1,23 +1,12 @@
 import { randomUUID } from "node:crypto";
-
 import { expect, it, vi } from "vitest";
-
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
-import { AgentPlanProgressRepository } from "@/backend/database/repositories/agent/AgentPlanProgressRepository";
-import { capturePlanExecution } from "@/backend/service/agents/AgentPlanExecutionSnapshot";
-import { remoteModelCommand } from "@/backend/service/agents/AgentPlanRemoteCommand";
 import { applyRunnerPlanEvent } from "@/backend/service/runner/RunnerPlanEvents";
 import { runnerPlanCheckpoint } from "@/backend/service/runner/RunnerPlanCheckpoint";
-
-import { parameterRunFixture } from "./page55-run-fixture";
-import { progressRun, progressStep } from "./page162-progress-fixture";
-import { remoteTodoStep } from "./page162-remote-fixture";
-
-import type { Mock } from "vitest";
-import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
-import type { DatabaseTransaction } from "@/backend/database/Database";
-import type { RunnerJob, RunnerMessage } from "@/definition/RunnerProtocol";
+import {
+  progressStore,
+  remoteCompletion,
+} from "./page171-remote-acceptance-fixture";
 
 vi.mock(
   "@/backend/database/repositories/agent/AgentPlanCheckpointRepository",
@@ -27,111 +16,6 @@ vi.mock(
     },
   }),
 );
-
-function progressStore(
-  run: AgentPlanRun,
-  snapshot: AgentPlanSnapshot,
-): {
-  readonly repository: AgentPlanProgressRepository;
-  readonly execute: Mock<DatabaseTransaction["execute"]>;
-} {
-  const execute = vi.fn<DatabaseTransaction["execute"]>(async () => undefined);
-  const transaction: DatabaseTransaction = {
-    query: vi.fn(async () => [
-      [JSON.stringify(run), 1, JSON.stringify(snapshot)],
-    ]),
-    execute,
-  };
-  return {
-    execute,
-    repository: new AgentPlanProgressRepository({
-      query: transaction.query,
-      transaction: async (work) => work(transaction),
-    }),
-  };
-}
-
-async function remoteCompletion(hasGate: boolean): Promise<{
-  readonly run: AgentPlanRun;
-  readonly snapshot: AgentPlanSnapshot;
-  readonly job: RunnerJob;
-  readonly event: Extract<RunnerMessage, { type: "event" }>;
-  readonly connectionId: string;
-}> {
-  const fixture = await parameterRunFixture();
-  const step = {
-    ...remoteTodoStep(),
-    ...(hasGate
-      ? { completionGate: { version: 1 as const, requiredChecks: ["focused"] } }
-      : {}),
-  };
-  const target = {
-    kind: "remote" as const,
-    connectionId: randomUUID(),
-    connectionRevision: 1,
-    connectionName: "Controlled transport",
-    workspaceId: randomUUID(),
-    workspaceRevision: 1,
-    workspaceName: "Synthetic remote workspace",
-    path: "/synthetic-remote",
-  };
-  const command = remoteModelCommand(step, {
-    version: 1,
-    revision: 1,
-    workspace: target.path,
-    outputBytes: 65536,
-    input: "{}",
-  });
-  const captured = capturePlanExecution(
-    {
-      ...progressRun([progressStep()]),
-      id: randomUUID(),
-      planId: fixture.snapshot.plan.id,
-    },
-    {
-      plan: { ...fixture.snapshot.plan, nodes: [step], edges: [] },
-      steps: [],
-      remoteSteps: [{ step, target, command, inputs: {} }],
-    },
-  );
-  const execution = captured.run.steps[0]?.execution;
-  if (!execution) throw new Error("Expected a captured remote attempt");
-  const job: RunnerJob = {
-    jobId: randomUUID(),
-    sessionId: randomUUID(),
-    status: "completed",
-    execution: command,
-    plan: {
-      runId: captured.run.id,
-      planId: captured.run.planId,
-      planRevision: captured.run.planRevision,
-      stepId: step.id,
-      attemptId: execution.attemptId,
-    },
-  };
-  const event: Extract<RunnerMessage, { type: "event" }> = {
-    version: 1,
-    type: "event",
-    eventId: randomUUID(),
-    sequence: 1,
-    sessionId: job.sessionId,
-    job,
-    result: {
-      output: '{"status":"done","message":"Provider assertion"}',
-      closeout: "confirmed",
-      exitCode: 0,
-      signal: null,
-      reason: null,
-    },
-  };
-  return {
-    ...captured,
-    run: readPlanRun(captured.run),
-    job,
-    event,
-    connectionId: target.connectionId,
-  };
-}
 
 it("keeps gated remote exit zero provisional until the engine has checked the ticket", async () => {
   const world = await remoteCompletion(true);
@@ -164,6 +48,36 @@ it("retains the successful diagnostic remote checkpoint without the explicit opt
   const result = applyRunnerPlanEvent(world, world.run, world.snapshot);
   expect(result.run.steps[0]?.status).toBe("succeeded");
   expect(result.checkpoint?.stepId).toBe(world.job.plan?.stepId);
+});
+
+it("keeps a legacy CLI answer for diagnosis but does not release successors as a successful result", async () => {
+  const world = await remoteCompletion(false);
+  if (!world.job.execution || !world.event.result)
+    throw new Error("Expected a synthetic remote completion");
+  const job = {
+    ...world.job,
+    execution: { ...world.job.execution, resultPayloadVersion: undefined },
+  };
+  const output =
+    'Remote host: synthetic\nRemote workspace: /synthetic\n\n{"status":"partial"}';
+  const event = {
+    ...world.event,
+    job,
+    result: { ...world.event.result, output },
+  };
+  const result = applyRunnerPlanEvent(
+    { ...world, job, event },
+    world.run,
+    world.snapshot,
+  );
+  expect(result.run.steps[0]).toMatchObject({
+    status: "failed",
+    error: "plan_runner_payload_update_required",
+    output,
+    remote: { closeout: "confirmed" },
+    session: { resultCode: -1 },
+  });
+  expect(result.checkpoint).toBeUndefined();
 });
 
 it("rejects another attempt before reading completion or granting any successor", async () => {

@@ -18,6 +18,7 @@ import type {
 import type { AgentPlanInput, AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanFlowNode } from "./plan-flow-model";
 import type { PlanGraphActions } from "./use-plan-graph";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 
 interface MovementOptions {
   readonly draft: AgentPlanInput;
@@ -89,11 +90,55 @@ interface FlowMovementActions {
   readonly cancel: () => void;
 }
 
-/** React Flow owns dragging; only a finished move updates the Pages draft. */
+interface NodeChangesContext {
+  readonly draft: AgentPlanInput;
+  readonly nodes: readonly PlanFlowNode[];
+  readonly graph: PlanGraphActions;
+  readonly canEdit: boolean;
+  readonly dragState: RefObject<"idle" | "dragging" | "cancelled">;
+  readonly measure: ReturnType<typeof usePlanFlowMeasurements>["measure"];
+  readonly setPositions: Dispatch<
+    SetStateAction<Readonly<Record<string, XYPosition>>>
+  >;
+}
+
+/** Records visual movement and its saveable coordinate without changing frame membership. */
+function applyNodeChanges(
+  context: NodeChangesContext,
+  changes: NodeChange<PlanFlowNode>[],
+): void {
+  const { draft, nodes, graph, canEdit, dragState, measure, setPositions } =
+    context;
+  measure(changes);
+  for (const change of changes) {
+    if (change.type === "select" && change.selected) graph.select(change.id);
+    if (
+      change.type !== "position" ||
+      !change.position ||
+      !canEdit ||
+      dragState.current === "cancelled"
+    )
+      continue;
+    const node = nodes.find((entry) => entry.id === change.id);
+    if (!node) continue;
+    const position = storedPosition(draft, {
+      ...node,
+      position: change.position,
+    });
+    if (dragState.current === "dragging" || change.dragging === true) {
+      graph.registerPendingMove({ id: node.id, x: position.x, y: position.y });
+      const visual = change.position;
+      setPositions((previous) => ({ ...previous, [change.id]: visual }));
+    } else graph.move(node.id, position.x, position.y);
+  }
+}
+
+/** React Flow owns dragging; a finished move or explicit save updates the Pages draft. */
 export function usePlanFlowMovement(
   options: MovementOptions,
 ): FlowMovementActions {
   const { draft, graph, canEdit } = options;
+  const { registerPendingMove } = graph;
   const flow = useReactFlow<PlanFlowNode>();
   const { measurements, measure } = usePlanFlowMeasurements();
   const [positions, setPositions] = useState<
@@ -102,40 +147,18 @@ export function usePlanFlowMovement(
   const dragState = useRef<"idle" | "dragging" | "cancelled">("idle");
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   useEffect(() => {
-    // A save or lost edit permission must discard any unfinished visual move.
+    // A changed permission discards an unfinished visual move.
     dragState.current = "idle";
+    registerPendingMove(null);
     setPositions((previous) =>
       Object.keys(previous).length === 0 ? previous : {},
     );
     setDropTarget(null);
-  }, [canEdit]);
+    return () => registerPendingMove(null);
+  }, [canEdit, registerPendingMove]);
   const nodes = movementNodes(options, positions, measurements);
-  function onNodesChange(changes: NodeChange<PlanFlowNode>[]): void {
-    measure(changes);
-    for (const change of changes) {
-      if (change.type === "select" && change.selected) graph.select(change.id);
-      if (
-        change.type !== "position" ||
-        !change.position ||
-        !canEdit ||
-        dragState.current === "cancelled"
-      )
-        continue;
-      if (dragState.current === "dragging" || change.dragging === true) {
-        const position = change.position;
-        setPositions((previous) => ({ ...previous, [change.id]: position }));
-        continue;
-      }
-      const node = nodes.find((entry) => entry.id === change.id);
-      if (!node) continue;
-      const position = storedPosition(draft, {
-        ...node,
-        position: change.position,
-      });
-      graph.move(node.id, position.x, position.y);
-    }
-  }
   const onNodeDragStop: OnNodeDrag<PlanFlowNode> = (event, node) => {
+    registerPendingMove(null);
     if (canEdit && dragState.current !== "cancelled") {
       const position = absolutePosition(draft, node);
       const pointer = clientPoint(event);
@@ -153,6 +176,7 @@ export function usePlanFlowMovement(
   };
   function cancel(): void {
     if (dragState.current !== "idle") dragState.current = "cancelled";
+    registerPendingMove(null);
     setPositions({});
     setDropTarget(null);
   }
@@ -177,9 +201,16 @@ export function usePlanFlowMovement(
   };
   return {
     nodes,
-    onNodesChange,
-    onNodeDragStart: () => {
+    onNodesChange: (changes) =>
+      applyNodeChanges(
+        { draft, nodes, graph, canEdit, dragState, measure, setPositions },
+        changes,
+      ),
+    onNodeDragStart: (...drag) => {
+      const node = drag[1];
       dragState.current = "dragging";
+      const position = storedPosition(draft, node);
+      registerPendingMove({ id: node.id, x: position.x, y: position.y });
     },
     onNodeDrag,
     onNodeDragStop,

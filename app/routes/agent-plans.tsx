@@ -9,6 +9,7 @@ import { PlanRetiredNotice } from "@/app/components/agents/plans/plan-retired-no
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
 import { usePlanSelectionPreference } from "@/app/components/agents/plans/use-plan-selection-preference";
 import { defaultPlanId } from "@/app/lib/agent-plan-default";
+import { displayPlanRun } from "@/app/lib/agent-plan-display.server";
 import { planCatalogRefresh } from "@/app/lib/agent-plan-catalog.server";
 import {
   clonePlanAction,
@@ -181,7 +182,7 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
             )
           : await operations[intent](user.id, runId);
       return Response.json(
-        { ok: true, intent, run },
+        { ok: true, intent, run: displayPlanRun(run) },
         { headers: AGENT_NO_STORE },
       );
     }
@@ -370,7 +371,13 @@ async function playPlan(
     run = await service.play(userId, planId, revision);
   }
   return Response.json(
-    { ok: true, intent: "play-plan", planId, revision: run.planRevision, run },
+    {
+      ok: true,
+      intent: "play-plan",
+      planId,
+      revision: run.planRevision,
+      run: displayPlanRun(run),
+    },
     { headers: AGENT_NO_STORE },
   );
 }

@@ -13,7 +13,7 @@ import type { RunnerPlanEventService } from "./RunnerPlanEventService";
 
 interface CheckpointInput {
   readonly connectionId: string;
-  readonly repository: RunnerRepository;
+  readonly repository: Pick<RunnerRepository, "checkpoint">;
   readonly record: RunnerRecord;
   readonly events: RunnerPlanEventService | undefined;
   readonly message: RunnerMessage;

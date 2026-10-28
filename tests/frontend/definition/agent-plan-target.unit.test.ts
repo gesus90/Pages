@@ -181,6 +181,7 @@ function status(
     tools: [],
     hasModelCatalog: true,
     hasPagesAccess: true,
+    hasExactResultPayload: true,
     ...fields,
   };
 }

@@ -1,12 +1,15 @@
+import { useEffect } from "react";
+
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { replacePlanNode } from "@/definition/AgentPlanGroupEdit";
 import { findPlanNodeLocation } from "@/definition/AgentPlanLoopEdit";
 
-import { planLinkKey, removePlanLink } from "./plan-links";
-import { removePlanNode, snapPlanCoordinate } from "./plan-node-factory";
+import { planLinkKey, planLinks, removePlanLink } from "./plan-links";
+import { boundedPlanCoordinate, removePlanNode } from "./plan-node-factory";
 import { usePlanConnections } from "./use-plan-connections";
 import { usePlanGroupActions } from "./use-plan-group-actions";
 import { usePlanNodeInsertion } from "./use-plan-node-insertion";
+import { usePlanPendingMove } from "./use-plan-pending-move";
 import { usePlanSelection } from "./use-plan-selection";
 
 import type {
@@ -22,9 +25,11 @@ import type { PlanLink } from "./plan-links";
 import type { PlanSelection } from "./use-plan-selection";
 import type { PlanGroupActions } from "./use-plan-group-actions";
 import type { PlanNodeInsertion } from "./use-plan-node-insertion";
+import type { PlanPendingMove } from "./use-plan-pending-move";
 
 /** Editable node operations and validated port interactions of one plan draft. */
-export interface PlanGraphActions extends PlanSelection, PlanGroupActions {
+export interface PlanGraphActions
+  extends PlanSelection, PlanGroupActions, PlanPendingMove {
   readonly insertionError: string | null;
   readonly issues: readonly AgentPlanIssue[];
   readonly connectionIssue: ReturnType<
@@ -73,6 +78,71 @@ function canvasIssues(
   return planExecutionIssues(draft, sources.agents);
 }
 
+function hasNodeOrPort(plan: AgentPlanInput, id: string): boolean {
+  return (
+    plan.nodes.some(
+      (node) =>
+        node.id === id ||
+        (node.type === "group" &&
+          node.parameters.some((parameter) => parameter.id === id)),
+    ) || Boolean(findPlanNodeLocation(plan, id))
+  );
+}
+
+/** Moves the latest version of one node without replacing its other edits. */
+function withMovedNode(
+  plan: AgentPlanInput,
+  id: string,
+  position: { readonly x: number; readonly y: number },
+): AgentPlanInput {
+  const node =
+    findPlanNodeLocation(plan, id)?.node ??
+    plan.nodes.find((entry) => entry.id === id);
+  if (!node) return plan;
+  return replacePlanNode(plan, {
+    ...node,
+    x: boundedPlanCoordinate(position.x),
+    y: boundedPlanCoordinate(position.y),
+  });
+}
+
+function sameLink(first: PlanLink, second: PlanLink): boolean {
+  if (first.kind === "flow" && second.kind === "flow")
+    return (
+      first.from === second.from &&
+      first.to === second.to &&
+      first.groupId === second.groupId &&
+      first.loopId === second.loopId
+    );
+  return (
+    first.kind === "data" &&
+    second.kind === "data" &&
+    first.from === second.from &&
+    first.to === second.to &&
+    first.parameter === second.parameter &&
+    first.port === second.port
+  );
+}
+
+/** Clears selections whose nodes or ports no longer exist in the draft. */
+function useGraphSelectionCleanup(
+  draft: AgentPlanInput,
+  selection: PlanSelection,
+  connections: ReturnType<typeof usePlanConnections>,
+): void {
+  const { selectedId, selectedLink, select, selectLink } = selection;
+  const { connection, begin } = connections;
+  useEffect(() => {
+    if (selectedId && !hasNodeOrPort(draft, selectedId)) select(null);
+    if (
+      selectedLink &&
+      !planLinks(draft).some((link) => sameLink(link, selectedLink))
+    )
+      selectLink(null);
+    if (connection && !hasNodeOrPort(draft, connection.nodeId)) begin(null);
+  }, [draft, selectedId, selectedLink, select, selectLink, connection, begin]);
+}
+
 /** Replaces one frame endpoint of an outer edge with a member of that group; anything else stays as it was. */
 function withResolvedGroupEdge(
   plan: AgentPlanInput,
@@ -108,14 +178,27 @@ export function usePlanGraph(
   draft: AgentPlanInput,
   setDraft: Dispatch<SetStateAction<AgentPlanInput>>,
   sources: AgentPlanSources,
-  loadConfiguration?: (id: string) => Promise<AgentPlanConfiguration>,
+  options?: {
+    readonly loadConfiguration?: (
+      id: string,
+    ) => Promise<AgentPlanConfiguration>;
+    readonly currentDraft?: () => AgentPlanInput;
+  },
 ): PlanGraphActions {
   const selection = usePlanSelection();
-  const connections = usePlanConnections(draft, setDraft, sources);
+  const pendingMove = usePlanPendingMove(move);
+  const connections = usePlanConnections(
+    draft,
+    setDraft,
+    sources,
+    options?.currentDraft,
+  );
+  useGraphSelectionCleanup(draft, selection, connections);
   const groups = usePlanGroupActions({
     draft,
     setDraft,
     sources,
+    currentDraft: options?.currentDraft,
     onRemoved: forget,
   });
   const insertion = usePlanNodeInsertion({
@@ -123,7 +206,7 @@ export function usePlanGraph(
     setDraft,
     sources,
     select: selection.select,
-    loadConfiguration,
+    loadConfiguration: options?.loadConfiguration,
     onRefused: groups.refuse,
   });
   function forget(id: string): void {
@@ -133,17 +216,7 @@ export function usePlanGraph(
     if (connections.connection?.nodeId === id) connections.begin(null);
   }
   function move(id: string, x: number, y: number): void {
-    const node =
-      findPlanNodeLocation(draft, id)?.node ??
-      draft.nodes.find((entry) => entry.id === id);
-    if (!node) return;
-    setDraft((previous) =>
-      replacePlanNode(previous, {
-        ...node,
-        x: snapPlanCoordinate(x),
-        y: snapPlanCoordinate(y),
-      }),
-    );
+    setDraft((previous) => withMovedNode(previous, id, { x, y }));
   }
   function remove(id: string): void {
     const node = draft.nodes.find((entry) => entry.id === id);
@@ -183,6 +256,7 @@ export function usePlanGraph(
     ...connections,
     ...insertion,
     ...groups,
+    ...pendingMove,
     move,
     remove,
     disconnect,

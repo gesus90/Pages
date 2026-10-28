@@ -733,6 +733,7 @@
         "plan_json_invalid": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",
         "plan_number_invalid": "Genau eine endliche Zahl eingeben.",
         "plan_run_unavailable": "Dieser Plan hat bereits einen aktiven oder pausierten Lauf; stoppen Sie ihn vor einem neuen Start. Oder der gewählte Lauf ist nicht mehr aktiv.",
+        "plan_start_rejection_record_failed": "Der Start wurde abgelehnt, aber seine Diagnose konnte nicht gespeichert werden. Vor einem neuen Versuch die Datenbankverfügbarkeit prüfen.",
         "plan_run_option_unsupported": "Der Runner kann die Laufoptionen dieses Agenten nicht durchsetzen, etwa „Nur lesen“ zusammen mit Shell. Passe die Laufoptionen an.",
         "plan_mcp_unavailable": "Der Knoten braucht den Pages-MCP-Adapter für Agent-Sitzungen, aber dieser Server hat keinen.",
         "plan_work_gate_failed": "Die aktuelle Ticket-Arbeit ist noch nicht bestätigt. Relevante TODOs erledigen und alle Pflichtprüfungen mit tatsächlichen Nachweisen bestätigen, bevor der Abschluss oder ein Folgeschritt starten darf.",
@@ -756,6 +757,7 @@
         "plan_placeholder_unresolved": "Der Auftrag enthielte noch einen Parameter-Platzhalter; es wurde nichts gesendet.",
         "plan_runner_lost": "Der Remote-Prozess ist ohne Exit-Beleg verloren gegangen (lost). Kein automatischer Neustart.",
         "plan_runner_update_required": "Runner 1.11 oder neuer erforderlich: Remote-Ausführung braucht dessen Kommunikationsvertrag. Bitte den Runner ausdrücklich aktualisieren.",
+        "plan_runner_payload_update_required": "Runner 1.13.0 oder neuer ist erforderlich, um Remote-CLI-Ergebnisse von Transportmetadaten zu trennen. Aktualisieren Sie den gewählten Runner vor dem Start.",
         "plan_runner_admission_failed": "Der Runner konnte auf seinem Host keinen Ausführungsplatz reservieren; der Job wurde nicht gestartet.",
         "plan_runner_storage_failed": "Die Speicherung des Runner-Verlaufs ist fehlgeschlagen. Bestätigte Ausgabe und Checkpoints bleiben erhalten.",
         "plan_runner_event_limit": "Ein natives CLI-Ereignis überschreitet sein separates Nachrichtenlimit.",
@@ -784,6 +786,12 @@
         "timeout": "Das harte Zeitlimit des Agents ist abgelaufen. Der laufende Vorgang wurde unterbrochen.",
         "run_notes_unsupported": "Gemeinsame Laufnotizen wurden entfernt. {{@run.notes}} wird nicht mehr unterstützt. Passe den betroffenen Agent oder Plan-Knoten ausdrücklich an.",
         "opencode_acceptance_failed": "Der OpenCode-Knoten hat nicht alle Todos und Abnahmekriterien im abschließenden pages-report belegt. Offene oder unbelegte Arbeit blockiert Nachfolger auch bei regulärem ACP-Abschluss.",
+        "opencode_acceptance_unavailable": "Pages konnte den Remote-OpenCode-Bericht und die aktuellen Ticketanforderungen nicht prüfen. Plan- und Ticketzugriff prüfen und den Versuch vor einem ausdrücklichen Wiederholen sichten.",
+        "opencode_acceptance_contract_unavailable": "Für diesen Remote-OpenCode-Versuch fehlt ein gültiger gespeicherter Prüfvertrag. Das erhaltene Ergebnis sichten und mit dem aktuellen gespeicherten Plan ausdrücklich einen neuen Versuch starten.",
+        "opencode_acceptance_interrupted": "Die Pages-Engine wurde beendet, bevor sie den Remote-OpenCode-Bericht prüfen konnte. Das erhaltene Ergebnis sichten und eine ausdrücklich geprüfte Wiederanlaufaktion wählen.",
+        "plan_script_result_invalid": "Das Script hat keinen vollständigen Bericht im deklarierten Ergebnisformat ausgegeben. stdout prüfen und das Script vor einem ausdrücklichen Wiederholen korrigieren.",
+        "plan_script_result_sensitive": "Das Script-Ergebnis enthält Text in der Form von Zugangsdaten und wurde nicht weitergegeben. Maskierte Diagnose prüfen, sensible Ausgabe entfernen und ausdrücklich erneut versuchen.",
+        "plan_script_review_failed": "Eine verpflichtende Script-Prüfsperre meldet fehlgeschlagene oder unvollständige Prüfungen. Den erhaltenen Bericht sichten, die Ursache beheben und die Prüfungen ausdrücklich wiederholen.",
         "opencode_permission_mode_required": "OpenCode-Agents laufen nur in „Nur Lesen“ oder „YOLO“. Wähle einen Modus ausdrücklich; alte Workspace-Schreibrechte starten keinen Lauf.",
         "opencode_chat_mode_required": "Pica benötigt für OpenCode Workspace-Zugriff „Nur Lesen“ und bietet ausschließlich die Pages-Toolbrücke an.",
         "opencode_configuration_unmanaged": "OpenCode könnte fremde Einstellungen oder Anweisungen laden. Entferne diese aus dem Konfigurationsordner der Verbindung oder /etc/opencode. Es wurde kein Modell aufgerufen.",
@@ -819,7 +827,7 @@
         "plan_script_signal": "Das Script wurde durch ein Signal beendet. Siehe Laufdetails.",
         "plan_script_timeout": "Das konfigurierte Zeitlimit ist abgelaufen. Siehe Status der Bereinigung eigener Prozesse.",
         "plan_script_cancelled": "Das Script wurde gestoppt. Siehe Status der Prozessbereinigung.",
-        "plan_script_output_limit": "stdout oder stderr überschreitet 128 KiB. Der Schritt ist fehlgeschlagen; kein gekürzter Erfolgswert wird weitergegeben.",
+        "plan_script_output_limit": "Das Script überschreitet sein Ausgabelimit: lokal 128 KiB je Stream, beim Remote-Runner 64 KiB zusammen. Kein gekürzter Erfolgswert wird weitergegeben.",
         "plan_script_encoding": "Das Script hat ungültiges UTF-8 ausgegeben. Es wird kein Ersatztext weitergegeben.",
         "plan_script_credentials": "stdout enthält Text im Format von Zugangsdaten. Das Ergebnis wird zurückgehalten; der Schritt ist fehlgeschlagen.",
         "plan_script_io": "Die Ein-/Ausgabe oder dauerhafte Speicherung des Scriptversuchs ist fehlgeschlagen.",
@@ -3926,6 +3934,7 @@
     "missingAgent": "Die Modellzuordnung fehlt. Wählen Sie am Node einen freigegebenen Zugang und ein Modell.",
     "useDefault": "Kein gebundener Wert",
     "blocked": "Wartet · durch Vorgänger blockiert",
+    "reportOpen": "Ausführung beendet · Bericht offen oder ungeprüft",
     "discardTitle": "Ungespeicherten Plan verwerfen?",
     "discardHint": "Ungespeicherte Planänderungen gehen verloren. Laufende Ausführungen behalten ihren Snapshot.",
     "nodeType": {
@@ -3988,6 +3997,8 @@
       "loopPrevious": "Ein Ergebnis des vorherigen Durchlaufs gilt nur innerhalb eines Loops, von einem seiner Mitglieder, und braucht für den ersten Durchlauf einen Standardwert.",
       "loopProvider": "Ein Agent, der seine Session behält, braucht einen ACP-Runner (Codex, Claude Code oder OpenCode). Stelle den Loop auf neue Session je Run um oder wähle einen anderen Agent.",
       "scriptConfiguration": "Prüfe die Scriptkonfiguration.",
+      "scriptReportTarget": "Verbinde den Prüfbericht ausdrücklich als Eingabe eines nachfolgenden Prüfscripts, Fix-Agenten oder einer Prüfsperre.",
+      "scriptReportGate": "Jeder Pfad vom weitergegebenen Prüfbericht zum Ende muss eine bestandene Script-Prüfsperre durchlaufen.",
       "loopScriptUnsupported": "Scriptmitglieder in Loops werden von dieser Runtime nicht unterstützt. Die gespeicherte Konfiguration bleibt erhalten; nutze einen ausdrücklichen Planschritt.",
       "remoteTicketUnavailable": "Ticket nicht verfügbar: archiviert, gelöscht oder aktuell nicht sichtbar. Es wird kein anderes Ticket eingesetzt.",
       "remoteWikiUnavailable": "Wiki-Seite nicht verfügbar: archiviert, gelöscht oder aktuell nicht sichtbar. Es wird keine andere Seite eingesetzt.",
@@ -3998,7 +4009,7 @@
       "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
       "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
       "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
-      "remoteRunnerUpdate": "Runner aktualisieren: Remote-Ausführung braucht Runner 1.10 oder neuer. Bis zur ausdrücklichen Aktualisierung startet hier nichts; laufende Jobs werden weiter abgeglichen.",
+      "remoteRunnerUpdate": "Runner aktualisieren: Unveränderte Remote-CLI-Ergebnisse brauchen Runner 1.13.0 oder neuer; andere Remote-Funktionen benötigen mindestens 1.10. Bis zur benötigten Version startet hier nichts; laufende Jobs werden weiter abgeglichen.",
       "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen.",
       "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund."
     },
@@ -4082,7 +4093,8 @@
       "expand": "Gruppe aufklappen",
       "needsRepair": "Gruppe vor dem Start prüfen.",
       "chooseEndpoint": "Agent-Endpunkt auswählen",
-      "repairBeforeUngroup": "Alte Rahmenkanten zuerst im Gruppeneditor auflösen.",
+      "repairBeforeUngroup": "Rahmenverbindungen und betroffene Bindungen vor dem Auflösen ausdrücklich entfernen.",
+      "frameRepairRequired": "{{name}} kann nicht verschoben oder aufgelöst werden, ohne Verbindungen oder Eingaben zu ändern. Betroffene Flow-Kanten trennen, Eingaben lösen oder die Loop-Bedingung zuerst entfernen.",
       "legacy": "Übernommene Gruppeneingaben (lesend)",
       "legacyHint": "Eindeutige Bindungen wurden an die Agents übertragen. Diese bisherigen Definitionen bleiben als lesbare Herkunft erhalten; neue Verbindungen führen direkt zu den Agents. Nicht eindeutig auflösbare Bindungen an der betroffenen Agent-Eingabe ausdrücklich neu verbinden.",
       "state": {
@@ -4345,6 +4357,27 @@
       "actualState": "Runzustand: {{state}}",
       "checking": "Der Plan wird geprüft; Starten ist bis dahin gesperrt.",
       "blockedHint": "Nicht startbereit: Details aufklappen und die Planfehler beheben. Der Server prüft beim Start erneut.",
+      "workspaceConflictNodes": "Betroffene Nodes: {{nodes}}",
+      "workspaceConflictTargets": "Arbeitskopie: {{targets}}",
+      "lastStartRejection": "Letzter abgelehnter Start: {{time}}, versuchte Revision {{revision}}. Dies ist ein früherer Vorfall; die aktuelle Verfügbarkeit steht darüber.",
+      "rejectedDraft": "Dies war eine ungespeicherte Draft-Revision; der abgelehnte Start hat sie nicht gespeichert.",
+      "rejectionDetailsUnavailable": "Das betroffene Ziel ist nicht verfügbar oder konnte zum Zeitpunkt nicht bestimmt werden.",
+      "rejectionOther": "Die Vorbereitung wurde abgelehnt. Den angegebenen Fehler prüfen und nach der Korrektur ausdrücklich erneut starten.",
+      "rejectionIssuesFiltered": "Einige Befunde oder Ressourcendetails fehlen in diesem historischen Eintrag. Vor einem erneuten Start aktuelle Rechte und Plan prüfen.",
+      "rejectionRemoteIdentity": "Der Remote-Pfad war für dieses Ziel registriert; seine kanonische Identität wurde durch diesen Eintrag nicht bestätigt.",
+      "rejectionReservation": {
+        "not_requested": "Es wurde keine Reservierung angefordert: Der Graph enthielt nicht geordnete Writer.",
+        "held": "Ein anderer Lauf hielt die Arbeitskopie bei der Startprüfung reserviert.",
+        "unknown": "Der Reservierungszustand bei der Ablehnung ist unbekannt."
+      },
+      "rejectionRemedy": {
+        "reserved": "Aktuelle Verfügbarkeit prüfen und auf bestätigten Abschluss warten oder eine andere Arbeitskopie wählen.",
+        "parallel_writers": "Writer durch Flow-Verbindungen anordnen oder getrennte Arbeitskopien wählen."
+      },
+      "workspaceConflictRemedy": {
+        "reserved": "Ein anderer Lauf hält diese Arbeitskopie reserviert. Auf dessen bestätigten Abschluss warten oder eine andere Arbeitskopie wählen; der Server prüft beim Start erneut.",
+        "parallel_writers": "Diese Nodes würden gleichzeitig schreiben. Durch Flow-Verbindungen nacheinander ausführen oder getrennte Arbeitskopien wählen."
+      },
       "unsavedShort": "Ungespeicherte Änderungen",
       "savedShort": "Plan gespeichert",
       "pausingHint": "Pause angefordert: Es startet kein wartender Schritt mehr; laufende Schritte werden kontrolliert abgeschlossen. Erst danach ist der Lauf pausiert.",
@@ -4390,7 +4423,7 @@
         "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
         "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
         "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
-        "remoteRunnerUpdate": "Runner aktualisieren: Remote-Ausführung braucht Runner 1.10 oder neuer. Bis zur ausdrücklichen Aktualisierung startet hier nichts; laufende Jobs werden weiter abgeglichen.",
+        "remoteRunnerUpdate": "Runner aktualisieren: Unveränderte Remote-CLI-Ergebnisse brauchen Runner 1.13.0 oder neuer; andere Remote-Funktionen benötigen mindestens 1.10. Bis zur benötigten Version startet hier nichts; laufende Jobs werden weiter abgeglichen.",
         "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen.",
         "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund.",
         "remoteCatalogStale": "Das Inventar dieses Runners ist veraltet oder unvollständig. Bekannte Profile bleiben sichtbar, starten aber erst nach einer vollständigen aktuellen Meldung des verbundenen Runners.",
@@ -4456,7 +4489,11 @@
           "hint_succeeded": "Der letzte Lauf ist erfolgreich beendet; Starten beginnt einen neuen Lauf.",
           "hint_cancelled": "Der letzte Lauf wurde gestoppt; Starten beginnt einen neuen Lauf."
         }
-      }
+      },
+      "historicalStartRejection": "Frühere Startablehnung: {{time}}, Revision {{revision}}",
+      "olderStartRejection": "Ältere Startablehnung lesen",
+      "historyEnd": "Keine weiteren eigenen Startablehnungen.",
+      "historyFailed": "Die Ablehnungshistorie konnte nicht gelesen werden. Erneut versuchen."
     },
     "ticketPicker": {
       "choose": "Ticket auswählen",
@@ -4631,7 +4668,19 @@
       "addInput": "Eingabe hinzufügen",
       "inputLimit": "Höchstens {{count}} Eingaben.",
       "output": "Ergebnisname",
-      "outputHint": "Optional: leer lassen für keine Datenausgabe. Andernfalls wird stdout als unveränderter UTF-8-Text einschließlich JSON und Zeilenumbrüchen weitergegeben. stderr ist Diagnose. Je Stream höchstens 128 KiB; Überschreitung oder ungültiges UTF-8 lässt den Schritt fehlschlagen.",
+      "outputPolicy": "Ergebnisvertrag",
+      "outputPolicyText": "Beliebiger Text",
+      "outputPolicyReport": "Prüfbericht weitergeben",
+      "outputPolicyGate": "Prüfbericht als Sperre",
+      "outputPolicyHint": "Prüfberichte sind JSON mit status, summary und checks; jeder Check hat name, status und detail. status ist passed, failed oder partial. Bericht weitergeben erlaubt auch vollständige Fehlerbefunde; die Sperre lässt nur passed weiter. Bei Prozessfehler, ungültigem oder fehlendem Bericht wird nichts erfunden.",
+      "reportTitle": "Script-Prüfbericht",
+      "reportStatus": {
+        "passed": "bestanden",
+        "failed": "fehlgeschlagen",
+        "partial": "unvollständig"
+      },
+      "reportCounts": "Prüfungen: {{total}} · fehlgeschlagen: {{failed}} · unvollständig: {{partial}}",
+      "outputHint": "Optional: leer lassen für keine Datenausgabe. Andernfalls ist stdout Text einschließlich JSON und Zeilenumbrüchen; stderr ist Diagnose. Lokal gilt ein Limit von 128 KiB je Stream, remote 64 KiB zusammen. Überschreitung oder ungültiges UTF-8 lässt den Schritt fehlschlagen; Zugangsdaten werden maskiert.",
       "defaultOutput": "ergebnis",
       "outputOut": "Daten OUT · Ergebnis {{name}}",
       "timeout": "Zeitlimit in Sekunden",
@@ -4673,23 +4722,29 @@
         "process": "Prozess-ID (Diagnose)",
         "started": "Beginn (UTC)",
         "ended": "Ende (UTC)",
+        "observedStart": "Erste Runner-Meldung (UTC)",
+        "observedEnd": "Letzte Runner-Meldung (UTC)",
         "exit": "Exit-Code",
         "signal": "Signal",
         "closeout": "Bereinigung",
         "pending": "Ausstehend",
         "confirmed": "Bestätigt",
         "failed": "Unbestätigt",
-        "empty": "(leer / nicht verfügbar)",
+        "empty": "(leer)",
+        "missing": "(nicht aufgezeichnet)",
+        "remoteTail": "Der Runner bewahrt nur das begrenzte Ende von stderr auf; frühere Maskierung oder fehlende Ausgabe lässt sich nicht immer feststellen.",
+        "remotePartial": "Die aufgezeichnete Ausgabe kann unvollständig sein, weil dieser Versuch nicht regulär beendet wurde.",
         "lifecycle": "Pause lässt aktive Scripts auslaufen; Stop und Timeout beenden deren eigene Prozesskette.",
         "cause": "Ursache"
       },
       "emptyInput": "Leerer Text ist gebunden"
     },
     "progress": {
+      "filteredOutput": "Zugangsdaten wurden in dieser Anzeige maskiert oder lange Inhalte gekürzt.",
       "label": "Lauffortschritt",
       "sequence": "Schritte der ausgeführten Runrevision",
       "completed": "abgeschlossen",
-      "count": "{{completed}} von {{total}} Schritten erfolgreich abgeschlossen",
+      "count": "{{completed}} von {{total}} Schritten ausgeführt",
       "unknownTotal": "Keine ausgeführte Schrittmenge bekannt",
       "elapsed": "Verstrichene Zeit einschließlich Pausen",
       "open": "Laufdetails öffnen",
@@ -4713,6 +4768,27 @@
       "noActivity": "Noch kein aktueller Arbeitsschritt gemeldet.",
       "noLiveActivity": "Keine Live-Aktivität für diesen Schritt. Ein detaillierter Arbeitsschritt wurde nicht gemeldet.",
       "noConfiguration": "Für diesen Schritt liegt keine Runner-Konfiguration vor.",
+      "blockedBy": "Nicht ausgeführt, weil {{name}} fehlgeschlagen ist oder abgebrochen wurde.",
+      "reportOpenHint": "Die Ausführung ist beendet, aber ihr Bericht enthält offene oder ungeprüfte Arbeit. Prüfen Sie den Bericht, bevor Sie seine Prüfungen als bestanden ansehen.",
+      "report": "Berichtsbewertung",
+      "reportVerdict": {
+        "accepted": "akzeptiert",
+        "open": "offen oder ungeprüft",
+        "rejected": "abgelehnt"
+      },
+      "reportIssue": {
+        "missing": "Es wurde kein Abschlussbericht abgegeben.",
+        "invalid": "Der Abschlussbericht ist ungültig oder unvollständig.",
+        "todoOpen": "Todo {{id}} ist noch offen.",
+        "todoMissing": "Todo {{id}} fehlt im Bericht.",
+        "criterionMissing": "Kriterium {{id}} fehlt im Bericht.",
+        "criterionUnmet": "Kriterium {{id}} wurde als nicht erfüllt gemeldet.",
+        "evidenceMissing": "Der Nachweis für Kriterium {{id}} fehlt.",
+        "ticketUnchecked": "Der Ticketeintrag für {{id}} ist nicht abgehakt.",
+        "ticketUnreadable": "Ticket {{id}} konnte nicht gelesen werden.",
+        "ticketChanged": "Die Anforderungen von Ticket {{id}} haben sich geändert.",
+        "other": "Weiterer Berichtsfehler: {{issue}}"
+      },
       "locate": "Node im Plan anzeigen",
       "nodeMissing": "Node nicht mehr im Plan vorhanden",
       "todos": "Agent-TODO",
@@ -4739,6 +4815,7 @@
         "paused": "Pausiert",
         "stopping": "Stoppt …",
         "succeeded": "Fertig",
+        "reportOpen": "Fertig · Bericht offen",
         "cancelled": "Gestoppt",
         "failed": "Fehlgeschlagen",
         "blocked": "Blockiert",
@@ -4905,7 +4982,7 @@
         }
       },
       "removeTitle": "Loop „{{name}}“ entfernen?",
-      "removeDescription": "Interne Nodes in diesem Loop: {{count}}. Nur den Container zu entfernen behält jeden Node mit seinen Ablaufverbindungen; eine Bindung an den vorherigen Run endet mit dem Loop. Das Löschen mit Inhalt entfernt auch die Nodes und ihre Verbindungen.",
+      "removeDescription": "Interne Nodes in diesem Loop: {{count}}. Vor dem Entfernen nur des Containers dessen Verbindungen und Bindungen an vorherige Iterationen ausdrücklich lösen. Das Löschen mit Inhalt entfernt auch die Nodes und ihre Verbindungen.",
       "removeFrame": "Container entfernen, Nodes behalten",
       "removeWithMembers": "Mit Inhalt löschen ({{count}} Nodes)",
       "moved": "Loop-Zuordnung geändert. Entfernt: Ablaufverbindungen {{edges}}, Bindungen {{bindings}}."
@@ -4956,6 +5033,30 @@
       "confirmRepeat": "Alle Knoten laufen erneut, auch Aktionen, die bereits gewirkt haben können.",
       "restartAction": "Revision {{revision}} von vorne starten",
       "releaseAction": "Restprozesse beenden und Arbeitskopien freigeben",
+      "cleanupResources": "Nicht bestätigte Bereinigung",
+      "cleanupKind": {
+        "local_session": "lokale Agent-Sitzung",
+        "local_script": "lokales Script",
+        "remote_attempt": "Remote-Versuch",
+        "loop": "Loop-Sitzung"
+      },
+      "cleanupFailure": {
+        "scan_access_denied": "Die Prozessprüfung für {{step}} ({{resource}}) wurde wegen fehlender Berechtigung abgelehnt. Berechtigung für die Prozessprüfung korrigieren und Bereinigung erneut versuchen.",
+        "scan_unavailable": "Die Prozessprüfung für {{step}} ({{resource}}) ist fehlgeschlagen. Verfügbarkeit der Prozessprüfung kontrollieren und Bereinigung erneut versuchen.",
+        "processes_remaining": "Für {{step}} ({{resource}}) sind noch Prozesse vorhanden. Auf deren Ende warten und Bereinigung erneut versuchen.",
+        "resource_cleanup_failed": "Ressourcen für {{step}} ({{resource}}) konnten nicht entfernt werden. Ressourcenzugriff kontrollieren und Bereinigung erneut versuchen."
+      },
+      "cleanupResource": {
+        "local_session": "{{step}}: lokale Agent-Sitzung ({{state}}). Ein leerer Prozessscan bestätigt nicht alle Sitzungsressourcen.",
+        "local_script": "{{step}}: lokales Script ({{state}}). Bereinigung anfordern und erneut prüfen.",
+        "remote_attempt": "{{step}}: Remote-Versuch ({{state}}). Bereinigung beim ursprünglichen Runner anfordern und erneut prüfen.",
+        "loop": "{{step}}: Loop oder dessen Sitzung ({{state}}). Der Abschluss muss bestätigt sein."
+      },
+      "closeout": {
+        "pending": "ausstehend",
+        "failed": "fehlgeschlagen",
+        "unknown": "unbekannt"
+      },
       "blocker": {
         "run_active": "Der Lauf ist noch aktiv. Zuerst stoppen.",
         "plan_run_active": "Ein anderer Lauf dieses Plans ist aktiv. Auf ihn warten oder ihn stoppen.",
@@ -4964,7 +5065,7 @@
         "succeeded": "Der Lauf war erfolgreich; es gibt nichts fortzusetzen.",
         "superseded": "Es gibt einen neueren Lauf dieses Plans; nur der neueste Lauf kann fortgesetzt werden.",
         "already_continued": "Dieser Lauf wurde bereits neu gestartet oder fortgesetzt.",
-        "cleanup_unconfirmed": "Ein Prozess des Laufs könnte noch leben. Zuerst Restprozesse beenden.",
+        "cleanup_unconfirmed": "Die Beendigung des ursprünglichen Prozesses oder die Bereinigung seiner Ressourcen ist nicht bestätigt. Bereinigung anfordern und die aufgeführten Ressourcen prüfen.",
         "plan_completed_changed": "Abgeschlossene Arbeit wurde im gespeicherten Plan geändert; nur ein Start von vorne ist möglich.",
         "plan_context_changed": "Projekt oder Workspace des Plans haben sich geändert; nur ein Start von vorne ist möglich.",
         "plan_definition_changed": "Eine Agent-Definition hat sich geändert; nur ein Start von vorne ist möglich.",
@@ -4981,16 +5082,20 @@
       },
       "error": {
         "review_required": "Die Prüfung jedes erneut laufenden Knotens bestätigen.",
-        "cleanup_unconfirmed": "Ein Prozess des Laufs könnte noch leben; es wurde nichts gestartet. Gleich erneut versuchen oder die Administration fragen.",
+        "cleanup_unconfirmed": "Die Beendigung des ursprünglichen Prozesses oder die Bereinigung seiner Ressourcen ist nicht bestätigt; es wurde nichts freigegeben. Aufgeführte Ressourcen prüfen und erneut versuchen oder die Administration fragen.",
         "native_resume_unavailable": "Die frühere Sitzung kann nicht fortgesetzt werden; eine neue Sitzung wählen.",
         "revision_conflict": "Der Lauf hat sich inzwischen geändert. Die Ansicht wurde neu geladen; prüfen und erneut entscheiden.",
         "idempotency_conflict": "Diese Anfrage wurde bereits für eine andere Entscheidung verwendet.",
         "action_unavailable": "Diese Aktion ist im aktuellen Zustand des Laufs nicht möglich.",
         "workflow_unavailable": "Neustart und Fortsetzen sind hier nicht verfügbar.",
-        "plan_conflict": "Der Plan wurde inzwischen gespeichert. Plan neu laden und die angezeigte Revision starten."
+        "plan_conflict": "Der Plan wurde inzwischen gespeichert. Plan neu laden und die angezeigte Revision starten.",
+        "diagnostic_unavailable": "Der Bereinigungsbefund konnte nicht gespeichert oder gelesen werden. Die Freigabe ist nicht bestätigt. Erneut prüfen."
       },
       "resumeTitle": "Lauf fortsetzen",
-      "resumeDescription": "Setzt am letzten sicheren Stand fort: Erfolgreiche Schritte werden übernommen und nicht wiederholt; offene Arbeit läuft als neuer Versuch."
+      "resumeDescription": "Setzt am letzten sicheren Stand fort: Erfolgreiche Schritte werden übernommen und nicht wiederholt; offene Arbeit läuft als neuer Versuch.",
+      "cleanupHistory": "Letzter gespeicherter Bereinigungsfehler",
+      "cleanupHistoryTime": "{{time}} · angewandte Planrevision {{revision}}",
+      "cleanupHistoryHint": "Historischer Befund. Die aktuelle Freigabe und Prozesslage stehen bei den verfügbaren Aktionen."
     },
     "nodeInstruction": "Zusätzliche Node-Anweisung",
     "execution": {

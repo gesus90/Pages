@@ -1,14 +1,20 @@
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { AGENT_PLAN_COMMAND_OPERATIONS } from "@/definition/AgentPlanOperations";
+import {
+  AGENT_PLAN_COMMAND_OPERATIONS,
+  AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS,
+} from "@/definition/AgentPlanOperations";
 import {
   AGENT_PLAN_READ_OPERATIONS,
   AGENT_PLAN_WRITE_OPERATIONS,
 } from "@/definition/AgentPlanOperations";
+import { readParameterRecord } from "./AgentParameterReader";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AgentPlanCommandOperations } from "./AgentPlanCommandOperations";
 import { readPlanResources } from "./AgentPlanResourceReads";
+import { releasePlanRun } from "./AgentPlanRecoveryOperation";
+import { startRecoveredPlanRun } from "./AgentPlanRecoveryStartOperation";
 import { translatePlanError } from "./AgentPlanOperationErrors";
 import { AgentPlanReadOperations } from "./AgentPlanReadOperations";
 import { AgentPlanWriteOperations } from "./AgentPlanWriteOperations";
@@ -17,6 +23,7 @@ import type { AgentPlanResourceServices } from "./AgentPlanResourceReads";
 import type { Database } from "@/backend/database/Database";
 import type {
   AgentPlanReadOperation,
+  AgentPlanRecoveryCommandOperation,
   AgentPlanWriteOperation,
 } from "@/definition/AgentPlanOperations";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
@@ -38,6 +45,17 @@ function isReadOperation(value: unknown): value is AgentPlanReadOperation {
 
 function isWriteOperation(value: unknown): value is AgentPlanWriteOperation {
   return AGENT_PLAN_WRITE_OPERATIONS.some((name) => name === value);
+}
+
+function isPersonalEvidenceRead(operation: unknown, input: unknown): boolean {
+  return (
+    (operation === "plans.control.read" &&
+      readParameterRecord(input ?? {}).includeStartRejections !== undefined) ||
+    operation === "plans.run.recovery.read" ||
+    operation === "plans.run.diagnostics.read" ||
+    operation === "plans.run.session.events.read" ||
+    operation === "plans.run.checkpoint.read"
+  );
 }
 
 /**
@@ -86,6 +104,12 @@ export class AgentPlanOperationService {
     input: unknown,
   ): Promise<PagesAgentReadResponse | PagesAgentWriteResponse | null> {
     try {
+      const recovery = AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS.find(
+        (name) => name === operation,
+      );
+      if (recovery) return await this.recovery(identity, recovery, input);
+      if (identity.run && isPersonalEvidenceRead(operation, input))
+        throw new AgentOperationError("FORBIDDEN");
       const command = AGENT_PLAN_COMMAND_OPERATIONS.find(
         (name) => name === operation,
       );
@@ -99,17 +123,12 @@ export class AgentPlanOperationService {
             input ?? {},
           ),
         };
-      if (this.resources && typeof operation === "string") {
-        const result = await readPlanResources(
-          this.resources,
-          identity.userId,
-          operation,
-          input ?? {},
-        );
-        if (result) {
-          return resourceResponse(result);
-        }
-      }
+      const resource = await this.readResource(
+        identity.userId,
+        operation,
+        input,
+      );
+      if (resource) return resourceResponse(resource);
       if (isReadOperation(operation))
         return await this.reads.read(identity.userId, operation, input ?? {});
       if (isWriteOperation(operation))
@@ -120,6 +139,37 @@ export class AgentPlanOperationService {
 
       throw translatePlanError(error);
     }
+  }
+
+  private async recovery(
+    identity: AgentIdentity,
+    operation: AgentPlanRecoveryCommandOperation,
+    input: unknown,
+  ): Promise<PagesAgentWriteResponse> {
+    if (identity.run) throw new AgentOperationError("FORBIDDEN");
+    if (!this.resources)
+      throw new AgentOperationError("INVALID_REQUEST", {
+        reason: "plan_recovery_action_unavailable",
+      });
+    const result =
+      operation === "plans.run.recovery.release"
+        ? await releasePlanRun(this.resources, identity.userId, input)
+        : await startRecoveredPlanRun(
+            this.resources,
+            identity.userId,
+            operation === "plans.run.recovery.restart" ? "restart" : "resume",
+            input,
+          );
+    return { apiVersion: "1", result };
+  }
+
+  private async readResource(
+    userId: string,
+    operation: unknown,
+    input: unknown,
+  ): Promise<PagesAgentReadResponse["result"] | null> {
+    if (!this.resources || typeof operation !== "string") return null;
+    return readPlanResources(this.resources, userId, operation, input ?? {});
   }
 }
 

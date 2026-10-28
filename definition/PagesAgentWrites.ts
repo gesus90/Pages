@@ -4,6 +4,7 @@ import { AGENT_PROJECT_DELETION_WRITE_OPERATIONS } from "./AgentProjectDeletion.
 import { AGENT_WORKSPACE_WRITE_OPERATIONS } from "./AgentWorkspaceOperations.js";
 import {
   AGENT_PLAN_COMMAND_OPERATIONS,
+  AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS,
   AGENT_PLAN_WRITE_OPERATIONS,
 } from "./AgentPlanOperations.js";
 import { PAGE_AGENT_WRITE_OPERATIONS } from "./PageAgentOperations.js";
@@ -18,6 +19,7 @@ import type { AgentImportUpdated } from "./AgentImportUpdate.js";
 import type { AgentWorkspaceChanged } from "./AgentWorkspaceOperations.js";
 import type {
   AgentPlanCommandResult,
+  AgentPlanRecoveryCommandResult,
   AgentPlanChanged,
 } from "./AgentPlanOperations.js";
 import type { ChatAgentDeleted } from "./ChatAgentOperations.js";
@@ -55,6 +57,7 @@ export const PAGES_AGENT_WRITE_OPERATIONS = [
   ...AGENT_WORKSPACE_WRITE_OPERATIONS,
   ...AGENT_PLAN_WRITE_OPERATIONS,
   ...AGENT_PLAN_COMMAND_OPERATIONS,
+  ...AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS,
   ...PAGE_AGENT_WRITE_OPERATIONS,
   "chat.sessions.delete",
   "assets.upload.prepare",
@@ -168,6 +171,7 @@ export interface PagesAgentWriteResponse {
     | AgentWorkspaceChanged
     | AgentPlanChanged
     | AgentPlanCommandResult
+    | AgentPlanRecoveryCommandResult
     | PageAgentChanged
     | ChatAgentDeleted
     | ChatDeletionResult;

@@ -8,10 +8,13 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import { hasNoSessionProcesses } from "../AgentPlanRecovery";
+import { checkSessionProcesses } from "../AgentPlanRecovery";
+import { cleanupScanFailure } from "../AgentPlanCleanupFailure";
 import { prepareRecoveredPlan } from "../AgentPlanContinuation";
+import { closeRecoveryScripts } from "./AgentPlanRecoveryScripts";
 import {
   planResume,
   releaseOption,
@@ -35,6 +38,7 @@ import type { AgentPlanRunRepository } from "@/backend/database/repositories/age
 import type { AcpResourceScheduler } from "../AcpResourceScheduler";
 import type { AgentPlanAccess } from "../AgentPlanAccess";
 import type { AgentPlanPreparation } from "../AgentPlanPreparation";
+import type { AgentPlanRemoteExecution } from "../AgentPlanRemoteExecution";
 import type { AgentPlanRunEngine } from "../AgentPlanRunEngine";
 import type { RecoveredRunStart } from "../AgentPlanRunStart";
 import type { AgentPlanService } from "../AgentPlanService";
@@ -43,8 +47,8 @@ import type { RecoveryFacts } from "./AgentPlanRecoveryPlanning";
 
 /** The boundaries of executing recovery; each check stays on the server. */
 export interface RecoveryActionDependencies {
-  readonly runs: Pick<AgentPlanService, "run"> &
-    Partial<Pick<AgentPlanService, "stop">>;
+  readonly runs: Pick<AgentPlanService, "run">;
+  readonly remoteExecution?: Pick<AgentPlanRemoteExecution, "stop">;
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly preparation: Pick<AgentPlanPreparation, "prepare">;
   readonly engine: Pick<AgentPlanRunEngine, "startRecovered"> &
@@ -56,7 +60,7 @@ export interface RecoveryActionDependencies {
   readonly executions: AgentPlanRecoveryExecutionRepository;
   readonly checkpoints: Pick<AgentPlanCheckpointRepository, "list" | "append">;
   /** Rechecks the ACP leases of the run; absent without native capacity journal. */
-  readonly resources?: Pick<AcpResourceScheduler, "reconcile">;
+  readonly resources?: Pick<AcpResourceScheduler, "reconcile" | "snapshot">;
 }
 
 type RestartCommand = Extract<
@@ -250,6 +254,8 @@ export class AgentPlanRecoveryActions {
       request.runId,
       command.expectedRevision,
     );
+    if (facts.plan.revision !== command.revision)
+      throw new AgentError("plan_conflict");
     const plan = planResume(facts);
     requireOption(resumeOption(facts, plan));
     if (command.mode === "live")
@@ -314,7 +320,7 @@ export class AgentPlanRecoveryActions {
       request.command.expectedRevision,
     );
     requireOption(releaseOption(facts));
-    await this.settleCleanup(facts, false);
+    const settled = await this.settleCleanup(facts, false);
     const result: AgentPlanRecoveryResult = {
       commandId: randomUUID(),
       revision: request.command.expectedRevision + 1,
@@ -327,7 +333,7 @@ export class AgentPlanRecoveryActions {
         result,
         execution: this.execution(request, result, null),
       },
-      facts.run,
+      settled,
     );
     return result;
   }
@@ -353,10 +359,9 @@ export class AgentPlanRecoveryActions {
   private async settleCleanup(
     facts: RecoveryFacts,
     shouldRelease = true,
-  ): Promise<void> {
-    const { run } = facts;
-    await this.requestRemoteCleanup(run);
-    if (!facts.isReserved && !run.stopRequested) return;
+  ): Promise<AgentPlanRun> {
+    await this.requestRemoteCleanup(facts.run);
+    const { run } = await this.dependencies.executions.source(facts.run.id);
     const scope = await readScopeSince(run.startedAt).catch(
       (caughtError: unknown) => {
         logCaughtError("AgentPlanRecoveryActions", caughtError);
@@ -364,22 +369,40 @@ export class AgentPlanRecoveryActions {
       },
     );
     await this.endLocalProcesses(run, scope);
-    if (!(await hasNoSessionProcesses(run)))
+    const checked = await closeRecoveryScripts(run);
+    const processes = await checkSessionProcesses(checked);
+    if (!processes.confirmed)
+      throw new AgentPlanRecoveryError(
+        "cleanup_unconfirmed",
+        processes.failure ?? undefined,
+      );
+    await this.reconcileResources(run.id);
+    if (shouldRelease) await this.dependencies.executions.releaseChecked(run);
+    return run;
+  }
+
+  private async reconcileResources(runId: string): Promise<void> {
+    const resources = this.dependencies.resources;
+    if (!resources) return;
+    try {
+      const remaining = await resources.reconcile(runId);
+      const state = resources.snapshot();
+      if (
+        remaining > 0 ||
+        state.problem !== null ||
+        state.active.some((entry) => entry.runId === runId)
+      )
+        throw new AgentPlanRecoveryError("cleanup_unconfirmed");
+    } catch (error: unknown) {
+      if (error instanceof AgentPlanRecoveryError) throw error;
+      logCaughtError("AgentPlanRecoveryActions", error);
       throw new AgentPlanRecoveryError("cleanup_unconfirmed");
-    if (shouldRelease) await this.dependencies.planRuns.release(run.id);
-    await this.dependencies.resources?.reconcile(run.id);
+    }
   }
 
   private async requestRemoteCleanup(run: AgentPlanRun): Promise<void> {
-    if (
-      run.stopRequested &&
-      allPlanRunResults(run).some(
-        (step) =>
-          step.execution?.target.kind === "remote" &&
-          step.remote?.closeout !== "confirmed",
-      )
-    )
-      await this.dependencies.runs.stop?.(run.userId, run.id);
+    if (allPlanRunResults(run).some(isRemoteCloseoutUnconfirmed))
+      await this.dependencies.remoteExecution?.stop(run);
   }
 
   private async endLocalProcesses(
@@ -387,15 +410,25 @@ export class AgentPlanRecoveryActions {
     scope: Awaited<ReturnType<typeof readScopeSince>> | null,
   ): Promise<void> {
     for (const step of allPlanRunResults(run)) {
-      if (step.execution?.target.kind === "remote") continue;
-      const instanceId = step.session?.instanceId ?? step.script?.instanceId;
-      const closeout = step.session?.closeout ?? step.script?.closeout;
+      if (step.execution?.target.kind === "remote" || step.script) continue;
+      const instanceId = step.session?.instanceId;
+      const closeout = step.session?.closeout;
       if (instanceId === undefined || closeout === "confirmed") continue;
-      await endTaggedProcesses(instanceId, scope).catch(
+      const cleanup = await endTaggedProcesses(instanceId, scope).catch(
         (caughtError: unknown) => {
           logCaughtError("AgentPlanRecoveryActions", caughtError);
+          throw new AgentPlanRecoveryError(
+            "cleanup_unconfirmed",
+            cleanupScanFailure(step.id, "local_session", caughtError),
+          );
         },
       );
+      if (cleanup.remaining > 0)
+        throw new AgentPlanRecoveryError("cleanup_unconfirmed", {
+          stepId: step.id,
+          kind: "local_session",
+          reason: "processes_remaining",
+        });
     }
   }
 

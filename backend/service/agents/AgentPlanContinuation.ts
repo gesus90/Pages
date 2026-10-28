@@ -11,6 +11,7 @@ import { groupRuntimeFields } from "./AgentPlanGroupRuntime";
 import { initialLoopRun } from "./loop/AgentPlanLoopRecord";
 import { continueRemotePlanExecution } from "./AgentPlanExecutionSnapshot";
 import { planStepDirectory } from "./AgentPlanSnapshot";
+import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
 import type {
   AgentPlanRun,
   AgentPlanStepResult,
@@ -29,7 +30,10 @@ export function planWritingWorkspaces(
         return !isApiProvider(step.provider) && directory ? [directory.id] : [];
       }),
       ...(snapshot.scripts ?? []).map((script) => script.workspace.id),
-      ...(snapshot.remoteSteps ?? []).map((step) => step.target.workspaceId),
+      ...(snapshot.remoteSteps ?? []).flatMap((step) => [
+        step.target.workspaceId,
+        ...remoteWorkspaceKeys(step.target),
+      ]),
     ]),
   ];
 }

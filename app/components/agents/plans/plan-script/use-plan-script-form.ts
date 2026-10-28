@@ -36,6 +36,7 @@ export interface PlanScriptFormValues {
   readonly content: string;
   readonly inputs: readonly PlanScriptInputRow[];
   readonly output: string;
+  readonly outputPolicy: "text" | "report" | "gate";
   readonly timeout: string;
 }
 
@@ -98,6 +99,7 @@ function initialValues(
       content: "",
       inputs: [],
       output,
+      outputPolicy: "text",
       timeout: String(PLAN_SCRIPT_TIMEOUT.initial),
     };
   return {
@@ -112,6 +114,7 @@ function initialValues(
       original: input.name,
     })),
     output: script.outputs[0]?.name ?? "",
+    outputPolicy: script.outputs[0]?.policy ?? "text",
     timeout: String(script.timeoutSeconds),
   };
 }
@@ -130,7 +133,15 @@ function configurationOf(
       isRequired: input.isRequired,
     })),
     outputs: values.output.trim()
-      ? [{ name: values.output.trim(), type: "text" }]
+      ? [
+          {
+            name: values.output.trim(),
+            type: "text",
+            ...(values.outputPolicy === "text"
+              ? {}
+              : { policy: values.outputPolicy }),
+          },
+        ]
       : [],
     timeoutSeconds: /^\d+$/u.test(values.timeout.trim())
       ? Number(values.timeout.trim())

@@ -22,6 +22,18 @@ export const AGENT_ERROR_MESSAGES = {
     "A required agent tool is not ready. The run events name the tool and cause; an administrator can inspect Settings → Agents → Tools.",
   opencode_acceptance_failed:
     "The OpenCode node did not prove every todo and acceptance criterion in its closing pages-report. Open or unproven work blocks successors even when ACP completed its turn.",
+  opencode_acceptance_unavailable:
+    "Pages could not verify the remote OpenCode report and current ticket requirements. Check plan and ticket access, then explicitly retry after reviewing the attempt.",
+  opencode_acceptance_contract_unavailable:
+    "The remote OpenCode attempt has no valid pinned report contract. Inspect the retained result and explicitly start a new attempt with the current saved plan.",
+  opencode_acceptance_interrupted:
+    "The Pages engine stopped before it could verify the remote OpenCode report. Inspect the retained result and use an explicitly reviewed recovery action.",
+  plan_script_result_invalid:
+    "The script did not produce a complete report in its declared result format. Inspect its stdout and correct the script before an explicit retry.",
+  plan_script_result_sensitive:
+    "The script result contains credential-shaped text and was not passed to a successor. Inspect the filtered diagnostic, remove sensitive output and explicitly retry.",
+  plan_script_review_failed:
+    "A required script review gate reported failed or partial checks. Inspect the retained report, repair the cause and explicitly repeat the checks.",
   opencode_permission_mode_required:
     "OpenCode agents run only in “Read only” or “YOLO”. Choose one of these modes; legacy workspace-write settings do not start.",
   opencode_chat_mode_required:
@@ -37,6 +49,8 @@ export const AGENT_ERROR_MESSAGES = {
   plan_json_invalid: "Enter one valid JSON value with finite numbers.",
   plan_number_invalid: "Enter one finite number.",
   plan_run_unavailable: "This run is no longer active. Start a new run.",
+  plan_start_rejection_record_failed:
+    "The start was refused, but its diagnostic could not be stored. Check database availability before trying again.",
   plan_continuation_deleted: "Continuation point deleted – restart required.",
   plan_completed_changed:
     "This change requires completed work to run again. Stop and start a new run.",
@@ -69,7 +83,7 @@ export const AGENT_ERROR_MESSAGES = {
   plan_script_cancelled:
     "The script was stopped. See its process cleanup status.",
   plan_script_output_limit:
-    "stdout or stderr exceeded 128 KiB. The step failed; no truncated success result is forwarded.",
+    "The script exceeded its output limit: 128 KiB per local stream, or 64 KiB combined on a remote runner. No truncated success result is forwarded.",
   plan_script_encoding:
     "The script emitted invalid UTF-8. No replacement text is forwarded.",
   plan_script_credentials:
@@ -161,6 +175,8 @@ export const AGENT_ERROR_MESSAGES = {
     "A session history chunk is missing or failed its integrity check.",
   plan_runner_update_required:
     "Runner 1.10 or later is required for remote execution. Update the remote runner explicitly.",
+  plan_runner_payload_update_required:
+    "Runner 1.13.0 or later is required to keep remote CLI results separate from transport metadata. Update the selected runner explicitly before starting.",
   plan_runner_admission_failed:
     "The runner could not reserve an execution slot on its host; the job did not start.",
   plan_runner_failed: "The runner ended its turn with an error.",

@@ -72,6 +72,8 @@ export interface AgentPlanScriptInput {
 export interface AgentPlanScriptOutput {
   readonly name: string;
   readonly type: "text";
+  /** An explicit structured review report, or a strict passing gate; absent keeps arbitrary text. */
+  readonly policy?: "report" | "gate";
 }
 
 /**

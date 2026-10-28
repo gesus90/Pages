@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { planScriptAssessmentSchema } from "@/definition/AgentPlanScriptReport";
 import { planScriptRunSchema } from "./AgentPlanScriptRunInput";
 
 import type {
@@ -97,6 +98,7 @@ const checkpoint = z.strictObject({
       closeout: identifier.nullable(),
     }),
     acceptance: acceptance.nullable(),
+    report: planScriptAssessmentSchema.optional(),
   }),
   session: z
     .strictObject({
@@ -108,6 +110,7 @@ const checkpoint = z.strictObject({
     .nullable(),
   version: z.number().int().positive(),
   runRevision: revision,
+  isDisplayFiltered: z.boolean().optional(),
 });
 const commandIdentity = {
   expectedRevision: revision,
@@ -132,6 +135,12 @@ const command = z.discriminatedUnion("action", [
     ...commandIdentity,
     action: z.literal("resume"),
     mode: z.enum(["live", "native_resume", "new_session"]),
+    revision: z
+      .number()
+      .int()
+      .positive()
+      .max(Number.MAX_SAFE_INTEGER)
+      .optional(),
     reviewedStepIds: z.array(identifier).max(100).default([]),
   }),
   z.strictObject({

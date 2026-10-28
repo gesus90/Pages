@@ -295,6 +295,10 @@ export class AgentPlanRepository {
       );
       if (active) throw new AgentError("plan_running");
       await transaction.execute(
+        `DELETE FROM agent_plan_start_rejections WHERE plan_id = $id;`,
+        { id },
+      );
+      await transaction.execute(
         `
         DELETE FROM agent_plans
         WHERE id = $id;

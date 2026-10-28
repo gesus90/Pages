@@ -1,6 +1,8 @@
 import { requirePlanRevision } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
+import { planStartRejectionIssuesSchema } from "@/backend/agents/AgentPlanStartRejectionInput";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
 import { isPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
@@ -13,6 +15,7 @@ import {
 import { readPlanCommand } from "./AgentPlanCommandInput";
 import { requireAgentConfirmation } from "./AgentConfirmation";
 import { readPlanControlEntry } from "./AgentPlanControlViews";
+import { translatePlanError } from "./AgentPlanOperationErrors";
 
 import type {
   Database,
@@ -20,6 +23,7 @@ import type {
 } from "@/backend/database/Database";
 import type { StoredAgentOperation } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import type { AgentPlanView } from "@/definition/AgentPlan";
+import type { AgentPlanStartRejection } from "@/definition/AgentPlanStartRejection";
 import type {
   AgentPlanCommandOperation,
   AgentPlanCommandResult,
@@ -108,6 +112,21 @@ export class AgentPlanCommandOperations {
     const plan = await this.plans.view(userId, request.planId);
     if (request.operation !== "plans.clone" && !plan.canEdit)
       throw new AgentOperationError("FORBIDDEN");
+    const rejection = readCommandRejection(stored.resultJson);
+    if (rejection) {
+      if (
+        request.operation !== "plans.play" ||
+        result.planId !== request.planId
+      )
+        throw new AgentOperationError("CONFLICT");
+      if (rejection.issues)
+        throw new AgentOperationError("INVALID_REQUEST", {
+          reason: "graph_invalid",
+          issues: rejection.issues,
+          issueDetailsFiltered: rejection.issueDetailsFiltered,
+        });
+      throw translatePlanError(new AgentError(rejection.code));
+    }
     if (request.operation === "plans.clone") {
       const target = await this.plans.view(userId, result.planId);
       if (!target.canEdit) throw new AgentOperationError("NOT_FOUND");
@@ -219,7 +238,28 @@ export class AgentPlanCommandOperations {
       await recorder.store(transaction, { ...base, runId: run.id });
     };
     if (request.operation === "plans.play") {
-      await this.plans.play(userId, plan.id, plan.revision, journal);
+      const rejected = new OperationRecorder<{
+        readonly planId: string;
+        readonly revision: number;
+        readonly rejection: string;
+        readonly issues?: AgentPlanStartRejection["issues"];
+        readonly issueDetailsFiltered?: boolean;
+      }>(userId, request);
+      const playJournal = Object.assign(journal, {
+        recordStartRejection: async (
+          transaction: DatabaseTransaction,
+          entry: AgentPlanStartRejection,
+        ) =>
+          rejected.store(transaction, {
+            ...base,
+            rejection: entry.error,
+            ...(entry.issues ? { issues: entry.issues } : {}),
+            ...(entry.issueDetailsFiltered !== undefined
+              ? { issueDetailsFiltered: entry.issueDetailsFiltered }
+              : {}),
+          }),
+      });
+      await this.plans.play(userId, plan.id, plan.revision, playJournal);
       return;
     }
     if (request.runId === null)
@@ -267,6 +307,34 @@ export class AgentPlanCommandOperations {
       },
     );
   }
+}
+
+function readCommandRejection(json: string): {
+  readonly code: AgentError["code"];
+  readonly issues?: AgentPlanStartRejection["issues"];
+  readonly issueDetailsFiltered?: boolean;
+} | null {
+  const input: unknown = JSON.parse(json);
+  if (typeof input !== "object" || input === null || !("rejection" in input))
+    return null;
+  if (!isAgentErrorCode(input.rejection))
+    throw new AgentOperationError("CONFLICT");
+  if (!("issues" in input)) return { code: input.rejection };
+  const issues = planStartRejectionIssuesSchema.safeParse(input.issues);
+  if (
+    input.rejection !== "plan_invalid" ||
+    !issues.success ||
+    ("issueDetailsFiltered" in input &&
+      typeof input.issueDetailsFiltered !== "boolean")
+  )
+    throw new AgentOperationError("CONFLICT");
+  return {
+    code: input.rejection,
+    issues: issues.data,
+    ...("issueDetailsFiltered" in input
+      ? { issueDetailsFiltered: input.issueDetailsFiltered === true }
+      : {}),
+  };
 }
 
 function readCommandResult(json: string): AgentPlanCommandResult {

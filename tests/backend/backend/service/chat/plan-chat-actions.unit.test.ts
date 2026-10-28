@@ -8,6 +8,7 @@ import {
 } from "@/backend/service/chat/ChatToolCatalog";
 import {
   AGENT_PLAN_READ_OPERATIONS,
+  AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS,
   AGENT_PLAN_WRITE_OPERATIONS,
 } from "@/definition/AgentPlanOperations";
 
@@ -48,6 +49,7 @@ it("offers every plan operation to Pica; changes get an operation ID and need no
   for (const operation of [
     ...AGENT_PLAN_READ_OPERATIONS,
     ...AGENT_PLAN_WRITE_OPERATIONS,
+    ...AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS,
   ]) {
     expect(isChatOperation(operation)).toBe(true);
     expect(describeChatOperations()).toContain(`\`${operation}\``);
@@ -55,6 +57,9 @@ it("offers every plan operation to Pica; changes get an operation ID and need no
   }
   expect(isChatWriteOperation("plans.update")).toBe(true);
   expect(isChatWriteOperation("plans.parameter.remove")).toBe(true);
+  expect(isChatWriteOperation("plans.run.recovery.release")).toBe(true);
+  expect(isChatWriteOperation("plans.run.recovery.restart")).toBe(true);
+  expect(isChatWriteOperation("plans.run.recovery.resume")).toBe(true);
   expect(isChatWriteOperation("plans.runs.list")).toBe(false);
 });
 

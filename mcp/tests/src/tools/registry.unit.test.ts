@@ -35,7 +35,13 @@ const ADDITIVE_TOOL_NAMES = [
   "add_ticket_link",
   "add_wiki_comment",
 ];
-const OPEN_WORLD_TOOL_NAMES = ["play_plan", "resume_plan"];
+const OPEN_WORLD_TOOL_NAMES = [
+  "play_plan",
+  "resume_plan",
+  "release_plan_run",
+  "restart_plan_run",
+  "continue_plan_run",
+];
 const UNJOURNALED_TOOL_NAMES = ["delete_chat_sessions", "prepare_asset_upload"];
 
 describe("tool registries", () => {

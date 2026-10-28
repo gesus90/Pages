@@ -51,6 +51,19 @@ async function deleteSessionJournal(
   );
 }
 
+async function deletePlanRefusals(
+  database: DatabaseTransaction,
+  parameters: { project_id: string },
+): Promise<void> {
+  await database.execute(
+    `
+      DELETE FROM agent_plan_start_rejections
+      WHERE plan_id IN (SELECT id FROM agent_plans WHERE project_id = $project_id);
+    `,
+    parameters,
+  );
+}
+
 /**
  * Deletes the execution plans of a project with their runs, workspaces and imports.
  *
@@ -108,6 +121,7 @@ export async function deleteProjectAgentData(
     "agent_plan_continuations",
     "agent_plan_repair_attempts",
     "agent_plan_recovery_executions",
+    "agent_plan_cleanup_failures",
     "agent_plan_work",
   ] as const)
     await database.execute(
@@ -131,6 +145,7 @@ export async function deleteProjectAgentData(
     `DELETE FROM agent_plan_runs WHERE id IN (${PLAN_RUNS});`,
     parameters,
   );
+  await deletePlanRefusals(database, parameters);
   await database.execute(
     "DELETE FROM agent_plans WHERE project_id = $project_id;",
     parameters,

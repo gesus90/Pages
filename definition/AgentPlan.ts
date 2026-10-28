@@ -35,6 +35,7 @@ import type {
   AgentPlanScript,
   AgentPlanScriptRun,
 } from "./AgentPlanScript";
+import type { AgentPlanScriptAssessment } from "./AgentPlanScriptReport";
 import type {
   AgentPlanRecoveryReason,
   AgentPlanRunOrigin,
@@ -237,16 +238,22 @@ export interface AgentPlanStepResult {
   readonly id: string;
   readonly groupId?: string;
   readonly failedStepId?: string;
+  /** A failed or cancelled predecessor that prevented this waiting node from running. */
+  readonly blockedByStepId?: string;
   readonly name: string;
   readonly status: AgentPlanStepStatus;
   readonly isBlocked: boolean;
   readonly cancellation: "none" | "requested" | "confirmed" | "not_started";
   readonly output: string | null;
   readonly error: string | null;
+  /** Read-only UI projection indicates that displayed text was filtered or shortened. */
+  readonly isDisplayFiltered?: boolean;
   /** Runner, session, process, contract, acceptance and result of an agent node. */
   readonly session?: AgentPlanSessionRecord | null;
   /** A script is an ordinary process, never an agent session. */
   readonly script?: AgentPlanScriptRun;
+  /** A declared script report, separate from process exit and the original output. */
+  readonly report?: AgentPlanScriptAssessment;
   /** Authorized read-time projection, separate from persisted acceptance. */
   readonly progress?: AgentPlanProgress;
 }

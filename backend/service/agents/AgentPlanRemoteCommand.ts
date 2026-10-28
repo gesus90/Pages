@@ -19,6 +19,25 @@ import type { AgentPlanTicketChecklist } from "./AgentPlanTasks";
 
 type CommandBasis = Omit<RunnerExecution, "program" | "timeoutSeconds">;
 
+/** Builds the exact acceptance assignment used by a remote CLI command. */
+export function remotePlanContract(
+  step: AgentPlanStep,
+  tickets: readonly AgentPlanTicketChecklist[],
+): ReturnType<typeof buildPlanContract> {
+  const configuration = step.configuration;
+  const tool = configuration?.runnerRoute?.tool;
+  if (!configuration || !tool) throw new AgentError("plan_context_changed");
+  const options = agentRunOptionsFor(
+    RUNNER_TOOL_PROVIDERS[tool],
+    configuration.template.run,
+  );
+  return buildPlanContract(step.instruction, tickets, {
+    isReadOnly: options.access === "read_only",
+    completion: step.completion,
+    completionGate: step.completionGate,
+  });
+}
+
 /** Resolves only declared text values; remote resource adapters are never invented. */
 export function remoteTextInputs(
   plan: AgentPlan,
@@ -82,11 +101,7 @@ export function remoteModelCommand(
     if (options.access === "workspace_write" || options.browser)
       throw new AgentError("plan_context_changed");
     const isReadOnly = options.access === "read_only";
-    const contract = buildPlanContract(step.instruction, tickets, {
-      isReadOnly,
-      completion: step.completion,
-      completionGate: step.completionGate,
-    });
+    const contract = remotePlanContract(step, tickets);
     const assignment = renderPlanAssignment({
       contract,
       isReadOnly,
@@ -94,9 +109,12 @@ export function remoteModelCommand(
       runnerLabel: route.tool,
       instanceId: step.id,
       directory: basis.workspace,
+      requiresAcceptance: route.tool === "opencode",
+      acceptanceScope: "node",
     });
     return {
       ...basis,
+      resultPayloadVersion: 1,
       timeoutSeconds: options.timeoutMinutes * 60,
       program: {
         kind: "cli",

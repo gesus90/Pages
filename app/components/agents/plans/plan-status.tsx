@@ -6,12 +6,16 @@ import {
   CircleX,
   LoaderCircle,
   LockKeyhole,
+  TriangleAlert,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
-import type { AgentPlanStepStatus } from "@/definition/AgentPlan";
+import type {
+  AgentPlanStepResult,
+  AgentPlanStepStatus,
+} from "@/definition/AgentPlan";
 
 const STATUS_CLASSES: Record<AgentPlanStepStatus, string> = {
   waiting: "border-muted-foreground/30 bg-muted text-muted-foreground",
@@ -26,28 +30,49 @@ const STATUS_CLASSES: Record<AgentPlanStepStatus, string> = {
 export function planStatusClass(
   status: AgentPlanStepStatus,
   isBlocked = false,
+  hasOpenReport = false,
 ): string {
   if (isBlocked)
     return "border-destructive/40 bg-destructive-subtle text-destructive";
+  if (status === "succeeded" && hasOpenReport)
+    return "border-warning/40 bg-warning-subtle text-warning";
   return STATUS_CLASSES[status];
+}
+
+/** A process can complete while its recorded business report stays open. */
+export function hasOpenPlanReport(
+  step: AgentPlanStepResult | undefined,
+): boolean {
+  const verdict = step?.session?.acceptance?.verdict;
+  return (
+    step?.status === "succeeded" &&
+    (verdict === "open" ||
+      verdict === "rejected" ||
+      (step.report !== undefined && step.report.status !== "passed"))
+  );
 }
 
 /** Only a waiting successor is blocked by a predecessor; a failed node names its own block. */
 export function planStatusKey(
   status: AgentPlanStepStatus,
   isBlocked = false,
+  hasOpenReport = false,
 ): string {
-  if (!isBlocked) return `plans.status.${status}`;
-  return status === "waiting" ? "plans.blocked" : "plans.blockedShort";
+  if (isBlocked)
+    return status === "waiting" ? "plans.blocked" : "plans.blockedShort";
+  if (status === "succeeded" && hasOpenReport) return "plans.reportOpen";
+  return `plans.status.${status}`;
 }
 
 /** Supplements color with a distinct icon; motion respects reduced-motion preferences. */
 function PlanStatusIcon({
   status,
   isBlocked,
+  hasOpenReport,
 }: {
   readonly status: AgentPlanStepStatus;
   readonly isBlocked: boolean;
+  readonly hasOpenReport: boolean;
 }): React.ReactElement {
   const statusIcon = {
     waiting: Circle,
@@ -57,7 +82,9 @@ function PlanStatusIcon({
     cancelled: Ban,
     paused: CirclePause,
   }[status];
-  const Icon = isBlocked ? LockKeyhole : statusIcon;
+  let Icon = statusIcon;
+  if (status === "succeeded" && hasOpenReport) Icon = TriangleAlert;
+  if (isBlocked) Icon = LockKeyhole;
   return (
     <Icon
       aria-hidden="true"
@@ -73,29 +100,35 @@ function PlanStatusIcon({
 export function PlanStatusBadge({
   status,
   isBlocked = false,
+  hasOpenReport = false,
   compact = false,
   isConcise = false,
   className,
 }: {
   readonly status: AgentPlanStepStatus;
   readonly isBlocked?: boolean;
+  readonly hasOpenReport?: boolean;
   readonly compact?: boolean;
   readonly isConcise?: boolean;
   readonly className?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const label = t(planStatusKey(status, isBlocked));
+  const label = t(planStatusKey(status, isBlocked, hasOpenReport));
   const visibleLabel = isBlocked && isConcise ? t("plans.blockedShort") : label;
   return (
     <span
       title={label}
       className={cn(
         "relative inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
-        planStatusClass(status, isBlocked),
+        planStatusClass(status, isBlocked, hasOpenReport),
         className,
       )}
     >
-      <PlanStatusIcon status={status} isBlocked={isBlocked} />
+      <PlanStatusIcon
+        status={status}
+        isBlocked={isBlocked}
+        hasOpenReport={hasOpenReport}
+      />
       <span className={compact ? "sr-only" : undefined}>{visibleLabel}</span>
     </span>
   );

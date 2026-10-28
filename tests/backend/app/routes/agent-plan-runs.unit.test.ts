@@ -9,7 +9,11 @@ import { routeArguments } from "../server-lib/route-arguments";
 import type { User } from "@/definition/User";
 
 const services = vi.hoisted(() => ({
-  agentPlanService: { control: vi.fn(), run: vi.fn() },
+  agentPlanService: {
+    control: vi.fn(),
+    run: vi.fn(),
+    startRejections: vi.fn(),
+  },
   runnerService: { observePlan: vi.fn() },
 }));
 
@@ -83,7 +87,7 @@ it("answers an unchanged control state with 304", async () => {
 });
 
 it("polls one run of the executing user", async () => {
-  services.agentPlanService.run.mockResolvedValue({ id: "run-1" });
+  services.agentPlanService.run.mockResolvedValue({ id: "run-1", steps: [] });
 
   const response = await poll("?runId=run-1");
 
@@ -94,7 +98,7 @@ it("polls one run of the executing user", async () => {
   expect(await response.json()).toEqual({
     ok: true,
     intent: "poll-run",
-    run: { id: "run-1" },
+    run: { id: "run-1", steps: [] },
   });
 });
 
@@ -127,4 +131,25 @@ it("refuses a poll without run or plan", async () => {
 
   expect(response.status).toBe(400);
   expect(await response.json()).toMatchObject({ error: "plan_invalid" });
+});
+
+it("reads only the requested own refusal page without observing or starting a runner", async () => {
+  const history = { entry: null, nextBefore: null };
+  services.agentPlanService.startRejections.mockResolvedValue(history);
+  const response = await poll(
+    "?planId=plan-1&startRejections=true&before=entry-2",
+  );
+  expect(services.agentPlanService.startRejections).toHaveBeenCalledWith(
+    EMPLOYEE.id,
+    "plan-1",
+    "entry-2",
+  );
+  expect(await response.json()).toEqual({
+    ok: true,
+    planId: "plan-1",
+    history,
+  });
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(services.agentPlanService.control).not.toHaveBeenCalled();
+  expect(services.runnerService.observePlan).not.toHaveBeenCalled();
 });

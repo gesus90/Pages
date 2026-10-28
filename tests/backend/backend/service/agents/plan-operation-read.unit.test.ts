@@ -236,3 +236,27 @@ it("lists workspaces and the agents of one with their inputs", async () => {
     ).code,
   ).toBe("NOT_FOUND");
 });
+
+it("reports only the visible remote workspace capability facts without tool credentials", async () => {
+  world.remoteStatus.push({
+    workspaceId: "synthetic-remote",
+    problem: null,
+    tools: [],
+    hasModelCatalog: true,
+    hasPagesAccess: true,
+    hasOpenCodeAccess: false,
+    hasExactResultPayload: false,
+  });
+  const sources = (await world.call("owner", "plans.sources.read", {
+    workspaceId: WORKSPACE,
+  })) as AgentPlanSourceList;
+  expect(sources.remoteStatus).toEqual([
+    {
+      workspaceId: "synthetic-remote",
+      problem: null,
+      hasPagesAccess: true,
+      hasOpenCodeAccess: false,
+      hasExactResultPayload: false,
+    },
+  ]);
+});

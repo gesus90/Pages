@@ -8,6 +8,8 @@ import type { PlanGroupNotice } from "./use-plan-group-actions";
 
 function useNoticeText(notice: PlanGroupNotice): string {
   const { t } = useTranslation();
+  if (notice.kind === "repair")
+    return t("plans.groups.frameRepairRequired", { name: notice.name });
   if (notice.kind === "moved")
     return t(`plans.${notice.frame === "loop" ? "loops" : "groups"}.moved`, {
       edges: notice.removedEdges,
@@ -28,7 +30,7 @@ export function PlanGroupNoticeBar(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const text = useNoticeText(props.notice);
-  const isRefusal = props.notice.kind === "refused";
+  const isRefusal = props.notice.kind !== "moved";
   return (
     <div
       role={isRefusal ? "alert" : "status"}

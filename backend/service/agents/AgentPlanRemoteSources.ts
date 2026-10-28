@@ -12,9 +12,16 @@ import type { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpe
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 
 interface SourceDependencies {
-  readonly runners: RunnerService;
-  readonly provider: RunnerOpenRouterService;
-  readonly targets: AgentPlanRemoteTargets;
+  readonly runners: Pick<
+    RunnerService,
+    | "availability"
+    | "catalog"
+    | "supportsPagesAccess"
+    | "supportsOpenCode"
+    | "supportsExactResultPayload"
+  >;
+  readonly provider: Pick<RunnerOpenRouterService, "catalog">;
+  readonly targets: Pick<AgentPlanRemoteTargets, "list" | "choices">;
 }
 
 interface RemoteSources {
@@ -31,9 +38,17 @@ export class AgentPlanRemoteSources {
     this.dependencies = dependencies;
   }
 
-  /** Keeps workspace identities separate even when several targets share one runner catalog. */
-  public async read(userId: string, projectId: string): Promise<RemoteSources> {
-    const targets = await this.dependencies.targets.list(userId, projectId);
+  /** Keeps workspace identities separate and optionally checks only selected targets. */
+  public async read(
+    userId: string,
+    projectId: string,
+    workspaceIds?: readonly string[],
+  ): Promise<RemoteSources> {
+    const visible = await this.dependencies.targets.list(userId, projectId);
+    const selected = workspaceIds ? new Set(workspaceIds) : null;
+    const targets = selected
+      ? visible.filter((target) => selected.has(target.workspaceId))
+      : visible;
     const choices = await this.dependencies.targets.choices(userId);
     const sources = await Promise.all(
       targets.map((target) =>
@@ -74,6 +89,9 @@ export class AgentPlanRemoteSources {
       isToolCatalogCurrent: catalog?.areToolsComplete === true,
       hasPagesAccess: runners.supportsPagesAccess(target.connectionId),
       hasOpenCodeAccess: runners.supportsOpenCode(target.connectionId),
+      hasExactResultPayload: runners.supportsExactResultPayload(
+        target.connectionId,
+      ),
       catalogCheckedAt: catalog?.checkedAt,
       interpreterIds: programs
         .filter((program) => !removed.includes(program.id))

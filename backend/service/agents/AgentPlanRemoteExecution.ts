@@ -1,4 +1,5 @@
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planTargetIssues } from "@/definition/AgentPlanTarget";
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
@@ -14,16 +15,20 @@ import {
   remoteTextInputs,
   remoteScriptCommand,
   remoteModelCommand,
+  remotePlanContract,
 } from "./AgentPlanRemoteCommand";
-import { bindAgentParameters } from "./AgentParameterBinding";
+import { validateRemoteParameterPrompt } from "./AgentPlanRemoteParameters";
 import {
-  remoteParameterResolvers,
-  remoteWorkspaceContext,
-  requireRemotePromptSize,
-  validateRemoteParameterPrompt,
-} from "./AgentPlanRemoteParameters";
+  requireRemoteResultPayload,
+  resolvedRemoteCommand,
+} from "./AgentPlanRemoteResolvedCommand";
 import { AgentPlanRemoteSources } from "./AgentPlanRemoteSources";
 import { remoteTodoChecklists } from "./AgentPlanRemoteChecklist";
+import { isOriginalRemoteJob } from "./AgentPlanRemoteCancellation";
+import {
+  settleRemoteAcceptance,
+  requiresRemoteAcceptance,
+} from "./AgentPlanRemoteAcceptance";
 
 import type {
   AgentPlanRemoteParameters,
@@ -49,12 +54,16 @@ import type { RunnerExecution } from "@/definition/RunnerExecution";
 import type { RunnerJob } from "@/definition/RunnerProtocol";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
+import type { AgentPlanContract } from "@/definition/AgentPlanSession";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { RunnerService } from "@/backend/service/runner/RunnerService";
 import type { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpenRouterService";
-import type { AgentPlanTasks } from "./AgentPlanTasks";
+import type {
+  AgentPlanTasks,
+  AgentPlanTicketChecklist,
+} from "./AgentPlanTasks";
 
 const OBSERVATION_STALE_MILLISECONDS = 45_000;
 
@@ -72,17 +81,33 @@ export interface RemotePlanStep {
   readonly command: RunnerExecution;
   readonly inputs: Readonly<Record<string, string>>;
   readonly parameters?: RemotePlanParameters;
+  /** The exact prompt contract for a remote OpenCode acceptance check. */
+  readonly acceptanceContract?: AgentPlanContract;
 }
 
 interface RemoteExecutionDependencies {
   readonly tasks?: Pick<AgentPlanTasks, "checklist">;
   readonly parameters?: AgentPlanRemoteParameters;
   readonly pages?: RunnerPagesAccessService;
-  readonly targets: AgentPlanRemoteTargets;
-  readonly access: AgentPlanAccess;
-  readonly runners: RunnerService;
-  readonly provider: RunnerOpenRouterService;
-  readonly runs: AgentPlanRunRepository;
+  readonly targets: Pick<AgentPlanRemoteTargets, "list" | "choices">;
+  readonly access: Pick<AgentPlanAccess, "require">;
+  readonly runners: Pick<
+    RunnerService,
+    | "availability"
+    | "catalog"
+    | "supportsPagesAccess"
+    | "supportsOpenCode"
+    | "supportsExactResultPayload"
+    | "supportsAssetFiles"
+    | "ready"
+    | "enqueue"
+    | "cancel"
+    | "progress"
+    | "historyPending"
+    | "contact"
+  >;
+  readonly provider: Pick<RunnerOpenRouterService, "catalog">;
+  readonly runs: Pick<AgentPlanRunRepository, "find">;
 }
 
 interface RemoteClaim {
@@ -105,6 +130,7 @@ export class AgentPlanRemoteExecution {
   public async sources(
     userId: string,
     projectId: string,
+    workspaceIds?: readonly string[],
   ): Promise<{
     readonly models: readonly PageAgentModel[];
     readonly interpreters: readonly AgentPlanInterpreter[];
@@ -113,6 +139,7 @@ export class AgentPlanRemoteExecution {
     return new AgentPlanRemoteSources(this.dependencies).read(
       userId,
       projectId,
+      workspaceIds,
     );
   }
 
@@ -123,7 +150,9 @@ export class AgentPlanRemoteExecution {
     step: AgentPlanStep,
   ): Promise<void> {
     const route = requireRemoteModelRoute(step);
-    const { models, statuses } = await this.sources(userId, plan.projectId);
+    const { models, statuses } = await this.sources(userId, plan.projectId, [
+      route.workspaceId,
+    ]);
     const issues = planTargetIssues(
       {
         name: "",
@@ -173,6 +202,7 @@ export class AgentPlanRemoteExecution {
         throw new AgentError("plan_remote_unavailable");
       });
     let command: RunnerExecution;
+    let acceptanceContract: AgentPlanContract | undefined;
     const parameters = await this.prepareParameters(userId, {
       plan,
       step,
@@ -206,6 +236,12 @@ export class AgentPlanRemoteExecution {
         projectId: plan.projectId,
       });
       command = remoteModelCommand(step, basis, tickets);
+      acceptanceContract = remoteAcceptanceContract(step, command, tickets);
+      requireRemoteResultPayload(command, () =>
+        this.dependencies.runners.supportsExactResultPayload(
+          target.connectionId,
+        ),
+      );
       if (parameters && command.program.kind !== "script")
         await validateRemoteParameterPrompt(
           step,
@@ -228,6 +264,7 @@ export class AgentPlanRemoteExecution {
       command: runnerExecutionSchema.parse(command),
       inputs,
       ...(parameters ? { parameters } : {}),
+      ...(acceptanceContract ? { acceptanceContract } : {}),
     };
   }
 
@@ -275,7 +312,10 @@ export class AgentPlanRemoteExecution {
           target: remote.target,
         },
       );
-    const command = await resolvedCommand(run, remote);
+    const command = await resolvedRemoteCommand(run, remote);
+    requireRemoteResultPayload(command, () =>
+      this.dependencies.runners.supportsExactResultPayload(target.connectionId),
+    );
     let result: Partial<AgentPlanStepResult>;
     try {
       await this.dependencies.pages?.open(run, remote, execution.attemptId);
@@ -297,10 +337,19 @@ export class AgentPlanRemoteExecution {
     }
     // Closeout changes persisted access metadata; continuation compares the exact durable view.
     const current = await this.dependencies.runs.find(run.id);
-    return completedGatedRemote(
+    const completed = completedGatedRemote(
       remote,
       current?.steps.find((step) => step.id === remote.step.id) ?? result,
     );
+    return settleRemoteAcceptance({
+      remote,
+      run,
+      result: completed,
+      tasks: this.dependencies.tasks,
+      projectId: async () =>
+        (await this.dependencies.access.require(run.userId, run.planId))
+          .projectId,
+    });
   }
 
   /** Rechecks remote resource access before disclosing historical output, without requiring online status. */
@@ -325,13 +374,17 @@ export class AgentPlanRemoteExecution {
   public async stop(run: AgentPlanRun): Promise<void> {
     for (const step of allPlanRunResults(run)) {
       const execution = step.execution;
-      if (execution?.target.kind !== "remote") continue;
+      if (
+        execution?.target.kind !== "remote" ||
+        !isRemoteCloseoutUnconfirmed(step)
+      )
+        continue;
       const job = await this.dependencies.runners.progress(
         execution.target.connectionId,
         run.id,
         execution.attemptId,
       );
-      if (job)
+      if (isOriginalRemoteJob(run, step, job))
         await this.dependencies.runners.cancel(
           execution.target.connectionId,
           job.jobId,
@@ -424,7 +477,7 @@ export class AgentPlanRemoteExecution {
       if (!step) throw new AgentError("plan_context_changed");
       if (
         remote.step.type === "agent" &&
-        remote.step.completionGate &&
+        (remote.step.completionGate || requiresRemoteAcceptance(remote)) &&
         step.remote?.status === "completed"
       )
         return completedGatedRemote(remote, step);
@@ -478,6 +531,18 @@ export class AgentPlanRemoteExecution {
   }
 }
 
+/** Captures only the acceptance contract that must be checked before remote OpenCode succeeds. */
+function remoteAcceptanceContract(
+  step: AgentPlanStep,
+  command: RunnerExecution,
+  tickets: readonly AgentPlanTicketChecklist[],
+): AgentPlanContract | undefined {
+  return command.program.kind === "cli" &&
+    command.program.route.tool === "opencode"
+    ? remotePlanContract(step, tickets)
+    : undefined;
+}
+
 /** Only the engine may turn this provisional runner result into accepted, checkpointed success. */
 function completedGatedRemote(
   remote: RemotePlanStep,
@@ -485,7 +550,7 @@ function completedGatedRemote(
 ): Partial<AgentPlanStepResult> {
   if (
     remote.step.type !== "agent" ||
-    !remote.step.completionGate ||
+    (!remote.step.completionGate && !requiresRemoteAcceptance(remote)) ||
     step.status !== "running" ||
     step.remote?.status !== "completed"
   )
@@ -505,68 +570,6 @@ function isObservationStale(job: RunnerJob): boolean {
     !Number.isFinite(observedAt) ||
     Date.now() - observedAt > OBSERVATION_STALE_MILLISECONDS
   );
-}
-
-async function resolvedCommand(
-  run: AgentPlanRun,
-  remote: RemotePlanStep,
-): Promise<RunnerExecution> {
-  const inputs = { ...remote.inputs };
-  for (const [name, binding] of Object.entries(remote.step.bindings)) {
-    if (binding.kind !== "result") continue;
-    const result = run.steps.find((entry) => entry.id === binding.stepId);
-    if (result?.status !== "succeeded" || result.output === null)
-      throw new AgentError("plan_binding_invalid");
-    inputs[name] = result.output;
-  }
-  const command = remote.command;
-  if (command.program.kind === "script")
-    return {
-      ...command,
-      revision: run.planRevision,
-      sourceRevision: command.revision,
-      input: JSON.stringify(inputs),
-    };
-  if (remote.step.type !== "agent")
-    throw new AgentError("configuration_invalid");
-  const configuration = remote.step.configuration;
-  if (!configuration) throw new AgentError("configuration_invalid");
-  const bound = await bindAgentParameters(
-    { ...configuration.template, markdown: command.program.prompt },
-    {
-      ...remote.parameters?.values,
-      ...Object.fromEntries(
-        Object.entries(inputs)
-          .filter(
-            ([name]) =>
-              !remote.parameters ||
-              remote.parameters.values[name]?.type === "text",
-          )
-          .map(([name, text]) => [name, { type: "text", text }]),
-      ),
-    },
-    remoteParameterResolvers(
-      remote.parameters ?? {
-        values: {},
-        tickets: {},
-        wiki: {},
-        workspaces: {},
-        resources: [],
-        assets: [],
-      },
-    ),
-  );
-  const prompt = bound.markdown + remoteWorkspaceContext(remote.parameters);
-  requireRemotePromptSize(remote.step, prompt);
-  return {
-    ...command,
-    revision: run.planRevision,
-    sourceRevision: command.revision,
-    program: {
-      ...command.program,
-      prompt,
-    },
-  };
 }
 
 /** Dispatches every explicit remote selection through the same contract, or refuses it. */

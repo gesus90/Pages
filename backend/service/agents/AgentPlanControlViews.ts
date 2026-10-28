@@ -81,7 +81,23 @@ export async function readPlanControlEntry(
       ),
     },
     ...startIssues(plan, control),
+    ...workspaceDetails(plan, control),
     ...readableRunMetadata(run),
+  };
+}
+
+function workspaceDetails(
+  plan: AgentPlanView,
+  control: AgentPlanControl,
+): Pick<AgentPlanControlEntry, "workspaceConflict" | "lastStartRejection"> {
+  if (!plan.canEdit) return {};
+  return {
+    ...(control.workspaceConflict
+      ? { workspaceConflict: control.workspaceConflict }
+      : {}),
+    ...(control.lastStartRejection
+      ? { lastStartRejection: control.lastStartRejection }
+      : {}),
   };
 }
 

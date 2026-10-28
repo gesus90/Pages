@@ -12,7 +12,6 @@ import { PlanFlowEdgeView } from "./plan-flow-edge";
 import { planFlowEdges, planFlowNodes } from "./plan-flow-model";
 import { PlanGroupNoticeBar } from "./plan-group-notice";
 import { PlanGroupRemoval } from "./plan-group-removal";
-import { PLAN_GRID } from "./plan-layout";
 import { PlanNodeCard } from "./plan-node-card";
 import { PlanRunStatus } from "./plan-run-status";
 import { PlanNodePalette } from "./plan-node-palette";
@@ -176,8 +175,6 @@ function PlanFlowGraph({
       zoomOnDoubleClick={false}
       minZoom={0.01}
       maxZoom={2}
-      snapToGrid
-      snapGrid={[PLAN_GRID, PLAN_GRID]}
       defaultViewport={{ x: 40, y: 80, zoom: 1 }}
       fitView
       fitViewOptions={PLAN_FIT_VIEW}

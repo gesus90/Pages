@@ -54,7 +54,7 @@ const PLAN = {
   edges: [],
   globals: {},
 };
-const RUN = { id: "run-1", planRevision: 4 };
+const RUN = { id: "run-1", planRevision: 4, steps: [] };
 const INVALID = { status: 400, body: { ok: false, error: "plan_invalid" } };
 
 beforeEach(() => {
@@ -259,16 +259,20 @@ it("refuses a play without a valid revision", async () => {
 });
 
 it("stops, pauses and resumes a run", async () => {
-  service.stop.mockResolvedValue({ id: "run-1", state: "stopped" });
-  service.pause.mockResolvedValue({ id: "run-1", state: "paused" });
-  service.resume.mockResolvedValue({ id: "run-1", state: "running" });
+  service.stop.mockResolvedValue({ id: "run-1", state: "stopped", steps: [] });
+  service.pause.mockResolvedValue({ id: "run-1", state: "paused", steps: [] });
+  service.resume.mockResolvedValue({
+    id: "run-1",
+    state: "running",
+    steps: [],
+  });
 
   await expect(post({ intent: "stop-plan", runId: "run-1" })).resolves.toEqual({
     status: 200,
     body: {
       ok: true,
       intent: "stop-plan",
-      run: { id: "run-1", state: "stopped" },
+      run: { id: "run-1", state: "stopped", steps: [] },
     },
   });
   await expect(

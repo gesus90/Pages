@@ -65,16 +65,13 @@ function overlaps(first, second) {
   );
 }
 
-async function isLeaseActive(lease) {
+/** Keeps a working copy reserved until its original worker has closed out. */
+export async function isLeaseActive(lease) {
   const launch = await readRecord(join(lease.folder, "launch.json"));
   if (launch && (await identity(launch.processId)) === launch.identity)
     return true;
   const result = await readRecord(join(lease.folder, "result.json"));
-  if (result) return result.result?.closeout !== "confirmed";
-  return (
-    Date.now() - lease.createdAt < 10000 &&
-    (await identity(lease.processId)) === lease.identity
-  );
+  return result?.result?.closeout !== "confirmed";
 }
 
 async function activeLeases() {
@@ -160,7 +157,8 @@ export async function releaseJob(job) {
   if (
     lease?.jobId === job.jobId &&
     lease.sessionId === job.sessionId &&
-    lease.attemptId === job.plan.attemptId
+    lease.attemptId === job.plan.attemptId &&
+    !(await isLeaseActive(lease))
   )
     await rm(path, { force: true });
 }

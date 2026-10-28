@@ -11,7 +11,7 @@ import {
   createPlanNode,
   createPlanScript,
   planInsertPosition,
-  snapPlanCoordinate,
+  boundedPlanCoordinate,
 } from "./plan-node-factory";
 
 import type { Dispatch, SetStateAction } from "react";
@@ -149,8 +149,8 @@ export function usePlanNodeInsertion(
     const at = position ?? planInsertPosition(draft);
     const placed = {
       ...node,
-      x: snapPlanCoordinate(at.x),
-      y: snapPlanCoordinate(at.y),
+      x: boundedPlanCoordinate(at.x),
+      y: boundedPlanCoordinate(at.y),
     };
     const group = findFrame(draft, groupId);
     if (!admits(placed, group)) return null;
@@ -216,8 +216,8 @@ function memberOffset(
 ): AgentPlanPosition {
   const origin = planMemberOrigin(group);
   return {
-    x: snapPlanCoordinate(position.x - origin.x),
-    y: snapPlanCoordinate(position.y - origin.y),
+    x: boundedPlanCoordinate(position.x - origin.x),
+    y: boundedPlanCoordinate(position.y - origin.y),
   };
 }
 

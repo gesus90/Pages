@@ -448,10 +448,7 @@ async function startMcpWorkspace(context: {
     readonly administration: AdministrationService;
   };
   /** The agent services, with the plan service MCP clients and the chat use. */
-  readonly agents: AgentApplicationServices & {
-    readonly agentPlanService: AgentPlanService;
-    readonly agentPlanRecoveryService: AgentPlanRecoveryService;
-  };
+  readonly agents: AgentApplicationServices & AgentPlanServices;
   readonly wiki: WikiService;
   /** The ticket services, whose GitHub synchronization and event publisher the workspace shares. */
   readonly tasks: Pick<
@@ -479,6 +476,7 @@ async function startMcpWorkspace(context: {
     pageAgents: context.agents.pageAgentService,
     plans: context.agents.agentPlanService,
     planRecovery: context.agents.agentPlanRecoveryService,
+    planSessions: context.agents.agentSessionService,
     events: context.tasks.pagesEventPublisher,
   });
   startWikiMaintenanceScheduler(context.wiki, services.agentAssetService);

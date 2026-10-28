@@ -2,11 +2,16 @@ import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { RUNNER_TOOL_PROVIDERS } from "@/definition/RunnerExecution";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
+import { readPlanContract } from "@/backend/agents/AgentPlanSessionInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { buildPlanContract } from "./AgentPlanContract";
 import { evaluatePlanAcceptance } from "./AgentPlanAcceptance";
 import type { RemotePlanStep } from "./AgentPlanRemoteExecution";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  AgentPlanAcceptance,
+  AgentPlanContract,
+} from "@/definition/AgentPlanSession";
 import type { RunnerExecution } from "@/definition/RunnerExecution";
 
 /** Builds CLI diagnostics in the event transaction, before immutable completion is checkpointed. */
@@ -28,12 +33,27 @@ export function recordRemoteAgentResult(
   );
   const step = readPlanNode(readAgentObject(pinned).step);
   if (step.type !== "agent") throw new Error("Remote CLI node missing");
-  return remoteAgentResult({ step, target, command }, result);
+  const acceptanceContract = pinnedContract(pinned);
+  return remoteAgentResult(
+    { step, target, command, acceptanceContract },
+    result,
+  );
+}
+
+/** Invalid or legacy snapshots remain diagnosable, but cannot prove acceptance. */
+function pinnedContract(pinned: unknown): ReturnType<typeof readPlanContract> {
+  try {
+    return readPlanContract(readAgentObject(pinned).acceptanceContract);
+  } catch {
+    return null;
+  }
 }
 
 /** Stores the ordinary diagnostic report for a one-shot remote CLI session. */
 function remoteAgentResult(
-  remote: Pick<RemotePlanStep, "step" | "target" | "command">,
+  remote: Pick<RemotePlanStep, "step" | "target" | "command"> & {
+    readonly acceptanceContract: ReturnType<typeof readPlanContract>;
+  },
   result: AgentPlanStepResult,
 ): AgentPlanStepResult {
   const progress = result.remote;
@@ -44,17 +64,20 @@ function remoteAgentResult(
   if (!program.route.tool) return result;
   const runner = RUNNER_TOOL_PROVIDERS[program.route.tool];
   const options = agentRunOptionsFor(runner, node.configuration?.template.run);
-  const contract = buildPlanContract(node.instruction, [], {
+  const diagnosticContract = buildPlanContract(node.instruction, [], {
     isReadOnly: options.access === "read_only",
     completion: node.completion,
     completionGate: node.completionGate,
   });
-  const acceptance = evaluatePlanAcceptance(contract, result.output ?? "", {
-    checked: new Map(),
-    unreadable: [],
-    changed: [],
-    isCheckRequired: false,
-  });
+  const contract =
+    program.route.tool === "opencode"
+      ? remote.acceptanceContract
+      : diagnosticContract;
+  const acceptance = diagnosticAcceptance(
+    contract,
+    program.route.tool,
+    result.output,
+  );
   return {
     ...result,
     session: {
@@ -95,6 +118,20 @@ function remoteAgentResult(
       events: [],
     },
   };
+}
+
+function diagnosticAcceptance(
+  contract: AgentPlanContract | null,
+  tool: string,
+  output: string | null,
+): AgentPlanAcceptance | null {
+  if (!contract || tool === "opencode") return null;
+  return evaluatePlanAcceptance(contract, output ?? "", {
+    checked: new Map(),
+    unreadable: [],
+    changed: [],
+    isCheckRequired: false,
+  });
 }
 
 function remoteResultCode(result: AgentPlanStepResult): 0 | -1 | null {

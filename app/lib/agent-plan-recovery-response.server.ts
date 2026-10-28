@@ -19,6 +19,7 @@ const RECOVERY_STATUS: Readonly<Record<AgentPlanRecoveryErrorCode, number>> = {
   checkpoint_too_large: 413,
   review_required: 409,
   cleanup_unconfirmed: 409,
+  diagnostic_unavailable: 503,
   native_resume_unavailable: 409,
 };
 
@@ -26,7 +27,13 @@ const RECOVERY_STATUS: Readonly<Record<AgentPlanRecoveryErrorCode, number>> = {
 export function planRecoveryFailure(error: unknown): Response {
   if (error instanceof AgentPlanRecoveryError)
     return Response.json(
-      { ok: false, error: error.code },
+      {
+        ok: false,
+        error: error.code,
+        ...(error.code === "cleanup_unconfirmed" && error.cleanupFailure
+          ? { cleanupFailure: error.cleanupFailure }
+          : {}),
+      },
       { status: RECOVERY_STATUS[error.code], headers: AGENT_NO_STORE },
     );
   if (error instanceof AgentOperationError)

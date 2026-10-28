@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import { PlanNodeCard } from "@/app/components/agents/plans/plan-node-card";
 
 import { SOURCES } from "../page61-plan-fixture";
-import { runStep, syntheticRun } from "../page72-run-fixture";
+import { runStep, syntheticRun, syntheticSession } from "../page72-run-fixture";
 import {
   agentStep,
   flowContext,
@@ -127,6 +127,20 @@ it("shows an agent with the status of its newest loop iteration", () => {
   renderCard(member, { run });
   const card = screen.getByRole("article", { name: "Reviewer" });
   expect(card.textContent).toContain(i18n.t("plans.status.failed"));
+});
+
+it("shows an open business report on the agent whose execution completed", () => {
+  const node = { ...agentStep("reviewer"), agentId: "reviewer" };
+  const run = {
+    ...syntheticRun(),
+    steps: [
+      runStep(node.id, { status: "succeeded", session: syntheticSession() }),
+    ],
+  };
+  renderCard(node, { run });
+  const card = screen.getByRole("article", { name: "Reviewer" });
+  expect(card.className).toContain("text-warning");
+  expect(card.textContent).toContain(i18n.t("plans.reportOpen"));
 });
 
 it("renders a script card", () => {

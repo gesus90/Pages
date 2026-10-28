@@ -88,6 +88,16 @@ it.each<[string, ActionsOptions, string]>([
     "plans.panel.blockedHint",
   ],
   [
+    "a reserved workspace",
+    {
+      control: planControl({
+        issue: "plan_workspace_conflict",
+        canPlay: false,
+      }),
+    },
+    "settings.agents.error.plan_workspace_conflict",
+  ],
+  [
     "findings",
     {
       control: planControl({

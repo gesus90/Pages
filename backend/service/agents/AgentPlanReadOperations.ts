@@ -2,7 +2,7 @@ import { AGENT_READ_LIMITS } from "@/definition/AgentReadChunks";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 
-import { chunkAgentRead } from "./AgentReadChunking";
+import { chunkPlanRead } from "./AgentPlanReadChunking";
 import { pageAgentEntries } from "./AgentCursor";
 import {
   readPlanListRequest,
@@ -172,7 +172,7 @@ export class AgentPlanReadOperations {
       this.plans.runEntries(userId, plan.id, "newest"),
     ]);
     const control = await this.plans.control?.(userId, plan.id);
-    return chunkAgentRead(
+    return chunkPlanRead(
       {
         plan: planDetail(plan, {
           directory,
@@ -216,6 +216,17 @@ export class AgentPlanReadOperations {
       agents: (sources?.agents ?? []).map(agentEntry),
       models: sources?.models ?? [],
       remoteTargets: sources?.remoteTargets ?? [],
+      ...(sources?.remoteStatus
+        ? {
+            remoteStatus: sources.remoteStatus.map((status) => ({
+              workspaceId: status.workspaceId,
+              problem: status.problem,
+              hasPagesAccess: status.hasPagesAccess === true,
+              hasOpenCodeAccess: status.hasOpenCodeAccess === true,
+              hasExactResultPayload: status.hasExactResultPayload === true,
+            })),
+          }
+        : {}),
       limits: {
         nodes: AGENT_READ_LIMITS.planNodes,
         edges: 500,

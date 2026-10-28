@@ -400,7 +400,8 @@ export function cliOutput(command, stdout) {
   } catch {
     return "";
   }
-  return answer ? `${remoteBanner(command.workspace)}${answer}` : "";
+  if (!answer || command.resultPayloadVersion === 1) return answer;
+  return `${remoteBanner(command.workspace)}${answer}`;
 }
 
 /** The stable cause an OpenCode node names for its failure; other tools name none. */

@@ -9,6 +9,7 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { planPollingResponse } from "@/app/lib/agent-plan-poll-response.server";
+import { displayPlanRun } from "@/app/lib/agent-plan-display.server";
 
 import type { Route } from "./+types/agent-plan-runs";
 
@@ -25,6 +26,19 @@ export async function loader({
     const services = await getApplicationServices();
     if (query.has("planId")) {
       const planId = readPlanText(query.get("planId"));
+      if (query.get("startRejections") === "true")
+        return Response.json(
+          {
+            ok: true,
+            planId,
+            history: await services.agentPlanService.startRejections(
+              user.id,
+              planId,
+              query.has("before") ? readPlanText(query.get("before")) : null,
+            ),
+          },
+          { headers: AGENT_NO_STORE },
+        );
       const control = await services.agentPlanService.control(user.id, planId);
       const observation = request.headers.get("X-Plan-Observation");
       if (observation === "open" || observation === "renew")
@@ -39,7 +53,7 @@ export async function loader({
     return planPollingResponse(request, {
       ok: true,
       intent: "poll-run",
-      run: await services.agentPlanService.run(user.id, runId),
+      run: displayPlanRun(await services.agentPlanService.run(user.id, runId)),
     });
   } catch (error: unknown) {
     logCaughtError("agent_plan_runs", error);

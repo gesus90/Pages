@@ -35,6 +35,7 @@ it("reads the executor's current checklist and puts real ticket IDs into a remot
     tickets,
   );
   if (command.program.kind !== "cli") throw new Error("Expected a CLI command");
+  expect(command.resultPayloadVersion).toBe(1);
   expect(command.program.prompt).toContain("SYN-ticket (ID `ticket`)");
   expect(command.program.prompt).toContain(ticket.checklist.items[0]?.id);
   expect(command.program.prompt).toContain("Implement the actual ticket");
@@ -53,6 +54,51 @@ it("keeps report-mode remote commands independent of new checklist reads", async
   });
   expect(result).toEqual([]);
   expect(checklist).not.toHaveBeenCalled();
+});
+
+it("includes current bound ticket requirements for a remote OpenCode report", async () => {
+  const ticket = progressTicket("- [ ] Inspect the actual ticket");
+  const checklist = vi.fn(async () => ticket);
+  const base = remoteTodoStep();
+  if (!base.configuration?.runnerRoute) throw new Error("Expected a route");
+  const step = {
+    ...base,
+    completion: "report" as const,
+    configuration: {
+      ...base.configuration,
+      provider: "opencode" as const,
+      runnerRoute: {
+        ...base.configuration.runnerRoute,
+        tool: "opencode" as const,
+      },
+    },
+  };
+  const tickets = await remoteTodoChecklists({
+    step,
+    parameters: remoteTodoParameters(),
+    tasks: { checklist },
+    userId: "executor",
+    projectId: "project",
+  });
+  const command = remoteModelCommand(
+    step,
+    {
+      version: 1,
+      revision: 1,
+      workspace: "/remote/authorized",
+      outputBytes: 65536,
+      input: "{}",
+    },
+    tickets,
+  );
+  if (command.program.kind !== "cli") throw new Error("Expected a CLI command");
+  expect(checklist).toHaveBeenCalledExactlyOnceWith(
+    "executor",
+    "project",
+    "ticket",
+  );
+  expect(command.program.prompt).toContain("Inspect the actual ticket");
+  expect(command.program.prompt).toContain("requires business acceptance");
 });
 
 it("retains an empty planning list without inventing T1/K1 ticket tasks", async () => {

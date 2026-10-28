@@ -1,8 +1,11 @@
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import { scriptAssessmentVerdict } from "@/definition/AgentPlanScriptReport";
+import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
 import { sharingEntry } from "./PageAgentOperationDefinition";
+import { sanitizeArtifactText } from "./AgentPlanOutput";
 
 import type { AgentPlanRunEntry } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
@@ -179,6 +182,7 @@ export function planDetail(
   );
   return {
     ...planBase(plan, context.directory),
+    executionTarget: plan.executionTarget ?? null,
     // The status comes before the graph, so a chat that shortens a long plan keeps it.
     status: {
       ...planState(plan, context.entries),
@@ -219,6 +223,13 @@ export function hasReport(step: AgentPlanStepResult): boolean {
   );
 }
 
+/** Includes a recorded dependency cause without inventing one for older runs. */
+function blockedBy(
+  step: AgentPlanStepResult,
+): Pick<AgentPlanRunStepEntry, "blockedByStepId"> {
+  return step.blockedByStepId ? { blockedByStepId: step.blockedByStepId } : {};
+}
+
 function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
   const { session } = step;
   return {
@@ -227,11 +238,29 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
     name: step.name,
     status: step.status,
     isBlocked: step.isBlocked,
+    ...blockedBy(step),
     error: step.error,
-    verdict: session?.acceptance?.verdict ?? null,
-    startedAt: step.script?.startedAt ?? session?.startedAt ?? null,
-    endedAt: step.script?.endedAt ?? session?.endedAt ?? null,
+    verdict:
+      session?.acceptance?.verdict ?? scriptAssessmentVerdict(step.report),
+    ...stepTimes(step),
     hasReport: hasReport(step),
+  };
+}
+
+function stepTimes(
+  step: AgentPlanStepResult,
+): Pick<AgentPlanRunStepEntry, "startedAt" | "endedAt"> {
+  return {
+    startedAt:
+      step.script?.startedAt ??
+      step.session?.startedAt ??
+      step.remote?.startedAt ??
+      null,
+    endedAt:
+      step.script?.endedAt ??
+      step.session?.endedAt ??
+      step.remote?.endedAt ??
+      null,
   };
 }
 
@@ -240,7 +269,7 @@ function runEnd(run: AgentPlanRun): string | null {
   if (isActivePlanRun(run.status)) return null;
   if (run.endedAt) return run.endedAt;
   const ends = run.steps.flatMap((step) => {
-    const endedAt = step.script?.endedAt ?? step.session?.endedAt;
+    const { endedAt } = stepTimes(step);
     return endedAt ? [endedAt] : [];
   });
   return ends.sort().at(-1) ?? null;
@@ -282,10 +311,13 @@ export function stepReport(
   const status = stepStatus(step);
   const contract = step.session?.contract ?? null;
   const acceptance = step.session?.acceptance ?? null;
+  const output =
+    step.output === null ? null : sanitizeArtifactText(step.output);
   const text = (
     items: NonNullable<typeof contract>["todos"],
     id: string,
-  ): string => items.find((item) => item.id === id)?.text ?? "";
+  ): string =>
+    sanitizeArtifactText(items.find((item) => item.id === id)?.text ?? "");
   return {
     runId: run.id,
     planId: run.planId,
@@ -294,10 +326,12 @@ export function stepReport(
     status: step.status,
     startedAt: status.startedAt,
     endedAt: status.endedAt,
-    output: step.output,
+    output,
+    isOutputFiltered: output !== step.output,
     error: step.error,
+    ...blockedBy(step),
     verdict: status.verdict,
-    summary: acceptance?.summary ?? null,
+    ...reportDetails(step),
     todos: (acceptance?.todos ?? []).map((todo) => ({
       id: todo.id,
       text: text(contract?.todos ?? [], todo.id),
@@ -307,22 +341,46 @@ export function stepReport(
       id: criterion.id,
       text: text(contract?.criteria ?? [], criterion.id),
       met: criterion.met,
-      evidence: criterion.evidence,
+      evidence: sanitizeArtifactText(criterion.evidence),
     })),
-    decisions: acceptance?.decisions ?? [],
-    issues: acceptance?.issues ?? [],
+    decisions: (acceptance?.decisions ?? []).map(sanitizeArtifactText),
   };
+}
+
+function reportDetails(
+  step: AgentPlanStepResult,
+): Pick<AgentPlanReport, "summary" | "issues"> {
+  const summary =
+    step.session?.acceptance?.summary ?? step.report?.summary ?? null;
+  return {
+    summary: summary === null ? null : sanitizeArtifactText(summary),
+    issues: (step.session?.acceptance?.issues ?? scriptReportIssues(step)).map(
+      sanitizeArtifactText,
+    ),
+  };
+}
+
+function scriptReportIssues(step: AgentPlanStepResult): readonly string[] {
+  if (!step.report) return [];
+  return [
+    ...(step.report.failedCount
+      ? [`checks_failed:${step.report.failedCount}`]
+      : []),
+    ...(step.report.partialCount
+      ? [`checks_partial:${step.report.partialCount}`]
+      : []),
+  ];
 }
 
 function stepExecutionIdentity(
   step: AgentPlanStepResult,
 ): Pick<AgentPlanRunStepEntry, "execution" | "attemptId"> {
-  if (!step.execution) return {};
+  const attemptId =
+    step.script?.attemptId ??
+    (step.session ? sessionAttemptId(step.session, step.id) : undefined) ??
+    step.execution?.attemptId;
   return {
-    execution: step.execution,
-    attemptId:
-      step.script?.attemptId ??
-      step.session?.attemptId ??
-      step.execution.attemptId,
+    ...(step.execution ? { execution: step.execution } : {}),
+    ...(attemptId ? { attemptId } : {}),
   };
 }

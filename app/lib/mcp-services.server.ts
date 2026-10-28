@@ -62,6 +62,7 @@ import type { AgentTicketPublisher } from "@/backend/service/agents/AgentTicketA
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
+import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { PageAgentService } from "@/backend/service/agents/PageAgentService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { Database } from "@/backend/database/Database";
@@ -118,6 +119,7 @@ function createWikiOperations(
 interface RouterContext extends Omit<OperationContext, "channel"> {
   readonly directory: string;
   readonly planRecovery?: AgentPlanRecoveryService;
+  readonly planSessions?: AgentSessionService;
   readonly users: Pick<UserService, "getById">;
   /** The plan service of the plan page; MCP clients and the chat use it alike. */
   readonly plans: AgentPlanService;
@@ -163,6 +165,7 @@ function createMcpOperationRouter(
       database: context.database,
       plans: context.plans,
       resources: {
+        sessions: context.planSessions,
         recovery: context.planRecovery,
         plans: context.plans,
         templates: new AgentPlanTemplateService({
@@ -215,6 +218,7 @@ function createChatOperationRouter(
       database: context.database,
       plans: context.plans,
       resources: {
+        sessions: context.planSessions,
         recovery: context.planRecovery,
         plans: context.plans,
         templates: new AgentPlanTemplateService({
@@ -376,29 +380,33 @@ function createBinaryAssetServices(input: {
   };
 }
 
+/** Services and storage context shared by the personal MCP and chat routers. */
+interface McpWorkspace {
+  readonly directory: string;
+  readonly wikiService: Pick<WikiService, "getSettings" | "openAttachment">;
+  /** What reacts to a committed ticket change; without it nothing is published or invalidated. */
+  readonly tickets?: {
+    readonly cache: ServerCache;
+    readonly publisher: AgentTicketPublisher | null;
+  };
+  /** The agent workspace registry; MCP clients manage workspaces through it. */
+  readonly agentWorkspaces: AgentWorkspaceService;
+  /** The user-agent management shared by MCP clients and the signed-in chat. */
+  readonly pageAgents: PageAgentService;
+  /** The agent plans shared by MCP clients and the signed-in chat. */
+  readonly plans: AgentPlanService;
+  readonly planRecovery?: AgentPlanRecoveryService;
+  readonly planSessions?: AgentSessionService;
+  /** The publisher the interface announces its changes on too; a new one by default. */
+  readonly events?: PagesEventPublisher;
+}
+
 /** Wires the API/services/repositories without opening another database or reading credential files. */
 export function createMcpServices(
   database: Database,
   users: Pick<UserService, "getById">,
   administration: Pick<AdministrationService, "getContext">,
-  workspace: {
-    readonly directory: string;
-    readonly wikiService: Pick<WikiService, "getSettings" | "openAttachment">;
-    /** What reacts to a committed ticket change; without it nothing is published or invalidated. */
-    readonly tickets?: {
-      readonly cache: ServerCache;
-      readonly publisher: AgentTicketPublisher | null;
-    };
-    /** The agent workspace registry; MCP clients manage workspaces through it. */
-    readonly agentWorkspaces: AgentWorkspaceService;
-    /** The user-agent management shared by MCP clients and the signed-in chat. */
-    readonly pageAgents: PageAgentService;
-    /** The agent plans shared by MCP clients and the signed-in chat. */
-    readonly plans: AgentPlanService;
-    readonly planRecovery?: AgentPlanRecoveryService;
-    /** The publisher the interface announces its changes on too; a new one by default. */
-    readonly events?: PagesEventPublisher;
-  },
+  workspace: McpWorkspace,
 ): McpApplicationServices {
   const identities = new AgentIdentityService(users, administration);
   const { personalAgentTokenService, pairingService } =
@@ -434,6 +442,7 @@ export function createMcpServices(
     users,
     plans: workspace.plans,
     planRecovery: workspace.planRecovery,
+    planSessions: workspace.planSessions,
     publisher: workspace.tickets?.publisher ?? null,
     chatSessions: createChatSessionOperations({
       database,

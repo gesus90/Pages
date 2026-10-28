@@ -72,17 +72,13 @@ export class CliTerminalResult {
     }
   }
 
-  /** Returns only a confirmed, bounded final answer, preserving the existing remote provenance banner. */
+  /** Returns only a confirmed, bounded final answer for its negotiated contract. */
   result() {
     if (!this.#terminal)
       return { output: "", reason: "protocol", terminal: undefined };
     if (this.#hasOversizedAnswer)
       return { output: "", reason: "result_limit", terminal: this.#terminal };
-    const output = this.#redact(
-      this.#answer
-        ? `${remoteBanner(this.#command.workspace)}${this.#answer}`
-        : "",
-    );
+    const output = this.#redact(this.#payload());
     return {
       output,
       reason:
@@ -112,6 +108,12 @@ export class CliTerminalResult {
       Buffer.byteLength(answer) > this.#command.outputBytes;
     this.#answer =
       typeof answer === "string" && !this.#hasOversizedAnswer ? answer : "";
+  }
+
+  #payload() {
+    if (!this.#answer) return "";
+    if (this.#command.resultPayloadVersion === 1) return this.#answer;
+    return `${remoteBanner(this.#command.workspace)}${this.#answer}`;
   }
 
   #codex(event) {
@@ -160,11 +162,11 @@ export class CliTerminalResult {
     const wasOversized = this.#hasOversizedAnswer;
     this.#candidate(receipt.answer);
     this.#hasOversizedAnswer ||= wasOversized;
-    const output = this.#answer
-      ? `${remoteBanner(this.#command.workspace)}${this.#answer}`
-      : "";
+    const output = this.#payload();
+    const redacted = this.#redact(output);
     this.#hasOversizedAnswer ||=
-      Buffer.byteLength(output) > this.#command.outputBytes;
+      Buffer.byteLength(output) > this.#command.outputBytes ||
+      Buffer.byteLength(redacted) > this.#command.outputBytes;
     this.#terminal = {
       version: 1,
       provider: this.#command.program.route.tool,
@@ -173,7 +175,7 @@ export class CliTerminalResult {
       status: receipt.status,
       usage: receipt.usage,
       eventDigest,
-      answerDigest: digest(this.#redact(output)),
+      answerDigest: digest(redacted),
     };
   }
 }

@@ -93,9 +93,25 @@ it("keeps a removed connection and a removed node with its connections removed a
 });
 
 it("lets the owner delete a plan, which then no longer appears in the plan list", async () => {
+  database.rejections = ["deleted", "kept"];
   await repository.remove("deleted", "owner");
   const listed = await repository.list();
   expect(listed.map((entry) => entry.id)).toEqual(["kept"]);
+  expect(database.rejections).toEqual(["kept"]);
+});
+
+it("keeps the plan and its refusals if the deletion journal fails", async () => {
+  database.rejections = ["deleted", "kept"];
+  await expect(
+    repository.remove("deleted", "owner", {
+      revision: 3,
+      journal: async () => {
+        throw new Error("synthetic journal failure");
+      },
+    }),
+  ).rejects.toThrow("synthetic journal failure");
+  expect((await repository.find("deleted"))?.id).toBe("deleted");
+  expect(database.rejections).toEqual(["deleted", "kept"]);
 });
 
 it("refuses deletion by anyone but the owner and keeps the plan listed", async () => {

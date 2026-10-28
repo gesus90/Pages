@@ -124,7 +124,8 @@ function readItem(input: unknown): AgentPlanContractItem {
   };
 }
 
-function readContract(input: unknown): AgentPlanContract | null {
+/** Parses a persisted contract without trusting unvalidated snapshot contents. */
+export function readPlanContract(input: unknown): AgentPlanContract | null {
   if (input === null || input === undefined) return null;
   const contract = readAgentObject(input);
   if (
@@ -333,7 +334,7 @@ export function readPlanSessionRecord(
     requested: readRequested(record.requested),
     effective: readEffective(record.effective),
     definition: readDefinition(record.definition),
-    contract: readContract(record.contract),
+    contract: readPlanContract(record.contract),
     acceptance: readAcceptance(record.acceptance),
     events: texts(record.events, 100),
     ...(record.activity === undefined

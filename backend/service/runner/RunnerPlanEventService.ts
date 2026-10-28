@@ -165,10 +165,10 @@ export class RunnerPlanEventService {
   }
 
   /** A missed host deadline becomes an explicit failed stop and retains its reservations. */
-  public async expireStop(job: RunnerJob): Promise<void> {
+  public async expireStop(connectionId: string, job: RunnerJob): Promise<void> {
     if (!job.plan || job.cancellation?.closeout === "confirmed") return;
     await this.repository.changeRun(job.plan.runId, (run) =>
-      runnerStoppedRun(run, job, !this.isRunOwned(run.id)),
+      runnerStoppedRun(run, job, !this.isRunOwned(run.id), connectionId),
     );
   }
 
@@ -218,7 +218,12 @@ export class RunnerPlanEventService {
       const job = state.jobs.find((entry) => entry.jobId === message.jobId);
       if (job?.plan)
         await this.repository.apply(transaction, job.plan.runId, (run) => ({
-          run: runnerStoppedRun(run, job, !this.isRunOwned(run.id)),
+          run: runnerStoppedRun(
+            run,
+            job,
+            !this.isRunOwned(run.id),
+            connectionId,
+          ),
         }));
       return;
     }

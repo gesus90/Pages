@@ -28,3 +28,18 @@ export function hasRemotePlanTarget(plan: AgentPlanInput): boolean {
     (node) => node.executionTarget?.kind === "remote",
   );
 }
+
+/** The registered targets actually selected by executable nodes, including inherited targets. */
+export function remotePlanWorkspaceIds(
+  plan: AgentPlanInput,
+): readonly string[] {
+  return [
+    ...new Set(
+      planExecutionNodes(plan).flatMap((node) =>
+        node.executionTarget?.kind === "remote"
+          ? [node.executionTarget.workspaceId]
+          : [],
+      ),
+    ),
+  ];
+}

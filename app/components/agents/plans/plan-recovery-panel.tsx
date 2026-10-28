@@ -5,6 +5,7 @@ import { PlanRecoveryState } from "./plan-recovery/plan-recovery-state";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type { AgentPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 import type { PlanRecoveryRequest, usePlanRecovery } from "./use-plan-recovery";
 
 const RECOVERABLE_STATUSES = new Set(["failed", "cancelled", "stopping"]);
@@ -20,12 +21,23 @@ export function recoverableRunId(
 }
 
 /** The translated reason of a refused recovery request. */
-export function recoveryErrorText(translate: TFunction, code: string): string {
-  return translate([
+export function recoveryErrorText(
+  translate: TFunction,
+  code: string,
+  failure?: AgentPlanCleanupFailure | null,
+  stepNames?: Readonly<Record<string, string>>,
+): string {
+  const message = translate([
     `plans.recovery.error.${code}`,
     `settings.agents.error.${code}`,
     "plans.panel.error",
   ]);
+  if (code !== "cleanup_unconfirmed" || !failure) return message;
+  const detail = translate(`plans.recovery.cleanupFailure.${failure.reason}`, {
+    step: stepNames?.[failure.stepId] ?? failure.stepId,
+    resource: translate(`plans.recovery.cleanupKind.${failure.kind}`),
+  });
+  return `${message} ${detail}`;
 }
 
 /**
@@ -88,7 +100,12 @@ export function PlanRecoveryPanel({
       ) : null}
       {recovery.error ? (
         <p role="alert" className="text-destructive">
-          {recoveryErrorText(t, recovery.error)}
+          {recoveryErrorText(
+            t,
+            recovery.error,
+            recovery.cleanupFailure,
+            view.stepNames,
+          )}
         </p>
       ) : null}
     </section>

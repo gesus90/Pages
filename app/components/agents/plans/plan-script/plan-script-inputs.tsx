@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
+import { Select } from "@/app/components/ui/select";
 import { PLAN_SCRIPT_INPUT_COUNT } from "@/definition/AgentPlanScript";
 
 import { PlanScriptFieldMessage } from "./plan-script-fields";
@@ -143,6 +144,24 @@ export function PlanScriptOutputField(props: {
         onChange={(event) => form.change({ output: event.target.value })}
       />
       <PlanScriptFieldMessage id={`${id}-message`} issue={issue} />
+      <label htmlFor={`${id}-policy`} className="block text-sm font-medium">
+        {t("plans.scripts.outputPolicy")}
+      </label>
+      <Select<"text" | "report" | "gate">
+        id={`${id}-policy`}
+        ariaLabel={t("plans.scripts.outputPolicy")}
+        value={form.values.outputPolicy}
+        disabled={!form.values.output.trim()}
+        options={[
+          { value: "text", label: t("plans.scripts.outputPolicyText") },
+          { value: "report", label: t("plans.scripts.outputPolicyReport") },
+          { value: "gate", label: t("plans.scripts.outputPolicyGate") },
+        ]}
+        onValueChange={(outputPolicy) => form.change({ outputPolicy })}
+      />
+      <p className="text-xs text-muted-foreground">
+        {t("plans.scripts.outputPolicyHint")}
+      </p>
     </div>
   );
 }

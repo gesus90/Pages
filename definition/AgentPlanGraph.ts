@@ -13,6 +13,7 @@ import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planValueIssue } from "./AgentPlanValue";
 import { hasPlanPath } from "./AgentPlanPath";
 import { planScriptIssues, planScriptParameters } from "./AgentPlanScript";
+import { scriptReportGraphIssues } from "./AgentPlanScriptReportGraph";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
@@ -83,6 +84,8 @@ export interface AgentPlanIssue {
     | "json"
     | "number"
     | "scriptConfiguration"
+    | "scriptReportTarget"
+    | "scriptReportGate"
     | "loopScriptUnsupported"
     | "scriptUnavailable";
 }
@@ -565,6 +568,7 @@ function flowExecutionIssues(
     issues.push({ nodeId: null, port: null, reason: "agent" });
   for (const node of plan.nodes.filter(isPlanFlowNode))
     issues.push(...flowNodeIssues(node, plan, agents));
+  issues.push(...scriptReportGraphIssues(plan));
   return issues;
 }
 

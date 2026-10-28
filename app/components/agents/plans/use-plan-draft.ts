@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { emptyAgentPlan } from "@/definition/AgentPlan";
 
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 import type { AgentPlanInput, AgentPlanPage } from "@/definition/AgentPlan";
+import type { Dispatch, SetStateAction } from "react";
 
 function initialDraft(page: AgentPlanPage): AgentPlanInput {
   const plan = page.selected;
@@ -44,11 +45,23 @@ export function usePlanDraft(
   isPending: boolean,
 ): {
   readonly draft: AgentPlanInput;
-  readonly setDraft: React.Dispatch<React.SetStateAction<AgentPlanInput>>;
+  readonly setDraft: Dispatch<SetStateAction<AgentPlanInput>>;
+  /** The latest queued edits, even before React renders them. */
+  readonly currentDraft: () => AgentPlanInput;
   readonly isDirty: boolean;
   readonly submitted: React.RefObject<AgentPlanInput | null>;
 } {
-  const [draft, setDraft] = useState(() => initialDraft(page));
+  const [draft, commitDraft] = useState(() => initialDraft(page));
+  const current = useRef(draft);
+  const setDraft = useCallback(
+    (change: SetStateAction<AgentPlanInput>): void => {
+      const next =
+        typeof change === "function" ? change(current.current) : change;
+      current.current = next;
+      commitDraft(next);
+    },
+    [],
+  );
   const [saved, setSaved] = useState(() => initialDraft(page));
   const submitted = useRef<AgentPlanInput | null>(null);
   const acknowledged =
@@ -66,6 +79,12 @@ export function usePlanDraft(
         ? persisted
         : { ...previous, revision },
     );
-  }, [result, isPending]);
-  return { draft, setDraft, isDirty, submitted };
+  }, [result, isPending, setDraft]);
+  return {
+    draft,
+    setDraft,
+    currentDraft: () => current.current,
+    isDirty,
+    submitted,
+  };
 }

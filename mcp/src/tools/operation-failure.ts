@@ -1,4 +1,5 @@
 import { AGENT_LIMIT_CONSTRAINTS } from "../../../definition/PagesAgentOperations.js";
+import { readPlanCleanupFailure } from "../../../definition/AgentPlanCleanupResource.js";
 import { isRecord } from "../is-record.js";
 
 import type {
@@ -8,6 +9,7 @@ import type {
 import type {
   AgentLimitDetails,
   AgentOperationDetails,
+  AgentPlanCleanupRejection,
   AgentPlanGraphRejection,
   AgentProjectCandidates,
   AgentRejectionReason,
@@ -38,6 +40,7 @@ const REJECTION_REASONS: Readonly<
   line_out_of_range: true,
   column_out_of_range: true,
   graph_invalid: true,
+  plan_frame_repair_required: true,
   parameter_value_invalid: true,
   workspace_unavailable: true,
   element_missing: true,
@@ -48,9 +51,22 @@ const REJECTION_REASONS: Readonly<
   plan_schema_unsupported: true,
   plan_running: true,
   plan_run_unavailable: true,
+  plan_history_unavailable: true,
+  plan_start_rejection_record_failed: true,
   plan_remote_unavailable: true,
+  plan_runner_payload_update_required: true,
   plan_context_changed: true,
   plan_workspace_conflict: true,
+  plan_recovery_cleanup_unconfirmed: true,
+  plan_recovery_diagnostic_unavailable: true,
+  plan_recovery_action_unavailable: true,
+  plan_recovery_revision_conflict: true,
+  plan_recovery_idempotency_conflict: true,
+  plan_recovery_review_required: true,
+  plan_recovery_native_resume_unavailable: true,
+  plan_recovery_checkpoint_invalid: true,
+  plan_recovery_checkpoint_too_large: true,
+  plan_recovery_workflow_unavailable: true,
   plan_script_permission_denied: true,
   plan_script_interpreter_unavailable: true,
   plan_continuation_deleted: true,
@@ -122,6 +138,8 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   number: true,
   scriptUnavailable: true,
   scriptConfiguration: true,
+  scriptReportTarget: true,
+  scriptReportGate: true,
   loopScriptUnsupported: true,
 };
 
@@ -290,16 +308,34 @@ function readIssues(input: unknown): AgentPlanIssueEntry[] | undefined {
 
 function readReason(
   input: unknown,
-): AgentRejectionReason | AgentPlanGraphRejection | undefined {
+):
+  | AgentRejectionReason
+  | AgentPlanGraphRejection
+  | AgentPlanCleanupRejection
+  | undefined {
   if (typeof input !== "object" || input === null || !("reason" in input))
     return undefined;
   if (!isRejectionReason(input.reason)) return undefined;
+  if (
+    input.reason === "plan_recovery_cleanup_unconfirmed" &&
+    "cleanupFailure" in input
+  ) {
+    const cleanupFailure = readPlanCleanupFailure(input.cleanupFailure);
+    if (cleanupFailure) return { reason: input.reason, cleanupFailure };
+  }
   if (input.reason !== "graph_invalid" || !("issues" in input))
     return { reason: input.reason };
   const issues = readIssues(input.issues);
   return issues === undefined
     ? { reason: input.reason }
-    : { reason: input.reason, issues };
+    : {
+        reason: input.reason,
+        issues,
+        ...("issueDetailsFiltered" in input &&
+        typeof input.issueDetailsFiltered === "boolean"
+          ? { issueDetailsFiltered: input.issueDetailsFiltered }
+          : {}),
+      };
 }
 
 function failureDetails(

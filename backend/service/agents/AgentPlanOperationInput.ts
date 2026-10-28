@@ -4,6 +4,7 @@ import {
 } from "@/definition/AgentPlanChangeFields";
 import { readPlanBinding } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 
 import { readPlanGroupChange } from "./AgentPlanGroupChangeInput";
 import {
@@ -18,6 +19,7 @@ import {
 
 import type { AgentPlanBinding, AgentPlanNode } from "@/definition/AgentPlan";
 import type { AgentPlanWriteOperation } from "@/definition/AgentPlanOperations";
+import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type { PageAgentSharingRequest } from "./PageAgentOperationInput";
 
 /** Changes one call may carry; each change batch stays bounded independently of the saved graph. */
@@ -127,6 +129,7 @@ export interface AgentPlanCreateRequest {
   readonly name: string;
   readonly workspaceId: string;
   readonly sharing: PageAgentSharingRequest | null;
+  readonly executionTarget?: AgentPlanExecutionTarget;
   readonly changes: readonly AgentPlanChange[];
 }
 
@@ -137,6 +140,8 @@ export interface AgentPlanUpdateRequest extends AgentPlanTarget {
   readonly sharing: PageAgentSharingRequest | null;
   /** The workspace to move the plan to; absent or `null` keeps the current one. */
   readonly workspaceId?: string | null;
+  /** Absent keeps the plan's current default target. */
+  readonly executionTarget?: AgentPlanExecutionTarget;
   readonly changes: readonly AgentPlanChange[];
   /** The parameter node a parameter operation must find, `null` otherwise. */
   readonly parameterId: string | null;
@@ -407,6 +412,12 @@ function readSharing(input: unknown): PageAgentSharingRequest | null {
   return input === undefined ? null : readPageAgentSharing(input);
 }
 
+function readExecutionTarget(input: unknown): AgentPlanExecutionTarget {
+  const parsed = planExecutionTargetSchema.safeParse(input);
+  if (!parsed.success) throw invalid();
+  return parsed.data;
+}
+
 function readTarget(
   parameters: Readonly<Record<string, unknown>>,
 ): AgentPlanTarget {
@@ -490,7 +501,7 @@ export function readPlanWriteRequest(
     requireParameterKeys(
       parameters,
       ["operationId", "name", "workspaceId"],
-      ["sharing", "changes"],
+      ["sharing", "executionTarget", "changes"],
     );
     return {
       operation,
@@ -498,6 +509,9 @@ export function readPlanWriteRequest(
       name: readName(parameters.name),
       workspaceId: readIdentifier(parameters.workspaceId),
       sharing: readSharing(parameters.sharing),
+      ...(parameters.executionTarget === undefined
+        ? {}
+        : { executionTarget: readExecutionTarget(parameters.executionTarget) }),
       changes: readChanges(parameters.changes),
     };
   }
@@ -507,6 +521,7 @@ export function readPlanWriteRequest(
     "name",
     "sharing",
     "workspaceId",
+    "executionTarget",
     "changes",
   ]);
   const request: AgentPlanUpdateRequest = {
@@ -515,6 +530,9 @@ export function readPlanWriteRequest(
     name: parameters.name === undefined ? null : readName(parameters.name),
     sharing: readSharing(parameters.sharing),
     workspaceId: readOptionalIdentifier(parameters.workspaceId),
+    ...(parameters.executionTarget === undefined
+      ? {}
+      : { executionTarget: readExecutionTarget(parameters.executionTarget) }),
     changes: readChanges(parameters.changes),
     parameterId: null,
   };
@@ -522,6 +540,7 @@ export function readPlanWriteRequest(
     request.name === null &&
     request.sharing === null &&
     request.workspaceId === null &&
+    request.executionTarget === undefined &&
     request.changes.length === 0
   )
     throw invalid();

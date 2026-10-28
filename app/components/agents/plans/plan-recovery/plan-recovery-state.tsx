@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { PlanCleanupHistory } from "./plan-cleanup-history";
 
 import type { AgentPlanRecoveryView } from "@/definition/AgentPlanRecovery";
 
@@ -62,6 +63,27 @@ export function PlanRecoveryState({
           current: view.currentPlanRevision,
         })}
       </dd>
+      {view.cleanupResources.length > 0 ? (
+        <>
+          <dt className="font-medium text-foreground">
+            {t("plans.recovery.cleanupResources")}
+          </dt>
+          <dd>
+            <ul>
+              {view.cleanupResources.map((resource) => (
+                <li
+                  key={`${resource.kind}:${resource.stepId}:${resource.closeout}`}
+                >
+                  {t(`plans.recovery.cleanupResource.${resource.kind}`, {
+                    step: stepName(view, resource.stepId),
+                    state: t(`plans.recovery.closeout.${resource.closeout}`),
+                  })}
+                </li>
+              ))}
+            </ul>
+          </dd>
+        </>
+      ) : null}
       {origin ? (
         <>
           <dt className="font-medium text-foreground">
@@ -77,6 +99,7 @@ export function PlanRecoveryState({
           </dd>
         </>
       ) : null}
+      <PlanCleanupHistory view={view} />
     </dl>
   );
 }

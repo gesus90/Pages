@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
+import { PlanScriptStream } from "./plan-script-stream";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
@@ -54,33 +54,8 @@ export function PlanScriptRun({
           })}
         </p>
       ) : null}
-      <ScriptStream name="stdout" text={script.stdout} />
-      <ScriptStream name="stderr" text={script.stderr} />
+      <PlanScriptStream name="stdout" text={script.stdout} />
+      <PlanScriptStream name="stderr" text={script.stderr} />
     </section>
-  );
-}
-
-function ScriptStream({
-  name,
-  text,
-}: {
-  readonly name: string;
-  readonly text: string | null;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-1">
-      <h5 className="font-medium">{name}</h5>
-      <ScrollViewport
-        as="pre"
-        axis="both"
-        tabIndex={0}
-        aria-label={name}
-        containerClassName="max-h-64"
-        className="overflow-auto rounded-md border border-border bg-muted p-2 font-mono text-xs whitespace-pre-wrap wrap-anywhere"
-      >
-        {text === null || text === "" ? t("plans.scripts.run.empty") : text}
-      </ScrollViewport>
-    </div>
   );
 }

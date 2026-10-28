@@ -61,6 +61,7 @@ function planKey(plan: AgentPlanInput): string {
     plan.projectId ?? null,
     plan.usage,
     plan.sharing ?? null,
+    plan.executionTarget ?? null,
     plan.nodes,
     plan.edges,
   ]);
@@ -73,6 +74,9 @@ function editable(plan: AgentPlanView): AgentPlanInput {
     usage: plan.usage,
     ...(plan.sharing === undefined ? {} : { sharing: plan.sharing }),
     projectId: plan.projectId,
+    ...(plan.executionTarget === undefined
+      ? {}
+      : { executionTarget: plan.executionTarget }),
     globals: plan.globals,
     nodes: plan.nodes,
     edges: plan.edges,
@@ -232,6 +236,9 @@ export class AgentPlanWriteOperations {
     const base: AgentPlanInput = {
       name: request.name,
       workspaceId: request.workspaceId,
+      ...(request.executionTarget === undefined
+        ? {}
+        : { executionTarget: request.executionTarget }),
       ...planSharing(
         request.sharing ?? {
           scope: "private",
@@ -307,6 +314,9 @@ export class AgentPlanWriteOperations {
       ...changed.plan,
       ...(request.name === null ? {} : { name: request.name }),
       ...(request.sharing === null ? {} : planSharing(request.sharing)),
+      ...(request.executionTarget === undefined
+        ? {}
+        : { executionTarget: request.executionTarget }),
       workspaceId: workspace.id,
       projectId: workspace.projectId,
     };

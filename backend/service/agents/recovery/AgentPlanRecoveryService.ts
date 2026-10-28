@@ -1,12 +1,16 @@
 import { readPlanRecoveryCommand } from "@/backend/agents/AgentPlanRecoveryInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { canRecordPlanRepair } from "@/definition/AgentPlanRecovery";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import { sanitizeArtifactText } from "../AgentPlanOutput";
 import { AgentPlanRecoveryActions } from "./AgentPlanRecoveryActions";
 import { classifyPlanFailure } from "./AgentPlanFailure";
+import { planCleanupResources } from "./AgentPlanCleanupResources";
+import { auditCleanupFailure } from "./AgentPlanCleanupAudit";
 import {
   continuedRun,
   nodeModes,
@@ -30,11 +34,16 @@ import type { AgentPlanCheckpointRepository } from "@/backend/database/repositor
 import type { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import type { RecoveryActionDependencies } from "./AgentPlanRecoveryActions";
 import type { RecoveryFacts } from "./AgentPlanRecoveryPlanning";
+import type { AgentPlanCleanupFailureRepository } from "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository";
 
 interface RecoveryDependencies {
   readonly runs: RecoveryActionDependencies["runs"];
   readonly recovery: AgentPlanRecoveryRepository;
   readonly checkpoints: AgentPlanCheckpointRepository;
+  readonly cleanupFailures?: Pick<
+    AgentPlanCleanupFailureRepository,
+    "append" | "latest"
+  >;
   /**
    * The engine, plan and lease boundary that executes a restart, resume or
    * release; without it these stay unavailable, as they were before.
@@ -227,11 +236,18 @@ export class AgentPlanRecoveryService {
       runId,
       planId: record.run.planId,
       stepNames: Object.fromEntries(
-        record.run.steps.map((step) => [step.id, step.name]),
+        allPlanRunResults(record.run).map((step) => [
+          step.id,
+          sanitizeArtifactText(step.name),
+        ]),
       ),
       revision: record.revision,
       origin: record.run.origin ?? null,
       ...options,
+      cleanupResources: options.isCleanupUnconfirmed
+        ? planCleanupResources(record.run)
+        : [],
+      latestCleanupFailure: await this.latestCleanupFailure(userId, runId),
       state: recoveryState(record.run),
       checkpoint: record.checkpoint,
       attempts: record.attempts,
@@ -276,15 +292,47 @@ export class AgentPlanRecoveryService {
     return this.controls.run(() => this.executeControl(userId, runId, input));
   }
 
+  private async latestCleanupFailure(
+    userId: string,
+    runId: string,
+  ): Promise<AgentPlanRecoveryView["latestCleanupFailure"]> {
+    try {
+      return (
+        (await this.dependencies.cleanupFailures?.latest(userId, runId)) ?? null
+      );
+    } catch (error: unknown) {
+      logCaughtError("AgentPlanCleanupAudit", error);
+      throw new AgentPlanRecoveryError("diagnostic_unavailable");
+    }
+  }
+
   private async executeControl(
     userId: string,
     runId: string,
     input: unknown,
   ): Promise<AgentPlanRecoveryResult> {
-    await this.dependencies.runs.run(userId, runId);
+    const run = await this.dependencies.runs.run(userId, runId);
     const original = readPlanRecoveryCommand(input);
     const requestDigest = planContentDigest(original);
     const command = this.sanitize(original);
+    try {
+      return await this.dispatchControl(userId, runId, command, requestDigest);
+    } catch (error: unknown) {
+      return auditCleanupFailure(
+        this.dependencies.cleanupFailures,
+        run,
+        command,
+        error,
+      );
+    }
+  }
+
+  private async dispatchControl(
+    userId: string,
+    runId: string,
+    command: AgentPlanRecoveryCommand,
+    requestDigest: string,
+  ): Promise<AgentPlanRecoveryResult> {
     const { actions } = this;
     if (actions && command.action === "restart")
       return actions.restart({ userId, runId, command, requestDigest });

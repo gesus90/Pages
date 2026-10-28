@@ -117,6 +117,7 @@ export function recoveryView(
     origin: null,
     continuedBy: null,
     isCleanupUnconfirmed: false,
+    cleanupResources: [],
     restart: { available: false, reason: null },
     resume: {
       available: false,
@@ -144,6 +145,7 @@ export function recoveryState(
   return {
     view: null,
     error: null,
+    cleanupFailure: null,
     isPending: false,
     result: null,
     submit: vi.fn(async () => null),

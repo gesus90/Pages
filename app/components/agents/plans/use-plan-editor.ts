@@ -62,7 +62,7 @@ export function usePlanEditor(page: AgentPlanPage): {
         `/agents/plans?planId=${encodeURIComponent(command.data.planId)}`,
       );
   }, [command.data, page.selected, navigate]);
-  const { draft, setDraft, isDirty, submitted } = usePlanDraft(
+  const { draft, setDraft, currentDraft, isDirty, submitted } = usePlanDraft(
     page,
     command.data,
     command.state !== "idle",
@@ -76,13 +76,17 @@ export function usePlanEditor(page: AgentPlanPage): {
       projectId: workspace.projectId,
     }));
   }
-  const graph = usePlanGraph(draft, setDraft, sources, (agentId) =>
-    loadNodeConfiguration(draft.workspaceId, agentId),
-  );
+  const graph = usePlanGraph(draft, setDraft, sources, {
+    loadConfiguration: (agentId) =>
+      loadNodeConfiguration(draft.workspaceId, agentId),
+    currentDraft,
+  });
   // Flushing the pending state ignores a second save until the first one answered.
   function saveWith(change: (current: AgentPlanInput) => AgentPlanInput): void {
-    const next = change(draft);
-    if (next !== draft) setDraft(next);
+    graph.flushPendingMove();
+    const current = currentDraft();
+    const next = change(current);
+    if (next !== current) setDraft(next);
     submitted.current = next;
     setSubmittedName(next.name);
     void command.submit(

@@ -27,6 +27,16 @@ describe("PagesOperationError", () => {
 });
 
 describe("operationFailure envelope", () => {
+  it("preserves the actionable frame-repair refusal", async () => {
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: { reason: "plan_frame_repair_required" },
+      }),
+    );
+    expect(failure?.details).toEqual({ reason: "plan_frame_repair_required" });
+  });
+
   it("ignores a body that is not JSON", async () => {
     await expect(
       operationFailure(new Response("<html>", { status: 404 })),
@@ -172,6 +182,90 @@ describe("operationFailure limits", () => {
 });
 
 describe("operationFailure conflicts and rejection reasons", () => {
+  it("retains only the bounded owned cleanup failure fields", async () => {
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: {
+          reason: "plan_recovery_cleanup_unconfirmed",
+          cleanupFailure: {
+            stepId: "node-a",
+            kind: "local_script",
+            reason: "scan_access_denied",
+            privateText: "discarded",
+          },
+        },
+      }),
+    );
+    expect(failure?.details).toEqual({
+      reason: "plan_recovery_cleanup_unconfirmed",
+      cleanupFailure: {
+        stepId: "node-a",
+        kind: "local_script",
+        reason: "scan_access_denied",
+      },
+    });
+  });
+
+  it("drops an unknown cleanup reason while keeping the general refusal", async () => {
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: {
+          reason: "plan_recovery_cleanup_unconfirmed",
+          cleanupFailure: {
+            stepId: "node-a",
+            kind: "local_script",
+            reason: "private server text",
+          },
+        },
+      }),
+    );
+    expect(failure?.details).toEqual({
+      reason: "plan_recovery_cleanup_unconfirmed",
+    });
+  });
+
+  it("retains the versioned runner result contract refusal", async () => {
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: { reason: "plan_runner_payload_update_required" },
+      }),
+    );
+    expect(failure?.details).toEqual({
+      reason: "plan_runner_payload_update_required",
+    });
+  });
+
+  it.each([
+    ["INVALID_REQUEST", 400, "plan_recovery_cleanup_unconfirmed"],
+    ["INVALID_REQUEST", 400, "plan_recovery_action_unavailable"],
+    ["CONFLICT", 409, "plan_recovery_revision_conflict"],
+    ["CONFLICT", 409, "plan_recovery_idempotency_conflict"],
+    ["INVALID_REQUEST", 400, "plan_recovery_review_required"],
+    ["INVALID_REQUEST", 400, "plan_recovery_native_resume_unavailable"],
+    ["INVALID_REQUEST", 400, "plan_recovery_checkpoint_invalid"],
+    ["INVALID_REQUEST", 400, "plan_recovery_checkpoint_too_large"],
+    ["INVALID_REQUEST", 400, "plan_recovery_workflow_unavailable"],
+    ["INVALID_REQUEST", 400, "plan_recovery_diagnostic_unavailable"],
+    ["INVALID_REQUEST", 400, "plan_history_unavailable"],
+  ])(
+    "preserves the public recovery reason %s %s %s",
+    async (code, status, reason) => {
+      const failure = await operationFailure(
+        failureResponse(status, {
+          code,
+          details: { reason, secret: "discarded" },
+        }),
+      );
+      expect(failure?.code).toBe(code);
+      expect(failure?.details).toEqual({ reason });
+    },
+  );
+});
+
+describe("operationFailure conflicts and other reasons", () => {
   it("keeps the current revision of a conflict", async () => {
     const failure = await operationFailure(
       failureResponse(409, {
@@ -235,6 +329,40 @@ describe("operationFailure conflicts and rejection reasons", () => {
 });
 
 describe("operationFailure plan findings", () => {
+  it("retains the explicit indication that historical finding details were filtered", async () => {
+    const issues = [{ nodeId: "review", port: "input", problem: "required" }];
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: {
+          reason: "graph_invalid",
+          issues,
+          issueDetailsFiltered: true,
+        },
+      }),
+    );
+    expect(failure?.details).toEqual({
+      reason: "graph_invalid",
+      issues,
+      issueDetailsFiltered: true,
+    });
+  });
+
+  it("does not expose a non-boolean filtering detail", async () => {
+    const issues = [{ nodeId: "review", port: "input", problem: "required" }];
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: {
+          reason: "graph_invalid",
+          issues,
+          issueDetailsFiltered: "private text",
+        },
+      }),
+    );
+    expect(failure?.details).toEqual({ reason: "graph_invalid", issues });
+  });
+
   it.each(["unsupportedRunNotes"])(
     "keeps the node and public %s unsupported-placeholder diagnosis",
     async (problem) => {

@@ -245,6 +245,7 @@ function workspace(overrides: Partial<Workspace> = {}): Workspace {
     pageAgents: opaque("page agents"),
     plans: opaque("plans"),
     planRecovery: opaque("plan recovery"),
+    planSessions: opaque("plan sessions"),
     ...overrides,
   };
 }
@@ -554,6 +555,7 @@ it("plans over the shared plan service, recovery and node templates", () => {
       database: DATABASE,
       plans: input.plans,
       resources: {
+        sessions: input.planSessions,
         recovery: input.planRecovery,
         plans: input.plans,
         templates: vi.mocked(AgentPlanTemplateService).mock.instances[index],

@@ -67,7 +67,11 @@ it("reads diagnostics and an explicit checkpoint as the authenticated executor, 
     recovery: { state: "interrupted", revision: 4 },
   });
 
-  service.checkpoint.mockResolvedValue({ version: 2, stepId: "a" });
+  service.checkpoint.mockResolvedValue({
+    version: 2,
+    stepId: "a",
+    result: { output: null, acceptance: null, isOutputReduced: false },
+  });
   const checkpoint = await loader(
     requestArgs(
       new Request(

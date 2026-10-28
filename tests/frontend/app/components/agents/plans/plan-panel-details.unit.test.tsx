@@ -59,6 +59,38 @@ it("lists the findings and opens the plan choice, without a refusal or note", ()
   ).toBeDefined();
 });
 
+it("names the current nodes, target and next action for a workspace reservation", () => {
+  renderDetails({
+    control: planControl({
+      canPlay: false,
+      issue: "plan_workspace_conflict",
+      workspaceConflict: {
+        kind: "reserved",
+        targets: [
+          {
+            kind: "remote",
+            workspaceId: "workspace",
+            path: "/synthetic/repository",
+            connectionName: "Synthetic host",
+            workspaceName: "Synthetic copy",
+          },
+        ],
+        nodes: [{ id: "review", name: "Review" }],
+      },
+    }),
+  });
+
+  expect(screen.getByText(/Review/u)).toBeDefined();
+  expect(
+    screen.getByText(
+      /Synthetic host · Synthetic copy · \/synthetic\/repository/u,
+    ),
+  ).toBeDefined();
+  expect(
+    screen.getByText(i18n.t("plans.panel.workspaceConflictRemedy.reserved")),
+  ).toBeDefined();
+});
+
 it("names a refusal by its code, or generally for an unknown one", () => {
   const view = renderDetails({ error: "plan_workspace_missing" });
   expect(screen.getByRole("alert").textContent).toBe(

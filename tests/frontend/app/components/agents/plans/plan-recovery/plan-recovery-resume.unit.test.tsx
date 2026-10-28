@@ -81,6 +81,7 @@ it("names what is taken over and continues only with a chosen mode and every rev
   expect(onSubmit).toHaveBeenCalledWith({
     action: "resume",
     mode: "new_session",
+    revision: 3,
     reviewedStepIds: ["other", "second"],
   });
 });

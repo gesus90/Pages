@@ -26,6 +26,10 @@ export const planRemoteTargetSchema = z
     connectionId: identifier,
     connectionRevision: z.number().int().positive(),
     connectionName: z.string().max(200),
+    hostIdentity: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional(),
     workspaceId: identifier,
     workspaceRevision: z.number().int().positive(),
     workspaceName: z.string().max(200),
@@ -44,6 +48,7 @@ export const planStepExecutionSchema = z
     stepId: identifier,
     attemptId: z.string().uuid(),
     planRevision: z.number().int().positive(),
+    interpreterProfileId: identifier.optional(),
     target: z.union([
       z.object({ kind: z.literal("local") }).strict(),
       planRemoteTargetSchema,
@@ -94,7 +99,10 @@ export const planRemoteProgressSchema = z
     terminal: runnerTerminalSchema.optional(),
     storageError: z.string().max(40).optional(),
     reason: z.string().max(30).nullable().optional(),
+    stdout: z.string().max(100000).optional(),
+    stdoutIsFiltered: z.boolean().optional(),
     stderr: z.string().max(65536).optional(),
+    stderrIsFiltered: z.boolean().optional(),
     exitCode: z.number().int().nullable().optional(),
     signal: z.string().nullable().optional(),
     startedAt: z.string().datetime().nullable(),

@@ -55,7 +55,7 @@ export function usePlanSave(
       return;
     }
     setRequest("save");
-    if (editor.isDirty) editor.save();
+    if (editor.isDirty || editor.graph.hasPendingMove()) editor.save();
     else showSuccessToast(t("plans.saved"));
   });
   let feedback: PlanSaveFeedback | null = null;

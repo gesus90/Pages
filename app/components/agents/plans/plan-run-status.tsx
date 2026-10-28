@@ -2,6 +2,8 @@ import { useReactFlow } from "@xyflow/react";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+
 import { focusStatusNode } from "./plan-status-focus";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
@@ -44,6 +46,12 @@ function RunStatusContent({
     ? chosenId
     : anchorId;
   const step = steps.find((entry) => entry.id === selectedId);
+  const blockedBy = step?.blockedByStepId;
+  const blockedByName =
+    blockedBy && run
+      ? (allPlanRunResults(run).find((entry) => entry.id === blockedBy)?.name ??
+        blockedBy)
+      : null;
   const end = usePlanStatusTime(run);
   const target = step ? flow.getNode(step.id) : undefined;
   function locate(): void {
@@ -77,6 +85,7 @@ function RunStatusContent({
         <div id={contentId} className="flex min-h-0 flex-col">
           <PlanStatusDetails
             step={step}
+            blockedByName={blockedByName}
             number={steps.findIndex((entry) => entry.id === selectedId) + 1}
             end={end}
             canLocate={Boolean(target)}

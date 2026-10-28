@@ -11,7 +11,6 @@ import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
-import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 
@@ -21,6 +20,7 @@ import { readPlanPage } from "./AgentPlanPage";
 import { withPlanProgress } from "./AgentPlanProgressView";
 import { AgentPlanControlService } from "./AgentPlanControlService";
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
+import { AgentPlanStartActions } from "./AgentPlanStartActions";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { validatePlanReferences } from "./AgentPlanReferences";
@@ -73,6 +73,8 @@ import type { AgentPlanRunEngine } from "./AgentPlanRunEngine";
 import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
+import type { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
+import type { AgentPlanStartRejectionPage } from "@/definition/AgentPlanStartRejection";
 
 interface PlanDependencies {
   readonly workGate?: AgentPlanWorkGate;
@@ -95,6 +97,7 @@ interface PlanDependencies {
   readonly archive?: AgentRunArchive;
   /** The interpreter profiles of script nodes; absent, no profile exists. */
   readonly scripts?: AgentPlanScripts;
+  readonly startRejections?: AgentPlanStartRejectionRepository;
 }
 
 /** Route-facing plan facade; graph, authorization and execution responsibilities stay in small services. */
@@ -102,11 +105,16 @@ export class AgentPlanService {
   private readonly dependencies: PlanDependencies;
   private readonly controls: AgentPlanControlService;
   private readonly scripts: AgentPlanScripts;
+  private readonly starts: AgentPlanStartActions;
 
   public constructor(dependencies: PlanDependencies) {
     this.dependencies = dependencies;
     this.controls = new AgentPlanControlService(dependencies);
     this.scripts = dependencies.scripts ?? new AgentPlanScripts(null);
+    this.starts = new AgentPlanStartActions({
+      ...dependencies,
+      revise: (userId, id, input) => this.revise(userId, id, input),
+    });
   }
 
   /**
@@ -418,12 +426,7 @@ export class AgentPlanService {
     revision: number,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
-    const plan = await this.dependencies.access.require(userId, id);
-    if (!plan.canEdit) throw new AgentError("plan_access_denied");
-    if (plan.revision !== revision) throw new AgentError("plan_conflict");
-    const snapshot = await this.dependencies.preparation.prepare(userId, plan);
-    await this.dependencies.access.require(userId, id);
-    return this.dependencies.engine.start(userId, snapshot, undefined, journal);
+    return this.starts.play(userId, id, revision, journal);
   }
 
   /**
@@ -448,16 +451,7 @@ export class AgentPlanService {
     id: string,
     input: unknown,
   ): Promise<AgentPlanRun> {
-    const plan = await this.revise(userId, id, input);
-    // The stored plan is read through the same bridge, so the snapshot is the saved revision.
-    const snapshot = await this.dependencies.preparation.prepare(
-      userId,
-      withoutTicketFlow({ ...plan, revision: plan.revision + 1 }),
-    );
-    await this.dependencies.access.require(userId, id);
-    return this.dependencies.engine.start(userId, snapshot, (create) =>
-      this.dependencies.plans.save(plan, false, create, userId),
-    );
+    return this.starts.saveAndPlay(userId, id, input);
   }
 
   /** Run output stays private to its executor and still requires current plan/workspace permission. */
@@ -560,6 +554,15 @@ export class AgentPlanService {
     planId: string,
   ): Promise<AgentPlanControl> {
     return this.controls.read(userId, planId);
+  }
+
+  /** Reads one own historical refusal; reading never prepares or starts execution. */
+  public async startRejections(
+    userId: string,
+    planId: string,
+    before: string | null,
+  ): Promise<AgentPlanStartRejectionPage> {
+    return this.controls.rejectionHistory(userId, planId, before);
   }
 
   /**

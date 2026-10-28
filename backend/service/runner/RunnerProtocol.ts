@@ -148,6 +148,18 @@ function reconcileRunner(
   message: Extract<RunnerMessage, { type: "reconcile" }>,
 ): { readonly state: RunnerState; readonly reply: RunnerReply } {
   if (
+    message.resultPayloadVersion !== 1 &&
+    state.jobs.some(
+      (job) =>
+        job.execution?.program.kind === "cli" &&
+        job.execution.resultPayloadVersion === 1 &&
+        ["queued", "accepted", "running"].includes(job.status),
+    )
+  )
+    throw new Error(
+      "Runner 1.13.0 is required for outstanding exact-result jobs",
+    );
+  if (
     message.outputJournalVersion !== 2 &&
     state.jobs.some(requiresChunkExecutor)
   )

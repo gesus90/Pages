@@ -76,6 +76,16 @@ function planReadiness(
   return control ? control.canPlay && !isDirty : undefined;
 }
 
+/** An existing drag may finish during its save, but other pending commands stay locked. */
+function canEditCanvas(editor: ReturnType<typeof usePlanEditor>): boolean {
+  if (!editor.canEdit || !editor.draft.workspaceId) return false;
+  if (!editor.isPending) return true;
+  return (
+    editor.command.formData?.get("intent") === "save-plan" &&
+    editor.graph.isMoving
+  );
+}
+
 /** Restores keyboard focus to the console's node without panning the canvas. */
 function focusConsoleNode(nodeId: string | null): void {
   // Focus returns to the node that opened the console, without moving the canvas.
@@ -123,7 +133,6 @@ export function PlanPage({
   const running = usePlanRun(page.runs, editor.command.data);
   const display = planRunDisplay(page, controls.control, running);
   const saving = usePlanSave(editor, page.selected !== null);
-  const disabled = !editor.canEdit || editor.isPending;
   function closeConsole(): void {
     const nodeId = consoleNodeId;
     setConsoleNodeId(null);
@@ -140,7 +149,7 @@ export function PlanPage({
         draft={editor.draft}
         sources={editor.sources}
         graph={editor.graph}
-        canEdit={!disabled && Boolean(editor.draft.workspaceId)}
+        canEdit={canEditCanvas(editor)}
         planId={page.selected?.id}
         onEdit={setEditingNodeId}
         onOpen={setConsoleNodeId}

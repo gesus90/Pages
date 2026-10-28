@@ -36,6 +36,7 @@ function parameter(parameters: SqlParameters, name: string): string {
 export class PlanDatabase {
   public plans: StoredPlan[] = [];
   public runs: StoredRun[] = [];
+  public rejections: string[] = [];
   public readonly workspaces = new Map([["workspace", "project"]]);
   public readonly agents = new Set(["agent"]);
   /** Connections a pinned node may name; a test adds the ones its plan uses. */
@@ -59,7 +60,11 @@ export class PlanDatabase {
       query: async (statement, parameters = {}) =>
         this.query(statement, parameters),
       transaction: async (work) => {
-        const before = structuredClone({ plans: this.plans, runs: this.runs });
+        const before = structuredClone({
+          plans: this.plans,
+          runs: this.runs,
+          rejections: this.rejections,
+        });
         const transaction: DatabaseTransaction = {
           query: async (statement, parameters = {}) =>
             this.query(statement, parameters),
@@ -72,6 +77,7 @@ export class PlanDatabase {
         } catch (error: unknown) {
           this.plans = before.plans;
           this.runs = before.runs;
+          this.rejections = before.rejections;
           throw error;
         }
       },
@@ -123,6 +129,12 @@ export class PlanDatabase {
   }
 
   private execute(statement: string, parameters: SqlParameters): void {
+    if (statement.includes("DELETE FROM agent_plan_start_rejections")) {
+      this.rejections = this.rejections.filter(
+        (planId) => planId !== parameter(parameters, "id"),
+      );
+      return;
+    }
     if (statement.includes("DELETE FROM agent_plans")) {
       this.plans = this.plans.filter(
         (plan) => plan.id !== parameter(parameters, "id"),

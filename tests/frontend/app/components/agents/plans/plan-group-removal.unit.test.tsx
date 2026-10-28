@@ -135,7 +135,7 @@ it("removes a loop as a container of nodes", () => {
     ...emptyPlanLoop("loop", "Repeat", { x: 0, y: 0 }),
     steps: MEMBERS,
   };
-  renderRemoval(planOf([loop], [flowEdge("loop", "loop")]), graph);
+  renderRemoval(planOf([loop]), graph);
   expect(
     screen.getByRole("dialog", {
       name: i18n.t("plans.loops.removeTitle", { name: "Repeat" }),
@@ -149,6 +149,38 @@ it("removes a loop as a container of nodes", () => {
     button(i18n.t("plans.loops.removeWithMembers", { count: 2 })),
   );
   expect(graph.removeGroup).toHaveBeenLastCalledWith("loop", false);
+});
+
+it("requires connected loop edges and previous-iteration bindings to be repaired before dissolving", () => {
+  const loop = {
+    ...emptyPlanLoop("loop", "Repeat", { x: 0, y: 0 }),
+    steps: MEMBERS,
+  };
+  const first = renderTranslated(
+    <PlanGroupRemoval
+      draft={planOf([loop], [flowEdge("loop", "loop")])}
+      graph={graphStub({ removalId: "loop" })}
+      canEdit
+    />,
+  );
+  expect(button(i18n.t("plans.loops.removeFrame"))).toHaveProperty(
+    "disabled",
+    true,
+  );
+  first.unmount();
+  const bound = {
+    ...loop,
+    steps: [
+      agentNode("m1", "codex", {
+        bindings: { input1: { kind: "previous", stepId: "m1" } },
+      }),
+    ],
+  };
+  renderRemoval(planOf([bound]), graphStub({ removalId: "loop" }));
+  expect(button(i18n.t("plans.loops.removeFrame"))).toHaveProperty(
+    "disabled",
+    true,
+  );
 });
 
 it("stays closed without a frame to remove or without the right to edit", () => {

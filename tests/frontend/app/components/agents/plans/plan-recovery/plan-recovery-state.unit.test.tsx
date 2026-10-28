@@ -9,6 +9,43 @@ import type { AgentPlanCheckpoint } from "@/definition/AgentPlanRecovery";
 
 const COMPLETED_AT = "2026-10-15T10:00:00.000Z";
 
+it("retains a clearly historical scan failure after successful release", () => {
+  renderTranslated(
+    <PlanRecoveryState
+      view={recoveryView({
+        isCleanupUnconfirmed: false,
+        latestCleanupFailure: {
+          id: "event",
+          createdAt: COMPLETED_AT,
+          planId: "plan",
+          runId: "run-1",
+          planRevision: 2,
+          recoveryRevision: 0,
+          action: "release",
+          attemptId: null,
+          stepId: "review",
+          kind: "local_script",
+          reason: "scan_access_denied",
+        },
+      })}
+    />,
+  );
+  expect(
+    screen.getByText(i18n.t("plans.recovery.cleanupHistory")),
+  ).toBeDefined();
+  expect(
+    screen.getByText(i18n.t("plans.recovery.cleanupHistoryHint")),
+  ).toBeDefined();
+  expect(
+    screen.getByText(
+      i18n.t("plans.recovery.cleanupFailure.scan_access_denied", {
+        step: "review",
+        resource: i18n.t("plans.recovery.cleanupKind.local_script"),
+      }),
+    ),
+  ).toBeDefined();
+});
+
 function checkpoint(stepId: string): AgentPlanCheckpoint {
   return {
     schemaVersion: 1,
@@ -68,6 +105,29 @@ it("names the state, no failure point, no checkpoint and both revisions", () => 
     i18n.t("plans.recovery.revisionValue", { run: 2, current: 3 }),
   );
   expect(screen.queryByText(i18n.t("plans.recovery.originLabel"))).toBeNull();
+});
+
+it("names unconfirmed cleanup resources without asserting that a process is still running", () => {
+  renderTranslated(
+    <PlanRecoveryState
+      view={recoveryView({
+        cleanupResources: [
+          { stepId: "first", kind: "local_session", closeout: "failed" },
+          { stepId: "second", kind: "remote_attempt", closeout: "unknown" },
+        ],
+      })}
+    />,
+  );
+  expect(value("plans.recovery.cleanupResources")).toBe(
+    i18n.t("plans.recovery.cleanupResource.local_session", {
+      step: "Reviewer",
+      state: i18n.t("plans.recovery.closeout.failed"),
+    }) +
+      i18n.t("plans.recovery.cleanupResource.remote_attempt", {
+        step: "Writer",
+        state: i18n.t("plans.recovery.closeout.unknown"),
+      }),
+  );
 });
 
 it("names failed nodes by name with their reason and the last verified checkpoint", () => {

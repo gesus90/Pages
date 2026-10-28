@@ -5,6 +5,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 
 import { executeScriptProcess } from "./AgentPlanScriptProcess";
 import { scriptInputJson } from "./AgentPlanScriptInputs";
+import { assessPlanScriptResult } from "./AgentPlanScriptResult";
 import {
   createScriptResources,
   removeScriptResources,
@@ -108,13 +109,13 @@ function completedResult(
   if (record.closeout === "failed") status = "failed";
   let error = record.failure ? `plan_script_${record.failure}` : null;
   if (record.closeout === "failed") error = "plan_script_cleanup";
-  return {
+  return assessPlanScriptResult(script.step, {
     status,
     cancellation: scriptCancellation(record),
     output: script.step.outputs.length === 0 ? null : record.stdout,
     error,
     script: record,
-  };
+  });
 }
 
 function scriptCancellation(

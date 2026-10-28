@@ -315,6 +315,67 @@ it.each(["codex", "claude", "opencode"] as const)(
   },
 );
 
+it("keeps a versioned remote answer byte-exact and digests only its payload", () => {
+  const command = { ...COMMAND, resultPayloadVersion: 1 as const };
+  const result = new CliTerminalResult(command, (text) => text);
+  const payload = '{"status":"partial","message":"synthetic"}';
+  result.receive({ type: "thread.started", thread_id: "native" });
+  result.receive({
+    type: "item.completed",
+    item: { type: "agent_message", text: payload },
+  });
+  result.receive({ type: "turn.completed" });
+  expect(result.result().output).toBe(payload);
+  expect(result.result().terminal?.answerDigest).toBe(
+    createHash("sha256").update(payload).digest("hex"),
+  );
+});
+
+it("applies the versioned result limit to the actual answer rather than a transport banner", () => {
+  const command = { ...COMMAND, resultPayloadVersion: 1 as const };
+  const result = new CliTerminalResult(command, (text) => text);
+  const payload = "x".repeat(command.outputBytes);
+  result.receive({ type: "thread.started", thread_id: "native" });
+  result.receive({
+    type: "item.completed",
+    item: { type: "agent_message", text: payload },
+  });
+  result.receive({ type: "turn.completed" });
+  expect(result.result().reason).toBeNull();
+  expect(result.result().output).toHaveLength(payload.length);
+  expect(result.result().output).toBe(payload);
+});
+
+it("refuses a result that exceeds its bound after redaction", () => {
+  const command = {
+    ...COMMAND,
+    outputBytes: 10,
+    resultPayloadVersion: 1 as const,
+  };
+  const result = new CliTerminalResult(command, (text) =>
+    text.replaceAll("x", "[redacted]"),
+  );
+  result.receive({ type: "thread.started", thread_id: "native" });
+  result.receive({
+    type: "item.completed",
+    item: { type: "agent_message", text: "xxxxxxxxxx" },
+  });
+  result.receive({ type: "turn.completed" });
+  expect(result.result()).toMatchObject({ output: "", reason: "result_limit" });
+});
+
+it("keeps the legacy framing for an already-dispatched unversioned job", () => {
+  const result = new CliTerminalResult(COMMAND, (text) => text);
+  result.receive({ type: "thread.started", thread_id: "native" });
+  result.receive({
+    type: "item.completed",
+    item: { type: "agent_message", text: "legacy" },
+  });
+  result.receive({ type: "turn.completed" });
+  expect(result.result().output).toMatch(/^Remote host: [^\n]+\n/u);
+  expect(result.result().output.endsWith("\n\nlegacy")).toBe(true);
+});
+
 it("fails a missing native session identity or a superseded intermediate answer instead of handing off success", () => {
   const missing = new CliTerminalResult(COMMAND, (text) => text);
   missing.receive({

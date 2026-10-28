@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 
 import { createRandomUuid } from "@/app/lib/random-uuid";
+import { readPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 
 import type {
   AgentPlanRecoveryCommand,
   AgentPlanRecoveryResult,
   AgentPlanRecoveryView,
 } from "@/definition/AgentPlanRecovery";
+import type { AgentPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 
 /** A command without the revision and key, which the hook adds itself. */
 export type PlanRecoveryRequest = AgentPlanRecoveryCommand extends infer Command
@@ -19,6 +21,16 @@ interface RecoveryState {
   readonly runId: string | null;
   readonly view: AgentPlanRecoveryView | null;
   readonly error: string | null;
+  readonly cleanupFailure: AgentPlanCleanupFailure | null;
+}
+
+class RecoveryRequestError extends Error {
+  public readonly cleanupFailure: AgentPlanCleanupFailure | null;
+
+  public constructor(code: string, failure: AgentPlanCleanupFailure | null) {
+    super(code);
+    this.cleanupFailure = failure;
+  }
 }
 
 function isRecoveryView(input: unknown): input is AgentPlanRecoveryView {
@@ -31,13 +43,22 @@ function isRecoveryView(input: unknown): input is AgentPlanRecoveryView {
   );
 }
 
-function readFailure(payload: unknown): string {
-  return typeof payload === "object" &&
+function readFailure(payload: unknown): RecoveryRequestError {
+  const code =
+    typeof payload === "object" &&
     payload !== null &&
     "error" in payload &&
     typeof payload.error === "string"
-    ? payload.error
-    : "plan_connection_unavailable";
+      ? payload.error
+      : "plan_connection_unavailable";
+  const failure =
+    code === "cleanup_unconfirmed" &&
+    typeof payload === "object" &&
+    payload !== null &&
+    "cleanupFailure" in payload
+      ? readPlanCleanupFailure(payload.cleanupFailure)
+      : null;
+  return new RecoveryRequestError(code, failure);
 }
 
 function isRecoveryResult(input: unknown): input is AgentPlanRecoveryResult {
@@ -73,8 +94,7 @@ async function sendDecision(
     typeof payload === "object" && payload !== null && "result" in payload
       ? payload.result
       : null;
-  if (!response.ok || !isRecoveryResult(answered))
-    throw new Error(readFailure(payload));
+  if (!response.ok || !isRecoveryResult(answered)) throw readFailure(payload);
   return answered;
 }
 
@@ -91,8 +111,7 @@ async function loadView(
     typeof payload === "object" && payload !== null && "recovery" in payload
       ? payload.recovery
       : null;
-  if (!response.ok || !isRecoveryView(recovery))
-    throw new Error(readFailure(payload));
+  if (!response.ok || !isRecoveryView(recovery)) throw readFailure(payload);
   return recovery;
 }
 
@@ -113,6 +132,7 @@ export function usePlanRecovery(
 ): {
   readonly view: AgentPlanRecoveryView | null;
   readonly error: string | null;
+  readonly cleanupFailure: AgentPlanCleanupFailure | null;
   readonly isPending: boolean;
   readonly result: AgentPlanRecoveryResult | null;
   /** Sends the decision; resolves with the server's answer, or `null` when it was refused. */
@@ -124,9 +144,13 @@ export function usePlanRecovery(
     runId: null,
     view: null,
     error: null,
+    cleanupFailure: null,
   });
   const [isPending, setPending] = useState(false);
-  const [result, setResult] = useState<AgentPlanRecoveryResult | null>(null);
+  const [result, setResult] = useState<{
+    readonly runId: string;
+    readonly value: AgentPlanRecoveryResult;
+  } | null>(null);
   const [generation, setGeneration] = useState(0);
   useEffect(() => {
     if (!runId) return;
@@ -134,7 +158,13 @@ export function usePlanRecovery(
     async function load(id: string): Promise<void> {
       try {
         const view = await loadView(id, controller.signal);
-        setState({ runId: id, view, error: null });
+        setState((previous) => ({
+          runId: id,
+          view,
+          error: previous.runId === id ? previous.error : null,
+          cleanupFailure:
+            previous.runId === id ? previous.cleanupFailure : null,
+        }));
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
         setState({
@@ -144,6 +174,7 @@ export function usePlanRecovery(
             error instanceof Error
               ? error.message
               : "plan_connection_unavailable",
+          cleanupFailure: null,
         });
       }
     }
@@ -157,10 +188,12 @@ export function usePlanRecovery(
     const view = current?.view;
     if (!runId || !view || isPending) return null;
     setPending(true);
+    setResult(null);
+    setState({ runId, view, error: null, cleanupFailure: null });
     try {
       const answered = await sendDecision(runId, view.revision, request);
-      setResult(answered);
-      setState({ runId, view, error: null });
+      setResult({ runId, value: answered });
+      setState({ runId, view, error: null, cleanupFailure: null });
       if (answered.runId) onStarted(answered.runId);
       return answered;
     } catch (error: unknown) {
@@ -171,6 +204,8 @@ export function usePlanRecovery(
           error instanceof Error
             ? error.message
             : "plan_connection_unavailable",
+        cleanupFailure:
+          error instanceof RecoveryRequestError ? error.cleanupFailure : null,
       });
       return null;
     } finally {
@@ -181,8 +216,9 @@ export function usePlanRecovery(
   return {
     view: current?.view ?? null,
     error: current?.error ?? null,
+    cleanupFailure: current?.cleanupFailure ?? null,
     isPending,
-    result,
+    result: result?.runId === runId ? result.value : null,
     submit,
   };
 }

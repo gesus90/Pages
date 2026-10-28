@@ -1,13 +1,11 @@
 import { readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AGENT_PLAN_SESSION_READ_LIMITS } from "@/definition/AgentPlanSessionEvents";
 
 import type {
   AgentSessionHistoryWindow,
   AgentSessionKey,
 } from "@/definition/AgentSessionJournal";
-
-// Legacy attempts join the process instance and the node ID.
-const MAXIMUM_ATTEMPT_ID = 300;
 
 /**
  * Reads the session key of a PageAgentCLI request from the address.
@@ -24,7 +22,10 @@ export function readSessionKey(
     planId: readPlanText(search.get("planId")),
     runId: readPlanText(params.runId),
     stepId: readPlanText(params.stepId),
-    attemptId: readPlanText(search.get("attemptId"), MAXIMUM_ATTEMPT_ID),
+    attemptId: readPlanText(
+      search.get("attemptId"),
+      AGENT_PLAN_SESSION_READ_LIMITS.attemptIdLength,
+    ),
   };
 }
 

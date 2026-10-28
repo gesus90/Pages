@@ -1,4 +1,5 @@
 import { readAgentJson } from "@/app/lib/agent-json.server";
+import { displayPlanCheckpoint } from "@/app/lib/agent-plan-display.server";
 import { planRecoveryFailure } from "@/app/lib/agent-plan-recovery-response.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
@@ -25,12 +26,21 @@ export async function loader({
       return Response.json(
         {
           ok: true,
-          checkpoint: await service.checkpoint(user.id, runId, Number(version)),
+          checkpoint: displayPlanCheckpoint(
+            await service.checkpoint(user.id, runId, Number(version)),
+          ),
         },
         { headers: AGENT_NO_STORE },
       );
+    const recovery = await service.view(user.id, runId);
     return Response.json(
-      { ok: true, recovery: await service.view(user.id, runId) },
+      {
+        ok: true,
+        recovery: {
+          ...recovery,
+          checkpoint: displayPlanCheckpoint(recovery.checkpoint),
+        },
+      },
       { headers: AGENT_NO_STORE },
     );
   } catch (error: unknown) {

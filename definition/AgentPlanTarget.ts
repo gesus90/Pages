@@ -5,6 +5,7 @@ import type { AgentPlanInput, AgentPlanStep } from "./AgentPlan";
 import type { AgentPlanScript } from "./AgentPlanScript";
 import type { AgentPlanConfiguration } from "./AgentPlanConfiguration";
 import type { ToolInventory } from "./RemoteSetup";
+import type { AgentPlanRemoteStatusProblem } from "./AgentPlanRemoteStatus.js";
 
 /** Runs on the Pages host; a plan or node without a target has always meant this. */
 export const LOCAL_PLAN_TARGET: AgentPlanExecutionTarget = { kind: "local" };
@@ -178,14 +179,10 @@ export interface AgentPlanRemoteStatus {
   readonly hasPagesAccess?: boolean;
   /** Whether the runner reports OpenCode's catalog and runs it over ACP (Runner 1.7.0). */
   readonly hasOpenCodeAccess?: boolean;
+  /** Whether the connected runner separates provenance from CLI result payloads. */
+  readonly hasExactResultPayload?: boolean;
   readonly workspaceId: string;
-  readonly problem:
-    | "remoteOffline"
-    | "remoteIdentity"
-    | "remoteWorkspace"
-    | "remoteRunnerUpdate"
-    | "remoteCatalogStale"
-    | null;
+  readonly problem: AgentPlanRemoteStatusProblem | null;
   readonly tools: readonly ToolInventory[];
   readonly hasModelCatalog: boolean;
   readonly isToolCatalogCurrent?: boolean;
@@ -276,11 +273,8 @@ function cliTargetProblem(
   const tool = configurationTool(configuration);
   const installed = status.tools.find((entry) => entry.tool === tool);
   if (!installed) return "remoteToolMissing";
-  const openCodeProblem =
-    tool === "opencode" ? openCodeTargetProblem(installed, status) : null;
-  if (openCodeProblem) return openCodeProblem;
-  if (installed.authentication === "not_logged_in") return "remoteLogin";
-  if (installed.authentication !== "authenticated") return "remoteLoginUnknown";
+  const availability = cliAvailabilityProblem(tool, installed, status);
+  if (availability) return availability;
   const models = installed.models ?? [];
   if (!models.length) return "remoteCatalog";
   const route = configuration.runnerRoute;
@@ -292,6 +286,20 @@ function cliTargetProblem(
   const run = configuration.template.run;
   if (run && (run.access === "workspace_write" || run.browser))
     return "remoteOptions";
+  return null;
+}
+
+function cliAvailabilityProblem(
+  tool: ReturnType<typeof runnerToolFor>,
+  installed: ToolInventory,
+  status: AgentPlanRemoteStatus,
+): AgentPlanTargetProblem | null {
+  const openCodeProblem =
+    tool === "opencode" ? openCodeTargetProblem(installed, status) : null;
+  if (openCodeProblem) return openCodeProblem;
+  if (status.hasExactResultPayload !== true) return "remoteRunnerUpdate";
+  if (installed.authentication === "not_logged_in") return "remoteLogin";
+  if (installed.authentication !== "authenticated") return "remoteLoginUnknown";
   return null;
 }
 

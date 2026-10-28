@@ -18,7 +18,9 @@ import { AgentPlanRepository } from "@/backend/database/repositories/agent/Agent
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
+import { AgentPlanCleanupFailureRepository } from "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository";
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import { AgentPlanRecoveryExecutionRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository";
 import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
@@ -111,8 +113,16 @@ vi.mock("@/backend/database/repositories/agent/AgentPlanRunRepository", () =>
   fakeClasses({ AgentPlanRunRepository: [] }),
 );
 vi.mock(
+  "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository",
+  () => fakeClasses({ AgentPlanStartRejectionRepository: [] }),
+);
+vi.mock(
   "@/backend/database/repositories/agent/AgentPlanCheckpointRepository",
   () => fakeClasses({ AgentPlanCheckpointRepository: ["find"] }),
+);
+vi.mock(
+  "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository",
+  () => fakeClasses({ AgentPlanCleanupFailureRepository: [] }),
 );
 vi.mock(
   "@/backend/database/repositories/agent/AgentPlanRecoveryRepository",
@@ -328,7 +338,11 @@ it("wires the plan service on one access, preparation and engine", async () => {
     sessions: only(vi.mocked(AgentPlanSessionAccess)),
     archive: agents.agentRunArchive,
     scripts: only(vi.mocked(AgentPlanScripts)),
+    startRejections: only(vi.mocked(AgentPlanStartRejectionRepository)),
   });
+  expect(vi.mocked(AgentPlanStartRejectionRepository).mock.calls).toEqual([
+    [DATABASE],
+  ]);
   expect(vi.mocked(AgentPlanPhases).mock.calls).toEqual([[TASKS, USERS]]);
   expect(vi.mocked(AgentPlanWorkGate).mock.calls).toEqual([
     [DATABASE, USERS],
@@ -552,11 +566,13 @@ it("restarts, resumes and releases disturbed runs on the same parts", async () =
   expect(vi.mocked(AgentPlanRecoveryService).mock.calls[0][0]).toEqual({
     runs: only(vi.mocked(AgentPlanService)),
     recovery: only(vi.mocked(AgentPlanRecoveryRepository)),
+    cleanupFailures: only(vi.mocked(AgentPlanCleanupFailureRepository)),
     checkpoints: vi.mocked(AgentPlanCheckpointRepository).mock.instances[0],
     execution: {
       access: ACCESS,
       preparation: only(vi.mocked(AgentPlanPreparation)),
       engine: only(vi.mocked(AgentPlanRunEngine)),
+      remoteExecution: only(vi.mocked(AgentPlanRemoteExecution)),
       planRuns: only(vi.mocked(AgentPlanRunRepository)),
       resources: agents.acpResourceScheduler,
       executions: only(vi.mocked(AgentPlanRecoveryExecutionRepository)),

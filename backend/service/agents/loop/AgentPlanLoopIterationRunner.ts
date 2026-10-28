@@ -1,6 +1,7 @@
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
+import { hasPlanPath } from "@/definition/AgentPlanGraph";
 
 import {
   patchIteration,
@@ -9,7 +10,10 @@ import {
 } from "./AgentPlanLoopRecord";
 import { loopRunView, loopStepInput } from "./AgentPlanLoopStep";
 
-import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  AgentPlanEdge,
+  AgentPlanStepResult,
+} from "@/definition/AgentPlan";
 import type {
   AgentPlanLoop,
   AgentPlanLoopMember,
@@ -248,7 +252,13 @@ export class AgentPlanLoopIterationRunner {
     if (outcome === "failed" || outcome === "cancelled")
       await target.host.update(target.loop.id, (record) =>
         patchIteration(record, target.number, {
-          nodes: nodes.map((node) => unstarted(node, outcome)),
+          nodes: nodes.map((node) =>
+            unstarted(
+              node,
+              outcome,
+              failedPredecessor(node, nodes, target.loop.edges),
+            ),
+          ),
         }),
       );
     return outcome;
@@ -270,10 +280,27 @@ export class AgentPlanLoopIterationRunner {
   }
 }
 
+/** Finds an actual failed predecessor, including one whose result was lost. */
+function failedPredecessor(
+  node: AgentPlanStepResult,
+  nodes: readonly AgentPlanStepResult[],
+  edges: readonly AgentPlanEdge[],
+): string | undefined {
+  const source = nodes.find(
+    (candidate) =>
+      (candidate.status === "failed" ||
+        candidate.status === "running" ||
+        candidate.status === "cancelled") &&
+      hasPlanPath(edges, candidate.id, node.id),
+  );
+  return source?.failedStepId ?? source?.id;
+}
+
 /** A member that never started is blocked by a failure and cancelled by a stop. */
 function unstarted(
   node: AgentPlanStepResult,
   outcome: "failed" | "cancelled",
+  blockedByStepId: string | undefined,
 ): AgentPlanStepResult {
   if (node.status === "running")
     return { ...node, status: "failed", error: "plan_step_failed" };
@@ -284,11 +311,13 @@ function unstarted(
         status: "waiting",
         isBlocked: true,
         error: "plan_dependency_failed",
+        blockedByStepId,
       }
     : {
         ...node,
         status: "cancelled",
         cancellation: "not_started",
         isBlocked: false,
+        blockedByStepId: undefined,
       };
 }

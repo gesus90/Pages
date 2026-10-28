@@ -4,6 +4,8 @@ import { expandPlanLoops } from "@/definition/AgentPlanLoop";
 import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
+import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
@@ -18,8 +20,15 @@ import { remoteReferenceIssues } from "./AgentPlanReferences";
 import { planBindings } from "./AgentPlanBindings";
 import { hasPlanPath, planSteps } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
-import { overlapsWorkspacePath } from "./AgentWorkspacePath";
-import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
+import { validatePlanWorkingCopies } from "./AgentPlanWorkingCopies";
+import {
+  hasRemotePlanTarget,
+  remotePlanWorkspaceIds,
+} from "./AgentPlanExecutionTargets";
+import {
+  remoteWorkspaceEntry,
+  workspaceConflict,
+} from "./AgentPlanWorkspaceConflict";
 
 import type {
   AgentPlanRemoteExecution,
@@ -34,7 +43,6 @@ import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
-import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
@@ -151,7 +159,7 @@ export class AgentPlanPreparation {
       );
     }
     validateGroupRuntimes(groups, snapshots);
-    validateWorkingCopies(flat, snapshots);
+    validatePlanWorkingCopies(flat, snapshots, scripts ?? []);
     return structuredClone({
       plan,
       groups,
@@ -170,6 +178,7 @@ export class AgentPlanPreparation {
     const sources = await this.dependencies.remoteExecution.sources(
       userId,
       plan.projectId,
+      remotePlanWorkspaceIds(plan),
     );
     const issues = planTargetIssues(plan, sources.statuses).map((issue) => ({
       nodeId: issue.nodeId,
@@ -367,42 +376,6 @@ function loopMembership(
   return loop ? { loopId: loop.id } : {};
 }
 
-function validateWorkingCopies(
-  plan: AgentPlan,
-  steps: readonly AgentPlanStepSnapshot[],
-): void {
-  const writing = steps.filter((step) => !isApiProvider(step.provider));
-  for (const first of writing) {
-    for (const second of writing) {
-      if (
-        first.step.id === second.step.id ||
-        (first.groupId !== undefined && first.groupId === second.groupId) ||
-        (first.loopId !== undefined && first.loopId === second.loopId) ||
-        !sameWorkingCopy(planStepDirectory(first), planStepDirectory(second))
-      )
-        continue;
-      if (
-        !hasPlanPath(plan.edges, first.step.id, second.step.id) &&
-        !hasPlanPath(plan.edges, second.step.id, first.step.id)
-      )
-        throw new AgentError("plan_workspace_conflict");
-    }
-  }
-}
-
-function sameWorkingCopy(
-  first: ResolvedAgentWorkspace | null,
-  second: ResolvedAgentWorkspace | null,
-): boolean {
-  return (
-    first !== null &&
-    second !== null &&
-    (first.id === second.id ||
-      first.directoryIdentity === second.directoryIdentity ||
-      overlapsWorkspacePath(first.path, second.path))
-  );
-}
-
 function stepOrigin(
   step: AgentPlanStep,
   profile: AgentProfile,
@@ -413,7 +386,8 @@ function stepOrigin(
   };
 }
 
-function validateRemoteWorkingCopies(
+/** Rejects unordered remote writers with the same registered connection or pinned host and path. */
+export function validateRemoteWorkingCopies(
   plan: AgentPlan,
   steps: readonly RemotePlanStep[],
 ): void {
@@ -421,15 +395,21 @@ function validateRemoteWorkingCopies(
     for (const second of steps) {
       if (
         first.step.id === second.step.id ||
-        first.target.connectionId !== second.target.connectionId ||
-        first.target.path !== second.target.path
+        !remoteWorkspaceKeys(first.target).some((key) =>
+          remoteWorkspaceKeys(second.target).includes(key),
+        )
       )
         continue;
       if (
         !hasPlanPath(plan.edges, first.step.id, second.step.id) &&
         !hasPlanPath(plan.edges, second.step.id, first.step.id)
       )
-        throw new AgentError("plan_workspace_conflict");
+        throw new AgentPlanWorkspaceConflictError(
+          workspaceConflict("parallel_writers", [
+            remoteWorkspaceEntry(first),
+            remoteWorkspaceEntry(second),
+          ]),
+        );
     }
   }
 }

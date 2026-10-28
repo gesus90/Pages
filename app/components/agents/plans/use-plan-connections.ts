@@ -106,6 +106,7 @@ export function usePlanConnections(
   draft: AgentPlanInput,
   setDraft: Dispatch<SetStateAction<AgentPlanInput>>,
   sources: AgentPlanSources,
+  currentDraft?: () => AgentPlanInput,
 ): {
   readonly connection: PlanConnection | null;
   readonly connectionIssue: AgentPlanIssue | null;
@@ -138,25 +139,8 @@ export function usePlanConnections(
     setConnection(next);
     setIssue(null);
   }
-  function attempt(
-    id: string,
-    parameter?: string,
-  ): PlanConnectionAttempt | null {
-    if (!connection) return null;
-    return attemptConnection({ draft, sources, connection }, id, parameter);
-  }
-  function accept(result: PlanConnectionAttempt | null): void {
-    if (!result) return;
-    if ("issue" in result) {
-      setIssue(result.issue);
-      return;
-    }
-    setIssue(null);
-    setDraft(result.plan);
-    setConnection(null);
-  }
   function connect(id: string, parameter?: string): void {
-    accept(attempt(id, parameter));
+    if (connection) connectFrom(connection, id, parameter);
   }
   function canConnectFrom(
     source: PlanConnection,
@@ -175,9 +159,26 @@ export function usePlanConnections(
     id: string,
     parameter?: string,
   ): void {
-    accept(
-      attemptConnection({ draft, sources, connection: source }, id, parameter),
+    const result = attemptConnection(
+      { draft: currentDraft?.() ?? draft, sources, connection: source },
+      id,
+      parameter,
     );
+    if (!result) return;
+    if ("issue" in result) {
+      setIssue(result.issue);
+      return;
+    }
+    setIssue(null);
+    setDraft((previous) => {
+      const current = attemptConnection(
+        { draft: previous, sources, connection: source },
+        id,
+        parameter,
+      );
+      return current && "plan" in current ? current.plan : previous;
+    });
+    setConnection(null);
   }
   return {
     connection,

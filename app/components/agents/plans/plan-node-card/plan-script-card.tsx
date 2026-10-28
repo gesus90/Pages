@@ -5,7 +5,11 @@ import { planScriptParameters } from "@/definition/AgentPlanScript";
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanNodeExecutionContext } from "../plan-node-execution-context";
 import { PlanFlowPorts } from "../plan-flow-ports";
-import { PlanStatusBadge, planStatusClass } from "../plan-status";
+import {
+  hasOpenPlanReport,
+  PlanStatusBadge,
+  planStatusClass,
+} from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
 import { PlanCard } from "./plan-card";
 import { PlanResultOut } from "./plan-result-out";
@@ -45,7 +49,13 @@ export function PlanScriptCard(props: {
       title={script.name}
       subtitle={t("plans.nodeType.script")}
       runClass={
-        props.hasRun ? planStatusClass(status, result?.isBlocked) : undefined
+        props.hasRun
+          ? planStatusClass(
+              status,
+              result?.isBlocked,
+              hasOpenPlanReport(result),
+            )
+          : undefined
       }
       status={
         props.hasRun ? (
@@ -53,6 +63,7 @@ export function PlanScriptCard(props: {
             compact
             status={status}
             isBlocked={result?.isBlocked}
+            hasOpenReport={hasOpenPlanReport(result)}
           />
         ) : null
       }

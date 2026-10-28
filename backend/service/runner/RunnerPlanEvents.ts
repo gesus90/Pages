@@ -6,6 +6,7 @@ import { planStepExecutionSchema } from "@/definition/AgentPlanExecution";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
 import { recordRemoteAgentResult } from "@/backend/service/agents/AgentPlanRemoteResult";
+import { recordRemoteScriptResult } from "@/backend/service/agents/AgentPlanRemoteScriptResult";
 import { planWorkStep } from "@/backend/service/agents/AgentPlanWorkContext";
 import { settleDetachedRun } from "@/backend/service/agents/AgentPlanRunState";
 
@@ -130,11 +131,13 @@ function updatedStep(
     job.execution?.hasOutput === false
       ? null
       : (event?.result?.output ?? step.output);
+  const sanitized = output === null ? null : sanitizePlanOutput(output);
+  const sensitive = sensitiveScriptResult({ job, status, output, sanitized });
   return {
     ...step,
-    status,
-    output: output === null ? null : sanitizePlanOutput(output),
-    error: event?.result?.resourceError ?? runnerFailureCode(job, input),
+    status: sensitive ? "failed" : status,
+    output: sanitized,
+    error: runnerResultError(input, sensitive),
     assetFailure: remoteAssetFailure(event, step),
     ...(job.status === "interrupted"
       ? {
@@ -146,6 +149,29 @@ function updatedStep(
       : {}),
     remote: remoteProgress(input, step, { now, status }),
   };
+}
+
+function runnerResultError(
+  input: EventInput,
+  sensitive: boolean,
+): string | null {
+  if (sensitive) return "plan_script_result_sensitive";
+  return (
+    input.event?.result?.resourceError ?? runnerFailureCode(input.job, input)
+  );
+}
+
+function sensitiveScriptResult(input: {
+  readonly job: RunnerJob;
+  readonly status: AgentPlanStepStatus;
+  readonly output: string | null;
+  readonly sanitized: string | null;
+}): boolean {
+  return (
+    input.status === "succeeded" &&
+    input.job.execution?.program.kind === "script" &&
+    input.sanitized !== input.output
+  );
 }
 
 function remoteProgress(
@@ -188,28 +214,97 @@ function remoteResult(
   input: EventInput,
 ): Pick<
   NonNullable<AgentPlanStepResult["remote"]>,
-  "exitCode" | "signal" | "reason" | "stderr"
+  | "exitCode"
+  | "signal"
+  | "reason"
+  | "stdout"
+  | "stdoutIsFiltered"
+  | "stderr"
+  | "stderrIsFiltered"
 > {
   const result = input.event?.result;
   return {
     exitCode: result?.exitCode ?? null,
     signal: result?.signal ?? null,
     reason: result?.reason ?? null,
-    stderr: sanitizePlanOutput(result?.stderr ?? ""),
+    ...remoteStdout(input),
+    ...remoteStderr(result),
+  };
+}
+
+function remoteStdout(
+  input: EventInput,
+): Pick<
+  NonNullable<AgentPlanStepResult["remote"]>,
+  "stdout" | "stdoutIsFiltered"
+> {
+  const result = input.event?.result;
+  const stdout =
+    input.job.execution?.program.kind === "script" &&
+    typeof result?.output === "string"
+      ? sanitizePlanOutput(result.output)
+      : undefined;
+  return stdout === undefined
+    ? {}
+    : { stdout, stdoutIsFiltered: stdout !== result?.output };
+}
+
+function remoteStderr(
+  result: PlanEvent["result"],
+): Pick<
+  NonNullable<AgentPlanStepResult["remote"]>,
+  "stderr" | "stderrIsFiltered"
+> {
+  const stderr = sanitizePlanOutput(result?.stderr ?? "");
+  return {
+    stderr,
+    ...(result?.stderr === undefined
+      ? {}
+      : { stderrIsFiltered: stderr !== result.stderr }),
   };
 }
 
 function runnerFailureCode(job: RunnerJob, input: EventInput): string | null {
   if (job.status === "lost") return "plan_runner_lost";
-  if (job.status === "interrupted") return "plan_interrupted";
+  if (job.status === "interrupted")
+    return interruptedFailure(job, input.event?.result);
   if (job.status !== "failed") return null;
   const result = input.event?.result;
   if (result?.failureCode) return result.failureCode;
+  return (
+    runnerFailure(result) ?? scriptFailure(job, result) ?? "plan_runner_failed"
+  );
+}
+
+function interruptedFailure(
+  job: RunnerJob,
+  result: PlanEvent["result"],
+): string {
+  return job.execution?.program.kind === "script" &&
+    result?.reason === "cancelled"
+    ? "plan_script_cancelled"
+    : "plan_interrupted";
+}
+
+function runnerFailure(result: PlanEvent["result"]): string | null {
   if (result?.reason === "storage") return "plan_runner_storage_failed";
   if (result?.reason === "protocol") return "plan_runner_incomplete";
   if (result?.reason === "event_limit") return "plan_runner_event_limit";
   if (result?.reason === "result_limit") return "plan_runner_result_limit";
-  return "plan_runner_failed";
+  return null;
+}
+
+function scriptFailure(
+  job: RunnerJob,
+  result: PlanEvent["result"],
+): string | null {
+  if (job.execution?.program.kind !== "script") return null;
+  if (result?.reason === "timeout") return "plan_script_timeout";
+  if (result?.reason === "spawn") return "plan_script_spawn";
+  if (result?.reason === "output_limit") return "plan_script_output_limit";
+  if (result?.reason === "exit")
+    return result.signal ? "plan_script_signal" : "plan_script_exit";
+  return null;
 }
 
 function updatedRun(
@@ -221,6 +316,24 @@ function updatedRun(
   const result: AgentPlanRun = { ...run, steps };
   // An engine closes its own runs; only a run without one settles here.
   return isDetached ? settleDetachedRun(result) : result;
+}
+
+/** A legacy CLI completion may contain a transport prefix, so it cannot release result consumers. */
+function requireExactResult(
+  job: RunnerJob,
+  step: AgentPlanStepResult,
+): AgentPlanStepResult {
+  if (
+    step.status !== "succeeded" ||
+    job.execution?.program.kind !== "cli" ||
+    job.execution.resultPayloadVersion === 1
+  )
+    return step;
+  return {
+    ...step,
+    status: "failed",
+    error: "plan_runner_payload_update_required",
+  };
 }
 
 /**
@@ -249,10 +362,14 @@ export function applyRunnerPlanEvent(
   const recorded = recordRemoteAgentResult(
     snapshot,
     input.job.execution,
-    updatedStep(input, step),
+    recordRemoteScriptResult(
+      snapshot,
+      input.job.execution,
+      requireExactResult(input.job, updatedStep(input, step)),
+    ),
   );
   const updated = pendingTicketGate(
-    recorded,
+    pendingRemoteAcceptance(recorded, input.job, input.isDetached === true),
     snapshot,
     input.isDetached === true,
   );
@@ -261,6 +378,35 @@ export function applyRunnerPlanEvent(
     run: result,
     ...(updated.status === "succeeded"
       ? { checkpoint: runnerPlanCheckpoint(result, snapshot, updated) }
+      : {}),
+  };
+}
+
+/** OpenCode cannot create a success checkpoint until Pages checks the pinned report contract. */
+function pendingRemoteAcceptance(
+  step: AgentPlanStepResult,
+  job: RunnerJob,
+  isDetached: boolean,
+): AgentPlanStepResult {
+  if (
+    step.status !== "succeeded" ||
+    job.execution?.program.kind !== "cli" ||
+    job.execution.program.route.tool !== "opencode"
+  )
+    return step;
+  const canAssess =
+    !isDetached &&
+    step.session?.contract !== null &&
+    step.session?.contract !== undefined;
+  const error = step.session?.contract
+    ? "opencode_acceptance_interrupted"
+    : "opencode_acceptance_contract_unavailable";
+  return {
+    ...step,
+    status: canAssess ? "running" : "failed",
+    error: canAssess ? null : error,
+    ...(step.session
+      ? { session: { ...step.session, resultCode: canAssess ? null : -1 } }
       : {}),
   };
 }

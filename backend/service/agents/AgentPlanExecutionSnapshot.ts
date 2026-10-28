@@ -91,6 +91,7 @@ export function capturePlanExecution(
       stepId: script.step.id,
       attemptId: randomUUID(),
       target: { kind: "local" },
+      interpreterProfileId: script.step.interpreterProfileId,
       workspace: {
         id: script.workspace.id,
         path: script.workspace.path,
@@ -114,6 +115,9 @@ export function capturePlanExecution(
       stepId: remote.step.id,
       attemptId: randomUUID(),
       target: remote.target,
+      ...(remote.step.type === "script"
+        ? { interpreterProfileId: remote.step.interpreterProfileId }
+        : {}),
       workspace: {
         id: remote.target.workspaceId,
         path: remote.target.path,

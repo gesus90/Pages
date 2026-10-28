@@ -7,9 +7,9 @@ import type { RunnerRepository } from "@/backend/database/repositories/runner/Ru
 import type { RunnerJob, RunnerReply } from "@/definition/RunnerProtocol";
 
 interface CancellationDependencies {
-  readonly repository: RunnerRepository;
+  readonly repository: Pick<RunnerRepository, "find" | "checkpoint">;
   readonly writes: SerialQueue;
-  readonly expire: (job: RunnerJob) => Promise<void>;
+  readonly expire: (connectionId: string, job: RunnerJob) => Promise<void>;
   readonly deliver: (connectionId: string, reply: RunnerReply) => void;
 }
 
@@ -82,7 +82,7 @@ export class RunnerCancellation {
               current?.cancellation &&
               current.cancellation.closeout !== "confirmed"
             )
-              await this.dependencies.expire(current);
+              await this.dependencies.expire(connectionId, current);
           })
           .catch((error: unknown) =>
             logCaughtError("RunnerCancellation", error),

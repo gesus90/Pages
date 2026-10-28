@@ -21,6 +21,27 @@ it("answers a recovery refusal with its fixed code and status", async () => {
   expect(tooLarge.status).toBe(413);
 });
 
+it("returns the fixed cleanup reason and affected node to the executor", async () => {
+  const response = planRecoveryFailure(
+    new AgentPlanRecoveryError("cleanup_unconfirmed", {
+      stepId: "node-a",
+      kind: "local_script",
+      reason: "scan_access_denied",
+    }),
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    ok: false,
+    error: "cleanup_unconfirmed",
+    cleanupFailure: {
+      stepId: "node-a",
+      kind: "local_script",
+      reason: "scan_access_denied",
+    },
+  });
+});
+
 it("reports an oversized operation as 413 and other operation refusals as 400", async () => {
   const large = planRecoveryFailure(
     new AgentOperationError("PAYLOAD_TOO_LARGE"),
@@ -32,6 +53,19 @@ it("reports an oversized operation as 413 and other operation refusals as 400", 
   expect(invalid.status).toBe(400);
   expect(await invalid.json()).toEqual({ ok: false, error: "invalid_request" });
   expect(invalid.headers.get("Cache-Control")).toBe("no-store");
+});
+
+it("reports unavailable durable diagnostics without claiming release", async () => {
+  const response = planRecoveryFailure(
+    new AgentPlanRecoveryError("diagnostic_unavailable"),
+  );
+
+  expect(response.status).toBe(503);
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(await response.json()).toEqual({
+    ok: false,
+    error: "diagnostic_unavailable",
+  });
 });
 
 it("falls back to the agent failure answer with the recovery intent", async () => {

@@ -140,6 +140,42 @@ describe("readAgentJson size limits", () => {
     },
   );
 
+  it.each([
+    "plans.create",
+    "plans.update",
+    "plans.parameter.create",
+    "plans.parameter.update",
+  ])(
+    "lets %s carry a complete plan field larger than 64 KiB",
+    async (operation) => {
+      const body = envelopeOfSize(PAGES_AGENT_LIMITS.requestBytes * 2, {
+        operation,
+      });
+      const input = await readAgentJson(agentRequest(body));
+      expect(input.operation).toBe(operation);
+    },
+  );
+
+  it("keeps a finite two-MiB limit for plan edit envelopes", async () => {
+    const limit = 2 * 1_048_576;
+    const body = envelopeOfSize(limit + 1, { operation: "plans.update" });
+    const error = await failure(readAgentJson(agentRequest(body)));
+    expect(error.code).toBe("PAYLOAD_TOO_LARGE");
+    expect(error.details).toEqual({ constraint: "requestBytes", limit });
+  });
+
+  it("keeps the ordinary 64 KiB limit for plan execution commands", async () => {
+    const body = envelopeOfSize(PAGES_AGENT_LIMITS.requestBytes + 1, {
+      operation: "plans.play",
+    });
+    const error = await failure(readAgentJson(agentRequest(body)));
+    expect(error.code).toBe("PAYLOAD_TOO_LARGE");
+    expect(error.details).toEqual({
+      constraint: "requestBytes",
+      limit: PAGES_AGENT_LIMITS.requestBytes,
+    });
+  });
+
   it("rejects an envelope above the wiki budget by its declared length", async () => {
     const request = agentRequest("{}", {
       "content-length": String(PAGES_AGENT_LIMITS.wikiEnvelopeBytes + 1),

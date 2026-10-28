@@ -14,7 +14,6 @@ import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 /** A container of nodes on the grid: a session group or a loop. */
 export type PlanFrame = AgentPlanGroup | AgentPlanLoop;
 
-export const PLAN_GRID = 20;
 /** The width of the port rows in a frame's header. */
 export const PLAN_NODE_WIDTH = 280;
 // Card sizes keep their order: compact start and end, medium value sources,

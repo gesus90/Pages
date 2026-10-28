@@ -2,8 +2,12 @@ import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
+import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
 import { isSamePlanTarget } from "@/definition/AgentPlanTarget";
 import { planControl } from "./AgentPlanControl";
+import { planWritingWorkspaces } from "./AgentPlanContinuation";
+import { reservedWorkspaceConflict } from "./AgentPlanWorkspaceConflict";
+import { visibleStartRejection } from "./AgentPlanStartRejectionVisibility";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -11,15 +15,57 @@ import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentPlanPreparation } from "./AgentPlanPreparation";
 import type { AgentPlan, AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanWorkspaceConflict } from "@/definition/AgentPlanWorkspaceConflict";
+import type {
+  AgentPlanStartRejection,
+  AgentPlanStartRejectionPage,
+} from "@/definition/AgentPlanStartRejection";
+import type { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
+import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
+import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 
 interface ControlDependencies {
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly profiles: Pick<AgentProfileService, "catalog">;
   readonly preparation?: Pick<AgentPlanPreparation, "prepare">;
+  readonly startRejections?: Pick<AgentPlanStartRejectionRepository, "latest"> &
+    Partial<Pick<AgentPlanStartRejectionRepository, "page">>;
+  readonly workspaceCatalog?: Pick<AgentPlanWorkspaces, "requireAccess">;
+  readonly workspaces?: Pick<AgentWorkspaceService, "requireAccess">;
   readonly runs: Pick<
     AgentPlanRunRepository,
-    "latest" | "hasReservation" | "resources"
+    "latest" | "hasReservation" | "findWorkspaceReservation" | "resources"
   >;
+}
+
+interface ExecutionIssue {
+  readonly code: string | null;
+  readonly conflict?: AgentPlanWorkspaceConflict;
+}
+
+function withExecutionIssue(
+  control: AgentPlanControl,
+  issues: readonly AgentPlanIssue[],
+  issue: string | null,
+  conflict: AgentPlanWorkspaceConflict | undefined,
+): AgentPlanControl {
+  if (issues.length === 0 && issue === control.issue && !conflict)
+    return control;
+  return {
+    ...control,
+    issues,
+    issue: issue ?? "plan_invalid",
+    canPlay: false,
+    canResume: false,
+    ...(conflict ? { workspaceConflict: conflict } : {}),
+  };
+}
+
+function withStartRejection(
+  control: AgentPlanControl,
+  rejection: AgentPlanStartRejection | null,
+): AgentPlanControl {
+  return rejection ? { ...control, lastStartRejection: rejection } : control;
 }
 /** Server-side action availability, including current graph and execution-context refusals. */
 export class AgentPlanControlService {
@@ -37,13 +83,19 @@ export class AgentPlanControlService {
         ? await this.dependencies.runs.hasReservation(run.id)
         : false,
     });
+    const rejection = plan.canEdit
+      ? await this.visibleStartRejection(userId, plan)
+      : null;
     if (plan.isWorkspaceMissing)
-      return {
-        ...control,
-        canPlay: false,
-        canResume: false,
-        issue: "workspace_not_found",
-      };
+      return withStartRejection(
+        {
+          ...control,
+          canPlay: false,
+          canResume: false,
+          issue: "workspace_not_found",
+        },
+        rejection,
+      );
     if (!plan.canEdit) return control;
     if (
       run &&
@@ -51,25 +103,67 @@ export class AgentPlanControlService {
         run.status === "pausing" ||
         run.status === "stopping")
     )
-      return control;
+      return withStartRejection(control, rejection);
     const issues = [
       ...planExecutionIssues(
         plan,
         await this.dependencies.profiles.catalog(userId, plan.projectId),
       ),
     ];
-    let issue =
-      (await this.executionIssue(userId, plan, issues)) ?? control.issue;
+    const execution = await this.executionIssue(userId, plan, issues, run);
+    let issue = execution.code ?? control.issue;
     if (run?.status === "paused" && (await this.hasChangedContext(run, plan)))
       issue = "plan_context_changed";
-    if (issues.length === 0 && issue === control.issue) return control;
+    return withStartRejection(
+      withExecutionIssue(
+        control,
+        issues,
+        issue,
+        issue === execution.code ? execution.conflict : undefined,
+      ),
+      rejection,
+    );
+  }
+
+  /** Reads one historical refusal after rechecking current editor and target rights. */
+  public async rejectionHistory(
+    userId: string,
+    planId: string,
+    before: string | null,
+  ): Promise<AgentPlanStartRejectionPage> {
+    const plan = await this.dependencies.access.require(userId, planId);
+    if (!plan.canEdit) throw new AgentError("plan_access_denied");
+    const page = await this.dependencies.startRejections?.page?.(
+      userId,
+      planId,
+      before,
+    );
+    if (!page) throw new AgentError("plan_run_unavailable");
     return {
-      ...control,
-      issues,
-      issue: issue ?? "plan_invalid",
-      canPlay: false,
-      canResume: false,
+      ...page,
+      entry: await visibleStartRejection(
+        this.dependencies.workspaceCatalog ?? this.dependencies.workspaces,
+        userId,
+        plan,
+        page.entry,
+      ),
     };
+  }
+
+  private async visibleStartRejection(
+    userId: string,
+    plan: AgentPlan,
+  ): Promise<AgentPlanStartRejection | null> {
+    const rejection = await this.dependencies.startRejections?.latest(
+      userId,
+      plan.id,
+    );
+    return visibleStartRejection(
+      this.dependencies.workspaceCatalog ?? this.dependencies.workspaces,
+      userId,
+      plan,
+      rejection ?? null,
+    );
   }
 
   /** A paused run keeps its project, workspace and plan target; another one in the plan blocks its continuation. */
@@ -89,16 +183,32 @@ export class AgentPlanControlService {
     userId: string,
     plan: AgentPlan,
     issues: AgentPlanIssue[],
-  ): Promise<string | null> {
+    run: AgentPlanRun | null,
+  ): Promise<ExecutionIssue> {
     try {
-      await this.dependencies.preparation?.prepare(userId, plan);
-      return null;
+      const snapshot = await this.dependencies.preparation?.prepare(
+        userId,
+        plan,
+      );
+      if (!snapshot) return { code: null };
+      const reserved = await this.dependencies.runs.findWorkspaceReservation(
+        planWritingWorkspaces(snapshot),
+        run?.id,
+      );
+      return reserved
+        ? {
+            code: "plan_workspace_conflict",
+            conflict: reservedWorkspaceConflict(snapshot, reserved),
+          }
+        : { code: null };
     } catch (error: unknown) {
+      if (error instanceof AgentPlanWorkspaceConflictError)
+        return { code: error.code, conflict: error.conflict };
       if (error instanceof AgentPlanValidationError)
         issues.push(...error.issues);
-      if (error instanceof AgentExecutionError) return error.code;
+      if (error instanceof AgentExecutionError) return { code: error.code };
       if (!(error instanceof AgentError)) throw error;
-      return error.code;
+      return { code: error.code };
     }
   }
 }

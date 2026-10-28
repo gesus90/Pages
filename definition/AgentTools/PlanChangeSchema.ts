@@ -166,12 +166,41 @@ const SCRIPT_FIELDS: ToolProperties = {
     maxItems: 1,
     items: {
       type: "object",
-      properties: { name: PARAMETER_NAME, type: { const: "text" } },
+      properties: {
+        name: PARAMETER_NAME,
+        type: { const: "text" },
+        policy: {
+          enum: ["report", "gate"],
+          description:
+            "report forwards complete failed or partial check findings; gate requires every check to pass. Omission preserves arbitrary text.",
+        },
+      },
       required: ["name", "type"],
       additionalProperties: false,
     },
   },
   timeoutSeconds: { type: "integer", minimum: 1, maximum: 86_400 },
+};
+
+/** A plan or node execution target, validated by the same Pages service as the editor. */
+export const EXECUTION_TARGET: PropertySchema = {
+  oneOf: [
+    {
+      type: "object",
+      properties: { kind: { const: "local" } },
+      required: ["kind"],
+      additionalProperties: false,
+    },
+    {
+      type: "object",
+      properties: {
+        kind: { const: "remote" },
+        workspaceId: PLAN_NODE_IDENTIFIER_SCHEMA,
+      },
+      required: ["kind", "workspaceId"],
+      additionalProperties: false,
+    },
+  ],
 };
 
 const NODE_FIELDS: ToolProperties = {
@@ -180,25 +209,7 @@ const NODE_FIELDS: ToolProperties = {
   agentId: { type: "string", maxLength: 100 },
   personalAgentId: { type: ["string", "null"], maxLength: 100 },
   instruction: { type: "string", maxLength: 200_000 },
-  executionTarget: {
-    oneOf: [
-      {
-        type: "object",
-        properties: { kind: { const: "local" } },
-        required: ["kind"],
-        additionalProperties: false,
-      },
-      {
-        type: "object",
-        properties: {
-          kind: { const: "remote" },
-          workspaceId: PLAN_NODE_IDENTIFIER_SCHEMA,
-        },
-        required: ["kind", "workspaceId"],
-        additionalProperties: false,
-      },
-    ],
-  },
+  executionTarget: EXECUTION_TARGET,
   runs: { type: "integer", minimum: 1, maximum: 999 },
   runsSource: { enum: ["value", "parameter"] },
   countMode: { enum: ["max", "expected"] },

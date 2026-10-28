@@ -723,7 +723,10 @@ Pages instance, preserving any deployment prefix. Send the ticket only in the
 named header, without an Authorization header or query string. Tickets are
 one-use, expire after five minutes and are invalid after a Pages restart. Failed
 uploads need a new ticket. The binary client uses a separate five-minute budget;
-JSON calls keep their five-second budget; wiki create/content calls allow 1 MiB UTF-8 content, other requests keep 64 KiB. Import application has a thirty-second budget.
+JSON calls keep their five-second budget. Wiki create/content calls allow 1 MiB
+UTF-8 content; plan create/update and parameter create/update accept a 2 MiB
+JSON envelope so one editor-sized field fits. Other requests keep 64 KiB.
+Import application has a thirty-second budget.
 
 For stdio uploads, the Pages endpoint rechecks the originating personal credential
 and current account rights before and after streaming.
@@ -2037,8 +2040,15 @@ Remote plan validation also preserves node-specific `graph_invalid` findings:
 `remoteModel`, `remoteOffline`, `remoteIdentity`, `remoteWorkspace`,
 `remoteInterpreter`, `remoteInterpreterRemoved` (confirmed removal),
 `remoteCatalogStale` (stale or incomplete inventory), `remoteOptions` and
-`remoteContainer`. Runner communication requires Runner 1.10 or newer; older
-runners report `remoteRunnerUpdate`. These are public
+`remoteContainer`. Runner communication requires Runner 1.10 or newer; new
+remote CLI results additionally require Runner 1.13.0 and its advertised
+`resultPayloadVersion: 1`. Older runners report `remoteRunnerUpdate` before
+start; `plan_runner_payload_update_required` names the same remedy if the
+runner changes before dispatch. Versioned final answers contain the redacted
+result without a host/workspace banner; the authorized execution metadata
+identifies the target separately. Earlier unversioned completions remain
+available for diagnosis and do not release result consumers as successes.
+These are public
 business reasons, never CLI diagnostics or credentials. Remote CLI choices come
 from the runner's authenticated picker; saving a plan never signs in or starts it.
 
@@ -2114,12 +2124,12 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
   parameter, as in the editor. Pages checks the saved plan like the plan page.
   An agent node's `completion` selects the progress scope: `report` (default)
   describes todos and acceptance criteria; `todos` describes only the current
-  ticket todo list, ticked live. Both scopes release successor agents and
-  internal group steps after regular runner completion. Open or unknown work,
-  ticket changes, unmet criteria and missing, incomplete or invalid reports are
-  diagnostics (`verdict: open`), never execution failures. Technical failures,
-  access denials and explicit pause/stop remain effective. Existing node copies
-  need no migration or setting change. Historical failed runs stay unchanged;
+  ticket todo list, ticked live. Standalone Codex and Claude reports remain
+  diagnostic; local and remote OpenCode nodes and internal group members require
+  an accepted report before successors start. A missing, incomplete or invalid
+  report, unmet criterion or changed requirement fails that gate. The opt-in
+  ticket work gate also checks current evidence. Technical failures, access
+  denials and explicit pause/stop remain effective. Historical failed runs stay unchanged;
   Resume continues active paused runs, while ended runs need a new explicit Play.
   `updateNode` with `{"completion": "todos"}` switches an existing node and keeps
   its configuration copy; setting `agentId` to another agent and back inside one
@@ -2127,17 +2137,16 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
 - **Scripts.** A script node names an interpreter profile by the `id` that
   `read_plan_sources` lists (with `name`, `status` and `version`, never a path).
   Pages checks it like the plan page: a name of up to 120 characters, content of
-  1 to 100000 characters (one request is at most 64 KiB, so longer content is
-  set on the plan page), up to 16 `inputs` (`{name, type: "text", isRequired}`),
-  zero or one output (`{name, type: "text"}`) that the result port hands on,
+  1 to 100000 characters, up to 16 `inputs` (`{name, type: "text", isRequired}`),
+  zero or one output (`{name, type: "text", policy?}`) that the result port hands on,
   `timeoutSeconds` from 1 to 86400 (default 60, always finite), and input and output names that
   start with a letter, use letters, digits and `_` and are unique together. A new
   or changed profile must be configured on the server; an unchanged reference to
   a since removed profile stays as it is. `bind` fills a script input like an
   agent input (text only; a result only from a node earlier in the flow), and an
   `updateNode` of `inputs` keeps the bindings of the inputs that remain. Scripts
-  never join groups and have no model or reasoning. They use the plan's approved
-  local workspace by default. An agent or script may save `executionTarget` as
+  never join groups and have no model or reasoning. They inherit the plan's
+  default execution target unless they explicitly choose their own. An agent or script may save `executionTarget` as
   `{kind: "local"}` or `{kind: "remote", workspaceId}` from
   `read_plan_sources.remoteTargets`. Remote targets are validated on save and
   require a ready authorized runner and its real model/interpreter catalog; unavailable targets return `plan_remote_unavailable`;
@@ -2146,7 +2155,16 @@ own. Graph editing never starts a run. Explicit saved-revision commands offer Pl
   with active administrator mode and current plan/project/workspace rights.
   stdin receives one JSON object of declared text values, followed by EOF;
   optional unbound values are omitted and explicit empty text remains empty.
-  stdout stays exact UTF-8 text, stderr is diagnostic, with 128 KiB per stream.
+  stdout is text and stderr is diagnostic. Local streams are limited to 128 KiB
+  each; a remote runner limits their combined bytes to 64 KiB and keeps only a
+  bounded stderr tail. Credential-shaped content is filtered.
+  An omitted output policy keeps arbitrary text. `policy: "report"` validates
+  the declared check-report JSON and forwards complete failed or partial
+  findings only along explicitly bound flow; every path to End requires a
+  `policy: "gate"` script, which blocks unless every check passed. A malformed
+  report fails at its source. The gate validates the script's declared results;
+  the script itself must run the required checks. Display responses identify
+  filtered output, and credential-shaped declared results are not forwarded.
   See the [script runtime contract](../backend/service/agents/ScriptRuntime.md)
   for limits, pause/stop, environment, process diagnostics and recovery.
   Script members inside loops remain subject to the editor/runtime validation and are not a separate execution engine.
@@ -2158,9 +2176,10 @@ sha256, nextCursor}}`. `maxBytes` forces chunking and sets a 1,024–65,536 byte
   verify the byte count and SHA-256, then parse the reconstructed JSON.
   Cursors bind the account and exact snapshot, including revision and status;
   changed snapshots and other queries return `INVALID_REQUEST`. Restart the read.
-  The complete serialized result is limited to 1 MiB; excess returns
-  `PAYLOAD_TOO_LARGE` with `readResultBytes`. A chunk that cannot fit returns
-  `readChunkBytes`. No result text is silently cut. Saved graphs allow 500 nodes
+  The plan is serialized incrementally, so its complete result can exceed the
+  general 1 MiB result limit. Each request recomputes the snapshot digest;
+  reading very large plans therefore takes more work. A chunk that cannot fit
+  returns `readChunkBytes`. No result text is silently cut. Saved graphs allow 500 nodes
   including group/loop members; change batches, requests and edge limits stay
   bounded as before, so large plans are built through multiple changes.
   Pica accepts up to 1 MiB per tool result and 2 MiB of results per turn,
@@ -2240,7 +2259,9 @@ the frame's member area. `updateNode` and `bind/unbind` resolve members by ID;
 `connect/disconnect` handle internal and cross-frame flow. Membership changes
 retain edges/bindings and never start/restart a session. `ungroup` takes `nodeId`
 and `positions: [{nodeId,x,y}]` covering every member, keeps them and their
-connections, and refuses unresolved legacy aliases. `removeNode` of a group
+internal connections, and refuses frame edges or bindings needing repair rather
+than inventing replacement connections. Disconnect the affected edges and
+explicitly unbind affected inputs first. `removeNode` of a group
 explicitly deletes its members. Multiple updates position a selection atomically.
 Coordinates match the editor: integers from 0 to 6000. Parameter display names may repeat, as in the editor; IDs identify nodes. Internal edges saved in the outer graph by older membership edits are losslessly placed in their containing group on read/save and reparenting, so templates retain them; run snapshots are not rewritten.
 
@@ -2273,14 +2294,23 @@ The editor's loop operations are available through the existing atomic
 boolean/number/string/null expected value). `placeLoopNode` takes
 `nodeId,loopId,x,y`, with null detaching; coordinates are relative within the
 loop. `connect/disconnect`, member updates, `bind/unbind` (including `previous`)
-and `ungroup` use the same editor checks. Crossing a loop boundary drops flow
-and result bindings as in the editor. `bind` on a loop supplies its `runs`
+and `ungroup` use the same editor checks. A loop-boundary move that would drop
+flow, result bindings or a loop condition is refused with
+`plan_frame_repair_required`; disconnect, unbind or clear the condition first.
+The same refusal protects a connected loop or previous-iteration binding from
+automatic replacement wiring on `ungroup`. `bind` on a loop supplies its `runs`
 parameter. No raw member/edge replacement is accepted.
 
-Agent-node `executionTarget` is `{kind:"local"}` or
+The plan's default `executionTarget` and an agent or script node's optional
+override are `{kind:"local"}` or
 `{kind:"remote",workspaceId}`. `read_plan_sources.remoteTargets` lists only
 currently authorized registered targets with secret-free connection/workspace
-metadata. Model access remains the node's explicit connection/model pair.
+metadata. `read_plan` reports the stored default, or `null` when none was saved;
+in that case consult the registered workspace and current control instead of
+assuming local execution. `create_plan` or `update_plan` can set a default
+explicitly. Omitting it from an update preserves the saved target;
+changing the default does not silently alter individual node overrides. Model
+access remains the node's explicit connection/model pair.
 Remote execution requires the existing dispatcher and an authorized ready runner with the selected model/interpreter. Unavailable targets remain blocked; selecting or saving a target never executes work and never falls back to local execution. Remote groups/loops retain the existing runtime restrictions.
 New run-step reads expose `execution` (immutable requested context and initial
 attempt identity) and `attemptId` (the current session attempt when present).
@@ -2292,17 +2322,19 @@ separate from edits. See [the local runner contract](../docs/AgentPlanRunner.md)
 
 #### Complete plan management in 0.3.0
 
-The additive backend plan contract is version **2**; the Agent API envelope stays
+The additive backend plan contract is version **7**; the Agent API envelope stays
 version `1`. `read_plan_capabilities` reports implemented operations, normal
 create sharing for clones, durable pause-boundary resume and the supported
 human deletion confirmation surfaces. These are implementation capabilities,
 not permission or proof that a particular client uses this version.
 
-| Tool                     | Operation                 | Arguments                                                                   |
-| ------------------------ | ------------------------- | --------------------------------------------------------------------------- |
-| `read_plan_capabilities` | `plans.capabilities.read` | none                                                                        |
-| `clone_plan`             | `plans.clone`             | `operationId`, `planId`, `expectedRevision`, `name`, optional `workspaceId` |
-| `read_plan_run_recovery` | `plans.run.recovery.read` | `planId`, own `runId`                                                       |
+| Tool                       | Operation                    | Arguments                                                                   |
+| -------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `read_plan_capabilities`   | `plans.capabilities.read`    | none                                                                        |
+| `clone_plan`               | `plans.clone`                | `operationId`, `planId`, `expectedRevision`, `name`, optional `workspaceId` |
+| `read_plan_run_recovery`   | `plans.run.recovery.read`    | `planId`, own `runId`                                                       |
+| `read_plan_run_checkpoint` | `plans.run.checkpoint.read`  | `planId`, own `runId`, optional `version`, `cursor`, `maxBytes`             |
+| `release_plan_run`         | `plans.run.recovery.release` | `operationId`, `planId`, own `runId`, `expectedRecoveryRevision`            |
 
 `clone_plan` creates exactly one new saved plan, without starting it. Omission of
 `workspaceId` deliberately keeps the source workspace, which is returned. Nodes,
@@ -2339,7 +2371,9 @@ access includes `runId`, applied `planRevision` and `continuationVersion`.
 `read_plan` keeps the account's own-run `state` for compatibility, with live
 `isRunnable`; control is authoritative for action availability. Run details expose
 original and applied plan revisions, continuation version and loop iteration
-statuses. Loop-member reports identify `loopId` and `iteration`.
+statuses. Loop-member reports identify `loopId` and `iteration`. A blocked
+node may name one recorded failed or cancelled predecessor in `blockedByStepId`;
+older runs and branches without a proven dependency may omit it.
 
 Commands return `action`, actual plan/run IDs, acknowledged revision, freshly read
 `status`, applied `planRevision` for runs and `control` with allowed next actions
@@ -2347,10 +2381,98 @@ and blockers. Replays return the committed identifiers and fresh authorized
 state. `pausing` means a pause request is draining work; `stopping` means shutdown
 is in progress. Re-read to confirm `paused` or a terminal state. Pause-resume at a
 durable boundary deliberately adopts the saved `expectedRevision`; it does not
-resume a lost provider process. `read_plan_run_recovery` projects existing
-restart/recovery availability and blockers without checkpoints or provider session
-IDs. Those execution commands stay in the existing editor workflow and create
-new run IDs; never substitute Play and call it recovery.
+resume a lost provider process. `read_plan_run_recovery` reports whether a linked
+continuation is absent, available or inaccessible, and returns its ID only after
+checking current rights on that run. It also projects restart,
+recovery-resume and release availability, their blockers, the results a resume
+would reuse and the nodes whose effects need review. While a reservation is
+held, `cleanupResources` names recorded unconfirmed local sessions, scripts,
+remote attempts and loops by node ID, filtered node name and closeout state. It
+does not claim that a process is still running or expose its identity. It does not expose checkpoints
+or provider session IDs. Restart and recovery-resume create new
+linked run IDs and leave the original history intact; never substitute Play and
+call it recovery.
+
+When a workspace conflict or stable preparation error rejects `play_plan` before creating a run, the
+refusal and that operation ID are committed together. Repeating the identical
+request returns the same refusal even if the workspace later becomes free;
+read the current control and use a new operation ID for a deliberate new start.
+Changing the request under the same operation ID is a conflict. The control's
+`lastStartRejection` is the requester's historical record, not a free-workspace
+guarantee. Remote paths in that record are registered paths unless explicitly
+verified by the runner.
+
+#### Plan capability and parity inventory
+
+| Area                    | Editor                                | MCP                                                                                                                                                                                             | Remaining limit                                                                                                                                                                                                                                                                                                     |
+| ----------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Graph and positions     | Canvas and property panels            | `read_plan`, `update_plan`, `clone_plan` and parameter operations                                                                                                                               | Complete plans are read in snapshot-bound chunks. Plan edits have a 2 MiB envelope; split larger independent edits across revisions. Revisions reject stale writes.                                                                                                                                                 |
+| Run actions             | Play, pause, stop and boundary resume | `read_plan_control`, `play_plan`, `pause_plan`, `stop_plan`, `resume_plan`                                                                                                                      | Pause-boundary resume is distinct from recovery after process loss.                                                                                                                                                                                                                                                 |
+| Start refusal history   | Last recorded refusal in plan panel   | `read_plan_control` includes the requester's last recorded workspace refusal or stable preparation error, separately from current availability; historical graph findings include node and port | Historical graph findings omit asset details and are capped at 50, with `issueDetailsFiltered` indicating omissions. Some other failures are not recorded; explicit includeStartRejections/beforeRejectionId pages older own entries with stable sequence anchors. Target details require current workspace rights. |
+| Recovery availability   | Recovery panel                        | `read_plan_run_recovery` includes release, restart, resume and blockers                                                                                                                         | Native session availability still depends on the recorded adapter capabilities and verified checkpoints.                                                                                                                                                                                                            |
+| Recovery start          | Explicit restart or continuation      | `restart_plan_run`, `continue_plan_run`                                                                                                                                                         | Each is a separate explicit request; no command revives an unavailable live session or starts implicitly.                                                                                                                                                                                                           |
+| Cleanup and release     | Recovery panel release action         | `release_plan_run` uses the same recovery checks and journal; recovery reads name recorded unconfirmed resources                                                                                | Unconfirmed local agent or loop-session cleanup can remain blocked. Local scripts can retry their owned cleanup; latestCleanupFailure durably records the last bounded scan/resource error and original attempt; it remains historical after release. Older audit entries are not paginated.                        |
+| Run history and reports | Run and report views                  | `list_plan_runs`, `read_plan_run`, `read_plan_run_reports`, `read_plan_run_diagnostics`, `read_plan_run_checkpoint`, `read_plan_run_session_events`                                             | Diagnostics/checkpoints are chunked; retained ACP events are sequence-paginated. Missing historical attempts, expired events and native session control are not reconstructed.                                                                                                                                      |
+| Whole-plan deletion     | Owner confirmation                    | `delete_plan` with a supported stdio client form                                                                                                                                                | Stateless HTTP cannot perform the required interactive confirmation.                                                                                                                                                                                                                                                |
+
+`release_plan_run` explicitly requests cleanup of an ended run belonging to the
+connected account. It never starts or resumes work. It requests cleanup of the
+original remote attempts even if no Stop was requested, and releases reservations
+only after closeout is confirmed. Pass the recovery `revision` just read as
+`expectedRecoveryRevision`. An identical retry for the same run and `operationId`
+replays the recorded result; changing the request under that ID for that run
+conflicts. Operation IDs for this command are scoped to the run, so use a fresh
+ID for every other run or decision. `plan_recovery_cleanup_unconfirmed` means the
+cleanup is not yet proven; read recovery again and retry rather than assuming a
+release. When a local process scan or script-resource cleanup fails, the error
+may include `cleanupFailure` with the owned `stepId`, resource `kind` and a
+fixed `reason` (`scan_access_denied`, `scan_unavailable`, `processes_remaining`
+or `resource_cleanup_failed`). No native error text or process identifier is
+returned. The last bounded failure is also persisted as latestCleanupFailure with the original plan/run/revision and known attempt. It stays historical after release; other unresolved closeouts can still return only the general reason.
+`plan_recovery_revision_conflict` and
+`plan_recovery_idempotency_conflict` require rereading and choosing a new ID as
+appropriate. The operation rechecks the same executor, plan and resource rights
+as the editor; run-scoped credentials cannot invoke it.
+
+`restart_plan_run` explicitly starts the selected current saved plan revision
+from the beginning as a new linked run. It requires `confirmRepeat: true` after
+the person understands that all steps and their side effects can recur.
+`continue_plan_run` instead chooses an available recovery mode and passes every
+`reviewStepId` whose side effects the person reviewed. It reuses only verified
+completed results and retries the remaining work as new attempts. Both require
+the recovery and current plan revisions returned by `read_plan_run_recovery`, current rights and
+confirmed cleanup; they replay a successful identical operation ID without
+starting a second run. Neither is an implicit consequence of saving, reading or
+cleanup, and neither is the pause-boundary `resume_plan`.
+
+`read_plan_run_diagnostics` reads one own attempt by plan, run and node. For a
+loop member, provide both `loopId` and `iteration`. It separates the recorded
+result, stdout and stderr, labels each as complete, partial, unknown or missing,
+and reports the recorded exit, signal, failure, closeout and acceptance verdict.
+`timingBasis` distinguishes local process or session times from remote runner
+observations, which do not establish exact process start and end times.
+Stream completeness describes retained text; it is not a quality verdict.
+Credential-shaped text is redacted and `isFiltered` identifies changed text;
+missing older target metadata stays missing. A remote runner can already have
+filtered its output before Pages receives it, so Pages cannot always report
+that earlier filtering. Its stderr tail has unknown completeness.
+Large results use the same snapshot-bound `cursor`, UTF-8 chunks and SHA-256 as
+`read_plan`: pass the same identifiers and `maxBytes` with each `nextCursor`,
+then join the chunks before parsing JSON. A changed attempt invalidates its old
+cursor. This is stored run evidence, not a live stream, complete session-event
+history; run-scoped credentials cannot use this read.
+
+`read_plan_run_checkpoint` reads one immutable completion of the connected
+executor's run, after the same current plan and resource checks as recovery.
+Omit `version` for the latest checkpoint or supply a version of at least 1;
+the result is `null` if that checkpoint does not exist. Its `content` is JSON
+text with the stored digests, dependencies, result and assessment. Process and
+native-session identifiers are omitted; `isFiltered` reports text masked or
+shortened for display, and a changed output is marked reduced. Stored digests
+remain those of the original data. For a chunked response, pin the version,
+reassemble and verify the outer JSON, then parse `checkpoint.content`. A changed
+snapshot invalidates the cursor. This operation starts nothing and is absent
+from run-scoped credentials.
 
 **Deleting a plan requires human consent tied to its exact ID and revision.**
 The backend requires the existing language-specific `LÖSCHEN`/`DELETE` word and
@@ -2378,7 +2500,8 @@ continue through the shared services. An explicit separate human request is
 required for Play/Resume; edits, renaming, copying and reads never execute work.
 Run-bound plan credentials do not gain clone, deletion or run controls.
 Pica uses the shared read budgets and chunked `read_plan` contract described
-above: 1 MiB per serialized result and 2 MiB of results per turn. Oversize
+above: 1 MiB per presented tool result and 2 MiB of results per turn. A plan
+larger than 1 MiB can be read over several chunks and turns; other oversized
 results return explicit `PAYLOAD_TOO_LARGE` or `RESULT_BUDGET_EXCEEDED` errors.
 A persistence operation is not rolled back by a presentation-budget refusal.
 
@@ -2619,3 +2742,32 @@ Asset-specific plan failures include the safe file identity, name and cause;
 silently redirects work to the Pages host.
 
 New derivatives may name `sourceType` (`ticket`, `wiki`, `agent`) with `sourceAttachmentId` and `expectedDigest` when source and destination differ. The server reauthorizes the source separately and returns `sourceType`/`sourceLink`. Explicit replacement remains restricted to the selected attachment owner; it never replaces a file in another destination. PDF extract text is transient transfer content and is never stored in the public resource-evidence manifest.
+
+Start-refusal history is available through `read_plan_control` with `includeStartRejections: true`. Each page contains one own historical entry under `control.startRejectionHistory`; pass `nextBefore` as `beforeRejectionId` for the next page, until it is null. New refusals do not shift the cursor. Unknown, deleted or foreign cursors return an empty page without disclosing their owner. Each page rechecks editor and target rights. Run-scoped credentials cannot request this history. The editor offers the same older-entry navigation. Reading or paging starts nothing.
+
+`read_plan_run_recovery.latestCleanupFailure` retains the last bounded scan/resource cleanup error after reload or reconnect, with original plan/run/revision and known attempt ID. It stays historical after successful cleanup; current action availability remains authoritative. `plan_recovery_diagnostic_unavailable` means this audit could not be stored or read; no release is claimed. Earlier failures remain stored but a paginated cleanup-failure reader is not yet offered. Native process IDs, exception text and environment values are excluded.
+
+### Plan attempt session events
+
+`read_plan_run_session_events` reads the same retained ACP journal as the editor for
+`planId`, `runId`, `stepId` and `attemptId`. Obtain `step.attemptId` from `read_plan_run`; loop iterations have distinct attempts. Personal
+credentials only, with current executor and snapshot-resource rights checked on
+every call. It neither sends instructions nor starts, stops or recovers a session.
+
+`after` and optional `before` are exclusive sequence bounds; `limit` is 1–32
+(default 16). Follow `history.cursor` while `hasMore` is true. `retainedFrom`
+identifies retention gaps and `source: legacy_record` explicitly identifies the
+limited fallback for older runs. Event `isTruncated` and response `isFiltered`
+identify shortened or masked display content. Native channel is included only
+when recorded. Missing historical attempts and removed events are not rebuilt.
+Large replies use the normal `cursor`/`maxBytes` JSON chunk contract; pin `before`
+when reading a growing journal. A changed snapshot rejects a stale chunk cursor.
+This does not add native session continuation or instruction/cancellation parity.
+
+Diagnostics also expose `retryAttempts` with the stored attempt ID, end time and
+provider failure class; native session IDs are omitted. A retained retry named by
+the authorized run can be read through `read_plan_run_session_events` only if
+its persisted owner/plan/run/node binding still matches. Missing journals return
+`plan_history_unavailable`, not an invented empty success. Historical summaries
+do not recover exit details or outputs that the older runtime never retained.
+This read permission does not make older attempts steerable or resumable.

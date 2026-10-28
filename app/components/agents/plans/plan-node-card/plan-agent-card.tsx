@@ -6,7 +6,11 @@ import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanNodeExecutionContext } from "../plan-node-execution-context";
 import { PlanFlowPorts } from "../plan-flow-ports";
 import { planAgentName } from "../plan-layout";
-import { PlanStatusBadge, planStatusClass } from "../plan-status";
+import {
+  hasOpenPlanReport,
+  PlanStatusBadge,
+  planStatusClass,
+} from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
 import { PlanAgentModel } from "./plan-agent-model";
 import { PlanCard } from "./plan-card";
@@ -36,6 +40,7 @@ export function PlanAgentCard(props: {
   const label = planAgentName(step, sources) || t("plans.missingAgent");
   const parameters = planNodeParameters(step, sources.agents);
   const status = result?.status ?? "waiting";
+  const hasOpenReport = hasOpenPlanReport(result);
   function edit(): void {
     graph.select(step.id);
     onEdit?.(step.id);
@@ -47,7 +52,9 @@ export function PlanAgentCard(props: {
       title={label}
       subtitle={t("plans.nodeType.agent")}
       runClass={
-        props.hasRun ? planStatusClass(status, result?.isBlocked) : undefined
+        props.hasRun
+          ? planStatusClass(status, result?.isBlocked, hasOpenReport)
+          : undefined
       }
       status={
         props.hasRun ? (
@@ -55,6 +62,7 @@ export function PlanAgentCard(props: {
             compact
             status={status}
             isBlocked={result?.isBlocked}
+            hasOpenReport={hasOpenReport}
           />
         ) : null
       }

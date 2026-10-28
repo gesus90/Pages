@@ -733,6 +733,7 @@
         "plan_json_invalid": "Enter exactly one valid JSON value. Numbers must be finite.",
         "plan_number_invalid": "Enter exactly one finite number.",
         "plan_run_unavailable": "This plan already has an active or paused run; stop it before starting again. Or the selected run is no longer active.",
+        "plan_start_rejection_record_failed": "The start was refused, but its diagnosis could not be saved. Check database availability before trying again.",
         "plan_run_option_unsupported": "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
         "plan_mcp_unavailable": "The node needs the Pages MCP adapter for agent sessions, but this server has none.",
         "plan_work_gate_failed": "Current ticket work is not confirmed. Complete relevant TODOs and confirm actual evidence for every required check before completion or a successor can start.",
@@ -756,6 +757,7 @@
         "plan_placeholder_unresolved": "The prompt still contains a parameter placeholder; nothing was sent.",
         "plan_runner_lost": "The remote process was lost without an exit record. No automatic restart.",
         "plan_runner_update_required": "Runner 1.11 or newer is required: remote execution needs its communication contract. Update the runner explicitly.",
+        "plan_runner_payload_update_required": "Runner 1.13.0 or newer is required to separate remote CLI results from transport metadata. Update the selected runner before starting.",
         "plan_runner_admission_failed": "The runner could not reserve an execution slot on its host; the job did not start.",
         "plan_runner_storage_failed": "Runner history storage failed. Confirmed output and checkpoints have been preserved.",
         "plan_runner_event_limit": "A native CLI event exceeds its separate message limit.",
@@ -784,6 +786,12 @@
         "timeout": "The agent’s hard time limit expired. The running operation was interrupted.",
         "run_notes_unsupported": "Shared run notes have been removed. {{@run.notes}} is no longer supported. Update the affected agent or plan node explicitly.",
         "opencode_acceptance_failed": "The OpenCode node did not prove every todo and acceptance criterion in its closing pages-report. Open or unproven work blocks successors even after regular ACP completion.",
+        "opencode_acceptance_unavailable": "Pages could not verify the remote OpenCode report and current ticket requirements. Check plan and ticket access, then review the attempt before an explicit retry.",
+        "opencode_acceptance_contract_unavailable": "This remote OpenCode attempt has no valid pinned report contract. Inspect the retained result and explicitly start a new attempt with the current saved plan.",
+        "opencode_acceptance_interrupted": "The Pages engine stopped before it could verify the remote OpenCode report. Inspect the retained result and choose an explicitly reviewed recovery action.",
+        "plan_script_result_invalid": "The script did not produce a complete report in its declared result format. Inspect stdout and correct the script before an explicit retry.",
+        "plan_script_result_sensitive": "The script result contains credential-shaped text and was not forwarded. Inspect the filtered diagnostic, remove sensitive output and explicitly retry.",
+        "plan_script_review_failed": "A required script review gate reported failed or partial checks. Inspect the retained report, repair the cause and explicitly repeat the checks.",
         "opencode_permission_mode_required": "OpenCode agents run only in Read only or YOLO. Choose a mode explicitly; legacy workspace-write settings cannot start a run.",
         "opencode_chat_mode_required": "Pica requires “Read only” workspace access for OpenCode and offers only the Pages tool bridge.",
         "opencode_configuration_unmanaged": "OpenCode could load external settings or instructions. Remove them from the connection’s configuration folder or /etc/opencode. No model was called.",
@@ -819,7 +827,7 @@
         "plan_script_signal": "The script ended through a signal. See the run details.",
         "plan_script_timeout": "The configured timeout elapsed. See the owned process cleanup status.",
         "plan_script_cancelled": "The script was stopped. See its process cleanup status.",
-        "plan_script_output_limit": "stdout or stderr exceeded 128 KiB. The step failed; no truncated success result is forwarded.",
+        "plan_script_output_limit": "The script exceeded its output limit: 128 KiB per local stream, or 64 KiB combined on a remote runner. No truncated success result is forwarded.",
         "plan_script_encoding": "The script emitted invalid UTF-8. No replacement text is forwarded.",
         "plan_script_credentials": "stdout contains credential-shaped text. The result was withheld; the step failed.",
         "plan_script_io": "The script input/output or durable attempt recording failed.",
@@ -3926,6 +3934,7 @@
     "missingAgent": "The model mapping is missing. Choose a permitted connection and model on the node.",
     "useDefault": "No bound value",
     "blocked": "Waiting · blocked by predecessor",
+    "reportOpen": "Execution completed · report open or unverified",
     "discardTitle": "Discard unsaved plan?",
     "discardHint": "Unsaved plan changes will be lost. Running executions keep their snapshot.",
     "nodeType": {
@@ -3988,6 +3997,8 @@
       "loopPrevious": "A result of the previous iteration is only valid inside a loop, from one of its members, and needs a default value for the first iteration.",
       "loopProvider": "An agent that keeps its session needs an ACP runner (Codex, Claude Code or OpenCode). Switch the loop to a new session per run or choose another agent.",
       "scriptConfiguration": "Check the script configuration.",
+      "scriptReportTarget": "Explicitly bind the review report to a following review script, repair agent or review gate.",
+      "scriptReportGate": "Every path from a forwarded review report to End must pass a script review gate.",
       "loopScriptUnsupported": "Script members inside loops are not supported by this runtime. Keep the saved configuration and use an explicit plan step.",
       "remoteTicketUnavailable": "Ticket unavailable: archived, deleted or currently not visible. No other ticket is substituted.",
       "remoteWikiUnavailable": "Wiki page unavailable: archived, deleted or currently not visible. No other page is substituted.",
@@ -3998,7 +4009,7 @@
       "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
       "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
       "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
-      "remoteRunnerUpdate": "Update the runner: remote execution requires Runner 1.10 or newer. Nothing starts here until it is updated explicitly; running jobs are still reconciled.",
+      "remoteRunnerUpdate": "Update the runner: remote CLI result integrity requires Runner 1.13.0 or newer; other remote features may require at least 1.10. Nothing starts here until the required version is available; running jobs are still reconciled.",
       "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
       "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason."
     },
@@ -4082,7 +4093,8 @@
       "expand": "Expand group",
       "needsRepair": "Check this group before starting.",
       "chooseEndpoint": "Choose agent endpoint",
-      "repairBeforeUngroup": "Resolve legacy frame edges in the group editor first.",
+      "repairBeforeUngroup": "Disconnect the frame and explicitly remove affected bindings before dissolving it.",
+      "frameRepairRequired": "{{name}} cannot be moved or dissolved without changing connections or inputs. Disconnect the affected flow, unbind inputs or clear the loop condition first.",
       "legacy": "Retained group inputs (read only)",
       "legacyHint": "Unambiguous bindings were transferred to the agents. These original definitions remain readable for provenance; new connections go directly to agents. Explicitly reconnect ambiguous bindings at the affected agent input.",
       "state": {
@@ -4345,6 +4357,27 @@
       "actualState": "Run state: {{state}}",
       "checking": "The plan is being checked; Start stays locked until then.",
       "blockedHint": "Not ready to start: expand the details and fix the plan errors. The server checks again on start.",
+      "workspaceConflictNodes": "Affected nodes: {{nodes}}",
+      "workspaceConflictTargets": "Working copy: {{targets}}",
+      "lastStartRejection": "Last rejected start: {{time}}, attempted revision {{revision}}. This is past evidence; current availability is shown above.",
+      "rejectedDraft": "This was an unsaved draft revision; the refused start did not save it.",
+      "rejectionDetailsUnavailable": "The affected target is unavailable or could not be established at the time.",
+      "rejectionOther": "Preparation was refused. Check the reported error and retry explicitly after correcting it.",
+      "rejectionIssuesFiltered": "Some findings or resource details are omitted from this historical record. Check current access and the plan before retrying.",
+      "rejectionRemoteIdentity": "The remote path was registered for this target; its canonical identity was not verified by this record.",
+      "rejectionReservation": {
+        "not_requested": "No reservation was requested: the graph contained unordered writers.",
+        "held": "Another run held the working copy when the start was checked.",
+        "unknown": "The reservation state at the refusal is unknown."
+      },
+      "rejectionRemedy": {
+        "reserved": "Check current availability and wait for confirmed closeout, or choose another working copy.",
+        "parallel_writers": "Order the writers with flow connections or choose separate working copies."
+      },
+      "workspaceConflictRemedy": {
+        "reserved": "Another run holds this working copy. Wait for its confirmed closeout or choose another working copy; the server checks again on start.",
+        "parallel_writers": "These nodes would write at the same time. Order them with flow connections or choose separate working copies."
+      },
       "unsavedShort": "Unsaved changes",
       "savedShort": "Plan saved",
       "pausingHint": "Pause requested: no waiting step starts any more; running steps finish in a controlled way. Only then is the run paused.",
@@ -4390,7 +4423,7 @@
         "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
         "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
         "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
-        "remoteRunnerUpdate": "Update the runner: remote execution requires Runner 1.10 or newer. Nothing starts here until it is updated explicitly; running jobs are still reconciled.",
+        "remoteRunnerUpdate": "Update the runner: remote CLI result integrity requires Runner 1.13.0 or newer; other remote features may require at least 1.10. Nothing starts here until the required version is available; running jobs are still reconciled.",
         "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
         "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason.",
         "remoteCatalogStale": "This runner's inventory is stale or incomplete. Known profiles stay visible but start only after a complete, current report from the connected runner.",
@@ -4456,7 +4489,11 @@
           "hint_succeeded": "The last run succeeded; Start begins a new run.",
           "hint_cancelled": "The last run was stopped; Start begins a new run."
         }
-      }
+      },
+      "historicalStartRejection": "Earlier start refusal: {{time}}, revision {{revision}}",
+      "olderStartRejection": "Read older start refusal",
+      "historyEnd": "No more start refusals of your own.",
+      "historyFailed": "The refusal history could not be read. Try again."
     },
     "ticketPicker": {
       "choose": "Choose a ticket",
@@ -4631,7 +4668,19 @@
       "addInput": "Add input",
       "inputLimit": "At most {{count}} inputs.",
       "output": "Result name",
-      "outputHint": "Optional: leave empty for no data output. Otherwise stdout is passed as exact UTF-8 text, including JSON and newlines. stderr is diagnostic. Each stream is limited to 128 KiB; excess or invalid UTF-8 fails the step.",
+      "outputPolicy": "Result contract",
+      "outputPolicyText": "Arbitrary text",
+      "outputPolicyReport": "Forward review report",
+      "outputPolicyGate": "Require passing review",
+      "outputPolicyHint": "Review reports are JSON with status, summary and checks; every check has name, status and detail. status is passed, failed or partial. A report can forward complete failure findings; a gate permits only passed. Process failures and invalid or missing reports never invent data.",
+      "reportTitle": "Script review report",
+      "reportStatus": {
+        "passed": "passed",
+        "failed": "failed",
+        "partial": "partial"
+      },
+      "reportCounts": "Checks: {{total}} · failed: {{failed}} · partial: {{partial}}",
+      "outputHint": "Optional: leave empty for no data output. Otherwise stdout is text, including JSON and newlines; stderr is diagnostic. Local streams are limited to 128 KiB each, remote streams to 64 KiB combined. Excess or invalid UTF-8 fails the step; credential-shaped text is filtered.",
       "defaultOutput": "result",
       "outputOut": "Data OUT · Result {{name}}",
       "timeout": "Timeout in seconds",
@@ -4673,23 +4722,29 @@
         "process": "Process ID (diagnostic)",
         "started": "Started (UTC)",
         "ended": "Ended (UTC)",
+        "observedStart": "First runner observation (UTC)",
+        "observedEnd": "Final runner observation (UTC)",
         "exit": "Exit code",
         "signal": "Signal",
         "closeout": "Cleanup",
         "pending": "Pending",
         "confirmed": "Confirmed",
         "failed": "Unconfirmed",
-        "empty": "(empty / unavailable)",
+        "empty": "(empty)",
+        "missing": "(not recorded)",
+        "remoteTail": "The runner retains a bounded stderr tail; earlier filtering or missing output cannot always be detected.",
+        "remotePartial": "The captured output may be incomplete because this attempt did not finish normally.",
         "lifecycle": "Pause drains active scripts; Stop and Timeout terminate their owned process tree.",
         "cause": "Cause"
       },
       "emptyInput": "Empty text is bound"
     },
     "progress": {
+      "filteredOutput": "Credentials were masked or long content was shortened in this view.",
       "label": "Run progress",
       "sequence": "Steps of the executed run revision",
       "completed": "completed",
-      "count": "{{completed}} of {{total}} steps completed successfully",
+      "count": "{{completed}} of {{total}} steps completed execution",
       "unknownTotal": "Executed step count unknown",
       "elapsed": "Elapsed time including pauses",
       "open": "Open run details",
@@ -4713,6 +4768,27 @@
       "noActivity": "No current work step reported yet.",
       "noLiveActivity": "No live activity for this step. No detailed work step was reported.",
       "noConfiguration": "No runner configuration is available for this step.",
+      "blockedBy": "Not run because {{name}} failed or was cancelled.",
+      "reportOpenHint": "The execution completed, but its report contains open or unverified work. Review the report before treating its checks as passed.",
+      "report": "Report assessment",
+      "reportVerdict": {
+        "accepted": "accepted",
+        "open": "open or unverified",
+        "rejected": "rejected"
+      },
+      "reportIssue": {
+        "missing": "No closing report was provided.",
+        "invalid": "The closing report is invalid or incomplete.",
+        "todoOpen": "Todo {{id}} remains open.",
+        "todoMissing": "Todo {{id}} is missing from the report.",
+        "criterionMissing": "Criterion {{id}} is missing from the report.",
+        "criterionUnmet": "Criterion {{id}} was reported as unmet.",
+        "evidenceMissing": "Evidence for criterion {{id}} is missing.",
+        "ticketUnchecked": "The ticket item for {{id}} is not checked.",
+        "ticketUnreadable": "Ticket {{id}} could not be read.",
+        "ticketChanged": "The requirements of ticket {{id}} changed.",
+        "other": "Additional report issue: {{issue}}"
+      },
       "locate": "Show node in plan",
       "nodeMissing": "Node no longer present in plan",
       "todos": "Agent TODO",
@@ -4739,6 +4815,7 @@
         "paused": "Paused",
         "stopping": "Stopping …",
         "succeeded": "Completed",
+        "reportOpen": "Completed · report open",
         "cancelled": "Stopped",
         "failed": "Failed",
         "blocked": "Blocked",
@@ -4905,7 +4982,7 @@
         }
       },
       "removeTitle": "Remove loop “{{name}}”?",
-      "removeDescription": "Inner nodes in this loop: {{count}}. Removing only the container keeps every node with its flow connections; a binding to the previous run ends with the loop. Deleting the contents also removes the nodes and their connections.",
+      "removeDescription": "Inner nodes in this loop: {{count}}. Disconnect the container and explicitly remove previous-iteration bindings before removing only the container. Deleting the contents also removes the nodes and their connections.",
       "removeFrame": "Remove container, keep nodes",
       "removeWithMembers": "Delete with contents ({{count}} nodes)",
       "moved": "Loop membership changed. Removed: flow connections {{edges}}, bindings {{bindings}}."
@@ -4956,6 +5033,30 @@
       "confirmRepeat": "Every node runs again, including actions that may already have taken effect.",
       "restartAction": "Start revision {{revision}} from the start",
       "releaseAction": "End leftover processes and release working copies",
+      "cleanupResources": "Unconfirmed cleanup",
+      "cleanupKind": {
+        "local_session": "local agent session",
+        "local_script": "local script",
+        "remote_attempt": "remote attempt",
+        "loop": "loop session"
+      },
+      "cleanupFailure": {
+        "scan_access_denied": "The process scan for {{step}} ({{resource}}) was denied access. Correct the scan permissions and retry cleanup.",
+        "scan_unavailable": "The process scan for {{step}} ({{resource}}) failed. Check that the process scanner is available and retry cleanup.",
+        "processes_remaining": "Processes for {{step}} ({{resource}}) are still present. Wait for them to end and retry cleanup.",
+        "resource_cleanup_failed": "Resources for {{step}} ({{resource}}) could not be removed. Check resource access and retry cleanup."
+      },
+      "cleanupResource": {
+        "local_session": "{{step}}: local agent session ({{state}}). Process absence alone does not confirm all session resources.",
+        "local_script": "{{step}}: local script ({{state}}). Request cleanup and check again.",
+        "remote_attempt": "{{step}}: remote attempt ({{state}}). Request cleanup from its original runner and check again.",
+        "loop": "{{step}}: loop or its session ({{state}}). Its closeout must be confirmed."
+      },
+      "closeout": {
+        "pending": "pending",
+        "failed": "failed",
+        "unknown": "unknown"
+      },
       "blocker": {
         "run_active": "The run is still active. Stop it first.",
         "plan_run_active": "Another run of this plan is active. Wait for it or stop it.",
@@ -4964,7 +5065,7 @@
         "succeeded": "The run succeeded; there is nothing to continue.",
         "superseded": "A newer run of this plan exists; only the newest run can be continued.",
         "already_continued": "This run was already restarted or continued.",
-        "cleanup_unconfirmed": "A process of the run may still be alive. End leftover processes first.",
+        "cleanup_unconfirmed": "The original process or its resources have not been confirmed closed. Request cleanup and check the listed resources.",
         "plan_completed_changed": "Completed work changed in the saved plan; only a start from the start is possible.",
         "plan_context_changed": "The plan's project or workspace changed; only a start from the start is possible.",
         "plan_definition_changed": "An agent definition changed; only a start from the start is possible.",
@@ -4981,16 +5082,20 @@
       },
       "error": {
         "review_required": "Confirm the review of every node that runs again.",
-        "cleanup_unconfirmed": "A process of the run may still be alive; nothing was started. Try again shortly, or ask an administrator.",
+        "cleanup_unconfirmed": "The original process or its resources have not been confirmed closed; nothing was released. Check the listed resources and retry, or ask an administrator.",
         "native_resume_unavailable": "The earlier session cannot be continued; choose a new session.",
         "revision_conflict": "The run changed meanwhile. The view was reloaded; check it and decide again.",
         "idempotency_conflict": "This request was already used for another decision.",
         "action_unavailable": "This action is not possible in the run's current state.",
         "workflow_unavailable": "Restart and resume are not available here.",
-        "plan_conflict": "The plan was saved meanwhile. Reload the plan and start the revision you see."
+        "plan_conflict": "The plan was saved meanwhile. Reload the plan and start the revision you see.",
+        "diagnostic_unavailable": "The cleanup finding could not be stored or read. Release is not confirmed. Check again."
       },
       "resumeTitle": "Resume run",
-      "resumeDescription": "Continues from the last safe state: successful steps are taken over and not repeated; open work runs as a new attempt."
+      "resumeDescription": "Continues from the last safe state: successful steps are taken over and not repeated; open work runs as a new attempt.",
+      "cleanupHistory": "Last recorded cleanup failure",
+      "cleanupHistoryTime": "{{time}} · applied plan revision {{revision}}",
+      "cleanupHistoryHint": "Historical finding. See available actions for the current release and process state."
     },
     "nodeInstruction": "Additional node instruction",
     "execution": {

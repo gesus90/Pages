@@ -19,7 +19,7 @@ export function chunkAgentRead<T>(
   result: T,
   request: ReadChunkRequest,
 ): T | AgentReadChunk {
-  const maximum = readMaximum(request.maxBytes);
+  const maximum = readAgentChunkMaximum(request.maxBytes);
   const serialized = serializeAgentRead(result);
   const bytes = Buffer.from(serialized);
   if (
@@ -65,7 +65,8 @@ export function chunkAgentRead<T>(
   });
 }
 
-function readMaximum(input: unknown): number {
+/** Validates the requested UTF-8 response budget for a chunked read. */
+export function readAgentChunkMaximum(input: unknown): number {
   const maximum = input === undefined ? AGENT_READ_LIMITS.chunkBytes : input;
   if (
     typeof maximum !== "number" ||

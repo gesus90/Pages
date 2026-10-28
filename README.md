@@ -19,6 +19,8 @@
 Agent Plan supports direct Bash, Python and Node.js script steps through configured
 interpreter profiles. See the [script runtime contract](backend/service/agents/ScriptRuntime.md)
 for authorization, stdin/stdout, limits, parallel joins, pause/stop and recovery.
+Its [three-review repair example](backend/service/agents/ScriptRuntime.md#example-three-reviews-repair-recheck-and-finish)
+shows explicit report bindings and a separate passing recheck gate.
 
 Pages is a self-hosted web application for planning projects, tracking tickets
 and keeping a wiki. Several users share one instance; roles and departments
@@ -865,9 +867,10 @@ files of a running connection (pinned key, control socket, a key file that is
 removed after the sign-in) live in an owner-only `pages-ssh-*` folder in the
 temporary directory. The target needs a POSIX login shell.
 
-Remote profiles are not yet offered to Agent Plans and the MCP workspace
-operations; running plan nodes and CLI/ACP adapters on the remote machine is a
-follow-up.
+Agent Plans can select an authorized remote profile for supported script and
+agent nodes. MCP plan operations can read and select these targets under the
+same permissions; the separate MCP workspace administration operations still
+manage local workspaces.
 
 ## Agent Plans
 
@@ -908,11 +911,12 @@ The zoom bar sits directly below the panel in the same floating stack and
 follows its expanded or collapsed height. The stack stays inside the editor
 when the navigation or window changes size; pan and zoom move only the graph.
 
-Move nodes, frames, starts and ends by their header or checkpoint symbol; the
-grabbed point stays under the pointer at every zoom level and positions snap
-to the raster. Grid coordinates range from 0 to 6000; dropping or keyboard
-movement commits a snapped, bounded position. Names, instructions, parameters
-and supported run options are edited directly on each agent node.
+Move nodes, frames, starts and ends by their header or checkpoint symbol.
+Canvas coordinates range from 0 to 6000 and are stored as whole numbers;
+fractional pointer coordinates round to the nearest whole number, without
+snapping to the dotted raster. Pan and zoom change the view, not the saved
+coordinates. Names, instructions, parameters and supported run options are
+edited directly on each agent node.
 
 An ACP group is a yellow session container on the grid (PAGE-113), with no
 flow, input, result or session ports. Agent connections determine execution;
@@ -928,12 +932,23 @@ order add none. Simultaneously ready turns of the same group queue in the
 scheduler's stored frontier order. Independent groups keep their own concurrency.
 The common workspace of one group is protected by this serial turn queue.
 
+A loop-boundary move is refused when it would discard flow connections, result
+bindings or the loop's condition. Disconnect or unbind the affected items, or
+clear the condition, before moving the member. Dissolving a group or loop keeps
+its members and internal connections; connected frame edges, frame input aliases
+and previous-iteration bindings must be repaired explicitly first. Pages does not
+invent replacement flow connections. The editor and MCP apply the same rule.
+
 The header shows the runner, a readable status and successful agent steps over
 the known group membership of the selected run. Failures and blocked inputs
 precede activity; unfinished groups reflect pause and stop controls. Failed or
 cancelled steps never count as successful. Missing run membership or access
 errors show an unknown total; an empty total paints no completed ring. The finite
 DAG scheduler does not implement dynamic iterations.
+
+When a recorded failed or cancelled predecessor prevents a node from running,
+the run details name that predecessor. Older runs and branches without a proven
+dependency may have no recorded source; Pages does not guess one.
 
 The chevron collapses the frame into a compact card with a small ring and its
 count beside it. This is local React state, initially open and reset by a new
@@ -1071,6 +1086,8 @@ nodes and connected required parameters before Play.
 editor; nothing is saved automatically. A save persists the metadata,
 positions, port references, connections and values. Incomplete drafts can be
 saved; invalid connections cannot. Revision checks reject conflicting writes.
+During a drag, the shortcut saves the current position in its current frame;
+moving farther or dropping it into another frame is a new unsaved edit.
 Navigation and tab closing warn about unsaved changes, and run polling does not
 replace an edited draft. A stored plan is confirmed by a toast; a running save,
 a refused save and a read-only plan are named in a short notice below the zoom
@@ -1100,9 +1117,39 @@ plan, and working-copy reservations also protect other plans. Solid branches run
 concurrent nodes across the service; native ACP starts share the separate global
 resource queue described below. A join waits for every incoming predecessor to succeed; a
 failed predecessor blocks its continuation. Independent CLI branches may not
-write to the same working copy. A server restart fails the runs it
-interrupted and ends their processes; their working copies are released once
-no process of their sessions is left.
+write to the same working copy. Within one run, parallel ACP nodes in the
+supported read-only mode may inspect the same copy. A direct script is treated
+as a writer: order it after any other script or local CLI node that uses the
+same resolved copy, so a review cannot observe a simultaneous write. The existing
+reservation between separate runs remains exclusive, including read-only runs.
+A server restart reconciles interrupted runs and their process state; a remote
+job can outlive the Pages process. Working copies are released only after the
+original attempt's cleanup is confirmed.
+
+If a workspace conflict refuses Play before a run exists, Pages records the
+requester's most recent refusal with its time, attempted revision, affected
+authorized nodes and targets when known, and the reservation observation.
+The panel labels this as past evidence separately from current Play availability.
+A refused save-and-play does not save its draft; a remote registered path is
+not presented as a proven canonical identity. Details are hidden if the
+requester no longer has access to the target. `read_plan_control` exposes the
+same personal refusal over MCP. Stable preparation failures, including an
+unavailable interpreter and bounded graph-validation findings, are also recorded.
+The editor's older-entry action and `read_plan_control` with
+`includeStartRejections: true` read one personal entry at a time; pass
+`nextBefore` as `beforeRejectionId` for the next page. Entries retain
+the attempted revision and remain historical after repair. Findings are limited
+to 50; filtering is marked explicitly. Failures outside preparation are not
+invented as pre-run history.
+
+For a newly prepared remote run, the reservation also covers the registered
+canonical path paired with its connection and, when available, its confirmed
+SSH host key. This conservatively rejects matching aliases before dispatch;
+the runner independently checks the actual path and coordinates workspaces
+for runners of the same operating-system account. A shared host key is not
+proof that two paths are the same physical filesystem, and reservations of
+older runs may not include these additional keys. Different host identities,
+accounts or filesystem namespaces need independent coordination.
 
 The connection of an agent decides its runner: a Codex CLI or Claude Code
 connection runs the node as an Agent Client Protocol (ACP) session through the
@@ -1210,17 +1257,22 @@ credential travels in the process environment or the session request, never in
 arguments, prompts or the interface, and is revoked when the node closes.
 
 Every session node requires a regular runner turn and a clean, confirmed
-closeout. **OpenCode nodes and all internal group members additionally require
-business acceptance**: the closing `pages-report` must prove every todo and
+closeout. **OpenCode nodes and all internal group members additionally
+require business acceptance**: the closing `pages-report` must prove every todo and
 criterion, with real evidence for criteria. A missing, invalid or incomplete
 report fails these nodes and blocks successors. Read-only OpenCode nodes report
 ticket todos because their credential cannot tick the checkboxes. YOLO ticket
 todos must also be checked in Pages. Standalone Codex and Claude nodes retain
 their existing diagnostic-only progress behavior. Runner failures, incomplete
 turns, permission denials, timeouts, failed process exits, unavailable resources
-and failed cleanup remain execution failures. No manual acceptance step is added.
+and failed cleanup remain execution failures. A remote OpenCode command pins
+its report contract and bound ticket requirements before dispatch. Pages checks
+them again after confirmed runner closeout and before recording a successful
+checkpoint. If the engine is lost or an older dispatched command has no pinned
+contract, the result is retained for diagnosis and cannot release successors.
+No manual acceptance step is added.
 
-After the turn, Pages rereads the authorized ticket checklists in both report
+After an OpenCode or local session turn, Pages rereads the authorized ticket checklists in both report
 scopes and reconciles current requirements with the original report IDs. New or
 edited requirements receive new IDs, so earlier evidence cannot prove different
 work. A bound todo normally follows its current ticket checkbox; read-only
@@ -1233,8 +1285,13 @@ all business work was completed. OpenCode acceptance checks the report and
 current checklist; it cannot independently prove the truth of reported evidence. Agents
 may tick completed items under the existing server-side rights and optimistic
 revision checks; after a conflict they reread and reconcile the current list.
-A failure to authorize or read the ticket itself remains a technical error,
-separate from a missing checklist entry or missing evidence.
+A failure to authorize or read the ticket leaves the assessment unavailable;
+remote OpenCode fails the node without inventing a report verdict.
+
+When a completed execution has an open or rejected recorded report, its node
+and run progress use a warning instead of the success color. The details show
+the recorded assessment, summary and reported issues. This display does not
+change the stored process result or add a new execution gate.
 
 The run view shows per node the runner, session mode, session and process
 identity, times, actual process exit, closeout, requested and effective
@@ -1494,8 +1551,54 @@ rights are checked again and processes of the earlier run must be proven
 gone: every session and script whose end was not confirmed is ended by its own
 tag and unit, then its working copies and ACP leases are released; otherwise
 the action fails with `cleanup_unconfirmed` and nothing starts. **Release**
-does this alone. A server shutdown records running work as interrupted;
-nothing is resumed automatically at startup.
+does this alone. For an unconfirmed remote attempt it requests cleanup of the
+original job even when the failed run was never stopped; retry the release
+after the runner has confirmed closeout. The runner retains its working-copy
+reservation while a worker is alive or a closeout is missing or failed.
+A local script whose earlier cleanup failed is checked again by its original
+instance tag; its private script resources are removed only after the process
+has ended. The release journal records the decision without rewriting the
+earlier run. A local agent or loop session whose closeout remains unconfirmed
+can still block release; ask an administrator to investigate its processes
+and resource cleanup. The recovery panel names recorded local sessions,
+scripts, remote attempts and loops with unconfirmed closeout while a reservation
+is held. A process scan alone does not prove that every temporary session
+resource was cleaned up. A terminal status alone does not release an active engine.
+A failed local cleanup or process scan names the affected node and reports a
+fixed reason such as denied scan access, an unavailable scan, remaining
+processes or a resource cleanup failure. The decision remains refused and can
+be retried after the cause is addressed. The last bounded cleanup failure is
+persisted with its time, original run/revision, known attempt and requested
+action. The panel and MCP show it as historical even after release or a server
+restart. A diagnostic-storage failure is reported separately and never claims
+release. Only the latest recorded failure is exposed; this is not a paginated
+process-scan history.
+A server shutdown records running work as interrupted; nothing is resumed
+automatically at startup.
+
+Personal MCP clients can read these decisions with `read_plan_run_recovery`,
+request cleanup with `release_plan_run`, or explicitly request a new linked run
+with `restart_plan_run` or `continue_plan_run`. Restart requires confirmation
+that all steps can repeat; continuation requires the selected mode and reviewed
+step IDs. These commands use the same recovery checks and never start a run as a
+side effect of reading, saving or cleanup.
+`read_plan_run_diagnostics` reads one authorized attempt with separate result,
+stdout and stderr, recorded exit and closeout, and a completeness indication.
+For remote scripts, stdout is retained even without a declared result port;
+the runner's stderr is a bounded diagnostic tail and upstream filtering cannot
+always be detected by Pages.
+Long diagnostics are returned as snapshot-bound chunks; the operation does not
+provide the complete session-event history or the checkpoint itself.
+`read_plan_run_checkpoint` separately reads an authorized, filtered checkpoint
+in snapshot-bound chunks, with the original stored digests.
+`read_plan_run_session_events` separately reads retained session events using
+the authorized plan/run/node/attempt key. It returns up to 32 events per page
+(default 16), with exclusive `after`/`before` sequence bounds and optional
+snapshot-bound text chunks. The run and diagnostic reads expose the current
+attempt key; diagnostic retry summaries name prior recorded attempts. Reading
+an earlier retry requires its stored journal and the original owner/run/node
+binding. Missing journals are reported as unavailable, not reconstructed.
+These reads do not offer native-session steering or replay.
 
 Agent Plan retries known temporary provider failures up to ten times with
 increasing delays. An exhausted quota with an explicit reset waits until one

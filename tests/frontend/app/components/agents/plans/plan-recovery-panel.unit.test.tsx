@@ -108,3 +108,28 @@ it("marks a pending decision and lists no blockers when there are none", () => {
   expect(screen.queryByRole("status")).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
 });
+
+it("names the affected resource and safe retry when a cleanup scan is denied", () => {
+  renderPanel(
+    "run",
+    recoveryState({
+      view: recoveryView(),
+      error: "cleanup_unconfirmed",
+      cleanupFailure: {
+        stepId: "first",
+        kind: "local_session",
+        reason: "scan_access_denied",
+      },
+    }),
+  );
+
+  const message = screen.getByRole("alert").textContent;
+  expect(message).toContain("Reviewer");
+  expect(message).toContain(i18n.t("plans.recovery.cleanupKind.local_session"));
+  expect(message).toContain(
+    i18n.t("plans.recovery.cleanupFailure.scan_access_denied", {
+      step: "Reviewer",
+      resource: i18n.t("plans.recovery.cleanupKind.local_session"),
+    }),
+  );
+});

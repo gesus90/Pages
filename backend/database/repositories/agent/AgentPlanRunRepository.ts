@@ -3,6 +3,7 @@ import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanWorkspaceReservationError } from "@/backend/error/AgentPlanWorkspaceReservationError";
 
 import { AgentPlanContinuationRepository } from "./AgentPlanContinuationRepository";
 import { AgentPlanProgressRepository } from "./AgentPlanProgressRepository";
@@ -105,7 +106,7 @@ export class AgentPlanRunRepository {
         "SELECT run_id FROM agent_plan_workspace_locks WHERE workspace_id = $id;",
         { id: workspaceId },
       );
-      if (lock) throw new AgentError("plan_workspace_conflict");
+      if (lock) throw new AgentPlanWorkspaceReservationError(workspaceId);
       await transaction.execute(
         `
         INSERT INTO agent_plan_workspace_locks (workspace_id, run_id)
@@ -171,6 +172,22 @@ export class AgentPlanRunRepository {
       { run_id: runId },
     );
     return Boolean(row);
+  }
+
+  /** Checks current workspace locks without disclosing their owners or run identifiers. */
+  public async findWorkspaceReservation(
+    workspaceIds: readonly string[],
+    exceptRunId?: string,
+  ): Promise<string | null> {
+    for (const workspaceId of new Set(workspaceIds)) {
+      const [row] = await this.database.query(
+        "SELECT run_id FROM agent_plan_workspace_locks WHERE workspace_id = $id;",
+        { id: workspaceId },
+      );
+      if (row && readTextColumn(row, 0, "run_id") !== exceptRunId)
+        return workspaceId;
+    }
+    return null;
   }
 
   /** Reads only the public record; service authorization still precedes delivery. */

@@ -66,7 +66,12 @@ export function PlanRecoveryResumeDialog({
           />
           {recovery.error ? (
             <p role="alert" className="text-destructive">
-              {recoveryErrorText(t, recovery.error)}
+              {recoveryErrorText(
+                t,
+                recovery.error,
+                recovery.cleanupFailure,
+                view.stepNames,
+              )}
             </p>
           ) : null}
         </div>

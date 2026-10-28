@@ -7,7 +7,7 @@ import type {
   AgentPlanTicketChecklist,
 } from "./AgentPlanTasks";
 
-/** Reads the real checklist identities of a remote TODO node with the executor's current rights. */
+/** Reads current checklist identities whenever a remote node needs them for its contract. */
 export async function remoteTodoChecklists(input: {
   readonly step: AgentPlanStep;
   readonly parameters: RemotePlanParameters | undefined;
@@ -15,7 +15,11 @@ export async function remoteTodoChecklists(input: {
   readonly userId: string;
   readonly projectId: string;
 }): Promise<readonly AgentPlanTicketChecklist[]> {
-  if (input.step.completion !== "todos") return [];
+  if (
+    input.step.completion !== "todos" &&
+    input.step.configuration?.runnerRoute?.tool !== "opencode"
+  )
+    return [];
   const ids = Object.keys(input.parameters?.tickets ?? {});
   if (!ids.length) return [];
   const tasks = input.tasks;

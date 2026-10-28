@@ -88,6 +88,7 @@ export function runnerPlanCheckpoint(
     },
     dispatchedPromptDigest: step.session?.dispatchedPromptDigest ?? null,
     result: {
+      ...(step.report ? { report: step.report } : {}),
       output: step.output,
       isOutputReduced: false,
       outputDigest: planContentDigest(step.output),

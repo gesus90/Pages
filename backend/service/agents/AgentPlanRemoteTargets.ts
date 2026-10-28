@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { planExecutionNodes } from "./AgentPlanExecutionTargets";
@@ -46,6 +48,13 @@ export class AgentPlanRemoteTargets {
                 connectionId: connection.id,
                 connectionRevision: connection.revision,
                 connectionName: connection.name,
+                ...(connection.hostKey
+                  ? {
+                      hostIdentity: createHash("sha256")
+                        .update(connection.hostKey.fingerprint)
+                        .digest("hex"),
+                    }
+                  : {}),
                 workspaceId: workspace.id,
                 workspaceRevision: workspace.revision,
                 workspaceName: workspace.name,

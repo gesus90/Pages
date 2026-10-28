@@ -1,5 +1,9 @@
 import { isAcpProvider } from "@/definition/AgentConfiguration";
-import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import {
+  allPlanRunResults,
+  hasUnconfirmedLoopCloseout,
+} from "@/definition/AgentPlanLoopResults";
+import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { hasPlanPath } from "./AgentPlanGraph";
@@ -52,6 +56,7 @@ export function requestCancellation(active: ActivePlanRun): void {
         status: "cancelled",
         cancellation: "not_started",
         isBlocked: false,
+        blockedByStepId: undefined,
         // A paused wait has no running attempt left to cancel its stored deadline.
         ...(step.session?.retry
           ? {
@@ -75,15 +80,16 @@ export function requestCancellation(active: ActivePlanRun): void {
 export function updateBlocked(active: ActivePlanRun): void {
   for (const step of active.view.steps) {
     if (step.status !== "waiting" && step.status !== "paused") continue;
-    const hasFailedDependency = active.view.steps.some(
+    const failedDependency = active.view.steps.find(
       (entry) =>
         (entry.status === "failed" || entry.status === "cancelled") &&
         hasPlanPath(active.snapshot.plan.edges, entry.id, step.id),
     );
-    if (hasFailedDependency)
+    if (failedDependency)
       patchStep(active, step.id, {
         isBlocked: true,
         error: "plan_dependency_failed",
+        blockedByStepId: failedDependency.failedStepId ?? failedDependency.id,
       });
   }
 }
@@ -177,6 +183,7 @@ function detachedStopStep(step: AgentPlanStepResult): AgentPlanStepResult {
       status: "cancelled",
       cancellation: "not_started",
       isBlocked: false,
+      blockedByStepId: undefined,
     };
   if (step.status !== "running") return step;
   // Only a remote job outlives the process that started it; its runner reports its end.
@@ -227,16 +234,17 @@ export function settleDetachedRun(run: AgentPlanRun): AgentPlanRun {
   if (run.status === "stopping" && run.stopRequested)
     return endedPlanRun(
       run,
-      allPlanRunResults(run).some(
-        (step) =>
-          (step.execution?.target.kind === "remote" &&
-            step.cancellation === "requested" &&
-            step.remote?.closeout !== "confirmed") ||
-          step.remote?.closeout === "pending" ||
-          step.remote?.closeout === "failed" ||
-          step.session?.closeout === "failed" ||
-          step.script?.closeout === "failed",
-      )
+      hasUnconfirmedLoopCloseout(run) ||
+        allPlanRunResults(run).some(
+          (step) =>
+            isRemoteCloseoutUnconfirmed(step) ||
+            step.remote?.closeout === "pending" ||
+            step.remote?.closeout === "failed" ||
+            step.session?.closeout === "pending" ||
+            step.session?.closeout === "failed" ||
+            step.script?.closeout === "pending" ||
+            step.script?.closeout === "failed",
+        )
         ? "failed"
         : "cancelled",
     );
@@ -326,12 +334,18 @@ export function finalPlanStatus(
 
 /** Failed session cleanup keeps the run's definitions and working copies reserved. */
 export function hasUnconfirmedCloseout(active: ActivePlanRun): boolean {
-  return allPlanRunResults(active.view).some(
-    (step) =>
-      step.remote?.closeout === "pending" ||
-      step.remote?.closeout === "failed" ||
-      step.session?.closeout === "failed" ||
-      step.script?.closeout === "failed",
+  return (
+    hasUnconfirmedLoopCloseout(active.view) ||
+    allPlanRunResults(active.view).some(
+      (step) =>
+        isRemoteCloseoutUnconfirmed(step) ||
+        step.remote?.closeout === "pending" ||
+        step.remote?.closeout === "failed" ||
+        step.session?.closeout === "pending" ||
+        step.session?.closeout === "failed" ||
+        step.script?.closeout === "pending" ||
+        step.script?.closeout === "failed",
+    )
   );
 }
 

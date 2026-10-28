@@ -47,6 +47,7 @@ interface RecoveryRows {
   readonly continuations: ContinuationRow[];
   readonly checkpoints: CheckpointRow[];
   readonly attempts: AttemptRow[];
+  readonly executions: AttemptRow[];
   readonly locks: Map<string, string>;
 }
 
@@ -73,6 +74,7 @@ export class RecoveryDatabase {
     continuations: [],
     checkpoints: [],
     attempts: [],
+    executions: [],
     locks: new Map(),
   };
   private fault: "checkpoint" | "progress" | "attempt" | null = null;
@@ -144,6 +146,8 @@ export class RecoveryDatabase {
       return this.checkpointRows(statement, parameters);
     if (statement.includes("FROM agent_plan_repair_attempts"))
       return this.attemptRows(statement, parameters);
+    if (statement.includes("FROM agent_plan_recovery_executions"))
+      return this.executionRows(statement, parameters);
     if (statement.includes("FROM agent_plan_runs"))
       return this.runRows(statement, parameters);
     if (statement.includes("FROM agent_plans"))
@@ -226,6 +230,7 @@ export class RecoveryDatabase {
         .map((row) => [row.view]);
     const row = rows.find((entry) => entry.id === parameters.id);
     if (!row) return [];
+    if (statement.includes("SELECT recovery_revision")) return [[row.revision]];
     if (statement.includes("recovery_revision"))
       return statement.includes("snapshot_json")
         ? [[row.view, row.revision, row.snapshot]]
@@ -265,6 +270,24 @@ export class RecoveryDatabase {
       });
       return;
     }
+    if (statement.includes("INSERT INTO agent_plan_recovery_executions")) {
+      this.rows.executions.push({
+        runId: requiredText(parameters, "run_id"),
+        key: requiredText(parameters, "idempotency_key"),
+        digest: requiredText(parameters, "request_digest"),
+        revision: requiredNumber(parameters, "result_revision"),
+        json: requiredText(parameters, "execution_json"),
+        result: requiredText(parameters, "result_json"),
+      });
+      return;
+    }
+    if (statement.includes("SET recovery_revision =")) {
+      const row = this.rows.runs.get(requiredText(parameters, "id"));
+      if (!row || row.revision !== parameters.previous_revision)
+        throw new Error("Synthetic compare-and-set conflict");
+      row.revision = requiredNumber(parameters, "revision");
+      return;
+    }
     if (statement.includes("UPDATE agent_plan_runs")) {
       this.updateRun(parameters);
       return;
@@ -281,11 +304,31 @@ export class RecoveryDatabase {
       return;
     }
     if (statement.includes("DELETE FROM agent_plan_workspace_locks")) {
+      const targetRunId = parameters.run_id ?? parameters.id;
       for (const [workspace, runId] of this.rows.locks)
-        if (runId === parameters.id) this.rows.locks.delete(workspace);
+        if (runId === targetRunId) this.rows.locks.delete(workspace);
       return;
     }
     throw new Error(`Unexpected synthetic statement ${statement}`);
+  }
+
+  private executionRows(
+    statement: string,
+    parameters: SqlParameters,
+  ): DatabaseValue[][] {
+    const rows = this.rows.executions.filter(
+      (row) => row.runId === requiredText(parameters, "run_id"),
+    );
+    if (statement.includes("idempotency_key =")) {
+      const row = rows.find(
+        (entry) => entry.key === parameters.idempotency_key,
+      );
+      return row ? [[row.digest, row.result]] : [];
+    }
+    return rows
+      .toSorted((first, second) => second.revision - first.revision)
+      .slice(0, 50)
+      .map((row) => [row.json]);
   }
 
   private insertRun(parameters: SqlParameters): void {

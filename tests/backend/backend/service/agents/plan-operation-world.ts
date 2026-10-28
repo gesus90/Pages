@@ -19,6 +19,7 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
+import type { AgentPlanRemoteStatus } from "@/definition/AgentPlanTarget";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 
 /** The workspace of the synthetic project; every plan here lives in it. */
@@ -150,6 +151,7 @@ export class PlanWorld {
   public readonly keys = new Map<string, StoredAgentOperation>();
   public readonly members = new Set(["owner", "reader"]);
   public readonly catalog = [agent(REVIEWER, "Reviewer")];
+  public readonly remoteStatus: AgentPlanRemoteStatus[] = [];
   public readonly tasks: AgentPlanTask[] = [
     {
       id: "task-1",
@@ -295,7 +297,13 @@ export class PlanWorld {
       workspaces: async (userId) => this.workspaces(userId),
       sources: async (userId, workspaceId) => {
         this.requireWorkspace(userId, workspaceId);
-        return { agents: this.catalog, tasks: this.tasks };
+        return {
+          agents: this.catalog,
+          tasks: this.tasks,
+          ...(this.remoteStatus.length
+            ? { remoteStatus: this.remoteStatus }
+            : {}),
+        };
       },
       agents: async (userId, workspaceId) => {
         this.requireWorkspace(userId, workspaceId);

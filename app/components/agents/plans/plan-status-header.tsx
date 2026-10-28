@@ -8,6 +8,7 @@ import { PlanStatusSequence } from "./plan-status-sequence";
 import { PlanStatusDonut } from "./plan-status-donut";
 import { PlanStatusTodoCount } from "./plan-status-todo-count";
 import { elapsedTime } from "./plan-run-status-model";
+import { hasOpenPlanReport } from "./plan-status";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { PlanSequencePreview } from "./plan-run-status-model";
@@ -41,11 +42,14 @@ function indicatorStatus(
     run.steps.some((step) => step.isBlocked) &&
     !run.steps.some((step) => step.status === "running");
   if (isBlocked) return "blocked";
+  if (run?.status === "succeeded" && run.steps.some(hasOpenPlanReport))
+    return "reportOpen";
   return run?.status ?? (isReady === false ? "notReady" : "idle");
 }
 
 const DOT_TONES: Readonly<Record<string, string>> = {
   succeeded: "bg-plan-progress-done",
+  reportOpen: "bg-warning",
   notReady: "bg-status-active",
   idle: "bg-muted-foreground",
   cancelled: "bg-muted-foreground",

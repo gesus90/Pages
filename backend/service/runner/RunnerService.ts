@@ -16,7 +16,8 @@ import {
 import { runnerExecutionSchema } from "@/definition/RunnerExecution";
 
 import { checkpointRunnerMessage } from "./RunnerMessageCheckpoint";
-import { isStableConnection, runnerTools } from "./RunnerConnectionFacts";
+import { runnerConnectionView } from "./RunnerConnectionFacts";
+import { requireRunnerOutputExecutor } from "./RunnerOutputCapabilities";
 import { RunnerObservation } from "./RunnerObservation";
 import { RunnerCancellation } from "./RunnerCancellation";
 import { RunnerContacts } from "./RunnerContacts";
@@ -51,6 +52,15 @@ interface RegistrationGrant {
   readonly expiresAt: number;
 }
 
+type RunnerStore = Pick<
+  RunnerRepository,
+  "find" | "create" | "checkpoint" | "remove"
+>;
+type RunnerConnectionAccess = Pick<
+  RemoteConnectionService,
+  "scope" | "scopeForRunner" | "requireUsable"
+>;
+
 /** Credential returned once, over the authenticated runner channel only. */
 export interface RunnerAuthentication {
   readonly connectionId: string;
@@ -74,9 +84,9 @@ function matches(token: string, expected: string): boolean {
 
 /** Authorizes short-lived pairing and maintains durable sessions independently of SSH transports. */
 export class RunnerService {
-  private readonly repository: RunnerRepository;
+  private readonly repository: RunnerStore;
   private readonly events: RunnerPlanEventService | undefined;
-  private readonly connections: RemoteConnectionService;
+  private readonly connections: RunnerConnectionAccess;
   private readonly grants = new Map<string, RegistrationGrant>();
   private readonly contacts = new RunnerContacts();
   private readonly writes = new SerialQueue();
@@ -92,14 +102,15 @@ export class RunnerService {
   private readonly openCodeExecutors = new Set<string>();
   private readonly liveExecutors = new Set<string>();
   private readonly outputExecutors = new Set<string>();
+  private readonly exactPayloadExecutors = new Set<string>();
   private readonly knownOutputVersions = new Map<string, 1 | 2>();
   private readonly observation = new RunnerObservation();
   private readonly communicationExecutors = new Set<string>();
   private readonly cancellation: RunnerCancellation;
 
   public constructor(
-    repository: RunnerRepository,
-    connections: RemoteConnectionService,
+    repository: RunnerStore,
+    connections: RunnerConnectionAccess,
     events?: RunnerPlanEventService,
   ) {
     this.repository = repository;
@@ -109,7 +120,8 @@ export class RunnerService {
       repository,
       writes: this.writes,
       deliver: (connectionId, reply) => this.deliver(connectionId, reply),
-      expire: (job) => this.events?.expireStop(job) ?? Promise.resolve(),
+      expire: (connectionId, job) =>
+        this.events?.expireStop(connectionId, job) ?? Promise.resolve(),
     });
   }
 
@@ -219,6 +231,12 @@ export class RunnerService {
       const record = await this.repository.find(connectionId);
       if (!record) throw new Error("Runner registration missing");
       await this.requireRevision(record);
+      // A failed reconnect must not retain the preceding channel's capability.
+      if (
+        message.type === "reconcile" &&
+        message.sessionId === record.state.sessionId
+      )
+        this.exactPayloadExecutors.delete(connectionId);
       this.rememberOutputCapability(
         connectionId,
         message,
@@ -251,6 +269,9 @@ export class RunnerService {
         if (message.openCodeExecutorVersion === 1)
           this.openCodeExecutors.add(connectionId);
         else this.openCodeExecutors.delete(connectionId);
+        if (message.resultPayloadVersion === 1)
+          this.exactPayloadExecutors.add(connectionId);
+        else this.exactPayloadExecutors.delete(connectionId);
         if (message.executorVersion === 1 && message.interpreters)
           this.interpreters.set(connectionId, message.interpreters);
         if (message.tools) this.tools.set(connectionId, message.tools);
@@ -299,11 +320,15 @@ export class RunnerService {
           return previous;
         }
       }
-      this.requireOutputExecutor(
-        connectionId,
+      requireRunnerOutputExecutor({
         execution,
-        record.state.executionLeaseVersion,
-      );
+        executionLeaseVersion: record.state.executionLeaseVersion,
+        isOnline: this.contacts.isOnline(connectionId),
+        hasCommunication: this.communicationExecutors.has(connectionId),
+        hasExactPayload: this.supportsExactResultPayload(connectionId),
+        hasOutputJournal: this.outputExecutors.has(connectionId),
+        hasLiveHistory: this.liveExecutors.has(connectionId),
+      });
       if (record.state.jobs.length >= 1000)
         throw new Error("Runner queue unavailable");
       const job: RunnerJob = {
@@ -357,6 +382,7 @@ export class RunnerService {
     this.openCodeExecutors.delete(connectionId);
     this.liveExecutors.delete(connectionId);
     this.outputExecutors.delete(connectionId);
+    this.exactPayloadExecutors.delete(connectionId);
     this.observation.detach(connectionId);
   }
 
@@ -465,6 +491,11 @@ export class RunnerService {
   /** Runners before 1.7.0 list OpenCode by version only and cannot run it over ACP. */
   public supportsOpenCode(connectionId: string): boolean {
     return this.openCodeExecutors.has(connectionId);
+  }
+
+  /** The live runner can return versioned CLI results without a provenance prefix. */
+  public supportsExactResultPayload(connectionId: string): boolean {
+    return this.exactPayloadExecutors.has(connectionId);
   }
 
   /** Resolves a live job from Pages' journal; a runner cannot choose another connection's attempt. */
@@ -627,25 +658,6 @@ export class RunnerService {
     else this.outputExecutors.delete(connectionId);
   }
 
-  private requireOutputExecutor(
-    connectionId: string,
-    execution: RunnerExecution | undefined,
-    executionLeaseVersion: 1 | undefined,
-  ): void {
-    if (!this.contacts.isOnline(connectionId))
-      throw new AgentError("plan_remote_unavailable");
-    if (execution && executionLeaseVersion !== 1)
-      throw new AgentError("plan_runner_update_required");
-    if (execution && !this.communicationExecutors.has(connectionId))
-      throw new AgentError("plan_runner_update_required");
-    if (execution?.program.kind !== "cli") return;
-    if (
-      !this.outputExecutors.has(connectionId) ||
-      !this.liveExecutors.has(connectionId)
-    )
-      throw new AgentError("plan_runner_update_required");
-  }
-
   private deliver(connectionId: string, reply: RunnerReply): void {
     try {
       this.channels.get(connectionId)?.(reply);
@@ -660,25 +672,11 @@ export class RunnerService {
     connection: RemoteConnectionView,
   ): Promise<RunnerConnectionView> {
     const record = await this.repository.find(connection.id);
-    const runner =
-      record?.connectionRevision === connection.revision ? record : null;
-    const outputJournalVersion =
-      this.knownOutputVersions.get(connection.id) ?? null;
-    return {
-      connectionId: connection.id,
-      name: connection.name,
-      endpoint: `${connection.username}@${connection.host}:${connection.port}`,
-      departmentName: connection.departmentName,
-      checkedAt: connection.lastCheck?.checkedAt ?? null,
-      isStable: isStableConnection(connection),
-      runnerId: record?.runnerId ?? null,
-      needsPairing: record !== null && runner === null,
-      isOnline: runner !== null && this.contacts.isOnline(connection.id),
-      tools: runnerTools(runner, this.tools.get(connection.id)),
-      outputJournalVersion,
-      runnerVersion: record?.state.runnerVersion ?? null,
-      communicationVersion: record?.state.communicationVersion ?? null,
-    };
+    return runnerConnectionView(connection, record, {
+      outputJournalVersion: this.knownOutputVersions.get(connection.id) ?? null,
+      isOnline: this.contacts.isOnline(connection.id),
+      tools: this.tools.get(connection.id),
+    });
   }
 
   private async requireRevision(record: RunnerRecord): Promise<void> {

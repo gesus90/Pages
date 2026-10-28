@@ -18,3 +18,21 @@ export function allPlanRunResults(
     ),
   ];
 }
+
+/** A loop's own session and cleanup records must also prove that nothing remains open. */
+export function hasUnconfirmedLoopCloseout(
+  run: Pick<AgentPlanRun, "loops">,
+): boolean {
+  return (run.loops ?? []).some(
+    (loop) =>
+      loop.cleanup === "pending" ||
+      loop.cleanup === "failed" ||
+      loop.sessions.some(
+        (session) =>
+          session.state === "open" ||
+          session.instanceId === null ||
+          session.closeout === "pending" ||
+          session.closeout === "failed",
+      ),
+  );
+}

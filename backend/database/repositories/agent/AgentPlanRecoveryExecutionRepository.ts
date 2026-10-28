@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import {
@@ -6,6 +8,7 @@ import {
 } from "@/backend/agents/AgentPlanRecoveryInput";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 
@@ -193,12 +196,26 @@ export class AgentPlanRecoveryExecutionRepository {
     );
   }
 
+  /** Releases an ended run only if the facts checked during closeout are still current. */
+  public async releaseChecked(run: AgentPlanRun): Promise<void> {
+    if (isActivePlanRun(run.status))
+      throw new AgentPlanRecoveryError("action_unavailable");
+    await this.database.transaction(async (transaction) => {
+      await requireUnchangedRun(transaction, run);
+      await transaction.execute(
+        "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
+        { run_id: run.id },
+      );
+    });
+  }
+
   /** Journals a decision that starts no run, such as a release, in its own transaction. */
   public async recordAlone(
     write: RecoveryExecutionWrite,
     releasedRun?: AgentPlanRun,
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
+      if (releasedRun) await requireUnchangedRun(transaction, releasedRun);
       await this.record(transaction, write);
       if (!releasedRun) return;
       const run =
@@ -221,24 +238,40 @@ export class AgentPlanRecoveryExecutionRepository {
               ),
             }
           : releasedRun;
-      await transaction.execute(
-        `
+      if (run !== releasedRun)
+        await transaction.execute(
+          `
         UPDATE agent_plan_runs
         SET status = $status, view_json = $view_json
         WHERE id = $run_id
             AND recovery_revision = $revision;
-      `,
-        {
-          run_id: run.id,
-          status: run.status,
-          view_json: JSON.stringify(run),
-          revision: write.result.revision,
-        },
-      );
+          `,
+          {
+            run_id: run.id,
+            status: run.status,
+            view_json: JSON.stringify(run),
+            revision: write.result.revision,
+          },
+        );
       await transaction.execute(
         "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
         { run_id: run.id },
       );
     });
   }
+}
+
+/** Refuses to release a run whose facts changed after process and closeout checks. */
+async function requireUnchangedRun(
+  transaction: DatabaseTransaction,
+  expected: AgentPlanRun,
+): Promise<void> {
+  const [row] = await transaction.query(
+    "SELECT view_json FROM agent_plan_runs WHERE id = $id;",
+    { id: expected.id },
+  );
+  if (!row) throw new AgentPlanRecoveryError("revision_conflict");
+  const current = readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")));
+  if (!isDeepStrictEqual(current, expected))
+    throw new AgentPlanRecoveryError("revision_conflict");
 }

@@ -89,6 +89,7 @@ function checkpointResult(
   return {
     // The declared output already holds stdout; duplicating it can exceed the checkpoint byte budget.
     ...(result.script ? { script: { ...result.script, stdout: null } } : {}),
+    ...(result.report ? { report: result.report } : {}),
     output,
     isOutputReduced: output !== result.output,
     outputDigest: planContentDigest(result.output),

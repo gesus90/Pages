@@ -157,12 +157,21 @@ describe("ProjectLifecycleRepository.delete", () => {
       "DELETE FROM wiki_page_links WHERE target_kind = 'ticket'",
     );
     const plans = position("DELETE FROM agent_plans");
+    const planRefusals = position("DELETE FROM agent_plan_start_rejections");
     const milestones = position("DELETE FROM milestones WHERE project_id");
     const tickets = position("DELETE FROM work_items WHERE project_id");
     expect(
       Math.min(templates, anchors, ticketLinks, plans),
     ).toBeGreaterThanOrEqual(0);
     expect(Math.max(templates, anchors, ticketLinks)).toBeLessThan(plans);
+    expect(planRefusals).toBeGreaterThanOrEqual(0);
+    expect(planRefusals).toBeLessThan(plans);
+    expect(
+      position("DELETE FROM agent_plan_cleanup_failures"),
+    ).toBeGreaterThanOrEqual(0);
+    expect(position("DELETE FROM agent_plan_cleanup_failures")).toBeLessThan(
+      position("DELETE FROM agent_plan_runs"),
+    );
     expect(plans).toBeLessThan(milestones);
     expect(milestones).toBeLessThan(tickets);
     expect(tickets).toBeLessThan(

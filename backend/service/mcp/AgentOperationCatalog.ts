@@ -7,6 +7,7 @@ import {
 import {
   AGENT_PLAN_COMMAND_OPERATIONS,
   AGENT_PLAN_READ_OPERATIONS,
+  AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS,
   AGENT_PLAN_RESOURCE_READ_OPERATIONS,
 } from "@/definition/AgentPlanOperations";
 import { AGENT_TEXT_RANGE_READ_OPERATIONS } from "@/definition/AgentTextRange";
@@ -141,11 +142,17 @@ export function sessionOperations(
   return forSession(scope, isAdmin).filter(
     (operation) =>
       !AGENT_PLAN_COMMAND_OPERATIONS.some((command) => command === operation) &&
+      !AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS.some(
+        (command) => command === operation,
+      ) &&
       operation !== "plans.templates.list" &&
       operation !== "plans.templates.read" &&
       operation !== "plans.control.read" &&
       operation !== "plans.capabilities.read" &&
       operation !== "plans.run.recovery.read" &&
+      operation !== "plans.run.diagnostics.read" &&
+      operation !== "plans.run.session.events.read" &&
+      operation !== "plans.run.checkpoint.read" &&
       !AGENT_PROJECT_DELETION_WRITE_OPERATIONS.some(
         (deletion) => deletion === operation,
       ),

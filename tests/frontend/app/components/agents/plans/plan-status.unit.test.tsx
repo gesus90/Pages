@@ -72,3 +72,14 @@ it("shows a concise unblocked badge with its own status name", () => {
   badge(<PlanStatusBadge status="paused" isConcise />);
   expect(screen.getByText("Paused")).toBeTruthy();
 });
+
+it("distinguishes a completed execution from an open report", () => {
+  const root = badge(<PlanStatusBadge status="succeeded" hasOpenReport />);
+  expect(root.className).toContain("text-warning");
+  expect(root.getAttribute("title")).toBe(
+    "Execution completed · report open or unverified",
+  );
+  expect(planStatusClass("succeeded", false, true)).toContain("text-warning");
+  expect(planStatusKey("succeeded", false, true)).toBe("plans.reportOpen");
+  expect(planStatusClass("failed", false, true)).toContain("text-destructive");
+});

@@ -3,6 +3,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   describeSessionModel,
+  listSessionAttempts,
   requireSessionAttempt,
   sessionStart,
 } from "./AgentSessionAttempts";
@@ -257,8 +258,8 @@ export class AgentSessionService {
     key: AgentSessionKey,
     page: AgentSessionHistoryWindow,
   ): Promise<AgentSessionEventPage> {
-    const { attempt } = await this.authorize(userId, key);
-    if (attempt.isLegacy) return this.legacyHistory(attempt, page.after);
+    const attempt = await this.historyAttempt(userId, key);
+    if (attempt?.isLegacy) return this.legacyHistory(attempt, page);
     return this.dependencies.journal.page(
       key.attemptId,
       page.after,
@@ -418,6 +419,39 @@ export class AgentSessionService {
     }));
   }
 
+  private async historyAttempt(
+    userId: string,
+    key: AgentSessionKey,
+  ): Promise<AgentSessionAttempt | null> {
+    const run = await this.dependencies.runs.run(userId, key.runId);
+    if (run.planId !== key.planId || run.id !== key.runId)
+      throw new AgentError("plan_access_denied");
+    const attempts = listSessionAttempts(run).filter(
+      (entry) => entry.key.stepId === key.stepId,
+    );
+    const current = attempts.find(
+      (entry) => entry.key.attemptId === key.attemptId,
+    );
+    if (current) return current;
+    const isRecordedRetry = attempts.some((entry) =>
+      entry.record.retry?.attempts.some(
+        (retry) => retry.attemptId === key.attemptId,
+      ),
+    );
+    if (!isRecordedRetry) throw new AgentError("plan_access_denied");
+    const stored = await this.dependencies.store.findAttempt(key.attemptId);
+    if (!stored) throw new AgentError("plan_history_unavailable");
+    if (
+      stored.userId !== userId ||
+      stored.key.planId !== key.planId ||
+      stored.key.runId !== key.runId ||
+      stored.key.stepId !== key.stepId ||
+      stored.key.attemptId !== key.attemptId
+    )
+      throw new AgentError("plan_access_denied");
+    return null;
+  }
+
   private async authorize(
     userId: string,
     key: AgentSessionKey,
@@ -454,9 +488,10 @@ export class AgentSessionService {
 
   private legacyHistory(
     attempt: AgentSessionAttempt,
-    after: number,
+    page: AgentSessionHistoryWindow,
   ): AgentSessionEventPage {
     const { record, key } = attempt;
+    const { after, before, limit } = page;
     const events = record.events
       .map((text, index) => ({
         id: `${key.attemptId}:${index + 1}`,
@@ -469,11 +504,17 @@ export class AgentSessionService {
         text,
         isTruncated: false,
       }))
-      .filter((event) => event.sequence > after);
+      .filter(
+        (event) =>
+          event.sequence > after &&
+          (before === undefined || event.sequence < before),
+      );
+    const selected = page.tail ? events.slice(-limit) : events.slice(0, limit);
     return {
-      events,
-      cursor: events.at(-1)?.sequence ?? (after > 0 ? after : null),
-      hasMore: false,
+      events: selected,
+      cursor: selected.at(-1)?.sequence ?? (after > 0 ? after : null),
+      hasMore: !page.tail && events.length > selected.length,
+      hasEarlier: page.tail === true && events.length > selected.length,
       retainedFrom: null,
       source: "legacy_record",
     };

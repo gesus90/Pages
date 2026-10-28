@@ -6,26 +6,39 @@ import { Button } from "@/app/components/ui/button";
 
 import { PlanExecutionDetails } from "./plan-execution-details";
 import { PlanStatusActivity } from "./plan-status-activity";
-import { PlanStatusBadge } from "./plan-status";
+import { hasOpenPlanReport, PlanStatusBadge } from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
 import { PlanStatusTodos } from "./plan-status-todos";
 import { PlanScriptRun } from "./plan-script-run";
+import { PlanRemoteScriptRun } from "./plan-remote-script-run";
 import { PlanStatusRetry } from "./plan-status-retry";
 import { PlanRemoteHistory } from "./plan-remote-history";
+import { PlanStatusReport } from "./plan-status-report";
+import { PlanScriptReport } from "./plan-script/plan-script-report";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 interface StatusDetailsProps {
   readonly step: AgentPlanStepResult | undefined;
+  readonly blockedByName?: string | null;
   readonly number: number;
   readonly end: string | null;
   readonly canLocate: boolean;
   readonly onLocate: () => void;
 }
 
+function isScript(step: AgentPlanStepResult): boolean {
+  return (
+    step.script !== undefined ||
+    (step.execution?.target.kind === "remote" &&
+      step.execution.modelAccess.provider === "script")
+  );
+}
+
 /** Consistent run-step details, with honest empty states when the runner reports no live activity. */
 export function PlanStatusDetails({
   step,
+  blockedByName,
   number,
   end,
   canLocate,
@@ -47,7 +60,7 @@ export function PlanStatusDetails({
       containerClassName="min-h-0 flex-1"
       className="flex flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border/80 px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
     >
-      {step.script ? null : (
+      {isScript(step) ? null : (
         <PlanStatusTodos key={step.id} step={step} number={number} />
       )}
       <ScrollViewport
@@ -64,7 +77,7 @@ export function PlanStatusDetails({
               {t("plans.progress.step", { number })} · {step.name}
             </h3>
             <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
-              {step.script
+              {isScript(step)
                 ? t("plans.nodeType.script")
                 : t("plans.progress.agent", { name: step.name })}
             </p>
@@ -72,12 +85,30 @@ export function PlanStatusDetails({
           <PlanStatusBadge
             status={step.status}
             isBlocked={step.isBlocked}
+            hasOpenReport={hasOpenPlanReport(step)}
             className="rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-4"
           />
         </div>
+        {hasOpenPlanReport(step) ? (
+          <p className="text-xs leading-4.5 text-warning wrap-anywhere">
+            {t("plans.progress.reportOpenHint")}
+          </p>
+        ) : null}
+        {step.isBlocked && blockedByName ? (
+          <p className="text-xs leading-4.5 text-destructive wrap-anywhere">
+            {t("plans.progress.blockedBy", { name: blockedByName })}
+          </p>
+        ) : null}
+        {step.isDisplayFiltered ? (
+          <p className="text-xs text-muted-foreground">
+            {t("plans.progress.filteredOutput")}
+          </p>
+        ) : null}
+        <PlanStatusReport acceptance={step.session?.acceptance} />
+        <PlanScriptReport report={step.report} />
         <PlanExecutionDetails step={step} />
         <StepConfiguration step={step} end={end} />
-        {step.script ? null : <PlanStatusActivity step={step} />}
+        {isScript(step) ? null : <PlanStatusActivity step={step} />}
         <PlanRemoteHistory step={step} />
         <Button
           size="sm"
@@ -103,6 +134,7 @@ function StepConfiguration({
   const { t } = useTranslation();
   if (!step) return null;
   if (step.script) return <PlanScriptRun step={step} />;
+  if (isScript(step)) return <PlanRemoteScriptRun step={step} />;
   if (step.session)
     return (
       <>

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { hasPlanGroupAliases } from "@/definition/AgentPlanGroup";
+import { planFrameUngroupNeedsRepair } from "@/definition/AgentPlanFrameSafety";
 
 import { Button } from "@/app/components/ui/button";
 import {
@@ -55,13 +55,8 @@ export function PlanGroupRemoval(props: {
           <Button
             variant="outline"
             disabled={
-              frame?.type === "group" &&
-              (hasPlanGroupAliases(frame) ||
-                props.draft.edges.some(
-                  (edge) =>
-                    edge.from === graph.removalId ||
-                    edge.to === graph.removalId,
-                ))
+              frame !== null &&
+              planFrameUngroupNeedsRepair(props.draft, frame.id)
             }
             title={t("plans.groups.repairBeforeUngroup")}
             onClick={() => {

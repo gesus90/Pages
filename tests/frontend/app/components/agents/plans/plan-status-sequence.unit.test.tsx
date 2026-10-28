@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { PlanStatusSequence } from "@/app/components/agents/plans/plan-status-sequence";
 import { createI18n } from "@/app/lib/i18n";
 
-import { runStep, syntheticRun } from "../page72-run-fixture";
+import { runStep, syntheticRun, syntheticSession } from "../page72-run-fixture";
 
 import type { RenderResult } from "@testing-library/react";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -111,6 +111,19 @@ it("labels every step with its number, name and status and selects it on click",
   expect(blocked.getAttribute("aria-pressed")).toBe("false");
   fireEvent.click(blocked);
   expect(onSelect).toHaveBeenCalledWith("two");
+});
+
+it("labels a completed process with an open report without painting it green", () => {
+  const step = runStep("review", {
+    name: "Review",
+    status: "succeeded",
+    session: syntheticSession(),
+  });
+  render(sequence({ steps: [step] }));
+  const button = screen.getByRole("button", {
+    name: "1 · Review · Execution completed · report open or unverified",
+  });
+  expect(button.className).toContain("text-warning");
 });
 
 it("centers the anchor step inside the visible window", () => {

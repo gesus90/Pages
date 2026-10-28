@@ -2,9 +2,11 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentPlanIssueEntry } from "@/definition/AgentPlanOperations";
+import type { AgentPlanRecoveryErrorCode } from "@/definition/AgentPlanRecovery";
 import type { AgentRejectionReason } from "@/definition/PagesAgentOperations";
 
 type Reason = AgentRejectionReason["reason"];
@@ -37,7 +39,10 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   plan_name_taken: "plan_name_taken",
   plan_running: "plan_running",
   plan_run_unavailable: "plan_run_unavailable",
+  plan_history_unavailable: "plan_history_unavailable",
+  plan_start_rejection_record_failed: "plan_start_rejection_record_failed",
   plan_remote_unavailable: "plan_remote_unavailable",
+  plan_runner_payload_update_required: "plan_runner_payload_update_required",
   plan_workspace_conflict: "plan_workspace_conflict",
   plan_script_permission_denied: "plan_script_permission_denied",
   plan_script_interpreter_unavailable: "plan_script_interpreter_unavailable",
@@ -45,6 +50,18 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   // Script nodes keep the codes of the plan page.
   plan_script_invalid: "plan_script_invalid",
   plan_script_profile_missing: "plan_script_profile_missing",
+};
+
+const RECOVERY_REASONS: Readonly<
+  Partial<Record<AgentPlanRecoveryErrorCode, Reason>>
+> = {
+  cleanup_unconfirmed: "plan_recovery_cleanup_unconfirmed",
+  diagnostic_unavailable: "plan_recovery_diagnostic_unavailable",
+  review_required: "plan_recovery_review_required",
+  native_resume_unavailable: "plan_recovery_native_resume_unavailable",
+  checkpoint_invalid: "plan_recovery_checkpoint_invalid",
+  checkpoint_too_large: "plan_recovery_checkpoint_too_large",
+  workflow_unavailable: "plan_recovery_workflow_unavailable",
 };
 
 function rejected(reason: Reason): AgentOperationError {
@@ -99,10 +116,32 @@ function translateAgentError(error: AgentError): AgentOperationError {
  * node, port and name of every finding, which hold no content.
  */
 export function translatePlanError(error: unknown): unknown {
+  if (error instanceof AgentPlanRecoveryError) return recoveryError(error);
   if (error instanceof AgentError) return translateAgentError(error);
   if (error instanceof AgentExecutionError)
     return rejected(executionReason(error));
   return error;
+}
+
+function recoveryError(error: AgentPlanRecoveryError): AgentOperationError {
+  if (error.code === "access_denied")
+    return new AgentOperationError("NOT_FOUND");
+  if (error.code === "revision_conflict")
+    return new AgentOperationError("CONFLICT", {
+      reason: "plan_recovery_revision_conflict",
+    });
+  if (error.code === "idempotency_conflict")
+    return new AgentOperationError("CONFLICT", {
+      reason: "plan_recovery_idempotency_conflict",
+    });
+  if (error.code === "cleanup_unconfirmed" && error.cleanupFailure)
+    return new AgentOperationError("INVALID_REQUEST", {
+      reason: "plan_recovery_cleanup_unconfirmed",
+      cleanupFailure: error.cleanupFailure,
+    });
+  return rejected(
+    RECOVERY_REASONS[error.code] ?? "plan_recovery_action_unavailable",
+  );
 }
 
 function executionReason(error: AgentExecutionError): Reason {

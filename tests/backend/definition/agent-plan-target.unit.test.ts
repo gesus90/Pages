@@ -181,6 +181,7 @@ function status(
     tools: [],
     hasModelCatalog: true,
     hasPagesAccess: true,
+    hasExactResultPayload: true,
     ...fields,
   };
 }
@@ -411,6 +412,16 @@ const installed = (
 
 describe("planTargetIssues: login and catalog of a command line tool", () => {
   const remote = remoteIssues;
+
+  it("refuses a CLI runner that cannot separate result payloads from metadata", () => {
+    expect(
+      remote(
+        codex(),
+        status({ tools: [installed()], hasExactResultPayload: false }),
+      ),
+    ).toEqual(["a:remoteRunnerUpdate"]);
+    expect(remote(codex(), status({ tools: [installed()] }))).toEqual([]);
+  });
 
   it("blocks a stale tool catalog, a missing tool and an unknown or missing login", () => {
     expect(

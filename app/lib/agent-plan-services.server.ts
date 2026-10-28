@@ -17,6 +17,8 @@ import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/a
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import { AgentPlanRecoveryExecutionRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository";
 import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
+import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
+import { AgentPlanCleanupFailureRepository } from "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository";
 import type { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
@@ -167,6 +169,7 @@ export async function createAgentPlanService(input: {
     sessions,
     archive: input.agents.agentRunArchive,
     scripts,
+    startRejections: new AgentPlanStartRejectionRepository(input.database),
   });
   await recoverRuns(input, service);
   return {
@@ -187,6 +190,7 @@ export async function createAgentPlanService(input: {
       preparation,
       engine,
       runs,
+      remoteExecution,
     }),
   };
 }
@@ -230,17 +234,20 @@ function createRecoveryService(
     readonly preparation: AgentPlanPreparation;
     readonly engine: AgentPlanRunEngine;
     readonly runs: AgentPlanRunRepository;
+    readonly remoteExecution: AgentPlanRemoteExecution;
   },
 ): AgentPlanRecoveryService {
   return new AgentPlanRecoveryService({
     runs: parts.service,
     recovery: new AgentPlanRecoveryRepository(input.database),
+    cleanupFailures: new AgentPlanCleanupFailureRepository(input.database),
     checkpoints: new AgentPlanCheckpointRepository(input.database),
     execution: {
       access: parts.access,
       preparation: parts.preparation,
       engine: parts.engine,
       planRuns: parts.runs,
+      remoteExecution: parts.remoteExecution,
       resources: input.agents.acpResourceScheduler,
       executions: new AgentPlanRecoveryExecutionRepository(input.database),
     },

@@ -162,6 +162,8 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     /** Runner 1.8.0 supports expiring viewers and bounded CLI journal batches. */
     liveHistoryVersion: z.literal(1).optional(),
     outputJournalVersion: z.literal(2).optional(),
+    /** Runner 1.13.0 keeps CLI provenance outside versioned result payloads. */
+    resultPayloadVersion: z.literal(1).optional(),
   }),
   z.object({
     version: z.literal(1),

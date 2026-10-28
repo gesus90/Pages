@@ -1,10 +1,12 @@
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
+import { readPlanStartRejection } from "@/backend/agents/AgentPlanStartRejectionInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AGENT_PLAN_ISSUE_PROBLEMS } from "@/definition/AgentPlanOperations";
 
 import type { AgentPlanActionResult } from "./agent-plan-response";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
+import type { AgentPlanWorkspaceConflict } from "@/definition/AgentPlanWorkspaceConflict";
 
 function nullableText(input: unknown): string | null {
   if (input === null || typeof input === "string") return input;
@@ -20,6 +22,40 @@ function readNumber(input: unknown): number {
 function readBoolean(input: unknown): boolean {
   if (typeof input === "boolean") return input;
   throw new Error("Invalid plan response");
+}
+
+function requiredText(input: unknown): string {
+  if (typeof input === "string") return input;
+  throw new Error("Invalid plan response");
+}
+
+function readWorkspaceConflict(input: unknown): AgentPlanWorkspaceConflict {
+  const conflict = readAgentObject(input);
+  if (
+    (conflict.kind !== "reserved" && conflict.kind !== "parallel_writers") ||
+    !Array.isArray(conflict.targets) ||
+    !Array.isArray(conflict.nodes)
+  )
+    throw new Error("Invalid plan response");
+  return {
+    kind: conflict.kind,
+    targets: conflict.targets.map((value: unknown) => {
+      const target = readAgentObject(value);
+      if (target.kind !== "local" && target.kind !== "remote")
+        throw new Error("Invalid plan response");
+      return {
+        kind: target.kind,
+        workspaceId: requiredText(target.workspaceId),
+        path: requiredText(target.path),
+        connectionName: nullableText(target.connectionName),
+        workspaceName: nullableText(target.workspaceName),
+      };
+    }),
+    nodes: conflict.nodes.map((value: unknown) => {
+      const node = readAgentObject(value);
+      return { id: requiredText(node.id), name: requiredText(node.name) };
+    }),
+  };
 }
 
 function isStatus(input: unknown): input is AgentPlanControl["status"] {
@@ -73,6 +109,18 @@ function readControl(input: unknown): AgentPlanControl {
     issues: Array.isArray(control.issues)
       ? control.issues.map(readIssue)
       : undefined,
+    ...(control.workspaceConflict === undefined
+      ? {}
+      : {
+          workspaceConflict: readWorkspaceConflict(control.workspaceConflict),
+        }),
+    ...(control.lastStartRejection === undefined
+      ? {}
+      : {
+          lastStartRejection: readPlanStartRejection(
+            control.lastStartRejection,
+          ),
+        }),
     planRevision:
       control.planRevision === null ? null : readNumber(control.planRevision),
     continuationVersion: readNumber(control.continuationVersion),

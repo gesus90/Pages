@@ -4,7 +4,6 @@ import {
 } from "@/definition/AgentPlanConfiguration";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 import { createRandomUuid } from "@/app/lib/random-uuid";
-import { PLAN_GRID } from "./plan-layout";
 import type {
   AgentPlanInput,
   AgentPlanNode,
@@ -22,13 +21,10 @@ export type PlanReferenceKind = Exclude<AgentPlanNode["type"], "script">;
 // The plan page and the agent API remove nodes by the same rule.
 export { removePlanNode } from "@/definition/AgentPlanGraph";
 
-/** Coordinates remain bounded integral grid points even for edited numeric fields. */
-export function snapPlanCoordinate(coordinate: number): number {
+/** Coordinates use the bounded integers accepted by the plan API. */
+export function boundedPlanCoordinate(coordinate: number): number {
   if (!Number.isFinite(coordinate)) return 0;
-  return Math.min(
-    6000,
-    Math.max(0, Math.round(coordinate / PLAN_GRID) * PLAN_GRID),
-  );
+  return Math.min(6000, Math.max(0, Math.round(coordinate)));
 }
 
 /** Where a node added without a pointer goes: the next cell of a three-column grid. */
@@ -56,8 +52,8 @@ export function createPlanScript(input: {
     ...structuredClone(input.configuration),
     id: createRandomUuid(),
     type: "script",
-    x: snapPlanCoordinate(position.x),
-    y: snapPlanCoordinate(position.y),
+    x: boundedPlanCoordinate(position.x),
+    y: boundedPlanCoordinate(position.y),
     bindings: {},
   };
 }
@@ -75,8 +71,8 @@ export function createPlanNode(input: {
   const position = input.position ?? planInsertPosition(draft);
   const base = {
     id: createRandomUuid(),
-    x: snapPlanCoordinate(position.x),
-    y: snapPlanCoordinate(position.y),
+    x: boundedPlanCoordinate(position.x),
+    y: boundedPlanCoordinate(position.y),
   };
   if (kind === "start" || kind === "end") return { ...base, type: kind };
   if (kind === "loop") return emptyPlanLoop(base.id, reference, base);

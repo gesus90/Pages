@@ -106,7 +106,19 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.capabilities.read":
     "{} Planvertragsversion und implementierte persönliche Operationen lesen; keine Rechtefreigabe",
   "plans.run.recovery.read":
-    "{planId, runId} vorhandene Recovery-/Neustartfähigkeit und Sperrgründe des eigenen Runs lesen; Ausführung bleibt im bestehenden Editor-Workflow und ist kein Pause-Resume",
+    "{planId, runId} Recovery-, Neustart- und Freigabemöglichkeiten sowie Sperrgründe des eigenen Runs lesen; Recovery-Fortsetzung ist kein Pause-Resume",
+  "plans.run.diagnostics.read":
+    "{planId, runId, stepId, loopId?, iteration?, cursor?, maxBytes?} berechtigte Diagnose eines eigenen Versuchs mit getrennten Ausgaben und Vollständigkeit lesen; große Ergebnisse mit Cursor zusammensetzen",
+  "plans.run.session.events.read":
+    "{planId, runId, stepId, attemptId, after?, before?, limit?, cursor?, maxBytes?} berechtigte gespeicherte ACP-Ereignisse des eigenen Versuchs lesen; keine Sitzungssteuerung",
+  "plans.run.checkpoint.read":
+    "{planId, runId, version?, cursor?, maxBytes?} berechtigten unveränderlichen Checkpoint des eigenen Runs lesen; große Ergebnisse mit Cursor zusammensetzen und checkpoint.content als JSON parsen",
+  "plans.run.recovery.release":
+    "{planId, runId, expectedRecoveryRevision} auf ausdrücklichen Auftrag die Restprozesse des eigenen Runs bereinigen und bestätigte Reservierungen freigeben; startet keinen Lauf",
+  "plans.run.recovery.restart":
+    "{planId, runId, expectedRecoveryRevision, expectedPlanRevision, confirmRepeat} nach ausdrücklichem Auftrag und Hinweis auf alle wiederholten Schritte einen verknüpften neuen Lauf von Start beginnen",
+  "plans.run.recovery.resume":
+    "{planId, runId, expectedRecoveryRevision, expectedPlanRevision, mode, reviewedStepIds} nach ausdrücklichem Auftrag und Prüfung möglicher Nebenwirkungen einen verknüpften neuen Lauf am verifizierten Zustand fortsetzen",
   "plans.clone":
     "{planId, expectedRevision, name, workspaceId?} vollständigen gespeicherten Plan atomar mit unabhängigen IDs kopieren; ohne workspaceId im Quellworkspace, mit normalen Create-Rechten und ohne übernommene Lesefreigaben, Historie oder Start",
   "plans.templates.list": "{workspaceId} sichtbare Node-Vorlagen lesen",

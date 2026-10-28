@@ -40,7 +40,12 @@ export function PlanRecoveryResume({
   }
   function handleResume(): void {
     if (mode === null) return;
-    onSubmit({ action: "resume", mode, reviewedStepIds: reviewed });
+    onSubmit({
+      action: "resume",
+      mode,
+      revision: view.currentPlanRevision,
+      reviewedStepIds: reviewed,
+    });
   }
   return (
     <fieldset className="space-y-1.5" disabled={!resume.available || isPending}>

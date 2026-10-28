@@ -4,14 +4,20 @@ import {
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
-import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import {
+  allPlanRunResults,
+  hasUnconfirmedLoopCloseout,
+} from "@/definition/AgentPlanLoopResults";
+import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { endInterruptedScript } from "./AgentPlanScriptRecovery";
+import { cleanupScanFailure } from "./AgentPlanCleanupFailure";
 
 import type { TaggedProcessScope } from "@/backend/agents/cli/CliProcessScan";
 import type { AcpResourceOwner } from "@/definition/AcpResource";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AgentPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 
 /** No session of a run started before the run. */
 async function runScope(
@@ -68,7 +74,7 @@ export async function endInterruptedSession(
 }
 
 /**
- * Whether no process of any session of the run is alive any more.
+ * Whether each attempt's closeout is confirmed or unnecessary and no session process remains.
  *
  * @remarks
  * A node stores its session record before its runner starts, so a node
@@ -78,31 +84,77 @@ export async function endInterruptedSession(
 export async function hasNoSessionProcesses(
   run: AgentPlanRun,
 ): Promise<boolean> {
+  return (await checkSessionProcesses(run)).confirmed;
+}
+
+/** Checks recorded closeouts and identifies a failed owned process scan. */
+export async function checkSessionProcesses(run: AgentPlanRun): Promise<{
+  readonly confirmed: boolean;
+  readonly failure: AgentPlanCleanupFailure | null;
+}> {
   if (
+    hasUnconfirmedLoopCloseout(run) ||
     allPlanRunResults(run).some(
       (step) =>
-        step.execution?.target.kind === "remote" &&
-        step.remote?.closeout !== "confirmed",
+        isRemoteCloseoutUnconfirmed(step) ||
+        (step.session !== undefined &&
+          step.session !== null &&
+          step.session.closeout !== "confirmed" &&
+          step.session.closeout !== "not_needed") ||
+        (step.script !== undefined && step.script.closeout !== "confirmed"),
     )
   )
-    return false;
+    return { confirmed: false, failure: null };
   const scope = await runScope(run.startedAt);
+  const instances = processInstances(run);
   const scans = await Promise.all(
-    allPlanRunResults(run).flatMap((step) =>
-      step.execution?.target.kind !== "remote" && (step.session || step.script)
-        ? [
-            findTaggedProcesses(
-              step.session?.instanceId ?? step.script?.instanceId ?? "",
-              scope,
-            ).catch((caughtError: unknown) => {
-              logCaughtError("AgentPlanRecovery", caughtError);
-              return [0];
-            }),
-          ]
-        : [],
-    ),
+    [...instances].map(([id, resource]) => scanInstance(id, resource, scope)),
   );
-  return scans.every((processes) => processes.length === 0);
+  const failure = scans.find((scan) => scan !== null) ?? null;
+  return { confirmed: failure === null, failure };
+}
+
+function processInstances(
+  run: AgentPlanRun,
+): Map<string, Pick<AgentPlanCleanupFailure, "stepId" | "kind">> {
+  const instances = new Map<
+    string,
+    Pick<AgentPlanCleanupFailure, "stepId" | "kind">
+  >();
+  for (const step of allPlanRunResults(run)) {
+    if (step.execution?.target.kind === "remote") continue;
+    if (step.session?.instanceId)
+      instances.set(step.session.instanceId, {
+        stepId: step.id,
+        kind: "local_session",
+      });
+    if (step.script?.instanceId)
+      instances.set(step.script.instanceId, {
+        stepId: step.id,
+        kind: "local_script",
+      });
+  }
+  for (const loop of run.loops ?? [])
+    for (const session of loop.sessions)
+      if (session.instanceId)
+        instances.set(session.instanceId, { stepId: loop.id, kind: "loop" });
+  return instances;
+}
+
+async function scanInstance(
+  id: string,
+  resource: Pick<AgentPlanCleanupFailure, "stepId" | "kind">,
+  scope: TaggedProcessScope | null,
+): Promise<AgentPlanCleanupFailure | null> {
+  try {
+    const processes = await findTaggedProcesses(id, scope);
+    return processes.length === 0
+      ? null
+      : { ...resource, reason: "processes_remaining" };
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentPlanRecovery", caughtError);
+    return cleanupScanFailure(resource.stepId, resource.kind, caughtError);
+  }
 }
 
 /** Adopts older interrupted sessions that predate the durable ACP capacity journal. */

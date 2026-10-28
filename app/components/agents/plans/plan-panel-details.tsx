@@ -5,6 +5,9 @@ import { PlanPanelContext } from "./plan-panel-context";
 import { PlanPanelIssueList } from "./plan-panel-issues";
 import { PlanRecoveryPanel } from "./plan-recovery-panel";
 import { PlanReloadButton } from "./plan-reload-button";
+import { PlanWorkspaceConflict } from "./plan-workspace-conflict";
+import { PlanStartRejection } from "./plan-start-rejection";
+import { PlanStartHistory } from "./plan-start-history";
 
 import type { AgentPlanPage } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
@@ -62,6 +65,15 @@ export function PlanPanelDetails(props: {
   return (
     <div id={props.id} className="space-y-4 border-t border-border px-4 py-3.5">
       <PlanPanelIssueList issues={props.issues} />
+      <PlanWorkspaceConflict conflict={props.control?.workspaceConflict} />
+      <PlanStartRejection rejection={props.control?.lastStartRejection} />
+      {page.selected?.canEdit && props.control?.lastStartRejection ? (
+        <PlanStartHistory
+          key={`${page.selected.id}:${props.control.lastStartRejection.id}`}
+          planId={page.selected.id}
+          latestId={props.control.lastStartRejection.id}
+        />
+      ) : null}
       {error ? (
         <p
           role="alert"
