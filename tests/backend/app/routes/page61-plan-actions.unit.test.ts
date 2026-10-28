@@ -7,12 +7,6 @@ import { AgentError } from "@/backend/error/AgentErrors";
 
 import { TICKET_ACTOR } from "../../backend/service/agents/page55-ticket-fixture";
 
-const service = vi.hoisted(() => ({ remove: vi.fn(), visible: vi.fn() }));
-vi.mock("@/app/lib/services.server", () => ({
-  getApplicationServices: async () => ({
-    agentPlanService: service,
-    agentPlanManagement: { remove: service.remove },
-  }));
 const services = vi.hoisted(() => ({
   agentPlanService: { visible: vi.fn() },
   agentPlanManagement: { remove: vi.fn() },
@@ -27,7 +21,6 @@ const OTHER_PROJECT = { id: "other", projectId: "elsewhere" };
 
 beforeEach(() => {
   vi.resetAllMocks();
-  service.visible.mockResolvedValue([]);
   services.agentPlanService.visible.mockResolvedValue([]);
 });
 
@@ -37,12 +30,6 @@ async function remove(fields: Record<string, string>): Promise<Response> {
   return action({
     request: new Request("http://synthetic.invalid/agents/plans", {
       method: "POST",
-      body: new URLSearchParams({
-        intent: "delete-plan",
-        planId,
-        revision: "3",
-        requestKey: "request-1",
-      }),
       body: new URLSearchParams({ intent: "delete-plan", ...fields }),
     }),
     context: provider,
@@ -52,28 +39,7 @@ async function remove(fields: Record<string, string>): Promise<Response> {
   });
 }
 
-it("deletes as the authenticated user and returns to the plan list", async () => {
-  const response = await remove("plan");
-  expect(service.remove).toHaveBeenCalledExactlyOnceWith("owner", "plan", {
-    revision: 3,
-    requestKey: "page-request-1",
-  });
-  expect(response.status).toBe(302);
-  expect(response.headers.get("Location")).toBe("/agents/plans");
-  expect(response.headers.get("Cache-Control")).toBe("no-store");
-  expect(response.headers.get("Set-Cookie")).toBeNull();
-});
-
-it("redirects to a remaining plan of the same project and defers persistence until it opens", async () => {
-  service.visible.mockResolvedValueOnce([{ id: "plan", projectId: "project" }]);
-  service.visible.mockResolvedValueOnce([
-    { id: "elsewhere", projectId: "another-project" },
-    { id: "next", projectId: "project" },
-  ]);
-  const response = await remove("plan");
-  expect(response.headers.get("Location")).toBe("/agents/plans?planId=next");
-  expect(response.headers.get("Set-Cookie")).toBeNull();
-it("deletes with the revision as the authenticated user and clears the selection of the last plan", async () => {
+it("deletes with the revision as the authenticated user and returns to the plan list", async () => {
   services.agentPlanService.visible
     .mockResolvedValueOnce([DELETED])
     .mockResolvedValueOnce([]);
@@ -90,11 +56,10 @@ it("deletes with the revision as the authenticated user and clears the selection
   expect(response.status).toBe(302);
   expect(response.headers.get("Location")).toBe("/agents/plans");
   expect(response.headers.get("Cache-Control")).toBe("no-store");
-  expect(response.headers.get("Set-Cookie")).toContain("pages_plan_selection=");
-  expect(response.headers.get("Set-Cookie")).toContain("Max-Age=0");
+  expect(response.headers.get("Set-Cookie")).toBeNull();
 });
 
-it("opens a plan of the same project first and remembers it", async () => {
+it("opens a plan of the same project first and defers persistence until it opens", async () => {
   services.agentPlanService.visible
     .mockResolvedValueOnce([DELETED, OTHER_PROJECT, SAME_PROJECT])
     .mockResolvedValueOnce([OTHER_PROJECT, SAME_PROJECT]);
@@ -104,7 +69,7 @@ it("opens a plan of the same project first and remembers it", async () => {
     requestKey: "dialog",
   });
   expect(response.headers.get("Location")).toBe("/agents/plans?planId=sibling");
-  expect(response.headers.get("Set-Cookie")).not.toContain("Max-Age=0");
+  expect(response.headers.get("Set-Cookie")).toBeNull();
 });
 
 it("falls back to the first readable plan of another project", async () => {

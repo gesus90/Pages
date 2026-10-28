@@ -207,6 +207,16 @@ describe("saving departments and groups", () => {
     });
   });
 
+  it("saves a new group with a generated identifier", async () => {
+    const outcome = await submit("save-group", { entityId: " ", name: "Ops" });
+
+    expect(outcome.body).toEqual({ intent: "save-group", ok: true });
+    const saved = callArgument(groups.saveGroup, 0, 1);
+
+    expect(saved).toMatchObject({ memberIds: [], name: "Ops" });
+    expect(saved).toHaveProperty("id", expect.stringMatching(UUID));
+  });
+
   it("rejects a file among the members", async () => {
     const outcome = await submit("save-group", {
       name: "Core",

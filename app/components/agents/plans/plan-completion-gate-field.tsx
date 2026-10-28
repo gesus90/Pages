@@ -14,12 +14,10 @@ export function PlanCompletionGateField({
   readonly onChange: (step: AgentPlanStep) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const gate = step.completionGate;
+  const { completionGate: gate, ...withoutGate } = step;
   function toggle(): void {
     if (gate) {
-      const { completionGate: previous, ...rest } = step;
-      if (!previous) return;
-      onChange(rest);
+      onChange(withoutGate);
       return;
     }
     onChange({

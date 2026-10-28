@@ -18,6 +18,38 @@ interface StatusSequenceProps {
   readonly onSelect: (id: string) => void;
 }
 
+/** Scrolls the sequence so the anchor step sits in the middle of the visible window. */
+function centerAnchor(element: HTMLElement, anchorId: string | null): void {
+  const entries = Array.from(
+    element.querySelectorAll<HTMLElement>("[data-status-step]"),
+  );
+  const anchorIndex = entries.findIndex(
+    (entry) => entry.dataset.statusStep === anchorId,
+  );
+  const first = entries[0];
+  if (!first || anchorIndex < 0) return;
+  const stride = Math.max(
+    1,
+    entries[1] ? entries[1].offsetLeft - first.offsetLeft : first.offsetWidth,
+  );
+  const capacity = Math.max(
+    1,
+    Math.floor((element.clientWidth - first.offsetWidth) / stride) + 1,
+  );
+  // At least one step stays visible, so the start index always names a step.
+  const startIndex = Math.max(
+    0,
+    Math.min(anchorIndex - Math.floor(capacity / 2), entries.length - capacity),
+  );
+  element.scrollLeft = Math.max(
+    0,
+    Math.min(
+      element.scrollWidth - element.clientWidth,
+      entries[startIndex].offsetLeft,
+    ),
+  );
+}
+
 /** A bounded, keyboard-scrollable sequence; progress moves this window alone. */
 export function PlanStatusSequence({
   run,
@@ -31,40 +63,7 @@ export function PlanStatusSequence({
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    function center(): void {
-      if (!element) return;
-      const entries = Array.from(
-        element.querySelectorAll<HTMLElement>("[data-status-step]"),
-      );
-      const anchorIndex = entries.findIndex(
-        (entry) => entry.dataset.statusStep === anchorId,
-      );
-      const first = entries[0];
-      if (!first || anchorIndex < 0) return;
-      const stride = Math.max(
-        1,
-        entries[1]
-          ? entries[1].offsetLeft - first.offsetLeft
-          : first.offsetWidth,
-      );
-      const capacity = Math.max(
-        1,
-        Math.floor((element.clientWidth - first.offsetWidth) / stride) + 1,
-      );
-      const startIndex = Math.max(
-        0,
-        Math.min(
-          anchorIndex - Math.floor(capacity / 2),
-          entries.length - capacity,
-        ),
-      );
-      const start = entries[startIndex];
-      if (start)
-        element.scrollLeft = Math.max(
-          0,
-          Math.min(element.scrollWidth - element.clientWidth, start.offsetLeft),
-        );
-    }
+    const center = (): void => centerAnchor(element, anchorId);
     center();
     const observer = new ResizeObserver(center);
     observer.observe(element);

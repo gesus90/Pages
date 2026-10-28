@@ -185,20 +185,23 @@ function GroupAgentPicker(props: GroupEditorProps): React.ReactElement {
         onValueChange={setAgentId}
         options={[
           { value: "", label: t("plans.groups.panel.addPlaceholder") },
-          ...props.sources.agents
-            .filter(
-              (agent) =>
-                agent.availability.isUsable &&
-                planGroupRefusal(
-                  group,
-                  candidateStep(agent.id),
-                  props.sources.agents,
-                ) === null,
-            )
-            .map((agent) => ({
-              value: agent.id,
-              label: `${agent.name} · ${t(`plans.session.runner.${agent.provider ?? "api"}`)} · ${agent.model}`,
-            })),
+          // A joinable agent always has an ACP provider; the refusal names every other one.
+          ...props.sources.agents.flatMap((agent) =>
+            agent.provider !== null &&
+            agent.availability.isUsable &&
+            planGroupRefusal(
+              group,
+              candidateStep(agent.id),
+              props.sources.agents,
+            ) === null
+              ? [
+                  {
+                    value: agent.id,
+                    label: `${agent.name} · ${t(`plans.session.runner.${agent.provider}`)} · ${agent.model}`,
+                  },
+                ]
+              : [],
+          ),
         ]}
       />
       <Button

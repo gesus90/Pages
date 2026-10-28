@@ -90,10 +90,10 @@ export function useTicketPicker(input: TicketPickerInput): TicketPickerState {
     close(true);
   }
   function move(step: number): void {
-    if (results.length === 0) return;
-    const index = active ? results.indexOf(active) : -1;
-    const next = Math.min(results.length - 1, Math.max(0, index + step));
-    setActiveId(results[next]?.id ?? null);
+    // Only an empty list has no highlight; at either end the highlight stays.
+    if (!active) return;
+    const next = results[results.indexOf(active) + step] ?? active;
+    setActiveId(next.id);
   }
   function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     const step = ARROW_STEPS[event.key];

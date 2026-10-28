@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   languageCookie,
@@ -6,8 +6,14 @@ import {
   resolveSetupLanguage,
 } from "@/app/lib/language.server";
 import { LANGUAGE } from "@/language/Language";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { SYNTHETIC_ORIGIN } from "./request-fixtures";
+
+vi.mock(import("@/backend/logging/Logger"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  logCaughtError: vi.fn(),
+}));
 
 async function requestWithLanguage(
   language: unknown,
@@ -64,6 +70,21 @@ describe("resolveAnonymousLanguage", () => {
     });
 
     expect(await resolveAnonymousLanguage(request)).toBe(LANGUAGE.GERMAN);
+  });
+
+  it("falls back to the default language without a selection or browser header", async () => {
+    const request = new Request(`${SYNTHETIC_ORIGIN}/login`);
+
+    expect(await resolveAnonymousLanguage(request)).toBe(LANGUAGE.ENGLISH);
+  });
+
+  it("records a cookie that cannot be decoded and ignores it", async () => {
+    const failure = new Error("undecodable cookie");
+    vi.spyOn(languageCookie, "parse").mockRejectedValueOnce(failure);
+    const request = await requestWithLanguage(LANGUAGE.GERMAN, "en-US");
+
+    expect(await resolveAnonymousLanguage(request)).toBe(LANGUAGE.ENGLISH);
+    expect(logCaughtError).toHaveBeenCalledWith("language", failure);
   });
 });
 

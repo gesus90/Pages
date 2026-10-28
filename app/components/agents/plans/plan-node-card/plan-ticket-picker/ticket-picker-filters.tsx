@@ -42,7 +42,7 @@ function PhaseMenu({ state, phases }: FilterProps): React.ReactElement {
     state.query.phases.includes(phase.key),
   );
   let label = t("plans.ticketPicker.allPhases");
-  if (chosen.length === 1) label = chosen[0]?.name ?? label;
+  if (chosen.length === 1) label = chosen[0].name;
   if (chosen.length > 1)
     label = t("plans.ticketPicker.phaseCount", { count: chosen.length });
   return (

@@ -134,9 +134,14 @@ describe("the MCP tool catalog", () => {
   });
 
   it("marks reads as read-only and requires an operation id for every write", () => {
-    // These two writes are not replayed by an operation id: a chat deletion is
-    // bound to the person's own confirmation, an upload to its one-use ticket.
-    const withoutOperationId = ["delete_chat_sessions", "prepare_asset_upload"];
+    // These writes are not replayed by an operation id: a chat deletion is
+    // bound to the person's own confirmation, an upload to its one-use ticket,
+    // and the ticket work record to its expected metadata revision.
+    const withoutOperationId = [
+      "delete_chat_sessions",
+      "prepare_asset_upload",
+      "save_ticket_work",
+    ];
     for (const tool of tools) {
       const names = Object.keys(tool.inputSchema.properties ?? {});
       if (tool.annotations?.readOnlyHint === true) {
@@ -148,6 +153,8 @@ describe("the MCP tool catalog", () => {
           expect(tool.inputSchema.required, tool.name).toContain("operationId");
       }
     }
+    const ticketWork = tools.find((tool) => tool.name === "save_ticket_work");
+    expect(ticketWork?.inputSchema.required).toContain("expectedRevision");
   });
 
   it("names every property in camelCase except the one legacy wiki revision", () => {

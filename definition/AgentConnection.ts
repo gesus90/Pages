@@ -76,8 +76,12 @@ export function linkedApiProviderOf(
 ): OpenCodeLinkedProvider | null {
   if (modelProvider === "zai-coding-plan") return "zai";
   for (const [provider, native] of Object.entries(OPENCODE_LINKED_PROVIDERS))
-    if (native === modelProvider && isAgentProvider(provider))
-      return isOpenCodeLinkedProvider(provider) ? provider : null;
+    if (
+      native === modelProvider &&
+      isAgentProvider(provider) &&
+      isOpenCodeLinkedProvider(provider)
+    )
+      return provider;
   return null;
 }
 
@@ -94,7 +98,7 @@ export function openCodeLinkedModelProvider(connection: {
 
 /** The native provider of a full OpenCode model ID such as `google/gemini-3.8-flash`. */
 export function openCodeModelProvider(model: string): string {
-  return model.split("/")[0] ?? "";
+  return model.split("/")[0];
 }
 
 /** Where a connection runs, in the order a model choice lists them. */

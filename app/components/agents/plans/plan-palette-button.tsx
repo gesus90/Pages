@@ -59,6 +59,36 @@ function usePaletteTooltipVisibility(): {
   };
 }
 
+/** Places the tooltip beside its trigger; a stale placement of a closed tooltip is dropped. */
+async function placeTooltip(
+  anchor: HTMLElement,
+  overlay: HTMLElement,
+  isCurrent: () => boolean,
+): Promise<void> {
+  try {
+    const position = await computePosition(anchor, overlay, {
+      strategy: "fixed",
+      placement: "left",
+      middleware: [
+        offset(8),
+        flip({
+          padding: 8,
+          fallbackPlacements: ["top", "bottom", "right"],
+        }),
+        shift({ padding: 8, crossAxis: true }),
+      ],
+    });
+    if (!isCurrent()) return;
+    Object.assign(overlay.style, {
+      left: `${position.x}px`,
+      top: `${position.y}px`,
+      visibility: "visible",
+    });
+  } catch (error: unknown) {
+    console.warn("Could not position the node palette tooltip.", error);
+  }
+}
+
 /** A Pages button with a hover/focus description above the editor overlays. */
 export function PlanPaletteButton({
   tooltip,
@@ -87,32 +117,11 @@ export function PlanPaletteButton({
     const panel = floating.current;
     if (!isOpen || !reference || !panel) return;
     let isCurrent = true;
-    async function place(): Promise<void> {
-      if (!reference || !panel) return;
-      try {
-        const position = await computePosition(reference, panel, {
-          strategy: "fixed",
-          placement: "left",
-          middleware: [
-            offset(8),
-            flip({
-              padding: 8,
-              fallbackPlacements: ["top", "bottom", "right"],
-            }),
-            shift({ padding: 8, crossAxis: true }),
-          ],
-        });
-        if (!isCurrent) return;
-        Object.assign(panel.style, {
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          visibility: "visible",
-        });
-      } catch (error: unknown) {
-        console.warn("Could not position the node palette tooltip.", error);
-      }
-    }
-    const stop = autoUpdate(reference, panel, () => void place());
+    const stop = autoUpdate(
+      reference,
+      panel,
+      () => void placeTooltip(reference, panel, () => isCurrent),
+    );
     return () => {
       isCurrent = false;
       stop();

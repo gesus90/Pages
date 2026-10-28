@@ -27,6 +27,13 @@ interface PanelProps {
   readonly onRetry?: () => void;
 }
 
+/** Whether an event target lies in one of the panel's menus, whose portals still belong to it. */
+function isInMenu(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element && target.closest(TICKET_PICKER_MENU) !== null
+  );
+}
+
 /** Whether a node lies in the panel, its field or one of its menus. */
 function belongsToPicker(
   node: EventTarget | null,
@@ -34,8 +41,11 @@ function belongsToPicker(
   field: HTMLElement | null,
 ): boolean {
   if (!(node instanceof Node)) return false;
-  if (panel?.contains(node) || field?.contains(node)) return true;
-  return node instanceof Element && node.closest(TICKET_PICKER_MENU) !== null;
+  return (
+    panel?.contains(node) === true ||
+    field?.contains(node) === true ||
+    isInMenu(node)
+  );
 }
 
 // Events of the panel stay out of the card: no node selection, drag or zoom.
@@ -58,10 +68,10 @@ function useOutsideClose(
       if (!belongsToPicker(event.target, panel, trigger.current)) close(false);
     }
     function closeOnEscape(event: KeyboardEvent): void {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
       if (
-        event.target instanceof Element &&
-        event.target.closest(TICKET_PICKER_MENU)
+        event.key !== "Escape" ||
+        event.defaultPrevented ||
+        isInMenu(event.target)
       )
         return;
       close(true);
@@ -127,12 +137,7 @@ export function TicketPickerPanel(props: PanelProps): React.ReactElement {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s")
       return;
     event.stopPropagation();
-    if (event.key !== "Escape") return;
-    if (
-      event.target instanceof Element &&
-      event.target.closest(TICKET_PICKER_MENU)
-    )
-      return;
+    if (event.key !== "Escape" || isInMenu(event.target)) return;
     event.preventDefault();
     state.close(true);
   }

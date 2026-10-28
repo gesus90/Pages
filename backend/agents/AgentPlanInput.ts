@@ -118,7 +118,7 @@ function readBindings(
 /** Parses one bounded node; its references are checked when the plan is saved. */
 export function readPlanNode(input: unknown): AgentPlanNode {
   const node = readPlanObject(input);
-  const base = { id: readPlanText(node.id), ...readPosition(node) };
+  const base = readNodeBase(node);
   if (node.type === "start" || node.type === "end")
     return { ...base, type: node.type };
   if (node.type === "parameter") return readParameterNode(node, base);
@@ -133,6 +133,12 @@ export function readPlanNode(input: unknown): AgentPlanNode {
     return { ...base, type: "variable", name };
   }
   return readStepNode(node, base);
+}
+
+function readNodeBase(
+  node: Record<string, unknown>,
+): AgentPlanPosition & { readonly id: string } {
+  return { id: readPlanText(node.id), ...readPosition(node) };
 }
 
 function readExecutionTarget(
@@ -394,8 +400,7 @@ function readGroupNode(
   const steps = node.steps.map((input: unknown) => {
     const raw = readPlanObject(input);
     if (raw.type !== "agent") throw new AgentError("plan_invalid");
-    const step = readPlanNode(raw);
-    if (step.type !== "agent") throw new AgentError("plan_invalid");
+    const step = readStepNode(raw, readNodeBase(raw));
     if (step.completionGate) throw new AgentError("plan_work_gate_unavailable");
     return step;
   });

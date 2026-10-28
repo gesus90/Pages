@@ -142,10 +142,10 @@ function ParameterField(props: CountProps): React.ReactElement {
               : "text-xs text-muted-foreground"
           }
         >
-          {runs === null
+          {runs === null || bound === null
             ? t("plans.loops.runs.parameterInvalid")
             : t("plans.loops.runs.parameterValue", {
-                name: bound?.name ?? "",
+                name: bound.name,
                 count: runs,
               })}
         </p>

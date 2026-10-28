@@ -27,12 +27,8 @@ export function PlanRevisionConflict(props: {
     result.error === "plan_conflict" &&
     result !== dismissed;
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        if (!open) dismiss(result);
-      }}
-    >
+    // Without a trigger the dialog only ever asks to close.
+    <Dialog open={isOpen} onOpenChange={() => dismiss(result)}>
       <DialogContent
         size="lg"
         overlayClassName="bg-transparent"

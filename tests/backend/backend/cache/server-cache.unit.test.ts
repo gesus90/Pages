@@ -153,6 +153,15 @@ describe("ServerCache limits and switches", () => {
 
     expect(cache.get("circular")).toBe(circular);
   });
+
+  it("stores values that have no JSON form, such as functions", () => {
+    const cache = new ServerCache();
+    const compute = (): number => 1;
+    cache.set("function", compute, 1_000);
+
+    expect(cache.get("function")).toBe(compute);
+    expect(cache.readStats().entries).toBe(1);
+  });
 });
 
 describe("cache keys", () => {

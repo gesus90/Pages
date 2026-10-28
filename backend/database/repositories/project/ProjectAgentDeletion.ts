@@ -108,6 +108,7 @@ export async function deleteProjectAgentData(
     "agent_plan_continuations",
     "agent_plan_repair_attempts",
     "agent_plan_recovery_executions",
+    "agent_plan_work",
   ] as const)
     await database.execute(
       `DELETE FROM ${table} WHERE run_id IN (${PLAN_RUNS});`,

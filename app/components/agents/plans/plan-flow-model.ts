@@ -234,9 +234,10 @@ function targetHandle(link: PlanLink, targetId: string): string {
   return link.kind === "flow" ? "flow-in" : `input:${link.parameter}`;
 }
 
+// A data link with a boundary port starts at its legacy group frame, and
+// links of such a frame are never drawn; every drawn data link leaves a value OUT.
 function sourceHandle(link: PlanLink): string {
-  if (link.kind === "flow") return "flow-out";
-  return link.port === undefined ? "value-out" : `boundary:${link.port}`;
+  return link.kind === "flow" ? "flow-out" : "value-out";
 }
 
 /** Resolves a visible source handle to its Pages source, never a visual group route. */

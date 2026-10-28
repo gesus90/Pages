@@ -33,9 +33,9 @@ function readTarget(formData: FormData): AgentPlanExecutionTarget | undefined {
   let input: unknown;
   try {
     input = JSON.parse(text);
-  } catch (error: unknown) {
-    if (error instanceof SyntaxError) throw new AgentError("plan_invalid");
-    throw error;
+  } catch {
+    // Parsing a string can only fail with a syntax error.
+    throw new AgentError("plan_invalid");
   }
   const parsed = planExecutionTargetSchema.safeParse(input);
   if (!parsed.success) throw new AgentError("plan_invalid");

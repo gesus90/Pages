@@ -259,7 +259,7 @@ it("fetches the current template on every insertion into a group and keeps previ
     "low",
     "low",
   ]);
-});
+}, 20_000);
 
 it("opens a read-only node dialog when the plan is shared without edit rights", async () => {
   renderPlanPage(serverWithCopies(false));

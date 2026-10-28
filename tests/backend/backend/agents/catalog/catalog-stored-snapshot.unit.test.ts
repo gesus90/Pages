@@ -119,3 +119,30 @@ describe("parseStoredCatalog", () => {
     expect(thrown).toMatchObject({ code: "provider_bad_response" });
   });
 });
+
+it("restores the stored image input, aliases and tool calling of a model", () => {
+  const stored = {
+    ...serialize(LEVELS),
+    image_input: false,
+    aliases: ["opus", "Bad Alias", "opus[1m]", 7],
+    tool_call: true,
+  };
+
+  expect(parseStoredCatalog([stored])).toEqual([
+    {
+      ...LEVELS,
+      supportsImages: false,
+      aliases: ["opus", "opus[1m]"],
+      isToolCapable: true,
+    },
+  ]);
+});
+
+it("drops stored aliases when none of them is a usable token", () => {
+  const [model] = parseStoredCatalog([
+    { ...serialize(LEVELS), aliases: ["Bad Alias"], tool_call: "yes" },
+  ]);
+
+  expect(model).not.toHaveProperty("aliases");
+  expect(model).not.toHaveProperty("isToolCapable");
+});

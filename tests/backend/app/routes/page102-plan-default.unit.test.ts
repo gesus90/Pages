@@ -78,22 +78,16 @@ async function thrownResponse(work: Promise<unknown>): Promise<Response> {
 it("redirects to the readable plan named Task2 when the address names no plan", async () => {
   serve([plan("alpha", "Alpha"), plan("task-two", "Task2")]);
   const request = new Request("http://pages.invalid/agents/plans");
-  let destination: string | null = null;
-  try {
-    await loader(routeArguments(request, TICKET_ACTOR, {}));
-  } catch (error: unknown) {
-    if (!(error instanceof Response)) throw error;
-    expect(error.status).toBe(302);
-    destination = error.headers.get("Location");
-  }
-  expect(destination).toBe("/agents/plans?planId=task-two");
-  const redirect = await thrownResponse(open());
+  const redirect = await thrownResponse(
+    loader(routeArguments(request, TICKET_ACTOR, {})),
+  );
   expect(redirect.status).toBe(302);
   expect(redirect.headers.get("Location")).toBe(
     "/agents/plans?planId=task-two",
   );
   expect(redirect.headers.get("Cache-Control")).toBe("no-store");
-  expect(redirect.headers.get("Set-Cookie")).toContain("pages_plan_selection=");
+  // The opened page commits the selection; the redirect itself stores nothing.
+  expect(redirect.headers.get("Set-Cookie")).toBeNull();
   expect(service.visible).toHaveBeenCalledExactlyOnceWith("owner");
   expect(service.page).toHaveBeenCalledExactlyOnceWith("owner", {
     planId: "task-two",

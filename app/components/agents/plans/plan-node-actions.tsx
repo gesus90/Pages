@@ -50,8 +50,8 @@ export function PlanNodeActions({
   const triggerId = useId();
   const removeFocus = useRef<HTMLElement | null>(null);
   const isDialogOpening = useRef(false);
+  // A disabled trigger and disabled items keep both actions from running without edit rights.
   function remove(): void {
-    if (disabled) return;
     if (shouldFocusCanvasOnRemove)
       removeFocus.current =
         document
@@ -60,10 +60,9 @@ export function PlanNodeActions({
           ?.closest("section") ?? null;
     onRemove();
   }
-  function saveTemplate(): void {
-    if (disabled || !onSaveTemplate) return;
+  function saveTemplate(save: () => void): void {
     isDialogOpening.current = true;
-    onSaveTemplate();
+    save();
   }
   function restoreFocus(event: Event): void {
     // The save dialog takes the focus; the trigger must not pull it back.
@@ -114,7 +113,7 @@ export function PlanNodeActions({
             <DropdownMenuItem
               disabled={disabled}
               className="gap-2.5"
-              onSelect={saveTemplate}
+              onSelect={() => saveTemplate(onSaveTemplate)}
             >
               <Save className="size-4 shrink-0" aria-hidden="true" />
               {t("plans.templates.saveAction")}

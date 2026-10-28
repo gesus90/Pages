@@ -54,12 +54,8 @@ export function PlanPaletteDialog(
       ?.focus({ preventScroll: true });
   }
   return (
-    <Dialog
-      open
-      onOpenChange={(isOpen) => {
-        if (!isOpen) props.onClose();
-      }}
-    >
+    // Without a trigger the dialog only ever asks to close.
+    <Dialog open onOpenChange={props.onClose}>
       <DialogContent
         className="space-y-4 overflow-y-auto"
         onCloseAutoFocus={restoreFocus}

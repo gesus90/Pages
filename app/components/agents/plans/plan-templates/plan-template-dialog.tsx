@@ -108,15 +108,13 @@ export function PlanTemplateDialog(
   const { node } = props;
   const save = useTemplateSave(props);
   const isSaving = save.state.kind === "saving";
+  const nameField = useRef<HTMLInputElement>(null);
   // The suggested name stays unselected, with the caret after it.
   function placeCaret(event: Event): void {
-    const content = event.currentTarget;
-    const field =
-      content instanceof HTMLElement ? content.querySelector("input") : null;
-    if (!field) return;
     event.preventDefault();
-    field.focus();
-    field.setSelectionRange(field.value.length, field.value.length);
+    const field = nameField.current;
+    field?.focus();
+    field?.setSelectionRange(field.value.length, field.value.length);
   }
   return (
     <Dialog
@@ -144,7 +142,7 @@ export function PlanTemplateDialog(
           </DialogDescription>
         </div>
         <form onSubmit={save.submit} noValidate className="mt-5 space-y-6">
-          <TemplateNameField {...props} save={save} />
+          <TemplateNameField {...props} save={save} field={nameField} />
           <div className="flex justify-end gap-2">
             <Button
               variant="outline"
@@ -173,6 +171,7 @@ export function PlanTemplateDialog(
 function TemplateNameField(
   props: PlanTemplateDialogProps & {
     readonly save: ReturnType<typeof useTemplateSave>;
+    readonly field: React.RefObject<HTMLInputElement | null>;
   },
 ): React.ReactElement {
   const { t } = useTranslation();
@@ -192,6 +191,7 @@ function TemplateNameField(
         {t("plans.templates.name")}
       </label>
       <Input
+        ref={props.field}
         id={inputId}
         value={name}
         maxLength={PLAN_TEMPLATE_NAME_LENGTH}

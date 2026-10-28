@@ -222,7 +222,7 @@ export class ServerCache {
   }
 
   private log(event: "HIT" | "MISS" | "INVALIDATE", key: string): void {
-    const group = key.split(":")[0] ?? "";
+    const group = key.split(":")[0];
     const source = [
       "project",
       "projects",

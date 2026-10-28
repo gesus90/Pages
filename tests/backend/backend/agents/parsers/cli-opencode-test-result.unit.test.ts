@@ -86,3 +86,13 @@ describe("readOpenCodeTest", () => {
     });
   });
 });
+
+it("falls back to the CLI classification for an error OpenCode does not name", () => {
+  const error = { type: "error", error: { message: "not logged in" } };
+
+  expect(readOpenCodeTest(jsonLines([error, TEXT, FINISH]))).toEqual({
+    ok: false,
+    errorCode: "cli_auth_failed",
+    detail: {},
+  });
+});

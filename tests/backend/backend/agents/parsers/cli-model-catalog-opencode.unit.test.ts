@@ -151,3 +151,15 @@ describe("readOpenCodeModels reasoning and invalid output", () => {
     expectUnexpected(entries.join("\n"));
   });
 });
+
+it("keeps the image input and tool calling OpenCode states for a model", () => {
+  const stdout = verboseEntry("openrouter/z-ai/glm-synthetic", {
+    ...GLM,
+    capabilities: { reasoning: true, input: { image: true }, toolcall: false },
+  });
+
+  expect(readOpenCodeModels(stdout)[0]).toMatchObject({
+    supportsImages: true,
+    isToolCapable: false,
+  });
+});

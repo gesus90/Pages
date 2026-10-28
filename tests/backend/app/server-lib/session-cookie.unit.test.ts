@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import {
@@ -7,8 +7,14 @@ import {
   sessionCookie,
 } from "@/app/lib/session.server";
 import { SESSION_LIFETIME_SECONDS } from "@/backend/auth/SessionService";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { SYNTHETIC_ORIGIN } from "./request-fixtures";
+
+vi.mock(import("@/backend/logging/Logger"), async (importOriginal) => ({
+  ...(await importOriginal()),
+  logCaughtError: vi.fn(),
+}));
 
 function requestWith(
   headers: Record<string, string>,
@@ -72,6 +78,16 @@ describe("getSessionToken", () => {
     const request = requestWith({ Cookie: serialized.split(";")[0] ?? "" });
 
     expect(await getSessionToken(request)).toBeNull();
+  });
+
+  it("records a cookie that cannot be decoded and answers null", async () => {
+    const failure = new Error("undecodable cookie");
+    vi.spyOn(sessionCookie, "parse").mockRejectedValueOnce(failure);
+    const serialized = await sessionCookie.serialize("token-1");
+    const request = requestWith({ Cookie: serialized.split(";")[0] ?? "" });
+
+    expect(await getSessionToken(request)).toBeNull();
+    expect(logCaughtError).toHaveBeenCalledWith("session", failure);
   });
 });
 

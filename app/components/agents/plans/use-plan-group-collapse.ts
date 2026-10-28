@@ -26,14 +26,19 @@ export function usePlanGroupCollapse(
       const selected = selections.current.get(id);
       if (
         graph.selectedId === id &&
+        selected !== undefined &&
         group.steps.some((step) => step.id === selected)
       )
-        graph.select(selected ?? id);
+        graph.select(selected);
       selections.current.delete(id);
     } else {
       next.add(id);
-      if (group.steps.some((step) => step.id === graph.selectedId)) {
-        selections.current.set(id, graph.selectedId ?? id);
+      const { selectedId } = graph;
+      if (
+        selectedId !== null &&
+        group.steps.some((step) => step.id === selectedId)
+      ) {
+        selections.current.set(id, selectedId);
         graph.select(id);
       }
     }

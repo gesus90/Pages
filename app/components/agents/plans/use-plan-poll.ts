@@ -37,6 +37,7 @@ export function usePlanPoll(
   });
   useEffect(() => {
     if (!url) return;
+    const target = url;
     const controller = new AbortController();
     let timer: number | undefined;
     let etag: string | null = null;
@@ -45,7 +46,7 @@ export function usePlanPoll(
       const startedAt = Date.now();
       let shouldContinue = true;
       try {
-        const response = await fetch(url ?? "", {
+        const response = await fetch(target, {
           cache: "no-store",
           signal: controller.signal,
           headers: pollingHeaders(mode, etag, isOpening),
@@ -60,7 +61,7 @@ export function usePlanPoll(
         etag = result.ok ? response.headers.get("ETag") : null;
         if (controller.signal.aborted) return;
         setState({
-          url,
+          url: target,
           response: result,
           error: result.ok ? null : result.error,
         });
@@ -70,8 +71,8 @@ export function usePlanPoll(
         if (controller.signal.aborted) return;
         // Network and invalid-response failures are retryable; stale actions stay disabled.
         setState((previous) => ({
-          url,
-          response: previous.url === url ? previous.response : undefined,
+          url: target,
+          response: previous.url === target ? previous.response : undefined,
           error: "plan_connection_unavailable",
         }));
       } finally {

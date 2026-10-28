@@ -39,7 +39,7 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
         logCaughtError("wiki_draft", error);
 
         const failure = toWikiActionError(error);
-        return Response.json(failure.data, failure.init ?? undefined);
+        return Response.json(failure.data, { ...failure.init });
       }
     },
   );

@@ -253,6 +253,20 @@ describe("handleUpdateWikiSettings", () => {
     },
   );
 
+  it("hands an absent field over as not a number", async () => {
+    await run(handleUpdateWikiSettings, {
+      fileLimitMegabytes: "20",
+      mediaLimitMegabytes: "5",
+      trashRetentionDays: "30",
+      versionRetentionDays: "90",
+    });
+
+    const settings = callArgument(services.wikiService.updateSettings, 0, 1);
+
+    expect(settings).toHaveProperty("versionKeepLast", Number.NaN);
+    expect(settings).toHaveProperty("versionRetentionDays", 90);
+  });
+
   it("reports a rejected setting as invalid", async () => {
     services.wikiService.updateSettings.mockRejectedValue(
       new WikiValidationError("invalidSetting"),
@@ -318,6 +332,15 @@ describe("handleUpdateChatSettings", () => {
     expect(
       callArgument(services.chatSettingsService.update, 0, 1),
     ).toHaveProperty("attachmentLimitMegabytes", Number.NaN);
+  });
+
+  it("hands absent fields over as an unreadable limit and an empty supplement", async () => {
+    await run(handleUpdateChatSettings, {});
+
+    expect(callArgument(services.chatSettingsService.update, 0, 1)).toEqual({
+      attachmentLimitMegabytes: Number.NaN,
+      systemInstruction: "",
+    });
   });
 
   it.each([

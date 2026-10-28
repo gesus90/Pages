@@ -43,7 +43,7 @@ export function PlanGroupParameters(props: {
       (entry) => entry.id === port.id,
     );
     let bindings = props.group.bindings;
-    const binding = previous ? bindings[previous.name] : undefined;
+    const binding = previous && bindings[previous.name];
     if (
       previous &&
       previous.name !== port.name &&

@@ -96,7 +96,9 @@ export class AcpLineChannel {
     this.controller?.close();
   }
   private async enqueue(message: AnyMessage): Promise<void> {
-    if ((this.controller?.desiredSize ?? 0) <= 0 && !this.isClosed)
+    // An errored stream has no desired size; like a full one it takes nothing now.
+    const hasCapacity = Number(this.controller?.desiredSize) > 0;
+    if (!hasCapacity && !this.isClosed)
       await new Promise<void>((resolve) => {
         this.capacity = resolve;
       });

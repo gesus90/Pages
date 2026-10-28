@@ -5,6 +5,7 @@ import {
   EmailTakenError,
   LastAdministratorError,
   RoleAssignmentDeniedError,
+  UserNotFoundError,
 } from "@/backend/error/UserErrors";
 
 import { ACTOR, formOf, outcomeOf, servicesOf } from "./action-fixtures";
@@ -247,6 +248,31 @@ describe("update-user", () => {
     expect(outcome.body).toMatchObject({ intent: "update-user" });
     nothingCalled();
   });
+
+  it("reads a file as name like a missing name", async () => {
+    const outcome = await submit("update-user", {
+      ...fields,
+      firstName: new File(["Anna"], "name.txt"),
+    });
+
+    expect(outcome.status).toBe(400);
+    nothingCalled();
+  });
+
+  it("reports a taken email address of the edited profile", async () => {
+    administration.updateProfile.mockRejectedValue(
+      new EmailTakenError("anna@example.invalid"),
+    );
+
+    const outcome = await submit("update-user", fields);
+
+    expect(outcome.status).toBe(409);
+    expect(outcome.body).toEqual({
+      ok: false,
+      intent: "update-user",
+      error: "emailTaken",
+    });
+  });
 });
 
 describe("set-role", () => {
@@ -319,6 +345,19 @@ describe("reset-password", () => {
 
     expect(outcome.status).toBe(400);
     nothingCalled();
+  });
+
+  it("reports a user that no longer exists", async () => {
+    administration.resetPassword.mockRejectedValue(new UserNotFoundError());
+
+    const outcome = await submit("reset-password", { userId: "u1" });
+
+    expect(outcome.status).toBe(404);
+    expect(outcome.body).toEqual({
+      ok: false,
+      intent: "reset-password",
+      error: "userNotFound",
+    });
   });
 });
 

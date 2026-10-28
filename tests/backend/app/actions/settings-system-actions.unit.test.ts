@@ -21,6 +21,7 @@ import type { FormFields } from "./action-fixtures";
 const holder = vi.hoisted(() => ({
   updatePort: vi.fn(),
   updateAcpResources: vi.fn(),
+  updateLogging: vi.fn(),
   created: [] as unknown[][],
 }));
 
@@ -33,6 +34,7 @@ vi.mock("@/backend/service/ServerSettingsService", () => {
   class ServerSettingsService {
     public readonly updatePort = holder.updatePort;
     public readonly updateAcpResources = holder.updateAcpResources;
+    public readonly updateLogging = holder.updateLogging;
 
     public constructor(...parameters: unknown[]) {
       holder.created.push(parameters);
@@ -100,6 +102,14 @@ describe("handleUpdatePort", () => {
       expect(callArgument(holder.updatePort, 0, 1)).toBeNaN();
     },
   );
+
+  it("hands a missing port over as not a number", async () => {
+    holder.updatePort.mockResolvedValue(false);
+
+    await updatePort({});
+
+    expect(callArgument(holder.updatePort, 0, 1)).toBeNaN();
+  });
 
   it("reports a refused port as invalid", async () => {
     holder.updatePort.mockResolvedValue(false);
@@ -182,6 +192,28 @@ describe("handleSystemSettingsAction", () => {
       ACTOR.id,
       "role",
     );
+  });
+
+  it("dispatches the log retention form to the system settings service", async () => {
+    services.administrationService.getContext.mockResolvedValue({
+      isActive: true,
+      isAdmin: true,
+      mode: "admin",
+    });
+    holder.updateLogging.mockResolvedValue(true);
+
+    const result = await handleSystemSettingsAction(
+      "update-logging",
+      settingsContext(services, { logRetentionDays: "30" }),
+    );
+
+    expect(await outcomeOf(result)).toMatchObject({
+      body: { intent: "update-logging", ok: true, retentionDays: 30 },
+    });
+    expect(holder.updateLogging).toHaveBeenCalledWith(ACTOR, 30);
+    expect(holder.created).toEqual([
+      ["synthetic-config", services.permissionService],
+    ]);
   });
 
   it("dispatches the ACP limit form to the existing system settings service", async () => {

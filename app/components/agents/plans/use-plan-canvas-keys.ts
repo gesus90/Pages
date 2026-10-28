@@ -45,9 +45,12 @@ export function usePlanCanvasKeys(options: {
     const { selectedLink, selectedId } = graph;
     if (!canEdit || !DELETE_KEYS.has(event.key)) return;
     if (!deletesSelection(event, selectedId)) return;
-    if (!selectedLink && !selectedId) return;
-    event.preventDefault();
-    if (selectedLink) graph.disconnect(selectedLink);
-    else if (selectedId) graph.remove(selectedId);
+    if (selectedLink) {
+      event.preventDefault();
+      graph.disconnect(selectedLink);
+    } else if (selectedId) {
+      event.preventDefault();
+      graph.remove(selectedId);
+    }
   };
 }

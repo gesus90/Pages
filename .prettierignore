@@ -6,3 +6,5 @@ node_modules/
 dist/
 data/
 mobile/
+# Local agent notes, excluded from Git through .git/info/exclude.
+/memory/

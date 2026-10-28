@@ -99,7 +99,7 @@ function useStickToEnd(
   navigation: HistoryNavigation,
 ): {
   readonly ref: React.RefObject<HTMLDivElement | null>;
-  readonly onScroll: () => void;
+  readonly onScroll: (event: React.UIEvent<HTMLElement>) => void;
 } {
   const ref = useRef<HTMLDivElement | null>(null);
   const isAtEnd = useRef(true);
@@ -109,9 +109,9 @@ function useStickToEnd(
     if (element && navigation.isFollowing && !selection?.toString())
       element.scrollTop = element.scrollHeight;
   }, [lastSequence, navigation.isFollowing]);
-  function onScroll(): void {
-    const element = ref.current;
-    if (!element) return;
+  // The handler sits on the viewport itself, so the scrolled element is always there.
+  function onScroll(event: React.UIEvent<HTMLElement>): void {
+    const element = event.currentTarget;
     isAtEnd.current =
       element.scrollHeight - element.scrollTop - element.clientHeight <
       NEAR_END;
