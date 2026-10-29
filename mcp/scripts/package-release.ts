@@ -71,7 +71,12 @@ const TEXT_EXTENSIONS = new Set([
   ".toml",
   ".sha256",
 ]);
-const SOURCE_ENTRIES = ["build.config.ts", "tsconfig.json", "src"];
+const SOURCE_ENTRIES = [
+  "build.config.ts",
+  "tsconfig.json",
+  "tsconfig.build.json",
+  "src",
+];
 // 1980-01-01 00:00:00, the earliest ZIP timestamp, keeps the archive independent of the build time.
 const ZIP_DOS_DATE = 0x0021;
 const ZIP_UNIX_FILE_MODE = (0o100644 << 16) >>> 0;

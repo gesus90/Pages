@@ -42,7 +42,8 @@ package.
 | `package.json`                         | Scripts, exact dependency versions, `engines` (Node 24 or newer, pnpm 10 or newer), `packageManager` `pnpm@11.23.0`, `version` (read by Pages) |
 | `pnpm-lock.yaml`                       | Lockfile of this package only                                                                                                                  |
 | `pnpm-workspace.yaml`                  | `allowBuilds` for esbuild, `minimumReleaseAge: 14400`                                                                                          |
-| `tsconfig.json`                        | `strict`, `NodeNext`, `verbatimModuleSyntax`, `erasableSyntaxOnly`, `allowImportingTsExtensions`, `noEmit`                                     |
+| `tsconfig.json`                        | `strict`, `NodeNext`, `verbatimModuleSyntax`, `erasableSyntaxOnly`, `allowImportingTsExtensions`, `noEmit`, `paths` for `../definition/`       |
+| `tsconfig.build.json`                  | The `tsconfig.json` of the esbuild bundle: only the `@/*` entry of `paths`, no declaration file mappings                                       |
 | `eslint.config.js`                     | Type-aware linting with the rule sets of `../eslint.rules.js`; inline `eslint-disable` comments are not honoured                               |
 | `../prettier.config.mjs`               | Prettier settings; the package has no configuration of its own                                                                                 |
 | `.prettierignore`                      | Excludes `node_modules/`, `dist/`, `coverage/` and `pnpm-lock.yaml` from the package check                                                     |

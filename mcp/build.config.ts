@@ -14,4 +14,5 @@ await build({
   format: "cjs",
   splitting: false,
   sourcemap: false,
+  tsconfig: "tsconfig.build.json",
 });

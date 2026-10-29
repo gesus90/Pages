@@ -47,6 +47,7 @@ describe("build.config", () => {
       format: "cjs",
       splitting: false,
       sourcemap: false,
+      tsconfig: "tsconfig.build.json",
     });
     expect(rmMock.mock.invocationCallOrder[0]).toBeLessThan(
       buildMock.mock.invocationCallOrder[0] ?? 0,

@@ -43,6 +43,7 @@ interface WorkCopySnapshot {
   readonly manifest: string;
   readonly readme: string;
   readonly sourceFiles: readonly string[];
+  readonly buildTsconfig: string;
   readonly hasDefinitions: boolean;
   readonly nodeModulesTarget: string;
 }
@@ -76,6 +77,7 @@ const README = [
 ].join("\n");
 const MANIFEST =
   '{\n  "name": "pages-mcp",\n  "version": "0.1.0",\n  "private": true\n}\n';
+const BUILD_TSCONFIG = '{ "extends": "./tsconfig.json" }\n';
 const EXAMPLE_JSON =
   '{ "args": ["/absolute/path/pages-mcp-vX.Y.Z.cjs"], "env": { "PAGES_URL": "http://localhost:3000" } }\n';
 const EXAMPLE_README = "Run node pages-mcp-vX.Y.Z.cjs pair.\n";
@@ -121,6 +123,10 @@ function recordingBuild(bundles: readonly string[]): BuildProcess {
       manifest: readFileSync(path.join(workDirectory, "package.json"), "utf8"),
       readme: readFileSync(path.join(workDirectory, "README.md"), "utf8"),
       sourceFiles: listFiles(path.join(workDirectory, "src")),
+      buildTsconfig: readFileSync(
+        path.join(workDirectory, "tsconfig.build.json"),
+        "utf8",
+      ),
       hasDefinitions: existsSync(
         path.join(workDirectory, "..", "definition", "Shared.ts"),
       ),
@@ -147,6 +153,10 @@ async function writePackage(withDefinitions: boolean): Promise<void> {
   await writeFile(path.join(packageDirectory, "README.md"), README);
   await writeFile(path.join(packageDirectory, "build.config.ts"), "build();\n");
   await writeFile(path.join(packageDirectory, "tsconfig.json"), "{}\n");
+  await writeFile(
+    path.join(packageDirectory, "tsconfig.build.json"),
+    BUILD_TSCONFIG,
+  );
   await writeFile(path.join(packageDirectory, "src", "main.ts"), "main();\n");
   await writeFile(
     path.join(packageDirectory, "src", "tools", "tool.ts"),
@@ -265,6 +275,7 @@ describe("packageRelease success", () => {
       manifest: MANIFEST.replace("0.1.0", "2.0.0"),
       readme: README.replaceAll("0.1.0", "2.0.0"),
       sourceFiles: ["main.ts", "tools/tool.ts"],
+      buildTsconfig: BUILD_TSCONFIG,
       hasDefinitions: true,
       nodeModulesTarget: path.join(packageDirectory, "node_modules"),
     };

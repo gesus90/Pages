@@ -18,7 +18,13 @@
     "target": "ES2023",
     "types": ["node"],
     "verbatimModuleSyntax": true,
-    "paths": { "@/*": ["../*.ts", "../*"] }
+    "paths": {
+      "@/*": ["../*.ts", "../*"],
+      "@modelcontextprotocol/server": [
+        "./node_modules/@modelcontextprotocol/server/dist/index.d.mts"
+      ],
+      "zod": ["./node_modules/zod/index.d.cts"]
+    }
   },
   "include": ["src", "scripts", "tests", "build.config.ts", "vitest.config.ts"]
 }

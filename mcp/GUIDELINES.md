@@ -29,6 +29,14 @@ schemas and annotations. Everything else is checked in review.
 - Never import from `app/`, `backend/` or other Pages folders. Do not use the `@/`
   path alias in `mcp/src` imports. The `paths` entry in `mcp/tsconfig.json` stays,
   because Pages modules that MCP imports transitively use it.
+- The shared contracts import `zod` and the `Tool` type of
+  `@modelcontextprotocol/server` themselves. TypeScript resolves a package from
+  the importing file upward, so from `../definition/` it never reaches
+  `mcp/node_modules`, and the MCP check must not need a root installation.
+  `paths` in `tsconfig.json` therefore maps both packages to their declaration
+  files in `mcp/node_modules`. esbuild would take such a mapping literally and
+  bundle the declaration file, so `build.config.ts` uses `tsconfig.build.json`,
+  which keeps only the `@/*` entry.
 - Pages imports `src/operations-server.ts` and `src/tools/operation-failure.ts`
   for its HTTP endpoint `/mcp` (`backend/service/mcp/HttpMcpOperations.ts`) and
   reads `version` from `package.json`. These modules and everything they import
@@ -196,6 +204,11 @@ tests/stdio/                        manual stdio acceptance, no unit test
 - `@modelcontextprotocol/server` has the same version here and in the root
   `package.json`, because Pages compiles `src/operations-server.ts` for its HTTP
   endpoint. Upgrade both together.
+- `zod` is a dev dependency of this package only so that TypeScript can resolve
+  the imports of `../definition/` (chapter 1); no code in `mcp/` imports it. It
+  keeps the version that the root `pnpm-lock.yaml` resolves. After upgrading
+  `zod` or `@modelcontextprotocol/server`, check the declaration files that the
+  `paths` of `tsconfig.json` name.
 - Dependencies are pinned to exact versions. `pnpm-workspace.yaml` keeps
   `minimumReleaseAge: 14400`. A new dependency needs a reason that Node and the
   SDK cannot cover; the build stays a single `.cjs` file.
