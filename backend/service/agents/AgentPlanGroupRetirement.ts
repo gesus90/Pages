@@ -16,6 +16,7 @@ export function retiredPlanGroupSession(
       (record?.acceptance?.verdict === "accepted" ? 0 : -1);
   return {
     closeout: closed.isConfirmed ? "confirmed" : "failed",
+    containment: closed.isConfirmed ? closed.containment : undefined,
     endedAt: closed.endedAt,
     exit: closed.exit,
     leftoverProcesses: closed.leftovers,

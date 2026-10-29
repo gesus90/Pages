@@ -139,11 +139,11 @@ export class AgentToolFiles implements AgentToolStorage {
     if (name === "." || name === ".." || !/^[\w.-]+$/u.test(name))
       throw new Error("Invalid release name");
     const release = path.join(this.root, tool.id, "releases", name);
+    let file = path.join(release, "node_modules", ".bin", tool.binary);
+    if (tool.kind === "browser") file = path.join(release, "browser");
+    if (tool.id === "antigravity_acp") file = path.join(release, tool.binary);
     return {
-      file:
-        tool.kind === "browser"
-          ? path.join(release, "browser")
-          : path.join(release, "node_modules", ".bin", tool.binary),
+      file,
       source: "managed",
       release,
       version:

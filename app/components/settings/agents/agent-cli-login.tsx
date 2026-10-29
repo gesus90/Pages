@@ -86,11 +86,22 @@ export function AgentCliLogin({
               disabled={disabled}
             />
           ) : null}
-          <LoginButtons
-            connection={connection}
-            disabled={disabled}
-            onCommand={onCommand}
-          />
+          {cli.isOperatorBound ? (
+            <p className="text-xs text-muted-foreground">
+              {t("settings.agents.operatorBoundAccount")}
+            </p>
+          ) : (
+            <LoginButtons
+              connection={connection}
+              disabled={disabled}
+              onCommand={onCommand}
+            />
+          )}
+          {connection.provider === "antigravity" ? (
+            <p className="text-xs text-muted-foreground">
+              {t("settings.agents.antigravityHint")}
+            </p>
+          ) : null}
           <TerminalAlternative
             connection={connection}
             terminalCommand={cli.terminalCommand}
@@ -158,6 +169,18 @@ function TerminalAlternative({
   readonly onCommand: AgentCommandHandler;
 }): React.ReactElement {
   const { t } = useTranslation();
+  if (!terminalCommand)
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => onCommand(connection, "auth")}
+      >
+        {t("settings.agents.checkLogin")}
+      </Button>
+    );
   return (
     <details className="space-y-3 text-sm">
       <summary className="cursor-pointer font-medium">

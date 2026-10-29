@@ -38,16 +38,18 @@ function CliLocations({
       <summary className="cursor-pointer font-medium text-primary-text">
         {t("settings.agents.cliLocations")}
       </summary>
-      {(["codex_cli", "claude_code", "opencode"] as const).map((provider) => (
-        <p key={provider}>
-          <span className="font-medium">
-            {t(AGENT_PROVIDERS[provider].labelKey)}:{" "}
-          </span>
-          <span className="pages-selectable break-all">
-            {locations[provider].path ?? t("settings.agents.cliMissing")}
-          </span>
-        </p>
-      ))}
+      {(["codex_cli", "claude_code", "opencode", "antigravity"] as const).map(
+        (provider) => (
+          <p key={provider}>
+            <span className="font-medium">
+              {t(AGENT_PROVIDERS[provider].labelKey)}:{" "}
+            </span>
+            <span className="pages-selectable break-all">
+              {locations[provider].path ?? t("settings.agents.cliMissing")}
+            </span>
+          </p>
+        ),
+      )}
       <p>{t("settings.agents.cliInstallHint")}</p>
     </details>
   );

@@ -76,6 +76,58 @@ const RELEASE: RecoveryExecutionWrite = {
   result: { commandId: "release", revision: 1, outcome: "released" },
 };
 
+it("uses a confirmed owned namespace closeout without scanning process environments", async () => {
+  const fixture = await recoveryFixture();
+  const original = fixture.completed.steps.find(
+    (step) => step.id === "a",
+  )?.session;
+  if (!original) throw new Error("Missing session fixture");
+  const run = patchRecoveryStep(fixture.completed, "a", {
+    session: {
+      ...original,
+      runner: "antigravity",
+      containment: "pid_namespace",
+    },
+  });
+  vi.mocked(findTaggedProcesses).mockClear();
+  await expect(hasNoSessionProcesses(run)).resolves.toBe(true);
+  expect(findTaggedProcesses).not.toHaveBeenCalled();
+});
+
+it("does not trust namespace evidence for an API request", async () => {
+  const fixture = await recoveryFixture();
+  const original = fixture.completed.steps.find(
+    (step) => step.id === "a",
+  )?.session;
+  if (!original) throw new Error("Missing session fixture");
+  const run = patchRecoveryStep(fixture.completed, "a", {
+    session: { ...original, runner: "api", containment: "pid_namespace" },
+  });
+  vi.mocked(findTaggedProcesses).mockClear();
+  await expect(hasNoSessionProcesses(run)).resolves.toBe(true);
+  expect(findTaggedProcesses).toHaveBeenCalledOnce();
+});
+
+it("does not require a process boundary for a completed API request", async () => {
+  const fixture = await recoveryFixture();
+  const original = fixture.completed.steps.find(
+    (step) => step.id === "a",
+  )?.session;
+  if (!original) throw new Error("Missing session fixture");
+  const run = patchRecoveryStep(fixture.completed, "a", {
+    session: {
+      ...original,
+      runner: "api",
+      mode: "request",
+      processId: null,
+      closeout: "not_needed",
+    },
+  });
+  vi.mocked(findTaggedProcesses).mockClear();
+  await expect(hasNoSessionProcesses(run)).resolves.toBe(true);
+  expect(findTaggedProcesses).not.toHaveBeenCalled();
+});
+
 it.each(["failed", "open"] as const)(
   "retains a workspace when a loop has %s cleanup evidence",
   async (kind) => {

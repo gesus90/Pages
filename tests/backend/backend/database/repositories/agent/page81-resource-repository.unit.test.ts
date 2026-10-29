@@ -32,6 +32,7 @@ it("journals only explicit ownership and lifecycle fields using bound SQL parame
       step_id: "step",
       state: "starting",
       since: "2026-10-16",
+      namespace_identity: null,
     },
   );
   await repository.remove("native-tag");
@@ -45,7 +46,16 @@ it("maps durable states on restart and refuses unknown providers or states", asy
   const connection = database();
   const repository = new AcpResourceRepository(connection);
   vi.mocked(connection.query).mockResolvedValueOnce([
-    ["tag", "owner", "claude_code", null, null, "cleanup_failed", "today"],
+    [
+      "tag",
+      "owner",
+      "claude_code",
+      null,
+      null,
+      "cleanup_failed",
+      "today",
+      null,
+    ],
   ]);
   expect(await repository.list()).toEqual([
     {
@@ -56,6 +66,7 @@ it("maps durable states on restart and refuses unknown providers or states", asy
       stepId: null,
       state: "cleanup_failed",
       since: "today",
+      namespace: null,
     },
   ]);
   vi.mocked(connection.query).mockResolvedValueOnce([

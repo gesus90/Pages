@@ -15,7 +15,9 @@ export function PlanRemoteHistoryNotice({
   if (
     step.execution?.target.kind !== "remote" ||
     !step.session ||
-    !["codex_cli", "claude_code", "opencode"].includes(step.session.runner) ||
+    !["codex_cli", "claude_code", "opencode", "antigravity"].includes(
+      step.session.runner,
+    ) ||
     step.remote?.outputJournalVersion === 2
   )
     return null;

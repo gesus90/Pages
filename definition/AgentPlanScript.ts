@@ -1,5 +1,6 @@
 import { isAgentParameterName } from "./AgentParameters";
 import type { AgentParameter } from "./AgentParameters";
+import type { AcpNamespaceOwner } from "./AcpResource";
 import type { AgentPlanBinding, AgentPlanPosition } from "./AgentPlan";
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution";
 import type {
@@ -51,6 +52,8 @@ export interface AgentPlanScriptRun {
   readonly uid: number;
   readonly gid: number;
   readonly processId: number | null;
+  /** Kernel identity of the directly spawned PID namespace supervisor. */
+  readonly namespace?: AcpNamespaceOwner;
   readonly startedAt: string;
   readonly endedAt: string | null;
   readonly exitCode: number | null;

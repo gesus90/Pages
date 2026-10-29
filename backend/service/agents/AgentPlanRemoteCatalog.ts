@@ -1,5 +1,6 @@
 import { isAgentModel } from "@/definition/AgentModelFilter";
 import { describeClaudeModel } from "@/definition/AgentModelVersion";
+import { RUNNER_TOOL_PROVIDERS } from "@/definition/RunnerExecution";
 import { MODEL_MODALITIES } from "@/definition/RemoteSetup";
 
 import type { PageAgentModel } from "@/definition/PageAgent";
@@ -104,7 +105,9 @@ export function remoteCliModels(
       return [];
     if (tool.tool === "opencode")
       return hasOpenCodeAccess ? remoteOpenCodeModels(target, tool) : [];
-    const provider = tool.tool === "codex" ? "codex_cli" : "claude_code";
+    if (tool.tool === "antigravity" && tool.acp?.status !== "verified")
+      return [];
+    const provider = RUNNER_TOOL_PROVIDERS[tool.tool];
     return (tool.models ?? []).map((model) => {
       // An older runner reports a Claude row by its family only; the ID it resolves to names the version.
       const modelName = describeClaudeModel(model.id, model.name);
@@ -119,7 +122,7 @@ export function remoteCliModels(
           connectionId: target.connectionId,
           workspaceId: target.workspaceId,
           catalogRevision: tool.catalogRevision ?? "",
-          tool: tool.tool === "codex" ? "codex" : "claude",
+          tool: tool.tool,
         },
         model: model.id,
         name: `${target.connectionName} / ${target.workspaceName} / ${tool.tool} / ${modelName}`,

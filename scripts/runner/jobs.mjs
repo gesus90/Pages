@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { admitJob, releaseJob } from "./admission.mjs";
 import {
+  canIsolateJobs,
   claimJob,
   observeJob,
   cancellationFor,
@@ -163,6 +164,11 @@ export class RunnerJobs {
     }
     if (await cancellationFor(directory, job)) {
       await cancelQueuedJob(directory, job);
+      return null;
+    }
+    if (!(await canIsolateJobs())) {
+      // No worker may start where its process tree could not be owned.
+      await refuseQueuedJob(directory, job, "cli_isolation_unavailable");
       return null;
     }
     let reason;

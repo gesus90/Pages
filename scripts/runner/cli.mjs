@@ -1,3 +1,4 @@
+import { antigravityInventory, antigravityCommand } from "./antigravity.mjs";
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
@@ -196,6 +197,8 @@ export async function cliInventory(context = {}) {
   context.signal?.throwIfAborted();
   const openCode = await openCodeInventory(cliEnvironment(), context);
   if (openCode) tools.push(openCode);
+  const antigravity = await antigravityInventory(cliEnvironment(), context);
+  if (antigravity) tools.push(antigravity);
   context.signal?.throwIfAborted();
   return tools;
 }
@@ -332,10 +335,71 @@ async function spawnOpenCode(command, jobId, signal, folder) {
   });
 }
 
+async function spawnAntigravity(command, jobId, signal, folder) {
+  const program = command.program;
+  const inventory = await antigravityInventory(cliEnvironment(), { signal });
+  const model = inventory?.models.find((entry) => entry.id === program.model);
+  if (
+    inventory?.acp?.status !== "verified" ||
+    inventory.authentication !== "authenticated" ||
+    inventory.catalogRevision !== program.route.catalogRevision ||
+    !model ||
+    (program.reasoningEffort !== null &&
+      !model.reasoningEfforts.includes(program.reasoningEffort)) ||
+    !["read_only", "yolo"].includes(program.access)
+  )
+    throw new Error(
+      "Antigravity selection unavailable; update the runner or reconnect this execution context",
+    );
+  signal.throwIfAborted();
+  const bridge = pagesBridge(command, folder, jobId);
+  return spawn(process.execPath, antigravityCommand(), {
+    cwd: command.workspace,
+    detached: true,
+    stdio: ["pipe", "pipe", "pipe"],
+    env: {
+      ...cliEnvironment(),
+      ...(process.env.PAGES_RUNNER_ANTIGRAVITY_HOME
+        ? {
+            PAGES_RUNNER_ANTIGRAVITY_HOME:
+              process.env.PAGES_RUNNER_ANTIGRAVITY_HOME,
+          }
+        : {}),
+      ...(process.env.PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT
+        ? {
+            PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT:
+              process.env.PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT,
+          }
+        : {}),
+      PAGES_RUNNER_JOB_NAMESPACE: process.env.PAGES_RUNNER_JOB_NAMESPACE,
+      PAGES_RUNNER_CONTEXT_PROOF: process.env.PAGES_RUNNER_CONTEXT_PROOF,
+      PAGES_REMOTE_JOB: jobId,
+      PAGES_ANTIGRAVITY_JOB: JSON.stringify({
+        workspace: command.workspace,
+        model: program.model,
+        reasoningEffort: program.reasoningEffort,
+        access: program.access,
+        mcpServers: bridge
+          ? [
+              {
+                name: "pages",
+                command: process.execPath,
+                args: bridge,
+                env: [],
+              },
+            ]
+          : [],
+      }),
+    },
+  });
+}
+
 /** Rechecks the exact remote catalog and login before starting the original requested tool. */
 export async function spawnCli(command, jobId, signal, folder) {
   const program = command.program;
   const tool = program.route.tool;
+  if (tool === "antigravity")
+    return spawnAntigravity(command, jobId, signal, folder);
   if (tool === "opencode") return spawnOpenCode(command, jobId, signal, folder);
   const inventory = (await cliInventory({ jobId, signal })).find(
     (entry) => entry.tool === tool,
@@ -376,7 +440,7 @@ export async function spawnCli(command, jobId, signal, folder) {
 export function cliOutput(command, stdout) {
   let answer = "";
   try {
-    if (command.program.route.tool === "opencode")
+    if (["opencode", "antigravity"].includes(command.program.route.tool))
       answer = openCodeResult(stdout).answer;
     else if (command.program.route.tool === "claude") {
       const result = stdout
@@ -406,7 +470,8 @@ export function cliOutput(command, stdout) {
 
 /** The stable cause an OpenCode node names for its failure; other tools name none. */
 export function cliFailure(command, stdout) {
-  if (command.program.route.tool !== "opencode") return undefined;
+  if (!["opencode", "antigravity"].includes(command.program.route.tool))
+    return undefined;
   return openCodeResult(stdout).failureCode;
 }
 

@@ -96,6 +96,17 @@ export const AGENT_TOOL_REGISTRY: readonly AgentToolDefinition[] = [
     probe: "acp",
   },
   {
+    id: "antigravity_acp",
+    name: "Google Antigravity ACP",
+    kind: "acp",
+    binary: "agy_acp_server.par",
+    packageName: null,
+    version: "1.4.4",
+    versions: ["1.4.4"],
+    dependencies: [],
+    probe: "acp",
+  },
+  {
     id: "pages_mcp",
     name: "Pages MCP",
     kind: "mcp",
@@ -159,6 +170,8 @@ export function providerToolIds(
       return ["claude", "claude_acp"];
     case "opencode":
       return ["opencode"];
+    case "antigravity":
+      return ["antigravity_acp"];
   }
 }
 
@@ -170,4 +183,13 @@ export function isAgentToolVersionSupported(
   if (tool.id !== "node") return tool.versions.includes(version);
   const major = Number(version.split(".")[0]);
   return Number.isInteger(major) && major >= 24;
+}
+
+/** Whether Pages can provision this reviewed package, browser or official binary distribution. */
+export function isAgentToolInstallable(tool: AgentToolDefinition): boolean {
+  return (
+    tool.packageName !== null ||
+    tool.kind === "browser" ||
+    tool.id === "antigravity_acp"
+  );
 }

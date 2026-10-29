@@ -42,6 +42,7 @@ export function AgentLoginChallenge({
         <Loader2 className="size-4 animate-spin" aria-hidden="true" />
         {t(`settings.agents.loginState.${login.state}`)}
       </p>
+      <GoogleCallbackHint provider={connection.provider} />
       {login.verificationUrl ? (
         <a
           href={login.verificationUrl}
@@ -110,5 +111,19 @@ export function AgentLoginChallenge({
         {t("settings.agents.cancel")}
       </Button>
     </div>
+  );
+}
+
+function GoogleCallbackHint({
+  provider,
+}: {
+  readonly provider: AgentConnectionSummary["provider"];
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (provider !== "antigravity") return null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      {t("settings.agents.antigravityLoginHint")}
+    </p>
   );
 }

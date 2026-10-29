@@ -74,6 +74,9 @@ export class AgentCliLoginService {
     );
     return {
       binaryFound: location.found,
+      ...(this.dependencies.store.isBound(connection.id, connection.provider)
+        ? { isOperatorBound: true }
+        : {}),
       loggedInAt: connection.cliLoggedInAt,
       accountLabel: connection.cliAccountLabel,
       login: this.sessions.view(connection.id),
@@ -92,6 +95,8 @@ export class AgentCliLoginService {
     const release = this.dependencies.operations.acquire(id, "login");
     try {
       const connection = await this.requireCli(id);
+      if (this.dependencies.store.isBound(id, connection.provider))
+        throw new AgentError("antigravity_configuration_unmanaged");
       const adapter = await this.dependencies.runtime.loginAdapter(
         connection.provider,
       );
@@ -235,6 +240,8 @@ export class AgentCliLoginService {
     requireAgentAdministrator(actor);
     await this.dependencies.operations.run(id, "write", async () => {
       const connection = await this.requireCli(id);
+      if (this.dependencies.store.isBound(id, connection.provider))
+        throw new AgentError("antigravity_configuration_unmanaged");
       await this.dependencies.runtime.cleanup(connection);
       await this.dependencies.repository.setCliAccount(
         id,

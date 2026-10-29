@@ -12,6 +12,7 @@ import runnerGitHub from "@/scripts/runner/github.mjs?raw";
 import runnerCli from "@/scripts/runner/cli.mjs?raw";
 import runnerPages from "@/scripts/runner/pages.mjs?raw";
 import runnerAssetReturn from "@/scripts/runner/asset-return.mjs?raw";
+import runnerAntigravity from "@/scripts/runner/antigravity.mjs?raw";
 import runnerOpenCode from "@/scripts/runner/opencode.mjs?raw";
 import runnerLive from "@/scripts/runner/live.mjs?raw";
 import runnerSchedule from "@/scripts/runner/schedule.mjs?raw";
@@ -40,6 +41,7 @@ const setupScript = setupTemplate
   .replace("__PAGES_RUNNER_PAGES__", () => runnerPages)
   .replace("__PAGES_RUNNER_ASSET_RETURN__", () => runnerAssetReturn)
   .replace("__PAGES_RUNNER_OPENCODE__", () => runnerOpenCode)
+  .replace("__PAGES_RUNNER_ANTIGRAVITY__", () => runnerAntigravity)
   .replace("__PAGES_RUNNER_LIVE__", () => runnerLive)
   .replace("__PAGES_RUNNER_SCHEDULE__", () => runnerSchedule)
   .replace("__PAGES_RUNNER_JOURNAL__", () => runnerJournal)

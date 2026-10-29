@@ -50,7 +50,12 @@ export const DEFAULT_AGENT_RUN_OPTIONS: AgentRunOptions = {
 };
 
 /** The runners whose plan nodes run as Agent Client Protocol (ACP) sessions. */
-export const ACP_PROVIDERS = ["codex_cli", "claude_code", "opencode"] as const;
+export const ACP_PROVIDERS = [
+  "codex_cli",
+  "claude_code",
+  "opencode",
+  "antigravity",
+] as const;
 export type AcpProviderId = (typeof ACP_PROVIDERS)[number];
 
 /** Native ACP drivers shared by plans and Pica. */
@@ -63,7 +68,8 @@ export function isAcpProvider(
   return (
     provider === "codex_cli" ||
     provider === "claude_code" ||
-    provider === "opencode"
+    provider === "opencode" ||
+    provider === "antigravity"
   );
 }
 

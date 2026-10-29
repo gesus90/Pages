@@ -24,6 +24,7 @@ export function createPlanSessionObserver(
     retired: (closed, reason) => {
       void complete({
         closeout: closed.isConfirmed ? "confirmed" : "failed",
+        containment: closed.isConfirmed ? closed.containment : undefined,
         endedAt: closed.endedAt,
         exit: closed.exit,
         leftoverProcesses: closed.leftovers,
@@ -40,6 +41,7 @@ export function createPlanSessionObserver(
       void complete({
         mode: details.mode,
         processId: details.processId,
+        ...(details.namespace ? { namespace: details.namespace } : {}),
         startedAt: details.startedAt,
         requested: {
           ...node.record.requested,

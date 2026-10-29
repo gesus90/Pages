@@ -4,7 +4,8 @@ import type { AgentConnectionScope } from "./AgentConnectionScope";
 /** API keys and CLI accounts remain separate connection types. */
 export type ApiProviderId =
   "openrouter" | "openai" | "google_ai_studio" | "zai" | "anthropic";
-export type CliProviderId = "codex_cli" | "claude_code" | "opencode";
+export type CliProviderId =
+  "codex_cli" | "claude_code" | "opencode" | "antigravity";
 export type AgentProviderId = ApiProviderId | CliProviderId;
 export type AgentAccessKind = "api_key" | "cli_account";
 export type AgentCheckKind = "auth" | "model";
@@ -164,6 +165,12 @@ export const AGENT_PROVIDERS = {
     location: "local",
     vendor: "anthropic",
   },
+  antigravity: {
+    accessKind: "cli_account",
+    labelKey: "settings.agents.provider.antigravity",
+    location: "local",
+    vendor: "google_ai_studio",
+  },
   opencode: {
     accessKind: "cli_account",
     labelKey: "settings.agents.provider.opencode",
@@ -207,7 +214,8 @@ export interface AgentCheckDetail {
   readonly outputTokens?: number;
   readonly endpoint?: string;
   readonly cliVersion?: string;
-  readonly authMethod?: "chatgpt" | "claude.ai" | "openrouter";
+  readonly authMethod?:
+    "chatgpt" | "claude.ai" | "openrouter" | "oauth-personal";
   /** Native OpenCode model provider, independent of the Pages runner ID. */
   readonly modelProvider?: string;
   /** Reasoning effort the model or CLI test requested, if one was configured. */
@@ -250,6 +258,8 @@ export function isLoginActive(state: CliLoginState): boolean {
 }
 
 export interface AgentCliState {
+  /** The account is supplied by the operator and cannot be changed from Pages. */
+  readonly isOperatorBound?: boolean;
   readonly binaryFound: boolean;
   readonly loggedInAt: string | null;
   readonly accountLabel: string | null;

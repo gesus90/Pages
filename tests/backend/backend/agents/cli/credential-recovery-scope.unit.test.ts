@@ -5,12 +5,19 @@ import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials";
+import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+
+import type * as CliOwnedNamespace from "@/backend/agents/cli/CliOwnedNamespace";
 
 const scan = vi.hoisted(() => ({
   endTaggedProcesses: vi.fn(async () => ({ found: 0, remaining: 0 })),
   readScopeSince: vi.fn(async () => ({ earliestStart: 4_200 })),
 }));
 vi.mock("@/backend/agents/cli/CliProcessScan", () => scan);
+vi.mock("@/backend/agents/cli/CliOwnedNamespace", async (importOriginal) => ({
+  ...(await importOriginal<typeof CliOwnedNamespace>()),
+  settleOwnedNamespace: vi.fn(),
+}));
 
 const INSTANCE = "00603eeb-382e-4822-afc4-43c3cedb0ea1";
 let dataDirectory: string;
@@ -19,7 +26,34 @@ beforeEach(async () => {
   dataDirectory = await mkdtemp(path.join(os.tmpdir(), "pages-recover-"));
   scan.endTaggedProcesses.mockClear();
   scan.readScopeSince.mockClear();
+  vi.mocked(settleOwnedNamespace).mockReset();
 });
+
+it.each([true, false])(
+  "reconciles an owned credential directory only after namespace settlement: %s",
+  async (ended) => {
+    const credentials = new CliGitHubCredentials(dataDirectory);
+    const access = await credentials.prepare({
+      instanceId: INSTANCE,
+      access: { status: "unavailable", reason: "synthetic" },
+      gh: null,
+      searchPath: "/usr/bin",
+    });
+    const owner = {
+      pid: 123,
+      uid: process.getuid?.() ?? 0,
+      start: 456,
+      boot: "10000000-0000-4000-8000-000000000001",
+    };
+    await access.recordNamespace(owner);
+    vi.mocked(settleOwnedNamespace).mockResolvedValueOnce(ended);
+    const leftovers = await credentials.recover();
+    expect(settleOwnedNamespace).toHaveBeenCalledWith(owner, INSTANCE);
+    expect(scan.endTaggedProcesses).not.toHaveBeenCalled();
+    expect(leftovers).toHaveLength(ended ? 0 : 1);
+    expect(await readdir(dataDirectory)).toHaveLength(ended ? 0 : 1);
+  },
+);
 afterEach(async () => {
   await rm(dataDirectory, { recursive: true, force: true });
 });

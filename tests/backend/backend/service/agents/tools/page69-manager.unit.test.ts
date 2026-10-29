@@ -255,3 +255,26 @@ it("refuses an install candidate reporting a different approved version than the
   });
   expect(world.current.has("codex_acp")).toBe(false);
 });
+
+it("installs the official Antigravity binary distribution without an npm package and pins its generation", async () => {
+  const world = toolWorld();
+  const first = await world.manager.ensureTool("antigravity_acp");
+  expect(first.source).toBe("managed");
+  expect(world.install).toHaveBeenCalledOnce();
+  expect(world.install.mock.calls[0]?.[0]).toMatchObject({
+    id: "antigravity_acp",
+    packageName: null,
+    version: "1.4.4",
+  });
+  await world.manager.ensureTool("antigravity_acp");
+  expect(world.install).toHaveBeenCalledOnce();
+  expect(
+    world.manager
+      .list(TOOL_ADMIN)
+      .find((tool) => tool.id === "antigravity_acp"),
+  ).toMatchObject({
+    installed: true,
+    installedVersion: "1.4.4",
+    approvedVersion: "1.4.4",
+  });
+});

@@ -5,10 +5,12 @@ import {
 } from "@/backend/agents/cli/CliProcessScan";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
+import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
+import { AgentToolPreflightError } from "./tools/AgentToolReadinessError";
 import { readAcpAvailableMemory } from "./resources/AcpMemory";
 import { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
 
@@ -23,6 +25,7 @@ import type {
   AcpResourceRecord,
   AcpResourceSnapshot,
   AcpResourceState,
+  AcpNamespaceOwner,
   AcpWaitReason,
 } from "@/definition/AcpResource";
 import type { AcpResourceStore } from "./resources/AcpResourceStore";
@@ -129,8 +132,8 @@ export class AcpResourceScheduler {
         continue;
       }
       try {
-        const cleanup = await this.cleanup(
-          record.instanceId,
+        const cleanup = await this.cleanupRecord(
+          record,
           adopted.has(record.instanceId) ? null : record.since,
         );
         await this.finish(record.instanceId, cleanup.remaining === 0);
@@ -158,6 +161,21 @@ export class AcpResourceScheduler {
       () => this.opening.delete(pending),
     );
     return pending;
+  }
+
+  /** Persists an owned namespace supervisor before its first ACP request. */
+  public async registerNamespace(
+    instanceId: string,
+    namespace: AcpNamespaceOwner,
+  ): Promise<void> {
+    await this.writes.run(async () => {
+      const current = this.active.get(instanceId);
+      if (!current || current.state !== "starting")
+        throw new Error("ACP reservation is not starting");
+      const record = { ...current, namespace };
+      await this.store.save(record);
+      this.active.set(instanceId, record);
+    });
   }
 
   /** Suspends queued requests of a paused run; existing sessions continue to own capacity. */
@@ -215,8 +233,8 @@ export class AcpResourceScheduler {
    * @returns How many leases stay uncertain.
    *
    * @remarks
-   * Ownership is the lease's own instance tag and worker unit, never a PID.
-   * A lease whose cleanup is still unconfirmed keeps its capacity.
+   * A registered namespace supervisor is checked against its boot and start
+   * identity; legacy leases without containment evidence remain uncertain.
    */
   public async reconcile(runId?: string): Promise<number> {
     const uncertain = [...this.active.values()].filter(
@@ -230,7 +248,7 @@ export class AcpResourceScheduler {
       let isConfirmed = false;
       try {
         isConfirmed =
-          (await this.cleanup(record.instanceId, record.since)).remaining === 0;
+          (await this.cleanupRecord(record, record.since)).remaining === 0;
       } catch (caughtError: unknown) {
         logCaughtError("AcpResourceScheduler", caughtError);
       }
@@ -248,6 +266,22 @@ export class AcpResourceScheduler {
     await Promise.allSettled(
       [...this.sessions.values()].map((session) => session.close()),
     );
+  }
+
+  private async cleanupRecord(
+    record: AcpResourceRecord,
+    startedAt: string | null,
+  ): Promise<{ readonly remaining: number }> {
+    if (record.namespace)
+      return {
+        remaining: (await settleOwnedNamespace(
+          record.namespace,
+          record.instanceId,
+        ))
+          ? 0
+          : 1,
+      };
+    return this.cleanup(record.instanceId, startedAt);
   }
 
   private async openSession(
@@ -281,16 +315,27 @@ export class AcpResourceScheduler {
     } catch (error: unknown) {
       logCaughtError("AcpResourceScheduler", error);
 
-      let isConfirmed = !hasAttemptedStart;
+      let isConfirmed =
+        !hasAttemptedStart || error instanceof AgentToolPreflightError;
       const startedAt = this.active.get(owner.instanceId)?.since ?? null;
       try {
         if (native) isConfirmed = (await native.close()).isConfirmed;
         else if (
           hasAttemptedStart &&
+          !isConfirmed &&
           !(error instanceof AcpCleanupUnconfirmedError)
         )
           isConfirmed =
-            (await this.cleanup(owner.instanceId, startedAt)).remaining === 0;
+            (
+              await this.cleanupRecord(
+                this.active.get(owner.instanceId) ?? {
+                  ...owner,
+                  state: "starting",
+                  since: startedAt ?? "",
+                },
+                startedAt,
+              )
+            ).remaining === 0;
       } catch (caughtError: unknown) {
         logCaughtError("AcpResourceScheduler", caughtError);
 

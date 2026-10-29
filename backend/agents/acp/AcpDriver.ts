@@ -32,6 +32,8 @@ export interface AcpConfigStep {
    * only that the adapter accepted it.
    */
   readonly isResolvedByAdapter?: boolean;
+  /** Send the selection even when it is already current. */
+  readonly isExplicit?: boolean;
   /** A default reset may be absent for a model with no effort selector. */
   readonly isOptional?: boolean;
 }

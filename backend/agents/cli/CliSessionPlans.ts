@@ -1,10 +1,14 @@
+import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { isAcpPermissionMode } from "@/definition/AgentConfiguration";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type { AgentRunOptions } from "@/definition/AgentConfiguration";
+import type {
+  AcpPermissionMode,
+  AgentRunOptions,
+} from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 
 /** The local MCP process of a session and how it reaches Pages. */
@@ -49,9 +53,26 @@ export function sessionRunOptionError(
 ): AgentErrorCode | null {
   const provider = input.agent.connection.provider;
   if (isApiProvider(provider)) return "provider_invalid";
+  if (input.chat && provider === "antigravity")
+    return "antigravity_pica_unverified";
   if (input.chat && provider === "opencode")
     return input.options.access === "read_only"
       ? null
       : "opencode_chat_mode_required";
   return unsupportedRunOption(provider, input.options);
+}
+
+/** OpenCode, YOLO and Pica's conversations start only inside the namespace. */
+export function requireAcpIsolation(
+  isIsolated: boolean,
+  mode: AcpPermissionMode,
+  input: AgentPlanSessionInput,
+): void {
+  if (isIsolated) return;
+  if (
+    input.chat ||
+    ["opencode", "antigravity"].includes(input.agent.connection.provider)
+  )
+    throw new AgentError("cli_isolation_unavailable");
+  if (mode === "yolo") throw new AgentError("plan_yolo_isolation_unavailable");
 }

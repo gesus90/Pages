@@ -4,6 +4,7 @@ import type { CliProviderId } from "./AgentConnection";
 import type { AcpProviderId, AgentRunOptions } from "./AgentConfiguration";
 import type { AgentPlanContinuationCapabilities } from "./AgentPlanRecovery";
 import type { AgentPlanRetry, AgentProviderFailure } from "./AgentPlanRetry";
+import type { AcpNamespaceOwner } from "./AcpResource";
 
 /** The runner of a node: a CLI tool, or a request to an API connection. */
 export type AgentPlanRunner = CliProviderId | "api";
@@ -201,11 +202,15 @@ export interface AgentPlanSessionRecord {
   /** The runner's own session or thread identifier, once it reported one. */
   readonly sessionId: string | null;
   readonly processId: number | null;
+  /** Kernel identity of the directly spawned namespace supervisor. */
+  readonly namespace?: AcpNamespaceOwner;
   readonly startedAt: string | null;
   readonly turnEndedAt: string | null;
   readonly endedAt: string | null;
   readonly exit: AgentPlanProcessExit | null;
   readonly closeout: "pending" | "confirmed" | "failed" | "not_needed";
+  /** Evidence that a confirmed closeout destroyed the session's PID namespace. */
+  readonly containment?: "pid_namespace";
   /** Processes of the session found and ended after it closed. */
   readonly leftoverProcesses: number | null;
   readonly resultCode: 0 | -1 | null;

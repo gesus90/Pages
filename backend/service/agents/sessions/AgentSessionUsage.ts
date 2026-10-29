@@ -48,6 +48,11 @@ export const ACP_USAGE_CAPABILITIES: Readonly<
     inputIncludesCache: null,
     isPartial: false,
   },
+  antigravity: {
+    counting: "per_prompt",
+    inputIncludesCache: null,
+    isPartial: true,
+  },
   opencode: {
     counting: "per_prompt",
     inputIncludesCache: null,

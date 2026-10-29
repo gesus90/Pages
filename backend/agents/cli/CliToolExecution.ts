@@ -7,6 +7,7 @@ import type {
   CliRunningProcess,
 } from "./CliContracts";
 import type { CliProcessRunner } from "./CliProcessRunner";
+import type { CliSessionProcess } from "./CliSessionProcess";
 
 interface LoginOptions {
   readonly arguments: readonly string[];
@@ -28,6 +29,55 @@ export class CliToolExecution {
     this.runner = runner;
     this.file = file;
     this.provider = provider;
+  }
+
+  /** Opens a bounded metadata/login ACP process in the connection's own context. */
+  public openProtocol(
+    home: CliHome,
+    options: {
+      readonly signal: AbortSignal;
+      readonly instanceId: string;
+      readonly onLine: (line: string) => void | Promise<void>;
+      readonly onStderr?: (tail: string) => void;
+    },
+  ): CliSessionProcess {
+    const isolated = this.provider === "antigravity";
+    return this.runner.startSession({
+      file: isolated ? "/usr/bin/bwrap" : this.file,
+      ...(isolated ? { toolFile: this.file } : {}),
+      arguments: isolated
+        ? [
+            "--die-with-parent",
+            "--unshare-pid",
+            "--ro-bind",
+            "/",
+            "/",
+            "--proc",
+            "/proc",
+            "--dev",
+            "/dev",
+            "--bind",
+            home.root,
+            home.root,
+            "--bind",
+            home.work,
+            home.work,
+            "--chdir",
+            home.work,
+            "--",
+            this.file,
+            "--uid=",
+          ]
+        : ["--uid="],
+      provider: this.provider,
+      home,
+      workingDirectory: home.work,
+      signal: options.signal,
+      environment: { PAGES_RUN_INSTANCE: options.instanceId },
+      timeoutMs: 600_000,
+      onLine: options.onLine,
+      onStderr: options.onStderr,
+    });
   }
 
   /** Runs with ignored stdin and a stage timeout inside the caller's overall deadline. */

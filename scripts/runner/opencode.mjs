@@ -572,4 +572,8 @@ export function remoteBanner(workspace) {
   return `Remote host: ${hostname()}\nRemote workspace: ${workspace}\n\n`;
 }
 
-if (process.argv[2] === "--acp") await main();
+if (
+  process.argv[1] === fileURLToPath(import.meta.url) &&
+  process.argv[2] === "--acp"
+)
+  await main();

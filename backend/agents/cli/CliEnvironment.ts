@@ -32,6 +32,12 @@ function providerEnvironment(
         CLAUDE_CODE_DISABLE_MODEL_ACCESS_FALLBACK: "1",
         CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP: "1",
       };
+    case "antigravity":
+      return {
+        GEMINI_HOME: home.config,
+        BROWSER: "/bin/true",
+        TMPDIR: home.root,
+      };
     case "opencode":
       return { XDG_DATA_HOME: home.config, ...OPENCODE_SWITCHES };
   }
@@ -63,8 +69,8 @@ export function createCliEnvironment(
       ]),
     ].join(path.delimiter),
     HOME: home.home,
-    XDG_CONFIG_HOME: path.join(home.home, "config"),
-    XDG_CACHE_HOME: path.join(home.home, "cache"),
+    XDG_CONFIG_HOME: home.xdgConfig ?? path.join(home.home, "config"),
+    XDG_CACHE_HOME: home.xdgCache ?? path.join(home.home, "cache"),
     XDG_DATA_HOME: path.join(home.home, "data"),
     XDG_STATE_HOME: path.join(home.home, "state"),
     LANG: "C.UTF-8",
@@ -93,6 +99,8 @@ function loginArguments(provider: CliProviderId): readonly string[] {
       return ["auth", "login", "--claudeai"];
     case "opencode":
       return ["providers", "login"];
+    case "antigravity":
+      return ["--uid="];
   }
 }
 
@@ -107,6 +115,7 @@ export function createCliTerminalCommand(
   provider: CliProviderId,
   file: string,
 ): string {
+  if (provider === "antigravity") return "";
   const environment = createCliEnvironment(home, provider, file, {});
   const assignments = Object.entries(environment).map(
     ([key, value]) => `${key}=${quoteCliArgument(value)}`,

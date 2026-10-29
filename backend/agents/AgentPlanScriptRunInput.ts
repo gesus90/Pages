@@ -15,6 +15,14 @@ export const planScriptRunSchema = z.strictObject({
   uid: z.number().int().nonnegative(),
   gid: z.number().int().nonnegative(),
   processId: z.number().int().positive().nullable(),
+  namespace: z
+    .strictObject({
+      pid: z.number().int().positive(),
+      uid: z.number().int().nonnegative(),
+      start: z.number().int().nonnegative(),
+      boot: z.uuid(),
+    })
+    .optional(),
   startedAt: z.string().max(64),
   endedAt: z.string().max(64).nullable(),
   exitCode: z.number().int().nullable(),

@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
+import {
+  AgentToolPreflightError,
+  AgentToolReadinessError,
+} from "@/backend/service/agents/tools/AgentToolReadinessError";
 
 import { owner } from "./page81-resource-fixture";
 
@@ -89,6 +93,22 @@ it("scans an adopted lease without a start, so no unreadable process is ruled ou
     "legacy",
     null,
   );
+  expect(stored.size).toBe(0);
+  await scheduler.shutdown();
+});
+
+it("releases a preflight refusal without scanning unrelated processes", async () => {
+  const { scheduler, stored } = schedulerWith([]);
+  await scheduler.recover();
+  const failure = new AgentToolPreflightError(
+    new AgentToolReadinessError("node", "unsupported", "not_installed"),
+  );
+  await expect(
+    scheduler.open(owner("preflight"), new AbortController().signal, () =>
+      Promise.reject(failure),
+    ),
+  ).rejects.toBe(failure);
+  expect(scan.endTaggedProcesses).not.toHaveBeenCalled();
   expect(stored.size).toBe(0);
   await scheduler.shutdown();
 });

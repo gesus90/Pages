@@ -70,7 +70,7 @@ export interface FakeAdapterOptions {
   >;
   readonly promptCapabilities?: PromptCapabilities;
   /** Which adapter it imitates: Codex by default. */
-  readonly flavor?: "codex" | "claude";
+  readonly flavor?: "codex" | "claude" | "antigravity";
   readonly agentInfo?: Implementation | null;
   /** Claude: what the `/mcp` command lists the Pages server as. */
   readonly mcpStatus?: "connected" | "connecting" | "failed" | "unlisted";
@@ -243,12 +243,27 @@ interface FakeSession {
   readonly resolvedModel: () => string | undefined;
 }
 
+function effortOptionId(flavor: FakeAdapterOptions["flavor"]): string {
+  if (flavor === "claude") return "effort";
+  if (flavor === "antigravity") return "thinking_level";
+  return "reasoning_effort";
+}
+
+function modeChoices(flavor: FakeAdapterOptions["flavor"]): readonly string[] {
+  if (flavor === "claude") return CLAUDE_MODES;
+  if (flavor === "antigravity") return ["default", "yolo"];
+  return MODES;
+}
+
 function createSession(options: FakeAdapterOptions): FakeSession {
   const isClaude = options.flavor === "claude";
+  const isAntigravity = options.flavor === "antigravity";
   const models = options.models ?? ["gpt-default", "gpt-synthetic"];
   const efforts =
     options.efforts ?? (isClaude ? CLAUDE_EFFORTS : ["low", "medium", "high"]);
-  const effortId = isClaude ? "effort" : "reasoning_effort";
+  const effortId = effortOptionId(options.flavor);
+  const modes = modeChoices(options.flavor);
+  const defaultMode = isAntigravity ? "default" : "agent";
   const current: Record<string, string> = isClaude
     ? {
         mode: options.initialMode ?? "default",
@@ -256,9 +271,10 @@ function createSession(options: FakeAdapterOptions): FakeSession {
         effort: "default",
       }
     : {
-        mode: options.initialMode ?? "agent",
+        mode: options.initialMode ?? defaultMode,
         model: models[0] ?? "gpt-default",
         reasoning_effort: "medium",
+        thinking_level: "high",
       };
   const choices = isClaude ? CLAUDE_MODEL_CHOICES : models;
   // The value the adapter stores for a requested one, or `null` when it offers none.
@@ -273,7 +289,7 @@ function createSession(options: FakeAdapterOptions): FakeSession {
   return {
     configOptions: () =>
       [
-        selectOption("mode", current.mode, isClaude ? CLAUDE_MODES : MODES),
+        selectOption("mode", current.mode, modes),
         selectOption("model", current.model, choices),
         selectOption(effortId, current[effortId], efforts),
       ].filter((option) => !(options.missing ?? []).includes(option.id)),

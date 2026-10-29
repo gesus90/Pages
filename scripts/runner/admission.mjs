@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { identity, readRecord, store } from "./journal.mjs";
+import { identity, readRecord, readOwnedLaunch, store } from "./journal.mjs";
 
 const execute = promisify(execFile);
 const MAXIMUM_ACTIVE_JOBS = 4;
@@ -67,8 +67,19 @@ function overlaps(first, second) {
 
 /** Keeps a working copy reserved until its original worker has closed out. */
 export async function isLeaseActive(lease) {
-  const launch = await readRecord(join(lease.folder, "launch.json"));
-  if (launch && (await identity(launch.processId)) === launch.identity)
+  const launch = await readOwnedLaunch(lease.folder);
+  if (!launch || launch.boundary === "preparing") return true;
+  if (
+    launch.boundary !== "not_started" &&
+    (launch.boundary !== "pid_namespace" ||
+      !Number.isSafeInteger(launch.processId) ||
+      typeof launch.identity !== "string")
+  )
+    return true;
+  if (
+    launch.boundary === "pid_namespace" &&
+    (await identity(launch.processId)) === launch.identity
+  )
     return true;
   const result = await readRecord(join(lease.folder, "result.json"));
   return result?.result?.closeout !== "confirmed";

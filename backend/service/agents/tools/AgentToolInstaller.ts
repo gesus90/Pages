@@ -5,6 +5,7 @@ import path from "node:path";
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
+import { installAntigravityRelease } from "./AntigravityRelease";
 
 import type { CliLocator } from "@/backend/agents/cli/CliLocator";
 import type { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
@@ -54,6 +55,18 @@ export class AgentToolInstaller implements AgentToolInstallation {
     if (!candidate.release) throw new Error("Missing managed release");
     if (process.getuid?.() === 0)
       throw new AgentToolReadinessError(tool.id, "failed", "root_not_allowed");
+    if (tool.id === "antigravity_acp") {
+      await installAntigravityRelease(
+        {
+          candidate,
+          files: this.files,
+          locator: this.locator,
+          runner: this.runner,
+        },
+        signal,
+      );
+      return;
+    }
     if (tool.kind === "browser") {
       await this.browser(tool, candidate, signal);
       return;

@@ -9,7 +9,8 @@ import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 
 /** The CLI runners Pica answers with over ACP, including native OpenCode (PAGE-91). */
-export type PicaAcpProvider = "codex_cli" | "claude_code" | "opencode";
+export type PicaAcpProvider =
+  "codex_cli" | "claude_code" | "opencode" | "antigravity";
 
 /** What differs between the runners of Pica's ACP path. */
 export interface PicaAcpRunner {
@@ -80,6 +81,14 @@ const RUNNERS: Readonly<Record<PicaAcpProvider, PicaAcpRunner>> = {
   codex_cli: CODEX_RUNNER,
   claude_code: CLAUDE_RUNNER,
   opencode: OPENCODE_RUNNER,
+  antigravity: {
+    provider: "antigravity",
+    profile: "pica-antigravity-unverified",
+    isCostEstimated: false,
+    runOptions: () => {
+      throw new ChatError("antigravityToolsUnverified");
+    },
+  },
 };
 
 /** Whether Pica answers with an agent of this provider over ACP. */
@@ -89,7 +98,8 @@ export function isPicaAcpProvider(
   return (
     provider === "codex_cli" ||
     provider === "claude_code" ||
-    provider === "opencode"
+    provider === "opencode" ||
+    provider === "antigravity"
   );
 }
 

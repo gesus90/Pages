@@ -1,6 +1,11 @@
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
+import { AgentError } from "@/backend/error/AgentErrors";
 
-import type { McpServerStdio } from "@agentclientprotocol/sdk";
+import type {
+  McpServer,
+  McpServerStdio,
+  McpCapabilities,
+} from "@agentclientprotocol/sdk";
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 
 /** The name of the Pages MCP server in every session. */
@@ -9,9 +14,20 @@ export const PAGES_MCP_SERVER = "pages";
 /** The environment of an adapter process and the MCP servers of its session. */
 export interface AcpLaunch {
   readonly environment: Readonly<Record<string, string>>;
-  readonly mcpServers: readonly McpServerStdio[];
+  readonly mcpServers: readonly McpServer[];
   /** Extension data of `session/new`, as the adapter defines it. */
   readonly sessionMeta: Readonly<Record<string, unknown>>;
+}
+
+/** Refuses HTTP/SSE servers unless the actual adapter handshake supports their transport. */
+export function requireAcpMcpCapabilities(
+  servers: readonly McpServer[],
+  capabilities: McpCapabilities | null | undefined,
+): void {
+  for (const server of servers) {
+    if ("type" in server && capabilities?.[server.type] !== true)
+      throw new AgentError("plan_mcp_unavailable");
+  }
 }
 
 /**

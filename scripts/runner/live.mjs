@@ -153,6 +153,17 @@ async function readClaude(event, state) {
 }
 
 async function readOpenCode(event, state) {
+  if (event.type === "pages.configuration") {
+    if (typeof event.model === "string")
+      await note(state, "status", `model ${event.model} confirmed`);
+    if (typeof event.reasoningEffort === "string")
+      await note(
+        state,
+        "status",
+        `thinking_level ${event.reasoningEffort} confirmed`,
+      );
+    return;
+  }
   if (event.type !== "pages.update") return;
   const update = event.update;
   if (
@@ -190,7 +201,8 @@ export function createLiveHistory(command, redact, emit) {
       const tool = command.program.route.tool;
       if (tool === "codex") await readCodex(event, state);
       else if (tool === "claude") await readClaude(event, state);
-      else if (tool === "opencode") await readOpenCode(event, state);
+      else if (tool === "opencode" || tool === "antigravity")
+        await readOpenCode(event, state);
     },
     async finish() {
       if (state.hasPartialText)

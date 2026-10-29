@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { renewExecutionLease, hasExecutionLease } from "./revocation.mjs";
-import { readRecord } from "./journal.mjs";
+import { readRecord, readOwnedLaunch } from "./journal.mjs";
 import { cancelJob, interpreterCatalog, store } from "./execution.mjs";
 import { githubAccess } from "./github.mjs";
 import { cliInventory } from "./cli.mjs";
@@ -16,7 +16,7 @@ import { RunnerSchedule } from "./schedule.mjs";
 import { handleProvider } from "./provider.mjs";
 import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 
-const RUNNER_VERSION = "1.13.0";
+const RUNNER_VERSION = "1.14.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -637,7 +637,7 @@ async function fenceExpiredJobs() {
   }
   const launched = new Set();
   for (const job of expired)
-    if (await readRecord(join(directory, "jobs", job.jobId, "launch.json")))
+    if (await readOwnedLaunch(join(directory, "jobs", job.jobId)))
       launched.add(job.jobId);
   const revoke = async (job) => {
     await cancelJob(directory, {

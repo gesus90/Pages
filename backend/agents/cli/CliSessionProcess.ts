@@ -34,6 +34,7 @@ export interface CliSessionCallbacks {
   readonly signal: AbortSignal;
   /** Receives every complete line of the standard output, in order. */
   readonly onLine: (line: string) => void | Promise<void>;
+  readonly onStderr?: (tail: string) => void;
   /** The limited unit of the session; its processes are signalled through it. */
   readonly unit?: CliWorkerUnitHandle;
 }
@@ -143,6 +144,7 @@ export class CliSessionProcess implements CliRunningProcess {
       this.stderrTail = (this.stderrTail + chunk).slice(
         -STDERR_TAIL_CHARACTERS,
       );
+      callbacks.onStderr?.(this.stderrTail);
     });
     callbacks.signal.addEventListener("abort", this.abort, { once: true });
     if (callbacks.signal.aborted) this.abort();
@@ -250,6 +252,7 @@ export class CliSessionProcess implements CliRunningProcess {
 
   private sendSignal(signal: NodeJS.Signals): void {
     this.callbacks.unit?.signal(signal);
+    if (this.child.exitCode !== null || this.child.signalCode !== null) return;
     if (this.child.pid === undefined) return;
     try {
       this.signalGroup(-this.child.pid, signal);
@@ -309,6 +312,7 @@ export class CliSessionProcess implements CliRunningProcess {
       this.errorCode = this.errorCode ?? unitErrorCode(result);
     } catch (caughtError: unknown) {
       logCaughtError("CliSessionProcess", caughtError);
+      this.errorCode = "credential_cleanup_failed";
     }
     this.emitExit(ended.code, ended.signal);
   }

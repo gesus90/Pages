@@ -4,7 +4,7 @@ import { z } from "zod";
 export const runnerTerminalSchema = z
   .object({
     version: z.literal(1),
-    provider: z.enum(["codex", "claude", "opencode"]),
+    provider: z.enum(["codex", "claude", "opencode", "antigravity"]),
     sessionId: z.string().min(1).max(200).nullable(),
     event: z.enum([
       "turn.completed",

@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import {
   diagnosticProviderReset,
@@ -8,6 +8,15 @@ import {
 } from "@/backend/agents/providers/ProviderReset";
 
 const NOW = Date.parse("2026-10-28T00:00:00.000Z");
+
+// Absolute provider windows and relative retry durations must share one clock.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function responseWith(headers: Record<string, string>): Response {
   return new Response(null, { status: 429, headers });

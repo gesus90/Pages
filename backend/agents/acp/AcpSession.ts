@@ -13,7 +13,13 @@ import { diagnosticProviderFailure } from "@/backend/agents/AgentProviderFailure
 import { readContinuationCapabilities } from "@/backend/service/agents/sessions/AgentSessionContinuation";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
-import { abortFailure, stopFailure, finishAcpTurn } from "./AcpSessionOutcome";
+import { requireAcpMcpCapabilities } from "./AcpLaunch";
+import {
+  abortFailure,
+  stopFailure,
+  finishAcpTurn,
+  disconnectedAcpFailure,
+} from "./AcpSessionOutcome";
 import {
   ACP_STEERING_METHOD,
   isAcpSteeringSupported,
@@ -28,12 +34,14 @@ import {
 } from "./AcpEvents";
 import { reportAcpPlanActivity } from "./AcpPlanActivity";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
-import { confirmAcpConfiguration } from "./AcpSessionConfiguration";
+import { closeAcpProtocol } from "./AcpProtocolClose";
+import { readAntigravityTurnFailure } from "./AntigravityTurnFailure";
+import { logAcpToolUpdate } from "./AcpSessionToolLogging";
 import {
-  classifyOpenCodeFailure,
-  openCodeAcpFailure,
-  openCodeToolFailure,
-} from "./OpenCodeAcpErrors";
+  hasAcpConfigurationChanged,
+  confirmAcpConfiguration,
+} from "./AcpSessionConfiguration";
+import { openCodeAcpFailure, openCodeToolFailure } from "./OpenCodeAcpErrors";
 
 import type {
   AcpSessionContext,
@@ -49,6 +57,7 @@ import type {
   RequestPermissionResponse,
   SessionNotification,
   SessionConfigOption,
+  StopReason,
   Stream,
 } from "@agentclientprotocol/sdk";
 import type {
@@ -70,8 +79,6 @@ export type {
 const AUTH_REQUIRED = -32000;
 /** Progress reaches the run record at most this often. */
 const PROGRESS_INTERVAL_MS = 5_000;
-/** How long closing waits for the adapter to end the protocol session. */
-const SESSION_CLOSE_WAIT_MS = 5_000;
 /**
  * The ACP session of one plan node, from the handshake to the closeout.
  *
@@ -113,6 +120,7 @@ export class AcpSession implements PlanSession {
   private isModelMismatch = false;
   private openCodeFailure: AgentErrorCode | null = null;
   private expectedConfiguration: Readonly<Record<string, string>> | null = null;
+  private configurationOptions: readonly SessionConfigOption[] = [];
   private readonly mcpReadiness: AcpMcpReadiness;
   private closing: Promise<PlanSessionClosed> | null = null;
 
@@ -263,6 +271,14 @@ export class AcpSession implements PlanSession {
     if (signal.aborted) cancel();
     try {
       signal.throwIfAborted();
+      if (this.context.driver.provider === "antigravity") {
+        if (
+          input.agent.model !== this.context.request.model ||
+          input.agent.reasoningEffort !== this.context.request.reasoningEffort
+        )
+          throw new AgentError("plan_context_changed");
+        await this.configure(this.state.sessionId, this.configurationOptions);
+      }
       this.observer.identified(this.redact(this.state.sessionId));
       noteSessionEvent(
         this.state.events,
@@ -305,7 +321,13 @@ export class AcpSession implements PlanSession {
     sessionId: string,
     request: AcpPromptRequest,
   ): Promise<PlanSessionTurn> {
-    if (this.hasConfigurationChanged())
+    if (
+      hasAcpConfigurationChanged(
+        this.context.driver.provider,
+        this.expectedConfiguration,
+        this.state,
+      )
+    )
       return this.ended("failed", "plan_context_changed");
     const capabilities =
       this.context.request.modelSupportsImages === false
@@ -328,10 +350,18 @@ export class AcpSession implements PlanSession {
     this.context.listener?.prompted(response.usage ?? null);
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
-    if (this.hasConfigurationChanged())
+    if (
+      hasAcpConfigurationChanged(
+        this.context.driver.provider,
+        this.expectedConfiguration,
+        this.state,
+      )
+    )
       return this.ended("failed", "plan_context_changed");
     if (this.isModelMismatch)
       return this.ended("failed", "plan_model_unavailable");
+    const adapterFailure = this.adapterFailure(response.stopReason);
+    if (adapterFailure) return adapterFailure;
     return this.ended(
       stopFailure(response.stopReason),
       this.state.isMcpUnavailable
@@ -340,19 +370,18 @@ export class AcpSession implements PlanSession {
     );
   }
 
-  private hasConfigurationChanged(): boolean {
-    if (this.context.driver.provider === "claude_code") return false;
-    const expected = this.expectedConfiguration;
-    if (!expected) return false;
-    const conflict = ["sessionMode", "model", "reasoningEffort"].find(
-      (field) => expected[field] !== this.state.effective[field],
-    );
-    if (!conflict) return false;
-    noteSessionEvent(
-      this.state.events,
-      `runtime configuration changed: ${conflict}`,
-    );
-    return true;
+  /** Turns an adapter-reported failure into a failed node instead of a model answer. */
+  private adapterFailure(stopReason: StopReason): PlanSessionTurn | null {
+    const { driver, request } = this.context;
+    const hasMcp = request.mcpServers.length > 0;
+    const failure =
+      driver.provider === "antigravity" && stopReason === "end_turn"
+        ? readAntigravityTurnFailure(this.state.text, hasMcp)
+        : null;
+    if (!failure) return null;
+    this.state.providerFailure = failure.providerFailure;
+    noteSessionEvent(this.state.events, `adapter reported ${failure.code}`);
+    return this.ended("failed", failure.code);
   }
 
   private async initialize(): Promise<void> {
@@ -363,6 +392,10 @@ export class AcpSession implements PlanSession {
         // The runner works with its own tools; Pages lends it no file system or terminal.
         clientCapabilities: {},
       },
+    );
+    requireAcpMcpCapabilities(
+      this.context.request.mcpServers,
+      response.agentCapabilities?.mcpCapabilities,
     );
     this.promptCapabilities = response.agentCapabilities?.promptCapabilities;
     this.isSteeringSupported = isAcpSteeringSupported(response._meta);
@@ -466,6 +499,7 @@ export class AcpSession implements PlanSession {
       initial,
       profile.steps(request),
     );
+    this.configurationOptions = options;
     readAcpConfiguration(this.state, options, profile.reportedOptions);
     if (driver.provider === "opencode")
       this.state.effective.reasoningEffort ??= "default";
@@ -496,23 +530,10 @@ export class AcpSession implements PlanSession {
     // An update may arrive before `session/new` answered; it belongs to the only session.
     if (sessionId !== null && notification.sessionId !== sessionId) return;
     const { update } = notification;
-    if (
-      update.sessionUpdate === "tool_call" ||
-      update.sessionUpdate === "tool_call_update"
-    )
-      logEvent({
-        level: update.status === "failed" ? "warn" : "debug",
-        event: "acp.tool.updated",
-        component: "AcpSession",
-        message: "ACP tool lifecycle update",
-        metadata: {
-          sessionId,
-          toolId: update.toolCallId,
-          status: update.status,
-          kind: update.sessionUpdate,
-        },
-      });
+    logAcpToolUpdate(update, sessionId);
     if (this.mcpReadiness.receive(update)) return;
+    if (update.sessionUpdate === "config_option_update")
+      this.configurationOptions = update.configOptions;
     readAcpUpdate(this.state, update, this.context.profile.reportedOptions);
     if (this.context.driver.provider === "opencode") {
       const failure = openCodeToolFailure(update);
@@ -624,13 +645,11 @@ export class AcpSession implements PlanSession {
       exit.errorCode === "acp_output_overflow"
     )
       return this.ended("failed", exit.errorCode);
-    if (this.context.driver.provider !== "opencode")
+    if (!["opencode", "antigravity"].includes(this.context.driver.provider))
       noteAcpStderr(this.state, exit.stderrTail, (line) => this.redact(line));
     return this.ended(
       "failed",
-      this.context.driver.provider === "opencode"
-        ? classifyOpenCodeFailure(exit.stderrTail)
-        : this.context.driver.errors.sessionFailed,
+      disconnectedAcpFailure(this.context.driver, exit.stderrTail),
     );
   }
 
@@ -655,34 +674,17 @@ export class AcpSession implements PlanSession {
 
   private async shutDown(): Promise<PlanSessionClosed> {
     try {
-      await this.closeProtocolSession();
+      await closeAcpProtocol(this.connection, this.state.sessionId);
       this.connection.close();
-      return await closeCliSession(this.process, this.context.instanceId);
+      return await closeCliSession(
+        this.process,
+        this.context.instanceId,
+        undefined,
+        this.context.isPidNamespace === true,
+      );
     } finally {
       this.context.signal.removeEventListener("abort", this.abortRequests);
       await this.context.secure();
-    }
-  }
-
-  private async closeProtocolSession(): Promise<void> {
-    const { sessionId } = this.state;
-    if (sessionId === null || this.connection.signal.aborted) return;
-    let wait: ReturnType<typeof setTimeout> | undefined;
-    try {
-      await Promise.race([
-        this.connection.agent.request(methods.agent.session.close, {
-          sessionId,
-        }),
-        new Promise<void>((resolve) => {
-          wait = setTimeout(resolve, SESSION_CLOSE_WAIT_MS);
-        }),
-      ]);
-    } catch (caughtError: unknown) {
-      logCaughtError("AcpSession", caughtError);
-
-      // The adapter may be gone already; ending its process below ends the session anyway.
-    } finally {
-      clearTimeout(wait);
     }
   }
 }

@@ -1,6 +1,14 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, open, realpath, stat } from "node:fs/promises";
+import {
+  chmod,
+  lstat,
+  mkdir,
+  open,
+  readlink,
+  realpath,
+  stat,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -10,6 +18,7 @@ import { accountTasks, cleanup, rememberOwnership } from "./processes.mjs";
 import { interpreters } from "./interpreters.mjs";
 export { interpreters, interpreterCatalog } from "./interpreters.mjs";
 import { spawnCli } from "./cli.mjs";
+import { antigravityContextProof } from "./antigravity.mjs";
 import {
   preparePagesFiles,
   modelAssetContent,
@@ -19,7 +28,7 @@ import {
 } from "./pages.mjs";
 import { JobOutput, outputBinding } from "./output.mjs";
 import { readJournalEvents } from "./chunks.mjs";
-import { store, readRecord, identity } from "./journal.mjs";
+import { store, readRecord, readOwnedLaunch, identity } from "./journal.mjs";
 
 export { store, readRecord, identity } from "./journal.mjs";
 
@@ -27,6 +36,20 @@ const credentials =
   /\b(?:sk-[a-zA-Z0-9_-]{12,}|gh[pousr]_[a-zA-Z0-9]{12,}|github_pat_[a-zA-Z0-9_]+|Bearer\s+\S+|(?:api[_ -]?key|access[_ -]?token|password|client[_ -]?secret)["']?\s*[=:]\s*["']?[^\s"']+)/gi;
 
 let knownSecrets = [];
+
+async function ownershipDirectory(directory) {
+  const ownership = join(directory, "ownership");
+  await mkdir(ownership, { recursive: true, mode: 0o700 });
+  const metadata = await lstat(ownership);
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    metadata.uid !== process.getuid() ||
+    metadata.mode & 0o077
+  )
+    throw new Error("Invalid runner ownership directory");
+  return ownership;
+}
 
 function safeOutput(output, secrets = knownSecrets) {
   let redacted = output;
@@ -66,8 +89,12 @@ export async function claimJob(directory, job) {
   }
   await store(join(folder, "claim.json"), job);
   await rememberOwnership(folder);
+  const ownership = await ownershipDirectory(directory);
+  const ownershipPath = join(ownership, `${job.jobId}.json`);
+  await store(ownershipPath, { boundary: "preparing" });
   // A stop that arrived during admission must not start the worker.
   if (await cancellationFor(directory, job)) {
+    await store(ownershipPath, { boundary: "not_started" });
     await store(join(folder, "result.json"), {
       status: "interrupted",
       result: {
@@ -80,12 +107,39 @@ export async function claimJob(directory, job) {
     });
     return;
   }
+  const parentNamespace = await readlink("/proc/self/ns/pid");
+  const hostTasks =
+    job.execution.program?.kind === "script" ? await accountTasks() : null;
+  const contextProof =
+    job.execution.program?.kind === "cli" &&
+    job.execution.program.route.tool === "antigravity"
+      ? await antigravityContextProof()
+      : "[]";
   const child = spawn(
-    process.execPath,
-    [fileURLToPath(import.meta.url), "--job", folder],
+    "/usr/bin/bwrap",
+    [
+      "--unshare-pid",
+      "--new-session",
+      "--bind",
+      "/",
+      "/",
+      "--proc",
+      "/proc",
+      "--dev",
+      "/dev",
+      "--tmpfs",
+      "/tmp",
+      "--tmpfs",
+      ownership,
+      "--",
+      process.execPath,
+      fileURLToPath(import.meta.url),
+      "--job",
+      folder,
+    ],
     {
       detached: true,
-      stdio: "ignore",
+      stdio: ["pipe", "ignore", "ignore"],
       env: {
         PATH: "/usr/bin:/bin",
         HOME: directory,
@@ -94,13 +148,58 @@ export async function claimJob(directory, job) {
         PAGES_REMOTE_JOB: job.jobId,
         PAGES_RUNNER_CLI_HOME: process.env.PAGES_RUNNER_CLI_HOME ?? homedir(),
         PAGES_RUNNER_CLI_PATH: process.env.PATH,
+        PAGES_RUNNER_JOB_NAMESPACE: "1",
+        PAGES_RUNNER_CONTEXT_PROOF: contextProof,
+        ...(hostTasks === null
+          ? {}
+          : { PAGES_RUNNER_HOST_TASKS: String(hostTasks) }),
+        ...(process.env.PAGES_RUNNER_ANTIGRAVITY_HOME
+          ? {
+              PAGES_RUNNER_ANTIGRAVITY_HOME:
+                process.env.PAGES_RUNNER_ANTIGRAVITY_HOME,
+            }
+          : {}),
+        ...(process.env.PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT
+          ? {
+              PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT:
+                process.env.PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT,
+            }
+          : {}),
       },
     },
   );
   child.on("error", () => {
     /* The durable claim reconciles as lost if launch never confirms. */
   });
+  child.stdin.on("error", () => {});
+  try {
+    if (!child.pid) throw new Error("Runner supervisor did not start");
+    const start = await identity(child.pid);
+    if (!start) throw new Error("Runner supervisor identity unavailable");
+    const launch = {
+      id: randomUUID(),
+      processId: child.pid,
+      identity: start,
+      boundary: "pid_namespace",
+      parentNamespace,
+    };
+    await store(ownershipPath, launch);
+    await store(join(folder, "launch.json"), launch);
+    child.stdin.end("go\n");
+  } catch (error) {
+    child.stdin.destroy();
+    throw error;
+  }
   child.unref();
+}
+
+function publicLaunch(launch) {
+  if (!launch || launch.boundary !== "pid_namespace") return null;
+  return {
+    id: launch.id,
+    processId: launch.processId,
+    identity: launch.identity,
+  };
 }
 
 async function failedHistory(folder, job, launch) {
@@ -133,7 +232,7 @@ async function failedHistory(folder, job, launch) {
     },
   };
   await store(join(folder, "history-failure.json"), failure);
-  return { launch, ...failure };
+  return { launch: publicLaunch(launch), ...failure };
 }
 
 /** Reads actual worker state; no exit evidence means lost and never an implicit retry. */
@@ -160,12 +259,12 @@ export async function observeJob(directory, job) {
       },
     };
   }
-  const launch = await readRecord(join(folder, "launch.json"));
+  const launch = await readOwnedLaunch(folder);
   const result = await readRecord(join(folder, "result.json"));
   const historyFailure = await readRecord(join(folder, "history-failure.json"));
   if (historyFailure)
     return {
-      launch,
+      launch: publicLaunch(launch),
       ...historyFailure,
       history: historyFailure.history.filter(
         (event) => event.sequence > (job.historyCursor ?? 0),
@@ -174,7 +273,10 @@ export async function observeJob(directory, job) {
   let history;
   let historyLength;
   try {
-    if (job.outputJournalVersion === 2 && launch) {
+    if (
+      job.outputJournalVersion === 2 &&
+      launch?.boundary === "pid_namespace"
+    ) {
       const index = await readRecord(
         join(folder, "history", "events", "index.json"),
       );
@@ -197,11 +299,25 @@ export async function observeJob(directory, job) {
     ...(cancellation ? { cancellation } : {}),
     ...(historyLength !== undefined ? { historyLength } : {}),
   };
-  if (result) return { launch, ...observedHistory, ...result };
-  if (launch && (await identity(launch.processId)) === launch.identity) {
+  if (result) {
+    const closeout =
+      launch?.boundary === "not_started"
+        ? result.result?.closeout
+        : await cleanup(folder, job.jobId);
+    return {
+      launch: publicLaunch(launch),
+      ...observedHistory,
+      ...result,
+      result: { ...result.result, closeout },
+    };
+  }
+  if (
+    launch?.boundary === "pid_namespace" &&
+    (await identity(launch.processId)) === launch.identity
+  ) {
     const progress = await readRecord(join(folder, "progress.json"));
     return {
-      launch,
+      launch: publicLaunch(launch),
       ...observedHistory,
       status: "running",
       result: progress ?? { output: null, closeout: "pending" },
@@ -220,14 +336,23 @@ export async function observeJob(directory, job) {
     },
   };
   await store(join(folder, "result.json"), lost);
-  return { launch, ...observedHistory, ...lost };
+  return { launch: publicLaunch(launch), ...observedHistory, ...lost };
 }
 
 async function endQueuedJob(directory, job, terminal) {
   const folder = join(directory, "jobs", job.jobId);
-  if (await readRecord(join(folder, "claim.json"))) return;
-  await mkdir(folder, { recursive: true, mode: 0o700 });
+  await mkdir(join(directory, "jobs"), { recursive: true, mode: 0o700 });
+  try {
+    await mkdir(folder, { mode: 0o700 });
+  } catch (error) {
+    if (error.code === "EEXIST") return;
+    throw error;
+  }
   await store(join(folder, "claim.json"), job);
+  const ownership = await ownershipDirectory(directory);
+  await store(join(ownership, `${job.jobId}.json`), {
+    boundary: "not_started",
+  });
   await store(join(folder, "result.json"), {
     status: terminal.status,
     result: {
@@ -249,11 +374,49 @@ export async function cancelQueuedJob(directory, job) {
 }
 
 /** A host that cannot admit work ends only this queued job, with a named reason. */
-export async function refuseQueuedJob(directory, job) {
+export async function refuseQueuedJob(
+  directory,
+  job,
+  failureCode = "plan_runner_admission_failed",
+) {
   await endQueuedJob(directory, job, {
     status: "failed",
-    result: { reason: "spawn", failureCode: "plan_runner_admission_failed" },
+    result: { reason: "spawn", failureCode },
   });
+}
+
+let hasProvenNamespace = false;
+
+/**
+ * Proves that this host can create the PID namespace every job runs in.
+ *
+ * Without it no worker may start, because its process tree could not be owned.
+ * Only a success is remembered, so a host that is repaired is used again.
+ */
+export async function canIsolateJobs() {
+  if (hasProvenNamespace) return true;
+  const isCreated = await new Promise((resolve) => {
+    const probe = spawn(
+      "/usr/bin/bwrap",
+      [
+        "--ro-bind",
+        "/",
+        "/",
+        "--unshare-pid",
+        "--proc",
+        "/proc",
+        "--",
+        process.execPath,
+        "-e",
+        "",
+      ],
+      { stdio: "ignore", timeout: 10000 },
+    );
+    probe.once("error", () => resolve(false));
+    probe.once("close", (code) => resolve(code === 0));
+  });
+  hasProvenNamespace = isCreated;
+  return isCreated;
 }
 
 async function checkedCommand(job, folder) {
@@ -296,6 +459,17 @@ async function checkedCommand(job, folder) {
     } finally {
       await script.close();
     }
+    if (profile.id === "node") {
+      const guard = await open(join(runtime, "node-guard.cjs"), "wx", 0o600);
+      try {
+        await guard.writeFile(
+          'if (typeof WebAssembly !== "undefined") process.exit(1);\nrequire("./source.cjs");\n',
+        );
+        await guard.sync();
+      } finally {
+        await guard.close();
+      }
+    }
   }
   return command;
 }
@@ -304,13 +478,18 @@ async function checkedCommand(job, folder) {
 // as soon as parallel agents run; scripts get this headroom above current use.
 const SCRIPT_TASK_HEADROOM = 256;
 
+function hostTaskCount() {
+  const count = Number(process.env.PAGES_RUNNER_HOST_TASKS);
+  if (!Number.isSafeInteger(count) || count < 0)
+    throw new Error("Host task count unavailable");
+  return count;
+}
+
 function spawnScript(command, folder, jobId, accountTaskCount) {
   const runtime = join(folder, "runtime");
   const interpreter = command.program.interpreter;
   const nodeArguments =
-    interpreter.id === "node"
-      ? ["--jitless", "--no-expose-wasm", "--max-old-space-size=128"]
-      : [];
+    interpreter.id === "node" ? ["--jitless", "--max-old-space-size=128"] : [];
   const limits = [
     `--cpu=${command.timeoutSeconds + 1}`,
     `--nproc=${accountTaskCount + SCRIPT_TASK_HEADROOM}`,
@@ -326,7 +505,10 @@ function spawnScript(command, folder, jobId, accountTaskCount) {
       "--",
       interpreter.path,
       ...nodeArguments,
-      join(runtime, "source.cjs"),
+      join(
+        runtime,
+        interpreter.id === "node" ? "node-guard.cjs" : "source.cjs",
+      ),
     ],
     {
       cwd: command.workspace,
@@ -420,7 +602,7 @@ async function processJob(command, folder, context) {
   const child =
     command.program.kind === "cli"
       ? await spawnCli(command, jobId, signal, folder)
-      : spawnScript(command, folder, jobId, await accountTasks());
+      : spawnScript(command, folder, jobId, hostTaskCount());
   let failure = null;
   let cleanupWork = null;
   const stop = () => {
@@ -567,17 +749,20 @@ function terminalStatus(result, closeout) {
 }
 
 async function executeWorker(folder) {
+  let release = "";
+  for await (const chunk of process.stdin) {
+    release += chunk.toString();
+    if (release.length > 16) throw new Error("Invalid worker release");
+  }
+  if (release !== "go\n") throw new Error("Worker was not released");
   const job = await readRecord(join(folder, "claim.json"));
   const privateRoot = join(folder, "..", "..");
   const configuration = await readRecord(join(privateRoot, "config.json"));
   const provider = await readRecord(join(privateRoot, "openrouter.json"));
   knownSecrets = [configuration?.token, provider?.apiKey].filter(Boolean);
-  const launch = {
-    id: randomUUID(),
-    processId: process.pid,
-    identity: await identity(process.pid),
-  };
-  await store(join(folder, "launch.json"), launch);
+  const launch = await readRecord(join(folder, "launch.json"));
+  if (!launch || launch.boundary !== "pid_namespace")
+    throw new Error("Worker ownership unavailable");
   const controller = new AbortController();
   let isCancelReadBusy = false;
   const cancel = setInterval(() => {
@@ -619,6 +804,7 @@ async function executeWorker(folder) {
         }, 5000)
       : null;
   let result;
+  let isPreparingPages = false;
   try {
     if (
       (await cancellationFor(privateRoot, job)) ||
@@ -628,13 +814,16 @@ async function executeWorker(folder) {
     controller.signal.throwIfAborted();
     let command = await checkedCommand(job, folder);
     controller.signal.throwIfAborted();
-    if (command.pagesAccess === 1)
+    if (command.pagesAccess === 1) {
+      isPreparingPages = true;
       command = await preparePagesFiles(
         command,
         folder,
         job.jobId,
         controller.signal,
       );
+      isPreparingPages = false;
+    }
     controller.signal.throwIfAborted();
     result =
       command.program.kind !== "model"
@@ -646,7 +835,7 @@ async function executeWorker(folder) {
         : await modelJob(command, folder, controller.signal);
   } catch (error) {
     result = {
-      ...(job.execution.pagesAccess === 1
+      ...(isPreparingPages
         ? {
             resourceError: pagesFailure(error),
             assetFailure: error.assetFailure,

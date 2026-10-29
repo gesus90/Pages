@@ -1,15 +1,13 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { stopWorkerUnits } from "./CliWorkerUnit";
 
-/** The variable that tags every process of one plan session. */
+/** The legacy session tag, retained for child configuration and diagnostics. */
 export const RUN_INSTANCE_VARIABLE = "PAGES_RUN_INSTANCE";
 
 const PROCESS_ROOT = "/proc";
-const TERMINATION_WAIT_MS = 2_000;
-const KILL_WAIT_MS = 500;
 // Linux counts process start times in USER_HZ, which its ABI fixes at 100 on
 // every architecture Node.js runs on.
 const TICKS_PER_SECOND = 100;
@@ -27,39 +25,18 @@ export interface TaggedProcessCleanup {
 }
 
 /**
- * The earliest start of a process that can carry the tag of one session.
- *
- * @remarks
- * A process gets the tag only from the runner of the session or one of its
- * descendants, so none started before the session. This rules out processes
- * of this account whose environment the kernel withholds, such as the
- * service manager of the account or an SSH agent.
+ * A legacy time bound retained for existing callers; it is not ownership proof.
  */
 export interface TaggedProcessScope {
   /** Clock ticks after boot; a process that started earlier cannot carry the tag. */
   readonly earliestStart: number;
 }
 
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
-}
-
-function signalProcess(processId: number, signal: NodeJS.Signals): void {
-  try {
-    process.kill(processId, signal);
-  } catch (caughtError: unknown) {
-    // The process ended between the scan and the signal.
-    if (!isVanished(caughtError)) logCaughtError("CliProcessScan", caughtError);
-  }
-}
-
 /**
- * The scope of a session that this server process started.
+ * A legacy time bound captured from this server's process start.
  *
  * @param root - The process file system; Linux keeps it at `/proc`.
- * @returns The start of this server process; no older process descends from it.
+ * @returns The start of this server process.
  */
 export async function readServerScope(
   root = PROCESS_ROOT,
@@ -70,11 +47,7 @@ export async function readServerScope(
 }
 
 /**
- * Bounds a fresh spawn by monotonic boot time, rather than the lifetime of its server.
- *
- * @remarks
- * Call before creating the child. An older process cannot inherit this attempt's
- * new tag, including unrelated processes whose environment the kernel withholds.
+ * Captures a legacy monotonic time bound before creating a child.
  */
 export async function readSpawnScope(
   root = PROCESS_ROOT,
@@ -114,57 +87,16 @@ export async function readScopeSince(
   };
 }
 
-/**
- * Finds the live processes of this account that carry the tag of one session.
- *
- * @param tag - The instance identifier of the session.
- * @param scope - When the session began; without it no unreadable process is ruled out.
- * @param root - The process file system; Linux keeps it at `/proc`.
- * @returns The process identifiers.
- * @throws When absence cannot be proved because the scan is unavailable.
- *
- * @remarks
- * Every process of a session inherits the tag, also helpers that left the
- * process group of the runner, such as an MCP server. Processes of other
- * accounts and ended processes are skipped, and so are unreadable processes
- * of this account that started before the scope. Any other unreadable
- * process of this account leaves the cleanup unconfirmed.
- */
+/** Refuses legacy marker discovery: an inherited environment is not ownership evidence. */
 export async function findTaggedProcesses(
-  tag: string,
-  scope: TaggedProcessScope | null = null,
-  root = PROCESS_ROOT,
+  ...parameters: [tag: string, scope?: TaggedProcessScope | null, root?: string]
 ): Promise<readonly number[]> {
-  const entries = await readdir(root);
-  const marker = `${RUN_INSTANCE_VARIABLE}=${tag}`;
-  const found: number[] = [];
-  for (const entry of entries) {
-    if (!/^\d+$/u.test(entry) || Number(entry) === process.pid) continue;
-    const directory = `${root}/${entry}`;
-    try {
-      const environment = await readFile(`${directory}/environ`, "utf8");
-      if (environment.split("\0").includes(marker)) found.push(Number(entry));
-    } catch (error: unknown) {
-      if (await cannotCarryTag(error, directory, scope)) continue;
-      logCaughtError("CliProcessScan", error);
-      throw error;
-    }
-  }
-  return found;
+  throw new Error(
+    `Process ownership is unverified for legacy session ${parameters[0]}`,
+  );
 }
 
-/**
- * Ends every remaining process of one session and confirms that none is left.
- *
- * @param tag - The instance identifier of the session.
- * @param scope - When the session began; without it no unreadable process is ruled out.
- * @returns How many processes were still running and how many could not be ended.
- *
- * @remarks
- * A process can lose environment access while exiting, before its process entry
- * disappears. One bounded rescan must prove absence or readable ownership;
- * persistent access failures still leave cleanup unconfirmed.
- */
+/** Stops any owned named units but retains uncertainty without durable containment evidence. */
 export async function endTaggedProcesses(
   tag: string,
   scope: TaggedProcessScope | null = null,
@@ -173,29 +105,8 @@ export async function endTaggedProcesses(
   await stopWorkerUnits(tag).catch((caughtError: unknown) => {
     logCaughtError("CliProcessScan", caughtError);
   });
-  const found = await findTaggedProcessesAfterExit(tag, scope);
-  if (found.length === 0) return { found: 0, remaining: 0 };
-  for (const processId of found) signalProcess(processId, "SIGTERM");
-  await delay(TERMINATION_WAIT_MS);
-  const lingering = await findTaggedProcessesAfterExit(tag, scope);
-  for (const processId of lingering) signalProcess(processId, "SIGKILL");
-  if (lingering.length > 0) await delay(KILL_WAIT_MS);
-  const remaining = await findTaggedProcessesAfterExit(tag, scope);
-  return { found: found.length, remaining: remaining.length };
-}
-
-async function findTaggedProcessesAfterExit(
-  tag: string,
-  scope: TaggedProcessScope | null,
-): Promise<readonly number[]> {
-  try {
-    return await findTaggedProcesses(tag, scope);
-  } catch (error: unknown) {
-    if (!isAccessDenied(error)) throw error;
-    // Exiting children can briefly remain in /proc after losing their environment.
-    await delay(KILL_WAIT_MS);
-    return findTaggedProcesses(tag, scope);
-  }
+  await findTaggedProcesses(tag, scope);
+  throw new Error("Process ownership is unverified for this legacy session");
 }
 
 function isVanished(error: unknown): boolean {
@@ -204,37 +115,6 @@ function isVanished(error: unknown): boolean {
     "code" in error &&
     (error.code === "ENOENT" || error.code === "ESRCH")
   );
-}
-
-function isAccessDenied(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    "code" in error &&
-    (error.code === "EACCES" || error.code === "EPERM")
-  );
-}
-
-/** Whether a process whose environment could not be read is ended, foreign or older than the session. */
-async function cannotCarryTag(
-  error: unknown,
-  directory: string,
-  scope: TaggedProcessScope | null,
-): Promise<boolean> {
-  if (isVanished(error) || (await isForeignOrVanished(directory))) return true;
-  if (scope === null || !isAccessDenied(error)) return false;
-  const start = await readProcessStart(directory);
-  return start === null || start < scope.earliestStart;
-}
-
-async function isForeignOrVanished(directory: string): Promise<boolean> {
-  try {
-    const metadata = await stat(directory);
-    return process.getuid !== undefined && metadata.uid !== process.getuid();
-  } catch (error: unknown) {
-    if (isVanished(error)) return true;
-    logCaughtError("CliProcessScan", error);
-    throw error;
-  }
 }
 
 /** The start of a process in clock ticks after boot, or `null` once it ended. */

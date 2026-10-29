@@ -1,3 +1,4 @@
+import { ANTIGRAVITY_ACP_DRIVER } from "./AntigravityAcpDriver";
 import { CLAUDE_ACP_DRIVER } from "./ClaudeAcpDriver";
 import { CODEX_ACP_DRIVER } from "./CodexAcpDriver";
 import { OPENCODE_ACP_DRIVER } from "./OpenCodeAcpDriver";
@@ -9,6 +10,7 @@ const DRIVERS: Readonly<Record<NativeAcpProviderId, AcpDriver>> = {
   codex_cli: CODEX_ACP_DRIVER,
   claude_code: CLAUDE_ACP_DRIVER,
   opencode: OPENCODE_ACP_DRIVER,
+  antigravity: ANTIGRAVITY_ACP_DRIVER,
 };
 
 /**

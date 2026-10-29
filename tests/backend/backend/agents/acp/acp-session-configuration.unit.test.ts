@@ -144,6 +144,25 @@ it("keeps a value that is already selected without a request", async () => {
   expect(requests).toEqual([]);
 });
 
+it("explicitly reapplies and confirms a selected value when required", async () => {
+  const { configuration, requests } = target(() => [MODEL]);
+  await expect(
+    confirmAcpConfiguration(
+      configuration,
+      [MODEL],
+      [
+        {
+          id: "model",
+          value: "a",
+          refusal: "plan_model_unavailable",
+          isExplicit: true,
+        },
+      ],
+    ),
+  ).resolves.toEqual([MODEL]);
+  expect(requests).toMatchObject([{ configId: "model", value: "a" }]);
+});
+
 it("sets and confirms each step with the options of the previous one", async () => {
   const effort = select("effort", "low", ["low", "high"]);
   const { configuration, requests } = target((request) =>
@@ -281,4 +300,43 @@ it("passes on the failure of a closed connection", async () => {
     ),
   ).rejects.toThrow("ACP connection closed");
   expect(configuration.state.events).toEqual([]);
+});
+
+it("refuses selector drift when changing mode silently resets a previously confirmed effort", async () => {
+  const modes = select("mode", "default", ["default", "yolo"]);
+  const effort = select("thinking_level", "high", ["low", "high"]);
+  const { configuration, connection } = target((request) => [
+    MODEL,
+    select("mode", request.configId === "mode" ? "yolo" : "default", [
+      "default",
+      "yolo",
+    ]),
+    select("thinking_level", request.configId === "mode" ? "high" : "low", [
+      "low",
+      "high",
+    ]),
+  ]);
+  try {
+    await expect(
+      confirmAcpConfiguration(
+        configuration,
+        [MODEL, effort, modes],
+        [
+          { id: "model", value: "a", refusal: "plan_model_unavailable" },
+          {
+            id: "thinking_level",
+            value: "low",
+            refusal: "plan_reasoning_unsupported",
+          },
+          {
+            id: "mode",
+            value: "yolo",
+            refusal: "plan_permission_mode_unenforceable",
+          },
+        ],
+      ),
+    ).rejects.toMatchObject({ code: "plan_reasoning_unsupported" });
+  } finally {
+    connection.close();
+  }
 });

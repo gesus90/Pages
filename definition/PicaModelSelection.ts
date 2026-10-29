@@ -10,7 +10,11 @@ import type { PageAgentModel } from "./PageAgent";
 export function isPicaModel(
   model: Pick<PageAgentModel, "provider" | "model" | "isFree">,
 ): boolean {
-  return !isApiProvider(model.provider) && !isPicaZenModel(model);
+  return (
+    model.provider !== "antigravity" &&
+    !isApiProvider(model.provider) &&
+    !isPicaZenModel(model)
+  );
 }
 
 /** Identifies the free Zen models excluded only from Pica, never from plans. */

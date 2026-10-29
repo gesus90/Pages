@@ -27,6 +27,7 @@ const PROVIDERS: readonly AcpProviderId[] = [
   "codex_cli",
   "claude_code",
   "opencode",
+  "antigravity",
 ];
 const STATES: readonly AgentSessionState[] = [
   "starting",

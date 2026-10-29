@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { open, readFile, rename, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 /** Writes and syncs private state before exposing it to the transport. */
 export async function store(destination, contents) {
@@ -38,6 +38,14 @@ export async function readRecord(file) {
     if (error.code === "ENOENT") return null;
     throw new Error("Private runner record unreadable");
   }
+}
+
+/** Host-only launch identity, hidden from the job's mount namespace. */
+export async function readOwnedLaunch(folder) {
+  const job = basename(folder);
+  if (!/^[a-f0-9-]{36}$/.test(job))
+    throw new Error("Invalid runner ownership path");
+  return readRecord(join(folder, "..", "..", "ownership", `${job}.json`));
 }
 
 /** Binds process ownership to Linux start time, avoiding PID reuse. */

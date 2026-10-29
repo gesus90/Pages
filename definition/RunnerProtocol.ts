@@ -28,7 +28,7 @@ export const runnerCatalogSchema = z.object({
   isComplete: z.boolean(),
   areToolsComplete: z.boolean(),
   interpreters: z.array(runnerInterpreterSchema).max(16),
-  tools: z.array(toolInventorySchema).max(3),
+  tools: z.array(toolInventorySchema).max(4),
   removedInterpreterIds: z.array(z.string().max(100)).max(16),
 });
 export type RunnerCatalog = z.infer<typeof runnerCatalogSchema>;
@@ -103,6 +103,8 @@ export const REMOTE_OPENCODE_FAILURES = [
   "plan_workspace_conflict",
   "plan_runner_storage_failed",
   "plan_runner_admission_failed",
+  "cli_isolation_unavailable",
+  "plan_mcp_unavailable",
   "provider_auth_failed",
   "provider_quota_exhausted",
   "provider_rate_limited",
@@ -115,6 +117,9 @@ export const REMOTE_OPENCODE_FAILURES = [
   "plan_model_unavailable",
   "plan_reasoning_unsupported",
   "opencode_acp_session_failed",
+  "antigravity_acp_unsupported",
+  "antigravity_acp_session_failed",
+  "antigravity_configuration_unmanaged",
 ] as const;
 
 /** Runner-to-Pages messages; every event is acknowledged only after durable storage. */

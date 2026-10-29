@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { AntigravityCli } from "./AntigravityCli";
 import { ClaudeCodeCli } from "./ClaudeCodeCli";
 import { CodexCli } from "./CodexCli";
 import { CliToolExecution } from "./CliToolExecution";
@@ -52,6 +53,8 @@ export class AgentCliRuntime {
         return new CodexCli(execution);
       case "claude_code":
         return new ClaudeCodeCli(execution);
+      case "antigravity":
+        return new AntigravityCli(execution);
       case "opencode":
         return new OpenCodeCli(
           execution,
@@ -69,6 +72,7 @@ export class AgentCliRuntime {
   public async loginAdapter(provider: CliProviderId): Promise<CliLoginAdapter> {
     if (provider === "opencode") throw new AgentError("provider_invalid");
     const execution = await this.execution(provider);
+    if (provider === "antigravity") return new AntigravityCli(execution);
     return provider === "codex_cli"
       ? new CodexCli(execution)
       : new ClaudeCodeCli(execution);
@@ -160,6 +164,8 @@ export class AgentCliRuntime {
   public async cleanup(connection: AgentConnectionRecord): Promise<void> {
     if (isApiProvider(connection.provider))
       throw new AgentError("provider_invalid");
+    if (this.dependencies.store.isBound(connection.id, connection.provider))
+      return;
     try {
       const adapter = await this.adapter(connection.provider);
       const home = await this.dependencies.store.prepare(

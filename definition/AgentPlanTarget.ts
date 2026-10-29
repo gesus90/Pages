@@ -297,6 +297,8 @@ function cliAvailabilityProblem(
   const openCodeProblem =
     tool === "opencode" ? openCodeTargetProblem(installed, status) : null;
   if (openCodeProblem) return openCodeProblem;
+  if (tool === "antigravity" && installed.acp?.status !== "verified")
+    return "remoteToolIncompatible";
   if (status.hasExactResultPayload !== true) return "remoteRunnerUpdate";
   if (installed.authentication === "not_logged_in") return "remoteLogin";
   if (installed.authentication !== "authenticated") return "remoteLoginUnknown";

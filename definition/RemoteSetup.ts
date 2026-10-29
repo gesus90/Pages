@@ -115,7 +115,12 @@ export const SERVICE_MANAGERS = ["systemd", "supervisord", "none"] as const;
 export type ServiceManager = (typeof SERVICE_MANAGERS)[number];
 
 /** The command line tools the runner can drive. */
-export const SETUP_TOOLS = ["codex", "claude", "opencode"] as const;
+export const SETUP_TOOLS = [
+  "codex",
+  "claude",
+  "opencode",
+  "antigravity",
+] as const;
 
 /** One of the command line tools of the setup. */
 export type SetupTool = (typeof SETUP_TOOLS)[number];

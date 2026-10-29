@@ -3,6 +3,7 @@ import { vi } from "vitest";
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { CLAUDE_ACP_DRIVER } from "@/backend/agents/acp/ClaudeAcpDriver";
 import { CODEX_ACP_DRIVER } from "@/backend/agents/acp/CodexAcpDriver";
+import { ANTIGRAVITY_ACP_DRIVER } from "@/backend/agents/acp/AntigravityAcpDriver";
 
 import { FakeAdapterProcess, fakeCodexAgent } from "./fake-acp-adapter";
 
@@ -11,6 +12,7 @@ import type { Mock } from "vitest";
 import type { PlanSessionObserver } from "@/backend/agents/AgentPlanExecution";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { FakeAdapterOptions, ReceivedCall } from "./fake-acp-adapter";
+import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 
 /** The instance tag of every synthetic session. */
 export const INSTANCE_ID = "instance-synthetic";
@@ -34,7 +36,7 @@ export interface SyntheticNode extends Pick<
   "ticketInputs" | "readTicketAssets"
 > {
   /** The runner of the node; Codex CLI unless named. */
-  readonly provider?: "codex_cli" | "claude_code";
+  readonly provider?: "codex_cli" | "claude_code" | "antigravity";
   /** Whether the node has the Pages MCP server; it has by default. */
   readonly hasMcp?: boolean;
   readonly mode?: AcpPermissionMode;
@@ -71,11 +73,11 @@ export function startAcpSession(
   node: SyntheticNode = {},
 ): StartedSession {
   const isClaude = node.provider === "claude_code";
-  const driver = isClaude ? CLAUDE_ACP_DRIVER : CODEX_ACP_DRIVER;
+  const driver = driverFor(node.provider);
   const controller = node.controller ?? new AbortController();
   const process = new FakeAdapterProcess(controller.signal);
   const fake = fakeCodexAgent({
-    flavor: isClaude ? "claude" : "codex",
+    flavor: flavorFor(node.provider),
     ...adapter,
   });
   process.connect(fake.app);
@@ -123,6 +125,20 @@ export function startAcpSession(
     secure,
   });
   return { session, process, calls: fake.calls, observer, secure };
+}
+
+function driverFor(provider: SyntheticNode["provider"]): AcpDriver {
+  if (provider === "claude_code") return CLAUDE_ACP_DRIVER;
+  if (provider === "antigravity") return ANTIGRAVITY_ACP_DRIVER;
+  return CODEX_ACP_DRIVER;
+}
+
+function flavorFor(
+  provider: SyntheticNode["provider"],
+): FakeAdapterOptions["flavor"] {
+  if (provider === "claude_code") return "claude";
+  if (provider === "antigravity") return "antigravity";
+  return "codex";
 }
 
 /** Starts the ACP session of a Codex node; see {@link startAcpSession}. */

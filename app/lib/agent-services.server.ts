@@ -34,6 +34,7 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
 import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
+import { antigravityContextBinding } from "@/backend/agents/cli/AntigravityContextBinding";
 import { CliWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
@@ -230,7 +231,10 @@ function createCliRuntime(input: {
   readonly agentToolManagerService: AgentToolManagerService;
 } {
   const { dataDirectory, agentsDirectory, cipher, repository } = input;
-  const store = new AgentCredentialStore(dataDirectory);
+  const binding = antigravityContextBinding(process.env);
+  const store = binding
+    ? new AgentCredentialStore(dataDirectory, undefined, binding)
+    : new AgentCredentialStore(dataDirectory);
   const runner = new CliProcessRunner();
   const agentToolManagerService = createAgentToolManager({
     instanceDirectory: path.dirname(agentsDirectory),

@@ -21,7 +21,10 @@ import { requireRunnerOutputExecutor } from "./RunnerOutputCapabilities";
 import { RunnerObservation } from "./RunnerObservation";
 import { RunnerCancellation } from "./RunnerCancellation";
 import { RunnerContacts } from "./RunnerContacts";
-import { isRunnerCatalogCurrent } from "./RunnerCatalog";
+import {
+  compatibleRunnerCatalog,
+  isRunnerCatalogCurrent,
+} from "./RunnerCatalog";
 
 import type { RunnerCatalog } from "@/definition/RunnerProtocol";
 import type { RunnerContact } from "./RunnerContacts";
@@ -328,6 +331,7 @@ export class RunnerService {
         hasExactPayload: this.supportsExactResultPayload(connectionId),
         hasOutputJournal: this.outputExecutors.has(connectionId),
         hasLiveHistory: this.liveExecutors.has(connectionId),
+        runnerVersion: record.state.runnerVersion,
       });
       if (record.state.jobs.length >= 1000)
         throw new Error("Runner queue unavailable");
@@ -566,7 +570,10 @@ export class RunnerService {
         (await this.connections.scopeForRunner(connectionId))
     )
       return undefined;
-    return record.state.catalog;
+    return compatibleRunnerCatalog(
+      record.state.catalog,
+      record.state.runnerVersion,
+    );
   }
 
   /** Persists stop intent against the original durable claim before delivery. */

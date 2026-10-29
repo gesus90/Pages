@@ -490,10 +490,7 @@ export class AgentPlanStepRunner {
       planCompletedFailure(turn, closed, node.control.signal) ??
       acceptanceFailure;
     await this.complete(node, {
-      exit: closed.exit,
-      endedAt: closed.endedAt,
-      closeout: closed.isConfirmed ? "confirmed" : "failed",
-      leftoverProcesses: closed.leftovers,
+      ...closedSessionChanges(closed),
       resultCode: failure === null ? 0 : -1,
     });
     const output = sanitizePlanOutput(turn.output);

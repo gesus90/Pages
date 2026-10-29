@@ -5,6 +5,7 @@ import {
   AGENT_TOOL_REGISTRY,
   agentToolDefinition,
   providerToolIds,
+  isAgentToolInstallable,
 } from "./AgentToolRegistry";
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
 import { AgentRuntimeSupervisor } from "./AgentRuntimeSupervisor";
@@ -288,7 +289,7 @@ export class AgentToolManagerService {
         const tool = agentToolDefinition(id);
         const state = this.states.get(id);
         if (
-          tool.packageName &&
+          (tool.packageName !== null || tool.id === "antigravity_acp") &&
           state?.location?.source === "managed" &&
           state.health.status === "ready" &&
           state.health.version !== tool.version &&
@@ -392,7 +393,7 @@ export class AgentToolManagerService {
     if (state?.health.status === "ready") return;
     const tool = agentToolDefinition(id);
     if (
-      (!tool.packageName && tool.kind !== "browser") ||
+      !isAgentToolInstallable(tool) ||
       state?.health.diagnostic === "permission_denied" ||
       state?.health.diagnostic === "active_sessions"
     )
@@ -410,7 +411,7 @@ export class AgentToolManagerService {
     if (this.settingsFailure || this.shutdownController.signal.aborted)
       throw this.refusal(id);
     const tool = agentToolDefinition(id);
-    if (!tool.packageName && tool.kind !== "browser")
+    if (!isAgentToolInstallable(tool))
       throw new AgentToolReadinessError(id, "unsupported", "not_installed");
     const prior = this.states.get(id) ?? {
       location: null,
@@ -592,7 +593,7 @@ export class AgentToolManagerService {
       supportedVersions: tool.versions,
       approvedVersion: tool.version,
       updateAvailable:
-        tool.packageName !== null &&
+        (tool.packageName !== null || tool.id === "antigravity_acp") &&
         health.version !== null &&
         tool.version !== health.version,
       source: location?.source ?? null,

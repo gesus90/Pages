@@ -4,7 +4,13 @@ import path from "node:path";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import {
+  boundAntigravityHome,
+  requireBoundAntigravityHome,
+} from "./AntigravityContextBinding";
+
 import type { CliProviderId } from "@/definition/AgentConnection";
+import type { AntigravityContextBinding } from "./AntigravityContextBinding";
 import type { CliHome } from "./CliContracts";
 
 /** The folder each CLI keeps its own configuration and login in. */
@@ -12,6 +18,7 @@ const CONFIG_DIRECTORIES: Readonly<Record<CliProviderId, string>> = {
   codex_cli: "codex",
   claude_code: "claude",
   opencode: "opencode",
+  antigravity: "antigravity",
 };
 
 const UUID_PATTERN =
@@ -21,18 +28,28 @@ const UUID_PATTERN =
 export class AgentCredentialStore {
   private readonly root: string;
   private readonly files: typeof filesystem;
+  private readonly binding: AntigravityContextBinding | null;
 
   public constructor(
     dataDirectory: string,
     files: typeof filesystem = filesystem,
+    binding: AntigravityContextBinding | null = null,
   ) {
     this.root = path.resolve(dataDirectory, "agents");
     this.files = files;
+    this.binding = binding;
+  }
+
+  /** The operator owns the bound context; Pages must not remove or log it out. */
+  public isBound(id: string, provider: CliProviderId): boolean {
+    return provider === "antigravity" && this.binding?.connectionId === id;
   }
 
   /** Resolves paths only; loaders can display a terminal command without creating anything. */
   public paths(id: string, provider: CliProviderId): CliHome {
     if (!UUID_PATTERN.test(id)) throw new AgentError("connection_not_found");
+    if (this.binding && this.isBound(id, provider))
+      return boundAntigravityHome(this.binding);
     const root = path.resolve(this.root, id);
     return {
       root,
@@ -46,6 +63,10 @@ export class AgentCredentialStore {
   public async prepare(id: string, provider: CliProviderId): Promise<CliHome> {
     const home = this.paths(id, provider);
     try {
+      if (this.isBound(id, provider)) {
+        await requireBoundAntigravityHome(home);
+        return home;
+      }
       for (const directory of [
         this.root,
         home.root,
@@ -81,6 +102,10 @@ export class AgentCredentialStore {
   public async secure(id: string, provider: CliProviderId): Promise<void> {
     const home = this.paths(id, provider);
     try {
+      if (this.isBound(id, provider)) {
+        await requireBoundAntigravityHome(home);
+        return;
+      }
       await this.requireDirectory(this.root);
       await this.requireDirectory(home.root);
       await this.secureTree(home.root);
@@ -93,6 +118,7 @@ export class AgentCredentialStore {
 
   /** A failed removal keeps the database record available for a later cleanup attempt. */
   public async remove(id: string, provider: CliProviderId): Promise<void> {
+    if (this.isBound(id, provider)) return;
     const home = this.paths(id, provider);
     try {
       if (!(await this.exists(this.root))) return;

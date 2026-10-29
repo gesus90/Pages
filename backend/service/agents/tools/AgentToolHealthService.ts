@@ -4,10 +4,6 @@ import { constants } from "node:fs";
 import { access, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
-import {
-  endTaggedProcesses,
-  readServerScope,
-} from "@/backend/agents/cli/CliProcessScan";
 import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
 
 import { isAgentToolVersionSupported } from "./AgentToolRegistry";
@@ -94,6 +90,11 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
         location.file,
         tool.id === "pages_mcp" ? constants.R_OK : constants.X_OK,
       );
+      if (tool.id === "antigravity_acp")
+        await access(
+          path.join(path.dirname(location.file), "localharness_external"),
+          constants.X_OK,
+        );
       if (tool.probe === "acp" || tool.probe === "mcp")
         return await this.protocol(tool, location, signal);
       return await this.version(tool, location, signal);
@@ -221,8 +222,23 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
       };
     const instanceId = randomUUID();
     const result = await this.runner.run({
-      file: process.execPath,
-      arguments: ["-e", BROWSER_PROBE_SCRIPT],
+      file: "/usr/bin/bwrap",
+      toolFile: process.execPath,
+      arguments: [
+        "--die-with-parent",
+        "--unshare-pid",
+        "--bind",
+        "/",
+        "/",
+        "--proc",
+        "/proc",
+        "--dev",
+        "/dev",
+        "--",
+        process.execPath,
+        "-e",
+        BROWSER_PROBE_SCRIPT,
+      ],
       provider: "codex_cli",
       home: await this.files.home(),
       environment: {
@@ -236,16 +252,6 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
       stdin: "ignore",
       timeoutMs: 20_000,
     });
-    const cleanup = await endTaggedProcesses(
-      instanceId,
-      await readServerScope(),
-    );
-    if (cleanup.remaining > 0)
-      return {
-        status: "failed",
-        diagnostic: "active_sessions",
-        version: tool.version,
-      };
     const reported = readBrowserVersion(result.stdout, tool.version);
     if (result.exitCode === 0 && result.errorCode === null && reported !== null)
       return { ...READY, version: tool.version, runtimeVersion: reported };

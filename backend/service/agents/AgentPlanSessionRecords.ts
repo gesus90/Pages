@@ -22,6 +22,7 @@ const RUNNER_LABELS: Readonly<Record<CliProviderId, string>> = {
   codex_cli: "Codex CLI over ACP",
   claude_code: "Claude Code over ACP",
   opencode: "OpenCode over native ACP",
+  antigravity: "Google Antigravity over official ACP",
 };
 
 /** What a new record of a node is built from. */
@@ -62,10 +63,7 @@ export function createSessionRecord(
 ): AgentPlanSessionRecord {
   const { agent, directory } = start.prepared.input;
   const provider = agent.connection.provider;
-  const isRequest =
-    provider !== "codex_cli" &&
-    provider !== "claude_code" &&
-    provider !== "opencode";
+  const isRequest = !isAcpProvider(provider);
   return {
     runner: isRequest ? "api" : provider,
     mode: sessionMode(provider),
@@ -157,6 +155,7 @@ export function closedSessionChanges(
     exit: closed.exit,
     endedAt: closed.endedAt,
     closeout: closed.isConfirmed ? "confirmed" : "failed",
+    containment: closed.isConfirmed ? closed.containment : undefined,
     leftoverProcesses: closed.leftovers,
     resultCode: closeoutFailureCode(closed) === null ? 0 : -1,
   };

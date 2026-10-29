@@ -92,6 +92,7 @@ it("lists every CLI with the process PATH by default", async () => {
     codex_cli: { found: true, path: "/env/bin/codex" },
     claude_code: { found: false, path: null },
     opencode: { found: true, path: "/env/bin/opencode" },
+    antigravity: { found: false, path: null },
   });
 });
 

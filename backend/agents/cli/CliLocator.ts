@@ -15,6 +15,7 @@ export const CLI_BINARIES: Readonly<Record<CliProviderId, string>> = {
   codex_cli: "codex",
   claude_code: "claude",
   opencode: "opencode",
+  antigravity: "agy_acp_server.par",
 };
 
 /** Locates externally installed CLIs through the filesystem; it never executes them. */
@@ -74,11 +75,12 @@ export class CliLocator {
 
   /** Lists every tool without touching authentication or running version commands. */
   public async list(): Promise<CliToolLocations> {
-    const [codex, claude, opencode] = await Promise.all([
+    const [codex, claude, opencode, antigravity] = await Promise.all([
       this.find("codex_cli"),
       this.find("claude_code"),
       this.find("opencode"),
+      this.find("antigravity"),
     ]);
-    return { codex_cli: codex, claude_code: claude, opencode };
+    return { codex_cli: codex, claude_code: claude, opencode, antigravity };
   }
 }

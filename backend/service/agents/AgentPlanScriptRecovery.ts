@@ -2,6 +2,7 @@ import {
   endTaggedProcesses,
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
+import { hasEndedOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
 
 import { removeScriptResources } from "./AgentPlanScriptResources";
 import { cleanupScanFailure } from "./AgentPlanCleanupFailure";
@@ -9,7 +10,7 @@ import { cleanupScanFailure } from "./AgentPlanCleanupFailure";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 
-/** Reconciles an orphaned attempt using its inherited tag, never by trusting its persisted PID. */
+/** Reconciles an orphaned attempt using its recorded namespace; legacy tags remain unconfirmed. */
 export async function endInterruptedScript(
   step: AgentPlanStepResult,
 ): Promise<AgentPlanStepResult> {
@@ -32,11 +33,15 @@ async function closeInterruptedScript(
   if (!script || script.closeout === "confirmed") return step;
   let isConfirmed = false;
   try {
-    const cleanup = await endTaggedProcesses(
-      script.instanceId,
-      await readScopeSince(script.startedAt),
-    );
-    isConfirmed = cleanup.remaining === 0;
+    if (script.namespace)
+      isConfirmed = await hasEndedOwnedNamespace(script.namespace);
+    else {
+      const cleanup = await endTaggedProcesses(
+        script.instanceId,
+        await readScopeSince(script.startedAt),
+      );
+      isConfirmed = cleanup.remaining === 0;
+    }
     if (!isConfirmed)
       onFailure?.({
         stepId: step.id,

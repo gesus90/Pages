@@ -118,6 +118,11 @@ export class AgentPlanScriptCapture {
     await this.ended;
   }
 
+  /** Whether the directly spawned supervisor has reported exit. */
+  public get isExited(): boolean {
+    return this.hasExited;
+  }
+
   /** Confirms root exit and transport closure with a finite deadline. */
   public async confirmClosed(): Promise<boolean> {
     let timer: NodeJS.Timeout | undefined;

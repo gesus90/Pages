@@ -602,7 +602,8 @@
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT-Konto)",
         "claude_code": "Claude Code (Claude-Abo)",
-        "opencode": "OpenCode"
+        "opencode": "OpenCode",
+        "antigravity": "Google Antigravity (ACP)"
       },
       "providerShort": {
         "openrouter": "OpenRouter API",
@@ -612,7 +613,8 @@
         "anthropic": "Anthropic API",
         "codex_cli": "Codex CLI",
         "claude_code": "Claude Code CLI",
-        "opencode": "OpenCode CLI"
+        "opencode": "OpenCode CLI",
+        "antigravity": "Antigravity ACP"
       },
       "location": {
         "local": "Lokal",
@@ -838,7 +840,12 @@
         "modelUnavailable": "Ein gespeichertes Modell steht im Katalog seines Ziels nicht (mehr) zur Verfügung. Es wurde nichts gespeichert oder gestartet und kein anderes Modell eingesetzt. Das betroffene Modell im markierten Node ausdrücklich neu wählen.",
         "reasoningUnsupported": "Eine gespeicherte Reasoning-Stufe wird vom gewählten Modell nicht unterstützt. Es wurde nichts gespeichert oder gestartet und keine andere Stufe eingesetzt. Die Stufe im markierten Node ausdrücklich neu wählen.",
         "opencode_free_tier_refused": "OpenCode Zen hat den kostenlosen Tarif für diese Anfrage abgelehnt („nur innerhalb von OpenCode“). Zen bedient seine kostenlosen Modelle nur in Sitzungen mit den OpenCode-eigenen Werkzeugen; Pica läuft bewusst ohne sie, Agent-Knoten in Plänen sind nicht betroffen. Es wurde kein anderes Modell verwendet. Für Pica bitte ein Modell eines Providers mit Schlüssel in Pages wählen, etwa ein kostenloses OpenRouter-Modell.",
-        "plan_stop_unconfirmed": "Die Stop-Frist ist abgelaufen oder die Bereinigung fehlgeschlagen. Ziel verbinden und unter Wiederherstellung → Freigeben die Bereinigung erneut anfordern. Reservierungen bleiben erhalten."
+        "plan_stop_unconfirmed": "Die Stop-Frist ist abgelaufen oder die Bereinigung fehlgeschlagen. Ziel verbinden und unter Wiederherstellung → Freigeben die Bereinigung erneut anfordern. Reservierungen bleiben erhalten.",
+        "antigravity_acp_unsupported": "Antigravity benötigt den offiziellen ACP-Adapter 1.4.4. Es wurde kein Modell aufgerufen.",
+        "antigravity_acp_session_failed": "Die Antigravity-ACP-Sitzung ist fehlgeschlagen. Adapter, Anmeldung und Kontingent am Ausführungsort prüfen.",
+        "antigravity_configuration_unmanaged": "Zusätzliche Antigravity-Konfiguration könnte die Sitzungsrechte erweitern. Den isolierten Pages-Kontext verwenden.",
+        "antigravity_pica_unverified": "Antigravity ist für Pica gesperrt: Die vollständige restriktive Werkzeuggrenze ist noch nicht mit einem echten Modell nachgewiesen.",
+        "antigravity_runner_update_required": "Antigravity benötigt Runner 1.14.0 oder neuer am ausgewählten Ausführungsort. Den Runner ausdrücklich aktualisieren; es gibt keinen lokalen Ersatz."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -1305,7 +1312,8 @@
         "toolName": {
           "codex": "Codex",
           "claude": "Claude Code",
-          "opencode": "OpenCode"
+          "opencode": "OpenCode",
+          "antigravity": "Antigravity ACP"
         },
         "needsPairing": "Identität ungültig – neu koppeln",
         "loginRemote": "CLI-Anmeldung ausschließlich selbst auf dem Remote-Host durchführen; Pages überträgt keine CLI-Zugangsdaten.",
@@ -1355,7 +1363,10 @@
         "unchecked": "nicht eingebunden: „{{connection}}“ wurde noch nicht geprüft. Zugang dort prüfen.",
         "missing": "kein Schlüssel in Pages – unter „API-Schlüssel“ hinzufügen"
       },
-      "openCodeLinkedHint": "auch über opencode nutzbar"
+      "openCodeLinkedHint": "auch über opencode nutzbar",
+      "antigravityHint": "Google OAuth im isolierten Pages-Kontext. Der offizielle Adapter empfängt die Anmeldung über einen Loopback-Callback am Ausführungsort; der Browser muss diesen erreichen können. Pica bleibt bis zum vollständigen Nachweis der Werkzeuggrenzen gesperrt.",
+      "antigravityLoginHint": "Die Google-Anmeldung im Browser abschließen. Der Browser muss den Loopback-Callback am Pages-Ausführungsort erreichen können.",
+      "operatorBoundAccount": "Dieses Konto wird vom Betreiber verwaltet. Pages kann es prüfen, aber nicht an- oder abmelden."
     },
     "connections": {
       "title": "Verbindungen",
@@ -3303,7 +3314,8 @@
       "interrupted": "Der Server wurde während der Antwort beendet. Die Antwort wird nicht automatisch wiederholt.",
       "disabled": "Pica ist ausgeschaltet. Die Administration kann Pica unter Einstellungen › Agents aktivieren.",
       "plan_model_unavailable": "Die CLI bietet das für Pica gewählte Modell nicht (mehr) an, zum Beispiel nach einem Update. Es wurde nichts gesendet und kein anderes Modell eingesetzt. Bitte unter Einstellungen → Agents ein verfügbares Modell wählen.",
-      "plan_reasoning_unsupported": "Das für Pica gewählte Modell unterstützt die eingestellte Reasoning-Stufe nicht. Es wurde nichts gesendet. Bitte unter Einstellungen → Agents eine unterstützte Stufe wählen."
+      "plan_reasoning_unsupported": "Das für Pica gewählte Modell unterstützt die eingestellte Reasoning-Stufe nicht. Es wurde nichts gesendet. Bitte unter Einstellungen → Agents eine unterstützte Stufe wählen.",
+      "antigravityToolsUnverified": "Antigravity ist für Pica gesperrt: Die vollständige restriktive Werkzeuggrenze ist noch nicht mit einem echten Modell nachgewiesen."
     },
     "recover": "Neue Session starten",
     "context": {
@@ -5470,7 +5482,8 @@
       "pages_mcp": "Pages MCP",
       "playwright_mcp": "Playwright MCP",
       "chromium": "Chromium",
-      "firefox": "Firefox (optional)"
+      "firefox": "Firefox (optional)",
+      "antigravity_acp": "Google Antigravity ACP"
     },
     "kind": {
       "runtime": "Laufzeit",

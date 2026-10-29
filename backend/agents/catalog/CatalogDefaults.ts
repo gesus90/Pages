@@ -50,6 +50,7 @@ export function defaultCatalogModel(
       );
     case "google_ai_studio":
       return listed(models, GOOGLE_FLASH_LATEST);
+    case "antigravity":
     case "openai":
     case "zai":
       return null;

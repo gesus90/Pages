@@ -36,7 +36,7 @@ export interface AcpResourceOptions {
 export interface AcpResourceOwner {
   readonly instanceId: string;
   readonly userId: string;
-  readonly provider: "codex_cli" | "claude_code" | "opencode";
+  readonly provider: "codex_cli" | "claude_code" | "opencode" | "antigravity";
   readonly runId: string | null;
   readonly stepId: string | null;
 }
@@ -48,6 +48,18 @@ export type AcpResourceState =
 export interface AcpResourceRecord extends AcpResourceOwner {
   readonly state: AcpResourceState;
   readonly since: string;
+  /** Directly spawned PID namespace supervisor, when durably registered. */
+  readonly namespace?: AcpNamespaceOwner | null;
+}
+
+/** Kernel identity of a directly spawned namespace supervisor. */
+export interface AcpNamespaceOwner {
+  readonly pid: number;
+  readonly uid: number;
+  readonly start: number;
+  readonly boot: string;
+  /** A systemd unit, when the supervisor was launched through the manager. */
+  readonly unit?: string;
 }
 
 export type AcpWaitReason =

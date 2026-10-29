@@ -21,6 +21,7 @@ import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlan
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentPlanContinuationCapabilities } from "@/definition/AgentPlanRecovery";
 import type { AgentProviderFailure } from "@/definition/AgentPlanRetry";
+import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type {
   AgentPlanProcessExit,
   AgentPlanSessionMode,
@@ -50,6 +51,8 @@ export interface PlanSessionObserver {
     readonly startedAt: string;
     readonly arguments: readonly string[];
     readonly unattended: string;
+    /** Durable supervisor identity, when this runner owns a PID namespace. */
+    readonly namespace?: AcpNamespaceOwner;
   }) => void;
   readonly identified: (sessionId: string) => void;
   /** Announced by a supported adapter; never inferred from a provider name. */
@@ -94,6 +97,8 @@ export interface PlanSessionClosed {
   /** Processes of the session found and ended after the runner exited. */
   readonly leftovers: number;
   readonly isConfirmed: boolean;
+  /** An owned PID namespace was destroyed after its supervisor exited. */
+  readonly containment?: "pid_namespace";
 }
 
 /** A running session: first its turn, then its closing. */
@@ -203,7 +208,9 @@ export class AgentPlanExecution implements PlanExecution {
     await this.authorizer.requireUser(input.userId, input.agent.connection.id);
     const release = this.operations.acquireExecution(input.agent.connection.id);
     let session: PlanSession;
-    const mustConfirmCleanup = input.agent.connection.provider === "opencode";
+    const mustConfirmCleanup = ["opencode", "antigravity"].includes(
+      input.agent.connection.provider,
+    );
     function observe(target: PlanSessionObserver): PlanSessionObserver {
       if (!mustConfirmCleanup) return target;
       return {

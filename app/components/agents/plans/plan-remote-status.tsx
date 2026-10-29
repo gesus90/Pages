@@ -28,30 +28,32 @@ export function PlanRemoteStatus({
         <p>{t(`plans.panel.issueCause.${status.problem}`)}</p>
       ) : (
         <>
-          {(["codex", "claude", "opencode"] as const).map((tool) => {
-            const entry = status.tools.find(
-              (candidate) => candidate.tool === tool,
-            );
-            const reason = entry
-              ? (entry.authentication ?? "unknown")
-              : "missing";
-            return (
-              <p key={tool}>
-                {t(`settings.agents.runner.toolName.${tool}`)} ·{" "}
-                {t(`settings.agents.runner.auth.${reason}`)}
-                {entry?.authentication === "authenticated" &&
-                !entry.models?.length
-                  ? ` · ${t("plans.panel.issueCause.remoteCatalog")}`
-                  : ""}
-                {entry?.tool === "opencode" ? (
-                  <OpenCodeRemoteFacts
-                    entry={entry}
-                    hasOpenCodeAccess={status.hasOpenCodeAccess === true}
-                  />
-                ) : null}
-              </p>
-            );
-          })}
+          {(["codex", "claude", "opencode", "antigravity"] as const).map(
+            (tool) => {
+              const entry = status.tools.find(
+                (candidate) => candidate.tool === tool,
+              );
+              const reason = entry
+                ? (entry.authentication ?? "unknown")
+                : "missing";
+              return (
+                <p key={tool}>
+                  {t(`settings.agents.runner.toolName.${tool}`)} ·{" "}
+                  {t(`settings.agents.runner.auth.${reason}`)}
+                  {entry?.authentication === "authenticated" &&
+                  !entry.models?.length
+                    ? ` · ${t("plans.panel.issueCause.remoteCatalog")}`
+                    : ""}
+                  {entry?.tool === "opencode" ? (
+                    <OpenCodeRemoteFacts
+                      entry={entry}
+                      hasOpenCodeAccess={status.hasOpenCodeAccess === true}
+                    />
+                  ) : null}
+                </p>
+              );
+            },
+          )}
           {!status.hasModelCatalog ? (
             <p>{t("plans.execution.catalogMissing")}</p>
           ) : null}

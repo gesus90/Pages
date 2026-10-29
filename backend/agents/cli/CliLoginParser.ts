@@ -53,3 +53,39 @@ export function readClaudeChallenge(output: string): CliLoginChallenge | null {
   );
   return url ? { verificationUrl: url.href } : null;
 }
+
+function hasLoopbackCallback(candidate: URL): boolean {
+  try {
+    const redirect = new URL(candidate.searchParams.get("redirect_uri") ?? "");
+    return (
+      redirect.protocol === "http:" &&
+      redirect.hostname === "127.0.0.1" &&
+      Number(redirect.port) > 0 &&
+      redirect.pathname === "/" &&
+      !redirect.search &&
+      !redirect.hash &&
+      !redirect.username &&
+      !redirect.password
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Accepts only Google's authorization URL with the adapter-owned loopback callback. */
+export function readAntigravityChallenge(
+  output: string,
+): CliLoginChallenge | null {
+  const url = readUrls(output).find(
+    (candidate) =>
+      candidate.origin === "https://accounts.google.com" &&
+      ["/o/oauth2/auth", "/o/oauth2/v2/auth"].includes(candidate.pathname) &&
+      !candidate.username &&
+      !candidate.password &&
+      !candidate.hash &&
+      candidate.searchParams.get("response_type") === "code" &&
+      Boolean(candidate.searchParams.get("state")) &&
+      hasLoopbackCallback(candidate),
+  );
+  return url ? { verificationUrl: url.href } : null;
+}

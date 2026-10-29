@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
+import { endTaggedProcesses } from "@/backend/agents/cli/CliProcessScan";
 import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
 import {
   AgentToolHealthService,
@@ -26,14 +27,72 @@ vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
   RUN_INSTANCE_VARIABLE: "PAGES_RUN_INSTANCE",
   readServerScope: async () => ({ earliestStart: 0 }),
   readSpawnScope: async () => ({ earliestStart: 0 }),
-  endTaggedProcesses: async () => ({ found: 0, remaining: 0 }),
+  endTaggedProcesses: vi.fn(async () => ({ found: 0, remaining: 0 })),
 }));
 
 beforeEach(() => {
+  vi.mocked(endTaggedProcesses).mockClear();
   vi.mocked(probeBubblewrap).mockResolvedValue(true);
   vi.mocked(readFile).mockResolvedValue(
     JSON.stringify({ name: "@playwright/mcp", version: "0.0.83" }),
   );
+});
+
+it("contains the Antigravity probe in its own PID namespace", async () => {
+  const world = toolWorld();
+  const fake = fakeCliSpawn({
+    agentInfo: { name: "antigravity-acp", version: "1.4.4" },
+  });
+  const health = new AgentToolHealthService({
+    files: world.storage,
+    runner: new CliProcessRunner({
+      spawn: fake.spawn,
+      signalGroup: fake.signalGroup,
+    }),
+    resolve: async () => null,
+  });
+  const location = toolLocation("antigravity_acp", "1.4.4");
+  await expect(
+    health.check(
+      agentToolDefinition("antigravity_acp"),
+      location,
+      new AbortController().signal,
+    ),
+  ).resolves.toMatchObject({ status: "ready", version: "1.4.4" });
+  const launched = fake.spawned[0];
+  expect(launched?.file).toBe("/usr/bin/bwrap");
+  expect(launched?.arguments).toContain("--die-with-parent");
+  expect(launched?.arguments).toContain("--unshare-pid");
+  expect(launched?.arguments).toContain(location.file);
+  expect(launched?.arguments).toContain("--uid=");
+  expect(endTaggedProcesses).not.toHaveBeenCalled();
+});
+
+it("contains the Pages MCP readiness probe in its own PID namespace", async () => {
+  const world = toolWorld();
+  const fake = toolMcpSpawn();
+  const spawn = vi.fn(fake.spawn);
+  const health = new AgentToolHealthService({
+    files: world.storage,
+    runner: new CliProcessRunner({
+      spawn,
+      signalGroup: () => undefined,
+    }),
+    resolve: async () => null,
+  });
+  await expect(
+    health.check(
+      agentToolDefinition("pages_mcp"),
+      toolLocation("pages_mcp"),
+      new AbortController().signal,
+    ),
+  ).resolves.toMatchObject({ status: "ready" });
+  expect(fake.methods).toEqual(["initialize"]);
+  const [file, args] = spawn.mock.calls[0] ?? [];
+  expect(file).toBe("/usr/bin/bwrap");
+  expect(args).toContain("--unshare-pid");
+  expect(args).toContain("health-check");
+  expect(endTaggedProcesses).not.toHaveBeenCalled();
 });
 
 it("initializes the real ACP client contract with a fake process without a session or model prompt", async () => {
@@ -150,7 +209,22 @@ it("checks a browser with a real launch/close script through a mocked process bo
     ),
   ).resolves.toMatchObject({ status: "ready", runtimeVersion: "145.0.0.0" });
   expect(run.mock.calls[0]?.[0]).toMatchObject({
-    arguments: ["-e", BROWSER_PROBE_SCRIPT],
+    file: "/usr/bin/bwrap",
+    arguments: [
+      "--die-with-parent",
+      "--unshare-pid",
+      "--bind",
+      "/",
+      "/",
+      "--proc",
+      "/proc",
+      "--dev",
+      "/dev",
+      "--",
+      process.execPath,
+      "-e",
+      BROWSER_PROBE_SCRIPT,
+    ],
     environment: {
       TMPDIR: "/memory/tools/probe",
       PAGES_BROWSER: "chromium",

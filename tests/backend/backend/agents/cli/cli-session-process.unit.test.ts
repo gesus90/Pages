@@ -366,7 +366,7 @@ it("keeps the decision of Pages over the unit result", async () => {
   });
 });
 
-it("ends the session even when its unit cannot be settled", async () => {
+it("marks cleanup unconfirmed when its unit cannot be settled", async () => {
   const fake = fakeChild();
   const { session } = start(fake, {
     unit: unit(async () => {
@@ -378,8 +378,19 @@ it("ends the session even when its unit cannot be settled", async () => {
 
   await expect(session.exited).resolves.toMatchObject({
     code: 1,
-    errorCode: null,
+    errorCode: "credential_cleanup_failed",
   });
+});
+
+it("does not signal a process group after its tracked leader exited", () => {
+  const fake = fakeChild();
+  const signalGroup = vi.fn();
+  const { session } = start(fake, {}, signalGroup);
+  Object.defineProperty(fake.child, "exitCode", { value: 0 });
+  session.cancel("login_cancelled");
+  expect(signalGroup).not.toHaveBeenCalled();
+  expect(fake.kill).not.toHaveBeenCalled();
+  fake.child.emit("close", 0, null);
 });
 
 it("ignores a closed input and finishes only once", async () => {

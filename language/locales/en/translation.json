@@ -602,7 +602,8 @@
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT account)",
         "claude_code": "Claude Code (Claude subscription)",
-        "opencode": "OpenCode"
+        "opencode": "OpenCode",
+        "antigravity": "Google Antigravity (ACP)"
       },
       "providerShort": {
         "openrouter": "OpenRouter API",
@@ -612,7 +613,8 @@
         "anthropic": "Anthropic API",
         "codex_cli": "Codex CLI",
         "claude_code": "Claude Code CLI",
-        "opencode": "OpenCode CLI"
+        "opencode": "OpenCode CLI",
+        "antigravity": "Antigravity ACP"
       },
       "location": {
         "local": "Local",
@@ -838,7 +840,12 @@
         "modelUnavailable": "A saved model is not (or no longer) in the catalog of its target. Nothing was saved or started and no other model was used. Choose the affected model again in the marked node.",
         "reasoningUnsupported": "A saved reasoning level is not supported by the chosen model. Nothing was saved or started and no other level was used. Choose the level again in the marked node.",
         "opencode_free_tier_refused": "OpenCode Zen refused its free tier for this request (“only within OpenCode”). Zen serves its free models only to sessions with OpenCode's own tools; Pica runs without them on purpose, plan agents are not affected. No other model was used. For Pica, choose a model of a provider with a key in Pages, such as a free OpenRouter model.",
-        "plan_stop_unconfirmed": "The stop deadline expired or cleanup failed. Reconnect the target and use Recovery → Release to retry cleanup. Reservations remain held."
+        "plan_stop_unconfirmed": "The stop deadline expired or cleanup failed. Reconnect the target and use Recovery → Release to retry cleanup. Reservations remain held.",
+        "antigravity_acp_unsupported": "Antigravity requires the official ACP adapter 1.4.4. No model was called.",
+        "antigravity_acp_session_failed": "The Antigravity ACP session failed. Check the adapter, login and quota at the execution host.",
+        "antigravity_configuration_unmanaged": "Additional Antigravity configuration could widen session permissions. Use the isolated Pages context.",
+        "antigravity_pica_unverified": "Antigravity is blocked for Pica: the complete restrictive tool boundary has not been verified with a real model.",
+        "antigravity_runner_update_required": "Antigravity requires Runner 1.14.0 or later at the selected execution host. Update this runner explicitly; no local fallback is used."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -1305,7 +1312,8 @@
         "toolName": {
           "codex": "Codex",
           "claude": "Claude Code",
-          "opencode": "OpenCode"
+          "opencode": "OpenCode",
+          "antigravity": "Antigravity ACP"
         },
         "needsPairing": "Invalid identity – pair again",
         "loginRemote": "Sign in to the CLI yourself on the remote host; Pages transfers no CLI credentials.",
@@ -1355,7 +1363,10 @@
         "unchecked": "not registered: “{{connection}}” has not been checked yet. Check its access there.",
         "missing": "no key in Pages – add one under “API keys”"
       },
-      "openCodeLinkedHint": "also usable through opencode"
+      "openCodeLinkedHint": "also usable through opencode",
+      "antigravityHint": "Google OAuth in the isolated Pages context. The official adapter receives login through a loopback callback at the execution host; your browser must be able to reach it. Pica stays blocked until its complete tool restrictions are verified.",
+      "antigravityLoginHint": "Complete Google sign-in in your browser. The browser must be able to reach the loopback callback at the Pages execution host.",
+      "operatorBoundAccount": "This account is managed by the operator. Pages can check it but cannot sign it in or out."
     },
     "connections": {
       "title": "Connections",
@@ -3303,7 +3314,8 @@
       "interrupted": "The server stopped during the answer. The answer is not repeated automatically.",
       "disabled": "Pica is turned off. An administrator can enable Pica under Settings › Agents.",
       "plan_model_unavailable": "The CLI does not (or no longer) offer the model chosen for Pica, for example after an update. Nothing was sent and no other model was used. Please choose an available model under Settings → Agents.",
-      "plan_reasoning_unsupported": "The model chosen for Pica does not support the configured reasoning level. Nothing was sent. Please choose a supported level under Settings → Agents."
+      "plan_reasoning_unsupported": "The model chosen for Pica does not support the configured reasoning level. Nothing was sent. Please choose a supported level under Settings → Agents.",
+      "antigravityToolsUnverified": "Antigravity is blocked for Pica: the complete restrictive tool boundary has not been verified with a real model."
     },
     "recover": "Start a new session",
     "context": {
@@ -5470,7 +5482,8 @@
       "pages_mcp": "Pages MCP",
       "playwright_mcp": "Playwright MCP",
       "chromium": "Chromium",
-      "firefox": "Firefox (optional)"
+      "firefox": "Firefox (optional)",
+      "antigravity_acp": "Google Antigravity ACP"
     },
     "kind": {
       "runtime": "Runtime",

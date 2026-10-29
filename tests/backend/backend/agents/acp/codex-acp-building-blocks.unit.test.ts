@@ -90,7 +90,11 @@ it("starts the adapter with the Codex CLI of the connection and keeps the MCP cr
     NO_BROWSER: "1",
   });
   expect(JSON.stringify(launch.environment)).not.toContain("secret-run-token");
-  expect(launch.mcpServers[0]?.env).toContainEqual({
+  expect(
+    launch.mcpServers[0] && "env" in launch.mcpServers[0]
+      ? launch.mcpServers[0].env
+      : undefined,
+  ).toContainEqual({
     name: "PAGES_TOKEN",
     value: "secret-run-token",
   });

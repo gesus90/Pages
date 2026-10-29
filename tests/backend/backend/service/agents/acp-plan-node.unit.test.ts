@@ -137,6 +137,7 @@ async function runNode(
   provider: AcpProvider,
   options: AgentRunOptions | undefined,
   sessionTurn: PlanSessionTurn = turn(),
+  containment?: "pid_namespace",
 ): Promise<NodeResult> {
   const fixture = await parameterRunFixture(
     { ...CONFIGURATION, ...(options === undefined ? {} : { run: options }) },
@@ -153,6 +154,7 @@ async function runNode(
     endedAt: "2026-10-14T10:01:00.000Z",
     leftovers: 0,
     isConfirmed: true,
+    ...(containment ? { containment } : {}),
   }));
   const cli: PlanSessionRunner = {
     open: async (input, signal, observer) => {
@@ -208,6 +210,15 @@ async function runNode(
   if (!first) throw new Error("The node opened no session.");
   return { result, opened: first, grants, records, close };
 }
+
+it("persists a confirmed process containment proof with the ordinary plan closeout", async () => {
+  const node = await runNode("codex_cli", undefined, turn(), "pid_namespace");
+  expect(node.result.session).toMatchObject({
+    closeout: "confirmed",
+    containment: "pid_namespace",
+  });
+  expect(node.records.at(-1)?.containment).toBe("pid_namespace");
+});
 
 it.each(PROVIDERS)(
   "sends AGENT.md with its parameters, the node instruction and the read-only contract to the Codex session in the plan workspace ($provider)",

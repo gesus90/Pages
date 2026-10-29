@@ -32,6 +32,9 @@ export interface CliHome {
   readonly home: string;
   readonly config: string;
   readonly work: string;
+  /** Operator-bound contexts can retain the provider's dedicated XDG locations. */
+  readonly xdgConfig?: string;
+  readonly xdgCache?: string;
 }
 
 export interface CliProcessResult {
@@ -83,6 +86,8 @@ export interface CliSessionRequest {
   readonly signal: AbortSignal;
   /** Receives every complete line of the standard output, in order. */
   readonly onLine: (line: string) => void | Promise<void>;
+  /** Protected OAuth challenge parsing only; never persisted as a diagnostic. */
+  readonly onStderr?: (tail: string) => void;
   /** The limited unit the session runs in; signals and the closeout go through it. */
   readonly unit?: CliWorkerUnitHandle;
 }

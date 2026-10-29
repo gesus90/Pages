@@ -24,3 +24,10 @@ export class AgentToolReadinessError extends AgentError {
     this.diagnostic = diagnostic;
   }
 }
+
+/** A tool readiness refusal made before the session runner could spawn. */
+export class AgentToolPreflightError extends AgentToolReadinessError {
+  public constructor(error: AgentToolReadinessError) {
+    super(error.tool, error.status, error.diagnostic);
+  }
+}

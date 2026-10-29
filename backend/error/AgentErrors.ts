@@ -2,6 +2,16 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  antigravity_runner_update_required:
+    "Antigravity requires Runner 1.14.0 or later at the selected execution host. Update this runner explicitly; no local fallback was used.",
+  antigravity_acp_unsupported:
+    "Pages requires the official Antigravity ACP adapter 1.4.4. No model was called.",
+  antigravity_acp_session_failed:
+    "The Antigravity ACP session failed. Check the adapter, authentication and quota at its execution location.",
+  antigravity_configuration_unmanaged:
+    "Antigravity configuration, hooks or additional MCP servers could widen this session. Use the isolated Pages connection context.",
+  antigravity_pica_unverified:
+    "Antigravity is blocked for Pica until its complete restrictive tool profile has been verified with a real model. Plan access does not prove Pica isolation.",
   plan_work_gate_failed:
     "The required ticket work confirmation is missing or stale. Read current relevant TODOs and prove every required check before completion or a successor can start.",
   plan_work_gate_unavailable:

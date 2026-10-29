@@ -17,7 +17,6 @@ import { AgentCliRuntime } from "@/backend/agents/cli/AgentCliRuntime";
 import { AgentCredentialStore } from "@/backend/agents/cli/AgentCredentialStore";
 import { CliLocator } from "@/backend/agents/cli/CliLocator";
 import { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
-import { findTaggedProcesses } from "@/backend/agents/cli/CliProcessScan";
 import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
@@ -204,7 +203,6 @@ async function runSmoke(options: SmokeOptions): Promise<unknown> {
     }, options.stopAfterSeconds * 1000);
   const turn = await session.turn;
   const closed = await session.close();
-  const leftovers = await findTaggedProcesses(instanceId);
   return {
     provider: options.provider,
     mode: options.mode,
@@ -221,7 +219,7 @@ async function runSmoke(options: SmokeOptions): Promise<unknown> {
       exit: closed.exit,
       leftoversEnded: closed.leftovers,
       isConfirmed: closed.isConfirmed,
-      processesStillRunning: leftovers.length,
+      containment: closed.containment ?? null,
     },
   };
 }

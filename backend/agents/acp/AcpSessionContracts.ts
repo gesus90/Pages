@@ -55,6 +55,8 @@ export interface AcpSessionContext {
   readonly signal: AbortSignal;
   /** How the process is isolated, as the run records it. */
   readonly isolation: string;
+  /** The adapter runs inside an owned PID namespace whose init is the tracked process. */
+  readonly isPidNamespace?: boolean;
   /** Restores the modes of the credential folder after the session. */
   readonly secure: () => Promise<void>;
   /** Masks the exact project credential before any text reaches the observer or turn result. */

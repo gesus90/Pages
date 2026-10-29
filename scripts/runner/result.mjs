@@ -51,7 +51,10 @@ export class CliTerminalResult {
         usage: usage(event.usage),
       });
     }
-    if (tool === "opencode" && event.type === "pages.result") {
+    if (
+      ["opencode", "antigravity"].includes(tool) &&
+      event.type === "pages.result"
+    ) {
       this.#identify(event.sessionId);
       this.#failureCode = event.error;
       this.#complete(event, {

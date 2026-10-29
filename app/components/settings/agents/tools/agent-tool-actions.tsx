@@ -17,6 +17,7 @@ const INSTALLABLE = [
   "claude",
   "opencode",
   "codex_acp",
+  "antigravity_acp",
   "playwright_mcp",
   "chromium",
   "firefox",

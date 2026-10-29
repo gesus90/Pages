@@ -2,13 +2,20 @@ import {
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
+import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
 import type { Database } from "@/backend/database/Database";
 import type { AcpResourceStore } from "@/backend/service/agents/resources/AcpResourceStore";
 import type {
+  AcpNamespaceOwner,
   AcpResourceRecord,
   AcpResourceState,
 } from "@/definition/AcpResource";
+
+function namespaceIdentity(value: string | null): AcpNamespaceOwner | null {
+  if (value === null) return null;
+  return readOwnedNamespace(JSON.parse(value));
+}
 
 function state(input: string): AcpResourceState {
   if (
@@ -40,7 +47,8 @@ export class AcpResourceRepository implements AcpResourceStore {
           run_id,
           step_id,
           state,
-          since
+          since,
+          namespace_identity
       FROM acp_resource_leases
       ORDER BY since, instance_id;
     `);
@@ -49,7 +57,8 @@ export class AcpResourceRepository implements AcpResourceStore {
       if (
         provider !== "codex_cli" &&
         provider !== "claude_code" &&
-        provider !== "opencode"
+        provider !== "opencode" &&
+        provider !== "antigravity"
       )
         throw new Error("Invalid ACP lease provider");
       return {
@@ -60,6 +69,9 @@ export class AcpResourceRepository implements AcpResourceStore {
         stepId: readNullableTextColumn(row, 4, "step_id"),
         state: state(readTextColumn(row, 5, "state")),
         since: readTextColumn(row, 6, "since"),
+        namespace: namespaceIdentity(
+          readNullableTextColumn(row, 7, "namespace_identity"),
+        ),
       };
     });
   }
@@ -75,12 +87,14 @@ export class AcpResourceRepository implements AcpResourceStore {
           run_id,
           step_id,
           state,
-          since
+          since,
+          namespace_identity
       )
-      VALUES ($instance_id, $user_id, $provider, $run_id, $step_id, $state, $since)
+      VALUES ($instance_id, $user_id, $provider, $run_id, $step_id, $state, $since, $namespace_identity)
       ON CONFLICT (instance_id) DO UPDATE SET
           state = excluded.state,
-          step_id = excluded.step_id;
+          step_id = excluded.step_id,
+          namespace_identity = excluded.namespace_identity;
     `,
       {
         instance_id: record.instanceId,
@@ -90,6 +104,9 @@ export class AcpResourceRepository implements AcpResourceStore {
         step_id: record.stepId,
         state: record.state,
         since: record.since,
+        namespace_identity: record.namespace
+          ? JSON.stringify(record.namespace)
+          : null,
       },
     );
   }

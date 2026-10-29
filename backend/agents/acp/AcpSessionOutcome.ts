@@ -1,5 +1,8 @@
 import { logEvent } from "@/backend/logging/Logger";
 
+import { classifyOpenCodeFailure } from "./OpenCodeAcpErrors";
+
+import type { AcpDriver } from "./AcpDriver";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { StopReason } from "@agentclientprotocol/sdk";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
@@ -79,4 +82,18 @@ export function finishAcpTurn(
     ),
     events: state.events.map((event) => redact(event)),
   };
+}
+
+/** Classifies native process diagnostics without persisting potentially sensitive stderr. */
+export function disconnectedAcpFailure(
+  driver: Pick<AcpDriver, "provider" | "errors">,
+  stderr: string,
+): AgentErrorCode {
+  if (!["opencode", "antigravity"].includes(driver.provider))
+    return driver.errors.sessionFailed;
+  const code = classifyOpenCodeFailure(stderr);
+  return driver.provider === "antigravity" &&
+    code === "opencode_acp_session_failed"
+    ? "antigravity_acp_session_failed"
+    : code;
 }

@@ -1,7 +1,7 @@
 import { cleanupPagesFiles } from "./pages.mjs";
-import { readdir, readFile, stat, rm } from "node:fs/promises";
+import { readdir, readFile, readlink, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { identity, readRecord, store } from "./journal.mjs";
+import { identity, readRecord, readOwnedLaunch, store } from "./journal.mjs";
 
 export const STOP_TERM_MILLISECONDS = 2000;
 export const STOP_KILL_MILLISECONDS = 3000;
@@ -35,94 +35,54 @@ export async function rememberOwnership(folder) {
   await store(join(folder, "ownership.json"), { ancestors });
 }
 
-async function isIndependent(record, ownership, earliestStart) {
-  if (!Array.isArray(ownership?.ancestors) || !ownership.ancestors.length)
-    return false;
-  let pid = record.parent;
-  try {
-    while (pid > 0) {
-      const parent = await processRecord(pid);
-      if (!parent.start) return false;
-      if (Number(parent.start.split(":").at(-1)) < earliestStart)
-        return !ownership.ancestors.some(
-          (ancestor) => ancestor.pid === pid && ancestor.start === parent.start,
-        );
-      pid = parent.parent;
-    }
-  } catch {
-    return false;
+async function namespaceProcesses(launch) {
+  const current = await readlink("/proc/self/ns/pid");
+  const procNamespace = await readlink("/proc/1/ns/pid");
+  if (
+    launch?.boundary !== "pid_namespace" ||
+    !/^pid:\[\d+\]$/.test(launch.parentNamespace ?? "") ||
+    !/^pid:\[\d+\]$/.test(current) ||
+    procNamespace !== current ||
+    current === launch.parentNamespace
+  )
+    throw new Error("Runner namespace ownership unavailable");
+  const ancestors = new Set();
+  let pid = process.pid;
+  while (pid > 0) {
+    ancestors.add(pid);
+    pid = (await processRecord(pid)).parent;
   }
-  return false;
-}
-
-async function ownedProcesses(marker, roots, ownership) {
-  const records = [];
+  const owned = [];
   let isUncertain = false;
   for (const entry of await readdir("/proc")) {
-    if (!/^\d+$/.test(entry)) continue;
+    if (!/^\d+$/.test(entry) || ancestors.has(Number(entry))) continue;
     try {
-      if ((await stat(`/proc/${entry}`)).uid !== process.getuid()) continue;
       const record = await processRecord(Number(entry));
-      if (!record.isAlive || !record.start) continue;
-      // Legacy journals lack a boot identity. An apparently matching live root
-      // cannot safely be signalled or counted as absent after an upgrade.
-      if (
-        roots.some(
-          (root) =>
-            root.processId === record.pid &&
-            !root.identity?.includes(":") &&
-            root.identity === record.start.split(":").at(-1),
-        )
-      )
-        isUncertain = true;
-      let isMarked = false;
-      try {
-        const environment = await readFile(`/proc/${entry}/environ`, "utf8");
-        isMarked = environment
-          .split("\0")
-          .includes(`PAGES_REMOTE_JOB=${marker}`);
-      } catch (error) {
-        if (vanished(error)) continue;
-        // Never signal an unreadable unrelated process or call this proof of absence.
-        const earliestStart = Math.min(
-          ...roots.map((root) => Number(root.identity?.split(":").at(-1))),
-        );
-        if (
-          Number(record.start.split(":").at(-1)) >= earliestStart &&
-          !(await isIndependent(record, ownership, earliestStart))
-        )
-          isUncertain = true;
-      }
-      records.push({ ...record, isMarked });
+      if (record.isAlive && record.start) owned.push(record);
     } catch (error) {
       if (!vanished(error)) isUncertain = true;
     }
   }
-  const owned = new Map();
-  for (const record of records) {
-    if (
-      record.isMarked ||
-      roots.some(
-        (root) =>
-          root.processId === record.pid && root.identity === record.start,
-      )
-    )
-      owned.set(record.pid, record);
+  return { owned, isUncertain };
+}
+
+async function settleSupervisor(folder, launch, options) {
+  if (
+    !Number.isSafeInteger(launch.processId) ||
+    typeof launch.identity !== "string" ||
+    !launch.identity.includes(":")
+  )
+    return failedCleanup(options, "process_scan_unavailable");
+  const deadline = Date.now() + STOP_TERM_MILLISECONDS + STOP_KILL_MILLISECONDS;
+  while ((await identity(launch.processId)) === launch.identity) {
+    if (Date.now() >= deadline) return failedCleanup(options, "exit_timeout");
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const record of records) {
-      if (!owned.has(record.pid) && owned.has(record.parent)) {
-        owned.set(record.pid, record);
-        grew = true;
-      }
-    }
+  if (options.removeRuntime !== false) {
+    await cleanupPagesFiles(folder);
+    await rm(join(folder, "runtime"), { recursive: true, force: true });
   }
-  return {
-    owned: [...owned.values()].filter((record) => record.pid !== process.pid),
-    isUncertain,
-  };
+  return "confirmed";
 }
 
 function failedCleanup(options, failure) {
@@ -151,10 +111,7 @@ async function signalOwned(records, signal) {
   for (const record of records) {
     if ((await identity(record.pid)) !== record.start) continue;
     try {
-      process.kill(
-        record.group === record.pid ? -record.pid : record.pid,
-        signal,
-      );
+      process.kill(record.pid, signal);
     } catch (error) {
       if (!vanished(error)) isConfirmed = false;
     }
@@ -162,32 +119,24 @@ async function signalOwned(records, signal) {
   return isConfirmed;
 }
 
-/** TERM for two seconds, then mandatory KILL for three; verifies marked/reparented children and exact roots. */
+/** Signals only processes in the owned namespace; legacy jobs remain unconfirmed. */
 export async function cleanup(folder, jobId, options = {}) {
-  const roots = [await readRecord(join(folder, "child.json"))];
-  if (options.includeWorker)
-    roots.push(await readRecord(join(folder, "launch.json")));
-  const known = roots.filter(Boolean);
-  const ownership = await readRecord(join(folder, "ownership.json"));
-  if (
-    known.some(
-      (root) =>
-        !Number.isSafeInteger(root.processId) ||
-        typeof root.identity !== "string" ||
-        !root.identity,
-    ) ||
-    (!known.length &&
-      !ownership &&
-      (await readRecord(join(folder, "claim.json"))))
-  )
+  if (typeof jobId !== "string" || !jobId)
     return failedCleanup(options, "process_scan_unavailable");
+  const isNamespace = process.env.PAGES_RUNNER_JOB_NAMESPACE === "1";
+  const launch = isNamespace
+    ? await readRecord(join(folder, "launch.json"))
+    : await readOwnedLaunch(folder);
+  if (launch?.boundary === "pid_namespace" && !isNamespace)
+    return settleSupervisor(folder, launch, options);
+  if (!isNamespace) return failedCleanup(options, "process_scan_unavailable");
   const tracked = new Map();
   let isConfirmed = true;
   const began = Date.now();
   const deadline = began + STOP_TERM_MILLISECONDS + STOP_KILL_MILLISECONDS;
   let emptySince = null;
   do {
-    const scan = await ownedProcesses(jobId, known, ownership);
+    const scan = await namespaceProcesses(launch);
 
     for (const record of scan.owned) tracked.set(record.pid, record);
     const remaining = [];

@@ -10,6 +10,7 @@ export const RUNNER_TOOL_PROVIDERS = {
   codex: "codex_cli",
   claude: "claude_code",
   opencode: "opencode",
+  antigravity: "antigravity",
 } as const;
 
 /** One command line tool a runner drives. */
@@ -33,7 +34,7 @@ export const runnerModelRouteSchema = z
     workspaceId: z.string().uuid(),
     catalogRevision: z.string().min(1).max(100),
     /** Absent selects OpenRouter; CLI routes use only the remote person's login or the host's own providers. */
-    tool: z.enum(["codex", "claude", "opencode"]).optional(),
+    tool: z.enum(["codex", "claude", "opencode", "antigravity"]).optional(),
   })
   .strict();
 export type RunnerModelRoute = z.infer<typeof runnerModelRouteSchema>;

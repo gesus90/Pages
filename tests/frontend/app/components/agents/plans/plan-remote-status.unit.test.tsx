@@ -123,8 +123,9 @@ it("separates installation, login and catalog of every tool", () => {
   expect(shown[2]).toBe(
     `${toolLine("opencode", "unknown")}${i18n.t("settings.agents.runner.openCode.update")}`,
   );
-  expect(shown[3]).toBe(i18n.t("plans.execution.catalogMissing"));
-  expect(shown).toHaveLength(5);
+  expect(shown[3]).toBe(toolLine("antigravity", "missing"));
+  expect(shown[4]).toBe(i18n.t("plans.execution.catalogMissing"));
+  expect(shown).toHaveLength(6);
 });
 
 it("names a tool that is not installed", () => {

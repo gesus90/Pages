@@ -7,6 +7,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
 
+import type { NativeAcpProviderId } from "@/definition/AgentConfiguration";
 import type { Implementation } from "@agentclientprotocol/sdk";
 import type { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
 import type { CliHome } from "@/backend/agents/cli/CliContracts";
@@ -22,6 +23,49 @@ function implementation(input: unknown): input is Implementation {
     typeof input.name === "string" &&
     typeof input.version === "string"
   );
+}
+
+function protocolProvider(tool: AgentToolDefinition): NativeAcpProviderId {
+  if (tool.id === "antigravity_acp") return "antigravity";
+  return tool.id === "claude_acp" ? "claude_code" : "codex_cli";
+}
+
+function protocolArguments(
+  tool: AgentToolDefinition,
+  file: string,
+): readonly string[] {
+  if (tool.id === "antigravity_acp") return ["--uid="];
+  return tool.id === "pages_mcp" ? [file, "health-check"] : [];
+}
+
+function protocolFile(tool: AgentToolDefinition, file: string): string {
+  return tool.id === "pages_mcp" ? process.execPath : file;
+}
+
+function isolatedArguments(
+  home: CliHome,
+  file: string,
+  args: readonly string[],
+): readonly string[] {
+  return [
+    "--die-with-parent",
+    "--unshare-pid",
+    "--ro-bind",
+    "/",
+    "/",
+    "--proc",
+    "/proc",
+    "--dev",
+    "/dev",
+    "--bind",
+    home.root,
+    home.root,
+    "--chdir",
+    home.work,
+    "--",
+    file,
+    ...args,
+  ];
 }
 
 /** A bounded model-free protocol exchange through the existing session process. */
@@ -44,10 +88,13 @@ export class AgentToolProtocolProbe {
     const instanceId = randomUUID();
     let receive: (line: string) => void = () => undefined;
     const scope = await readSpawnScope();
+    const file = protocolFile(tool, input.file);
+    const args = protocolArguments(tool, input.file);
     const child = this.runner.startSession({
-      file: tool.id === "pages_mcp" ? process.execPath : input.file,
-      arguments: tool.id === "pages_mcp" ? [input.file, "health-check"] : [],
-      provider: tool.id === "claude_acp" ? "claude_code" : "codex_cli",
+      file: "/usr/bin/bwrap",
+      toolFile: file,
+      arguments: isolatedArguments(input.home, file, args),
+      provider: protocolProvider(tool),
       home: input.home,
       workingDirectory: input.home.work,
       environment: {
@@ -114,7 +161,7 @@ export class AgentToolProtocolProbe {
       child.cancel("login_cancelled");
       let isConfirmed = false;
       try {
-        isConfirmed = (await closeCliSession(child, instanceId, scope))
+        isConfirmed = (await closeCliSession(child, instanceId, scope, true))
           .isConfirmed;
       } catch (error: unknown) {
         logCaughtError("AgentToolProtocolProbe", error);
@@ -150,7 +197,7 @@ export class AgentToolProtocolProbe {
   ): string | null {
     if (!record(result)) return null;
     if (tool.probe === "acp") {
-      const provider = tool.id === "claude_acp" ? "claude_code" : "codex_cli";
+      const provider = protocolProvider(tool);
       return implementation(result.agentInfo) &&
         acpDriverFor(provider).isSupportedAdapter(result.agentInfo) &&
         result.protocolVersion === 1

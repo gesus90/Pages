@@ -7,6 +7,7 @@ export const AGENT_TOOL_IDS = [
   "opencode",
   "codex_acp",
   "claude_acp",
+  "antigravity_acp",
   "pages_mcp",
   "playwright_mcp",
   "chromium",

@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
 import { readAgentObject } from "./AgentPayload";
 import { readCompletionGate } from "./AgentPlanWorkInput";
@@ -27,6 +28,7 @@ const RUNNERS: readonly AgentPlanRunner[] = [
   "codex_cli",
   "claude_code",
   "opencode",
+  "antigravity",
   "api",
 ];
 const MODES: readonly AgentPlanSessionMode[] = [
@@ -230,6 +232,7 @@ function readGroupLink(input: unknown): AgentPlanGroupSessionLink {
       "codex_cli",
       "claude_code",
       "opencode",
+      "antigravity",
     ] as const),
     role: oneOf(link.role, ["created", "continued"] as const),
     creatorStepId: text(link.creatorStepId, 100),
@@ -285,6 +288,30 @@ function readRetryMetadata(
   };
 }
 
+function readContainment(
+  record: Record<string, unknown>,
+): Pick<AgentPlanSessionRecord, "containment"> {
+  if (
+    record.containment === "pid_namespace" &&
+    oneOf(record.runner, RUNNERS) !== "api" &&
+    record.closeout === "confirmed"
+  )
+    return { containment: "pid_namespace" };
+  return {};
+}
+
+function readSupervisor(
+  record: Record<string, unknown>,
+): Pick<AgentPlanSessionRecord, "namespace"> {
+  if (record.namespace === undefined) return {};
+  if (oneOf(record.runner, RUNNERS) === "api") throw invalid();
+  try {
+    return { namespace: readOwnedNamespace(record.namespace) };
+  } catch {
+    throw invalid();
+  }
+}
+
 /**
  * Narrows the persisted record of an agent node; older runs have none.
  *
@@ -324,11 +351,13 @@ export function readPlanSessionRecord(
         }),
     sessionId: nullableText(record.sessionId),
     processId: nullableNumber(record.processId),
+    ...readSupervisor(record),
     startedAt: nullableText(record.startedAt),
     turnEndedAt: nullableText(record.turnEndedAt),
     endedAt: nullableText(record.endedAt),
     exit: readExit(record.exit),
     closeout: oneOf(record.closeout, CLOSEOUTS),
+    ...readContainment(record),
     leftoverProcesses: nullableNumber(record.leftoverProcesses),
     resultCode,
     requested: readRequested(record.requested),

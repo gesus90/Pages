@@ -10,6 +10,7 @@ import type {
   ClientConnection,
   SessionConfigOption,
 } from "@agentclientprotocol/sdk";
+import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type { AcpConfigStep, AcpDriverErrors } from "./AcpDriver";
 import type { AcpSessionState } from "./AcpEvents";
 
@@ -93,7 +94,11 @@ async function select(
       selection,
       `is not among ${option.values.join(", ")}`,
     );
-  if (!isResolved && option.currentValue === selection.value)
+  if (
+    !isResolved &&
+    !selection.isExplicit &&
+    option.currentValue === selection.value
+  )
     return selection.options;
   const options = await setOption(target, selection);
   const confirmed = findAcpSelectOption(options, selection.id);
@@ -132,5 +137,31 @@ export async function confirmAcpConfiguration(
   let options = initial;
   for (const step of steps)
     options = await select(target, { ...step, options });
+  for (const step of steps) {
+    if (step.isResolvedByAdapter) continue;
+    const confirmed = findAcpSelectOption(options, step.id);
+    if (confirmed === null && step.isOptional) continue;
+    if (confirmed?.currentValue !== step.value)
+      throw refused(
+        target,
+        { ...step, options },
+        "changed after another selector was applied",
+      );
+  }
   return options;
+}
+
+/** Detects runtime selector drift before another prompt or a successful result. */
+export function hasAcpConfigurationChanged(
+  provider: AcpProviderId,
+  expected: Readonly<Record<string, string>> | null,
+  state: AcpSessionState,
+): boolean {
+  if (provider === "claude_code" || expected === null) return false;
+  const conflict = ["sessionMode", "model", "reasoningEffort"].find(
+    (field) => expected[field] !== state.effective[field],
+  );
+  if (!conflict) return false;
+  noteSessionEvent(state.events, `runtime configuration changed: ${conflict}`);
+  return true;
 }

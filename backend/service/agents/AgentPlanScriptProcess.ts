@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { Writable } from "node:stream";
 
-import { readSpawnScope } from "@/backend/agents/cli/CliProcessScan";
+import { captureOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
 
 import { AgentPlanScriptCapture } from "./AgentPlanScriptCapture";
-import { closeScriptProcesses } from "./AgentPlanScriptProcessGroup";
 import { scriptEnvironment } from "./AgentPlanScriptResources";
 
 import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
@@ -25,15 +25,34 @@ export interface ScriptProcessRequest {
 export async function executeScriptProcess(
   request: ScriptProcessRequest,
 ): Promise<AgentPlanScriptRun> {
-  const scope = await readSpawnScope();
   request.signal.throwIfAborted();
   request.claimStart();
   const previousMask = process.umask(0o077);
   let child: ReturnType<typeof spawn>;
   try {
     child = spawn(
-      request.program,
-      [path.join(request.resources, "script.cjs")],
+      "/usr/bin/bwrap",
+      [
+        "--die-with-parent",
+        "--unshare-pid",
+        "--new-session",
+        "--bind",
+        "/",
+        "/",
+        "--proc",
+        "/proc",
+        "--dev",
+        "/dev",
+        "--chdir",
+        request.record.directory,
+        "--",
+        "/bin/sh",
+        "-c",
+        'IFS= read -r launch <&3 && [ "$launch" = go ] || exit 125; exec "$@"',
+        "pages-script-launch",
+        request.program,
+        path.join(request.resources, "script.cjs"),
+      ],
       {
         cwd: request.record.directory,
         shell: false,
@@ -43,25 +62,22 @@ export async function executeScriptProcess(
           interpreter: request.program,
           instanceId: request.record.instanceId,
         }),
-        stdio: ["pipe", "pipe", "pipe"],
+        stdio: ["pipe", "pipe", "pipe", "pipe"],
       },
     );
   } finally {
     process.umask(previousMask);
   }
-  return await collectProcess(request, { child, scope });
+  return await collectProcess(request, child);
 }
 
 async function collectProcess(
   request: ScriptProcessRequest,
-  processContext: {
-    readonly child: ReturnType<typeof spawn>;
-    readonly scope: Awaited<ReturnType<typeof readSpawnScope>>;
-  },
+  child: ReturnType<typeof spawn>,
 ): Promise<AgentPlanScriptRun> {
-  const { child, scope } = processContext;
   const capture = new AgentPlanScriptCapture(child);
-  const record = { ...request.record, processId: child.pid ?? null };
+  child.stdio[3]?.on("error", () => capture.interrupt("io"));
+  let record = { ...request.record, processId: child.pid ?? null };
   const abort = (): void => capture.interrupt("cancelled");
   request.signal.addEventListener("abort", abort, { once: true });
   if (request.signal.aborted) abort();
@@ -70,7 +86,14 @@ async function collectProcess(
     request.timeoutSeconds * 1000,
   );
   try {
+    if (!child.pid) throw new Error("Script supervisor was not started");
+    const namespace = await captureOwnedNamespace(child.pid);
+    record = { ...record, namespace };
     await request.save(record);
+    const release = child.stdio[3];
+    if (!(release instanceof Writable))
+      throw new Error("Script release unavailable");
+    release.end("go\n");
     child.stdin?.end(request.input, "utf8");
     await capture.wait();
   } catch {
@@ -81,12 +104,16 @@ async function collectProcess(
   }
   let isConfirmed = false;
   try {
-    const areProcessesClosed = await closeScriptProcesses({
-      processId: child.pid,
-      instanceId: record.instanceId,
-      scope,
-    });
-    isConfirmed = (await capture.confirmClosed()) && areProcessesClosed;
+    if (!capture.isExited) child.kill("SIGTERM");
+    const escalation = setTimeout(() => {
+      if (!capture.isExited) child.kill("SIGKILL");
+    }, 2000);
+    try {
+      isConfirmed =
+        (await capture.confirmClosed()) && record.namespace !== undefined;
+    } finally {
+      clearTimeout(escalation);
+    }
   } catch {
     isConfirmed = false;
   } finally {

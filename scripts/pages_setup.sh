@@ -16,6 +16,7 @@ saved_terminal=''
 runner_temporary=''
 execution_temporary=''
 unit_temporary=''
+antigravity_release_temporary=''
 service_plan=process
 service_plan_reason=''
 supervisor_target=''
@@ -40,6 +41,7 @@ cleanup() {
   local status=$?
   [[ -z "$saved_terminal" ]] || stty "$saved_terminal" 2>/dev/null || true
   rm -f -- "$runner_temporary" "$execution_temporary" "$unit_temporary"
+  [[ -z "$antigravity_release_temporary" ]] || rm -rf -- "$antigravity_release_temporary"
   if (( status != 0 && status != EXIT_STOPPED )); then progress "$current_phase" failed || true; fi
 }
 trap cleanup EXIT
@@ -215,7 +217,7 @@ show_service_manager
 plan_service
 show_service_plan
 packages=()
-for package in ca-certificates git openssh-client util-linux; do
+for package in ca-certificates curl git openssh-client unzip util-linux bubblewrap; do
   if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -qx 'install ok installed'; then
     packages+=("$package")
   fi
@@ -239,10 +241,16 @@ else
   (( $(node_major) >= 22 )) || fail 'Node.js >=22 ist nach der Installation nicht verfügbar.'
   command -v npm >/dev/null || fail 'npm ist nach der Installation nicht verfügbar.'
 fi
+# Every runner job starts in its own PID namespace; where it cannot be created, Pages refuses the job.
+if /usr/bin/bwrap --ro-bind / / --unshare-pid --proc /proc -- "$(command -v node)" -e '' 2>/dev/null; then
+  printf 'Prozess-Namensraum (bubblewrap) verfügbar.\n'
+else
+  printf 'WARNUNG: Auf diesem Host kann kein Prozess-Namensraum erzeugt werden (bubblewrap/unprivilegierte Namensräume). Der Runner lehnt Aufträge dann mit cli_isolation_unavailable ab.\n' >&2
+fi
 phase_done
 
 # ---------------------------------------------------------------- 3
-phase 3 'Codex, Claude Code und OpenCode auswählen und installieren'
+phase 3 'Codex, Claude Code, OpenCode und Antigravity auswählen und installieren'
 export PATH="$tools_directory/bin:$PATH"
 selected_tools=()
 select_tool() {
@@ -257,6 +265,38 @@ select_tool() {
 select_tool 'Codex' codex '@openai/codex'
 select_tool 'Claude Code' claude '@anthropic-ai/claude-code'
 select_tool 'OpenCode' opencode 'opencode-ai'
+install_antigravity() {
+  if command -v agy_acp_server.par >/dev/null; then
+    printf 'Antigravity ACP vorhanden. Installation und Anmeldung bleiben erhalten; der Runner prüft Identität und Version.\n'
+    return 0
+  fi
+  printf 'Optional: offizieller Antigravity ACP-Adapter 1.4.4 samt localharness, mit Registry-SHA-256; keine Anmeldung.\n'
+  confirm 'Antigravity ACP 1.4.4 installieren?' || return 0
+  local command architecture archive checksum release
+  for command in curl sha256sum unzip; do command -v "$command" >/dev/null || fail "Antigravity benötigt $command auf diesem Host."; done
+  architecture=$(uname -m)
+  case "$architecture" in
+    x86_64) archive=agy-acp-server-1.4.4-linux-x86_64.zip; checksum=baf31b7a97602dee359cf2a43f72b6e11c6bf354be874987d80660cd3526bb6a ;;
+    aarch64|arm64) archive=agy-acp-server-1.4.4-linux-arm64.zip; checksum=b0273227c07cfa1ea5c1d9ff869b64c5b2b39b98862081fcd4c597ec316e0c57 ;;
+    *) fail 'Antigravity ACP: nicht unterstützte Architektur.' ;;
+  esac
+  umask 077
+  mkdir -p "$tools_directory/bin" "$tools_directory/antigravity-acp"
+  release="$tools_directory/antigravity-acp/1.4.4"
+  [[ ! -e "$release" ]] || fail 'Die Antigravity-Version existiert bereits. Bestehende Installation wird nicht überschrieben.'
+  antigravity_release_temporary=$(mktemp -d "$tools_directory/antigravity-acp/.install.XXXXXX")
+  curl --fail --location --proto '=https' --tlsv1.2 --max-time 180 --max-filesize 524288000 --output "$antigravity_release_temporary/adapter.zip" "https://dl.google.com/agy-extensions/releases/linux/$archive"
+  printf '%s  %s\n' "$checksum" "$antigravity_release_temporary/adapter.zip" | sha256sum --check --status || fail 'Antigravity: Integritätsprüfung fehlgeschlagen.'
+  unzip -j "$antigravity_release_temporary/adapter.zip" agy_acp_server.par localharness_external -d "$antigravity_release_temporary"
+  chmod 700 "$antigravity_release_temporary/agy_acp_server.par" "$antigravity_release_temporary/localharness_external"
+  rm -- "$antigravity_release_temporary/adapter.zip"
+  mv -- "$antigravity_release_temporary" "$release"
+  antigravity_release_temporary=''
+  ln -s "$release/agy_acp_server.par" "$tools_directory/bin/agy_acp_server.par"
+  ln -s "$release/localharness_external" "$tools_directory/bin/localharness_external"
+}
+install_antigravity
+
 if (( ${#selected_tools[@]} > 0 )); then
   for package in "${selected_tools[@]}"; do
     printf 'Geplant: npm install --global --prefix %q %q\n' "$tools_directory" "$package"
@@ -276,6 +316,7 @@ printf 'Die Anmeldung führt das Werkzeug selbst aus; dieses Skript sieht und sp
 printf 'Codex: auf diesem Host selbst „codex login --device-auth“ ausführen.\n'
 printf 'Claude Code: auf diesem Host selbst „claude auth login“ ausführen.\n'
 printf 'OpenCode: auf diesem Host selbst „opencode auth login“ ausführen.\n'
+printf 'Antigravity: eigener ACP-Kontext unter ~/.pages-antigravity; eine agy-Anmeldung allein gilt nicht als ACP-Anmeldung. Anmeldung nur über den offiziellen oauth-personal-Flow, keine Tokenkopie.\n'
 printf 'Pages startet keine CLI-Anmeldung und überträgt keine CLI-Zugangsdaten. Danach in Einstellungen → Agents das Inventar aktualisieren.\n'
 printf 'Provider-Schlüssel (zum Beispiel OpenRouter) hinterlegen Sie später in Pages; sie gehen verschlüsselt über den Runner-Kanal.\n'
 phase_done
@@ -380,6 +421,12 @@ cat > "$asset_return_temporary" <<'ASSETRETURN'
 __PAGES_RUNNER_ASSET_RETURN__
 ASSETRETURN
 mv -f -- "$asset_return_temporary" "$runner_directory/asset-return.mjs"
+antigravity_temporary=$(mktemp "$runner_directory/.antigravity.XXXXXX")
+cat > "$antigravity_temporary" <<'ANTIGRAVITY'
+__PAGES_RUNNER_ANTIGRAVITY__
+ANTIGRAVITY
+mv -f -- "$antigravity_temporary" "$runner_directory/antigravity.mjs"
+
 opencode_temporary=$(mktemp "$runner_directory/.opencode.XXXXXX")
 cat > "$opencode_temporary" <<'OPENCODE'
 __PAGES_RUNNER_OPENCODE__

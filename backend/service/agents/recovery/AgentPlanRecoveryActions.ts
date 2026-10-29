@@ -4,6 +4,7 @@ import {
   endTaggedProcesses,
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
+import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
@@ -14,7 +15,10 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { checkSessionProcesses } from "../AgentPlanRecovery";
 import { cleanupScanFailure } from "../AgentPlanCleanupFailure";
 import { prepareRecoveredPlan } from "../AgentPlanContinuation";
-import { closeRecoveryScripts } from "./AgentPlanRecoveryScripts";
+import {
+  closeRecoveryScripts,
+  closeRecoverySessions,
+} from "./AgentPlanRecoveryScripts";
 import {
   planResume,
   releaseOption,
@@ -145,8 +149,8 @@ function frozenNodes(snapshot: AgentPlanSnapshot): {
  * executor and the run's recovery revision, idempotent by its key and
  * journaled in the transaction that creates the new run. The earlier run
  * is never reopened or rewritten. Nothing starts while a process of the
- * earlier run may still be alive: ownership is the run's own instance tags
- * and worker units, never a process ID.
+ * earlier run may still be alive: ownership uses a stored namespace supervisor
+ * and, where present, its server-owned worker unit.
  */
 export class AgentPlanRecoveryActions {
   private readonly dependencies: RecoveryActionDependencies;
@@ -352,9 +356,8 @@ export class AgentPlanRecoveryActions {
    * Proves that no process of the run is left before anything starts again.
    *
    * @remarks
-   * Every session and script whose end was not confirmed is ended by its own
-   * tag and unit. Only when none is left are the run's working copies and
-   * ACP leases released; otherwise nothing changes.
+   * Every unconfirmed session and script must have a settled owned boundary.
+   * Only then are working copies and ACP leases released.
    */
   private async settleCleanup(
     facts: RecoveryFacts,
@@ -369,7 +372,9 @@ export class AgentPlanRecoveryActions {
       },
     );
     await this.endLocalProcesses(run, scope);
-    const checked = await closeRecoveryScripts(run);
+    const checked = await closeRecoverySessions(
+      await closeRecoveryScripts(run),
+    );
     const processes = await checkSessionProcesses(checked);
     if (!processes.confirmed)
       throw new AgentPlanRecoveryError(
@@ -414,15 +419,22 @@ export class AgentPlanRecoveryActions {
       const instanceId = step.session?.instanceId;
       const closeout = step.session?.closeout;
       if (instanceId === undefined || closeout === "confirmed") continue;
-      const cleanup = await endTaggedProcesses(instanceId, scope).catch(
-        (caughtError: unknown) => {
-          logCaughtError("AgentPlanRecoveryActions", caughtError);
-          throw new AgentPlanRecoveryError(
-            "cleanup_unconfirmed",
-            cleanupScanFailure(step.id, "local_session", caughtError),
-          );
-        },
-      );
+      const session = step.session;
+      const cleanup = await (
+        session && session.runner !== "api" && session.namespace
+          ? settleOwnedNamespace(session.namespace, instanceId).then(
+              (ended) => ({
+                remaining: ended ? 0 : 1,
+              }),
+            )
+          : endTaggedProcesses(instanceId, scope)
+      ).catch((caughtError: unknown) => {
+        logCaughtError("AgentPlanRecoveryActions", caughtError);
+        throw new AgentPlanRecoveryError(
+          "cleanup_unconfirmed",
+          cleanupScanFailure(step.id, "local_session", caughtError),
+        );
+      });
       if (cleanup.remaining > 0)
         throw new AgentPlanRecoveryError("cleanup_unconfirmed", {
           stepId: step.id,

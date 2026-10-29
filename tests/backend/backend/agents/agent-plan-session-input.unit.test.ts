@@ -111,6 +111,43 @@ it("reads no record for older steps", () => {
   expect(readPlanSessionRecord(undefined)).toBeNull();
 });
 
+it("reads a persisted Antigravity session and group continuation", () => {
+  const record = readPlanSessionRecord(
+    sessionRecord({
+      runner: "antigravity",
+      mode: "interactive",
+      requested: { ...REQUESTED, runner: "antigravity" },
+      group: {
+        groupId: "group",
+        adapter: "antigravity",
+        role: "continued",
+        creatorStepId: "step",
+        turn: 2,
+        acpSessionId: "session",
+        nativeSessionId: null,
+      },
+    }),
+  );
+  expect(record?.runner).toBe("antigravity");
+  expect(record?.requested.runner).toBe("antigravity");
+  expect(record?.group?.adapter).toBe("antigravity");
+});
+
+it("retains PID namespace evidence only for a confirmed CLI closeout", () => {
+  const confirmed = sessionRecord({
+    runner: "antigravity",
+    closeout: "confirmed",
+    containment: "pid_namespace",
+  });
+  expect(readPlanSessionRecord(confirmed)?.containment).toBe("pid_namespace");
+  expect(
+    readPlanSessionRecord({ ...confirmed, closeout: "failed" })?.containment,
+  ).toBeUndefined();
+  expect(
+    readPlanSessionRecord({ ...confirmed, runner: "api" })?.containment,
+  ).toBeUndefined();
+});
+
 it("reads a minimal record with empty optional parts", () => {
   expect(
     readPlanSessionRecord(

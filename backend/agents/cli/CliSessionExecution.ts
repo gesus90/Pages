@@ -1,5 +1,9 @@
 import { agentPlaywrightServer } from "@/backend/service/agents/tools/AgentPlaywrightSession";
 import {
+  AgentToolPreflightError,
+  AgentToolReadinessError,
+} from "@/backend/service/agents/tools/AgentToolReadinessError";
+import {
   pinnedAgentToolDriver,
   agentToolAdapterVersion,
   prepareAgentToolSession,
@@ -9,6 +13,7 @@ import {
 import { providerToolIds } from "@/backend/service/agents/tools/AgentToolRegistry";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
+import { connectChild } from "./CliSessionChannel";
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -32,8 +37,10 @@ import {
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { createCliEnvironment } from "./CliEnvironment";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
-import { closeCliSession } from "./CliSessionCloseout";
-import { sessionRunOptionError } from "./CliSessionPlans";
+import { cleanupAcpStart } from "./CliAcpStartCleanup";
+import { captureOwnedNamespace } from "./CliOwnedNamespace";
+import { createAcpRedactor } from "./CliAcpRedaction";
+import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AgentToolId } from "@/definition/AgentTools";
@@ -46,6 +53,7 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
+import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
 import type { AcpSessionRequest } from "@/backend/agents/acp/AcpSession";
 import type {
@@ -108,6 +116,17 @@ interface VerifiedStart {
   readonly adapterVersion?: string | null;
   readonly credentials?: CliCredentialAccess;
   readonly browser?: Awaited<ReturnType<typeof agentPlaywrightServer>>;
+}
+
+function requireAdapter(adapter: string | null, driver: AcpDriver): string {
+  if (adapter === null) throw new AgentError(driver.errors.adapterMissing);
+  return adapter;
+}
+
+function mcpReadOnlyFiles(
+  mcp: AgentPlanSessionInput["mcp"],
+): readonly string[] {
+  return mcp ? [mcp.bundle] : [];
 }
 
 /** The stop signal and the observer of one session start. */
@@ -205,6 +224,10 @@ export class CliSessionExecution implements PlanSessionRunner {
           manager: tools,
           request: input,
           signal,
+        }).catch((error: unknown) => {
+          if (error instanceof AgentToolReadinessError)
+            throw new AgentToolPreflightError(error);
+          throw error;
         })
       : undefined;
     let hasVerified = false;
@@ -362,47 +385,31 @@ export class CliSessionExecution implements PlanSessionRunner {
     const mode = input.options.access;
     if (!isAcpPermissionMode(mode))
       throw new AgentError(driver.errors.modeRequired);
-    if (start.adapter === null)
-      throw new AgentError(driver.errors.adapterMissing);
+    const adapter = requireAdapter(start.adapter, driver);
     const purpose = input.chat ? "chat" : "plan";
     const profile = driver.profile(mode, purpose);
-    const launch = driver.plan({
-      instanceId: input.instanceId,
-      runnerFile: start.file,
-      profile,
-      mcp: input.mcp,
-      purpose,
-      model: {
-        model: input.agent.model,
-        reasoningEffort: input.agent.reasoningEffort,
-      },
-    });
+    const launch = planAcpLaunch(driver, input, start.file, profile);
     const channel = new AcpLineChannel();
     channel.enableAcknowledgement();
     const github = await this.prepareGitHub(input, start, mode);
-    const redact = (text: string): string => {
-      const withoutKey = start.credentials?.redact(text) ?? text;
-      let masked = github?.redact(withoutKey) ?? withoutKey;
-      for (const secret of [
-        input.mcp?.token,
-        launch.environment.OPENCODE_SERVER_PASSWORD,
-      ]) {
-        if (secret) masked = masked.replaceAll(secret, "[redacted]");
-      }
-      return masked;
-    };
+    const redact = createAcpRedactor({
+      credentials: start.credentials,
+      github,
+      tokens: [input.mcp?.token, launch.environment.OPENCODE_SERVER_PASSWORD],
+    });
     let child: CliSessionProcess | null = null;
     let limited: LimitedRequest | null = null;
+    let isPidNamespace = false;
     try {
       const { request, isIsolated } = await this.isolate({
-        file: start.adapter,
+        file: adapter,
         provider: start.provider,
         home: start.home,
         arguments: driver.arguments ?? [],
         workingDirectory: input.directory,
         isWorkingDirectoryReadOnly: mode === "read_only",
         credentialDirectory: github?.directory,
-        readOnlyFiles: input.mcp ? [input.mcp.bundle] : [],
+        readOnlyFiles: mcpReadOnlyFiles(input.mcp),
         environment: {
           ...launch.environment,
           ...start.credentials?.environmentFor(
@@ -415,14 +422,23 @@ export class CliSessionExecution implements PlanSessionRunner {
         onLine: (line) => channel.receive(redact(line)),
       });
       requireAcpIsolation(isIsolated, mode, input);
+      isPidNamespace = isIsolated;
       limited = await this.limit(request, input);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
       child = this.dependencies.runner.startSession(limited.request);
+      const namespace = await this.registerNamespace(
+        input,
+        child,
+        limited,
+        isPidNamespace,
+      );
+      await recordGitHubNamespace(github, namespace);
       connectChild(child, channel, {
         observer: control.observer,
         arguments: limited.request.arguments,
         unattended: profile.unattended,
         signal: control.signal,
+        namespace,
       });
       return new AcpSession(child, channel.stream, {
         instanceId: input.instanceId,
@@ -437,6 +453,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         observer: control.observer,
         signal: control.signal,
         isolation: `${isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
+        isPidNamespace,
         github: github?.status,
         redact,
         secure: () => this.secureAcp(input, start, github),
@@ -446,43 +463,31 @@ export class CliSessionExecution implements PlanSessionRunner {
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
 
-      await this.cleanupAcpStart(child, input.instanceId, github, limited);
+      await cleanupAcpStart(child, {
+        instanceId: input.instanceId,
+        github,
+        limited,
+        isPidNamespace,
+      });
       throw error;
     }
   }
 
-  private async cleanupAcpStart(
-    child: CliSessionProcess | null,
-    instanceId: string,
-    github: CliGitHubAccess | null,
-    limited: LimitedRequest | null,
-  ): Promise<void> {
-    // A unit that never got its process still has an environment file to remove.
-    if (child === null) await limited?.request.unit?.settle();
-    const isConfirmed =
-      child === null || (await this.closeFailedAcp(child, instanceId));
-    try {
-      await github?.cleanup();
-    } catch (caughtError: unknown) {
-      logCaughtError("CliSessionExecution", caughtError);
-
-      if (isConfirmed) throw new AgentError("credential_cleanup_failed");
-    }
-    if (!isConfirmed) throw new AcpCleanupUnconfirmedError();
-  }
-
-  private async closeFailedAcp(
+  private async registerNamespace(
+    input: AgentPlanSessionInput,
     child: CliSessionProcess,
-    instanceId: string,
-  ): Promise<boolean> {
-    try {
-      child.cancel("login_cancelled");
-      return (await closeCliSession(child, instanceId)).isConfirmed;
-    } catch (caughtError: unknown) {
-      logCaughtError("CliSessionExecution", caughtError);
-
-      return false;
-    }
+    limited: LimitedRequest,
+    isPidNamespace: boolean,
+  ): Promise<AcpNamespaceOwner | undefined> {
+    const resources = this.dependencies.resources;
+    if (!resources || !isPidNamespace) return undefined;
+    if (!child.processId) throw new AcpCleanupUnconfirmedError();
+    const identity = await captureOwnedNamespace(child.processId);
+    const namespace = limited.request.unit
+      ? { ...identity, unit: limited.request.unit.name }
+      : identity;
+    await resources.registerNamespace(input.instanceId, namespace);
+    return namespace;
   }
 
   private async prepareGitHub(
@@ -593,31 +598,29 @@ export class CliSessionExecution implements PlanSessionRunner {
   }
 }
 
-/** Lets the session talk to its started adapter and reports the start. */
-function connectChild(
-  child: CliSessionProcess,
-  channel: AcpLineChannel,
-  start: {
-    readonly observer: PlanSessionObserver;
-    readonly arguments: readonly string[];
-    readonly unattended: string;
-    readonly signal: AbortSignal;
-  },
-): void {
-  channel.attach((line) => child.writeAsync(line));
-  const close = (): void => channel.close();
-  start.signal.addEventListener("abort", close, { once: true });
-  if (start.signal.aborted) close();
-  void child.exited.then(() => {
-    start.signal.removeEventListener("abort", close);
-    channel.close();
-  });
-  start.observer.started({
-    mode: "interactive",
-    processId: child.processId,
-    startedAt: new Date().toISOString(),
-    arguments: start.arguments,
-    unattended: start.unattended,
+async function recordGitHubNamespace(
+  github: CliGitHubAccess | null,
+  namespace: AcpNamespaceOwner | undefined,
+): Promise<void> {
+  if (github && namespace) await github.recordNamespace(namespace);
+}
+
+function planAcpLaunch(
+  driver: AcpDriver,
+  input: AgentPlanSessionInput,
+  file: string,
+  profile: ReturnType<AcpDriver["profile"]>,
+): AcpLaunch {
+  return driver.plan({
+    instanceId: input.instanceId,
+    runnerFile: file,
+    profile,
+    mcp: input.mcp,
+    purpose: input.chat ? "chat" : "plan",
+    model: {
+      model: input.agent.model,
+      reasoningEffort: input.agent.reasoningEffort,
+    },
   });
 }
 
@@ -648,18 +651,6 @@ function acpSessionRequest(
     resumeSessionId:
       input.chat?.resumeSessionId ?? input.resumeSessionId ?? null,
   };
-}
-
-/** OpenCode, YOLO and Pica's conversations start only inside the namespace. */
-function requireAcpIsolation(
-  isIsolated: boolean,
-  mode: AcpPermissionMode,
-  input: AgentPlanSessionInput,
-): void {
-  if (isIsolated) return;
-  if (input.chat || input.agent.connection.provider === "opencode")
-    throw new AgentError("cli_isolation_unavailable");
-  if (mode === "yolo") throw new AgentError("plan_yolo_isolation_unavailable");
 }
 
 function isolationLabel(

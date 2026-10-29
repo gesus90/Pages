@@ -1,6 +1,8 @@
+import { constants } from "node:fs";
 import {
   chmod,
   mkdtemp,
+  open,
   readdir,
   realpath,
   rm,
@@ -14,10 +16,13 @@ import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { quoteCliArgument } from "./CliEnvironment";
 import { endTaggedProcesses, readScopeSince } from "./CliProcessScan";
+import { settleOwnedNamespace } from "./CliOwnedNamespace";
+import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
 import type { TaggedProcessScope } from "./CliProcessScan";
 import type { AgentPlanGitHubAccess } from "@/backend/service/agents/AgentPlanGitHubCredentials";
 import type { AcpCredentialLeftover } from "@/definition/AcpResource";
+import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 
 const INSTANCE_PATTERN = /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/iu;
 const CREDENTIAL_DIRECTORY_PATTERN = /^acp-github-([a-f\d-]{36})-[a-z\d]{6}$/iu;
@@ -30,6 +35,8 @@ export interface CliGitHubAccess {
   readonly status: string;
   /** Masks the exact credential and common Git/HTTP encodings before they leave ACP. */
   readonly redact: (text: string) => string;
+  /** Persists server-owned namespace evidence before the adapter receives a turn. */
+  readonly recordNamespace: (owner: AcpNamespaceOwner) => Promise<void>;
   readonly cleanup: () => Promise<void>;
 }
 
@@ -97,13 +104,10 @@ function redactor(token: string): (text: string) => string {
 }
 
 /**
- * The scan scope from the creation of a directory, or null when it rules nothing out.
+ * The legacy time bound from directory creation, or null when unavailable.
  *
  * @remarks
- * Without a recorded creation, the last status change, which follows it, only
- * helps when it precedes the last boot. Otherwise the scan stays unbounded, so
- * an unreadable process of this account leaves the cleanup unconfirmed
- * instead of being skipped.
+ * This bound does not establish process ownership or authorize a cleanup.
  */
 async function creationScope(
   directory: string,
@@ -113,6 +117,35 @@ async function creationScope(
     return readScopeSince(new Date(birthtimeMs).toISOString());
   const scope = await readScopeSince(new Date(ctimeMs).toISOString());
   return scope.earliestStart === Number.POSITIVE_INFINITY ? scope : null;
+}
+
+async function openNamespaceMarker(
+  directory: string,
+): Promise<AcpNamespaceOwner | null> {
+  let file;
+  try {
+    file = await open(
+      path.join(directory, "namespace.json"),
+      constants.O_RDONLY | constants.O_NOFOLLOW,
+    );
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return null;
+    throw error;
+  }
+  try {
+    const metadata = await file.stat();
+    if (
+      !metadata.isFile() ||
+      metadata.uid !== process.getuid?.() ||
+      (metadata.mode & 0o077) !== 0 ||
+      metadata.size > 1024
+    )
+      throw new Error("Invalid namespace marker");
+    return readOwnedNamespace(JSON.parse(await file.readFile("utf8")));
+  } finally {
+    await file.close();
+  }
 }
 
 /** Creates per-session credentials under a protected instance folder, outside every connection HOME. */
@@ -151,16 +184,13 @@ export class CliGitHubCredentials {
   }
 
   /**
-   * Removes crash leftovers at server startup, after ending every process tagged with their session.
+   * Removes crash leftovers only after their recorded namespace has ended.
    *
    * @returns The leftovers whose cleanup stayed unconfirmed; they remain for the next start.
    *
    * @remarks
-   * The creation of a leftover directory precedes the runner of its session,
-   * so it bounds the scan: unreadable processes of this account that started
-   * earlier, such as its service manager, cannot carry the tag. Each leftover
-   * is handled on its own: a failure is logged and keeps only that directory,
-   * it never aborts the startup or the cleanup of the others.
+   * Legacy leftovers without a recorded namespace stay unconfirmed. Each
+   * leftover is handled independently so one failure does not abort startup.
    */
   public async recover(): Promise<readonly AcpCredentialLeftover[]> {
     const root = await realpath(this.root);
@@ -218,6 +248,19 @@ export class CliGitHubCredentials {
           ? "GitHub CLI not installed"
           : access.reason,
       redact: (text) => text,
+      recordNamespace: async (owner) => {
+        const file = await open(
+          path.join(directory, "namespace.json"),
+          "wx",
+          0o600,
+        );
+        try {
+          await file.writeFile(JSON.stringify(readOwnedNamespace(owner)));
+          await file.sync();
+        } finally {
+          await file.close();
+        }
+      },
       cleanup: () => this.remove(directory),
     };
     if (access.status !== "available" || gh === null) return result;
@@ -265,10 +308,12 @@ export class CliGitHubCredentials {
   ): Promise<AcpCredentialLeftover | null> {
     const directory = path.join(root, name);
     try {
-      const cleanup = await endTaggedProcesses(
-        instanceId,
-        await creationScope(directory),
-      );
+      const marker = await openNamespaceMarker(directory);
+      const cleanup = marker
+        ? {
+            remaining: (await settleOwnedNamespace(marker, instanceId)) ? 0 : 1,
+          }
+        : await endTaggedProcesses(instanceId, await creationScope(directory));
       if (cleanup.remaining !== 0) {
         logDiagnostic(
           "CliGitHubCredentials",

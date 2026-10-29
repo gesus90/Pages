@@ -96,3 +96,41 @@ it("never treats a failed process scan as confirmed cleanup", async () => {
     "unreadable proc",
   );
 });
+
+it("confirms an owned PID namespace without inspecting unrelated process environments", async () => {
+  const process = {
+    exited: Promise.resolve({
+      code: 0,
+      signal: null,
+      errorCode: null,
+      stderrTail: "",
+    }),
+    endInput: vi.fn(),
+    cancel: vi.fn(),
+  };
+  await expect(
+    closeCliSession(process, "session", undefined, true),
+  ).resolves.toMatchObject({
+    isConfirmed: true,
+    leftovers: 0,
+    containment: "pid_namespace",
+  });
+  expect(scan.endTaggedProcesses).not.toHaveBeenCalled();
+});
+
+it("does not confirm namespace cleanup when its worker unit could not settle", async () => {
+  const process = {
+    exited: Promise.resolve({
+      code: 0,
+      signal: null,
+      errorCode: "credential_cleanup_failed" as const,
+      stderrTail: "",
+    }),
+    endInput: vi.fn(),
+    cancel: vi.fn(),
+  };
+  const closed = await closeCliSession(process, "session", undefined, true);
+  expect(closed.isConfirmed).toBe(false);
+  expect(closed.containment).toBeUndefined();
+  expect(scan.endTaggedProcesses).not.toHaveBeenCalled();
+});

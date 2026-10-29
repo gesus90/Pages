@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 
-import { startCodexSession } from "./acp-harness";
+import { startAcpSession, startCodexSession } from "./acp-harness";
 import { groupFixture } from "../../service/agents/page73-group-fixture";
 
 vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
@@ -28,6 +28,77 @@ it("refuses an adapter that changes the effective runtime mode during a turn", a
     errorCode: "plan_context_changed",
   });
   expect(result.events).toContain("runtime configuration changed: sessionMode");
+  await world.session.close();
+});
+
+it("reapplies Antigravity model and effort before each group turn", async () => {
+  const model = "gemini-3.8-flash";
+  const world = startAcpSession(
+    {
+      agentInfo: { name: "antigravity-acp", version: "1.4.4" },
+      models: [model],
+      turn: async (turn) => {
+        await turn.update({
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: "READY" },
+        });
+        return "end_turn";
+      },
+    },
+    { provider: "antigravity", hasMcp: false, model, reasoningEffort: "low" },
+  );
+  expect((await world.session.turn).failure).toBeNull();
+  const fixture = await groupFixture();
+  const prepared = await fixture.base.start.prepare(
+    fixture.base.run,
+    fixture.snapshot,
+    fixture.snapshot.steps[1] ?? fixture.base.step,
+  );
+  const result = await world.session.next(
+    {
+      ...prepared.input,
+      agent: { ...prepared.input.agent, model, reasoningEffort: "low" },
+    },
+    new AbortController().signal,
+    { started: vi.fn(), identified: vi.fn() },
+  );
+  expect(result.failure).toBeNull();
+  expect(
+    world.calls
+      .filter((call) => call.method === "session/set_config_option")
+      .map((call) => call.params),
+  ).toMatchObject([
+    { configId: "model", value: model },
+    { configId: "thinking_level", value: "low" },
+    { configId: "model", value: model },
+    { configId: "thinking_level", value: "low" },
+  ]);
+  await world.session.close();
+});
+
+it("fails a turn when the official adapter reports that Pages MCP failed to initialize", async () => {
+  const model = "gemini-3.8-flash";
+  const world = startAcpSession(
+    {
+      agentInfo: { name: "antigravity-acp", version: "1.4.4" },
+      models: [model],
+      turn: async (turn) => {
+        await turn.update({
+          sessionUpdate: "agent_message_chunk",
+          content: {
+            type: "text",
+            text: "The MCP server 'pages' failed to initialize: synthetic failure",
+          },
+        });
+        return "end_turn";
+      },
+    },
+    { provider: "antigravity", model, reasoningEffort: "low" },
+  );
+  expect(await world.session.turn).toMatchObject({
+    failure: "failed",
+    errorCode: "plan_mcp_unavailable",
+  });
   await world.session.close();
 });
 

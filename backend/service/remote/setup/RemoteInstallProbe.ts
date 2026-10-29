@@ -8,7 +8,9 @@ import type { HostObservation, SetupTool } from "@/definition/RemoteSetup";
 const RUNNER_DIRECTORY = ".local/share/pages-runner";
 
 /** The package each tool is installed from below the runner's tool prefix. */
-const TOOL_PACKAGES: Readonly<Record<SetupTool, string>> = {
+const TOOL_PACKAGES: Readonly<
+  Record<Exclude<SetupTool, "antigravity">, string>
+> = {
   codex: "@openai/codex",
   claude: "@anthropic-ai/claude-code",
   opencode: "opencode-ai",
@@ -29,9 +31,11 @@ const COMPLETE_LINE = "probe=complete";
  * machine that does not tell stays unknown.
  */
 function probeScript(): string {
-  const tools = SETUP_TOOLS.map(
-    (tool) => `${tool}:${TOOL_PACKAGES[tool]}`,
-  ).join(" ");
+  const tools = SETUP_TOOLS.filter(
+    (tool): tool is Exclude<SetupTool, "antigravity"> => tool !== "antigravity",
+  )
+    .map((tool) => `${tool}:${TOOL_PACKAGES[tool]}`)
+    .join(" ");
   return [
     "set -u",
     `runner_directory="$HOME/${RUNNER_DIRECTORY}"`,
