@@ -219,6 +219,13 @@ export class RunnerJobs {
     const { observed, checkedAt } = snapshot;
     const { configuration, schedule } = this.#context;
     const history = liveBatch(observed.history, job.historyCursor ?? 0);
+    // Pages can apply nothing but new history to a terminal job and answers anything else
+    // with a full reconcile, which would only start the same observation again.
+    if (TERMINAL_STATES.includes(job.status) && !history.length) {
+      this.#snapshots.delete(job.jobId);
+      schedule.polled(job, checkedAt);
+      return null;
+    }
     const status = observedStatus(job, observed);
     if (
       status === "running" &&

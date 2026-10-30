@@ -590,8 +590,11 @@ async function connect() {
           if (channel.readyState !== WebSocket.OPEN) return;
           state.isReconciled = true;
           state.stage = "synchronized";
+          // Pages already holds confirmed stop evidence; repeating it for every job on
+          // each reconcile reply floods its bounded receive queue and rewrites its state.
           for (const job of configuration.jobs)
-            if (job.cancellation) await sendStopResult(channel, job);
+            if (job.cancellation && job.cancellation.closeout !== "confirmed")
+              await sendStopResult(channel, job);
           ready(channel.readyState === WebSocket.OPEN ? channel : null);
           clearTimeout(timeout);
           poll();
