@@ -29,21 +29,19 @@ const RUNTIME_GRACE_SECONDS = 120;
 const execFileAsync = promisify(execFile);
 
 /**
- * The hard limits of one ACP worker: adapter, runner, MCP bridge and every
- * helper they start, counted together in the cgroup of its unit.
+ * The limits of one ACP worker: adapter, runner, MCP bridge and every helper
+ * they start, counted together in the cgroup of its unit.
  *
  * @remarks
- * Measured on the N100 / 8 GiB installation (PAGE-127, 93 workers): a Codex
- * or Claude Code worker with its MCP bridge peaked at 430 MiB and 100 tasks,
- * an OpenCode worker at 810 MiB and 22 tasks. The memory ceiling leaves
- * room for a larger turn while two workers together stay far below what the
- * host can lose without pushing the gateway or Pages into the kernel's global
- * OOM killer. Swap is capped so a growing worker fails itself instead of slowing
- * the host down; CPU stays below half of the four cores.
+ * Memory and swap have no fixed ceiling of their own (`infinity`), so a
+ * worker may use what the host has. The host's normal memory accounting still
+ * applies to the unit's cgroup, including the kernel's OOM handling, and
+ * `OOMPolicy=kill` ends the whole worker if the kernel kills one of its
+ * processes. Tasks, CPU and runtime stay bounded; see `docs/AgentWorkerMemory.md`.
  */
 export const ACP_WORKER_LIMITS = {
-  memoryMax: "1536M",
-  memorySwapMax: "256M",
+  memoryMax: "infinity",
+  memorySwapMax: "infinity",
   tasksMax: 512,
   cpuQuota: "200%",
 } as const;
