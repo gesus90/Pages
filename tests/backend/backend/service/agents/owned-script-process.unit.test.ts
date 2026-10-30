@@ -20,6 +20,14 @@ vi.mock("@/backend/agents/cli/CliOwnedNamespace", () => ({
   captureOwnedNamespace: boundary.captureOwnedNamespace,
 }));
 
+vi.mock("@/backend/agents/cli/CliSshConfigOverlay", () => ({
+  sshConfigOverlayArguments: async () => [
+    "--ro-bind",
+    "/synthetic/ssh-copies",
+    "/etc/ssh/ssh_config.d",
+  ],
+}));
+
 const NAMESPACE = {
   pid: 123,
   uid: 1000,
@@ -97,6 +105,9 @@ it("persists the namespace identity before delivering input to a contained scrip
   });
   expect(boundary.spawn.mock.calls[0]?.[0]).toBe("/usr/bin/bwrap");
   expect(boundary.spawn.mock.calls[0]?.[1]).toContain("--unshare-pid");
+  expect(boundary.spawn.mock.calls[0]?.[1]).toEqual(
+    expect.arrayContaining(["--ro-bind", "/synthetic/ssh-copies"]),
+  );
   expect(save).toHaveBeenCalledWith(
     expect.objectContaining({ namespace: NAMESPACE }),
   );

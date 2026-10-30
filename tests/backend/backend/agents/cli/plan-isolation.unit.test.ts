@@ -9,6 +9,14 @@ vi.mock("node:fs/promises", () => ({
   realpath: async (file: string) => file,
 }));
 
+vi.mock("@/backend/agents/cli/CliSshConfigOverlay", () => ({
+  sshConfigOverlayArguments: async () => [
+    "--ro-bind",
+    "/synthetic/ssh-copies",
+    "/etc/ssh/ssh_config.d",
+  ],
+}));
+
 const REQUEST: CliSessionRequest = {
   file: "/synthetic/bin/claude-agent-acp",
   arguments: [],
@@ -79,4 +87,18 @@ it("mounts the workspace read-only for Nur Lesen and hides the instance folders"
   const args = isolated?.arguments ?? [];
   expect(args[args.indexOf("/synthetic/workspace") - 1]).toBe("--ro-bind");
   expect(args).toEqual(expect.arrayContaining(["--tmpfs", "/synthetic/data"]));
+});
+
+it("mounts the account-owned SSH drop-ins over the system folder inside the namespace", async () => {
+  const isolation = new CliPlanIsolation(["/synthetic/data"], async () => true);
+  const args = (await isolation.isolate(REQUEST))?.arguments ?? [];
+  const mount = args.indexOf("/synthetic/ssh-copies");
+  expect(args.slice(mount - 1, mount + 2)).toEqual([
+    "--ro-bind",
+    "/synthetic/ssh-copies",
+    "/etc/ssh/ssh_config.d",
+  ]);
+  // The mount belongs after the root binding and before the tool starts.
+  expect(mount).toBeGreaterThan(args.indexOf("/tmp"));
+  expect(mount).toBeLessThan(args.indexOf("--"));
 });

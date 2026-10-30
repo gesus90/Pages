@@ -1,11 +1,14 @@
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { access, realpath } from "node:fs/promises";
+import path from "node:path";
 import { promisify } from "node:util";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 import { logCaughtError } from "@/backend/logging/Logger";
+
+import { sshConfigOverlayArguments } from "./CliSshConfigOverlay";
 
 import type { CliSessionRequest } from "./CliContracts";
 
@@ -135,6 +138,10 @@ export class CliPlanIsolation {
     const hidden = resolved.filter((entry): entry is string => entry !== null);
     if (hidden.some((entry) => containsWorkspacePath(entry, workingDirectory)))
       throw new AgentError("workspace_path_outside_roots");
+    // The namespace puts a tmpfs over exactly `/tmp`, so the immutable copies stay out of reach of the run that mounts them.
+    const sshConfigOverlay = await sshConfigOverlayArguments(
+      path.join("/tmp", `pages-ssh-config-${process.getuid?.() ?? 0}`),
+    );
     return {
       ...request,
       file: BUBBLEWRAP,
@@ -152,6 +159,7 @@ export class CliPlanIsolation {
         "/dev",
         "--tmpfs",
         "/tmp",
+        ...sshConfigOverlay,
         ...privateHomes.flatMap((entry) => ["--tmpfs", entry]),
         request.isWorkingDirectoryReadOnly === true ? "--ro-bind" : "--bind",
         workingDirectory,

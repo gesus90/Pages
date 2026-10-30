@@ -3,6 +3,7 @@ import path from "node:path";
 import { Writable } from "node:stream";
 
 import { captureOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+import { sshConfigOverlayArguments } from "@/backend/agents/cli/CliSshConfigOverlay";
 
 import { AgentPlanScriptCapture } from "./AgentPlanScriptCapture";
 import { scriptEnvironment } from "./AgentPlanScriptResources";
@@ -27,6 +28,9 @@ export async function executeScriptProcess(
 ): Promise<AgentPlanScriptRun> {
   request.signal.throwIfAborted();
   request.claimStart();
+  const sshConfigOverlay = await sshConfigOverlayArguments(
+    path.join(request.resources, "ssh_config.d"),
+  );
   const previousMask = process.umask(0o077);
   let child: ReturnType<typeof spawn>;
   try {
@@ -43,6 +47,7 @@ export async function executeScriptProcess(
         "/proc",
         "--dev",
         "/dev",
+        ...sshConfigOverlay,
         "--chdir",
         request.record.directory,
         "--",
