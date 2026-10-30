@@ -26,14 +26,17 @@ it("returns no identifiers for scalar content", () => {
   expect(workspaceReferenceIds("w-1").size).toBe(0);
 });
 
-it("drops remote routes that reference the removed workspace", () => {
+it("marks a removed remote target missing rather than silently retargeting", () => {
   const plan = {
     executionTarget: { workspaceId: "w-1" },
     runnerRoute: { workspaceId: "w-1" },
     title: "Keep",
   };
 
-  expect(withoutWorkspaceReferences(plan, "w-1")).toEqual({ title: "Keep" });
+  expect(withoutWorkspaceReferences(plan, "w-1")).toEqual({
+    title: "Keep",
+    executionTarget: { kind: "remote", workspaceId: "missing-workspace" },
+  });
 });
 
 it("keeps routes of other workspaces and clears direct bindings", () => {

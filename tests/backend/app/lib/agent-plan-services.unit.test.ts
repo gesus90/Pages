@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { createAgentPlanService } from "@/app/lib/agent-plan-services.server";
 import { createPlanWorkspaceAccess } from "@/app/lib/plan-access-services.server";
 import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanConfigurationUpgrade";
@@ -204,7 +205,16 @@ interface AgentFixture {
   readonly waiting: { runId: string; stepId: string }[];
 }
 
-const DATABASE = opaque<Database>("database");
+const DATABASE = partial<Database>({
+  query: async (statement: string) => {
+    if (
+      statement.includes("FROM agent_workspace_cleanup") &&
+      statement.includes("state = 'pending'")
+    )
+      return [];
+    throw new Error(`Unexpected wiring query ${statement}`);
+  },
+});
 const TASKS = opaque<TaskService>("tasks");
 const USERS = opaque<UserService>("users");
 const MCP = opaque<AgentPlanMcpSettings>("mcp settings");
@@ -339,6 +349,7 @@ it("wires the plan service on one access, preparation and engine", async () => {
     archive: agents.agentRunArchive,
     scripts: only(vi.mocked(AgentPlanScripts)),
     startRejections: only(vi.mocked(AgentPlanStartRejectionRepository)),
+    workspaceCleanup: new AgentWorkspaceCleanupRepository(DATABASE),
   });
   expect(vi.mocked(AgentPlanStartRejectionRepository).mock.calls).toEqual([
     [DATABASE],

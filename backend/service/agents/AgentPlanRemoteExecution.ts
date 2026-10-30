@@ -5,6 +5,8 @@ import { planTargetIssues } from "@/definition/AgentPlanTarget";
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
+import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import {
   RUNNER_TOOL_PROVIDERS,
@@ -24,8 +26,12 @@ import {
 } from "./AgentPlanRemoteResolvedCommand";
 import { AgentPlanRemoteSources } from "./AgentPlanRemoteSources";
 import { remoteTodoChecklists } from "./AgentPlanRemoteChecklist";
-import { isOriginalRemoteJob } from "./AgentPlanRemoteCancellation";
 import {
+  isOriginalRemoteJob,
+  pauseQueuedRemoteRun,
+} from "./AgentPlanRemoteCancellation";
+import {
+  completedGatedRemote,
   settleRemoteAcceptance,
   requiresRemoteAcceptance,
 } from "./AgentPlanRemoteAcceptance";
@@ -76,6 +82,8 @@ const CANCELLED_BEFORE_DISPATCH: Partial<AgentPlanStepResult> = {
 
 /** Private snapshot: exact command, source inputs and authorized target, without credentials. */
 export interface RemotePlanStep {
+  /** Preserved context is appended after binding, so earlier output cannot introduce placeholders. */
+  readonly recoveryContext?: string;
   readonly step: AgentPlanStep | AgentPlanScript;
   readonly target: AgentPlanRemoteTarget;
   readonly command: RunnerExecution;
@@ -392,6 +400,11 @@ export class AgentPlanRemoteExecution {
     }
   }
 
+  /** Queue pause is replayable and cannot kill a job that has already acquired its launch claim. */
+  public async pause(run: AgentPlanRun): Promise<void> {
+    await pauseQueuedRemoteRun(run, this.dependencies.runners);
+  }
+
   /** Adds current transport health to confirmed job facts without mutating the stored execution state. */
   public async withProgress(run: AgentPlanRun): Promise<AgentPlanRun> {
     const steps = await Promise.all(
@@ -473,6 +486,7 @@ export class AgentPlanRemoteExecution {
           job.jobId,
         );
       const current = await this.dependencies.runs.find(run.id);
+      if (current?.status === "pausing") await this.pause(current);
       const step = current?.steps.find((entry) => entry.id === remote.step.id);
       if (!step) throw new AgentError("plan_context_changed");
       if (
@@ -509,8 +523,8 @@ export class AgentPlanRemoteExecution {
         command,
       );
     } catch (error: unknown) {
-      // Authorization refuses a stopped run before a durable claim exists.
-      if (signal.aborted && error instanceof AgentError) return null;
+      // Only the exact durable Stop fence proves that no job was persisted.
+      if (error instanceof AgentPlanCancelledError) return null;
       throw error;
     }
   }
@@ -537,29 +551,9 @@ function remoteAcceptanceContract(
   command: RunnerExecution,
   tickets: readonly AgentPlanTicketChecklist[],
 ): AgentPlanContract | undefined {
-  return command.program.kind === "cli" &&
-    command.program.route.tool === "opencode"
+  return command.program.kind === "cli"
     ? remotePlanContract(step, tickets)
     : undefined;
-}
-
-/** Only the engine may turn this provisional runner result into accepted, checkpointed success. */
-function completedGatedRemote(
-  remote: RemotePlanStep,
-  step: Partial<AgentPlanStepResult>,
-): Partial<AgentPlanStepResult> {
-  if (
-    remote.step.type !== "agent" ||
-    (!remote.step.completionGate && !requiresRemoteAcceptance(remote)) ||
-    step.status !== "running" ||
-    step.remote?.status !== "completed"
-  )
-    return step;
-  return {
-    ...step,
-    status: "succeeded",
-    ...(step.session ? { session: { ...step.session, resultCode: 0 } } : {}),
-  };
 }
 
 /** The runner confirms a quiet worker every 15 to 30 seconds; 45 seconds without it leave the process state unknown. */
@@ -595,7 +589,12 @@ export function dispatchRemotePlanStep(
   if (active.view.status !== "running")
     return Promise.resolve({ status: "paused" });
   active.dispatched.add(stepId);
-  return service.run(active.view, remote, signal);
+  return service
+    .run(active.view, remote, signal)
+    .catch((error: unknown): Partial<AgentPlanStepResult> => {
+      if (error instanceof AgentPlanPausedError) return { status: "paused" };
+      throw error;
+    });
 }
 
 /** Reauthorizes remote model routes before handing local configurations to the local resolver. */

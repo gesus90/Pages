@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import manifest from "../../package.json" with { type: "json" };
 import { CredentialStoreError } from "../../src/credential-error.ts";
+import { PagesTransportError } from "../../src/pages-transport-error.ts";
 import { listProjectNames } from "../../src/project-names.ts";
 import { createServer } from "../../src/server.ts";
 import { PagesOperationError } from "../../src/tools/operation-failure.ts";
@@ -139,11 +140,15 @@ describe("createServer tools/list", () => {
     });
   });
 
-  it("reports every verification failure with one fixed message", async () => {
+  it("keeps verification failures fixed and distinguishes transport failures", async () => {
     vi.mocked(verifyPages).mockRejectedValue(new Error("token abc expired"));
     const response = await (await initializedSession()).request("tools/list");
     expect(response).toMatchObject(AUTHORIZATION_FAILED);
     expect(JSON.stringify(response)).not.toContain("abc");
+    vi.mocked(verifyPages).mockRejectedValue(new PagesTransportError());
+    expect(await session?.request("tools/list")).toMatchObject({
+      error: { message: new PagesTransportError().message },
+    });
   });
 
   it("passes local credential diagnostics through", async () => {
@@ -228,6 +233,15 @@ describe("createServer business tool calls", () => {
       arguments: { pageId: "w1" },
     });
     expect(response).toMatchObject(AUTHORIZATION_FAILED);
+    vi.mocked(readOperation).mockRejectedValue(new PagesTransportError());
+    expect(
+      await session?.request("tools/call", {
+        name: "read_wiki_page",
+        arguments: { pageId: "w1" },
+      }),
+    ).toMatchObject({
+      error: { message: new PagesTransportError().message },
+    });
   });
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createRandomUuid } from "@/app/lib/random-uuid";
 import { readPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
@@ -16,6 +16,13 @@ export type PlanRecoveryRequest = AgentPlanRecoveryCommand extends infer Command
     ? Omit<Command, "expectedRevision" | "idempotencyKey">
     : never
   : never;
+
+interface RecoveryDecision {
+  readonly fingerprint: string;
+  readonly key: string;
+  revision: number | null;
+  planRevision: number | null;
+}
 
 interface RecoveryState {
   readonly runId: string | null;
@@ -75,6 +82,7 @@ async function sendDecision(
   runId: string,
   revision: number,
   request: PlanRecoveryRequest,
+  idempotencyKey: string,
 ): Promise<AgentPlanRecoveryResult> {
   const response = await fetch(
     `/agent-api/plan-runs/${encodeURIComponent(runId)}/recovery`,
@@ -85,7 +93,7 @@ async function sendDecision(
       body: JSON.stringify({
         ...request,
         expectedRevision: revision,
-        idempotencyKey: `ui-${createRandomUuid()}`,
+        idempotencyKey,
       }),
     },
   );
@@ -115,6 +123,41 @@ async function loadView(
   return recovery;
 }
 
+/** Refreshes a changing run inside the chosen action, with one bounded retry for progress-only revisions. */
+async function decideCurrent(input: {
+  readonly runId: string;
+  readonly request: PlanRecoveryRequest;
+  readonly decision: RecoveryDecision;
+}): Promise<AgentPlanRecoveryResult> {
+  const signal = new AbortController().signal;
+  if (input.decision.revision === null) {
+    const current = await loadView(input.runId, signal);
+    input.decision.revision = current.revision;
+    input.decision.planRevision = current.currentPlanRevision;
+  }
+  try {
+    return await sendDecision(
+      input.runId,
+      input.decision.revision,
+      input.request,
+      input.decision.key,
+    );
+  } catch (error: unknown) {
+    if (!(error instanceof Error) || error.message !== "revision_conflict")
+      throw error;
+    const refreshed = await loadView(input.runId, signal);
+    if (input.decision.planRevision !== refreshed.currentPlanRevision)
+      throw error;
+    input.decision.revision = refreshed.revision;
+    return sendDecision(
+      input.runId,
+      refreshed.revision,
+      input.request,
+      input.decision.key,
+    );
+  }
+}
+
 /**
  * Reads what can happen to an ended run and sends the executor's decision.
  *
@@ -140,6 +183,8 @@ export function usePlanRecovery(
     request: PlanRecoveryRequest,
   ) => Promise<AgentPlanRecoveryResult | null>;
 } {
+  const inFlight = useRef(false);
+  const decision = useRef<RecoveryDecision | null>(null);
   const [state, setState] = useState<RecoveryState>({
     runId: null,
     view: null,
@@ -152,6 +197,69 @@ export function usePlanRecovery(
     readonly value: AgentPlanRecoveryResult;
   } | null>(null);
   const [generation, setGeneration] = useState(0);
+  useRecoveryRefresh(runId, generation, setState);
+  const current = state.runId === runId ? state : null;
+  async function submit(
+    request: PlanRecoveryRequest,
+  ): Promise<AgentPlanRecoveryResult | null> {
+    const view = current?.view;
+    if (!runId || !view || inFlight.current) return null;
+    inFlight.current = true;
+    const fingerprint = JSON.stringify([runId, request]);
+    if (decision.current?.fingerprint !== fingerprint)
+      decision.current = {
+        fingerprint,
+        key: `ui-${createRandomUuid()}`,
+        revision: view.revision,
+        planRevision: view.currentPlanRevision,
+      };
+    setPending(true);
+    setResult(null);
+    setState({ runId, view, error: null, cleanupFailure: null });
+    try {
+      const answered = await decideCurrent({
+        runId,
+        request,
+        decision: decision.current,
+      });
+      decision.current = null;
+      setResult({ runId, value: answered });
+      setState({ runId, view, error: null, cleanupFailure: null });
+      if (answered.runId) onStarted(answered.runId);
+      return answered;
+    } catch (error: unknown) {
+      setState({
+        runId,
+        view,
+        error:
+          error instanceof Error
+            ? error.message
+            : "plan_connection_unavailable",
+        cleanupFailure:
+          error instanceof RecoveryRequestError ? error.cleanupFailure : null,
+      });
+      return null;
+    } finally {
+      inFlight.current = false;
+      setPending(false);
+      setGeneration((value) => value + 1);
+    }
+  }
+  return {
+    view: current?.view ?? null,
+    error: current?.error ?? null,
+    cleanupFailure: current?.cleanupFailure ?? null,
+    isPending,
+    result: result?.runId === runId ? result.value : null,
+    submit,
+  };
+}
+
+function useRecoveryRefresh(
+  runId: string | null,
+  generation: number,
+  setState: React.Dispatch<React.SetStateAction<RecoveryState>>,
+): void {
   useEffect(() => {
     if (!runId) return;
     const controller = new AbortController();
@@ -179,46 +287,10 @@ export function usePlanRecovery(
       }
     }
     void load(runId);
-    return () => controller.abort();
-  }, [runId, generation]);
-  const current = state.runId === runId ? state : null;
-  async function submit(
-    request: PlanRecoveryRequest,
-  ): Promise<AgentPlanRecoveryResult | null> {
-    const view = current?.view;
-    if (!runId || !view || isPending) return null;
-    setPending(true);
-    setResult(null);
-    setState({ runId, view, error: null, cleanupFailure: null });
-    try {
-      const answered = await sendDecision(runId, view.revision, request);
-      setResult({ runId, value: answered });
-      setState({ runId, view, error: null, cleanupFailure: null });
-      if (answered.runId) onStarted(answered.runId);
-      return answered;
-    } catch (error: unknown) {
-      setState({
-        runId,
-        view,
-        error:
-          error instanceof Error
-            ? error.message
-            : "plan_connection_unavailable",
-        cleanupFailure:
-          error instanceof RecoveryRequestError ? error.cleanupFailure : null,
-      });
-      return null;
-    } finally {
-      setPending(false);
-      setGeneration((value) => value + 1);
-    }
-  }
-  return {
-    view: current?.view ?? null,
-    error: current?.error ?? null,
-    cleanupFailure: current?.cleanupFailure ?? null,
-    isPending,
-    result: result?.runId === runId ? result.value : null,
-    submit,
-  };
+    const timer = setInterval(() => void load(runId), 5000);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, [runId, generation, setState]);
 }

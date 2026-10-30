@@ -345,22 +345,41 @@ it("reuses a verified completion in one reviewed continuation and replays its re
   expect(world.database.stored().checkpoints).toHaveLength(2);
 });
 
-it("does not restart when the executor can no longer edit or the engine is active", async () => {
+it("denies read-only restart but preserves owner and cleanup identity for a reviewed active restart", async () => {
   const fixture = await recoveryFixture();
   const run = patchRecoveryStep(fixture.failed, "a", { session: null });
   for (const options of [{ canEdit: false }, { engineActive: true }]) {
     const world = recoveryWorld(fixture, run, { ...options, canStart: true });
-    await expect(
-      startRecoveredPlanRun(world, run.userId, "restart", {
-        operationId: "restart-refused",
-        planId: run.planId,
+    const command = startRecoveredPlanRun(world, run.userId, "restart", {
+      operationId: "restart-reviewed",
+      planId: run.planId,
+      runId: run.id,
+      expectedRecoveryRevision: 0,
+      expectedPlanRevision: fixture.snapshot.plan.revision,
+      confirmRepeat: true,
+    });
+    if ("canEdit" in options) {
+      await expect(command).rejects.toMatchObject({
+        code: "action_unavailable",
+      });
+      expect(world.start).not.toHaveBeenCalled();
+    } else {
+      await expect(command).resolves.toMatchObject({
+        outcome: "started",
         runId: run.id,
-        expectedRecoveryRevision: 0,
-        expectedPlanRevision: fixture.snapshot.plan.revision,
-        confirmRepeat: true,
-      }),
-    ).rejects.toMatchObject({ code: "action_unavailable" });
-    expect(world.start).not.toHaveBeenCalled();
+      });
+      expect(world.start).toHaveBeenCalledOnce();
+      expect(vi.mocked(world.start).mock.calls[0]?.[1].recovery).toMatchObject({
+        sourceRunId: run.id,
+        isRestart: true,
+        contextByStepId: {},
+        resumeSessions: {},
+      });
+      expect(vi.mocked(world.start).mock.calls[0]?.[2]).toMatchObject({
+        origin: { kind: "restart", runId: run.id },
+        reused: [],
+      });
+    }
     expect([...world.database.stored().locks.values()]).toContain(run.id);
   }
 });

@@ -71,7 +71,10 @@ export async function resolvedRemoteCommand(
       },
     ),
   );
-  const prompt = bound.markdown + remoteWorkspaceContext(remote.parameters);
+  const prompt =
+    (remote.recoveryContext ?? "") +
+    bound.markdown +
+    remoteWorkspaceContext(remote.parameters);
   requireRemotePromptSize(remote.step, prompt);
   return {
     ...command,

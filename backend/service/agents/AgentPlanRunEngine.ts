@@ -1,8 +1,14 @@
+import {
+  acquirePlanWriters,
+  retireActivePredecessor,
+  finalizeScheduledPlanRun,
+} from "./AgentPlanRunLifecycle";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
@@ -27,17 +33,13 @@ import {
   canFinalize,
   isRequestStep,
   settlePlanPause,
-  finalPlanStatus,
   endedPlanRun,
-  hasUnconfirmedCloseout,
   countRunningPlanRequests,
-  interruptedPlanRun,
 } from "./AgentPlanRunState";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
 import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
-import { planRecoveryReason } from "./recovery/AgentPlanFailure";
 import { dispatchPlanScript } from "./AgentPlanScriptDispatch";
 import {
   guardPlanWorkDispatch,
@@ -80,6 +82,7 @@ const STOP_WAIT_MILLISECONDS = 30_000;
 
 /** Event-driven DAG scheduling; native ACP capacity is admitted by the shared resource service. */
 export class AgentPlanRunEngine {
+  private resourceTimer: NodeJS.Timeout | null = null;
   private readonly dependencies: EngineDependencies;
   private readonly commands: AgentPlanRunCommands;
   private readonly loops: AgentPlanLoopRunner;
@@ -150,6 +153,21 @@ export class AgentPlanRunEngine {
     await this.commands.stop(id, journal);
   }
 
+  /** Applies an atomic logical reset under the same queue that owns dispatch; cleanup continues independently. */
+  public async resetLogical(
+    id: string,
+    record: () => Promise<AgentPlanRun>,
+  ): Promise<void> {
+    await this.writes.run(async () => {
+      const retired = await record();
+      const active = this.active.get(id);
+      if (!active) return;
+      active.view = retired;
+      for (const controller of active.controllers.values()) controller.abort();
+    });
+    this.schedulePump();
+  }
+
   /**
    * Whether this process still drives the run.
    *
@@ -208,6 +226,7 @@ export class AgentPlanRunEngine {
   /** The shutdown hook drains execution before closing DuckDB or the shared CLI runner. */
   public async shutdown(): Promise<void> {
     this.isClosing = true;
+    if (this.resourceTimer) clearTimeout(this.resourceTimer);
     // A shutdown is no decision of the executor: the runs close as interrupted, not stopped.
     for (const id of this.active.keys()) await this.commands.interrupt(id);
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -266,38 +285,41 @@ export class AgentPlanRunEngine {
     const releaseDefinition = await this.dependencies.files?.hold(
       snapshot.steps.map((step) => step.step.agentId),
     );
-    try {
-      if (recording)
-        await recording((transaction) =>
-          this.dependencies.runs.insert(
-            transaction,
+    await this.writes.run(async () => {
+      try {
+        if (recording)
+          await recording((transaction) =>
+            this.dependencies.runs.insert(
+              transaction,
+              view,
+              snapshot,
+              workspaceIds,
+            ),
+          );
+        else
+          await this.dependencies.runs.create(
             view,
             snapshot,
             workspaceIds,
-          ),
-        );
-      else
-        await this.dependencies.runs.create(
-          view,
-          snapshot,
-          workspaceIds,
-          journal,
-        );
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanRunEngine", error);
+            journal,
+          );
+      } catch (error: unknown) {
+        logCaughtError("AgentPlanRunEngine", error);
 
-      await releaseDefinition?.();
-      throw error;
-    }
-    this.active.set(view.id, {
-      groupCloseout: "open",
-      hasPersistenceFailure: false,
-      view: view,
-      snapshot,
-      dispatched: new Set(),
-      controllers: new Map(),
-      executions: new Set(),
-      releaseDefinition,
+        await releaseDefinition?.();
+        throw error;
+      }
+      await retireActivePredecessor(view, this.active, this.dependencies);
+      this.active.set(view.id, {
+        groupCloseout: "open",
+        hasPersistenceFailure: false,
+        view: view,
+        snapshot,
+        dispatched: new Set(),
+        controllers: new Map(),
+        executions: new Set(),
+        releaseDefinition,
+      });
     });
     try {
       await this.pump();
@@ -323,6 +345,11 @@ export class AgentPlanRunEngine {
     await this.closeIdleGroups();
     await this.writes.run(async () => {
       for (const [id, active] of this.active) {
+        if (
+          canSchedule(active) &&
+          !(await acquirePlanWriters(active, this.dependencies))
+        )
+          continue;
         updateBlocked(active);
         const ready = canSchedule(active) ? readySteps(active) : [];
         for (const step of ready) {
@@ -340,43 +367,24 @@ export class AgentPlanRunEngine {
           this.track(active, pending);
         }
         if (canFinalize(active)) {
-          const hasFailure = active.view.steps.some(
-            (step) =>
-              step.status === "failed" ||
-              step.status === "waiting" ||
-              step.status === "paused" ||
-              step.isBlocked,
-          );
-          const status = finalPlanStatus(active, hasFailure);
-          const recovery =
-            status === "failed" ? planRecoveryReason(active.view) : undefined;
-          active.view = {
-            ...endedPlanRun(active.view, status),
-            ...(recovery ? { recovery } : {}),
-          };
-          if (active.isInterrupted)
-            active.view = interruptedPlanRun(active.view);
-          await this.dependencies.runs.update(active.view);
-          await this.dependencies.archive?.complete(
-            active.view,
-            active.snapshot,
-          );
-          if (!hasUnconfirmedCloseout(active))
-            await active.releaseDefinition?.();
+          await finalizeScheduledPlanRun(active, this.dependencies);
           this.active.delete(id);
-          withLogContext({ runId: id }, () =>
-            logEvent({
-              level: "info",
-              event: "agent.run.completed",
-              component: "AgentPlanRunEngine",
-              message: "Agent plan run completed",
-              metadata: { status },
-            }),
-          );
-          this.dependencies.resources?.resumeRun(id);
         }
       }
     });
+    if (
+      !this.isClosing &&
+      !this.resourceTimer &&
+      [...this.active.values()].some((active) =>
+        isPlanWriterWaitActive(active.view),
+      )
+    ) {
+      this.resourceTimer = setTimeout(() => {
+        this.resourceTimer = null;
+        this.schedulePump();
+      }, 1000);
+      this.resourceTimer.unref();
+    }
   }
 
   private async closeIdleGroups(): Promise<void> {

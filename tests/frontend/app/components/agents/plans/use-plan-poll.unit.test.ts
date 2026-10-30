@@ -140,18 +140,35 @@ it("drops the previous address's answer when the new one fails", async () => {
   fetchMock
     .mockResolvedValueOnce(answer({ ok: true, run: run("running") }))
     .mockRejectedValueOnce(new Error("offline"));
-  const { result, rerender } = renderHook(
-    (props: { url: string }) => usePlanPoll(props.url, undefined),
-    { initialProps: { url: "/first" } },
+  const { result, rerender } = renderHook<
+    ReturnType<typeof usePlanPoll>,
+    {
+      readonly url: string;
+      readonly command: AgentPlanActionResult | undefined;
+    }
+  >(
+    (props: { url: string; command: AgentPlanActionResult | undefined }) =>
+      usePlanPoll(props.url, props.command),
+    { initialProps: { url: "/first", command: undefined } },
   );
   await flush();
-  rerender({ url: "/second" });
+  rerender({ url: "/second", command: undefined });
   expect(result.current).toEqual({ response: undefined, error: null });
   await flush();
   expect(result.current).toEqual({
     url: "/second",
     response: undefined,
     error: "plan_connection_unavailable",
+  });
+  fetchMock.mockResolvedValueOnce(answer({ ok: true, run: run("cancelled") }));
+  rerender({
+    url: "/second",
+    command: { ok: true, intent: "stop-plan", run: run("cancelled") },
+  });
+  expect(result.current).toEqual({ response: undefined, error: null });
+  await flush();
+  expect(result.current.response).toMatchObject({
+    run: { status: "cancelled" },
   });
 });
 

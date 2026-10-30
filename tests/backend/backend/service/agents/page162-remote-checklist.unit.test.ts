@@ -43,8 +43,9 @@ it("reads the executor's current checklist and puts real ticket IDs into a remot
   expect(command.program.prompt).toContain("read-only");
 });
 
-it("keeps report-mode remote commands independent of new checklist reads", async () => {
-  const checklist = vi.fn();
+it("reads current bound requirements for report-mode remote commands too", async () => {
+  const ticket = progressTicket("- [ ] Current report work");
+  const checklist = vi.fn(async () => ticket);
   const result = await remoteTodoChecklists({
     step: { ...remoteTodoStep(), completion: "report" },
     parameters: remoteTodoParameters(),
@@ -52,8 +53,12 @@ it("keeps report-mode remote commands independent of new checklist reads", async
     userId: "executor",
     projectId: "project",
   });
-  expect(result).toEqual([]);
-  expect(checklist).not.toHaveBeenCalled();
+  expect(result).toEqual([ticket]);
+  expect(checklist).toHaveBeenCalledExactlyOnceWith(
+    "executor",
+    "project",
+    "ticket",
+  );
 });
 
 it("includes current bound ticket requirements for a remote OpenCode report", async () => {

@@ -104,7 +104,9 @@ export function PlanStatusBadge({
   compact = false,
   isConcise = false,
   className,
+  isQueued = false,
 }: {
+  readonly isQueued?: boolean;
   readonly status: AgentPlanStepStatus;
   readonly isBlocked?: boolean;
   readonly hasOpenReport?: boolean;
@@ -113,23 +115,39 @@ export function PlanStatusBadge({
   readonly className?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const label = t(planStatusKey(status, isBlocked, hasOpenReport));
+  const visibleStatus = isQueued && status === "running" ? "waiting" : status;
+  const label = t(
+    isQueued && status === "running"
+      ? "plans.status.queued"
+      : planStatusKey(status, isBlocked, hasOpenReport),
+  );
   const visibleLabel = isBlocked && isConcise ? t("plans.blockedShort") : label;
   return (
     <span
       title={label}
       className={cn(
         "relative inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
-        planStatusClass(status, isBlocked, hasOpenReport),
+        planStatusClass(visibleStatus, isBlocked, hasOpenReport),
         className,
       )}
     >
       <PlanStatusIcon
-        status={status}
+        status={visibleStatus}
         isBlocked={isBlocked}
         hasOpenReport={hasOpenReport}
       />
       <span className={compact ? "sr-only" : undefined}>{visibleLabel}</span>
     </span>
+  );
+}
+
+/** A dispatched remote claim is queued until the Runner proves a running launch. */
+export function isQueuedPlanStep(
+  step: AgentPlanStepResult | undefined,
+): boolean {
+  return (
+    step?.status === "running" &&
+    Boolean(step.execution?.target.kind === "remote") &&
+    (!step.remote || ["queued", "accepted"].includes(step.remote.status))
   );
 }

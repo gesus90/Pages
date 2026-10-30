@@ -429,8 +429,16 @@ export class AgentWorkspaceService {
     await this.writes.run(async () => {
       const actor = await this.account(userId);
       await this.requireManagedWorkspace(actor, await this.find(id));
-      await this.dependencies.workspaces.remove(id, revision, journal);
+      await this.dependencies.workspaces.remove(id, revision, journal, userId);
     });
+  }
+
+  /** Retains historical output access after removal while enforcing current project visibility. */
+  public async requireProjectAccess(
+    userId: string,
+    projectId: string,
+  ): Promise<void> {
+    await this.requireProject(await this.account(userId), projectId);
   }
 
   private async account(userId: string): Promise<AccountAccess> {

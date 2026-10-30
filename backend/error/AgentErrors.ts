@@ -2,6 +2,18 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  plan_runner_control_update_required:
+    "New plan jobs require Runner 1.15.0 and planControlVersion 1. Existing jobs remain reconcilable; update Pages and Runner together explicitly.",
+  plan_workspace_waiting:
+    "This run is queued for an actual writing resource still held by an earlier run. Stop or start fresh remains available; unknown writers require proven cleanup before dispatch.",
+  plan_acceptance_failed:
+    "The agent did not prove completion of its business assignment. Open, blocked or unproven work prevents successors even when the process exited successfully.",
+  plan_acceptance_unavailable:
+    "Pages could not verify the agent report and current ticket requirements. Review access and continue the incomplete step.",
+  plan_acceptance_contract_unavailable:
+    "The attempt has no valid pinned business contract. Preserve its work and use an explicitly reviewed continuation.",
+  plan_acceptance_interrupted:
+    "Pages was interrupted before business acceptance. The retained technical result does not release successors.",
   antigravity_runner_update_required:
     "Antigravity requires Runner 1.14.0 or later at the selected execution host. Update this runner explicitly; no local fallback was used.",
   antigravity_acp_unsupported:
@@ -193,8 +205,6 @@ export const AGENT_ERROR_MESSAGES = {
   plan_runner_incomplete: "The runner ended without completing its turn.",
   plan_runner_permission_denied:
     "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
-  plan_acceptance_failed:
-    "Historical run: the closing report did not prove every todo and acceptance criterion. This stored failure is unchanged; start a new run to use diagnostic-only progress.",
   plan_group_acceptance_failed:
     "The group agent did not pass acceptance. Its closing report must prove every todo and criterion; later agents and successors remain blocked.",
   plan_group_session_unsupported:

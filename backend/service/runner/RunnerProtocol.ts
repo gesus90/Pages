@@ -71,6 +71,8 @@ export function applyRunnerMessage(
     message.job.sessionId !== state.sessionId
   )
     throw new Error("Runner event out of sequence");
+  if (isStaleTerminalRunnerEvent(state, message))
+    return applyStaleEvent(state, message);
   requireTransition(state, message);
   const updated = {
     ...state,
@@ -82,6 +84,9 @@ export function applyRunnerMessage(
       job.jobId === message.job.jobId
         ? {
             ...message.job,
+            ...(job.pauseRequestedAt
+              ? { pauseRequestedAt: job.pauseRequestedAt }
+              : {}),
             ...(job.cancellation
               ? {
                   cancellation: {
@@ -107,6 +112,32 @@ export function applyRunnerMessage(
       eventId: message.eventId,
       sequence: message.sequence,
     },
+  };
+}
+
+/** Late execution facts cannot move a terminal job backwards or replace its result. */
+export function isStaleTerminalRunnerEvent(
+  state: RunnerState,
+  message: RunnerMessage,
+): boolean {
+  if (message.type !== "event") return false;
+  const previous = state.jobs.find((job) => job.jobId === message.job.jobId);
+  return Boolean(
+    previous &&
+    ["completed", "failed", "interrupted", "lost"].includes(previous.status) &&
+    !isTerminalHistory(previous, message),
+  );
+}
+
+/** Reconciles the peer to immutable server facts after acknowledging custody of a late event. */
+export function reconciledRunnerReply(state: RunnerState): RunnerReply {
+  return {
+    version: 1,
+    type: "reconcile",
+    state,
+    outputJournalVersion: 2,
+    communicationVersion: 1,
+    planControlVersion: 1,
   };
 }
 
@@ -194,6 +225,7 @@ function reconcileRunner(
     catalog: mergeRunnerCatalog(state.catalog, message),
     executionLeaseVersion: message.executionLeaseVersion,
     communicationVersion: message.communicationVersion,
+    planControlVersion: message.planControlVersion,
     runnerVersion: message.runnerVersion,
     lastContactAt: new Date().toISOString(),
   };
@@ -205,6 +237,7 @@ function reconcileRunner(
       state: reconciled,
       outputJournalVersion: 2,
       communicationVersion: 1,
+      planControlVersion: 1,
     },
   };
 }
@@ -267,7 +300,11 @@ function isUnlaunchedQueueReport(
   return (
     status === "queued" ||
     (status === "interrupted" &&
-      (previous.cancellation !== undefined || hasLocalRevocation(message))) ||
+      (previous.cancellation !== undefined ||
+        hasLocalRevocation(message) ||
+        (previous.pauseRequestedAt !== undefined &&
+          message.result?.failureCode === "plan_paused_before_launch" &&
+          message.result.closeout === "confirmed"))) ||
     (status === "failed" && message.result?.failureCode !== undefined)
   );
 }
@@ -358,4 +395,22 @@ export function isTerminalHistory(
     message.result === undefined &&
     (message.history?.length ?? 0) > 0
   );
+}
+
+function applyStaleEvent(
+  state: RunnerState,
+  message: Extract<RunnerMessage, { type: "event" }>,
+): { readonly state: RunnerState; readonly reply: RunnerReply } {
+  const previous = state.jobs.find((job) => job.jobId === message.job.jobId);
+  if (!previous) throw new Error("Unknown runner job");
+  requireCommand(previous, message);
+  if (planContentDigest(previous.plan) !== planContentDigest(message.job.plan))
+    throw new Error("Runner context changed");
+  const settled = {
+    ...state,
+    sequence: message.sequence,
+    lastEventId: message.eventId,
+    lastEventDigest: planContentDigest(message),
+  };
+  return { state: settled, reply: reconciledRunnerReply(settled) };
 }

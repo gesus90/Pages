@@ -52,7 +52,7 @@ export interface ResolvedAgentWorkspace {
   readonly github: WorkspaceGitHub | null;
 }
 
-/** References detached on removal; an active run blocks removal and all references block rebinding. */
+/** Current references detach on removal; active runs retain attributed cleanup and all references block rebinding. */
 export type AgentWorkspaceUsageKind = "agent" | "plan" | "run";
 
 /**

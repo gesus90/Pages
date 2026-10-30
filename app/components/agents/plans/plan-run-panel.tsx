@@ -145,7 +145,9 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const { t } = useTranslation();
   const detailsId = useId();
   const [isOpen, setOpen] = useState(false);
-  const [isResuming, setResuming] = useState(false);
+  const [recoveryAction, setRecoveryAction] = useState<
+    "restart" | "resume" | null
+  >(null);
   const { editor, control, page } = props;
   const management = usePlanManagement();
   const recoveryRunId =
@@ -155,7 +157,9 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const recoveryResume = resumeState(control, recovery, t);
   const state = panelState(props, presentation.error, recoveryResume);
   function action(intent: PlanRunIntent): void {
-    submitRunAction(props, intent);
+    if (intent === "play-plan" && control?.canRestart)
+      setRecoveryAction("restart");
+    else submitRunAction(props, intent);
   }
   return (
     <>
@@ -173,6 +177,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           editor={editor}
           control={control}
           isPending={
+            recovery.isPending ||
             editor.isPending ||
             Boolean(props.error) ||
             (!control && page.selected !== null)
@@ -184,7 +189,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           detailsId={detailsId}
           onToggle={() => setOpen(!isOpen)}
           onAction={action}
-          onRecover={() => setResuming(true)}
+          onRecover={() => setRecoveryAction("resume")}
           onManage={management.open}
         />
         <PlanPanelStatus
@@ -206,15 +211,14 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
               translate: t,
             })}
             error={presentation.error}
-            recoveryRunId={recoveryRunId}
-            recovery={recovery}
           />
         ) : null}
       </ScrollViewport>
-      {isResuming ? (
+      {recoveryAction ? (
         <PlanRecoveryResumeDialog
           recovery={recovery}
-          onClose={() => setResuming(false)}
+          action={recoveryAction}
+          onClose={() => setRecoveryAction(null)}
         />
       ) : null}
       <PlanManagementDialogs

@@ -11,3 +11,14 @@ export function isActivePlanRun(
     status === "stopping"
   );
 }
+
+/** A writer wait describes pending dispatch, never a paused, stopped or terminal run. */
+export function isPlanWriterWaitActive(
+  run: Pick<AgentPlanRun, "status" | "stopRequested" | "isWaitingForWorkspace">,
+): boolean {
+  return (
+    run.status === "running" &&
+    !run.stopRequested &&
+    run.isWaitingForWorkspace === true
+  );
+}

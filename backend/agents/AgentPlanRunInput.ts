@@ -1,3 +1,5 @@
+import { planWriterWaitSchema } from "@/definition/AgentPlanExecution";
+import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import {
@@ -41,6 +43,7 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     planRevision,
     status,
     stopRequested,
+    ...readWriterWait(run, { status, stopRequested }),
     ...(run.controlError === "plan_step_failed"
       ? { controlError: run.controlError }
       : {}),
@@ -54,6 +57,28 @@ export function readPlanRun(input: unknown): AgentPlanRun {
       : { origin: readPlanRunOrigin(run.origin) }),
     steps: run.steps.map(readPlanStepResult),
     ...(run.loops === undefined ? {} : { loops: readPlanLoopRuns(run.loops) }),
+  };
+}
+
+function readWriterWait(
+  run: Readonly<Record<string, unknown>>,
+  state: Pick<AgentPlanRun, "status" | "stopRequested">,
+): Pick<AgentPlanRun, "workspaceWait" | "isWaitingForWorkspace"> {
+  // Validate retained annotations even when their old dispatch wait is no longer live.
+  const workspaceWait =
+    run.workspaceWait === undefined
+      ? undefined
+      : planWriterWaitSchema.parse(run.workspaceWait);
+  if (
+    !isPlanWriterWaitActive({
+      ...state,
+      isWaitingForWorkspace: run.isWaitingForWorkspace === true,
+    })
+  )
+    return {};
+  return {
+    isWaitingForWorkspace: true,
+    ...(workspaceWait === undefined ? {} : { workspaceWait }),
   };
 }
 

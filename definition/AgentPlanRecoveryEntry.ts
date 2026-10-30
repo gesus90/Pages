@@ -20,6 +20,7 @@ export interface AgentPlanRecoveryEntry {
     readonly stepName: string;
   })[];
   readonly restart: {
+    readonly reviewStepIds?: readonly string[];
     readonly available: boolean;
     readonly reason: string | null;
   };

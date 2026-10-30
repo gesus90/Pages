@@ -321,7 +321,7 @@ export class RemoteWorkspaceService {
     await this.writes.run(async () => {
       const actor = await this.account(userId);
       await this.requireManaged(actor, await this.requireRecord(id));
-      await this.dependencies.workspaces.remove(id, revision);
+      await this.dependencies.workspaces.remove(id, revision, userId);
     });
   }
 

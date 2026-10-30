@@ -14,7 +14,11 @@ export function workspaceReferenceIds(input: unknown): ReadonlySet<string> {
     const entry = pending.pop();
     if (Array.isArray(entry)) pending.push(...entry);
     else if (isRecord(entry)) {
-      if (typeof entry.workspaceId === "string" && entry.workspaceId !== "")
+      if (
+        typeof entry.workspaceId === "string" &&
+        entry.workspaceId !== "" &&
+        entry.workspaceId !== "missing-workspace"
+      )
         identifiers.add(entry.workspaceId);
       pending.push(...Object.values(entry));
     }
@@ -36,10 +40,11 @@ export function withoutWorkspaceReferences(
   for (const [key, entry] of Object.entries(input)) {
     // A removed remote route cannot turn into an executable local route: the
     // containing plan is detached and its old model selection stays unresolved.
-    if (
-      (key === "executionTarget" || key === "runnerRoute") &&
-      referencesWorkspace(entry, workspaceId)
-    )
+    if (key === "executionTarget" && referencesWorkspace(entry, workspaceId)) {
+      fields[key] = { kind: "remote", workspaceId: "missing-workspace" };
+      continue;
+    }
+    if (key === "runnerRoute" && referencesWorkspace(entry, workspaceId))
       continue;
     if (key === "workspaceId" && entry === workspaceId) {
       fields[key] = "";

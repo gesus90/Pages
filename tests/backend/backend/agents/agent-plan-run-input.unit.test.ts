@@ -37,34 +37,40 @@ it("reads a run without optional parts", () => {
 });
 
 it("reads the optional parts of a run", () => {
-  expect(
-    readPlanRun(
-      run({
-        status: "paused",
-        endedAt: "end",
-        controlError: "plan_step_failed",
-        pauseBoundary: {
-          pausedAt: "p",
-          completedStepIds: [],
-          pendingStepIds: [],
-          frontierStepIds: [],
-        },
-        continuation: { version: 1, planRevision: 1, adoptedAt: "a" },
-        recovery: { state: "recoverable", requiresReconciliation: false },
-        origin: {
-          kind: "restart",
-          runId: "old",
-          mode: null,
-          checkpointVersion: null,
-          reusedStepIds: [],
-          retriedStepIds: [],
-          reviewedStepIds: [],
-          requestedAt: "now",
-        },
-        loops: [],
-      }),
-    ),
-  ).toMatchObject({
+  const stored = run({
+    status: "paused",
+    isWaitingForWorkspace: true,
+    workspaceWait: {
+      resource: "local-directory:/owned",
+      reason: "writer_reserved",
+      runId: "other",
+      jobId: null,
+      attemptId: null,
+    },
+    endedAt: "end",
+    controlError: "plan_step_failed",
+    pauseBoundary: {
+      pausedAt: "p",
+      completedStepIds: [],
+      pendingStepIds: [],
+      frontierStepIds: [],
+    },
+    continuation: { version: 1, planRevision: 1, adoptedAt: "a" },
+    recovery: { state: "recoverable", requiresReconciliation: false },
+    origin: {
+      kind: "restart",
+      runId: "old",
+      mode: null,
+      checkpointVersion: null,
+      reusedStepIds: [],
+      retriedStepIds: [],
+      reviewedStepIds: [],
+      requestedAt: "now",
+    },
+    loops: [],
+  });
+  const parsed = readPlanRun(stored);
+  expect(parsed).toMatchObject({
     endedAt: "end",
     controlError: "plan_step_failed",
     pauseBoundary: { pausedAt: "p" },
@@ -73,6 +79,18 @@ it("reads the optional parts of a run", () => {
     origin: { kind: "restart" },
     loops: [],
   });
+  expect(parsed.isWaitingForWorkspace).toBeUndefined();
+  expect(parsed.workspaceWait).toBeUndefined();
+  const waiting = readPlanRun({ ...stored, status: "running" });
+  expect(waiting.isWaitingForWorkspace).toBe(true);
+  expect(waiting.workspaceWait).toEqual(stored.workspaceWait);
+  const stopped = readPlanRun({
+    ...stored,
+    status: "running",
+    stopRequested: true,
+  });
+  expect(stopped.isWaitingForWorkspace).toBeUndefined();
+  expect(stopped.workspaceWait).toBeUndefined();
 });
 
 it.each<[string, RecordFields]>([

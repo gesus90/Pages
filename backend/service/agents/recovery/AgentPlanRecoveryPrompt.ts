@@ -57,10 +57,16 @@ export function planRecoveryTerms(
     : directive.retriedStepIds.includes(stepId);
   if (!isRetried) return { note: "", resumeSessionId };
   return {
-    note: noteText(
-      directive.sourceRunId,
-      resumeSessionId === null ? "new_session" : "native_resume",
-    ),
+    note:
+      (directive.isRestart
+        ? `## Explicit fresh workflow run
+Source run: ${directive.sourceRunId}. Existing files, branches, checkpoints and external effects remain. Inspect current work first. Do not blindly repeat preparation, reset, commit, push or another already effective external action. Continue unfinished business work honestly. This is a new agent session.
+
+`
+        : noteText(
+            directive.sourceRunId,
+            resumeSessionId === null ? "new_session" : "native_resume",
+          )) + (directive.contextByStepId?.[stepId] ?? ""),
     resumeSessionId,
   };
 }

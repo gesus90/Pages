@@ -37,17 +37,20 @@ it("fails closed after a detached remote completion instead of recording immutab
   );
   expect(result.run.steps[0]).toMatchObject({
     status: "failed",
-    error: "plan_work_gate_unavailable",
+    error: "plan_acceptance_interrupted",
     session: { resultCode: -1 },
   });
   expect(result.checkpoint).toBeUndefined();
 });
 
-it("retains the successful diagnostic remote checkpoint without the explicit opt-in", async () => {
+it("requires business acceptance before any remote CLI success checkpoint without opt-in", async () => {
   const world = await remoteCompletion(false);
   const result = applyRunnerPlanEvent(world, world.run, world.snapshot);
-  expect(result.run.steps[0]?.status).toBe("succeeded");
-  expect(result.checkpoint?.stepId).toBe(world.job.plan?.stepId);
+  expect(result.run.steps[0]).toMatchObject({
+    status: "running",
+    session: { resultCode: null, acceptance: null },
+  });
+  expect(result.checkpoint).toBeUndefined();
 });
 
 it("keeps a legacy CLI answer for diagnosis but does not release successors as a successful result", async () => {
@@ -80,16 +83,21 @@ it("keeps a legacy CLI answer for diagnosis but does not release successors as a
   expect(result.checkpoint).toBeUndefined();
 });
 
-it("rejects another attempt before reading completion or granting any successor", async () => {
+it("settles a stale attempt without mutating current progress or granting a successor", async () => {
   const world = await remoteCompletion(true);
   if (!world.job.plan) throw new Error("Expected a bound job");
   const job = {
     ...world.job,
     plan: { ...world.job.plan, attemptId: randomUUID() },
   };
-  expect(() =>
-    applyRunnerPlanEvent({ ...world, job }, world.run, world.snapshot),
-  ).toThrow("Runner attempt mismatch");
+  const result = applyRunnerPlanEvent(
+    { ...world, job },
+    world.run,
+    world.snapshot,
+  );
+  expect(result.run).toBe(world.run);
+  expect(result.isSettled).toBe(true);
+  expect(result.checkpoint).toBeUndefined();
 });
 
 it("persists server acceptance after provisional remote success without replacing transport evidence", async () => {

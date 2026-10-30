@@ -1,4 +1,4 @@
-import { AgentError } from "@/backend/error/AgentErrors";
+import { isPlanHistoryReadFailure } from "./AgentPlanControlAccess";
 
 import type { AgentPlanRecoveryEntry } from "@/definition/AgentPlanOperations";
 import type { AgentPlanRecoveryView } from "@/definition/AgentPlanRecovery";
@@ -15,7 +15,7 @@ export async function canReadPlanContinuation(
     const continuation = await plans.run(userId, recovery.continuedBy);
     return continuation.planId === recovery.planId;
   } catch (error) {
-    if (error instanceof AgentError) return false;
+    if (isPlanHistoryReadFailure(error)) return false;
     throw error;
   }
 }

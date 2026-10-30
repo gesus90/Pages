@@ -1,6 +1,11 @@
+import {
+  authorizedPlanControl,
+  readPlanControlRun,
+} from "./AgentPlanControlAccess";
+import { readAuthorizedPlanRun } from "./AgentPlanRunReader";
+import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { randomUUID } from "node:crypto";
 
-import { allRunAssetReferences } from "@/backend/agents/AgentPlanRunResources";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
@@ -17,7 +22,6 @@ import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { readPlanSources } from "./AgentPlanSources";
 import { readPlanPage } from "./AgentPlanPage";
-import { withPlanProgress } from "./AgentPlanProgressView";
 import { AgentPlanControlService } from "./AgentPlanControlService";
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
 import { AgentPlanStartActions } from "./AgentPlanStartActions";
@@ -31,7 +35,6 @@ import {
 } from "./AgentPlanOwnership";
 import { AgentPlanScripts } from "./AgentPlanScripts";
 import { AgentPlanCloning } from "./AgentPlanCloning";
-import { requirePlanModelResources } from "./AgentPlanModel";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
@@ -76,7 +79,8 @@ import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 import type { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import type { AgentPlanStartRejectionPage } from "@/definition/AgentPlanStartRejection";
 
-interface PlanDependencies {
+export interface PlanDependencies {
+  readonly workspaceCleanup?: AgentWorkspaceCleanupRepository;
   readonly workGate?: AgentPlanWorkGate;
   readonly workspaceCatalog?: AgentPlanWorkspaces;
   readonly remoteExecution?: AgentPlanRemoteExecution;
@@ -456,46 +460,19 @@ export class AgentPlanService {
 
   /** Run output stays private to its executor and still requires current plan/workspace permission. */
   public async run(userId: string, id: string): Promise<AgentPlanRun> {
+    return readAuthorizedPlanRun(this.dependencies, userId, id);
+  }
+
+  /** Authorizes control of an own run without granting access to historical ticket or provider content. */
+  public async controlRun(userId: string, id: string): Promise<AgentPlanRun> {
     const run = await this.dependencies.runs.find(id);
-    if (!run || run.userId !== userId)
+    if (
+      !run ||
+      run.userId !== userId ||
+      !(await this.dependencies.access.require(userId, run.planId)).canEdit
+    )
       throw new AgentError("plan_access_denied");
-    await this.dependencies.access.require(userId, run.planId);
-    const resources = await this.dependencies.runs.resources(id);
-    await requirePlanModelResources(
-      this.dependencies.profiles,
-      userId,
-      resources,
-    );
-    await this.dependencies.remoteExecution?.requireRead(userId, resources);
-    // Access only: a run that started must stay readable and stoppable after its directory or link is gone.
-    for (const workspaceId of resources.workspaceIds)
-      await (
-        this.dependencies.workspaceCatalog ?? this.dependencies.workspaces
-      ).requireAccess(userId, workspaceId, resources.projectId);
-    for (const taskId of resources.taskIds)
-      await this.dependencies.tasks.snapshot(
-        userId,
-        resources.projectId,
-        taskId,
-      );
-    for (const pageId of resources.wikiIds)
-      await this.dependencies.parameters.requireWiki(userId, pageId);
-    for (const ticketId of resources.ticketIds)
-      await this.dependencies.parameters.requireTicket(userId, ticketId);
-    const ticketAssets = allRunAssetReferences(run, resources.ticketAssets);
-    if (ticketAssets.length)
-      await this.dependencies.parameters.requireTicketAssets(
-        userId,
-        ticketAssets,
-      );
-    const progress = await withPlanProgress(run, {
-      projectId: resources.projectId,
-      tasks: this.dependencies.tasks,
-      stepTickets: resources.stepTickets,
-    });
-    const scoped =
-      (await this.dependencies.workGate?.withProgress(progress)) ?? progress;
-    return this.dependencies.remoteExecution?.withProgress(scoped) ?? scoped;
+    return run;
   }
 
   /** Other workspace users or plan owners cannot stop an executor's private run. */
@@ -504,12 +481,12 @@ export class AgentPlanService {
     id: string,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
-    const run = await this.run(userId, id);
+    const run = await this.controlRun(userId, id);
     if (!(await this.dependencies.access.require(userId, run.planId)).canEdit)
       throw new AgentError("plan_access_denied");
     await this.dependencies.engine.stop(id, journal);
     await this.dependencies.remoteExecution?.stop(run);
-    return this.run(userId, id);
+    return (await readPlanControlRun(this, userId, run.planId, id)).run;
   }
 
   /** Only the executor with current plan and resource access may pause this run. */
@@ -537,6 +514,12 @@ export class AgentPlanService {
     if (!plan.canEdit) throw new AgentError("plan_access_denied");
     if (revision === undefined || plan.revision !== revision)
       throw new AgentError("plan_conflict");
+    if (
+      run.status === "running" &&
+      !run.stopRequested &&
+      run.continuation?.planRevision === revision
+    )
+      return run;
     if (run.status !== "paused" || run.stopRequested)
       throw new AgentError("plan_run_unavailable");
     const control = await this.control(userId, run.planId);
@@ -553,7 +536,8 @@ export class AgentPlanService {
     userId: string,
     planId: string,
   ): Promise<AgentPlanControl> {
-    return this.controls.read(userId, planId);
+    const control = await this.controls.read(userId, planId);
+    return authorizedPlanControl(this, userId, planId, control);
   }
 
   /** Reads one own historical refusal; reading never prepares or starts execution. */

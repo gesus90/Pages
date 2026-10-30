@@ -1,3 +1,4 @@
+import { isPlanHistoryReadFailure } from "../AgentPlanControlAccess";
 import { readPlanRecoveryCommand } from "@/backend/agents/AgentPlanRecoveryInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
@@ -17,6 +18,7 @@ import {
   planResume,
   releaseOption,
   restartOption,
+  restartScriptReview,
   resumeOption,
 } from "./AgentPlanRecoveryPlanning";
 
@@ -179,7 +181,7 @@ function executingOptions(
         ),
       ),
     ],
-    restart,
+    restart: { ...restart, reviewStepIds: restartScriptReview(facts.run) },
     release,
     resume: {
       ...resume,
@@ -193,6 +195,50 @@ function executingOptions(
       reusedStepIds: plan.reused.map((step) => step.id),
       reviewStepIds: plan.retriedStepIds,
     },
+  };
+}
+
+/** Keeps only the authority and opaque review identities needed for restart or cleanup. */
+function controlRecoveryView(
+  record: { readonly run: AgentPlanRun; readonly revision: number },
+  options: ReturnType<typeof recordingOnly>,
+): AgentPlanRecoveryView {
+  return {
+    runId: record.run.id,
+    planId: record.run.planId,
+    revision: record.revision,
+    planRevision: options.planRevision,
+    currentPlanRevision: options.currentPlanRevision,
+    state: recoveryState(record.run),
+    isCleanupUnconfirmed: options.isCleanupUnconfirmed,
+    restart: options.restart,
+    release: options.release,
+    resume: {
+      available: false,
+      reason: "context_not_verified",
+      modes: [],
+      reusedStepIds: [],
+      reviewStepIds: [],
+    },
+    blockers: [
+      ...new Set([
+        ...[options.restart.reason, options.release.reason].filter(
+          (reason): reason is AgentPlanRecoveryBlocker =>
+            reason !== null && reason !== "nothing_to_release",
+        ),
+        "context_not_verified" as const,
+      ]),
+    ],
+    stepNames: {},
+    origin: null,
+    continuedBy: null,
+    executions: [],
+    cleanupResources: [],
+    latestCleanupFailure: null,
+    checkpoint: null,
+    attempts: [],
+    nodes: [],
+    allowedActions: [],
   };
 }
 
@@ -225,13 +271,17 @@ export class AgentPlanRecoveryService {
     userId: string,
     runId: string,
   ): Promise<AgentPlanRecoveryView> {
-    await this.dependencies.runs.run(userId, runId);
+    const hasHistoryAccess = await this.requireControlAccess(userId, runId);
     const record = await this.dependencies.recovery.inspect(runId);
     if (record.run.userId !== userId)
       throw new AgentPlanRecoveryError("access_denied");
     const options = this.actions
-      ? executingOptions((await this.actions.facts(userId, runId)).facts)
+      ? executingOptions(
+          (await this.actions.facts(userId, runId, undefined, hasHistoryAccess))
+            .facts,
+        )
       : recordingOnly(record.run);
+    if (!hasHistoryAccess) return controlRecoveryView(record, options);
     return {
       runId,
       planId: record.run.planId,
@@ -292,6 +342,24 @@ export class AgentPlanRecoveryService {
     return this.controls.run(() => this.executeControl(userId, runId, input));
   }
 
+  private async requireControlAccess(
+    userId: string,
+    runId: string,
+  ): Promise<boolean> {
+    try {
+      await this.dependencies.runs.run(userId, runId);
+      return true;
+    } catch (error: unknown) {
+      if (
+        !isPlanHistoryReadFailure(error) ||
+        !this.dependencies.runs.controlRun
+      )
+        throw error;
+      await this.dependencies.runs.controlRun(userId, runId);
+      return false;
+    }
+  }
+
   private async latestCleanupFailure(
     userId: string,
     runId: string,
@@ -311,8 +379,12 @@ export class AgentPlanRecoveryService {
     runId: string,
     input: unknown,
   ): Promise<AgentPlanRecoveryResult> {
-    const run = await this.dependencies.runs.run(userId, runId);
     const original = readPlanRecoveryCommand(input);
+    const run =
+      (original.action === "restart" || original.action === "release") &&
+      this.dependencies.runs.controlRun
+        ? await this.dependencies.runs.controlRun(userId, runId)
+        : await this.dependencies.runs.run(userId, runId);
     const requestDigest = planContentDigest(original);
     const command = this.sanitize(original);
     try {

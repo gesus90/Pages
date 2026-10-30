@@ -101,6 +101,10 @@ async function activeLeases() {
 async function reserveJob(directory, job) {
   const resources = await workspaceResources(job.execution.workspace);
   const leases = await activeLeases();
+  const isReadOnly =
+    job.execution.program.kind === "model" ||
+    (job.execution.program.kind === "cli" &&
+      job.execution.program.access === "read_only");
   if (
     leases.some(
       (lease) => lease.jobId === job.jobId && lease.sessionId === job.sessionId,
@@ -110,14 +114,16 @@ async function reserveJob(directory, job) {
   if (
     leases.some(
       (lease) =>
-        overlaps(lease.path, resources.path) ||
-        (resources.branch && lease.branch === resources.branch),
+        !(isReadOnly && lease.isReadOnly === true) &&
+        (overlaps(lease.path, resources.path) ||
+          (resources.branch && lease.branch === resources.branch)),
     )
   )
     return "workspace";
   if (leases.length >= MAXIMUM_ACTIVE_JOBS) return "capacity";
   await store(leasePath(job), {
     ...resources,
+    isReadOnly,
     jobId: job.jobId,
     sessionId: job.sessionId,
     attemptId: job.plan.attemptId,

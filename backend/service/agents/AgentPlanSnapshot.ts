@@ -1,3 +1,5 @@
+import { readAgentObject } from "@/backend/agents/AgentPayload";
+import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import type { RemotePlanStep } from "./AgentPlanRemoteExecution";
 import type {
@@ -44,6 +46,7 @@ export interface AgentPlanStepSnapshot {
  */
 export interface AgentPlanRecoveryDirective {
   readonly sourceRunId: string;
+  readonly isRestart?: boolean;
   readonly mode: "native_resume" | "new_session";
   /** Nodes that started in the earlier run and run again as a new attempt. */
   readonly retriedStepIds: readonly string[];
@@ -51,6 +54,8 @@ export interface AgentPlanRecoveryDirective {
   readonly loopIterations: Readonly<Record<string, number>>;
   /** The native session to continue, by node or by group. */
   readonly resumeSessions: Readonly<Record<string, string>>;
+  /** Prior business results and open requirements, supplied to replacement sessions. */
+  readonly contextByStepId?: Readonly<Record<string, string>>;
 }
 
 /** Each server-only execution basis is appended once; no basis is overwritten or sent as a run response. */
@@ -90,4 +95,19 @@ export function planStepDirectory(
 ): ResolvedAgentWorkspace | null {
   if (step.prepared.directory !== null) return step.prepared.directory;
   return isAcpProvider(step.provider) ? step.prepared.workspace : null;
+}
+
+/** Reads a server-written private basis, refusing an incomplete or damaged snapshot. */
+export function readPlanSnapshot(input: unknown): AgentPlanSnapshot {
+  const snapshot = readAgentObject(input);
+  const plan = readAgentObject(snapshot.plan);
+  if (
+    typeof plan.id !== "string" ||
+    !Array.isArray(plan.nodes) ||
+    !Array.isArray(plan.edges) ||
+    !Array.isArray(snapshot.steps)
+  )
+    throw new AgentPlanRecoveryError("checkpoint_invalid");
+  // Only Pages writes these private execution bases, after validating their contracts.
+  return input as AgentPlanSnapshot;
 }

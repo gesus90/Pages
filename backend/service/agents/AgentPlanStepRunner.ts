@@ -1,3 +1,4 @@
+import { apiBusinessResult } from "./AgentPlanStepFailure";
 import { randomUUID } from "node:crypto";
 
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
@@ -18,7 +19,6 @@ import {
   errorCode,
   failureCloseout,
   planAcceptanceFailure,
-  requiresAcceptance,
 } from "./AgentPlanStepFailure";
 import { waitForTurn } from "./AgentPlanTurn";
 import { offerGroupInstructions } from "./AgentPlanGroupInstructions";
@@ -98,9 +98,9 @@ interface StepRunnerDependencies {
  * The record of the node, with the requested configuration, the todo list and
  * the acceptance criteria, is stored before any process starts, and the sent
  * prompt is pinned before it leaves. Regular runner completion and a clean,
- * confirmed closeout determine execution success. Business progress and report
- * diagnostics are stored separately. OpenCode nodes and all group members
- * additionally require accepted business progress before successors start.
+ * confirmed closeout determine execution success. Business progress and process
+ * evidence are stored separately. Every agent requires accepted business
+ * progress before successors start.
  */
 export class AgentPlanStepRunner {
   private readonly dependencies: StepRunnerDependencies;
@@ -279,18 +279,21 @@ export class AgentPlanStepRunner {
       }),
       startedAt: new Date().toISOString(),
     });
-    await this.pin(node, prepared.input.prompt);
+    const recovery = planRecoveryTerms(node.snapshot, node.step.step.id, node);
+    const input = {
+      ...prepared.input,
+      prompt: recovery.note + prepared.input.prompt,
+    };
+    await this.pin(node, input.prompt);
     const output = sanitizePlanOutput(
-      await this.dependencies.execution.run(
-        prepared.input,
-        node.control.signal,
-      ),
+      await this.dependencies.execution.run(input, node.control.signal),
     );
+    const result = apiBusinessResult(output);
     await this.complete(node, {
       endedAt: new Date().toISOString(),
-      resultCode: 0,
+      resultCode: result.status === "failed" ? -1 : 0,
     });
-    return { status: "succeeded", output, error: null, session: node.record };
+    return { ...result, session: node.record };
   }
 
   private async session(
@@ -409,7 +412,7 @@ export class AgentPlanStepRunner {
       runnerLabel: node.record ? runnerLabel(node.record) : "",
       instanceId: terms.instanceId,
       directory,
-      requiresAcceptance: requiresAcceptance(node.step),
+      requiresAcceptance: true,
       acceptanceScope: node.step.groupId ? "group" : "node",
     })}`;
     await this.pin(node, prompt);

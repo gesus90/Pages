@@ -770,7 +770,7 @@
         "plan_runner_failed": "The runner ended its turn with an error.",
         "plan_runner_incomplete": "The runner ended without completing its turn.",
         "plan_runner_permission_denied": "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
-        "plan_acceptance_failed": "Historical run: the closing report did not prove every todo and criterion. This stored failure is unchanged; a new run uses these findings only as diagnostics.",
+        "plan_acceptance_failed": "The agent’s business assignment is blocked, open or unproven. Successors remain blocked despite a successful technical exit.",
         "plan_group_acceptance_failed": "The group agent did not pass acceptance. Its report must prove every todo and criterion; later agents and successors remain blocked.",
         "plan_group_session_unsupported": "This adapter cannot continue the group's shared ACP session with a new step instruction. Use Codex, Claude Code or OpenCode agents over ACP.",
         "plan_closeout_failed": "The session could not be closed completely; processes of it remained.",
@@ -845,7 +845,12 @@
         "antigravity_acp_session_failed": "The Antigravity ACP session failed. Check the adapter, login and quota at the execution host.",
         "antigravity_configuration_unmanaged": "Additional Antigravity configuration could widen session permissions. Use the isolated Pages context.",
         "antigravity_pica_unverified": "Antigravity is blocked for Pica: the complete restrictive tool boundary has not been verified with a real model.",
-        "antigravity_runner_update_required": "Antigravity requires Runner 1.14.0 or later at the selected execution host. Update this runner explicitly; no local fallback is used."
+        "antigravity_runner_update_required": "Antigravity requires Runner 1.14.0 or later at the selected execution host. Update this runner explicitly; no local fallback is used.",
+        "plan_workspace_waiting": "This run is queued for a concrete writing resource. Its owner and remaining cleanup are shown by the upper controls.",
+        "plan_acceptance_unavailable": "Business acceptance could not be verified. Check current ticket access and continue the incomplete step.",
+        "plan_acceptance_contract_unavailable": "The retained attempt has no valid pinned business contract. Review its result and continue with the current plan.",
+        "plan_acceptance_interrupted": "Pages was interrupted before business acceptance. Continue the incomplete step with its retained work.",
+        "plan_runner_control_update_required": "New plan jobs require Runner 1.15.0 (planControlVersion 1). Update Pages and Runner together explicitly; existing jobs remain reconcilable."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -3508,8 +3513,9 @@
     "location": "Location",
     "pathColumn": "Path",
     "githubColumn": "GitHub link",
-    "detachDescription": "The following plans and pinned agents will lose their workspace. Their nodes and contents are preserved. Affected plans cannot start without a workspace and must be reassigned.",
-    "confirmDetach": "I confirm that the affected plans and agents will lose their workspace."
+    "detachDescription": "Current workspace bindings in plans, templates and pinned agents will be removed. Plans, immutable run history and files remain.",
+    "confirmDetach": "Unregister this workspace, detach the listed current bindings and cancel its owned work. Keep repository files and history.",
+    "cleanupPending": "Owned jobs will be cancelled. Offline or unproven cleanup stays visible in the affected plan; unregistering preserves every repository file."
   },
   "remote": {
     "connections": {
@@ -3968,7 +3974,8 @@
       "cancelled": "Cancelled",
       "paused": "Paused",
       "pausing": "Pausing …",
-      "stopping": "Stop · closing"
+      "stopping": "Stop · closing",
+      "queued": "Queued — process start not confirmed"
     },
     "dataIn": "Data IN",
     "disconnect": "Remove data connection for {{name}}",
@@ -4021,7 +4028,7 @@
       "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
       "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
       "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
-      "remoteRunnerUpdate": "Update the runner: remote CLI result integrity requires Runner 1.13.0 or newer; other remote features may require at least 1.10. Nothing starts here until the required version is available; running jobs are still reconciled.",
+      "remoteRunnerUpdate": "New remote plan jobs require Runner 1.15.0 with planControlVersion 1. Update Pages and Runner together explicitly; existing jobs remain reconcilable.",
       "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
       "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason."
     },
@@ -4435,7 +4442,7 @@
         "remoteAssetsTooLarge": "File delivery exceeds 10 MiB in total or 64 files. The step will not start.",
         "remotePromptTooLarge": "The complete prompt including parameters exceeds the existing runner limit of 100000 characters. Reduce the content; Pages does not truncate it.",
         "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
-        "remoteRunnerUpdate": "Update the runner: remote CLI result integrity requires Runner 1.13.0 or newer; other remote features may require at least 1.10. Nothing starts here until the required version is available; running jobs are still reconciled.",
+        "remoteRunnerUpdate": "New remote plan jobs require Runner 1.15.0 with planControlVersion 1. Update Pages and Runner together explicitly; existing jobs remain reconcilable.",
         "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
         "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason.",
         "remoteCatalogStale": "This runner's inventory is stale or incomplete. Known profiles stay visible but start only after a complete, current report from the connected runner.",
@@ -5090,7 +5097,8 @@
         "started": "The new run started.",
         "released": "Leftover processes ended and working copies released.",
         "recorded": "Recorded.",
-        "cancelled": "Run cancelled."
+        "cancelled": "Run cancelled.",
+        "reset": "Logical control has been restored. No new process was started. Resolve the current configuration issue; prior cleanup remains visible."
       },
       "error": {
         "review_required": "Confirm the review of every node that runs again.",
@@ -5107,7 +5115,24 @@
       "resumeDescription": "Continues from the last safe state: successful steps are taken over and not repeated; open work runs as a new attempt.",
       "cleanupHistory": "Last recorded cleanup failure",
       "cleanupHistoryTime": "{{time}} · applied plan revision {{revision}}",
-      "cleanupHistoryHint": "Historical finding. See available actions for the current release and process state."
+      "cleanupHistoryHint": "Historical finding. See available actions for the current release and process state.",
+      "freshDescription": "Start the saved workflow revision from the beginning. Existing work and history remain; prior owned jobs are cancelled and conflicting dispatch waits for proven cleanup.",
+      "cleanupObligation": "Pending cleanup for {{workspace}}, source run {{run}}.",
+      "writerWait": "Queued for write resource {{resource}}; owner {{run}}.",
+      "otherOwner": "another executor",
+      "reviewScript": "I reviewed the effective files, Git/external effects and result of “{{step}}”. Its next execution is safe and does not blindly repeat preparation, commit or push.",
+      "cleanupBlocker": {
+        "cleanup_requested": "Cancellation is durably requested; waiting for exact job reconciliation.",
+        "cleanup_check_failed": "The owned cleanup check failed. Retry the upper action and inspect this run’s diagnostics.",
+        "owner_evidence_unavailable": "The original owner record is unavailable. Dispatch remains blocked until its identity is reconciled.",
+        "runner_offline": "The Runner is offline. Reconnect the original Runner to confirm termination; offline is not process-free proof.",
+        "process_end_unconfirmed": "Process termination is unconfirmed. Reconnect the original Runner or inspect this owner’s process evidence.",
+        "process_scan_unavailable": "The original process boundary cannot currently be proved. Inspect the exact owner on its host; missing ownership files are insufficient.",
+        "signal_denied": "The host refused termination of the exact owned process. Correct host permissions and retry the same action.",
+        "exit_timeout": "The owned process did not exit within the cleanup deadline. Inspect the original host and retry.",
+        "writer_reserved": "The earlier workflow still owns this concrete writing resource. Stop that own run or wait for its completion.",
+        "legacy_owner_cleanup_required": "An older owner retains this resource. Inspect its original run and reconcile its cleanup; no force unlock is performed."
+      }
     },
     "nodeInstruction": "Additional node instruction",
     "execution": {

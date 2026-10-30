@@ -64,6 +64,28 @@ async function deletePlanRefusals(
   );
 }
 
+/** Pending cleanup cannot lose the run that proves its owner, even after registration removal. */
+async function requireProjectRunCloseout(
+  database: DatabaseTransaction,
+  parameters: { project_id: string },
+): Promise<void> {
+  const [lease] = await database.query(
+    `
+    SELECT instance_id
+    FROM acp_resource_leases
+    WHERE run_id IN (${PLAN_RUNS})
+    UNION ALL
+    SELECT run_id AS instance_id
+    FROM agent_workspace_cleanup
+    WHERE run_id IN (${PLAN_RUNS})
+        AND state = 'pending'
+    LIMIT 1;
+  `,
+    parameters,
+  );
+  if (lease) throw new ProjectRunsActiveError();
+}
+
 /**
  * Deletes the execution plans of a project with their runs, workspaces and imports.
  *
@@ -82,16 +104,8 @@ export async function deleteProjectAgentData(
   projectId: string,
 ): Promise<AgentRunRecordKey[]> {
   const parameters = { project_id: projectId };
-  const [lease] = await database.query(
-    `
-    SELECT instance_id
-    FROM acp_resource_leases
-    WHERE run_id IN (${PLAN_RUNS})
-    LIMIT 1;
-  `,
-    parameters,
-  );
-  if (lease) throw new ProjectRunsActiveError();
+  await requireProjectRunCloseout(database, parameters);
+  // Pending workspace cleanup must retain its run owner just like a live ACP lease.
   // Lease removal belongs to the scheduler's confirmed closeout.
   await database.execute(
     `DELETE FROM acp_resource_leases WHERE run_id IN (${PLAN_RUNS});`,
@@ -122,6 +136,7 @@ export async function deleteProjectAgentData(
     "agent_plan_repair_attempts",
     "agent_plan_recovery_executions",
     "agent_plan_cleanup_failures",
+    "agent_workspace_cleanup",
     "agent_plan_work",
   ] as const)
     await database.execute(

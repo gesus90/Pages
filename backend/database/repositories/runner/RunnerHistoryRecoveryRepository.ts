@@ -10,7 +10,10 @@ import {
   runnerSchemaIssues,
 } from "@/backend/service/runner/RunnerSchemaDiagnosis";
 
-import { appendRunnerSessionEvents } from "./RunnerSessionEvents";
+import {
+  appendRunnerSessionEvents,
+  runnerSessionState,
+} from "./RunnerSessionEvents";
 
 import type {
   Database,
@@ -291,7 +294,7 @@ export class RunnerHistoryRecoveryRepository {
         user_id: run.userId,
         provider: RUNNER_TOOL_PROVIDERS[tool],
         instance_id: job.jobId,
-        state: step.status === "succeeded" ? "ended" : step.status,
+        state: runnerSessionState(step),
       },
     );
   }

@@ -6,6 +6,8 @@ export const PAIRED_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 export const AGENT_API_ENDPOINT = "api/v1/agents";
 /** Default budget for short Agent API and pairing requests. */
 export const REQUEST_TIMEOUT_MS = 5_000;
+/** Plan preparation and owned cleanup share the application's bounded control budget. */
+export const PLAN_REQUEST_TIMEOUT_MS = 60_000;
 /** Imports persist outcomes and may take longer than ordinary operations. */
 export const IMPORT_TIMEOUT_MS = 30_000;
 /** Binary uploads have an independent five-minute budget. */

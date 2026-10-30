@@ -1,5 +1,6 @@
 import { readPlanContract } from "@/backend/agents/AgentPlanSessionInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
+import { RUNNER_TOOL_PROVIDERS } from "@/definition/RunnerExecution";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 
 import { planSessionReach } from "./AgentPlanSessionAccess";
@@ -12,19 +13,15 @@ import type { AgentPlanTasks } from "./AgentPlanTasks";
 
 /** Whether this frozen command requires the same business gate as local OpenCode. */
 export function requiresRemoteAcceptance(remote: RemotePlanStep): boolean {
-  return (
-    remote.step.type === "agent" &&
-    remote.command.program.kind === "cli" &&
-    remote.command.program.route.tool === "opencode"
-  );
+  return remote.step.type === "agent" && remote.command.program.kind === "cli";
 }
 
 /** Marks an unassessable result failed without inventing a report or changing process evidence. */
 function assessmentFailed(
   result: Partial<AgentPlanStepResult>,
   error:
-    | "opencode_acceptance_unavailable"
-    | "opencode_acceptance_contract_unavailable" = "opencode_acceptance_unavailable",
+    | "plan_acceptance_unavailable"
+    | "plan_acceptance_contract_unavailable" = "plan_acceptance_unavailable",
 ): Partial<AgentPlanStepResult> {
   return {
     ...result,
@@ -72,13 +69,14 @@ async function assessRemoteReport(
       !contract ||
       planContentDigest(contract) !== planContentDigest(session.contract)
     )
-      return assessmentFailed(
-        result,
-        "opencode_acceptance_contract_unavailable",
-      );
+      return assessmentFailed(result, "plan_acceptance_contract_unavailable");
+    const program = remote.command.program;
+    if (program.kind !== "cli" || !program.route.tool)
+      return assessmentFailed(result);
+    const provider = RUNNER_TOOL_PROVIDERS[program.route.tool];
     const reach = planSessionReach(
-      "opencode",
-      agentRunOptionsFor("opencode", remote.step.configuration.template.run),
+      provider,
+      agentRunOptionsFor(provider, remote.step.configuration.template.run),
     );
     const assessed = await new AgentPlanStepAssessment(tasks).assess(
       { contract, instruction: remote.step.instruction, reach },
@@ -86,14 +84,14 @@ async function assessRemoteReport(
       {
         userId: run.userId,
         projectId: await input.projectId(),
-        provider: "opencode",
+        provider,
       },
     );
     const accepted = assessed.acceptance.verdict === "accepted";
     return {
       ...result,
       status: accepted ? "succeeded" : "failed",
-      error: accepted ? null : "opencode_acceptance_failed",
+      error: accepted ? null : "plan_acceptance_failed",
       session: {
         ...session,
         contract: assessed.contract,
@@ -104,4 +102,23 @@ async function assessRemoteReport(
   } catch {
     return assessmentFailed(result);
   }
+}
+
+/** Only the engine may turn this provisional runner result into accepted, checkpointed success. */
+export function completedGatedRemote(
+  remote: RemotePlanStep,
+  step: Partial<AgentPlanStepResult>,
+): Partial<AgentPlanStepResult> {
+  if (
+    remote.step.type !== "agent" ||
+    (!remote.step.completionGate && !requiresRemoteAcceptance(remote)) ||
+    step.status !== "running" ||
+    step.remote?.status !== "completed"
+  )
+    return step;
+  return {
+    ...step,
+    status: "succeeded",
+    ...(step.session ? { session: { ...step.session, resultCode: 0 } } : {}),
+  };
 }

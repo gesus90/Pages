@@ -1,5 +1,10 @@
 # Pages-Runner (PAGE-141)
 
+> Current control contract: [PAGE-184 / PAGE-185](./PAGE-184-185.md) documents
+> Pages plan contract 13, Runner 1.15.0, business acceptance for every CLI,
+> upper control actions, actual writer queues and logical workspace removal.
+> The versioned historical sections below describe their original releases.
+
 Der lokale Teil stellt Protokoll v1, persistente Kopplung und Skriptübertragung bereit. Einstellungen → Agents zeigt API, Lokal und Remote direkt hintereinander vor den Pica-Einstellungen. Die CLI-Pfade sind aufklappbar; Remote verwendet dieselben Tabellenspalten mit tatsächlicher SSH-Prüfzeit und Abteilungsfreigabe. Remote enthält ausschließlich gespeicherte SSH-Anbindungen. Es werden keine Remote-Agenten aus einer Hostliste abgeleitet.
 
 ## Setup und Berechtigungen

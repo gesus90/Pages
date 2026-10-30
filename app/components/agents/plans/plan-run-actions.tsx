@@ -207,8 +207,12 @@ function playTitle(props: PlanRunActionsProps, translate: TFunction): string {
   if (props.isDirty) return translate("plans.panel.unsaved");
   const control = props.control;
   if (!control) return translate("plans.panel.checking");
-  if (["running", "pausing", "paused", "stopping"].includes(control.status))
+  if (
+    !control.canPlay &&
+    ["running", "pausing", "paused", "stopping"].includes(control.status)
+  )
     return translate("plans.panel.stopFirst");
+  if (control.runId) return translate("plans.recovery.freshDescription");
   if (control.issue === "plan_workspace_conflict")
     return translate("settings.agents.error.plan_workspace_conflict");
   return control.issue || control.issues?.length

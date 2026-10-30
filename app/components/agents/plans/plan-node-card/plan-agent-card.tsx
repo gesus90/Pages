@@ -9,6 +9,7 @@ import { planAgentName } from "../plan-layout";
 import {
   hasOpenPlanReport,
   PlanStatusBadge,
+  isQueuedPlanStep,
   planStatusClass,
 } from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
@@ -53,12 +54,17 @@ export function PlanAgentCard(props: {
       subtitle={t("plans.nodeType.agent")}
       runClass={
         props.hasRun
-          ? planStatusClass(status, result?.isBlocked, hasOpenReport)
+          ? planStatusClass(
+              isQueuedPlanStep(result) ? "waiting" : status,
+              result?.isBlocked,
+              hasOpenReport,
+            )
           : undefined
       }
       status={
         props.hasRun ? (
           <PlanStatusBadge
+            isQueued={isQueuedPlanStep(result)}
             compact
             status={status}
             isBlocked={result?.isBlocked}

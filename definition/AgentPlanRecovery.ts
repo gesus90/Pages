@@ -157,6 +157,7 @@ export type AgentPlanRecoveryCommand = RecoveryCommandIdentity &
         readonly revision: number;
         /** The executor knows that every node runs again, including earlier side effects. */
         readonly confirmRepeat: true;
+        readonly reviewedStepIds?: readonly string[];
       }
     | { readonly action: "release" }
   );
@@ -177,7 +178,9 @@ export interface AgentPlanRepairAttempt {
 export interface AgentPlanRecoveryResult {
   readonly commandId: string;
   readonly revision: number;
-  readonly outcome: "recorded" | "cancelled" | "started" | "released";
+  readonly outcome: "recorded" | "cancelled" | "started" | "released" | "reset";
+  /** Dispatch remains gated by this current configuration issue after a logical reset. */
+  readonly issue?: string;
   /** The run a restart or resume started. */
   readonly runId?: string;
 }
@@ -253,7 +256,9 @@ export interface AgentPlanRecoveryView {
   readonly cleanupResources: readonly AgentPlanCleanupResource[];
   /** Last stored failure is historical and survives later successful cleanup. */
   readonly latestCleanupFailure?: AgentPlanCleanupFailureRecord | null;
-  readonly restart: AgentPlanRecoveryOption;
+  readonly restart: AgentPlanRecoveryOption & {
+    readonly reviewStepIds?: readonly string[];
+  };
   readonly resume: AgentPlanRecoveryOption & {
     readonly modes: readonly {
       readonly mode: Exclude<AgentPlanRecoveryMode, "live">;

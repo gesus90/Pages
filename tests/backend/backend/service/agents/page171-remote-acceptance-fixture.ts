@@ -111,9 +111,7 @@ export async function remoteCompletion(
           target,
           command,
           inputs: {},
-          ...(tool === "opencode"
-            ? { acceptanceContract: remotePlanContract(step, []) }
-            : {}),
+          acceptanceContract: remotePlanContract(step, []),
         },
       ],
     },

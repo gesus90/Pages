@@ -271,7 +271,7 @@ it.each(PROVIDERS)(
       },
       effective: { permissionMode: "read_only" },
       acceptance: {
-        verdict: "open",
+        verdict: "accepted",
         criteria: [
           expect.objectContaining({
             id: "K1",
@@ -281,15 +281,14 @@ it.each(PROVIDERS)(
         ],
       },
     });
-    expect(record?.acceptance?.issues).toEqual(
-      expect.arrayContaining(["todo_open:T1", "ticket_unchecked:T1"]),
-    );
+    expect(record?.acceptance?.todos).toEqual([{ id: "T1", status: "done" }]);
+    expect(record?.acceptance?.issues).toEqual([]);
     expect(node.close).toHaveBeenCalledTimes(1);
   },
 );
 
 it.each(PROVIDERS)(
-  "YOLO gets the full Pages reach and reports unchecked ticket entries without blocking ($provider)",
+  "YOLO gets full Pages reach but unchecked business requirements block successors ($provider)",
   async ({ provider }) => {
     const node = await runNode(
       provider,
@@ -300,7 +299,10 @@ it.each(PROVIDERS)(
     expect(node.opened.options).toMatchObject({ access: "yolo", shell: true });
     expect(node.opened.prompt).toContain("set_ticket_checklist_item");
     expect(node.opened.prompt).not.toContain("This session is read-only");
-    expect(node.result).toMatchObject({ status: "succeeded", error: null });
+    expect(node.result).toMatchObject({
+      status: "failed",
+      error: "plan_acceptance_failed",
+    });
     expect(node.records.at(-1)?.acceptance?.issues).toContain(
       "ticket_unchecked:K1",
     );

@@ -1,3 +1,4 @@
+import type { AgentPlanWriterWait } from "./AgentPlanExecution";
 import type { AgentPlanCompletionGate } from "./AgentPlanWork";
 import type {
   AgentPlanExecutionTarget,
@@ -281,6 +282,9 @@ export interface AgentPlanRun {
   readonly stopRequested: boolean;
   /** Safe failure of an additional session turn, separate from completed graph results. */
   readonly controlError?: "plan_step_failed";
+  /** A running, non-stopped run currently awaits concrete writer admission; other states have no live wait. */
+  readonly isWaitingForWorkspace?: boolean;
+  readonly workspaceWait?: AgentPlanWriterWait;
   /** Absent in old failed records, which remain terminal; this never authorizes replay. */
   readonly recovery?: AgentPlanRecoveryReason;
   /** The earlier run an explicit restart or resume came from. */

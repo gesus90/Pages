@@ -109,7 +109,7 @@ export function remoteModelCommand(
       runnerLabel: route.tool,
       instanceId: step.id,
       directory: basis.workspace,
-      requiresAcceptance: route.tool === "opencode",
+      requiresAcceptance: true,
       acceptanceScope: "node",
     });
     return {

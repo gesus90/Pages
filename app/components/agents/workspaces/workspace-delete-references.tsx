@@ -75,7 +75,7 @@ export function WorkspaceDeleteReferences({
       </VerticalScrollArea>
       {usages.some((usage) => usage.kind === "run") ? (
         <p role="alert" className="text-sm text-destructive">
-          {t("settings.agents.error.workspace_running")}
+          {t("workspaces.cleanupPending")}
         </p>
       ) : null}
     </div>

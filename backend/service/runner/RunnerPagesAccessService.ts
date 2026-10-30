@@ -1,3 +1,6 @@
+import { readPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
+import { isOriginalRemoteJob } from "@/backend/service/agents/AgentPlanRemoteCancellation";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
 import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { assetFailure } from "@/backend/service/agents/AgentPlanStepFailure";
@@ -7,7 +10,10 @@ import { runnerPagesRequestSchema } from "@/definition/RunnerPagesAccess";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
-import { planSessionReach } from "@/backend/service/agents/AgentPlanSessionAccess";
+import {
+  planSessionReach,
+  planSessionScope,
+} from "@/backend/service/agents/AgentPlanSessionAccess";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 
 import { RunnerAssetUploads } from "./RunnerAssetUploads";
@@ -57,23 +63,13 @@ export class RunnerPagesAccessService {
     );
   }
 
-  /** A restarted Pages process never restores a previous step's in-memory capability. */
+  /** Restores only exact active attempts under current executor rights; old tokens are never inherited. */
   public async recover(): Promise<void> {
     for (const run of await this.dependencies.runs.unfinished()) {
-      for (const step of run.steps) {
-        if (step.resourceAccess?.pages !== "active" || !step.execution)
-          continue;
-        await this.dependencies.credentials.revoke(run.id, step.id);
-        await this.dependencies.evidence.write(
-          run.id,
-          step.execution.attemptId,
-          (previous) => ({
-            files: previous?.files ?? [],
-            events: previous?.events ?? [],
-            pages: "closed",
-          }),
-        );
-      }
+      const snapshot = readPlanSnapshot(
+        await this.dependencies.runs.snapshot(run.id),
+      );
+      for (const step of run.steps) await this.recoverStep(run, snapshot, step);
     }
   }
 
@@ -97,17 +93,20 @@ export class RunnerPagesAccessService {
     );
     const issued = await this.dependencies.credentials.issue(
       run.userId,
-      {
+      planSessionScope({
+        userId: run.userId,
         runId: run.id,
         stepId: node.id,
         reach: planSessionReach(node.configuration.provider, options),
-        operations: [],
         tickets: Object.values(remote.parameters.tickets).map((ticket) => ({
           id: ticket.id,
           key: ticket.key,
         })),
-      },
-      options.timeoutMinutes === 0 ? 0 : options.timeoutMinutes * 60_000,
+        lifetimeMs: options.timeoutMinutes * 60_000,
+        canSetStatus: node.completion === "todos",
+      }),
+      // The worker owns execution deadlines; time spent queued must not expire an authorized step.
+      0,
     );
     this.active.set(attemptId, {
       run,
@@ -116,10 +115,10 @@ export class RunnerPagesAccessService {
       downloads: new Map(),
       ...issued,
     });
-    await this.dependencies.evidence.write(run.id, attemptId, () => ({
-      files: [],
+    await this.dependencies.evidence.write(run.id, attemptId, (previous) => ({
+      files: previous?.files ?? [],
       pages: "active",
-      events: [],
+      events: previous?.events ?? [],
     }));
   }
 
@@ -169,6 +168,58 @@ export class RunnerPagesAccessService {
           error instanceof AgentError ? error.code : "plan_mcp_unavailable",
         ...this.uploadFailure(error, message, attemptId),
       };
+    }
+  }
+
+  private async recoverStep(
+    run: AgentPlanRun,
+    snapshot: ReturnType<typeof readPlanSnapshot>,
+    step: AgentPlanRun["steps"][number],
+  ): Promise<void> {
+    if (step.resourceAccess?.pages !== "active" || !step.execution) return;
+    await this.dependencies.credentials.revoke(run.id, step.id);
+    const remote = snapshot.remoteSteps?.find(
+      (entry) => entry.step.id === step.id,
+    );
+    try {
+      if (
+        !remote ||
+        step.status !== "running" ||
+        run.stopRequested ||
+        remote.command.pagesAccess !== 1
+      )
+        return;
+      const job = await this.dependencies.runners.progress(
+        remote.target.connectionId,
+        run.id,
+        step.execution.attemptId,
+      );
+      if (!canRestoreRemoteJob(run, step, job)) return;
+      const plan = await this.dependencies.plans.require(
+        run.userId,
+        run.planId,
+      );
+      if (!plan.canEdit) return;
+      if (remote.parameters)
+        await this.dependencies.parameters.authorize(
+          run.userId,
+          remote.parameters,
+          { projectId: plan.projectId, target: remote.target },
+        );
+      await this.open(run, remote, step.execution.attemptId);
+    } catch (error: unknown) {
+      logCaughtError("RunnerPagesAccessService", error);
+    } finally {
+      if (!this.active.has(step.execution.attemptId))
+        await this.dependencies.evidence.write(
+          run.id,
+          step.execution.attemptId,
+          (previous) => ({
+            files: previous?.files ?? [],
+            events: previous?.events ?? [],
+            pages: "closed",
+          }),
+        );
     }
   }
 
@@ -544,4 +595,16 @@ function auditTarget(
     /^(?:[a-f0-9-]{36}|[A-Z][A-Z0-9]{0,15}-[0-9]{1,10})$/u.test(target)
     ? target
     : null;
+}
+
+function canRestoreRemoteJob(
+  run: AgentPlanRun,
+  step: AgentPlanRun["steps"][number],
+  job: Awaited<ReturnType<RunnerService["progress"]>>,
+): boolean {
+  return (
+    isOriginalRemoteJob(run, step, job) &&
+    !job.cancellation &&
+    ["queued", "accepted", "running"].includes(job.status)
+  );
 }

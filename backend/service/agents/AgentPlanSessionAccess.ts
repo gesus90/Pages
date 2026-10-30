@@ -11,6 +11,7 @@ import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type {
   AgentRunReach,
+  AgentRunScope,
   AgentRunTicket,
 } from "@/definition/McpAuthorization";
 
@@ -81,6 +82,23 @@ export function planSessionReach(
   return options.access === "yolo" ? "full" : "read";
 }
 
+/** Builds the same least-privilege Pages scope for local and remote attempts. */
+export function planSessionScope(grant: AgentPlanSessionGrant): AgentRunScope {
+  return {
+    runId: grant.runId,
+    stepId: grant.stepId,
+    operations:
+      grant.reach === "tickets"
+        ? [
+            ...SESSION_OPERATIONS,
+            ...(grant.canSetStatus ? [STATUS_OPERATION] : []),
+          ]
+        : [],
+    tickets: grant.tickets,
+    reach: grant.reach,
+  };
+}
+
 /**
  * Gives the session of a node its own way to Pages.
  *
@@ -127,16 +145,7 @@ export class AgentPlanSessionAccess {
     const withStatus = grant.canSetStatus === true;
     const issued = await this.credentials.issue(
       grant.userId,
-      {
-        runId: grant.runId,
-        stepId: grant.stepId,
-        operations:
-          grant.reach === "tickets"
-            ? [...SESSION_OPERATIONS, ...(withStatus ? [STATUS_OPERATION] : [])]
-            : [],
-        tickets: grant.tickets,
-        reach: grant.reach,
-      },
+      planSessionScope(grant),
       grant.lifetimeMs === 0 ? 0 : grant.lifetimeMs + CREDENTIAL_MARGIN_MS,
     );
     return {

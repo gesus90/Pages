@@ -1,3 +1,4 @@
+import { retireRestartSource } from "./AgentPlanResourceReservation";
 import { isDeepStrictEqual } from "node:util";
 
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
@@ -206,6 +207,35 @@ export class AgentPlanRecoveryExecutionRepository {
         "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
         { run_id: run.id },
       );
+    });
+  }
+
+  /** Restores logical control while retaining every physical cleanup reservation and prior job identity. */
+  public async recordReset(
+    write: RecoveryExecutionWrite,
+    source: AgentPlanRun,
+  ): Promise<AgentPlanRun> {
+    return this.database.transaction(async (transaction) => {
+      await this.record(transaction, write);
+      await retireRestartSource(transaction, {
+        ...source,
+        startedAt: write.execution.createdAt,
+        origin: {
+          kind: "restart",
+          runId: source.id,
+          mode: null,
+          checkpointVersion: null,
+          reusedStepIds: [],
+          retriedStepIds: [],
+          reviewedStepIds: [],
+          requestedAt: write.execution.createdAt,
+        },
+      });
+      const [row] = await transaction.query(
+        "SELECT view_json FROM agent_plan_runs WHERE id = $id;",
+        { id: source.id },
+      );
+      return readPlanRun(JSON.parse(readTextColumn(row ?? [], 0, "view_json")));
     });
   }
 

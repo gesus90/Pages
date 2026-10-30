@@ -606,6 +606,15 @@ again. A generic authorization error alone does not identify this case.
 
 ## Troubleshooting
 
+Plan and workspace operations have a bounded 60-second request deadline because
+preparation and owned cleanup can outlast short reads. Ordinary requests retain
+their five-second deadline. A transport failure reports a fixed reachability
+diagnostic, distinct from authorization failure. An interrupted write may have
+committed: read the current control or its existing operation result before a
+deliberate retry; the adapter does not automatically resend it.
+The same fixed reachability diagnostic applies when Pages is unavailable during
+stdio startup; the adapter exits without serving or changing credentials.
+
 | Symptom                                                                                      | What to check                                                                                                                                                                                                                                                                                                                        |
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Node cannot be found, or the bundle cannot be loaded                                         | Use Node.js 24 or newer, ensure the client can find its executable, use the real absolute bundle path and keep the `.cjs` extension. The single bundle does not need pnpm or a runtime dependency installation.                                                                                                                      |
@@ -2007,8 +2016,10 @@ adds no switch of its own.
 - **Removing.** Removal detaches references in plans and pinned agent
   configurations without deleting their nodes or content. Affected plans remain
   visible as having no workspace and cannot start until reassigned. An affected
-  active run (including a paused run or pending cleanup) blocks removal
-  (`CONFLICT`). Rebinding an existing registration still requires no references.
+  active run, paused run or pending cleanup does not block logical removal.
+  Current template references are detached too. Exact owned cleanup obligations
+  remain visible in `read_plan_control.cleanup` and reconcile after reconnect;
+  removal never claims process freedom or deleted files. Rebinding an existing registration still requires no references.
   The workspace page lists affected records and asks for confirmation. API
   removal needs no typed confirmation; the registration can be created again.
 
@@ -2409,9 +2420,9 @@ verified by the runner.
 | Graph and positions     | Canvas and property panels            | `read_plan`, `update_plan`, `clone_plan` and parameter operations                                                                                                                               | Complete plans are read in snapshot-bound chunks. Plan edits have a 2 MiB envelope; split larger independent edits across revisions. Revisions reject stale writes.                                                                                                                                                 |
 | Run actions             | Play, pause, stop and boundary resume | `read_plan_control`, `play_plan`, `pause_plan`, `stop_plan`, `resume_plan`                                                                                                                      | Pause-boundary resume is distinct from recovery after process loss.                                                                                                                                                                                                                                                 |
 | Start refusal history   | Last recorded refusal in plan panel   | `read_plan_control` includes the requester's last recorded workspace refusal or stable preparation error, separately from current availability; historical graph findings include node and port | Historical graph findings omit asset details and are capped at 50, with `issueDetailsFiltered` indicating omissions. Some other failures are not recorded; explicit includeStartRejections/beforeRejectionId pages older own entries with stable sequence anchors. Target details require current workspace rights. |
-| Recovery availability   | Recovery panel                        | `read_plan_run_recovery` includes release, restart, resume and blockers                                                                                                                         | Native session availability still depends on the recorded adapter capabilities and verified checkpoints.                                                                                                                                                                                                            |
+| Recovery availability   | Upper Resume/Start decisions          | `read_plan_run_recovery` includes release, restart, resume and blockers                                                                                                                         | Native session availability still depends on the recorded adapter capabilities and verified checkpoints.                                                                                                                                                                                                            |
 | Recovery start          | Explicit restart or continuation      | `restart_plan_run`, `continue_plan_run`                                                                                                                                                         | Each is a separate explicit request; no command revives an unavailable live session or starts implicitly.                                                                                                                                                                                                           |
-| Cleanup and release     | Recovery panel release action         | `release_plan_run` uses the same recovery checks and journal; recovery reads name recorded unconfirmed resources                                                                                | Unconfirmed local agent or loop-session cleanup can remain blocked. Local scripts can retry their owned cleanup; latestCleanupFailure durably records the last bounded scan/resource error and original attempt; it remains historical after release. Older audit entries are not paginated.                        |
+| Cleanup and release     | Integrated upper action progress      | `release_plan_run` uses the same recovery checks and journal; recovery reads name recorded unconfirmed resources                                                                                | Unconfirmed local agent or loop-session cleanup can remain blocked. Local scripts can retry their owned cleanup; latestCleanupFailure durably records the last bounded scan/resource error and original attempt; it remains historical after release. Older audit entries are not paginated.                        |
 | Run history and reports | Run and report views                  | `list_plan_runs`, `read_plan_run`, `read_plan_run_reports`, `read_plan_run_diagnostics`, `read_plan_run_checkpoint`, `read_plan_run_session_events`                                             | Diagnostics/checkpoints are chunked; retained ACP events are sequence-paginated. Missing historical attempts, expired events and native session control are not reconstructed.                                                                                                                                      |
 | Whole-plan deletion     | Owner confirmation                    | `delete_plan` with a supported stdio client form                                                                                                                                                | Stateless HTTP cannot perform the required interactive confirmation.                                                                                                                                                                                                                                                |
 
@@ -2440,9 +2451,14 @@ the person understands that all steps and their side effects can recur.
 `continue_plan_run` instead chooses an available recovery mode and passes every
 `reviewStepId` whose side effects the person reviewed. It reuses only verified
 completed results and retries the remaining work as new attempts. Both require
-the recovery and current plan revisions returned by `read_plan_run_recovery`, current rights and
-confirmed cleanup; they replay a successful identical operation ID without
-starting a second run. Neither is an implicit consequence of saving, reading or
+the recovery and current plan revisions returned by `read_plan_run_recovery` and current rights.
+A fresh start can retire an active own run and queue behind retained cleanup;
+`restart.reviewStepIds` names scripts whose existing effects must be reviewed and
+passed as `reviewedStepIds`. A configuration blocker returns `outcome: reset`
+with `issue`, without starting a process. Continuation still requires confirmed
+cleanup and matching checkpoints. Explicit user Stop permanently disables
+continuation of that stopped run. Identical operation-ID retries replay the
+committed outcome without starting twice. Neither is an implicit consequence of saving, reading or
 cleanup, and neither is the pause-boundary `resume_plan`.
 
 `read_plan_run_diagnostics` reads one own attempt by plan, run and node. For a
@@ -2771,3 +2787,26 @@ its persisted owner/plan/run/node binding still matches. Missing journals return
 `plan_history_unavailable`, not an invented empty success. Historical summaries
 do not recover exit details or outputs that the older runtime never retained.
 This read permission does not make older attempts steerable or resumable.
+
+### PAGE-184 / PAGE-185 control contract
+
+Pages plan contract **13** adds `canRestart`, `resumeAction`, `workspaceWait` and
+own `cleanup` obligations to `read_plan_control`. `resumeAction: recovery` means
+use the explicitly reviewed `continue_plan_run`; `resume_plan` remains the live
+pause-boundary command. Logical reset is requestable through `restart_plan_run`
+from active, paused, failed, stopping and offline states. Its optional
+`reviewedStepIds` is required to cover each reported `restart.reviewStepId`.
+A stale saved plan still conflicts; do not silently choose a different revision.
+
+All CLI business results gate successors independently of technical exit. A
+remote claim remains queued until launch/running facts arrive; read
+`step.remote.status` alongside the scheduler step status. New remote jobs require
+Runner 1.15.0 and authenticated `planControlVersion: 1`. Existing jobs remain
+reconcilable. The four-tool reconciliation schema includes Antigravity.
+
+Registration removal preserves plans, immutable snapshots, journals and user
+files. It detaches current bindings in all plans/templates and retains exact
+owner cleanup obligations across an offline Runner. A missing override does not
+inherit a different target. Actual colliding writing resources queue; a shared
+registration alone does not exclude independent readers. See the
+[full control and rollout contract](../docs/PAGE-184-185.md).

@@ -1,3 +1,7 @@
+import {
+  recoveredAgentContext,
+  withRecoveredAgentContext,
+} from "./AgentPlanRecoveryContext";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -5,7 +9,7 @@ import {
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
 import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
-import { readAgentObject } from "@/backend/agents/AgentPayload";
+import { readPlanSnapshot } from "../AgentPlanSnapshot";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
@@ -23,6 +27,7 @@ import {
   planResume,
   releaseOption,
   restartOption,
+  restartScriptReview,
   resumeOption,
   resumedLoopRuns,
 } from "./AgentPlanRecoveryPlanning";
@@ -51,7 +56,8 @@ import type { RecoveryFacts } from "./AgentPlanRecoveryPlanning";
 
 /** The boundaries of executing recovery; each check stays on the server. */
 export interface RecoveryActionDependencies {
-  readonly runs: Pick<AgentPlanService, "run">;
+  readonly runs: Pick<AgentPlanService, "run"> &
+    Partial<Pick<AgentPlanService, "controlRun">>;
   readonly remoteExecution?: Pick<AgentPlanRemoteExecution, "stop">;
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly preparation: Pick<AgentPlanPreparation, "prepare">;
@@ -109,33 +115,18 @@ function requireOption(option: AgentPlanRecoveryOption): void {
   );
 }
 
-/**
- * Reads the server-written snapshot of an ended run.
- *
- * @remarks
- * Pages wrote it when the run started; the check refuses a damaged record
- * instead of continuing from it.
- */
-function readStoredSnapshot(input: unknown): AgentPlanSnapshot {
-  const snapshot = readAgentObject(input);
-  const plan = readAgentObject(snapshot.plan);
-  if (
-    typeof plan.id !== "string" ||
-    !Array.isArray(plan.nodes) ||
-    !Array.isArray(plan.edges) ||
-    !Array.isArray(snapshot.steps)
-  )
-    throw new AgentPlanRecoveryError("checkpoint_invalid");
-  return input as AgentPlanSnapshot;
-}
-
 /** The agent nodes and groups of a frozen plan. */
 function frozenNodes(snapshot: AgentPlanSnapshot): {
   readonly agentStepIds: readonly string[];
   readonly groupIds: readonly string[];
 } {
   return {
-    agentStepIds: snapshot.steps.map((step) => step.step.id),
+    agentStepIds: [
+      ...snapshot.steps.map((step) => step.step.id),
+      ...(snapshot.remoteSteps ?? [])
+        .filter((step) => step.step.type === "agent")
+        .map((step) => step.step.id),
+    ],
     groupIds: (snapshot.groups ?? []).map((group) => group.id),
   };
 }
@@ -168,17 +159,20 @@ export class AgentPlanRecoveryActions {
     userId: string,
     runId: string,
     expectedRevision?: number,
+    shouldCheckHistory = true,
   ): Promise<{
     readonly facts: RecoveryFacts;
     readonly snapshot: AgentPlanSnapshot;
   }> {
-    await this.dependencies.runs.run(userId, runId);
+    if (!shouldCheckHistory && this.dependencies.runs.controlRun)
+      await this.dependencies.runs.controlRun(userId, runId);
+    else await this.dependencies.runs.run(userId, runId);
     const source = await this.dependencies.executions.source(runId);
     if (source.run.userId !== userId)
       throw new AgentPlanRecoveryError("access_denied");
     if (expectedRevision !== undefined && source.revision !== expectedRevision)
       throw new AgentPlanRecoveryError("revision_conflict");
-    const snapshot = readStoredSnapshot(source.snapshot);
+    const snapshot = readPlanSnapshot(source.snapshot);
     const plan = await this.dependencies.access.require(
       userId,
       source.run.planId,
@@ -214,17 +208,38 @@ export class AgentPlanRecoveryActions {
       request.userId,
       request.runId,
       request.command.expectedRevision,
+      false,
     );
     requireOption(restartOption(facts));
+    if (
+      restartScriptReview(facts.run).some(
+        (id) => !request.command.reviewedStepIds?.includes(id),
+      )
+    )
+      throw new AgentPlanRecoveryError("review_required");
     if (facts.plan.revision !== request.command.revision)
       throw new AgentError("plan_conflict");
-    await this.settleCleanup(facts);
-    const snapshot = await this.dependencies.preparation.prepare(
-      request.userId,
-      facts.plan,
-    );
+    let snapshot: AgentPlanSnapshot;
+    try {
+      snapshot = await this.dependencies.preparation.prepare(
+        request.userId,
+        facts.plan,
+      );
+    } catch (error: unknown) {
+      if (!(error instanceof AgentError)) throw error;
+      return this.resetWithoutDispatch(request, facts, error.code);
+    }
     return this.start(request, {
-      snapshot,
+      snapshot: withRecoveredAgentContext(snapshot, {
+        sourceRunId: facts.run.id,
+        isRestart: true,
+        mode: "new_session",
+        retriedStepIds: facts.run.steps.map((step) => step.id),
+        loopIterations: {},
+        resumeSessions: {},
+        // A fresh start is authorized from current plan rights, independently of historical content access.
+        contextByStepId: {},
+      }),
       checkpoints: [],
       recovered: {
         origin: this.origin(facts, {
@@ -232,7 +247,7 @@ export class AgentPlanRecoveryActions {
           mode: null,
           reusedStepIds: [],
           retriedStepIds: [],
-          reviewedStepIds: [],
+          reviewedStepIds: request.command.reviewedStepIds ?? [],
         }),
         reused: [],
         loops: [],
@@ -285,11 +300,12 @@ export class AgentPlanRecoveryActions {
       mode: command.mode,
       retriedStepIds: plan.retriedStepIds,
       loopIterations: loops.iterations,
+      contextByStepId: recoveredAgentContext(facts.run, plan.retriedStepIds),
       resumeSessions:
         command.mode === "native_resume" ? plan.resumeSessions : {},
     };
     return this.start(request, {
-      snapshot: { ...merged, recovery },
+      snapshot: withRecoveredAgentContext(merged, recovery),
       checkpoints: facts.checkpoints.filter((checkpoint) =>
         reusedStepIds.includes(checkpoint.stepId),
       ),
@@ -322,6 +338,7 @@ export class AgentPlanRecoveryActions {
       request.userId,
       request.runId,
       request.command.expectedRevision,
+      false,
     );
     requireOption(releaseOption(facts));
     const settled = await this.settleCleanup(facts, false);
@@ -339,6 +356,35 @@ export class AgentPlanRecoveryActions {
       },
       settled,
     );
+    return result;
+  }
+
+  private async resetWithoutDispatch(
+    request: RecoveryRequest<RestartCommand>,
+    facts: RecoveryFacts,
+    issue: string,
+  ): Promise<AgentPlanRecoveryResult> {
+    const result: AgentPlanRecoveryResult = {
+      commandId: randomUUID(),
+      revision: request.command.expectedRevision + 1,
+      outcome: "reset",
+      issue,
+    };
+    const engine = this.dependencies.engine;
+    if (!canResetLogical(engine))
+      throw new AgentPlanRecoveryError("action_unavailable");
+    await engine.resetLogical(facts.run.id, () =>
+      this.dependencies.executions.recordReset(
+        {
+          command: request.command,
+          requestDigest: request.requestDigest,
+          result,
+          execution: this.execution(request, result, null),
+        },
+        facts.run,
+      ),
+    );
+    await this.dependencies.remoteExecution?.stop(facts.run);
     return result;
   }
 
@@ -560,4 +606,11 @@ function boundaryOf(
       frontierStepIds: [],
     },
   };
+}
+
+function canResetLogical(
+  engine: RecoveryActionDependencies["engine"],
+): engine is RecoveryActionDependencies["engine"] &
+  Pick<AgentPlanRunEngine, "resetLogical"> {
+  return "resetLogical" in engine && typeof engine.resetLogical === "function";
 }

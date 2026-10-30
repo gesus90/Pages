@@ -6,7 +6,7 @@ import {
 } from "@/definition/AgentPlanSequence";
 
 import { planNodeLabel } from "./plan-layout";
-import { hasOpenPlanReport } from "./plan-status";
+import { hasOpenPlanReport, isQueuedPlanStep } from "./plan-status";
 
 import type { TFunction } from "i18next";
 import type {
@@ -120,7 +120,11 @@ export function statusTone(
     return "bg-warning-subtle text-warning hover:bg-warning-subtle";
   if (step.status === "succeeded")
     return "bg-plan-progress-done bg-linear-to-br from-plan-progress-shade/50 to-plan-progress-shade/35 text-plan-progress-label hover:bg-plan-progress-done";
-  if (step.status === "running" && isActivePlanRun(run.status))
+  if (
+    step.status === "running" &&
+    !isQueuedPlanStep(step) &&
+    isActivePlanRun(run.status)
+  )
     return "bg-primary text-plan-progress-active-label hover:bg-primary";
   return "bg-plan-progress-waiting bg-linear-to-br from-plan-progress-surface/10 to-plan-progress-surface/25 text-foreground hover:bg-plan-progress-waiting";
 }

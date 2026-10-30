@@ -56,6 +56,8 @@ export const runnerJobSchema = z.object({
   execution: runnerExecutionSchema.optional(),
   launch: runnerLaunchSchema.optional(),
   cancellation: runnerCancellationSchema.optional(),
+  /** Durable queue-only pause; never authorizes interruption of a spawned worker. */
+  pauseRequestedAt: z.string().datetime().optional(),
   queueReason: runnerQueueReasonSchema.nullable().optional(),
   observedAt: z.string().datetime().optional(),
   liveHistoryVersion: z.literal(1).optional(),
@@ -86,6 +88,7 @@ export const runnerStateSchema = z.object({
   catalog: runnerCatalogSchema.optional(),
   executionLeaseVersion: z.literal(1).optional(),
   communicationVersion: z.literal(1).optional(),
+  planControlVersion: z.literal(1).optional(),
   runnerVersion: z.string().max(40).optional(),
   lastContactAt: z.string().datetime().optional(),
   lastEventDigest: z
@@ -98,6 +101,7 @@ export type RunnerState = z.infer<typeof runnerStateSchema>;
 
 /** The causes a runner may name for a failed OpenCode node, each a Pages agent error code. */
 export const REMOTE_OPENCODE_FAILURES = [
+  "plan_paused_before_launch",
   "plan_script_interpreter_unavailable",
   "plan_context_changed",
   "plan_workspace_conflict",
@@ -153,11 +157,12 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     jobs: z.array(runnerJobSchema).max(1000),
     executionLeaseVersion: z.literal(1).optional(),
     communicationVersion: z.literal(1).optional(),
+    planControlVersion: z.literal(1).optional(),
     runnerVersion: z.string().max(40).optional(),
     catalog: runnerCatalogSchema.optional(),
     interpreters: z.array(runnerInterpreterSchema).max(16).optional(),
     /** Tools the runner found and what they reported; a runner before 1.3.0 sends none. */
-    tools: z.array(toolInventorySchema).max(3).optional(),
+    tools: z.array(toolInventorySchema).max(4).optional(),
     executorVersion: z.literal(1).optional(),
     cliExecutorVersion: z.literal(1).optional(),
     githubAccessVersion: z.literal(1).optional(),
@@ -251,6 +256,11 @@ export type RunnerReply =
       readonly refresh: boolean;
     }
   | { readonly version: 1; readonly type: "refresh-tools" }
+  | {
+      readonly version: 1;
+      readonly type: "pause-queued";
+      readonly job: RunnerJob;
+    }
   | { readonly version: 1; readonly type: "dispatch"; readonly job: RunnerJob }
   | {
       readonly version: 1;
@@ -274,6 +284,7 @@ export type RunnerReply =
   | {
       readonly version: 1;
       readonly type: "reconcile";
+      readonly planControlVersion?: 1;
       readonly state: RunnerState;
       readonly outputJournalVersion?: 2;
       readonly communicationVersion?: 1;

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { runCredentialCommand } from "../../src/credential-command.ts";
 import { CredentialStoreError } from "../../src/credential-error.ts";
+import { PagesTransportError } from "../../src/pages-transport-error.ts";
 import { createServer } from "../../src/server.ts";
 import { start } from "../../src/start.ts";
 import { readStdioConfiguration } from "../../src/stdio-configuration.ts";
@@ -122,11 +123,18 @@ describe("start stdio server", () => {
     expect(serveStdio).not.toHaveBeenCalled();
   });
 
-  it("hides every other startup failure behind one message", async () => {
+  it("hides unexpected startup failures and preserves fixed transport diagnostics", async () => {
     vi.mocked(readStdioConfiguration).mockResolvedValue(CONFIGURATION);
     vi.mocked(verifyPages).mockRejectedValue(new Error("token abc rejected"));
     await startWith();
     expect(console.error).toHaveBeenCalledWith(STARTUP_FAILED);
+    expect(process.exitCode).toBe(1);
+    expect(serveStdio).not.toHaveBeenCalled();
+    vi.mocked(verifyPages).mockRejectedValue(new PagesTransportError());
+    await startWith();
+    expect(console.error).toHaveBeenLastCalledWith(
+      "[pages-mcp] Could not reach the Pages agent API. Check the connection before retrying; an interrupted write may already have applied.",
+    );
     expect(process.exitCode).toBe(1);
     expect(serveStdio).not.toHaveBeenCalled();
   });

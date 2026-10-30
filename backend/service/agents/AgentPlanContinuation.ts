@@ -5,6 +5,10 @@ import {
   planFlowSequence,
 } from "@/definition/AgentPlanSequence";
 import { isSamePlanTarget } from "@/definition/AgentPlanTarget";
+import {
+  agentRunOptionsFor,
+  isAcpProvider,
+} from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { groupRuntimeFields } from "./AgentPlanGroupRuntime";
@@ -27,13 +31,24 @@ export function planWritingWorkspaces(
     ...new Set([
       ...snapshot.steps.flatMap((step) => {
         const directory = planStepDirectory(step);
-        return !isApiProvider(step.provider) && directory ? [directory.id] : [];
+        const isReader =
+          isAcpProvider(step.provider) &&
+          agentRunOptionsFor(step.provider, step.template.run).access ===
+            "read_only";
+        return !isApiProvider(step.provider) && directory && !isReader
+          ? [`local-directory:${directory.path}`]
+          : [];
       }),
-      ...(snapshot.scripts ?? []).map((script) => script.workspace.id),
-      ...(snapshot.remoteSteps ?? []).flatMap((step) => [
-        step.target.workspaceId,
-        ...remoteWorkspaceKeys(step.target),
-      ]),
+      ...(snapshot.scripts ?? []).map(
+        (script) => `local-directory:${script.workspace.path}`,
+      ),
+      ...(snapshot.remoteSteps ?? []).flatMap((step) =>
+        step.command.program.kind === "model" ||
+        (step.command.program.kind === "cli" &&
+          step.command.program.access === "read_only")
+          ? []
+          : remoteWorkspaceKeys(step.target),
+      ),
     ]),
   ];
 }

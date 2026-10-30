@@ -11,7 +11,8 @@ export function isRemoteCloseoutUnconfirmed(
   // without any attempt record, or an explicit not-started cancellation,
   // therefore never acquired a remote process.
   return !(
-    (step.status === "waiting" || step.cancellation === "not_started") &&
+    (["waiting", "paused"].includes(step.status) ||
+      step.cancellation === "not_started") &&
     !step.session &&
     !step.script
   );

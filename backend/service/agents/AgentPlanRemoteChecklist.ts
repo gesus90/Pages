@@ -15,11 +15,6 @@ export async function remoteTodoChecklists(input: {
   readonly userId: string;
   readonly projectId: string;
 }): Promise<readonly AgentPlanTicketChecklist[]> {
-  if (
-    input.step.completion !== "todos" &&
-    input.step.configuration?.runnerRoute?.tool !== "opencode"
-  )
-    return [];
   const ids = Object.keys(input.parameters?.tickets ?? {});
   if (!ids.length) return [];
   const tasks = input.tasks;

@@ -151,7 +151,7 @@ export function PlanAgentConsole(
         state={state}
         isReadOnly={isReadOnly}
         headingRef={heading}
-        onSelectRun={running.select}
+        onSelectRun={(id) => running.select(id, "history")}
         onClose={onClose}
         onBack={group && member ? () => setMemberId(null) : undefined}
       />

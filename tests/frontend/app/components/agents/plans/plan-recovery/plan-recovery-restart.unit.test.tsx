@@ -50,6 +50,7 @@ it("starts the saved revision again only after the repeat was confirmed", () => 
     action: "restart",
     revision: 3,
     confirmRepeat: true,
+    reviewedStepIds: [],
   });
   expect(
     screen.queryByRole("button", {
@@ -58,24 +59,24 @@ it("starts the saved revision again only after the repeat was confirmed", () => 
   ).toBeNull();
 });
 
-it("keeps an unavailable restart closed and releases what an unproven cleanup holds", () => {
+it("keeps an unavailable restart closed without exposing a separate manual cleanup action", () => {
   const onSubmit = renderRestart(
     recoveryView({ release: { available: true, reason: null } }),
   );
 
   expect(confirmation().hasAttribute("disabled")).toBe(true);
   expect(restartButton().hasAttribute("disabled")).toBe(true);
-  fireEvent.click(
-    screen.getByRole("button", {
+  fireEvent.click(restartButton());
+  expect(
+    screen.queryByRole("button", {
       name: i18n.t("plans.recovery.releaseAction"),
     }),
-  );
-
-  expect(onSubmit).toHaveBeenCalledWith({ action: "release" });
+  ).toBeNull();
+  expect(onSubmit).not.toHaveBeenCalled();
 });
 
 it("disables every decision while one is on its way", () => {
-  renderRestart(
+  const onSubmit = renderRestart(
     recoveryView({
       restart: { available: true, reason: null },
       release: { available: true, reason: null },
@@ -85,9 +86,14 @@ it("disables every decision while one is on its way", () => {
 
   expect(screen.getByRole("group").hasAttribute("disabled")).toBe(true);
   expect(restartButton().hasAttribute("disabled")).toBe(true);
+  expect(confirmation().closest("fieldset")?.hasAttribute("disabled")).toBe(
+    true,
+  );
   expect(
-    screen
-      .getByRole("button", { name: i18n.t("plans.recovery.releaseAction") })
-      .hasAttribute("disabled"),
-  ).toBe(true);
+    screen.queryByRole("button", {
+      name: i18n.t("plans.recovery.releaseAction"),
+    }),
+  ).toBeNull();
+  fireEvent.click(restartButton());
+  expect(onSubmit).not.toHaveBeenCalled();
 });

@@ -1,3 +1,5 @@
+import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
+import { AgentWorkspaceCleanupService } from "@/backend/service/agents/AgentWorkspaceCleanupService";
 import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
@@ -170,19 +172,14 @@ export async function createAgentPlanService(input: {
     archive: input.agents.agentRunArchive,
     scripts,
     startRejections: new AgentPlanStartRejectionRepository(input.database),
+    workspaceCleanup: new AgentWorkspaceCleanupRepository(input.database),
   });
   await recoverRuns(input, service);
+  startWorkspaceCleanup(input.database, runs, engine, remoteExecution);
   return {
     runnerPagesAccessService: pages,
     agentPlanService: service,
-    agentPlanManagement: new AgentPlanManagement({
-      database: input.database,
-      plans: service,
-    }),
-    agentPlanTemplateService: new AgentPlanTemplateService({
-      templates: new AgentPlanTemplateRepository(input.database),
-      plans: service,
-    }),
+    ...createPlanManagement(input.database, service),
     agentSessionService: pageAgentSessions,
     agentPlanRecoveryService: createRecoveryService(input, {
       service,
@@ -193,6 +190,33 @@ export async function createAgentPlanService(input: {
       remoteExecution,
     }),
   };
+}
+
+function createPlanManagement(
+  database: Database,
+  service: AgentPlanService,
+): Pick<AgentPlanServices, "agentPlanManagement" | "agentPlanTemplateService"> {
+  return {
+    agentPlanManagement: new AgentPlanManagement({ database, plans: service }),
+    agentPlanTemplateService: new AgentPlanTemplateService({
+      templates: new AgentPlanTemplateRepository(database),
+      plans: service,
+    }),
+  };
+}
+
+function startWorkspaceCleanup(
+  database: Database,
+  runs: AgentPlanRunRepository,
+  engine: AgentPlanRunEngine,
+  remoteExecution: AgentPlanRemoteExecution,
+): void {
+  new AgentWorkspaceCleanupService({
+    obligations: new AgentWorkspaceCleanupRepository(database),
+    runs,
+    engine,
+    remote: remoteExecution,
+  }).start();
 }
 
 function createPlanSessionAccess(

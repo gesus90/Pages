@@ -3,6 +3,7 @@ import {
   planRemoteProgressSchema,
 } from "@/definition/AgentPlanExecution";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import { readPlanScriptRun } from "@/backend/agents/AgentPlanScriptRunInput";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readTextColumn } from "@/backend/database/RowValue";
@@ -54,7 +55,7 @@ function successfulWorkDigest(step: AgentPlanStepResult): string {
       : null,
     remote: step.remote ? planRemoteProgressSchema.parse(step.remote) : null,
     output: step.output,
-    script: step.script ?? null,
+    script: step.script ? readPlanScriptRun(step.script) : null,
     report: step.report ?? null,
     session: session
       ? {
@@ -150,13 +151,16 @@ function hasRemoteAcceptanceGate(snapshot: unknown, stepId: string): boolean {
     return (
       readAgentObject(remote.step).id === stepId &&
       program.kind === "cli" &&
-      readAgentObject(program.route).tool === "opencode" &&
       remote.acceptanceContract !== undefined
     );
   });
 }
 
 const REMOTE_ACCEPTANCE_FAILURES = new Set([
+  "plan_acceptance_failed",
+  "plan_acceptance_unavailable",
+  "plan_acceptance_contract_unavailable",
+  "plan_acceptance_interrupted",
   "opencode_acceptance_failed",
   "opencode_acceptance_unavailable",
   "opencode_acceptance_contract_unavailable",
@@ -225,6 +229,13 @@ export class AgentPlanProgressRepository {
       const previous = await this.read(transaction, run.id);
       run = {
         ...run,
+        stopRequested: previous.run.stopRequested || run.stopRequested,
+        status:
+          previous.run.stopRequested &&
+          !isActivePlanRun(previous.run.status) &&
+          isActivePlanRun(run.status)
+            ? previous.run.status
+            : run.status,
         steps: run.steps.map((step) => {
           const stored = previous.run.steps.find(
             (entry) => entry.id === step.id,

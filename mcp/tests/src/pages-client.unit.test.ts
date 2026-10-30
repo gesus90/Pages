@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CredentialStoreError } from "../../src/credential-error.ts";
 import { postAgentRequest } from "../../src/pages-client.ts";
+import { PagesTransportError } from "../../src/pages-transport-error.ts";
 import { PagesOperationError } from "../../src/tools/operation-failure.ts";
 
 import type { PagesConfiguration } from "../../src/configuration.ts";
@@ -36,7 +37,9 @@ beforeEach(() => {
 
 describe("postAgentRequest success", () => {
   it("posts the JSON envelope with the Bearer credential and no redirects", async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ apiVersion: "1", result: {} }));
+    fetchMock.mockImplementation(async () =>
+      jsonResponse({ apiVersion: "1", result: {} }),
+    );
     const timeout = vi.spyOn(AbortSignal, "timeout");
     await expect(
       postAgentRequest({ agentsUrl: AGENTS_URL, token: "secret" }, REQUEST),
@@ -52,6 +55,13 @@ describe("postAgentRequest success", () => {
       Accept: "application/json",
     });
     expect(timeout).toHaveBeenCalledWith(5_000);
+    for (const operation of ["plans.control.read", "workspaces.read"]) {
+      await postAgentRequest(
+        { agentsUrl: AGENTS_URL, token: "secret" },
+        { operation, parameters: {} },
+      );
+      expect(timeout).toHaveBeenLastCalledWith(60_000);
+    }
   });
 
   it.each([
@@ -77,9 +87,14 @@ describe("postAgentRequest success", () => {
 
   it("hides network failures behind a fixed message", async () => {
     fetchMock.mockRejectedValue(new TypeError("connect ECONNREFUSED secret"));
-    await expect(
-      postAgentRequest({ agentsUrl: AGENTS_URL, token: "secret" }, REQUEST),
-    ).rejects.toThrow("Could not reach the Pages agent API.");
+    const request = postAgentRequest(
+      { agentsUrl: AGENTS_URL, token: "secret" },
+      REQUEST,
+    );
+    await expect(request).rejects.toBeInstanceOf(PagesTransportError);
+    await expect(request).rejects.toThrow(
+      "Could not reach the Pages agent API.",
+    );
   });
 });
 

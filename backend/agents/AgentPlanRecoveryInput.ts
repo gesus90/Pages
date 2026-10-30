@@ -148,6 +148,7 @@ const command = z.discriminatedUnion("action", [
     action: z.literal("restart"),
     revision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
     confirmRepeat: z.literal(true),
+    reviewedStepIds: z.array(identifier).max(100).optional(),
   }),
   z.strictObject({ ...commandIdentity, action: z.literal("release") }),
 ]);
@@ -185,8 +186,9 @@ const attempt = z.strictObject({
 const result = z.strictObject({
   commandId: identifier,
   revision,
-  outcome: z.enum(["recorded", "cancelled", "started", "released"]),
+  outcome: z.enum(["recorded", "cancelled", "started", "released", "reset"]),
   runId: identifier.optional(),
+  issue: z.string().max(100).optional(),
 });
 
 function parseRecovery<T>(

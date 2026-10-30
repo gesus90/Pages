@@ -1,3 +1,4 @@
+import { isQueuedPlanStep } from "./plan-status";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -80,7 +81,7 @@ export function PlanStatusSequence({
         className="flex -space-x-1 gap-0.75 overflow-x-auto"
       >
         {steps.map((step, index) => {
-          const label = `${index + 1} · ${step.name} · ${t(planStatusKey(step.status, step.isBlocked, hasOpenPlanReport(step)))}`;
+          const label = `${index + 1} · ${step.name} · ${t(isQueuedPlanStep(step) ? "plans.status.queued" : planStatusKey(step.status, step.isBlocked, hasOpenPlanReport(step)))}`;
           return (
             <PlanPaletteButton
               key={step.id}

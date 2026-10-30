@@ -4,7 +4,6 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { RemoteError } from "@/backend/error/RemoteErrors";
-import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentWorkspaceReferencesRepository } from "../agent/AgentWorkspaceReferencesRepository";
 import {
   isRemoteFailureCode,
@@ -285,7 +284,11 @@ export class RemoteWorkspaceRepository {
    * @param id - The profile.
    * @param revision - The revision the caller last read.
    */
-  public async remove(id: string, revision: number): Promise<void> {
+  public async remove(
+    id: string,
+    revision: number,
+    removedBy?: string,
+  ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = (await readWorkspaces(transaction)).find(
         (entry) => entry.id === id,
@@ -293,13 +296,10 @@ export class RemoteWorkspaceRepository {
       if (!previous) throw new RemoteError("remote_workspace_not_found");
       if (previous.revision !== revision)
         throw new RemoteError("remote_conflict");
-      try {
-        await new AgentWorkspaceReferencesRepository(transaction).detach(id);
-      } catch (error: unknown) {
-        if (error instanceof AgentError && error.code === "workspace_running")
-          throw new RemoteError("remote_workspace_running");
-        throw error;
-      }
+      await new AgentWorkspaceReferencesRepository(transaction).detach(id, {
+        userId: removedBy ?? previous.registeredBy,
+        name: previous.name,
+      });
       await transaction.execute(
         "DELETE FROM remote_workspaces WHERE id = $id;",
         { id },

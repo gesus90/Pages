@@ -87,12 +87,26 @@ export function continuedRun(
   );
 }
 
+/** Scripts with possible prior effects need a concrete review before a from-beginning replay. */
+export function restartScriptReview(run: AgentPlanRun): readonly string[] {
+  return run.steps
+    .filter(
+      (step) =>
+        Boolean(step.script) ||
+        (step.execution?.modelAccess.provider === "script" &&
+          Boolean(step.remote?.launchId)),
+    )
+    .map((step) => step.id);
+}
+
 /** A restart needs an ended run and no other active run of the plan. */
 export function restartOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
   if (!facts.plan.canEdit) return blocked("plan_read_only");
-  if (isActivePlanRun(facts.run.status) || facts.isEngineActive !== false)
-    return blocked("run_active");
-  if (facts.latest && isActivePlanRun(facts.latest.status))
+  if (
+    facts.latest &&
+    facts.latest.id !== facts.run.id &&
+    isActivePlanRun(facts.latest.status)
+  )
     return blocked("plan_run_active");
   return AVAILABLE;
 }
@@ -112,6 +126,10 @@ export function resumeOption(
   const restart = restartOption(facts);
   if (!restart.available) return restart;
   const { run } = facts;
+  if (isActivePlanRun(run.status) || facts.isEngineActive !== false)
+    return blocked("run_active");
+  if (run.stopRequested || run.status === "cancelled")
+    return blocked("cancelled_by_user");
   if (run.status === "succeeded") return blocked("succeeded");
   if (continuedRun(facts.executions) !== null)
     return blocked("already_continued");
@@ -145,7 +163,7 @@ export function planResume(facts: RecoveryFacts): ResumePlan {
   const reused: AgentPlanStepResult[] = [];
   const unverified: string[] = [];
   for (const step of run.steps) {
-    if (step.status !== "succeeded" || facts.groupIds.includes(step.id))
+    if (!isAcceptedPredecessor(step) || facts.groupIds.includes(step.id))
       continue;
     const checkpoint = checkpoints.find((entry) => entry.stepId === step.id);
     if (
@@ -157,7 +175,10 @@ export function planResume(facts: RecoveryFacts): ResumePlan {
     else unverified.push(step.id);
   }
   const retried = run.steps.filter(
-    (step) => hasStarted(step) || hasStartedLoop(run.loops, step.id),
+    (step) =>
+      hasStarted(step) ||
+      hasOpenAcceptance(step) ||
+      hasStartedLoop(run.loops, step.id),
   );
   const retriedLoops = (run.loops ?? []).filter((loop) =>
     retried.some((step) => step.id === loop.id),
@@ -276,4 +297,14 @@ function waitingAgain(node: AgentPlanStepResult): AgentPlanStepResult {
     output: null,
     error: null,
   };
+}
+
+function hasOpenAcceptance(step: AgentPlanStepResult): boolean {
+  return (
+    step.session?.acceptance?.verdict === "open" ||
+    step.session?.acceptance?.verdict === "rejected"
+  );
+}
+function isAcceptedPredecessor(step: AgentPlanStepResult): boolean {
+  return step.status === "succeeded" && !hasOpenAcceptance(step);
 }

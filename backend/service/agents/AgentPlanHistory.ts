@@ -1,4 +1,4 @@
-import { AgentError } from "@/backend/error/AgentErrors";
+import { isPlanHistoryReadFailure } from "./AgentPlanControlAccess";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -19,7 +19,7 @@ export async function readPlanHistory(
     } catch (error: unknown) {
       logCaughtError("AgentPlanService", error);
 
-      if (!(error instanceof AgentError)) throw error;
+      if (!isPlanHistoryReadFailure(error)) throw error;
     }
   }
   return history;

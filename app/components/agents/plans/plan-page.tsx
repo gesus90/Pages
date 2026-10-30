@@ -130,7 +130,11 @@ export function PlanPage({
   };
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [consoleNodeId, setConsoleNodeId] = useState<string | null>(null);
-  const running = usePlanRun(page.runs, editor.command.data);
+  const running = usePlanRun(page.runs, editor.command.data, {
+    planId: page.selected?.id,
+    control: controls.control,
+    controlError: controls.error,
+  });
   const display = planRunDisplay(page, controls.control, running);
   const saving = usePlanSave(editor, page.selected !== null);
   function closeConsole(): void {
@@ -171,7 +175,7 @@ export function PlanPage({
             control={controls.control}
             run={display.run}
             error={controls.error}
-            onRunStarted={running.select}
+            onRunStarted={(id) => running.select(id, "follow")}
           />
         }
       />

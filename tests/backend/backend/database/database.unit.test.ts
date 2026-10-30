@@ -380,6 +380,7 @@ it("releases the connection and the instance when it closes", async () => {
 
   await database.close();
 
+  expect(trace()).toEqual(["checkpoint"]);
   expect(engine.released).toEqual(["connection", "instance"]);
 });
 

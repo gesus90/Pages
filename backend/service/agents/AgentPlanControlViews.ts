@@ -1,5 +1,8 @@
-import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
-import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { isAgentErrorCode } from "@/backend/error/AgentErrors";
+import {
+  controlOnlyPlanControl,
+  readPlanControlRun,
+} from "./AgentPlanControlAccess";
 
 import type { AgentPlanControlEntry } from "@/definition/AgentPlanOperations";
 import type { AgentPlanService } from "./AgentPlanService";
@@ -36,14 +39,8 @@ export async function readPlanControlEntry(
   planId: string,
 ): Promise<AgentPlanControlEntry> {
   const plan = await plans.view(userId, planId);
-  const control = await plans.control(userId, planId);
-  const entries = await plans.runEntries(userId, planId, "newest");
-  const ownRun = entries.find((entry) => entry.id === control.runId);
-  const readable = ownRun
-    ? await readableRun(plans, userId, ownRun.id)
-    : { run: null, error: null };
-  const run = readable.run;
-  const context = { plan, readError: readable.error };
+  const { control, run, readable, context, continuationVersion } =
+    await controlAccess(plans, userId, plan);
   const isActive = ["running", "pausing", "paused", "stopping"].includes(
     control.status,
   );
@@ -56,20 +53,24 @@ export async function readPlanControlEntry(
     canEdit: plan.canEdit,
     canDelete,
     canPlay: control.canPlay,
-    canPause: control.canPause && run !== null,
-    canResume: control.canResume && run !== null,
+    canRestart: control.canRestart === true && run !== null,
+    resumeAction: control.resumeAction,
+    cleanup: control.cleanup,
+    workspaceWait: control.workspaceWait,
+    canPause: control.canPause && readable !== null,
+    canResume: control.canResume && readable !== null,
     canStop: control.canStop && run !== null,
-    issue: !plan.canEdit ? "plan_read_only" : (readable.error ?? issue),
+    issue: !plan.canEdit ? "plan_read_only" : (context.readError ?? issue),
     blockers: {
       delete:
         plan.ownerId !== userId
           ? "plan_owner_required"
           : (isActive && "plan_busy") || null,
       play: playBlocker(plan, control, issue),
-      pause: runBlocker(control.canPause, run, "run_not_running", context),
+      pause: runBlocker(control.canPause, readable, "run_not_running", context),
       resume: runBlocker(
         control.canResume,
-        run,
+        readable,
         issue ?? "run_not_paused",
         context,
       ),
@@ -82,7 +83,45 @@ export async function readPlanControlEntry(
     },
     ...startIssues(plan, control),
     ...workspaceDetails(plan, control),
-    ...readableRunMetadata(run),
+    ...readableRunMetadata(run, continuationVersion),
+  };
+}
+
+async function controlAccess(
+  plans: AgentPlanService,
+  userId: string,
+  plan: AgentPlanView,
+): Promise<{
+  readonly control: AgentPlanControl;
+  readonly run: AgentPlanRun | null;
+  readonly readable: AgentPlanRun | null;
+  readonly context: {
+    readonly plan: AgentPlanView;
+    readonly readError: string | null;
+  };
+  readonly continuationVersion: number;
+}> {
+  const initialControl = await plans.control(userId, plan.id);
+  const access =
+    plan.canEdit && initialControl.runId
+      ? await readPlanControlRun(plans, userId, plan.id, initialControl.runId)
+      : null;
+  const control =
+    access && !access.hasHistoryAccess
+      ? controlOnlyPlanControl(initialControl, access)
+      : initialControl;
+  const run = access?.run ?? null;
+  const readable = access?.hasHistoryAccess ? run : null;
+  const context = {
+    plan,
+    readError: run && !readable ? "plan_access_denied" : null,
+  };
+  return {
+    control,
+    run,
+    readable,
+    context,
+    continuationVersion: access?.continuationVersion ?? 0,
   };
 }
 
@@ -117,23 +156,6 @@ function startIssues(
   };
 }
 
-async function readableRun(
-  plans: AgentPlanService,
-  userId: string,
-  runId: string,
-): Promise<{
-  readonly run: AgentPlanRun | null;
-  readonly error: string | null;
-}> {
-  try {
-    return { run: await plans.run(userId, runId), error: null };
-  } catch (error: unknown) {
-    if (error instanceof AgentError || error instanceof AgentExecutionError)
-      return { run: null, error: error.code };
-    throw error;
-  }
-}
-
 function visibleControlIssue(control: AgentPlanControl): string | null {
   const issue = control.issue;
   if (!issue) return null;
@@ -151,6 +173,7 @@ function visibleControlIssue(control: AgentPlanControl): string | null {
 
 function readableRunMetadata(
   run: AgentPlanRun | null,
+  continuationVersion: number,
 ): Pick<
   AgentPlanControlEntry,
   "runId" | "planRevision" | "continuationVersion"
@@ -159,6 +182,6 @@ function readableRunMetadata(
   return {
     runId: run.id,
     planRevision: run.continuation?.planRevision ?? run.planRevision,
-    continuationVersion: run.continuation?.version ?? 0,
+    continuationVersion,
   };
 }

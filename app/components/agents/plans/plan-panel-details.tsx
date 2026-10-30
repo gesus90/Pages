@@ -3,17 +3,17 @@ import { useTranslation } from "react-i18next";
 import { PlanNextRunNote } from "./plan-panel-heading";
 import { PlanPanelContext } from "./plan-panel-context";
 import { PlanPanelIssueList } from "./plan-panel-issues";
-import { PlanRecoveryPanel } from "./plan-recovery-panel";
 import { PlanReloadButton } from "./plan-reload-button";
 import { PlanWorkspaceConflict } from "./plan-workspace-conflict";
 import { PlanStartRejection } from "./plan-start-rejection";
+import { recoveryErrorText } from "./plan-recovery-panel";
 import { PlanStartHistory } from "./plan-start-history";
 
+import type { usePlanRecovery } from "./use-plan-recovery";
 import type { AgentPlanPage } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanPanelIssue } from "./plan-panel-issues";
 import type { usePlanEditor } from "./use-plan-editor";
-import type { usePlanRecovery } from "./use-plan-recovery";
 
 /** The longer explanations of the run state that the status line names briefly. */
 function PlanPanelNotes({
@@ -50,6 +50,10 @@ function PlanPanelNotes({
  * Opening it reads nothing new and changes neither the plan nor the run.
  */
 export function PlanPanelDetails(props: {
+  /** @deprecated The upper run controls own recovery; retained for callers of the details projection. */
+  readonly recoveryRunId?: string | null;
+  /** @deprecated Not rendered by the details projection. */
+  readonly recovery?: ReturnType<typeof usePlanRecovery>;
   readonly id: string;
   readonly page: AgentPlanPage;
   readonly editor: ReturnType<typeof usePlanEditor>;
@@ -57,14 +61,17 @@ export function PlanPanelDetails(props: {
   readonly issues: readonly PlanPanelIssue[];
   /** A refusal that no finding explains, as an error code. */
   readonly error: string | null;
-  readonly recoveryRunId: string | null;
-  readonly recovery: ReturnType<typeof usePlanRecovery>;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { page, error } = props;
   return (
     <div id={props.id} className="space-y-4 border-t border-border px-4 py-3.5">
       <PlanPanelIssueList issues={props.issues} />
+      {props.recoveryRunId && props.recovery?.error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {recoveryErrorText(t, props.recovery.error)}
+        </p>
+      ) : null}
       <PlanWorkspaceConflict conflict={props.control?.workspaceConflict} />
       <PlanStartRejection rejection={props.control?.lastStartRejection} />
       {page.selected?.canEdit && props.control?.lastStartRejection ? (
@@ -92,10 +99,6 @@ export function PlanPanelDetails(props: {
       ) : null}
       <PlanPanelNotes control={props.control} />
       <PlanNextRunNote editor={props.editor} control={props.control} />
-      <PlanRecoveryPanel
-        runId={props.recoveryRunId}
-        recovery={props.recovery}
-      />
       <PlanPanelContext page={page} />
     </div>
   );

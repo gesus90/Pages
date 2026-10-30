@@ -143,12 +143,24 @@ export class Database {
     });
   }
 
-  /** Waits for queued statements, then releases the database. */
+  /**
+   * Checkpoints pending WAL changes with a live client before releasing the database.
+   *
+   * @remarks
+   * DuckDB 1.5.5 can otherwise persist stale secondary indexes in its implicit
+   * shutdown checkpoint. A failed checkpoint is surfaced; it never implies cleanup.
+   */
   public async close(): Promise<void> {
-    await this.queue.idle();
-
-    this.connection.closeSync();
-    this.instance.closeSync();
+    try {
+      // DuckDB 1.5.5 can serialize stale buffered ART indexes during its context-free
+      // shutdown checkpoint after WAL replay. Checkpoint with this live connection.
+      await this.queue.run(() =>
+        runStatement(this.connection, "CHECKPOINT;", {}),
+      );
+    } finally {
+      this.connection.closeSync();
+      this.instance.closeSync();
+    }
     logEvent({
       level: "info",
       event: "database.closed",

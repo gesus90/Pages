@@ -1,11 +1,18 @@
 import { CredentialStoreError } from "./credential-error.js";
-import { IMPORT_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from "./request-constants.js";
+import {
+  IMPORT_TIMEOUT_MS,
+  PLAN_REQUEST_TIMEOUT_MS,
+  REQUEST_TIMEOUT_MS,
+} from "./request-constants.js";
+import { PagesTransportError } from "./pages-transport-error.js";
 import { operationFailure } from "./tools/operation-failure.js";
 
 import type { PagesAgentApiRequest } from "../../definition/PagesAgentApi.js";
 import type { PagesConfiguration } from "./configuration.js";
 
 function requestTimeout(operation: string): number {
+  if (operation.startsWith("plans.") || operation.startsWith("workspaces."))
+    return PLAN_REQUEST_TIMEOUT_MS;
   return [
     "wiki.import.apply",
     "wiki.import.update",
@@ -43,7 +50,7 @@ export async function postAgentRequest(
       signal: AbortSignal.timeout(requestTimeout(input.operation)),
     });
   } catch {
-    throw new Error("Could not reach the Pages agent API.");
+    throw new PagesTransportError();
   }
   if (!response.ok) {
     if (response.status === 401 && configuration.credentials) {

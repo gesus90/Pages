@@ -1,3 +1,5 @@
+import type { AgentPlanWriterWait } from "./AgentPlanExecution";
+import type { AgentWorkspaceCleanup } from "./AgentWorkspaceCleanup";
 import type { AgentPlanIssue } from "./AgentPlanGraph";
 import type { AgentPlanRun } from "./AgentPlan";
 import type { AgentPlanWorkspaceConflict } from "./AgentPlanWorkspaceConflict";
@@ -8,6 +10,10 @@ export interface AgentPlanControl {
   readonly runId: string | null;
   readonly status: AgentPlanRun["status"] | "idle";
   readonly canPlay: boolean;
+  readonly canRestart?: boolean;
+  readonly resumeAction?: "paused" | "recovery";
+  readonly workspaceWait?: AgentPlanWriterWait;
+  readonly cleanup?: readonly AgentWorkspaceCleanup[];
   readonly canPause: boolean;
   readonly canResume: boolean;
   readonly canStop: boolean;

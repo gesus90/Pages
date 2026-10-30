@@ -7,6 +7,7 @@ import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { renewExecutionLease, hasExecutionLease } from "./revocation.mjs";
 import { readRecord, readOwnedLaunch } from "./journal.mjs";
+import { pauseQueuedJob } from "./revocation.mjs";
 import { cancelJob, interpreterCatalog, store } from "./execution.mjs";
 import { githubAccess } from "./github.mjs";
 import { cliInventory } from "./cli.mjs";
@@ -16,7 +17,7 @@ import { RunnerSchedule } from "./schedule.mjs";
 import { handleProvider } from "./provider.mjs";
 import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 
-const RUNNER_VERSION = "1.14.0";
+const RUNNER_VERSION = "1.15.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -260,6 +261,7 @@ async function receiveRegistration(message, channel) {
     resultPayloadVersion: 1,
     communicationVersion: 1,
     executionLeaseVersion: 1,
+    planControlVersion: 1,
     runnerVersion: RUNNER_VERSION,
     catalog: await currentCatalog(),
     interpreters: configuration.catalog.interpreters,
@@ -268,9 +270,13 @@ async function receiveRegistration(message, channel) {
 }
 
 async function receiveReconciliation(message) {
-  if (message.outputJournalVersion !== 2 || message.communicationVersion !== 1)
+  if (
+    message.outputJournalVersion !== 2 ||
+    message.communicationVersion !== 1 ||
+    message.planControlVersion !== 1
+  )
     throw new UnrecoverableError(
-      "Pages does not support Runner 1.10 communication; upgrade Pages explicitly.",
+      "Pages does not support Runner 1.15 plan control; upgrade Pages and Runner together explicitly.",
     );
   if (message.state.sessionId !== configuration.sessionId)
     throw new UnrecoverableError("Counterpart reconciled another session.");
@@ -297,6 +303,9 @@ async function receiveReconciliation(message) {
       .filter((job) => job.cancellation)
       .map((job) => cancelJob(directory, job)),
   );
+  for (const job of configuration.jobs)
+    if (job.pauseRequestedAt && !job.cancellation)
+      await pauseQueuedJob(directory, job);
   await fenceExpiredJobs();
   await persist();
   await renewExecutionLease(directory, configuration.sessionId);
@@ -435,6 +444,8 @@ async function connect() {
     const channel = socket;
     const state = {
       isReconciled: false,
+      stage: "connecting",
+      failure: "connection_closed",
       chain: Promise.resolve(),
       pendingMessages: 0,
       heartbeat: null,
@@ -443,7 +454,10 @@ async function connect() {
       catalogTimer: null,
       isCatalogBusy: false,
     };
-    const timeout = setTimeout(() => closeChannel(channel), 15000);
+    const timeout = setTimeout(() => {
+      state.failure = "registration_timeout";
+      closeChannel(channel);
+    }, 30000);
     const enqueue = (work) => {
       if (state.pendingMessages >= 32) {
         console.error(
@@ -458,6 +472,7 @@ async function connect() {
           if (channel.readyState === WebSocket.OPEN) await work();
         })
         .catch((error) => {
+          state.failure = "protocol_or_checkpoint_failed";
           if (error instanceof UnrecoverableError) unrecoverable = error;
           else {
             const detail =
@@ -480,11 +495,24 @@ async function connect() {
     };
     const deadline = () => {
       clearTimeout(state.deadline);
-      state.deadline = setTimeout(() => closeChannel(channel), 45000);
+      state.deadline = setTimeout(() => {
+        state.failure = "heartbeat_timeout";
+        closeChannel(channel);
+      }, 45000);
     };
     const poll = createJobPolling(channel, state, enqueue);
     requestJobPoll = poll;
-    channel.addEventListener("error", () => channel.close());
+    channel.addEventListener("open", () => {
+      state.stage = "registration";
+    });
+    channel.addEventListener("error", (event) => {
+      const code = event.error?.cause?.code ?? event.error?.code;
+      state.failure =
+        typeof code === "string" && /^[A-Z_0-9]+$/u.test(code)
+          ? code
+          : "websocket_handshake_or_transport_failed";
+      channel.close();
+    });
     channel.addEventListener("message", (event) => {
       let control;
       try {
@@ -553,6 +581,7 @@ async function connect() {
         if (message.version !== 1)
           throw new UnrecoverableError("Unsupported protocol version.");
         if (message.type === "registered") {
+          state.stage = "reconciliation";
           await receiveRegistration(message, channel);
           return;
         }
@@ -560,6 +589,7 @@ async function connect() {
           await receiveReconciliation(message);
           if (channel.readyState !== WebSocket.OPEN) return;
           state.isReconciled = true;
+          state.stage = "synchronized";
           for (const job of configuration.jobs)
             if (job.cancellation) await sendStopResult(channel, job);
           ready(channel.readyState === WebSocket.OPEN ? channel : null);
@@ -602,7 +632,10 @@ async function connect() {
         }
       });
     });
-    channel.addEventListener("close", () => {
+    channel.addEventListener("close", (event) => {
+      console.error(
+        `pages-runner: channel closed stage=${state.stage} code=${event.code} cause=${state.failure} connection=${connectionId} session=${configuration.sessionId ?? "unregistered"}.`,
+      );
       ready(null);
       state.isReconciled = false;
       clearTimeout(timeout);

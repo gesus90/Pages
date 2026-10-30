@@ -7,6 +7,7 @@ import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 
 interface PlanPollState {
   readonly url: string | null;
+  readonly refresh: AgentPlanActionResult | undefined;
   readonly response: AgentPlanActionResult | undefined;
   readonly error: string | null;
 }
@@ -29,9 +30,10 @@ export function usePlanPoll(
   url: string | null,
   refresh: AgentPlanActionResult | undefined,
   mode: "always" | "active" = "always",
-): Omit<PlanPollState, "url"> {
+): Pick<PlanPollState, "response" | "error"> {
   const [state, setState] = useState<PlanPollState>({
     url: null,
+    refresh: undefined,
     response: undefined,
     error: null,
   });
@@ -51,9 +53,14 @@ export function usePlanPoll(
           signal: controller.signal,
           headers: pollingHeaders(mode, etag, isOpening),
         });
+        if (controller.signal.aborted) return;
         isOpening = false;
         if (response.status === 304) {
-          setState((previous) => ({ ...previous, error: null }));
+          setState((previous) =>
+            previous.url === target && previous.refresh === refresh
+              ? { ...previous, error: null }
+              : previous,
+          );
           return;
         }
         const payload: unknown = await response.json();
@@ -62,6 +69,7 @@ export function usePlanPoll(
         if (controller.signal.aborted) return;
         setState({
           url: target,
+          refresh,
           response: result,
           error: result.ok ? null : result.error,
         });
@@ -72,7 +80,11 @@ export function usePlanPoll(
         // Network and invalid-response failures are retryable; stale actions stay disabled.
         setState((previous) => ({
           url: target,
-          response: previous.url === target ? previous.response : undefined,
+          refresh,
+          response:
+            previous.url === target && previous.refresh === refresh
+              ? previous.response
+              : undefined,
           error: "plan_connection_unavailable",
         }));
       } finally {
@@ -91,5 +103,12 @@ export function usePlanPoll(
       window.clearTimeout(timer);
     };
   }, [url, refresh, mode]);
-  return state.url === url ? state : { response: undefined, error: null };
+  const current = {
+    url: state.url,
+    response: state.response,
+    error: state.error,
+  };
+  return state.url === url && state.refresh === refresh
+    ? current
+    : { response: undefined, error: null };
 }

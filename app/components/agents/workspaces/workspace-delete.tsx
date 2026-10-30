@@ -24,7 +24,7 @@ function canRemoveWorkspace(
   usages: readonly { readonly kind: string }[] | undefined,
   isConfirmed: boolean,
 ): boolean {
-  if (!usages || usages.some((usage) => usage.kind === "run")) return false;
+  if (!usages) return false;
   return usages.length === 0 || isConfirmed;
 }
 
@@ -74,7 +74,6 @@ export function WorkspaceDelete(props: {
   }, [fetcher.state, fetcher.data, deleteIntent, onClose]);
   const usages = fetcher.data?.ok ? fetcher.data.workspaceUsages : undefined;
   const isPending = fetcher.state !== "idle";
-  const hasActiveRun = usages?.some((usage) => usage.kind === "run") ?? false;
   const needsConfirmation = usages !== undefined && usages.length > 0;
   return (
     <Dialog open onOpenChange={onClose}>
@@ -96,7 +95,7 @@ export function WorkspaceDelete(props: {
           <input type="hidden" name="intent" value={deleteIntent} />
           <input type="hidden" name="workspaceId" value={workspace.id} />
           <input type="hidden" name="revision" value={workspace.revision} />
-          {needsConfirmation && !hasActiveRun ? (
+          {needsConfirmation ? (
             <label className="flex items-start gap-2 text-sm">
               <input
                 type="checkbox"

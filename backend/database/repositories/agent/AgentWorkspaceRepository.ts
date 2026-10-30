@@ -146,7 +146,7 @@ export class AgentWorkspaceRepository {
   }
 
   /**
-   * Detaches references and unregisters an unchanged record; active runs block removal.
+   * Detaches current references and unregisters an unchanged record; active owners retain cleanup obligations.
    *
    * @param id - Identifier of the registration.
    * @param revision - The revision the caller last read.
@@ -156,6 +156,7 @@ export class AgentWorkspaceRepository {
     id: string,
     revision: number,
     journal?: WorkspaceJournal,
+    removedBy?: string,
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = (await readWorkspaces(transaction)).find(
@@ -164,7 +165,10 @@ export class AgentWorkspaceRepository {
       if (!previous) throw new AgentError("workspace_not_found");
       if (previous.revision !== revision)
         throw new AgentError("workspace_conflict");
-      await new AgentWorkspaceReferencesRepository(transaction).detach(id);
+      await new AgentWorkspaceReferencesRepository(transaction).detach(id, {
+        userId: removedBy ?? previous.registeredBy,
+        name: previous.name,
+      });
       await transaction.execute(
         "DELETE FROM agent_workspaces WHERE id = $id;",
         { id },

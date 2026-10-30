@@ -187,7 +187,21 @@ function needsScriptScan(
 } {
   return Boolean(
     step.script?.instanceId &&
-    !(step.script.closeout === "confirmed" && step.script.namespace),
+    !(
+      step.script.closeout === "confirmed" &&
+      (step.script.namespace !== undefined || hasPreSpawnEndEvidence(step))
+    ),
+  );
+}
+
+/** A closed pre-start pause is not a user Stop; launched scripts drain instead of pausing. */
+function hasPreSpawnEndEvidence(step: AgentPlanStepResult): boolean {
+  return Boolean(
+    step.script &&
+    step.script.processId === null &&
+    step.script.endedAt !== null &&
+    (step.cancellation === "not_started" ||
+      (step.status === "paused" && step.script.failure === null)),
   );
 }
 

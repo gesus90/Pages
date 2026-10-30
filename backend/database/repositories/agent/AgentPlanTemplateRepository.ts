@@ -1,3 +1,4 @@
+import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { isUniqueViolationOn } from "@/backend/database/Database";
 import {
@@ -190,6 +191,9 @@ export class AgentPlanTemplateRepository {
     const nameKey = planTemplateNameKey(template.name);
     try {
       return await this.database.transaction(async (transaction) => {
+        await new AgentWorkspaceReferencesRepository(
+          transaction,
+        ).requireReferences(template.node);
         const [taken] = await transaction.query(
           `
           SELECT id

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 
+import { RecoveryDatabase } from "./page84-recovery-database";
 import { groupEngine, groupTurn } from "./page73-group-fixture";
 import {
   deferred,
@@ -102,21 +104,12 @@ it("keeps a non-ACP DAG branch runnable while three ACP branches await RAM; abor
     steps,
     plan: { ...fixture.snapshot.plan, nodes: steps.map((step) => step.step) },
   };
-  const stored = new Map<string, AgentPlanRun>();
+  const database = new RecoveryDatabase(snapshot);
   const api = vi.fn(async () => "api-result");
   const native = vi.fn(async () => nativeSession());
   const engine = new AgentPlanRunEngine({
     resources: resources.scheduler,
-    runs: {
-      create: async (run) => {
-        stored.set(run.id, run);
-      },
-      insert: async () => {},
-      update: async (run) => {
-        stored.set(run.id, run);
-      },
-      find: async (id) => stored.get(id) ?? null,
-    },
+    runs: new AgentPlanRunRepository(database.asDatabase()),
     start: { control: async () => {} },
     steps: {
       closeGroups: async () => {},
@@ -141,13 +134,13 @@ it("keeps a non-ACP DAG branch runnable while three ACP branches await RAM; abor
   await vi.advanceTimersByTimeAsync(1000);
   expect(api).toHaveBeenCalledOnce();
   expect(
-    stored.get(run.id)?.steps.find((step) => step.id === "api")?.status,
+    database.run(run.id).steps.find((step) => step.id === "api")?.status,
   ).toBe("succeeded");
   expect(resources.scheduler.snapshot().waiting).toHaveLength(3);
   expect(native).not.toHaveBeenCalled();
   await engine.stop(run.id);
   await vi.advanceTimersByTimeAsync(0);
-  expect(stored.get(run.id)?.status).toBe("cancelled");
+  expect(database.run(run.id).status).toBe("cancelled");
   expect(resources.scheduler.snapshot().waiting).toEqual([]);
   await engine.shutdown();
   await resources.scheduler.shutdown();

@@ -9,7 +9,7 @@ import {
   cancelQueuedJob,
   refuseQueuedJob,
 } from "./execution.mjs";
-import { hasExecutionLease, cancelJob } from "./revocation.mjs";
+import { hasExecutionLease, cancelJob, pauseQueuedJob } from "./revocation.mjs";
 import { liveBatch } from "./live.mjs";
 import { sendRunnerPacket } from "./wire.mjs";
 
@@ -23,7 +23,7 @@ function eventPacket(event) {
 
 function observedStatus(job, observed) {
   if (job.status === "queued" && observed.launch) return "accepted";
-  if (job.status === "accepted") return "running";
+  if (job.status === "accepted" && observed.launch) return "running";
   return observed.status;
 }
 
@@ -56,6 +56,22 @@ export class RunnerJobs {
   /** Records dispatch before admission; identical retries do not create another worker. */
   async receive(message) {
     const { configuration, persist, schedule } = this.#context;
+    if (message.type === "pause-queued") {
+      const job = configuration.jobs.find(
+        (entry) => entry.jobId === message.job.jobId,
+      );
+      if (
+        !job ||
+        job.sessionId !== message.job.sessionId ||
+        job.plan?.attemptId !== message.job.plan?.attemptId
+      )
+        throw new Error("Queued pause identity mismatch");
+      job.pauseRequestedAt = message.job.pauseRequestedAt;
+      await persist();
+      await pauseQueuedJob(this.#context.directory, job);
+      schedule.checked.delete(job.jobId);
+      return;
+    }
     if (message.type === "dispatch") {
       const previous = configuration.jobs.find(
         (entry) => entry.jobId === message.job.jobId,
@@ -155,6 +171,10 @@ export class RunnerJobs {
 
   async #admit(job) {
     const { directory } = this.#context;
+    if (job.pauseRequestedAt && !job.cancellation) {
+      await pauseQueuedJob(directory, job);
+      return null;
+    }
     if (!(await hasExecutionLease(directory, job))) {
       await cancelJob(directory, {
         ...job,

@@ -8,6 +8,7 @@ import { PlanFlowPorts } from "../plan-flow-ports";
 import {
   hasOpenPlanReport,
   PlanStatusBadge,
+  isQueuedPlanStep,
   planStatusClass,
 } from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
@@ -51,7 +52,7 @@ export function PlanScriptCard(props: {
       runClass={
         props.hasRun
           ? planStatusClass(
-              status,
+              isQueuedPlanStep(result) ? "waiting" : status,
               result?.isBlocked,
               hasOpenPlanReport(result),
             )
@@ -60,6 +61,7 @@ export function PlanScriptCard(props: {
       status={
         props.hasRun ? (
           <PlanStatusBadge
+            isQueued={isQueuedPlanStep(result)}
             compact
             status={status}
             isBlocked={result?.isBlocked}

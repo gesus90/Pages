@@ -285,12 +285,13 @@ it("replays a lost ACK idempotently and rejects duplicate, missing, reordered or
   expect(
     applyRunnerMessage(terminalState, historyOnly).state.jobs[0]?.status,
   ).toBe("completed");
-  expect(() =>
-    applyRunnerMessage(terminalState, {
-      ...historyOnly,
-      result: { output: "second result", closeout: "confirmed" },
-    }),
-  ).toThrow("transition");
+  const repeatedTerminal = applyRunnerMessage(terminalState, {
+    ...historyOnly,
+    result: { output: "second result", closeout: "confirmed" },
+  });
+  expect(repeatedTerminal.state.jobs[0]).toBe(terminal);
+  expect(repeatedTerminal.reply.type).toBe("reconcile");
+  expect(repeatedTerminal.state.sequence).toBe(5);
 });
 
 it.each([

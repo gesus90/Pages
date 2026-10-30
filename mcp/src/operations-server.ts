@@ -9,6 +9,7 @@ import { TOOL_ENTRIES } from "./tools/tool-catalog.js";
 import { READ_ANNOTATIONS } from "./tools/tool-definition.js";
 import manifest from "../package.json" with { type: "json" };
 import { CredentialStoreError } from "./credential-error.js";
+import { PagesTransportError } from "./pages-transport-error.js";
 import { PagesOperationError } from "./tools/operation-failure.js";
 
 import type { McpToolOperation } from "./tools/tool-catalog.js";
@@ -45,7 +46,11 @@ async function authorized<Result>(
   try {
     return await request();
   } catch (error: unknown) {
-    if (error instanceof CredentialStoreError) throw error;
+    if (
+      error instanceof CredentialStoreError ||
+      error instanceof PagesTransportError
+    )
+      throw error;
     throw new Error("Pages authorization failed.");
   }
 }
@@ -98,6 +103,7 @@ export function createOperationsServer(
         );
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (error: unknown) {
+        if (error instanceof PagesTransportError) throw error;
         if (error instanceof PagesOperationError)
           return {
             isError: true,

@@ -23,16 +23,19 @@ export function usePlanCatalogRefresh(input?: PlanCatalogRefresh): void {
           signal: controller.signal,
           headers: { "If-None-Match": input.etag },
         });
-        if (response.status !== 304 && !controller.signal.aborted)
+        if (
+          (response.ok || response.status === 401 || response.status === 403) &&
+          !controller.signal.aborted
+        )
           void revalidate();
       } catch {
-        if (!controller.signal.aborted) void revalidate();
+        // The control poll reports outages and retries; a failed loader refresh would unmount the draft.
       } finally {
         isPending = false;
       }
     }
     function focus(): void {
-      if (document.visibilityState === "visible") void revalidate();
+      void refresh();
     }
     const timer = window.setInterval(() => {
       void refresh();

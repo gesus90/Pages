@@ -1,3 +1,4 @@
+import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
 import { AgentProfileStore } from "./AgentProfileStore";
 import { AgentProfileRemoval } from "./AgentProfileRemoval";
 
@@ -48,6 +49,9 @@ export class AgentProfileRepository {
     journal?: AgentProfileJournal,
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
+      await new AgentWorkspaceReferencesRepository(
+        transaction,
+      ).requireReferences(profile.configuration);
       await new AgentProfileStore(transaction).save(profile);
       await journal?.(transaction, profile);
     });

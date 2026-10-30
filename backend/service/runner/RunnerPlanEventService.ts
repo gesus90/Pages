@@ -1,7 +1,12 @@
+import {
+  isStaleTerminalRunnerEvent,
+  reconciledRunnerReply,
+} from "./RunnerProtocol";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logEvent } from "@/backend/logging/Logger";
 import { requirePlanModelResources } from "@/backend/service/agents/AgentPlanModel";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
+import { requirePlanDispatchFence } from "@/backend/agents/AgentPlanDispatchFence";
 
 import { runnerStoppedRun } from "./RunnerStopState";
 import { RunnerHistoryRecovery } from "./RunnerHistoryRecovery";
@@ -38,15 +43,9 @@ function requireDispatchRun(
   },
 ): AgentPlanRun {
   const { binding } = context;
-  if (
-    !context.canEdit ||
-    !run ||
-    run.userId !== context.userId ||
-    run.planId !== binding.planId ||
-    run.planRevision !== binding.planRevision ||
-    (run.status !== "running" && run.status !== "pausing")
-  )
+  if (!context.canEdit || !run || run.userId !== context.userId)
     throw new AgentError("plan_access_denied");
+  requirePlanDispatchFence(run, binding);
   return run;
 }
 
@@ -141,6 +140,8 @@ export class RunnerPlanEventService {
       receipt.digest !== planContentDigest(message)
     )
       throw new Error("Conflicting runner event");
+    if (isStaleTerminalRunnerEvent(state, message))
+      return reconciledRunnerReply(state);
     return {
       version: 1,
       type: (await this.repository.history.isPending(message.eventId))
@@ -187,7 +188,8 @@ export class RunnerPlanEventService {
       void this.historyRecovery.restore(connectionId);
       return reply;
     }
-    await this.historyRecovery.restore(connectionId);
+    void this.historyRecovery.restore(connectionId);
+    if (reply.type === "reconcile") return reply;
     if (
       message.type === "event" &&
       (await this.repository.history.isPending(message.eventId))
@@ -233,6 +235,7 @@ export class RunnerPlanEventService {
         digest: planContentDigest(message),
       });
       await this.repository.history.retain(transaction, connectionId, message);
+      if (isStaleTerminalRunnerEvent(previous, message)) return;
     }
     for (const job of state.jobs) {
       if (message.type === "event" && job.jobId !== message.job.jobId) continue;

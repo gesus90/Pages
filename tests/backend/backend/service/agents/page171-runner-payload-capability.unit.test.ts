@@ -134,6 +134,7 @@ it("admits exact CLI results only for the live negotiated runner and fences an o
     sequence: 0,
     jobs: [],
     executionLeaseVersion: 1,
+    planControlVersion: 1,
     communicationVersion: 1,
     liveHistoryVersion: 1,
     outputJournalVersion: 2,

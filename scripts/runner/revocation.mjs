@@ -2,7 +2,7 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { cleanup } from "./processes.mjs";
-import { store, readRecord } from "./journal.mjs";
+import { store, readRecord, readOwnedLaunch } from "./journal.mjs";
 
 export const EXECUTION_LEASE_MILLISECONDS = 45000;
 const stopping = new Map();
@@ -56,7 +56,14 @@ export async function cancellationFor(directory, job) {
     request.attemptId !== job.plan?.attemptId
   )
     throw new Error("Runner cancellation identity mismatch");
-  return { requestedAt: request.requestedAt, receivedAt: request.receivedAt };
+  const stopped = await readRecord(
+    join(directory, "jobs", job.jobId, "stop.json"),
+  );
+  return {
+    requestedAt: request.requestedAt,
+    receivedAt: request.receivedAt,
+    ...(stopped?.requestedAt === request.requestedAt ? stopped : {}),
+  };
 }
 
 async function revokeJob(directory, job) {
@@ -72,7 +79,18 @@ async function revokeJob(directory, job) {
       receivedAt: existing?.receivedAt ?? new Date().toISOString(),
     });
   const folder = join(directory, "jobs", job.jobId);
-  await mkdir(folder, { recursive: true, mode: 0o700 });
+  let created = false;
+  try {
+    await mkdir(folder, { mode: 0o700 });
+    created = true;
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+  }
+  if (created) {
+    // A recreated folder never erases surviving protected evidence of an earlier launch.
+    await sealUnclaimedJob(directory, job);
+    await store(join(folder, "claim.json"), job);
+  }
   const stopped = await readRecord(join(folder, "stop.json"));
   if (
     stopped?.requestedAt === job.cancellation.requestedAt &&
@@ -91,8 +109,10 @@ async function revokeJob(directory, job) {
     failure = "process_scan_unavailable";
     return "failed";
   });
+  const request = await cancellationFor(directory, job);
   const evidence = {
-    ...(await cancellationFor(directory, job)),
+    requestedAt: request.requestedAt,
+    receivedAt: request.receivedAt,
     completedAt: new Date().toISOString(),
     closeout,
     ...(failure ? { failure } : {}),
@@ -122,4 +142,47 @@ export async function cancelJob(directory, job) {
   const pending = revokeJob(directory, job).finally(() => stopping.delete(key));
   stopping.set(key, pending);
   return pending;
+}
+
+/** The exclusive claim directory is the fence; an existing claim is allowed to drain. */
+export async function pauseQueuedJob(directory, job) {
+  if (!/^[a-f0-9-]{36}$/u.test(job.jobId) || !job.plan || !job.pauseRequestedAt)
+    throw new Error("Invalid queued pause identity");
+  await mkdir(join(directory, "jobs"), { recursive: true, mode: 0o700 });
+  const folder = join(directory, "jobs", job.jobId);
+  try {
+    await mkdir(folder, { mode: 0o700 });
+  } catch (error) {
+    if (error.code === "EEXIST") return;
+    throw error;
+  }
+  const isUnclaimed = await sealUnclaimedJob(directory, job);
+  await store(join(folder, "claim.json"), job);
+  if (!isUnclaimed) return;
+  await store(join(folder, "result.json"), {
+    status: "interrupted",
+    result: {
+      output: null,
+      exitCode: null,
+      signal: null,
+      reason: "cancelled",
+      closeout: "confirmed",
+      failureCode: "plan_paused_before_launch",
+    },
+  });
+}
+
+/** Only a newly won claim without prior protected ownership may prove never-spawned work. */
+async function sealUnclaimedJob(directory, job) {
+  const folder = join(directory, "jobs", job.jobId);
+  if (await readOwnedLaunch(folder)) return false;
+  if (job.launch || job.status !== "queued") return false;
+  await mkdir(join(directory, "ownership"), { recursive: true, mode: 0o700 });
+  await store(join(directory, "ownership", `${job.jobId}.json`), {
+    boundary: "not_started",
+    jobId: job.jobId,
+    sessionId: job.sessionId,
+    attemptId: job.plan.attemptId,
+  });
+  return true;
 }

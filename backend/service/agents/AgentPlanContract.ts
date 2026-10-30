@@ -46,7 +46,7 @@ export interface AgentPlanAssignment extends AgentPlanContractOptions {
   readonly runnerLabel: string;
   readonly instanceId: string;
   readonly directory: string;
-  /** Group members and OpenCode nodes must pass business acceptance before successors start. */
+  /** Every CLI node must pass business acceptance before successors start. */
   readonly requiresAcceptance?: boolean;
   readonly acceptanceScope?: "node" | "group";
 }
@@ -59,8 +59,8 @@ function completionInstruction(assignment: AgentPlanAssignment): string {
       ". Missing, stale or unproven work fails the node and blocks successors even after exit 0. Keep evidence in these separate metadata calls; preserve the exact final JSON contract of the assignment. Never claim success when confirmation is refused."
     );
   if (assignment.requiresAcceptance)
-    return `${assignment.acceptanceScope === "node" ? "This OpenCode node requires business acceptance." : "This is an internal group step."} Complete every todo and criterion and include a valid pages-report with the required IDs, done todos, met criteria and real evidence. Missing or invalid reports, open todos, unmet criteria and missing evidence fail this step and block all later steps. Report unfinished work honestly; do not invent completion.`;
-  return "Regular runner completion releases the next steps automatically, without business acceptance or manual confirmation. A missing, invalid or incomplete report, unmet criteria, missing proof and ticket changes are diagnostic information only and never fail execution or block successors.";
+    return `${assignment.acceptanceScope === "node" ? "This agent node requires business acceptance." : "This is an internal group step."} Complete every todo and criterion and include a valid pages-report with the required IDs, done todos, met criteria and real evidence. Missing or invalid reports, open todos, unmet criteria and missing evidence fail this step and block all later steps. Report unfinished work honestly; do not invent completion.`;
+  return "Complete the assignment and report unfinished or blocked work honestly. A technical turn completion never establishes business success.";
 }
 
 function itemLine(item: AgentPlanContractItem): string {

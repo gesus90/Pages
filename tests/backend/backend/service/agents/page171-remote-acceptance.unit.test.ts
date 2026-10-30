@@ -127,7 +127,7 @@ it("fails the producing OpenCode node on a missing report while retaining the ou
   });
   expect(settled).toMatchObject({
     status: "failed",
-    error: "opencode_acceptance_failed",
+    error: "plan_acceptance_failed",
     output: current.output,
     remote: { closeout: "confirmed" },
     session: {
@@ -145,7 +145,7 @@ it("fails the producing OpenCode node on a missing report while retaining the ou
     throw new Error("Expected a persisted run");
   expect(readPlanRun(JSON.parse(parameters.view_json)).steps[0]).toMatchObject({
     status: "failed",
-    error: "opencode_acceptance_failed",
+    error: "plan_acceptance_failed",
     output: current.output,
   });
 });
@@ -161,7 +161,7 @@ it("fails closed if the pinned OpenCode contract or live engine is missing", asy
   for (const [result, error] of [
     [
       applyRunnerPlanEvent(world, world.run, oldSnapshot),
-      "opencode_acceptance_contract_unavailable",
+      "plan_acceptance_contract_unavailable",
     ],
     [
       applyRunnerPlanEvent(
@@ -169,7 +169,7 @@ it("fails closed if the pinned OpenCode contract or live engine is missing", asy
         world.run,
         world.snapshot,
       ),
-      "opencode_acceptance_interrupted",
+      "plan_acceptance_interrupted",
     ],
   ] as const) {
     expect(result.run.steps[0]).toMatchObject({
@@ -216,7 +216,7 @@ it("rechecks ticket requirements and current access before accepting remote Open
   );
   expect(changed).toMatchObject({
     status: "failed",
-    error: "opencode_acceptance_failed",
+    error: "plan_acceptance_failed",
   });
   expect(changed.session?.acceptance?.issues).toContain(
     "ticket_changed:SYN-ticket",
@@ -226,7 +226,7 @@ it("rechecks ticket requirements and current access before accepting remote Open
   });
   expect(denied).toMatchObject({
     status: "failed",
-    error: "opencode_acceptance_unavailable",
+    error: "plan_acceptance_unavailable",
     session: { acceptance: null },
   });
   const store = progressStore(provisional.run, world.snapshot);
@@ -239,7 +239,7 @@ it("rechecks ticket requirements and current access before accepting remote Open
     throw new Error("Expected a persisted run");
   expect(readPlanRun(JSON.parse(parameters.view_json)).steps[0]).toMatchObject({
     status: "failed",
-    error: "opencode_acceptance_unavailable",
+    error: "plan_acceptance_unavailable",
     session: { acceptance: null },
   });
 });

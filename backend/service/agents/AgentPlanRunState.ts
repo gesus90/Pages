@@ -49,7 +49,13 @@ export function patchStep(
 
 /** Stop irreversibly closes the dispatch gate before any abort signal. */
 export function requestCancellation(active: ActivePlanRun): void {
-  active.view = { ...active.view, status: "stopping", stopRequested: true };
+  active.view = {
+    ...active.view,
+    status: "stopping",
+    stopRequested: true,
+    isWaitingForWorkspace: undefined,
+    workspaceWait: undefined,
+  };
   for (const step of active.view.steps) {
     if (step.status === "waiting" || step.status === "paused")
       patchStep(active, step.id, {
@@ -160,6 +166,8 @@ export function interruptedPlanRun(run: AgentPlanRun): AgentPlanRun {
   return {
     ...run,
     status: "failed",
+    isWaitingForWorkspace: undefined,
+    workspaceWait: undefined,
     recovery: { state: "interrupted", requiresReconciliation: true },
     steps: run.steps.map(interruptedStep),
     ...(run.loops
@@ -212,6 +220,8 @@ export function detachedStopRun(run: AgentPlanRun): AgentPlanRun {
     ...run,
     stopRequested: true,
     status: "stopping",
+    isWaitingForWorkspace: undefined,
+    workspaceWait: undefined,
     steps,
   });
 }
@@ -311,6 +321,8 @@ export function settlePlanPause(active: ActivePlanRun): void {
     {
       ...active.view,
       status: "paused",
+      isWaitingForWorkspace: undefined,
+      workspaceWait: undefined,
       pauseBoundary: {
         pausedAt: new Date().toISOString(),
         completedStepIds: completed,
@@ -354,5 +366,11 @@ export function endedPlanRun(
   run: AgentPlanRun,
   status: AgentPlanRun["status"],
 ): AgentPlanRun {
-  return { ...run, status, endedAt: new Date().toISOString() };
+  return {
+    ...run,
+    status,
+    endedAt: new Date().toISOString(),
+    isWaitingForWorkspace: undefined,
+    workspaceWait: undefined,
+  };
 }

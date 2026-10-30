@@ -1,3 +1,5 @@
+import type { AgentPlanWriterWait } from "./AgentPlanExecution.js";
+import type { AgentWorkspaceCleanup } from "./AgentWorkspaceCleanup.js";
 import type { AgentPlanCompletionGate } from "./AgentPlanWork.js";
 import type { AgentPlanDiagnostic } from "./AgentPlanDiagnostics.js";
 import type { AgentPlanSessionEvents } from "./AgentPlanSessionEvents.js";
@@ -615,7 +617,7 @@ export type AgentPlanReadResult =
   | { readonly control: AgentPlanControlEntry };
 
 /** Additive contract revision, independently observable from a client's MCP bundle version. */
-export const AGENT_PLAN_CONTRACT_VERSION = 12;
+export const AGENT_PLAN_CONTRACT_VERSION = 13;
 
 /** An immutable, owner-authorized checkpoint projection encoded as JSON text. */
 export interface AgentPlanCheckpointEntry {
@@ -661,6 +663,10 @@ export interface AgentPlanTemplateEntry {
 
 /** Available saved-plan controls, without another executor's results. */
 export interface AgentPlanControlEntry {
+  readonly canRestart?: boolean;
+  readonly resumeAction?: "paused" | "recovery";
+  readonly workspaceWait?: AgentPlanWriterWait;
+  readonly cleanup?: readonly AgentWorkspaceCleanup[];
   readonly planId: string;
   readonly revision: number;
   readonly status: AgentPlanRunStatus | "idle";
@@ -721,6 +727,11 @@ interface AgentPlanRecoveryCommandIdentity {
 export type AgentPlanRecoveryCommandResult = AgentPlanRecoveryCommandIdentity &
   (
     | { readonly outcome: "released" }
+    | {
+        readonly outcome: "reset";
+        readonly action: "restart";
+        readonly issue?: string;
+      }
     | {
         readonly outcome: "started";
         readonly action: "restart" | "resume";

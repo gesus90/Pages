@@ -4,6 +4,7 @@ import { isCredentialCommand } from "./credential-commands.js";
 import { readConfiguration } from "./configuration.js";
 import { runCredentialCommand } from "./credential-command.js";
 import { CredentialStoreError } from "./credential-error.js";
+import { PagesTransportError } from "./pages-transport-error.js";
 import { createServer } from "./server.js";
 import { readStdioConfiguration } from "./stdio-configuration.js";
 import { verifyPages } from "./verification.js";
@@ -36,7 +37,8 @@ export async function start(): Promise<void> {
     serveStdio(() => createServer(() => configuration));
   } catch (error: unknown) {
     console.error(
-      error instanceof CredentialStoreError
+      error instanceof CredentialStoreError ||
+        error instanceof PagesTransportError
         ? `[pages-mcp] ${error.message}`
         : "[pages-mcp] Startup failed. Check PAGES_URL, PAGES_TOKEN or local pairing credentials and Pages authorization.",
     );

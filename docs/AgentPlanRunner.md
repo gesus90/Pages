@@ -1,5 +1,10 @@
 # Plan-Snapshots und Runner-Ereignisse (PAGE-142)
 
+> Current control contract: [PAGE-184 / PAGE-185](./PAGE-184-185.md) documents
+> Pages plan contract 13, Runner 1.15.0, business acceptance for every CLI,
+> upper control actions, actual writer queues and logical workspace removal.
+> The versioned historical sections below describe their original releases.
+
 Planänderungen über Editor, MCP und Pica speichern ausschließlich eine neue Planrevision. Ein aktiver Run behält seine ursprüngliche Plan-/Node-Konfiguration. Nur die ausdrücklichen Aktionen Play und Resume dürfen Ausführung anfordern. Ein ausdrücklich fortgesetzter pausierter Run kann wie bisher eine neue, angehängte Ausführungsgrundlage übernehmen; die ursprüngliche Grundlage und erfolgreiche Checkpoints werden dabei nicht überschrieben.
 
 ## Snapshot und Anzeige

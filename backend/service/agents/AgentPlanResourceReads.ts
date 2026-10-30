@@ -84,7 +84,7 @@ export async function readPlanResources(
     requireParameterKeys(parameters, ["planId", "runId"]);
     const planId = readIdentifier(parameters.planId);
     const runId = readIdentifier(parameters.runId);
-    const run = await services.plans.run(userId, runId);
+    const run = await services.plans.controlRun(userId, runId);
     if (run.planId !== planId) throw new AgentOperationError("NOT_FOUND");
     if (!services.recovery)
       throw new AgentOperationError("INVALID_REQUEST", {

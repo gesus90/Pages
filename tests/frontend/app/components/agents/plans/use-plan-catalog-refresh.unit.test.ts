@@ -59,10 +59,15 @@ it("asks conditionally every 15 seconds and revalidates only on a change", async
   expect(revalidate).toHaveBeenCalledOnce();
 });
 
-it("revalidates after a failed request", async () => {
-  fetchMock.mockRejectedValueOnce(new Error("offline"));
+it("keeps the editor mounted after a failed request and retries the probe", async () => {
+  fetchMock
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce(new Response("{}", { status: 200 }));
   renderHook(() => usePlanCatalogRefresh(INPUT));
   await tick();
+  expect(revalidate).not.toHaveBeenCalled();
+  await tick();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
   expect(revalidate).toHaveBeenCalledOnce();
 });
 
@@ -119,12 +124,17 @@ it("drops an answer that arrives after unmounting", async () => {
   expect(revalidate).not.toHaveBeenCalled();
 });
 
-it("revalidates when the visible window regains focus", () => {
+it("conditionally refreshes when the visible window regains focus", async () => {
+  fetchMock.mockResolvedValue(new Response("{}", { status: 200 }));
   renderHook(() => usePlanCatalogRefresh(INPUT));
-  window.dispatchEvent(new Event("focus"));
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+  });
+  expect(fetchMock).toHaveBeenCalledOnce();
   expect(revalidate).toHaveBeenCalledOnce();
   visibility = "hidden";
   window.dispatchEvent(new Event("focus"));
+  expect(fetchMock).toHaveBeenCalledOnce();
   expect(revalidate).toHaveBeenCalledOnce();
 });
 

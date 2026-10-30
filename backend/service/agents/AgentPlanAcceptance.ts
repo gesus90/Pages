@@ -151,6 +151,29 @@ function criterionStatus(
   };
 }
 
+/** Reads an explicit business blocker from a structured agent result, without interpreting ordinary prose. */
+export function explicitPlanBlocker(output: string): string | null {
+  const fenced = [...output.matchAll(/```json[^\n]*\n([\s\S]*?)\n```/gu)].at(
+    -1,
+  )?.[1];
+  try {
+    const parsed = readAgentObject(JSON.parse(fenced ?? output.trim()));
+    return typeof parsed.status === "string" &&
+      [
+        "blocked",
+        "open",
+        "incomplete",
+        "failed",
+        "cancelled",
+        "error",
+      ].includes(parsed.status.toLowerCase())
+      ? parsed.status.toLowerCase()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Describes business progress independently of the runner's execution result.
  *
@@ -161,8 +184,7 @@ function criterionStatus(
  *
  * @remarks
  * `accepted` means that this progress assessment has no outstanding issues;
- * `open` preserves every diagnostic. OpenCode and group runners require `accepted`;
- * other standalone steps keep these findings diagnostic. Ticket todos follow
+ * `open` preserves every diagnostic. Every CLI and group runner requires `accepted` before releasing successors. Ticket todos follow
  * the checkbox unless the caller explicitly permits reporting them in read-only
  * OpenCode sessions. Missing or invalid reports never manufacture completion.
  */
@@ -177,6 +199,8 @@ export function evaluatePlanAcceptance(
     (key) => `ticket_unreadable:${key}`,
   );
   issues.push(...states.changed.map((key) => `ticket_changed:${key}`));
+  const blocker = explicitPlanBlocker(output);
+  if (blocker) issues.push(`business_${blocker}`);
   if (parsed === null) issues.push("report_missing");
   else if (
     parsed === "invalid" ||
@@ -227,9 +251,7 @@ function todoListStatus(
  * A todo with a ticket entry is done exactly when the ticket shows it
  * checked. A todo without one has only the report to go by. A missing or
  * malformed report and changed requirements remain diagnostic issues; an
- * unreadable ticket leaves its todos `missing`, never `done`. No issue gates
- * execution or successor release for standalone Codex and Claude steps. OpenCode and internal group steps
- * require an accepted report under the same group policy as other completion modes.
+ * unreadable ticket leaves its todos `missing`, never `done`. Every CLI and internal group step requires an accepted report before successor release.
  */
 export function evaluateTodoCompletion(
   contract: AgentPlanContract,

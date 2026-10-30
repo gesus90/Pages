@@ -9,6 +9,7 @@ import {
 } from "@/app/components/ui/dialog";
 
 import { recoveryErrorText } from "../plan-recovery-panel";
+import { PlanRecoveryRestart } from "./plan-recovery-restart";
 import { PlanRecoveryResume } from "./plan-recovery-resume";
 import { PlanRecoveryState } from "./plan-recovery-state";
 
@@ -29,9 +30,11 @@ import type {
  */
 export function PlanRecoveryResumeDialog({
   recovery,
+  action = "resume",
   onClose,
 }: {
   readonly recovery: ReturnType<typeof usePlanRecovery>;
+  readonly action?: "restart" | "resume";
   readonly onClose: () => void;
 }): React.ReactElement | null {
   const { t } = useTranslation();
@@ -51,19 +54,43 @@ export function PlanRecoveryResumeDialog({
       <DialogContent size="lg" className="space-y-4 overflow-y-auto">
         <div className="space-y-1.5">
           <DialogTitle className="text-lg font-semibold">
-            {t("plans.recovery.resumeTitle")}
+            {t(
+              action === "restart"
+                ? "plans.recovery.restart"
+                : "plans.recovery.resumeTitle",
+            )}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            {t("plans.recovery.resumeDescription")}
+            {t(
+              action === "restart"
+                ? "plans.recovery.freshDescription"
+                : "plans.recovery.resumeDescription",
+            )}
           </DialogDescription>
         </div>
         <div className="space-y-3 text-xs leading-4 wrap-anywhere text-muted-foreground">
           <PlanRecoveryState view={view} />
-          <PlanRecoveryResume
-            view={view}
-            isPending={recovery.isPending}
-            onSubmit={(request) => void submit(request)}
-          />
+          {action === "restart" ? (
+            <PlanRecoveryRestart
+              view={view}
+              isPending={recovery.isPending}
+              onSubmit={(request) => void submit(request)}
+            />
+          ) : (
+            <PlanRecoveryResume
+              view={view}
+              isPending={recovery.isPending}
+              onSubmit={(request) => void submit(request)}
+            />
+          )}
+          {recovery.result?.outcome === "reset" ? (
+            <p role="status">
+              {t("plans.recovery.result.reset")}{" "}
+              {recovery.result.issue
+                ? t(`settings.agents.error.${recovery.result.issue}`)
+                : null}
+            </p>
+          ) : null}
           {recovery.error ? (
             <p role="alert" className="text-destructive">
               {recoveryErrorText(

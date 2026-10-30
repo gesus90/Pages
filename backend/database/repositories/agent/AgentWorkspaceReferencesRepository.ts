@@ -1,3 +1,4 @@
+import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import {
   withoutWorkspaceReferences,
   workspaceReferenceIds,
@@ -59,8 +60,7 @@ export class AgentWorkspaceReferencesRepository {
           OR id IN (SELECT run_id FROM agent_plan_workspace_locks)
       )
           AND (
-              plan_id IN (${REFERENCED_PLANS})
-              OR workspace_id = $id
+              workspace_id = $id
               OR EXISTS (
                   SELECT 1
                   FROM json_tree(agent_plan_runs.snapshot_json) AS reference
@@ -94,15 +94,52 @@ export class AgentWorkspaceReferencesRepository {
     });
   }
 
-  /** Detaches all affected records or refuses the entire transaction while an affected run is active. */
-  public async detach(id: string): Promise<void> {
+  /** Logically detaches current references and retains exact-owner cleanup obligations in the same transaction. */
+  public async detach(
+    id: string,
+    removal: { readonly userId: string; readonly name: string },
+  ): Promise<void> {
     const usages = await this.usages(id);
-    if (usages.some((usage) => usage.kind === "run"))
-      throw new AgentError("workspace_running");
+    for (const usage of usages.filter((entry) => entry.kind === "run")) {
+      const [row] = await this.database.query(
+        "SELECT view_json FROM agent_plan_runs WHERE id = $id;",
+        { id: usage.id },
+      );
+      if (row) {
+        const run = readPlanRun(
+          JSON.parse(readTextColumn(row, 0, "view_json")),
+        );
+        await this.database.execute(
+          `
+          UPDATE agent_plan_runs SET view_json = $view_json, recovery_revision = recovery_revision + 1 WHERE id = $id;
+        `,
+          {
+            id: run.id,
+            view_json: JSON.stringify({ ...run, stopRequested: true }),
+          },
+        );
+      }
+      await this.database.execute(
+        `
+        INSERT INTO agent_workspace_cleanup (workspace_id, run_id, owner_id, removed_by, workspace_name)
+        SELECT $workspace_id, id, user_id, $removed_by, $name
+        FROM agent_plan_runs
+        WHERE id = $run_id
+        ON CONFLICT (workspace_id, run_id) DO NOTHING;
+      `,
+        {
+          workspace_id: id,
+          run_id: usage.id,
+          removed_by: removal.userId,
+          name: removal.name,
+        },
+      );
+    }
     if (usages.some((usage) => usage.kind === "plan"))
       await this.detachPlans(id);
     if (usages.some((usage) => usage.kind === "agent"))
       await this.detachAgents(id);
+    await this.detachTemplates(id);
   }
 
   /** Prevents a concurrent save from restoring a registration that removal just detached. */
@@ -141,7 +178,7 @@ export class AgentWorkspaceReferencesRepository {
       await this.database.execute(
         `
         UPDATE agent_plans
-        SET workspace_id = '',
+        SET workspace_id = $workspace_id,
             plan_json = $plan_json,
             revision = revision + 1,
             updated_at = utc_now()
@@ -149,10 +186,43 @@ export class AgentWorkspaceReferencesRepository {
       `,
         {
           plan_id: readTextColumn(row, 0, "id"),
-          plan_json: JSON.stringify({ ...cleared, workspaceId: "" }),
+          workspace_id:
+            "workspaceId" in cleared && typeof cleared.workspaceId === "string"
+              ? cleared.workspaceId
+              : "",
+          plan_json: JSON.stringify(cleared),
         },
       );
     }
+  }
+
+  private async detachTemplates(id: string): Promise<void> {
+    const rows = await this.database.query(
+      `
+      SELECT id, node_json
+      FROM agent_plan_templates
+      WHERE EXISTS (
+          SELECT 1 FROM json_tree(agent_plan_templates.node_json) AS reference
+          WHERE json_extract_string(reference.value, '$.workspaceId') = $id
+      );
+    `,
+      { id },
+    );
+    for (const row of rows)
+      await this.database.execute(
+        `
+      UPDATE agent_plan_templates SET node_json = $node_json WHERE id = $id;
+    `,
+        {
+          id: readTextColumn(row, 0, "id"),
+          node_json: JSON.stringify(
+            withoutWorkspaceReferences(
+              JSON.parse(readTextColumn(row, 1, "node_json")),
+              id,
+            ),
+          ),
+        },
+      );
   }
 
   private async detachAgents(id: string): Promise<void> {

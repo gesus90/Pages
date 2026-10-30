@@ -1,3 +1,4 @@
+import { workspaceReferenceIds } from "@/backend/agents/AgentWorkspaceReferences";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 
@@ -142,6 +143,12 @@ export class RecoveryDatabase {
     statement: string,
     parameters: SqlParameters,
   ): DatabaseValue[][] {
+    if (statement.includes("SELECT id FROM agent_workspaces"))
+      return workspaceReferenceIds(this.plan).has(
+        requiredText(parameters, "id"),
+      )
+        ? [[requiredText(parameters, "id")]]
+        : [];
     if (statement.includes("FROM agent_plan_checkpoints"))
       return this.checkpointRows(statement, parameters);
     if (statement.includes("FROM agent_plan_repair_attempts"))
@@ -153,6 +160,20 @@ export class RecoveryDatabase {
     if (statement.includes("FROM agent_plans"))
       return [[this.plan.plan.revision]];
     if (statement.includes("FROM agent_plan_workspace_locks")) {
+      if (statement.includes("LEFT JOIN agent_plan_runs"))
+        return [...this.rows.locks]
+          .filter(([, owner]) => owner !== parameters.run_id)
+          .map(([key, owner]) => {
+            const run = this.rows.runs.get(owner);
+            return statement.includes("runs.view_json")
+              ? [key, run?.view ?? null, run?.snapshot ?? null]
+              : [key, run?.snapshot ?? null];
+          });
+      if (statement.includes("WHERE run_id"))
+        return [...this.rows.locks]
+          .filter(([, owner]) => owner === parameters.id)
+          .slice(0, 1)
+          .map(([key]) => [key]);
       const lock = this.rows.locks.get(requiredText(parameters, "id"));
       return lock ? [[lock]] : [];
     }
@@ -210,9 +231,9 @@ export class RecoveryDatabase {
       return rows
         .filter(
           (row) =>
-            row.status !== "running" &&
-            row.status !== "paused" &&
-            [...this.rows.locks.values()].includes(row.id),
+            !["running", "pausing", "paused", "stopping"].includes(
+              row.status,
+            ) && [...this.rows.locks.values()].includes(row.id),
         )
         .map((row) => [row.view]);
     if (parameters.plan_id !== undefined)
@@ -220,13 +241,16 @@ export class RecoveryDatabase {
         .filter(
           (row) =>
             row.planId === parameters.plan_id &&
-            row.userId === parameters.user_id &&
-            (row.status === "running" || row.status === "paused"),
+            (parameters.user_id === undefined ||
+              row.userId === parameters.user_id) &&
+            ["running", "pausing", "paused", "stopping"].includes(row.status),
         )
         .map((row) => [row.id]);
     if (parameters.id === undefined)
       return rows
-        .filter((row) => row.status === "running" || row.status === "paused")
+        .filter((row) =>
+          ["running", "pausing", "paused", "stopping"].includes(row.status),
+        )
         .map((row) => [row.view]);
     const row = rows.find((entry) => entry.id === parameters.id);
     if (!row) return [];
@@ -296,20 +320,41 @@ export class RecoveryDatabase {
       this.insertRun(parameters);
       return;
     }
+    if (statement.includes("agent_plan_workspace_locks")) {
+      this.writeLock(statement, parameters);
+      return;
+    }
+    throw new Error(`Unexpected synthetic statement ${statement}`);
+  }
+
+  private writeLock(statement: string, parameters: SqlParameters): void {
     if (statement.includes("INSERT INTO agent_plan_workspace_locks")) {
       this.rows.locks.set(
-        requiredText(parameters, "workspace_id"),
+        requiredText(
+          parameters,
+          parameters.key === undefined ? "workspace_id" : "key",
+        ),
         requiredText(parameters, "run_id"),
       );
       return;
     }
     if (statement.includes("DELETE FROM agent_plan_workspace_locks")) {
       const targetRunId = parameters.run_id ?? parameters.id;
+      const target =
+        typeof targetRunId === "string"
+          ? this.rows.runs.get(targetRunId)
+          : undefined;
+      if (
+        statement.includes("status NOT IN") &&
+        target &&
+        ["running", "pausing", "paused", "stopping"].includes(target.status)
+      )
+        return;
       for (const [workspace, runId] of this.rows.locks)
         if (runId === targetRunId) this.rows.locks.delete(workspace);
       return;
     }
-    throw new Error(`Unexpected synthetic statement ${statement}`);
+    throw new Error(`Unexpected synthetic lock write ${statement}`);
   }
 
   private executionRows(

@@ -150,6 +150,45 @@ export function PlanPanelHeading(
         </div>
       </div>
       <PlanRevisionStatus editor={editor} control={control} />
+      <PlanControlNotes {...props} />
+    </>
+  );
+}
+
+function PlanControlNotes(props: PlanPanelHeadingProps): React.ReactElement {
+  const { t } = useTranslation();
+  const { control } = props;
+  return (
+    <>
+      {control?.workspaceWait ? (
+        <p
+          role="status"
+          className="px-4 pt-2 text-xs wrap-anywhere text-warning"
+        >
+          {t("plans.recovery.writerWait", {
+            resource: control.workspaceWait.resource,
+            run: control.workspaceWait.runId ?? t("plans.recovery.otherOwner"),
+          })}{" "}
+          {t(`plans.recovery.cleanupBlocker.${control.workspaceWait.reason}`, {
+            defaultValue: control.workspaceWait.reason,
+          })}
+        </p>
+      ) : null}
+      {control?.cleanup?.map((entry) => (
+        <p
+          key={`${entry.workspaceId}:${entry.runId}`}
+          role="status"
+          className="px-4 pt-2 text-xs wrap-anywhere text-warning"
+        >
+          {t("plans.recovery.cleanupObligation", {
+            workspace: entry.workspaceName,
+            run: entry.runId,
+          })}{" "}
+          {t(`plans.recovery.cleanupBlocker.${entry.blocker}`, {
+            defaultValue: entry.blocker,
+          })}
+        </p>
+      ))}
       {props.page.selected?.isWorkspaceMissing ? (
         <p
           role="status"

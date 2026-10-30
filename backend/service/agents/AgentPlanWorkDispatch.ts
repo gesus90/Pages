@@ -61,10 +61,8 @@ export function completedPlanWorkCheckpoint(
   const remote = active.snapshot.remoteSteps?.find(
     (entry) => entry.step.id === node.id,
   );
-  const isOpenCode =
-    remote?.command.program.kind === "cli" &&
-    remote.command.program.route.tool === "opencode";
-  if (node.type !== "agent" || (!node.completionGate && !isOpenCode))
+  const isCli = remote?.command.program.kind === "cli";
+  if (node.type !== "agent" || (!node.completionGate && !isCli))
     return undefined;
   const step = active.view.steps.find((entry) => entry.id === node.id);
   if (!step) throw new AgentError("plan_context_changed");

@@ -770,7 +770,7 @@
         "plan_runner_failed": "Der Runner hat seinen Turn mit einem Fehler beendet.",
         "plan_runner_incomplete": "Der Runner endete, ohne seinen Turn abzuschließen.",
         "plan_runner_permission_denied": "Der Runner hat Aktionen abgelehnt, die die Laufoptionen nicht erlauben; nichts wurde stellvertretend freigegeben.",
-        "plan_acceptance_failed": "Historischer Lauf: Der Abschlussbericht belegte nicht jedes Todo und Kriterium. Dieser gespeicherte Fehler bleibt bestehen; ein neuer Lauf verwendet die Hinweise nur als Diagnose.",
+        "plan_acceptance_failed": "Der fachliche Auftrag ist blockiert, offen oder unbelegt. Nachfolger bleiben trotz technisch erfolgreichem Ende gesperrt.",
         "plan_group_acceptance_failed": "Der Gruppen-Agent hat die Abnahme nicht bestanden. Sein Abschlussbericht muss jedes Todo und Kriterium belegen; weitere Agents und Nachfolger bleiben gesperrt.",
         "plan_group_session_unsupported": "Dieser Adapter kann die gemeinsame ACP-Session der Gruppe nicht mit neuer Schrittanweisung fortsetzen. Codex-, Claude-Code- oder OpenCode-Agents über ACP verwenden.",
         "plan_closeout_failed": "Die Sitzung ließ sich nicht vollständig schließen; Prozesse blieben übrig.",
@@ -845,7 +845,12 @@
         "antigravity_acp_session_failed": "Die Antigravity-ACP-Sitzung ist fehlgeschlagen. Adapter, Anmeldung und Kontingent am Ausführungsort prüfen.",
         "antigravity_configuration_unmanaged": "Zusätzliche Antigravity-Konfiguration könnte die Sitzungsrechte erweitern. Den isolierten Pages-Kontext verwenden.",
         "antigravity_pica_unverified": "Antigravity ist für Pica gesperrt: Die vollständige restriktive Werkzeuggrenze ist noch nicht mit einem echten Modell nachgewiesen.",
-        "antigravity_runner_update_required": "Antigravity benötigt Runner 1.14.0 oder neuer am ausgewählten Ausführungsort. Den Runner ausdrücklich aktualisieren; es gibt keinen lokalen Ersatz."
+        "antigravity_runner_update_required": "Antigravity benötigt Runner 1.14.0 oder neuer am ausgewählten Ausführungsort. Den Runner ausdrücklich aktualisieren; es gibt keinen lokalen Ersatz.",
+        "plan_workspace_waiting": "Dieser Lauf wartet auf eine konkrete Schreibressource. Besitzer und ausstehende Bereinigung stehen an der oberen Steuerung.",
+        "plan_acceptance_unavailable": "Fachlicher Abschluss nicht prüfbar. Aktuellen Ticketzugriff prüfen und am unvollständigen Schritt fortsetzen.",
+        "plan_acceptance_contract_unavailable": "Dem Versuch fehlt ein gültiger festgehaltener Abschlussvertrag. Ergebnis prüfen und mit dem aktuellen Plan fortsetzen.",
+        "plan_acceptance_interrupted": "Pages wurde vor der fachlichen Abnahme unterbrochen. Mit erhaltener Arbeit am unvollständigen Schritt fortsetzen.",
+        "plan_runner_control_update_required": "Neue Planaufträge benötigen Runner 1.15.0 (planControlVersion 1). Pages und Runner ausdrücklich gemeinsam aktualisieren; bestehende Aufträge bleiben abgleichbar."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -3508,8 +3513,9 @@
     "location": "Ausführungsort",
     "pathColumn": "Pfad",
     "githubColumn": "GitHub-Zuordnung",
-    "detachDescription": "Die folgenden Pläne und gepinnten Agents verlieren ihren Arbeitsbereich. Ihre Knoten und Inhalte bleiben erhalten. Betroffene Pläne sind ohne Arbeitsbereich nicht startbar und müssen neu zugeordnet werden.",
-    "confirmDetach": "Ich bestätige, dass die betroffenen Pläne und Agents ihren Arbeitsbereich verlieren."
+    "detachDescription": "Aktuelle Zuordnungen in Plänen, Vorlagen und gebundenen Agenten werden entfernt. Pläne, unveränderliche Laufhistorie und Dateien bleiben erhalten.",
+    "confirmDetach": "Arbeitsbereich abmelden, die aufgeführten aktuellen Zuordnungen entfernen und zugehörige Arbeit abbrechen. Repositorydateien und Historie erhalten.",
+    "cleanupPending": "Zugehörige Aufträge werden abgebrochen. Offline oder unbestätigte Bereinigung bleibt im betroffenen Plan sichtbar; alle Repositorydateien bleiben erhalten."
   },
   "remote": {
     "connections": {
@@ -3968,7 +3974,8 @@
       "cancelled": "Abgebrochen",
       "paused": "Pausiert",
       "pausing": "Pausiert wird …",
-      "stopping": "Stop · Closeout läuft"
+      "stopping": "Stop · Closeout läuft",
+      "queued": "Eingereiht — Prozessstart nicht bestätigt"
     },
     "dataIn": "Daten IN",
     "disconnect": "Datenverbindung für {{name}} entfernen",
@@ -4021,7 +4028,7 @@
       "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
       "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
       "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
-      "remoteRunnerUpdate": "Runner aktualisieren: Unveränderte Remote-CLI-Ergebnisse brauchen Runner 1.13.0 oder neuer; andere Remote-Funktionen benötigen mindestens 1.10. Bis zur benötigten Version startet hier nichts; laufende Jobs werden weiter abgeglichen.",
+      "remoteRunnerUpdate": "Neue Remote-Planaufträge benötigen Runner 1.15.0 mit planControlVersion 1. Pages und Runner ausdrücklich gemeinsam aktualisieren; bestehende Aufträge bleiben abgleichbar.",
       "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen.",
       "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund."
     },
@@ -4435,7 +4442,7 @@
         "remoteAssetsTooLarge": "Die Dateiübergabe überschreitet 10 MiB insgesamt oder 64 Dateien. Der Schritt startet nicht.",
         "remotePromptTooLarge": "Die vollständige Aufgabe einschließlich Parameter überschreitet die bestehende Runner-Grenze von 100000 Zeichen. Inhalt verkleinern; Pages kürzt nichts.",
         "remoteParameter": "Der Parameter kann nicht aufgelöst werden. Typ, Pflichtwert und Platzhalter prüfen.",
-        "remoteRunnerUpdate": "Runner aktualisieren: Unveränderte Remote-CLI-Ergebnisse brauchen Runner 1.13.0 oder neuer; andere Remote-Funktionen benötigen mindestens 1.10. Bis zur benötigten Version startet hier nichts; laufende Jobs werden weiter abgeglichen.",
+        "remoteRunnerUpdate": "Neue Remote-Planaufträge benötigen Runner 1.15.0 mit planControlVersion 1. Pages und Runner ausdrücklich gemeinsam aktualisieren; bestehende Aufträge bleiben abgleichbar.",
         "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen.",
         "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund.",
         "remoteCatalogStale": "Das Inventar dieses Runners ist veraltet oder unvollständig. Bekannte Profile bleiben sichtbar, starten aber erst nach einer vollständigen aktuellen Meldung des verbundenen Runners.",
@@ -5090,7 +5097,8 @@
         "started": "Der neue Lauf wurde gestartet.",
         "released": "Restprozesse beendet und Arbeitskopien freigegeben.",
         "recorded": "Festgehalten.",
-        "cancelled": "Lauf abgebrochen."
+        "cancelled": "Lauf abgebrochen.",
+        "reset": "Logische Bedienbarkeit wiederhergestellt. Kein neuer Prozess wurde gestartet. Den aktuellen Konfigurationsgrund beheben; ausstehende Bereinigung bleibt sichtbar."
       },
       "error": {
         "review_required": "Die Prüfung jedes erneut laufenden Knotens bestätigen.",
@@ -5107,7 +5115,24 @@
       "resumeDescription": "Setzt am letzten sicheren Stand fort: Erfolgreiche Schritte werden übernommen und nicht wiederholt; offene Arbeit läuft als neuer Versuch.",
       "cleanupHistory": "Letzter gespeicherter Bereinigungsfehler",
       "cleanupHistoryTime": "{{time}} · angewandte Planrevision {{revision}}",
-      "cleanupHistoryHint": "Historischer Befund. Die aktuelle Freigabe und Prozesslage stehen bei den verfügbaren Aktionen."
+      "cleanupHistoryHint": "Historischer Befund. Die aktuelle Freigabe und Prozesslage stehen bei den verfügbaren Aktionen.",
+      "freshDescription": "Die gespeicherte Ablaufrevision von vorne starten. Arbeit und Historie bleiben erhalten; alte eigene Aufträge werden abgebrochen. Kollidierende Ausführung wartet auf belegte Bereinigung.",
+      "cleanupObligation": "Ausstehende Bereinigung für {{workspace}}, Ursprungslauf {{run}}.",
+      "writerWait": "Wartet auf Schreibressource {{resource}}; Besitzer {{run}}.",
+      "otherOwner": "anderer Ausführender",
+      "reviewScript": "Wirksame Dateien, Git-/externe Seiteneffekte und Ergebnis von „{{step}}“ wurden geprüft. Die nächste Ausführung ist sicher und wiederholt Vorbereitung, Commit oder Push nicht blind.",
+      "cleanupBlocker": {
+        "cleanup_requested": "Abbruch dauerhaft angefordert; Abgleich der exakten Aufträge steht aus.",
+        "cleanup_check_failed": "Die zugehörige Bereinigungsprüfung ist fehlgeschlagen. Obere Aktion erneut wählen und Laufdiagnose prüfen.",
+        "owner_evidence_unavailable": "Der ursprüngliche Besitzerbeleg fehlt. Ausführung bleibt bis zum Identitätsabgleich gesperrt.",
+        "runner_offline": "Runner offline. Den ursprünglichen Runner verbinden, um das Ende zu bestätigen; offline beweist keine Prozessfreiheit.",
+        "process_end_unconfirmed": "Prozessende unbestätigt. Den ursprünglichen Runner verbinden oder Prozessbelege dieses Besitzers prüfen.",
+        "process_scan_unavailable": "Die ursprüngliche Prozessgrenze ist derzeit nicht belegbar. Exakten Besitzer auf dem Host prüfen; fehlende Ownership-Dateien reichen nicht aus.",
+        "signal_denied": "Der Host verweigert das Beenden des exakt zugeordneten Prozesses. Hostrechte korrigieren und dieselbe Aktion wiederholen.",
+        "exit_timeout": "Der zugehörige Prozess endete nicht innerhalb der Frist. Ursprünglichen Host prüfen und erneut versuchen.",
+        "writer_reserved": "Der frühere Ablauf besitzt diese konkrete Schreibressource noch. Eigenen Ursprungslauf stoppen oder dessen Ende abwarten.",
+        "legacy_owner_cleanup_required": "Ein älterer Besitzer hält diese Ressource. Ursprungslauf prüfen und Bereinigung abgleichen; keine erzwungene Freigabe."
+      }
     },
     "nodeInstruction": "Zusätzliche Node-Anweisung",
     "execution": {

@@ -22,7 +22,7 @@ import type {
   DatabaseTransaction,
 } from "@/backend/database/Database";
 import type { StoredAgentOperation } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
-import type { AgentPlanView } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanView } from "@/definition/AgentPlan";
 import type { AgentPlanStartRejection } from "@/definition/AgentPlanStartRejection";
 import type {
   AgentPlanCommandOperation,
@@ -132,7 +132,7 @@ export class AgentPlanCommandOperations {
       if (!target.canEdit) throw new AgentOperationError("NOT_FOUND");
       await this.plans.checkNodes(userId, target.workspaceId, target.nodes);
     }
-    if (result.runId) await this.plans.run(userId, result.runId);
+    if (result.runId) await this.commandRun(userId, request, result.runId);
     if (
       result.templateId &&
       !(await this.templates.list(userId, plan.workspaceId)).some(
@@ -162,7 +162,7 @@ export class AgentPlanCommandOperations {
         status: control.status,
         control,
       };
-    const run = await this.plans.run(userId, result.runId);
+    const run = await this.commandRun(userId, request, result.runId);
     return {
       ...result,
       action: request.operation,
@@ -264,13 +264,31 @@ export class AgentPlanCommandOperations {
     }
     if (request.runId === null)
       throw new AgentOperationError("INVALID_REQUEST");
-    const run = await this.plans.run(userId, request.runId);
+    const run = await this.commandRun(userId, request, request.runId);
     if (run.planId !== plan.id) throw new AgentOperationError("NOT_FOUND");
     if (request.operation === "plans.resume")
       await this.plans.resume(userId, run.id, plan.revision, journal);
     else if (request.operation === "plans.pause")
       await this.plans.pause(userId, run.id, journal);
     else await this.plans.stop(userId, run.id, journal);
+  }
+
+  private async commandRun(
+    userId: string,
+    request: AgentPlanCommandRequest,
+    runId: string,
+  ): Promise<AgentPlanRun> {
+    const run =
+      request.operation === "plans.stop"
+        ? await this.plans.controlRun(userId, runId)
+        : await this.plans.run(userId, runId);
+    if (
+      run.planId !== request.planId ||
+      run.userId !== userId ||
+      run.id !== runId
+    )
+      throw new AgentOperationError("NOT_FOUND");
+    return run;
   }
 
   private async saveTemplate(

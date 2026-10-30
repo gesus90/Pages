@@ -21,16 +21,17 @@ export function PlanRecoveryRestart({
 }): React.ReactElement {
   const { t } = useTranslation();
   const [isConfirmed, setConfirmed] = useState(false);
-  const { restart, release } = view;
+  const [reviewed, setReviewed] = useState<readonly string[]>([]);
+  const reviewIds = view.restart.reviewStepIds ?? [];
+  const areEffectsReviewed = reviewIds.every((id) => reviewed.includes(id));
+  const { restart } = view;
   function handleRestart(): void {
     onSubmit({
       action: "restart",
       revision: view.currentPlanRevision,
       confirmRepeat: true,
+      reviewedStepIds: reviewed,
     });
-  }
-  function handleRelease(): void {
-    onSubmit({ action: "release" });
   }
   return (
     <fieldset className="space-y-1.5" disabled={isPending}>
@@ -51,11 +52,39 @@ export function PlanRecoveryRestart({
         />
         <span>{t("plans.recovery.confirmRepeat")}</span>
       </label>
+      {reviewIds.map((id) => (
+        <label
+          key={id}
+          className="flex items-start gap-2 [@media(pointer:coarse)]:min-h-11"
+        >
+          <input
+            type="checkbox"
+            checked={reviewed.includes(id)}
+            onChange={(event) =>
+              setReviewed(
+                event.target.checked
+                  ? [...reviewed, id]
+                  : reviewed.filter((entry) => entry !== id),
+              )
+            }
+          />
+          <span>
+            {t("plans.recovery.reviewScript", {
+              step: view.stepNames[id] ?? id,
+            })}
+          </span>
+        </label>
+      ))}
       <div className="flex flex-wrap gap-1.5">
         <Button
           size="xs"
           variant="outline"
-          disabled={!restart.available || !isConfirmed || isPending}
+          disabled={
+            !restart.available ||
+            !isConfirmed ||
+            !areEffectsReviewed ||
+            isPending
+          }
           onClick={handleRestart}
           className="[@media(pointer:coarse)]:h-11"
         >
@@ -63,17 +92,6 @@ export function PlanRecoveryRestart({
             revision: view.currentPlanRevision,
           })}
         </Button>
-        {release.available ? (
-          <Button
-            size="xs"
-            variant="outline"
-            disabled={isPending}
-            onClick={handleRelease}
-            className="[@media(pointer:coarse)]:h-11"
-          >
-            {t("plans.recovery.releaseAction")}
-          </Button>
-        ) : null}
       </div>
     </fieldset>
   );

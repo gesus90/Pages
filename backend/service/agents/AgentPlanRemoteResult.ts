@@ -4,14 +4,8 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { readPlanContract } from "@/backend/agents/AgentPlanSessionInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
-import { buildPlanContract } from "./AgentPlanContract";
-import { evaluatePlanAcceptance } from "./AgentPlanAcceptance";
 import type { RemotePlanStep } from "./AgentPlanRemoteExecution";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
-import type {
-  AgentPlanAcceptance,
-  AgentPlanContract,
-} from "@/definition/AgentPlanSession";
 import type { RunnerExecution } from "@/definition/RunnerExecution";
 
 /** Builds CLI diagnostics in the event transaction, before immutable completion is checkpointed. */
@@ -64,20 +58,8 @@ function remoteAgentResult(
   if (!program.route.tool) return result;
   const runner = RUNNER_TOOL_PROVIDERS[program.route.tool];
   const options = agentRunOptionsFor(runner, node.configuration?.template.run);
-  const diagnosticContract = buildPlanContract(node.instruction, [], {
-    isReadOnly: options.access === "read_only",
-    completion: node.completion,
-    completionGate: node.completionGate,
-  });
-  const contract =
-    program.route.tool === "opencode"
-      ? remote.acceptanceContract
-      : diagnosticContract;
-  const acceptance = diagnosticAcceptance(
-    contract,
-    program.route.tool,
-    result.output,
-  );
+  const contract = remote.acceptanceContract;
+  const acceptance = null;
   return {
     ...result,
     session: {
@@ -118,20 +100,6 @@ function remoteAgentResult(
       events: [],
     },
   };
-}
-
-function diagnosticAcceptance(
-  contract: AgentPlanContract | null,
-  tool: string,
-  output: string | null,
-): AgentPlanAcceptance | null {
-  if (!contract || tool === "opencode") return null;
-  return evaluatePlanAcceptance(contract, output ?? "", {
-    checked: new Map(),
-    unreadable: [],
-    changed: [],
-    isCheckRequired: false,
-  });
 }
 
 function remoteResultCode(result: AgentPlanStepResult): 0 | -1 | null {

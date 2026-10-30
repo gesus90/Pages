@@ -1,9 +1,15 @@
+import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
+import type { AgentPlanWriterWait } from "@/definition/AgentPlanExecution";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { AgentPlanWorkspaceReservationError } from "@/backend/error/AgentPlanWorkspaceReservationError";
+import {
+  reservePlanResources,
+  retireRestartSource,
+  findPlanResourceBlocker,
+} from "./AgentPlanResourceReservation";
 
 import { AgentPlanContinuationRepository } from "./AgentPlanContinuationRepository";
 import { AgentPlanProgressRepository } from "./AgentPlanProgressRepository";
@@ -90,31 +96,21 @@ export class AgentPlanRunRepository {
     );
     if (!plan || Number(plan[0]) !== run.planRevision)
       throw new AgentError("plan_conflict");
+    await new AgentWorkspaceReferencesRepository(transaction).requireReferences(
+      snapshot,
+    );
+    await retireRestartSource(transaction, run);
     const [active] = await transaction.query(
       `
       SELECT id
       FROM agent_plan_runs
       WHERE plan_id = $plan_id
-          AND (status IN ('running', 'pausing', 'paused', 'stopping')
-              OR id IN (SELECT run_id FROM agent_plan_workspace_locks));
+          AND status IN ('running', 'pausing', 'paused', 'stopping');
     `,
       { plan_id: run.planId },
     );
     if (active) throw new AgentError("plan_run_unavailable");
-    for (const workspaceId of new Set(workspaceIds)) {
-      const [lock] = await transaction.query(
-        "SELECT run_id FROM agent_plan_workspace_locks WHERE workspace_id = $id;",
-        { id: workspaceId },
-      );
-      if (lock) throw new AgentPlanWorkspaceReservationError(workspaceId);
-      await transaction.execute(
-        `
-        INSERT INTO agent_plan_workspace_locks (workspace_id, run_id)
-        VALUES ($workspace_id, $run_id);
-      `,
-        { workspace_id: workspaceId, run_id: run.id },
-      );
-    }
+    await reservePlanResources(transaction, run.id, workspaceIds);
     await transaction.execute(
       `
       INSERT INTO agent_plan_runs (
@@ -140,6 +136,26 @@ export class AgentPlanRunRepository {
         view_json: JSON.stringify(run),
         snapshot_json: JSON.stringify(snapshot),
       },
+    );
+  }
+
+  /** Acquires actual writer resources together, or leaves this run visibly queued. */
+  public async reserve(
+    runId: string,
+    resourceKeys: readonly string[],
+  ): Promise<boolean> {
+    return this.database.transaction((transaction) =>
+      reservePlanResources(transaction, runId, resourceKeys),
+    );
+  }
+
+  /** Describes the exact held writing resource without exposing another executor's private run. */
+  public async resourceBlocker(
+    run: AgentPlanRun,
+    keys: readonly string[],
+  ): Promise<AgentPlanWriterWait | null> {
+    return this.database.transaction((transaction) =>
+      findPlanResourceBlocker(transaction, run, keys),
     );
   }
 
@@ -234,6 +250,11 @@ export class AgentPlanRunRepository {
       ticketIds: [...new Set(references.flatMap((entry) => entry.ticketIds))],
       ticketAssets: references.flatMap((entry) => entry.ticketAssets ?? []),
     };
+  }
+
+  /** Server-only current execution basis, used to restore an exact in-flight capability after restart. */
+  public async snapshot(id: string): Promise<unknown> {
+    return (await this.continuations.snapshots(id))[0] ?? null;
   }
 
   /** Names the agent of one node from the private snapshot, without disclosing anything else. */

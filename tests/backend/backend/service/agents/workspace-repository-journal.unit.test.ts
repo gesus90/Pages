@@ -2,10 +2,13 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { AgentWorkspaceRepository } from "@/backend/database/repositories/agent/AgentWorkspaceRepository";
 
+import { progressRun } from "./page162-progress-fixture";
+
 import type {
   Database,
   DatabaseTransaction,
   DatabaseValue,
+  SqlParameters,
 } from "@/backend/database/Database";
 import type { AgentWorkspace } from "@/definition/AgentWorkspace";
 
@@ -36,13 +39,20 @@ class ScriptedDatabase {
   public hasOverlap = false;
   public hasUsage = false;
   public commits = 0;
+  public readonly cleanupWrites: SqlParameters[] = [];
 
   /** The database contract the repository is built on. */
   public asDatabase(): Pick<Database, "transaction"> {
     const transaction: DatabaseTransaction = {
       query: async (statement) => this.answer(statement),
-      execute: async (statement) => {
-        this.log.push(statement.includes("DELETE") ? "delete" : "upsert");
+      execute: async (statement, parameters = {}) => {
+        if (statement.includes("UPDATE agent_plan_runs"))
+          this.log.push("run-stop");
+        else if (statement.includes("INSERT INTO agent_workspace_cleanup")) {
+          this.log.push("cleanup");
+          this.cleanupWrites.push(parameters);
+        } else
+          this.log.push(statement.includes("DELETE") ? "delete" : "upsert");
       },
     };
     return {
@@ -59,7 +69,20 @@ class ScriptedDatabase {
       return this.hasUsage ? [["run-1", null, "run"]] : [];
     if (statement.includes("WHERE id <> $id"))
       return this.hasOverlap ? [["workspace-2"]] : [];
-    return this.isRecordStored ? [[...STORED]] : [];
+    if (statement.includes("FROM agent_plan_templates")) return [];
+    if (statement.includes("SELECT view_json FROM agent_plan_runs"))
+      return [
+        [
+          JSON.stringify({
+            ...progressRun([]),
+            id: "run-1",
+            userId: "person-1",
+          }),
+        ],
+      ];
+    if (statement.includes("FROM agent_workspaces"))
+      return this.isRecordStored ? [[...STORED]] : [];
+    throw new Error(`Unexpected workspace query ${statement}`);
   }
 }
 
@@ -163,16 +186,27 @@ it("runs the journal for a removal with the record that was removed", async () =
   );
 });
 
-it("leaves a workspace with an active run or changed revision in place and runs no journal", async () => {
+it("rejects stale removal but detaches an active registration with its cleanup journal", async () => {
   const journal = vi.fn(async () => undefined);
 
   await expect(
     repository.remove("workspace-1", 1, journal),
   ).rejects.toMatchObject({ code: "workspace_conflict" });
-  database.hasUsage = true;
-  await expect(
-    repository.remove("workspace-1", 2, journal),
-  ).rejects.toMatchObject({ code: "workspace_running" });
   expect(journal).not.toHaveBeenCalled();
   expect(database.log).toEqual([]);
+  database.hasUsage = true;
+  await repository.remove("workspace-1", 2, journal);
+  expect(journal).toHaveBeenCalledExactlyOnceWith(
+    expect.anything(),
+    expect.objectContaining({ id: "workspace-1", revision: 2 }),
+  );
+  expect(database.log).toEqual(["run-stop", "cleanup", "delete"]);
+  expect(database.cleanupWrites).toEqual([
+    {
+      workspace_id: "workspace-1",
+      run_id: "run-1",
+      removed_by: "person-1",
+      name: "Repo",
+    },
+  ]);
 });

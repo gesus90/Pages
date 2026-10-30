@@ -128,6 +128,7 @@ export function capturePlanExecution(
         ? { resources: [...remote.parameters.resources] }
         : {}),
     });
+  const preserved = retainedExecutions(run, executions);
   return {
     snapshot: {
       ...snapshot,
@@ -136,15 +137,27 @@ export function capturePlanExecution(
         planId: run.planId,
         runId: run.id,
         planRevision: run.planRevision,
-        steps: executions,
+        steps: preserved,
       },
     },
     run: {
       ...run,
       steps: run.steps.map((step) => {
-        const execution = executions.find((entry) => entry.stepId === step.id);
+        const execution = preserved.find((entry) => entry.stepId === step.id);
         return execution ? { ...step, execution } : step;
       }),
     },
   };
+}
+
+function retainedExecutions(
+  run: AgentPlanRun,
+  executions: readonly AgentPlanStepExecution[],
+): readonly AgentPlanStepExecution[] {
+  return executions.map((execution) => {
+    const completed = run.steps.find(
+      (step) => step.id === execution.stepId && step.status === "succeeded",
+    );
+    return completed?.execution ?? execution;
+  });
 }

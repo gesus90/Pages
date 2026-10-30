@@ -95,7 +95,10 @@ export class AgentPlanWorkspaces {
     const workspace = (await this.choices(userId)).find(
       (entry) => entry.id === id && entry.projectId === projectId,
     );
-    if (!workspace) throw new AgentError("plan_access_denied");
+    if (workspace) return;
+    if ((await this.registeredIds()).has(id))
+      throw new AgentError("plan_access_denied");
+    await this.dependencies.local.requireProjectAccess(userId, projectId);
   }
 
   /** Keeps removed registrations distinct from existing ones the viewer cannot see. */

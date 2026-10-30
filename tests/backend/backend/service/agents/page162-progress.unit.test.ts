@@ -268,7 +268,7 @@ it("keeps ticket progress scoped to its own node even when checklist IDs coincid
   });
 });
 
-it("asks TODO agents to reuse real work and identify activity without changing diagnostic completion", () => {
+it("asks TODO agents to reuse real work and never equate technical completion with business success", () => {
   const contract = buildPlanContract("", [progressTicket()], {
     completion: "todos",
     isReadOnly: false,
@@ -286,7 +286,7 @@ it("asks TODO agents to reuse real work and identify activity without changing d
   expect(prompt).toContain("Reuse equivalent concrete ticket tasks");
   expect(prompt).toContain("checklist ID");
   expect(prompt).toContain(
-    "Regular runner completion releases the next steps automatically",
+    "A technical turn completion never establishes business success.",
   );
   const readonly = renderPlanAssignment({
     contract,

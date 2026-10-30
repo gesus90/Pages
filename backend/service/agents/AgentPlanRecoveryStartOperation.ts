@@ -50,12 +50,16 @@ function readStart(
 ): RecoveryStartRequest {
   const parameters = readParameterRecord(input);
   const common = ["operationId", "planId", "runId", "expectedRecoveryRevision"];
-  requireParameterKeys(parameters, [
-    ...common,
-    ...(action === "restart"
-      ? ["expectedPlanRevision", "confirmRepeat"]
-      : ["expectedPlanRevision", "mode", "reviewedStepIds"]),
-  ]);
+  requireParameterKeys(
+    parameters,
+    [
+      ...common,
+      ...(action === "restart"
+        ? ["expectedPlanRevision", "confirmRepeat"]
+        : ["expectedPlanRevision", "mode", "reviewedStepIds"]),
+    ],
+    action === "restart" ? ["reviewedStepIds"] : [],
+  );
   const operationId = readIdentifier(parameters.operationId);
   const identity = {
     expectedRevision: revision(parameters.expectedRecoveryRevision, 0),
@@ -77,6 +81,10 @@ function readStart(
         action,
         revision: revision(parameters.expectedPlanRevision, 1),
         confirmRepeat: true,
+        reviewedStepIds:
+          parameters.reviewedStepIds === undefined
+            ? []
+            : reviewedSteps(parameters.reviewedStepIds),
       },
     };
   }
@@ -98,7 +106,8 @@ function readStart(
 /** Starts a separately requested restart or recovery continuation of the executor's own run. */
 export async function startRecoveredPlanRun(
   services: {
-    readonly plans: Pick<AgentPlanService, "run">;
+    readonly plans: Pick<AgentPlanService, "run"> &
+      Partial<Pick<AgentPlanService, "controlRun">>;
     readonly recovery?: Pick<AgentPlanRecoveryService, "control">;
   },
   userId: string,
@@ -106,7 +115,10 @@ export async function startRecoveredPlanRun(
   input: unknown,
 ): Promise<AgentPlanRecoveryCommandResult> {
   const request = readStart(action, input);
-  const run = await services.plans.run(userId, request.runId);
+  const run =
+    action === "restart" && services.plans.controlRun
+      ? await services.plans.controlRun(userId, request.runId)
+      : await services.plans.run(userId, request.runId);
   if (run.planId !== request.planId) throw new AgentOperationError("NOT_FOUND");
   if (!services.recovery)
     throw new AgentOperationError("INVALID_REQUEST", {
@@ -117,6 +129,16 @@ export async function startRecoveredPlanRun(
     request.runId,
     request.command,
   );
+  if (result.outcome === "reset" && action === "restart")
+    return {
+      planId: request.planId,
+      runId: request.runId,
+      commandId: result.commandId,
+      recoveryRevision: result.revision,
+      action,
+      outcome: "reset",
+      issue: result.issue,
+    };
   if (result.outcome !== "started" || !result.runId)
     throw new AgentOperationError("INVALID_REQUEST", {
       reason: "plan_recovery_action_unavailable",

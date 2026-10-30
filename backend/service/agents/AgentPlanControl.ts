@@ -1,5 +1,8 @@
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import {
+  isActivePlanRun,
+  isPlanWriterWaitActive,
+} from "@/definition/AgentPlanRunState";
 
 import type { AgentPlanRun, AgentPlanView } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
@@ -42,24 +45,30 @@ export function planControl(
       frontierStepIds: [],
     };
   const isActive = isActivePlanRun(run.status);
-  const canControl =
-    plan.canEdit && run.userId === context.userId && !run.stopRequested;
+  const canIdentify = plan.canEdit && run.userId === context.userId;
+  const canControl = canIdentify && !run.stopRequested;
   const issue = continuationIssue(plan, run);
   return {
-    ...runControlMetadata(run),
-    canPlay: plan.canEdit && !isActive && !context.hasReservation,
+    ...runControlMetadata(run, canIdentify),
+    canPlay: plan.canEdit && (!isActive || canIdentify),
+    workspaceWait:
+      canIdentify && isPlanWriterWaitActive(run)
+        ? run.workspaceWait
+        : undefined,
+    canRestart: canIdentify,
+    resumeAction: run.status === "failed" ? "recovery" : "paused",
     canPause: canControl && run.status === "running",
-    canResume: canControl && run.status === "paused" && !issue,
+    canResume: canControl && resumableStatus(run, issue),
     canStop: canControl && isActive,
     canEdit: plan.canEdit,
-    issue:
-      run.userId === context.userId
-        ? (issue ?? runFailure(run, context.hasReservation))
-        : null,
+    issue: canIdentify
+      ? (issue ?? runFailure(run, context.hasReservation))
+      : null,
   };
 }
 
 function runFailure(run: AgentPlanRun, hasReservation: boolean): string | null {
+  if (isPlanWriterWaitActive(run)) return "plan_workspace_waiting";
   if (run.controlError) return run.controlError;
   const failed = run.steps.find((step) => step.status === "failed");
   if (failed?.error) return failed.error;
@@ -70,6 +79,7 @@ function runFailure(run: AgentPlanRun, hasReservation: boolean): string | null {
 
 function runControlMetadata(
   run: AgentPlanRun,
+  canIdentify: boolean,
 ): Pick<
   AgentPlanControl,
   | "runId"
@@ -79,10 +89,18 @@ function runControlMetadata(
   | "frontierStepIds"
 > {
   return {
-    runId: run.id,
+    runId: canIdentify ? run.id : null,
     status: run.status,
-    planRevision: run.continuation?.planRevision ?? run.planRevision,
-    continuationVersion: run.continuation?.version ?? 0,
-    frontierStepIds: run.pauseBoundary?.frontierStepIds ?? [],
+    planRevision: canIdentify
+      ? (run.continuation?.planRevision ?? run.planRevision)
+      : null,
+    continuationVersion: canIdentify ? (run.continuation?.version ?? 0) : 0,
+    frontierStepIds: canIdentify
+      ? (run.pauseBoundary?.frontierStepIds ?? [])
+      : [],
   };
+}
+
+function resumableStatus(run: AgentPlanRun, issue: string | null): boolean {
+  return (run.status === "paused" || run.status === "failed") && !issue;
 }

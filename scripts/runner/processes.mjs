@@ -74,7 +74,18 @@ async function settleSupervisor(folder, launch, options) {
   )
     return failedCleanup(options, "process_scan_unavailable");
   const deadline = Date.now() + STOP_TERM_MILLISECONDS + STOP_KILL_MILLISECONDS;
+  const began = Date.now();
   while ((await identity(launch.processId)) === launch.identity) {
+    if (options.includeWorker) {
+      try {
+        process.kill(
+          launch.processId,
+          Date.now() - began < STOP_TERM_MILLISECONDS ? "SIGTERM" : "SIGKILL",
+        );
+      } catch (error) {
+        if (!vanished(error)) return failedCleanup(options, "signal_denied");
+      }
+    }
     if (Date.now() >= deadline) return failedCleanup(options, "exit_timeout");
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
@@ -127,6 +138,18 @@ export async function cleanup(folder, jobId, options = {}) {
   const launch = isNamespace
     ? await readRecord(join(folder, "launch.json"))
     : await readOwnedLaunch(folder);
+  if (!isNamespace && launch?.boundary === "not_started") {
+    const claim = await readRecord(join(folder, "claim.json"));
+    if (
+      claim?.jobId !== jobId ||
+      (launch.jobId &&
+        (launch.jobId !== jobId ||
+          launch.sessionId !== claim.sessionId ||
+          launch.attemptId !== claim.plan?.attemptId))
+    )
+      return failedCleanup(options, "process_scan_unavailable");
+    return "confirmed";
+  }
   if (launch?.boundary === "pid_namespace" && !isNamespace)
     return settleSupervisor(folder, launch, options);
   if (!isNamespace) return failedCleanup(options, "process_scan_unavailable");

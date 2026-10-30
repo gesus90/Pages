@@ -1,3 +1,4 @@
+import { explicitPlanBlocker } from "./AgentPlanAcceptance";
 import { AgentAssetReferenceError } from "@/backend/error/AgentAssetReferenceError";
 import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -60,21 +61,14 @@ export function failureCloseout(
   return closeout === "pending" ? "not_needed" : closeout;
 }
 
-/** Group and OpenCode success also needs business acceptance. */
+/** Every agent needs business acceptance independently of its technical exit. */
 export function planAcceptanceFailure(
   node: PlanFailureNode,
   acceptance: AgentPlanAcceptance | null,
-): "plan_group_acceptance_failed" | "opencode_acceptance_failed" | null {
+): "plan_group_acceptance_failed" | "plan_acceptance_failed" | null {
   if (acceptance?.verdict === "accepted") return null;
   if (node.step.groupId) return "plan_group_acceptance_failed";
-  return node.step.provider === "opencode"
-    ? "opencode_acceptance_failed"
-    : null;
-}
-
-/** Identifies adapters with mandatory acceptance. */
-export function requiresAcceptance(step: AgentPlanStepSnapshot): boolean {
-  return Boolean(step.groupId) || step.provider === "opencode";
+  return "plan_acceptance_failed";
 }
 
 /** Carries a safe filename diagnosis into run details without storage paths. */
@@ -97,4 +91,12 @@ export function assetFailure(
       cause: error.code,
     },
   };
+}
+
+/** A successful provider request still fails business execution when its structured answer is blocked. */
+export function apiBusinessResult(
+  output: string,
+): Partial<AgentPlanStepResult> {
+  const error = explicitPlanBlocker(output) ? "plan_acceptance_failed" : null;
+  return { status: error ? "failed" : "succeeded", output, error };
 }

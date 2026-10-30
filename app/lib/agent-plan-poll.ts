@@ -1,8 +1,10 @@
+import { planWriterWaitSchema } from "@/definition/AgentPlanExecution";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanStartRejection } from "@/backend/agents/AgentPlanStartRejectionInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AGENT_PLAN_ISSUE_PROBLEMS } from "@/definition/AgentPlanOperations";
 
+import type { AgentWorkspaceCleanup } from "@/definition/AgentWorkspaceCleanup";
 import type { AgentPlanActionResult } from "./agent-plan-response";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
@@ -89,6 +91,48 @@ function readIssue(input: unknown): AgentPlanIssue {
   };
 }
 
+function readCleanup(input: unknown): AgentWorkspaceCleanup {
+  const cleanup = readAgentObject(input);
+  return {
+    workspaceId: requiredText(cleanup.workspaceId),
+    workspaceName: requiredText(cleanup.workspaceName),
+    runId: requiredText(cleanup.runId),
+    ownerId: requiredText(cleanup.ownerId),
+    blocker: requiredText(cleanup.blocker),
+    updatedAt: requiredText(cleanup.updatedAt),
+  };
+}
+
+function readControlOptions(
+  input: Record<string, unknown>,
+): Pick<
+  AgentPlanControl,
+  "canRestart" | "resumeAction" | "workspaceWait" | "cleanup"
+> {
+  if (
+    input.resumeAction !== undefined &&
+    input.resumeAction !== "paused" &&
+    input.resumeAction !== "recovery"
+  )
+    throw new Error("Invalid plan response");
+  if (input.cleanup !== undefined && !Array.isArray(input.cleanup))
+    throw new Error("Invalid plan response");
+  return {
+    ...(input.canRestart === undefined
+      ? {}
+      : { canRestart: readBoolean(input.canRestart) }),
+    ...(input.resumeAction === undefined
+      ? {}
+      : { resumeAction: input.resumeAction }),
+    ...(input.workspaceWait === undefined
+      ? {}
+      : { workspaceWait: planWriterWaitSchema.parse(input.workspaceWait) }),
+    ...(input.cleanup === undefined
+      ? {}
+      : { cleanup: input.cleanup.map(readCleanup) }),
+  };
+}
+
 function readControl(input: unknown): AgentPlanControl {
   const control = readAgentObject(input);
   if (!isStatus(control.status) || !Array.isArray(control.frontierStepIds))
@@ -101,6 +145,7 @@ function readControl(input: unknown): AgentPlanControl {
     runId: nullableText(control.runId),
     status: control.status,
     canPlay: readBoolean(control.canPlay),
+    ...readControlOptions(control),
     canPause: readBoolean(control.canPause),
     canResume: readBoolean(control.canResume),
     canStop: readBoolean(control.canStop),

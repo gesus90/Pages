@@ -203,27 +203,16 @@ it("allows sequential scripts to use the same working copy in one run", async ()
   });
 });
 
-it("reports another run's workspace reservation before a new start", async () => {
-  const { plan, control } = await fixture(true, true);
-
+it("keeps Start available while actual writing resources remain coordinated", async () => {
+  const { plan, control, preparation } = await fixture(true, true);
   await expect(control.read("owner", plan.id)).resolves.toMatchObject({
-    canPlay: false,
-    issue: "plan_workspace_conflict",
-    workspaceConflict: {
-      kind: "reserved",
-      targets: [
-        {
-          workspaceId: plan.workspaceId,
-          kind: "local",
-          path: "/synthetic/repository",
-        },
-      ],
-      nodes: [
-        { id: "first", name: "Synthetic first" },
-        { id: "second", name: "Synthetic second" },
-      ],
-    },
+    canPlay: true,
+    issue: null,
   });
+  const snapshot = await preparation.prepare("owner", plan);
+  expect(planWritingWorkspaces(snapshot)).toContain(
+    "local-directory:/synthetic/repository",
+  );
 });
 
 it("does not treat a paused run's own reservation as a competing writer", async () => {
@@ -244,7 +233,9 @@ it("does not treat a paused run's own reservation as a competing writer", async 
   const { plan, control } = await fixture(true, true, run);
 
   await expect(control.read("owner", plan.id)).resolves.toMatchObject({
-    canPlay: false,
+    canPlay: true,
+    canRestart: true,
+    canStop: true,
     canResume: true,
     issue: null,
   });
@@ -336,10 +327,18 @@ it("checks distinct registered remote copies and aliases using the pinned host a
   ).toBe(false);
 });
 
-it("maps an alias reservation back to the requesting plan's own node and target", async () => {
+it("maps a writing alias reservation back to its own node and target", async () => {
   const sample = await remoteCompletion(false);
-  const remote = sample.snapshot.remoteSteps?.[0];
-  if (!remote) throw new Error("Expected a synthetic remote step");
+  const original = sample.snapshot.remoteSteps?.[0];
+  if (!original || original.command.program.kind !== "cli")
+    throw new Error("Expected a synthetic remote CLI step");
+  const remote = {
+    ...original,
+    command: {
+      ...original.command,
+      program: { ...original.command.program, access: "yolo" as const },
+    },
+  };
   const target = { ...remote.target, hostIdentity: "a".repeat(64) };
   const alias = {
     ...target,

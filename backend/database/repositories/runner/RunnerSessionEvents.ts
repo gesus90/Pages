@@ -4,9 +4,31 @@ import { persistRunnerSessionUsage } from "./RunnerSessionUsage";
 import { appendSessionHistoryChunks } from "../agent/AgentSessionHistoryChunks";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AgentSessionState } from "@/definition/AgentSessionEvents";
 import type { RunnerPlanBinding } from "@/definition/RunnerProtocol";
 import type { RunnerLiveEvent } from "@/definition/RunnerLiveHistory";
+
+/** A queued pause ends its never-spawned attempt while retaining the plan's pause boundary. */
+export function runnerSessionState(
+  step: AgentPlanStepResult,
+): AgentSessionState {
+  if (step.status === "succeeded") return "ended";
+  if (
+    step.status === "running" ||
+    step.status === "failed" ||
+    step.status === "cancelled"
+  )
+    return step.status;
+  if (
+    step.status === "paused" &&
+    step.cancellation === "not_started" &&
+    step.remote?.status === "interrupted" &&
+    step.remote.closeout === "confirmed"
+  )
+    return "cancelled";
+  throw new Error("Runner session requires an attested attempt state");
+}
 
 /** Writes remote history in the same transaction as its receipt and the immutable plan progress. */
 export async function persistRunnerSessionEvents(
@@ -20,7 +42,7 @@ export async function persistRunnerSessionEvents(
   const step = run.steps.find((entry) => entry.id === input.stepId);
   const record = step?.session;
   if (!record?.attemptId || step?.remote?.liveHistoryVersion !== 1) return;
-  const state = step.status === "succeeded" ? "ended" : step.status;
+  const state = runnerSessionState(step);
   const next = (input.events.at(-1)?.sequence ?? 0) + 1;
   await transaction.execute(
     `

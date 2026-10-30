@@ -1,4 +1,6 @@
+import { AgentWorkspaceReferencesRepository } from "../agent/AgentWorkspaceReferencesRepository";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
+import { requirePlanDispatchFence } from "@/backend/agents/AgentPlanDispatchFence";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import { RunnerHistoryRecoveryRepository } from "./RunnerHistoryRecoveryRepository";
@@ -65,20 +67,22 @@ export class RunnerPlanEventRepository {
       : null;
   }
 
-  /** Rejects a claim racing a durable stop inside the same transaction as dispatch persistence. */
+  /** Rechecks exact attempt identity and durable control state atomically with dispatch persistence. */
   public async requireDispatchFence(
     transaction: DatabaseTransaction,
     binding: RunnerPlanBinding,
   ): Promise<void> {
     const [row] = await transaction.query(
-      "SELECT view_json FROM agent_plan_runs WHERE id = $run_id;",
+      "SELECT view_json, snapshot_json FROM agent_plan_runs WHERE id = $run_id;",
       { run_id: binding.runId },
     );
     const run = readPlanRun(
       JSON.parse(readTextColumn(row ?? [], 0, "view_json")),
     );
-    if (run.stopRequested || run.status !== "running")
-      throw new Error("Runner dispatch fenced by run state");
+    await new AgentWorkspaceReferencesRepository(transaction).requireReferences(
+      JSON.parse(readTextColumn(row ?? [], 1, "snapshot_json")),
+    );
+    requirePlanDispatchFence(run, binding);
   }
 
   /** Reconstructs missing stop delivery after a Pages crash before the runner may dispatch. */

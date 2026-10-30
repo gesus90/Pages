@@ -1,12 +1,19 @@
 import {
-  createHash,
-  randomBytes,
-  randomUUID,
-  timingSafeEqual,
-} from "node:crypto";
+  digest,
+  matches,
+  GRANT_MILLISECONDS,
+  repeatedRunnerJob,
+} from "./RunnerServiceSupport";
+import type {
+  RegistrationGrant,
+  RunnerStore,
+  RunnerConnectionAccess,
+} from "./RunnerServiceSupport";
+import { logEvent } from "@/backend/logging/Logger";
+import { runnerSchemaIssues } from "./RunnerSchemaDiagnosis";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { AgentError } from "@/backend/error/AgentErrors";
-import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { registerLogSecret } from "@/backend/logging/LogRedaction";
 import {
@@ -19,6 +26,7 @@ import { checkpointRunnerMessage } from "./RunnerMessageCheckpoint";
 import { runnerConnectionView } from "./RunnerConnectionFacts";
 import { requireRunnerOutputExecutor } from "./RunnerOutputCapabilities";
 import { RunnerObservation } from "./RunnerObservation";
+import { RunnerQueuedPause } from "./RunnerQueuedPause";
 import { RunnerCancellation } from "./RunnerCancellation";
 import { RunnerContacts } from "./RunnerContacts";
 import {
@@ -34,11 +42,7 @@ import type {
 } from "@/definition/RunnerExecution";
 import type { ToolInventory } from "@/definition/RemoteSetup";
 import type { RunnerPlanEventService } from "./RunnerPlanEventService";
-import type {
-  RunnerRepository,
-  RunnerRecord,
-} from "@/backend/database/repositories/runner/RunnerRepository";
-import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
+import type { RunnerRecord } from "@/backend/database/repositories/runner/RunnerRepository";
 import type { RemoteConnectionView } from "@/definition/RemoteConnection";
 import type {
   RunnerConnectionView,
@@ -48,41 +52,12 @@ import type {
   RunnerMessage,
 } from "@/definition/RunnerProtocol";
 
-interface RegistrationGrant {
-  readonly digest: string;
-  readonly userId: string;
-  readonly revision: number;
-  readonly expiresAt: number;
-}
-
-type RunnerStore = Pick<
-  RunnerRepository,
-  "find" | "create" | "checkpoint" | "remove"
->;
-type RunnerConnectionAccess = Pick<
-  RemoteConnectionService,
-  "scope" | "scopeForRunner" | "requireUsable"
->;
-
 /** Credential returned once, over the authenticated runner channel only. */
 export interface RunnerAuthentication {
   readonly connectionId: string;
   readonly runnerId: string;
   readonly token: string | null;
   readonly sessionId: string;
-}
-
-const GRANT_MILLISECONDS = 120_000;
-
-function digest(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-function matches(token: string, expected: string): boolean {
-  return timingSafeEqual(
-    Buffer.from(digest(token), "hex"),
-    Buffer.from(expected, "hex"),
-  );
 }
 
 /** Authorizes short-lived pairing and maintains durable sessions independently of SSH transports. */
@@ -229,7 +204,20 @@ export class RunnerService {
     connectionId: string,
     input: unknown,
   ): Promise<RunnerReply> {
-    const message = runnerMessageSchema.parse(input);
+    const parsed = runnerMessageSchema.safeParse(input);
+    if (!parsed.success) {
+      for (const issue of runnerSchemaIssues(parsed.error))
+        logEvent({
+          level: "error",
+          event: "runner.protocol.schema_rejected",
+          component: "RunnerService",
+          message:
+            "Runner packet rejected by the protocol schema; inspect field, type and paired source versions",
+          metadata: { connectionId, ...issue },
+        });
+      throw parsed.error;
+    }
+    const message = parsed.data;
     const reply = await this.writes.run(async () => {
       const record = await this.repository.find(connectionId);
       if (!record) throw new Error("Runner registration missing");
@@ -309,20 +297,11 @@ export class RunnerService {
       if (binding) {
         if (!this.events) throw new Error("Runner plan binding unavailable");
         await this.events.authorizeBinding(userId, connectionId, binding);
-        const previous = record.state.jobs.find(
-          (job) => job.plan?.attemptId === binding.attemptId,
-        );
-        if (previous) {
-          if (planContentDigest(previous.plan) !== planContentDigest(binding))
-            throw new Error("Conflicting runner plan binding");
-          if (
-            planContentDigest(previous.execution) !==
-            planContentDigest(execution)
-          )
-            throw new Error("Conflicting runner command");
-          return previous;
-        }
+        const previous = repeatedRunnerJob(record, binding, execution);
+        if (previous) return previous;
       }
+      if (execution && record.state.planControlVersion !== 1)
+        throw new AgentError("plan_runner_control_update_required");
       requireRunnerOutputExecutor({
         execution,
         executionLeaseVersion: record.state.executionLeaseVersion,
@@ -551,7 +530,8 @@ export class RunnerService {
     if (
       !this.communicationExecutors.has(connectionId) ||
       (await this.repository.find(connectionId))?.state
-        .executionLeaseVersion !== 1
+        .executionLeaseVersion !== 1 ||
+      (await this.repository.find(connectionId))?.state.planControlVersion !== 1
     )
       return "remoteRunnerUpdate";
     return isRunnerCatalogCurrent(await this.catalog(connectionId))
@@ -579,6 +559,15 @@ export class RunnerService {
   /** Persists stop intent against the original durable claim before delivery. */
   public async cancel(connectionId: string, jobId: string): Promise<void> {
     await this.cancellation.request(connectionId, jobId);
+  }
+
+  /** Pauses only a job that the Runner can exclusively prove was never spawned. */
+  public async pauseQueued(connectionId: string, jobId: string): Promise<void> {
+    await new RunnerQueuedPause(
+      this.repository,
+      this.writes,
+      (connection, reply) => this.deliver(connection, reply),
+    ).request(connectionId, jobId);
   }
 
   /** Returns journal facts for an already-authorized exact run and attempt. */

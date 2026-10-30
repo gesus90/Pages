@@ -17,6 +17,14 @@ const PUBLIC_FIELDS = new Set([
   "job",
   "result",
   "version",
+  "tools",
+  "catalog",
+  "interpreters",
+  "execution",
+  "program",
+  "route",
+  "sessionId",
+  "cancellation",
 ]);
 
 /** Safe schema facts only; neither input values nor Zod messages are retained. */

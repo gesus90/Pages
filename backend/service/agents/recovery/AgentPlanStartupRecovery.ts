@@ -7,7 +7,11 @@ import {
 import { classifyPlanFailure } from "./AgentPlanFailure";
 import { interruptedLoopRuns } from "./AgentPlanLoopRecovery";
 import { endInterruptedScript } from "../AgentPlanScriptRecovery";
-import { detachedStopRun, settleDetachedRun } from "../AgentPlanRunState";
+import {
+  detachedStopRun,
+  endedPlanRun,
+  settleDetachedRun,
+} from "../AgentPlanRunState";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -97,9 +101,10 @@ export class AgentPlanStartupRecovery {
           step.status === "failed" && classifyPlanFailure(step) === "terminal",
       );
       const run: AgentPlanRun = {
-        ...previous,
-        endedAt: new Date().toISOString(),
-        status: previous.stopRequested ? "cancelled" : "failed",
+        ...endedPlanRun(
+          previous,
+          previous.stopRequested ? "cancelled" : "failed",
+        ),
         ...(previous.stopRequested || hasTerminalFailure
           ? { recovery: undefined }
           : {
@@ -141,7 +146,8 @@ export class AgentPlanStartupRecovery {
 
   /** A remote run whose jobs all ended before this start gets no later runner fact. */
   private async settleRemoteRuns(runs: readonly AgentPlanRun[]): Promise<void> {
-    for (const remote of runs) {
+    for (const source of runs) {
+      const remote = await this.reconcileMixedLocal(source);
       const uncertain = remote.stopRequested
         ? {
             ...detachedStopRun(remote),
@@ -160,6 +166,29 @@ export class AgentPlanStartupRecovery {
       const settled = settleDetachedRun(uncertain);
       if (settled !== remote) await this.dependencies.runs.interrupt(settled);
     }
+  }
+
+  /** A mixed run keeps remote ownership while reconciling only its interrupted local processes. */
+  private async reconcileMixedLocal(run: AgentPlanRun): Promise<AgentPlanRun> {
+    const endSession = this.dependencies.endSession ?? endInterruptedSession;
+    const steps = await Promise.all(
+      run.steps.map(async (step) => {
+        if (step.execution?.target.kind === "remote") return step;
+        if (step.status !== "running") return step;
+        await this.dependencies.sessions?.revoke(
+          run.id,
+          step.groupId ?? step.id,
+        );
+        return interruptedStep(
+          await endSession(step, run.startedAt),
+          run.stopRequested,
+        );
+      }),
+    );
+    if (steps.every((step, index) => step === run.steps[index])) return run;
+    const reconciled = { ...run, steps };
+    await this.dependencies.runs.interrupt(reconciled);
+    return reconciled;
   }
 
   private async reconcileScripts(run: AgentPlanRun): Promise<AgentPlanRun> {

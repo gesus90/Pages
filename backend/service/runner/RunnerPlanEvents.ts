@@ -1,3 +1,4 @@
+import { explicitPlanBlocker } from "@/backend/service/agents/AgentPlanAcceptance";
 import { createHash } from "node:crypto";
 
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
@@ -33,7 +34,7 @@ function boundStep(
   input: EventInput,
   run: AgentPlanRun,
   snapshot: unknown,
-): AgentPlanStepResult {
+): AgentPlanStepResult | null {
   const binding = input.job.plan;
   if (
     !binding ||
@@ -49,9 +50,9 @@ function boundStep(
     .map((entry: unknown) => planStepExecutionSchema.parse(entry))
     .find((entry) => entry.stepId === binding.stepId);
   const step = run.steps.find((entry) => entry.id === binding.stepId);
+  if (!execution || !step || execution.attemptId !== binding.attemptId)
+    return null;
   if (
-    !execution ||
-    !step ||
     execution.target.kind !== "remote" ||
     execution.target.connectionId !== input.connectionId ||
     execution.attemptId !== binding.attemptId ||
@@ -125,6 +126,17 @@ function updatedStep(
   step: AgentPlanStepResult,
 ): AgentPlanStepResult {
   const { job, event } = input;
+  if (isQueuePause(input))
+    return {
+      ...step,
+      status: "paused",
+      cancellation: "not_started",
+      error: null,
+      remote: remoteProgress(input, step, {
+        now: new Date().toISOString(),
+        status: "paused",
+      }),
+    };
   const status = stepStatus(job);
   const now = new Date().toISOString();
   const output =
@@ -135,9 +147,8 @@ function updatedStep(
   const sensitive = sensitiveScriptResult({ job, status, output, sanitized });
   return {
     ...step,
-    status: sensitive ? "failed" : status,
+    ...businessProjection(input, { status, sensitive, output: sanitized }),
     output: sanitized,
-    error: runnerResultError(input, sensitive),
     assetFailure: remoteAssetFailure(event, step),
     ...(job.status === "interrupted"
       ? {
@@ -192,7 +203,14 @@ function remoteProgress(
       : {}),
     ...remoteEvidence(event?.result),
     ...remoteResult(input),
-    startedAt: step.remote?.startedAt ?? now,
+    startedAt:
+      step.remote?.startedAt ??
+      (job.launch &&
+      ["running", "completed", "failed", "interrupted", "lost"].includes(
+        job.status,
+      )
+        ? now
+        : null),
     endedAt: status === "running" ? null : now,
     closeout: event?.result?.closeout ?? "pending",
   };
@@ -356,8 +374,8 @@ export function applyRunnerPlanEvent(
   readonly isSettled?: boolean;
 } {
   const step = boundStep(input, run, snapshot);
+  if (!step || !admitsProgress(run, step)) return { run, isSettled: true };
   requireCompletionEvidence(input);
-  if (!admitsProgress(run, step)) return { run, isSettled: true };
   if (input.job.status === "queued") return { run };
   const recorded = recordRemoteAgentResult(
     snapshot,
@@ -388,19 +406,15 @@ function pendingRemoteAcceptance(
   job: RunnerJob,
   isDetached: boolean,
 ): AgentPlanStepResult {
-  if (
-    step.status !== "succeeded" ||
-    job.execution?.program.kind !== "cli" ||
-    job.execution.program.route.tool !== "opencode"
-  )
+  if (step.status !== "succeeded" || job.execution?.program.kind !== "cli")
     return step;
   const canAssess =
     !isDetached &&
     step.session?.contract !== null &&
     step.session?.contract !== undefined;
   const error = step.session?.contract
-    ? "opencode_acceptance_interrupted"
-    : "opencode_acceptance_contract_unavailable";
+    ? "plan_acceptance_interrupted"
+    : "plan_acceptance_contract_unavailable";
   return {
     ...step,
     status: canAssess ? "running" : "failed",
@@ -437,4 +451,36 @@ function remoteAssetFailure(
   step: AgentPlanStepResult,
 ): AgentPlanStepResult["assetFailure"] {
   return event?.result?.assetFailure ?? step.assetFailure;
+}
+
+function isQueuePause(input: EventInput): boolean {
+  return (
+    input.job.pauseRequestedAt !== undefined &&
+    !input.job.launch &&
+    input.job.status === "interrupted" &&
+    input.event?.result?.failureCode === "plan_paused_before_launch" &&
+    input.event.result.closeout === "confirmed"
+  );
+}
+
+function businessProjection(
+  input: EventInput,
+  projection: {
+    readonly status: AgentPlanStepStatus;
+    readonly sensitive: boolean;
+    readonly output: string | null;
+  },
+): Pick<AgentPlanStepResult, "status" | "error"> {
+  const isBlocked =
+    input.job.execution?.program.kind === "model" &&
+    explicitPlanBlocker(projection.output ?? "");
+  return {
+    status:
+      projection.sensitive || (projection.status === "succeeded" && isBlocked)
+        ? "failed"
+        : projection.status,
+    error: isBlocked
+      ? "plan_acceptance_failed"
+      : runnerResultError(input, projection.sensitive),
+  };
 }

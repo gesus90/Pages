@@ -11,6 +11,10 @@ import {
   remoteBanner,
 } from "./opencode.mjs";
 
+// Optional MCP startup can omit a slow catalog from the first turn entirely.
+// Match the local Codex ACP wait; required Pages access must precede inference.
+const PAGES_MCP_STARTUP_SECONDS = 30;
+
 /** Keeps CLI credentials on this host; no Pages environment or provider key is inherited. */
 export function cliEnvironment() {
   const home = process.env.PAGES_RUNNER_CLI_HOME ?? homedir();
@@ -493,7 +497,7 @@ function pagesArguments(command, folder, jobId) {
   if (command.program.route.tool === "codex")
     return [
       "-c",
-      `mcp_servers.pages={command=${JSON.stringify(process.execPath)},args=${JSON.stringify(args)}}`,
+      `mcp_servers.pages={command=${JSON.stringify(process.execPath)},args=${JSON.stringify(args)},required=true,startup_timeout_sec=${PAGES_MCP_STARTUP_SECONDS}}`,
     ];
   return [
     "--mcp-config",

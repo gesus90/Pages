@@ -12,7 +12,11 @@ import {
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
-import { cancellationFor, hasExecutionLease } from "./revocation.mjs";
+import {
+  cancellationFor,
+  hasExecutionLease,
+  cancelJob,
+} from "./revocation.mjs";
 export { cancellationFor, cancelJob } from "./revocation.mjs";
 import { accountTasks, cleanup, rememberOwnership } from "./processes.mjs";
 import { interpreters } from "./interpreters.mjs";
@@ -88,13 +92,21 @@ export async function claimJob(directory, job) {
     throw error;
   }
   await store(join(folder, "claim.json"), job);
+  // Folder recreation cannot authorize a second worker or erase protected launch evidence.
+  if ((await readOwnedLaunch(folder)) || job.launch || job.status !== "queued")
+    return;
   await rememberOwnership(folder);
   const ownership = await ownershipDirectory(directory);
   const ownershipPath = join(ownership, `${job.jobId}.json`);
   await store(ownershipPath, { boundary: "preparing" });
   // A stop that arrived during admission must not start the worker.
   if (await cancellationFor(directory, job)) {
-    await store(ownershipPath, { boundary: "not_started" });
+    await store(ownershipPath, {
+      boundary: "not_started",
+      jobId: job.jobId,
+      sessionId: job.sessionId,
+      attemptId: job.plan.attemptId,
+    });
     await store(join(folder, "result.json"), {
       status: "interrupted",
       result: {
@@ -300,6 +312,12 @@ export async function observeJob(directory, job) {
     ...(historyLength !== undefined ? { historyLength } : {}),
   };
   if (result) {
+    if (
+      cancellation &&
+      launch?.boundary === "not_started" &&
+      result.result?.closeout === "confirmed"
+    )
+      await cancelJob(directory, { ...job, cancellation });
     const closeout =
       launch?.boundary === "not_started"
         ? result.result?.closeout

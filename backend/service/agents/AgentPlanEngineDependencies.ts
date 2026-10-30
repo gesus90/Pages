@@ -24,3 +24,26 @@ export interface EngineDependencies {
   readonly archive?: AgentRunArchive;
   readonly files?: AgentDefinitionFiles;
 }
+
+/** Writable execution requires the repository's atomic resource coordination capability. */
+export function requireWriterRepository(
+  runs: EngineDependencies["runs"],
+): Pick<AgentPlanRunRepository, "reserve" | "resourceBlocker"> {
+  if (!hasWriterRepository(runs))
+    throw new Error(
+      "Writable plan execution requires atomic resource coordination",
+    );
+  return runs;
+}
+
+function hasWriterRepository(
+  runs: EngineDependencies["runs"],
+): runs is EngineDependencies["runs"] &
+  Pick<AgentPlanRunRepository, "reserve" | "resourceBlocker"> {
+  return (
+    "reserve" in runs &&
+    typeof runs.reserve === "function" &&
+    "resourceBlocker" in runs &&
+    typeof runs.resourceBlocker === "function"
+  );
+}

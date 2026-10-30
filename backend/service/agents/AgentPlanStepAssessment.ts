@@ -53,8 +53,7 @@ export class AgentPlanStepAssessment {
     );
     const states = {
       ...this.ticketStates(terms, tickets),
-      canReportTicketTodos:
-        scope.provider === "opencode" && terms.reach === "read",
+      canReportTicketTodos: terms.reach === "read",
     };
     const contract = refreshPlanContract(
       terms.instruction,

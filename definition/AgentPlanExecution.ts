@@ -111,3 +111,13 @@ export const planRemoteProgressSchema = z
   })
   .strict();
 export type AgentPlanRemoteProgress = z.infer<typeof planRemoteProgressSchema>;
+
+/** A concrete write-resource owner, with private identity disclosed only to that executor. */
+export const planWriterWaitSchema = z.object({
+  resource: z.string().max(4096),
+  reason: z.string().max(100),
+  runId: z.string().max(100).nullable(),
+  jobId: z.string().max(100).nullable(),
+  attemptId: z.string().max(100).nullable(),
+});
+export type AgentPlanWriterWait = z.infer<typeof planWriterWaitSchema>;
