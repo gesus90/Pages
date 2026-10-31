@@ -6,12 +6,14 @@ import {
   WorkItemHierarchyError,
   WorkItemNotFoundError,
   WorkItemValidationError,
+  WorkItemConflictError,
 } from "@/backend/error/WorkItemErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { WorkItemErrorCode } from "@/backend/error/WorkItemErrors";
 import type { User } from "@/definition/User";
+import type { WorkItemDetail } from "@/definition/Task";
 
 /** Every ticket action the task routes understand. */
 export type TaskActionIntent =
@@ -24,6 +26,7 @@ export type TaskActionIntent =
   | "save-template"
   | "delete-template"
   | "move-task"
+  | "set-ticket-status"
   | "save-board-preferences"
   | "update-task"
   | "label-create"
@@ -62,6 +65,8 @@ type TaskActionResult =
       readonly ok: true;
       readonly intent: TaskActionIntent;
       readonly key?: string;
+      readonly ticket?: WorkItemDetail;
+      readonly related?: readonly WorkItemDetail[];
     }
   | {
       readonly ok: false;
@@ -168,6 +173,48 @@ export async function runTicketAction(
 }
 
 /**
+ * Returns the updated ticket for an inline board edit.
+ *
+ * @param intent - The action being run.
+ * @param work - Changes and returns the ticket.
+ * @returns The updated ticket or an error response.
+ */
+export async function runTicketUpdateAction(
+  intent: TaskActionIntent,
+  work: () => Promise<WorkItemDetail>,
+): Promise<TaskActionResponse> {
+  try {
+    const ticket = await work();
+    return data<TaskActionResult>({
+      intent,
+      key: ticket.key,
+      ok: true,
+      ticket,
+    });
+  } catch (error: unknown) {
+    logCaughtError("task_action_support", error);
+    return handleTaskActionError(error, intent);
+  }
+}
+
+/** Returns a mutation's affected tickets, or a key alone when they need reloading. */
+export async function runTicketImpactAction(
+  intent: TaskActionIntent,
+  work: () => Promise<{
+    readonly key: string;
+    readonly ticket?: WorkItemDetail;
+    readonly related?: readonly WorkItemDetail[];
+  }>,
+): Promise<TaskActionResponse> {
+  try {
+    return data<TaskActionResult>({ intent, ok: true, ...(await work()) });
+  } catch (error: unknown) {
+    logCaughtError("task_action_support", error);
+    return handleTaskActionError(error, intent);
+  }
+}
+
+/**
  * Maps the failures a ticket action may end in to client responses.
  *
  * @param error - The failure thrown by a service.
@@ -190,6 +237,13 @@ function handleTaskActionError(
     return data<TaskActionResult>(
       { error: "notFound", intent, ok: false },
       { status: 404 },
+    );
+  }
+
+  if (error instanceof WorkItemConflictError) {
+    return data<TaskActionResult>(
+      { error: "ticketConflict", intent, ok: false },
+      { status: 409 },
     );
   }
 

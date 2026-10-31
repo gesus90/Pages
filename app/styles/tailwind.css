@@ -163,6 +163,15 @@
   --color-scrim-panel: rgb(23 23 23 / 13%);
   --color-scrim-drawer: rgb(0 0 0 / 20%);
 
+  /* Image viewer: a dark layer in both themes, so its text and controls keep
+     their contrast over any image. */
+  --color-viewer-scrim: rgb(10 12 16 / 95%);
+  --color-viewer-foreground: #f5f6f8;
+  --color-viewer-muted: #b9bfcb;
+  --color-viewer-control: rgb(24 28 36 / 72%);
+  --color-viewer-control-hover: rgb(24 28 36 / 94%);
+  --color-viewer-edge: rgb(255 255 255 / 28%);
+
   /* Work surface of the ticket panel, one step below the section cards. */
   --color-panel-body: #f7f8fa;
 
@@ -447,6 +456,13 @@
     --color-scrim: rgb(0 0 0 / 55%);
     --color-scrim-panel: rgb(0 0 0 / 50%);
     --color-scrim-drawer: rgb(0 0 0 / 60%);
+
+    --color-viewer-scrim: rgb(0 0 0 / 95%);
+    --color-viewer-foreground: #f5f6f8;
+    --color-viewer-muted: #b9bfcb;
+    --color-viewer-control: rgb(30 35 44 / 78%);
+    --color-viewer-control-hover: rgb(46 53 66 / 96%);
+    --color-viewer-edge: rgb(255 255 255 / 24%);
 
     --color-panel-body: #12161c;
     --color-tile-edge: rgb(255 255 255 / 12%);

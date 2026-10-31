@@ -198,15 +198,20 @@ non-test gates; neither demonstrates functional coverage.
   relevant Pages source module, including untested files and branch gaps. No
   mandatory percentage, per-file quota or replacement threshold applies for now.
   Do not hide gaps with coverage-ignore comments or blanket exclusions.
-- Keep exactly two Pages test scripts: `test:backend` and `test:frontend`, both
-  with coverage. No `test` script, aggregator, alias or MCP forwarding command.
+- Keep exactly two Pages unit test scripts: `test:backend` and `test:frontend`,
+  both with coverage. No `test` script, aggregator, alias or MCP forwarding
+  command. The browser and visual regression suite of `tests/browser/`
+  (PAGE-172, `pnpm run browser:test`) is the one other test command. It is not a
+  unit scope, has no coverage, is not part of CI, and is the only place for real
+  browser tests; see [tests/browser/README.md](./tests/browser/README.md).
 - Choose scope by behavior: server-side loaders/actions under `app/` belong to
   Backend in Node; isolated React components/hooks belong to Frontend in jsdom.
   Discovery stays disjoint under `tests/backend/` and `tests/frontend/`, with
   `*.unit.test.{ts,tsx}` only. Mixed route modules and shared source deliberately
   appear in both diagnostic reports; do not aggregate the reports.
 - Mock external boundaries. No real databases, services, networks or subprocess
-  chains, and no smoke, E2E, browser, integration or live-provider tests.
+  chains, and no smoke, E2E, browser, integration or live-provider tests in the
+  two unit scopes. Real browser tests live only in `tests/browser/`.
 - Intended reports go to `coverage/backend/` and `coverage/frontend/`: terminal
   and file text tables, HTML, JSON counters and per-module JSON metric summaries.
   PAGE-32 validates Backend reports; PAGE-33 separately validates Frontend reports.

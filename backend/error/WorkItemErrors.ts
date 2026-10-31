@@ -32,6 +32,7 @@ export const WORK_ITEM_ERROR_MESSAGES = {
   descendantsHidden: "The ticket has descendants that are not visible to you.",
   descriptionConflict:
     "The description was changed by someone else since it was opened.",
+  ticketConflict: "The ticket was changed by someone else since it was opened.",
   descriptionTooLong: "Description must not exceed 65,536 characters.",
   epicMissing: "The specified Epic does not exist.",
   epicOtherProject: "Parent Epic must belong to the same project.",

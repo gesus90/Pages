@@ -19,6 +19,15 @@ export interface TicketLayoutData {
 const TREE_NEUTRAL_INTENTS: ReadonlySet<string> = new Set([
   "save-board-preferences",
   "set-tree-expanded",
+  "set-department",
+  "label-assign",
+  "label-unassign",
+  "checklist-add",
+  "checklist-toggle",
+  "checklist-delete",
+  "link-add",
+  "link-remove",
+  "remove-attachment",
 ]);
 
 /** Loads the ticket tree for the sidebar of every ticket page (A8.2-E08). */

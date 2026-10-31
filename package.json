@@ -9,10 +9,11 @@
     "start": "node server.mjs",
     "build": "react-router build",
     "format": "prettier --write .",
-    "lint": "node --max-old-space-size=3072 node_modules/eslint/bin/eslint.js . --max-warnings=0",
+    "lint": "node --max-old-space-size=8192 node_modules/eslint/bin/eslint.js . --max-warnings=0",
     "check": "react-router typegen && tsc --noEmit && prettier --check .",
     "test:backend": "vitest run --config vitest.backend.config.ts --coverage",
     "test:frontend": "vitest run --config vitest.frontend.config.ts --coverage",
+    "browser:test": "react-router build && playwright test --config tests/browser/playwright.config.ts",
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
     "acp:smoke": "tsx scripts/acp-smoke.ts"
   },
@@ -69,6 +70,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@react-router/dev": "^8.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",

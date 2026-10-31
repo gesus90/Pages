@@ -39,7 +39,7 @@ export function LabelFilter({
         <button
           aria-label={t("tasks.filter.labels")}
           className={cn(
-            "inline-flex h-9 items-center gap-2 rounded-lg bg-surface px-2.5 text-xs font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary",
+            "inline-flex h-9 w-full items-center justify-between gap-2 rounded-lg bg-surface px-2.5 text-xs font-medium text-foreground shadow-xs outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary",
             selectedIds.length > 0 && "ring-1 ring-primary",
           )}
           type="button"

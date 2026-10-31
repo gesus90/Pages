@@ -16,7 +16,7 @@ import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 
 import { AgentScopeFields } from "./agent-scope-fields";
 import { AgentZaiAccountField } from "./agent-zai-account-field";
-import { ProviderIcon } from "./provider-icon";
+import { connectionMark, ProviderIcon } from "./provider-icon";
 
 import type {
   AgentAccessKind,
@@ -145,7 +145,7 @@ export function AgentFormFields({
   const options = providerOrder(kind).map((provider) => ({
     value: provider,
     label: t(AGENT_PROVIDERS[provider].labelKey),
-    icon: <ProviderIcon provider={AGENT_PROVIDERS[provider].vendor} />,
+    icon: <ProviderIcon provider={connectionMark(provider)} />,
     ...(isApiProvider(provider) && isOpenCodeLinkedProvider(provider)
       ? { description: t("settings.agents.openCodeLinkedHint") }
       : {}),

@@ -8,6 +8,7 @@ import {
   handleMoveTask,
   handleRestoreTask,
   handleSetDepartment,
+  handleSetTicketStatus,
   handleUpdateTask,
 } from "@/app/lib/task-actions/task-core-actions.server";
 
@@ -19,12 +20,16 @@ import type { FormFields } from "../../actions/action-fixtures";
 
 const taskService = {
   archive: vi.fn(),
+  archiveWithImpact: vi.fn(),
   create: vi.fn(),
   deletePermanently: vi.fn(),
+  getById: vi.fn(),
   moveToProject: vi.fn(),
   restore: vi.fn(),
+  restoreWithImpact: vi.fn(),
   setDepartment: vi.fn(),
   update: vi.fn(),
+  updateStatus: vi.fn(),
   updateStatusAndOrder: vi.fn(),
 };
 const taskTemplateService = { createFromTemplate: vi.fn() };
@@ -157,6 +162,7 @@ it("updates a ticket and keeps an absent description", async () => {
       assigneeId: null,
       baseDescription: undefined,
       description: undefined,
+      expected: undefined,
       dueAt: null,
       milestoneId: null,
       parentId: null,
@@ -171,6 +177,7 @@ it("updates a ticket and keeps an absent description", async () => {
     ok: true,
     intent: "update-task",
     key: "SYN-3",
+    ticket: { key: "SYN-3" },
   });
 });
 
@@ -188,6 +195,51 @@ it("updates the description against the text it was written from", async () => {
     "ticket-1",
     expect.objectContaining({ baseDescription: "Old", description: "New" }),
   );
+});
+
+it("passes the displayed field snapshot to the service and refuses malformed snapshots", async () => {
+  const snapshot = {
+    title: "Original",
+    statusId: "status-1",
+    priority: "normal",
+    assigneeId: null,
+    assigneeGroupId: null,
+    reporterId: "reporter-1",
+    parentId: null,
+    milestoneId: null,
+    dueAt: null,
+    startAt: null,
+  };
+  taskService.update.mockResolvedValue({ key: "SYN-3" });
+  await run(handleUpdateTask, {
+    ...EDITED_TASK,
+    expectedSnapshot: JSON.stringify(snapshot),
+  });
+  expect(taskService.update).toHaveBeenCalledWith(
+    ACTOR,
+    "ticket-1",
+    expect.objectContaining({ expected: snapshot }),
+  );
+  taskService.update.mockClear();
+  const invalid = await run(handleUpdateTask, {
+    ...EDITED_TASK,
+    expectedSnapshot: "{}",
+  });
+  expect(invalid.status).toBe(400);
+  expect(taskService.update).not.toHaveBeenCalled();
+});
+
+it("passes the displayed status to the conditional status update", async () => {
+  taskService.updateStatus.mockResolvedValue({ key: "SYN-3" });
+  await run(handleSetTicketStatus, {
+    id: "ticket-1",
+    statusId: "status-2",
+    baseStatusId: "status-1",
+  });
+  expect(taskService.updateStatus).toHaveBeenCalledWith(ACTOR, "ticket-1", {
+    baseStatusId: "status-1",
+    statusId: "status-2",
+  });
 });
 
 it.each([
@@ -328,6 +380,56 @@ it("assigns a department and clears it with an empty value", async () => {
   expect(cleared.body).toEqual({ ok: true, intent: "set-department" });
 });
 
+it("checks the displayed department and returns the updated board ticket", async () => {
+  const ticket = { id: "ticket-1", key: "SYN-1" };
+  taskService.getById.mockResolvedValue(ticket);
+  const outcome = await run(handleSetDepartment, {
+    id: "ticket-1",
+    departmentId: "d1",
+    expectedDepartmentId: "",
+  });
+
+  expect(taskService.setDepartment).toHaveBeenCalledWith(
+    ACTOR,
+    "ticket-1",
+    "d1",
+    null,
+  );
+  expect(outcome.body).toEqual({
+    intent: "set-department",
+    key: "SYN-1",
+    ok: true,
+    ticket,
+  });
+});
+
+it("returns only the archived ticket and its affected parent to the board", async () => {
+  const ticket = { id: "t1", key: "SYN-1", archivedAt: "today" };
+  const parent = { id: "p1", key: "SYN-2" };
+  taskService.getById.mockImplementation(
+    async (actor: typeof ACTOR, id: string) => {
+      expect(actor).toEqual(ACTOR);
+      return id === "t1" ? ticket : parent;
+    },
+  );
+  taskService.archiveWithImpact.mockResolvedValue({
+    ticketIds: ["t1"],
+    parentId: "p1",
+    changedCount: 1,
+  });
+  const outcome = await run(handleArchiveTask, {
+    boardLocal: "true",
+    id: "t1",
+  });
+  expect(outcome.body).toEqual({
+    intent: "archive-task",
+    key: "SYN-1",
+    ok: true,
+    ticket,
+    related: [parent],
+  });
+});
+
 it.each<FormFields>([{ departmentId: "d1" }, { id: "ticket-1" }])(
   "refuses the department change %j",
   async (fields) => {
@@ -353,6 +455,40 @@ it("moves a ticket into another project", async () => {
     ok: true,
     intent: "move-project",
     key: "NEW-1",
+  });
+});
+
+it("passes the confirmed source snapshot when moving a ticket", async () => {
+  taskService.moveToProject.mockResolvedValue({ key: "NEW-1" });
+  const fields = {
+    title: "Original",
+    statusId: "status-1",
+    priority: "normal",
+    assigneeId: null,
+    assigneeGroupId: null,
+    reporterId: "reporter-1",
+    parentId: null,
+    milestoneId: null,
+    dueAt: null,
+    startAt: null,
+  };
+  const outcome = await run(handleMoveProject, {
+    baseProjectId: "project-1",
+    baseGithubIssueNumber: "123",
+    expectedSnapshot: JSON.stringify(fields),
+    id: "ticket-1",
+    targetProjectId: "project-2",
+  });
+  expect(taskService.moveToProject).toHaveBeenCalledWith(
+    ACTOR,
+    "ticket-1",
+    "project-2",
+    { fields, githubIssueNumber: 123, projectId: "project-1" },
+  );
+  expect(outcome.body).toEqual({
+    intent: "move-project",
+    key: "NEW-1",
+    ok: true,
   });
 });
 

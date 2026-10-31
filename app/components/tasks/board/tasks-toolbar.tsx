@@ -1,17 +1,13 @@
-import { useState } from "react";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Input } from "@/app/components/ui/input";
 import { SegmentedControl } from "@/app/components/ui/segmented-control";
-import { ToolbarFilterSelects } from "@/app/components/tasks/board/toolbar-filter-selects";
-import { ToolbarFilterToggle } from "@/app/components/tasks/board/toolbar-filter-toggle";
-import { ToolbarPeopleFilters } from "@/app/components/tasks/board/toolbar-people-filters";
+import { ToolbarFilterPanel } from "@/app/components/tasks/board/toolbar-filter-panel";
+import { ToolbarProjectSelect } from "@/app/components/tasks/board/toolbar-project-select";
 import { ToolbarTitle } from "@/app/components/tasks/board/toolbar-title";
 import { ToolbarViewOptions } from "@/app/components/tasks/board/toolbar-view-options";
 import { ToolbarViewSwitch } from "@/app/components/tasks/board/toolbar-view-switch";
-import { cn } from "@/app/lib/cn";
-import { countActiveFilters } from "@/app/lib/task-filters";
 
 import type { ToolbarFilterSelectsProps } from "@/app/components/tasks/board/toolbar-filter-selects";
 import type { Label } from "@/definition/Task";
@@ -25,26 +21,11 @@ interface TasksToolbarProps extends ToolbarFilterSelectsProps {
   readonly templates: readonly WorkItemTemplateView[];
 }
 
-/**
- * Lays the content of a toolbar row out like the row itself on wide screens
- * and as its own wrapped row on phones, where it can be folded away.
- *
- * @param isOpen - Whether the phone-sized toolbar shows its filters.
- */
-function foldableRow(isOpen: boolean): string {
-  return cn(
-    "max-md:order-3 max-md:w-full max-md:flex-wrap max-md:gap-2.5 md:contents",
-    isOpen ? "max-md:flex" : "max-md:hidden",
-  );
-}
-
 /** Renders the page title, the filters and the switch between task views. */
 export function TasksToolbar(props: TasksToolbarProps): React.ReactElement {
   const { t } = useTranslation();
-  const { archivedFilter, board, onCreate, templates } = props;
+  const { board, onCreate, templates } = props;
   const { preferences, update } = board;
-  // Below the medium breakpoint the filters fold away to leave the board room.
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   return (
     <>
@@ -53,7 +34,6 @@ export function TasksToolbar(props: TasksToolbarProps): React.ReactElement {
       <div className="mt-4 flex shrink-0 flex-wrap items-center gap-2.5 md:mt-7">
         <SegmentedControl
           ariaLabel={t("tasks.filter.scope")}
-          className={cn("max-md:order-2", !isFilterOpen && "max-md:hidden")}
           onValueChange={(scope) => update({ scope })}
           options={[
             { label: t("tasks.filter.allTasks"), value: "all" },
@@ -68,6 +48,7 @@ export function TasksToolbar(props: TasksToolbarProps): React.ReactElement {
             aria-hidden="true"
           />
           <Input
+            aria-label={t("tasks.search")}
             className="h-9 rounded-lg bg-card pl-10 text-xs xl:h-9 xl:pl-10 xl:text-xs"
             placeholder={t("tasks.search")}
             value={board.searchText}
@@ -75,20 +56,8 @@ export function TasksToolbar(props: TasksToolbarProps): React.ReactElement {
           />
         </div>
 
-        <ToolbarFilterToggle
-          activeCount={countActiveFilters(preferences, archivedFilter)}
-          isOpen={isFilterOpen}
-          onToggle={() => setIsFilterOpen((isOpen) => !isOpen)}
-        />
-
-        <div className={foldableRow(isFilterOpen)}>
-          <ToolbarFilterSelects {...props} />
-          <ToolbarPeopleFilters
-            assignees={props.assignees}
-            board={board}
-            labels={props.labels}
-          />
-        </div>
+        <ToolbarProjectSelect board={board} projects={props.projects} />
+        <ToolbarFilterPanel {...props} />
       </div>
 
       <div className="mt-3 flex shrink-0 flex-wrap items-center gap-2.5">
@@ -96,9 +65,7 @@ export function TasksToolbar(props: TasksToolbarProps): React.ReactElement {
           onViewChange={(view) => update({ view })}
           view={preferences.view}
         />
-        <div className={foldableRow(isFilterOpen)}>
-          <ToolbarViewOptions board={board} />
-        </div>
+        <ToolbarViewOptions board={board} />
       </div>
     </>
   );

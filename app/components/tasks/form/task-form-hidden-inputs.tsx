@@ -10,6 +10,7 @@ interface TaskFormHiddenInputsProps {
    * change when someone saved another one meanwhile (A8.2-E05).
    */
   readonly baseDescription: string | undefined;
+  readonly expectedSnapshot: string | undefined;
   readonly selections: TaskFormSelections;
 }
 
@@ -18,6 +19,7 @@ export function TaskFormHiddenInputs({
   mode,
   editedItemId,
   baseDescription,
+  expectedSnapshot,
   selections,
 }: TaskFormHiddenInputsProps): React.ReactElement {
   const assignee = splitAssigneeValue(selections.assignee);
@@ -29,6 +31,7 @@ export function TaskFormHiddenInputs({
         type="hidden"
         value={mode === "create" ? "create-task" : "update-task"}
       />
+      <input name="boardLocal" type="hidden" value="true" />
       {editedItemId ? (
         <input name="id" type="hidden" value={editedItemId} />
       ) : null}
@@ -56,6 +59,13 @@ export function TaskFormHiddenInputs({
             type="hidden"
             value={baseDescription ?? ""}
           />
+          {expectedSnapshot ? (
+            <input
+              name="expectedSnapshot"
+              type="hidden"
+              value={expectedSnapshot}
+            />
+          ) : null}
         </>
       ) : (
         <>

@@ -1,9 +1,11 @@
 import { readRequiredText, readText } from "@/app/lib/form-fields.server";
+import { ticketImpact } from "./task-action-impact.server";
 
 import {
   invalidInput,
   runTaskAction,
   runTicketAction,
+  runTicketImpactAction,
 } from "./task-action-support.server";
 
 import type { TaskActionHandler } from "./task-action-support.server";
@@ -41,6 +43,34 @@ export const handleChangeParent: TaskActionHandler = async ({
 
   if (id === null || parentId === null) {
     return invalidInput("change-parent");
+  }
+
+  if (formData.has("baseParentId")) {
+    const baseParentId = readText(formData, "baseParentId");
+    if (baseParentId === null) return invalidInput("change-parent");
+    if (formData.get("boardLocal") === "true") {
+      return runTicketImpactAction("change-parent", async () => {
+        const before = await services.taskService.getById(actor, id);
+        const ticket = await services.taskService.updateParent(actor, id, {
+          baseParentId: baseParentId || null,
+          parentId: parentId || null,
+        });
+        const ids = [before.parentId, ticket.parentId].filter(
+          (value) => value !== null,
+        );
+        return ticketImpact(services.taskService, actor, {
+          key: ticket.key,
+          rootId: id,
+          ids,
+        });
+      });
+    }
+    return runTicketAction("change-parent", () =>
+      services.taskService.updateParent(actor, id, {
+        baseParentId: baseParentId || null,
+        parentId: parentId || null,
+      }),
+    );
   }
 
   return runTicketAction("change-parent", () =>

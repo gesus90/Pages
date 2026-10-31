@@ -241,13 +241,23 @@ export type CliLoginState =
   | "expired"
   | "cancelled";
 
-/** Ephemeral session view. Only the protected login resource returns userCode. */
+/**
+ * Ephemeral session view.
+ *
+ * @remarks
+ * Only the protected login resource returns `verificationUrl` and `userCode`,
+ * and only to the administrator who started the login.
+ */
 export interface CliLoginView {
   readonly state: CliLoginState;
   readonly verificationUrl?: string;
   readonly userCode?: string;
   readonly expiresAt?: string;
   readonly errorCode?: AgentErrorCode;
+  /** Whether the reading administrator started this login. */
+  readonly isOwnLogin?: boolean;
+  /** The provider redirect can be completed by pasting the browser's address. */
+  readonly canSubmitRedirect?: boolean;
 }
 
 /** Whether polling and the login operation lock should remain active. */

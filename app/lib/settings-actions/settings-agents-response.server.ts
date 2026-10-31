@@ -42,6 +42,7 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   login_in_progress: 409,
   login_limit_reached: 409,
   login_not_running: 409,
+  login_callback_unreachable: 409,
   credential_cleanup_failed: 500,
   profile_in_use: 409,
   profile_conflict: 409,

@@ -2,7 +2,7 @@ import { stripVTControlCharacters } from "node:util";
 
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import type { CliLoginChallenge } from "./CliContracts";
+import type { CliLoginChallenge, CliLoopbackCallback } from "./CliContracts";
 
 function readUrls(output: string): URL[] {
   const urls: URL[] = [];
@@ -54,21 +54,24 @@ export function readClaudeChallenge(output: string): CliLoginChallenge | null {
   return url ? { verificationUrl: url.href } : null;
 }
 
-function hasLoopbackCallback(candidate: URL): boolean {
+function readLoopbackPort(candidate: URL): number | null {
   try {
     const redirect = new URL(candidate.searchParams.get("redirect_uri") ?? "");
-    return (
-      redirect.protocol === "http:" &&
+    const port = Number(redirect.port);
+    return redirect.protocol === "http:" &&
       redirect.hostname === "127.0.0.1" &&
-      Number(redirect.port) > 0 &&
+      Number.isInteger(port) &&
+      port > 0 &&
+      port <= 65535 &&
       redirect.pathname === "/" &&
       !redirect.search &&
       !redirect.hash &&
       !redirect.username &&
       !redirect.password
-    );
+      ? port
+      : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -85,7 +88,36 @@ export function readAntigravityChallenge(
       !candidate.hash &&
       candidate.searchParams.get("response_type") === "code" &&
       Boolean(candidate.searchParams.get("state")) &&
-      hasLoopbackCallback(candidate),
+      readLoopbackPort(candidate) !== null,
   );
   return url ? { verificationUrl: url.href } : null;
+}
+
+/**
+ * Names the adapter's loopback listener of an accepted Antigravity challenge.
+ *
+ * @param verificationUrl - The URL {@link readAntigravityChallenge} accepted.
+ * @returns Port and `state` of that one listener, or `null` without PKCE (S256).
+ *
+ * @remarks
+ * Only a PKCE flow may be completed with a pasted redirect address: its code is
+ * worthless without the verifier, which never leaves the adapter.
+ */
+export function readAntigravityLoopback(
+  verificationUrl: string,
+): CliLoopbackCallback | null {
+  const challenge = readAntigravityChallenge(verificationUrl);
+  if (!challenge) return null;
+  const url = new URL(challenge.verificationUrl);
+  const state = url.searchParams.get("state");
+  const port = readLoopbackPort(url);
+  if (
+    !state ||
+    port === null ||
+    url.searchParams.getAll("state").length !== 1 ||
+    url.searchParams.get("code_challenge_method") !== "S256" ||
+    !url.searchParams.get("code_challenge")
+  )
+    return null;
+  return { port, state };
 }

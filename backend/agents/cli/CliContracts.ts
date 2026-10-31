@@ -106,6 +106,19 @@ export type CliSpawn = (
 ) => ChildProcess;
 export type CliGroupSignal = (pid: number, signal: NodeJS.Signals) => void;
 
+/**
+ * The loopback listener an official adapter opened for Google's redirect.
+ *
+ * @remarks
+ * Both values come from the adapter's own authorization URL, never from a
+ * client. They stay on the server and bind a pasted redirect address to the
+ * one login operation that announced them.
+ */
+export interface CliLoopbackCallback {
+  readonly port: number;
+  readonly state: string;
+}
+
 export interface CliLoginChallenge {
   readonly verificationUrl: string;
   readonly userCode?: string;

@@ -126,6 +126,7 @@ export default [
       }),
     ]),
     route("aufgaben-api/attachments", "routes/ticket-attachments.ts"),
+    route("aufgaben-api/panel/:ticketKey", "routes/task-panel-data.ts"),
     route("aufgaben/attachments/:attachmentId", "routes/ticket-attachment.ts"),
     route("agent-assets/:assetId", "routes/agent-asset.ts"),
     route("wiki-api/attachments", "routes/wiki-attachments.ts"),

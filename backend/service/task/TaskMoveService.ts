@@ -2,9 +2,14 @@ import {
   WorkItemNotFoundError,
   WorkItemValidationError,
 } from "@/backend/error/WorkItemErrors";
+import { taskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
+import type {
+  ConditionalWorkItemMove,
+  WorkItemMove,
+} from "@/backend/database/repositories/task/WorkItemProjectMoveRepository";
 import type { TaskAccessGuard } from "@/backend/service/task/TaskAccessGuard";
 import type { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder";
 import type {
@@ -14,6 +19,7 @@ import type {
 import type { WorkItemReferenceValidator } from "@/backend/service/task/WorkItemReferenceValidator";
 import type { Project } from "@/definition/Project";
 import type { WorkItemDetail } from "@/definition/Task";
+import type { TaskMoveSnapshot } from "@/definition/TaskUpdateSnapshot";
 import type { User } from "@/definition/User";
 
 /** Collaborators of the move service. */
@@ -30,6 +36,7 @@ export interface TaskMoveServiceDependencies {
 interface SubtreeMove {
   readonly subtree: readonly WorkItemDetail[];
   readonly targetProject: Project;
+  readonly expected?: TaskMoveSnapshot;
 }
 
 /** The new key and number of one moved work item. */
@@ -73,12 +80,14 @@ export class TaskMoveService {
    * @param actor - User moving the ticket; must hold write permission twice.
    * @param id - Work item starting the moved subtree.
    * @param targetProjectId - Project receiving the ticket.
+   * @param expected - Source values displayed before the move was confirmed.
    * @returns The moved top-level work item with its new key.
    */
   public async moveToProject(
     actor: User,
     id: string,
     targetProjectId: string,
+    expected?: TaskMoveSnapshot,
   ): Promise<WorkItemDetail> {
     const existing = await this.access.requireWorkItem(actor, id);
     const targetProject = await this.access.requireWritableProject(
@@ -91,6 +100,17 @@ export class TaskMoveService {
     }
 
     const subtree = await this.collectSubtree(actor, existing.id);
+    const root = subtree[0];
+    const checked =
+      expected &&
+      root &&
+      existing.parentId === null &&
+      expected.fields.parentId === null
+        ? {
+            ...expected,
+            fields: { ...expected.fields, parentId: root.parentId },
+          }
+        : expected;
 
     // Renumbering the subtree must not interleave with other requests that
     // allocate numbers in the target project.
@@ -98,7 +118,11 @@ export class TaskMoveService {
       targetProject,
       subtree.length,
       async (sequence) => {
-        await this.moveSubtree(actor, { subtree, targetProject }, sequence);
+        await this.moveSubtree(
+          actor,
+          { expected: checked, subtree, targetProject },
+          sequence,
+        );
       },
     );
 
@@ -150,6 +174,10 @@ export class TaskMoveService {
     move: SubtreeMove,
     sequence: KeySequence,
   ): Promise<void> {
+    if (move.expected) {
+      await this.moveSubtreeIfCurrent(actor, move, sequence, move.expected);
+      return;
+    }
     for (const [index, item] of move.subtree.entries()) {
       const number = sequence.firstNumber + index;
 
@@ -160,12 +188,61 @@ export class TaskMoveService {
     }
   }
 
+  private async moveSubtreeIfCurrent(
+    actor: User,
+    move: SubtreeMove,
+    sequence: KeySequence,
+    expected: TaskMoveSnapshot,
+  ): Promise<void> {
+    const root = move.subtree[0];
+    if (!root) throw new WorkItemNotFoundError();
+    const changes: ConditionalWorkItemMove[] = [];
+    for (const [index, item] of move.subtree.entries()) {
+      const number = sequence.firstNumber + index;
+      changes.push({
+        id: item.id,
+        move: await this.destination(item, move, {
+          key: `${sequence.projectKey}-${number}`,
+          number,
+        }),
+        expected:
+          index === 0
+            ? expected
+            : {
+                fields: taskUpdateSnapshot(item),
+                githubIssueNumber: item.githubIssueNumber,
+                projectId: item.projectId,
+              },
+      });
+    }
+    if (!(await this.taskRepository.moveSubtreeIfCurrent(root.id, changes))) {
+      throw new WorkItemValidationError("ticketConflict");
+    }
+    for (const item of move.subtree) {
+      await this.history.recordProjectMove(
+        actor,
+        item,
+        move.targetProject.name,
+      );
+    }
+  }
+
   private async moveItem(
     actor: User,
     item: WorkItemDetail,
     move: SubtreeMove,
     placement: ItemPlacement,
   ): Promise<void> {
+    const destination = await this.destination(item, move, placement);
+    await this.taskRepository.moveToProject(item.id, destination);
+    await this.history.recordProjectMove(actor, item, move.targetProject.name);
+  }
+
+  private async destination(
+    item: WorkItemDetail,
+    move: SubtreeMove,
+    placement: ItemPlacement,
+  ): Promise<WorkItemMove> {
     const { subtree, targetProject } = move;
     const keepParent =
       item.parentId !== null &&
@@ -181,15 +258,14 @@ export class TaskMoveService {
         )
       : false;
 
-    await this.taskRepository.moveToProject(item.id, {
+    return {
       assigneeId: keepAssignee ? item.assigneeId : null,
       key: placement.key,
       milestoneId: keepMilestone ? item.milestoneId : null,
       number: placement.number,
       parentId: keepParent ? item.parentId : null,
       projectId: targetProject.id,
-    });
-    await this.history.recordProjectMove(actor, item, targetProject.name);
+    };
   }
 
   private async isMilestoneOfProject(

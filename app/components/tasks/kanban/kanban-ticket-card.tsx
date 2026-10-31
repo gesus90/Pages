@@ -1,4 +1,5 @@
 import { CheckSquare } from "lucide-react";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AssigneeAvatar } from "@/app/components/tasks/assignee-avatar";
@@ -74,11 +75,12 @@ export function KanbanTicketCard({
 }: KanbanTicketCardProps): React.ReactElement {
   const { t } = useTranslation();
   const { canWrite } = useTicketAccess();
+  const didDrag = useRef(false);
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      onSelectTask(item.key);
+      onOpenTask(item.key);
     }
   }
 
@@ -93,10 +95,21 @@ export function KanbanTicketCard({
         data-ticket-item
         draggable
         onClick={() => onSelectTask(item.key)}
-        onDoubleClick={() => onOpenTask(item.key)}
+        onDoubleClick={(event) => {
+          if (!didDrag.current) {
+            event.currentTarget.focus();
+            onOpenTask(item.key);
+          }
+        }}
         onDragEnd={onDragEnd}
-        onDragStart={(event) => onDragStart(event, item.id)}
+        onDragStart={(event) => {
+          didDrag.current = true;
+          onDragStart(event, item.id);
+        }}
         onKeyDown={handleKeyDown}
+        onPointerDown={() => {
+          didDrag.current = false;
+        }}
         role="button"
         tabIndex={0}
       >

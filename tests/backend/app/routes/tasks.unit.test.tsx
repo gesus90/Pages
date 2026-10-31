@@ -105,10 +105,25 @@ vi.mock("@/app/components/tasks/board/tasks-content", () => ({
     <p>{`content ${props.visibleItems.length} ${props.dialog.selectedKey ?? "none"}`}</p>
   ),
 }));
-vi.mock("@/app/components/tasks/board/tasks-detail", () => ({
-  TasksDetail: (props: {
-    readonly selectedItem: { readonly key: string };
-  }): React.ReactElement => <p>{`detail ${props.selectedItem.key}`}</p>,
+vi.mock("@/app/components/tasks/board/use-task-selection", () => ({
+  useTaskSelection: (initial: {
+    readonly selectedItem: { readonly key: string } | null;
+  }): Record<string, unknown> => ({
+    selectedKey: initial.selectedItem?.key ?? null,
+    selection: initial.selectedItem ? initial : null,
+    labels: [],
+    related: [],
+    isFresh: false,
+    isUnavailable: false,
+  }),
+}));
+vi.mock("@/app/components/tasks/board/tasks-detail-overlay", () => ({
+  TasksDetailOverlay: (props: {
+    readonly details: { readonly selectedKey: string | null };
+  }): React.ReactElement | null =>
+    props.details.selectedKey ? (
+      <p>{`detail ${props.details.selectedKey}`}</p>
+    ) : null,
 }));
 vi.mock("@/app/components/tasks/board/tasks-form-dialog", () => ({
   TasksFormDialog: (): React.ReactElement => <p>form dialog</p>,
@@ -347,15 +362,70 @@ it("does not reload for saved preferences or a mere view change", () => {
   );
 });
 
-it("reloads after changes, without board query and for another ticket", () => {
+it("reloads after changes or without board preferences, but not for another ticket", () => {
   expect(shouldRevalidate(revalidation("", "?view=list", "update-task"))).toBe(
     true,
   );
   expect(shouldRevalidate(revalidation("?view=list", ""))).toBe(true);
   expect(
     shouldRevalidate(revalidation("?view=list", "?view=list&item=PAGE-1")),
+  ).toBe(false);
+});
+
+it("keeps the board loader idle for successful inline ticket edits", () => {
+  const args = revalidation(
+    "?view=kanban&item=PAGE-1",
+    "?view=kanban&item=PAGE-1",
+    "update-task",
+  );
+  args.formData?.set("boardLocal", "true");
+  expect(
+    shouldRevalidate({
+      ...args,
+      actionResult: { ok: true, ticket: { id: "w-1" } },
+    }),
+  ).toBe(false);
+  expect(shouldRevalidate({ ...args, actionResult: { ok: false } })).toBe(true);
+  expect(shouldRevalidate(revalidation("", "?item=PAGE-1"))).toBe(false);
+  const labelChange = revalidation(
+    "?view=kanban&item=PAGE-1",
+    "?view=kanban&item=PAGE-1",
+    "label-assign",
+  );
+  expect(shouldRevalidate({ ...labelChange, actionResult: { ok: true } })).toBe(
+    false,
+  );
+  expect(
+    shouldRevalidate({ ...labelChange, actionResult: { ok: false } }),
   ).toBe(true);
 });
+
+it.each([
+  "archive-task",
+  "restore-task",
+  "move-project",
+  "change-parent",
+  "create-task",
+])(
+  "keeps the board loader idle for an affected-ticket result of %s",
+  (intent) => {
+    const args = revalidation(
+      "?view=kanban&item=PAGE-1",
+      "?view=kanban&item=PAGE-1",
+      intent,
+    );
+    args.formData?.set("boardLocal", "true");
+    expect(
+      shouldRevalidate({
+        ...args,
+        actionResult: { ok: true, ticket: { id: "w-1" } },
+      }),
+    ).toBe(false);
+    expect(shouldRevalidate({ ...args, actionResult: { ok: true } })).toBe(
+      true,
+    );
+  },
+);
 
 it("accepts only posts from signed-in users", async () => {
   const get = await responseOf(

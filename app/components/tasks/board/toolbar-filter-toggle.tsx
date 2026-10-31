@@ -2,31 +2,28 @@ import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
-import { cn } from "@/app/lib/cn";
 
-interface ToolbarFilterToggleProps {
-  readonly isOpen: boolean;
+import type { ComponentProps } from "react";
+
+interface ToolbarFilterToggleProps extends ComponentProps<"button"> {
   /** How many filters narrow the board down; the panel hides them when collapsed. */
   readonly activeCount: number;
-  readonly onToggle: () => void;
 }
 
-/** Renders the phone-only button that folds the filters and the sort options in and out. */
+/** Renders the trigger for the filter panel. */
 export function ToolbarFilterToggle({
-  isOpen,
   activeCount,
-  onToggle,
+  ...properties
 }: ToolbarFilterToggleProps): React.ReactElement {
   const { t } = useTranslation();
 
   return (
     <Button
-      aria-expanded={isOpen}
-      className="gap-2 md:hidden"
-      onClick={onToggle}
+      className="group gap-2 data-[state=open]:text-primary-text"
       size="sm"
       type="button"
       variant="outline"
+      {...properties}
     >
       <SlidersHorizontal className="size-4" aria-hidden="true" />
       {t("tasks.filter.toggle")}
@@ -39,7 +36,7 @@ export function ToolbarFilterToggle({
         </span>
       ) : null}
       <ChevronDown
-        className={cn("size-4 transition-transform", isOpen && "rotate-180")}
+        className="size-4 transition-transform group-data-[state=open]:rotate-180"
         aria-hidden="true"
       />
     </Button>

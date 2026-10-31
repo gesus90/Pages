@@ -19,6 +19,29 @@ function race(id: string, changes: Record<string, unknown>): void {
   };
 }
 
+describe("department assignment", () => {
+  it("refuses to overwrite a department changed after the panel was opened", async () => {
+    world.addTicket("t1", { departmentId: null });
+    world.state.beforeWrite = () => {
+      world.state.tickets.set("t1", {
+        ...world.ticket("t1"),
+        departmentId: "design",
+      });
+    };
+
+    await expect(
+      world.tasks.setDepartment(
+        world.user("writer"),
+        "t1",
+        "engineering",
+        null,
+      ),
+    ).rejects.toMatchObject({ code: "ticketConflict" });
+    expect(world.ticket("t1").departmentId).toBe("design");
+    expect(world.state.history).toEqual([]);
+  });
+});
+
 describe("description change", () => {
   it("saves a trimmed description and records it", async () => {
     const updated = await world.tasks.updateDescription(

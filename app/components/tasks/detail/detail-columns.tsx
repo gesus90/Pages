@@ -1,5 +1,3 @@
-import { useRevalidator } from "react-router";
-
 import { TicketAttachmentsSection } from "@/app/components/tasks/description/ticket-attachments-section";
 import { TicketDescription } from "@/app/components/tasks/description/ticket-description";
 import { useTicketUploads } from "@/app/components/tasks/description/use-ticket-uploads";
@@ -37,6 +35,7 @@ interface DetailMainColumnProps {
   readonly onCreateSubtask: (parentTask: WorkItemDetail) => void;
   readonly onOpenTask: (key: string) => void;
   readonly onSelectTask: (key: string) => void;
+  readonly onRefresh: () => void;
 }
 
 /** Renders description, attachments, checklist and children of a ticket. */
@@ -50,13 +49,10 @@ export function DetailMainColumn({
   onCreateSubtask,
   onOpenTask,
   onSelectTask,
+  onRefresh,
 }: DetailMainColumnProps): React.ReactElement {
-  const revalidator = useRevalidator();
   const { canWrite } = useTicketAccess();
-  const uploads = useTicketUploads(
-    task.id,
-    () => void revalidator.revalidate(),
-  );
+  const uploads = useTicketUploads(task.id, onRefresh);
   const canEdit = canWrite && !isArchived;
 
   return (

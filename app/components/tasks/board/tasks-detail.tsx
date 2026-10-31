@@ -2,12 +2,17 @@ import { TaskDetailPanel } from "@/app/components/tasks/task-detail-panel";
 
 import type { TasksDialog } from "@/app/components/tasks/board/use-tasks-dialog";
 import type { loader } from "@/app/routes/tasks";
-import type { WorkItemDetail } from "@/definition/Task";
+import type { TaskSelection } from "@/app/lib/task-selection.server";
+import type { Label, WorkItemDetail } from "@/definition/Task";
 
 interface TasksDetailProps {
   readonly loaderData: Awaited<ReturnType<typeof loader>>;
   readonly dialog: TasksDialog;
   readonly selectedItem: WorkItemDetail;
+  readonly selection: TaskSelection;
+  readonly labels: readonly Label[];
+  readonly labelUsage: Readonly<Record<string, number>> | null;
+  readonly onRefresh: () => void;
   readonly isArchiving: boolean;
   readonly isSyncing: boolean;
 }
@@ -17,6 +22,10 @@ export function TasksDetail({
   loaderData,
   dialog,
   selectedItem,
+  selection,
+  labels,
+  labelUsage,
+  onRefresh,
   isArchiving,
   isSyncing,
 }: TasksDetailProps): React.ReactElement {
@@ -24,28 +33,29 @@ export function TasksDetail({
     <TaskDetailPanel
       key={selectedItem.id}
       assignees={loaderData.assignees}
-      attachments={loaderData.selectedAttachments}
-      descendants={loaderData.selectedDescendants}
+      attachments={selection.selectedAttachments}
+      descendants={selection.selectedDescendants}
       assigneesByProject={loaderData.assigneesByProject}
-      checklist={loaderData.selectedChecklist}
-      history={loaderData.selectedHistory}
+      checklist={selection.selectedChecklist}
+      history={selection.selectedHistory}
       isArchiving={isArchiving}
       isSyncing={isSyncing}
       labels={loaderData.labels}
-      labelUsage={loaderData.labelUsage}
-      links={loaderData.selectedLinks}
+      labelUsage={labelUsage ?? loaderData.labelUsage}
+      links={selection.selectedLinks}
       milestones={loaderData.milestones}
       onClose={dialog.closeDetail}
       onCreateSubtask={dialog.createSubtask}
       onEdit={dialog.editTask}
       onOpenTask={dialog.openTask}
+      onRefresh={onRefresh}
       onSelectTask={dialog.openTask}
       projects={loaderData.projects}
-      pullRequests={loaderData.selectedPullRequests}
+      pullRequests={selection.selectedPullRequests}
       statuses={loaderData.statuses}
-      subtasks={loaderData.selectedSubtasks}
+      subtasks={selection.selectedSubtasks}
       task={selectedItem}
-      taskLabels={loaderData.labelsByWorkItem[selectedItem.id] ?? []}
+      taskLabels={labels}
       workItems={loaderData.workItems}
     />
   );

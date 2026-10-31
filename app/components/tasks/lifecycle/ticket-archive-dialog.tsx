@@ -82,6 +82,7 @@ export function TicketArchiveDialog({
           onSubmit={() => setIsOpen(false)}
         >
           <input name="intent" type="hidden" value="archive-task" />
+          <input name="boardLocal" type="hidden" value="true" />
           <input name="id" type="hidden" value={ticket.id} />
           <ChildHandlingFields
             affectedKey="tasks.lifecycle.archiveAffected"

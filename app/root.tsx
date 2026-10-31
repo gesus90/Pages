@@ -33,6 +33,10 @@ import {
 } from "@/app/lib/language.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import {
+  isTaskOverlayMutation,
+  isTaskOverlayNavigation,
+} from "@/app/lib/task-overlay-navigation";
+import {
   isSetupPending,
   requireFinishedSetup,
 } from "@/app/lib/setup-gate.server";
@@ -48,6 +52,7 @@ import type {
   LinksFunction,
   MetaFunction,
   MiddlewareFunction,
+  ShouldRevalidateFunctionArgs,
 } from "react-router";
 import type { ActiveDesignTheme } from "@/definition/DesignTheme";
 import type { UserTheme } from "@/definition/Settings";
@@ -72,6 +77,13 @@ function resolveErrorKind(error: unknown): ErrorKind {
 
 /** Keeps every route but the setup wizard closed until the setup finished. */
 export const middleware: MiddlewareFunction[] = [requireFinishedSetup];
+
+/** Keeps the shell settings when only a board overlay opens or closes. */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
+  return isTaskOverlayNavigation(args) || isTaskOverlayMutation(args)
+    ? false
+    : args.defaultShouldRevalidate;
+}
 
 /**
  * Selects the document language, color mode and design theme.

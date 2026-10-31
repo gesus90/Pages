@@ -7,6 +7,7 @@ import type {
   CliHome,
   CliRunningProcess,
   CliLoginAdapter,
+  CliLoopbackCallback,
 } from "@/backend/agents/cli/CliContracts";
 import type {
   CliLoginState,
@@ -17,6 +18,8 @@ import type {
 /** Internal session state is never serialized directly. */
 export interface CliLoginSession {
   readonly id: string;
+  /** The administrator who started the login; only they see its challenge. */
+  readonly ownerId: string;
   readonly provider: CliProviderId;
   readonly adapter: CliLoginAdapter;
   readonly home: CliHome;
@@ -26,6 +29,8 @@ export interface CliLoginSession {
   state: CliLoginState;
   verificationUrl?: string;
   userCode?: string;
+  /** Present until a pasted redirect address was handed to the adapter once. */
+  loopbackCallback?: CliLoopbackCallback;
   errorCode?: AgentErrorCode;
   process: CliRunningProcess | null;
   task: Promise<void> | null;
@@ -63,20 +68,34 @@ export class CliLoginSessionRegistry {
     );
   }
 
-  /** Only a protected polling response may request the temporary challenge. */
-  public view(id: string, includeChallenge = false): CliLoginView | null {
+  /**
+   * Describes a login for one viewer.
+   *
+   * @param id - The connection of the login.
+   * @param viewerId - The administrator who reads it.
+   * @param includeChallenge - Only the protected polling response sets this.
+   * @returns The view, with the temporary challenge only for the login's owner.
+   */
+  public view(
+    id: string,
+    viewerId: string,
+    includeChallenge = false,
+  ): CliLoginView | null {
     const session = this.get(id);
     if (!session) return null;
+    const isOwnLogin = session.ownerId === viewerId;
     const view: CliLoginView = {
       state: session.state,
       expiresAt: session.expiresAt,
       errorCode: session.errorCode,
+      isOwnLogin,
     };
-    if (includeChallenge && session.state === "awaiting_user")
+    if (includeChallenge && isOwnLogin && session.state === "awaiting_user")
       return {
         ...view,
         verificationUrl: session.verificationUrl,
         userCode: session.userCode,
+        ...(session.loopbackCallback ? { canSubmitRedirect: true } : {}),
       };
     return view;
   }
@@ -104,6 +123,7 @@ export class CliLoginSessionRegistry {
     session.errorCode = errorCode;
     session.verificationUrl = undefined;
     session.userCode = undefined;
+    session.loopbackCallback = undefined;
     session.process = null;
     if (session.expiry) clearTimeout(session.expiry);
     session.expiry = null;

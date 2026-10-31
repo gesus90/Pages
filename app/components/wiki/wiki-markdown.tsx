@@ -1,9 +1,16 @@
+import { useMemo } from "react";
 import Markdown from "react-markdown";
 
 import {
   CALLOUT_STYLES,
   isCalloutKind,
 } from "@/app/components/markdown/callout-style";
+import {
+  ImageLinkContext,
+  ImageOpenContext,
+  MarkdownImage,
+} from "@/app/components/markdown/markdown-image";
+import { MarkdownLink } from "@/app/components/markdown/markdown-link";
 import {
   MARKDOWN_COMPONENTS,
   MARKDOWN_REMARK_PLUGINS,
@@ -27,6 +34,11 @@ interface WikiMarkdownProps {
    * descriptions also allow their own attachments (A8.2).
    */
   readonly isDisplayableImage?: (src: string) => boolean;
+  /**
+   * Makes the images controls that open the viewer. The text then forms the
+   * set of images the viewer pages through.
+   */
+  readonly onOpenImage?: (image: HTMLImageElement) => void;
 }
 
 const REMARK_PLUGINS = [...MARKDOWN_REMARK_PLUGINS, remarkWikiBlocks];
@@ -74,10 +86,28 @@ function Callout({
   );
 }
 
-function createComponents(
-  headings: readonly WikiHeading[],
-  isDisplayableImage: (src: string) => boolean,
-): Components {
+/**
+ * A link that tells the images inside it where it leads; the provider sits
+ * outside the link, which keeps the link's own children as they are.
+ */
+const linkOfImages: Components["a"] = ({ href, children }) => (
+  <ImageLinkContext value={href === undefined || href === "" ? null : href}>
+    <MarkdownLink href={href}>{children}</MarkdownLink>
+  </ImageLinkContext>
+);
+
+interface ComponentOptions {
+  readonly headings: readonly WikiHeading[];
+  readonly isDisplayableImage: (src: string) => boolean;
+  /** Whether the images are controls of an image viewer. */
+  readonly hasImageViewer: boolean;
+}
+
+function createComponents({
+  headings,
+  isDisplayableImage,
+  hasImageViewer,
+}: ComponentOptions): Components {
   const idByLine = new Map(
     headings.map((heading) => [heading.line, heading.id]),
   );
@@ -94,6 +124,7 @@ function createComponents(
 
   return {
     ...MARKDOWN_COMPONENTS,
+    ...(hasImageViewer ? { a: linkOfImages } : {}),
     blockquote: ({ children, ...props }) => {
       const kind = (props as Record<string, unknown>)["data-wiki-callout"];
 
@@ -115,12 +146,7 @@ function createComponents(
     h3: heading("h3", "mt-5 text-lg first:mt-0"),
     img: ({ alt, src }) =>
       typeof src === "string" && isDisplayableImage(src) ? (
-        <img
-          alt={alt}
-          className="mt-3 max-h-[32rem] max-w-full rounded-lg"
-          loading="lazy"
-          src={src}
-        />
+        <MarkdownImage alt={alt} src={src} />
       ) : null,
     nav: () => <TableOfContents headings={headings} />,
     summary: ({ children }) => (
@@ -144,8 +170,20 @@ export function WikiMarkdown({
   source,
   className,
   isDisplayableImage = isWikiAttachmentPath,
+  onOpenImage,
 }: WikiMarkdownProps): React.ReactElement {
-  const headings = extractHeadings(source);
+  const hasImageViewer = onOpenImage !== undefined;
+  // The map is built once per text. Components that change identity on every
+  // render would make React rebuild the whole rendered text, images included.
+  const components = useMemo(
+    () =>
+      createComponents({
+        headings: extractHeadings(source),
+        isDisplayableImage,
+        hasImageViewer,
+      }),
+    [source, isDisplayableImage, hasImageViewer],
+  );
 
   return (
     <div
@@ -153,14 +191,17 @@ export function WikiMarkdown({
         "pages-selectable text-sm leading-relaxed break-words",
         className,
       )}
+      data-viewer-scope={hasImageViewer ? "" : undefined}
     >
-      <Markdown
-        components={createComponents(headings, isDisplayableImage)}
-        remarkPlugins={REMARK_PLUGINS}
-        urlTransform={transformMarkdownUrl}
-      >
-        {source}
-      </Markdown>
+      <ImageOpenContext value={onOpenImage ?? null}>
+        <Markdown
+          components={components}
+          remarkPlugins={REMARK_PLUGINS}
+          urlTransform={transformMarkdownUrl}
+        >
+          {source}
+        </Markdown>
+      </ImageOpenContext>
     </div>
   );
 }

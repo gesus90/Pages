@@ -20,7 +20,13 @@ export function TicketDepartmentSelect({
 
   function handleChange(departmentId: string): void {
     void submit(
-      { departmentId, id: ticket.id, intent: "set-department" },
+      {
+        boardLocal: "true",
+        departmentId,
+        expectedDepartmentId: ticket.departmentId ?? "",
+        id: ticket.id,
+        intent: "set-department",
+      },
       { method: "post" },
     );
   }

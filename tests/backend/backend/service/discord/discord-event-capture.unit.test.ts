@@ -6,6 +6,7 @@ import { AnnouncingTaskService } from "@/backend/service/AnnouncingTaskService";
 import { AgentTicketAnnouncer } from "@/backend/service/agents/AgentTicketAnnouncer";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
+import { taskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 import { DiscordWorld, ticketFacts } from "./discord-world";
 
@@ -71,6 +72,39 @@ it("announces a created ticket and a created milestone after the change is store
     { id: "t1", type: "ticket.created" },
     { id: "m1", type: "milestone.created" },
   ]);
+});
+
+it("passes checklist concurrency conditions to the underlying service", async () => {
+  const service = createService([]);
+  const update = vi
+    .spyOn(TaskService.prototype, "setChecklistItemDone")
+    .mockResolvedValue(checklistItem("t1"));
+  const expected = { title: "Item", isDone: false };
+  await service.setChecklistItemDone(ACTOR, "c1", true, expected);
+  expect(update).toHaveBeenCalledWith(ACTOR, "c1", true, expected);
+});
+
+it("passes department concurrency conditions to the underlying service", async () => {
+  const service = createService([]);
+  const update = vi
+    .spyOn(TaskService.prototype, "setDepartment")
+    .mockResolvedValue();
+  await service.setDepartment(ACTOR, "t1", "d2", "d1");
+  expect(update).toHaveBeenCalledWith(ACTOR, "t1", "d2", "d1");
+});
+
+it("passes project move conditions to the underlying service", async () => {
+  const service = createService([]);
+  const move = vi
+    .spyOn(TaskService.prototype, "moveToProject")
+    .mockResolvedValue(detail("t1"));
+  const expected = {
+    fields: taskUpdateSnapshot(detail("t1")),
+    githubIssueNumber: null,
+    projectId: "p1",
+  };
+  await service.moveToProject(ACTOR, "t1", "p2", expected);
+  expect(move).toHaveBeenCalledWith(ACTOR, "t1", "p2", expected);
 });
 
 it("announces the changes of a ticket", async () => {

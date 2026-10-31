@@ -59,6 +59,16 @@ describe("descendant overview", () => {
 });
 
 describe("archiving", () => {
+  it("identifies the archived subtree and the affected parent", async () => {
+    const impact = await world.tasks.archiveWithImpact(
+      world.user("manager"),
+      "task",
+    );
+    expect(impact.changedCount).toBe(2);
+    expect(impact.parentId).toBe("epic");
+    expect(impact.ticketIds).toEqual(expect.arrayContaining(["task", "sub"]));
+  });
+
   it("archives the ticket with its descendants and records each", async () => {
     const count = await world.tasks.archive(world.user("manager"), "task");
 

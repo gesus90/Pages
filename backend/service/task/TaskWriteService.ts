@@ -42,6 +42,7 @@ import type {
   WorkItemVisibility,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
+import type { TaskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 /** Values required to create a new work item. */
 export interface CreateWorkItemInput {
@@ -72,6 +73,8 @@ export interface UpdateWorkItemInput {
   readonly description?: string;
   /** The description the change started from; see {@link DescriptionChange}. */
   readonly baseDescription?: string;
+  /** When present, editable fields must still match this snapshot. */
+  readonly expected?: TaskUpdateSnapshot;
   readonly statusId: string;
   readonly priority: WorkItemPriority;
   readonly assigneeId: string | null;
@@ -286,6 +289,10 @@ export class TaskWriteService {
     const original = hiddenParent
       ? { ...existing, parentId: hiddenParent.id, parentKey: hiddenParent.key }
       : existing;
+    const expected =
+      input.expected && hiddenParent && input.expected.parentId === null
+        ? { ...input.expected, parentId: hiddenParent.id }
+        : input.expected;
     const values = await this.validateUpdate(original, input, {
       visibility: await this.access.visibility(actor),
       preservedParentId:
@@ -318,6 +325,7 @@ export class TaskWriteService {
                 assigneeId: values.assigneeId,
                 baseDescription: input.baseDescription ?? existing.description,
                 description: rewritten,
+                expected,
                 dueAt: values.dueAt,
                 milestoneId: values.milestoneId,
                 parentId: values.parentId,
@@ -329,17 +337,23 @@ export class TaskWriteService {
                 title: values.title,
               });
               if (!isUpdated)
-                throw new WorkItemValidationError("descriptionConflict");
+                throw new WorkItemValidationError(
+                  expected ? "ticketConflict" : "descriptionConflict",
+                );
               return rewritten;
             },
           );
     if (input.description === undefined) {
       const isUpdated = await this.taskRepository.update(id, {
         ...values,
+        expected,
         statusId: values.newStatus.id,
         shouldPreserveDescription: true,
       });
-      if (!isUpdated) throw new WorkItemValidationError("descriptionConflict");
+      if (!isUpdated)
+        throw new WorkItemValidationError(
+          expected ? "ticketConflict" : "descriptionConflict",
+        );
     }
 
     this.cache.invalidateWorkItems();

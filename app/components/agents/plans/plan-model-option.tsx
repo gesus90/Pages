@@ -1,9 +1,9 @@
 import { openCodeProviderLabel } from "@/app/components/settings/agents/pica-model-options";
-import { ProviderIcon } from "@/app/components/settings/agents/provider-icon";
 import {
-  AGENT_PROVIDERS,
-  openCodeModelProvider,
-} from "@/definition/AgentConnection";
+  connectionMark,
+  ProviderIcon,
+} from "@/app/components/settings/agents/provider-icon";
+import { openCodeModelProvider } from "@/definition/AgentConnection";
 
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { TFunction } from "i18next";
@@ -39,7 +39,7 @@ export function planModelDisplay(
         provider={
           isOpenCode
             ? openCodeModelProvider(model.model)
-            : AGENT_PROVIDERS[model.provider].vendor
+            : connectionMark(model.provider)
         }
       />
     ),

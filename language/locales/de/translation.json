@@ -660,6 +660,8 @@
         "login_failed": "Die CLI-Anmeldung ist fehlgeschlagen.",
         "login_code_invalid": "Geben Sie einen gültigen Anmeldecode ein.",
         "login_code_rejected": "Die CLI hat den Code abgelehnt. Starten Sie die Anmeldung erneut.",
+        "login_callback_invalid": "Die Adresse gehört nicht zu dieser Anmeldung. Nach der Google-Zustimmung die vollständige Adresse aus dem Browser kopieren.",
+        "login_callback_unreachable": "Die Anmeldung nimmt die Adresse nicht mehr an. Die Anmeldung erneut starten.",
         "login_device_auth_unavailable": "Aktivieren Sie die Gerätecode-Anmeldung in den ChatGPT-Sicherheitseinstellungen.",
         "credential_cleanup_failed": "Der Credential-Bereich konnte nicht entfernt werden. Die Anbindung wurde beibehalten.",
         "general": "Die Aktion konnte nicht abgeschlossen werden. Bitte erneut versuchen.",
@@ -1369,8 +1371,11 @@
         "missing": "kein Schlüssel in Pages – unter „API-Schlüssel“ hinzufügen"
       },
       "openCodeLinkedHint": "auch über opencode nutzbar",
-      "antigravityHint": "Google OAuth im isolierten Pages-Kontext. Der offizielle Adapter empfängt die Anmeldung über einen Loopback-Callback am Ausführungsort; der Browser muss diesen erreichen können. Pica bleibt bis zum vollständigen Nachweis der Werkzeuggrenzen gesperrt.",
-      "antigravityLoginHint": "Die Google-Anmeldung im Browser abschließen. Der Browser muss den Loopback-Callback am Pages-Ausführungsort erreichen können.",
+      "antigravityHint": "Google-Anmeldung über den offiziellen ACP-Adapter im isolierten Pages-Kontext dieser Anbindung. Google leitet danach auf den Loopback-Callback des Adapters (127.0.0.1) am Pages-Server weiter: Ein Browser auf dem Server schließt die Anmeldung direkt ab, von einem anderen Gerät wird die Adresse aus dem Browser hier eingefügt. Pica bleibt bis zum vollständigen Nachweis der Werkzeuggrenzen gesperrt.",
+      "antigravityLoginHint": "Anmeldeseite öffnen, Google-Konto wählen und selbst zustimmen. Läuft dieser Browser auf dem Pages-Server, schließt die Anmeldung danach automatisch ab.",
+      "antigravityRedirectLabel": "Adresse nach der Google-Zustimmung",
+      "antigravityRedirectHint": "Auf einem anderen Gerät, etwa einem Smartphone, leitet Google danach auf eine Adresse mit „127.0.0.1“ weiter, die dort nicht lädt. Diese vollständige Adresse aus der Adresszeile kopieren und hier einfügen. Sie gilt nur für diese Anmeldung und nur einmal.",
+      "loginStartedByOther": "Diese Anmeldung hat eine andere Person gestartet. Nur sie sieht den Anmeldelink und kann die Anmeldung abschließen.",
       "operatorBoundAccount": "Dieses Konto wird vom Betreiber verwaltet. Pages kann es prüfen, aber nicht an- oder abmelden."
     },
     "connections": {
@@ -1726,6 +1731,7 @@
         "subtask": "Subtask"
       },
       "toggle": "Filter",
+      "reset": "Zurücksetzen",
       "activeCount": "{{count}} aktiv"
     },
     "sort": {
@@ -1909,6 +1915,7 @@
       "attachmentFileNameTooLong": "Der Dateiname ist zu lang.",
       "attachmentTooLarge": "Die Datei ist größer als erlaubt.",
       "descriptionConflict": "Die Beschreibung wurde inzwischen von jemand anderem geändert.",
+      "ticketConflict": "Dieses Ticket wurde zwischenzeitlich geändert. Bitte prüfe die aktuellen Werte und versuche es erneut.",
       "invalidTreeKey": "Dieser Zweig ist unbekannt.",
       "parentArchived": "Der gewählte übergeordnete Eintrag ist archiviert.",
       "subtasksStayWithTask": "Subtasks bleiben immer bei ihrem Task.",
@@ -1997,6 +2004,8 @@
     },
     "detail": {
       "breadcrumb": "Ticket",
+      "loading": "Ticket wird geladen …",
+      "unavailable": "Dieses Ticket ist nicht verfügbar.",
       "back": "Zurück",
       "details": "Details",
       "keyDetails": "Key Details",
@@ -2025,6 +2034,7 @@
       "title": "Abnahmekriterien",
       "add": "Hinzufügen",
       "addPlaceholder": "Neues Kriterium …",
+      "toggle": "Kriterium {{title}} markieren",
       "remove": "Entfernen"
     },
     "links": {
@@ -2752,7 +2762,20 @@
   },
   "markdown": {
     "wikiLink": "Wiki-Seite",
-    "externalLink": "Externer Link"
+    "externalLink": "Externer Link",
+    "openImage": "Bild öffnen: {{name}}",
+    "openImageUnnamed": "Bild öffnen"
+  },
+  "imageViewer": {
+    "title": "Bildbetrachter",
+    "close": "Bildbetrachter schließen",
+    "previous": "Vorheriges Bild",
+    "next": "Nächstes Bild",
+    "position": "{{current}} / {{total}}",
+    "unnamed": "Bild {{current}} von {{total}}",
+    "loading": "Bild wird geladen …",
+    "failed": "Das Bild konnte nicht geladen werden.",
+    "openLink": "Verknüpftes Ziel in neuem Tab öffnen"
   },
   "editor": {
     "placeholder": "Schreibe etwas oder tippe „/“ für Blöcke …",

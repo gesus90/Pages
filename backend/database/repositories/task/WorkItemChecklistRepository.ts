@@ -138,6 +138,49 @@ export class WorkItemChecklistRepository {
     );
   }
 
+  /** Changes the checkbox only while the displayed item still matches. */
+  public async setDoneIfCurrent(
+    id: string,
+    isDone: boolean,
+    expected: ChecklistItemUpdate,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE work_item_checklist_items
+        SET is_done = $is_done, updated_at = utc_now()
+        WHERE id = $id
+            AND title = $base_title
+            AND is_done = $base_is_done
+        RETURNING id;
+      `,
+      {
+        id,
+        is_done: isDone ? 1 : 0,
+        base_title: expected.title,
+        base_is_done: expected.isDone ? 1 : 0,
+      },
+    );
+    return rows.length > 0;
+  }
+
+  /** Removes the item only while the displayed values still match. */
+  public async deleteIfCurrent(
+    id: string,
+    expected: ChecklistItemUpdate,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        DELETE FROM work_item_checklist_items
+        WHERE id = $id
+            AND title = $base_title
+            AND is_done = $base_is_done
+        RETURNING id;
+      `,
+      { id, base_title: expected.title, base_is_done: expected.isDone ? 1 : 0 },
+    );
+    return rows.length > 0;
+  }
+
   /** Deletes a checklist item. */
   public async delete(id: string): Promise<void> {
     await this.database.execute(

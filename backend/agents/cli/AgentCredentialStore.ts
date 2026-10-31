@@ -21,6 +21,12 @@ const CONFIG_DIRECTORIES: Readonly<Record<CliProviderId, string>> = {
   antigravity: "antigravity",
 };
 
+/** The staging context of a running login, inside the connection's own folder. */
+const LOGIN_DIRECTORY = "login";
+
+/** What the official Antigravity adapter writes for a personal sign-in, settings first. */
+const ANTIGRAVITY_LOGIN_FILES = ["settings.json", "acp_token.json"] as const;
+
 const UUID_PATTERN =
   /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
@@ -57,6 +63,115 @@ export class AgentCredentialStore {
       config: path.join(root, CONFIG_DIRECTORIES[provider]),
       work: path.join(root, "work"),
     };
+  }
+
+  /**
+   * Where a login writes its account.
+   *
+   * @remarks
+   * Antigravity signs in inside a separate staging context, so a failed,
+   * cancelled or expired attempt never touches the connection's valid account.
+   * Every other CLI keeps its own login flow in the connection context.
+   */
+  public loginPaths(id: string, provider: CliProviderId): CliHome {
+    const home = this.paths(id, provider);
+    if (provider !== "antigravity" || this.isBound(id, provider)) return home;
+    const root = path.join(home.root, LOGIN_DIRECTORY);
+    return {
+      root,
+      home: path.join(root, "home"),
+      config: path.join(root, CONFIG_DIRECTORIES[provider]),
+      work: path.join(root, "work"),
+    };
+  }
+
+  /**
+   * Prepares the connection context and a fresh, empty login context.
+   *
+   * @param id - The connection.
+   * @param provider - Its CLI.
+   * @returns The context the login writes to, see {@link loginPaths}.
+   */
+  public async prepareLogin(
+    id: string,
+    provider: CliProviderId,
+  ): Promise<CliHome> {
+    const home = await this.prepare(id, provider);
+    const login = this.loginPaths(id, provider);
+    if (login.root === home.root) return home;
+    try {
+      // A staging context left by an interrupted server never carries over.
+      await this.removeDirectory(login.root);
+      for (const directory of [
+        login.root,
+        login.home,
+        login.config,
+        login.work,
+        ...["config", "cache", "data", "state"].map((name) =>
+          path.join(login.home, name),
+        ),
+      ]) {
+        await this.ensureDirectory(directory);
+      }
+      return login;
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCredentialStore", caughtError);
+
+      throw new AgentError("cli_not_executable");
+    }
+  }
+
+  /**
+   * Moves a confirmed sign-in from the login context into the connection.
+   *
+   * @param id - The connection.
+   * @param provider - Its CLI; a no-op for logins in the connection context.
+   * @throws {AgentError} `cli_not_logged_in` when the login stored no token.
+   *
+   * @remarks
+   * Each file is renamed within the connection folder, which replaces the
+   * previous one atomically. No file is opened or read.
+   */
+  public async adoptLogin(id: string, provider: CliProviderId): Promise<void> {
+    const home = this.paths(id, provider);
+    const login = this.loginPaths(id, provider);
+    if (login.root === home.root) return;
+    const source = path.join(login.config, "antigravity-acp");
+    const target = path.join(home.config, "antigravity-acp");
+    try {
+      const present = await this.readLoginFiles(source);
+      if (!present.includes("acp_token.json"))
+        throw new AgentError("cli_not_logged_in");
+      await this.ensureDirectory(home.config);
+      await this.ensureDirectory(target);
+      for (const name of present)
+        await this.files.rename(
+          path.join(source, name),
+          path.join(target, name),
+        );
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCredentialStore", caughtError);
+
+      throw caughtError instanceof AgentError
+        ? caughtError
+        : new AgentError("cli_not_executable");
+    }
+  }
+
+  /** Removes the login context; the connection's own account stays as it is. */
+  public async discardLogin(
+    id: string,
+    provider: CliProviderId,
+  ): Promise<void> {
+    const login = this.loginPaths(id, provider);
+    if (login.root === this.paths(id, provider).root) return;
+    try {
+      await this.removeDirectory(login.root);
+    } catch (caughtError: unknown) {
+      logCaughtError("AgentCredentialStore", caughtError);
+
+      throw new AgentError("credential_cleanup_failed");
+    }
   }
 
   /** Refuses symlinked directory roots and creates each directory with owner-only access. */
@@ -131,6 +246,24 @@ export class AgentCredentialStore {
 
       throw new AgentError("credential_cleanup_failed");
     }
+  }
+
+  private async readLoginFiles(directory: string): Promise<string[]> {
+    const present: string[] = [];
+    for (const name of ANTIGRAVITY_LOGIN_FILES) {
+      const file = path.join(directory, name);
+      if (!(await this.exists(file))) continue;
+      if (!(await this.files.lstat(file)).isFile())
+        throw new AgentError("antigravity_configuration_unmanaged");
+      present.push(name);
+    }
+    return present;
+  }
+
+  private async removeDirectory(directory: string): Promise<void> {
+    if (!(await this.exists(directory))) return;
+    await this.requireDirectory(directory);
+    await this.files.rm(directory, { recursive: true, force: true });
   }
 
   private async exists(directory: string): Promise<boolean> {

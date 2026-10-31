@@ -2,6 +2,8 @@ import { Edit3 } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ImageViewer } from "@/app/components/ui/image-viewer";
+import { useImageViewer } from "@/app/components/ui/image-viewer/use-image-viewer";
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { cn } from "@/app/lib/cn";
 import {
@@ -44,9 +46,15 @@ function createFeatures(uploads: TicketUploadsState): BlockEditorFeatures {
   };
 }
 
-/** Starts editing on a click into the text, but lets links work. */
-function isLinkClick(event: React.MouseEvent): boolean {
-  return event.target instanceof Element && event.target.closest("a") !== null;
+/**
+ * Tells whether a click hit something that acts on its own, such as a link
+ * or an image, and so is not a click into the text.
+ */
+function isControlClick(event: React.MouseEvent): boolean {
+  return (
+    event.target instanceof Element &&
+    event.target.closest("a, button") !== null
+  );
 }
 
 interface DescriptionViewProps {
@@ -55,7 +63,51 @@ interface DescriptionViewProps {
   readonly onEdit: () => void;
 }
 
-/** The rendered description; a click into it starts editing. */
+/**
+ * The rendered text; a click into it starts editing, a click on an image
+ * opens the viewer for the images of this description.
+ */
+function DescriptionText({
+  description,
+  canEdit,
+  onEdit,
+}: DescriptionViewProps): React.ReactElement {
+  const viewer = useImageViewer();
+
+  return (
+    <>
+      <div
+        className={cn(
+          "rounded-lg px-1 py-1",
+          canEdit && "cursor-text hover:bg-muted/40",
+        )}
+        onClick={(event) => {
+          if (canEdit && !isControlClick(event)) {
+            onEdit();
+          }
+        }}
+      >
+        <WikiMarkdown
+          isDisplayableImage={isTicketDisplayableImage}
+          source={description}
+          onOpenImage={viewer.open}
+        />
+      </div>
+      {/* Beside the text, not inside it: a click in the viewer is no click into the text. */}
+      {viewer.session ? (
+        <ImageViewer
+          images={viewer.session.images}
+          index={viewer.session.index}
+          onClose={viewer.close}
+          onCloseAutoFocus={viewer.restoreFocus}
+          onIndexChange={viewer.select}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** The description, or what stands in for it while it is empty. */
 function DescriptionView({
   description,
   canEdit,
@@ -80,22 +132,11 @@ function DescriptionView({
   }
 
   return (
-    <div
-      className={cn(
-        "rounded-lg px-1 py-1",
-        canEdit && "cursor-text hover:bg-muted/40",
-      )}
-      onClick={(event) => {
-        if (canEdit && !isLinkClick(event)) {
-          onEdit();
-        }
-      }}
-    >
-      <WikiMarkdown
-        isDisplayableImage={isTicketDisplayableImage}
-        source={description}
-      />
-    </div>
+    <DescriptionText
+      canEdit={canEdit}
+      description={description}
+      onEdit={onEdit}
+    />
   );
 }
 

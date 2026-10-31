@@ -134,3 +134,13 @@ Full-coverage files remain visible. Reports are configured even on failed tests;
 each run cleans only its own directory. Generated reports stay gitignored.
 PAGE-32 generates and checks the Backend reports; PAGE-33 separately generates
 and checks the Frontend reports. PAGE-38 originally configured the report paths.
+
+## Browser suite
+
+The browser and visual regression suite of PAGE-172 is outside both unit
+scopes. It lives in `tests/browser/`, is run with `pnpm run browser:test`, and is
+never discovered by `test:backend` or `test:frontend`: its files are
+`*.spec.ts` and Vitest discovers only `*.unit.test.{ts,tsx}` in its own tree.
+It drives a real Chromium against an isolated Pages instance built from
+`build/` and has no coverage report. Setup, data, commands and the handling of
+screenshots are in [browser/README.md](./browser/README.md).

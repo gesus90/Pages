@@ -39,6 +39,7 @@ import {
   handleMoveTask,
   handleRestoreTask,
   handleSetDepartment,
+  handleSetTicketStatus,
   handleUpdateTask,
 } from "./task-core-actions.server";
 
@@ -79,6 +80,7 @@ const TASK_ACTION_HANDLERS: Readonly<
   "save-board-preferences": handleSaveBoardPreferences,
   "save-template": handleSaveTemplate,
   "set-department": handleSetDepartment,
+  "set-ticket-status": handleSetTicketStatus,
   "set-tree-expanded": handleSetTreeExpanded,
   "sync-github-project": handleSyncGitHubProject,
   "sync-github-task": handleSyncGitHubTask,

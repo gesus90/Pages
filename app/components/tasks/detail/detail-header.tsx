@@ -45,8 +45,8 @@ function TopBar({
   const parentKey = task.parentKey;
 
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex min-w-0 basis-full items-center gap-2 text-xs font-medium text-muted-foreground sm:basis-auto sm:flex-1">
         <TaskTypeBadge type={task.type} />
         <span className="font-semibold">{task.key}</span>
         {parentKey && task.parentTitle ? (
@@ -71,7 +71,7 @@ function TopBar({
           </span>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex max-w-full flex-wrap items-center gap-1.5">
         <TicketArchiveAction
           descendants={descendants}
           isArchiving={isArchiving}
@@ -254,6 +254,7 @@ function ArchivedBanner({
       {canWrite ? (
         <Form method="post">
           <input name="intent" type="hidden" value="restore-task" />
+          <input name="boardLocal" type="hidden" value="true" />
           <input name="id" type="hidden" value={workItemId} />
           <Button
             className="h-8 gap-1.5 px-3 text-xs"

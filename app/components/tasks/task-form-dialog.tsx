@@ -3,6 +3,7 @@ import { Form } from "react-router";
 
 import { Dialog, DialogContent, DialogTitle } from "@/app/components/ui/dialog";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
+import { taskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 import { TaskFormFields } from "./form/task-form-fields";
 import { TaskFormFooter } from "./form/task-form-footer";
@@ -79,6 +80,11 @@ export function TaskFormDialog({
           <TaskFormHiddenInputs
             baseDescription={initialTask?.description}
             editedItemId={initialTask?.id}
+            expectedSnapshot={
+              initialTask
+                ? JSON.stringify(taskUpdateSnapshot(initialTask))
+                : undefined
+            }
             mode={mode}
             selections={selections}
           />

@@ -9,6 +9,7 @@ import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
 import { AgentCheckTime } from "./agent-check-time";
 import { AgentRowMenu } from "./agent-row-menu";
 import { AgentStatus, latestAgentCheck } from "./agent-status";
+import { connectionMark, ProviderIcon } from "./provider-icon";
 
 import type {
   AgentAccessKind,
@@ -154,7 +155,12 @@ function AgentConnectionsTable({
                 </Button>
               </th>
               <td className="px-3 py-3 whitespace-nowrap">
-                {t(AGENT_PROVIDERS[connection.provider].labelKey)}
+                <span className="inline-flex items-center gap-2">
+                  <ProviderIcon
+                    provider={connectionMark(connection.provider)}
+                  />
+                  {t(AGENT_PROVIDERS[connection.provider].labelKey)}
+                </span>
               </td>
               <td className="px-3 py-3 whitespace-nowrap">
                 {connection.scope.mode === "global"

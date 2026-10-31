@@ -1,0 +1,7 @@
+/* The ticket behind the open viewer shows dates and other text that change
+   with every run, and it is not what the screenshots check. Only the viewer
+   dialog, a direct child of the body, is drawn, over the plain page
+   background and the scrim it carries. */
+body > :not([role="dialog"]) {
+  visibility: hidden;
+}

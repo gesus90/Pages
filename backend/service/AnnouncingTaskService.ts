@@ -33,6 +33,7 @@ import type {
   WorkItemLinkType,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
+import type { TaskMoveSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 /** Where the announcements of committed changes go. */
 export interface TaskEventSink {
@@ -185,8 +186,9 @@ export class AnnouncingTaskService extends TaskService {
     actor: User,
     id: string,
     departmentId: string | null,
+    expected?: string | null,
   ): Promise<void> {
-    await super.setDepartment(actor, id, departmentId);
+    await super.setDepartment(actor, id, departmentId, expected);
     this.announceTicket(id, null);
   }
 
@@ -195,10 +197,11 @@ export class AnnouncingTaskService extends TaskService {
     actor: User,
     id: string,
     targetProjectId: string,
+    expected?: TaskMoveSnapshot,
   ): Promise<WorkItemDetail> {
     return this.announceTicket(
       id,
-      await super.moveToProject(actor, id, targetProjectId),
+      await super.moveToProject(actor, id, targetProjectId, expected),
     );
   }
 
@@ -238,11 +241,13 @@ export class AnnouncingTaskService extends TaskService {
     actor: User,
     checklistItemId: string,
     isDone: boolean,
+    expected?: { readonly title: string; readonly isDone: boolean },
   ): Promise<WorkItemChecklistItem> {
     const item = await super.setChecklistItemDone(
       actor,
       checklistItemId,
       isDone,
+      expected,
     );
 
     return this.announceItem(item);

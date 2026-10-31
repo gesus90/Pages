@@ -6,6 +6,7 @@ import { useTicketAccess } from "@/app/components/tasks/ticket-access";
 import { Select } from "@/app/components/ui/select";
 import { FILTER_ALL } from "@/app/lib/task-filters";
 import { BOARD_FILTER_NONE } from "@/definition/BoardPreferences";
+import { ToolbarFilterField } from "./toolbar-filter-field";
 
 import type { BoardPreferencesState } from "@/app/components/tasks/board/use-board-preferences";
 import type { Label } from "@/definition/Task";
@@ -30,39 +31,47 @@ export function ToolbarPeopleFilters({
 
   return (
     <>
-      <Select
-        ariaLabel={t("tasks.filter.assignee")}
-        value={preferences.assignee}
-        onValueChange={(assignee) => update({ assignee })}
-        options={[
-          { value: FILTER_ALL, label: t("tasks.filter.allAssignees") },
-          ...assigneeOptions.map((option) =>
-            option.value === ""
-              ? { ...option, value: BOARD_FILTER_NONE }
-              : option,
-          ),
-        ]}
-      />
+      <ToolbarFilterField label={t("tasks.filter.assignee")} order="order-5">
+        <Select
+          className="w-full"
+          ariaLabel={t("tasks.filter.assignee")}
+          value={preferences.assignee}
+          onValueChange={(assignee) => update({ assignee })}
+          options={[
+            { value: FILTER_ALL, label: t("tasks.filter.allAssignees") },
+            ...assigneeOptions.map((option) =>
+              option.value === ""
+                ? { ...option, value: BOARD_FILTER_NONE }
+                : option,
+            ),
+          ]}
+        />
+      </ToolbarFilterField>
 
-      <Select
-        ariaLabel={t("tasks.filter.department")}
-        value={preferences.department}
-        onValueChange={(department) => update({ department })}
-        options={[
-          { value: FILTER_ALL, label: t("tasks.filter.allDepartments") },
-          { value: BOARD_FILTER_NONE, label: t("tasks.filter.noDepartment") },
-          ...departments.map((department) => ({
-            value: department.id,
-            label: department.name,
-          })),
-        ]}
-      />
+      <ToolbarFilterField label={t("tasks.filter.department")} order="order-6">
+        <Select
+          className="w-full"
+          ariaLabel={t("tasks.filter.department")}
+          value={preferences.department}
+          onValueChange={(department) => update({ department })}
+          options={[
+            { value: FILTER_ALL, label: t("tasks.filter.allDepartments") },
+            { value: BOARD_FILTER_NONE, label: t("tasks.filter.noDepartment") },
+            ...departments.map((department) => ({
+              value: department.id,
+              label: department.name,
+            })),
+          ]}
+        />
+      </ToolbarFilterField>
 
-      <LabelFilter
-        labels={labels}
-        onChange={(labelIds) => update({ labelIds })}
-        selectedIds={preferences.labelIds}
-      />
+      <ToolbarFilterField label={t("tasks.filter.labels")} order="order-8">
+        <LabelFilter
+          labels={labels}
+          onChange={(labelIds) => update({ labelIds })}
+          selectedIds={preferences.labelIds}
+        />
+      </ToolbarFilterField>
     </>
   );
 }

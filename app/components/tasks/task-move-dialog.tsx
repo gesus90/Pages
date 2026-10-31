@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSubmit } from "react-router";
+import { useActionData, useSubmit } from "react-router";
 
 import { getDroppedEntries } from "@/app/components/tasks/task-move-dialog/dropped-entries";
 import { MoveSummary } from "@/app/components/tasks/task-move-dialog/move-summary";
 import { MoveTargetSelect } from "@/app/components/tasks/task-move-dialog/move-target-select";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/app/components/ui/dialog";
+import { taskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 import type { Project } from "@/definition/Project";
 import type { Milestone, Label, WorkItemDetail } from "@/definition/Task";
@@ -25,6 +26,12 @@ interface TaskMoveDialogProps {
   readonly isSubmitting?: boolean;
 }
 
+interface MoveOutcome {
+  readonly ok: boolean;
+  readonly intent?: string;
+  readonly error?: string;
+}
+
 /** Confirms moving a ticket, listing project-bound relations that are dropped. */
 export function TaskMoveDialog({
   isOpen,
@@ -40,6 +47,11 @@ export function TaskMoveDialog({
 }: TaskMoveDialogProps): React.ReactElement {
   const { t } = useTranslation();
   const submit = useSubmit();
+  const outcome = useActionData<MoveOutcome | undefined>();
+  const failure =
+    outcome && !outcome.ok && outcome.intent === "move-project"
+      ? outcome.error
+      : undefined;
   const [targetProjectId, setTargetProjectId] = useState<string>(
     initialTargetProjectId,
   );
@@ -53,7 +65,15 @@ export function TaskMoveDialog({
 
   function handleMove(): void {
     void submit(
-      { id: task.id, intent: "move-project", targetProjectId },
+      {
+        baseProjectId: task.projectId,
+        baseGithubIssueNumber: task.githubIssueNumber?.toString() ?? "",
+        boardLocal: "true",
+        expectedSnapshot: JSON.stringify(taskUpdateSnapshot(task)),
+        id: task.id,
+        intent: "move-project",
+        targetProjectId,
+      },
       { method: "post" },
     );
   }
@@ -64,6 +84,12 @@ export function TaskMoveDialog({
         <DialogTitle className="select-none text-lg font-semibold text-foreground">
           {t("tasks.move.title")}
         </DialogTitle>
+
+        {failure ? (
+          <p className="mt-2 text-sm text-destructive" role="alert">
+            {t(`tasks.error.${failure}`)}
+          </p>
+        ) : null}
 
         <MoveTargetSelect
           currentProjectId={task.projectId}

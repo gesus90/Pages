@@ -17,11 +17,32 @@ callback contract described below.
 Add Google Antigravity under the existing local/CLI connections. Each connection
 has its own `GEMINI_HOME`, separate from the service user's personal CLI state.
 The `oauth-personal` ACP method opens Google's authorization page and owns an
-HTTP callback on `127.0.0.1` with a random port. Pages presents the protected URL
-through the existing login polling resource. There is no device code or pasted
-Google password. The browser must reach that loopback callback at the execution
-host, for example through an operator-managed tunnel when appropriate. Pages
-does not rewrite Google's redirect URI or relay authorization codes.
+HTTP callback on `127.0.0.1` with a random port. In 1.4.4 (and unchanged in
+1.4.5) this is the adapter's only interactive flow: an RFC 8252 loopback
+redirect with PKCE (S256) and `state`, one request, 300 seconds. There is no
+device code, no hosted HTTPS callback and no pasted Google password.
+
+Pages presents the protected URL through the existing login polling resource,
+only to the administrator who started that login. The user signs in and gives
+consent in Google's own page on any device. A browser on the execution host
+reaches the loopback callback directly. A browser on another device, such as
+a phone using Pages over HTTPS, lands on `http://127.0.0.1:<port>/?state=…`,
+which does not load there; the user pastes that address into Settings. Pages
+accepts it once, only from the login's owner and only with exactly the port
+and `state` of that login's authorization URL, and only for a PKCE URL. It then
+sends the unchanged query to `127.0.0.1:<port>` on the server, which is the
+redirect URI Google already validated, like a one-request tunnel. Pages does
+not rewrite the redirect URI, choose another target, follow redirects or
+redeem the code: the adapter checks `state` and exchanges the code with its
+own verifier. Neither the address nor the code is logged or returned.
+
+Each login writes into a fresh staging context (`<connection>/login`). Only
+after the adapter succeeded and a model-free status check confirmed the staged
+account does Pages move `settings.json` and `acp_token.json` into the
+connection context, by rename, and check that context again. A failed,
+cancelled or expired attempt removes the staging context; the connection's
+previous account stays valid and keeps its signed-in state. Pages ends the
+session after 300 seconds, before the adapter closes its listener.
 Antigravity's metadata and login probes require Linux bubblewrap with an owned
 PID namespace. Once the namespace supervisor exits, its descendants are gone;
 Pages does not inspect other processes' environments for those probes. Plan

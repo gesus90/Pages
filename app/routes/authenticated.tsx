@@ -9,17 +9,31 @@ import {
   requireAuthenticatedUser,
 } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
+import {
+  isTaskOverlayMutation,
+  isTaskOverlayNavigation,
+} from "@/app/lib/task-overlay-navigation";
 import { PERMISSION } from "@/definition/Role";
 
 import type { InstanceBranding } from "@/definition/Instance";
 import type { RegionPreferences } from "@/app/components/common/region-provider";
-import type { MiddlewareFunction } from "react-router";
+import type {
+  MiddlewareFunction,
+  ShouldRevalidateFunctionArgs,
+} from "react-router";
 import type { User } from "@/definition/User";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { Route } from "./+types/authenticated";
 
 /** Applies persistent-session authentication to all nested workspace routes. */
 export const middleware: MiddlewareFunction[] = [requireAuthenticatedUser];
+
+/** Keeps navigation data when only a ticket overlay opens or closes. */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
+  return isTaskOverlayNavigation(args) || isTaskOverlayMutation(args)
+    ? false
+    : args.defaultShouldRevalidate;
+}
 
 interface AuthenticatedLoaderData {
   readonly account: AccountAccess;

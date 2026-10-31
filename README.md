@@ -2580,10 +2580,11 @@ All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 | `format`        | Runs `prettier --write` and rewrites files in place.                                                                                                      |
 | `test:backend`  | Backend unit tests with coverage (see [Unit tests](#unit-tests)).                                                                                         |
 | `test:frontend` | Frontend unit tests with coverage (see [Unit tests](#unit-tests)).                                                                                        |
+| `browser:test`  | Builds, then runs the browser and visual regression suite of the ticket image viewer in a real Chromium (see [Browser tests](#browser-tests-page-172)).    |
 | `clean`         | Deletes the `build/` directory.                                                                                                                           |
 
 There is no `test` script. CI runs `check` and `lint` on pushes to `main` and
-on pull requests.
+on pull requests; it runs no tests and no browser suite.
 
 ## Unit tests
 
@@ -2617,6 +2618,24 @@ automatically only as `tests/backend/**/*.unit.test.{ts,tsx}` or
 kinds and fixtures do not match just because they share a directory. There is no
 general `pnpm run test` or aggregate test script. Scope rules, source includes and
 aliases are in [tests/README.md](./tests/README.md).
+
+## Browser tests (PAGE-172)
+
+`pnpm run browser:test` is the browser and visual regression suite. It is not a
+unit scope: it starts a real Chromium against a real Pages server and is kept
+out of `test:backend` and `test:frontend`, whose rule of mocking every external
+boundary stays as it is. It covers the ticket image viewer: a click on an image
+of a ticket description opens that image above the ticket, the arrows and the
+arrow keys page through the images of that description, and Escape or the close
+button return to the ticket with its focus and scroll position.
+
+The suite builds Pages, starts its own instance from `build/` on port 3100 with
+a private home, configuration and DuckDB database in a new temporary directory,
+completes the setup wizard there, creates a reader without write right and seeds
+synthetic tickets with deterministic chart images. Nothing of a running Pages
+installation, its data or its port 3000 is read or written. Setup, commands,
+screenshots, baselines and the results directory are described in
+[tests/browser/README.md](./tests/browser/README.md).
 
 ## Pica Mobile WebSocket endpoint (PAGE-148)
 

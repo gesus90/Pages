@@ -1,6 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useFetcher } from "react-router";
+import { useTicketParentSubmission } from "./use-ticket-parent-submission";
 
 import { useTicketAccess } from "@/app/components/tasks/ticket-access";
 import { Select } from "@/app/components/ui/select";
@@ -14,18 +14,6 @@ interface TicketParentFieldProps {
   readonly workItems: readonly WorkItemDetail[];
   readonly isDisabled: boolean;
   readonly onOpenTicket: (key: string) => void;
-}
-
-/** The outcome of a ticket action as the action route answers it. */
-function readFailure(answer: unknown): string | null {
-  return typeof answer === "object" &&
-    answer !== null &&
-    "ok" in answer &&
-    answer.ok === false &&
-    "error" in answer &&
-    typeof answer.error === "string"
-    ? answer.error
-    : null;
 }
 
 /**
@@ -64,10 +52,9 @@ export function TicketParentField({
   onOpenTicket,
 }: TicketParentFieldProps): React.ReactElement | null {
   const { t } = useTranslation();
-  const fetcher = useFetcher();
+  const { change, failure, isSubmitting } = useTicketParentSubmission(ticket);
   const { canWrite } = useTicketAccess();
   const parentType = WORK_ITEM_PARENT_TYPE[ticket.type];
-  const failure = fetcher.state === "idle" ? readFailure(fetcher.data) : null;
 
   if (parentType === null) {
     return null;
@@ -77,21 +64,14 @@ export function TicketParentField({
   const parentKey = ticket.parentKey;
   const isRequired = ticket.type === WORK_ITEM_TYPE.SUBTASK;
 
-  function handleChange(parentId: string): void {
-    void fetcher.submit(
-      { id: ticket.id, intent: "change-parent", parentId },
-      { action: "/aufgaben", method: "post" },
-    );
-  }
-
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium text-muted-foreground">{label}</span>
         <Select
           ariaLabel={label}
-          disabled={isDisabled || !canWrite || fetcher.state !== "idle"}
-          onValueChange={handleChange}
+          disabled={isDisabled || !canWrite || isSubmitting}
+          onValueChange={change}
           options={[
             ...(isRequired
               ? []
@@ -114,7 +94,7 @@ export function TicketParentField({
           <ExternalLink aria-hidden="true" className="size-3" />
         </button>
       ) : null}
-      {fetcher.state !== "idle" ? (
+      {isSubmitting ? (
         <p className="text-xs text-muted-foreground" role="status">
           {t("tasks.parent.saving")}
         </p>

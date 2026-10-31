@@ -47,6 +47,22 @@ uploads require the saving person to own the upload. Removing an attachment or p
 removing a ticket deletes its file and removes an empty ticket folder. Archiving
 retains files so they can be restored.
 
+## Viewing images
+
+A click on an image in the rendered description opens that image in a viewer
+above the ticket. The viewer pages through the images of this description in the
+order the text shows them, with arrows and the left and right arrow keys, and
+shows the position such as "2 / 5". A single image has no navigation. Escape or
+the close button return to the ticket with its focus and scroll position; looking
+at images changes nothing and sends no write request. An image inside a link
+opens the viewer instead of following the link, and the viewer offers the link
+target. An image that cannot be loaded, such as a deleted attachment or one of a
+ticket the person may not read, is reported in the viewer and the other images
+stay reachable. The viewer loads the same `/aufgaben/attachments/<id>` route as
+the description, so reading rights decide what it shows; it needs no write right.
+Images of other tickets or wikis are not mixed into the list, and neither are
+attachments that are only listed below the description.
+
 ## Inventory and maintenance
 
 Administrators in admin mode can open **Settings → System → Check ticket

@@ -12,6 +12,7 @@ import {
   WorkItemHierarchyError,
   WorkItemNotFoundError,
   WorkItemValidationError,
+  WorkItemConflictError,
 } from "@/backend/error/WorkItemErrors";
 
 import { outcomeOf } from "../../actions/action-fixtures";
@@ -65,6 +66,12 @@ it("names the key of the ticket the action changed", async () => {
 it.each([
   ["a denied access", new WorkItemAccessDeniedError(), 403, "forbidden"],
   ["a missing ticket", new WorkItemNotFoundError(), 404, "notFound"],
+  [
+    "a concurrent change",
+    new WorkItemConflictError("status"),
+    409,
+    "ticketConflict",
+  ],
   [
     "a hierarchy rule",
     new WorkItemHierarchyError("epicSelfParent"),

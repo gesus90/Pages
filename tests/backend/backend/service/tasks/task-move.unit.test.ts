@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
+import { taskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 import {
   WorkItemAccessDeniedError,
   WorkItemNotFoundError,
@@ -13,6 +14,26 @@ beforeEach(() => {
   world = new TaskWorld();
   world.addHierarchy();
   world.addMilestone("m1", "alpha");
+});
+
+it("moves a matching subtree together when the displayed ticket is current", async () => {
+  const expected = {
+    fields: taskUpdateSnapshot(world.ticket("task")),
+    githubIssueNumber: null,
+    projectId: "alpha",
+  };
+  const moved = await world.tasks.moveToProject(
+    world.user("writer"),
+    "task",
+    "spare",
+    expected,
+  );
+  expect(moved).toMatchObject({ projectId: "spare", key: "SPAR-1" });
+  expect(world.ticket("sub")).toMatchObject({
+    projectId: "spare",
+    key: "SPAR-2",
+    parentId: "task",
+  });
 });
 
 describe("moving a ticket to another project", () => {
@@ -127,7 +148,86 @@ describe("moving a ticket to another project", () => {
   });
 });
 
+it("refuses a move when a GitHub issue was linked after confirmation opened", async () => {
+  const expected = {
+    fields: taskUpdateSnapshot(world.ticket("task")),
+    githubIssueNumber: null,
+    projectId: "alpha",
+  };
+  world.state.beforeWrite = () => {
+    world.state.tickets.set("task", {
+      ...world.ticket("task"),
+      githubIssueNumber: 123,
+    });
+  };
+  await expect(
+    world.tasks.moveToProject(world.user("writer"), "task", "spare", expected),
+  ).rejects.toMatchObject({ code: "ticketConflict" });
+  expect(world.ticket("task")).toMatchObject({
+    projectId: "alpha",
+    githubIssueNumber: 123,
+  });
+  expect(world.ticket("sub").projectId).toBe("alpha");
+});
+
 describe("refused moves", () => {
+  it("leaves the whole subtree in place when a descendant changes during the move", async () => {
+    const expected = {
+      fields: taskUpdateSnapshot(world.ticket("task")),
+      githubIssueNumber: null,
+      projectId: "alpha",
+    };
+    world.state.beforeWrite = () => {
+      world.state.tickets.set("sub", {
+        ...world.ticket("sub"),
+        title: "Changed child",
+      });
+    };
+    await expect(
+      world.tasks.moveToProject(
+        world.user("writer"),
+        "task",
+        "spare",
+        expected,
+      ),
+    ).rejects.toMatchObject({ code: "ticketConflict" });
+    expect(world.ticket("task").projectId).toBe("alpha");
+    expect(world.ticket("sub")).toMatchObject({
+      projectId: "alpha",
+      title: "Changed child",
+    });
+    expect(world.state.history).toEqual([]);
+  });
+
+  it("does not move a subtree after the displayed ticket changes", async () => {
+    const expected = {
+      fields: taskUpdateSnapshot(world.ticket("task")),
+      githubIssueNumber: null,
+      projectId: "alpha",
+    };
+    world.state.beforeWrite = () => {
+      world.state.tickets.set("task", {
+        ...world.ticket("task"),
+        title: "Changed elsewhere",
+      });
+    };
+
+    await expect(
+      world.tasks.moveToProject(
+        world.user("writer"),
+        "task",
+        "spare",
+        expected,
+      ),
+    ).rejects.toMatchObject({ code: "ticketConflict" });
+    expect(world.ticket("task")).toMatchObject({
+      projectId: "alpha",
+      title: "Changed elsewhere",
+    });
+    expect(world.ticket("sub").projectId).toBe("alpha");
+    expect(world.state.history).toEqual([]);
+  });
+
   it("refuses the project the ticket is already in", async () => {
     await expect(
       world.tasks.moveToProject(world.user("writer"), "task", "alpha"),

@@ -26,6 +26,8 @@ export function useChecklistActions(workItemId: string): ChecklistActions {
     void submit(
       {
         checklistItemId: item.id,
+        baseTitle: item.title,
+        baseIsDone: String(item.isDone),
         intent: "checklist-toggle",
         isDone: item.isDone ? "false" : "true",
       },
@@ -35,7 +37,12 @@ export function useChecklistActions(workItemId: string): ChecklistActions {
 
   function deleteItem(item: WorkItemChecklistItem): void {
     void submit(
-      { checklistItemId: item.id, intent: "checklist-delete" },
+      {
+        checklistItemId: item.id,
+        baseTitle: item.title,
+        baseIsDone: String(item.isDone),
+        intent: "checklist-delete",
+      },
       { method: "post" },
     );
   }

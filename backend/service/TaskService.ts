@@ -65,6 +65,8 @@ import type {
   WorkflowStatus,
 } from "@/definition/Task";
 import type { GroupSummary } from "@/definition/UserGroup";
+import type { TaskMoveSnapshot } from "@/definition/TaskUpdateSnapshot";
+import type { TaskLifecycleImpact } from "@/backend/service/task/TaskLifecycleService";
 import type { User } from "@/definition/User";
 
 export { generateProjectKey } from "@/backend/service/task/ProjectKey";
@@ -508,9 +510,26 @@ export class TaskService {
     return this.lifecycle.archive(actor, id, handling);
   }
 
+  /** Archives and identifies the visible tickets affected by the operation. */
+  public async archiveWithImpact(
+    actor: User,
+    id: string,
+    handling: ChildHandling = "include",
+  ): Promise<TaskLifecycleImpact> {
+    return this.lifecycle.archiveWithImpact(actor, id, handling);
+  }
+
   /** Restores an archived work item and its descendants keeping their workflow status. */
   public async restore(actor: User, id: string): Promise<void> {
     return this.lifecycle.restore(actor, id);
+  }
+
+  /** Restores and identifies the visible tickets affected by the operation. */
+  public async restoreWithImpact(
+    actor: User,
+    id: string,
+  ): Promise<TaskLifecycleImpact> {
+    return this.lifecycle.restoreWithImpact(actor, id);
   }
 
   /**
@@ -540,8 +559,9 @@ export class TaskService {
     actor: User,
     id: string,
     departmentId: string | null,
+    expected?: string | null,
   ): Promise<void> {
-    return this.departments.setDepartment(actor, id, departmentId);
+    return this.departments.setDepartment(actor, id, departmentId, expected);
   }
 
   /** Returns the departments the actor may select for tickets. */
@@ -627,8 +647,9 @@ export class TaskService {
     actor: User,
     id: string,
     targetProjectId: string,
+    expected?: TaskMoveSnapshot,
   ): Promise<WorkItemDetail> {
-    return this.mover.moveToProject(actor, id, targetProjectId);
+    return this.mover.moveToProject(actor, id, targetProjectId, expected);
   }
 
   /** Returns the global label catalog ordered by name. */
@@ -752,16 +773,27 @@ export class TaskService {
     actor: User,
     checklistItemId: string,
     isDone: boolean,
+    expected?: { readonly title: string; readonly isDone: boolean },
   ): Promise<WorkItemChecklistItem> {
-    return this.checklists.setChecklistItemDone(actor, checklistItemId, isDone);
+    return this.checklists.setChecklistItemDone(
+      actor,
+      checklistItemId,
+      isDone,
+      expected,
+    );
   }
 
   /** Deletes a checklist item after verifying write access to its ticket. */
   public async deleteChecklistItem(
     actor: User,
     checklistItemId: string,
+    expected?: { readonly title: string; readonly isDone: boolean },
   ): Promise<void> {
-    return this.checklists.deleteChecklistItem(actor, checklistItemId);
+    return this.checklists.deleteChecklistItem(
+      actor,
+      checklistItemId,
+      expected,
+    );
   }
 
   /** Returns every link involving a work item, from its own point of view. */

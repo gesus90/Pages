@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { Select } from "@/app/components/ui/select";
 import { FILTER_ALL } from "@/app/lib/task-filters";
+import { ToolbarFilterField } from "./toolbar-filter-field";
 
 import type { BoardPreferencesState } from "@/app/components/tasks/board/use-board-preferences";
 import type { ArchivedFilter } from "@/app/lib/tasks-view";
@@ -30,10 +31,9 @@ const TYPE_OPTION_VALUES = [
 
 const PRIORITY_OPTION_VALUES = ["urgent", "high", "normal", "low"] as const;
 
-/** Renders the project, type, status, priority, milestone and archive selects. */
+/** Renders the type, status, priority, milestone and archive filters. */
 export function ToolbarFilterSelects({
   board,
-  projects,
   statuses,
   milestones,
   archivedFilter,
@@ -45,57 +45,54 @@ export function ToolbarFilterSelects({
 
   return (
     <>
-      <Select
-        ariaLabel={t("tasks.filter.project")}
-        value={preferences.project}
-        onValueChange={(project) => update({ project })}
-        options={[
-          { value: FILTER_ALL, label: t("tasks.filter.allProjects") },
-          ...projects.map((project) => ({
-            value: project.id,
-            label: project.name,
-          })),
-        ]}
-      />
-
-      <Select
-        ariaLabel={t("tasks.filter.type")}
-        value={preferences.type}
-        onValueChange={(type) => update({ type })}
-        options={TYPE_OPTION_VALUES.map((value) => ({
-          value,
-          label: t(`tasks.filter.typeOption.${value}`),
-        }))}
-      />
-
-      <Select
-        ariaLabel={t("tasks.filter.status")}
-        value={preferences.status}
-        onValueChange={(status) => update({ status })}
-        options={[
-          { value: FILTER_ALL, label: t("tasks.filter.allStatuses") },
-          ...statuses.map((status) => ({
-            value: status.id,
-            label: status.name,
-          })),
-        ]}
-      />
-
-      <Select
-        ariaLabel={t("tasks.filter.priority")}
-        value={preferences.priority}
-        onValueChange={(priority) => update({ priority })}
-        options={[
-          { value: FILTER_ALL, label: t("tasks.filter.allPriorities") },
-          ...PRIORITY_OPTION_VALUES.map((value) => ({
-            value,
-            label: t(`tasks.priority.${value}`),
-          })),
-        ]}
-      />
-
-      {milestones.length > 0 ? (
+      <ToolbarFilterField label={t("tasks.filter.type")} order="order-1">
         <Select
+          className="w-full"
+          ariaLabel={t("tasks.filter.type")}
+          value={preferences.type}
+          onValueChange={(type) => update({ type })}
+          options={TYPE_OPTION_VALUES.map((value) => ({
+            value,
+            label: t(`tasks.filter.typeOption.${value}`),
+          }))}
+        />
+      </ToolbarFilterField>
+
+      <ToolbarFilterField label={t("tasks.filter.status")} order="order-2">
+        <Select
+          className="w-full"
+          ariaLabel={t("tasks.filter.status")}
+          value={preferences.status}
+          onValueChange={(status) => update({ status })}
+          options={[
+            { value: FILTER_ALL, label: t("tasks.filter.allStatuses") },
+            ...statuses.map((status) => ({
+              value: status.id,
+              label: status.name,
+            })),
+          ]}
+        />
+      </ToolbarFilterField>
+
+      <ToolbarFilterField label={t("tasks.filter.priority")} order="order-3">
+        <Select
+          className="w-full"
+          ariaLabel={t("tasks.filter.priority")}
+          value={preferences.priority}
+          onValueChange={(priority) => update({ priority })}
+          options={[
+            { value: FILTER_ALL, label: t("tasks.filter.allPriorities") },
+            ...PRIORITY_OPTION_VALUES.map((value) => ({
+              value,
+              label: t(`tasks.priority.${value}`),
+            })),
+          ]}
+        />
+      </ToolbarFilterField>
+
+      <ToolbarFilterField label={t("tasks.filter.milestone")} order="order-4">
+        <Select
+          className="w-full"
           ariaLabel={t("tasks.filter.milestone")}
           value={preferences.milestone}
           onValueChange={(milestone) => update({ milestone })}
@@ -107,19 +104,22 @@ export function ToolbarFilterSelects({
             })),
           ]}
         />
-      ) : null}
+      </ToolbarFilterField>
 
       {canFilterArchived ? (
-        <Select
-          ariaLabel={t("tasks.filter.archived")}
-          value={archivedFilter}
-          onValueChange={onArchivedChange}
-          options={[
-            { value: "active", label: t("tasks.filter.active") },
-            { value: "archived", label: t("tasks.filter.archivedTickets") },
-            { value: "all", label: t("tasks.filter.all") },
-          ]}
-        />
+        <ToolbarFilterField label={t("tasks.filter.archived")} order="order-7">
+          <Select
+            className="w-full"
+            ariaLabel={t("tasks.filter.archived")}
+            value={archivedFilter}
+            onValueChange={onArchivedChange}
+            options={[
+              { value: "active", label: t("tasks.filter.active") },
+              { value: "archived", label: t("tasks.filter.archivedTickets") },
+              { value: "all", label: t("tasks.filter.all") },
+            ]}
+          />
+        </ToolbarFilterField>
       ) : null}
     </>
   );

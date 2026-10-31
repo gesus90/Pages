@@ -10,5 +10,8 @@ data/
 !.env.example
 
 *.log
+# Reports, traces and expected/actual/diff images of the browser suite.
+tests/browser/results/
+
 # Run artifacts belong outside the repository (/home/igor/Results/<task>).
 Results/

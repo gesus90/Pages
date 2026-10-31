@@ -1,6 +1,7 @@
 import { useSubmit } from "react-router";
 
 import { splitAssigneeValue, toAssigneeValue } from "@/app/lib/assignee-value";
+import { taskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 import type {
   Label,
@@ -42,7 +43,9 @@ export function useTaskPanelActions(task: WorkItemDetail): TaskPanelActions {
         // The description is saved on its own (A8.2-E05); leaving it out
         // keeps a field change from overwriting a newer description.
         ...splitAssigneeValue(changes.assignee ?? toAssigneeValue(task)),
+        boardLocal: changes.parentId === undefined ? "true" : "false",
         dueAt: changes.dueAt ?? task.dueAt ?? "",
+        expectedSnapshot: JSON.stringify(taskUpdateSnapshot(task)),
         id: task.id,
         intent: "update-task",
         milestoneId: changes.milestoneId ?? task.milestoneId ?? "",
@@ -60,9 +63,10 @@ export function useTaskPanelActions(task: WorkItemDetail): TaskPanelActions {
   function changeStatus(statusId: string): void {
     void submit(
       {
+        baseStatusId: task.statusId,
+        boardLocal: "true",
         id: task.id,
-        intent: "move-task",
-        sortOrder: String(task.sortOrder),
+        intent: "set-ticket-status",
         statusId,
       },
       { method: "post" },

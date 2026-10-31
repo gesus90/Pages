@@ -372,6 +372,10 @@ export const AGENT_ERROR_MESSAGES = {
   login_failed: "The CLI login failed.",
   login_code_invalid: "Enter a valid login code.",
   login_code_rejected: "The CLI rejected the code. Start login again.",
+  login_callback_invalid:
+    "The address does not belong to this sign-in. Copy the complete address from the browser after Google's consent.",
+  login_callback_unreachable:
+    "The sign-in no longer accepts the address. Start the sign-in again.",
   login_device_auth_unavailable:
     "Enable device authentication in the ChatGPT security settings.",
   credential_cleanup_failed:

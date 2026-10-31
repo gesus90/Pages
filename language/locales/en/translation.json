@@ -660,6 +660,8 @@
         "login_failed": "The CLI login failed.",
         "login_code_invalid": "Enter a valid login code.",
         "login_code_rejected": "The CLI rejected the code. Start login again.",
+        "login_callback_invalid": "The address does not belong to this sign-in. Copy the complete address from the browser after Google's consent.",
+        "login_callback_unreachable": "The sign-in no longer accepts the address. Start the sign-in again.",
         "login_device_auth_unavailable": "Enable device authentication in the ChatGPT security settings.",
         "credential_cleanup_failed": "The credential directory could not be removed. The connection was retained.",
         "general": "The action could not be completed. Try again.",
@@ -1369,8 +1371,11 @@
         "missing": "no key in Pages – add one under “API keys”"
       },
       "openCodeLinkedHint": "also usable through opencode",
-      "antigravityHint": "Google OAuth in the isolated Pages context. The official adapter receives login through a loopback callback at the execution host; your browser must be able to reach it. Pica stays blocked until its complete tool restrictions are verified.",
-      "antigravityLoginHint": "Complete Google sign-in in your browser. The browser must be able to reach the loopback callback at the Pages execution host.",
+      "antigravityHint": "Google sign-in through the official ACP adapter in this connection's isolated Pages context. Google then redirects to the adapter's loopback callback (127.0.0.1) on the Pages server: a browser on the server completes sign-in directly; from another device, paste the browser's address here. Pica stays blocked until its complete tool restrictions are verified.",
+      "antigravityLoginHint": "Open the sign-in page, choose the Google account and give consent yourself. If this browser runs on the Pages server, sign-in then completes automatically.",
+      "antigravityRedirectLabel": "Address after Google's consent",
+      "antigravityRedirectHint": "On another device, such as a smartphone, Google then redirects to an address with “127.0.0.1” that does not load there. Copy that complete address from the address bar and paste it here. It is valid only for this sign-in and only once.",
+      "loginStartedByOther": "Another person started this sign-in. Only they see the sign-in link and can complete it.",
       "operatorBoundAccount": "This account is managed by the operator. Pages can check it but cannot sign it in or out."
     },
     "connections": {
@@ -1726,6 +1731,7 @@
         "subtask": "Subtask"
       },
       "toggle": "Filters",
+      "reset": "Reset",
       "activeCount": "{{count}} active"
     },
     "sort": {
@@ -1909,6 +1915,7 @@
       "attachmentFileNameTooLong": "The file name is too long.",
       "attachmentTooLarge": "The file is larger than allowed.",
       "descriptionConflict": "Someone else changed the description in the meantime.",
+      "ticketConflict": "This ticket changed in the meantime. Review the current values and try again.",
       "invalidTreeKey": "This branch is unknown.",
       "parentArchived": "The selected parent is archived.",
       "subtasksStayWithTask": "Subtasks always stay with their Task.",
@@ -1997,6 +2004,8 @@
     },
     "detail": {
       "breadcrumb": "Ticket",
+      "loading": "Loading ticket …",
+      "unavailable": "This ticket is unavailable.",
       "back": "Back",
       "details": "Details",
       "keyDetails": "Key Details",
@@ -2025,6 +2034,7 @@
       "title": "Acceptance Criteria",
       "add": "Add",
       "addPlaceholder": "New criterion …",
+      "toggle": "Toggle criterion {{title}}",
       "remove": "Remove"
     },
     "links": {
@@ -2752,7 +2762,20 @@
   },
   "markdown": {
     "wikiLink": "Wiki page",
-    "externalLink": "External link"
+    "externalLink": "External link",
+    "openImage": "Open image: {{name}}",
+    "openImageUnnamed": "Open image"
+  },
+  "imageViewer": {
+    "title": "Image viewer",
+    "close": "Close image viewer",
+    "previous": "Previous image",
+    "next": "Next image",
+    "position": "{{current}} / {{total}}",
+    "unnamed": "Image {{current}} of {{total}}",
+    "loading": "Loading image …",
+    "failed": "The image could not be loaded.",
+    "openLink": "Open linked target in a new tab"
   },
   "editor": {
     "placeholder": "Write something or type “/” for blocks …",

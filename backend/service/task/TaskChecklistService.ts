@@ -5,6 +5,7 @@ import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import type { TaskAccessGuard } from "@/backend/service/task/TaskAccessGuard";
 import type { WorkItemChecklistItem } from "@/definition/Task";
+import type { ChecklistItemUpdate } from "@/backend/database/repositories/task/WorkItemChecklistRepository";
 import type { User } from "@/definition/User";
 
 const MAXIMUM_CHECKLIST_ITEM_TITLE_LENGTH = 200;
@@ -73,16 +74,26 @@ export class TaskChecklistService {
     actor: User,
     checklistItemId: string,
     isDone: boolean,
+    expected?: ChecklistItemUpdate,
   ): Promise<WorkItemChecklistItem> {
     const existing = await this.requireWritableChecklistItem(
       actor,
       checklistItemId,
     );
 
-    await this.taskRepository.updateChecklistItem(checklistItemId, {
-      isDone,
-      title: existing.title,
-    });
+    if (expected) {
+      const changed = await this.taskRepository.setChecklistItemDoneIfCurrent(
+        checklistItemId,
+        isDone,
+        expected,
+      );
+      if (!changed) throw new WorkItemValidationError("ticketConflict");
+    } else {
+      await this.taskRepository.updateChecklistItem(checklistItemId, {
+        isDone,
+        title: existing.title,
+      });
+    }
 
     const updated =
       await this.taskRepository.findChecklistItemById(checklistItemId);
@@ -98,9 +109,18 @@ export class TaskChecklistService {
   public async deleteChecklistItem(
     actor: User,
     checklistItemId: string,
+    expected?: ChecklistItemUpdate,
   ): Promise<void> {
     await this.requireWritableChecklistItem(actor, checklistItemId);
-    await this.taskRepository.deleteChecklistItem(checklistItemId);
+    if (expected) {
+      const removed = await this.taskRepository.deleteChecklistItemIfCurrent(
+        checklistItemId,
+        expected,
+      );
+      if (!removed) throw new WorkItemValidationError("ticketConflict");
+    } else {
+      await this.taskRepository.deleteChecklistItem(checklistItemId);
+    }
   }
 
   private async requireWritableChecklistItem(

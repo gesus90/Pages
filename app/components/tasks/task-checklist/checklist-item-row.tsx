@@ -24,6 +24,7 @@ export function ChecklistItemRow({
   return (
     <li className="group flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-2 text-sm">
       <button
+        aria-label={t("tasks.checklist.toggle", { title: item.title })}
         aria-pressed={item.isDone}
         className={cn(
           "flex size-5 shrink-0 items-center justify-center rounded-md border border-muted-foreground/40 text-transparent transition-colors disabled:opacity-60",

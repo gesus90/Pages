@@ -32,6 +32,10 @@ function isLoginView(value: unknown): value is CliLoginView {
     if (key in value && typeof Reflect.get(value, key) !== "string")
       return false;
   }
+  for (const key of ["isOwnLogin", "canSubmitRedirect"]) {
+    if (key in value && typeof Reflect.get(value, key) !== "boolean")
+      return false;
+  }
   return !("errorCode" in value) || isAgentErrorCode(value.errorCode);
 }
 

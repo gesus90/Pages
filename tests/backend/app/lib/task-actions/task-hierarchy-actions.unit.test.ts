@@ -13,7 +13,12 @@ import { runTaskHandler } from "./task-action-fixtures";
 import type { TaskActionHandler } from "@/app/lib/task-actions/task-action-support.server";
 import type { FormFields } from "../../actions/action-fixtures";
 
-const taskService = { changeParent: vi.fn(), updateDescription: vi.fn() };
+const taskService = {
+  changeParent: vi.fn(),
+  getById: vi.fn(),
+  updateDescription: vi.fn(),
+  updateParent: vi.fn(),
+};
 const taskAttachmentService = { remove: vi.fn() };
 const ticketTreeService = { setExpanded: vi.fn() };
 const services = { taskService, taskAttachmentService, ticketTreeService };
@@ -34,7 +39,9 @@ async function run(
 function nothingCalled(): void {
   for (const method of [
     taskService.changeParent,
+    taskService.getById,
     taskService.updateDescription,
+    taskService.updateParent,
     taskAttachmentService.remove,
     ticketTreeService.setExpanded,
   ]) {
@@ -77,6 +84,50 @@ it("moves a ticket below another parent", async () => {
     ok: true,
     intent: "change-parent",
     key: "SYN-2",
+  });
+});
+
+it("checks the previously displayed parent before moving", async () => {
+  taskService.updateParent.mockResolvedValue({ key: "SYN-2" });
+  const outcome = await run(handleChangeParent, {
+    baseParentId: "e1",
+    id: "t1",
+    parentId: "e2",
+  });
+
+  expect(taskService.updateParent).toHaveBeenCalledWith(ACTOR, "t1", {
+    baseParentId: "e1",
+    parentId: "e2",
+  });
+  expect(outcome.body).toEqual({
+    intent: "change-parent",
+    key: "SYN-2",
+    ok: true,
+  });
+});
+
+it("returns both changed parent summaries to the board", async () => {
+  const ticket = { id: "t1", key: "SYN-1", parentId: "p2" };
+  let reads = 0;
+  taskService.getById.mockImplementation(
+    async (actor: typeof ACTOR, id: string) => {
+      expect(actor).toEqual(ACTOR);
+      if (id === "t1")
+        return reads++ === 0 ? { ...ticket, parentId: "p1" } : ticket;
+      return { id, key: id };
+    },
+  );
+  taskService.updateParent.mockResolvedValue(ticket);
+  const outcome = await run(handleChangeParent, {
+    id: "t1",
+    parentId: "p2",
+    baseParentId: "p1",
+    boardLocal: "true",
+  });
+  expect(outcome.body).toMatchObject({
+    intent: "change-parent",
+    ok: true,
+    related: [{ id: "p1" }, { id: "p2" }],
   });
 });
 

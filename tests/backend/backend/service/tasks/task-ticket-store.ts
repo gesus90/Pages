@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
+import { taskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 import { RECORD_TIME, ticketRecord } from "./task-records";
 
@@ -278,6 +279,17 @@ export function installConditionalWrites(state: TaskState): void {
       return true;
     },
   );
+  vi.spyOn(proto, "setDepartmentIfCurrent").mockImplementation(
+    async (id, departmentId, expected) => {
+      runBeforeWrite(state);
+      const stored = active(id);
+      if (!stored || stored.departmentId !== expected) return false;
+      state.writes.push("setDepartmentIfCurrent");
+      patch(state, id, { departmentId });
+      return true;
+    },
+  );
+  installConditionalProjectMoves(state, active);
   vi.spyOn(proto, "updateStatus").mockImplementation(
     async (id, next, baseStatusId) => {
       runBeforeWrite(state);
@@ -311,6 +323,49 @@ export function installConditionalWrites(state: TaskState): void {
     },
   );
   installFullUpdate(state, active);
+}
+
+function installConditionalProjectMoves(
+  state: TaskState,
+  active: (id: string) => WorkItemDetail | null,
+): void {
+  const proto = TaskRepository.prototype;
+  vi.spyOn(proto, "moveSubtreeIfCurrent").mockImplementation(
+    async (rootId, moves) => {
+      runBeforeWrite(state);
+      const ids = [rootId];
+      for (const id of ids) {
+        for (const candidate of state.tickets.values()) {
+          if (candidate.parentId === id && candidate.archivedAt === null)
+            ids.push(candidate.id);
+        }
+      }
+      if (
+        ids.length !== moves.length ||
+        ids.some((id) => !moves.some((move) => move.id === id))
+      )
+        return false;
+      for (const entry of moves) {
+        const stored = active(entry.id);
+        if (
+          !stored ||
+          stored.projectId !== entry.expected.projectId ||
+          stored.githubIssueNumber !== entry.expected.githubIssueNumber ||
+          JSON.stringify(taskUpdateSnapshot(stored)) !==
+            JSON.stringify(entry.expected.fields)
+        )
+          return false;
+      }
+      for (const entry of moves) {
+        state.writes.push("moveSubtreeIfCurrent");
+        patch(state, entry.id, {
+          ...entry.move,
+          projectName: entry.move.projectId,
+        });
+      }
+      return true;
+    },
+  );
 }
 
 function installFullUpdate(

@@ -43,6 +43,39 @@ async function run(
   return runTaskHandler(handler, { taskService }, fields);
 }
 
+it("passes displayed checklist values to conditional changes", async () => {
+  await run(handleToggleChecklistItem, {
+    checklistItemId: "c1",
+    isDone: "true",
+    baseTitle: "Review changes",
+    baseIsDone: "false",
+  });
+  expect(taskService.setChecklistItemDone).toHaveBeenCalledWith(
+    ACTOR,
+    "c1",
+    true,
+    {
+      title: "Review changes",
+      isDone: false,
+    },
+  );
+  await run(handleDeleteChecklistItem, {
+    checklistItemId: "c1",
+    baseTitle: "Review changes",
+    baseIsDone: "true",
+  });
+  expect(taskService.deleteChecklistItem).toHaveBeenCalledWith(ACTOR, "c1", {
+    title: "Review changes",
+    isDone: true,
+  });
+  const invalid = await run(handleToggleChecklistItem, {
+    checklistItemId: "c1",
+    isDone: "true",
+    baseIsDone: "false",
+  });
+  expect(invalid.status).toBe(400);
+});
+
 interface DetailCase {
   readonly handler: TaskActionHandler;
   readonly intent: string;

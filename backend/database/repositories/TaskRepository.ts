@@ -13,6 +13,7 @@ import { WorkItemLifecycleRepository } from "./task/WorkItemLifecycleRepository"
 import { WorkItemLinkRepository } from "./task/WorkItemLinkRepository";
 import { WorkItemQueryRepository } from "./task/WorkItemQueryRepository";
 import { WorkItemWriteRepository } from "./task/WorkItemWriteRepository";
+import { WorkItemProjectMoveRepository } from "./task/WorkItemProjectMoveRepository";
 
 import type {
   Milestone,
@@ -56,9 +57,12 @@ import type {
 import type {
   NewWorkItem,
   WorkItemGitHubLink,
-  WorkItemMove,
   WorkItemUpdate,
 } from "./task/WorkItemWriteRepository";
+import type {
+  ConditionalWorkItemMove,
+  WorkItemMove,
+} from "./task/WorkItemProjectMoveRepository";
 
 export type { MilestoneInitiativeLink } from "./task/MilestoneInitiativeRepository";
 export type { MilestoneUpdate, NewMilestone } from "./task/MilestoneRepository";
@@ -91,6 +95,7 @@ export class TaskRepository {
   private readonly queries: WorkItemQueryRepository;
   private readonly counts: WorkItemCountRepository;
   private readonly writes: WorkItemWriteRepository;
+  private readonly projectMoves: WorkItemProjectMoveRepository;
   private readonly lifecycle: WorkItemLifecycleRepository;
   private readonly labels: TaskLabelRepository;
   private readonly checklist: WorkItemChecklistRepository;
@@ -113,6 +118,7 @@ export class TaskRepository {
     this.queries = new WorkItemQueryRepository(database);
     this.counts = new WorkItemCountRepository(database);
     this.writes = new WorkItemWriteRepository(database);
+    this.projectMoves = new WorkItemProjectMoveRepository(database);
     this.lifecycle = new WorkItemLifecycleRepository(database);
     this.labels = new TaskLabelRepository(database);
     this.checklist = new WorkItemChecklistRepository(database);
@@ -459,6 +465,15 @@ export class TaskRepository {
     return this.writes.setDepartment(id, departmentId);
   }
 
+  /** Reassigns a department only if its previous value still matches. */
+  public async setDepartmentIfCurrent(
+    id: string,
+    departmentId: string | null,
+    expected: string | null,
+  ): Promise<boolean> {
+    return this.writes.setDepartmentIfCurrent(id, departmentId, expected);
+  }
+
   /** Returns the ids of a work item and its descendants, optionally limited to a visible scope. */
   public async findSubtreeIds(
     rootId: string,
@@ -520,7 +535,15 @@ export class TaskRepository {
    * @param move - Target project, new key, and cleared project-bound relations.
    */
   public async moveToProject(id: string, move: WorkItemMove): Promise<void> {
-    return this.writes.moveToProject(id, move);
+    return this.projectMoves.moveToProject(id, move);
+  }
+
+  /** Moves a subtree atomically only while all source values remain current. */
+  public async moveSubtreeIfCurrent(
+    rootId: string,
+    moves: readonly ConditionalWorkItemMove[],
+  ): Promise<boolean> {
+    return this.projectMoves.moveSubtreeIfCurrent(rootId, moves);
   }
 
   /** Returns the global label catalog ordered by name. */
@@ -617,6 +640,23 @@ export class TaskRepository {
     update: ChecklistItemUpdate,
   ): Promise<void> {
     return this.checklist.update(id, update);
+  }
+
+  /** Changes a checkbox only while its displayed values still match. */
+  public async setChecklistItemDoneIfCurrent(
+    id: string,
+    isDone: boolean,
+    expected: ChecklistItemUpdate,
+  ): Promise<boolean> {
+    return this.checklist.setDoneIfCurrent(id, isDone, expected);
+  }
+
+  /** Removes a checklist item only while its displayed values still match. */
+  public async deleteChecklistItemIfCurrent(
+    id: string,
+    expected: ChecklistItemUpdate,
+  ): Promise<boolean> {
+    return this.checklist.deleteIfCurrent(id, expected);
   }
 
   /** Deletes a checklist item. */

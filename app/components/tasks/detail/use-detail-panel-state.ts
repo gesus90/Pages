@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 /** Open states of the dialogs a ticket panel can show. */
 export interface DetailPanelState {
@@ -12,28 +12,12 @@ export interface DetailPanelState {
 }
 
 /**
- * Keeps the dialog state of a ticket panel and closes the panel with Escape.
- *
- * @param onClose - Closes the panel; called for an Escape that nobody handled.
+ * Keeps the dialog state of a ticket panel.
  */
-export function useDetailPanelState(onClose: () => void): DetailPanelState {
+export function useDetailPanelState(): DetailPanelState {
   const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [pendingProjectId, setPendingProjectId] = useState("");
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === "Escape" && !event.defaultPrevented) {
-        onClose();
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onClose]);
 
   function openMoveDialog(projectId: string): void {
     setPendingProjectId(projectId);

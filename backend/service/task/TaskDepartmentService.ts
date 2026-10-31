@@ -90,17 +90,23 @@ export class TaskDepartmentService {
    * @param actor - User with write access to the ticket.
    * @param id - Ticket to reassign.
    * @param selection - New department id; blank clears the assignment.
+   * @param expected - Previously displayed department, when checking for conflicts.
    */
   public async setDepartment(
     actor: User,
     id: string,
     selection: string | null,
+    expected?: string | null,
   ): Promise<void> {
     const existing = await this.access.requireWritableWorkItem(actor, id);
     const facts = await this.access.authorizationFacts(actor);
     const requested = normalize(selection);
     const departmentId =
       requested === null ? null : this.validate(facts, requested);
+
+    if (expected !== undefined && existing.departmentId !== expected) {
+      throw new WorkItemValidationError("ticketConflict");
+    }
 
     if (departmentId === existing.departmentId) {
       return;
@@ -110,7 +116,16 @@ export class TaskDepartmentService {
       facts.departments.find((department) => department.id === candidate)
         ?.name ?? null;
 
-    await this.taskRepository.setDepartment(id, departmentId);
+    if (expected === undefined) {
+      await this.taskRepository.setDepartment(id, departmentId);
+    } else {
+      const changed = await this.taskRepository.setDepartmentIfCurrent(
+        id,
+        departmentId,
+        expected,
+      );
+      if (!changed) throw new WorkItemValidationError("ticketConflict");
+    }
     this.cache.invalidateWorkItems();
     await this.history.recordDepartmentChanged(actor, id, {
       newName: nameOf(departmentId),

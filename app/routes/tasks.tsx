@@ -3,9 +3,12 @@ import { useLoaderData } from "react-router";
 import { TasksContent } from "@/app/components/tasks/board/tasks-content";
 import { TasksToolbar } from "@/app/components/tasks/board/tasks-toolbar";
 import { useBoardPreferences } from "@/app/components/tasks/board/use-board-preferences";
+import { useBoardItems } from "@/app/components/tasks/board/use-board-items";
+import { useBoardLabels } from "@/app/components/tasks/board/use-board-labels";
 import { useTasksDialog } from "@/app/components/tasks/board/use-tasks-dialog";
 import { useTasksPage } from "@/app/components/tasks/board/use-tasks-page";
-import { TasksDetail } from "@/app/components/tasks/board/tasks-detail";
+import { TasksDetailOverlay } from "@/app/components/tasks/board/tasks-detail-overlay";
+import { useTaskSelection } from "@/app/components/tasks/board/use-task-selection";
 import { TasksFormDialog } from "@/app/components/tasks/board/tasks-form-dialog";
 import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { type TasksGitHubProjectState } from "@/app/components/tasks/tasks-github";
@@ -20,9 +23,11 @@ import {
   parseBoardQuery,
   withoutBoardQuery,
 } from "@/definition/BoardPreferences";
-import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
-import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { loadSelection } from "@/app/lib/task-selection.server";
+import {
+  BOARD_DETAIL_INTENTS,
+  BOARD_TICKET_UPDATE_INTENTS,
+} from "@/app/lib/task-overlay-navigation";
 
 import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { ApplicationServices } from "@/app/lib/services.server";
@@ -146,97 +151,6 @@ async function loadLabels(
   };
 }
 
-type TaskSelection = Pick<
-  TasksLoaderData,
-  | "selectedItem"
-  | "selectedSubtasks"
-  | "selectedHistory"
-  | "selectedPullRequests"
-  | "selectedChecklist"
-  | "selectedLinks"
-  | "selectedAttachments"
-  | "selectedDescendants"
->;
-
-const NO_SELECTION: TaskSelection = {
-  selectedAttachments: [],
-  selectedChecklist: [],
-  selectedHistory: [],
-  selectedItem: null,
-  selectedLinks: [],
-  selectedPullRequests: [],
-  selectedDescendants: null,
-  selectedSubtasks: [],
-};
-
-/**
- * Loads the ticket the address selects together with everything its panel shows.
- *
- * @param services - Application services the panel data comes from.
- * @param request - Visitor, listed tickets and the selected key. The labels of
- * the listed tickets get the selected ticket's labels added when it lies
- * outside the list.
- */
-async function loadSelection(
-  services: ApplicationServices,
-  request: {
-    readonly actor: User;
-    readonly workItems: readonly WorkItemDetail[];
-    readonly labelsByWorkItem: Record<string, readonly Label[]>;
-    readonly selectedKey: string | null;
-  },
-): Promise<TaskSelection> {
-  const { actor, workItems, labelsByWorkItem, selectedKey } = request;
-
-  if (!selectedKey) {
-    return NO_SELECTION;
-  }
-
-  const matched =
-    workItems.find(
-      (item) => item.key === selectedKey || item.id === selectedKey,
-    ) ?? (await findSelectedWorkItem(services, actor, selectedKey));
-
-  if (!matched) {
-    return NO_SELECTION;
-  }
-
-  if (!Object.hasOwn(labelsByWorkItem, matched.id)) {
-    const assigned = await services.taskService.findLabelsForWorkItems([
-      matched.id,
-    ]);
-
-    labelsByWorkItem[matched.id] = assigned.get(matched.id) ?? [];
-  }
-
-  return {
-    selectedAttachments: await services.taskAttachmentService.list(
-      actor,
-      matched.id,
-    ),
-    selectedChecklist: await services.taskService.findChecklistItems(
-      actor,
-      matched.id,
-    ),
-    selectedDescendants: await services.taskService.describeDescendants(
-      actor,
-      matched.id,
-    ),
-    selectedHistory: await services.taskService.getHistory(actor, matched.id),
-    selectedItem: matched,
-    selectedLinks: await services.taskService.findLinks(actor, matched.id),
-    selectedPullRequests:
-      await services.gitHubSyncService.findPullRequestsForTask(
-        actor,
-        matched.id,
-      ),
-    selectedSubtasks: await services.taskService.findSubtasks(
-      actor,
-      matched.id,
-    ),
-  };
-}
-
 /** The identifiers the board filters of the visitor may point to. */
 function toBoardReferences(
   loaded: Pick<
@@ -264,6 +178,38 @@ function toBoardReferences(
   };
 }
 
+/** A successful single-ticket edit supplies the replacement for the board. */
+function isLocalTicketUpdate(
+  url: URL,
+  formData: FormData | undefined,
+  result: unknown,
+): boolean {
+  const intent = formData?.get("intent");
+  if (
+    !url.searchParams.has("item") ||
+    typeof result !== "object" ||
+    result === null ||
+    !("ok" in result) ||
+    result.ok !== true
+  )
+    return false;
+  if (typeof intent === "string" && BOARD_DETAIL_INTENTS.has(intent))
+    return true;
+  return (
+    typeof intent === "string" &&
+    BOARD_TICKET_UPDATE_INTENTS.has(intent) &&
+    formData?.get("boardLocal") === "true" &&
+    "ticket" in result
+  );
+}
+
+/** Removes only the overlay selection, leaving the other address fields. */
+function withoutItem(url: URL): string {
+  const params = new URLSearchParams(url.searchParams);
+  params.delete("item");
+  return `${url.pathname}?${params.toString()}`;
+}
+
 /**
  * Keeps the loader from rerunning when only the board view changed.
  *
@@ -278,17 +224,26 @@ export function shouldRevalidate({
   nextUrl,
   formData,
   defaultShouldRevalidate,
+  actionResult,
 }: ShouldRevalidateFunctionArgs): boolean {
   if (formData?.get("intent") === "save-board-preferences") {
     return false;
   }
 
+  if (isLocalTicketUpdate(currentUrl, formData, actionResult)) {
+    return false;
+  }
+
   if (formData || !hasBoardQuery(nextUrl.searchParams)) {
+    if (!formData && withoutItem(currentUrl) === withoutItem(nextUrl)) {
+      return false;
+    }
     return defaultShouldRevalidate;
   }
 
   const strip = (url: URL): string => {
     const params = withoutBoardQuery(url.searchParams);
+    params.delete("item");
 
     return `${url.pathname}?${params.toString()}`;
   };
@@ -383,36 +338,6 @@ export async function loader({
 }
 
 /**
- * Resolves a selected ticket outside the current board filter from the database.
- *
- * @param services - Initialized server-side services.
- * @param actor - Authenticated user requesting the ticket.
- * @param selectedKey - Ticket key or id from the query string.
- * @returns The ticket, or `null` when it is missing or inaccessible.
- */
-async function findSelectedWorkItem(
-  services: ApplicationServices,
-  actor: User,
-  selectedKey: string,
-): Promise<WorkItemDetail | null> {
-  try {
-    return await services.taskService.getByKey(actor, selectedKey);
-  } catch (error: unknown) {
-    logCaughtError("tasks", error);
-
-    // Missing or inaccessible tickets simply leave the detail panel closed.
-    if (
-      error instanceof WorkItemNotFoundError ||
-      error instanceof ProjectAccessDeniedError
-    ) {
-      return null;
-    }
-
-    throw error;
-  }
-}
-
-/**
  * Loads GitHub states for already access-checked projects with three queries.
  *
  * @param services - Initialized server-side services.
@@ -470,15 +395,17 @@ export async function action({
 /** Renders the responsive task views, filters, and floating ticket detail panel. */
 export default function TasksRoute(): React.ReactElement {
   const loaderData = useLoaderData<typeof loader>();
-  const { selectedItem, projects, statuses, milestones, workItems } =
-    loaderData;
+  const { projects, statuses, milestones, archivedFilter } = loaderData;
   const page = useTasksPage();
   const board = useBoardPreferences(loaderData.board);
-  const dialog = useTasksDialog(
-    selectedItem?.key ?? null,
-    board.preferences.project,
+  const details = useTaskSelection(loaderData);
+  const workItems = useBoardItems(
+    loaderData.workItems,
+    details,
+    archivedFilter,
   );
-  const viewMode = board.preferences.view;
+  const labelsByWorkItem = useBoardLabels(loaderData.labelsByWorkItem, details);
+  const dialog = useTasksDialog(details.selectedKey, board.preferences.project);
 
   return (
     <TicketAccessProvider
@@ -493,7 +420,7 @@ export default function TasksRoute(): React.ReactElement {
       <section
         className={cn(
           "flex flex-col",
-          viewMode === "kanban"
+          board.preferences.view === "kanban"
             ? "md:h-[calc(100dvh-8.5rem)] md:min-h-0 md:overflow-hidden"
             : "min-h-[calc(100vh-theme(spacing.20))]",
         )}
@@ -501,7 +428,7 @@ export default function TasksRoute(): React.ReactElement {
         <div
           className={cn(
             "flex flex-1 gap-6",
-            viewMode === "kanban"
+            board.preferences.view === "kanban"
               ? "min-h-0 flex-col"
               : "flex-col xl:flex-row xl:items-start",
           )}
@@ -527,7 +454,7 @@ export default function TasksRoute(): React.ReactElement {
                 // On phones the page scrolls and the board keeps a height of
                 // its own, so cards stay whole instead of sharing what the
                 // filters leave over.
-                viewMode === "kanban" &&
+                board.preferences.view === "kanban" &&
                   "h-[max(30rem,calc(100dvh-18rem))] flex-none md:h-auto md:flex-1 md:overflow-hidden",
               )}
             >
@@ -536,7 +463,7 @@ export default function TasksRoute(): React.ReactElement {
                 dialog={dialog}
                 githubStates={loaderData.githubStates}
                 isSyncing={page.isSyncing}
-                labelsByWorkItem={loaderData.labelsByWorkItem}
+                labelsByWorkItem={labelsByWorkItem}
                 milestones={milestones}
                 onMoveTask={page.moveTask}
                 onPreferencesChange={board.update}
@@ -547,7 +474,7 @@ export default function TasksRoute(): React.ReactElement {
                   toTaskFilters(board.preferences),
                   {
                     actorId: loaderData.actor.id,
-                    labelsByWorkItem: loaderData.labelsByWorkItem,
+                    labelsByWorkItem,
                     memberGroupIds: loaderData.memberGroupIds,
                   },
                 )}
@@ -556,15 +483,13 @@ export default function TasksRoute(): React.ReactElement {
           </div>
         </div>
 
-        {selectedItem ? (
-          <TasksDetail
-            loaderData={loaderData}
-            dialog={dialog}
-            isArchiving={page.isArchiving}
-            isSyncing={page.isSyncing}
-            selectedItem={selectedItem}
-          />
-        ) : null}
+        <TasksDetailOverlay
+          loaderData={loaderData}
+          dialog={dialog}
+          details={details}
+          isArchiving={page.isArchiving}
+          isSyncing={page.isSyncing}
+        />
 
         <TasksFormDialog
           loaderData={loaderData}

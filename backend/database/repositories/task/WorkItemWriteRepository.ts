@@ -1,5 +1,8 @@
+import { snapshotParameters } from "./WorkItemSnapshotSql";
+
 import type { TaskDatabase } from "./TaskDatabase";
 import type { WorkItemPriority, WorkItemType } from "@/definition/Task";
+import type { TaskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 /** Values required to persist a new work item. */
 export interface NewWorkItem {
@@ -31,6 +34,8 @@ export interface WorkItemUpdate {
   readonly shouldPreserveDescription?: boolean;
   /** When present, the description must still match this text or the new text. */
   readonly baseDescription?: string;
+  /** Editable fields to compare in the same statement as the update. */
+  readonly expected?: TaskUpdateSnapshot;
   readonly statusId: string;
   readonly priority: WorkItemPriority;
   readonly assigneeId: string | null;
@@ -51,16 +56,6 @@ export interface WorkItemGitHubLink {
   readonly contentHash: string | null;
   readonly conflict: boolean;
   readonly lastSyncAt: string | null;
-}
-
-/** Target of moving a work item to another project. */
-export interface WorkItemMove {
-  readonly projectId: string;
-  readonly key: string;
-  readonly number: number;
-  readonly parentId: string | null;
-  readonly milestoneId: string | null;
-  readonly assigneeId: string | null;
 }
 
 /** Owns the write access to work items. */
@@ -234,6 +229,21 @@ export class WorkItemWriteRepository {
         WHERE id = $id
             AND archived_at IS NULL
             AND (
+                NOT $has_expected
+                OR (
+                    title = $base_title
+                    AND status_id = $base_status_id
+                    AND priority = $base_priority
+                    AND assignee_id IS NOT DISTINCT FROM $base_assignee_id
+                    AND assignee_group_id IS NOT DISTINCT FROM $base_assignee_group_id
+                    AND created_by = $base_reporter_id
+                    AND parent_id IS NOT DISTINCT FROM $base_parent_id
+                    AND milestone_id IS NOT DISTINCT FROM $base_milestone_id
+                    AND due_at IS NOT DISTINCT FROM $base_due_at
+                    AND start_at IS NOT DISTINCT FROM $base_start_at
+                )
+            )
+            AND (
                 $description IS NULL
                 OR $base_description IS NULL
                 OR description = $base_description
@@ -246,6 +256,7 @@ export class WorkItemWriteRepository {
         assignee_id: update.assigneeId,
         created_by: update.reporterId,
         base_description: update.baseDescription ?? null,
+        ...snapshotParameters(update.expected),
         description: update.shouldPreserveDescription
           ? null
           : update.description,
@@ -403,6 +414,26 @@ export class WorkItemWriteRepository {
     );
   }
 
+  /** Changes the department only while the displayed assignment is current. */
+  public async setDepartmentIfCurrent(
+    id: string,
+    departmentId: string | null,
+    expected: string | null,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE work_items
+        SET department_id = $department_id, updated_at = utc_now()
+        WHERE id = $id
+            AND archived_at IS NULL
+            AND department_id IS NOT DISTINCT FROM $expected
+        RETURNING id;
+      `,
+      { department_id: departmentId, expected, id },
+    );
+    return rows.length > 0;
+  }
+
   /** Writes GitHub's synchronized fields while preserving all local relationships. */
   public async updateFromGitHub(
     id: string,
@@ -451,48 +482,6 @@ export class WorkItemWriteRepository {
         is_done: isDone ? 1 : 0,
         sort_order: sortOrder,
         status_id: statusId,
-      },
-    );
-  }
-
-  /**
-   * Moves a work item to another project with a new project-specific key.
-   * Project-bound relations travel in the `move` mapping while the
-   * GitHub linkage is cleared because integrations belong to projects.
-   *
-   * @param id - Work item kept under its stable internal identifier.
-   * @param move - Target project, new key, and cleared project-bound relations.
-   */
-  public async moveToProject(id: string, move: WorkItemMove): Promise<void> {
-    await this.database.execute(
-      `
-        UPDATE work_items
-        SET
-            project_id = $project_id,
-            key = $key,
-            number = $number,
-            parent_id = $parent_id,
-            milestone_id = $milestone_id,
-            assignee_id = $assignee_id,
-            github_issue_number = NULL,
-            github_issue_url = NULL,
-            github_issue_state = NULL,
-            github_issue_updated_at = NULL,
-            github_content_hash = NULL,
-            github_conflict = 0,
-            github_last_sync_at = NULL,
-            github_last_error = NULL,
-            updated_at = utc_now()
-        WHERE id = $id;
-      `,
-      {
-        assignee_id: move.assigneeId,
-        id,
-        key: move.key,
-        milestone_id: move.milestoneId,
-        number: move.number,
-        parent_id: move.parentId,
-        project_id: move.projectId,
       },
     );
   }

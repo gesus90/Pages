@@ -8,6 +8,7 @@ import {
 } from "@/definition/BoardPreferences";
 
 import type { BoardPreferences } from "@/definition/BoardPreferences";
+import type { ArchivedFilter } from "@/app/lib/tasks-view";
 
 /** How long the board waits after the last change before it saves the view. */
 const SAVE_DELAY_MS = 600;
@@ -17,7 +18,10 @@ export interface BoardPreferencesState {
   readonly preferences: BoardPreferences;
   /** The text of the search field, which follows the typing without a delay. */
   readonly searchText: string;
-  readonly update: (patch: Partial<BoardPreferences>) => void;
+  readonly update: (
+    patch: Partial<BoardPreferences>,
+    options?: { readonly archivedFilter?: ArchivedFilter },
+  ) => void;
 }
 
 /**
@@ -43,6 +47,10 @@ export function useBoardPreferences(
   const [unsaved, setUnsaved] = useState<BoardPreferences | null>(null);
 
   useEffect(() => {
+    setSearchText(preferences.search);
+  }, [preferences.search]);
+
+  useEffect(() => {
     if (unsaved === null) {
       return undefined;
     }
@@ -61,15 +69,22 @@ export function useBoardPreferences(
     return () => clearTimeout(timer);
   }, [unsaved, submit]);
 
-  function update(patch: Partial<BoardPreferences>): void {
+  function update(
+    patch: Partial<BoardPreferences>,
+    options?: { readonly archivedFilter?: ArchivedFilter },
+  ): void {
     const next = normalizeBoardPreferences({ ...preferences, ...patch });
+    const params = withBoardQuery(searchParams, next);
 
     if (patch.search !== undefined) {
       setSearchText(patch.search);
     }
 
     setUnsaved(next);
-    setSearchParams(withBoardQuery(searchParams, next), {
+    if (options?.archivedFilter !== undefined) {
+      params.set("archived", options.archivedFilter);
+    }
+    setSearchParams(params, {
       preventScrollReset: true,
       replace: true,
     });

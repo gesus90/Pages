@@ -1,4 +1,4 @@
-import { Flag, Kanban, List, Network } from "lucide-react";
+import { Flag, Kanban, List } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { SegmentedControl } from "@/app/components/ui/segmented-control";
@@ -12,7 +12,7 @@ interface ToolbarViewSwitchProps {
   readonly onViewChange: (view: BoardView) => void;
 }
 
-/** Renders the switch between the kanban, list, hierarchy, milestone and GitHub views. */
+/** Renders the switch between the kanban, list and milestone views. */
 export function ToolbarViewSwitch({
   view,
   onViewChange,
@@ -30,16 +30,10 @@ export function ToolbarViewSwitch({
       value: "list",
     },
     {
-      icon: <Network className="size-3.5" aria-hidden="true" />,
-      label: t("tasks.view.hierarchy"),
-      value: "hierarchy",
-    },
-    {
       icon: <Flag className="size-3.5" aria-hidden="true" />,
       label: t("tasks.view.milestones"),
       value: "milestones",
     },
-    { label: t("tasks.view.github"), value: "github" },
   ];
 
   return (

@@ -40,6 +40,13 @@ function sumCounts(
   return sums;
 }
 
+/** Visible tickets changed by a subtree lifecycle operation. */
+export interface TaskLifecycleImpact {
+  readonly ticketIds: readonly string[];
+  readonly parentId: string | null;
+  readonly changedCount: number;
+}
+
 /** Archives, restores and permanently deletes work items together with their descendants. */
 export class TaskLifecycleService {
   private readonly taskRepository: TaskRepository;
@@ -112,11 +119,21 @@ export class TaskLifecycleService {
     id: string,
     handling: ChildHandling = "include",
   ): Promise<number> {
+    return (await this.archiveWithImpact(actor, id, handling)).changedCount;
+  }
+
+  /** Archives a subtree and returns the tickets and parent that changed. */
+  public async archiveWithImpact(
+    actor: User,
+    id: string,
+    handling: ChildHandling = "include",
+  ): Promise<TaskLifecycleImpact> {
     const item = await this.access.requireArchivableWorkItem(actor, id);
     let ids = await this.requireVisibleSubtree(actor, id);
+    let released: readonly string[] = [];
 
     if (handling === "keep") {
-      await this.releaseChildren(actor, item, "active");
+      released = await this.releaseChildren(actor, item, "active");
       ids = [id];
     }
 
@@ -127,7 +144,11 @@ export class TaskLifecycleService {
       await this.history.recordArchived(actor, itemId);
     }
 
-    return archivedIds.length;
+    return {
+      changedCount: archivedIds.length,
+      parentId: item.parentId,
+      ticketIds: [...archivedIds, ...released],
+    };
   }
 
   /**
@@ -137,6 +158,14 @@ export class TaskLifecycleService {
    * still archived, because the work item would hang below it unseen.
    */
   public async restore(actor: User, id: string): Promise<void> {
+    await this.restoreWithImpact(actor, id);
+  }
+
+  /** Restores a subtree and returns the tickets and parent that changed. */
+  public async restoreWithImpact(
+    actor: User,
+    id: string,
+  ): Promise<TaskLifecycleImpact> {
     const item = await this.access.requireWritableWorkItem(actor, id);
     const ids = await this.requireVisibleSubtree(actor, id);
 
@@ -147,6 +176,11 @@ export class TaskLifecycleService {
     for (const itemId of ids) {
       await this.history.recordRestored(actor, itemId);
     }
+    return {
+      changedCount: ids.length,
+      parentId: item.parentId,
+      ticketIds: ids,
+    };
   }
 
   /**
@@ -214,7 +248,7 @@ export class TaskLifecycleService {
     actor: User,
     item: WorkItemDetail,
     scope: "active" | "all",
-  ): Promise<void> {
+  ): Promise<readonly string[]> {
     if (item.type === WORK_ITEM_TYPE.TASK) {
       throw new WorkItemValidationError("subtasksStayWithTask");
     }
@@ -228,6 +262,7 @@ export class TaskLifecycleService {
         workItemId: childId,
       });
     }
+    return released;
   }
 
   private async assertParentActive(item: WorkItemDetail): Promise<void> {

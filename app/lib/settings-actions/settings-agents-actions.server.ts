@@ -157,6 +157,14 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     );
     return { ok: true };
   },
+  "submit-login-redirect": async ({ actor, services, formData, id }) => {
+    await services.agentCliLoginService.submitRedirect(
+      actor,
+      id,
+      readTextOrEmpty(formData, "address"),
+    );
+    return { ok: true };
+  },
   "cancel-login": async ({ actor, services, id }) => {
     await services.agentCliLoginService.cancel(actor, id);
     return { ok: true };

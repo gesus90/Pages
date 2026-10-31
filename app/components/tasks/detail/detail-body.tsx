@@ -65,6 +65,7 @@ interface DetailBodyProps {
   readonly onChangeProject: (projectId: string) => void;
   readonly onOpenTask: (key: string) => void;
   readonly onSelectTask: (key: string) => void;
+  readonly onRefresh: () => void;
 }
 
 /** Renders the two content panes of the ticket panel. */
@@ -89,6 +90,7 @@ export function DetailBody({
   onChangeProject,
   onOpenTask,
   onSelectTask,
+  onRefresh,
 }: DetailBodyProps): React.ReactElement {
   const isArchived = task.archivedAt !== null;
   const projectAssignees = assigneesByProject[task.projectId] ?? assignees;
@@ -107,6 +109,7 @@ export function DetailBody({
         isSyncing={isSyncing}
         onCreateSubtask={onCreateSubtask}
         onOpenTask={onOpenTask}
+        onRefresh={onRefresh}
         onSelectTask={onSelectTask}
         subtasks={subtasks}
         task={task}

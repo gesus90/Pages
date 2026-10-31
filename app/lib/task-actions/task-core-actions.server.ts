@@ -5,6 +5,8 @@ import {
   readTextOrEmpty,
 } from "@/app/lib/form-fields.server";
 import { resolveLocalRedirect } from "@/app/lib/redirect.server";
+import { parseTaskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
+import { movedTicketImpact, ticketImpact } from "./task-action-impact.server";
 import {
   isChildHandling,
   isWorkItemPriority,
@@ -17,6 +19,8 @@ import {
   runTaskAction,
   runTaskActionThenRedirect,
   runTicketAction,
+  runTicketImpactAction,
+  runTicketUpdateAction,
 } from "./task-action-support.server";
 
 import type { ChildHandling } from "@/definition/Task";
@@ -63,6 +67,25 @@ export const handleCreateTask: TaskActionHandler = async ({
   // A template adds its labels and checklist to the ticket after creation.
   const templateId = readOptionalText(formData, "templateId");
 
+  if (formData.get("boardLocal") === "true") {
+    return runTicketImpactAction("create-task", async () => {
+      const ticket =
+        templateId === null
+          ? await services.taskService.create(actor, input)
+          : await services.taskTemplateService.createFromTemplate(
+              actor,
+              templateId,
+              input,
+            );
+      const ids = ticket.parentId ? [ticket.parentId] : [];
+      return ticketImpact(services.taskService, actor, {
+        key: ticket.key,
+        rootId: ticket.id,
+        ids,
+      });
+    });
+  }
+
   return runTicketAction("create-task", () =>
     templateId === null
       ? services.taskService.create(actor, input)
@@ -87,6 +110,9 @@ export const handleUpdateTask: TaskActionHandler = async ({
   const reporterId = readText(formData, "reporterId");
   const description = readText(formData, "description");
   const baseDescription = readText(formData, "baseDescription");
+  const expectedText = readText(formData, "expectedSnapshot");
+  const expected =
+    expectedText === null ? undefined : parseTaskUpdateSnapshot(expectedText);
 
   if (
     id === null ||
@@ -94,27 +120,47 @@ export const handleUpdateTask: TaskActionHandler = async ({
     statusId === null ||
     !isWorkItemPriority(priority) ||
     reporterId === null ||
-    (description !== null && baseDescription === null)
+    (description !== null && baseDescription === null) ||
+    expected === null
   ) {
     return invalidInput("update-task");
   }
 
-  return runTicketAction("update-task", () =>
-    services.taskService.update(actor, id, {
-      assigneeGroupId: readOptionalText(formData, "assigneeGroupId"),
-      assigneeId: readOptionalText(formData, "assigneeId"),
-      // Absent fields keep the stored description (A8.2-E05).
-      baseDescription: baseDescription ?? undefined,
-      description: description ?? undefined,
-      dueAt: readOptionalText(formData, "dueAt"),
-      milestoneId: readOptionalText(formData, "milestoneId"),
-      parentId: readOptionalText(formData, "parentId"),
-      priority,
-      reporterId,
-      startAt: readOptionalText(formData, "startAt"),
-      statusId,
-      title,
-    }),
+  const input = {
+    assigneeGroupId: readOptionalText(formData, "assigneeGroupId"),
+    assigneeId: readOptionalText(formData, "assigneeId"),
+    // Absent fields keep the stored description (A8.2-E05).
+    baseDescription: baseDescription ?? undefined,
+    description: description ?? undefined,
+    expected,
+    dueAt: readOptionalText(formData, "dueAt"),
+    milestoneId: readOptionalText(formData, "milestoneId"),
+    parentId: readOptionalText(formData, "parentId"),
+    priority,
+    reporterId,
+    startAt: readOptionalText(formData, "startAt"),
+    statusId,
+    title,
+  };
+  if (formData.get("boardLocal") === "true") {
+    return runTicketImpactAction("update-task", async () => {
+      const before = await services.taskService.getById(actor, id);
+      const ticket = await services.taskService.update(actor, id, input);
+      const ids =
+        before.parentId === ticket.parentId
+          ? []
+          : [before.parentId, ticket.parentId].filter(
+              (value) => value !== null,
+            );
+      return ticketImpact(services.taskService, actor, {
+        key: ticket.key,
+        rootId: id,
+        ids,
+      });
+    });
+  }
+  return runTicketUpdateAction("update-task", () =>
+    services.taskService.update(actor, id, input),
   );
 };
 
@@ -142,6 +188,25 @@ export const handleMoveTask: TaskActionHandler = async ({
   );
 };
 
+/** Changes the status only if it still matches the displayed status. */
+export const handleSetTicketStatus: TaskActionHandler = async ({
+  actor,
+  formData,
+  services,
+}) => {
+  const id = readRequiredText(formData, "id");
+  const statusId = readRequiredText(formData, "statusId");
+  const baseStatusId = readRequiredText(formData, "baseStatusId");
+
+  if (id === null || statusId === null || baseStatusId === null) {
+    return invalidInput("set-ticket-status");
+  }
+
+  return runTicketUpdateAction("set-ticket-status", () =>
+    services.taskService.updateStatus(actor, id, { baseStatusId, statusId }),
+  );
+};
+
 /** Reads how the children of an archived or deleted ticket are handled; absent means all go along. */
 function readChildHandling(formData: FormData): ChildHandling | null {
   const value = readText(formData, "children") ?? "include";
@@ -162,6 +227,25 @@ export const handleArchiveTask: TaskActionHandler = async ({
     return invalidInput("archive-task");
   }
 
+  if (formData.get("boardLocal") === "true") {
+    return runTicketImpactAction("archive-task", async () => {
+      const before = await services.taskService.getById(actor, id);
+      const impact = await services.taskService.archiveWithImpact(
+        actor,
+        id,
+        handling,
+      );
+      const ids = impact.parentId
+        ? [...impact.ticketIds, impact.parentId]
+        : impact.ticketIds;
+      return ticketImpact(services.taskService, actor, {
+        key: before.key,
+        rootId: id,
+        ids,
+      });
+    });
+  }
+
   return runTaskAction("archive-task", () =>
     services.taskService.archive(actor, id, handling),
   );
@@ -177,6 +261,21 @@ export const handleRestoreTask: TaskActionHandler = async ({
 
   if (id === null) {
     return invalidInput("restore-task");
+  }
+
+  if (formData.get("boardLocal") === "true") {
+    return runTicketImpactAction("restore-task", async () => {
+      const before = await services.taskService.getById(actor, id);
+      const impact = await services.taskService.restoreWithImpact(actor, id);
+      const ids = impact.parentId
+        ? [...impact.ticketIds, impact.parentId]
+        : impact.ticketIds;
+      return ticketImpact(services.taskService, actor, {
+        key: before.key,
+        rootId: id,
+        ids,
+      });
+    });
   }
 
   return runTaskAction("restore-task", () =>
@@ -218,6 +317,21 @@ export const handleSetDepartment: TaskActionHandler = async ({
     return invalidInput("set-department");
   }
 
+  if (formData.has("expectedDepartmentId")) {
+    const expectedText = readText(formData, "expectedDepartmentId");
+    if (expectedText === null) return invalidInput("set-department");
+    const expected = expectedText.trim() || null;
+    return runTicketUpdateAction("set-department", async () => {
+      await services.taskService.setDepartment(
+        actor,
+        id,
+        departmentId,
+        expected,
+      );
+      return services.taskService.getById(actor, id);
+    });
+  }
+
   return runTaskAction("set-department", () =>
     services.taskService.setDepartment(actor, id, departmentId),
   );
@@ -234,6 +348,51 @@ export const handleMoveProject: TaskActionHandler = async ({
 
   if (id === null || targetProjectId === null) {
     return invalidInput("move-project");
+  }
+
+  if (formData.has("expectedSnapshot") || formData.has("baseProjectId")) {
+    const expectedText = readText(formData, "expectedSnapshot");
+    const projectId = readRequiredText(formData, "baseProjectId");
+    const issueText = readText(formData, "baseGithubIssueNumber");
+    const fields = expectedText && parseTaskUpdateSnapshot(expectedText);
+    const githubIssueNumber = issueText === "" ? null : Number(issueText);
+    if (
+      !fields ||
+      projectId === null ||
+      issueText === null ||
+      (githubIssueNumber !== null &&
+        (!Number.isSafeInteger(githubIssueNumber) || githubIssueNumber < 1))
+    ) {
+      return invalidInput("move-project");
+    }
+    if (formData.get("boardLocal") === "true") {
+      return runTicketImpactAction("move-project", async () => {
+        const before = await services.taskService.getById(actor, id);
+        const ticket = await services.taskService.moveToProject(
+          actor,
+          id,
+          targetProjectId,
+          {
+            fields,
+            githubIssueNumber,
+            projectId,
+          },
+        );
+        return movedTicketImpact(
+          services.taskService,
+          actor,
+          ticket,
+          before.parentId,
+        );
+      });
+    }
+    return runTicketAction("move-project", () =>
+      services.taskService.moveToProject(actor, id, targetProjectId, {
+        fields,
+        githubIssueNumber,
+        projectId,
+      }),
+    );
   }
 
   return runTicketAction("move-project", () =>

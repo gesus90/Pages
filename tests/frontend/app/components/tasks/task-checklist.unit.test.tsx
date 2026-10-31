@@ -72,12 +72,17 @@ it.each([false, true])(
   "submits the opposite checked state (currently %s)",
   (isDone) => {
     renderChecklist({ items: [{ ...item, isDone }] });
-    const toggle = screen.getByRole("button", { pressed: isDone });
+    const toggle = screen.getByRole("button", {
+      name: "Toggle criterion Review changes",
+      pressed: isDone,
+    });
     fireEvent.click(toggle);
     expect(submit).toHaveBeenCalledExactlyOnceWith(
       {
         intent: "checklist-toggle",
         checklistItemId: "criterion",
+        baseTitle: "Review changes",
+        baseIsDone: String(isDone),
         isDone: isDone ? "false" : "true",
       },
       { method: "post" },
@@ -90,7 +95,12 @@ it("removes an item by its identifier", () => {
   renderChecklist({ items: [item] });
   fireEvent.click(screen.getByRole("button", { name: /remove/i }));
   expect(submit).toHaveBeenCalledExactlyOnceWith(
-    { intent: "checklist-delete", checklistItemId: item.id },
+    {
+      intent: "checklist-delete",
+      checklistItemId: item.id,
+      baseTitle: item.title,
+      baseIsDone: "false",
+    },
     { method: "post" },
   );
 });

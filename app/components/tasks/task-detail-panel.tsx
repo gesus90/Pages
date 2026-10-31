@@ -3,7 +3,7 @@ import { DetailDialogs } from "@/app/components/tasks/detail/detail-dialogs";
 import { DetailHeader } from "@/app/components/tasks/detail/detail-header";
 import { useDetailPanelState } from "@/app/components/tasks/detail/use-detail-panel-state";
 import { useTaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
-import { ForegroundPanel } from "@/app/components/ui/foreground-panel";
+import { TaskPanelError } from "@/app/components/tasks/detail/task-panel-error";
 
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
@@ -44,6 +44,7 @@ interface TaskDetailPanelProps {
   readonly onOpenTask: (key: string) => void;
   readonly onCreateSubtask: (parentTask: WorkItemDetail) => void;
   readonly onSelectTask: (key: string) => void;
+  readonly onRefresh: () => void;
   readonly isArchiving?: boolean;
   readonly isSyncing?: boolean;
 }
@@ -70,14 +71,16 @@ export function TaskDetailPanel({
   onEdit,
   onOpenTask,
   onSelectTask,
+  onRefresh,
   isArchiving = false,
   isSyncing = false,
 }: TaskDetailPanelProps): React.ReactElement {
   const actions = useTaskPanelActions(task);
-  const dialogs = useDetailPanelState(onClose);
+  const dialogs = useDetailPanelState();
 
   return (
-    <ForegroundPanel aria-label={`${task.key} ${task.title}`}>
+    <div className="flex h-full min-h-0 flex-col">
+      <TaskPanelError />
       <DetailHeader
         descendants={descendants}
         isArchived={task.archivedAt !== null}
@@ -105,6 +108,7 @@ export function TaskDetailPanel({
         onCreateSubtask={onCreateSubtask}
         onEditLabels={() => dialogs.setIsLabelPickerOpen(true)}
         onOpenTask={onOpenTask}
+        onRefresh={onRefresh}
         onChangeProject={dialogs.openMoveDialog}
         onSelectTask={onSelectTask}
         projects={projects}
@@ -130,6 +134,6 @@ export function TaskDetailPanel({
         taskLabels={taskLabels}
         workItems={workItems}
       />
-    </ForegroundPanel>
+    </div>
   );
 }

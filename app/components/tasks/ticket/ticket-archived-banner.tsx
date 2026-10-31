@@ -25,6 +25,7 @@ export function TicketArchivedBanner({
       {canWrite ? (
         <Form method="post">
           <input name="intent" type="hidden" value="restore-task" />
+          <input name="boardLocal" type="hidden" value="true" />
           <input name="id" type="hidden" value={ticketId} />
           <Button
             className="h-8 px-3 text-xs"

@@ -5,6 +5,17 @@ import { invalidInput, runTaskAction } from "./task-action-support.server";
 
 import type { TaskActionHandler } from "./task-action-support.server";
 
+/** Reads the displayed checklist item for an optional conditional change. */
+function readChecklistBase(
+  formData: FormData,
+): { readonly title: string; readonly isDone: boolean } | null | undefined {
+  const title = readText(formData, "baseTitle");
+  const isDone = formData.get("baseIsDone");
+  if (title === null && isDone === null) return undefined;
+  if (title === null || (isDone !== "true" && isDone !== "false")) return null;
+  return { title, isDone: isDone === "true" };
+}
+
 /** Creates a label in the global catalog. */
 export const handleCreateLabel: TaskActionHandler = async ({
   actor,
@@ -120,17 +131,27 @@ export const handleToggleChecklistItem: TaskActionHandler = async ({
   services,
 }) => {
   const checklistItemId = readRequiredText(formData, "checklistItemId");
+  const expected = readChecklistBase(formData);
 
-  if (checklistItemId === null) {
+  if (checklistItemId === null || expected === null) {
     return invalidInput("checklist-toggle");
   }
 
   return runTaskAction("checklist-toggle", async () => {
-    await services.taskService.setChecklistItemDone(
-      actor,
-      checklistItemId,
-      formData.get("isDone") === "true",
-    );
+    const isDone = formData.get("isDone") === "true";
+    if (expected)
+      await services.taskService.setChecklistItemDone(
+        actor,
+        checklistItemId,
+        isDone,
+        expected,
+      );
+    else
+      await services.taskService.setChecklistItemDone(
+        actor,
+        checklistItemId,
+        isDone,
+      );
   });
 };
 
@@ -141,13 +162,20 @@ export const handleDeleteChecklistItem: TaskActionHandler = async ({
   services,
 }) => {
   const checklistItemId = readRequiredText(formData, "checklistItemId");
+  const expected = readChecklistBase(formData);
 
-  if (checklistItemId === null) {
+  if (checklistItemId === null || expected === null) {
     return invalidInput("checklist-delete");
   }
 
   return runTaskAction("checklist-delete", () =>
-    services.taskService.deleteChecklistItem(actor, checklistItemId),
+    expected
+      ? services.taskService.deleteChecklistItem(
+          actor,
+          checklistItemId,
+          expected,
+        )
+      : services.taskService.deleteChecklistItem(actor, checklistItemId),
   );
 };
 

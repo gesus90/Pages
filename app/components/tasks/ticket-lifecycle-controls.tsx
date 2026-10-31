@@ -47,6 +47,7 @@ export function TicketLifecycleControls({
       {canWrite && isArchived ? (
         <Form method="post">
           <input name="intent" type="hidden" value="restore-task" />
+          <input name="boardLocal" type="hidden" value="true" />
           <input name="id" type="hidden" value={ticket.id} />
           <Button
             className="w-full gap-1.5"
