@@ -11,7 +11,7 @@ import {
 } from "./AgentParameters";
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planValueIssue } from "./AgentPlanValue";
-import { hasPlanPath } from "./AgentPlanPath";
+import { hasPlanPath, planPredecessors } from "./AgentPlanPath";
 import { planScriptIssues, planScriptParameters } from "./AgentPlanScript";
 import { scriptReportGraphIssues } from "./AgentPlanScriptReportGraph";
 
@@ -407,12 +407,6 @@ function placeholderIssues(
   input: { readonly markdown: string; readonly plan: AgentPlanInput },
 ): AgentPlanIssue[] {
   const named = placeholderNames(input.markdown);
-  const candidates = input.plan.nodes.filter(
-    (node) =>
-      node.type === "agent" &&
-      node.id !== step.id &&
-      hasPlanPath(input.plan.edges, node.id, step.id),
-  ).length;
   return parameters.flatMap((parameter): AgentPlanIssue[] => {
     if (parameter.type !== "text" || !named.has(parameter.name)) return [];
     const binding = step.bindings[parameter.name];
@@ -429,10 +423,23 @@ function placeholderIssues(
       {
         nodeId: step.id,
         port: parameter.name,
-        reason: candidates > 1 ? "resultAmbiguous" : "resultMissing",
+        reason: missingResultReason(step, input.plan),
       },
     ];
   });
+}
+
+/** Whether the unfilled input has several agents before it to choose from, or none to take. */
+function missingResultReason(
+  step: AgentPlanStep,
+  plan: AgentPlanInput,
+): "resultAmbiguous" | "resultMissing" {
+  const predecessors = planPredecessors(plan.edges, step.id);
+  const candidates = plan.nodes.filter(
+    (node) =>
+      node.type === "agent" && node.id !== step.id && predecessors.has(node.id),
+  ).length;
+  return candidates > 1 ? "resultAmbiguous" : "resultMissing";
 }
 
 function requiredParameterIssues(

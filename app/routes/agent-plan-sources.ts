@@ -29,7 +29,8 @@ export async function loader({
       const workspace = query.get("workspaceId");
       const plan = query.get("planId");
       const workspaceId = workspace === null ? null : readPlanText(workspace);
-      const page = await services.agentPlanService.page(user.id, {
+      // The marker covers catalog and access only; runs and control have their own channel.
+      const page = await services.agentPlanService.context(user.id, {
         planId: plan === null ? null : readPlanText(plan),
         workspaceId,
       });

@@ -10,7 +10,7 @@ import { routeArguments } from "../server-lib/route-arguments";
 
 import type { AgentPlanView } from "@/definition/AgentPlan";
 
-const service = vi.hoisted(() => ({ visible: vi.fn(), page: vi.fn() }));
+const service = vi.hoisted(() => ({ summaries: vi.fn(), page: vi.fn() }));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async () => ({ agentPlanService: service }),
 }));
@@ -36,7 +36,7 @@ function plan(id: string, name: string, ownerId = "owner"): AgentPlanView {
 
 /** The readable plans of the synthetic person; every other identifier is missing or hidden. */
 function serve(plans: readonly AgentPlanView[]): void {
-  service.visible.mockResolvedValue(plans);
+  service.summaries.mockResolvedValue(plans);
   service.page.mockImplementation(
     async (
       userId: string,
@@ -88,7 +88,7 @@ it("redirects to the readable plan named Task2 when the address names no plan", 
   expect(redirect.headers.get("Cache-Control")).toBe("no-store");
   // The opened page commits the selection; the redirect itself stores nothing.
   expect(redirect.headers.get("Set-Cookie")).toBeNull();
-  expect(service.visible).toHaveBeenCalledExactlyOnceWith("owner");
+  expect(service.summaries).toHaveBeenCalledExactlyOnceWith("owner");
   expect(service.page).toHaveBeenCalledExactlyOnceWith("owner", {
     planId: "task-two",
     workspaceId: null,
@@ -102,7 +102,7 @@ it("lets a plan identifier in the address take precedence over Task2", async () 
   const page = await open("?planId=alpha");
   expect(page.opening).toBe("requested");
   expect(page.selected?.id).toBe("alpha");
-  expect(service.visible).not.toHaveBeenCalled();
+  expect(service.summaries).not.toHaveBeenCalled();
 });
 
 it("leaves the canvas empty for a missing or hidden plan instead of opening Task2", async () => {
@@ -114,7 +114,7 @@ it("leaves the canvas empty for a missing or hidden plan instead of opening Task
     planId: null,
     workspaceId: null,
   });
-  expect(service.visible).not.toHaveBeenCalled();
+  expect(service.summaries).not.toHaveBeenCalled();
 });
 
 it("treats a malformed plan identifier like a missing plan without looking it up", async () => {

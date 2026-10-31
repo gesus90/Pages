@@ -177,9 +177,20 @@ export function renderRouted(
 /** The synthetic plan action: what it answers and what it received. */
 export interface PlanActionScene {
   answer: AgentPlanActionResult;
+  /** Answers given to the next submissions, one each, before `answer` applies. */
+  readonly answers?: AgentPlanActionResult[];
   readonly submissions: FormData[];
   /** Holds the answer until it resolves, so the pending state stays visible. */
   hold?: Promise<void>;
+  /**
+   * Gives the route a loader whose reload follows every answer, which `reload` can hold.
+   *
+   * @remarks
+   * A route with a loader renders after the first load, so such a scene is awaited.
+   */
+  readonly hasLoader?: boolean;
+  /** Holds the reload of the page data that follows an answer. */
+  reload?: Promise<void>;
 }
 
 /** An action that answers with the given result, by default an accepted save. */
@@ -224,10 +235,18 @@ export function renderWithEditor(
       {
         path: "/agents/plans",
         element: <EditorHarness page={page} subject={subject} />,
+        ...(scene.hasLoader
+          ? {
+              loader: async () => {
+                await scene.reload;
+                return null;
+              },
+            }
+          : {}),
         action: async ({ request }) => {
           scene.submissions.push(await request.formData());
           await scene.hold;
-          return scene.answer;
+          return scene.answers?.shift() ?? scene.answer;
         },
       },
       { path: "*", element: <p>Elsewhere</p> },

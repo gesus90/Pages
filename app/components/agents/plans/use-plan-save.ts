@@ -18,7 +18,7 @@ function saveResult(
   editor: ReturnType<typeof usePlanEditor>,
 ): "saved" | { readonly error: string } | null {
   const result = editor.command.data;
-  if (editor.isPending || result?.intent !== "save-plan") return null;
+  if (editor.isSaving || result?.intent !== "save-plan") return null;
   return result.ok ? "saved" : { error: result.error };
 }
 
@@ -27,8 +27,10 @@ function saveResult(
  *
  * @remarks
  * Saving stays explicit; an unchanged plan is not stored again. A stored plan
- * is confirmed by the document toast; a refusal stays until it is closed or
- * the next save succeeds.
+ * is confirmed by the document toast as soon as the server answered; a
+ * refusal of a save the person asked for with the button or the keyboard
+ * stays until it is closed or the next save succeeds. Ctrl+S during a save
+ * waits for that save instead of being ignored.
  */
 export function usePlanSave(
   editor: ReturnType<typeof usePlanEditor>,
@@ -38,7 +40,8 @@ export function usePlanSave(
   readonly dismiss: () => void;
 } {
   const { t } = useTranslation();
-  const [request, setRequest] = useState<"save" | "readOnly" | null>(null);
+  const [isReadOnlyShown, setReadOnlyShown] = useState(false);
+  const [dismissed, setDismissed] = useState(editor.command.data);
   const handled = useRef(editor.command.data);
   const result = saveResult(editor);
   const isSaved = result === "saved";
@@ -49,19 +52,30 @@ export function usePlanSave(
     showSuccessToast(t("plans.saved"));
   }, [isSaved, editor.command.data, t]);
   usePlanSaveShortcut(() => {
-    if (!hasPlan || editor.isPending) return;
+    if (!hasPlan || (editor.isPending && !editor.isSaving)) return;
     if (!editor.canEdit) {
-      setRequest("readOnly");
+      setReadOnlyShown(true);
       return;
     }
-    setRequest("save");
+    setReadOnlyShown(false);
     if (editor.isDirty || editor.graph.hasPendingMove()) editor.save();
     else showSuccessToast(t("plans.saved"));
   });
   let feedback: PlanSaveFeedback | null = null;
-  if (request === "readOnly") feedback = { kind: "readOnly" };
-  if (request === "save" && editor.isPending) feedback = { kind: "saving" };
-  if (request === "save" && result !== null && result !== "saved")
+  if (isReadOnlyShown) feedback = { kind: "readOnly" };
+  if (editor.isExplicitSave && editor.isSaving) feedback = { kind: "saving" };
+  if (
+    editor.isExplicitSave &&
+    result !== null &&
+    result !== "saved" &&
+    editor.command.data !== dismissed
+  )
     feedback = { kind: "failed", error: result.error };
-  return { feedback, dismiss: () => setRequest(null) };
+  return {
+    feedback,
+    dismiss: () => {
+      setReadOnlyShown(false);
+      setDismissed(editor.command.data);
+    },
+  };
 }

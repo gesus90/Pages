@@ -297,7 +297,10 @@ function readParameterNode(
   return parameter;
 }
 
-function readSharing(input: unknown): NonNullable<AgentPlanInput["sharing"]> {
+/** Parses the sharing of a plan, the same way whether the whole plan or only this part is read. */
+export function readPlanSharing(
+  input: unknown,
+): NonNullable<AgentPlanInput["sharing"]> {
   const sharing = readPlanObject(input);
   const targets = readAgentTargets(sharing.targets);
   const operator = sharing.operator === undefined ? "or" : sharing.operator;
@@ -367,7 +370,7 @@ export function readPlanInput(input: unknown): AgentPlanInput {
       : { projectId: readPlanText(plan.projectId) }),
     ...(plan.sharing === undefined
       ? {}
-      : { sharing: readSharing(plan.sharing) }),
+      : { sharing: readPlanSharing(plan.sharing) }),
     ...readExecutionTarget(plan.executionTarget),
     globals: readGlobals(plan.globals),
     nodes,

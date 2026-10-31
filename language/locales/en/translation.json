@@ -4399,6 +4399,7 @@
       },
       "unsavedShort": "Unsaved changes",
       "savedShort": "Plan saved",
+      "savingShort": "Saving plan…",
       "pausingHint": "Pause requested: no waiting step starts any more; running steps finish in a controlled way. Only then is the run paused.",
       "pauseHint": "Pause starts no more waiting steps and lets running steps finish in a controlled way.",
       "resumeHint": "Resume continues from the last safe state; completed steps do not run again.",

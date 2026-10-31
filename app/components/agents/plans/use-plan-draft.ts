@@ -23,26 +23,48 @@ function initialDraft(page: AgentPlanPage): AgentPlanInput {
   };
 }
 
-function contents(draft: AgentPlanInput): string {
-  return JSON.stringify({ ...draft, revision: undefined });
+// A draft is replaced, never changed, so its text stays valid for its lifetime.
+const serialized = new WeakMap<AgentPlanInput, string>();
+
+/**
+ * The text that tells two drafts apart, without their revision.
+ *
+ * @remarks
+ * Every render compares the draft with the stored plan. Serializing a large
+ * plan each time made typing and dragging wait for `JSON.stringify`, so the
+ * text is made once per draft object.
+ */
+export function planDraftContents(draft: AgentPlanInput): string {
+  const known = serialized.get(draft);
+  if (known !== undefined) return known;
+  const text = JSON.stringify({ ...draft, revision: undefined });
+  serialized.set(draft, text);
+  return text;
 }
 
 /** The revision a finished save or start stored the submitted draft as, or `null`. */
 function storedRevision(
   result: AgentPlanActionResult | undefined,
-  isPending: boolean,
+  isSubmitting: boolean,
 ): number | null {
-  if (isPending || !result?.ok || result.revision === undefined) return null;
+  if (isSubmitting || !result?.ok || result.revision === undefined) return null;
   return result.intent === "save-plan" || result.intent === "play-plan"
     ? result.revision
     : null;
 }
 
-/** Revalidation never discards local edits; only an acknowledged save or start advances the draft revision. */
+/**
+ * Revalidation never discards local edits; only an acknowledged save or start advances the draft revision.
+ *
+ * @remarks
+ * `isSubmitting` is true while the request itself is on its way. The reload of
+ * the page data that follows does not delay the acknowledgement: the stored
+ * revision is known as soon as the server answered.
+ */
 export function usePlanDraft(
   page: AgentPlanPage,
   result: AgentPlanActionResult | undefined,
-  isPending: boolean,
+  isSubmitting: boolean,
 ): {
   readonly draft: AgentPlanInput;
   readonly setDraft: Dispatch<SetStateAction<AgentPlanInput>>;
@@ -62,29 +84,25 @@ export function usePlanDraft(
     },
     [],
   );
+  const currentDraft = useCallback(() => current.current, []);
   const [saved, setSaved] = useState(() => initialDraft(page));
   const submitted = useRef<AgentPlanInput | null>(null);
   const acknowledged =
-    storedRevision(result, isPending) === null ? null : submitted.current;
-  const isDirty = contents(draft) !== contents(acknowledged ?? saved);
+    storedRevision(result, isSubmitting) === null ? null : submitted.current;
+  const isDirty =
+    planDraftContents(draft) !== planDraftContents(acknowledged ?? saved);
   useEffect(() => {
-    const revision = storedRevision(result, isPending);
+    const revision = storedRevision(result, isSubmitting);
     if (revision === null || !submitted.current) return;
     const snapshot = submitted.current;
     const persisted = { ...snapshot, revision };
     setSaved(persisted);
     // Edits made while the request ran stay unsaved on top of the stored revision.
     setDraft((previous) =>
-      contents(previous) === contents(snapshot)
+      planDraftContents(previous) === planDraftContents(snapshot)
         ? persisted
         : { ...previous, revision },
     );
-  }, [result, isPending, setDraft]);
-  return {
-    draft,
-    setDraft,
-    currentDraft: () => current.current,
-    isDirty,
-    submitted,
-  };
+  }, [result, isSubmitting, setDraft]);
+  return { draft, setDraft, currentDraft, isDirty, submitted };
 }

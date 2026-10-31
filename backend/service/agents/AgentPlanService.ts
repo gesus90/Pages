@@ -21,7 +21,8 @@ import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 
 import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { readPlanSources } from "./AgentPlanSources";
-import { readPlanPage } from "./AgentPlanPage";
+import { withReadScope } from "@/backend/database/ReadScope";
+import { readPlanContext, readPlanPage } from "./AgentPlanPage";
 import { AgentPlanControlService } from "./AgentPlanControlService";
 import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
 import { AgentPlanStartActions } from "./AgentPlanStartActions";
@@ -40,6 +41,11 @@ import { planTaskBindings } from "./AgentPlanTaskBindings";
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanCloneInput } from "./AgentPlanClone";
+import type {
+  AgentPlanContext,
+  PlanPageDependencies,
+  PlanSelection,
+} from "./AgentPlanPage";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
@@ -59,6 +65,7 @@ import type {
   AgentPlanPage,
   AgentPlanRun,
   AgentPlanSources,
+  AgentPlanSummary,
   AgentPlanTask,
   AgentPlanView,
 } from "@/definition/AgentPlan";
@@ -171,20 +178,23 @@ export class AgentPlanService {
   /** Loads only authorized plans, sources and the requesting user's execution history. */
   public async page(
     userId: string,
-    selection: {
-      readonly planId: string | null;
-      readonly workspaceId: string | null;
-    },
+    selection: PlanSelection,
   ): Promise<AgentPlanPage> {
-    return readPlanPage(
-      {
-        service: this,
-        runs: this.dependencies.runs,
-        remoteTargets: this.dependencies.remoteTargets,
-      },
-      userId,
-      selection,
-    );
+    return readPlanPage(this.pageDependencies(), userId, selection);
+  }
+
+  /**
+   * Loads the page without its run history and control state.
+   *
+   * @remarks
+   * Enough to tell whether the catalog, the access or the selected plan
+   * changed; the change check of an open editor does not need the runs.
+   */
+  public async context(
+    userId: string,
+    selection: PlanSelection,
+  ): Promise<AgentPlanContext> {
+    return readPlanContext(this.pageDependencies(), userId, selection);
   }
 
   /** The source API resolves the selected workspace's current project on the server. */
@@ -285,6 +295,17 @@ export class AgentPlanService {
   }
 
   /**
+   * Lists the plans the person may read now as summaries, ordered by name.
+   *
+   * @remarks
+   * The same plans as {@link visible} without their graphs, for everything
+   * that only names, groups or offers plans.
+   */
+  public async summaries(userId: string): Promise<readonly AgentPlanSummary[]> {
+    return this.dependencies.access.summaries(userId);
+  }
+
+  /**
    * Returns one plan the person may read now.
    *
    * @throws {AgentError} `plan_access_denied` for a missing or hidden plan alike.
@@ -365,14 +386,16 @@ export class AgentPlanService {
       planId: string,
     ) => Promise<void>,
   ): Promise<string> {
-    const plan = await this.revise(userId, id, input);
-    await this.dependencies.plans.save(
-      plan,
-      id === null,
-      journal && ((transaction) => journal(transaction, plan.id)),
-      userId,
-    );
-    return plan.id;
+    return withReadScope(async () => {
+      const plan = await this.revise(userId, id, input);
+      await this.dependencies.plans.save(
+        plan,
+        id === null,
+        journal && ((transaction) => journal(transaction, plan.id)),
+        userId,
+      );
+      return plan.id;
+    });
   }
 
   /**
@@ -536,8 +559,9 @@ export class AgentPlanService {
     userId: string,
     planId: string,
   ): Promise<AgentPlanControl> {
-    const control = await this.controls.read(userId, planId);
-    return authorizedPlanControl(this, userId, planId, control);
+    return authorizedPlanControl(this, userId, planId, () =>
+      this.controls.read(userId, planId),
+    );
   }
 
   /** Reads one own historical refusal; reading never prepares or starts execution. */
@@ -612,6 +636,14 @@ export class AgentPlanService {
   /** Completes active cancellation before application shutdown closes the database. */
   public async shutdown(): Promise<void> {
     await this.dependencies.engine.shutdown();
+  }
+
+  private pageDependencies(): PlanPageDependencies {
+    return {
+      service: this,
+      runs: this.dependencies.runs,
+      remoteTargets: this.dependencies.remoteTargets,
+    };
   }
 
   private async workspace(

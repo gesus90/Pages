@@ -1,3 +1,4 @@
+import { withReadScope } from "@/backend/database/ReadScope";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { allRunAssetReferences } from "@/backend/agents/AgentPlanRunResources";
 import { withPlanProgress } from "./AgentPlanProgressView";
@@ -6,8 +7,22 @@ import type { PlanDependencies } from "./AgentPlanService";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 
-/** Current content permissions are checked separately from ownership-only stop/reset permissions. */
+/**
+ * Current content permissions are checked separately from ownership-only stop/reset permissions.
+ *
+ * @remarks
+ * Every check reads the person, the plan and the resources it names; what
+ * several checks ask for is answered once.
+ */
 export async function readAuthorizedPlanRun(
+  dependencies: PlanDependencies,
+  userId: string,
+  id: string,
+): Promise<AgentPlanRun> {
+  return withReadScope(() => loadAuthorizedPlanRun(dependencies, userId, id));
+}
+
+async function loadAuthorizedPlanRun(
   dependencies: PlanDependencies,
   userId: string,
   id: string,

@@ -1,4 +1,4 @@
-import type { AgentPlanView } from "@/definition/AgentPlan";
+import type { AgentPlanSummary } from "@/definition/AgentPlan";
 
 /**
  * The name of the plan the editor opens when the address names no plan.
@@ -29,7 +29,7 @@ export type AgentPlanOpening =
  * @returns The plan identifier, or `null` when no readable plan carries the default name.
  */
 export function defaultPlanId(
-  plans: readonly AgentPlanView[],
+  plans: readonly Pick<AgentPlanSummary, "id" | "name" | "ownerId">[],
   userId: string,
 ): string | null {
   const candidates = plans.filter(

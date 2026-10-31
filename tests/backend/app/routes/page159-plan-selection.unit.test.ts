@@ -11,7 +11,7 @@ import { routeArguments } from "../server-lib/route-arguments";
 import type { AgentPlanView } from "@/definition/AgentPlan";
 
 const service = vi.hoisted(() => ({
-  visible: vi.fn(),
+  summaries: vi.fn(),
   page: vi.fn(),
   play: vi.fn(),
   resume: vi.fn(),
@@ -40,7 +40,7 @@ function plan(id: string, name = id, workspaceId = "workspace"): AgentPlanView {
 }
 
 function serve(plans: readonly AgentPlanView[]): void {
-  service.visible.mockResolvedValue(plans);
+  service.summaries.mockResolvedValue(plans);
   service.page.mockImplementation(
     async (
       userId: string,

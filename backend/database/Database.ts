@@ -16,6 +16,7 @@ import {
 } from "@/backend/logging/Logger";
 
 import { recordDatabaseQuery } from "./DatabaseStats";
+import { currentReadScope, readScopeKey, statementKind } from "./ReadScope";
 import {
   createMigrationChecksum,
   MigrationChecksumError,
@@ -25,6 +26,7 @@ import { readTextColumn } from "./RowValue";
 
 import type { DuckDBConnection, DuckDBValue } from "@duckdb/node-api";
 import type { Migration } from "./Migration";
+import type { ReadScope } from "./ReadScope";
 
 /** A single column value as returned by DuckDB. */
 export type DatabaseValue = string | number | bigint | Buffer | null;
@@ -109,6 +111,8 @@ export class Database {
   private readonly instance: DuckDBInstance;
   private readonly connection: DuckDBConnection;
   private readonly queue = new SerialQueue();
+  /** Counts finished writes, so a read scope knows when its answers ended. */
+  private writes = 0;
 
   private constructor(instance: DuckDBInstance, connection: DuckDBConnection) {
     this.instance = instance;
@@ -234,7 +238,7 @@ export class Database {
     statement: string,
     parameters: SqlParameters = {},
   ): Promise<void> {
-    await this.queue.run(() =>
+    await this.write(() =>
       runStatement(this.connection, statement, parameters),
     );
   }
@@ -250,9 +254,24 @@ export class Database {
     statement: string,
     parameters: SqlParameters = {},
   ): Promise<readonly DatabaseValue[][]> {
-    return this.queue.run(() =>
+    const kind = statementKind(statement);
+    if (kind === "write")
+      return this.write(() => readRows(this.connection, statement, parameters));
+    const scope = kind === "repeatable" ? currentReadScope() : undefined;
+    const key = scope ? readScopeKey(statement, parameters) : null;
+    if (!scope || key === null)
+      return this.queue.run(() =>
+        readRows(this.connection, statement, parameters),
+      );
+    // Counted before the read is queued: a write in between only costs the answer its reuse.
+    const epoch = this.writes;
+    const known = scope.find(key, epoch);
+    if (known) return known;
+    const rows = await this.queue.run(() =>
       readRows(this.connection, statement, parameters),
     );
+    scope.store(key, epoch, rows);
+    return rows;
   }
 
   /**
@@ -267,7 +286,31 @@ export class Database {
   public async transaction<Result>(
     work: (transaction: DatabaseTransaction) => Promise<Result>,
   ): Promise<Result> {
-    return this.queue.run(() => runInTransaction(this.connection, work));
+    const scope = currentReadScope();
+    return this.queue.run(async () => {
+      const progress: TransactionProgress = {
+        scope,
+        epoch: this.writes,
+        hasWritten: false,
+      };
+      try {
+        return await runInTransaction(this.connection, work, progress);
+      } finally {
+        // A transaction that only read leaves every remembered answer valid.
+        if (progress.hasWritten) this.writes += 1;
+      }
+    });
+  }
+
+  /** Runs a change inside the queue and counts it before the next statement starts. */
+  private write<Result>(work: () => Promise<Result>): Promise<Result> {
+    return this.queue.run(async () => {
+      try {
+        return await work();
+      } finally {
+        this.writes += 1;
+      }
+    });
   }
 
   private async readAppliedChecksums(): Promise<ReadonlyMap<string, string>> {
@@ -376,12 +419,70 @@ async function replayWriteAheadLog(databasePath: string): Promise<void> {
   }
 }
 
+/** What a transaction has done so far, and the read scope its reads may use. */
+interface TransactionProgress {
+  readonly scope: ReadScope | undefined;
+  /** The number of writes the database had seen when the transaction took the queue. */
+  readonly epoch: number;
+  hasWritten: boolean;
+}
+
+/**
+ * Opens the transaction on its first statement that cannot be answered from the read scope.
+ *
+ * @remarks
+ * The transaction holds the queue, so nothing runs between its start and its
+ * first statement; beginning it later changes no row it sees. A transaction
+ * whose reads were all remembered never touches the database.
+ */
+function lazyTransaction(
+  connection: DuckDBConnection,
+  progress: TransactionProgress,
+): {
+  readonly access: Pick<DatabaseTransaction, "execute" | "query">;
+  readonly isOpen: () => boolean;
+} {
+  let isOpen = false;
+  async function open(): Promise<void> {
+    if (isOpen) return;
+    await runStatement(connection, "BEGIN TRANSACTION;", {});
+    isOpen = true;
+  }
+  return {
+    isOpen: () => isOpen,
+    access: {
+      execute: async (statement, parameters = {}) => {
+        await open();
+        progress.hasWritten = true;
+        await runStatement(connection, statement, parameters);
+      },
+      query: async (statement, parameters = {}) => {
+        const kind = statementKind(statement);
+        const scope =
+          kind === "repeatable" && !progress.hasWritten
+            ? progress.scope
+            : undefined;
+        const key = scope ? readScopeKey(statement, parameters) : null;
+        const known =
+          scope && key !== null ? scope.find(key, progress.epoch) : null;
+        if (known) return known;
+        await open();
+        if (kind === "write") progress.hasWritten = true;
+        const rows = await readRows(connection, statement, parameters);
+        if (scope && key !== null) scope.store(key, progress.epoch, rows);
+        return rows;
+      },
+    },
+  };
+}
+
 async function runInTransaction<Result>(
   connection: DuckDBConnection,
   work: (transaction: DatabaseTransaction) => Promise<Result>,
+  progress: TransactionProgress,
 ): Promise<Result> {
   return withDatabaseLogMetrics(async (metrics) => {
-    await runStatement(connection, "BEGIN TRANSACTION;", {});
+    const { access, isOpen } = lazyTransaction(connection, progress);
     const commitEffects: (() => Promise<void>)[] = [];
     const rollbackEffects: (() => Promise<void>)[] = [];
 
@@ -393,13 +494,10 @@ async function runInTransaction<Result>(
         onRollback: (effect) => {
           rollbackEffects.push(effect);
         },
-        execute: (statement, parameters = {}) =>
-          runStatement(connection, statement, parameters),
-        query: (statement, parameters = {}) =>
-          readRows(connection, statement, parameters),
+        ...access,
       });
 
-      await runStatement(connection, "COMMIT;", {});
+      if (isOpen()) await runStatement(connection, "COMMIT;", {});
       await finishFileEffects(commitEffects);
       const hasParent = recordDatabaseTransaction("committed");
       const summary = metrics.finish();
@@ -416,7 +514,7 @@ async function runInTransaction<Result>(
     } catch (error: unknown) {
       logCaughtError("Database", error);
 
-      await runStatement(connection, "ROLLBACK;", {});
+      if (isOpen()) await runStatement(connection, "ROLLBACK;", {});
       await finishFileEffects(rollbackEffects.reverse());
       recordDatabaseTransaction("rolled_back");
       logEvent({

@@ -9,6 +9,12 @@ import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentPlan, AgentPlanInput } from "@/definition/AgentPlan";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 
+/** What decides who reads and changes a plan, so lists need not load its graph. */
+export type AgentPlanRights = Pick<
+  AgentPlan,
+  "ownerId" | "departmentId" | "usage" | "sharing"
+>;
+
 /**
  * Who may read and change a plan besides its owner.
  *
@@ -83,7 +89,7 @@ export class AgentPlanSharing {
   }
 
   /** Whether the person changes and runs the plan: its owner, or a member or leader of its team. */
-  public canEdit(plan: AgentPlan, viewer: AgentViewer): boolean {
+  public canEdit(plan: AgentPlanRights, viewer: AgentViewer): boolean {
     return (
       plan.ownerId === viewer.actor.userId || this.isTeamMember(plan, viewer)
     );
@@ -101,7 +107,7 @@ export class AgentPlanSharing {
   }
 
   /** Preserves legacy workspace shares and applies explicit OR/AND group and department grants. */
-  public canRead(plan: AgentPlan, viewer: AgentViewer): boolean {
+  public canRead(plan: AgentPlanRights, viewer: AgentViewer): boolean {
     if (this.canEdit(plan, viewer)) return true;
     if (plan.usage === "private") return false;
     if (!plan.sharing || plan.sharing.isGlobal) return true;

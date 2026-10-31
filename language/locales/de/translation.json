@@ -4399,6 +4399,7 @@
       },
       "unsavedShort": "Ungespeicherte Änderungen",
       "savedShort": "Plan gespeichert",
+      "savingShort": "Plan wird gespeichert …",
       "pausingHint": "Pause angefordert: Es startet kein wartender Schritt mehr; laufende Schritte werden kontrolliert abgeschlossen. Erst danach ist der Lauf pausiert.",
       "pauseHint": "Pause startet keine wartenden Schritte mehr und lässt laufende Schritte kontrolliert auslaufen.",
       "resumeHint": "Fortsetzen macht ab dem letzten sicheren Stand weiter; abgeschlossene Schritte laufen nicht erneut.",

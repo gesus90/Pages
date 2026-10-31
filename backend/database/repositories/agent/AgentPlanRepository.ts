@@ -1,5 +1,8 @@
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
-import { readPlanInput } from "@/backend/agents/AgentPlanInput";
+import {
+  readPlanInput,
+  readPlanSharing,
+} from "@/backend/agents/AgentPlanInput";
 import { requireCloneablePlan } from "@/backend/agents/AgentPlanCloneShape";
 import { isUniqueViolationOn } from "@/backend/database/Database";
 import {
@@ -18,7 +21,7 @@ import type {
   DatabaseTransaction,
   DatabaseValue,
 } from "@/backend/database/Database";
-import type { AgentPlan } from "@/definition/AgentPlan";
+import type { AgentPlan, AgentPlanInput } from "@/definition/AgentPlan";
 
 const PLAN_COLUMNS = `
     id,
@@ -41,6 +44,42 @@ function readPlan(row: readonly DatabaseValue[]): AgentPlan {
       departmentId: readNullableTextColumn(row, 5, "department_id"),
     }),
   );
+}
+
+/**
+ * What a list of plans needs of each plan: its identity and the sharing that
+ * decides who reads it, never its graph.
+ */
+export interface AgentPlanListing {
+  readonly id: string;
+  readonly name: string;
+  readonly ownerId: string;
+  readonly projectId: string;
+  readonly workspaceId: string;
+  readonly departmentId: string | null;
+  readonly usage: AgentPlanInput["usage"];
+  readonly revision: number;
+  readonly sharing?: AgentPlanInput["sharing"];
+}
+
+function readListing(row: readonly DatabaseValue[]): AgentPlanListing {
+  const usage = readTextColumn(row, 6, "usage");
+  if (usage !== "private" && usage !== "workspace")
+    throw new AgentError("plan_invalid");
+  const sharing = readNullableTextColumn(row, 8, "sharing_json");
+  return {
+    id: readTextColumn(row, 0, "id"),
+    ownerId: readTextColumn(row, 1, "owner_id"),
+    projectId: readTextColumn(row, 2, "project_id"),
+    workspaceId: readTextColumn(row, 3, "workspace_id"),
+    departmentId: readNullableTextColumn(row, 4, "department_id"),
+    name: readTextColumn(row, 5, "name"),
+    usage,
+    revision: readCountColumn(row, 7, "revision"),
+    ...(sharing === null
+      ? {}
+      : { sharing: readPlanSharing(JSON.parse(sharing)) }),
+  };
 }
 
 /**
@@ -114,6 +153,31 @@ export class AgentPlanRepository {
       ORDER BY lower(name), id;
     `);
     return rows.map(readPlan);
+  }
+
+  /**
+   * Lists every plan without its graph, in the order of {@link list}.
+   *
+   * @remarks
+   * The graph of a plan can be megabytes; it stays in the database, which
+   * hands out only the identity columns and the sharing of each plan.
+   */
+  public async listings(): Promise<readonly AgentPlanListing[]> {
+    const rows = await this.database.query(`
+      SELECT
+          id,
+          owner_id,
+          project_id,
+          workspace_id,
+          department_id,
+          name,
+          usage,
+          revision,
+          json_extract_string(plan_json, '$.sharing') AS sharing_json
+      FROM agent_plans
+      ORDER BY lower(name), id;
+    `);
+    return rows.map(readListing);
   }
 
   /** Reads a graph without introducing permission policy into persistence. */

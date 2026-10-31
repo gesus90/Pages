@@ -33,7 +33,7 @@ interface PageSelection {
 }
 
 const service = vi.hoisted(() => ({
-  visible: vi.fn<(userId: string) => Promise<readonly CatalogPlan[]>>(),
+  summaries: vi.fn<(userId: string) => Promise<readonly CatalogPlan[]>>(),
   page: vi.fn<(userId: string, selection: PageSelection) => Promise<unknown>>(),
 }));
 vi.mock("@/app/lib/auth.server", async () => {
@@ -98,7 +98,7 @@ function plan(
 
 /** Serves a catalog in which every listed plan is readable and nothing else. */
 function serve(plans: readonly CatalogPlan[]): void {
-  service.visible.mockResolvedValue(plans);
+  service.summaries.mockResolvedValue(plans);
   service.page.mockImplementation(async (userId, selection) => {
     const selected =
       selection.planId === null
@@ -110,7 +110,7 @@ function serve(plans: readonly CatalogPlan[]): void {
 }
 
 beforeEach(() => {
-  service.visible.mockReset();
+  service.summaries.mockReset();
   service.page.mockReset();
   vi.mocked(lastSelectedPlan).mockReset().mockResolvedValue(null);
   vi.mocked(planCatalogRefresh).mockReset().mockReturnValue(REFRESH);
@@ -187,7 +187,7 @@ it("pins a remembered plan in the address", async () => {
   const response = await thrown("");
 
   expect(response.headers.get("Location")).toBe("/agents/plans?planId=kept");
-  expect(service.visible).not.toHaveBeenCalled();
+  expect(service.summaries).not.toHaveBeenCalled();
 });
 
 it("opens a requested plan and remembers it without discarding another choice", async () => {
@@ -284,7 +284,7 @@ it("does not open a plan of another workspace than the requested one", async () 
 });
 
 it("falls back to the empty editor without a workspace it may not open", async () => {
-  service.visible.mockResolvedValue([]);
+  service.summaries.mockResolvedValue([]);
   service.page.mockImplementation(async (userId, selection) => {
     if (selection.workspaceId !== null)
       throw new AgentError("plan_access_denied");

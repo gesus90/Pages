@@ -8,7 +8,7 @@ import { routeArguments } from "../server-lib/route-arguments";
 import type { User } from "@/definition/User";
 
 const services = vi.hoisted(() => ({
-  agentPlanService: { agents: vi.fn(), page: vi.fn(), sources: vi.fn() },
+  agentPlanService: { agents: vi.fn(), context: vi.fn(), sources: vi.fn() },
 }));
 
 vi.mock("@/app/lib/services.server", () => ({
@@ -116,11 +116,11 @@ it.each([
 });
 
 it("tells a refresh what changed in the page of a plan", async () => {
-  plans.page.mockResolvedValue(PAGE);
+  plans.context.mockResolvedValue(PAGE);
 
   const response = await read("?refresh=1&planId=plan-1&workspaceId=w1");
 
-  expect(plans.page).toHaveBeenCalledWith(EMPLOYEE.id, {
+  expect(plans.context).toHaveBeenCalledWith(EMPLOYEE.id, {
     planId: "plan-1",
     workspaceId: "w1",
   });
@@ -129,14 +129,14 @@ it("tells a refresh what changed in the page of a plan", async () => {
 });
 
 it("answers an unchanged page of no plan with 304", async () => {
-  plans.page.mockResolvedValue(PAGE);
+  plans.context.mockResolvedValue(PAGE);
   const first = await read("?refresh=1");
 
   const second = await read("?refresh=1", {
     "If-None-Match": first.headers.get("ETag") ?? "",
   });
 
-  expect(plans.page).toHaveBeenCalledWith(EMPLOYEE.id, {
+  expect(plans.context).toHaveBeenCalledWith(EMPLOYEE.id, {
     planId: null,
     workspaceId: null,
   });

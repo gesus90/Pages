@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
@@ -99,6 +99,7 @@ export function PlanPanelHeading(
             variant="outline"
             className="h-9 px-4 text-xs font-semibold [@media(pointer:coarse)]:min-h-11"
             onClick={editor.save}
+            aria-busy={editor.isSaving}
             disabled={
               !editor.canEdit ||
               props.isPending ||
@@ -106,6 +107,12 @@ export function PlanPanelHeading(
               !editor.draft.workspaceId
             }
           >
+            {editor.isSaving ? (
+              <Loader2
+                aria-hidden="true"
+                className="mr-1.5 size-3.5 animate-spin"
+              />
+            ) : null}
             {t("plans.execution.save")}
           </Button>
           {/* On narrow screens the run controls take their own row below. */}
@@ -201,6 +208,17 @@ function PlanControlNotes(props: PlanPanelHeadingProps): React.ReactElement {
   );
 }
 
+/** Says what is true of the draft now: stored, unsaved, or being stored. */
+function saveStateLabel(
+  editor: ReturnType<typeof usePlanEditor>,
+  translate: TFunction,
+): string {
+  if (editor.isSaving) return translate("plans.panel.savingShort");
+  return translate(
+    editor.isDirty ? "plans.panel.unsavedShort" : "plans.panel.savedShort",
+  );
+}
+
 /** Distinguishes the editable revision from a currently active execution basis. */
 function PlanRevisionStatus({
   editor,
@@ -212,9 +230,7 @@ function PlanRevisionStatus({
       {t("plans.execution.editRevision", {
         revision: editor.draft.revision ?? 0,
       })}
-      {editor.isDirty
-        ? ` · ${t("plans.panel.unsavedShort")}`
-        : ` · ${t("plans.panel.savedShort")}`}
+      {` · ${saveStateLabel(editor, t)}`}
       {isActiveControl(control) && control?.runId
         ? ` · ${t("plans.execution.activeSnapshot", { revision: control.planRevision })}`
         : null}

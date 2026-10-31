@@ -76,10 +76,18 @@ function planReadiness(
   return control ? control.canPlay && !isDirty : undefined;
 }
 
-/** An existing drag may finish during its save, but other pending commands stay locked. */
+/**
+ * The canvas stays editable while a save runs; other pending commands lock it.
+ *
+ * @remarks
+ * Edits made during a save stay unsaved on top of the revision that save
+ * stores, and the next save carries them. An existing drag may also finish
+ * while the sources of a new workspace load.
+ */
 function canEditCanvas(editor: ReturnType<typeof usePlanEditor>): boolean {
   if (!editor.canEdit || !editor.draft.workspaceId) return false;
   if (!editor.isPending) return true;
+  if (editor.isSaving && !editor.isLoadingSources) return true;
   return (
     editor.command.formData?.get("intent") === "save-plan" &&
     editor.graph.isMoving

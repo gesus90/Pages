@@ -75,7 +75,8 @@ it("drops an unknown or missing workspace from the refresh address", () => {
 it("derives the change marker from the authorized context but not from runs", () => {
   const page = pageOf(PLAN);
   const refresh = planCatalogRefresh(page, null);
-  const withRuns = planCatalogRefresh({ ...page, runs: [] }, null);
+  const pageWithRuns: AgentPlanPage = { ...page, runs: [] };
+  const withRuns = planCatalogRefresh(pageWithRuns, null);
 
   expect(refresh.etag).toBe(
     planPollingEtag({

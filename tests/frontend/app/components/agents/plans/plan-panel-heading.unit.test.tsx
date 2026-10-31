@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import {
@@ -92,6 +92,32 @@ it("names the plan in its workspace and saves only an edited draft", async () =>
   await waitFor(() => expect(scene.submissions).toHaveLength(1));
   expect(scene.submissions[0].get("intent")).toBe("save-plan");
   expect(screen.queryByRole("status")).toBeNull();
+});
+
+it("shows the save as running until the server has answered and only then as stored", async () => {
+  let release = (): void => undefined;
+  const { scene } = renderHeading(planPage());
+  scene.answer = { ok: true, intent: "save-plan", revision: 4 };
+  scene.hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Edit draft" }));
+  fireEvent.click(saveButton());
+
+  await waitFor(() =>
+    expect(revisionLine()).toBe(
+      `Revision 3 · ${i18n.t("plans.panel.savingShort")}`,
+    ),
+  );
+  expect(saveButton().getAttribute("aria-busy")).toBe("true");
+  act(() => release());
+
+  await waitFor(() =>
+    expect(revisionLine()).toBe(
+      `Revision 4 · ${i18n.t("plans.panel.savedShort")}`,
+    ),
+  );
+  expect(saveButton().getAttribute("aria-busy")).not.toBe("true");
 });
 
 it("keeps saving closed while a request is on its way or the person may not edit", () => {

@@ -171,6 +171,29 @@ export interface AgentPlanView extends AgentPlan {
   readonly github: WorkspaceGitHub | null;
 }
 
+/**
+ * A plan as lists and name checks need it: who owns it, where it belongs and
+ * whether the person changes it, without its graph.
+ *
+ * @remarks
+ * The editor page carries one summary for every plan the person may read and
+ * the whole {@link AgentPlanView} only for the plan it shows.
+ */
+export interface AgentPlanSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly ownerId: string;
+  readonly projectId: string;
+  readonly projectName: string;
+  readonly workspaceId: string;
+  readonly departmentId?: string | null;
+  readonly usage: AgentPlanInput["usage"];
+  readonly revision: number;
+  /** The registration is gone; the plan remains editable but cannot start until reassigned. */
+  readonly isWorkspaceMissing?: boolean;
+  readonly canEdit: boolean;
+}
+
 /** The source set exposes only readable task metadata, including subtasks. */
 export interface AgentPlanTask {
   readonly id: string;
@@ -213,7 +236,7 @@ export interface AgentPlanPage {
   /** The department a plan created now would belong to; `null` when the person has none or several. */
   readonly teamDepartmentId?: string | null;
   readonly control?: AgentPlanControl;
-  readonly plans: readonly AgentPlanView[];
+  readonly plans: readonly AgentPlanSummary[];
   readonly workspaces: readonly AgentWorkspaceChoice[];
   /** The remote workspaces the person may see, the remote choices of a plan target. */
   readonly remoteWorkspaces?: readonly AgentPlanRemoteChoice[];

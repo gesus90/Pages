@@ -266,7 +266,7 @@ async function openPlan(
   const planId =
     selection.planId === null
       ? defaultPlanId(
-          (await service.visible(userId)).filter(
+          (await service.summaries(userId)).filter(
             (plan) =>
               selection.workspaceId === null ||
               plan.workspaceId === selection.workspaceId,

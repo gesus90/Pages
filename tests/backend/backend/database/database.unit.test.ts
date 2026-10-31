@@ -1,12 +1,13 @@
 import { mkdir } from "node:fs/promises";
 
-import { beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   Database,
   IN_MEMORY_DATABASE_PATH,
   isUniqueViolationOn,
 } from "@/backend/database/Database";
+import { withReadScope } from "@/backend/database/ReadScope";
 import {
   MigrationChecksumError,
   UnknownMigrationError,
@@ -411,4 +412,171 @@ it("recognizes a duplicate key of the named column only", () => {
   expect(isUniqueViolationOn(duplicate, "username")).toBe(true);
   expect(isUniqueViolationOn(duplicate, "email")).toBe(false);
   expect(isUniqueViolationOn("Duplicate key", "username")).toBe(false);
+});
+
+describe("reads that repeat inside one unit of work", () => {
+  const READ = "SELECT id FROM projects WHERE id = $id;";
+
+  it("asks the database once for the same read and hands out equal rows", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    engine.resultRows = [["a", 1]];
+
+    const answers = await withReadScope(async () => [
+      await database.query(READ, { id: "p1" }),
+      await database.query(READ, { id: "p1" }),
+    ]);
+
+    expect(trace()).toEqual([READ]);
+    expect(answers[1]).toEqual(answers[0]);
+    expect(answers[1]).not.toBe(answers[0]);
+  });
+
+  it("asks every time outside a unit of work", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+
+    await database.query(READ, { id: "p1" });
+    await database.query(READ, { id: "p1" });
+
+    expect(trace()).toEqual([READ, READ]);
+  });
+
+  it("asks again for other values and in another unit of work", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+
+    await withReadScope(async () => {
+      await database.query(READ, { id: "p1" });
+      await database.query(READ, { id: "p2" });
+    });
+    await withReadScope(async () => database.query(READ, { id: "p1" }));
+
+    expect(trace()).toEqual([READ, READ, READ]);
+  });
+
+  it("asks again after any write, whoever made it", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+
+    await withReadScope(async () => {
+      await database.query(READ, { id: "p1" });
+      await database.execute("UPDATE projects SET name = 'x';");
+      await database.query(READ, { id: "p1" });
+      await database.query("INSERT INTO t VALUES (1) RETURNING id;");
+      await database.query(READ, { id: "p1" });
+    });
+
+    expect(trace()).toEqual([
+      READ,
+      "UPDATE projects SET name = 'x';",
+      READ,
+      "INSERT INTO t VALUES (1) RETURNING id;",
+      READ,
+    ]);
+  });
+
+  it("sees the write of another unit of work that ran in between", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+
+    await withReadScope(async () => {
+      await database.query(READ, { id: "p1" });
+      await Promise.resolve(
+        withReadScope(async () =>
+          database.execute("UPDATE projects SET name = 'x';"),
+        ),
+      );
+      await database.query(READ, { id: "p1" });
+    });
+
+    expect(trace()).toEqual([READ, "UPDATE projects SET name = 'x';", READ]);
+  });
+
+  it("never repeats a read whose answer changes by itself or that takes a number", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+
+    await withReadScope(async () => {
+      await database.query("SELECT utc_now();");
+      await database.query("SELECT utc_now();");
+      await database.query("SELECT nextval('numbers');");
+      await database.query("SELECT nextval('numbers');");
+    });
+
+    expect(trace()).toHaveLength(4);
+  });
+});
+
+describe("transactions inside one unit of work", () => {
+  const READ = "SELECT id FROM projects WHERE id = $id;";
+
+  it("keeps a transaction that only reads off the database when the scope knows the answer", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    engine.resultRows = [["a", 1]];
+
+    const rows = await withReadScope(async () => {
+      await database.query(READ, { id: "p1" });
+      return database.transaction(async (transaction) =>
+        transaction.query(READ, { id: "p1" }),
+      );
+    });
+
+    expect(rows).toEqual([["a", 1]]);
+    expect(trace()).toEqual([READ]);
+  });
+
+  it("opens the transaction for the first read the scope cannot answer and at its first write", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+
+    await withReadScope(async () => {
+      await database.query(READ, { id: "p1" });
+      await database.transaction(async (transaction) => {
+        await transaction.query(READ, { id: "p1" });
+        await transaction.query(READ, { id: "p2" });
+        await transaction.execute("UPDATE projects SET name = 'x';");
+        await transaction.query(READ, { id: "p1" });
+      });
+    });
+
+    expect(trace()).toEqual([
+      READ,
+      "begin",
+      READ,
+      "UPDATE projects SET name = 'x';",
+      READ,
+      "commit",
+    ]);
+  });
+
+  it("asks again after a transaction that wrote, even one that was rolled back", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+
+    await withReadScope(async () => {
+      await database.query(READ, { id: "p1" });
+      await database
+        .transaction(async (transaction) => {
+          await transaction.execute("UPDATE projects SET name = 'x';");
+          throw new Error("refused");
+        })
+        .catch(() => undefined);
+      await database.query(READ, { id: "p1" });
+    });
+
+    expect(trace()).toEqual([
+      READ,
+      "begin",
+      "UPDATE projects SET name = 'x';",
+      "rollback",
+      READ,
+    ]);
+  });
+
+  it("does not forget the answers when a transaction only read", async () => {
+    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+
+    await withReadScope(async () => {
+      await database.query(READ, { id: "p1" });
+      await database.transaction(async (transaction) =>
+        transaction.query(READ, { id: "p2" }),
+      );
+      await database.query(READ, { id: "p1" });
+    });
+
+    expect(trace()).toEqual([READ, "begin", READ, "commit"]);
+  });
 });

@@ -233,3 +233,63 @@ describe("ticket node at execution", () => {
     expect(prepared.tickets?.["ticket-id"]?.markdown).toContain("# SYN-55");
   });
 });
+
+describe("an input that nothing fills", () => {
+  const FLOW = { fromPort: "flow-out", toPort: "flow-in" } as const;
+
+  function agentStep(id: string): AgentPlanStep {
+    return { ...STEP, id, bindings: {} };
+  }
+
+  function chain(ids: readonly string[]): AgentPlan {
+    const steps = ids.map(agentStep);
+    return {
+      ...ticketPlan(),
+      nodes: [
+        { id: "start", type: "start", x: 0, y: 40 },
+        ...steps,
+        { id: "end", type: "end", x: 800, y: 40 },
+      ],
+      edges: ["start", ...ids, "end"].slice(1).map((to, index) => ({
+        from: ["start", ...ids, "end"][index],
+        to,
+        ...FLOW,
+      })),
+    };
+  }
+
+  function notesIssue(plan: AgentPlan, nodeId: string): string | undefined {
+    return planExecutionIssues(plan, [AGENT]).find(
+      (issue) => issue.nodeId === nodeId && issue.port === "notes",
+    )?.reason;
+  }
+
+  it("is missing when at most one agent comes before it", () => {
+    const plan = chain(["first", "second"]);
+
+    expect(notesIssue(plan, "first")).toBe("resultMissing");
+    expect(notesIssue(plan, "second")).toBe("resultMissing");
+  });
+
+  it("is ambiguous when several agents come before it", () => {
+    const plan = chain(["first", "second", "third"]);
+
+    expect(notesIssue(plan, "third")).toBe("resultAmbiguous");
+    expect(notesIssue(plan, "second")).toBe("resultMissing");
+  });
+
+  it("does not count an agent that merely runs beside it", () => {
+    const plan: AgentPlan = {
+      ...chain(["left", "right"]),
+      edges: [
+        { from: "start", to: "left", ...FLOW },
+        { from: "start", to: "right", ...FLOW },
+        { from: "left", to: "end", ...FLOW },
+        { from: "right", to: "end", ...FLOW },
+      ],
+    };
+
+    expect(notesIssue(plan, "left")).toBe("resultMissing");
+    expect(notesIssue(plan, "right")).toBe("resultMissing");
+  });
+});

@@ -1,3 +1,4 @@
+import { withReadScope } from "@/backend/database/ReadScope";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
@@ -65,17 +66,31 @@ export async function readPlanControlRun(
   }
 }
 
-/** Control-only projection keeps Stop and reviewed restart available without denied history. */
+/**
+ * Control-only projection keeps Stop and reviewed restart available without denied history.
+ *
+ * @remarks
+ * The control state and the checks of its run are read in one scope, so what
+ * both ask for again is answered once.
+ */
 export async function authorizedPlanControl(
   plans: Pick<AgentPlanService, "controlRun" | "run">,
   userId: string,
   planId: string,
-  control: AgentPlanControl,
+  read: () => Promise<AgentPlanControl>,
 ): Promise<AgentPlanControl> {
-  if (!control.canEdit || !control.runId) return control;
-  const access = await readPlanControlRun(plans, userId, planId, control.runId);
-  if (access.hasHistoryAccess) return control;
-  return controlOnlyPlanControl(control, access);
+  return withReadScope(async () => {
+    const control = await read();
+    if (!control.canEdit || !control.runId) return control;
+    const access = await readPlanControlRun(
+      plans,
+      userId,
+      planId,
+      control.runId,
+    );
+    if (access.hasHistoryAccess) return control;
+    return controlOnlyPlanControl(control, access);
+  });
 }
 
 /** Shares the same denied-history allowlist between UI polling and the MCP projection. */

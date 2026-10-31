@@ -7,6 +7,7 @@ import { readPlanConfiguration } from "@/backend/agents/AgentPlanConfigurationIn
 import { usePlanDraft } from "./use-plan-draft";
 import { usePlanGraph } from "./use-plan-graph";
 import { usePlanSources } from "./use-plan-sources";
+import { isSaveCommand, usePlanSubmission } from "./use-plan-submission";
 
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
@@ -40,11 +41,23 @@ export function usePlanEditor(page: AgentPlanPage): {
   readonly command: ReturnType<typeof useFetcher<AgentPlanActionResult>>;
   readonly isDirty: boolean;
   readonly canEdit: boolean;
+  /**
+   * Whether a command or the sources of a new workspace are on their way.
+   *
+   * @remarks
+   * The reload of the page data after a stored save does not count: the save
+   * is answered by then and the person keeps working.
+   */
   readonly isPending: boolean;
+  /** Whether a save request is on its way and not yet answered. */
+  readonly isSaving: boolean;
+  readonly isLoadingSources: boolean;
   readonly sourceError: string | null;
   readonly tickets: PlanTicketRefresh;
   /** The plan name the last save carried; `null` before any save. */
   readonly submittedName: string | null;
+  /** Whether the person asked for the last save with the save button or Ctrl+S, not through a dialog. */
+  readonly isExplicitSave: boolean;
   readonly save: () => void;
   /** Applies a change to the draft and saves the result in the same step. */
   readonly saveWith: (
@@ -62,11 +75,19 @@ export function usePlanEditor(page: AgentPlanPage): {
         `/agents/plans?planId=${encodeURIComponent(command.data.planId)}`,
       );
   }, [command.data, page.selected, navigate]);
+  const isSubmitting = command.state === "submitting";
   const { draft, setDraft, currentDraft, isDirty, submitted } = usePlanDraft(
     page,
     command.data,
-    command.state !== "idle",
+    isSubmitting,
   );
+  const [isExplicitSave, setExplicitSave] = useState(false);
+  const submitSave = usePlanSubmission({
+    command,
+    planId: page.selected?.id ?? "",
+    currentDraft,
+    submitted,
+  });
   const sourceState = usePlanSources(page, draft.workspaceId);
   const { sources } = sourceState;
   function changeContext(workspace: AgentWorkspaceChoice): void {
@@ -81,23 +102,25 @@ export function usePlanEditor(page: AgentPlanPage): {
       loadNodeConfiguration(draft.workspaceId, agentId),
     currentDraft,
   });
-  // Flushing the pending state ignores a second save until the first one answered.
-  function saveWith(change: (current: AgentPlanInput) => AgentPlanInput): void {
+  function requestSave(
+    change: (current: AgentPlanInput) => AgentPlanInput,
+    isExplicit: boolean,
+  ): void {
     graph.flushPendingMove();
     const current = currentDraft();
     const next = change(current);
     if (next !== current) setDraft(next);
-    submitted.current = next;
+    setExplicitSave(isExplicit);
     setSubmittedName(next.name);
-    void command.submit(
-      {
-        intent: "save-plan",
-        planId: page.selected?.id ?? "",
-        plan: JSON.stringify(next),
-      },
-      { method: "post", action: "/agents/plans", flushSync: true },
-    );
+    submitSave(next);
   }
+  // A save asked for while one runs waits for its answer instead of being dropped.
+  function saveWith(change: (current: AgentPlanInput) => AgentPlanInput): void {
+    requestSave(change, false);
+  }
+  const isSaving = isSubmitting && isSaveCommand(command);
+  const isRevalidatingSave =
+    command.state === "loading" && isSaveCommand(command);
   return {
     draft,
     workspaces: page.workspaces,
@@ -106,11 +129,16 @@ export function usePlanEditor(page: AgentPlanPage): {
     command,
     isDirty,
     canEdit: page.selected?.canEdit ?? true,
-    isPending: command.state !== "idle" || sourceState.isPending,
+    isPending:
+      (command.state !== "idle" && !isRevalidatingSave) ||
+      sourceState.isPending,
+    isSaving,
+    isLoadingSources: sourceState.isPending,
     sourceError: sourceState.error,
     tickets: sourceState.tickets,
     submittedName,
-    save: () => saveWith((current) => current),
+    isExplicitSave,
+    save: () => requestSave((current) => current, true),
     saveWith,
     rename: (name) => setDraft((previous) => ({ ...previous, name })),
     changeContext,
