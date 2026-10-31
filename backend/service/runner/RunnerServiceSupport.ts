@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import type {
   RunnerRepository,
@@ -39,19 +39,61 @@ export function matches(token: string, expected: string): boolean {
   );
 }
 
+const FINISHED_RUNNER_JOB_STATUSES: ReadonlySet<RunnerJob["status"]> = new Set([
+  "completed",
+  "failed",
+  "interrupted",
+  "lost",
+]);
+
 /** Dispatch retries retain the original attempt only when command and binding are identical. */
 export function repeatedRunnerJob(
   record: RunnerRecord,
   binding: RunnerPlanBinding,
   execution: RunnerExecution | undefined,
+  allowTerminalRerun = false,
 ): RunnerJob | undefined {
-  const previous = record.state.jobs.find(
+  const matching = record.state.jobs.filter(
     (job) => job.plan?.attemptId === binding.attemptId,
   );
+  if (matching.length === 0) return undefined;
+  const active = matching.find(
+    (job) => !FINISHED_RUNNER_JOB_STATUSES.has(job.status),
+  );
+  const previous = active ?? matching.at(-1);
   if (!previous) return undefined;
   if (planContentDigest(previous.plan) !== planContentDigest(binding))
     throw new Error("Conflicting runner plan binding");
+  if (active) {
+    if (planContentDigest(previous.execution) !== planContentDigest(execution))
+      throw new Error("Conflicting runner command");
+    return active;
+  }
+  if (allowTerminalRerun) return undefined;
   if (planContentDigest(previous.execution) !== planContentDigest(execution))
     throw new Error("Conflicting runner command");
   return previous;
+}
+
+/** Allocates the durable identity of a newly dispatched job, before any delivery. */
+export function queuedRunnerJob(input: {
+  readonly sessionId: string;
+  readonly binding?: RunnerPlanBinding;
+  readonly execution?: RunnerExecution;
+  readonly hasLiveHistory: boolean;
+}): RunnerJob {
+  return {
+    ...(input.hasLiveHistory && input.execution?.program.kind === "cli"
+      ? {
+          liveHistoryVersion: 1 as const,
+          outputJournalVersion: 2 as const,
+          historyCursor: 0,
+        }
+      : {}),
+    ...(input.binding ? { plan: input.binding } : {}),
+    ...(input.execution ? { execution: input.execution } : {}),
+    jobId: randomUUID(),
+    sessionId: input.sessionId,
+    status: "queued",
+  };
 }

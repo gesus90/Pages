@@ -17,7 +17,7 @@ import {
   logEvent,
   withLogContext,
 } from "@/backend/logging/Logger";
-import { dispatchRemotePlanStep } from "./AgentPlanRemoteExecution";
+import { dispatchRemoteStepWithRetry } from "./AgentPlanRemoteRetry";
 import { savePlanSession } from "./AgentPlanSessionPersistence";
 import { capturePlanExecution } from "./AgentPlanExecutionSnapshot";
 import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
@@ -591,8 +591,13 @@ export class AgentPlanRunEngine {
   ): Promise<Partial<AgentPlanStepResult>> {
     await guardPlanWorkDispatch(this.dependencies.workGate, active, node.id);
     const isStopped = active.view.stopRequested || controller.signal.aborted;
-    const remote = dispatchRemotePlanStep(
-      this.dependencies.remoteExecution,
+    const remote = dispatchRemoteStepWithRetry(
+      this.dependencies.remoteExecution
+        ? {
+            service: this.dependencies.remoteExecution,
+            runs: this.dependencies.runs,
+          }
+        : undefined,
       active,
       node.id,
       controller.signal,

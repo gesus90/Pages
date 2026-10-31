@@ -5,8 +5,6 @@ import { planTargetIssues } from "@/definition/AgentPlanTarget";
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import {
   RUNNER_TOOL_PROVIDERS,
@@ -20,6 +18,12 @@ import {
   remotePlanContract,
 } from "./AgentPlanRemoteCommand";
 import { validateRemoteParameterPrompt } from "./AgentPlanRemoteParameters";
+import {
+  CANCELLED_BEFORE_DISPATCH,
+  type RemoteRetryTerms,
+} from "./AgentPlanRemoteDispatch";
+import { claimRemoteJob } from "./AgentPlanRemoteClaim";
+import { remoteRetryCommand } from "./AgentPlanRemoteRetryCommand";
 import {
   requireRemoteResultPayload,
   resolvedRemoteCommand,
@@ -44,7 +48,6 @@ import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPa
 import type { AgentPlanRemoteStatus } from "@/definition/AgentPlanTarget";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import type { AgentPlanInput } from "@/definition/AgentPlan";
-import type { ActivePlanRun } from "./AgentPlanRunState";
 import type {
   AgentPlan,
   AgentPlanStep,
@@ -72,13 +75,6 @@ import type {
 } from "./AgentPlanTasks";
 
 const OBSERVATION_STALE_MILLISECONDS = 45_000;
-
-const CANCELLED_BEFORE_DISPATCH: Partial<AgentPlanStepResult> = {
-  status: "cancelled",
-  cancellation: "not_started",
-  output: null,
-  error: null,
-};
 
 /** Private snapshot: exact command, source inputs and authorized target, without credentials. */
 export interface RemotePlanStep {
@@ -113,17 +109,10 @@ interface RemoteExecutionDependencies {
     | "progress"
     | "historyPending"
     | "contact"
-  >;
+  > &
+    Partial<Pick<RunnerService, "enqueueRetry">>;
   readonly provider: Pick<RunnerOpenRouterService, "catalog">;
   readonly runs: Pick<AgentPlanRunRepository, "find">;
-}
-
-interface RemoteClaim {
-  readonly run: AgentPlanRun;
-  readonly remote: RemotePlanStep;
-  readonly command: RunnerExecution;
-  readonly attemptId: string;
-  readonly signal: AbortSignal;
 }
 
 /** Authorizes runner catalogs and dispatches immutable claims; nothing executes on Pages. */
@@ -281,6 +270,7 @@ export class AgentPlanRemoteExecution {
     run: AgentPlanRun,
     remote: RemotePlanStep,
     signal: AbortSignal,
+    retry?: RemoteRetryTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
     if (signal.aborted) return CANCELLED_BEFORE_DISPATCH;
     const target = await this.target(
@@ -320,19 +310,23 @@ export class AgentPlanRemoteExecution {
           target: remote.target,
         },
       );
-    const command = await resolvedRemoteCommand(run, remote);
+    const command = remoteRetryCommand(
+      await resolvedRemoteCommand(run, remote),
+      retry,
+    );
     requireRemoteResultPayload(command, () =>
       this.dependencies.runners.supportsExactResultPayload(target.connectionId),
     );
     let result: Partial<AgentPlanStepResult>;
     try {
       await this.dependencies.pages?.open(run, remote, execution.attemptId);
-      const job = await this.claim({
+      const job = await claimRemoteJob({
+        runners: this.dependencies.runners,
         run,
-        remote,
-        command,
+        remote: { ...remote, command },
         attemptId: execution.attemptId,
         signal,
+        allowTerminalRerun: retry?.allowTerminalRerun === true,
       });
       if (!job) return CANCELLED_BEFORE_DISPATCH;
       result = await this.waitForJob(run, remote, job, signal);
@@ -501,34 +495,6 @@ export class AgentPlanRemoteExecution {
     }
   }
 
-  private async claim({
-    run,
-    remote,
-    command,
-    attemptId,
-    signal,
-  }: RemoteClaim): Promise<RunnerJob | null> {
-    if (signal.aborted) return null;
-    try {
-      return await this.dependencies.runners.enqueue(
-        run.userId,
-        remote.target.connectionId,
-        {
-          planId: run.planId,
-          runId: run.id,
-          stepId: remote.step.id,
-          attemptId,
-          planRevision: run.planRevision,
-        },
-        command,
-      );
-    } catch (error: unknown) {
-      // Only the exact durable Stop fence proves that no job was persisted.
-      if (error instanceof AgentPlanCancelledError) return null;
-      throw error;
-    }
-  }
-
   private async target(
     userId: string,
     plan: Pick<AgentPlan, "projectId">,
@@ -564,37 +530,6 @@ function isObservationStale(job: RunnerJob): boolean {
     !Number.isFinite(observedAt) ||
     Date.now() - observedAt > OBSERVATION_STALE_MILLISECONDS
   );
-}
-
-/** Dispatches every explicit remote selection through the same contract, or refuses it. */
-export function dispatchRemotePlanStep(
-  service: AgentPlanRemoteExecution | undefined,
-  active: ActivePlanRun,
-  stepId: string,
-  signal: AbortSignal,
-): Promise<Partial<AgentPlanStepResult>> | null {
-  const remote = active.snapshot.remoteSteps?.find(
-    (entry) => entry.step.id === stepId,
-  );
-  if (!remote) {
-    const local = active.snapshot.steps.find(
-      (entry) => entry.step.id === stepId,
-    );
-    if (local?.remoteTarget || local?.step.executionTarget?.kind === "remote")
-      throw new AgentError("plan_remote_unavailable");
-    return null;
-  }
-  if (!service) throw new AgentError("plan_remote_unavailable");
-  if (signal.aborted) return Promise.resolve(CANCELLED_BEFORE_DISPATCH);
-  if (active.view.status !== "running")
-    return Promise.resolve({ status: "paused" });
-  active.dispatched.add(stepId);
-  return service
-    .run(active.view, remote, signal)
-    .catch((error: unknown): Partial<AgentPlanStepResult> => {
-      if (error instanceof AgentPlanPausedError) return { status: "paused" };
-      throw error;
-    });
 }
 
 /** Reauthorizes remote model routes before handing local configurations to the local resolver. */

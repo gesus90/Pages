@@ -19,7 +19,7 @@ export interface AgentPlanDiagnostic {
   readonly planRevision: number;
   readonly appliedPlanRevision: number;
   readonly attemptId: string | null;
-  /** Recorded provider retries; missing legacy IDs and absent detailed exit data are not reconstructed. */
+  /** Recorded automatic retries; missing legacy IDs and absent detailed exit data are not reconstructed. */
   readonly retryAttempts: readonly Pick<
     AgentPlanRetryAttempt,
     "attemptId" | "endedAt" | "code"

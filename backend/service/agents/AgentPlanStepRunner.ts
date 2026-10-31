@@ -26,11 +26,17 @@ import {
   loopSessionTerms,
   planSessionGroup,
   planSessionLink,
-  planTurnScope,
 } from "./loop/AgentPlanLoopSession";
-import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
+import {
+  AgentPlanGroupSessions,
+  type GroupSessionResume,
+} from "./AgentPlanGroupSessions";
 import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
-import { buildPlanContract, renderPlanAssignment } from "./AgentPlanContract";
+import { buildPlanContract } from "./AgentPlanContract";
+import {
+  buildPlanSessionInput,
+  planRetryGroupResume,
+} from "./AgentPlanSessionPrompt";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { runPlanNodeAttempts } from "./AgentPlanStepAttempts";
 import { planSessionReach } from "./AgentPlanSessionAccess";
@@ -42,7 +48,6 @@ import {
   hasPlanStepTimedOut,
   isConfirmedPlanCancellation,
   planCompletedFailure,
-  runnerLabel,
   turnFailureCode,
   withTurn,
 } from "./AgentPlanSessionRecords";
@@ -56,10 +61,7 @@ import type {
   PlanSessionClosed,
 } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
-import type {
-  AgentPlanContract,
-  AgentPlanSessionRecord,
-} from "@/definition/AgentPlanSession";
+import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
 import type {
   AgentPlanSnapshot,
@@ -143,6 +145,9 @@ export class AgentPlanStepRunner {
       record: previous?.retry ? previous : null,
       hasStarted: false,
       retry: previous?.retry ?? null,
+      retryResumeSessionId: null,
+      retryAttemptNumber: 1,
+      retryGroup: null,
       loop,
       sessionGroup: planSessionGroup(step, loop),
     };
@@ -325,6 +330,7 @@ export class AgentPlanStepRunner {
     });
     const groupKey = `${run.id}/${node.sessionGroup ?? step.step.id}`;
     const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
+    const groupResume = planRetryGroupResume(node);
     await this.save(node, {
       ...createSessionRecord({
         attemptId: initialStepAttemptId(node),
@@ -333,7 +339,7 @@ export class AgentPlanStepRunner {
         contract,
         usesMcp: reach !== "tickets" || contract.tickets.length > 0,
       }),
-      ...this.sessionLink(node, prepared, groupKey),
+      ...this.sessionLink(node, prepared, groupKey, groupResume),
     });
     const mcp = this.groups.instanceId(groupKey)
       ? this.groups.mcp(groupKey)
@@ -348,18 +354,25 @@ export class AgentPlanStepRunner {
           reach,
           canSetStatus: step.step.completion === "todos",
         });
-    const input = await this.sessionInput(node, prepared, {
-      contract,
-      mcp,
-      instanceId,
-    });
+    const input = await buildPlanSessionInput(
+      node,
+      prepared,
+      { contract, mcp, instanceId },
+      {
+        pin: (prompt) => this.pin(node, prompt),
+        journal: (id) => this.dependencies.sessions?.listen(node, id),
+      },
+    );
     const session = node.sessionGroup
-      ? await this.groups.turn({
-          key: groupKey,
-          input,
-          signal: node.control.signal,
-          observer: this.observer(node),
-        })
+      ? await this.groups.turn(
+          {
+            key: groupKey,
+            input,
+            signal: node.control.signal,
+            observer: this.observer(node),
+          },
+          groupResume,
+        )
       : await this.dependencies.execution.open(
           input,
           node.control.signal,
@@ -388,47 +401,6 @@ export class AgentPlanStepRunner {
     }
   }
 
-  private async sessionInput(
-    node: NodeRun,
-    prepared: PreparedPlanStep,
-    terms: {
-      readonly contract: AgentPlanContract;
-      readonly mcp: AgentPlanSessionInput["mcp"];
-      readonly instanceId: string;
-    },
-  ): Promise<AgentPlanSessionInput> {
-    const directory = prepared.input.directory;
-    if (directory === null) throw new AgentError("plan_directory_required");
-    const recovery = planRecoveryTerms(node.snapshot, node.step.step.id, node);
-    const scope = `${recovery.note}${planTurnScope(node.step, node.loop)}`;
-    const prompt = `${scope}${prepared.input.prompt}\n\n${renderPlanAssignment({
-      contract: terms.contract,
-      usesMcp: terms.mcp !== null,
-      isReadOnly:
-        planSessionReach(
-          prepared.input.agent.connection.provider,
-          prepared.options,
-        ) === "read",
-      runnerLabel: node.record ? runnerLabel(node.record) : "",
-      instanceId: terms.instanceId,
-      directory,
-      requiresAcceptance: true,
-      acceptanceScope: node.step.groupId ? "group" : "node",
-    })}`;
-    await this.pin(node, prompt);
-    return {
-      ...prepared.input,
-      prompt,
-      directory,
-      options: prepared.options,
-      instanceId: terms.instanceId,
-      mcp: terms.mcp,
-      resumeSessionId: recovery.resumeSessionId,
-      resourceContext: { runId: node.run.id, stepId: node.step.step.id },
-      journal: this.dependencies.sessions?.listen(node, terms.instanceId),
-    };
-  }
-
   /** Lets the executor instruct a group member's open session through the group's queue. */
   private offerInstructions(
     node: NodeRun,
@@ -445,15 +417,20 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     prepared: PreparedPlanStep,
     groupKey: string,
+    resume?: GroupSessionResume,
   ): Pick<AgentPlanSessionRecord, "group" | "loop"> {
     const provider = prepared.input.agent.connection.provider;
     if (!isAcpProvider(provider)) return {};
     const shared = node.sessionGroup
-      ? this.groups.link(groupKey, {
-          groupId: node.sessionGroup,
-          stepId: node.step.step.id,
-          adapter: provider,
-        })
+      ? this.groups.link(
+          groupKey,
+          {
+            groupId: node.sessionGroup,
+            stepId: node.step.step.id,
+            adapter: provider,
+          },
+          resume,
+        )
       : null;
     return planSessionLink(node, shared);
   }

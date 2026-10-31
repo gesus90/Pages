@@ -9,20 +9,27 @@ interface ObservedPlanNode {
   hasStarted: boolean;
 }
 
-/** Keeps session observations scoped to one node and its durable record writer. */
+/** Keeps session observations scoped to one attempt and its durable record writer. */
 export function createPlanSessionObserver(
   node: ObservedPlanNode,
   complete: (changes: Partial<AgentPlanSessionRecord>) => Promise<void>,
 ): PlanSessionObserver {
+  const attemptId = node.record?.attemptId;
+  // A late or repeated event of an earlier attempt must never overwrite the newer attempt.
+  const isCurrent = (): boolean =>
+    attemptId === undefined || node.record?.attemptId === attemptId;
+  const write = (changes: Partial<AgentPlanSessionRecord>): void => {
+    if (isCurrent()) void complete(changes);
+  };
   return {
     activity: (activity) => {
-      void complete({ activity });
+      write({ activity });
     },
     capabilities: (continuationCapabilities) => {
-      void complete({ continuationCapabilities });
+      write({ continuationCapabilities });
     },
     retired: (closed, reason) => {
-      void complete({
+      write({
         closeout: closed.isConfirmed ? "confirmed" : "failed",
         containment: closed.isConfirmed ? closed.containment : undefined,
         endedAt: closed.endedAt,
@@ -36,9 +43,10 @@ export function createPlanSessionObserver(
       });
     },
     started: (details) => {
+      if (!isCurrent()) return;
       node.hasStarted = true;
       if (!node.record) return;
-      void complete({
+      write({
         mode: details.mode,
         processId: details.processId,
         ...(details.namespace ? { namespace: details.namespace } : {}),
@@ -53,14 +61,14 @@ export function createPlanSessionObserver(
     identified: (sessionId) => {
       const group = node.record?.group;
       const loop = node.record?.loop;
-      void complete({
+      write({
         sessionId,
         ...(group ? { group: { ...group, acpSessionId: sessionId } } : {}),
         ...(loop ? { loop: { ...loop, acpSessionId: sessionId } } : {}),
       });
     },
     progressed: (events) => {
-      void complete({
+      write({
         events: events.map((line) => sanitizePlanOutput(line)),
       });
     },

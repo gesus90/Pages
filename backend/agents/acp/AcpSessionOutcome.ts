@@ -84,16 +84,28 @@ export function finishAcpTurn(
   };
 }
 
-/** Classifies native process diagnostics without persisting potentially sensitive stderr. */
+/**
+ * Classifies native process diagnostics without persisting potentially sensitive stderr.
+ *
+ * @remarks
+ * A generic ACP session code must not hide a permanent inner cause such as an
+ * authentication, model, policy or quota failure. The outer code is returned
+ * only when the inner diagnostic names no more specific cause.
+ */
+export function classifiedAcpFailure(
+  driver: Pick<AcpDriver, "errors">,
+  text: string,
+): AgentErrorCode {
+  const code = classifyOpenCodeFailure(text);
+  return code === "opencode_acp_session_failed"
+    ? driver.errors.sessionFailed
+    : code;
+}
+
+/** Retains the existing name for the disconnected-process path. */
 export function disconnectedAcpFailure(
   driver: Pick<AcpDriver, "provider" | "errors">,
   stderr: string,
 ): AgentErrorCode {
-  if (!["opencode", "antigravity"].includes(driver.provider))
-    return driver.errors.sessionFailed;
-  const code = classifyOpenCodeFailure(stderr);
-  return driver.provider === "antigravity" &&
-    code === "opencode_acp_session_failed"
-    ? "antigravity_acp_session_failed"
-    : code;
+  return classifiedAcpFailure(driver, stderr);
 }

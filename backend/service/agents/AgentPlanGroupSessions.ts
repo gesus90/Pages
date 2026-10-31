@@ -48,6 +48,39 @@ interface GroupTurnInput {
   readonly observer: PlanSessionObserver;
 }
 
+/** A shared session that a retry continues through the adapter's native resume. */
+export interface GroupSessionResume {
+  readonly sessionId: string;
+  readonly creatorStepId: string;
+  readonly turns: number;
+}
+
+/** Metadata of a reopened shared session, including the turn this retry takes. */
+function resumedSessionFields(
+  resume: GroupSessionResume | undefined,
+  input: AgentPlanSessionInput,
+  isReopened: boolean,
+): {
+  readonly resumeSessionId: string | null | undefined;
+  readonly creatorStepId: string;
+  readonly turns: number;
+  readonly acpSessionId: string | null;
+} {
+  if (!isReopened)
+    return {
+      resumeSessionId: input.resumeSessionId,
+      creatorStepId: input.resourceContext?.stepId ?? "",
+      turns: 1,
+      acpSessionId: null,
+    };
+  return {
+    resumeSessionId: resume?.sessionId ?? input.resumeSessionId,
+    creatorStepId: resume?.creatorStepId ?? input.resourceContext?.stepId ?? "",
+    turns: (resume?.turns ?? 0) + 1,
+    acpSessionId: resume?.sessionId ?? null,
+  };
+}
+
 /** A place in the queue of one group's turns. */
 export interface GroupTurnSlot {
   /** Resolves once every earlier turn of the group has settled. */
@@ -136,29 +169,53 @@ export class AgentPlanGroupSessions {
       readonly stepId: string;
       readonly adapter: AcpProviderId;
     },
+    resume?: GroupSessionResume,
   ): AgentPlanGroupSessionLink {
     const current = this.sessions.get(key);
+    let role: AgentPlanGroupSessionLink["role"] = "created";
+    let creatorStepId = step.stepId;
+    let turns = 0;
+    let adapter = step.adapter;
+    let acpSessionId: string | null = null;
+    if (resume) {
+      role = "continued";
+      creatorStepId = resume.creatorStepId;
+      turns = resume.turns;
+      acpSessionId = resume.sessionId;
+    }
+    if (current) {
+      role = "continued";
+      creatorStepId = current.creatorStepId;
+      turns = current.turns;
+      adapter = current.adapter;
+      acpSessionId = current.acpSessionId;
+    }
     return {
       groupId: step.groupId,
-      adapter: current?.adapter ?? step.adapter,
-      role: current ? "continued" : "created",
-      creatorStepId: current?.creatorStepId ?? step.stepId,
-      turn: (current?.turns ?? 0) + 1,
-      acpSessionId: current?.acpSessionId ?? null,
+      adapter,
+      role,
+      creatorStepId,
+      turn: turns + 1,
+      acpSessionId,
       nativeSessionId: null,
     };
   }
 
   /** Starts or continues a group without replacing its resolved runtime configuration. */
-  public async turn(request: GroupTurnInput): Promise<PlanSession> {
+  public async turn(
+    request: GroupTurnInput,
+    resume?: GroupSessionResume,
+  ): Promise<PlanSession> {
     const { key, input, signal, observer } = request;
     const current = this.sessions.get(key);
     if (!isAcpProvider(input.agent.connection.provider))
       throw new AgentError("plan_group_session_unsupported");
     if (signal.aborted) throw new AgentPlanCancelledError();
     if (current) return this.continueTurn(key, current, request);
-    // A group opens one session per run; a lost one is never replaced silently.
-    if (this.opened.has(key)) throw new AgentError("plan_group_session_lost");
+    // A lost group session is only continued through the adapter's verified native resume.
+    const isReopened = this.opened.has(key);
+    if (isReopened && !resume) throw new AgentError("plan_group_session_lost");
+    const resumed = resumedSessionFields(resume, input, isReopened);
     const controller = new AbortController();
     const cancel = (): void => controller.abort();
     signal.addEventListener("abort", cancel, { once: true });
@@ -169,7 +226,11 @@ export class AgentPlanGroupSessions {
       const holder: { entry: GroupSession | null } = { entry: null };
       this.opened.add(key);
       const session = await this.execution.open(
-        { ...input, options: { ...input.options, timeoutMinutes: 0 } },
+        {
+          ...input,
+          resumeSessionId: resumed.resumeSessionId,
+          options: { ...input.options, timeoutMinutes: 0 },
+        },
         controller.signal,
         {
           ...this.watch(holder, observer),
@@ -196,9 +257,9 @@ export class AgentPlanGroupSessions {
         instanceId: input.instanceId,
         fingerprint: runtimeFingerprint(input),
         adapter: input.agent.connection.provider,
-        creatorStepId: input.resourceContext?.stepId ?? "",
-        turns: 1,
-        acpSessionId: null,
+        creatorStepId: resumed.creatorStepId,
+        turns: resumed.turns,
+        acpSessionId: resumed.acpSessionId,
         isLost: false,
         effective: null,
         capabilities,

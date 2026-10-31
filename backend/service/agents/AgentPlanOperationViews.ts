@@ -3,6 +3,11 @@ import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { scriptAssessmentVerdict } from "@/definition/AgentPlanScriptReport";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
+import {
+  PLAN_MAXIMUM_RETRIES,
+  PLAN_SESSION_MAXIMUM_ATTEMPTS,
+} from "@/definition/AgentPlanRetry";
+import { isPlanSessionRetryCode } from "@/backend/agents/AgentSessionFailure";
 
 import { sharingEntry } from "./PageAgentOperationDefinition";
 import { sanitizeArtifactText } from "./AgentPlanOutput";
@@ -244,6 +249,41 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
       session?.acceptance?.verdict ?? scriptAssessmentVerdict(step.report),
     ...stepTimes(step),
     hasReport: hasReport(step),
+    ...stepRetry(step),
+  };
+}
+
+/** Exposes the stored retry budget without native session identifiers. */
+function stepRetry(
+  step: AgentPlanStepResult,
+): Pick<AgentPlanRunStepEntry, "retry"> {
+  const retry = step.session?.retry;
+  if (!retry) return {};
+  const policy =
+    retry.policy ??
+    (retry.attempts.some((attempt) => isPlanSessionRetryCode(attempt.code))
+      ? "session"
+      : "provider");
+  const maximumAttempts =
+    policy === "session"
+      ? PLAN_SESSION_MAXIMUM_ATTEMPTS
+      : PLAN_MAXIMUM_RETRIES + 1;
+  return {
+    retry: {
+      policy,
+      state: retry.state,
+      reason: retry.reason,
+      attemptsFailed: retry.attempts.length,
+      maximumAttempts,
+      nextAttemptAt: retry.nextAttemptAt,
+      resetAt: retry.resetAt,
+      lastError: retry.attempts.at(-1)?.code ?? null,
+      attempts: retry.attempts.map(({ attemptId, endedAt, code }) => ({
+        attemptId,
+        endedAt,
+        code,
+      })),
+    },
   };
 }
 

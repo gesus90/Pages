@@ -8,6 +8,7 @@ import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import {
   allPlanRunResults,
@@ -30,6 +31,7 @@ import type {
 } from "@/backend/database/Database";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanCheckpointInput } from "@/definition/AgentPlanRecovery";
+import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 
 interface StoredProgress {
   readonly run: AgentPlanRun;
@@ -267,6 +269,51 @@ export class AgentPlanProgressRepository {
       };
       await this.save(transaction, previous, run, checkpoint);
       await journal?.(transaction, run);
+    });
+  }
+
+  /**
+   * Reopens one remote step for a new job of the same frozen attempt.
+   *
+   * @remarks
+   * Runner events own the stored remote projection. A retry therefore needs
+   * this explicit transition; a normal update would keep the failed
+   * projection. Only reading retries reach this path.
+   */
+  public async resetRemoteRetry(
+    runId: string,
+    stepId: string,
+    session: AgentPlanSessionRecord,
+  ): Promise<AgentPlanRun> {
+    return this.database.transaction(async (transaction) => {
+      const previous = await this.read(transaction, runId);
+      const step = previous.run.steps.find((entry) => entry.id === stepId);
+      if (
+        !step ||
+        step.execution?.target.kind !== "remote" ||
+        step.status === "succeeded"
+      )
+        throw new AgentError("plan_context_changed");
+      const next: AgentPlanRun = {
+        ...previous.run,
+        steps: previous.run.steps.map((entry) =>
+          entry.id === stepId
+            ? {
+                ...entry,
+                status: "running",
+                cancellation: "none",
+                error: null,
+                isBlocked: false,
+                blockedByStepId: undefined,
+                output: null,
+                remote: undefined,
+                session,
+              }
+            : entry,
+        ),
+      };
+      await this.save(transaction, previous, next);
+      return next;
     });
   }
 

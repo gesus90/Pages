@@ -1,7 +1,11 @@
 import { useTranslation } from "react-i18next";
 
-import { PLAN_MAXIMUM_RETRIES } from "@/definition/AgentPlanRetry";
+import {
+  PLAN_MAXIMUM_RETRIES,
+  PLAN_SESSION_MAXIMUM_ATTEMPTS,
+} from "@/definition/AgentPlanRetry";
 
+import type { AgentPlanRetry } from "@/definition/AgentPlanRetry";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 
 /** Shows persisted attempts and the actual retry deadline; a missing reset never promises automatic progress. */
@@ -16,6 +20,16 @@ export function PlanStatusRetry({
   const formatTime = (instant: string): string =>
     new Date(instant).toLocaleString(i18n.resolvedLanguage);
   const attempt = retry.attempts.at(-1);
+  const policy = retry.policy ?? "provider";
+  const isSessionPolicy = policy === "session";
+  const maximum = isSessionPolicy
+    ? PLAN_SESSION_MAXIMUM_ATTEMPTS
+    : PLAN_MAXIMUM_RETRIES;
+  const failedAttempts = Math.min(retry.attempts.length, maximum);
+  const reason =
+    isSessionPolicy && retry.reason === "exhausted"
+      ? "sessionExhausted"
+      : retry.reason;
   return (
     <section
       role="status"
@@ -26,14 +40,24 @@ export function PlanStatusRetry({
         {t(
           retry.state === "completed"
             ? "plans.retry.completedHint"
-            : `plans.retry.reason.${retry.reason}`,
+            : `plans.retry.reason.${reason}`,
         )}
       </p>
       <p>
-        {t("plans.retry.count", {
-          count: Math.min(retry.attempts.length, PLAN_MAXIMUM_RETRIES),
-          maximum: PLAN_MAXIMUM_RETRIES,
-        })}
+        {isSessionPolicy
+          ? t(sessionAttemptKey(retry.state), {
+              attempt:
+                retry.state === "blocked" || retry.state === "waiting"
+                  ? failedAttempts
+                  : Math.min(failedAttempts + 1, maximum),
+              failed: failedAttempts,
+              next: Math.min(failedAttempts + 1, maximum),
+              maximum,
+            })
+          : t("plans.retry.count", {
+              count: failedAttempts,
+              maximum,
+            })}
       </p>
       {attempt ? (
         <p>
@@ -65,4 +89,12 @@ export function PlanStatusRetry({
       </details>
     </section>
   );
+}
+
+/** One key per persisted session-retry state, so a blocked attempt never promises a successor. */
+function sessionAttemptKey(state: AgentPlanRetry["state"]): string {
+  if (state === "waiting") return "plans.retry.sessionWaiting";
+  if (state === "running") return "plans.retry.sessionRunning";
+  if (state === "completed") return "plans.retry.sessionCompleted";
+  return "plans.retry.sessionBlocked";
 }

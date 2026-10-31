@@ -18,6 +18,7 @@ import {
   abortFailure,
   stopFailure,
   finishAcpTurn,
+  classifiedAcpFailure,
   disconnectedAcpFailure,
 } from "./AcpSessionOutcome";
 import {
@@ -620,7 +621,6 @@ export class AcpSession implements PlanSession {
       this.state.providerFailure = providerFailure;
       return this.ended("failed", providerFailure.code);
     }
-    const { sessionFailed } = this.context.driver.errors;
     if (this.connection.signal.aborted) return this.disconnected();
     if (this.context.driver.provider === "opencode") {
       const code = openCodeAcpFailure(error);
@@ -629,11 +629,12 @@ export class AcpSession implements PlanSession {
     }
     if (error instanceof RequestError && error.code === AUTH_REQUIRED)
       return this.ended("failed", "cli_not_logged_in");
-    noteSessionEvent(
-      this.state.events,
-      `error ${error instanceof Error ? error.message : "unknown"}`,
+    const diagnostic = error instanceof Error ? error.message : "unknown";
+    noteSessionEvent(this.state.events, `error ${diagnostic}`);
+    return this.ended(
+      "failed",
+      classifiedAcpFailure(this.context.driver, diagnostic),
     );
-    return this.ended("failed", sessionFailed);
   }
 
   private async disconnected(): Promise<PlanSessionTurn> {

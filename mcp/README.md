@@ -2781,7 +2781,10 @@ when reading a growing journal. A changed snapshot rejects a stale chunk cursor.
 This does not add native session continuation or instruction/cancellation parity.
 
 Diagnostics also expose `retryAttempts` with the stored attempt ID, end time and
-provider failure class; native session IDs are omitted. A retained retry named by
+technical failure class; native session IDs are omitted. `read_plan_run` step
+entries also show the persisted retry policy, failed attempts of its total
+budget, next attempt time and last failure without promising automatic progress
+after a stop or pause. A retained retry named by
 the authorized run can be read through `read_plan_run_session_events` only if
 its persisted owner/plan/run/node binding still matches. Missing journals return
 `plan_history_unavailable`, not an invented empty success. Historical summaries

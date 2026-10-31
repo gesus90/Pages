@@ -3920,14 +3920,21 @@
         "quota": "Das Kontingent ist verbraucht. Der nächste Versuch erfolgt frühestens eine Minute nach dem gemeldeten Reset.",
         "reset_unknown": "Kein eindeutiger Reset-Zeitpunkt gemeldet. Der Node bleibt blockiert; es wird kein anderes Modell verwendet.",
         "exhausted": "Alle zehn Wiederholungen sind ausgeschöpft. Der Node bleibt mit der letzten Ursache blockiert.",
-        "unsafe": "Eine automatische Wiederholung kann die gemeinsame Session oder bereits begonnene Aktionen nicht sicher erhalten. Seiteneffekte prüfen und ausdrücklich fortsetzen."
+        "unsafe": "Eine automatische Wiederholung kann die gemeinsame Session oder bereits begonnene Aktionen nicht sicher erhalten. Seiteneffekte prüfen und ausdrücklich fortsetzen.",
+        "session": "Ein technischer Sitzungsfehler hat den Turn unterbrochen. Der nächste Versuch erfolgt frühestens zehn Sekunden später.",
+        "sessionExhausted": "Alle drei Versuche sind fehlgeschlagen. Der Node bleibt mit der letzten konkreten Ursache fehlgeschlagen.",
+        "failed": "Der letzte Fehler ist für keinen weiteren automatischen Versuch geeignet. Der Node behält die konkrete Ursache."
       },
       "count": "Wiederholungen: {{count}} von {{maximum}}",
       "resetAt": "Gemeldeter Reset: {{time}}",
       "nextAt": "Nächster Versuch: {{time}}",
       "history": "Fehlgeschlagene Versuche",
       "completedHint": "Der Node wurde erfolgreich abgeschlossen. Frühere Fehler bleiben im Verlauf erhalten.",
-      "lastCause": "Letzte Fehlerursache: {{cause}}"
+      "lastCause": "Letzte Fehlerursache: {{cause}}",
+      "sessionWaiting": "Versuch {{attempt}}/{{maximum}} ist fehlgeschlagen. Versuch {{next}}/{{maximum}} folgt nach der Wartezeit.",
+      "sessionRunning": "Versuch {{attempt}}/{{maximum}} läuft.",
+      "sessionCompleted": "Versuch {{attempt}}/{{maximum}} war erfolgreich. Der Plan läuft normal weiter.",
+      "sessionBlocked": "{{failed}} von {{maximum}} Versuchen sind fehlgeschlagen. Es folgt kein weiterer automatischer Versuch."
     },
     "completion": {
       "label": "Fortschrittsbericht",

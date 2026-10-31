@@ -1,9 +1,4 @@
-import {
-  digest,
-  matches,
-  GRANT_MILLISECONDS,
-  repeatedRunnerJob,
-} from "./RunnerServiceSupport";
+import { digest, matches, GRANT_MILLISECONDS } from "./RunnerServiceSupport";
 import type {
   RegistrationGrant,
   RunnerStore,
@@ -16,16 +11,13 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { registerLogSecret } from "@/backend/logging/LogRedaction";
-import {
-  runnerMessageSchema,
-  runnerPlanBindingSchema,
-} from "@/definition/RunnerProtocol";
-import { runnerExecutionSchema } from "@/definition/RunnerExecution";
+import { runnerMessageSchema } from "@/definition/RunnerProtocol";
 
 import { checkpointRunnerMessage } from "./RunnerMessageCheckpoint";
 import { runnerConnectionView } from "./RunnerConnectionFacts";
 import { requireRunnerOutputExecutor } from "./RunnerOutputCapabilities";
 import { RunnerObservation } from "./RunnerObservation";
+import { RunnerJobQueue } from "./RunnerJobQueue";
 import { RunnerQueuedPause } from "./RunnerQueuedPause";
 import { RunnerCancellation } from "./RunnerCancellation";
 import { RunnerContacts } from "./RunnerContacts";
@@ -85,6 +77,7 @@ export class RunnerService {
   private readonly observation = new RunnerObservation();
   private readonly communicationExecutors = new Set<string>();
   private readonly cancellation: RunnerCancellation;
+  private readonly jobs: RunnerJobQueue;
 
   public constructor(
     repository: RunnerStore,
@@ -100,6 +93,41 @@ export class RunnerService {
       deliver: (connectionId, reply) => this.deliver(connectionId, reply),
       expire: (connectionId, job) =>
         this.events?.expireStop(connectionId, job) ?? Promise.resolve(),
+    });
+    this.jobs = new RunnerJobQueue({
+      repository,
+      events,
+      writes: this.writes,
+      requireUsable: (userId, connectionId) =>
+        this.connections.requireUsable(userId, connectionId),
+      requireRevision: (record) => this.requireRevision(record),
+      checkOutput: (record, execution) =>
+        requireRunnerOutputExecutor({
+          execution,
+          executionLeaseVersion: record.state.executionLeaseVersion,
+          isOnline: this.contacts.isOnline(record.connectionId),
+          hasCommunication: this.communicationExecutors.has(
+            record.connectionId,
+          ),
+          hasExactPayload: this.supportsExactResultPayload(record.connectionId),
+          hasOutputJournal: this.outputExecutors.has(record.connectionId),
+          hasLiveHistory: this.liveExecutors.has(record.connectionId),
+          runnerVersion: record.state.runnerVersion,
+        }),
+      dispatch: (connectionId, job) =>
+        this.deliver(connectionId, { version: 1, type: "dispatch", job }),
+      observe: (connectionId, jobs) => {
+        this.observation.configure(
+          connectionId,
+          jobs,
+          this.liveExecutors.has(connectionId),
+        );
+        if (this.channels.has(connectionId))
+          this.observation.attach(connectionId, (reply) =>
+            this.deliver(connectionId, reply),
+          );
+      },
+      hasLiveHistory: (connectionId) => this.liveExecutors.has(connectionId),
     });
   }
 
@@ -285,74 +313,17 @@ export class RunnerService {
     plan?: RunnerPlanBinding,
     execution?: RunnerExecution,
   ): Promise<RunnerJob> {
-    if (execution) runnerExecutionSchema.parse(execution);
-    if (Buffer.byteLength(JSON.stringify(execution) ?? "", "utf8") > 1_000_000)
-      throw new Error("Runner command exceeds transport budget");
-    const binding = plan ? runnerPlanBindingSchema.parse(plan) : undefined;
-    await this.connections.requireUsable(userId, connectionId);
-    return this.writes.run(async () => {
-      const record = await this.repository.find(connectionId);
-      if (!record) throw new Error("Runner queue unavailable");
-      await this.requireRevision(record);
-      if (binding) {
-        if (!this.events) throw new Error("Runner plan binding unavailable");
-        await this.events.authorizeBinding(userId, connectionId, binding);
-        const previous = repeatedRunnerJob(record, binding, execution);
-        if (previous) return previous;
-      }
-      if (execution && record.state.planControlVersion !== 1)
-        throw new AgentError("plan_runner_control_update_required");
-      requireRunnerOutputExecutor({
-        execution,
-        executionLeaseVersion: record.state.executionLeaseVersion,
-        isOnline: this.contacts.isOnline(connectionId),
-        hasCommunication: this.communicationExecutors.has(connectionId),
-        hasExactPayload: this.supportsExactResultPayload(connectionId),
-        hasOutputJournal: this.outputExecutors.has(connectionId),
-        hasLiveHistory: this.liveExecutors.has(connectionId),
-        runnerVersion: record.state.runnerVersion,
-      });
-      if (record.state.jobs.length >= 1000)
-        throw new Error("Runner queue unavailable");
-      const job: RunnerJob = {
-        ...(this.liveExecutors.has(connectionId) &&
-        execution?.program.kind === "cli"
-          ? {
-              liveHistoryVersion: 1 as const,
-              outputJournalVersion: 2 as const,
-              historyCursor: 0,
-            }
-          : {}),
-        ...(binding ? { plan: binding } : {}),
-        ...(execution ? { execution } : {}),
-        jobId: randomUUID(),
-        sessionId: record.state.sessionId,
-        status: "queued",
-      };
-      await this.repository.checkpoint(
-        connectionId,
-        {
-          ...record.state,
-          jobs: [...record.state.jobs, job],
-        },
-        (transaction) =>
-          binding
-            ? (this.events?.requireDispatchFence(transaction, binding) ??
-              Promise.resolve())
-            : Promise.resolve(),
-      );
-      this.deliver(connectionId, { version: 1, type: "dispatch", job });
-      this.observation.configure(
-        connectionId,
-        [...record.state.jobs, job],
-        this.liveExecutors.has(connectionId),
-      );
-      if (this.channels.has(connectionId))
-        this.observation.attach(connectionId, (reply) =>
-          this.deliver(connectionId, reply),
-        );
-      return job;
-    });
+    return this.jobs.enqueue(userId, connectionId, plan, execution);
+  }
+
+  /** Follows a finished job of the same frozen attempt with one explicitly requested retry job. */
+  public async enqueueRetry(
+    userId: string,
+    connectionId: string,
+    plan: RunnerPlanBinding,
+    execution: RunnerExecution,
+  ): Promise<RunnerJob> {
+    return this.jobs.enqueueRetry(userId, connectionId, plan, execution);
   }
 
   /** Drops live status after a closed or expired socket. */

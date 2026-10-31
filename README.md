@@ -1601,11 +1601,15 @@ binding. Missing journals are reported as unavailable, not reconstructed.
 These reads do not offer native-session steering or replay.
 
 Agent Plan retries known temporary provider failures up to ten times with
-increasing delays. An exhausted quota with an explicit reset waits until one
-minute after that reset; an unknown reset stays blocked. The run details retain
-the attempts, cause and scheduled time. Routing never switches models. Shared
-native sessions and attempts with tool activity require reviewed recovery
-instead of an automatic replay. See the [plan retry contract](backend/service/agents/PlanRetries.md).
+increasing delays. Technical ACP session failures get exactly three total
+attempts, each at least ten seconds apart, and continue through the adapter's
+native resume where it is confirmed. A new session is used only when no tool
+activity could have changed external state; shared sessions without native
+resume and writing remote one-shots stay blocked as concrete safety boundaries.
+An exhausted quota with an explicit reset waits until one minute after that
+reset; an unknown reset stays blocked. The run details and `read_plan_run`
+retain the policy, attempts, cause, attempt count and scheduled time. Routing
+never switches models. See the [plan retry contract](backend/service/agents/PlanRetries.md).
 
 `POST /agent-api/plan-runs/:runId/recovery` accepts the same actions with the
 run's current recovery `revision` and an idempotency key:

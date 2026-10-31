@@ -6,6 +6,10 @@ import type { AgentPlanSessionEvents } from "./AgentPlanSessionEvents.js";
 import type { AgentPlanRemoteStatusProblem } from "./AgentPlanRemoteStatus.js";
 import type { AgentPlanWorkspaceConflict } from "./AgentPlanWorkspaceConflict.js";
 import type { AgentPlanRecoveryEntry } from "./AgentPlanRecoveryEntry.js";
+import type {
+  AgentPlanRetry,
+  AgentPlanRetryAttempt,
+} from "./AgentPlanRetry.js";
 export type { AgentPlanRecoveryEntry } from "./AgentPlanRecoveryEntry.js";
 import type {
   AgentPlanStartRejection,
@@ -519,6 +523,23 @@ export interface AgentPlanRunStepEntry {
   readonly endedAt: string | null;
   /** Whether {@link AgentPlanReport} has something for this node. */
   readonly hasReport: boolean;
+  /** Persisted automatic retry state, for active waits and finished histories. */
+  readonly retry?: {
+    readonly policy: "provider" | "session";
+    readonly state: AgentPlanRetry["state"];
+    readonly reason: AgentPlanRetry["reason"];
+    /** Failed attempts so far; the first attempt is not added to this list. */
+    readonly attemptsFailed: number;
+    /** Total attempts a policy admits, the first attempt included. */
+    readonly maximumAttempts: number;
+    readonly nextAttemptAt: string | null;
+    readonly resetAt: string | null;
+    readonly lastError: AgentPlanRetryAttempt["code"] | null;
+    readonly attempts: readonly Pick<
+      AgentPlanRetryAttempt,
+      "attemptId" | "endedAt" | "code"
+    >[];
+  };
 }
 
 /** One run with the state of its nodes. */

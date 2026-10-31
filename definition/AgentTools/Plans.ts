@@ -125,7 +125,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: buildReadTool({
       name: "read_plan_run",
       title: "Read plan run",
-      description: `Reads one run of the account: runId, planId, planName, planRevision, startedAt, endedAt, status, stopRequested appliedPlanRevision, continuationVersion, loop iterations with their member statuses, and every node with status, isBlocked, blockedByStepId when recorded, error, verdict, startedAt, endedAt and hasReport. For remote attempts, these timestamps are Pages observations, not proven process start and end times. ${RUN_DESCRIPTION}`,
+      description: `Reads one run of the account: runId, planId, planName, planRevision, startedAt, endedAt, status, stopRequested appliedPlanRevision, continuationVersion, loop iterations with their member statuses, and every node with status, isBlocked, blockedByStepId when recorded, error, verdict, startedAt, endedAt, hasReport and its persisted retry state (policy, attempts failed of the total budget, next attempt, reset and failed attempt codes). For remote attempts, these timestamps are Pages observations, not proven process start and end times. ${RUN_DESCRIPTION}`,
       properties: RUN_SELECTION,
     }),
   },

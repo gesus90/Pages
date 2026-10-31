@@ -35,6 +35,12 @@ export interface NodeRun {
   record: AgentPlanSessionRecord | null;
   hasStarted: boolean;
   retry: AgentPlanRetry | null;
+  /** The native session this retry continues, or `null` for a fresh one. */
+  retryResumeSessionId: string | null;
+  /** Counts from 1 for the first attempt of the current retry sequence. */
+  retryAttemptNumber: number;
+  /** The shared session position to continue when this retry resumes one. */
+  retryGroup: { readonly creatorStepId: string; readonly turn: number } | null;
   /** The loop and iteration of a loop member. */
   readonly loop: LoopSessionTerms | null;
   /** The session container of the node: its group, or the loop's session of its agent. */

@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 import { AgentError } from "@/backend/error/AgentErrors";
-import { PLAN_MAXIMUM_RETRIES } from "@/definition/AgentPlanRetry";
+import {
+  PLAN_MAXIMUM_RETRIES,
+  PLAN_SESSION_MAXIMUM_ATTEMPTS,
+} from "@/definition/AgentPlanRetry";
 
 import type {
   AgentPlanRetry,
@@ -13,14 +16,25 @@ const retryCode = z.enum([
   "provider_unavailable",
   "provider_rate_limited",
   "provider_quota_exhausted",
+  "plan_acp_session_failed",
+  "plan_claude_acp_session_failed",
+  "opencode_acp_session_failed",
+  "antigravity_acp_session_failed",
+  "acp_session_resume_failed",
 ]);
 const timestamp = z.iso.datetime();
 const providerFailure = z.object({
-  code: retryCode,
+  code: z.enum([
+    "provider_unreachable",
+    "provider_unavailable",
+    "provider_rate_limited",
+    "provider_quota_exhausted",
+  ]),
   resetAt: timestamp.nullable(),
 });
 const retry = z
   .object({
+    policy: z.enum(["provider", "session"]).optional(),
     state: z.enum(["waiting", "running", "blocked", "completed", "cancelled"]),
     reason: z.enum([
       "transient",
@@ -28,6 +42,8 @@ const retry = z
       "reset_unknown",
       "exhausted",
       "unsafe",
+      "session",
+      "failed",
     ]),
     nextAttemptAt: timestamp.nullable(),
     resetAt: timestamp.nullable(),
@@ -47,6 +63,11 @@ const retry = z
     record.state === "waiting"
       ? record.nextAttemptAt !== null
       : record.nextAttemptAt === null,
+  )
+  .refine(
+    (record) =>
+      record.policy !== "session" ||
+      record.attempts.length <= PLAN_SESSION_MAXIMUM_ATTEMPTS,
   );
 
 /** Keeps historical records without provider retry metadata readable. */

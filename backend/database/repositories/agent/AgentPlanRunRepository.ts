@@ -21,6 +21,7 @@ import type {
   DatabaseTransaction,
 } from "@/backend/database/Database";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanCheckpointInput } from "@/definition/AgentPlanRecovery";
 import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
@@ -403,6 +404,15 @@ export class AgentPlanRunRepository {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
       return readPlanRun(input);
     });
+  }
+
+  /** Prepares one remote step for a verified read-only retry without touching any other step. */
+  public async resetRemoteRetry(
+    runId: string,
+    stepId: string,
+    session: AgentPlanSessionRecord,
+  ): Promise<AgentPlanRun> {
+    return this.progress.resetRemoteRetry(runId, stepId, session);
   }
 
   /** Releases workspace reservations only after every recorded session confirms cleanup. */

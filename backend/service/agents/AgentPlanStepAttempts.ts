@@ -1,14 +1,19 @@
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 
-import { runPlanStepWithRetry } from "./AgentPlanStepRetry";
+import {
+  runPlanStepWithRetry,
+  type RetryAttemptContext,
+} from "./AgentPlanStepRetry";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
 
 interface AttemptOperations {
-  readonly execute: () => Promise<Partial<AgentPlanStepResult>>;
+  readonly execute: (
+    context: RetryAttemptContext,
+  ) => Promise<Partial<AgentPlanStepResult>>;
   readonly failure: (error: unknown) => Promise<Partial<AgentPlanStepResult>>;
   readonly paused: () => Promise<Partial<AgentPlanStepResult>>;
   readonly save: (changes: Partial<AgentPlanSessionRecord>) => Promise<void>;
@@ -18,13 +23,27 @@ async function attempt(
   node: NodeRun,
   control: StepRunControl,
   operations: AttemptOperations,
+  context: RetryAttemptContext,
 ): Promise<Partial<AgentPlanStepResult>> {
   node.control = control;
   node.hasStarted = false;
+  node.retryGroup = null;
+  if (node.record?.group)
+    node.retryGroup = {
+      creatorStepId: node.record.group.creatorStepId,
+      turn: node.record.group.turn,
+    };
+  else if (node.record?.loop)
+    node.retryGroup = {
+      creatorStepId: node.step.step.id,
+      turn: node.record.loop.turn,
+    };
   node.record = null;
+  node.retryResumeSessionId = context.resumeSessionId;
+  node.retryAttemptNumber = context.attemptNumber;
   control.awaitDispatch?.();
   try {
-    return await operations.execute();
+    return await operations.execute(context);
   } catch (error: unknown) {
     if (
       !node.hasStarted &&
@@ -47,7 +66,8 @@ export async function runPlanNodeAttempts(
       signal: control.signal,
       previous: node.retry,
       isSharedSession: node.sessionGroup !== undefined,
-      attempt: () => attempt(node, control, operations),
+      lastSession: () => node.record,
+      attempt: (context) => attempt(node, control, operations, context),
       waiting: () => {
         node.hasStarted = false;
         node.control = control;
