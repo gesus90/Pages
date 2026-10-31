@@ -119,6 +119,23 @@ function flowDepths(
   return settled;
 }
 
+/** The flow nodes of a plan, those Start reaches, and the depth of each node a cycle does not block. */
+function flowGraph(plan: Pick<AgentPlanInput, "nodes" | "edges">): {
+  readonly nodes: ReadonlyMap<string, AgentPlanNode>;
+  readonly reached: ReadonlySet<string>;
+  readonly depths: ReadonlyMap<string, number>;
+} {
+  const nodes = new Map(
+    plan.nodes.filter(isPlanFlowNode).map((node) => [node.id, node]),
+  );
+  const successors = flowSuccessors(plan, nodes);
+  const starts = [...nodes.values()]
+    .filter((node) => node.type === "start")
+    .map((node) => node.id);
+  const reached = reachableFrom(starts, successors);
+  return { nodes, reached, depths: flowDepths(reached, successors) };
+}
+
 /**
  * Numbers the flow nodes of a plan along its directed flow edges.
  *
@@ -137,15 +154,7 @@ function flowDepths(
 export function planFlowSequence(
   plan: Pick<AgentPlanInput, "nodes" | "edges">,
 ): AgentPlanSequence {
-  const nodes = new Map(
-    plan.nodes.filter(isPlanFlowNode).map((node) => [node.id, node]),
-  );
-  const successors = flowSuccessors(plan, nodes);
-  const starts = [...nodes.values()]
-    .filter((node) => node.type === "start")
-    .map((node) => node.id);
-  const reached = reachableFrom(starts, successors);
-  const depths = flowDepths(reached, successors);
+  const { nodes, reached, depths } = flowGraph(plan);
   const ranks = new Map(
     [...nodes].map(([id, node]) => [id, boundaryRank(node)] as const),
   );
@@ -163,6 +172,25 @@ export function planFlowSequence(
       reason: reached.has(id) ? ("cycle" as const) : ("unreachable" as const),
     }));
   return { order, gaps };
+}
+
+/**
+ * Groups the numbered flow nodes of a plan by their step along the flow edges.
+ *
+ * @param plan - A plan whose groups are expanded, as for {@link planFlowSequence}.
+ * @returns The node identifiers of each step, the step nearest to Start first.
+ * Nodes on the same step, such as parallel branches, sort by identifier; Start
+ * and End form a step of their own. Nodes without a number are left out.
+ */
+export function planFlowStages(
+  plan: Pick<AgentPlanInput, "nodes" | "edges">,
+): readonly (readonly string[])[] {
+  const stages = new Map<number, string[]>();
+  for (const [id, depth] of flowGraph(plan).depths)
+    stages.set(depth, [...(stages.get(depth) ?? []), id]);
+  return [...stages.keys()]
+    .sort((first, second) => first - second)
+    .map((depth) => (stages.get(depth) ?? []).sort(compareIds));
 }
 
 /**

@@ -15,10 +15,13 @@ import type { Duplex } from "node:stream";
 import type { RawData, WebSocket } from "ws";
 import type { PicaMobilePortError } from "@/definition/PicaMobile";
 import type { PicaMobileAuthenticator } from "./PicaMobileAuthenticator";
+import type { PicaMobileDashboardProvider } from "./PicaMobileDashboardProvider";
 
 /** What the gateway needs from its surroundings. */
 export interface PicaMobileGatewayOptions {
   readonly authenticator: PicaMobileAuthenticator;
+  /** Answers the dashboard messages of connections; without it `dashboard.v1` is not announced. */
+  readonly dashboard?: PicaMobileDashboardProvider;
   /** Version of this Pages build, reported to connected clients. */
   readonly serverVersion: string;
   /** Interface to listen on; every interface when missing. */
@@ -341,6 +344,7 @@ export class PicaMobileGateway {
         userAgent: readUserAgent(request),
       },
       authenticator: this.options.authenticator,
+      dashboard: this.options.dashboard,
       serverVersion: this.options.serverVersion,
     });
 

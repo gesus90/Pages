@@ -28,6 +28,13 @@ export interface StoredUserAvatar {
   readonly data: Buffer;
 }
 
+/** What identifies the stored avatar image of a user without reading the image. */
+export interface StoredUserAvatarDigest {
+  readonly mimeType: string;
+  /** SHA-256 of the stored image bytes as lowercase hexadecimal text. */
+  readonly sha256: string;
+}
+
 /** A user together with the credentials required for authentication. */
 export interface UserCredentials {
   readonly user: User;
@@ -472,6 +479,41 @@ export class UserRepository {
       mimeType: readTextColumn(row, 0, "mime_type"),
       filename: readTextColumn(row, 1, "filename"),
       data: readBlobColumn(row, 2, "data"),
+    };
+  }
+
+  /**
+   * Returns the type and the SHA-256 of the stored avatar image of a user.
+   *
+   * @param userId - User identifier.
+   * @returns The digest, or `null` when no image is stored.
+   *
+   * @remarks
+   * The database hashes the image, so the bytes themselves stay in the database.
+   */
+  public async findAvatarDigestByUserId(
+    userId: string,
+  ): Promise<StoredUserAvatarDigest | null> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            mime_type,
+            sha256(data) AS image_digest
+        FROM user_avatars
+        WHERE user_id = $user_id;
+      `,
+      { user_id: userId },
+    );
+
+    const row = rows[0];
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      mimeType: readTextColumn(row, 0, "mime_type"),
+      sha256: readTextColumn(row, 1, "image_digest"),
     };
   }
 

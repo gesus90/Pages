@@ -123,7 +123,7 @@ describe("authentication", () => {
           user: ANNA_OUTCOME.user,
           sessionToken: null,
           heartbeat: { intervalMilliseconds: 20_000, timeoutMilliseconds: 45_000 },
-          server: { version: "9.9.9", protocolVersions: [1] },
+          server: { version: "9.9.9", protocolVersions: [1], capabilities: [] },
         },
       },
     ]);

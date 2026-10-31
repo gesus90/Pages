@@ -5,13 +5,17 @@ import {
   PICA_MOBILE_SERVER_MESSAGE_TYPE,
   PICA_MOBILE_SUPPORTED_VERSIONS,
   picaMobileAuthPayloadSchema,
+  picaMobileAvatarGetPayloadSchema,
+  picaMobileDashboardGetPayloadSchema,
   picaMobilePingPayloadSchema,
   picaMobileRequestIdSchema,
 } from "@/definition/PicaMobileProtocol";
 
 import type {
   PicaMobileAuthPayload,
+  PicaMobileAvatarPayload,
   PicaMobileConnectedPayload,
+  PicaMobileDashboardPayload,
   PicaMobileErrorCode,
   PicaMobileErrorPayload,
   PicaMobileServerMessage,
@@ -24,7 +28,13 @@ export type PicaMobileClientMessage =
       readonly requestId: string;
       readonly payload: PicaMobileAuthPayload;
     }
-  | { readonly type: "ping"; readonly requestId: string };
+  | { readonly type: "ping"; readonly requestId: string }
+  | { readonly type: "dashboard_get"; readonly requestId: string }
+  | {
+      readonly type: "avatar_get";
+      readonly requestId: string;
+      readonly payload: { readonly version: string };
+    };
 
 /** Why a frame is not a usable message, with what the answer needs. */
 export interface PicaMobileRejection {
@@ -96,38 +106,82 @@ function rejectVersion(
   };
 }
 
+function parseAuthPayload(
+  requestId: string,
+  payload: unknown,
+): PicaMobileParseResult {
+  const parsed = picaMobileAuthPayloadSchema.safeParse(payload);
+
+  return parsed.success
+    ? {
+        ok: true,
+        message: { type: "auth", requestId, payload: parsed.data },
+      }
+    : reject(
+        PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        'The payload of "auth" is invalid.',
+        requestId,
+      );
+}
+
+function parseAvatarGetPayload(
+  requestId: string,
+  payload: unknown,
+): PicaMobileParseResult {
+  const parsed = picaMobileAvatarGetPayloadSchema.safeParse(payload);
+
+  return parsed.success
+    ? {
+        ok: true,
+        message: { type: "avatar_get", requestId, payload: parsed.data },
+      }
+    : reject(
+        PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        'The payload of "avatar_get" needs a "version" of 1 to 64 letters, digits, ".", "_", ":" or "-".',
+        requestId,
+      );
+}
+
+function parseEmptyPayload(
+  type: "ping" | "dashboard_get",
+  requestId: string,
+  payload: unknown,
+): PicaMobileParseResult {
+  const schema =
+    type === "ping"
+      ? picaMobilePingPayloadSchema
+      : picaMobileDashboardGetPayloadSchema;
+
+  return schema.safeParse(payload).success
+    ? { ok: true, message: { type, requestId } }
+    : reject(
+        PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        `The payload of "${type}" must be an object.`,
+        requestId,
+      );
+}
+
 function parsePayload(
   type: string,
   requestId: string,
   payload: unknown,
 ): PicaMobileParseResult {
-  if (type === PICA_MOBILE_CLIENT_MESSAGE_TYPE.AUTH) {
-    const parsed = picaMobileAuthPayloadSchema.safeParse(payload);
-
-    return parsed.success
-      ? { ok: true, message: { type, requestId, payload: parsed.data } }
-      : reject(
-          PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
-          'The payload of "auth" is invalid.',
-          requestId,
-        );
+  switch (type) {
+    case PICA_MOBILE_CLIENT_MESSAGE_TYPE.AUTH:
+      return parseAuthPayload(requestId, payload);
+    case PICA_MOBILE_CLIENT_MESSAGE_TYPE.PING:
+      return parseEmptyPayload("ping", requestId, payload);
+    case PICA_MOBILE_CLIENT_MESSAGE_TYPE.DASHBOARD_GET:
+      return parseEmptyPayload("dashboard_get", requestId, payload);
+    case PICA_MOBILE_CLIENT_MESSAGE_TYPE.AVATAR_GET:
+      return parseAvatarGetPayload(requestId, payload);
+    default:
+      return reject(
+        PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
+        "The message type is not known.",
+        requestId,
+      );
   }
-
-  if (type === PICA_MOBILE_CLIENT_MESSAGE_TYPE.PING) {
-    return picaMobilePingPayloadSchema.safeParse(payload).success
-      ? { ok: true, message: { type, requestId } }
-      : reject(
-          PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
-          'The payload of "ping" must be an object.',
-          requestId,
-        );
-  }
-
-  return reject(
-    PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
-    "The message type is not known.",
-    requestId,
-  );
 }
 
 /**
@@ -236,6 +290,44 @@ export function encodePicaMobilePong(
     type: PICA_MOBILE_SERVER_MESSAGE_TYPE.PONG,
     requestId,
     payload: { serverTime: serverTime.toISOString() },
+  });
+}
+
+/**
+ * Builds the text frame that answers `dashboard_get`.
+ *
+ * @param requestId - Identifier of the `dashboard_get` message that is answered.
+ * @param payload - Profile, runs and projects of the signed-in account.
+ * @returns The frame content.
+ */
+export function encodePicaMobileDashboard(
+  requestId: string,
+  payload: PicaMobileDashboardPayload,
+): string {
+  return encode({
+    version: PICA_MOBILE_PROTOCOL_VERSION,
+    type: PICA_MOBILE_SERVER_MESSAGE_TYPE.DASHBOARD,
+    requestId,
+    payload,
+  });
+}
+
+/**
+ * Builds the text frame that answers `avatar_get`.
+ *
+ * @param requestId - Identifier of the `avatar_get` message that is answered.
+ * @param payload - Version, type and Base64 content of the image.
+ * @returns The frame content.
+ */
+export function encodePicaMobileAvatar(
+  requestId: string,
+  payload: PicaMobileAvatarPayload,
+): string {
+  return encode({
+    version: PICA_MOBILE_PROTOCOL_VERSION,
+    type: PICA_MOBILE_SERVER_MESSAGE_TYPE.AVATAR,
+    requestId,
+    payload,
   });
 }
 

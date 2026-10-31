@@ -382,6 +382,29 @@ export class AgentPlanRunRepository {
     }));
   }
 
+  /**
+   * Lists the runs one person started that have not ended, newest first.
+   *
+   * @param userId - The executor; runs of others are never part of it.
+   * @returns The public records; reading them still needs the service checks.
+   */
+  public async active(userId: string): Promise<readonly AgentPlanRun[]> {
+    const rows = await this.database.query(
+      `
+      SELECT view_json
+      FROM agent_plan_runs
+      WHERE user_id = $user_id
+          AND status IN ('running', 'pausing', 'paused', 'stopping')
+      ORDER BY started_at DESC, id DESC;
+    `,
+      { user_id: userId },
+    );
+    return rows.map((row) => {
+      const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
+      return readPlanRun(input);
+    });
+  }
+
   /** Releases workspace reservations only after every recorded session confirms cleanup. */
   public async update(
     run: AgentPlanRun,

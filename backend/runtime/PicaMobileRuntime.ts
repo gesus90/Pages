@@ -1,6 +1,7 @@
 import { getApplicationServices } from "@/app/lib/services.server";
 import { logDiagnostic } from "@/backend/logging/Logger";
 import { PagesPicaMobileAuthenticator } from "@/backend/service/mobile/PicaMobileAuthenticator";
+import { PagesPicaMobileDashboard } from "@/backend/service/mobile/PicaMobileDashboardService";
 import { PicaMobileGateway } from "@/backend/service/mobile/PicaMobileGateway";
 import { PAGES_VERSION } from "@/definition/Version";
 
@@ -29,6 +30,16 @@ export function obtainPicaMobileGateway(
       authenticator: new PagesPicaMobileAuthenticator(
         async () => (await getApplicationServices()).authService,
       ),
+      dashboard: new PagesPicaMobileDashboard(async () => {
+        const services = await getApplicationServices();
+
+        return {
+          authService: services.authService,
+          agentPlanActiveRunService: services.agentPlanActiveRunService,
+          projectService: services.projectService,
+          userService: services.userService,
+        };
+      }),
       serverVersion: PAGES_VERSION,
       listenAddress: runtime.getConfig().listenAddress,
       reservedPort: webPort,

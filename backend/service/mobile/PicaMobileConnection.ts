@@ -2,6 +2,7 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
   PICA_MOBILE_AUTHENTICATION_TIMEOUT_MILLISECONDS,
+  PICA_MOBILE_CAPABILITY,
   PICA_MOBILE_ERROR_CODE,
   PICA_MOBILE_HEARTBEAT_INTERVAL_MILLISECONDS,
   PICA_MOBILE_HEARTBEAT_TIMEOUT_MILLISECONDS,
@@ -9,7 +10,9 @@ import {
 } from "@/definition/PicaMobileProtocol";
 
 import {
+  encodePicaMobileAvatar,
   encodePicaMobileConnected,
+  encodePicaMobileDashboard,
   encodePicaMobileError,
   encodePicaMobilePong,
   parsePicaMobileMessage,
@@ -20,6 +23,10 @@ import type {
   PicaMobileAuthOutcome,
   PicaMobileClientOrigin,
 } from "./PicaMobileAuthenticator";
+import type {
+  PicaMobileDashboardProvider,
+  PicaMobileSessionIdentity,
+} from "./PicaMobileDashboardProvider";
 import type { PicaMobileClientMessage } from "./PicaMobileMessages";
 import type { PicaMobileRejection } from "./PicaMobileMessages";
 
@@ -38,6 +45,11 @@ export interface PicaMobileConnectionOptions {
   readonly authenticator: PicaMobileAuthenticator;
   /** Version of this Pages build, reported to a connected client. */
   readonly serverVersion: string;
+  /**
+   * Answers `dashboard_get` and `avatar_get`; without it the connection does
+   * not announce `dashboard.v1` and treats both messages as unknown.
+   */
+  readonly dashboard?: PicaMobileDashboardProvider;
   /** Clock in milliseconds; tests replace it. */
   readonly now?: () => number;
 }
@@ -54,10 +66,10 @@ const MAXIMUM_FAILED_AUTHENTICATIONS = 3;
 const MAXIMUM_LOGGED_REJECTIONS = 5;
 const COMPONENT = "PicaMobileConnection";
 
-interface AuthenticatedSession {
-  readonly userId: string;
-  readonly sessionToken: string;
-}
+type DashboardMessage = Extract<
+  PicaMobileClientMessage,
+  { readonly type: "dashboard_get" | "avatar_get" }
+>;
 
 /**
  * One WebSocket connection of Pica Mobile: authentication, heartbeat and the
@@ -76,7 +88,7 @@ export class PicaMobileConnection {
   private readonly options: PicaMobileConnectionOptions;
   private readonly queue = new SerialQueue();
   private readonly now: () => number;
-  private session: AuthenticatedSession | null = null;
+  private session: PicaMobileSessionIdentity | null = null;
   private isStopped = false;
   private isClosing = false;
   private lastSeen: number;
@@ -283,22 +295,111 @@ export class PicaMobileConnection {
   private async dispatch(message: PicaMobileClientMessage): Promise<void> {
     if (message.type === "auth") {
       await this.authenticate(message);
+    } else if (message.type === "ping") {
+      this.answerPing(message.requestId);
+    } else {
+      await this.dispatchDashboard(message);
+    }
+  }
+
+  private answerPing(requestId: string): void {
+    if (this.session === null) {
+      this.rejectUnauthenticated(requestId);
 
       return;
     }
 
-    if (this.session === null) {
+    this.consecutiveRejections = 0;
+    this.send(encodePicaMobilePong(requestId, new Date(this.now())));
+  }
+
+  private async dispatchDashboard(message: DashboardMessage): Promise<void> {
+    const provider = this.options.dashboard;
+
+    // A read queued behind a message that ended the connection would only be thrown away.
+    if (this.isStopped || this.isClosing) {
+      return;
+    }
+
+    if (provider === undefined) {
       this.reject({
-        code: PICA_MOBILE_ERROR_CODE.AUTHENTICATION_REQUIRED,
-        message: "Authenticate with an auth message first.",
+        code: PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
+        message: "The message type is not known.",
         requestId: message.requestId,
       });
 
       return;
     }
 
+    if (this.session === null) {
+      this.rejectUnauthenticated(message.requestId);
+
+      return;
+    }
+
+    try {
+      await (message.type === "dashboard_get"
+        ? this.answerDashboard(message.requestId, provider, this.session)
+        : this.answerAvatar(message, provider, this.session));
+    } catch (error: unknown) {
+      logCaughtError(COMPONENT, error);
+
+      this.reportFailure(message.requestId, error);
+    }
+  }
+
+  private rejectUnauthenticated(requestId: string): void {
+    this.reject({
+      code: PICA_MOBILE_ERROR_CODE.AUTHENTICATION_REQUIRED,
+      message: "Authenticate with an auth message first.",
+      requestId,
+    });
+  }
+
+  private async answerDashboard(
+    requestId: string,
+    provider: PicaMobileDashboardProvider,
+    session: PicaMobileSessionIdentity,
+  ): Promise<void> {
+    const outcome = await provider.readDashboard(session);
+
+    if (this.isStopped || this.isClosing) {
+      return;
+    }
+
+    if (outcome.kind === "sessionEnded") {
+      this.endSession(requestId);
+
+      return;
+    }
+
     this.consecutiveRejections = 0;
-    this.send(encodePicaMobilePong(message.requestId, new Date(this.now())));
+    this.send(encodePicaMobileDashboard(requestId, outcome.dashboard));
+  }
+
+  private async answerAvatar(
+    message: Extract<DashboardMessage, { readonly type: "avatar_get" }>,
+    provider: PicaMobileDashboardProvider,
+    session: PicaMobileSessionIdentity,
+  ): Promise<void> {
+    const outcome = await provider.readAvatar(session, message.payload.version);
+
+    if (this.isStopped || this.isClosing) {
+      return;
+    }
+
+    if (outcome.kind === "sessionEnded") {
+      this.endSession(message.requestId);
+    } else if (outcome.kind === "notFound") {
+      this.reject({
+        code: PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        message: "The requested avatar version is not available.",
+        requestId: message.requestId,
+      });
+    } else {
+      this.consecutiveRejections = 0;
+      this.send(encodePicaMobileAvatar(message.requestId, outcome.avatar));
+    }
   }
 
   private async authenticate(
@@ -368,6 +469,10 @@ export class PicaMobileConnection {
         server: {
           version: this.options.serverVersion,
           protocolVersions: PICA_MOBILE_SUPPORTED_VERSIONS,
+          capabilities:
+            this.options.dashboard === undefined
+              ? []
+              : [PICA_MOBILE_CAPABILITY.DASHBOARD_V1],
         },
       }),
     );
@@ -456,7 +561,7 @@ export class PicaMobileConnection {
     }
   }
 
-  private async revalidate(session: AuthenticatedSession): Promise<void> {
+  private async revalidate(session: PicaMobileSessionIdentity): Promise<void> {
     try {
       if (
         await this.options.authenticator.isSessionActive(session.sessionToken)
@@ -470,12 +575,16 @@ export class PicaMobileConnection {
       return;
     }
 
+    this.endSession(null);
+  }
+
+  private endSession(requestId: string | null): void {
     this.logClosing("session_ended");
     this.send(
       encodePicaMobileError({
         code: PICA_MOBILE_ERROR_CODE.AUTHENTICATION_FAILED,
         message: "The session has ended.",
-        requestId: null,
+        requestId,
       }),
     );
     this.close(CLOSE_POLICY, "Session ended");

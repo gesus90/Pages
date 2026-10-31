@@ -111,10 +111,11 @@ export default defineConfig({
     },
   },
   // The dependency optimizer follows imports of server modules into the
-  // browser scan and fails on the native DuckDB binaries (`.node` files).
-  // Server code never runs in the browser, so the optimizer leaves them out.
+  // browser scan and fails on native binaries (`.node` files), such as DuckDB
+  // and the image library of the Pica Mobile avatars. Server code never runs
+  // in the browser, so the optimizer leaves them out.
   optimizeDeps: {
-    exclude: ["@duckdb/node-api", "@duckdb/node-bindings"],
+    exclude: ["@duckdb/node-api", "@duckdb/node-bindings", "@napi-rs/canvas"],
   },
   plugins: [
     tailwindcss(),

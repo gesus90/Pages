@@ -211,7 +211,7 @@ describe("encoders", () => {
         user: { id: "u", username: "anna", displayName: "Anna" },
         sessionToken: null,
         heartbeat: { intervalMilliseconds: 1, timeoutMilliseconds: 2 },
-        server: { version: "1.0.0", protocolVersions: [1] },
+        server: { version: "1.0.0", protocolVersions: [1], capabilities: [] },
       }),
     );
 

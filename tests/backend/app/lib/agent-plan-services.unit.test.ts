@@ -30,6 +30,7 @@ import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
+import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
@@ -300,6 +301,8 @@ it("upgrades stored plans before anything is built on them", async () => {
   expect(vi.mocked(createPlanWorkspaceAccess).mock.calls[0][1]).toBe(plans);
 });
 
+const ANY_ACTIVE_RUN_SERVICE: unknown = expect.any(AgentPlanActiveRunService);
+
 it("returns the plan service with its management, templates, sessions and recovery", async () => {
   const { agents } = agentFixture();
 
@@ -309,6 +312,7 @@ it("returns the plan service with its management, templates, sessions and recove
   expect(services).toEqual({
     runnerPagesAccessService: only(vi.mocked(RunnerPagesAccessService)),
     agentPlanService: service,
+    agentPlanActiveRunService: ANY_ACTIVE_RUN_SERVICE,
     agentPlanManagement: only(vi.mocked(AgentPlanManagement)),
     agentPlanTemplateService: only(vi.mocked(AgentPlanTemplateService)),
     agentSessionService: only(vi.mocked(AgentSessionService)),

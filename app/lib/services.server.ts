@@ -88,6 +88,8 @@ export interface ApplicationServices
     PreferenceApplicationServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
+  /** The unfinished runs of one person. */
+  readonly agentPlanActiveRunService: AgentPlanServices["agentPlanActiveRunService"];
   readonly runnerPagesAccessService: AgentPlanServices["runnerPagesAccessService"];
   /** Creating, copying and deleting plans from the plan page. */
   readonly agentPlanManagement: AgentPlanManagement;

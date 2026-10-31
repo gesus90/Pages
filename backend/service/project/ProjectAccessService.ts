@@ -11,7 +11,7 @@ import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { AccountAccess, Department } from "@/definition/Authorization";
-import type { Project } from "@/definition/Project";
+import type { AssignedProject, Project } from "@/definition/Project";
 import type { WorkItemVisibility } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
@@ -115,6 +115,32 @@ export class ProjectAccessService {
         ...project,
         departments: scope.departments.get(project.id) ?? [],
       }));
+  }
+
+  /**
+   * Returns the accessible projects the actor is a member of, with their goal counts.
+   *
+   * @remarks
+   * Membership alone is not enough: the project must also be in the current
+   * read scope of the account, so a project that left it is not reported.
+   */
+  public async findAssigned(actor: User): Promise<AssignedProject[]> {
+    const scope = await this.scope(actor);
+    const projects = await this.repository.findByMemberId(actor.id);
+    const assigned: AssignedProject[] = [];
+    for (const project of projects) {
+      if (!scope.projectIds.includes(project.id)) continue;
+      const goals = await this.repository.findGoals(project.id);
+      assigned.push({
+        project: {
+          ...project,
+          departments: scope.departments.get(project.id) ?? [],
+        },
+        goalCount: goals.length,
+        completedGoalCount: goals.filter((goal) => goal.isDone).length,
+      });
+    }
+    return assigned;
   }
 
   /** Authorizes a fresh active project record, including after archive or scope changes. */

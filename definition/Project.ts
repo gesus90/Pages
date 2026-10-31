@@ -33,6 +33,13 @@ export interface Project {
   readonly updatedAt: string;
 }
 
+/** A project the account is a member of, with how many of its goals are reached. */
+export interface AssignedProject {
+  readonly project: Project;
+  readonly goalCount: number;
+  readonly completedGoalCount: number;
+}
+
 /** A retained project in the archive, with the time it left the active list. */
 export interface ArchivedProject extends Project {
   readonly archivedAt: string;

@@ -28,6 +28,7 @@ import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
+import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
@@ -49,12 +50,15 @@ import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSes
 import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
+import type { PlanDependencies } from "@/backend/service/agents/AgentPlanService";
 import type { AgentApplicationServices } from "./agent-services.server";
 
 /** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
 export interface AgentPlanServices {
   readonly runnerPagesAccessService: RunnerPagesAccessService;
   readonly agentPlanService: AgentPlanService;
+  /** The unfinished runs of one person, for clients that list them without the plan page. */
+  readonly agentPlanActiveRunService: AgentPlanActiveRunService;
   /** Creating, copying and deleting plans from the plan page, each request once. */
   readonly agentPlanManagement: AgentPlanManagement;
   /** The personal node templates of the plan editor, checked by the plan service. */
@@ -153,7 +157,7 @@ export async function createAgentPlanService(input: {
     parameters,
     tasks,
   });
-  const service = new AgentPlanService({
+  const dependencies: PlanDependencies = {
     workGate: new AgentPlanWorkGate(input.database, input.users),
     workspaceCatalog,
     remoteExecution,
@@ -173,12 +177,17 @@ export async function createAgentPlanService(input: {
     scripts,
     startRejections: new AgentPlanStartRejectionRepository(input.database),
     workspaceCleanup: new AgentWorkspaceCleanupRepository(input.database),
-  });
+  };
+  const service = new AgentPlanService(dependencies);
   await recoverRuns(input, service);
   startWorkspaceCleanup(input.database, runs, engine, remoteExecution);
   return {
     runnerPagesAccessService: pages,
     agentPlanService: service,
+    agentPlanActiveRunService: new AgentPlanActiveRunService(
+      dependencies,
+      service,
+    ),
     ...createPlanManagement(input.database, service),
     agentSessionService: pageAgentSessions,
     agentPlanRecoveryService: createRecoveryService(input, {

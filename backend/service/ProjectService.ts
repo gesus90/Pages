@@ -32,6 +32,7 @@ import type {
 import type {
   GitHubSyncInterval,
   ArchivedProject,
+  AssignedProject,
   Project,
   ProjectActionPermissions,
   ProjectDepartmentChoices,
@@ -86,6 +87,11 @@ export class ProjectService {
   /** Returns every non-archived project that the actor may access. */
   public async findAll(actor: User): Promise<Project[]> {
     return this.access.findAll(actor);
+  }
+
+  /** Returns the accessible projects the actor is a member of, with their goal counts. */
+  public async findAssigned(actor: User): Promise<AssignedProject[]> {
+    return this.access.findAssigned(actor);
   }
 
   /** Returns one project after applying project-level access rules. */

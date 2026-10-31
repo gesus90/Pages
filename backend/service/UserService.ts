@@ -14,6 +14,7 @@ import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import type {
   NewUser,
   StoredUserAvatar,
+  StoredUserAvatarDigest,
   UserCredentials,
   UserRepository,
 } from "@/backend/database/repositories/UserRepository";
@@ -243,6 +244,17 @@ export class UserService {
    */
   public async getAvatar(userId: string): Promise<StoredUserAvatar | null> {
     return this.userRepository.findAvatarByUserId(userId);
+  }
+
+  /**
+   * Returns what identifies a user's stored avatar image, without the image.
+   *
+   * @param userId - Identifier of the user whose avatar is asked for.
+   */
+  public async getAvatarDigest(
+    userId: string,
+  ): Promise<StoredUserAvatarDigest | null> {
+    return this.userRepository.findAvatarDigestByUserId(userId);
   }
 
   /**
