@@ -34,12 +34,26 @@ export function planGroupRunMembers(
   );
 }
 
-function hasLostGroupSession(members: readonly AgentPlanStepResult[]): boolean {
+function isReusedGroupMember(
+  step: AgentPlanStepResult,
+  run: AgentPlanRun | null,
+): boolean {
+  if (!run) return false;
+  if (run.origin?.reusedStepIds?.includes(step.id)) return true;
+  return step.execution?.runId !== undefined && step.execution.runId !== run.id;
+}
+
+function hasLostGroupSession(
+  members: readonly AgentPlanStepResult[],
+  run: AgentPlanRun | null = null,
+): boolean {
   return (
-    members.some((step) =>
-      step.session?.events.some((event) =>
-        event.startsWith("resource session retired:"),
-      ),
+    members.some(
+      (step) =>
+        !isReusedGroupMember(step, run) &&
+        step.session?.events.some((event) =>
+          event.startsWith("resource session retired:"),
+        ),
     ) && members.some((step) => step.status !== "succeeded")
   );
 }
@@ -86,7 +100,7 @@ function groupState(
     return "failed";
   if (
     members.some((step) => step.isBlocked) ||
-    (hasLostGroupSession(members) && !isStoppedRun(run))
+    (hasLostGroupSession(members, run) && !isStoppedRun(run))
   )
     return "blocked";
   if (members.every((step) => step.status === "succeeded")) return "completed";
@@ -108,7 +122,7 @@ function groupError(
   if (error) return error;
   const failure = members.find((step) => step.error);
   if (failure?.error) return failure.error;
-  return !isStoppedRun(run) && hasLostGroupSession(members)
+  return !isStoppedRun(run) && hasLostGroupSession(members, run)
     ? "plan_group_session_lost"
     : null;
 }

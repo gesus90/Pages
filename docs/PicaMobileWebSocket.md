@@ -1,8 +1,8 @@
-# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164)
+# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193)
 
 Pages stellt für die App Pica Mobile einen WebSocket-Endpunkt bereit. Dieses Dokument ist der Vertrag zwischen Pages und der App: Es beschreibt, wie ein Administrator den Endpunkt einrichtet, wie eine Verbindung aufgebaut wird und welche Nachrichten in Version 1 des Formats gelten.
 
-Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterung `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)). Chat gehört nicht dazu.
+Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) und `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)). Chat gehört nicht dazu.
 
 ## Einrichtung durch einen Administrator
 
@@ -59,7 +59,7 @@ Bis `auth` gelingt, lehnt Pages jede andere Nachricht mit `authentication_requir
 
 ## Nachrichtenformat
 
-Jede Nachricht ist ein WebSocket-**Textframe** mit einem JSON-Objekt. Nachrichten des Clients sind höchstens 16 KiB (`16384` Bytes) groß; die Antworten von Pages unterliegen dieser Grenze nicht (ein `avatar` trägt bis zu 128 KiB Bilddaten). Binärframes lehnt Pages ab. In beide Richtungen gilt dieselbe Hülle:
+Jede Nachricht ist ein WebSocket-**Textframe** mit einem JSON-Objekt. Nachrichten des Clients sind höchstens 16 KiB (`16384` Bytes) groß; die Antworten von Pages unterliegen dieser Grenze nicht (ein `avatar` trägt bis zu 128 KiB Bilddaten). Ausgenommen davon sind die Antworten der Erweiterung `notifications.v1`: der Client beendet die Verbindung bei einem Frame über 16384 UTF-16-Codeeinheiten, deshalb hält Pages sie darunter (siehe [notification_event](#notification_event_get-und-notification_event)). Binärframes lehnt Pages ab. In beide Richtungen gilt dieselbe Hülle:
 
 ```json
 {
@@ -127,7 +127,7 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 
 `sessionToken` ist bei `method: "password"` das neu ausgestellte Sitzungstoken und sonst `null`. Die App speichert das Token im sicheren Speicher des Geräts und meldet sich danach mit `method: "session"` an; das Passwort behält sie nicht.
 
-`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet. Ein Pages ohne das Feld kennt die Erweiterung nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann kein Dashboard ab.
+`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1` und `notifications.push.fcm` folgen eigenen Regeln (siehe [Capabilities](#capabilities)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
 
 **`pong`** antwortet auf `ping`:
 
@@ -158,18 +158,18 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 
 ### Fehlercodes
 
-| `code`                     | Wann                                                                                                                                                          | Folge                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `invalid_message`          | kein JSON-Objekt, Pflichtfeld fehlt oder ungültig, Payload ungültig, Binärframe; `avatar_get` mit einer Version, die nicht (mehr) die aktuelle des Kontos ist | Verbindung bleibt                                                                    |
-| `unsupported_version`      | `version` nicht unterstützt (`supportedVersions` nennt die erlaubten)                                                                                         | Verbindung bleibt                                                                    |
-| `unknown_type`             | `type` unbekannt, auch `dashboard_get` und `avatar_get` bei einem Pages ohne `dashboard.v1`                                                                   | Verbindung bleibt                                                                    |
-| `authentication_required`  | andere Nachricht als `auth` vor erfolgreicher Authentifizierung                                                                                               | Verbindung bleibt                                                                    |
-| `authentication_failed`    | Zugangsdaten oder Sitzungstoken ungültig, Konto deaktiviert; auch bei später beendeter Sitzung, auch als Antwort auf ein `dashboard_get` oder `avatar_get`    | nach 3 Fehlversuchen getrennt; ist die Sitzung beendet, wird die Verbindung getrennt |
-| `password_change_required` | das Konto muss in Pages zuerst sein Passwort ändern                                                                                                           | wie `authentication_failed`                                                          |
-| `too_many_attempts`        | die Anmeldesperre von Pages greift (`retryAfterSeconds`)                                                                                                      | wie `authentication_failed`                                                          |
-| `already_authenticated`    | zweites `auth` auf einer authentifizierten Verbindung                                                                                                         | Verbindung bleibt                                                                    |
-| `rate_limited`             | mehr als 30 Nachrichten in 10 Sekunden                                                                                                                        | Verbindung wird getrennt                                                             |
-| `server_unavailable`       | Pages kann die Nachricht gerade nicht entscheiden (zum Beispiel vor Abschluss des Setups)                                                                     | Verbindung bleibt                                                                    |
+| `code`                     | Wann                                                                                                                                                                                                                                                                                                                | Folge                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `invalid_message`          | kein JSON-Objekt, Pflichtfeld fehlt oder ungültig, Payload ungültig, Binärframe; `avatar_get` mit einer Version, die nicht (mehr) die aktuelle des Kontos ist; `notification_register` mit einer anderen Plattform als `android`, einem anderen Provider als `fcm` oder ungültigem Token, `preview` oder `deviceId` | Verbindung bleibt                                                                    |
+| `unsupported_version`      | `version` nicht unterstützt (`supportedVersions` nennt die erlaubten)                                                                                                                                                                                                                                               | Verbindung bleibt                                                                    |
+| `unknown_type`             | `type` unbekannt, auch `dashboard_get` und `avatar_get` bei einem Pages ohne `dashboard.v1` und die drei `notification_*`-Anfragen bei einem Pages ohne `notifications.v1`                                                                                                                                          | Verbindung bleibt                                                                    |
+| `authentication_required`  | andere Nachricht als `auth` vor erfolgreicher Authentifizierung                                                                                                                                                                                                                                                     | Verbindung bleibt                                                                    |
+| `authentication_failed`    | Zugangsdaten oder Sitzungstoken ungültig, Konto deaktiviert; auch bei später beendeter Sitzung, auch als Antwort auf ein `dashboard_get` oder `avatar_get`                                                                                                                                                          | nach 3 Fehlversuchen getrennt; ist die Sitzung beendet, wird die Verbindung getrennt |
+| `password_change_required` | das Konto muss in Pages zuerst sein Passwort ändern                                                                                                                                                                                                                                                                 | wie `authentication_failed`                                                          |
+| `too_many_attempts`        | die Anmeldesperre von Pages greift (`retryAfterSeconds`)                                                                                                                                                                                                                                                            | wie `authentication_failed`                                                          |
+| `already_authenticated`    | zweites `auth` auf einer authentifizierten Verbindung                                                                                                                                                                                                                                                               | Verbindung bleibt                                                                    |
+| `rate_limited`             | mehr als 30 Nachrichten in 10 Sekunden                                                                                                                                                                                                                                                                              | Verbindung wird getrennt                                                             |
+| `server_unavailable`       | Pages kann die Nachricht gerade nicht entscheiden (zum Beispiel vor Abschluss des Setups); `notification_register`, solange Pages keinen verwendbaren FCM-Sender hat                                                                                                                                                | Verbindung bleibt                                                                    |
 
 Fünf abgelehnte Nachrichten in Folge trennen die Verbindung (Code 1008, „Too many rejected messages“); eine gültige Nachricht setzt den Zähler zurück.
 
@@ -344,10 +344,258 @@ Das Vertragsdokument des Clients lag bei der Umsetzung in Pages nicht vor; die E
 | `completed`, `cancelled`, `failed` bei Läufen         | werden nie gesendet, nur aktive Läufe kommen vor                              |
 | Schrittzustand                                        | `waiting`, `running`, `paused`, `blocked`, `completed`, `failed`, `cancelled` |
 | Start und Ende des Ablaufs                            | sind keine Schritte; die Nummern behalten die Zählung der Planseite           |
-| Schleife                                              | eine Stufe `loop` mit der Schleife als einem Schritt, ohne ihre Mitglieder    |
+| Schleife (Dashboard)                                  | eine Stufe `loop` mit der Schleife als einem Schritt, ohne ihre Mitglieder    |
 | `icon` eines Projekts                                 | immer `null`                                                                  |
 | `progress` eines Projekts                             | gespeicherte Prozent plus Ziele; `null` ohne Ziele                            |
 | `ticket` eines Laufs                                  | nur bei genau einem Ticket                                                    |
+
+## Erweiterung notifications.v1 (Android, FCM)
+
+Die Erweiterung benachrichtigt eine angemeldete Android-App über die eigenen Agent-Pläne des Kontos: wenn ein Folgeschritt wirklich startet, ein Lauf bestätigt abgebrochen wird, fehlschlägt oder erfolgreich endet. Zugestellt wird direkt über Firebase Cloud Messaging (FCM HTTP v1). iOS und APNs gehören nicht dazu, es gibt kein Expo-Push-Relay und keine Hintergrundabfrage oder dauerhaft offene Verbindung als Ersatz für Push. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; Pages sendet über die WebSocket-Verbindung nie von sich aus `notification_*`-Nachrichten, die App fragt nur. Betrieb, Konfiguration, Grenzen der Zustellung und die Übergabe an die Geräteprüfung stehen in [PicaMobileNotifications.md](./PicaMobileNotifications.md).
+
+Die Erweiterung ist mit dem Mobile-Vertrag `notifications.v1`, Revision PM-14-1 (31.10.2026, Android-Teil), und den ausführbaren Parsern der App abgeglichen. Grundlage ist der unveränderte Quellenstand aus dem Ticket-Anhang von PAGE-193 (Pica-Mobile `main`, Commit `d72631b4cf3fb1a76a0389e7fbf301e61d5ac551`); das Repository selbst lag auf dem Host der Umsetzung nicht vor. Der Abgleich, die behobenen Abweichungen und die Widersprüche im Mobile-Vertrag stehen in [Abgleich mit dem Mobile-Vertrag](#abgleich-mit-dem-mobile-vertrag-pm-14-1). Dieser Abgleich ist eine statische Gegenprüfung; eine Prüfung mit der laufenden App ist nicht erfolgt.
+
+### Capabilities
+
+| Capability                | Bedeutung                                                                                                                                                            |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `notifications.v1`        | Pages beantwortet `notification_register`, `notification_unregister` und `notification_event_get`. Pages nennt sie, sobald der Vertrag umgesetzt ist, auch ohne FCM. |
+| `notifications.push.fcm`  | Pages hat einen verwendbaren FCM-Sender: eine gültige Schlüsseldatei des Dienstkontos ist konfiguriert und lesbar. Ohne sie nimmt Pages keine Registrierung an.      |
+| `notifications.push.apns` | wird nie genannt.                                                                                                                                                    |
+
+Ein Pages ohne `notifications.v1` beantwortet die drei Nachrichten mit `unknown_type`. Ein Pages mit `notifications.v1`, aber ohne `notifications.push.fcm`, beantwortet `notification_register` mit `server_unavailable` und speichert nichts; die App behandelt das nicht als erfolgreiche Registrierung.
+
+### notification_register und notification_registered
+
+**`notification_register`** (Client → Pages) ist nur nach erfolgreichem `auth` zulässig. Der Empfänger ist ausschließlich das Konto der authentifizierten Sitzung; die Nachricht nimmt weder Konto-, Plan- noch Lauf-Empfänger entgegen.
+
+```json
+{
+  "version": 1,
+  "type": "notification_register",
+  "requestId": "n1",
+  "payload": {
+    "deviceId": "pica-9f2c41b7e0d84c11",
+    "platform": "android",
+    "provider": "fcm",
+    "token": "<nativer FCM-Token>",
+    "locale": "de",
+    "preview": "hidden"
+  }
+}
+```
+
+| Feld       | Regel                                                                                                                                                           |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deviceId` | 16 bis 64 Zeichen aus `A–Z`, `a–z`, `0–9`, `_`, `-`.                                                                                                            |
+| `platform` | nur `"android"`; jeder andere Wert ist `invalid_message`.                                                                                                       |
+| `provider` | nur `"fcm"`; jeder andere Wert ist `invalid_message`.                                                                                                           |
+| `token`    | vertraulicher nativer FCM-Token, 1 bis 4096 Zeichen ohne Leerraum.                                                                                              |
+| `locale`   | `"de"` oder `"en"`; fehlt es oder ist es etwas anderes, gilt `"de"`.                                                                                            |
+| `preview`  | `"hidden"` (Standard, auch wenn das Feld fehlt) oder `"details"`; jeder andere Wert ist `invalid_message`. Siehe [Datenschutz](#push-nutzlast-und-datenschutz). |
+
+**`notification_registered`** (Pages → Client) antwortet mit derselben `requestId`:
+
+```json
+{
+  "version": 1,
+  "type": "notification_registered",
+  "requestId": "n1",
+  "payload": {
+    "deviceId": "pica-9f2c41b7e0d84c11",
+    "instanceId": "k3Qm0x5JrT8w2LzVb9aYcA",
+    "accountId": "…",
+    "registeredAt": "2026-11-01T10:00:00.000Z",
+    "replayTtlSeconds": 900
+  }
+}
+```
+
+`instanceId` kennzeichnet diese Pages-Instanz (`^[\w.:-]{1,128}$`); er steht in der Datenbank und bleibt über Neustarts und den Umzug der Instanz gleich. `accountId` ist immer `connected.payload.user.id`. `registeredAt` ist ein ISO-8601-Zeitpunkt in UTC. `replayTtlSeconds` (60 bis 3600, Standard 900) sagt, wie lange nach einem Ereignis Pages es noch zustellt.
+
+Regeln der Registrierung:
+
+- **Idempotent.** Dieselbe Bindung erneut zu registrieren erneuert sie und behält `registeredAt`. Das gilt für dasselbe Konto auf demselben `deviceId`, auch bei neuem Token (Rotation, der alte Token wird ersetzt) oder neuer Sitzung.
+- **Ein Konto, eine Sitzung, ein Gerät.** Registriert ein anderes Konto dasselbe `deviceId`, beginnt dessen Bindung jetzt und die alte endet sofort. Taucht derselbe Token unter einem anderen `deviceId` auf, ersetzt die neue Bindung die alte. Mehrere Geräte eines Kontos bleiben getrennt.
+- **Höchstens 10 Registrierungen je Konto.** Bei Überschreitung entfällt die Registrierung, die am längsten nicht erneuert wurde.
+- **Keine Ereignisse vor der Registrierung.** Die erste Registrierung beginnt mit der Antwort; nichts, was davor geschah, wird nachgereicht. Bis Pages die Antwort aus der Hand gegeben hat, stellt es nichts zu, und was zwischen dem Speichern der Registrierung und dieser Antwort geschieht, holt es nicht nach. Geht die Antwort verloren, bleibt die Registrierung inaktiv, bis die App sie erneuert; die App registriert nach jedem Verbindungsaufbau erneut.
+- **Der Token wird verschlüsselt gespeichert**, mit dem Instanzschlüssel, den Pages auch für seine anderen Verbindungsgeheimnisse nutzt, und an das Gerät gebunden. Er steht weder im Klartext in der Datenbank noch im Protokoll noch in einer Adresse.
+- **Die Registrierung hängt an der Sitzung.** Wird die Sitzung widerrufen oder läuft sie ab, wird das Konto deaktiviert oder muss es sein Passwort ändern, stellt Pages nichts mehr zu und entfernt die Registrierung. Pages prüft das unmittelbar vor jedem Zustellversuch und räumt außerdem etwa alle fünf Minuten auf.
+
+### notification_unregister und notification_unregistered
+
+```json
+{
+  "version": 1,
+  "type": "notification_unregister",
+  "requestId": "n2",
+  "payload": { "deviceId": "pica-9f2c41b7e0d84c11" }
+}
+```
+
+**`notification_unregistered`** antwortet mit `{ "deviceId": "…" }` und derselben `requestId`. Die Antwort ist für ein bekanntes, ein unbekanntes und ein fremdes `deviceId` gleich; nur eine Registrierung des eigenen Kontos wird entfernt, fremde Daten werden nie berührt. Nach der Entfernung erzeugt Pages keinen neuen Versand mehr. Eine Nachricht, die Pages schon an Google übergeben hat, lässt sich nicht zurückrufen.
+
+Das lokale Abmelden der App ist im Protokoll Version 1 kein bestätigter Server-Logout: Schlägt `notification_unregister` fehl, bleibt die Registrierung bestehen, bis die Sitzung endet oder das Gerät sie erneuert. Die App darf das nicht als sofortige Abmeldung auf dem Server darstellen.
+
+### notification_event_get und notification_event
+
+Eine Push-Nachricht trägt nur die Kennung des Ereignisses. Die App holt die Fakten mit `notification_event_get`:
+
+```json
+{
+  "version": 1,
+  "type": "notification_event_get",
+  "requestId": "n3",
+  "payload": { "eventId": "Zk3x8Qm0w5JrT2LzVb9aYc" }
+}
+```
+
+**`notification_event`** antwortet mit derselben `requestId` und wiederholt `eventId`. `access` ist `ok`, `forbidden` oder `gone`; bei den beiden letzten steht nichts weiter im Payload, weder Namen noch Details:
+
+```json
+{
+  "version": 1,
+  "type": "notification_event",
+  "requestId": "n3",
+  "payload": {
+    "eventId": "Zk3x8Qm0w5JrT2LzVb9aYc",
+    "access": "ok",
+    "event": {
+      "type": "step_started",
+      "occurredAt": "2026-11-01T10:15:30.123Z",
+      "seq": 3,
+      "plan": { "id": "…", "name": "Release-Ablauf" },
+      "run": { "id": "…", "status": "running" },
+      "steps": [
+        {
+          "instanceId": "…",
+          "number": 4,
+          "name": "Prüfer A",
+          "attempt": 1,
+          "iteration": null
+        }
+      ],
+      "stepCount": 1
+    }
+  }
+}
+```
+
+| Feld                | Bedeutung                                                                                                                                                                                                                                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `type`              | `step_started`, `run_cancelled`, `run_failed` oder `run_succeeded`.                                                                                                                                                                                                                                                                                    |
+| `occurredAt`, `seq` | Zeitpunkt des Übergangs und eine je Lauf streng steigende Nummer ab 1. Pages vergibt sie dauerhaft, auch nach dem Fortsetzen eines Laufs und nach einem Neustart von Pages wird keine Nummer wiederverwendet.                                                                                                                                          |
+| `plan`              | `id` und der **aktuelle** Name des Plans (nicht leer, höchstens 500 UTF-16-Codeeinheiten).                                                                                                                                                                                                                                                             |
+| `run`               | `id` und der **aktuelle** Zustand im Wortlaut des Runners: `running`, `pausing`, `paused`, `stopping`, `succeeded`, `failed` oder `cancelled`. Pages kennt keinen Zustand `blocked` und nennt nie `completed`.                                                                                                                                         |
+| `steps`             | nur bei `step_started`, 1 bis 20 Einträge: `instanceId` (kennzeichnet die Schrittinstanz im Lauf, ohne Leerraum, höchstens 200 Zeichen), `number` (Nummer des Knotens im Ablauf, Start ist 1; `null` ohne Nummer), `name` (höchstens 500 UTF-16-Codeeinheiten oder `null`), `attempt` (ab 1), `iteration` (ab 1 oder `null` außerhalb einer Schleife). |
+| `stepCount`         | nur bei `step_started`: alle Schritte des Übergangs, mindestens die Länge von `steps`, höchstens 1000.                                                                                                                                                                                                                                                 |
+| `reason`            | nur bei `run_failed`: ein Fehlercode von Pages (zum Beispiel `plan_step_failed`) oder `null`. Kein Freitext.                                                                                                                                                                                                                                           |
+| `detailUrl`         | Feld des Payloads neben `event` (nicht darin); fehlt immer, siehe [Abgleich](#abgleich-mit-dem-mobile-vertrag-pm-14-1).                                                                                                                                                                                                                                |
+
+`forbidden` bedeutet: das Ereignis ist das des Kontos, aber das Konto besitzt den Plan nicht mehr oder darf den Lauf nicht mehr lesen. `gone` bedeutet: es gibt dieses Ereignis nicht (mehr) für das Konto, weil es nie existierte, abgelaufen ist, dem Konto nicht gehört oder der Lauf nicht mehr existiert. Beides fragt Pages beim Eintreffen der Anfrage frisch ab; ein früherer Zugriff gilt nichts. Der Abruf liest nur.
+
+### Wann ein Ereignis entsteht
+
+Quelle sind bestätigte Übergänge des gespeicherten Laufs, nicht die Oberfläche, nicht Modelltext und keine Abfragen:
+
+- **`step_started`**: ein Schritt wechselt tatsächlich von wartend auf laufend. Das gilt nicht für den ersten Schritt eines Laufs (jeden Schritt, in den nur Start führt), nicht für Start und Ende, nicht für einen erneuten Versuch desselben Schritts, nicht für übersprungene Knoten und nicht für den Abschluss eines einzelnen Schritts. Schritte, die in einem Übergang parallel starten, bilden ein Ereignis mit allen Schrittinstanzen; Pages sammelt dafür Starts desselben Laufs bis zu 1 Sekunde, Starts, die weiter auseinanderliegen, gelten als getrennte Übergänge. Eine Schleife meldet ihren Start als Schritt und jede weitere Iteration (ab der zweiten) einmal als neues Ereignis mit `iteration`, beim ersten Schrittstart darin, nicht für jedes Mitglied. Die Mitglieder einer Gruppe sind Schritte; die Zusammenfassungszeile der Gruppe meldet Pages nicht. Jede Schrittinstanz meldet Pages höchstens einmal, auch wenn ein Lauf pausiert und fortgesetzt wird oder Pages neu startet; ein Start, der lief, ohne dass ein Gerät registriert war, wurde nie gemeldet und wird nach einem Fortsetzen erstmals gemeldet.
+- **`run_cancelled`**: erst wenn der Lauf bestätigt `cancelled` ist, nicht bei der Stoppanforderung und nicht bei `stopping`.
+- **`run_failed`**: wenn der Lauf tatsächlich in `failed` übergeht, nicht bei einem technischen Zwischenversuch, einem Fehler eines Schritts, den der Lauf übersteht, oder einer Pause. Läufe, die Pages selbst unterbricht, weil es endet oder neu startet (Fehlercode `plan_interrupted`), meldet Pages nicht; sie sind danach als unterbrochen fortsetzbar.
+- **`run_succeeded`**: erst bei tatsächlichem `succeeded`.
+
+Eine Fortsetzung kann danach neue echte Übergänge erzeugen. Pausieren und Fortsetzen selbst erzeugen nichts.
+
+### Empfänger und Rechte
+
+Empfänger ist das Konto, dem der Plan gehört **und** das den konkreten Lauf jetzt lesen darf. Läufe, die jemand anderes im geteilten Plan startet, und Läufe in fremden Plänen kommen nie vor. Pages prüft beides beim Anlegen des Ereignisses, unmittelbar vor jedem Zustellversuch und bei jedem `notification_event_get`, jeweils mit denselben Prüfungen wie beim Öffnen des Laufs auf der Planseite. Vor jedem Zustellversuch prüft es außerdem, dass die Registrierung, ihre Sitzung und das Konto noch gelten. Wird ein Recht entzogen, verwirft Pages die noch nicht gesendeten Nachrichten und liefert keine Namen mehr. Solange kein Gerät registriert ist, legt Pages gar keine Ereignisse an.
+
+### Push-Nutzlast und Datenschutz
+
+Pages sendet an FCM HTTP v1 eine Nachricht mit `notification.title`, `notification.body` und `data`. Die Nutzlast bleibt unter 4096 Bytes.
+
+`data` enthält nur Textwerte:
+
+| Schlüssel       | Inhalt                                                             |
+| --------------- | ------------------------------------------------------------------ |
+| `pica_v`        | `"1"`                                                              |
+| `pica_event`    | `eventId`                                                          |
+| `pica_instance` | `instanceId` der Pages-Instanz                                     |
+| `pica_account`  | Konto-ID                                                           |
+| `pica_type`     | `step_started`, `run_cancelled`, `run_failed` oder `run_succeeded` |
+| `pica_plan`     | Plan-ID                                                            |
+| `pica_run`      | Lauf-ID                                                            |
+| `pica_seq`      | `seq` als Dezimalzahl ohne führende Null, höchstens 15 Stellen     |
+| `pica_at`       | `occurredAt`, ISO-8601 mit Zeitzone                                |
+| `tag`           | gleich `android.notification.tag`                                  |
+
+`android` setzt `priority` auf `HIGH`, `ttl` auf die **Restlaufzeit** (nicht mehr als `replayTtlSeconds` nach dem Ereignis), `notification.visibility` auf `PRIVATE`, `notification.channel_id` auf `pica-plan-steps` (Schrittstart) oder `pica-plan-results` (Laufende) und `notification.tag` auf `run:<runId>:step` für Fortschritt oder die `eventId` für ein Laufende. Daher ersetzt eine neuere Fortschrittsmeldung eine ältere desselben Laufs, aber nie eine Meldung zum Laufende; zwei Laufenden ersetzen sich nie. Pages setzt weder `collapse_key` noch Symbol, Farbe, `click_action`, Bild oder Ton; die App bringt Manifest und Kanäle mit.
+
+- **`preview: "hidden"`** (Standard): ein lokalisierter, allgemeiner Titel und der Hinweis, zum Anzeigen der Details zu entsperren. Keine Namen. Der Wortlaut ist der des Mobile-Vertrags: „Agent-Plan: nächster Schritt“, „Agent-Plan abgebrochen“, „Agent-Plan fehlgeschlagen“, „Agent-Plan erfolgreich abgeschlossen“ (`en`: „Agent plan: next step“, „Agent plan cancelled“, „Agent plan failed“, „Agent plan completed successfully“) mit dem Text „Zum Anzeigen der Details entsperren.“ (`en`: „Unlock to view details.“).
+- **`preview: "details"`**: nur wenn die App es ausdrücklich so registriert hat **und** Pages Besitz und Lauf-Rechte unmittelbar vorher erneut bestätigt hat, nennt die Meldung Namen. Der Titel bleibt allgemein („Nächster Schritt“, „Plan abgebrochen“, „Plan fehlgeschlagen“, „Plan erfolgreich abgeschlossen“; `en`: „Next step“, „Plan cancelled“, „Plan failed“, „Plan completed successfully“), der Text lautet `<Planname> · Schritt <n>: <Schrittname>`, bei mehreren Schritten `<Planname> · <k> Schritte gestartet` (`en`: `<k> steps started`), bei `run_failed` `<Planname> · <Fehlercode>`, sonst `<Planname>`. Jeder Name ist auf 80 Zeichen gekürzt. Wäre die Nachricht dadurch zu groß, sendet Pages die allgemeine Form.
+- **Nie** in einer Push-Nachricht: Prompts, Antworten, Rohprotokolle, Arbeitsverzeichnisse, Sitzungs- oder Providerzugänge.
+
+Was Pages einmal an den Push-Dienst übergeben hat, liegt dort und auf dem Gerät außerhalb seiner Kontrolle: ein anschließender Besitz- oder Sitzungswechsel, ein entzogenes Recht oder eine Entfernung der Registrierung nehmen die schon übergebene Meldung nicht zurück. Die App sollte beim Antippen `notification_event_get` abrufen und nur zeigen, was `access: "ok"` liefert.
+
+### Zustellung
+
+- **Rest-TTL.** Pages stellt nur zu, solange die Gültigkeit des Ereignisses (`replayTtlSeconds`) nicht abgelaufen ist, und übergibt FCM die verbleibende Zeit. Ereignisse, die vor `registeredAt` entstanden, oder verfallene werden nicht gesendet.
+- **Wiederholung.** Vorübergehende Fehler von FCM (Quota, Nichterreichbarkeit, Zeitüberschreitung) versucht Pages höchstens sechsmal (der erste Versuch und fünf Wiederholungen) mit wachsendem Abstand (etwa 5 s, 15 s, 45 s, 2 min, 5 min) und bricht bei Ablauf der Gültigkeit ab. Es gibt keine Endlosschleife.
+- **Ungültiger Token.** Nur wenn FCM den Token selbst als ungültig meldet (`UNREGISTERED` oder `INVALID_ARGUMENT` mit Feldverstoß auf dem Token), entfernt Pages genau diese Registrierung. Ein `INVALID_ARGUMENT`, der die Nutzlast meint, und eine falsche Projektkonfiguration lassen Registrierungen unberührt.
+- **Drosselung.** Ein Lauf sendet an ein Gerät höchstens eine Schrittmeldung je 10 Sekunden; mehrere wartende werden durch die neueste ersetzt. Eine Meldung zum Laufende wird nie gedrosselt, ersetzt oder verworfen; sie verwirft nur noch wartende Schrittmeldungen desselben Laufs.
+- **Kein Einfluss auf Läufe.** Ein Ausfall, eine Zeitüberschreitung oder eine fehlende Konfiguration von FCM ändert nie einen Lauf, startet keinen Job und hält keine Ausführung auf.
+- **Keine Garantie der Anzeige.** „An FCM übergeben“ heißt nicht „auf dem Gerät angezeigt“. Eine unklare Versandbestätigung kann zu einer zweiten Versendung führen; weil Wiederholungen dieselbe `tag` tragen, ersetzt Android die erste Anzeige durch die zweite, garantiert aber kein genau einmaliges Erscheinen. Die Anzeige kann sich verspäten oder ausbleiben (Energiesparmodus, App-Einstellungen, Google-Dienste).
+- **Aufbewahrung.** Pages hält Ereignisse 7 Tage und höchstens 100 je Konto; danach antwortet `notification_event_get` mit `gone`. Es entsteht keine Ereignisflut beim Einschalten.
+
+### Abgleich mit dem Mobile-Vertrag (PM-14-1)
+
+**Quellen.** Verglichen wurden `docs/notifications-contract.md`, `src/services/notificationProtocol.ts`, `src/services/notifications.ts` und `src/services/pagesClient.ts` aus dem unveränderten Textabzug im Ticket-Anhang von PAGE-193 (Pica-Mobile `main`, Commit `d72631b4cf3fb1a76a0389e7fbf301e61d5ac551`, Arbeitsbaum sauber, Stand 1.11.2026). Die SHA-256-Summen der aus dem Anhang gelösten Dateien stimmen mit der Liste im Ticket überein: `docs/notifications-contract.md` `939daea4f702585978ecc113e017f3c624b05d5b5666b3241a3317f119eb68b4`, `src/services/notificationProtocol.ts` `f746f041c45885c70818ea76cf6f13c0e6049e6449f5be2def9fe279d81d0803`, `src/services/notifications.ts` `7b40bcce5c1b055f53af1f2d3029be7815408a80870bfddb9d633b42aa76e72e`, `src/services/pagesClient.ts` `81ce7abaf49d347eb9136028e4875dc1e3961c9287d969a2095a583d7cb7aba9`. Das Repository `/home/igor/Repo/Pica-Mobile` selbst war auf dem Host nicht vorhanden und wurde nicht gelesen. Wer einen neueren Stand von `main` hat, vergleicht diese Summen, bevor er sich auf diese Tabelle verlässt.
+
+**Nicht verglichen.** `src/services/protocol.ts` (Hüllen- und `connected`-Parser, `isDataMessage`), `dashboardProtocol.ts` und `src/features/notifications/notificationController.ts` lagen nicht im Abzug. Die Hülle und `connected` sind der bestätigte Vertrag von Version 1 und wurden nicht verändert; ob der `connected`-Parser die Capability-Namen genau so liest, ist nicht gegengeprüft.
+
+**Methode.** Die ausführbaren Parser des Clients (`parseRegistered`, `parseUnregistered`, `parseEventDetail`, `parsePushData`) wurden unverändert gegen die echten Ausgaben von Pages gehalten: die Encoder der drei Antworten, den Ereignisleser mit einer nachgebildeten Speicherung und Rechteprüfung sowie den Aufbau der Push-Nachricht. Das ist eine **Simulation** ohne Netz, Datenbank, FCM und Gerät. Sie belegt die Formverträglichkeit mit dem Parser, nicht die Zustellung.
+
+**Abweichungen, die der Abgleich gefunden und in Pages behoben hat.**
+
+| Befund                                                                          | Folge für die App                                                                                                               | Korrektur in Pages                                                                                                                                                                              |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Namen wurden nach Unicode-Zeichen gekürzt                                       | Der Parser zählt UTF-16-Codeeinheiten (`length`); 400 Emoji sind 800 Einheiten und verletzten die Grenze von 500                | Kürzung nach UTF-16-Codeeinheiten, ohne ein Ersatzpaar zu zerschneiden (Plan-, Schrittname, Grund)                                                                                              |
+| `steps[].instanceId` konnte Leerraum enthalten oder länger als 200 Zeichen sein | Der Parser verwirft die ganze Antwort als `protocol`; betroffen sind Knotenkennungen mit Leerraum und lange Schleifenmitglieder | Genügt die Kennung nicht (`^\S{1,200}$`), sendet Pages `si-` und 32 Hexzeichen eines SHA-256 der Kennung; gleiche Kennung, gleicher Wert                                                        |
+| Antwort ohne Größengrenze                                                       | Der Vertrag verlangt höchstens 16384 UTF-16-Codeeinheiten; die App beendet bei mehr die Verbindung                              | `notification_event` bleibt darunter: zuerst entfallen Schritte vom Ende (`stepCount` behält die Gesamtzahl), dann kürzen die Namen auf 80 Zeichen; passt es dann nicht, antwortet Pages `gone` |
+| `detailUrl` stand im Typ innerhalb von `event`                                  | Der Parser liest `payload.detailUrl`; ein dort eingebauter Link wäre nie gelesen worden                                         | Typ und Beschreibung: `detailUrl` steht im Payload neben `event`. Pages sendet weiterhin keinen                                                                                                 |
+| Sichtbare Texte wichen vom Vertrag ab                                           | Der Vertrag nennt die Titel und den Text verbindlich als [Server-Pflicht]                                                       | Titel, Text und `details`-Format wie im Vertrag (siehe [Push-Nutzlast](#push-nutzlast-und-datenschutz))                                                                                         |
+
+**Widersprüche im Mobile-Vertrag selbst und ihre Auflösung.**
+
+| Widerspruch                                                                                                                                                                                                                                                                                          | Auflösung                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runnerStates` im Parser und die Tabelle `event.run` im Vertrag nennen `blocked`; die Ereignissemantik sagt, `blocked` erzeuge keine Ereignisse und sei kein Laufstatus (`dashboard.v1` kennt `completed` nur als Projektion von `succeeded`), und „Fortsetzen“ spricht von einem „blockierten“ Lauf | Pages hat keinen Laufzustand `blocked` und führt keinen ein. Pages sendet `run.status` nur aus den sieben Zuständen `running`, `pausing`, `paused`, `stopping`, `succeeded`, `failed`, `cancelled`. Dass der Parser `blocked` zusätzlich annimmt, ist eine Obermenge und schadet nicht; die Probe bestätigte alle sieben. Ein fortsetzbarer Lauf ist in Pages ein fehlgeschlagener oder unterbrochener. Der Client kann `blocked` bei Gelegenheit streichen, muss es aber nicht |
+| Der Vertrag nennt `reason` „bereinigten Klartext“; Pages hat keinen bereinigten Freitext, der garantiert ohne Prompts, Antworten oder Pfade ist                                                                                                                                                      | Pages sendet den Fehlercode des ersten fehlgeschlagenen Schritts (`^[a-z][a-z0-9_.:-]{0,99}$`, zum Beispiel `plan_step_failed`) oder `null`. Das ist kurzer Klartext im Rahmen des Parsers (höchstens 200 Zeichen) und enthält nie Modell- oder Logtext. In der Meldung mit `details` erscheint der Code                                                                                                                                                                        |
+| Der Vertrag nennt Schleifen „jeden echten neuen Durchlauf“ ein Ereignis; die Beschreibung des Starts einer Schleife lässt offen, ob der erste Durchlauf eins ist                                                                                                                                     | Der Start der Schleife meldet Pages als Schritt, jede weitere Iteration ab der zweiten einmal mit `iteration`                                                                                                                                                                                                                                                                                                                                                                   |
+
+**Entscheidungen, wo der Vertrag Spielraum lässt.** Diese Punkte muss der Client bestätigen:
+
+| Punkt                                      | Entscheidung von Pages                                                                                                                               |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| iOS und APNs                               | nicht unterstützt; `platform: "ios"` und jeder andere Provider sind `invalid_message`, `notifications.push.apns` wird nie genannt                    |
+| Registrierung ohne FCM-Sender              | `server_unavailable`; `notifications.v1` bleibt genannt, `notifications.push.fcm` fehlt (ein Client, der die Capability prüft, sendet dann nichts)   |
+| Unbekanntes `preview`                      | `invalid_message`, kein stilles `hidden`; fehlt es, gilt `hidden`                                                                                    |
+| Unbekanntes `locale`                       | `de`                                                                                                                                                 |
+| `detailUrl`                                | wird nie gesendet: die Weboberfläche von Pages hat keine Adresse, die einen einzelnen Lauf ohne Query-Teil öffnet, und eine erfundene Route entfällt |
+| Fremde, unbekannte, abgelaufene Ereignisse | `gone`; `forbidden` nur für ein eigenes Ereignis, dessen Rechte entfallen sind                                                                       |
+| `run.status`                               | aktueller Runner-Zustand (`running`, `pausing`, `paused`, `stopping`, `succeeded`, `failed`, `cancelled`), nie `blocked`, nie `completed`            |
+| `reason`                                   | Fehlercode von Pages statt Freitext, höchstens 200 Zeichen, sonst `null`                                                                             |
+| `steps[].instanceId`                       | Kennung des Knotens im Lauf; für ein Schleifenmitglied `<Schleife>:<Knoten>:<Iteration>`; sonst, wenn unzulässig, der Digest (siehe oben)            |
+| `steps[].number`                           | Nummer des Knotens im Ablauf (Start ist 1); `null` für Schleifenmitglieder                                                                           |
+| `steps[].attempt`                          | Versuch des Schritts beim Start, ab 1                                                                                                                |
+| Englische Titel im Modus `details`         | der Vertrag nennt nur deutsche: „Next step“, „Plan cancelled“, „Plan failed“, „Plan completed successfully“ sind die Wahl von Pages                  |
+| Erster Schritt eines Laufs                 | meldet Pages nicht; eine Schleife meldet ihren Start als Schritt, jede Iteration ab der zweiten als eigenes Ereignis                                 |
+| Schrittbündelung                           | 1 Sekunde; Drosselung höchstens eine Schrittmeldung je Lauf und Gerät in 10 Sekunden                                                                 |
+| Unterbrechung durch Pages                  | wird nicht gemeldet (Fehlercode `plan_interrupted`)                                                                                                  |
+| Starts weiter als 1 Sekunde auseinander    | getrennte Ereignisse                                                                                                                                 |
+| Aufbewahrung der Ereignisse                | 7 Tage, höchstens 100 je Konto                                                                                                                       |
+| Kennungen von Konto, Plan und Lauf         | Pages vergibt UUIDs; die App verlangt Text ohne Leerraum bis 200 Zeichen. Pages prüft das für Konto-, Plan- und Lauf-Kennungen nicht eigens          |
+
+**Feld für Feld bestätigt (kein Befund).** Die Nachrichtentypen und ihre Antworttypen (`notification_register` → `notification_registered` und so weiter), die Hülle `{version, type, requestId, payload}` und die gleiche `requestId`; die Felder und Prüfmuster von `deviceId`, `platform`, `provider`, `token` (≤ 4096), `locale`, `preview`; die Antwort `notification_registered` (`deviceId` wiederholt, `instanceId`, `accountId`, `registeredAt` als ISO-8601 mit Zeitzone, `replayTtlSeconds` 60–3600); `notification_unregistered` mit der wiederholten `deviceId`; die Antwort `notification_event` mit wiederholter `eventId`, `access` `ok`, `forbidden`, `gone` (bei den beiden letzten nur `eventId` und `access`); Ereignistypen, `occurredAt`, `seq` ab 1, `plan.name` nicht leer und höchstens 500, `steps` (1–20 bei `step_started`, bei terminalen Ereignissen ohne `steps` und `stepCount`), `stepCount` zwischen Länge von `steps` und 1000, `reason` nur bei `run_failed`; die Push-Daten `pica_v`, `pica_event`, `pica_instance`, `pica_account`, `pica_type`, `pica_plan`, `pica_run`, `pica_seq`, `pica_at` und `tag` (genau diese zehn Schlüssel), `tag` und Kanal je Ereignisart; die Capability-Namen `notifications.v1` und `notifications.push.fcm`; keine Nachricht von Pages ohne Anfrage.
 
 ## Authentifizierung und Rechte
 
@@ -357,7 +605,7 @@ Pica Mobile führt keinen eigenen Zugang ein, sondern nutzt die Pages-Konten:
 - `method: "session"` weist eine solche Sitzung vor. Sie ist 14 Tage gültig, wie im Browser.
 - Konten, die ihr Passwort erst ändern müssen, können sich nicht verbinden (`password_change_required`), ebenso wenig wie sie Pages im Browser nutzen können.
 
-Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`.
+Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1` sowie `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1`.
 
 Pages prüft die Sitzung einer Verbindung etwa jede Minute neu. Wurde sie beendet oder das Konto deaktiviert, sendet Pages `authentication_failed` und trennt mit Code 1008 („Session ended“). Schlägt nur die Prüfung selbst fehl (zum Beispiel wegen einer Störung der Datenbank), bleibt die Verbindung bestehen.
 

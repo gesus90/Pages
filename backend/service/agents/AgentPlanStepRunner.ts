@@ -188,8 +188,9 @@ export class AgentPlanStepRunner {
   private async closeSessionGroups(
     runId: string,
     groupId?: string,
+    options?: { readonly abort?: boolean },
   ): Promise<Awaited<ReturnType<AgentPlanGroupSessions["stop"]>>> {
-    const stopped = await this.groups.stop(runId, groupId);
+    const stopped = await this.groups.stop(runId, groupId, options);
     if (groupId === undefined) this.groups.forget(runId);
     for (const { key, closed } of stopped) {
       for (const node of this.retained.get(key) ?? []) {
@@ -498,7 +499,11 @@ export class AgentPlanStepRunner {
     if (!group && node.loop?.policy !== "reuse") return false;
     const key = `${node.run.id}/${group?.id ?? node.sessionGroup}`;
     const nodes = this.retained.get(key) ?? [];
+    const succeeded = node.run.steps
+      .filter((entry) => entry.status === "succeeded")
+      .map((entry) => entry.id);
     const completed = new Set([
+      ...succeeded,
       ...nodes.map((entry) => entry.step.step.id),
       node.step.step.id,
     ]);
@@ -567,7 +572,9 @@ export class AgentPlanStepRunner {
     error: unknown,
   ): Promise<Partial<AgentPlanStepResult>> {
     const stopped = node.sessionGroup
-      ? await this.closeSessionGroups(node.run.id, node.sessionGroup)
+      ? await this.closeSessionGroups(node.run.id, node.sessionGroup, {
+          abort: true,
+        })
       : [];
     await this.dependencies.access.revoke(
       node.run.id,

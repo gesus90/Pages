@@ -4,6 +4,7 @@ import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
 
 import { PicaMobileAvatars } from "./PicaMobileAvatars";
 import { toDashboardRun } from "./PicaMobileRunMapping";
+import { readCurrentSessionUser } from "./PicaMobileSessionUser";
 
 import type { AuthService } from "@/backend/auth/AuthService";
 import type { ProjectService } from "@/backend/service/ProjectService";
@@ -174,20 +175,7 @@ export class PagesPicaMobileDashboard implements PicaMobileDashboardProvider {
     services: PicaMobileDashboardServices,
     session: PicaMobileSessionIdentity,
   ): Promise<User | null> {
-    const user = await services.authService.getAuthenticatedUser(
-      session.sessionToken,
-    );
-
-    if (
-      user === null ||
-      user.id !== session.userId ||
-      !user.isActive ||
-      user.mustChangePassword
-    ) {
-      return null;
-    }
-
-    return user;
+    return readCurrentSessionUser(services.authService, session);
   }
 
   private async readAvatarReference(

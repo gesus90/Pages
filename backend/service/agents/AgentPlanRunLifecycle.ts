@@ -1,6 +1,7 @@
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { withLogContext, logEvent } from "@/backend/logging/Logger";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
+import { withGroupResults } from "./AgentPlanGroupResults";
 import { requireWriterRepository } from "./AgentPlanEngineDependencies";
 import {
   requestCancellation,
@@ -73,6 +74,7 @@ export async function finalizeScheduledPlanRun(
   active: ActivePlanRun,
   dependencies: EngineDependencies,
 ): Promise<void> {
+  active.view = withGroupResults(active.view, active.snapshot);
   const hasFailure = active.view.steps.some(
     (step) =>
       step.status === "failed" ||

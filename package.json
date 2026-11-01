@@ -9,7 +9,7 @@
     "start": "node server.mjs",
     "build": "react-router build",
     "format": "prettier --write .",
-    "lint": "node --max-old-space-size=8192 node_modules/eslint/bin/eslint.js . --max-warnings=0",
+    "lint": "node scripts/run-lint.mjs",
     "check": "react-router typegen && tsc --noEmit && prettier --check .",
     "test:backend": "vitest run --config vitest.backend.config.ts --coverage",
     "test:frontend": "vitest run --config vitest.frontend.config.ts --coverage",

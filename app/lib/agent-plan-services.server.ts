@@ -29,6 +29,7 @@ import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanSc
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
+import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
@@ -51,7 +52,9 @@ import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/Ag
 import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
 import type { PlanDependencies } from "@/backend/service/agents/AgentPlanService";
+import type { PicaMobileNotificationService } from "@/backend/service/mobile/notifications/PicaMobileNotificationService";
 import type { AgentApplicationServices } from "./agent-services.server";
+import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
 
 /** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
 export interface AgentPlanServices {
@@ -59,6 +62,8 @@ export interface AgentPlanServices {
   readonly agentPlanService: AgentPlanService;
   /** The unfinished runs of one person, for clients that list them without the plan page. */
   readonly agentPlanActiveRunService: AgentPlanActiveRunService;
+  /** Pica Mobile notifications for runs of plans the person owns. */
+  readonly picaMobileNotifications: PicaMobileNotificationService;
   /** Creating, copying and deleting plans from the plan page, each request once. */
   readonly agentPlanManagement: AgentPlanManagement;
   /** The personal node templates of the plan editor, checked by the plan service. */
@@ -179,16 +184,13 @@ export async function createAgentPlanService(input: {
     workspaceCleanup: new AgentWorkspaceCleanupRepository(input.database),
   };
   const service = new AgentPlanService(dependencies);
+  const views = await createPlanViews(input, dependencies, service);
   await recoverRuns(input, service);
   startWorkspaceCleanup(input.database, runs, engine, remoteExecution);
   return {
     runnerPagesAccessService: pages,
     agentPlanService: service,
-    agentPlanActiveRunService: new AgentPlanActiveRunService(
-      dependencies,
-      service,
-    ),
-    ...createPlanManagement(input.database, service),
+    ...views,
     agentSessionService: pageAgentSessions,
     agentPlanRecoveryService: createRecoveryService(input, {
       service,
@@ -198,6 +200,34 @@ export async function createAgentPlanService(input: {
       runs,
       remoteExecution,
     }),
+  };
+}
+
+/** The services that read, list or announce plans and runs through the plan service. */
+async function createPlanViews(
+  input: Parameters<typeof createAgentPlanService>[0],
+  dependencies: PlanDependencies,
+  service: AgentPlanService,
+): Promise<
+  Pick<
+    AgentPlanServices,
+    | "agentPlanActiveRunService"
+    | "picaMobileNotifications"
+    | "agentPlanManagement"
+    | "agentPlanTemplateService"
+  >
+> {
+  return {
+    agentPlanActiveRunService: new AgentPlanActiveRunService(
+      dependencies,
+      service,
+    ),
+    ...(await createPicaMobileNotificationServices({
+      database: input.database,
+      users: input.users,
+      ownerRuns: new AgentPlanOwnerRunReader(dependencies),
+    })),
+    ...createPlanManagement(input.database, service),
   };
 }
 

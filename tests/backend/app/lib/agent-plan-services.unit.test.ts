@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { createAgentPlanService } from "@/app/lib/agent-plan-services.server";
+import { createPicaMobileNotificationServices } from "@/app/lib/pica-mobile-notification-services.server";
 import { createPlanWorkspaceAccess } from "@/app/lib/plan-access-services.server";
 import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanConfigurationUpgrade";
 import { shareLegacyPlans } from "@/backend/service/agents/AgentPlanLegacyShare";
@@ -31,6 +32,7 @@ import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanSc
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
+import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
@@ -54,6 +56,7 @@ import type { PagesRuntime } from "@/backend/runtime/PagesRuntime";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
+import type { PicaMobileNotificationService } from "@/backend/service/mobile/notifications/PicaMobileNotificationService";
 
 const { fakeClasses, opaque, partial } = await vi.hoisted(
   async () => import("./service-wiring-fakes"),
@@ -62,6 +65,12 @@ const { fakeClasses, opaque, partial } = await vi.hoisted(
 vi.mock("@/app/lib/plan-access-services.server", () => ({
   createPlanWorkspaceAccess: vi.fn(),
 }));
+vi.mock("@/app/lib/pica-mobile-notification-services.server", () => ({
+  createPicaMobileNotificationServices: vi.fn(),
+}));
+vi.mock("@/backend/service/agents/AgentPlanOwnerRunReader", () =>
+  fakeClasses({ AgentPlanOwnerRunReader: [] }),
+);
 vi.mock("@/backend/service/agents/AgentPlanConfigurationUpgrade", () => ({
   upgradePlanConfigurations: vi.fn(),
 }));
@@ -222,6 +231,7 @@ const MCP = opaque<AgentPlanMcpSettings>("mcp settings");
 const API = vi.fn<PlanInput["api"]>();
 const ACCESS = opaque("plan access");
 const CATALOG = opaque("workspace catalog");
+const NOTIFICATIONS = opaque<PicaMobileNotificationService>("notifications");
 
 function agentFixture(): AgentFixture {
   const restore = vi.fn(async () => undefined);
@@ -275,6 +285,9 @@ beforeEach(() => {
   vi.mocked(createPlanWorkspaceAccess).mockReturnValue(
     partial({ access: ACCESS, workspaceCatalog: CATALOG }),
   );
+  vi.mocked(createPicaMobileNotificationServices).mockResolvedValue({
+    picaMobileNotifications: NOTIFICATIONS,
+  });
   vi.mocked(AgentProfileRepository.prototype.list).mockResolvedValue([
     opaque("profile"),
   ]);
@@ -313,10 +326,16 @@ it("returns the plan service with its management, templates, sessions and recove
     runnerPagesAccessService: only(vi.mocked(RunnerPagesAccessService)),
     agentPlanService: service,
     agentPlanActiveRunService: ANY_ACTIVE_RUN_SERVICE,
+    picaMobileNotifications: NOTIFICATIONS,
     agentPlanManagement: only(vi.mocked(AgentPlanManagement)),
     agentPlanTemplateService: only(vi.mocked(AgentPlanTemplateService)),
     agentSessionService: only(vi.mocked(AgentSessionService)),
     agentPlanRecoveryService: only(vi.mocked(AgentPlanRecoveryService)),
+  });
+  expect(vi.mocked(createPicaMobileNotificationServices)).toHaveBeenCalledWith({
+    database: DATABASE,
+    users: USERS,
+    ownerRuns: only(vi.mocked(AgentPlanOwnerRunReader)),
   });
   expect(vi.mocked(AgentPlanManagement).mock.calls[0][0]).toEqual({
     database: DATABASE,

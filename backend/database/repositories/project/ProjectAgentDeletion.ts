@@ -138,6 +138,10 @@ export async function deleteProjectAgentData(
     "agent_plan_cleanup_failures",
     "agent_workspace_cleanup",
     "agent_plan_work",
+    "pica_mobile_notification_deliveries",
+    "pica_mobile_notification_occurrences",
+    "pica_mobile_notification_sequences",
+    "pica_mobile_notification_events",
   ] as const)
     await database.execute(
       `DELETE FROM ${table} WHERE run_id IN (${PLAN_RUNS});`,

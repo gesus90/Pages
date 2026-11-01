@@ -59,15 +59,19 @@ export async function endInterruptedSession(
   if (!session || !needsSettlement(session)) return step;
   const cleanup = await settleSession(session, runStartedAt);
   const isContained = cleanup.remaining === 0 && ownsNamespace(session);
+  const isConfirmedSuccess =
+    step.status === "succeeded" &&
+    cleanup.remaining === 0 &&
+    (session.acceptance === null || session.acceptance.verdict === "accepted");
   return {
     ...step,
     session: {
       ...session,
-      endedAt: new Date().toISOString(),
+      endedAt: session.endedAt ?? new Date().toISOString(),
       closeout: cleanup.remaining === 0 ? "confirmed" : "failed",
       ...(isContained ? { containment: "pid_namespace" as const } : {}),
       leftoverProcesses: cleanup.found,
-      resultCode: -1,
+      resultCode: isConfirmedSuccess ? (session.resultCode ?? 0) : -1,
     },
   };
 }

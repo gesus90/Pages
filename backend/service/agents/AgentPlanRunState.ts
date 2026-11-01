@@ -226,6 +226,66 @@ export function detachedStopRun(run: AgentPlanRun): AgentPlanRun {
   });
 }
 
+/** Whether any step or loop of the run has an unconfirmed or failed closeout. */
+export function hasUnconfirmedRunCloseout(run: AgentPlanRun): boolean {
+  return (
+    hasUnconfirmedLoopCloseout(run) ||
+    allPlanRunResults(run).some(
+      (step) =>
+        isRemoteCloseoutUnconfirmed(step) ||
+        step.remote?.closeout === "pending" ||
+        step.remote?.closeout === "failed" ||
+        step.session?.closeout === "pending" ||
+        step.session?.closeout === "failed" ||
+        step.script?.closeout === "pending" ||
+        step.script?.closeout === "failed",
+    )
+  );
+}
+
+/** Whether every step and loop of a run has durably succeeded and confirmed closeout. */
+export function isCompletedPlanRun(run: AgentPlanRun): boolean {
+  if (run.stopRequested || run.controlError || run.steps.length === 0)
+    return false;
+  if (hasUnconfirmedRunCloseout(run)) return false;
+  if (
+    !run.steps.every(
+      (step) =>
+        step.status === "succeeded" &&
+        !step.isBlocked &&
+        !step.error &&
+        step.session?.resultCode !== -1 &&
+        (!step.session?.acceptance ||
+          step.session.acceptance.verdict === "accepted"),
+    )
+  )
+    return false;
+  if (
+    run.loops &&
+    !run.loops.every(
+      (loop) =>
+        loop.status === "succeeded" &&
+        !loop.error &&
+        loop.iterations.every(
+          (iteration) =>
+            iteration.status === "succeeded" &&
+            !iteration.error &&
+            iteration.nodes.every(
+              (node) =>
+                node.status === "succeeded" &&
+                !node.isBlocked &&
+                !node.error &&
+                node.session?.resultCode !== -1 &&
+                (!node.session?.acceptance ||
+                  node.session.acceptance.verdict === "accepted"),
+            ),
+        ),
+    )
+  )
+    return false;
+  return true;
+}
+
 /**
  * Closes a run that no engine drives once none of its steps runs anymore.
  *
@@ -244,20 +304,16 @@ export function settleDetachedRun(run: AgentPlanRun): AgentPlanRun {
   if (run.status === "stopping" && run.stopRequested)
     return endedPlanRun(
       run,
-      hasUnconfirmedLoopCloseout(run) ||
-        allPlanRunResults(run).some(
-          (step) =>
-            isRemoteCloseoutUnconfirmed(step) ||
-            step.remote?.closeout === "pending" ||
-            step.remote?.closeout === "failed" ||
-            step.session?.closeout === "pending" ||
-            step.session?.closeout === "failed" ||
-            step.script?.closeout === "pending" ||
-            step.script?.closeout === "failed",
-        )
-        ? "failed"
-        : "cancelled",
+      hasUnconfirmedRunCloseout(run) ? "failed" : "cancelled",
     );
+  if (
+    (run.status === "running" || run.status === "pausing") &&
+    isCompletedPlanRun(run)
+  )
+    return {
+      ...endedPlanRun(run, "succeeded"),
+      recovery: undefined,
+    };
   if (run.status === "stopping" || run.status === "running")
     return interruptedPlanRun(endedPlanRun(run, "failed"));
   return run;
@@ -346,19 +402,7 @@ export function finalPlanStatus(
 
 /** Failed session cleanup keeps the run's definitions and working copies reserved. */
 export function hasUnconfirmedCloseout(active: ActivePlanRun): boolean {
-  return (
-    hasUnconfirmedLoopCloseout(active.view) ||
-    allPlanRunResults(active.view).some(
-      (step) =>
-        isRemoteCloseoutUnconfirmed(step) ||
-        step.remote?.closeout === "pending" ||
-        step.remote?.closeout === "failed" ||
-        step.session?.closeout === "pending" ||
-        step.session?.closeout === "failed" ||
-        step.script?.closeout === "pending" ||
-        step.script?.closeout === "failed",
-    )
-  );
+  return hasUnconfirmedRunCloseout(active.view);
 }
 
 /** Stamps the actual terminal decision without estimating an older run's end. */
@@ -369,7 +413,7 @@ export function endedPlanRun(
   return {
     ...run,
     status,
-    endedAt: new Date().toISOString(),
+    endedAt: run.endedAt ?? new Date().toISOString(),
     isWaitingForWorkspace: undefined,
     workspaceWait: undefined,
   };

@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import type {
+  PicaMobileNotificationEventPayload,
+  PicaMobileNotificationRegisteredPayload,
+  PicaMobileNotificationUnregisteredPayload,
+} from "./PicaMobileNotifications";
+
 /** Version of the JSON message format spoken on the Pica Mobile WebSocket. */
 export const PICA_MOBILE_PROTOCOL_VERSION = 1;
 
@@ -29,6 +35,9 @@ export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   PING: "ping",
   DASHBOARD_GET: "dashboard_get",
   AVATAR_GET: "avatar_get",
+  NOTIFICATION_REGISTER: "notification_register",
+  NOTIFICATION_UNREGISTER: "notification_unregister",
+  NOTIFICATION_EVENT_GET: "notification_event_get",
 } as const;
 
 /** Types of the messages the server sends. */
@@ -38,6 +47,9 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
   ERROR: "error",
   DASHBOARD: "dashboard",
   AVATAR: "avatar",
+  NOTIFICATION_REGISTERED: "notification_registered",
+  NOTIFICATION_UNREGISTERED: "notification_unregistered",
+  NOTIFICATION_EVENT: "notification_event",
 } as const;
 
 /**
@@ -46,10 +58,16 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * @remarks
  * `dashboard.v1` stands for the whole dashboard contract: `dashboard_get`,
  * `dashboard`, `avatar_get` and `avatar`. A server names it only for a
- * connection that answers all of them.
+ * connection that answers all of them. `notifications.v1` stands for
+ * `notification_register`, `notification_unregister` and
+ * `notification_event_get` with their answers. `notifications.push.fcm` is
+ * named only while the server has a usable FCM sender; without it a
+ * registration is refused. There is no `notifications.push.apns`.
  */
 export const PICA_MOBILE_CAPABILITY = {
   DASHBOARD_V1: "dashboard.v1",
+  NOTIFICATIONS_V1: "notifications.v1",
+  NOTIFICATIONS_PUSH_FCM: "notifications.push.fcm",
 } as const;
 
 /** One extension of {@link PICA_MOBILE_CAPABILITY}. */
@@ -281,4 +299,16 @@ export type PicaMobileServerMessage =
   | PicaMobileEnvelope<"pong", PicaMobilePongPayload>
   | PicaMobileEnvelope<"error", PicaMobileErrorPayload>
   | PicaMobileEnvelope<"dashboard", PicaMobileDashboardPayload>
-  | PicaMobileEnvelope<"avatar", PicaMobileAvatarPayload>;
+  | PicaMobileEnvelope<"avatar", PicaMobileAvatarPayload>
+  | PicaMobileEnvelope<
+      "notification_registered",
+      PicaMobileNotificationRegisteredPayload
+    >
+  | PicaMobileEnvelope<
+      "notification_unregistered",
+      PicaMobileNotificationUnregisteredPayload
+    >
+  | PicaMobileEnvelope<
+      "notification_event",
+      PicaMobileNotificationEventPayload
+    >;

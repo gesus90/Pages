@@ -335,8 +335,7 @@ automatic storage fault does not set the user's `stopRequested` flag. No
 dependent work or retry starts.
 
 Non-test gates are the repository's `pnpm run check` (React Router typegen,
-TypeScript and Prettier) and
-`node --max-old-space-size=3072 node_modules/eslint/bin/eslint.js . --max-warnings=0`.
+TypeScript and Prettier) and `pnpm run lint` (`node scripts/run-lint.mjs`).
 These gates do not establish functional or coverage validation.
 
 ## Remaining integration work

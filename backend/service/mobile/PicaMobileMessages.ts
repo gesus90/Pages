@@ -11,6 +11,8 @@ import {
   picaMobileRequestIdSchema,
 } from "@/definition/PicaMobileProtocol";
 
+import { parsePicaMobileNotificationPayload } from "./notifications/PicaMobileNotificationMessages";
+
 import type {
   PicaMobileAuthPayload,
   PicaMobileAvatarPayload,
@@ -20,6 +22,7 @@ import type {
   PicaMobileErrorPayload,
   PicaMobileServerMessage,
 } from "@/definition/PicaMobileProtocol";
+import type { PicaMobileNotificationClientMessage } from "./notifications/PicaMobileNotificationMessages";
 
 /** A message of a client that passed every check of the envelope and its payload. */
 export type PicaMobileClientMessage =
@@ -34,7 +37,8 @@ export type PicaMobileClientMessage =
       readonly type: "avatar_get";
       readonly requestId: string;
       readonly payload: { readonly version: string };
-    };
+    }
+  | PicaMobileNotificationClientMessage;
 
 /** Why a frame is not a usable message, with what the answer needs. */
 export interface PicaMobileRejection {
@@ -164,7 +168,7 @@ function parseEmptyPayload(
 function parsePayload(
   type: string,
   requestId: string,
-  payload: unknown,
+  payload: JsonRecord,
 ): PicaMobileParseResult {
   switch (type) {
     case PICA_MOBILE_CLIENT_MESSAGE_TYPE.AUTH:
@@ -176,10 +180,13 @@ function parsePayload(
     case PICA_MOBILE_CLIENT_MESSAGE_TYPE.AVATAR_GET:
       return parseAvatarGetPayload(requestId, payload);
     default:
-      return reject(
-        PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
-        "The message type is not known.",
-        requestId,
+      return (
+        parsePicaMobileNotificationPayload(type, requestId, payload) ??
+        reject(
+          PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
+          "The message type is not known.",
+          requestId,
+        )
       );
   }
 }

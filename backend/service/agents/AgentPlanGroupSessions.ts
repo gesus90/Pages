@@ -303,6 +303,7 @@ export class AgentPlanGroupSessions {
   public async stop(
     runId: string,
     groupId?: string,
+    options?: { readonly abort?: boolean },
   ): Promise<
     readonly { readonly key: string; readonly closed: PlanSessionClosed }[]
   > {
@@ -313,7 +314,7 @@ export class AgentPlanGroupSessions {
         (groupId !== undefined && key !== `${runId}/${groupId}`)
       )
         continue;
-      entry.controller.abort();
+      if (options?.abort) entry.controller.abort();
       stopped.push({ key, closed: await this.close(key, entry) });
     }
     return stopped;

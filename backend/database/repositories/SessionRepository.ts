@@ -102,6 +102,51 @@ export class SessionRepository {
   }
 
   /**
+   * Returns the identifier of an unexpired session.
+   *
+   * @param tokenHash - Hash of the token sent by the browser.
+   * @returns The session identifier, or `null` when no valid session exists.
+   */
+  public async findIdByTokenHash(tokenHash: string): Promise<string | null> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            id
+        FROM sessions
+        WHERE token_hash = $token_hash
+            AND expires_at > utc_now();
+      `,
+      { token_hash: tokenHash },
+    );
+
+    const row = rows[0];
+
+    return row ? readTextColumn(row, 0, "id") : null;
+  }
+
+  /**
+   * Tells whether a session of a user still exists and has not expired.
+   *
+   * @param sessionId - Identifier of the session.
+   * @param userId - Identifier of the account the session must belong to.
+   */
+  public async isActive(sessionId: string, userId: string): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            1
+        FROM sessions
+        WHERE id = $session_id
+            AND user_id = $user_id
+            AND expires_at > utc_now();
+      `,
+      { session_id: sessionId, user_id: userId },
+    );
+
+    return rows.length > 0;
+  }
+
+  /**
    * Records that a session was used for a request.
    *
    * @param tokenHash - Hash of the token sent by the browser.

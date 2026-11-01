@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { interpreterProfilesSchema } from "@/definition/InterpreterProfile";
 import { isLogRetentionDays } from "@/definition/Logging";
+import { PICA_MOBILE_REPLAY_TTL_RANGE_SECONDS } from "@/definition/PicaMobileNotifications";
 
 import { readMcpHttpConfig } from "./McpHttpConfig";
 
@@ -39,6 +40,13 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly mcpHttp?: McpHttpConfig;
   /** Port of the Pica Mobile WebSocket endpoint; missing: the endpoint is off. */
   readonly picaMobilePort?: number;
+  /**
+   * Absolute path of the Google service-account key file Pages uses to send
+   * Pica Mobile push notifications through FCM; missing: no push is offered.
+   */
+  readonly picaMobileFcmServiceAccountFile?: string;
+  /** Seconds a push notification stays worth delivering, 60 to 3600; missing: 900. */
+  readonly picaMobileReplayTtlSeconds?: number;
   readonly interpreterProfiles?: readonly InterpreterProfile[];
   /** Missing on older configurations: 30 calendar days, including today. */
   readonly logRetentionDays?: number;
@@ -281,15 +289,51 @@ function isTrustedProxyList(value: unknown): value is string[] {
 function readPicaMobileConfig(
   table: TomlTable,
   source: string,
-): Pick<BaseConfig, "picaMobilePort"> {
+): Pick<
+  BaseConfig,
+  | "picaMobilePort"
+  | "picaMobileFcmServiceAccountFile"
+  | "picaMobileReplayTtlSeconds"
+> {
   const port = table.picaMobilePort;
-  if (port === undefined) return {};
-  if (!isValidPort(port))
+  const keyFile = table.picaMobileFcmServiceAccountFile;
+  const replayTtl = table.picaMobileReplayTtlSeconds;
+  if (port !== undefined && !isValidPort(port))
     throw invalidConfig(
       source,
       `"picaMobilePort" must be a whole number from 1 to ${HIGHEST_PORT}.`,
     );
-  return { picaMobilePort: port };
+  if (
+    keyFile !== undefined &&
+    (typeof keyFile !== "string" || !path.isAbsolute(keyFile))
+  )
+    throw invalidConfig(
+      source,
+      '"picaMobileFcmServiceAccountFile" must be an absolute file path.',
+    );
+  if (replayTtl !== undefined && !isReplayTtlSeconds(replayTtl))
+    throw invalidConfig(
+      source,
+      '"picaMobileReplayTtlSeconds" must be a whole number from 60 to 3600.',
+    );
+  return {
+    ...(port === undefined ? {} : { picaMobilePort: port }),
+    ...(keyFile === undefined
+      ? {}
+      : { picaMobileFcmServiceAccountFile: path.normalize(keyFile) }),
+    ...(replayTtl === undefined
+      ? {}
+      : { picaMobileReplayTtlSeconds: replayTtl }),
+  };
+}
+
+function isReplayTtlSeconds(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= PICA_MOBILE_REPLAY_TTL_RANGE_SECONDS.minimum &&
+    value <= PICA_MOBILE_REPLAY_TTL_RANGE_SECONDS.maximum
+  );
 }
 
 function readProxyConfig(
@@ -352,6 +396,11 @@ export function writePagesConfig(
   if (config.mcpHttp !== undefined) document.mcpHttp = { ...config.mcpHttp };
   if (config.picaMobilePort !== undefined)
     document.picaMobilePort = config.picaMobilePort;
+  if (config.picaMobileFcmServiceAccountFile !== undefined)
+    document.picaMobileFcmServiceAccountFile =
+      config.picaMobileFcmServiceAccountFile;
+  if (config.picaMobileReplayTtlSeconds !== undefined)
+    document.picaMobileReplayTtlSeconds = config.picaMobileReplayTtlSeconds;
   if (config.interpreterProfiles !== undefined)
     document.interpreterProfiles = config.interpreterProfiles.map(
       (profile) => ({ ...profile }),

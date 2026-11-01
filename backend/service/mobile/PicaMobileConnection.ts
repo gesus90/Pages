@@ -8,7 +8,9 @@ import {
   PICA_MOBILE_HEARTBEAT_TIMEOUT_MILLISECONDS,
   PICA_MOBILE_SUPPORTED_VERSIONS,
 } from "@/definition/PicaMobileProtocol";
+import type { PicaMobileCapability } from "@/definition/PicaMobileProtocol";
 
+import { PicaMobileNotificationHandler } from "./notifications/PicaMobileNotificationHandler";
 import {
   encodePicaMobileAvatar,
   encodePicaMobileConnected,
@@ -29,6 +31,7 @@ import type {
 } from "./PicaMobileDashboardProvider";
 import type { PicaMobileClientMessage } from "./PicaMobileMessages";
 import type { PicaMobileRejection } from "./PicaMobileMessages";
+import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
 
 /** The operations a connection needs on its WebSocket; `ws` provides them. */
 export interface PicaMobileChannel {
@@ -50,6 +53,12 @@ export interface PicaMobileConnectionOptions {
    * not announce `dashboard.v1` and treats both messages as unknown.
    */
   readonly dashboard?: PicaMobileDashboardProvider;
+  /**
+   * Answers the notification messages; without it the connection announces
+   * neither `notifications.v1` nor `notifications.push.fcm` and treats the
+   * messages as unknown.
+   */
+  readonly notifications?: PicaMobileNotificationProvider;
   /** Clock in milliseconds; tests replace it. */
   readonly now?: () => number;
 }
@@ -87,6 +96,7 @@ export class PicaMobileConnection {
   private readonly channel: PicaMobileChannel;
   private readonly options: PicaMobileConnectionOptions;
   private readonly queue = new SerialQueue();
+  private readonly notifications: PicaMobileNotificationHandler;
   private readonly now: () => number;
   private session: PicaMobileSessionIdentity | null = null;
   private isStopped = false;
@@ -119,6 +129,23 @@ export class PicaMobileConnection {
     this.lastSeen = this.now();
     this.lastValidated = this.lastSeen;
     this.windowStart = this.lastSeen;
+    this.notifications = new PicaMobileNotificationHandler(
+      options.notifications,
+      {
+        session: () => this.session,
+        isOpen: () => !this.isStopped && !this.isClosing,
+        send: (frame) => this.send(frame),
+        reject: (rejection) => this.reject(rejection),
+        rejectUnauthenticated: (requestId) =>
+          this.rejectUnauthenticated(requestId),
+        acknowledge: () => {
+          this.consecutiveRejections = 0;
+        },
+        endSession: (requestId) => this.endSession(requestId),
+        reportFailure: (requestId, error) =>
+          this.reportFailure(requestId, error),
+      },
+    );
   }
 
   /** Starts the heartbeat and the time limit for the authentication. */
@@ -293,12 +320,24 @@ export class PicaMobileConnection {
   }
 
   private async dispatch(message: PicaMobileClientMessage): Promise<void> {
-    if (message.type === "auth") {
-      await this.authenticate(message);
-    } else if (message.type === "ping") {
-      this.answerPing(message.requestId);
-    } else {
-      await this.dispatchDashboard(message);
+    switch (message.type) {
+      case "auth":
+        await this.authenticate(message);
+
+        return;
+      case "ping":
+        this.answerPing(message.requestId);
+
+        return;
+      case "dashboard_get":
+      case "avatar_get":
+        await this.dispatchDashboard(message);
+
+        return;
+      case "notification_register":
+      case "notification_unregister":
+      case "notification_event_get":
+        await this.notifications.handle(message);
     }
   }
 
@@ -435,15 +474,46 @@ export class PicaMobileConnection {
     }
 
     if (outcome.ok) {
-      this.acceptAuthentication(message.requestId, outcome);
+      const capabilities = await this.readCapabilities();
+
+      if (!this.isStopped) {
+        this.acceptAuthentication(message.requestId, outcome, capabilities);
+      }
     } else {
       this.rejectAuthentication(message.requestId, outcome);
     }
   }
 
+  /** The extensions this connection answers; a push that cannot be decided is not announced. */
+  private async readCapabilities(): Promise<readonly PicaMobileCapability[]> {
+    const capabilities: PicaMobileCapability[] = [];
+    const { dashboard, notifications } = this.options;
+
+    if (dashboard !== undefined) {
+      capabilities.push(PICA_MOBILE_CAPABILITY.DASHBOARD_V1);
+    }
+
+    if (notifications === undefined) {
+      return capabilities;
+    }
+
+    capabilities.push(PICA_MOBILE_CAPABILITY.NOTIFICATIONS_V1);
+
+    try {
+      if (await notifications.isPushAvailable()) {
+        capabilities.push(PICA_MOBILE_CAPABILITY.NOTIFICATIONS_PUSH_FCM);
+      }
+    } catch (error: unknown) {
+      logCaughtError(COMPONENT, error);
+    }
+
+    return capabilities;
+  }
+
   private acceptAuthentication(
     requestId: string,
     outcome: Extract<PicaMobileAuthOutcome, { ok: true }>,
+    capabilities: readonly PicaMobileCapability[],
   ): void {
     this.session = {
       userId: outcome.user.id,
@@ -469,10 +539,7 @@ export class PicaMobileConnection {
         server: {
           version: this.options.serverVersion,
           protocolVersions: PICA_MOBILE_SUPPORTED_VERSIONS,
-          capabilities:
-            this.options.dashboard === undefined
-              ? []
-              : [PICA_MOBILE_CAPABILITY.DASHBOARD_V1],
+          capabilities,
         },
       }),
     );
@@ -590,13 +657,18 @@ export class PicaMobileConnection {
     this.close(CLOSE_POLICY, "Session ended");
   }
 
-  private send(frame: string): void {
+  /** Hands a frame to the socket; tells whether that worked. */
+  private send(frame: string): boolean {
     try {
       this.channel.send(frame);
+
+      return true;
     } catch (error: unknown) {
       logCaughtError(COMPONENT, error);
 
       this.channel.terminate();
+
+      return false;
     }
   }
 

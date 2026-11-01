@@ -94,6 +94,21 @@ export class SessionService {
   }
 
   /**
+   * Resolves the identifier of the session behind a token.
+   *
+   * @param token - Token sent by the client.
+   * @returns The session identifier, which is no secret, or `null` for an
+   * unknown or expired session.
+   *
+   * @remarks
+   * A long-lived binding, such as a push registration, refers to the session
+   * by this identifier so it never has to keep the token.
+   */
+  public async findSessionId(token: string): Promise<string | null> {
+    return this.sessionRepository.findIdByTokenHash(this.hashToken(token));
+  }
+
+  /**
    * Returns the unexpired sessions of a user with device information.
    *
    * @param userId - Identifier of the session owner.

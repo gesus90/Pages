@@ -20,6 +20,8 @@ import {
   requireImmutableIterations,
 } from "@/backend/service/agents/recovery/AgentPlanLoopCheckpoint";
 
+import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
+
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 import { AgentPlanCheckpointRepository } from "./AgentPlanCheckpointRepository";
 import { AgentPlanLoopIterationRepository } from "./AgentPlanLoopIterationRepository";
@@ -119,7 +121,12 @@ function requireCompletionCheckpoint(
 ): void {
   const plan = readAgentObject(readAgentObject(previous.snapshot).plan);
   const nodes: readonly unknown[] = Array.isArray(plan.nodes) ? plan.nodes : [];
-  const nodeIds = new Set(nodes.map((node) => readAgentObject(node).id));
+  const nodeIds = new Set(
+    nodes
+      .map((node) => readAgentObject(node))
+      .filter((node) => node.type !== "group")
+      .map((node) => node.id),
+  );
   const newlyCompleted = run.steps.filter(
     (step) =>
       step.status === "succeeded" &&
@@ -412,5 +419,10 @@ export class AgentPlanProgressRepository {
         "DELETE FROM agent_plan_workspace_locks WHERE run_id = $id;",
         { id: run.id },
       );
+    // Observers hear about the write once it is committed, never before.
+    transaction.onCommit?.(() => {
+      sharedAgentPlanRunObservers().notify(previous.run, run);
+      return Promise.resolve();
+    });
   }
 }

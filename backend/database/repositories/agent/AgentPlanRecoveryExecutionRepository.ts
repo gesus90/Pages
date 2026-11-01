@@ -9,6 +9,7 @@ import {
 } from "@/backend/agents/AgentPlanRecoveryInput";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
@@ -287,6 +288,11 @@ export class AgentPlanRecoveryExecutionRepository {
         "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
         { run_id: run.id },
       );
+      if (run !== releasedRun)
+        transaction.onCommit?.(() => {
+          sharedAgentPlanRunObservers().notify(releasedRun, run);
+          return Promise.resolve();
+        });
     });
   }
 }

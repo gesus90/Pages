@@ -195,6 +195,30 @@ describe("ProjectLifecycleRepository.delete", () => {
   });
 });
 
+describe("ProjectLifecycleRepository notification deletion", () => {
+  it("removes run notifications before deleting the project's runs", async () => {
+    const { connection, statements } = recorder();
+    await new ProjectLifecycleRepository(connection).delete("p1");
+    const runsPosition = statements.findIndex((statement) =>
+      statement.startsWith("DELETE FROM agent_plan_runs "),
+    );
+    for (const table of [
+      "pica_mobile_notification_deliveries",
+      "pica_mobile_notification_occurrences",
+      "pica_mobile_notification_sequences",
+      "pica_mobile_notification_events",
+    ]) {
+      const position = statements.findIndex((statement) =>
+        statement.startsWith(`DELETE FROM ${table} `),
+      );
+      expect(position).toBeGreaterThanOrEqual(0);
+      expect(statements[position]).toContain("WHERE run_id IN (");
+      expect(statements[position]).toContain("project_id = $project_id");
+      expect(position).toBeLessThan(runsPosition);
+    }
+  });
+});
+
 describe("ProjectLifecycleRepository.delete leftovers", () => {
   it("lets saved board filters that name the project or its milestones show everything again", async () => {
     const { connection, parameters, statements } = recorder();

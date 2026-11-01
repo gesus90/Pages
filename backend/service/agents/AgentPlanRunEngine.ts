@@ -402,12 +402,17 @@ export class AgentPlanRunEngine {
       return Promise.resolve(idle);
     });
     for (const active of closing) {
-      if (
-        active.snapshot.groups?.length ||
-        active.snapshot.plan.nodes.some((node) => node.type === "loop")
-      )
-        await this.dependencies.steps.closeGroups(active.view.id);
-      active.groupCloseout = "closed";
+      try {
+        if (
+          active.snapshot.groups?.length ||
+          active.snapshot.plan.nodes.some((node) => node.type === "loop")
+        )
+          await this.dependencies.steps.closeGroups(active.view.id);
+      } catch (error: unknown) {
+        logCaughtError("AgentPlanRunEngine", error);
+      } finally {
+        active.groupCloseout = "closed";
+      }
     }
   }
 

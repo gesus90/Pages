@@ -16,12 +16,15 @@ import type { RawData, WebSocket } from "ws";
 import type { PicaMobilePortError } from "@/definition/PicaMobile";
 import type { PicaMobileAuthenticator } from "./PicaMobileAuthenticator";
 import type { PicaMobileDashboardProvider } from "./PicaMobileDashboardProvider";
+import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
 
 /** What the gateway needs from its surroundings. */
 export interface PicaMobileGatewayOptions {
   readonly authenticator: PicaMobileAuthenticator;
   /** Answers the dashboard messages of connections; without it `dashboard.v1` is not announced. */
   readonly dashboard?: PicaMobileDashboardProvider;
+  /** Answers the notification messages of connections; without it `notifications.v1` is not announced. */
+  readonly notifications?: PicaMobileNotificationProvider;
   /** Version of this Pages build, reported to connected clients. */
   readonly serverVersion: string;
   /** Interface to listen on; every interface when missing. */
@@ -345,6 +348,7 @@ export class PicaMobileGateway {
       },
       authenticator: this.options.authenticator,
       dashboard: this.options.dashboard,
+      notifications: this.options.notifications,
       serverVersion: this.options.serverVersion,
     });
 

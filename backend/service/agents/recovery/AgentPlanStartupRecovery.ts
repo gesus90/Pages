@@ -10,6 +10,7 @@ import { endInterruptedScript } from "../AgentPlanScriptRecovery";
 import {
   detachedStopRun,
   endedPlanRun,
+  isCompletedPlanRun,
   settleDetachedRun,
 } from "../AgentPlanRunState";
 
@@ -79,47 +80,8 @@ export class AgentPlanStartupRecovery {
     const endSession = this.dependencies.endSession ?? endInterruptedSession;
     const unfinished = await this.dependencies.runs.unfinished();
     // Remote work stays owned by the durable runner journal until reconciliation.
-    for (const previous of unfinished.filter(requiresLocalRecovery)) {
-      await this.dependencies.sessions?.revoke(previous.id, null);
-      const endNode = async (
-        step: AgentPlanStepResult,
-      ): Promise<AgentPlanStepResult> =>
-        retainUnconfirmed(
-          step,
-          await endSession(step, previous.startedAt),
-          retained,
-        );
-      const steps = await Promise.all(previous.steps.map(endNode));
-      const loops = previous.loops
-        ? await interruptedLoopRuns(previous.loops, {
-            end: endNode,
-            interrupt: (step) => interruptedStep(step, previous.stopRequested),
-          })
-        : undefined;
-      const hasTerminalFailure = previous.steps.some(
-        (step) =>
-          step.status === "failed" && classifyPlanFailure(step) === "terminal",
-      );
-      const run: AgentPlanRun = {
-        ...endedPlanRun(
-          previous,
-          previous.stopRequested ? "cancelled" : "failed",
-        ),
-        ...(previous.stopRequested || hasTerminalFailure
-          ? { recovery: undefined }
-          : {
-              recovery: {
-                state: "interrupted" as const,
-                requiresReconciliation: true,
-              },
-            }),
-        steps: steps.map((step) =>
-          interruptedStep(step, previous.stopRequested),
-        ),
-        ...(loops ? { loops } : {}),
-      };
-      await this.dependencies.runs.interrupt(run);
-    }
+    for (const previous of unfinished.filter(requiresLocalRecovery))
+      await this.recoverLocalRun(previous, retained, endSession);
     await this.settleRemoteRuns(
       unfinished.filter((run) => !requiresLocalRecovery(run)),
     );
@@ -142,6 +104,62 @@ export class AgentPlanStartupRecovery {
       if (!isRetained && (await hasNoProcesses(run)))
         await this.dependencies.runs.release(run.id);
     }
+  }
+
+  private async recoverLocalRun(
+    previous: AgentPlanRun,
+    retained: ReadonlySet<string>,
+    endSession: typeof endInterruptedSession,
+  ): Promise<void> {
+    await this.dependencies.sessions?.revoke(previous.id, null);
+    const endNode = async (
+      step: AgentPlanStepResult,
+    ): Promise<AgentPlanStepResult> =>
+      retainUnconfirmed(
+        step,
+        await endSession(step, previous.startedAt),
+        retained,
+      );
+    const steps = await Promise.all(previous.steps.map(endNode));
+    const loops = previous.loops
+      ? await interruptedLoopRuns(previous.loops, {
+          end: endNode,
+          interrupt: (step) => interruptedStep(step, previous.stopRequested),
+        })
+      : undefined;
+    const settledCandidate: AgentPlanRun = {
+      ...previous,
+      steps,
+      ...(loops ? { loops } : {}),
+    };
+    if (isCompletedPlanRun(settledCandidate)) {
+      await this.dependencies.runs.interrupt({
+        ...endedPlanRun(settledCandidate, "succeeded"),
+        recovery: undefined,
+      });
+      return;
+    }
+    const hasTerminalFailure = previous.steps.some(
+      (step) =>
+        step.status === "failed" && classifyPlanFailure(step) === "terminal",
+    );
+    const run: AgentPlanRun = {
+      ...endedPlanRun(
+        previous,
+        previous.stopRequested ? "cancelled" : "failed",
+      ),
+      ...(previous.stopRequested || hasTerminalFailure
+        ? { recovery: undefined }
+        : {
+            recovery: {
+              state: "interrupted" as const,
+              requiresReconciliation: true,
+            },
+          }),
+      steps: steps.map((step) => interruptedStep(step, previous.stopRequested)),
+      ...(loops ? { loops } : {}),
+    };
+    await this.dependencies.runs.interrupt(run);
   }
 
   /** A remote run whose jobs all ended before this start gets no later runner fact. */

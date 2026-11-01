@@ -2178,6 +2178,13 @@ Pica Mobile app on that port. Administrators set it under Settings >
 Connections > Pica Mobile; without the key Pages opens no extra port. See
 [docs/PicaMobileWebSocket.md](./docs/PicaMobileWebSocket.md).
 
+Two more optional keys configure the Android push notifications of Pica Mobile
+(PAGE-193): `picaMobileFcmServiceAccountFile`, the absolute path of a Google
+service-account key file kept outside the repository, and
+`picaMobileReplayTtlSeconds` (60–3600, default 900). Without the key file Pages
+offers no push and says so to the app. Setup, privacy and limits are in
+[docs/PicaMobileNotifications.md](./docs/PicaMobileNotifications.md).
+
 The production server (`pnpm run start`) listens on port 3000 by default.
 Start parameters win over the file:
 
@@ -2580,7 +2587,7 @@ All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 | `build`         | Creates the production build in `build/`.                                                                                                                 |
 | `start`         | Runs the production server from `build/` through `server.mjs`. Run `build` first. Accepts `--port <number>` and `--config <path>`.                       |
 | `check`         | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`. |
-| `lint`          | Runs ESLint on the repository with `--max-warnings=0`: any warning fails. Fixes nothing.                                                                  |
+| `lint`          | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing. |
 | `format`        | Runs `prettier --write` and rewrites files in place.                                                                                                      |
 | `test:backend`  | Backend unit tests with coverage (see [Unit tests](#unit-tests)).                                                                                         |
 | `test:frontend` | Frontend unit tests with coverage (see [Unit tests](#unit-tests)).                                                                                        |
@@ -2589,6 +2596,47 @@ All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 
 There is no `test` script. CI runs `check` and `lint` on pushes to `main` and
 on pull requests; it runs no tests and no browser suite.
+
+### Sequential block linting (`PAGE-192`)
+
+`pnpm run lint` (`node scripts/run-lint.mjs`) is the single standard entry point
+for developers, CI and agents. It discovers all non-ignored `.js`, `.mjs`,
+`.cjs`, `.ts`, `.mts`, `.cts` and `.tsx` files from the repository root using
+the active Flat Config (`eslint.config.js`, which excludes `build/**`,
+`**/coverage/**`, `.react-router/**`, `**/dist/**` and `mobile/**`), partitions
+them into deterministic, disjoint blocks while keeping `mcp/**` (`mcp/tsconfig.json`)
+separate from root project files (`tsconfig.json`), and checks one block process
+at a time (`concurrency = 1`, `--concurrency=off`, `--max-warnings=0`, no `--fix`).
+Each child process exits before the next block starts so TypeScript
+`projectService` contexts do not accumulate across blocks.
+
+| Setting | Default | Environment override | CLI override | Valid range |
+| --- | --- | --- | --- | --- |
+| Max files per block (`blockSize`) | `200` (`DEFAULT_BLOCK_SIZE`) | `PAGES_LINT_BLOCK_SIZE` | `--block-size <int>` / `--block-size=<int>` | `1..5000` (positive integer) |
+| Node V8 old-space heap (`maxOldSpaceSizeMb`) | `2048` MiB (`DEFAULT_MAX_OLD_SPACE_SIZE_MB`) | `PAGES_LINT_MAX_OLD_SPACE_SIZE` | `--max-old-space-size <int>` / `--max-old-space-size=<int>` | `128..65536` MiB (positive integer) |
+
+CLI flags take precedence over environment variables, which take precedence over
+the defaults in `scripts/run-lint.mjs`. Invalid values (`0`, negative numbers,
+floats, non-numeric strings or unknown flags) and empty file selections fail
+immediately with exit code `2` without falling back. Normal lint findings
+(exit code `1`) continue through the remaining blocks and return exit code `1`
+with a summary of all failed blocks; fatal configuration errors, OOM or
+`SIGINT`/`SIGTERM` forward the signal to the active child process, wait for it
+to exit, stop before starting further blocks and report the checked and
+remaining unchecked file counts.
+
+**Memory characteristics and `projectService` boundaries:** `eslint.config.js`
+enables `projectService: true` for typed rules. Even a small block (for example
+50 files) loads the enclosing TypeScript program (`tsconfig.json` or
+`mcp/tsconfig.json`), requiring a baseline of roughly `1.15–1.20 GiB` V8 heap
+(`~1.45 GiB` process RSS) per child process; at `200` files per block, measured
+per-process peak usage is `~1.35–1.50 GiB` V8 heap and `~1.60–1.70 GiB` RSS.
+`--max-old-space-size` bounds only V8 old-space heap, not total process RSS
+(which includes V8 code/new space, C++ allocations and shared libraries) and not
+concurrent memory from agents or test workers. If the root `tsconfig.json`
+program grows beyond the per-process heap budget even for small block sizes,
+the next structural step is splitting `tsconfig.json` into smaller TypeScript
+project references rather than disabling typed rules.
 
 ## Unit tests
 
@@ -2651,6 +2699,9 @@ the working setting in place. Without the key no extra port is opened. The
 address for the app is `ws://<host>:<port>/pica-mobile`; version 1 has no TLS.
 Connection setup, message format, error codes and limits are the contract for
 the app and live in [docs/PicaMobileWebSocket.md](./docs/PicaMobileWebSocket.md).
+The `notifications.v1` extension adds Android push notifications for plan runs
+over FCM; the operator setup and the handover to the device test are in
+[docs/PicaMobileNotifications.md](./docs/PicaMobileNotifications.md).
 
 ## Pica Mobile (submodule)
 

@@ -3,6 +3,7 @@ import { logDiagnostic } from "@/backend/logging/Logger";
 import { PagesPicaMobileAuthenticator } from "@/backend/service/mobile/PicaMobileAuthenticator";
 import { PagesPicaMobileDashboard } from "@/backend/service/mobile/PicaMobileDashboardService";
 import { PicaMobileGateway } from "@/backend/service/mobile/PicaMobileGateway";
+import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
 import { PAGES_VERSION } from "@/definition/Version";
 
 import { registerShutdownTask } from "./ProcessLifecycle";
@@ -38,6 +39,15 @@ export function obtainPicaMobileGateway(
           agentPlanActiveRunService: services.agentPlanActiveRunService,
           projectService: services.projectService,
           userService: services.userService,
+        };
+      }),
+      notifications: new PagesPicaMobileNotifications(async () => {
+        const services = await getApplicationServices();
+
+        return {
+          authService: services.authService,
+          sessionService: services.sessionService,
+          picaMobileNotifications: services.picaMobileNotifications,
         };
       }),
       serverVersion: PAGES_VERSION,
