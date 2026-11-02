@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { logCaughtError } from "@/backend/logging/Logger";
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
+import { databaseFailureFacts } from "@/backend/logging/LogError";
+import {
+  logCaughtError,
+  logEvent,
+  withLogContext,
+} from "@/backend/logging/Logger";
 
 import type {
   AgentSessionMessage,
@@ -134,7 +140,16 @@ export class AgentSessionInbox {
    * @returns How many messages became `uncertain`.
    */
   public async recover(): Promise<number> {
-    return this.store.markUncertainDeliveries();
+    const uncertainDeliveries = await this.store.markUncertainDeliveries();
+    logEvent({
+      level: "info",
+      event: "agent.session.inbox.recovered",
+      component: "AgentSessionInbox",
+      message:
+        "Startup recovery reconciled instructions that were being delivered",
+      metadata: { uncertainDeliveries },
+    });
+    return uncertainDeliveries;
   }
 
   private schedule(
@@ -153,11 +168,38 @@ export class AgentSessionInbox {
     if (this.running.has(instanceId) || this.draining.has(instanceId)) return;
     if (!this.pending.get(instanceId)?.size) return;
     this.draining.add(instanceId);
-    void this.drain(instanceId).finally(() => {
+    void this.drainDetached(instanceId).then((hasDrained) => {
       this.draining.delete(instanceId);
-      // An instruction may have arrived while the last delivery finished.
-      this.wake(instanceId);
+      // An instruction may have arrived while the last delivery finished. After
+      // a failure the next instruction or turn end wakes it, so an unavailable
+      // database is not asked again in a tight loop.
+      if (hasDrained) this.wake(instanceId);
     });
+  }
+
+  /**
+   * Runs a delivery loop outside the request that woke it (PAGE-199).
+   *
+   * @returns Whether the loop ended normally; it never rejects.
+   */
+  private async drainDetached(instanceId: string): Promise<boolean> {
+    try {
+      await withBackgroundDatabaseWork("session_inbox", () =>
+        this.drain(instanceId),
+      );
+      return true;
+    } catch (error: unknown) {
+      logEvent({
+        level: "error",
+        event: "agent.session.inbox.drain_failed",
+        component: "AgentSessionInbox",
+        message:
+          "Instructions could not be read or claimed; they stay queued for the next delivery",
+        error,
+        metadata: { remainingStatus: "queued", ...databaseFailureFacts(error) },
+      });
+      return false;
+    }
   }
 
   private async drain(instanceId: string): Promise<void> {
@@ -166,13 +208,27 @@ export class AgentSessionInbox {
       const [attemptId, delivery] = attempts.entries().next().value ?? [];
       if (attemptId === undefined || delivery === undefined) return;
       attempts.delete(attemptId);
-      for (const message of await this.store.listMessages(attemptId))
-        if (message.status === "queued")
-          await this.deliverOnce(message, delivery);
+      try {
+        await this.deliverQueued(attemptId, delivery);
+      } catch (error: unknown) {
+        // Nothing reached the agent for what is still queued; keep its order and its delivery.
+        attempts.set(attemptId, delivery);
+        throw error;
+      }
     }
     if (attempts?.size === 0) this.pending.delete(instanceId);
   }
 
+  private async deliverQueued(
+    attemptId: string,
+    delivery: AgentSessionDelivery,
+  ): Promise<void> {
+    for (const message of await this.store.listMessages(attemptId))
+      if (message.status === "queued")
+        await this.deliverOnce(message, delivery);
+  }
+
+  /** Claims and delivers one message; only a failed claim leaves it queued and rejects. */
   private async deliverOnce(
     message: AgentSessionMessage,
     delivery: AgentSessionDelivery,
@@ -181,11 +237,26 @@ export class AgentSessionInbox {
       return;
     try {
       await delivery({ ...message, status: "delivering" });
-      await this.store.updateMessage(message.id, ["delivering"], "delivered");
     } catch (error: unknown) {
       logCaughtError("AgentSessionInbox", error);
 
-      // A failed write is reported once; repeating it could repeat its side effects.
+      await this.settleFailedDelivery(message, error);
+      return;
+    }
+    try {
+      await this.store.updateMessage(message.id, ["delivering"], "delivered");
+    } catch (error: unknown) {
+      // The agent has it. The next start marks it `uncertain`; it is never repeated.
+      this.reportUnsettled(message, error);
+    }
+  }
+
+  /** A failed write is reported once; repeating it could repeat its side effects. */
+  private async settleFailedDelivery(
+    message: AgentSessionMessage,
+    error: unknown,
+  ): Promise<void> {
+    try {
       await this.store.updateMessage(message.id, ["delivering"], "failed");
       await this.journal.append(message.attemptId, [
         {
@@ -195,6 +266,22 @@ export class AgentSessionInbox {
           dedupeKey: `message:${message.id}:failed`,
         },
       ]);
+    } catch (settlingError: unknown) {
+      this.reportUnsettled(message, settlingError);
     }
+  }
+
+  private reportUnsettled(message: AgentSessionMessage, error: unknown): void {
+    withLogContext({ attemptId: message.attemptId }, () =>
+      logEvent({
+        level: "error",
+        event: "agent.session.inbox.state_not_saved",
+        component: "AgentSessionInbox",
+        message:
+          "The state of a claimed instruction could not be saved; the next start marks an unfinished one uncertain",
+        error,
+        metadata: { messageId: message.id, ...databaseFailureFacts(error) },
+      }),
+    );
   }
 }

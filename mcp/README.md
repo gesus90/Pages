@@ -1,4 +1,4 @@
-# Pages MCP 0.3.0
+# Pages MCP 0.3.1
 
 The Pages adapter implements the Model Context Protocol (MCP), which lets external
 clients discover and call tools through a common protocol. It connects those
@@ -350,7 +350,7 @@ step.
 `node24`, `format: "cjs"` and no code splitting. It clears `mcp/dist/` and writes
 `mcp/dist/pages-mcp-v<version>.cjs`, using the version from `package.json`.
 With the development manifest in this checkout, the output is
-`pages-mcp-v0.3.0.cjs`; this names a build artifact and does not establish a
+`pages-mcp-v0.3.1.cjs`; this names a build artifact and does not establish a
 published release.
 
 JavaScript dependencies are bundled into that single CommonJS file; Node
@@ -606,9 +606,11 @@ again. A generic authorization error alone does not identify this case.
 
 ## Troubleshooting
 
-Plan and workspace operations have a bounded 60-second request deadline because
-preparation and owned cleanup can outlast short reads. Ordinary requests retain
-their five-second deadline. A transport failure reports a fixed reachability
+Plan and workspace operations and every write have a bounded 60-second request
+deadline (writes since 0.3.1): preparation and owned cleanup can outlast short
+reads, and a write can wait for its turn at the database and for a checkpoint
+during its commit. Short reads retain their five-second deadline, imports their
+thirty seconds. A transport failure reports a fixed reachability
 diagnostic, distinct from authorization failure. An interrupted write may have
 committed: read the current control or its existing operation result before a
 deliberate retry; the adapter does not automatically resend it.
@@ -732,7 +734,7 @@ Pages instance, preserving any deployment prefix. Send the ticket only in the
 named header, without an Authorization header or query string. Tickets are
 one-use, expire after five minutes and are invalid after a Pages restart. Failed
 uploads need a new ticket. The binary client uses a separate five-minute budget;
-JSON calls keep their five-second budget. Wiki create/content calls allow 1 MiB
+JSON reads keep their five-second budget and JSON writes have sixty seconds. Wiki create/content calls allow 1 MiB
 UTF-8 content; plan create/update and parameter create/update accept a 2 MiB
 JSON envelope so one editor-sized field fits. Other requests keep 64 KiB.
 Import application has a thirty-second budget.
@@ -2544,7 +2546,7 @@ name:"Review final",changes:[{action:"updateNode",nodeId,fields:{configuration:
    workspace files, templates, runners and provider sessions remain untouched.
 
 **Version and authorization diagnosis.** For stdio, select the absolute
-`pages-mcp-v0.3.0.cjs` bundle in the client's existing connection configuration,
+`pages-mcp-v0.3.1.cjs` bundle in the client's existing connection configuration,
 end only that client's old MCP connection and reconnect normally. For HTTP,
 reconnect to the same configured `/mcp` endpoint after an operator has normally
 released the new backend; reconnecting cannot replace deployed code. Inspect

@@ -1,4 +1,6 @@
-import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
+import { databaseFailureFacts } from "@/backend/logging/LogError";
+import { logEvent } from "@/backend/logging/Logger";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -45,10 +47,26 @@ export class TaskGitHubPublisher {
   /**
    * Publishes a mutated task to GitHub without failing the Pages mutation.
    *
-   * @param actor - User owning the change.
+   * @param actor - User owning the change; the publication keeps their rights.
    * @param item - Fresh work item detail after its Pages mutation.
+   * @returns Once the publication ended; it never rejects, so callers may
+   * start it without waiting.
+   *
+   * @remarks
+   * The change already committed when this starts, so it outlives the request
+   * as background work (PAGE-199): a client that left neither cancels it nor
+   * shortens its database budget.
    */
-  public async publish(actor: User, item: WorkItemDetail): Promise<void> {
+  public publish(actor: User, item: WorkItemDetail): Promise<void> {
+    return withBackgroundDatabaseWork("github_publish", () =>
+      this.publishCommitted(actor, item),
+    );
+  }
+
+  private async publishCommitted(
+    actor: User,
+    item: WorkItemDetail,
+  ): Promise<void> {
     if (!this.gitHubSync) {
       return;
     }
@@ -61,9 +79,46 @@ export class TaskGitHubPublisher {
         this.cache.invalidateWorkItems();
       }
     } catch (error: unknown) {
-      logCaughtError("TaskGitHubPublisher", error);
+      await this.reportFailure(actor, item, error);
+    }
+  }
 
+  /**
+   * Keeps a failed publication visible on the ticket as far as the database allows.
+   *
+   * @remarks
+   * The database may refuse the same write it refused a moment ago. That only
+   * loses the error state of the ticket, never the committed change, so it ends
+   * here in the log instead of as an unhandled rejection.
+   */
+  private async reportFailure(
+    actor: User,
+    item: WorkItemDetail,
+    error: unknown,
+  ): Promise<void> {
+    logEvent({
+      level: "error",
+      event: "task.github_publish.failed",
+      component: "TaskGitHubPublisher",
+      message: "The committed ticket change was not published to GitHub",
+      error,
+      metadata: { ticketId: item.id, ...databaseFailureFacts(error) },
+    });
+    try {
       await this.recordFailure(actor, item, error);
+    } catch (recordingError: unknown) {
+      logEvent({
+        level: "error",
+        event: "task.github_publish.failure_not_recorded",
+        component: "TaskGitHubPublisher",
+        message:
+          "The failed publication could not be stored on the ticket; its committed change stays",
+        error: recordingError,
+        metadata: {
+          ticketId: item.id,
+          ...databaseFailureFacts(recordingError),
+        },
+      });
     }
   }
 
@@ -76,13 +131,6 @@ export class TaskGitHubPublisher {
       error instanceof Error
         ? error.message.slice(0, MAXIMUM_ERROR_MESSAGE_LENGTH)
         : "GitHub synchronization failed.";
-
-    logDiagnostic(
-      "TaskGitHubPublisher",
-      "error",
-      "Pages could not publish a task to GitHub.",
-      error,
-    );
 
     if (item.githubLastError === message) {
       return;

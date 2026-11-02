@@ -41,10 +41,13 @@ export class PicaAdminService {
     readonly administration: Pick<AdministrationService, "getContext">;
   }) {
     this.accounts = accounts;
-    registerShutdownTask(async () => {
-      for (const scope of [...this.scopes.values()])
-        await this.release(scope.context);
-    });
+    registerShutdownTask(
+      async () => {
+        for (const scope of [...this.scopes.values()])
+          await this.release(scope.context);
+      },
+      { step: "pica_admin_browsers" },
+    );
   }
 
   /** Blocks the instance's observed public host in addition to private addresses and configured addresses. */

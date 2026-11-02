@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { isDiscordEventType } from "@/definition/Discord";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
@@ -88,7 +89,10 @@ export class DiscordNotificationService {
    */
   public listen(source: DiscordEventSource): () => void {
     return source.subscribe((event) => {
-      void this.handle(event);
+      // The change committed; a client that left must not cost its notification.
+      void withBackgroundDatabaseWork("discord_notification", () =>
+        this.handle(event),
+      );
     });
   }
 

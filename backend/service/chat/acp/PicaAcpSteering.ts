@@ -1,3 +1,4 @@
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AcpSteerOutcome } from "@/backend/agents/acp/AcpChat";
@@ -75,7 +76,10 @@ export class PicaAcpSteering {
     if (this.isClosed) return null;
     this.open.add(message.id);
     await this.host.status(message.id, "pending");
-    const delivery = this.route(message);
+    // The steering request answers now; the delivery belongs to the job.
+    const delivery = withBackgroundDatabaseWork("pica_job", () =>
+      this.route(message),
+    );
     this.deliveries.add(delivery);
     void delivery.finally(() => this.deliveries.delete(delivery));
     return "pending";

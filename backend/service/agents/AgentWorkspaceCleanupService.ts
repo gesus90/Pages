@@ -31,10 +31,13 @@ export class AgentWorkspaceCleanupService {
   public start(): void {
     const timer = setInterval(() => void this.reconcile(), 2000);
     timer.unref();
-    registerShutdownTask(() => {
-      clearInterval(timer);
-      return Promise.resolve();
-    });
+    registerShutdownTask(
+      () => {
+        clearInterval(timer);
+        return Promise.resolve();
+      },
+      { step: "workspace_cleanup" },
+    );
     void this.reconcile();
   }
 

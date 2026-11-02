@@ -1,3 +1,4 @@
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { RUNNER_STOP_DEADLINE_MILLISECONDS } from "./RunnerStopState";
@@ -72,21 +73,20 @@ export class RunnerCancellation {
       () => {
         this.deadlines.delete(key);
         this.expired.add(key);
-        void this.dependencies.repository
-          .find(connectionId)
-          .then(async (record) => {
-            const current = record?.state.jobs.find(
-              (entry) => entry.jobId === job.jobId,
-            );
-            if (
-              current?.cancellation &&
-              current.cancellation.closeout !== "confirmed"
-            )
-              await this.dependencies.expire(connectionId, current);
-          })
-          .catch((error: unknown) =>
-            logCaughtError("RunnerCancellation", error),
+        // The stop that armed this deadline answered long ago.
+        void withBackgroundDatabaseWork("runner_stop_deadline", async () => {
+          const record = await this.dependencies.repository.find(connectionId);
+          const current = record?.state.jobs.find(
+            (entry) => entry.jobId === job.jobId,
           );
+          if (
+            current?.cancellation &&
+            current.cancellation.closeout !== "confirmed"
+          )
+            await this.dependencies.expire(connectionId, current);
+        }).catch((error: unknown) =>
+          logCaughtError("RunnerCancellation", error),
+        );
       },
       Math.max(
         0,

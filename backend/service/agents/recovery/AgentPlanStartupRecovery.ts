@@ -1,3 +1,4 @@
+import { logEvent } from "@/backend/logging/Logger";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import {
@@ -27,6 +28,18 @@ interface StartupRecoveryDependencies {
   readonly sessions?: Pick<AgentPlanSessionAccess, "revoke">;
   readonly endSession?: typeof endInterruptedSession;
   readonly hasNoProcesses?: typeof hasNoSessionProcesses;
+}
+
+/** What one startup recovery did, as bare counts for the log. */
+interface StartupRecoveryCounts {
+  /** Local runs recorded as interrupted, failed or cancelled. */
+  interrupted: number;
+  /** Local runs whose nodes turned out to have all finished. */
+  completedRuns: number;
+  /** Remote runs whose durable state changed now. */
+  remoteSettled: number;
+  reservationsReleased: number;
+  reservationsKept: number;
 }
 
 function interruptedStep(
@@ -79,38 +92,76 @@ export class AgentPlanStartupRecovery {
   ): Promise<void> {
     const endSession = this.dependencies.endSession ?? endInterruptedSession;
     const unfinished = await this.dependencies.runs.unfinished();
+    const counts: StartupRecoveryCounts = {
+      interrupted: 0,
+      completedRuns: 0,
+      remoteSettled: 0,
+      reservationsReleased: 0,
+      reservationsKept: 0,
+    };
     // Remote work stays owned by the durable runner journal until reconciliation.
-    for (const previous of unfinished.filter(requiresLocalRecovery))
-      await this.recoverLocalRun(previous, retained, endSession);
-    await this.settleRemoteRuns(
+    for (const previous of unfinished.filter(requiresLocalRecovery)) {
+      const hasCompleted = await this.recoverLocalRun(
+        previous,
+        retained,
+        endSession,
+      );
+      if (hasCompleted) counts.completedRuns += 1;
+      else counts.interrupted += 1;
+    }
+    counts.remoteSettled = await this.settleRemoteRuns(
       unfinished.filter((run) => !requiresLocalRecovery(run)),
     );
-    const hasNoProcesses =
-      this.dependencies.hasNoProcesses ?? hasNoSessionProcesses;
+    await this.releaseFinishedReservations(retained, counts);
+    logEvent({
+      level: "info",
+      event: "agent.recovery.startup_summary",
+      component: "AgentPlanStartupRecovery",
+      message: "Startup recovery reconciled unfinished plan runs",
+      metadata: { runs: unfinished.length, ...counts },
+    });
+  }
+
+  private async releaseFinishedReservations(
+    retained: ReadonlySet<string>,
+    counts: StartupRecoveryCounts,
+  ): Promise<void> {
     for (const reserved of await this.dependencies.runs.reserving()) {
       const run = await this.reconcileScripts(reserved);
-      if (
-        allPlanRunResults(run).some(
-          (step) =>
-            step.script?.closeout === "failed" ||
-            step.remote?.closeout === "pending" ||
-            step.remote?.closeout === "failed",
-        )
-      )
-        continue;
-      const isRetained = allPlanRunResults(run).some(
-        (step) => step.session && retained.has(step.session.instanceId),
-      );
-      if (!isRetained && (await hasNoProcesses(run)))
+      if (await this.canRelease(run, retained)) {
         await this.dependencies.runs.release(run.id);
+        counts.reservationsReleased += 1;
+      } else counts.reservationsKept += 1;
     }
+  }
+
+  private async canRelease(
+    run: AgentPlanRun,
+    retained: ReadonlySet<string>,
+  ): Promise<boolean> {
+    const results = allPlanRunResults(run);
+    if (
+      results.some(
+        (step) =>
+          step.script?.closeout === "failed" ||
+          step.remote?.closeout === "pending" ||
+          step.remote?.closeout === "failed",
+      ) ||
+      results.some(
+        (step) => step.session && retained.has(step.session.instanceId),
+      )
+    )
+      return false;
+    const hasNoProcesses =
+      this.dependencies.hasNoProcesses ?? hasNoSessionProcesses;
+    return hasNoProcesses(run);
   }
 
   private async recoverLocalRun(
     previous: AgentPlanRun,
     retained: ReadonlySet<string>,
     endSession: typeof endInterruptedSession,
-  ): Promise<void> {
+  ): Promise<boolean> {
     await this.dependencies.sessions?.revoke(previous.id, null);
     const endNode = async (
       step: AgentPlanStepResult,
@@ -137,7 +188,7 @@ export class AgentPlanStartupRecovery {
         ...endedPlanRun(settledCandidate, "succeeded"),
         recovery: undefined,
       });
-      return;
+      return true;
     }
     const hasTerminalFailure = previous.steps.some(
       (step) =>
@@ -160,10 +211,18 @@ export class AgentPlanStartupRecovery {
       ...(loops ? { loops } : {}),
     };
     await this.dependencies.runs.interrupt(run);
+    return false;
   }
 
-  /** A remote run whose jobs all ended before this start gets no later runner fact. */
-  private async settleRemoteRuns(runs: readonly AgentPlanRun[]): Promise<void> {
+  /**
+   * A remote run whose jobs all ended before this start gets no later runner fact.
+   *
+   * @returns How many remote runs changed.
+   */
+  private async settleRemoteRuns(
+    runs: readonly AgentPlanRun[],
+  ): Promise<number> {
+    let settledRuns = 0;
     for (const source of runs) {
       const remote = await this.reconcileMixedLocal(source);
       const uncertain = remote.stopRequested
@@ -182,8 +241,12 @@ export class AgentPlanStartupRecovery {
           }
         : remote;
       const settled = settleDetachedRun(uncertain);
-      if (settled !== remote) await this.dependencies.runs.interrupt(settled);
+      if (settled !== remote) {
+        await this.dependencies.runs.interrupt(settled);
+        settledRuns += 1;
+      }
     }
+    return settledRuns;
   }
 
   /** A mixed run keeps remote ownership while reconciling only its interrupted local processes. */

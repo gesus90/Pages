@@ -77,15 +77,33 @@ function commandText(command: PreparationCommand): string | null {
 
 /** Serializes revision-fenced recovery decisions; no method starts or queues an agent. */
 export class AgentPlanRecoveryRepository {
-  private readonly database: Pick<Database, "transaction">;
+  private readonly database: Pick<Database, "transaction"> &
+    Partial<Pick<Database, "readTransaction">>;
 
-  public constructor(database: Pick<Database, "transaction">) {
+  /**
+   * Creates the repository.
+   *
+   * @param database - The transaction access of the decisions; a composition
+   * without read snapshots inspects on the writer instead.
+   */
+  public constructor(
+    database: Pick<Database, "transaction"> &
+      Partial<Pick<Database, "readTransaction">>,
+  ) {
     this.database = database;
   }
 
-  /** Reads a coherent recovery revision and the latest hundred append-only decisions. */
+  /**
+   * Reads a coherent recovery revision and the latest hundred append-only decisions.
+   *
+   * @remarks
+   * All of it are SELECTs on one snapshot, so this polled read needs no place
+   * in the writer queue (PAGE-199). The snapshot is the last committed state: a
+   * decision taken on it is fenced by `expectedRevision` in {@link control},
+   * which runs on the writer.
+   */
   public async inspect(runId: string): Promise<AgentPlanRecoveryRecord> {
-    return this.database.transaction(async (transaction) => {
+    return this.readSnapshot(async (transaction) => {
       const progress = await this.progress(transaction, runId);
       const checkpoint = await new AgentPlanCheckpointRepository(
         transaction,
@@ -170,6 +188,14 @@ export class AgentPlanRecoveryRepository {
       await this.advance(transaction, progress, command);
       return result;
     });
+  }
+
+  private readSnapshot<Result>(
+    work: (transaction: DatabaseTransaction) => Promise<Result>,
+  ): Promise<Result> {
+    return this.database.readTransaction
+      ? this.database.readTransaction(work)
+      : this.database.transaction(work);
   }
 
   private async progress(

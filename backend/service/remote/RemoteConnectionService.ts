@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { RemoteError } from "@/backend/error/RemoteErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -440,7 +441,9 @@ export class RemoteConnectionService {
   private startCheck(id: string): void {
     if (this.checking.has(id)) return;
     this.checking.add(id);
-    void this.runCheck(id).finally(() => this.checking.delete(id));
+    void withBackgroundDatabaseWork("remote_connection_check", () =>
+      this.runCheck(id),
+    ).finally(() => this.checking.delete(id));
   }
 
   private async runCheck(id: string): Promise<void> {

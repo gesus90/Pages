@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { PICA_MOBILE_PATH } from "@/definition/PicaMobile";
 import { PICA_MOBILE_MAXIMUM_MESSAGE_BYTES } from "@/definition/PicaMobileProtocol";
@@ -203,7 +204,10 @@ export class PicaMobileGateway {
         return;
       }
 
-      const next = await this.openListener(port);
+      // Its connections inherit this context for as long as it listens.
+      const next = await withBackgroundDatabaseWork("pica_mobile", () =>
+        this.openListener(port),
+      );
 
       try {
         await commit();

@@ -124,7 +124,9 @@ export async function createPicaMobileNotificationServices(
 
   service.start();
   globalThis.pagesPicaMobileNotifications = service;
-  registerShutdownTask(() => service.stop());
+  registerShutdownTask(() => service.stop(), {
+    step: "pica_mobile_notifications",
+  });
   logEvent({
     level: "info",
     event: "pica_mobile.notifications.started",

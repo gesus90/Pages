@@ -67,6 +67,8 @@ function abortOnDisconnect(response: ServerResponse): AbortSignal {
  * @remarks
  * Database jobs of the request run as `request` work (PAGE-197): they get
  * the request queue budget and are refused unstarted once the client left.
+ * Async context outlives the request, so work that must go on afterwards
+ * leaves it with `withBackgroundDatabaseWork` (PAGE-199).
  */
 export function logRequest(
   request: IncomingMessage,
@@ -81,19 +83,24 @@ export function logRequest(
     : "OTHER";
   const url = request.url ?? "/";
   const isPolling = isPollingRequest(url, method);
+  const route = safeRequestRoute(url);
   withLogContext({ requestId, correlationId: requestId }, () =>
     withPollingLogPolicy(isPolling, () =>
       withDatabaseLogMetrics((database) =>
         withRouteLogMetrics((routes) =>
           withAccountAuthorizationLog((confirmAuthorization) => {
             const lifecycle = new RequestLogLifecycle(
-              { requestId, method, route: safeRequestRoute(url), isPolling },
+              { requestId, method, route, isPolling },
               { database, routes },
               confirmAuthorization,
             );
             lifecycle.observe(response);
             void withDatabaseWork(
-              { workClass: "request", signal: abortOnDisconnect(response) },
+              {
+                workClass: "request",
+                signal: abortOnDisconnect(response),
+                origin: route,
+              },
               () => {
                 handle();
                 return Promise.resolve();

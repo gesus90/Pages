@@ -547,9 +547,31 @@ async function handle(message: WorkerRequest): Promise<void> {
     run(message);
     return;
   }
+  const startedAt = performance.now();
   const error = await closeDatabase(false);
+  // The server's stop deadline may have ended it during the checkpoint.
+  if (!process.connected) {
+    reportClosedWithoutServer(startedAt, error);
+    return;
+  }
   send({ type: "closed", id: message.id, error });
   process.disconnect();
+}
+
+/** Nobody else can report this end; the server and its logger are gone. */
+function reportClosedWithoutServer(
+  startedAt: number,
+  error: WireError | null,
+): void {
+  process.exitCode = error === null ? 0 : 1;
+  console.error(
+    JSON.stringify({
+      event: "database.worker.closed",
+      reason: "server_gone",
+      durationMs: Math.round(performance.now() - startedAt),
+      isCheckpointed: error === null,
+    }),
+  );
 }
 
 process.title = "pages-database-worker";
@@ -564,7 +586,8 @@ process.on("message", (message: WorkerRequest) => {
 // Without the server nobody can use the database; close it like a regular stop.
 process.on("disconnect", () => {
   if (isClosing) return;
+  const startedAt = performance.now();
   void closeDatabase(true).then((error) => {
-    process.exitCode = error === null ? 0 : 1;
+    reportClosedWithoutServer(startedAt, error);
   });
 });

@@ -123,7 +123,10 @@ function startDelivery(input: {
 
   globalThis.pagesDiscordSchedulerStarted = true;
   scheduler.start();
-  registerShutdownTask(async () => {
-    scheduler.stop();
-  });
+  registerShutdownTask(
+    async () => {
+      scheduler.stop();
+    },
+    { step: "discord_delivery_scheduler" },
+  );
 }

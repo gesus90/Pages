@@ -1,10 +1,18 @@
+import { DatabaseExecutorError } from "@/backend/database/executor/DatabaseExecutorErrors";
+
 import { redactLogText } from "./LogRedaction";
+
+import type { DatabaseExecutorFailure } from "@/backend/database/executor/DatabaseExecutorErrors";
 
 interface SafeError {
   readonly type: string;
   readonly message: string;
   readonly code: string | null;
   readonly stack: string;
+  /** Why the database executor refused or lost a job; a fixed word, never SQL. */
+  readonly failure?: DatabaseExecutorFailure;
+  /** Whether DuckDB certainly never saw that job. */
+  readonly notStarted?: boolean;
   readonly cause?: SafeError;
   readonly truncated?: boolean;
 }
@@ -63,6 +71,7 @@ function serialize(
       "Error reported; free-form diagnostic text omitted to protect user content",
     code: safeIdentifier(ownProperty(error, "code")),
     stack: redactLogText(stack).slice(0, 1_200),
+    ...databaseFailureFacts(error),
     ...(cause === undefined
       ? {}
       : { cause: serialize(cause, seen, depth + 1) }),
@@ -88,6 +97,22 @@ function errorType(error: object): string {
     current = Reflect.getPrototypeOf(current);
   }
   return "ErrorObject";
+}
+
+/**
+ * The reason of a database executor error as plain log metadata.
+ *
+ * @param error - Any caught error.
+ * @returns `failure` and `notStarted`, or nothing for other errors. An error
+ * is serialized only once, so a later event about it needs this to name them.
+ */
+export function databaseFailureFacts(error: unknown): {
+  readonly failure?: DatabaseExecutorFailure;
+  readonly notStarted?: boolean;
+} {
+  return error instanceof DatabaseExecutorError
+    ? { failure: error.failure, notStarted: error.notStarted }
+    : {};
 }
 
 /** Serializes hostile/circular errors; only the native lazy Error.stack getter may run. */

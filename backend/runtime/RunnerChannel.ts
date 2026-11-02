@@ -283,9 +283,12 @@ export function installRunnerChannel(server: Server): void {
       active,
     }).finally(() => clearTimeout(deadline));
   });
-  registerShutdownTask(() => {
-    for (const channel of websocket.clients) channel.terminate();
-    websocket.close();
-    return Promise.resolve();
-  });
+  registerShutdownTask(
+    () => {
+      for (const channel of websocket.clients) channel.terminate();
+      websocket.close();
+      return Promise.resolve();
+    },
+    { step: "runner_channel" },
+  );
 }

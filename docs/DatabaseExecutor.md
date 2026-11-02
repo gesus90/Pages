@@ -50,7 +50,7 @@ then reads data with plain queries therefore never sees rights older than
 its data. Where rights and data must come from one snapshot, the services
 use `readTransaction` (authorization snapshot, project read scope, assignee
 filter, MCP project names, project templates, agent profile/workspace/remote
-lists, plan-run progress). A read issued while a write is still running sees the state
+lists, plan-run progress, the polled recovery view of a plan run). A read issued while a write is still running sees the state
 before it; once the write's promise resolved, its commit is visible to
 every later read (read-after-write).
 
@@ -89,6 +89,15 @@ class can starve another; recurring work only has fewer waiting places.
 abort signal, so a job of a request whose client went away is refused
 before it starts.
 
+Async context outlives a request, so everything a request starts inherits
+that signal and that budget. Work that must go on after the request therefore
+leaves it explicitly with `withBackgroundDatabaseWork` (PAGE-199): GitHub
+publications, the plan engine with every node it dispatches, the delivery of
+session instructions, Pica jobs and the ACP resource scheduler. This changes
+only the database budget and the abort: actor and rights stay as the caller
+passes them on, and the work still ends through its own abort controllers, the
+explicit stop of a person or the server stop. See [PAGE-199](./PAGE-199.md).
+
 ## Failure semantics
 
 | Error                                                                | Meaning                                                                                                                                                                          | Repeat?                                                                     |
@@ -106,6 +115,16 @@ logged. A failed file cleanup after a confirmed commit is only logged; the
 mutation stays committed. `database has been invalidated` still ends the
 whole process (`database_invalidated`), as before, so the service manager
 restarts it and startup recovery runs.
+
+A server stop runs in a neutral database context (a stop started from an
+unhandled rejection would otherwise inherit its closed request), and its steps
+are isolated: a failing or stuck step is logged under its name
+(`server.shutdown.step_failed`, `server.shutdown.step_timeout`), and the later
+steps and the close of the database still run. The event
+`server.shutdown.database_close` and the final events name the outcome of the
+close (`closed`, `failed`, `timed_out`, `closing`, `not_attempted`); only a
+confirmed close counts as `closed`. The budgets are in
+[PAGE-199](./PAGE-199.md#time-budgets).
 
 The worker closes on `close()` by waiting for the writer, checkpointing with
 its live writer connection (the DuckDB 1.5.5 workaround of
@@ -146,6 +165,20 @@ A failing project is retried after 1 minute, doubling up to 60 minutes
   lifecycle. `Database.executorStatus()` returns queue depths, running jobs,
   refused jobs per reason, rerouted reads and the worker state; it holds no
   SQL and no values.
+- `database.executor.status` writes those counters to the log every 60 s while
+  the executor does anything, and once more when it closes. A failure of that
+  last report is logged and never keeps the database from closing.
+- `database.wal.growth` names, per kind of work (`origin`: a route pattern, an
+  Agent API operation of the catalog or a fixed name such as `plan_run`), how
+  much the write-ahead log grew since the last report and how many statements
+  checkpointed. At most the ten largest origins of an interval are reported. The
+  bytes are a lower bound: a statement that also checkpointed adds none.
+- Errors of the executor carry `failure` and `notStarted` in the structured
+  `error` of the log; `DatabaseOverloadedError` alone says little, because its
+  reason may be `aborted`.
+- After the server is gone, the worker writes one JSON line
+  (`database.worker.closed`) to stderr with its duration and whether the
+  checkpoint succeeded.
 
 ## Known limits
 
@@ -155,7 +188,8 @@ A failing project is retried after 1 minute, doubling up to 60 minutes
   (automatic once the WAL exceeds `checkpoint_threshold`, 16 MiB by default)
   or a stalled disk can still slow reads that need the same data pages.
   The WAL fields of `database.statement.slow` tell whether a slow commit
-  checkpointed.
+  checkpointed. The checkpoint threshold stays untouched until an isolated
+  measurement justifies a change, because more WAL means a longer replay.
 - A crash of the worker loses the uncommitted transaction (as a process
   crash did before) and makes the outcome of an in-flight `COMMIT` unknown.
 

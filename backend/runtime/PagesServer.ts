@@ -289,10 +289,13 @@ export async function startPagesServer(
   );
   installRunnerChannel(server);
   installRemoteConsoleChannel(server, runtime.getConfig().trustedProxies);
-  registerShutdownTask(async () => {
-    server.close();
-    server.closeIdleConnections();
-  });
+  registerShutdownTask(
+    async () => {
+      server.close();
+      server.closeIdleConnections();
+    },
+    { step: "http_server" },
+  );
 
   try {
     await listen(server, port, runtime.getConfig().listenAddress);

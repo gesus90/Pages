@@ -9,6 +9,7 @@ import { PermissionService } from "@/backend/auth/PermissionService";
 import { SessionService } from "@/backend/auth/SessionService";
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { Database } from "@/backend/database/Database";
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
 import { GitHubSyncScheduler } from "@/backend/github/GitHubSyncScheduler";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
@@ -59,6 +60,7 @@ import { createAgentPlanService } from "./agent-plan-services.server";
 import { createMcpServices } from "./mcp-services.server";
 import { createDiscordServices } from "./discord-services.server";
 import { createPreferenceServices } from "./preference-services.server";
+import { registerShutdownHandler } from "./services-shutdown.server";
 
 import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import type { TaskService } from "@/backend/service/TaskService";
@@ -122,56 +124,6 @@ declare global {
   var pagesShutdownHandlerRegistered: boolean | undefined;
   var pagesSyncSchedulerStarted: boolean | undefined;
   var pagesWikiMaintenanceStarted: boolean | undefined;
-}
-
-/**
- * Closes the database on process shutdown so DuckDB finishes queued
- * statements and checkpoints its write-ahead log instead of leaving it for
- * a replay on the next start.
- *
- * @param database - Central database access to close on shutdown.
- */
-function registerShutdownHandler(
-  database: Database,
-  agents: AgentApplicationServices,
-  plans: AgentPlanService,
-): void {
-  if (globalThis.pagesShutdownHandlerRegistered) {
-    return;
-  }
-
-  globalThis.pagesShutdownHandlerRegistered = true;
-
-  const shutdown = async (): Promise<void> => {
-    try {
-      await agents.chatRequests.shutdown();
-      try {
-        await plans.shutdown();
-      } finally {
-        await agents.acpResourceScheduler.shutdown();
-      }
-      await agents.agentCatalogScheduler.shutdown();
-      await agents.agentToolManagerService.shutdown();
-      await agents.agentToolStartupService.shutdown();
-      await agents.agentCliLoginService.shutdown();
-      agents.remoteConsoleService.shutdown();
-      await agents.remoteSessions.shutdown();
-      await agents.sshClient.dispose();
-      await database.close();
-    } catch (error: unknown) {
-      logCaughtError("services", error);
-
-      logDiagnostic(
-        "services",
-        "error",
-        "[pages] Closing the database failed.",
-        error,
-      );
-      throw error;
-    }
-  };
-
-  registerShutdownTask(shutdown);
 }
 
 /**
@@ -671,9 +623,12 @@ function startGitHubSyncScheduler(gitHubSyncService: GitHubSyncService): void {
   scheduler.start();
   // Runs before the services shut down, so a running round can still
   // finish its database work (bounded inside `stop()`).
-  registerShutdownTask(async () => {
-    await scheduler.stop();
-  });
+  registerShutdownTask(
+    async () => {
+      await scheduler.stop();
+    },
+    { step: "github_sync_scheduler" },
+  );
 }
 
 /**
@@ -698,9 +653,12 @@ function startWikiMaintenanceScheduler(
     },
   });
   scheduler.start();
-  registerShutdownTask(async () => {
-    scheduler.stop();
-  });
+  registerShutdownTask(
+    async () => {
+      scheduler.stop();
+    },
+    { step: "wiki_maintenance_scheduler" },
+  );
 }
 
 async function openConfiguredServices(): Promise<ApplicationServices> {
@@ -733,16 +691,18 @@ async function openConfiguredServices(): Promise<ApplicationServices> {
  * opened or created before the setup finished.
  */
 export function getApplicationServices(): Promise<ApplicationServices> {
-  globalThis.pagesServices ??= openConfiguredServices().catch(
-    (error: unknown) => {
-      logCaughtError("services", error);
+  // The first caller is often a request; the schedulers armed here must not inherit it.
+  globalThis.pagesServices ??= withBackgroundDatabaseWork(
+    "services_startup",
+    openConfiguredServices,
+  ).catch((error: unknown) => {
+    logCaughtError("services", error);
 
-      // Keep no failed start, so a later request can try again.
-      globalThis.pagesServices = undefined;
+    // Keep no failed start, so a later request can try again.
+    globalThis.pagesServices = undefined;
 
-      throw error;
-    },
-  );
+    throw error;
+  });
 
   return globalThis.pagesServices;
 }
@@ -758,7 +718,10 @@ export function activateApplicationServices(
   database: Database,
   databasePath: string,
 ): Promise<ApplicationServices> {
-  globalThis.pagesServices = initializeServices(database, databasePath);
+  globalThis.pagesServices = withBackgroundDatabaseWork(
+    "services_startup",
+    () => initializeServices(database, databasePath),
+  );
 
   return globalThis.pagesServices;
 }

@@ -372,9 +372,12 @@ export function installRemoteConsoleChannel(
       }
     })();
   });
-  registerShutdownTask(() => {
-    for (const channel of websocket.clients) channel.terminate();
-    websocket.close();
-    return Promise.resolve();
-  });
+  registerShutdownTask(
+    () => {
+      for (const channel of websocket.clients) channel.terminate();
+      websocket.close();
+      return Promise.resolve();
+    },
+    { step: "remote_console_channel" },
+  );
 }

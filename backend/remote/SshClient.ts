@@ -86,7 +86,12 @@ class SshMasterConnection implements SshMaster {
     this.scope = input.scope;
     this.tools = input.tools;
     this.exited = input.masterProcess.exited;
-    void this.exited.then(() => this.scope.remove());
+    void this.exited
+      .then(() => this.scope.remove())
+      .catch((error: unknown) => {
+        // Only a local directory stays behind; the next server stop removes it.
+        logCaughtError("SshClient", error);
+      });
   }
 
   /** Runs one command through the control socket. */

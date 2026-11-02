@@ -1,4 +1,5 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { detectPlanRunTransitions } from "@/backend/service/agents/AgentPlanRunTransitions";
 import {
@@ -305,20 +306,23 @@ export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
   }
 
   private enqueue(job: () => Promise<void>): void {
-    void this.queue.run(async () => {
-      try {
-        await this.decide(job);
-      } catch (error: unknown) {
-        logCaughtError(COMPONENT, error);
-        logEvent({
-          level: "warn",
-          event: "pica_mobile.notifications.event_lost",
-          component: COMPONENT,
-          message: "A notification event could not be recorded",
-          metadata: { reason: "decision_failed" },
-        });
-      }
-    });
+    // A plan or job change happened either way; recording it must not hang on a request.
+    void withBackgroundDatabaseWork("pica_mobile_notifications", () =>
+      this.queue.run(async () => {
+        try {
+          await this.decide(job);
+        } catch (error: unknown) {
+          logCaughtError(COMPONENT, error);
+          logEvent({
+            level: "warn",
+            event: "pica_mobile.notifications.event_lost",
+            component: COMPONENT,
+            message: "A notification event could not be recorded",
+            metadata: { reason: "decision_failed" },
+          });
+        }
+      }),
+    );
   }
 
   /** Repeats a job whose rights check could not be decided, a few times and briefly. */

@@ -9,6 +9,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
@@ -47,6 +48,10 @@ import {
   unstartedChanges,
 } from "./branching/AgentPlanBranchSettle";
 import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
+import {
+  shutdownPlanEngine,
+  STOP_WAIT_MILLISECONDS,
+} from "./AgentPlanEngineShutdown";
 import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
 import { dispatchPlanScript } from "./AgentPlanScriptDispatch";
@@ -86,8 +91,8 @@ export type AgentPlanRunRecording = (
   create: (transaction: DatabaseTransaction) => Promise<void>,
 ) => Promise<void>;
 
-/** How long a stopped run may take to close before the caller gives up waiting. */
-const STOP_WAIT_MILLISECONDS = 30_000;
+/** Label of the database jobs of plan runs in the write-ahead log counters. */
+const PLAN_RUN_ORIGIN = "plan_run";
 
 /** Event-driven DAG scheduling; native ACP capacity is admitted by the shared resource service. */
 export class AgentPlanRunEngine {
@@ -236,24 +241,12 @@ export class AgentPlanRunEngine {
   public async shutdown(): Promise<void> {
     this.isClosing = true;
     if (this.resourceTimer) clearTimeout(this.resourceTimer);
-    // A shutdown is no decision of the executor: the runs close as interrupted, not stopped.
-    for (const id of this.active.keys()) await this.commands.interrupt(id);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const drained = await Promise.race([
-        Promise.all([...this.pending]).then(() => true),
-        new Promise<boolean>((resolve) => {
-          timer = setTimeout(() => resolve(false), STOP_WAIT_MILLISECONDS);
-        }),
-      ]);
-      if (!drained)
-        throw new Error(
-          "Agent plan shutdown timed out; reservations remain held.",
-        );
-    } finally {
-      clearTimeout(timer);
-    }
-    await this.pump();
+    await shutdownPlanEngine({
+      active: this.active,
+      pending: this.pending,
+      interrupt: (id) => this.commands.interrupt(id),
+      pump: () => this.pump(),
+    });
   }
 
   private schedulePump(): void {
@@ -318,7 +311,10 @@ export class AgentPlanRunEngine {
         await releaseDefinition?.();
         throw error;
       }
-      await retireActivePredecessor(view, this.active, this.dependencies);
+      // The run exists from here on, so its lifecycle no longer hangs on the request.
+      await withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, () =>
+        retireActivePredecessor(view, this.active, this.dependencies),
+      );
       this.active.set(view.id, {
         groupCloseout: "open",
         hasPersistenceFailure: false,
@@ -330,18 +326,34 @@ export class AgentPlanRunEngine {
         releaseDefinition,
       });
     });
-    try {
-      await this.pump();
-      return (await this.dependencies.runs.find(view.id)) ?? view;
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanRunEngine", error);
+    return withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, async () => {
+      try {
+        await this.pump();
+        return (await this.dependencies.runs.find(view.id)) ?? view;
+      } catch (error: unknown) {
+        logCaughtError("AgentPlanRunEngine", error);
 
-      await this.failStart(view.id);
-      throw error;
-    }
+        await this.failStart(view.id);
+        throw error;
+      }
+    });
   }
 
-  private async pump(): Promise<void> {
+  /**
+   * Advances every active run.
+   *
+   * @remarks
+   * Any request can trigger it, but it works on the runs of all accounts and
+   * dispatches their long-running nodes. It therefore runs as background work
+   * (PAGE-199): a node keeps the long writer budget for its whole lifetime, and
+   * no client leaving ends another person's run. An explicit stop or a server
+   * stop acts through the controllers of the run, not through this context.
+   */
+  private pump(): Promise<void> {
+    return withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, () => this.advance());
+  }
+
+  private async advance(): Promise<void> {
     await this.writes.run(async () => {
       for (const active of this.active.values()) {
         await completePlanDrain(active, this.dependencies.runs);

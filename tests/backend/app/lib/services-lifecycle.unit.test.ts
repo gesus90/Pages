@@ -94,9 +94,63 @@ it("releases agent resources even when the plans fail to shut down", async () =>
 
   await expect(shutdownTask(1)()).rejects.toBe(failure);
 
-  expect(world.shutdownSteps).toEqual(["chat requests", "acp resources"]);
-  expect(logCaughtError).toHaveBeenCalledWith("services", failure);
-  expect(logDiagnostic).toHaveBeenCalledWith(
+  expect(world.shutdownSteps).toEqual([
+    "chat requests",
+    "acp resources",
+    "catalog scheduler",
+    "tool manager",
+    "tool startup",
+    "cli login",
+    "remote console",
+    "remote sessions",
+    "ssh client",
+    "database",
+  ]);
+  const attemptedSteps = [
+    "chat requests",
+    "plans",
+    "acp resources",
+    "catalog scheduler",
+    "tool manager",
+    "tool startup",
+    "cli login",
+    "remote console",
+    "remote sessions",
+    "ssh client",
+    "database",
+  ].map((name) => world.shutdownStep(name));
+  expect(attemptedSteps.every((step) => step.mock.calls.length === 1)).toBe(
+    true,
+  );
+  const invocationOrder = attemptedSteps.map(
+    (step) => step.mock.invocationCallOrder[0],
+  );
+  expect(invocationOrder).toEqual(
+    [...invocationOrder].sort((left, right) => left - right),
+  );
+  expect(world.database.close).toHaveBeenCalledOnce();
+  const events = vi.mocked(logEvent).mock.calls.map(([event]) => event);
+  expect(
+    events.filter(({ event }) => event === "server.shutdown.step_failed"),
+  ).toEqual([
+    expect.objectContaining({
+      level: "error",
+      error: failure,
+      metadata: { step: "plans" },
+    }),
+  ]);
+  expect(
+    events.filter(({ event }) => event === "server.shutdown.database_close"),
+  ).toEqual([
+    expect.objectContaining({
+      level: "info",
+      metadata: { databaseClose: "closed" },
+    }),
+  ]);
+  // The step event is the only report, and the database did close: nothing may
+  // describe the failed step as a failed close.
+  expect(logCaughtError).not.toHaveBeenCalled();
+  expect(logDiagnostic).not.toHaveBeenCalledWith(
     "services",
     "error",
     "[pages] Closing the database failed.",

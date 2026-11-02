@@ -1,3 +1,7 @@
+import {
+  currentDatabaseWork,
+  withDatabaseWork,
+} from "@/backend/database/executor/DatabaseWorkContext";
 import { loggedOperation } from "@/backend/logging/LoggedOperation";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
@@ -31,6 +35,16 @@ import type {
   PagesAgentApiProjectNames,
   PagesAgentApiVerification,
 } from "@/definition/PagesAgentApi";
+
+let catalogOperations: ReadonlySet<string> | null = null;
+
+/** Labels the database work of a call; only a name of the catalog passes, never caller text. */
+function agentApiOrigin(operation: unknown): string {
+  catalogOperations ??= new Set(ownerOperations(true));
+  return typeof operation === "string" && catalogOperations.has(operation)
+    ? `agent_api:${operation}`
+    : "agent_api";
+}
 
 /** Operations that verify the credential again while they run, as an import does. */
 const REVERIFIED_OPERATIONS: readonly unknown[] = [
@@ -172,14 +186,18 @@ export class PagesAgentApiService {
     | { readonly revoked: true }
   > {
     const identity = await this.verify(token);
-    return loggedOperation(
-      "PagesAgentApiService",
-      "integration.agent_api",
-      async () => {
-        if (identity.run)
-          return this.handleSession(identity, identity.run, token, input);
-        return this.handlePersonal(identity, token, input);
-      },
+    return withDatabaseWork(
+      { ...currentDatabaseWork(), origin: agentApiOrigin(input.operation) },
+      () =>
+        loggedOperation(
+          "PagesAgentApiService",
+          "integration.agent_api",
+          async () => {
+            if (identity.run)
+              return this.handleSession(identity, identity.run, token, input);
+            return this.handlePersonal(identity, token, input);
+          },
+        ),
     );
   }
 

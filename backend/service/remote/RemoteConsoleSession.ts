@@ -274,11 +274,14 @@ export class RemoteConsoleSession {
     readonly directory: string | null;
   }> {
     const opening = this.openTerminal(target);
+    // A refused terminal can fail while the read still runs; it is awaited
+    // below, but until then it needs a handler or it ends the process.
+    const opened = opening.catch(() => null);
     try {
       const directory = await startDirectory(target);
       return { terminal: await opening, directory };
     } catch (error: unknown) {
-      const terminal = await opening.catch(() => null);
+      const terminal = await opened;
       terminal?.close();
       throw error;
     }

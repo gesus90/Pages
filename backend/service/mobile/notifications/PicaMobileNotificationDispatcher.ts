@@ -1,3 +1,4 @@
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { PICA_MOBILE_NOTIFICATION_EVENT_TYPE } from "@/definition/PicaMobileNotifications";
 
@@ -232,7 +233,10 @@ export class PicaMobileNotificationDispatcher {
       return;
     }
 
-    this.running = this.pass();
+    // Whoever scheduled this pass, it delivers for every account.
+    this.running = withBackgroundDatabaseWork("pica_mobile_dispatch", () =>
+      this.pass(),
+    );
   }
 
   private async pass(): Promise<void> {

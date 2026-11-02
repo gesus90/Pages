@@ -8,6 +8,7 @@ import {
   isUniqueViolationOn,
 } from "@/backend/database/Database";
 import { withReadScope } from "@/backend/database/ReadScope";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
   MigrationChecksumError,
   UnknownMigrationError,
@@ -18,6 +19,7 @@ import type * as WorkerClientModule from "@/backend/database/executor/DatabaseWo
 import type { WorkerStatement } from "@/backend/database/executor/DatabaseWorkerClient";
 import type { WorkerConfiguration } from "@/backend/database/executor/DatabaseWorkerProtocol";
 import type { Migration } from "@/backend/database/Migration";
+import type * as LoggerModule from "@/backend/logging/Logger";
 
 interface EngineState {
   /** Every statement the worker received, in call order. */
@@ -36,20 +38,34 @@ interface EngineState {
   openedPaths: string[];
   /** Workers that were closed, in call order. */
   released: string[];
+  /** What the executor asked the worker client at its close, in call order. */
+  closeSteps: string[];
+  /** The status read at the close fails with this. */
+  statusFailure: Error | null;
+  /** The close of the worker fails with this, after it was attempted. */
+  closeFailure: Error | null;
 }
 
 const engine = vi.hoisted((): EngineState => ({
   appliedRows: [],
   bindings: [],
+  closeFailure: null,
+  closeSteps: [],
   failingFragment: null,
   openedPaths: [],
   openFailures: [],
   released: [],
   resultRows: [],
   statements: [],
+  statusFailure: null,
 }));
 
 vi.mock("node:fs/promises", () => ({ mkdir: vi.fn() }));
+vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
+  ...(await importOriginal<typeof LoggerModule>()),
+  logCaughtError: vi.fn(),
+  logEvent: vi.fn(),
+}));
 // The worker process owns DuckDB; its client is the boundary the server sees.
 vi.mock(
   "@/backend/database/executor/DatabaseWorkerClient",
@@ -109,9 +125,24 @@ vi.mock(
         };
       }
 
+      /** The executor reports these counters once more before the worker closes. */
+      public status(): WorkerClientModule.DatabaseWorkerStatus {
+        engine.closeSteps.push("status");
+        if (engine.statusFailure) throw engine.statusFailure;
+        return {
+          state: "ready",
+          generation: 1,
+          restarts: 0,
+          pendingStatements: 0,
+          pid: null,
+        };
+      }
+
       /** Stands in for the worker's closing checkpoint and exit. */
       public async close(): Promise<void> {
+        engine.closeSteps.push("close");
         engine.released.push("worker");
+        if (engine.closeFailure) throw engine.closeFailure;
       }
     }
 
@@ -134,6 +165,11 @@ beforeEach(() => {
   engine.openFailures = [];
   engine.openedPaths = [];
   engine.released = [];
+  engine.closeSteps = [];
+  engine.statusFailure = null;
+  engine.closeFailure = null;
+  vi.mocked(logCaughtError).mockReset();
+  vi.mocked(logEvent).mockReset();
 });
 
 /** Names what a statement did, so call order reads like a story. */
@@ -346,6 +382,86 @@ it("lets the worker checkpoint and release the database when it closes", async (
   // The worker runs the closing CHECKPOINT on its own writer connection.
   expect(trace()).toEqual([]);
   expect(engine.released).toEqual(["worker"]);
+});
+
+/** The events the close wrote, by name. */
+function loggedEvents(): string[] {
+  return vi.mocked(logEvent).mock.calls.map(([event]) => event.event);
+}
+
+it("reports the last counters before the worker closes", async () => {
+  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  await database.execute("UPDATE t SET a = 1;");
+  vi.mocked(logEvent).mockClear();
+
+  await database.close();
+
+  expect(engine.closeSteps).toEqual(["status", "close"]);
+  expect(loggedEvents()).toEqual([
+    "database.executor.status",
+    "database.closed",
+  ]);
+  expect(logCaughtError).not.toHaveBeenCalled();
+});
+
+it("still closes the worker when the last counters cannot be read", async () => {
+  const failure = new Error("status failed");
+  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  engine.statusFailure = failure;
+
+  await expect(database.close()).resolves.toBeUndefined();
+
+  expect(engine.closeSteps).toEqual(["status", "close"]);
+  expect(engine.released).toEqual(["worker"]);
+  expect(logCaughtError).toHaveBeenCalledExactlyOnceWith(
+    "DatabaseExecutor",
+    failure,
+  );
+  expect(loggedEvents()).toContain("database.closed");
+});
+
+it("does not hide a failed close or claim the database closed", async () => {
+  const failure = new Error("checkpoint failed");
+  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  engine.closeFailure = failure;
+
+  await expect(database.close()).rejects.toBe(failure);
+
+  expect(engine.closeSteps).toEqual(["status", "close"]);
+  expect(logCaughtError).not.toHaveBeenCalled();
+  expect(loggedEvents()).not.toContain("database.closed");
+});
+
+it("lets a failed close outrank a failed report, keeping both", async () => {
+  const statusFailure = new Error("status failed");
+  const closeFailure = new Error("checkpoint failed");
+  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  engine.statusFailure = statusFailure;
+  engine.closeFailure = closeFailure;
+
+  await expect(database.close()).rejects.toBe(closeFailure);
+
+  expect(engine.closeSteps).toEqual(["status", "close"]);
+  expect(logCaughtError).toHaveBeenCalledExactlyOnceWith(
+    "DatabaseExecutor",
+    statusFailure,
+  );
+  expect(loggedEvents()).not.toContain("database.closed");
+});
+
+it("still closes the worker when even the report of the failure fails", async () => {
+  const logFailure = new Error("logging failed");
+  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  engine.statusFailure = new Error("status failed");
+  vi.mocked(logCaughtError).mockImplementationOnce(() => {
+    throw logFailure;
+  });
+
+  // The close ran, but the stop cannot confirm it through a broken logger.
+  await expect(database.close()).rejects.toBe(logFailure);
+
+  expect(engine.released).toEqual(["worker"]);
+  expect(loggedEvents()).not.toContain("database.closed");
 });
 
 it("computes the same migration checksum for both line-ending styles", () => {

@@ -1,3 +1,4 @@
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { RemoteError } from "@/backend/error/RemoteErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { PLAN_RETRY_DELAYS } from "@/backend/service/agents/AgentPlanStepRetry";
@@ -300,7 +301,10 @@ export class RemoteSession {
 
   /** Keeps the attempt under way, so a person's retry can wait for it. */
   private async runAttempt(generation: number): Promise<void> {
-    const attempt = this.attempt(generation);
+    // A series outlives the request that started it and serves everyone on the host.
+    const attempt = withBackgroundDatabaseWork("remote_session", () =>
+      this.attempt(generation),
+    );
     this.attempting = attempt;
     try {
       await attempt;

@@ -1,9 +1,10 @@
-import { logEvent } from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { readSlowOperationThresholdMs } from "@/backend/logging/LogTiming";
 import { recordDatabaseWaitMetrics } from "@/backend/logging/DatabaseLogMetrics";
 
 import { recordDatabaseQuery } from "../DatabaseStats";
 import { DatabaseLane } from "./DatabaseLane";
+import { DatabaseWalGrowth } from "./DatabaseWalGrowth";
 import { DATABASE_EXECUTOR_LIMITS } from "./DatabaseExecutorLimits";
 import { DatabaseExecutorError } from "./DatabaseExecutorErrors";
 import {
@@ -55,6 +56,12 @@ export interface DatabaseExecutorStatus {
 
 const NOT_READ_ONLY: WorkerRefusalName = "DatabaseNotReadOnlyError";
 
+/** How often the counters of the executor reach the log while it does anything. */
+const STATUS_REPORT_INTERVAL_MS = 60_000;
+
+/** Origins reported per interval, the largest growth first. */
+const MAXIMUM_REPORTED_WAL_ORIGINS = 10;
+
 /** Text DuckDB reports once a fatal error invalidated the open database. */
 export const DATABASE_INVALIDATED = "database has been invalidated";
 
@@ -88,6 +95,27 @@ function isCommitLike(statement: string): boolean {
   return /^\s*(?:COMMIT|CHECKPOINT)\b/iu.test(statement);
 }
 
+/** Whether a writer job holds an open transaction after `statement`. */
+function holdsTransaction(statement: string, wasOpen: boolean): boolean {
+  if (/^\s*BEGIN\b/iu.test(statement)) return true;
+  return wasOpen && !/^\s*(?:COMMIT|ROLLBACK)\b/iu.test(statement);
+}
+
+function laneCounters(
+  prefix: "writer" | "reader",
+  lane: LaneStatus,
+): Readonly<Record<string, number>> {
+  return {
+    [`${prefix}Queued`]: lane.queued,
+    [`${prefix}Running`]: lane.running,
+    [`${prefix}Completed`]: lane.completed,
+    [`${prefix}RefusedOverloaded`]: lane.refusedOverloaded,
+    [`${prefix}RefusedQueueTimeout`]: lane.refusedQueueTimeout,
+    [`${prefix}RefusedAborted`]: lane.refusedAborted,
+    [`${prefix}LongestQueueWaitMs`]: lane.longestQueueWaitMs,
+  };
+}
+
 /**
  * Runs the statements of the server on the database worker (PAGE-197).
  *
@@ -111,7 +139,10 @@ export class DatabaseExecutor {
     maximumQueued: DATABASE_EXECUTOR_LIMITS.maximumQueuedReads,
     maximumQueuedRecurring: DATABASE_EXECUTOR_LIMITS.maximumQueuedReads,
   });
+  private readonly walGrowth = new DatabaseWalGrowth();
+  private readonly statusTimer: NodeJS.Timeout;
   private reroutedReads = 0;
+  private lastReportedJobs = 0;
   private readonly onInvalidated: (error: Error) => void;
 
   private constructor(
@@ -120,6 +151,11 @@ export class DatabaseExecutor {
   ) {
     this.client = client;
     this.onInvalidated = onInvalidated;
+    this.statusTimer = setInterval(
+      () => this.reportStatus(),
+      STATUS_REPORT_INTERVAL_MS,
+    );
+    this.statusTimer.unref();
   }
 
   /**
@@ -160,13 +196,20 @@ export class DatabaseExecutor {
       (queueMs) => {
         this.reportWait("writer", queueMs);
         const generation = this.client.currentGeneration;
+        let isInTransaction = false;
         return work({
-          run: (statement, parameters, mode) =>
-            this.runStatement(statement, parameters, {
+          run: (statement, parameters, mode) => {
+            // DuckDB writes the log when a change commits, so nothing inside an
+            // open transaction but its end can make the log grow.
+            const measureWal = !isInTransaction || isCommitLike(statement);
+            isInTransaction = holdsTransaction(statement, isInTransaction);
+            return this.runStatement(statement, parameters, {
               mode,
               role: "writer",
               generation,
-            }),
+              measureWal,
+            });
+          },
         });
       },
       { workClass: context.workClass, budgetMs, signal: context.signal },
@@ -268,7 +311,17 @@ export class DatabaseExecutor {
 
   /** Lets the worker checkpoint and close the database. */
   public async close(): Promise<void> {
-    await this.client.close();
+    clearInterval(this.statusTimer);
+    try {
+      // The counters live in this process; the last ones must not end with it.
+      this.reportStatus();
+    } catch (error: unknown) {
+      // A diagnostic is no reason to leave the database open.
+      logCaughtError("DatabaseExecutor", error);
+    } finally {
+      // Runs whatever happened above, and a failed close outranks all of it.
+      await this.client.close();
+    }
   }
 
   private async endSession(session: number, generation: number): Promise<void> {
@@ -286,6 +339,7 @@ export class DatabaseExecutor {
     target: Pick<WorkerStatement, "mode" | "role"> & {
       readonly generation: number;
       readonly session?: number;
+      readonly measureWal?: boolean;
     },
   ): Promise<DatabaseValue[][]> {
     if (
@@ -295,7 +349,6 @@ export class DatabaseExecutor {
       throw new Error(
         `Database parameters exceed ${String(DATABASE_EXECUTOR_LIMITS.maximumParameterBytes)} bytes.`,
       );
-    const measureWal = target.role === "writer" && isCommitLike(statement);
     try {
       const outcome = await this.client.run(
         {
@@ -303,7 +356,7 @@ export class DatabaseExecutor {
           mode: target.mode,
           statement,
           parameters,
-          measureWal,
+          measureWal: target.measureWal ?? false,
           session: target.session ?? null,
         },
         target.generation,
@@ -334,6 +387,50 @@ export class DatabaseExecutor {
       walBytesBefore: timing.walBytesBefore,
       walBytesAfter: timing.walBytesAfter,
     });
+    const work = currentDatabaseWork();
+    this.walGrowth.record(
+      work.origin ?? work.workClass,
+      timing.walBytesBefore,
+      timing.walBytesAfter,
+    );
+  }
+
+  /** Writes the counters of the lanes and the log growth; skips an idle interval. */
+  private reportStatus(): void {
+    const status = this.status();
+    const jobs = status.writer.completed + status.readers.completed;
+    const hasActivity =
+      jobs !== this.lastReportedJobs ||
+      status.writer.queued > 0 ||
+      status.readers.queued > 0;
+    if (!hasActivity) return;
+    this.lastReportedJobs = jobs;
+    logEvent({
+      level: "info",
+      event: "database.executor.status",
+      component: "DatabaseExecutor",
+      message: "Database executor counters",
+      metadata: {
+        state: status.worker.state,
+        generation: status.worker.generation,
+        restarts: status.worker.restarts,
+        pendingStatements: status.worker.pendingStatements,
+        reroutedReads: status.reroutedReads,
+        ...laneCounters("writer", status.writer),
+        ...laneCounters("reader", status.readers),
+      },
+    });
+    for (const growth of this.walGrowth
+      .drain()
+      .slice(0, MAXIMUM_REPORTED_WAL_ORIGINS))
+      logEvent({
+        level: "info",
+        event: "database.wal.growth",
+        component: "DatabaseExecutor",
+        message:
+          "Write-ahead log growth of one kind of work since the last report",
+        metadata: { ...growth },
+      });
   }
 
   private reportWait(lane: "writer" | "reader", queueMs: number): void {

@@ -56,7 +56,9 @@ export function obtainPicaMobileGateway(
     });
 
     globalThis.pagesPicaMobileGateway = gateway;
-    registerShutdownTask(() => gateway.close());
+    registerShutdownTask(() => gateway.close(), {
+      step: "pica_mobile_gateway",
+    });
   }
 
   return globalThis.pagesPicaMobileGateway;

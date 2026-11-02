@@ -1,4 +1,5 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import {
   endTaggedProcesses,
   readScopeSince,
@@ -124,7 +125,7 @@ export class AcpResourceScheduler {
       };
       this.active.set(record.instanceId, record);
       adopted.add(record.instanceId);
-      await this.writes.run(() => this.store.save(record));
+      await this.persist(() => this.store.save(record));
     }
     for (const record of this.active.values()) {
       if (retained.has(record.instanceId)) {
@@ -168,7 +169,7 @@ export class AcpResourceScheduler {
     instanceId: string,
     namespace: AcpNamespaceOwner,
   ): Promise<void> {
-    await this.writes.run(async () => {
+    await this.persist(async () => {
       const current = this.active.get(instanceId);
       if (!current || current.state !== "starting")
         throw new Error("ACP reservation is not starting");
@@ -379,6 +380,19 @@ export class AcpResourceScheduler {
     });
   }
 
+  /**
+   * Stores a lease in the order of the scheduler, outside any request.
+   *
+   * @remarks
+   * Leases belong to all sessions, and a refused write blocks admission until
+   * the next start, so a client that left must not be able to cause one (PAGE-199).
+   */
+  private persist<Result>(task: () => Promise<Result>): Promise<Result> {
+    return withBackgroundDatabaseWork("acp_resources", () =>
+      this.writes.run(task),
+    );
+  }
+
   private wake(): void {
     if (this.isClosing) return;
     if (this.isPumping) {
@@ -388,7 +402,8 @@ export class AcpResourceScheduler {
     this.hasPendingWake = false;
     clearTimeout(this.timer);
     this.isPumping = true;
-    void this.pump()
+    // Whoever wakes it, the scheduler serves the sessions of everyone (PAGE-199).
+    void withBackgroundDatabaseWork("acp_resources", () => this.pump())
       .catch((caughtError: unknown) => {
         logCaughtError("AcpResourceScheduler", caughtError);
 
@@ -435,7 +450,7 @@ export class AcpResourceScheduler {
       };
       this.active.set(record.instanceId, record);
       try {
-        await this.writes.run(() => this.store.save(record));
+        await this.persist(() => this.store.save(record));
         request.resolve();
       } catch (caughtError: unknown) {
         logCaughtError("AcpResourceScheduler", caughtError);
@@ -455,7 +470,7 @@ export class AcpResourceScheduler {
     state: AcpResourceState,
     stepId?: string,
   ): Promise<void> {
-    await this.writes.run(async () => {
+    await this.persist(async () => {
       const current = this.active.get(instanceId);
       if (!current) return;
       const record = {
@@ -479,7 +494,7 @@ export class AcpResourceScheduler {
     instanceId: string,
     isConfirmed: boolean,
   ): Promise<boolean> {
-    const released = await this.writes.run(async () => {
+    const released = await this.persist(async () => {
       const current = this.active.get(instanceId);
       if (!current) return true;
       this.sessions.delete(instanceId);

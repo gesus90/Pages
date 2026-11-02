@@ -1,7 +1,10 @@
 import { createContext, data } from "react-router";
 
 import { DatabaseExecutorError } from "@/backend/database/executor/DatabaseExecutorErrors";
-import { withDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
+import {
+  currentDatabaseWork,
+  withDatabaseWork,
+} from "@/backend/database/executor/DatabaseWorkContext";
 
 import { watchApplicationServices } from "./database-state.server";
 
@@ -101,7 +104,11 @@ const runDatabaseRequest: MiddlewareFunction = async (
   const record: DatabaseFailureRecord = { error: null };
   context.set(databaseFailureContext, record);
   const response = await withDatabaseWork(
-    { workClass: "request", signal: request.signal },
+    {
+      workClass: "request",
+      signal: request.signal,
+      origin: currentDatabaseWork().origin,
+    },
     next,
   );
   watchApplicationServices();

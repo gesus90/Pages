@@ -1,8 +1,8 @@
 import { CredentialStoreError } from "./credential-error.js";
 import {
   IMPORT_TIMEOUT_MS,
-  PLAN_REQUEST_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
+  WRITE_REQUEST_TIMEOUT_MS,
 } from "./request-constants.js";
 import { PagesTransportError } from "./pages-transport-error.js";
 import { operationFailure } from "./tools/operation-failure.js";
@@ -10,16 +10,22 @@ import { operationFailure } from "./tools/operation-failure.js";
 import type { PagesAgentApiRequest } from "../../definition/PagesAgentApi.js";
 import type { PagesConfiguration } from "./configuration.js";
 
+/** Operations that only read; any other, also an unknown one, gets the longer budget of a write. */
+const SHORT_READ_OPERATION =
+  /(?:^verify|\.(?:read|readRange|list|search|resolve|plan))$/u;
+
 function requestTimeout(operation: string): number {
-  if (operation.startsWith("plans.") || operation.startsWith("workspaces."))
-    return PLAN_REQUEST_TIMEOUT_MS;
-  return [
-    "wiki.import.apply",
-    "wiki.import.update",
-    "import.structured.apply",
-  ].includes(operation)
-    ? IMPORT_TIMEOUT_MS
-    : REQUEST_TIMEOUT_MS;
+  if (
+    operation === "wiki.import.apply" ||
+    operation === "wiki.import.update" ||
+    operation === "import.structured.apply"
+  )
+    return IMPORT_TIMEOUT_MS;
+  const needsWriteBudget =
+    operation.startsWith("plans.") ||
+    operation.startsWith("workspaces.") ||
+    !SHORT_READ_OPERATION.test(operation);
+  return needsWriteBudget ? WRITE_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
 }
 
 /**

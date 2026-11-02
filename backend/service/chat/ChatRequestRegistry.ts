@@ -1,3 +1,4 @@
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -61,6 +62,10 @@ export class ChatRequestRegistry {
   /**
    * Admits work that outlives the request which started it, such as a Pica job.
    *
+   * @remarks
+   * Its database jobs leave the request (PAGE-199). A person stops it through
+   * {@link cancel}, a server stop through {@link shutdown}.
+   *
    * @returns The running work; it settles like {@link run}.
    * @throws {AgentExecutionError} `requestBusy` synchronously, before anything runs.
    */
@@ -70,7 +75,9 @@ export class ChatRequestRegistry {
     work: (signal: AbortSignal) => Promise<Result>,
   ): Promise<Result> {
     this.requireAdmission(userId, id);
-    return this.run(userId, id, work);
+    return withBackgroundDatabaseWork("pica_job", () =>
+      this.run(userId, id, work),
+    );
   }
 
   /** A forged cancellation cannot abort another user's request. */

@@ -1,3 +1,4 @@
+import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   isApiProvider,
@@ -148,7 +149,10 @@ export class AgentCliLoginService {
         () => this.stop(session, "login_expired"),
         duration,
       );
-      session.task = this.launch(actor, session);
+      // The login waits for a person for minutes, long after this request answered.
+      session.task = withBackgroundDatabaseWork("cli_login", () =>
+        this.launch(actor, session),
+      );
       return { state: "starting", expiresAt: session.expiresAt };
     } catch (error: unknown) {
       logCaughtError("AgentCliLoginService", error);
