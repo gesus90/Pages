@@ -32,7 +32,7 @@ import type { TaskState } from "./task-records";
 
 function unexpectedDatabase(): Pick<
   Database,
-  "execute" | "query" | "transaction"
+  "execute" | "query" | "transaction" | "readTransaction"
 > {
   return {
     query: vi.fn(async () => {
@@ -43,6 +43,9 @@ function unexpectedDatabase(): Pick<
     }),
     transaction: vi.fn(async () => {
       throw new Error("Unexpected database transaction");
+    }),
+    readTransaction: vi.fn(async () => {
+      throw new Error("Unexpected database read transaction");
     }),
   };
 }

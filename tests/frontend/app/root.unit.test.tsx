@@ -13,6 +13,7 @@ import Root, {
   middleware,
 } from "@/app/root";
 import { createSecurityHeaders } from "@/app/lib/security-headers";
+import { databaseRequestMiddleware } from "@/app/lib/database-failure.server";
 import { requireFinishedSetup } from "@/app/lib/setup-gate.server";
 import { STANDARD_ACTIVE_DESIGN_THEME } from "@/definition/DesignTheme";
 import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
@@ -104,7 +105,10 @@ afterEach(async () => {
 });
 
 it("keeps every route closed until the setup is finished", () => {
-  expect(middleware).toEqual([requireFinishedSetup]);
+  expect(middleware).toEqual([
+    ...databaseRequestMiddleware,
+    requireFinishedSetup,
+  ]);
 });
 
 it("registers the stylesheet and the favicon, the title and the security headers", () => {

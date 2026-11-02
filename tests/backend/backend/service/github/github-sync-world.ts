@@ -604,6 +604,7 @@ export class GitHubSyncWorld {
       async () => [{ ownerId: this.actor.id, projectId: PROJECT_ID }],
     );
     vi.spyOn(repository, "updateSyncSchedule").mockResolvedValue();
+    vi.spyOn(repository, "deferNextSync").mockResolvedValue();
     vi.spyOn(repository, "insertActivity").mockImplementation(async (entry) => {
       this.activity.push(entry);
     });

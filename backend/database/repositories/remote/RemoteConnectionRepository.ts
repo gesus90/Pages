@@ -228,15 +228,17 @@ function changesIdentity(
  * two administrators cannot overwrite each other unnoticed.
  */
 export class RemoteConnectionRepository {
-  private readonly database: Pick<Database, "transaction">;
+  private readonly database: Pick<Database, "transaction" | "readTransaction">;
 
-  public constructor(database: Pick<Database, "transaction">) {
+  public constructor(
+    database: Pick<Database, "transaction" | "readTransaction">,
+  ) {
     this.database = database;
   }
 
   /** Reads every connection from one coherent snapshot. */
   public async list(): Promise<readonly RemoteConnectionRecord[]> {
-    return this.database.transaction(readConnections);
+    return this.database.readTransaction(readConnections);
   }
 
   /** Returns one connection, or `null` when it does not exist. */
@@ -247,7 +249,7 @@ export class RemoteConnectionRepository {
 
   /** Counts the workspace profiles of every connection that has any. */
   public async workspaceCounts(): Promise<ReadonlyMap<string, number>> {
-    return this.database.transaction(async (transaction) => {
+    return this.database.readTransaction(async (transaction) => {
       const rows = await transaction.query(`
         SELECT
             connection_id,

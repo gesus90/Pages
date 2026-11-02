@@ -34,7 +34,7 @@ class ScriptedDatabase {
   public rollbacks = 0;
 
   /** The database contract the repository is built on. */
-  public asDatabase(): Pick<Database, "transaction"> {
+  public asDatabase(): Pick<Database, "transaction" | "readTransaction"> {
     const transaction: DatabaseTransaction = {
       query: async (statement): Promise<DatabaseValue[][]> => {
         if (statement.includes("SELECT revision"))
@@ -48,7 +48,7 @@ class ScriptedDatabase {
         else this.log.push("scope");
       },
     };
-    return {
+    const scripted: Pick<Database, "transaction"> = {
       transaction: async (work) => {
         try {
           const result = await work(transaction);
@@ -60,6 +60,7 @@ class ScriptedDatabase {
         }
       },
     };
+    return { ...scripted, readTransaction: scripted.transaction };
   }
 }
 

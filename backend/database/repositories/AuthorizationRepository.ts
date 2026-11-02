@@ -23,8 +23,24 @@ import type {
 /** SQL operations usable either directly or under the aggregate transaction. */
 type AuthorizationDatabase = Pick<
   Database,
-  "query" | "execute" | "transaction"
+  "query" | "execute" | "transaction" | "readTransaction"
 >;
+
+/** Binds every operation, nested transactions included, to one open transaction. */
+function transactionScope(
+  transaction: DatabaseTransaction,
+): AuthorizationDatabase {
+  const reuse = async <Nested>(
+    operation: (scope: DatabaseTransaction) => Promise<Nested>,
+  ): Promise<Nested> => operation(transaction);
+  return {
+    query: transaction.query.bind(transaction),
+    execute: transaction.execute.bind(transaction),
+    transaction: reuse,
+    // Reads inside a writer transaction must see its own uncommitted writes.
+    readTransaction: reuse,
+  };
+}
 
 /** Complete authorization state, never accepted from the client. */
 export interface AuthorizationSnapshot {
@@ -47,15 +63,7 @@ export class AuthorizationRepository {
     work: (repository: AuthorizationRepository) => Promise<Result>,
   ): Promise<Result> {
     return this.database.transaction((transaction) =>
-      work(
-        new AuthorizationRepository({
-          query: transaction.query.bind(transaction),
-          execute: transaction.execute.bind(transaction),
-          transaction: async <Nested>(
-            operation: (scope: DatabaseTransaction) => Promise<Nested>,
-          ): Promise<Nested> => operation(transaction),
-        }),
-      ),
+      work(new AuthorizationRepository(transactionScope(transaction))),
     );
   }
 
@@ -92,9 +100,17 @@ export class AuthorizationRepository {
     );
   }
 
-  /** Loads a current policy snapshot; callers must filter it before serialization. */
+  /**
+   * Loads a current policy snapshot; callers must filter it before serialization.
+   *
+   * @remarks
+   * The reads share one consistent snapshot without waiting for the writer;
+   * inside an aggregate transaction they reuse it and see its own changes.
+   */
   public async snapshot(): Promise<AuthorizationSnapshot> {
-    return this.transaction((repository) => repository.readSnapshot());
+    return this.database.readTransaction((transaction) =>
+      new AuthorizationRepository(transactionScope(transaction)).readSnapshot(),
+    );
   }
 
   /** Inserts or updates a role and replaces its permission set atomically with its caller. */

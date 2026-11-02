@@ -12,7 +12,11 @@ function boundary(): TaskDatabase {
     query: vi.fn<DatabaseTransaction["query"]>().mockResolvedValue([]),
     execute: vi.fn<DatabaseTransaction["execute"]>().mockResolvedValue(),
   };
-  return { ...connection, transaction: async (work) => work(connection) };
+  return {
+    ...connection,
+    transaction: async (work) => work(connection),
+    readTransaction: async (work) => work(connection),
+  };
 }
 
 it("reports the rows actually changed by the database rather than requested ids", async () => {

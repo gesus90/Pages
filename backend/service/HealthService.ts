@@ -1,6 +1,7 @@
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { Database } from "@/backend/database/Database";
+import type { DatabaseWorkerState } from "@/backend/database/executor/DatabaseWorkerClient";
 
 /** Tells whether the database answers, for the `/health` endpoint. */
 export class HealthService {
@@ -16,7 +17,16 @@ export class HealthService {
   }
 
   /**
-   * Runs a trivial query.
+   * Reads the state of the database worker without querying it (PAGE-197).
+   *
+   * @returns Only the state name; no SQL, path or counter.
+   */
+  public databaseState(): DatabaseWorkerState {
+    return this.database.executorStatus().worker.state;
+  }
+
+  /**
+   * Runs a trivial query on a reader connection, so a long write does not hold it back.
    *
    * @returns Whether the database answered it; a failure is logged.
    */

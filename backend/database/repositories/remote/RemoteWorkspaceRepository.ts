@@ -138,15 +138,17 @@ async function requireSeparatePath(
 
 /** Stores remote workspace profiles; the remote directory itself is never changed. */
 export class RemoteWorkspaceRepository {
-  private readonly database: Pick<Database, "transaction">;
+  private readonly database: Pick<Database, "transaction" | "readTransaction">;
 
-  public constructor(database: Pick<Database, "transaction">) {
+  public constructor(
+    database: Pick<Database, "transaction" | "readTransaction">,
+  ) {
     this.database = database;
   }
 
   /** Reads every profile from one coherent snapshot. */
   public async list(): Promise<readonly RemoteWorkspaceRecord[]> {
-    return this.database.transaction(readWorkspaces);
+    return this.database.readTransaction(readWorkspaces);
   }
 
   /** Returns one profile, or `null` when it does not exist. */
@@ -157,7 +159,7 @@ export class RemoteWorkspaceRepository {
 
   /** Reads affected plans, pinned agents and active executions for the removal dialog. */
   public async usages(id: string): Promise<readonly AgentWorkspaceUsage[]> {
-    return this.database.transaction((transaction) =>
+    return this.database.readTransaction((transaction) =>
       new AgentWorkspaceReferencesRepository(transaction).usages(id),
     );
   }

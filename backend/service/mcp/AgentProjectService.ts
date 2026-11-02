@@ -22,7 +22,7 @@ export class AgentProjectService {
    * @throws McpAuthorizationError when the account is missing or inactive.
    */
   public async listNames(userId: string): Promise<string[]> {
-    return this.repository.transaction(async (repository) => {
+    return this.repository.readTransaction(async (repository) => {
       const snapshot = await repository.authorization().snapshot();
       const found = snapshot.accounts.find((entry) => entry.userId === userId);
       if (!found?.isActive) {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { withDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import { withAccountAuthorizationLog } from "@/backend/logging/AccountAuthorizationLog";
 import { withRouteLogMetrics } from "@/backend/logging/RouteLogMetrics";
@@ -14,7 +15,7 @@ import { RequestLogLifecycle } from "./RequestLogLifecycle";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 const ROUTE_SEGMENTS = new Set(
-  "api v1 agent-assets agents pica-bridge pairing pair login logout setup health settings system profile connections resources definitions workspaces ticket-choices workspace-folders run-records plan-sources plan-runs recovery steps prompt session events dashboard users projekte aufgaben tasks wiki trash wiki-api ticket-api attachments drafts search references link-titles instance-logo agent-api agent-assets chat-api discord callback result settings-api account-version set-language change-password assets".split(
+  "api v1 agent-assets agents pica-bridge pairing pair login logout setup health live settings system profile connections resources definitions workspaces ticket-choices workspace-folders run-records plan-sources plan-runs recovery steps prompt session events dashboard users projekte aufgaben tasks wiki trash wiki-api ticket-api attachments drafts search references link-titles instance-logo agent-api agent-assets chat-api discord callback result settings-api account-version set-language change-password assets".split(
     " ",
   ),
 );
@@ -40,7 +41,33 @@ export function safeRequestRoute(requestUrl: string): string {
   }
 }
 
-/** Instruments request start, finish and disconnect with one isolated async context. */
+/**
+ * Aborts once the client closed the connection before the response finished.
+ *
+ * @param response - Response of the request.
+ * @returns A signal with the meaning of `Request.signal` in
+ * `@remix-run/node-fetch-server`, which aborts on `close` without `finish`.
+ */
+function abortOnDisconnect(response: ServerResponse): AbortSignal {
+  const controller = new AbortController();
+  let isFinished = false;
+  response.once("finish", () => {
+    isFinished = true;
+  });
+  response.once("close", () => {
+    if (!isFinished) controller.abort();
+  });
+
+  return controller.signal;
+}
+
+/**
+ * Instruments request start, finish and disconnect with one isolated async context.
+ *
+ * @remarks
+ * Database jobs of the request run as `request` work (PAGE-197): they get
+ * the request queue budget and are refused unstarted once the client left.
+ */
 export function logRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -65,7 +92,13 @@ export function logRequest(
               confirmAuthorization,
             );
             lifecycle.observe(response);
-            handle();
+            void withDatabaseWork(
+              { workClass: "request", signal: abortOnDisconnect(response) },
+              () => {
+                handle();
+                return Promise.resolve();
+              },
+            );
           }),
         ),
       ),

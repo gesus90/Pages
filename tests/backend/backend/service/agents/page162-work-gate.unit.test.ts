@@ -71,6 +71,9 @@ const database = {
   transaction: async <Result>(
     work: (scope: DatabaseTransaction) => Promise<Result>,
   ): Promise<Result> => work(transaction),
+  readTransaction: async <Result>(
+    work: (scope: DatabaseTransaction) => Promise<Result>,
+  ): Promise<Result> => work(transaction),
 };
 const gate = new AgentPlanWorkGate(database, {
   getById: async () => TICKET_ACTOR,

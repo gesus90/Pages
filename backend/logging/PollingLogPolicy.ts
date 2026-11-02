@@ -3,6 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 const POLLING_ROUTES = [
   /^\/account-version$/u,
   /^\/health$/u,
+  /^\/health\/live$/u,
   /^\/agent-api\/resources$/u,
   /^\/agent-api\/plan-runs$/u,
   /^\/settings-api\/agents\/[^/]+\/login$/u,

@@ -6,7 +6,10 @@ import {
 } from "@/app/lib/health.server";
 
 const runtime = vi.hoisted(() => ({ isSetupPending: vi.fn() }));
-const healthService = vi.hoisted(() => ({ canQueryDatabase: vi.fn() }));
+const healthService = vi.hoisted(() => ({
+  canQueryDatabase: vi.fn(),
+  databaseState: vi.fn(),
+}));
 
 vi.mock("@/backend/runtime/PagesRuntime", () => ({
   getPagesRuntime: async () => runtime,
@@ -19,6 +22,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.useFakeTimers();
   runtime.isSetupPending.mockReturnValue(false);
+  healthService.databaseState.mockReturnValue("ready");
 });
 
 afterEach(() => {
@@ -29,21 +33,24 @@ describe("checkHealth", () => {
   it("reports setup without touching the database", async () => {
     runtime.isSetupPending.mockReturnValue(true);
 
-    expect(await checkHealth()).toBe("setup");
+    expect(await checkHealth()).toEqual({
+      status: "setup",
+      database: "not_started",
+    });
     expect(healthService.canQueryDatabase).not.toHaveBeenCalled();
   });
 
   it("reports ok when the database answers", async () => {
     healthService.canQueryDatabase.mockResolvedValue(true);
 
-    expect(await checkHealth()).toBe("ok");
+    expect(await checkHealth()).toEqual({ status: "ok", database: "ready" });
     expect(vi.getTimerCount()).toBe(0);
   });
 
   it("reports unavailable when the database cannot be queried", async () => {
     healthService.canQueryDatabase.mockResolvedValue(false);
 
-    expect(await checkHealth()).toBe("unavailable");
+    expect((await checkHealth()).status).toBe("unavailable");
   });
 
   it("reports unavailable and logs when the check fails", async () => {
@@ -51,7 +58,7 @@ describe("checkHealth", () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     healthService.canQueryDatabase.mockRejectedValue(failure);
 
-    expect(await checkHealth()).toBe("unavailable");
+    expect((await checkHealth()).status).toBe("unavailable");
     expect(logged).toHaveBeenCalledWith(
       "[pages] The health check failed.",
       expect.objectContaining({
@@ -71,7 +78,7 @@ describe("checkHealth", () => {
     expect(vi.getTimerCount()).toBe(1);
     await vi.advanceTimersByTimeAsync(1);
 
-    expect(await result).toBe("unavailable");
+    expect((await result).status).toBe("unavailable");
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -81,6 +88,6 @@ describe("checkHealth", () => {
 
     await vi.advanceTimersByTimeAsync(10);
 
-    expect(await result).toBe("unavailable");
+    expect((await result).status).toBe("unavailable");
   });
 });

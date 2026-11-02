@@ -10,9 +10,9 @@ it.each([
   ["setup", 200],
   ["unavailable", 503],
 ])("answers the health status %s with %i", async (status, code) => {
-  checkHealth.mockResolvedValue(status);
+  checkHealth.mockResolvedValue({ status, database: "ready" });
   const response = await loader();
   expect(response.status).toBe(code);
   expect(response.headers.get("Cache-Control")).toBe("no-store");
-  expect(await response.json()).toEqual({ status });
+  expect(await response.json()).toEqual({ status, database: "ready" });
 });

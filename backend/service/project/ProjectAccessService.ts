@@ -71,9 +71,9 @@ export class ProjectAccessService {
     };
   }
 
-  /** Resolves project and ticket read scope consistently inside one transaction. */
+  /** Resolves project and ticket read scope consistently from one read snapshot. */
   public async scope(actor: User): Promise<ProjectReadScope> {
-    return this.repository.transaction(async (repository) => {
+    return this.repository.readTransaction(async (repository) => {
       const access = new ProjectAccessService(
         repository,
         this.cache,
@@ -180,7 +180,7 @@ export class ProjectAccessService {
   public async filterAssignees(
     candidates: ReadonlyMap<string, readonly User[]>,
   ): Promise<ReadonlyMap<string, readonly User[]>> {
-    return this.repository.transaction(async (repository) => {
+    return this.repository.readTransaction(async (repository) => {
       const snapshot = await repository.authorization().snapshot();
       const accounts = new Map(
         snapshot.accounts.map((account) => [account.userId, account]),

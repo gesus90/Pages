@@ -23,6 +23,9 @@ vi.mock("react-dom/server", () => ({
 }));
 vi.mock("react-router", () => ({ ServerRouter: () => null }));
 vi.mock("@/backend/logging/Logger", () => ({ logEvent: logging.logEvent }));
+vi.mock("@/app/lib/database-failure.server", () => ({
+  recordDatabaseFailure: vi.fn(),
+}));
 
 const BROWSER = "Mozilla/5.0 (X11; Linux x86_64) Firefox/130.0";
 const CRAWLER = "Mozilla/5.0 (compatible; Googlebot/2.1)";

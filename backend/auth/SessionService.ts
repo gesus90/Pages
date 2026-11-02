@@ -1,6 +1,9 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
+import { LRUCache } from "lru-cache";
+
 import { parseUserAgent } from "@/backend/auth/UserAgent";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import type { UserService } from "@/backend/service/UserService";
@@ -15,10 +18,20 @@ export const SESSION_LIFETIME_DAYS = 14;
 /** Number of seconds a login session stays valid. */
 export const SESSION_LIFETIME_SECONDS = SESSION_LIFETIME_DAYS * 24 * 60 * 60;
 
+/** The repository records a session use at most once a minute. */
+const SESSION_TOUCH_INTERVAL_MS = 60_000;
+
+/** Sessions whose last recorded use the server remembers. */
+const MAXIMUM_REMEMBERED_TOUCHES = 10_000;
+
 /** Handles creation, validation, and revocation of login sessions. */
 export class SessionService {
   private readonly sessionRepository: SessionRepository;
   private readonly userService: UserService;
+  /** When each token hash was last sent to the repository as used. */
+  private readonly touches = new LRUCache<string, number>({
+    max: MAXIMUM_REMEMBERED_TOUCHES,
+  });
 
   /**
    * Creates a session service.
@@ -88,7 +101,7 @@ export class SessionService {
       return null;
     }
 
-    await this.sessionRepository.markUsed(tokenHash);
+    this.touch(tokenHash);
 
     return user;
   }
@@ -218,5 +231,25 @@ export class SessionService {
 
   private hashToken(token: string): string {
     return createHash("sha256").update(token).digest("hex");
+  }
+
+  /**
+   * Records the use of a session without making the request wait for it.
+   *
+   * @remarks
+   * `last_used_at` is minute-precise bookkeeping, not an authorization
+   * input, so a request never waits behind a long database write for it
+   * (PAGE-197). The service sends it at most once a minute per session and
+   * never queues a second one while one is still waiting.
+   */
+  private touch(tokenHash: string): void {
+    const now = Date.now();
+    const last = this.touches.get(tokenHash);
+    if (last !== undefined && now - last < SESSION_TOUCH_INTERVAL_MS) return;
+    this.touches.set(tokenHash, now);
+    void this.sessionRepository.markUsed(tokenHash).catch((error: unknown) => {
+      this.touches.delete(tokenHash);
+      logCaughtError("SessionService", error);
+    });
   }
 }

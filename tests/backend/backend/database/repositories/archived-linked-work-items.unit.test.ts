@@ -10,7 +10,11 @@ function boundary(): TaskDatabase {
     query: vi.fn<DatabaseTransaction["query"]>().mockResolvedValue([]),
     execute: vi.fn<DatabaseTransaction["execute"]>().mockResolvedValue(),
   };
-  return { ...connection, transaction: async (work) => work(connection) };
+  return {
+    ...connection,
+    transaction: async (work) => work(connection),
+    readTransaction: async (work) => work(connection),
+  };
 }
 
 it("reads archived tasks of one project that are linked to an issue", async () => {

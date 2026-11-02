@@ -89,6 +89,9 @@ export class TextWorld {
     vi.spyOn(database, "transaction").mockImplementation(async (work) =>
       this.transaction(database, work),
     );
+    vi.spyOn(database, "readTransaction").mockImplementation(async (work) =>
+      this.transaction(database, work),
+    );
     this.mockAccounts();
     this.mockTickets();
     this.mockOperations();

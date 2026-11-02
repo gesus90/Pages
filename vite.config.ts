@@ -6,7 +6,7 @@ import { fileURLToPath, URL } from "node:url";
 
 import tailwindcss from "@tailwindcss/vite";
 import { reactRouter } from "@react-router/dev/vite";
-import { defineConfig } from "vite";
+import { defineConfig, transformWithEsbuild } from "vite";
 
 import mcpManifest from "./mcp/package.json";
 
@@ -70,6 +70,40 @@ function pagesPicaInstructions(): Plugin {
   };
 }
 
+/** Source of the database worker process (PAGE-197). */
+const DATABASE_WORKER_SOURCE = new URL(
+  "./backend/database/executor/DatabaseWorker.ts",
+  import.meta.url,
+);
+
+/**
+ * Ships the database worker next to the server bundle, as
+ * `build/server/database-worker.mjs`, where
+ * `backend/database/executor/DatabaseWorkerClient.ts` forks it. The worker
+ * imports only Node modules, DuckDB and types, so removing the types is the
+ * whole build.
+ */
+function pagesDatabaseWorker(): Plugin {
+  return {
+    apply: "build",
+    applyToEnvironment: (environment) => environment.name === "ssr",
+    async generateBundle() {
+      const fileName = fileURLToPath(DATABASE_WORKER_SOURCE);
+      const { code } = await transformWithEsbuild(
+        await readFile(DATABASE_WORKER_SOURCE, "utf8"),
+        fileName,
+        { format: "esm", loader: "ts", target: "node24" },
+      );
+      this.emitFile({
+        type: "asset",
+        fileName: "database-worker.mjs",
+        source: code,
+      });
+    },
+    name: "pages-database-worker",
+  };
+}
+
 /** Builds the independent MCP package at build time and ships only its standalone server artifact. */
 function pagesMcpBundle(): Plugin {
   return {
@@ -123,6 +157,7 @@ export default defineConfig({
     pagesDevelopmentRuntime(),
     pagesPicaInstructions(),
     pagesMcpBundle(),
+    pagesDatabaseWorker(),
   ],
   resolve: {
     alias: {

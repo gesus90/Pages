@@ -74,7 +74,24 @@ export type {
 } from "./project/ProjectIntegrationRepository";
 
 /** Supports both database-owned and already locked project transactions. */
-type ProjectDatabase = Pick<Database, "execute" | "query" | "transaction">;
+type ProjectDatabase = Pick<
+  Database,
+  "execute" | "query" | "transaction" | "readTransaction"
+>;
+
+/** Binds every operation, nested transactions included, to one open transaction. */
+function transactionScope(transaction: DatabaseTransaction): ProjectDatabase {
+  const reuse = async <Nested>(
+    operation: (scope: DatabaseTransaction) => Promise<Nested>,
+  ): Promise<Nested> => operation(transaction);
+  return {
+    query: transaction.query.bind(transaction),
+    execute: transaction.execute.bind(transaction),
+    transaction: reuse,
+    // Reads inside a writer transaction must see its own uncommitted writes.
+    readTransaction: reuse,
+  };
+}
 
 /** What a permanent deletion removes, and the people who lose their assignment with it. */
 export interface ProjectDeletionDetails {
@@ -191,18 +208,25 @@ export class ProjectRepository {
     work: (repository: ProjectRepository) => Promise<Result>,
   ): Promise<Result> {
     return this.database.transaction((transaction) =>
-      work(
-        new ProjectRepository(
-          {
-            query: transaction.query.bind(transaction),
-            execute: transaction.execute.bind(transaction),
-            transaction: async <Nested>(
-              operation: (scope: DatabaseTransaction) => Promise<Nested>,
-            ): Promise<Nested> => operation(transaction),
-          },
-          this.source,
-        ),
-      ),
+      work(new ProjectRepository(transactionScope(transaction), this.source)),
+    );
+  }
+
+  /**
+   * Runs read-only project policy reads on one consistent snapshot.
+   *
+   * @param work - Receives a repository bound to the read; it must only read.
+   * @returns Whatever `work` returns.
+   *
+   * @remarks
+   * At the top level the reads do not wait for the writer. Inside a project
+   * transaction they reuse it, so they see its uncommitted changes.
+   */
+  public async readTransaction<Result>(
+    work: (repository: ProjectRepository) => Promise<Result>,
+  ): Promise<Result> {
+    return this.database.readTransaction((transaction) =>
+      work(new ProjectRepository(transactionScope(transaction), this.source)),
     );
   }
 
@@ -446,6 +470,20 @@ export class ProjectRepository {
     schedule: ProjectSyncSchedule,
   ): Promise<void> {
     await this.integrations.updateSyncSchedule(projectId, schedule);
+  }
+
+  /**
+   * Moves the next scheduled synchronization of a project without touching
+   * the time of the last successful one.
+   *
+   * @param projectId - Project the integration belongs to.
+   * @param nextSyncAt - ISO timestamp of the next scheduled attempt.
+   */
+  public async deferNextSync(
+    projectId: string,
+    nextSyncAt: string,
+  ): Promise<void> {
+    await this.integrations.deferNextSync(projectId, nextSyncAt);
   }
 
   /** Switches the GitHub synchronization of a project on or off. */

@@ -204,8 +204,8 @@ export class ProjectDeletionWorld {
   }
 
   /** The persisted database the services run on, with rollback of this world on failure. */
-  public database(): Pick<Database, "transaction"> {
-    return {
+  public database(): Pick<Database, "transaction" | "readTransaction"> {
+    const scripted: Pick<Database, "transaction"> = {
       transaction: async <Result>(
         work: (transaction: DatabaseTransaction) => Promise<Result>,
       ): Promise<Result> => {
@@ -227,6 +227,7 @@ export class ProjectDeletionWorld {
         }
       },
     };
+    return { ...scripted, readTransaction: scripted.transaction };
   }
 
   private mockAuthorization(): void {

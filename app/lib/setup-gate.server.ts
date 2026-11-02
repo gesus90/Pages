@@ -9,6 +9,7 @@ const PATHS_DURING_SETUP: ReadonlySet<string> = new Set([
   "/api/v1/agents",
   "/api/v1/agent-assets",
   "/health",
+  "/health/live",
   "/favicon.ico",
   "/set-language",
   "/setup",

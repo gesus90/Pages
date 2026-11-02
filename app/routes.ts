@@ -13,6 +13,7 @@ export default [
   route("set-language", "routes/set-language.tsx"),
   route("setup", "routes/setup.tsx"),
   route("health", "routes/health.ts"),
+  route("health/live", "routes/health-live.ts"),
   route("favicon.ico", "routes/favicon.ts"),
   route("api/v1/agent-assets", "routes/api-v1-agent-assets.ts"),
   route("api/v1/agents", "routes/api-v1-agents.ts"),

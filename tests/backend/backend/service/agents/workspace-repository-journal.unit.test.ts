@@ -42,7 +42,7 @@ class ScriptedDatabase {
   public readonly cleanupWrites: SqlParameters[] = [];
 
   /** The database contract the repository is built on. */
-  public asDatabase(): Pick<Database, "transaction"> {
+  public asDatabase(): Pick<Database, "transaction" | "readTransaction"> {
     const transaction: DatabaseTransaction = {
       query: async (statement) => this.answer(statement),
       execute: async (statement, parameters = {}) => {
@@ -55,13 +55,14 @@ class ScriptedDatabase {
           this.log.push(statement.includes("DELETE") ? "delete" : "upsert");
       },
     };
-    return {
+    const scripted: Pick<Database, "transaction"> = {
       transaction: async (work) => {
         const result = await work(transaction);
         this.commits += 1;
         return result;
       },
     };
+    return { ...scripted, readTransaction: scripted.transaction };
   }
 
   private answer(statement: string): DatabaseValue[][] {

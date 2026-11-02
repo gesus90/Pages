@@ -286,6 +286,30 @@ export class ProjectIntegrationRepository {
     );
   }
 
+  /**
+   * Moves the next scheduled synchronization of a project, e.g. to back off
+   * after a failed run, without touching the time of the last successful one.
+   *
+   * @param projectId - Project the integration belongs to.
+   * @param nextSyncAt - ISO timestamp of the next scheduled attempt.
+   */
+  public async deferNextSync(
+    projectId: string,
+    nextSyncAt: string,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE project_integrations
+        SET
+            next_sync_at = $next_sync_at,
+            updated_at = utc_now()
+        WHERE project_id = $project_id
+            AND sync_interval_minutes > 0;
+      `,
+      { project_id: projectId, next_sync_at: nextSyncAt },
+    );
+  }
+
   /** Switches the scheduled and manual synchronization of a project on or off. */
   public async setSyncEnabled(
     projectId: string,

@@ -142,7 +142,16 @@
       "title": "Etwas ist schiefgelaufen",
       "message": "Es ist ein unerwarteter Fehler aufgetreten. Bitte versuche es später erneut."
     },
-    "backToStart": "Zur Startseite"
+    "unavailable": {
+      "title": "Vorübergehend nicht verfügbar",
+      "message": "Pages ist gerade ausgelastet oder startet die Datenbank neu. Bitte versuche es in einigen Sekunden erneut."
+    },
+    "outcomeUnknown": {
+      "title": "Änderung nicht bestätigt",
+      "message": "Die Datenbank wurde während der Änderung unterbrochen. Ob sie gespeichert wurde, ist unbekannt. Bitte lade die Seite neu und prüfe den aktuellen Stand, bevor du die Änderung wiederholst."
+    },
+    "backToStart": "Zur Startseite",
+    "reload": "Seite neu laden"
   },
   "navigation": {
     "close": "Navigation schließen",
@@ -852,7 +861,10 @@
         "plan_acceptance_unavailable": "Fachlicher Abschluss nicht prüfbar. Aktuellen Ticketzugriff prüfen und am unvollständigen Schritt fortsetzen.",
         "plan_acceptance_contract_unavailable": "Dem Versuch fehlt ein gültiger festgehaltener Abschlussvertrag. Ergebnis prüfen und mit dem aktuellen Plan fortsetzen.",
         "plan_acceptance_interrupted": "Pages wurde vor der fachlichen Abnahme unterbrochen. Mit erhaltener Arbeit am unvollständigen Schritt fortsetzen.",
-        "plan_runner_control_update_required": "Neue Planaufträge benötigen Runner 1.15.0 (planControlVersion 1). Pages und Runner ausdrücklich gemeinsam aktualisieren; bestehende Aufträge bleiben abgleichbar."
+        "plan_runner_control_update_required": "Neue Planaufträge benötigen Runner 1.15.0 (planControlVersion 1). Pages und Runner ausdrücklich gemeinsam aktualisieren; bestehende Aufträge bleiben abgleichbar.",
+        "database_busy": "Pages ist gerade ausgelastet. Bitte in einigen Sekunden erneut versuchen.",
+        "database_unavailable": "Die Datenbank ist gerade nicht verfügbar. Bitte in einigen Sekunden erneut versuchen.",
+        "database_outcome_unknown": "Die Datenbank wurde während der Änderung unterbrochen. Bitte den aktuellen Stand prüfen, bevor du die Änderung wiederholst."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",

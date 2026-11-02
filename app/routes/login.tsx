@@ -20,8 +20,10 @@ import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
 import { resolveAnonymousLanguage } from "@/app/lib/language.server";
 import { sessionCookie } from "@/app/lib/session.server";
 import { loginDestination } from "@/app/lib/login-destination.server";
+import { databaseFailureHeaders } from "@/app/lib/database-failure.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { TooManyLoginAttemptsError } from "@/backend/auth/LoginThrottle";
+import { DatabaseExecutorError } from "@/backend/database/executor/DatabaseExecutorErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { LoginFormError } from "@/app/components/login/login-form";
@@ -94,10 +96,10 @@ export async function action({
     );
   }
 
-  const services = await getApplicationServices();
   let loginResult: LoginResult | null;
 
   try {
+    const services = await getApplicationServices();
     loginResult = await services.authService.login(
       credentials.username,
       credentials.password,
@@ -114,6 +116,14 @@ export async function action({
           headers: { "Retry-After": String(error.retryAfterSeconds) },
           status: 429,
         },
+      );
+    }
+
+    // The database is busy or restarting (PAGE-197); the form asks to retry.
+    if (error instanceof DatabaseExecutorError) {
+      return data<LoginActionData>(
+        { error: "unavailable" },
+        { headers: databaseFailureHeaders(error), status: 503 },
       );
     }
 

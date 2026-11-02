@@ -83,11 +83,11 @@ function requireCurrentWork(
 
 /** Server-owned scope and evidence checks shared by local and remote execution. */
 export class AgentPlanWorkGate {
-  private readonly database: Pick<Database, "transaction">;
+  private readonly database: Pick<Database, "transaction" | "readTransaction">;
   private readonly users: Pick<UserService, "getById">;
 
   public constructor(
-    database: Pick<Database, "transaction">,
+    database: Pick<Database, "transaction" | "readTransaction">,
     users: Pick<UserService, "getById">,
   ) {
     this.database = database;
@@ -311,7 +311,8 @@ export class AgentPlanWorkGate {
   /** Adds freshly read, persistent scope/evidence to authorized run details after reload or reconnect. */
   public async withProgress(run: AgentPlanRun): Promise<AgentPlanRun> {
     const actor = await this.actor(run.userId);
-    return this.database.transaction(async (transaction) => {
+    // Only reads: one snapshot that a running writer transaction does not hold back.
+    return this.database.readTransaction(async (transaction) => {
       const basis = await new AgentPlanWorkRepository(transaction).basis(
         run.id,
       );

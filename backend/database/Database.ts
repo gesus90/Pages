@@ -1,21 +1,15 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-import { DuckDBBlobValue, DuckDBInstance } from "@duckdb/node-api";
-
-import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { shutdownProcess } from "@/backend/runtime/ProcessLifecycle";
 import {
   recordDatabaseTransaction,
   withDatabaseLogMetrics,
 } from "@/backend/logging/DatabaseLogMetrics";
-import {
-  logCaughtError,
-  logDiagnostic,
-  logEvent,
-} from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
-import { recordDatabaseQuery } from "./DatabaseStats";
+import { DatabaseExecutor } from "./executor/DatabaseExecutor";
+import { DatabaseOutcomeUnknownError } from "./executor/DatabaseExecutorErrors";
 import { currentReadScope, readScopeKey, statementKind } from "./ReadScope";
 import {
   createMigrationChecksum,
@@ -24,7 +18,11 @@ import {
 } from "./Migration";
 import { readTextColumn } from "./RowValue";
 
-import type { DuckDBConnection, DuckDBValue } from "@duckdb/node-api";
+import type {
+  DatabaseExecutorStatus,
+  WriterSession,
+} from "./executor/DatabaseExecutor";
+import type { DatabaseLogSummary } from "@/backend/logging/DatabaseLogMetrics";
 import type { Migration } from "./Migration";
 import type { ReadScope } from "./ReadScope";
 
@@ -58,23 +56,6 @@ export function isUniqueViolationOn(error: unknown, column: string): boolean {
 /** Database path that opens a private in-memory database. */
 export const IN_MEMORY_DATABASE_PATH = ":memory:";
 
-/**
- * Session setup every connection runs first.
- *
- * - `utc_now()` is the current UTC time and `utc_after(time_shift)` the time
- *   `time_shift` (an interval) from now, both as `YYYY-MM-DD HH:MM:SS` text,
- *   the format all timestamp columns store.
- * - NULL values sort first in ascending and last in descending order, which
- *   is the order the `ORDER BY` clauses of the repositories rely on.
- */
-const CONNECTION_SETUP = `
-  SET default_null_order = 'nulls_first_on_asc_last_on_desc';
-  CREATE OR REPLACE MACRO utc_after(time_shift) AS
-      strftime((now() AT TIME ZONE 'UTC') + time_shift, '%Y-%m-%d %H:%M:%S');
-  CREATE OR REPLACE MACRO utc_now() AS
-      utc_after(INTERVAL 0 DAY);
-`;
-
 const CREATE_MIGRATIONS_TABLE = `
   CREATE TABLE IF NOT EXISTS schema_migrations (
       name TEXT PRIMARY KEY,
@@ -99,24 +80,24 @@ export interface DatabaseTransaction {
 }
 
 /**
- * Provides the central server-side DuckDB connection.
+ * Provides the central server-side database access.
  *
  * @remarks
- * DuckDB allows one writing process per database file and runs one
- * statement at a time on a connection. Statements of concurrent requests
- * are therefore queued and executed in call order, and a transaction holds
- * the queue until it finished so no other request can join it.
+ * DuckDB allows one writing process per database file. A single worker
+ * process owns the instance (see `executor/DatabaseWorker.ts` and
+ * `docs/DatabaseExecutor.md`): changes and transactions queue for its one
+ * writer connection, so a transaction keeps the writer until it finished and
+ * no other request can join it. Reads run on reader connections of the same
+ * instance and see the last committed state, so a long write never holds
+ * them back.
  */
 export class Database {
-  private readonly instance: DuckDBInstance;
-  private readonly connection: DuckDBConnection;
-  private readonly queue = new SerialQueue();
+  private readonly executor: DatabaseExecutor;
   /** Counts finished writes, so a read scope knows when its answers ended. */
   private writes = 0;
 
-  private constructor(instance: DuckDBInstance, connection: DuckDBConnection) {
-    this.instance = instance;
-    this.connection = connection;
+  private constructor(executor: DatabaseExecutor) {
+    this.executor = executor;
   }
 
   /**
@@ -131,10 +112,10 @@ export class Database {
         await mkdir(path.dirname(databasePath), { recursive: true });
       }
 
-      const instance = await openInstance(databasePath);
-      const connection = await instance.connect();
-
-      await runStatement(connection, CONNECTION_SETUP, {});
+      const executor = await DatabaseExecutor.start(
+        databasePath,
+        requireUsableDatabase,
+      );
       logEvent({
         level: "info",
         event: "database.opened",
@@ -143,7 +124,7 @@ export class Database {
         metadata: { ...metrics.finish() },
       });
 
-      return new Database(instance, connection);
+      return new Database(executor);
     });
   }
 
@@ -152,25 +133,23 @@ export class Database {
    *
    * @remarks
    * DuckDB 1.5.5 can otherwise persist stale secondary indexes in its implicit
-   * shutdown checkpoint. A failed checkpoint is surfaced; it never implies cleanup.
+   * shutdown checkpoint. The worker checkpoints with its writer connection
+   * after every queued change finished. A failed checkpoint is surfaced; it
+   * never implies cleanup.
    */
   public async close(): Promise<void> {
-    try {
-      // DuckDB 1.5.5 can serialize stale buffered ART indexes during its context-free
-      // shutdown checkpoint after WAL replay. Checkpoint with this live connection.
-      await this.queue.run(() =>
-        runStatement(this.connection, "CHECKPOINT;", {}),
-      );
-    } finally {
-      this.connection.closeSync();
-      this.instance.closeSync();
-    }
+    await this.executor.close();
     logEvent({
       level: "info",
       event: "database.closed",
       component: "Database",
       message: "DuckDB connection closed",
     });
+  }
+
+  /** Worker lifecycle and queue counters for `/health`; free of SQL and values. */
+  public executorStatus(): DatabaseExecutorStatus {
+    return this.executor.status();
   }
 
   /**
@@ -238,9 +217,7 @@ export class Database {
     statement: string,
     parameters: SqlParameters = {},
   ): Promise<void> {
-    await this.write(() =>
-      runStatement(this.connection, statement, parameters),
-    );
+    await this.write((writer) => writer.run(statement, parameters, "execute"));
   }
 
   /**
@@ -256,20 +233,16 @@ export class Database {
   ): Promise<readonly DatabaseValue[][]> {
     const kind = statementKind(statement);
     if (kind === "write")
-      return this.write(() => readRows(this.connection, statement, parameters));
+      return this.write((writer) => writer.run(statement, parameters, "rows"));
     const scope = kind === "repeatable" ? currentReadScope() : undefined;
     const key = scope ? readScopeKey(statement, parameters) : null;
     if (!scope || key === null)
-      return this.queue.run(() =>
-        readRows(this.connection, statement, parameters),
-      );
-    // Counted before the read is queued: a write in between only costs the answer its reuse.
+      return this.executor.read(statement, parameters);
+    // Counted before the read starts: a write in between only costs the answer its reuse.
     const epoch = this.writes;
     const known = scope.find(key, epoch);
     if (known) return known;
-    const rows = await this.queue.run(() =>
-      readRows(this.connection, statement, parameters),
-    );
+    const rows = await this.executor.read(statement, parameters);
     scope.store(key, epoch, rows);
     return rows;
   }
@@ -287,14 +260,14 @@ export class Database {
     work: (transaction: DatabaseTransaction) => Promise<Result>,
   ): Promise<Result> {
     const scope = currentReadScope();
-    return this.queue.run(async () => {
+    return this.executor.write(async (writer) => {
       const progress: TransactionProgress = {
         scope,
         epoch: this.writes,
         hasWritten: false,
       };
       try {
-        return await runInTransaction(this.connection, work, progress);
+        return await runInTransaction(writer, work, progress);
       } finally {
         // A transaction that only read leaves every remembered answer valid.
         if (progress.hasWritten) this.writes += 1;
@@ -302,11 +275,54 @@ export class Database {
     });
   }
 
-  /** Runs a change inside the queue and counts it before the next statement starts. */
-  private write<Result>(work: () => Promise<Result>): Promise<Result> {
-    return this.queue.run(async () => {
+  /**
+   * Runs several reads on one consistent snapshot without the writer.
+   *
+   * @param work - Receives read access bound to a read-only transaction on a
+   * reader connection; `execute` and changing queries are refused. It must
+   * not call the database itself.
+   * @returns Whatever `work` returns.
+   *
+   * @remarks
+   * The snapshot is the last committed state when the first read ran; an
+   * open or slow write neither holds it back nor shows in it. Code that
+   * reads and then writes on what it read uses {@link transaction}, which
+   * keeps both on the writer.
+   */
+  public async readTransaction<Result>(
+    work: (transaction: DatabaseTransaction) => Promise<Result>,
+  ): Promise<Result> {
+    const scope = currentReadScope();
+    return this.executor.readSession((session) => {
+      const epoch = this.writes;
+      return work({
+        execute: () =>
+          Promise.reject(new Error("A read transaction cannot change data.")),
+        query: async (statement, parameters = {}) => {
+          const kind = statementKind(statement);
+          if (kind === "write")
+            throw new Error("A read transaction cannot change data.");
+          const key =
+            scope && kind === "repeatable"
+              ? readScopeKey(statement, parameters)
+              : null;
+          const known = scope && key !== null ? scope.find(key, epoch) : null;
+          if (known) return known;
+          const rows = await session.query(statement, parameters);
+          if (scope && key !== null) scope.store(key, epoch, rows);
+          return rows;
+        },
+      });
+    });
+  }
+
+  /** Runs a change as one writer job and counts it before the next job starts. */
+  private write<Result>(
+    work: (writer: WriterSession) => Promise<Result>,
+  ): Promise<Result> {
+    return this.executor.write(async (writer) => {
       try {
-        return await work();
+        return await work(writer);
       } finally {
         this.writes += 1;
       }
@@ -363,62 +379,6 @@ export class Database {
   }
 }
 
-/** Text DuckDB reports when it cannot replay the write-ahead log of a file. */
-const WAL_REPLAY_FAILURE = "Failure while replaying WAL";
-
-/**
- * Opens a DuckDB instance, replaying a write-ahead log that DuckDB cannot
- * replay while it opens the file as its main database.
- *
- * @param databasePath - File system path, or {@link IN_MEMORY_DATABASE_PATH}.
- * @returns The open instance.
- * @throws Every other failure to open the database.
- *
- * @remarks
- * DuckDB 1.5 fails to replay an `ALTER TABLE` of a table whose defaults call
- * a macro such as `utc_now()`, because no default database exists yet while
- * the main database loads. Attached to an in-memory instance the same log
- * replays; a checkpoint then writes it into the file, and the file opens.
- */
-async function openInstance(databasePath: string): Promise<DuckDBInstance> {
-  try {
-    return await DuckDBInstance.create(databasePath);
-  } catch (error: unknown) {
-    logCaughtError("Database", error);
-
-    if (!String(error).includes(WAL_REPLAY_FAILURE)) {
-      throw error;
-    }
-
-    await replayWriteAheadLog(databasePath);
-    logDiagnostic(
-      "Database",
-      "warn",
-      "[pages] Replayed the write-ahead log through an attached database.",
-    );
-
-    return DuckDBInstance.create(databasePath);
-  }
-}
-
-async function replayWriteAheadLog(databasePath: string): Promise<void> {
-  const memory = await DuckDBInstance.create(IN_MEMORY_DATABASE_PATH);
-  const connection = await memory.connect();
-
-  try {
-    // ATTACH takes no parameters; the path comes from the server
-    // configuration and is quoted as a string literal.
-    const literal = `'${databasePath.replaceAll("'", "''")}'`;
-
-    await connection.run(
-      `ATTACH ${literal} AS recovered; CHECKPOINT recovered; DETACH recovered;`,
-    );
-  } finally {
-    connection.closeSync();
-    memory.closeSync();
-  }
-}
-
 /** What a transaction has done so far, and the read scope its reads may use. */
 interface TransactionProgress {
   readonly scope: ReadScope | undefined;
@@ -436,7 +396,7 @@ interface TransactionProgress {
  * whose reads were all remembered never touches the database.
  */
 function lazyTransaction(
-  connection: DuckDBConnection,
+  writer: WriterSession,
   progress: TransactionProgress,
 ): {
   readonly access: Pick<DatabaseTransaction, "execute" | "query">;
@@ -445,7 +405,7 @@ function lazyTransaction(
   let isOpen = false;
   async function open(): Promise<void> {
     if (isOpen) return;
-    await runStatement(connection, "BEGIN TRANSACTION;", {});
+    await writer.run("BEGIN TRANSACTION;", {}, "execute");
     isOpen = true;
   }
   return {
@@ -454,7 +414,7 @@ function lazyTransaction(
       execute: async (statement, parameters = {}) => {
         await open();
         progress.hasWritten = true;
-        await runStatement(connection, statement, parameters);
+        await writer.run(statement, parameters, "execute");
       },
       query: async (statement, parameters = {}) => {
         const kind = statementKind(statement);
@@ -468,7 +428,7 @@ function lazyTransaction(
         if (known) return known;
         await open();
         if (kind === "write") progress.hasWritten = true;
-        const rows = await readRows(connection, statement, parameters);
+        const rows = await writer.run(statement, parameters, "rows");
         if (scope && key !== null) scope.store(key, progress.epoch, rows);
         return rows;
       },
@@ -477,12 +437,13 @@ function lazyTransaction(
 }
 
 async function runInTransaction<Result>(
-  connection: DuckDBConnection,
+  writer: WriterSession,
   work: (transaction: DatabaseTransaction) => Promise<Result>,
   progress: TransactionProgress,
 ): Promise<Result> {
   return withDatabaseLogMetrics(async (metrics) => {
-    const { access, isOpen } = lazyTransaction(connection, progress);
+    const { access, isOpen } = lazyTransaction(writer, progress);
+    let isCommitting = false;
     const commitEffects: (() => Promise<void>)[] = [];
     const rollbackEffects: (() => Promise<void>)[] = [];
 
@@ -497,7 +458,9 @@ async function runInTransaction<Result>(
         ...access,
       });
 
-      if (isOpen()) await runStatement(connection, "COMMIT;", {});
+      isCommitting = true;
+      if (isOpen()) await writer.run("COMMIT;", {}, "execute");
+      isCommitting = false;
       await finishFileEffects(commitEffects);
       const hasParent = recordDatabaseTransaction("committed");
       const summary = metrics.finish();
@@ -514,7 +477,11 @@ async function runInTransaction<Result>(
     } catch (error: unknown) {
       logCaughtError("Database", error);
 
-      if (isOpen()) await runStatement(connection, "ROLLBACK;", {});
+      if (isCommitting && error instanceof DatabaseOutcomeUnknownError) {
+        reportUnknownCommit(error, metrics.finish());
+        throw error;
+      }
+      if (isOpen()) await rollBack(writer);
       await finishFileEffects(rollbackEffects.reverse());
       recordDatabaseTransaction("rolled_back");
       logEvent({
@@ -544,8 +511,44 @@ async function finishFileEffects(
   }
 }
 
-/** Text DuckDB reports for every statement once a fatal error invalidated the open database. */
-const DATABASE_INVALIDATED = "database has been invalidated";
+/**
+ * Records a transaction whose COMMIT the worker may or may not have
+ * finished before it ended.
+ *
+ * @remarks
+ * Neither the commit nor the rollback file effects run: either could
+ * destroy files of the state that actually holds. Callers reconcile through
+ * their revisions and operation IDs; nothing repeats the change.
+ */
+function reportUnknownCommit(
+  error: DatabaseOutcomeUnknownError,
+  summary: DatabaseLogSummary,
+): void {
+  recordDatabaseTransaction("rolled_back");
+  logEvent({
+    level: "error",
+    event: "database.transaction.outcome_unknown",
+    component: "Database",
+    message: "Database worker ended during COMMIT; the outcome is unknown",
+    error,
+    metadata: { ...summary },
+  });
+}
+
+/**
+ * Rolls back an open transaction without hiding the error that ended it.
+ *
+ * @remarks
+ * When the worker ended, DuckDB already discarded the uncommitted changes
+ * and the ROLLBACK cannot reach it; that failure is logged only.
+ */
+async function rollBack(writer: WriterSession): Promise<void> {
+  try {
+    await writer.run("ROLLBACK;", {}, "execute");
+  } catch (error: unknown) {
+    logCaughtError("Database", error);
+  }
+}
 
 /**
  * Ends the process when DuckDB invalidated the database.
@@ -556,125 +559,6 @@ const DATABASE_INVALIDATED = "database has been invalidated";
  * explicit fatal exit lets the service manager start it again, and the
  * startup recovery records interrupted work as resumable.
  */
-function requireUsableDatabase(error: unknown): void {
-  if (error instanceof Error && error.message.includes(DATABASE_INVALIDATED))
-    void shutdownProcess(1, "database_invalidated", error);
-}
-
-async function runStatement(
-  connection: DuckDBConnection,
-  statement: string,
-  parameters: SqlParameters,
-): Promise<void> {
-  const startedAt = performance.now();
-
-  try {
-    await connection.run(statement, toBindings(parameters));
-  } catch (error: unknown) {
-    logEvent({
-      level: "error",
-      event: "database.statement.failed",
-      component: "Database",
-      message: "Database statement failed",
-      error,
-      metadata: { parameterCount: Object.keys(parameters).length },
-    });
-    requireUsableDatabase(error);
-    throw error;
-  } finally {
-    recordDatabaseQuery(statement, performance.now() - startedAt);
-  }
-}
-
-async function readRows(
-  connection: DuckDBConnection,
-  statement: string,
-  parameters: SqlParameters,
-): Promise<readonly DatabaseValue[][]> {
-  const startedAt = performance.now();
-
-  try {
-    const reader = await connection.runAndReadAll(
-      statement,
-      toBindings(parameters),
-    );
-
-    return reader.getRows().map((row) => row.map(toDatabaseValue));
-  } catch (error: unknown) {
-    logEvent({
-      level: "error",
-      event: "database.query.failed",
-      component: "Database",
-      message: "Database query failed",
-      error,
-      metadata: { parameterCount: Object.keys(parameters).length },
-    });
-    requireUsableDatabase(error);
-    throw error;
-  } finally {
-    recordDatabaseQuery(statement, performance.now() - startedAt);
-  }
-}
-
-/**
- * Converts repository parameters to DuckDB values.
- *
- * @returns `undefined` without parameters, because DuckDB only runs several
- * statements in one call when nothing is bound.
- */
-function toBindings(
-  parameters: SqlParameters,
-): Record<string, DuckDBValue> | undefined {
-  const entries = Object.entries(parameters);
-
-  if (entries.length === 0) {
-    return undefined;
-  }
-
-  return Object.fromEntries(
-    entries.map(([name, value]) => [name, toBinding(value)]),
-  );
-}
-
-function toBinding(value: SqlParameters[string]): DuckDBValue {
-  if (typeof value === "boolean") {
-    return value ? 1 : 0;
-  }
-
-  if (Buffer.isBuffer(value)) {
-    return new DuckDBBlobValue(value);
-  }
-
-  return value;
-}
-
-/**
- * Converts a DuckDB value to the value types repositories read.
- *
- * @remarks
- * `COUNT` and `SUM` return `BIGINT`; those values become plain numbers while
- * they fit, so repositories read them like any other integer.
- */
-function toDatabaseValue(value: DuckDBValue): DatabaseValue {
-  if (value === null || typeof value === "string") {
-    return value;
-  }
-
-  if (typeof value === "number") {
-    return value;
-  }
-
-  if (typeof value === "bigint") {
-    return Number.isSafeInteger(Number(value)) ? Number(value) : value;
-  }
-
-  if (typeof value === "boolean") {
-    return value ? 1 : 0;
-  }
-
-  if (value instanceof DuckDBBlobValue) {
-    return Buffer.from(value.bytes);
-  }
-
-  throw new Error("Database returned a value of an unsupported type.");
+function requireUsableDatabase(error: Error): void {
+  void shutdownProcess(1, "database_invalidated", error);
 }

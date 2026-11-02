@@ -8,7 +8,8 @@ import { PasswordVisibilityToggle } from "@/app/components/auth/password-visibil
 import { usePasswordVisibility } from "@/app/components/auth/use-password-visibility";
 
 /** Why a sign-in attempt was rejected. */
-export type LoginFormError = "invalidCredentials" | "tooManyAttempts";
+export type LoginFormError =
+  "invalidCredentials" | "tooManyAttempts" | "unavailable";
 
 interface LoginFormProps {
   /** The reason of the last rejected attempt, or `undefined` before one. */

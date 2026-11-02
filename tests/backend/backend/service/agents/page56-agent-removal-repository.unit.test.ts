@@ -17,7 +17,7 @@ class RemovalDatabase {
   public rollbacks = 0;
 
   /** Returns the transaction boundary used by the production repository. */
-  public asDatabase(): Pick<Database, "transaction"> {
+  public asDatabase(): Pick<Database, "transaction" | "readTransaction"> {
     const transaction: DatabaseTransaction = {
       query: async (statement, parameters): Promise<DatabaseValue[][]> => {
         if (statement.includes("SELECT revision")) {
@@ -49,7 +49,7 @@ class RemovalDatabase {
         this.statements.push(statement);
       },
     };
-    return {
+    const scripted: Pick<Database, "transaction"> = {
       transaction: async (work) => {
         try {
           const result = await work(transaction);
@@ -61,6 +61,7 @@ class RemovalDatabase {
         }
       },
     };
+    return { ...scripted, readTransaction: scripted.transaction };
   }
 }
 

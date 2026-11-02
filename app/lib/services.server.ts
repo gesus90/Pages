@@ -669,8 +669,10 @@ function startGitHubSyncScheduler(gitHubSyncService: GitHubSyncService): void {
   globalThis.pagesSyncSchedulerStarted = true;
   const scheduler = new GitHubSyncScheduler(gitHubSyncService);
   scheduler.start();
+  // Runs before the services shut down, so a running round can still
+  // finish its database work (bounded inside `stop()`).
   registerShutdownTask(async () => {
-    scheduler.stop();
+    await scheduler.stop();
   });
 }
 

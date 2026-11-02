@@ -74,7 +74,13 @@ export type PagesAgentApiErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "AMBIGUOUS"
-  | "PAYLOAD_TOO_LARGE";
+  | "PAYLOAD_TOO_LARGE"
+  /** The database queue was full or the job waited too long; nothing ran (PAGE-197). */
+  | "DATABASE_BUSY"
+  /** The database worker is starting, restarting or failed; nothing ran. */
+  | "DATABASE_UNAVAILABLE"
+  /** The database stopped during the change; check before repeating it. */
+  | "DATABASE_OUTCOME_UNKNOWN";
 
 /** Public error envelope without credentials or underlying diagnostic messages. */
 export interface PagesAgentApiFailure {
@@ -82,7 +88,8 @@ export interface PagesAgentApiFailure {
   readonly error: {
     readonly code: PagesAgentApiErrorCode;
     readonly message: string;
-    readonly retryable: false;
+    /** True only for a database failure whose job certainly never started. */
+    readonly retryable: boolean;
     readonly details?: AgentOperationDetails;
   };
 }

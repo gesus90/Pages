@@ -5,16 +5,30 @@ import { isbot } from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
 import { ServerRouter } from "react-router";
 
+import { recordDatabaseFailure } from "@/app/lib/database-failure.server";
 import { logEvent } from "@/backend/logging/Logger";
 
-import type { EntryContext } from "react-router";
+import type { EntryContext, HandleErrorFunction } from "react-router";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 
 /** Matches React Router's default streaming timeout. */
 export const streamTimeout = 5_000;
 
-/** Records server errors centrally; internal stacks never become client error messages. */
-export function handleError(error: unknown): void {
+/**
+ * Records server errors centrally; internal stacks never become client error messages.
+ *
+ * @param error - The error of a loader, an action, a middleware or the rendering.
+ * @param args - Request facts React Router passes; the rendering omits them.
+ *
+ * @remarks
+ * A database executor error is also remembered in the request's router
+ * context, so the root middleware answers it with `503` (PAGE-197).
+ */
+export function handleError(
+  error: unknown,
+  args?: Parameters<HandleErrorFunction>[1],
+): void {
+  recordDatabaseFailure(error, args?.context);
   logEvent({
     level: "error",
     event: "http.application.failed",

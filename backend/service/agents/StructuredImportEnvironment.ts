@@ -16,7 +16,7 @@ import type { AgentTaskContext } from "./AgentTaskAccess";
 /** Where an environment reads: the central database or the scope of one open transaction. */
 export type StructuredImportScope = Pick<
   Database,
-  "execute" | "query" | "transaction"
+  "execute" | "query" | "transaction" | "readTransaction"
 >;
 
 /**

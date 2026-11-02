@@ -184,8 +184,8 @@ export class ArchiveWorld {
     };
   }
 
-  private database(): Pick<Database, "transaction"> {
-    return {
+  private database(): Pick<Database, "transaction" | "readTransaction"> {
+    const scripted: Pick<Database, "transaction"> = {
       transaction: async <Result>(
         work: (transaction: DatabaseTransaction) => Promise<Result>,
       ): Promise<Result> => {
@@ -215,6 +215,7 @@ export class ArchiveWorld {
         }
       },
     };
+    return { ...scripted, readTransaction: scripted.transaction };
   }
 
   private mockAuthorization(): void {

@@ -30,15 +30,17 @@ export interface AgentProfileRemoveOptions {
 
 /** Atomic execution-profile persistence, independent of credential storage. */
 export class AgentProfileRepository {
-  private readonly database: Pick<Database, "transaction">;
+  private readonly database: Pick<Database, "transaction" | "readTransaction">;
 
-  public constructor(database: Pick<Database, "transaction">) {
+  public constructor(
+    database: Pick<Database, "transaction" | "readTransaction">,
+  ) {
     this.database = database;
   }
 
   /** Reads profiles and all their scopes from one coherent snapshot. */
   public async list(): Promise<readonly AgentProfile[]> {
-    return this.database.transaction((transaction) =>
+    return this.database.readTransaction((transaction) =>
       new AgentProfileStore(transaction).list(),
     );
   }
@@ -80,7 +82,7 @@ export class AgentProfileRepository {
 
   /** Supplies the current assignments and plan references. */
   public async usages(id: string): Promise<readonly AgentUsage[]> {
-    return this.database.transaction((transaction) =>
+    return this.database.readTransaction((transaction) =>
       new AgentProfileStore(transaction).usages(id),
     );
   }

@@ -99,6 +99,9 @@ export class WikiWorld {
       transaction: async <Result>(
         work: (transaction: DatabaseTransaction) => Promise<Result>,
       ): Promise<Result> => this.state.transaction(() => work(boundary)),
+      readTransaction: async <Result>(
+        work: (transaction: DatabaseTransaction) => Promise<Result>,
+      ): Promise<Result> => this.state.transaction(() => work(boundary)),
     };
     this.permissions = new PermissionService(async (userId) =>
       this.accountOf(userId),

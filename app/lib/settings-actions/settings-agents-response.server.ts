@@ -5,9 +5,15 @@ import {
 } from "@/backend/error/AgentErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { DatabaseExecutorError } from "@/backend/database/executor/DatabaseExecutorErrors";
+import {
+  databaseFailureCode,
+  databaseFailureHeaders,
+} from "@/app/lib/database-failure.server";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentExecutionErrorCode } from "@/backend/error/AgentExecutionErrors";
+import type { DatabaseFailureCode } from "@/app/lib/database-failure.server";
 import type {
   AgentCheckSummary,
   CliLoginView,
@@ -28,7 +34,11 @@ export type AgentActionResult =
   | {
       readonly ok: false;
       readonly intent: string;
-      readonly error: AgentErrorCode | AgentExecutionErrorCode | "general";
+      readonly error:
+        | AgentErrorCode
+        | AgentExecutionErrorCode
+        | DatabaseFailureCode
+        | "general";
       /** Current references of a blocked deletion, so the dialog can list them. */
       readonly usages?: readonly AgentUsage[];
     };
@@ -73,8 +83,27 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   template_not_found: 404,
 };
 
+/**
+ * Answers a database job the executor refused or could not confirm (PAGE-197).
+ *
+ * @param error - The error of the executor.
+ * @param intent - The submitted intent, echoed for the client.
+ * @returns `503` with `Retry-After` and a stable `database_*` code.
+ */
+function databaseFailureResponse(
+  error: DatabaseExecutorError,
+  intent: string,
+): Response {
+  return Response.json(
+    { ok: false, intent, error: databaseFailureCode(error) },
+    { status: 503, headers: databaseFailureHeaders(error) },
+  );
+}
+
 /** Keeps every error response uncacheable and never echoes a native error or form secret. */
 export function agentFailureResponse(error: unknown, intent = ""): Response {
+  if (error instanceof DatabaseExecutorError)
+    return databaseFailureResponse(error, intent);
   if (error instanceof AgentExecutionError)
     return Response.json(
       { ok: false, intent, error: error.code },

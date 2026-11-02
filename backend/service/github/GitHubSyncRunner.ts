@@ -1,14 +1,16 @@
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
+import { GitHubSyncBackoff } from "@/backend/service/github/GitHubSyncBackoff";
 import {
   canPushToGitHub,
   createEmptySyncCounters,
 } from "@/backend/service/github/GitHubSyncRun";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
-import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
+import type { DueGitHubSync } from "@/backend/database/repositories/project/ProjectIntegrationRepository";
 import type { GitHubIssueData } from "@/backend/github/GitHubApiClient";
 import type { GitHubConflictResolver } from "@/backend/service/github/GitHubConflictResolver";
 import type { GitHubExternalIssueDetector } from "@/backend/service/github/GitHubExternalIssueDetector";
@@ -49,6 +51,9 @@ export interface ScheduledSyncResult {
   readonly failed: number;
 }
 
+/** Outcome of one project in a scheduled batch. */
+type DueSyncOutcome = "completed" | "failed" | "skipped";
+
 /** Shared state of one project run while its tasks are reconciled. */
 interface ProjectRunState {
   readonly sync: GitHubSyncContext;
@@ -70,6 +75,9 @@ export class GitHubSyncRunner {
   private readonly externalIssueDetector: GitHubExternalIssueDetector;
   private readonly pullRequestService: GitHubPullRequestService;
   private readonly now: () => string;
+  private readonly backoff: GitHubSyncBackoff;
+  /** Runs in progress per project, manual and scheduled ones together. */
+  private readonly runningProjects = new Map<string, number>();
 
   /**
    * Creates a synchronization runner.
@@ -87,6 +95,10 @@ export class GitHubSyncRunner {
     this.externalIssueDetector = options.externalIssueDetector;
     this.pullRequestService = options.pullRequestService;
     this.now = options.now;
+    this.backoff = new GitHubSyncBackoff(
+      options.projectRepository,
+      options.now,
+    );
   }
 
   /**
@@ -97,6 +109,79 @@ export class GitHubSyncRunner {
    * @returns Outcome counters describing the run.
    */
   public async runProject(
+    actor: User,
+    projectId: string,
+  ): Promise<GitHubSyncSummary> {
+    this.runningProjects.set(
+      projectId,
+      (this.runningProjects.get(projectId) ?? 0) + 1,
+    );
+
+    try {
+      const summary = await this.synchronizeProject(actor, projectId);
+      this.backoff.reset(projectId);
+
+      return summary;
+    } finally {
+      this.releaseProject(projectId);
+    }
+  }
+
+  /**
+   * Synchronizes every project whose scheduled run is due.
+   *
+   * @returns Completed and failed run counters; failures never abort the batch.
+   *
+   * @remarks
+   * A failed project is backed off (see {@link GitHubSyncBackoff}) instead of
+   * being retried on every tick. A project whose run is still in progress,
+   * e.g. a manual one, is left to that run.
+   */
+  public async runDue(): Promise<ScheduledSyncResult> {
+    const timestamp = this.now();
+    const due = await this.projectRepository.findDueSyncIntegrations(timestamp);
+    let completed = 0;
+    let failed = 0;
+
+    for (const entry of due) {
+      const outcome = await this.runDueProject(entry);
+
+      if (outcome === "completed") {
+        completed += 1;
+      } else if (outcome === "failed") {
+        failed += 1;
+      }
+    }
+
+    return { completed, failed };
+  }
+
+  /**
+   * Synchronizes a single linked task without touching the rest of the project.
+   *
+   * @param actor - User triggering the run; must hold write permission.
+   * @param workItemId - Linked task to synchronize.
+   * @returns Outcome counters describing the run.
+   */
+  public async runSingleTask(
+    actor: User,
+    workItemId: string,
+  ): Promise<GitHubSyncSummary> {
+    const item = await this.accessGuard.requireWritableTask(actor, workItemId);
+
+    if (item.githubIssueNumber === null) {
+      throw new WorkItemValidationError("githubTaskNotLinked");
+    }
+
+    const sync = await this.contextLoader.requireContext(item.projectId);
+    const summary = createEmptySyncCounters();
+
+    await this.reconcileLinkedItem(sync, actor, item, summary);
+
+    return summary;
+  }
+
+  private async synchronizeProject(
     actor: User,
     projectId: string,
   ): Promise<GitHubSyncSummary> {
@@ -149,66 +234,38 @@ export class GitHubSyncRunner {
     return summary;
   }
 
-  /**
-   * Synchronizes every project whose scheduled run is due.
-   *
-   * @returns Completed and failed run counters; failures never abort the batch.
-   */
-  public async runDue(): Promise<ScheduledSyncResult> {
-    const timestamp = this.now();
-    const due = await this.projectRepository.findDueSyncIntegrations(timestamp);
-    let completed = 0;
-    let failed = 0;
+  private releaseProject(projectId: string): void {
+    const remaining = (this.runningProjects.get(projectId) ?? 1) - 1;
 
-    for (const entry of due) {
-      const owner = await this.userRepository.findById(entry.ownerId);
-
-      if (!owner || !owner.isActive) {
-        continue;
-      }
-
-      try {
-        await this.runProject(owner, entry.projectId);
-        completed += 1;
-      } catch (error: unknown) {
-        logCaughtError("GitHubSyncRunner", error);
-
-        failed += 1;
-        logDiagnostic(
-          "GitHubSyncRunner",
-          "error",
-          "Pages could not synchronize a project with GitHub.",
-          error,
-        );
-      }
+    if (remaining > 0) {
+      this.runningProjects.set(projectId, remaining);
+    } else {
+      this.runningProjects.delete(projectId);
     }
-
-    return { completed, failed };
   }
 
-  /**
-   * Synchronizes a single linked task without touching the rest of the project.
-   *
-   * @param actor - User triggering the run; must hold write permission.
-   * @param workItemId - Linked task to synchronize.
-   * @returns Outcome counters describing the run.
-   */
-  public async runSingleTask(
-    actor: User,
-    workItemId: string,
-  ): Promise<GitHubSyncSummary> {
-    const item = await this.accessGuard.requireWritableTask(actor, workItemId);
-
-    if (item.githubIssueNumber === null) {
-      throw new WorkItemValidationError("githubTaskNotLinked");
+  private async runDueProject(entry: DueGitHubSync): Promise<DueSyncOutcome> {
+    if (this.runningProjects.has(entry.projectId)) {
+      return "skipped";
     }
 
-    const sync = await this.contextLoader.requireContext(item.projectId);
-    const summary = createEmptySyncCounters();
+    const owner = await this.userRepository.findById(entry.ownerId);
 
-    await this.reconcileLinkedItem(sync, actor, item, summary);
+    if (!owner || !owner.isActive) {
+      return "skipped";
+    }
 
-    return summary;
+    try {
+      await this.runProject(owner, entry.projectId);
+
+      return "completed";
+    } catch (error: unknown) {
+      logCaughtError("GitHubSyncRunner", error);
+
+      await this.backoff.recordFailure(entry.projectId, error);
+
+      return "failed";
+    }
   }
 
   /**

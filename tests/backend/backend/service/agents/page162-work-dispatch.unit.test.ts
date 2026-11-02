@@ -50,7 +50,10 @@ async function engineFixture(hasGate: boolean): Promise<{
   };
   const transaction: DatabaseTransaction = { query: vi.fn(), execute: vi.fn() };
   const gate = new AgentPlanWorkGate(
-    { transaction: async (work) => work(transaction) },
+    {
+      transaction: async (work) => work(transaction),
+      readTransaction: async (work) => work(transaction),
+    },
     { getById: vi.fn() },
   );
   vi.spyOn(gate, "preflight").mockResolvedValue();

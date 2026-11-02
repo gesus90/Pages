@@ -9,6 +9,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
   useRouteError,
   useRouteLoaderData,
 } from "react-router";
@@ -20,7 +21,6 @@ import { BackgroundSaveStatus } from "@/app/components/common/background-save-st
 import { buttonVariants } from "@/app/components/ui/button";
 import { Toaster } from "@/app/components/ui/toast";
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
-import { cn } from "@/app/lib/cn";
 import {
   getColorSchemeMeta,
   getThemeColorMetas,
@@ -31,6 +31,7 @@ import {
   resolveAnonymousLanguage,
   resolveSetupLanguage,
 } from "@/app/lib/language.server";
+import { databaseRequestMiddleware } from "@/app/lib/database-failure.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import {
   isTaskOverlayMutation,
@@ -60,23 +61,52 @@ import type { Language } from "@/language/Language";
 import type { Route } from "./+types/root";
 
 /** Which translated copy the error page shows. */
-type ErrorKind = "forbidden" | "generic" | "notFound";
+type ErrorKind =
+  "forbidden" | "generic" | "notFound" | "outcomeUnknown" | "unavailable";
 
 const ERROR_KIND_BY_STATUS: Readonly<Partial<Record<number, ErrorKind>>> = {
   403: "forbidden",
   404: "notFound",
+  503: "unavailable",
 };
+
+/** Error kinds whose page offers to load the current address again. */
+const RELOADABLE_ERROR_KINDS: ReadonlySet<ErrorKind> = new Set([
+  "outcomeUnknown",
+  "unavailable",
+]);
+
+/** Whether the database stopped during a change, so it may or may not be saved. */
+function isOutcomeUnknown(body: unknown): boolean {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "error" in body &&
+    body.error === "database_outcome_unknown"
+  );
+}
 
 function resolveErrorKind(error: unknown): ErrorKind {
   if (!isRouteErrorResponse(error)) {
     return "generic";
   }
 
+  if (error.status === 503 && isOutcomeUnknown(error.data)) {
+    return "outcomeUnknown";
+  }
+
   return ERROR_KIND_BY_STATUS[error.status] ?? "generic";
 }
 
-/** Keeps every route but the setup wizard closed until the setup finished. */
-export const middleware: MiddlewareFunction[] = [requireFinishedSetup];
+/**
+ * Runs requests as database request work, answers a refused or unconfirmed
+ * database job with `503` (PAGE-197), and keeps every route but the setup
+ * wizard closed until the setup finished.
+ */
+export const middleware: MiddlewareFunction[] = [
+  ...databaseRequestMiddleware,
+  requireFinishedSetup,
+];
 
 /** Keeps the shell settings when only a board overlay opens or closes. */
 export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
@@ -223,12 +253,15 @@ export default function Root(): React.ReactElement {
  * Renders the error page for thrown responses and unexpected errors.
  *
  * @remarks
- * The copy depends on the status only. The message and stack of an
- * unexpected error are never shown, so no internal details reach visitors.
+ * The copy depends on the status only, and for a `503` of the database
+ * executor on whether a change may have been saved. The message and stack
+ * of an unexpected error are never shown, so no internal details reach
+ * visitors. A busy or unavailable database offers to load the page again.
  */
 export function ErrorBoundary(): React.ReactElement {
   const { t } = useTranslation();
   const error = useRouteError();
+  const location = useLocation();
   const kind = resolveErrorKind(error);
 
   return (
@@ -244,9 +277,19 @@ export function ErrorBoundary(): React.ReactElement {
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
           {t(`errorPage.${kind}.message`)}
         </p>
-        <Link className={cn(buttonVariants(), "mt-8")} to="/">
-          {t("errorPage.backToStart")}
-        </Link>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          {RELOADABLE_ERROR_KINDS.has(kind) ? (
+            <a
+              className={buttonVariants({ variant: "outline" })}
+              href={`${location.pathname}${location.search}`}
+            >
+              {t("errorPage.reload")}
+            </a>
+          ) : null}
+          <Link className={buttonVariants()} to="/">
+            {t("errorPage.backToStart")}
+          </Link>
+        </div>
       </section>
     </main>
   );

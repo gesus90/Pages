@@ -21,7 +21,7 @@ import type {
 /** A database that fails every access, so unexpected SQL is never silent. */
 export const UNUSED_DATABASE: Pick<
   Database,
-  "query" | "execute" | "transaction"
+  "query" | "execute" | "transaction" | "readTransaction"
 > = {
   query: async () => {
     throw new Error("Unexpected database query");
@@ -31,6 +31,9 @@ export const UNUSED_DATABASE: Pick<
   },
   transaction: async () => {
     throw new Error("Unexpected database transaction");
+  },
+  readTransaction: async () => {
+    throw new Error("Unexpected database read transaction");
   },
 };
 

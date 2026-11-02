@@ -142,7 +142,16 @@
       "title": "Something went wrong",
       "message": "An unexpected error occurred. Please try again later."
     },
-    "backToStart": "Back to the start page"
+    "unavailable": {
+      "title": "Temporarily unavailable",
+      "message": "Pages is busy right now or restarting its database. Please try again in a few seconds."
+    },
+    "outcomeUnknown": {
+      "title": "Change not confirmed",
+      "message": "The database was interrupted during the change, so it is unknown whether it was saved. Please reload the page and check the current state before repeating the change."
+    },
+    "backToStart": "Back to the start page",
+    "reload": "Reload page"
   },
   "navigation": {
     "close": "Close navigation",
@@ -852,7 +861,10 @@
         "plan_acceptance_unavailable": "Business acceptance could not be verified. Check current ticket access and continue the incomplete step.",
         "plan_acceptance_contract_unavailable": "The retained attempt has no valid pinned business contract. Review its result and continue with the current plan.",
         "plan_acceptance_interrupted": "Pages was interrupted before business acceptance. Continue the incomplete step with its retained work.",
-        "plan_runner_control_update_required": "New plan jobs require Runner 1.15.0 (planControlVersion 1). Update Pages and Runner together explicitly; existing jobs remain reconcilable."
+        "plan_runner_control_update_required": "New plan jobs require Runner 1.15.0 (planControlVersion 1). Update Pages and Runner together explicitly; existing jobs remain reconcilable.",
+        "database_busy": "Pages is busy right now. Please try again in a few seconds.",
+        "database_unavailable": "The database is not available right now. Please try again in a few seconds.",
+        "database_outcome_unknown": "The database was interrupted during the change. Please check the current state before repeating it."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",

@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-interface DatabaseLogSummary {
+/** Statement and transaction totals of one logged operation. */
+export interface DatabaseLogSummary {
   readonly databaseQueries: number;
   readonly databaseTotalMs: number;
   readonly databaseSlowestMs: number;
@@ -8,6 +9,10 @@ interface DatabaseLogSummary {
   readonly databaseSlowestOperation: string | null;
   readonly databaseTransactionsCommitted: number;
   readonly databaseTransactionsRolledBack: number;
+  /** Wait for the writer, a reader lane place or a free reader connection. */
+  readonly databaseQueueMs: number;
+  /** Serialization and transfer between server and database worker. */
+  readonly databaseIpcMs: number;
 }
 
 const scopes = new AsyncLocalStorage<readonly DatabaseLogMetrics[]>();
@@ -22,6 +27,8 @@ export class DatabaseLogMetrics {
   private slowestOperation: string | null = null;
   private transactionsCommitted = 0;
   private transactionsRolledBack = 0;
+  private queueMs = 0;
+  private ipcMs = 0;
   private isClosed = false;
 
   /** Whether work can still contribute before this boundary's closing event. */
@@ -44,6 +51,12 @@ export class DatabaseLogMetrics {
     this.slowestOperation = operation;
   }
 
+  /** Adds time spent waiting for the database or on the IPC transfer, apart from execution. */
+  public recordWait(queueMs: number, ipcMs: number): void {
+    this.queueMs += queueMs;
+    this.ipcMs += ipcMs;
+  }
+
   /** Counts transaction outcomes, also in each enclosing operation. */
   public recordTransaction(outcome: "committed" | "rolled_back"): void {
     if (outcome === "committed") this.transactionsCommitted += 1;
@@ -60,6 +73,8 @@ export class DatabaseLogMetrics {
       databaseSlowestOperation: this.slowestOperation,
       databaseTransactionsCommitted: this.transactionsCommitted,
       databaseTransactionsRolledBack: this.transactionsRolledBack,
+      databaseQueueMs: Math.round(this.queueMs * 1_000) / 1_000,
+      databaseIpcMs: Math.round(this.ipcMs * 1_000) / 1_000,
     };
   }
 
@@ -95,6 +110,21 @@ export function recordDatabaseLogMetrics(
   }
   for (const metrics of active)
     metrics.record(operation, statementId, durationMs);
+}
+
+/** Adds queue wait and IPC time to every enclosing scope; execution time stays apart (PAGE-197). */
+export function recordDatabaseWaitMetrics(
+  queueMs: number,
+  ipcMs: number,
+): void {
+  const active = (scopes.getStore() ?? []).filter((metrics) =>
+    metrics.isActive(),
+  );
+  if (active.length === 0) {
+    unscoped ??= new DatabaseLogMetrics();
+    unscoped.recordWait(queueMs, ipcMs);
+  }
+  for (const metrics of active) metrics.recordWait(queueMs, ipcMs);
 }
 
 /** Counts an outcome and reports whether a parent operation will emit its aggregate. */

@@ -10,5 +10,8 @@ import type {
  * The central database and the scope of an open transaction both offer it,
  * so ticket writes can share the commit of the caller that opened it.
  */
-export type TaskDatabase = Pick<Database, "execute" | "query" | "transaction"> &
+export type TaskDatabase = Pick<
+  Database,
+  "execute" | "query" | "transaction" | "readTransaction"
+> &
   Pick<DatabaseTransaction, "onCommit" | "onRollback">;

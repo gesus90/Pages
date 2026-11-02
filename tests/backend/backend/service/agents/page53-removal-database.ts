@@ -100,8 +100,8 @@ export class RemovalDatabase {
   }
 
   /** Transaction contract with rollback; no SQL engine or filesystem is used. */
-  public asDatabase(): Pick<Database, "transaction"> {
-    return {
+  public asDatabase(): Pick<Database, "transaction" | "readTransaction"> {
+    const scripted: Pick<Database, "transaction"> = {
       transaction: async (work) => {
         const before = structuredClone({
           profiles: this.profiles,
@@ -127,6 +127,7 @@ export class RemovalDatabase {
         }
       },
     };
+    return { ...scripted, readTransaction: scripted.transaction };
   }
 
   private async query(

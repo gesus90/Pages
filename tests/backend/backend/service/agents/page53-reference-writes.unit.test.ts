@@ -15,6 +15,7 @@ it("rejects a new user agent if its model was deleted after service validation",
   const transaction: DatabaseTransaction = { query: async () => [], execute };
   const repository = new AgentProfileRepository({
     transaction: (work) => work(transaction),
+    readTransaction: (work) => work(transaction),
   });
   await expect(
     repository.save({

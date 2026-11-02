@@ -321,6 +321,7 @@ describe("ProjectRepository.describeDeletion", () => {
     const repository = new ProjectRepository({
       ...connection,
       transaction: async (work) => work(connection),
+      readTransaction: async (work) => work(connection),
     });
     return { connection, repository };
   }

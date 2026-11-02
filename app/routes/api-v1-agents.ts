@@ -1,6 +1,10 @@
-import { agentApiFailure } from "@/app/lib/agent-api-response.server";
+import {
+  agentApiDatabaseFailure,
+  agentApiFailure,
+} from "@/app/lib/agent-api-response.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readAgentJson } from "@/app/lib/agent-json.server";
+import { DatabaseExecutorError } from "@/backend/database/executor/DatabaseExecutorErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -31,6 +35,8 @@ async function handleRequest(request: Request): Promise<Response> {
   } catch (error: unknown) {
     logCaughtError("api_v1_agents", error);
 
+    if (error instanceof DatabaseExecutorError)
+      return agentApiDatabaseFailure(error);
     if (error instanceof AgentOperationError)
       return agentApiFailure(error.code, error.status, error.details);
     if (!(error instanceof McpAuthorizationError))

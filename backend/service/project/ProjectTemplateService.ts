@@ -30,9 +30,15 @@ export class ProjectTemplateService {
     this.cache = cache;
   }
 
-  /** Returns only snapshots whose active or archived source remains currently accessible. */
+  /**
+   * Returns only snapshots whose active or archived source remains currently accessible.
+   *
+   * @remarks
+   * It only reads, so it runs on one reader snapshot and never waits behind
+   * a long write (PAGE-197).
+   */
   public async findAll(actor: User): Promise<ProjectTemplate[]> {
-    return this.repository.transaction(async (repository) => {
+    return this.repository.readTransaction(async (repository) => {
       const account = await new ProjectAccessService(
         repository,
         this.cache,

@@ -76,7 +76,10 @@ interface CommentWriteContext extends CommentContext {
   readonly reader: WikiPageReader;
 }
 
-type CommentScope = Pick<Database, "execute" | "query" | "transaction">;
+type CommentScope = Pick<
+  Database,
+  "execute" | "query" | "transaction" | "readTransaction"
+>;
 
 /** Binds an operation ID to the exact request it was first used with. */
 function fingerprint(request: AgentWikiCommentRequest): string {

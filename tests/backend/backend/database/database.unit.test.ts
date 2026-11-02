@@ -14,10 +14,13 @@ import {
   createMigrationChecksum,
 } from "@/backend/database/Migration";
 
+import type * as WorkerClientModule from "@/backend/database/executor/DatabaseWorkerClient";
+import type { WorkerStatement } from "@/backend/database/executor/DatabaseWorkerClient";
+import type { WorkerConfiguration } from "@/backend/database/executor/DatabaseWorkerProtocol";
 import type { Migration } from "@/backend/database/Migration";
 
 interface EngineState {
-  /** Every statement either connection received, in call order. */
+  /** Every statement the worker received, in call order. */
   statements: string[];
   /** The bindings that came with `statements`, index by index. */
   bindings: unknown[];
@@ -27,11 +30,11 @@ interface EngineState {
   resultRows: unknown[][];
   /** A statement containing this text fails. */
   failingFragment: string | null;
-  /** Errors the next opens fail with, one per open. */
+  /** Errors the next worker starts fail with, one per start. */
   openFailures: Error[];
-  /** Paths the engine opened, in call order. */
+  /** Paths a worker was started for, in call order. */
   openedPaths: string[];
-  /** Handles that were released, in call order. */
+  /** Workers that were closed, in call order. */
   released: string[];
 }
 
@@ -47,56 +50,24 @@ const engine = vi.hoisted((): EngineState => ({
 }));
 
 vi.mock("node:fs/promises", () => ({ mkdir: vi.fn() }));
-vi.mock("@duckdb/node-api", () => {
-  class DuckDBBlobValue {
-    public readonly bytes: Uint8Array;
-
-    public constructor(bytes: Uint8Array) {
-      this.bytes = bytes;
-    }
-  }
-
-  function record(statement: string, bindings: unknown): void {
-    engine.statements.push(statement);
-    engine.bindings.push(bindings);
-
-    if (
-      engine.failingFragment !== null &&
-      statement.includes(engine.failingFragment)
-    ) {
-      throw new Error("statement failed");
-    }
-  }
-
-  function createConnection(): object {
-    return {
-      closeSync: (): void => {
-        engine.released.push("connection");
-      },
-      run: async (statement: string, bindings?: unknown): Promise<void> => {
-        record(statement, bindings);
-      },
-      runAndReadAll: async (
-        statement: string,
-        bindings?: unknown,
-      ): Promise<{ getRows: () => unknown[][] }> => {
-        record(statement, bindings);
-
-        return {
-          getRows: () =>
-            statement.includes("FROM schema_migrations")
-              ? engine.appliedRows
-              : engine.resultRows,
-        };
-      },
+// The worker process owns DuckDB; its client is the boundary the server sees.
+vi.mock(
+  "@/backend/database/executor/DatabaseWorkerClient",
+  async (importOriginal) => {
+    const actual = await importOriginal<typeof WorkerClientModule>();
+    const timing = {
+      executionMs: 0,
+      waitMs: 0,
+      walBytesAfter: null,
+      walBytesBefore: null,
     };
-  }
 
-  return {
-    DuckDBBlobValue,
-    DuckDBInstance: {
-      create: async (databasePath: string): Promise<object> => {
-        engine.openedPaths.push(databasePath);
+    class FakeWorkerClient {
+      /** Opens nothing; records the path and fails like a worker that cannot open. */
+      public static async start(
+        configuration: WorkerConfiguration,
+      ): Promise<FakeWorkerClient> {
+        engine.openedPaths.push(configuration.databasePath);
 
         const failure = engine.openFailures.shift();
 
@@ -104,25 +75,55 @@ vi.mock("@duckdb/node-api", () => {
           throw failure;
         }
 
+        return new FakeWorkerClient();
+      }
+
+      public get currentGeneration(): number {
+        return 1;
+      }
+
+      /** Records the statement and answers it from the engine state. */
+      public async run(request: WorkerStatement): Promise<object> {
+        engine.statements.push(request.statement);
+        engine.bindings.push(request.parameters);
+
+        if (
+          engine.failingFragment !== null &&
+          request.statement.includes(engine.failingFragment)
+        ) {
+          throw new actual.WorkerStatementError(
+            { message: "statement failed", name: "Error" },
+            timing,
+            false,
+          );
+        }
+
+        const rows = request.statement.includes("FROM schema_migrations")
+          ? engine.appliedRows
+          : engine.resultRows;
+
         return {
-          closeSync: (): void => {
-            engine.released.push("instance");
-          },
-          connect: async (): Promise<object> => createConnection(),
+          roundTripMs: 0,
+          rows: request.mode === "rows" ? rows : null,
+          timing,
         };
-      },
-    },
-  };
-});
+      }
+
+      /** Stands in for the worker's closing checkpoint and exit. */
+      public async close(): Promise<void> {
+        engine.released.push("worker");
+      }
+    }
+
+    return { ...actual, DatabaseWorkerClient: FakeWorkerClient };
+  },
+);
 
 const BASELINE: Migration = {
   name: "001_baseline.sql",
   sql: "CREATE TABLE a;",
 };
 const NEXT: Migration = { name: "002_next.sql", sql: "ALTER TABLE a;" };
-const WAL_FAILURE = new Error(
-  "IO Error: Failure while replaying WAL file of the database",
-);
 
 beforeEach(() => {
   engine.statements = [];
@@ -152,9 +153,9 @@ function labelOf(statement: string): string {
   return text;
 }
 
-/** The statements after the connection setup. */
+/** The statements the server sent; the connection setup stays in the worker. */
 function trace(): string[] {
-  return engine.statements.slice(1).map(labelOf);
+  return engine.statements.map(labelOf);
 }
 
 it("opens an in-memory database without creating a directory", async () => {
@@ -164,13 +165,11 @@ it("opens an in-memory database without creating a directory", async () => {
   expect(engine.openedPaths).toEqual([IN_MEMORY_DATABASE_PATH]);
 });
 
-it("creates the directory of a database file and installs the session setup", async () => {
+it("creates the directory of a database file before the worker opens it", async () => {
   await Database.create("/srv/pages/data/pages.duckdb");
 
   expect(mkdir).toHaveBeenCalledWith("/srv/pages/data", { recursive: true });
-  expect(engine.statements[0]).toContain("default_null_order");
-  expect(engine.statements[0]).toContain("MACRO utc_after(time_shift)");
-  expect(engine.statements[0]).toContain("MACRO utc_now()");
+  expect(engine.openedPaths).toEqual(["/srv/pages/data/pages.duckdb"]);
 });
 
 it("applies unseen migrations in name order, one transaction each, then checkpoints", async () => {
@@ -266,24 +265,6 @@ it("rolls a failing migration back and names it", async () => {
   expect(trace()).not.toContain("checkpoint");
 });
 
-it("replays a write-ahead log through an attached database and opens again", async () => {
-  const warn = vi.spyOn(console, "warn").mockReturnValue(undefined);
-
-  engine.openFailures = [WAL_FAILURE];
-
-  await Database.create("/srv/o'neil/pages.duckdb");
-
-  expect(engine.openedPaths).toEqual([
-    "/srv/o'neil/pages.duckdb",
-    IN_MEMORY_DATABASE_PATH,
-    "/srv/o'neil/pages.duckdb",
-  ]);
-  expect(engine.statements[0]).toBe(
-    "ATTACH '/srv/o''neil/pages.duckdb' AS recovered; CHECKPOINT recovered; DETACH recovered;",
-  );
-  expect(warn).toHaveBeenCalledOnce();
-});
-
 it("rethrows every other failure to open the file", async () => {
   const failure = new Error("Could not set lock on file");
 
@@ -295,45 +276,11 @@ it("rethrows every other failure to open the file", async () => {
   expect(engine.openedPaths).toEqual(["/srv/pages/pages.duckdb"]);
 });
 
-it("binds booleans as integers, buffers as blobs and nothing without parameters", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
-  const blob = Buffer.from([1, 2, 3]);
-
-  await database.execute("INSERT INTO t VALUES ($on, $off, $file, $text);", {
-    file: blob,
-    off: false,
-    on: true,
-    text: "x",
-  });
-  await database.execute("DELETE FROM t;");
-
-  const [bound] = engine.bindings.slice(-2);
-
-  expect(bound).toMatchObject({
-    file: { bytes: blob },
-    off: 0,
-    on: 1,
-    text: "x",
-  });
-  expect(engine.bindings.at(-1)).toBeUndefined();
-});
-
-it("reads 64-bit integers as numbers while they are safe and keeps larger ones exact", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
-  const unsafe = 2n ** 60n;
-
-  engine.resultRows = [[42n, unsafe, 7, "text", null, true, false]];
-
-  await expect(database.query("SELECT 1;")).resolves.toEqual([
-    [42, unsafe, 7, "text", null, 1, 0],
-  ]);
-});
-
 it("returns blob columns as buffers", async () => {
-  const { DuckDBBlobValue } = await import("@duckdb/node-api");
   const database = await Database.create(IN_MEMORY_DATABASE_PATH);
 
-  engine.resultRows = [[new DuckDBBlobValue(new Uint8Array([9, 8]))]];
+  // Blobs cross the process boundary as plain byte arrays.
+  engine.resultRows = [[new Uint8Array([9, 8])]];
 
   const [[column]] = await database.query("SELECT 1;");
 
@@ -341,48 +288,64 @@ it("returns blob columns as buffers", async () => {
   expect(column).toEqual(Buffer.from([9, 8]));
 });
 
-it("rejects a column type the repositories cannot read", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
-
-  engine.resultRows = [[{ unsupported: true }]];
-
-  await expect(database.query("SELECT 1;")).rejects.toThrow("unsupported type");
-});
-
 it("commits a transaction and returns what its work returns", async () => {
   const database = await Database.create(IN_MEMORY_DATABASE_PATH);
 
+  const effects: string[][] = [];
+
   const result = await database.transaction(async (transaction) => {
     await transaction.execute("UPDATE t SET a = 1;");
+    transaction.onCommit?.(async () => {
+      effects.push(trace());
+    });
+    transaction.onRollback?.(async () => {
+      effects.push(["rollback effect"]);
+    });
 
     return "done";
   });
 
   expect(result).toBe("done");
   expect(trace()).toEqual(["begin", "UPDATE t SET a = 1;", "commit"]);
+  expect(effects).toEqual([["begin", "UPDATE t SET a = 1;", "commit"]]);
 });
 
 it("rolls a transaction back and rethrows when its work fails", async () => {
   const database = await Database.create(IN_MEMORY_DATABASE_PATH);
   const failure = new Error("work failed");
+  const effects: string[][] = [];
 
   await expect(
     database.transaction(async (transaction) => {
       await transaction.execute("UPDATE t SET a = 1;");
+      transaction.onCommit?.(async () => {
+        effects.push(["commit effect"]);
+      });
+      transaction.onRollback?.(async () => {
+        effects.push(["first", ...trace()]);
+      });
+      transaction.onRollback?.(async () => {
+        effects.push(["second"]);
+      });
 
       throw failure;
     }),
   ).rejects.toBe(failure);
   expect(trace()).toEqual(["begin", "UPDATE t SET a = 1;", "rollback"]);
+  expect(effects).toEqual([
+    ["second"],
+    ["first", "begin", "UPDATE t SET a = 1;", "rollback"],
+  ]);
 });
 
-it("releases the connection and the instance when it closes", async () => {
+it("lets the worker checkpoint and release the database when it closes", async () => {
   const database = await Database.create(IN_MEMORY_DATABASE_PATH);
 
   await database.close();
 
-  expect(trace()).toEqual(["checkpoint"]);
-  expect(engine.released).toEqual(["connection", "instance"]);
+  // The worker runs the closing CHECKPOINT on its own writer connection.
+  expect(trace()).toEqual([]);
+  expect(engine.released).toEqual(["worker"]);
 });
 
 it("computes the same migration checksum for both line-ending styles", () => {

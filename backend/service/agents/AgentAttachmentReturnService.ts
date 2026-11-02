@@ -109,6 +109,7 @@ export class AgentAttachmentReturnService {
     const scope: TaskDatabase = {
       ...transaction,
       transaction: async (operation) => operation(transaction),
+      readTransaction: async (operation) => operation(transaction),
     };
     const actor = await new UserRepository(scope).findById(identity.userId);
     if (!actor?.isActive || actor.mustChangePassword)

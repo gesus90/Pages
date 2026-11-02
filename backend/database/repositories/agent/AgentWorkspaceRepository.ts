@@ -70,20 +70,22 @@ export type WorkspaceJournal = (
 
 /** Atomic registration metadata, without filesystem mutation or Git operations. */
 export class AgentWorkspaceRepository {
-  private readonly database: Pick<Database, "transaction">;
+  private readonly database: Pick<Database, "transaction" | "readTransaction">;
 
-  public constructor(database: Pick<Database, "transaction">) {
+  public constructor(
+    database: Pick<Database, "transaction" | "readTransaction">,
+  ) {
     this.database = database;
   }
 
   /** Reads every registration from one coherent database snapshot. */
   public async list(): Promise<readonly AgentWorkspace[]> {
-    return this.database.transaction(readWorkspaces);
+    return this.database.readTransaction(readWorkspaces);
   }
 
   /** Returns current references for a protected unregister dialog. */
   public async usages(id: string): Promise<readonly AgentWorkspaceUsage[]> {
-    return this.database.transaction((transaction) =>
+    return this.database.readTransaction((transaction) =>
       readUsages(transaction, id),
     );
   }
