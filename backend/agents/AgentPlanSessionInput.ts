@@ -15,11 +15,13 @@ import type {
   AgentPlanAcceptance,
   AgentPlanContract,
   AgentPlanContractItem,
+  AgentPlanEventSessionLink,
   AgentPlanGroupSessionLink,
   AgentPlanLoopSessionLink,
   AgentPlanProcessExit,
   AgentPlanRunner,
   AgentPlanRunnerConfiguration,
+  AgentPlanSessionEffects,
   AgentPlanSessionMode,
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
@@ -192,6 +194,16 @@ function readAcceptance(input: unknown): AgentPlanAcceptance | null {
   };
 }
 
+const EFFECT_TOOLS = ["none", "observed", "unknown"] as const;
+
+function readSessionEffects(input: unknown): AgentPlanSessionEffects {
+  const record = readAgentObject(input);
+  const calls = record.calls;
+  if (typeof calls !== "number" || !Number.isSafeInteger(calls) || calls < 0)
+    throw invalid();
+  return { tools: oneOf(record.tools, EFFECT_TOOLS), calls };
+}
+
 function readEffective(
   input: unknown,
 ): Readonly<Record<string, string>> | null {
@@ -266,6 +278,28 @@ function readLoopLink(input: unknown): AgentPlanLoopSessionLink {
   };
 }
 
+function readEventLink(input: unknown): AgentPlanEventSessionLink {
+  const link = readAgentObject(input);
+  const turn = nullableNumber(link.turn);
+  const activation = nullableNumber(link.activation);
+  if (
+    turn === null ||
+    !Number.isSafeInteger(turn) ||
+    turn < 1 ||
+    activation === null ||
+    !Number.isSafeInteger(activation) ||
+    activation < 1
+  )
+    throw invalid();
+  return {
+    activation,
+    role: oneOf(link.role, ["created", "continued", "recovered"] as const),
+    turn,
+    acpSessionId: nullableText(link.acpSessionId),
+    sourceStepId: nullableText(link.sourceStepId),
+  };
+}
+
 function readActivity(input: unknown): AgentPlanActivity {
   const activity = readAgentObject(input);
   if (!Array.isArray(activity.titles)) throw invalid();
@@ -312,6 +346,23 @@ function readSupervisor(
   }
 }
 
+/** The shared-session links of a record: its group, loop or event role. */
+function readSessionLinks(
+  record: Record<string, unknown>,
+): Pick<AgentPlanSessionRecord, "group" | "loop" | "event"> {
+  return {
+    ...(record.group === undefined || record.group === null
+      ? {}
+      : { group: readGroupLink(record.group) }),
+    ...(record.loop === undefined || record.loop === null
+      ? {}
+      : { loop: readLoopLink(record.loop) }),
+    ...(record.event === undefined || record.event === null
+      ? {}
+      : { event: readEventLink(record.event) }),
+  };
+}
+
 /**
  * Narrows the persisted record of an agent node; older runs have none.
  *
@@ -349,6 +400,9 @@ export function readPlanSessionRecord(
             record.continuationCapabilities,
           ),
         }),
+    ...(record.effects === undefined
+      ? {}
+      : { effects: readSessionEffects(record.effects) }),
     sessionId: nullableText(record.sessionId),
     processId: nullableNumber(record.processId),
     ...readSupervisor(record),
@@ -369,11 +423,6 @@ export function readPlanSessionRecord(
     ...(record.activity === undefined
       ? {}
       : { activity: readActivity(record.activity) }),
-    ...(record.group === undefined || record.group === null
-      ? {}
-      : { group: readGroupLink(record.group) }),
-    ...(record.loop === undefined || record.loop === null
-      ? {}
-      : { loop: readLoopLink(record.loop) }),
+    ...readSessionLinks(record),
   };
 }

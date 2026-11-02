@@ -1,4 +1,5 @@
 import { ConnectionLineType, Position } from "@xyflow/react";
+import { cleanup } from "@testing-library/react";
 import { expect, it } from "vitest";
 
 import { PlanFlowConnectionLine } from "@/app/components/agents/plans/plan-flow-connection-line";
@@ -93,5 +94,35 @@ it("previews a value binding dashed and marks a refused end", () => {
   );
   expect(element(container, "circle").getAttribute("stroke")).toBe(
     "var(--color-destructive)",
+  );
+});
+
+it("previews the boolean wire dashed in the logic colour", () => {
+  const container = renderLine({ kind: "passed", nodeId: "start" }, "valid");
+
+  expect(element(container, "path").getAttribute("stroke")).toBe(
+    "var(--color-plan-logic-edge)",
+  );
+  expect(element(container, "path").getAttribute("stroke-dasharray")).toBe(
+    "5 4",
+  );
+});
+
+it("previews each branch of a decision solid, green for true and amber for false", () => {
+  const green = renderLine(
+    { kind: "branch", nodeId: "start", branch: "true" },
+    "valid",
+  );
+  expect(element(green, "path").getAttribute("stroke")).toBe(
+    "var(--color-success)",
+  );
+  expect(element(green, "path").hasAttribute("stroke-dasharray")).toBe(false);
+  cleanup();
+  const amber = renderLine(
+    { kind: "branch", nodeId: "start", branch: "false" },
+    "valid",
+  );
+  expect(element(amber, "path").getAttribute("stroke")).toBe(
+    "var(--color-warning)",
   );
 });

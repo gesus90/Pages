@@ -201,9 +201,10 @@ export function planCompletedFailure(
   return hasPlanStepTimedOut(signal) ? "timeout" : failureCode(turn, closed);
 }
 
-/** Reuses the snapshot's initial attempt once; retries and loop turns retain their own fresh identities. */
+/** Reuses the snapshot's initial attempt once; retries, loop turns and the later rounds of a cycle retain their own fresh identities. */
 export function initialStepAttemptId(node: NodeRun): string | undefined {
-  if (node.retry || node.loop) return undefined;
-  return node.run.steps.find((entry) => entry.id === node.step.step.id)
-    ?.execution?.attemptId;
+  if (node.retry || node.loop || node.event) return undefined;
+  const step = node.run.steps.find((entry) => entry.id === node.step.step.id);
+  if ((step?.activation ?? 1) > 1) return undefined;
+  return step?.execution?.attemptId;
 }

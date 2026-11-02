@@ -545,6 +545,20 @@ export async function canIsolateJobs() {
   return isCreated;
 }
 
+const SESSION_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u;
+
+/** A continuation belongs to a CLI job and names its session in a form no command line could misread. */
+function requireContinuation(continuation, program) {
+  const resumeSessionId = continuation.resumeSessionId;
+  if (
+    continuation.version !== 1 ||
+    program.kind !== "cli" ||
+    program.access !== "yolo" ||
+    (resumeSessionId !== undefined && !SESSION_IDENTIFIER.test(resumeSessionId))
+  )
+    throw new Error("Invalid continuation");
+}
+
 async function checkedCommand(job, folder) {
   const command = job.execution;
   if (
@@ -557,6 +571,8 @@ async function checkedCommand(job, folder) {
     Buffer.byteLength(command.input) > 1048576
   )
     throw new Error("Invalid execution bounds");
+  if (command.continuation !== undefined)
+    requireContinuation(command.continuation, command.program);
   if (
     (await realpath(command.workspace)) !== command.workspace ||
     !(await stat(command.workspace)).isDirectory()
@@ -779,9 +795,17 @@ async function processJob(command, folder, context) {
     await cleanupWork;
     await progress.finish();
     const final = output.result();
+    const sessionFailure = final.failureCode
+      ? undefined
+      : output.sessionFailure({
+          isStopped: failure !== null,
+          exitCode: result.exitCode,
+          signal: result.signal,
+        });
     return {
       ...result,
       ...final,
+      ...(sessionFailure ? { failureCode: sessionFailure } : {}),
       reason: failure?.reason ?? result.reason ?? final.reason ?? null,
       ...(failure?.storageError ? { storageError: failure.storageError } : {}),
     };

@@ -50,9 +50,11 @@ async function resetRemoteStep(
  * Retries a remote one-shot after a technical session failure.
  *
  * @remarks
- * A remote job has no native resume and keeps no tool trace. Only reading
- * work can safely start again; writing work stays blocked as `unsafe` and
- * needs the explicit recovery review.
+ * Reading work may always start again as a fresh job. A writing job needs the
+ * evidence of a runner with continuation support: its native session resumes,
+ * or a new one starts only after the runner proved that no tool ran. A runner
+ * without that support leaves the job stopped with `remote_evidence_missing`,
+ * and an unreconcilable effect with `effect_unknown`.
  */
 export function dispatchRemoteStepWithRetry(
   dependencies: RemoteRetryDependencies | undefined,
@@ -102,12 +104,23 @@ export function dispatchRemoteStepWithRetry(
             ? {
                 attemptNumber: context.attemptNumber,
                 allowTerminalRerun: true,
+                resumeSessionId: context.resumeSessionId,
               }
             : undefined,
+      })?.catch((error: unknown): Partial<AgentPlanStepResult> => {
+        // A continuation the live runner cannot carry out ends this attempt with the earlier record in place.
+        if (
+          error instanceof AgentError &&
+          error.code === "acp_session_resume_failed"
+        )
+          return { status: "failed", error: error.code };
+        throw error;
       });
       if (!result) throw new AgentError("plan_context_changed");
       lastSession = result.session ?? lastSession;
-      return result;
+      return lastSession && !result.session
+        ? { ...result, session: lastSession }
+        : result;
     },
     waiting: () => {
       active.dispatched.delete(stepId);

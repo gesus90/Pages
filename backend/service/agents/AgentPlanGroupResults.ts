@@ -12,6 +12,7 @@ const STEP_STATUS: Record<PlanGroupState, AgentPlanStepResult["status"]> = {
   stopping: "running",
   stopped: "cancelled",
   completed: "succeeded",
+  skipped: "skipped",
   blocked: "waiting",
   failed: "failed",
   unavailable: "waiting",

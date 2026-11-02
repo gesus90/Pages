@@ -51,6 +51,18 @@ const HOME: CliHome = {
   config: "/synthetic/data/agents/connection/codex",
   work: "/synthetic/data/agents/connection/work",
 };
+const RUN_ID = "11111111-1111-4111-8111-111111111111";
+/** The private transcript home a Claude plan session gets; the real folders are prepared elsewhere. */
+const SCOPED: CliHome = {
+  root: `${HOME.root}/plan-sessions/${RUN_ID}/scope`,
+  home: `${HOME.root}/plan-sessions/${RUN_ID}/scope/home`,
+  config: `${HOME.root}/plan-sessions/${RUN_ID}/scope/claude`,
+  work: `${HOME.root}/plan-sessions/${RUN_ID}/scope/work`,
+};
+const CREDENTIAL = {
+  source: `${HOME.root}/claude/.credentials.json`,
+  target: `${SCOPED.config}/.credentials.json`,
+};
 const BINARIES: Readonly<Record<string, string>> = {
   codex_cli: "/synthetic/bin/codex",
   claude_code: "/synthetic/bin/claude",
@@ -108,6 +120,7 @@ function harness(
     resources: setup.resources,
     runtime: { adapter: async () => adapter(setup.isLoggedIn ?? true) },
     store: { prepare: async () => HOME, secure },
+    claudeHome: async () => ({ home: SCOPED, credential: CREDENTIAL }),
     locator: {
       find: async (provider) => ({
         found: true,
@@ -153,6 +166,15 @@ function input(
     directory: WORKSPACE,
     options,
     instanceId: "instance-synthetic",
+    ...(provider === "claude_code"
+      ? {
+          resourceContext: {
+            runId: RUN_ID,
+            stepId: "step",
+            sessionScopeId: "step",
+          },
+        }
+      : {}),
     mcp: {
       node: "/synthetic/bin/node",
       bundle: "/synthetic/pages-mcp.cjs",
@@ -242,6 +264,7 @@ it("starts a Claude Code node through the Claude ACP adapter with the connection
   expect(started?.arguments).toEqual([]);
   expect(started?.options.cwd).toBe(WORKSPACE);
   const environment = started?.options.env ?? {};
+  // Without a namespace nothing separates homes, so the session keeps the connection's own home and login.
   expect(environment).toMatchObject({
     CLAUDE_CONFIG_DIR: HOME.config,
     CLAUDE_CODE_EXECUTABLE: "/synthetic/bin/claude",
@@ -293,6 +316,17 @@ it("offers a Claude Code node in YOLO every native tool and approves nothing it 
   expect(options).toContain('"settingSources":[]');
   expect(options).not.toContain('"tools"');
   expect(options).not.toContain('"disallowedTools"');
+  // Only the private transcript home and the one login file reach the namespace, never the connection's own home.
+  const args = fake.spawned[0]?.arguments ?? [];
+  expect(fake.spawned[0]?.options.env?.CLAUDE_CONFIG_DIR).toBe(SCOPED.config);
+  const login = args.indexOf(CREDENTIAL.source);
+  expect(args.slice(login - 1, login + 2)).toEqual([
+    "--bind",
+    CREDENTIAL.source,
+    CREDENTIAL.target,
+  ]);
+  expect(args).toContain(SCOPED.root);
+  expect(args).not.toContain(HOME.root);
   await session.close();
 });
 

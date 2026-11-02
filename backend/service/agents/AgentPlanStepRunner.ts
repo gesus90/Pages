@@ -18,15 +18,16 @@ import { guardPlanStepStart } from "./AgentPlanStepDispatch";
 import {
   errorCode,
   failureCloseout,
-  planAcceptanceFailure,
+  planAcceptanceOutcome,
 } from "./AgentPlanStepFailure";
 import { waitForTurn } from "./AgentPlanTurn";
 import { offerGroupInstructions } from "./AgentPlanGroupInstructions";
+import { planSessionLink } from "./loop/AgentPlanLoopSession";
+import { createNodeRun } from "./AgentPlanNodeRun";
 import {
-  loopSessionTerms,
-  planSessionGroup,
-  planSessionLink,
-} from "./loop/AgentPlanLoopSession";
+  eventSessionLink,
+  openEventTurn,
+} from "./branching/AgentPlanEventSession";
 import {
   AgentPlanGroupSessions,
   type GroupSessionResume,
@@ -133,24 +134,7 @@ export class AgentPlanStepRunner {
     control: StepRunControl,
   ): Promise<Partial<AgentPlanStepResult>> {
     control.awaitDispatch?.();
-    const previous = run.steps.find(
-      (result) => result.id === step.step.id,
-    )?.session;
-    const loop = loopSessionTerms(step, snapshot, control.iteration);
-    const node: NodeRun = {
-      run,
-      snapshot,
-      step,
-      control,
-      record: previous?.retry ? previous : null,
-      hasStarted: false,
-      retry: previous?.retry ?? null,
-      retryResumeSessionId: null,
-      retryAttemptNumber: 1,
-      retryGroup: null,
-      loop,
-      sessionGroup: planSessionGroup(step, loop),
-    };
+    const node = createNodeRun(run, snapshot, step, control);
     // The place in the group's queue is taken before any await, in the order the engine starts its members.
     const slot = node.sessionGroup
       ? this.groups.reserve(`${run.id}/${node.sessionGroup}`)
@@ -182,6 +166,14 @@ export class AgentPlanStepRunner {
   /** Ends retained native sessions when the plan is cancelled or finishes. */
   public async closeGroups(runId: string, groupId?: string): Promise<void> {
     await this.closeSessionGroups(runId, groupId);
+  }
+
+  /** Releases plan transcript storage after all native sessions have closed. */
+  public async finishPlanRun(
+    runId: string,
+    status: "succeeded" | "failed" | "cancelled",
+  ): Promise<void> {
+    await this.dependencies.execution.finishPlanRun?.(runId, status);
   }
 
   /** Ends the sessions of a group or loop agent, or of the whole run, and tells how each one closed. */
@@ -330,6 +322,7 @@ export class AgentPlanStepRunner {
       completionGate: step.step.completionGate,
     });
     const groupKey = `${run.id}/${node.sessionGroup ?? step.step.id}`;
+    await openEventTurn(this.groups, node, groupKey);
     const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
     const groupResume = planRetryGroupResume(node);
     await this.save(node, {
@@ -419,9 +412,17 @@ export class AgentPlanStepRunner {
     prepared: PreparedPlanStep,
     groupKey: string,
     resume?: GroupSessionResume,
-  ): Pick<AgentPlanSessionRecord, "group" | "loop"> {
+  ): Pick<AgentPlanSessionRecord, "group" | "loop" | "event"> {
     const provider = prepared.input.agent.connection.provider;
     if (!isAcpProvider(provider)) return {};
+    if (node.receivesEvents)
+      return {
+        event: eventSessionLink(this.groups, node, {
+          key: groupKey,
+          adapter: provider,
+          resume,
+        }),
+      };
     const shared = node.sessionGroup
       ? this.groups.link(
           groupKey,
@@ -453,7 +454,10 @@ export class AgentPlanStepRunner {
           })
         : null;
     const acceptance = assessed?.acceptance ?? null;
-    const acceptanceFailure = planAcceptanceFailure(node, acceptance);
+    const outcome = planAcceptanceOutcome(node, acceptance);
+    const acceptanceFailure = outcome.failure;
+    const passed =
+      outcome.passed === undefined ? {} : { passed: outcome.passed };
     // The closing report and the verdict are kept before the session is ended.
     await this.complete(node, {
       acceptance,
@@ -465,6 +469,7 @@ export class AgentPlanStepRunner {
         output: sanitizePlanOutput(turn.output),
         error: null,
         session: node.record,
+        ...passed,
       };
     const closed = await this.closeSession(node, session);
     const failure =
@@ -483,7 +488,13 @@ export class AgentPlanStepRunner {
         session: node.record,
       };
     return failure === null
-      ? { status: "succeeded", output, error: null, session: node.record }
+      ? {
+          status: "succeeded",
+          output,
+          error: null,
+          session: node.record,
+          ...passed,
+        }
       : { status: "failed", output, error: failure, session: node.record };
   }
 
@@ -495,10 +506,16 @@ export class AgentPlanStepRunner {
     const group = node.snapshot.groups?.find(
       (entry) => entry.id === node.step.groupId,
     );
-    // A loop keeps the session of each agent open until the loop itself ends or fails.
-    if (!group && node.loop?.policy !== "reuse") return false;
+    // A loop keeps the session of each agent open until the loop itself ends or fails;
+    // an agent that receives events keeps its own until the run ends.
+    if (!group && node.loop?.policy !== "reuse" && !node.receivesEvents)
+      return false;
     const key = `${node.run.id}/${group?.id ?? node.sessionGroup}`;
-    const nodes = this.retained.get(key) ?? [];
+    // Only the newest start of an event agent is kept: it alone holds the current record.
+    const nodes = (this.retained.get(key) ?? []).filter(
+      (entry) =>
+        !node.receivesEvents || entry.step.step.id !== node.step.step.id,
+    );
     const succeeded = node.run.steps
       .filter((entry) => entry.status === "succeeded")
       .map((entry) => entry.id);
@@ -594,24 +611,22 @@ export class AgentPlanStepRunner {
         resultCode: -1,
         events: agentToolFailureEvents(error, node.record.events),
       });
+    // A start that ended before it had a record leaves the record of the earlier start, and its closeout, in place.
+    const session = node.record ? { session: node.record } : {};
     if (node.record?.closeout === "failed")
-      return {
-        status: "failed",
-        error: "plan_closeout_failed",
-        session: node.record,
-      };
+      return { status: "failed", error: "plan_closeout_failed", ...session };
     if (hasPlanStepTimedOut(node.control.signal))
-      return { status: "failed", error: "timeout", session: node.record };
+      return { status: "failed", error: "timeout", ...session };
     if (error instanceof AgentPlanCancelledError)
       return {
         status: "cancelled",
         cancellation: node.hasStarted ? "confirmed" : "not_started",
-        session: node.record,
+        ...session,
       };
     return {
       status: "failed",
       error: errorCode(error),
-      session: node.record,
+      ...session,
       ...assetFailure(error),
     };
   }

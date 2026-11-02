@@ -21,7 +21,7 @@ export interface EngineDependencies {
     Partial<Pick<AgentPlanRunRepository, "resetRemoteRetry">>;
   readonly start: Pick<AgentPlanStepStart, "control">;
   readonly steps: Pick<AgentPlanStepRunner, "run" | "closeGroups"> &
-    Partial<Pick<AgentPlanStepRunner, "revise">>;
+    Partial<Pick<AgentPlanStepRunner, "revise" | "finishPlanRun">>;
   readonly archive?: AgentRunArchive;
   readonly files?: AgentDefinitionFiles;
 }

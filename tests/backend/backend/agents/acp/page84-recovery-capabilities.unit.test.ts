@@ -10,8 +10,8 @@ vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
 
 it.each([
   { provider: "codex_cli", canContinue: true },
-  // Claude Code plan sessions are not kept on disk, so no later process can continue them.
-  { provider: "claude_code", canContinue: false },
+  // Claude Code plan sessions keep their transcripts in a private plan home, so a later process can resume them.
+  { provider: "claude_code", canContinue: true },
 ] as const)(
   "records the continuation of $provider and its adapter version without attempting plan session resume",
   async ({ provider, canContinue }) => {

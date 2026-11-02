@@ -9,11 +9,12 @@ import {
   hasOpenPlanReport,
   PlanStatusBadge,
   isQueuedPlanStep,
-  planStatusClass,
+  planRunCardClass,
 } from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
 import { PlanCard } from "./plan-card";
 import { PlanResultOut } from "./plan-result-out";
+import { PlanRunNotes } from "./plan-run-notes";
 import { PlanScriptProfile } from "./plan-script-profile";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -49,15 +50,7 @@ export function PlanScriptCard(props: {
       label={script.name}
       title={script.name}
       subtitle={t("plans.nodeType.script")}
-      runClass={
-        props.hasRun
-          ? planStatusClass(
-              isQueuedPlanStep(result) ? "waiting" : status,
-              result?.isBlocked,
-              hasOpenPlanReport(result),
-            )
-          : undefined
-      }
+      runClass={props.hasRun ? planRunCardClass(result) : undefined}
       status={
         props.hasRun ? (
           <PlanStatusBadge
@@ -72,6 +65,7 @@ export function PlanScriptCard(props: {
       onEdit={edit}
     >
       <div className="flex flex-col gap-1.5 px-3 pt-1 pb-2">
+        <PlanRunNotes result={result} />
         <PlanFlowPorts
           node={script}
           graph={graph}

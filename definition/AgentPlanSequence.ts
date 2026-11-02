@@ -1,6 +1,7 @@
 import { isPlanFlowNode } from "./AgentPlanGraph";
 import { expandPlanGroups } from "./AgentPlanGroup";
 import { withPortlessPlanGroups } from "./AgentPlanGroupUpgrade";
+import { isPlanEventEdge } from "./AgentPlanBranching";
 
 import type { AgentPlanInput, AgentPlanNode } from "./AgentPlan";
 
@@ -60,7 +61,13 @@ function flowSuccessors(
   for (const edge of plan.edges) {
     const source = nodes.get(edge.from);
     const target = nodes.get(edge.to);
-    if (!source || !target || target.type === "start" || source.type === "end")
+    if (
+      !source ||
+      !target ||
+      target.type === "start" ||
+      source.type === "end" ||
+      isPlanEventEdge(edge)
+    )
       continue;
     const entries = successors.get(edge.from) ?? [];
     if (!entries.includes(edge.to)) entries.push(edge.to);

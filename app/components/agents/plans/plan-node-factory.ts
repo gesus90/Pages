@@ -1,3 +1,4 @@
+import { emptyPlanDecision } from "@/definition/AgentPlanBranchingEdit";
 import {
   copyPlanConfiguration,
   planConfigurationForModel,
@@ -76,6 +77,7 @@ export function createPlanNode(input: {
   };
   if (kind === "start" || kind === "end") return { ...base, type: kind };
   if (kind === "loop") return emptyPlanLoop(base.id, reference, base);
+  if (kind === "decision") return emptyPlanDecision(base.id, base);
   if (kind === "group")
     return {
       ...base,

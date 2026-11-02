@@ -62,10 +62,12 @@ export class JobOutput extends Writable {
       try {
         event = JSON.parse(line);
       } catch {
-        if (line.trimStart().startsWith("{"))
+        if (line.trimStart().startsWith("{")) {
+          this.#terminal.markUnreliable();
           throw Object.assign(new Error("Malformed CLI JSON event"), {
             reason: "protocol",
           });
+        }
         return;
       }
       this.#terminal.receive(event);
@@ -106,6 +108,13 @@ export class JobOutput extends Writable {
         stderr: this.#diagnostic,
       };
     return { ...this.#terminal.result(), stderr: this.#diagnostic };
+  }
+
+  /** The stable cause of a CLI session that broke off on its own, or `undefined`. */
+  sessionFailure(end) {
+    return this.#command.program.kind === "cli"
+      ? this.#terminal.sessionFailure({ ...end, stderr: this.#diagnostic })
+      : undefined;
   }
 
   /** A failed storage path still closes its descriptors and attempts to preserve the confirmed prefix. */

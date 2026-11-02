@@ -780,6 +780,7 @@
         "plan_history_corrupt": "A history chunk is missing or failed its integrity check.",
         "plan_runner_failed": "The runner ended its turn with an error.",
         "plan_runner_incomplete": "The runner ended without completing its turn.",
+        "plan_runner_session_failed": "The remote CLI session broke off before it completed its turn; the host reported no sign-in, quota or model cause.",
         "plan_runner_permission_denied": "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
         "plan_acceptance_failed": "The agent’s business assignment is blocked, open or unproven. Successors remain blocked despite a successful technical exit.",
         "plan_group_acceptance_failed": "The group agent did not pass acceptance. Its report must prove every todo and criterion; later agents and successors remain blocked.",
@@ -822,6 +823,11 @@
         "plan_loop_condition_field": "The JSON result has no field at the path of the end condition.",
         "plan_loop_condition_type": "The value at the path of the end condition has another type than the expected value. Pages never converts types.",
         "plan_loop_session_lost": "The retained ACP session of a loop agent is unavailable after its adapter process ended. Pages does not open a new session under the same identity. Deliberately start a new run.",
+        "plan_decision_input_invalid": "A decision found no valid boolean result of its agent: the agent did not finish, or the same result was already evaluated. The decision is never treated as false.",
+        "plan_event_prompt_empty": "The result sent to the event input of this agent holds no usable new information, so the agent was not started again. Nothing was replaced by an empty or invented prompt.",
+        "plan_event_prompt_too_large": "The result sent to the event input of this agent is longer than 100000 characters. Pages does not shorten it; let the sending node answer more briefly.",
+        "plan_activation_limit": "A node of this cycle started 25 times in one run, the limit that keeps a cycle from running without end. Check why the decision never lets the cycle end.",
+        "plan_branching_revision": "A paused run with a decision or an event input cannot switch to a changed revision of its plan. Stop the run and start it again.",
         "plan_session_unavailable": "This agent session has no open native session that could take another instruction. Its history stays readable.",
         "offline": "Pages cannot be reached. Check the connection; the agent keeps running.",
         "agent_tool_not_ready": "A required agent tool is not ready. The run events show the tool and cause; see Settings → Agents → Tools.",
@@ -3933,6 +3939,11 @@
         "reset_unknown": "No unambiguous reset time was reported. The node stays blocked; no other model is used.",
         "exhausted": "All ten retries are exhausted. The node stays blocked with the last cause.",
         "unsafe": "An automatic retry cannot safely preserve the shared session or actions already started. Review side effects and explicitly continue.",
+        "closeout_unconfirmed": "The end of the last attempt is not confirmed. While an old process could still run, no replacement starts; its cleanup must be confirmed first.",
+        "resume_unavailable": "The earlier native session is needed to continue, but it cannot be continued (refused or not offered by the adapter, or no longer present). A shared or already used session is never replaced by an empty one.",
+        "session_not_kept": "The failed attempt had already run tools, but its session was not kept or the adapter offers no continuation. A new session could duplicate those effects. Review the side effects and continue explicitly.",
+        "remote_evidence_missing": "The remote runner delivered no session or tool evidence (a runner without continuation support). Without evidence a writing job does not start again. Update the runner explicitly, or review the side effects and continue.",
+        "effect_unknown": "Recorded or unexcludable tool effects cannot be reconciled. Review the side effects and continue explicitly.",
         "session": "A technical session error interrupted the turn. The next attempt follows at least ten seconds later.",
         "sessionExhausted": "All three attempts failed. The node stays failed with the last concrete cause.",
         "failed": "The last failure is not eligible for another automatic attempt. The node keeps its concrete cause."
@@ -4006,7 +4017,8 @@
       "end": "End",
       "parameter": "Parameter",
       "group": "Group",
-      "loop": "Loop"
+      "loop": "Loop",
+      "decision": "Decision"
     },
     "status": {
       "waiting": "Waiting",
@@ -4017,7 +4029,8 @@
       "paused": "Paused",
       "pausing": "Pausing …",
       "stopping": "Stop · closing",
-      "queued": "Queued — process start not confirmed"
+      "queued": "Queued — process start not confirmed",
+      "skipped": "Skipped"
     },
     "dataIn": "Data IN",
     "disconnect": "Remove data connection for {{name}}",
@@ -4032,6 +4045,8 @@
       "duplicate": "This connection or data IN is already occupied. Disconnect it first.",
       "cycle": "This flow connection creates a cycle.",
       "type": "Source and destination types do not match. Data must go directly to a named agent parameter IN.",
+      "typeEvent": "The event input only takes the text result (Result OUT) of an agent or script. The agent starts again with it, and the result is its new prompt.",
+      "typeFlow": "A flow IN only takes a flow OUT or a true/false branch of a decision. Results belong at a parameter, event or condition input.",
       "source": "The data source is missing or invalid.",
       "required": "This required parameter needs a connected, nonempty value.",
       "start": "Add at least one explicit start.",
@@ -4057,6 +4072,15 @@
       "loopCondition": "The end condition needs a source agent or script of this loop and a valid JSON path such as $.end.",
       "loopPrevious": "A result of the previous iteration is only valid inside a loop, from one of its members, and needs a default value for the first iteration.",
       "loopProvider": "An agent that keeps its session needs an ACP runner (Codex, Claude Code or OpenCode). Switch the loop to a new session per run or choose another agent.",
+      "decisionCondition": "A decision reads exactly one boolean agent result. Connect the result output (bool) of an agent to its condition.",
+      "decisionBranch": "Both outputs of a decision, true and false, need a continuation so that no evaluation ends in a dead end.",
+      "eventOrder": "An event returns new information to the session of an agent that has already run. Its source must therefore come after the target in the flow.",
+      "eventFanout": "A result returns to one event input only. The agent that starts again makes everything behind it forget its start, so a second target would lose the news. Use a node of its own for each target.",
+      "eventNesting": "This event returns across another agent with an event input. Its session would have to start again without the news it expects. Two cycles one after the other work, nested ones do not.",
+      "branchBoundary": "A decision, a boolean result and an event input belong to the top level of the plan, not inside a group or a loop. A group or loop also cannot lie behind an agent that an event starts again: it would not run again in the next round.",
+      "branchProvider": "An agent with a boolean result or an event input keeps its session open and needs an ACP runner (Codex, Claude Code or OpenCode).",
+      "branchRemote": "An agent with a boolean result or an event input runs on the Pages host only, not on a remote target.",
+      "branchGate": "An agent with a boolean result or an event input cannot use the ticket completion gate. Switch the gate off on this agent.",
       "scriptConfiguration": "Check the script configuration.",
       "scriptReportTarget": "Explicitly bind the review report to a following review script, repair agent or review gate.",
       "scriptReportGate": "Every path from a forwarded review report to End must pass a script review gate.",
@@ -4094,7 +4118,11 @@
     "removeLinkAtTarget": "Disconnect {{name}} at target",
     "linkKind": {
       "flow": "Flow",
-      "data": "Data"
+      "data": "Data",
+      "condition": "Boolean result (bool)",
+      "true": "Branch true",
+      "false": "Branch false",
+      "event": "Event · new prompt"
     },
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
@@ -4166,6 +4194,7 @@
         "stopping": "Stopping",
         "stopped": "Stopped",
         "completed": "Completed",
+        "skipped": "Skipped",
         "blocked": "Blocked",
         "failed": "Failed",
         "unavailable": "Unavailable"
@@ -4652,7 +4681,8 @@
         "parameter": "Parameter",
         "task": "Tickets",
         "group": "Groups",
-        "loop": "Loop"
+        "loop": "Loop",
+        "decision": "Decision"
       },
       "hint": {
         "start": "Add the beginning of a flow.",
@@ -4662,7 +4692,8 @@
         "parameter": "Provide a named input value.",
         "task": "Use a readable ticket as a data source.",
         "group": "Organize agents in a shared ACP group.",
-        "loop": "Repeat agents and scripts as one subgraph, with a session of its own per agent."
+        "loop": "Repeat agents and scripts as one subgraph, with a session of its own per agent.",
+        "decision": "Add a branch: the boolean result of an agent decides which branch continues."
       },
       "addTitle": "Add {{type}}",
       "add": "Add",
@@ -4934,7 +4965,8 @@
         "paused": "Paused",
         "succeeded": "Succeeded",
         "failed": "Failed",
-        "cancelled": "Stopped"
+        "cancelled": "Stopped",
+        "skipped": "Skipped"
       },
       "completion": {
         "count_reached": "Count reached",
@@ -5132,6 +5164,7 @@
         "plan_context_changed": "The plan's project or workspace changed; only a start from the start is possible.",
         "plan_definition_changed": "An agent definition changed; only a start from the start is possible.",
         "checkpoint_mismatch": "A completed result has no matching checkpoint, so it cannot be taken over safely. Start from the start.",
+        "branching_unsupported": "The plan has a decision or an event input. Its rounds cannot be taken over safely; only a start from the start is possible.",
         "nothing_to_release": "Nothing is held.",
         "workflow_unavailable": "Restart and resume are not available in this server composition.",
         "context_not_verified": "The execution context could not be verified."
@@ -5352,6 +5385,63 @@
       "confirmed": "Current work and required checks confirmed",
       "excluded": "Outside this assignment: {{title}} · {{reason}}",
       "missingCheck": "Evidence missing"
+    },
+    "resultOutShort": "Result OUT",
+    "linkLabel": {
+      "condition": "bool",
+      "true": "true",
+      "false": "false",
+      "event": "Event · new prompt"
+    },
+    "decision": {
+      "caption": "Logic",
+      "condition": "Condition",
+      "boolean": "Boolean",
+      "conditionLabel": "Connect the condition of {{name}}",
+      "reads": "{{name}} · Result",
+      "notConnected": "not connected",
+      "footer": "Only one branch is activated",
+      "when": {
+        "true": "Condition met",
+        "false": "Needs rework"
+      },
+      "branch": {
+        "true": "true",
+        "false": "false"
+      },
+      "outLabel": "Connect branch {{branch}} of {{name}}",
+      "evaluated": "Evaluated: {{name}} (pass {{number}}) · {{value}}",
+      "dialog": {
+        "title": "Edit decision",
+        "hint": "At every pass the decision evaluates the boolean result of an agent anew and activates exactly one branch. A missing or invalid value is never treated as false. It is not an LLM agent and calls no model.",
+        "name": "Name (optional)",
+        "condition": "Condition (Boolean)",
+        "none": "–"
+      }
+    },
+    "event": {
+      "in": "Event IN",
+      "caption": "new prompt · optional",
+      "resume": "Resume the existing session",
+      "inLabel": "Connect the event input of {{name}}: a result as the new prompt"
+    },
+    "passed": {
+      "label": "Result",
+      "caption": "bool · true / false",
+      "outLabel": "Connect the boolean result of {{name}}"
+    },
+    "run": {
+      "activation": "Pass {{number}}",
+      "passed": "passed",
+      "notPassed": "not passed",
+      "triggeredBy": "Event from {{names}}",
+      "sessionContinued": "Session continued",
+      "sessionRecovered": "New session (recovered)",
+      "unknownNode": "another node",
+      "history": "Earlier passes",
+      "historyEntry": "Pass {{number}} · {{status}}",
+      "branchTaken": "Branch {{branch}} activated",
+      "decisionInput": "Read: {{name}} (pass {{number}}) · {{value}}"
     }
   },
   "mcpDuration": {

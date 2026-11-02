@@ -9,6 +9,7 @@ import {
 } from "./RunnerExecution.js";
 import { toolInventorySchema } from "./RemoteSetup.js";
 import { planStepExecutionSchema } from "./AgentPlanExecution.js";
+import { runnerContinuationEvidenceSchema } from "./RunnerContinuation";
 import { runnerLiveBatchSchema } from "./RunnerLiveHistory";
 import { runnerTerminalSchema } from "./RunnerTerminal";
 import {
@@ -124,6 +125,8 @@ export const REMOTE_OPENCODE_FAILURES = [
   "antigravity_acp_unsupported",
   "antigravity_acp_session_failed",
   "antigravity_configuration_unmanaged",
+  "plan_runner_session_failed",
+  "acp_session_resume_failed",
 ] as const;
 
 /** Runner-to-Pages messages; every event is acknowledged only after durable storage. */
@@ -174,6 +177,8 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     outputJournalVersion: z.literal(2).optional(),
     /** Runner 1.13.0 keeps CLI provenance outside versioned result payloads. */
     resultPayloadVersion: z.literal(1).optional(),
+    /** Runner 1.16.0 resumes native sessions and proves the tool activity of a writing job. */
+    continuationVersion: z.literal(1).optional(),
   }),
   z.object({
     version: z.literal(1),
@@ -194,6 +199,8 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
         failureCode: z.enum(REMOTE_OPENCODE_FAILURES).optional(),
         stderr: z.string().max(65536).optional(),
         terminal: runnerTerminalSchema.optional(),
+        /** Present only for a job that asked for continuation. */
+        continuation: runnerContinuationEvidenceSchema.optional(),
         storageError: z
           .enum([
             "ENOSPC",

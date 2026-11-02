@@ -6,6 +6,7 @@ import {
   CircleX,
   LoaderCircle,
   LockKeyhole,
+  SkipForward,
   TriangleAlert,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -24,6 +25,7 @@ const STATUS_CLASSES: Record<AgentPlanStepStatus, string> = {
   failed: "border-destructive/40 bg-destructive-subtle text-destructive",
   cancelled: "border-muted-foreground/30 bg-muted text-muted-foreground",
   paused: "border-muted-foreground/30 bg-muted text-muted-foreground",
+  skipped: "border-muted-foreground/30 bg-muted text-muted-foreground",
 };
 
 /** A blocked indicator overrides waiting without changing the recorded base status. */
@@ -37,6 +39,26 @@ export function planStatusClass(
   if (status === "succeeded" && hasOpenReport)
     return "border-warning/40 bg-warning-subtle text-warning";
   return STATUS_CLASSES[status];
+}
+
+/**
+ * The colours of a card while a run is shown: those of its status.
+ *
+ * @remarks
+ * A node on a branch a decision did not activate has a dashed border as well:
+ * it never ran, and nothing waits for it. Its text keeps full strength, since
+ * a dimmed card would fall below the contrast the plan editor guarantees.
+ */
+export function planRunCardClass(
+  result: AgentPlanStepResult | undefined,
+): string {
+  const status = result?.status ?? "waiting";
+  const colors = planStatusClass(
+    isQueuedPlanStep(result) ? "waiting" : status,
+    result?.isBlocked,
+    hasOpenPlanReport(result),
+  );
+  return status === "skipped" ? cn(colors, "border-dashed") : colors;
 }
 
 /** A process can complete while its recorded business report stays open. */
@@ -81,6 +103,7 @@ function PlanStatusIcon({
     failed: CircleX,
     cancelled: Ban,
     paused: CirclePause,
+    skipped: SkipForward,
   }[status];
   let Icon = statusIcon;
   if (status === "succeeded" && hasOpenReport) Icon = TriangleAlert;

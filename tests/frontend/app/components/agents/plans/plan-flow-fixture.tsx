@@ -157,6 +157,7 @@ export function graphActions(
     resolveGroupEdge: vi.fn(),
     replaceStep: vi.fn(),
     replaceNode: vi.fn(),
+    setDecisionCondition: vi.fn(),
     ...overrides,
   };
 }

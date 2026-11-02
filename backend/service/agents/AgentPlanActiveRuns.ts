@@ -57,7 +57,9 @@ function activeStages(
           node === undefined ||
           number === undefined ||
           node.type === "start" ||
-          node.type === "end"
+          node.type === "end" ||
+          // A decision only reads a result; it is no work a person waits for.
+          node.type === "decision"
         )
           return [];
         return [{ id, number, isLoop: node.type === "loop" }];

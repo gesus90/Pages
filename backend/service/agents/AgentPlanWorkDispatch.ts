@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { planOrderEdges } from "@/definition/AgentPlanBranching";
 
 import { planWorkStep } from "./AgentPlanWorkContext";
 import { createPlanCheckpoint } from "./recovery/AgentPlanCheckpoint";
@@ -21,12 +22,20 @@ export async function guardPlanWorkDispatch(
   const own = planWorkStep(snapshot, stepId);
   const visited = new Set<string>();
   const pending = [stepId];
+  // Only the nodes that ordered this start and really ran have a result to revalidate: not the way back of an event, not a skipped branch.
+  const ordering = planOrderEdges(active.snapshot.plan.edges);
+  const succeeded = new Set(
+    active.view.steps
+      .filter((step) => step.status === "succeeded")
+      .map((step) => step.id),
+  );
   while (pending.length) {
     const current = pending.pop();
-    for (const edge of active.snapshot.plan.edges) {
+    for (const edge of ordering) {
       if (edge.to !== current || visited.has(edge.from)) continue;
       visited.add(edge.from);
       pending.push(edge.from);
+      if (!succeeded.has(edge.from)) continue;
       if (!planWorkStep(snapshot, edge.from)?.completionGate) continue;
       if (!gate) throw new AgentError("plan_work_gate_unavailable");
       await gate.verify(active.view.id, edge.from, active.view.userId);
@@ -56,6 +65,9 @@ export function completedPlanWorkCheckpoint(
   changes: Partial<AgentPlanStepResult>,
 ): ReturnType<typeof createPlanCheckpoint> | undefined {
   if (changes.status !== "succeeded") return undefined;
+  // A node that started again keeps the checkpoint of its first completion.
+  const finished = active.view.steps.find((entry) => entry.id === node.id);
+  if ((finished?.activation ?? 1) > 1) return undefined;
   if (!changes.remote)
     return createPlanCheckpoint(active.view, active.snapshot, node.id);
   const remote = active.snapshot.remoteSteps?.find(

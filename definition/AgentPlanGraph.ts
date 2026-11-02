@@ -2,6 +2,14 @@ import { expandPlanGroups, planGroupEdges } from "./AgentPlanGroup";
 import { withPortlessPlanGroups } from "./AgentPlanGroupUpgrade";
 import { planGroupIssues } from "./AgentPlanGroupGraph";
 import { planLoopIssues } from "./AgentPlanLoopGraph";
+import {
+  hasPlanReach,
+  planBranchingExecutionIssues,
+  planBranchingIssues,
+  planEdgeEndpointIssues,
+  planEventOrderIssues,
+} from "./AgentPlanBranchingGraph";
+import { planEdgeKind, planOrderEdges } from "./AgentPlanBranching";
 import { expandPlanLoops } from "./AgentPlanLoop";
 import {
   hasAgentParameterValue,
@@ -61,6 +69,15 @@ export interface AgentPlanIssue {
     | "loopCondition"
     | "loopPrevious"
     | "loopProvider"
+    | "decisionCondition"
+    | "decisionBranch"
+    | "eventOrder"
+    | "eventFanout"
+    | "eventNesting"
+    | "branchBoundary"
+    | "branchProvider"
+    | "branchRemote"
+    | "branchGate"
     | "unsupportedRunNotes"
     | "duplicateNode"
     | "port"
@@ -92,13 +109,14 @@ export interface AgentPlanIssue {
 
 export { hasPlanPath } from "./AgentPlanPath";
 
-/** Start, end, agent, script and loop nodes form the execution graph; tickets, parameters and variables only supply values. */
+/** Start, end, agent, script, decision and loop nodes form the execution graph; tickets, parameters and variables only supply values. */
 export function isPlanFlowNode(node: AgentPlanNode): boolean {
   return (
     node.type === "start" ||
     node.type === "end" ||
     node.type === "agent" ||
     node.type === "script" ||
+    node.type === "decision" ||
     node.type === "loop"
   );
 }
@@ -264,30 +282,18 @@ function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
   const seen = new Set<string>();
   for (const edge of plan.edges) {
-    const source = plan.nodes.find((node) => node.id === edge.from);
-    const target = plan.nodes.find((node) => node.id === edge.to);
-    const validSource =
-      source && ["start", "agent", "script"].includes(source.type);
-    const validTarget =
-      target && ["end", "agent", "script"].includes(target.type);
-    if (!validSource || edge.fromPort !== "flow-out")
-      issues.push({
-        nodeId: edge.from,
-        port: edge.fromPort,
-        reason: source?.type === "group" ? "groupBoundary" : "port",
-      });
-    if (!validTarget || edge.toPort !== "flow-in")
-      issues.push({
-        nodeId: edge.to,
-        port: edge.toPort,
-        reason: target?.type === "group" ? "groupBoundary" : "port",
-      });
+    issues.push(...planEdgeEndpointIssues(plan, edge));
     const key = JSON.stringify([edge.from, edge.to]);
     if (seen.has(key))
-      issues.push({ nodeId: edge.to, port: "flow-in", reason: "duplicate" });
+      issues.push({ nodeId: edge.to, port: edge.toPort, reason: "duplicate" });
     seen.add(key);
+    // An event returns to a node that ran before and orders nothing, so only it may close a cycle.
+    if (planEdgeKind(edge) === "event") {
+      issues.push(...planEventOrderIssues(plan, edge));
+      continue;
+    }
     if (edge.from === edge.to || hasPlanPath(plan.edges, edge.to, edge.from))
-      issues.push({ nodeId: edge.from, port: "flow-out", reason: "cycle" });
+      issues.push({ nodeId: edge.from, port: edge.fromPort, reason: "cycle" });
   }
   return issues;
 }
@@ -373,6 +379,7 @@ export function planConnectionIssues(
     ...edgeIssues(expanded),
     ...planGroupIssues(plan, agents, false),
     ...planLoopIssues(plan, agents, false),
+    ...planBranchingIssues(plan, agents),
   ];
   for (const node of expanded.nodes)
     if (node.type === "agent" || node.type === "script")
@@ -531,8 +538,14 @@ function flowNodeIssues(
   const issues: AgentPlanIssue[] = [];
   const starts = plan.nodes.filter((entry) => entry.type === "start");
   const ends = plan.nodes.filter((entry) => entry.type === "end");
-  if (node.type !== "start" && !plan.edges.some((edge) => edge.to === node.id))
-    issues.push({ nodeId: node.id, port: "flow-in", reason: "flowIn" });
+  // An event enters an agent that already ran; it never replaces the connection that starts it.
+  const ordering = planOrderEdges(plan.edges);
+  if (node.type !== "start" && !ordering.some((edge) => edge.to === node.id))
+    issues.push({
+      nodeId: node.id,
+      port: node.type === "decision" ? "condition-in" : "flow-in",
+      reason: "flowIn",
+    });
   if (node.type !== "end" && !plan.edges.some((edge) => edge.from === node.id))
     issues.push({ nodeId: node.id, port: "flow-out", reason: "flowOut" });
   if (
@@ -542,7 +555,7 @@ function flowNodeIssues(
     issues.push({ nodeId: node.id, port: "flow-in", reason: "unreachable" });
   if (
     node.type !== "end" &&
-    !ends.some((end) => hasPlanPath(plan.edges, node.id, end.id))
+    !ends.some((end) => hasPlanReach(plan.edges, node.id, end.id))
   )
     issues.push({ nodeId: node.id, port: "flow-out", reason: "end" });
   if (node.type === "agent")
@@ -576,6 +589,7 @@ function flowExecutionIssues(
   for (const node of plan.nodes.filter(isPlanFlowNode))
     issues.push(...flowNodeIssues(node, plan, agents));
   issues.push(...scriptReportGraphIssues(plan));
+  issues.push(...planBranchingExecutionIssues(plan));
   return issues;
 }
 

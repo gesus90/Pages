@@ -17,6 +17,7 @@ const STATE_TONES: Record<PlanGroupState, string> = {
   stopping: "text-status-active",
   stopped: "text-muted-foreground",
   completed: "text-success",
+  skipped: "text-muted-foreground",
   blocked: "text-destructive",
   failed: "text-destructive",
   unavailable: "text-destructive",

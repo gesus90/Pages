@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 
+import { setPlanDecisionCondition } from "@/definition/AgentPlanBranchingEdit";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { replacePlanNode } from "@/definition/AgentPlanGroupEdit";
 import { findPlanNodeLocation } from "@/definition/AgentPlanLoopEdit";
@@ -68,6 +69,17 @@ export interface PlanGraphActions
   ) => void;
   readonly replaceStep: (step: AgentPlanStep) => void;
   readonly replaceNode: (node: AgentPlanNode) => void;
+  /**
+   * Makes the boolean result of one agent the condition of a decision.
+   *
+   * @remarks
+   * A decision reads exactly one result, so the earlier condition goes first;
+   * `null` clears it.
+   */
+  readonly setDecisionCondition: (
+    decisionId: string,
+    agentId: string | null,
+  ) => void;
 }
 
 /** The current execution findings marked on canvas nodes and ports. */
@@ -107,6 +119,10 @@ function withMovedNode(
 }
 
 function sameLink(first: PlanLink, second: PlanLink): boolean {
+  if (first.kind === "wire" || second.kind === "wire")
+    return (
+      first.kind === second.kind && planLinkKey(first) === planLinkKey(second)
+    );
   if (first.kind === "flow" && second.kind === "flow")
     return (
       first.from === second.from &&
@@ -250,6 +266,14 @@ export function usePlanGraph(
   function replaceNode(node: AgentPlanNode): void {
     setDraft((previous) => replacePlanNode(previous, node));
   }
+  function setDecisionCondition(
+    decisionId: string,
+    agentId: string | null,
+  ): void {
+    setDraft((previous) =>
+      setPlanDecisionCondition(previous, decisionId, agentId),
+    );
+  }
   return {
     issues: canvasIssues(draft, sources),
     ...selection,
@@ -263,5 +287,6 @@ export function usePlanGraph(
     resolveGroupEdge,
     replaceStep: replaceNode,
     replaceNode,
+    setDecisionCondition,
   };
 }

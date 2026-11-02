@@ -26,7 +26,13 @@ export interface AgentPlanDiagnostic {
   >[];
   readonly name: string;
   readonly status:
-    "waiting" | "running" | "succeeded" | "failed" | "cancelled" | "paused";
+    | "waiting"
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "cancelled"
+    | "paused"
+    | "skipped";
   readonly error: string | null;
   readonly blockedByStepId: string | null;
   readonly target: AgentPlanStepExecution["target"] | null;

@@ -63,8 +63,12 @@ function retryPolicyOf(
     : "provider";
 }
 
+/** Local sessions record tool events; a remote runner proves its tool activity or lack of it. */
 function hasToolActivity(session: AgentPlanSessionRecord): boolean {
-  return session.events.some((event) => event.startsWith("tool "));
+  return (
+    session.events.some((event) => event.startsWith("tool ")) ||
+    (session.effects !== undefined && session.effects.tools !== "none")
+  );
 }
 
 function canResumeSession(session: AgentPlanSessionRecord | null): boolean {
@@ -95,20 +99,36 @@ function hasUnsafeProviderReplay(
   return hasToolActivity(session);
 }
 
-/** A session retry continues natively, opens a clean session, or names the concrete safety blocker. */
+/**
+ * A session retry continues natively, opens a clean session, or names the concrete safety blocker.
+ *
+ * @remarks
+ * Each blocker names a different cause, so none is presented as an
+ * exhausted budget: a break in the cleanup, a native session that is
+ * required but cannot continue, a session that was never kept, a remote
+ * runner without evidence, and tool effects nobody can reconcile.
+ */
 function hasUnsafeSessionReplay(
   session: AgentPlanSessionRecord | null | undefined,
   work: Pick<RetryWork, "isSharedSession" | "isRemote" | "isReadOnly">,
-): boolean {
-  if (!session) return true;
-  if (!hasConfirmedCloseout(session)) return true;
-  if (canResumeSession(session)) return false;
+  requiredResumeSessionId: string | undefined,
+  code: AgentPlanRetryAttempt["code"],
+): AgentPlanRetry["reason"] | null {
+  if (!session) return "effect_unknown";
+  if (!hasConfirmedCloseout(session)) return "closeout_unconfirmed";
+  if (requiredResumeSessionId)
+    return code === "acp_session_resume_failed" ? "resume_unavailable" : null;
+  if (canResumeSession(session)) return null;
   // Replacing a shared session would discard its earlier turns.
-  if (work.isSharedSession) return true;
-  // A remote one-shot has no native resume and records no tool effects; only reading is provably safe.
-  if (work.isRemote && work.isReadOnly !== true) return true;
+  if (work.isSharedSession) return "resume_unavailable";
+  // A runner without continuation support reports neither tool effects nor a session.
+  if (work.isRemote && work.isReadOnly !== true && !session.effects)
+    return "remote_evidence_missing";
+  if (!hasToolActivity(session)) return null;
   // A new native session may duplicate effects whose tool calls were already recorded.
-  return hasToolActivity(session);
+  return session.continuationCapabilities?.canResume === false
+    ? "session_not_kept"
+    : "effect_unknown";
 }
 
 function retryAttempt(
@@ -142,16 +162,6 @@ function retryPolicyFor(
   return null;
 }
 
-function hasUnsafeReplay(
-  policy: AgentPlanRetryPolicy,
-  session: AgentPlanSessionRecord | null | undefined,
-  work: RetryWork,
-): boolean {
-  return policy === "session"
-    ? hasUnsafeSessionReplay(session, work)
-    : hasUnsafeProviderReplay(session, work);
-}
-
 function maximumAttempts(policy: AgentPlanRetryPolicy): number {
   return policy === "session"
     ? PLAN_SESSION_MAXIMUM_ATTEMPTS
@@ -173,6 +183,50 @@ function retryReason(
 ): AgentPlanRetry["reason"] {
   if (resetAt !== null) return "quota";
   return policy === "session" ? "session" : "transient";
+}
+
+/** The native session a tool-using or shared attempt must keep across every later attempt. */
+function pinnedResumeSession(
+  previous: AgentPlanRetry | null,
+  session: AgentPlanSessionRecord | null | undefined,
+  work: RetryWork,
+): string | undefined {
+  if (previous?.requiredResumeSessionId)
+    return previous.requiredResumeSessionId;
+  if (!session || !canResumeSession(session)) return undefined;
+  if (!hasToolActivity(session) && !work.isSharedSession) return undefined;
+  return session.sessionId ?? undefined;
+}
+
+/** What decides whether a failed attempt may be followed by another one. */
+interface BlockerFacts {
+  readonly policy: AgentPlanRetryPolicy;
+  readonly error: string | null | undefined;
+  readonly code: AgentPlanRetryAttempt["code"];
+  readonly session: AgentPlanSessionRecord | null | undefined;
+  readonly requiredResumeSessionId: string | undefined;
+  readonly resetAt: string | null;
+  readonly failedAttempts: number;
+}
+
+/** The concrete reason no further attempt may start, or `null` when one may. */
+function retryBlocker(
+  work: RetryWork,
+  facts: BlockerFacts,
+): AgentPlanRetry["reason"] | null {
+  const { policy, session } = facts;
+  if (policy === "session") {
+    const unsafe = hasUnsafeSessionReplay(
+      session,
+      work,
+      facts.requiredResumeSessionId,
+      facts.code,
+    );
+    if (unsafe) return unsafe;
+  } else if (hasUnsafeProviderReplay(session, work)) return "unsafe";
+  if (facts.error === "provider_quota_exhausted" && facts.resetAt === null)
+    return "reset_unknown";
+  return facts.failedAttempts >= maximumAttempts(policy) ? "exhausted" : null;
 }
 
 function retryDecision(
@@ -199,13 +253,24 @@ function retryDecision(
           reason: "failed",
           nextAttemptAt: null,
         };
-  const base = { policy, attempts, resetAt, nextAttemptAt: null };
-  if (hasUnsafeReplay(policy, session, work))
-    return { ...base, state: "blocked", reason: "unsafe" };
-  if (result.error === "provider_quota_exhausted" && resetAt === null)
-    return { ...base, state: "blocked", reason: "reset_unknown" };
-  if (attempts.length >= maximumAttempts(policy))
-    return { ...base, state: "blocked", reason: "exhausted" };
+  const requiredResumeSessionId = pinnedResumeSession(previous, session, work);
+  const base = {
+    policy,
+    attempts,
+    resetAt,
+    nextAttemptAt: null,
+    ...(requiredResumeSessionId ? { requiredResumeSessionId } : {}),
+  };
+  const blocker = retryBlocker(work, {
+    policy,
+    error: result.error,
+    code,
+    session,
+    requiredResumeSessionId,
+    resetAt,
+    failedAttempts: attempts.length,
+  });
+  if (blocker) return { ...base, state: "blocked", reason: blocker };
   const delay = retryDelay(policy, attempts.length);
   const release =
     resetAt === null ? 0 : Date.parse(resetAt) + RESET_GRACE_MILLISECONDS;
@@ -229,11 +294,14 @@ function retryContinuation(
     const session = work.lastSession();
     const isResumeUsable =
       last?.code !== "acp_session_resume_failed" &&
-      canResumeSession(session) &&
-      session?.sessionId === last?.sessionId;
+      (retry.requiredResumeSessionId !== undefined ||
+        (canResumeSession(session) && session?.sessionId === last?.sessionId));
+    // The newest attempt's session is the one to continue; the pinned ID only covers an attempt that never reported one.
+    const resumeSessionId =
+      last?.sessionId ?? retry.requiredResumeSessionId ?? null;
     return {
       attemptNumber,
-      resumeSessionId: isResumeUsable ? (last?.sessionId ?? null) : null,
+      resumeSessionId: isResumeUsable ? resumeSessionId : null,
       isNewSessionAfterFailure: !isResumeUsable,
     };
   }
@@ -263,10 +331,10 @@ async function waitForRetry(
   work.signal.throwIfAborted();
 }
 
-/** Returns the terminal history of an exhausted sequence instead of starting another attempt. */
-function exhaustedResult(work: RetryWork): Partial<AgentPlanStepResult> | null {
+/** A stored safety block or exhausted budget must never dispatch after recovery. */
+function blockedResult(work: RetryWork): Partial<AgentPlanStepResult> | null {
   const retry = work.previous;
-  if (retry?.state !== "blocked" || retry.reason !== "exhausted") return null;
+  if (retry?.state !== "blocked") return null;
   return {
     status: "failed",
     error: retry.attempts.at(-1)?.code ?? "plan_step_failed",
@@ -285,7 +353,9 @@ async function abortedResult(
   const session = await work.save({
     ...retry,
     state: isPaused ? "waiting" : "cancelled",
-    nextAttemptAt: isPaused ? new Date().toISOString() : null,
+    nextAttemptAt: isPaused
+      ? (retry.nextAttemptAt ?? new Date().toISOString())
+      : null,
   });
   return { ...result, session };
 }
@@ -303,8 +373,8 @@ function finishedRetry(
 export async function runPlanStepWithRetry(
   work: RetryWork,
 ): Promise<Partial<AgentPlanStepResult>> {
-  const exhausted = exhaustedResult(work);
-  if (exhausted) return exhausted;
+  const blocked = blockedResult(work);
+  if (blocked) return blocked;
   let retry = work.previous;
   let continuation: RetryAttemptContext = retry
     ? retryContinuation(retry, work)

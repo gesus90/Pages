@@ -96,12 +96,43 @@ function requireRunIdentity(previous: AgentPlanRun, run: AgentPlanRun): void {
     throw new AgentPlanRecoveryError("action_unavailable");
 }
 
+/** What a frozen plan has of decisions and events, read from its stored shape. */
+interface BranchingShape {
+  readonly hasDecision: boolean;
+  readonly hasEvent: boolean;
+}
+
+/**
+ * Whether the frozen plan has a decision, a boolean result or an event connection.
+ *
+ * @remarks
+ * Such a plan has a node without a checkpoint, the decision, so only the first
+ * completion of a node has one, and a run of it can only be restarted, never
+ * resumed from its checkpoints. Only an event connection lets a node settle
+ * more than once, so only then is an earlier success history, not an
+ * unchangeable fact.
+ */
+function branchingShape(snapshot: unknown): BranchingShape {
+  const plan = readAgentObject(readAgentObject(snapshot).plan);
+  const nodes: readonly unknown[] = Array.isArray(plan.nodes) ? plan.nodes : [];
+  const edges: readonly unknown[] = Array.isArray(plan.edges) ? plan.edges : [];
+  const toPorts = edges.map((entry) => readAgentObject(entry).toPort);
+  return {
+    hasDecision:
+      nodes.some((node) => readAgentObject(node).type === "decision") ||
+      toPorts.includes("condition-in"),
+    hasEvent: toPorts.includes("event-in"),
+  };
+}
+
 function requireImmutableSuccess(
   previous: AgentPlanRun,
   run: AgentPlanRun,
+  isCycle: boolean,
 ): void {
   requireRunIdentity(previous, run);
   requireImmutableIterations(previous, run, successfulWorkDigest);
+  if (isCycle) return;
   for (const completed of previous.steps.filter(
     (step) => step.status === "succeeded",
   )) {
@@ -112,6 +143,18 @@ function requireImmutableSuccess(
     )
       throw new AgentPlanRecoveryError("checkpoint_invalid");
   }
+}
+
+/** The rules for completed work of one write: strict for a plan that runs each node once. */
+function requireSettledWork(
+  previous: StoredProgress,
+  run: AgentPlanRun,
+  checkpoint: AgentPlanCheckpointInput | undefined,
+): void {
+  const { hasDecision, hasEvent } = branchingShape(previous.snapshot);
+  requireImmutableSuccess(previous.run, run, hasEvent);
+  if (!hasDecision && !hasEvent)
+    requireCompletionCheckpoint(previous, run, checkpoint);
 }
 
 function requireCompletionCheckpoint(
@@ -285,7 +328,8 @@ export class AgentPlanProgressRepository {
    * @remarks
    * Runner events own the stored remote projection. A retry therefore needs
    * this explicit transition; a normal update would keep the failed
-   * projection. Only reading retries reach this path.
+   * projection. Retries of reading jobs and of writing jobs whose runner proved
+   * their session and tool activity reach this path.
    */
   public async resetRemoteRetry(
     runId: string,
@@ -374,8 +418,7 @@ export class AgentPlanProgressRepository {
     run: AgentPlanRun,
     checkpoint?: AgentPlanCheckpointInput,
   ): Promise<void> {
-    requireImmutableSuccess(previous.run, run);
-    requireCompletionCheckpoint(previous, run, checkpoint);
+    requireSettledWork(previous, run, checkpoint);
     const revision = previous.revision + 1;
     if (checkpoint) {
       const step = run.steps.find((entry) => entry.id === checkpoint.stepId);

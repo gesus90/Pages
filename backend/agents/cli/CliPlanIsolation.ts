@@ -172,6 +172,14 @@ export class CliPlanIsolation {
         "--bind",
         homeRoot,
         homeRoot,
+        // A refreshed login must reach the connection: the CLI rotates its token and writes the file in place.
+        ...(request.credentialFile
+          ? [
+              "--bind",
+              request.credentialFile.source,
+              request.credentialFile.target,
+            ]
+          : []),
         ...(request.credentialDirectory
           ? [
               "--ro-bind",

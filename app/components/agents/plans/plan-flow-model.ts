@@ -1,5 +1,6 @@
 import { MarkerType } from "@xyflow/react";
 
+import { PLAN_PORT } from "@/definition/AgentPlanBranching";
 import { isPlanFlowNode, isPlanResultNode } from "@/definition/AgentPlanGraph";
 import { planLoopEntries, planLoopExits } from "@/definition/AgentPlanLoop";
 
@@ -53,6 +54,7 @@ export type PlanFlowEdge = Edge<
 export interface PlanFlowConnection {
   readonly source: PlanConnection;
   readonly targetId: string;
+  /** A named data input, or `condition-in` or `event-in`; none for a flow IN. */
   readonly parameter?: string;
 }
 
@@ -177,10 +179,6 @@ export function planFlowEdges(
       reconnectable: false,
       zIndex: EDGE_LAYER,
       ariaLabel: planLinkLabel(plan, sources, link),
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: "var(--color-muted-foreground)",
-      },
     }));
   return [...boundary, ...links];
 }
@@ -231,13 +229,29 @@ function loopBoundaryEdges(loop: AgentPlanLoop): PlanFlowEdge[] {
 
 function targetHandle(link: PlanLink, targetId: string): string {
   if (targetId !== link.to) return `route:${planLinkKey(link)}:to`;
+  if (link.kind === "wire") return link.toPort;
   return link.kind === "flow" ? "flow-in" : `input:${link.parameter}`;
 }
 
 // A data link with a boundary port starts at its legacy group frame, and
 // links of such a frame are never drawn; every drawn data link leaves a value OUT.
+// A wire names the port its edge leaves.
 function sourceHandle(link: PlanLink): string {
+  if (link.kind === "wire") return link.fromPort;
   return link.kind === "flow" ? "flow-out" : "value-out";
+}
+
+/** The output of a decision a source handle belongs to, as an open connection. */
+function branchSource(
+  node: AgentPlanNode,
+  handle: string | null,
+): PlanConnection | null {
+  if (node.type !== "decision") return null;
+  if (handle === PLAN_PORT.trueOut)
+    return { kind: "branch", nodeId: node.id, branch: "true" };
+  if (handle === PLAN_PORT.falseOut)
+    return { kind: "branch", nodeId: node.id, branch: "false" };
+  return null;
 }
 
 /** Resolves a visible source handle to its Pages source, never a visual group route. */
@@ -254,17 +268,31 @@ export function planFlowSource(
       )
       .find((entry) => entry.id === id);
   if (!node) return null;
-  if (handle === "flow-out" && isPlanFlowNode(node) && node.type !== "end")
+  // A decision has no flow OUT of its own; it leaves through its two outputs.
+  if (
+    handle === PLAN_PORT.flowOut &&
+    isPlanFlowNode(node) &&
+    node.type !== "end" &&
+    node.type !== "decision"
+  )
     return { kind: "flow", nodeId: id };
-  if (handle === "value-out" && isPlanResultNode(node))
+  if (handle === PLAN_PORT.valueOut && isPlanResultNode(node))
     return { kind: "result", nodeId: id };
   if (
-    handle === "value-out" &&
+    handle === PLAN_PORT.valueOut &&
     ["task", "parameter", "variable"].includes(node.type)
   )
     return { kind: "source", nodeId: id };
-  return null;
+  if (handle === PLAN_PORT.passedOut && node.type === "agent")
+    return { kind: "passed", nodeId: id };
+  return branchSource(node, handle);
 }
+
+/** The inputs a wire ends at besides the flow IN and the named data inputs. */
+const WIRE_INPUTS: readonly string[] = [
+  PLAN_PORT.conditionIn,
+  PLAN_PORT.eventIn,
+];
 
 /** Converts only explicit, known handle kinds into a domain connection request. */
 export function planFlowConnection(
@@ -277,12 +305,15 @@ export function planFlowConnection(
     connection.sourceHandle,
   );
   if (!source) return null;
-  if (connection.targetHandle === "flow-in")
+  const handle = connection.targetHandle;
+  if (handle === PLAN_PORT.flowIn)
     return { source, targetId: connection.target };
-  if (!connection.targetHandle?.startsWith("input:")) return null;
+  if (handle && WIRE_INPUTS.includes(handle))
+    return { source, targetId: connection.target, parameter: handle };
+  if (!handle?.startsWith("input:")) return null;
   return {
     source,
     targetId: connection.target,
-    parameter: connection.targetHandle.slice("input:".length),
+    parameter: handle.slice("input:".length),
   };
 }

@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
 
+import { PLAN_PORT } from "@/definition/AgentPlanBranching";
+import {
+  connectPlanBranching,
+  setPlanDecisionCondition,
+} from "@/definition/AgentPlanBranchingEdit";
 import { planConnectionIssues } from "@/definition/AgentPlanGraph";
 import {
   bindPlanParameter,
@@ -12,19 +17,61 @@ import type {
   AgentPlanInput,
   AgentPlanSources,
 } from "@/definition/AgentPlan";
+import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { Dispatch, SetStateAction } from "react";
 
-/** The source half of a control, value or predecessor-result connection. */
-export interface PlanConnection {
-  readonly kind: "flow" | "source" | "result";
-  /** A node, or a boundary port of a frame for a source towards its members. */
-  readonly nodeId: string;
-}
+/**
+ * The source half of a control, value, boolean-result, branch or predecessor-result connection.
+ *
+ * @remarks
+ * `flow` is the control OUT of a node, `source` a value source, `result` the
+ * text result of an agent or script, `passed` the boolean result of an agent
+ * and `branch` one output of a decision.
+ */
+export type PlanConnection =
+  | {
+      readonly kind: "flow" | "source" | "result" | "passed";
+      /** A node, or a boundary port of a frame for a source towards its members. */
+      readonly nodeId: string;
+    }
+  | {
+      readonly kind: "branch";
+      readonly nodeId: string;
+      /** The output of the decision the connection leaves through. */
+      readonly branch: AgentPlanBranch;
+    };
 
 /** The plan with the new connection, or the issue that refuses it. */
 type PlanConnectionAttempt =
   { readonly plan: AgentPlanInput } | { readonly issue: AgentPlanIssue };
+
+/** What an attempt knows: the draft, the sources, the open connection and what the draft already has to complain about. */
+interface PlanConnectionContext {
+  readonly draft: AgentPlanInput;
+  readonly sources: AgentPlanSources;
+  readonly connection: PlanConnection;
+  /** The findings of the draft before the connection; asked once, only when a connection is checked. */
+  readonly known: () => ReadonlySet<string>;
+}
+
+function issueKey(issue: AgentPlanIssue): string {
+  return `${issue.nodeId ?? ""}|${issue.port ?? ""}|${issue.reason}`;
+}
+
+/** Remembers the findings of one draft, so that a connection is refused for what it adds only. */
+function knownIssues(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+): () => ReadonlySet<string> {
+  let known: ReadonlySet<string> | null = null;
+  return () => {
+    known ??= new Set(
+      planConnectionIssues(draft, sources.agents).map(issueKey),
+    );
+    return known;
+  };
+}
 
 /** The bindings of an agent node, inside a frame too, or of a script. */
 function targetBindings(
@@ -37,10 +84,104 @@ function targetBindings(
 
 function checked(
   next: AgentPlanInput,
-  sources: AgentPlanSources,
+  context: PlanConnectionContext,
 ): PlanConnectionAttempt {
-  const issue = planConnectionIssues(next, sources.agents)[0];
+  // An unrelated finding of the draft, such as an event whose way back was cut, must not block a new connection.
+  const known = context.known();
+  const issue = planConnectionIssues(next, context.sources.agents).find(
+    (entry) => !known.has(issueKey(entry)),
+  );
   return issue ? { issue } : { plan: next };
+}
+
+function typeIssue(id: string, port: string): PlanConnectionAttempt {
+  return { issue: { nodeId: id, port, reason: "type" } };
+}
+
+/** The boolean result of an agent into the condition of a decision. */
+function attemptCondition(
+  context: PlanConnectionContext,
+  id: string,
+): PlanConnectionAttempt {
+  const { draft, connection } = context;
+  if (connection.kind !== "passed") return typeIssue(id, PLAN_PORT.conditionIn);
+  return checked(
+    connectPlanBranching(draft, {
+      kind: "condition",
+      from: connection.nodeId,
+      to: id,
+    }),
+    context,
+  );
+}
+
+/**
+ * The finding that refuses an agent as the condition of a decision, or `null`.
+ *
+ * @param draft - The plan as it is now.
+ * @param sources - What the plan can use.
+ * @param decisionId - The decision whose condition changes.
+ * @param agentId - The agent to read; `null` clears the condition and is never refused.
+ *
+ * @remarks
+ * The rules are those of a line drawn from the boolean result to the
+ * condition, so the dialog and the canvas agree. Only what the change adds
+ * counts: a plan that already has other findings can still be edited.
+ */
+export function planConditionRefusal(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+  decisionId: string,
+  agentId: string | null,
+): AgentPlanIssue | null {
+  if (agentId === null) return null;
+  const known = knownIssues(draft, sources)();
+  const next = setPlanDecisionCondition(draft, decisionId, agentId);
+  return (
+    planConnectionIssues(next, sources.agents).find(
+      (issue) => !known.has(issueKey(issue)),
+    ) ?? null
+  );
+}
+
+/** The text result of an agent or script into the event input of an agent. */
+function attemptEvent(
+  context: PlanConnectionContext,
+  id: string,
+): PlanConnectionAttempt {
+  const { draft, connection } = context;
+  if (connection.kind !== "result") return typeIssue(id, PLAN_PORT.eventIn);
+  return checked(
+    connectPlanBranching(draft, {
+      kind: "event",
+      from: connection.nodeId,
+      to: id,
+    }),
+    context,
+  );
+}
+
+/** A control OUT, or an output of a decision, into a flow IN. */
+function attemptFlow(
+  context: PlanConnectionContext,
+  id: string,
+): PlanConnectionAttempt {
+  const { draft, connection } = context;
+  if (connection.kind === "branch")
+    return checked(
+      connectPlanBranching(draft, {
+        kind: "branch",
+        from: connection.nodeId,
+        branch: connection.branch,
+        to: id,
+      }),
+      context,
+    );
+  if (connection.kind !== "flow") return typeIssue(id, PLAN_PORT.flowIn);
+  const next = connectPlanFlow(draft, connection.nodeId, id);
+  return typeof next === "string"
+    ? { issue: { nodeId: id, port: PLAN_PORT.flowIn, reason: next } }
+    : checked(next, context);
 }
 
 /**
@@ -48,28 +189,21 @@ function checked(
  *
  * @remarks
  * A data IN takes one binding; a connected IN must be disconnected before it
- * is bound again.
+ * is bound again. `parameter` names a data input, or one of the branching
+ * inputs `condition-in` and `event-in`, whose hyphen no parameter name has;
+ * without it the connection ends at a flow IN.
  */
 function attemptConnection(
-  context: {
-    readonly draft: AgentPlanInput;
-    readonly sources: AgentPlanSources;
-    readonly connection: PlanConnection;
-  },
+  context: PlanConnectionContext,
   id: string,
   parameter?: string,
 ): PlanConnectionAttempt | null {
-  const { draft, sources, connection } = context;
-  if (connection.kind === "flow" && parameter === undefined) {
-    const next = connectPlanFlow(draft, connection.nodeId, id);
-    return typeof next === "string"
-      ? { issue: { nodeId: id, port: "flow-in", reason: next } }
-      : checked(next, sources);
-  }
-  if (connection.kind === "flow" || parameter === undefined)
-    return {
-      issue: { nodeId: id, port: parameter ?? "flow-in", reason: "type" },
-    };
+  const { draft, connection } = context;
+  if (parameter === PLAN_PORT.conditionIn) return attemptCondition(context, id);
+  if (parameter === PLAN_PORT.eventIn) return attemptEvent(context, id);
+  if (parameter === undefined) return attemptFlow(context, id);
+  if (connection.kind !== "source" && connection.kind !== "result")
+    return typeIssue(id, parameter);
   const bindings = targetBindings(draft, id);
   if (!bindings) return null;
   if (Object.hasOwn(bindings, parameter))
@@ -78,7 +212,7 @@ function attemptConnection(
     connection.kind === "source"
       ? { kind: "source", nodeId: connection.nodeId }
       : { kind: "result", stepId: connection.nodeId };
-  return checked(bindPlanParameter(draft, id, parameter, binding), sources);
+  return checked(bindPlanParameter(draft, id, parameter, binding), context);
 }
 
 /** Answers whether the open connection may end at an IN, each IN checked once. */
@@ -88,17 +222,32 @@ function connectionVerdicts(context: {
   readonly connection: PlanConnection | null;
 }): (id: string, parameter?: string) => boolean {
   const { connection } = context;
-  const known = new Map<string, boolean>();
+  const answers = new Map<string, boolean>();
+  // All INs of one draft share the findings the draft already has.
+  const known = knownIssues(context.draft, context.sources);
   return (id, parameter) => {
     if (!connection) return false;
     const key = `${id}:${parameter ?? ""}`;
-    const cached = known.get(key);
+    const cached = answers.get(key);
     if (cached !== undefined) return cached;
-    const result = attemptConnection({ ...context, connection }, id, parameter);
+    const result = attemptConnection(
+      { ...context, connection, known },
+      id,
+      parameter,
+    );
     const isAllowed = result !== null && "plan" in result;
-    known.set(key, isAllowed);
+    answers.set(key, isAllowed);
     return isAllowed;
   };
+}
+
+/** The context of one attempt on one draft. */
+function attemptContext(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+  connection: PlanConnection,
+): PlanConnectionContext {
+  return { draft, sources, connection, known: knownIssues(draft, sources) };
 }
 
 /** Uses the same port rules as the server; a connected IN must be disconnected before rebinding. */
@@ -148,7 +297,7 @@ export function usePlanConnections(
     parameter?: string,
   ): boolean {
     const result = attemptConnection(
-      { draft, sources, connection: source },
+      attemptContext(draft, sources, source),
       id,
       parameter,
     );
@@ -160,7 +309,7 @@ export function usePlanConnections(
     parameter?: string,
   ): void {
     const result = attemptConnection(
-      { draft: currentDraft?.() ?? draft, sources, connection: source },
+      attemptContext(currentDraft?.() ?? draft, sources, source),
       id,
       parameter,
     );
@@ -172,7 +321,7 @@ export function usePlanConnections(
     setIssue(null);
     setDraft((previous) => {
       const current = attemptConnection(
-        { draft: previous, sources, connection: source },
+        attemptContext(previous, sources, source),
         id,
         parameter,
       );

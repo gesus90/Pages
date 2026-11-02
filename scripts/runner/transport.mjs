@@ -17,7 +17,7 @@ import { RunnerSchedule } from "./schedule.mjs";
 import { handleProvider } from "./provider.mjs";
 import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 
-const RUNNER_VERSION = "1.15.0";
+const RUNNER_VERSION = "1.16.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -259,6 +259,7 @@ async function receiveRegistration(message, channel) {
     liveHistoryVersion: 1,
     outputJournalVersion: 2,
     resultPayloadVersion: 1,
+    continuationVersion: 1,
     communicationVersion: 1,
     executionLeaseVersion: 1,
     planControlVersion: 1,

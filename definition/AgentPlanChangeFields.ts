@@ -29,6 +29,7 @@ export const PLAN_NODE_FIELDS = {
     "outputs",
     "timeoutSeconds",
   ],
+  decision: ["name"],
   task: ["taskId"],
   parameter: ["name", "format", "value"],
   variable: [],

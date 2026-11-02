@@ -1,3 +1,4 @@
+import type { AgentPlanIssueProblem } from "./AgentPlanIssueProblems.js";
 import type { AgentPlanWriterWait } from "./AgentPlanExecution.js";
 import type { AgentWorkspaceCleanup } from "./AgentWorkspaceCleanup.js";
 import type { AgentPlanCompletionGate } from "./AgentPlanWork.js";
@@ -68,81 +69,10 @@ export type AgentPlanReadOperation =
 export type AgentPlanWriteOperation =
   (typeof AGENT_PLAN_WRITE_OPERATIONS)[number];
 
-/**
- * Why the graph check refused a plan, as the plan page names it.
- *
- * @remarks
- * Declared here because the MCP package type-checks this file on its own; the
- * graph check of Pages uses exactly these names.
- */
-export const AGENT_PLAN_ISSUE_PROBLEMS = [
-  "remoteModel",
-  "remoteInterpreter",
-  "remoteInterpreterRemoved",
-  "remoteCatalogStale",
-  "remoteContainer",
-  "remoteOffline",
-  "remoteIdentity",
-  "remoteCatalog",
-  "remoteWorkspace",
-  "remoteToolMissing",
-  "remoteLogin",
-  "remoteLoginUnknown",
-  "remoteOptions",
-  "remoteRunnerUpdate",
-  "remoteToolIncompatible",
-  "remotePagesUnavailable",
-  "remoteTicketUnavailable",
-  "remoteWikiUnavailable",
-  "remoteWorkspaceParameter",
-  "remoteAssetRunner",
-  "remoteAssetUnavailable",
-  "remoteAssetType",
-  "remoteAssetsTooLarge",
-  "remoteParameter",
-  "remotePromptTooLarge",
-  "groupSize",
-  "groupProvider",
-  "groupConfiguration",
-  "groupOrder",
-  "groupBoundary",
-  "groupBinding",
-  "loopSize",
-  "loopBoundary",
-  "loopRuns",
-  "loopCondition",
-  "loopPrevious",
-  "loopProvider",
-  "unsupportedRunNotes",
-  "duplicateNode",
-  "port",
-  "duplicate",
-  "cycle",
-  "type",
-  "ticketHandoff",
-  "resultSource",
-  "resultOrder",
-  "resultMissing",
-  "resultAmbiguous",
-  "source",
-  "required",
-  "start",
-  "end",
-  "flowIn",
-  "flowOut",
-  "unreachable",
-  "agent",
-  "name",
-  "json",
-  "number",
-  "scriptUnavailable",
-  "scriptConfiguration",
-  "scriptReportTarget",
-  "scriptReportGate",
-  "loopScriptUnsupported",
-] as const;
-
-export type AgentPlanIssueProblem = (typeof AGENT_PLAN_ISSUE_PROBLEMS)[number];
+export {
+  AGENT_PLAN_ISSUE_PROBLEMS,
+  type AgentPlanIssueProblem,
+} from "./AgentPlanIssueProblems.js";
 
 /** One finding of the graph check: the node and port it concerns, and what is wrong. */
 export interface AgentPlanIssueEntry {
@@ -319,7 +249,7 @@ export type AgentPlanNodeEntry =
   | AgentPlanGroupNodeEntry
   | AgentPlanLoopNodeEntry
   | AgentPlanParameterNodeEntry
-  | (AgentPlanNodeBase & { readonly type: "start" | "end" })
+  | (AgentPlanNodeBase & { readonly type: "start" | "end" | "decision" })
   | (AgentPlanNodeBase & { readonly type: "task"; readonly taskId: string })
   | (AgentPlanNodeBase & { readonly type: "variable"; readonly name: string });
 
@@ -512,7 +442,7 @@ export interface AgentPlanRunStepEntry {
   readonly attemptId?: string;
   readonly stepId: string;
   readonly name: string;
-  readonly status: "waiting" | AgentPlanRunStatus;
+  readonly status: "waiting" | "skipped" | AgentPlanRunStatus;
   readonly isBlocked: boolean;
   /** A failed or cancelled predecessor that prevented this node from running. */
   readonly blockedByStepId?: string;

@@ -73,7 +73,8 @@ function describeFlow(plan: AgentPlan): AgentPlanRunFlow {
         node !== undefined &&
         isPlanFlowNode(node) &&
         node.type !== "start" &&
-        node.type !== "end"
+        node.type !== "end" &&
+        node.type !== "decision"
       );
     },
     isEntry: (nodeId) => {

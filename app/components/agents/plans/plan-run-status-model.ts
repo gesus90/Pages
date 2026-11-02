@@ -46,6 +46,8 @@ export function planSequencePreview(
       (entry) => entry.id === id,
     );
     if (!node) return id;
+    if (node.type === "decision")
+      return node.name ?? translate("plans.nodeType.decision");
     return node.type === "start" || node.type === "end"
       ? translate(`plans.nodeType.${node.type}`)
       : planNodeLabel(node, sources);
@@ -116,6 +118,9 @@ export function statusTone(
 ): string {
   if (step.isBlocked || step.status === "failed")
     return "bg-destructive text-primary-foreground hover:bg-destructive";
+  // A node on a branch that was not activated never ran; it stays quiet next to the steps that did, with a muted fill that keeps its number readable.
+  if (step.status === "skipped")
+    return "bg-muted text-plan-muted-foreground hover:bg-muted";
   if (hasOpenPlanReport(step))
     return "bg-warning-subtle text-warning hover:bg-warning-subtle";
   if (step.status === "succeeded")

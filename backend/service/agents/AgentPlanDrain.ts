@@ -1,4 +1,5 @@
 import { patchStep } from "./AgentPlanRunState";
+import { planReadiness } from "./branching/AgentPlanBranchEdges";
 import { createPlanCheckpoint } from "./recovery/AgentPlanCheckpoint";
 
 import type { ActivePlanRun } from "./AgentPlanRunState";
@@ -15,24 +16,20 @@ export async function completePlanDrain(
     active.view.controlError
   )
     return;
+  // A node on a branch that was not taken has nothing left to do.
   const remaining = active.snapshot.plan.nodes.filter((node) =>
     active.view.steps.some(
-      (step) => step.id === node.id && step.status !== "succeeded",
+      (step) =>
+        step.id === node.id &&
+        step.status !== "succeeded" &&
+        step.status !== "skipped",
     ),
   );
   if (remaining.length === 0 || remaining.some((node) => node.type !== "end"))
     return;
   for (const node of remaining) {
-    const predecessors = active.snapshot.plan.edges.filter(
-      (edge) => edge.to === node.id,
-    );
-    if (
-      !predecessors.every((edge) =>
-        active.view.steps.some(
-          (step) => step.id === edge.from && step.status === "succeeded",
-        ),
-      )
-    )
+    const results = new Map(active.view.steps.map((step) => [step.id, step]));
+    if (planReadiness(active.snapshot.plan, results, node.id) !== "ready")
       return;
     patchStep(active, node.id, {
       status: "succeeded",

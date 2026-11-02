@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { hasPlanBranching } from "@/definition/AgentPlanBranching";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 import {
   inPlanSequence,
@@ -53,6 +54,18 @@ export function planWritingWorkspaces(
   ];
 }
 
+/** The rounds a cycle has behind it cannot be compared with another revision of its plan. */
+function requireSameBranchingRevision(
+  previous: AgentPlanSnapshot,
+  next: AgentPlanSnapshot,
+): void {
+  if (
+    (hasPlanBranching(previous.plan) || hasPlanBranching(next.plan)) &&
+    previous.plan.revision !== next.plan.revision
+  )
+    throw new AgentError("plan_branching_revision");
+}
+
 function requireBoundary(
   run: AgentPlanRun,
   previous: AgentPlanSnapshot,
@@ -61,6 +74,7 @@ function requireBoundary(
   const boundary = run.pauseBoundary;
   if (!boundary || run.stopRequested || run.status !== "paused")
     throw new AgentError("plan_run_unavailable");
+  requireSameBranchingRevision(previous, next);
   // A paused run keeps the context it started with, its plan target included.
   if (
     previous.plan.projectId !== next.plan.projectId ||
@@ -224,6 +238,29 @@ function requireRetryRouting(
   }
 }
 
+/**
+ * What a node of a cycle keeps of its starts when its run goes on.
+ *
+ * @remarks
+ * The count, the earlier starts and the event that started the node again
+ * belong to the run, not to the paused wait. Without them a start would be
+ * counted twice, its result would collide with an earlier one, and the node
+ * would start again without the news that caused it.
+ */
+function keptStarts(
+  plan: AgentPlanSnapshot["plan"],
+  previous: AgentPlanStepResult | undefined,
+): Partial<AgentPlanStepResult> {
+  if (!previous || !hasPlanBranching(plan)) return {};
+  return {
+    ...(previous.activation === undefined
+      ? {}
+      : { activation: previous.activation }),
+    ...(previous.history === undefined ? {} : { history: previous.history }),
+    ...(previous.trigger === undefined ? {} : { trigger: previous.trigger }),
+  };
+}
+
 function resumedSteps(
   run: AgentPlanRun,
   next: AgentPlanSnapshot,
@@ -244,6 +281,7 @@ function resumedSteps(
       cancellation: "none",
       output: null,
       error: null,
+      ...keptStarts(next.plan, previous),
       ...(previous?.session?.retry ? { session: previous.session } : {}),
     };
   });

@@ -125,6 +125,14 @@ export function readPlanNode(input: unknown): AgentPlanNode {
   if (node.type === "group") return readGroupNode(node, base);
   if (node.type === "loop") return readLoopNode(node, base);
   if (node.type === "script") return readScriptNode(node, base);
+  if (node.type === "decision")
+    return {
+      ...base,
+      type: "decision",
+      ...(node.name === undefined
+        ? {}
+        : { name: readPlanText(node.name, 120) }),
+    };
   if (node.type === "task")
     return { ...base, type: "task", taskId: readPlanText(node.taskId) };
   if (node.type === "variable") {

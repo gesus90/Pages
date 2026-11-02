@@ -88,6 +88,11 @@ export class ScheduledAcpSession implements PlanSession {
     }
   }
 
+  /** Whether an idle retirement or a close has begun, before the session reports its end. */
+  public get isClosing(): boolean {
+    return this.closing !== null;
+  }
+
   /** Serializes closeout and only returns confirmed when capacity can safely be released. */
   public close(): Promise<PlanSessionClosed> {
     this.closing ??= this.closeOnce();

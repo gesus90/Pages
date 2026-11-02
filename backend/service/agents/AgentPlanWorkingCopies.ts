@@ -5,7 +5,7 @@ import {
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
 
-import { hasPlanPath } from "./AgentPlanGraph";
+import { arePlanNodesOrdered, hasPlanPath } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 import { overlapsWorkspacePath } from "./AgentWorkspacePath";
 import {
@@ -36,10 +36,7 @@ function validateAgentWorkingCopies(
         !sameWorkingCopy(firstDirectory, secondDirectory)
       )
         continue;
-      if (
-        !hasPlanPath(plan.edges, first.step.id, second.step.id) &&
-        !hasPlanPath(plan.edges, second.step.id, first.step.id)
-      )
+      if (!arePlanNodesOrdered(plan.edges, first.step.id, second.step.id))
         throw new AgentPlanWorkspaceConflictError(
           workspaceConflict("parallel_writers", [
             localWorkspaceEntry(firstDirectory, first.step.id, first.name),

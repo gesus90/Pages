@@ -207,18 +207,26 @@ export async function cliInventory(context = {}) {
   return tools;
 }
 
+/**
+ * The `codex exec` command line of one job.
+ *
+ * @remarks
+ * A continuation job keeps its rollout on this host, so the session is not
+ * ephemeral; a retry then runs `exec resume` with the recorded thread. The
+ * options of the subcommand follow it, while folder and colour stay with
+ * `exec`, as the CLI accepts them.
+ */
 function codexArguments(command, pagesArgs) {
   const program = command.program;
-  const args = [
-    "exec",
+  const continuation = command.continuation;
+  const resume = continuation?.resumeSessionId;
+  const options = [
     "--skip-git-repo-check",
-    "--ephemeral",
+    ...(continuation ? [] : ["--ephemeral"]),
     "--ignore-user-config",
-    "--color",
-    "never",
+    ...(resume ? [] : ["--color", "never"]),
     "--json",
-    "-C",
-    command.workspace,
+    ...(resume ? [] : ["-C", command.workspace]),
     "-m",
     program.model,
     "-c",
@@ -230,6 +238,17 @@ function codexArguments(command, pagesArgs) {
     "-c",
     "features.multi_agent=false",
   ];
+  const args = resume
+    ? [
+        "exec",
+        "--color",
+        "never",
+        "-C",
+        command.workspace,
+        "resume",
+        ...options,
+      ]
+    : ["exec", ...options];
   if (program.access === "yolo")
     args.push("--dangerously-bypass-approvals-and-sandbox");
   else
@@ -248,6 +267,7 @@ function codexArguments(command, pagesArgs) {
   if (program.reasoningEffort !== null)
     args.push("-c", `model_reasoning_effort="${program.reasoningEffort}"`);
   args.push(...pagesArgs);
+  if (resume) args.push(resume);
   args.push("-");
   return args;
 }
@@ -261,7 +281,11 @@ function claudeArguments(command, pagesArgs) {
     "--verbose",
     "--include-partial-messages",
     "--strict-mcp-config",
-    "--no-session-persistence",
+    // A continuation job keeps its session on this host so that a retry can resume it.
+    ...(command.continuation ? [] : ["--no-session-persistence"]),
+    ...(command.continuation?.resumeSessionId
+      ? ["--resume", command.continuation.resumeSessionId]
+      : []),
     ...(command.pagesAccess === 1
       ? [
           "--setting-sources",
@@ -324,6 +348,7 @@ async function spawnOpenCode(command, jobId, signal, folder) {
         model: program.model,
         reasoningEffort: program.reasoningEffort,
         access: program.access,
+        resumeSessionId: command.continuation?.resumeSessionId,
         mcpServers: bridge
           ? [
               {
@@ -383,6 +408,7 @@ async function spawnAntigravity(command, jobId, signal, folder) {
         model: program.model,
         reasoningEffort: program.reasoningEffort,
         access: program.access,
+        resumeSessionId: command.continuation?.resumeSessionId,
         mcpServers: bridge
           ? [
               {

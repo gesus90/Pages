@@ -9,6 +9,7 @@ import {
   planRemoteAccessSchema,
 } from "@/definition/AgentPlanRemoteAccess";
 
+import { readPlanActivationFields } from "./AgentPlanActivationInput";
 import { readPlanProgress } from "./AgentPlanProgressInput";
 import { readPlanText } from "./AgentPlanInput";
 import { readPlanSessionRecord } from "./AgentPlanSessionInput";
@@ -54,6 +55,7 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     ...display,
     session: readPlanSessionRecord(step.session),
     ...readStepArtifacts(step),
+    ...readPlanActivationFields(step),
   };
 }
 
@@ -117,6 +119,7 @@ export function isStepStatus(input: unknown): input is AgentPlanStepStatus {
       "failed",
       "cancelled",
       "paused",
+      "skipped",
     ].includes(input)
   );
 }

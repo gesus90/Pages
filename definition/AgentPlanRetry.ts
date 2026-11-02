@@ -11,6 +11,7 @@ export type AgentPlanSessionRetryCode =
   | "plan_claude_acp_session_failed"
   | "opencode_acp_session_failed"
   | "antigravity_acp_session_failed"
+  | "plan_runner_session_failed"
   | "acp_session_resume_failed";
 
 /** A retry policy is fixed by the first classified failure of one attempt sequence. */
@@ -41,11 +42,18 @@ export interface AgentPlanRetry {
     | "reset_unknown"
     | "exhausted"
     | "unsafe"
+    | "closeout_unconfirmed"
+    | "resume_unavailable"
+    | "session_not_kept"
+    | "remote_evidence_missing"
+    | "effect_unknown"
     | "session"
     | "failed";
   readonly nextAttemptAt: string | null;
   readonly resetAt: string | null;
   readonly attempts: readonly AgentPlanRetryAttempt[];
+  /** A tool-using or shared session must keep this native conversation across attempts. */
+  readonly requiredResumeSessionId?: string;
 }
 
 /** Ten retries follow the original attempt, never ten unbounded worker restarts. */

@@ -27,6 +27,7 @@ import type { AgentWorkspaceChoice, WorkspaceGitHub } from "./AgentWorkspace";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
+import type { AgentPlanBranch } from "./AgentPlanBranching";
 import type {
   AgentPlanRemoteStatus,
   AgentPlanRemoteChoice,
@@ -89,12 +90,29 @@ export interface AgentPlanParameter extends AgentPlanPosition {
   readonly value: AgentParameterValue;
 }
 
+/**
+ * A decision: evaluates a boolean result and activates exactly one of its two flow outputs.
+ *
+ * @remarks
+ * The decision is no agent and calls no model. Its condition is the boolean
+ * result of one agent, connected as an edge to its `condition-in` port. Each
+ * time that result arrives anew, the decision evaluates it again; an earlier
+ * evaluation is never a lasting choice.
+ */
+export interface AgentPlanDecision extends AgentPlanPosition {
+  readonly id: string;
+  readonly type: "decision";
+  /** Shown instead of the type name when set. */
+  readonly name?: string;
+}
+
 /** Source nodes provide input; they never create an execution dependency. */
 export type AgentPlanNode =
   | AgentPlanStep
   | AgentPlanScript
   | AgentPlanGroup
   | AgentPlanLoop
+  | AgentPlanDecision
   | AgentPlanParameter
   | (AgentPlanPosition & { readonly id: string; readonly type: "end" })
   | (AgentPlanPosition & {
@@ -246,8 +264,65 @@ export interface AgentPlanPage {
   readonly directory: AgentProfileDirectory;
 }
 
+/**
+ * The state of a node in a run.
+ *
+ * @remarks
+ * `skipped` marks a node on a branch a decision did not activate; it never
+ * ran and nothing waits for it.
+ */
 export type AgentPlanStepStatus =
-  "waiting" | "running" | "succeeded" | "failed" | "cancelled" | "paused";
+  | "waiting"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled"
+  | "paused"
+  | "skipped";
+
+/** One start of a node whose result an event carried. */
+export interface AgentPlanActivationSource {
+  readonly stepId: string;
+  /** Which start of the node delivered the result. */
+  readonly activation: number;
+}
+
+/**
+ * What started a node again: results of other nodes arrived at its event input.
+ *
+ * @remarks
+ * The prompt is made of those results, which the run already shows; the
+ * trigger names the nodes and starts it was made of, and its size. Results
+ * that arrive together start the node once, not once each.
+ */
+export interface AgentPlanActivationTrigger {
+  readonly kind: "event";
+  readonly sources: readonly AgentPlanActivationSource[];
+  readonly promptLength: number;
+}
+
+/** The value a decision evaluated: the boolean result of one start of one agent. */
+export interface AgentPlanDecisionInput {
+  readonly sourceStepId: string;
+  /** Which start of the agent delivered the value. */
+  readonly sourceActivation: number;
+  readonly value: boolean;
+}
+
+/** An earlier start of a node that ran again, kept so the rounds of a cycle stay readable. */
+export interface AgentPlanStepActivation {
+  /** Counts from 1. */
+  readonly activation: number;
+  readonly status: AgentPlanStepStatus;
+  readonly output: string | null;
+  readonly error: string | null;
+  readonly passed?: boolean;
+  readonly branch?: AgentPlanBranch;
+  readonly condition?: AgentPlanDecisionInput;
+  readonly trigger?: AgentPlanActivationTrigger;
+  readonly startedAt: string | null;
+  readonly endedAt: string | null;
+}
 
 /** Blocked waiting steps and confirmed cancellations remain distinguishable. */
 export interface AgentPlanStepResult {
@@ -280,6 +355,30 @@ export interface AgentPlanStepResult {
   readonly report?: AgentPlanScriptAssessment;
   /** Authorized read-time projection, separate from persisted acceptance. */
   readonly progress?: AgentPlanProgress;
+  /**
+   * Which start of the node this result belongs to, counting from 1.
+   *
+   * @remarks
+   * Absent in runs without a decision or retrigger, where every node ran at
+   * most once. Whatever settles a node is accepted only for the start it
+   * belongs to, so a late answer of an earlier round never replaces a newer
+   * result.
+   */
+  readonly activation?: number;
+  /**
+   * The boolean result of an agent a decision reads: `true` when its closing
+   * report showed every todo done and every criterion met, `false` when the
+   * report was valid but showed unmet work.
+   */
+  readonly passed?: boolean;
+  /** The output a decision activated in this start. */
+  readonly branch?: AgentPlanBranch;
+  /** The boolean result a decision evaluated in this start, and the start of the agent it came from. */
+  readonly condition?: AgentPlanDecisionInput;
+  /** What started this node again; absent for its first start. */
+  readonly trigger?: AgentPlanActivationTrigger;
+  /** The earlier starts of the node, oldest first. */
+  readonly history?: readonly AgentPlanStepActivation[];
 }
 
 /** Only the executor may read this sanitized view or request its stop. */

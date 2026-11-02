@@ -6,6 +6,7 @@ import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
 import { PLAN_FIT_VIEW, PlanCanvasControls } from "./plan-canvas-controls";
+import { planRefusalKey } from "./plan-connection-refusal";
 import { PlanFlowConnectionLine } from "./plan-flow-connection-line";
 import { PlanFlowContext, usePlanFlowContext } from "./plan-flow-context";
 import { PlanFlowEdgeView } from "./plan-flow-edge";
@@ -281,7 +282,7 @@ function PlanConnectionHint(): React.ReactElement | null {
         issue ? "border-destructive/40 text-destructive" : "border-border",
       )}
     >
-      {issue ? t(`plans.validation.${issue.reason}`) : t("plans.connectHint")}
+      {issue ? t(planRefusalKey(issue)) : t("plans.connectHint")}
       <Button size="xs" variant="ghost" onClick={cancelConnection}>
         {t("settings.agents.cancel")}
       </Button>

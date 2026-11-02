@@ -61,10 +61,12 @@ export function createPlanSessionObserver(
     identified: (sessionId) => {
       const group = node.record?.group;
       const loop = node.record?.loop;
+      const event = node.record?.event;
       write({
         sessionId,
         ...(group ? { group: { ...group, acpSessionId: sessionId } } : {}),
         ...(loop ? { loop: { ...loop, acpSessionId: sessionId } } : {}),
+        ...(event ? { event: { ...event, acpSessionId: sessionId } } : {}),
       });
     },
     progressed: (events) => {

@@ -8,6 +8,11 @@ import {
   boundAntigravityHome,
   requireBoundAntigravityHome,
 } from "./AntigravityContextBinding";
+import {
+  PLAN_RETENTION_FILE,
+  PLAN_RETENTION_MILLISECONDS,
+  PLAN_SESSIONS_DIRECTORY,
+} from "./ClaudePlanSessionHome";
 
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AntigravityContextBinding } from "./AntigravityContextBinding";
@@ -195,6 +200,7 @@ export class AgentCredentialStore {
         await this.ensureDirectory(directory);
       }
       await this.secureTree(home.root);
+      if (provider === "claude_code") await this.prunePlanSessions(home.root);
       return home;
     } catch (caughtError: unknown) {
       logCaughtError("AgentCredentialStore", caughtError);
@@ -245,6 +251,54 @@ export class AgentCredentialStore {
       logCaughtError("AgentCredentialStore", caughtError);
 
       throw new AgentError("credential_cleanup_failed");
+    }
+  }
+
+  /** Deletes completed plan transcripts and retains failed ones for explicit recovery for seven days. */
+  public async finishPlanRun(
+    runId: string,
+    status: "succeeded" | "failed" | "cancelled",
+  ): Promise<void> {
+    if (!UUID_PATTERN.test(runId) || !(await this.exists(this.root))) return;
+    for (const connection of await this.files.readdir(this.root, {
+      withFileTypes: true,
+    })) {
+      if (!UUID_PATTERN.test(connection.name) || !connection.isDirectory())
+        continue;
+      const run = path.join(
+        this.root,
+        connection.name,
+        PLAN_SESSIONS_DIRECTORY,
+        runId,
+      );
+      if (!(await this.exists(run))) continue;
+      await this.requireDirectory(run);
+      if (status === "failed") {
+        await this.files.writeFile(
+          path.join(run, PLAN_RETENTION_FILE),
+          String(Date.now() + PLAN_RETENTION_MILLISECONDS),
+          { mode: 0o600 },
+        );
+      } else {
+        await this.files.rm(run, { recursive: true, force: true });
+      }
+    }
+  }
+
+  private async prunePlanSessions(connectionRoot: string): Promise<void> {
+    const root = path.join(connectionRoot, PLAN_SESSIONS_DIRECTORY);
+    if (!(await this.exists(root))) return;
+    await this.requireDirectory(root);
+    for (const entry of await this.files.readdir(root, {
+      withFileTypes: true,
+    })) {
+      if (!UUID_PATTERN.test(entry.name) || !entry.isDirectory()) continue;
+      const run = path.join(root, entry.name);
+      const marker = path.join(run, PLAN_RETENTION_FILE);
+      if (!(await this.exists(marker))) continue;
+      const expiry = Number(await this.files.readFile(marker, "utf8"));
+      if (Number.isFinite(expiry) && Date.now() >= expiry)
+        await this.files.rm(run, { recursive: true, force: true });
     }
   }
 

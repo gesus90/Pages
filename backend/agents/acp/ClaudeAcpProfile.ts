@@ -94,7 +94,7 @@ const REPORTED_OPTIONS = {
 const MANAGED_OPTIONS = {
   settingSources: [],
   strictMcpConfig: true,
-  persistSession: false,
+  persistSession: true,
   maxTurns: MAXIMUM_TURNS,
   extraArgs: { "disable-slash-commands": null },
 } as const;
@@ -255,8 +255,7 @@ const READ_ONLY_PROFILE: ClaudeAcpProfile = {
   matchesReportedModel: claudeModelMatches,
   hasMcpStatusCommand: true,
   isContinuable: true,
-  // MANAGED_OPTIONS keep no session on disk, so no later process can resume a plan node.
-  keepsSession: false,
+  keepsSession: true,
   steps: (request) => claudeSteps("default", request),
   decide: (request) => decideClaudePermission("read_only", request),
 };
@@ -282,16 +281,18 @@ const YOLO_PROFILE: ClaudeAcpProfile = {
   matchesReportedModel: claudeModelMatches,
   hasMcpStatusCommand: true,
   isContinuable: true,
-  keepsSession: false,
+  keepsSession: true,
   steps: (request) => claudeSteps("bypassPermissions", request),
   decide: (request) => decideClaudePermission("yolo", request),
 };
 
 /**
  * Pica's conversation (PAGE-90): no built-in tool, no settings file, only the
- * Pica bridge, whose calls Pages checks one by one. Unlike a plan node the
- * session is kept on disk, in the connection's credential folder, so the next
- * job of the conversation continues it with `session/resume`.
+ * Pica bridge, whose calls Pages checks one by one. The session is kept on
+ * disk, in the connection's credential folder, so the next job of the
+ * conversation continues it with `session/resume`. A plan node keeps its
+ * session too, but in a private home of its own run (`ClaudePlanSessionHome`),
+ * never in this folder.
  */
 const CHAT_PROFILE: ClaudeAcpProfile = {
   mode: "read_only",

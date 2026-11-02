@@ -140,6 +140,34 @@ it("drops a node dragged from the palette onto the canvas", () => {
   expect(fireEvent.dragOver(canvas(), { dataTransfer: transfer })).toBe(true);
 });
 
+it("offers the decision in the node palette and adds it at once", () => {
+  const add = vi.fn();
+  renderCanvas({ graph: { add } });
+  const entry = document.querySelector('[data-plan-palette-kind="decision"]');
+  if (!(entry instanceof HTMLElement)) throw new Error("Missing palette entry");
+
+  expect(entry.textContent).toContain(i18n.t("plans.palette.type.decision"));
+  expect(entry.querySelector("svg")).not.toBeNull();
+  fireEvent.click(entry);
+
+  expect(add).toHaveBeenCalledWith("decision", "", undefined);
+  // No dialog asks for a reference first, unlike an agent or a ticket.
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("drops a decision dragged from the palette where it was released", () => {
+  const add = vi.fn();
+  renderCanvas({ graph: { add } });
+  const entry = document.querySelector('[data-plan-palette-kind="decision"]');
+  if (!entry) throw new Error("Missing palette entry");
+  const transfer = dataTransfer();
+
+  fireEvent.dragStart(entry, { dataTransfer: transfer });
+  fireEvent.drop(canvas(), { dataTransfer: transfer, clientX: 0, clientY: 0 });
+
+  expect(add).toHaveBeenCalledWith("decision", "", expect.any(Object));
+});
+
 it("ends an open connection with Escape and from its hint", () => {
   const begin = vi.fn();
   renderCanvas({
@@ -156,6 +184,23 @@ it("ends an open connection with Escape and from its hint", () => {
     }),
   );
   expect(begin).toHaveBeenCalledWith(null);
+});
+
+it("tells why a decision refused the boolean result that was offered to it", () => {
+  renderCanvas({
+    graph: {
+      connection: { kind: "passed", nodeId: "agent" },
+      connectionIssue: {
+        nodeId: "decision",
+        port: "condition-in",
+        reason: "decisionCondition",
+      },
+    },
+  });
+
+  expect(
+    statusWith(i18n.t("plans.validation.decisionCondition")).className,
+  ).toContain("text-destructive");
 });
 
 it("tells why a chosen input refused the open connection", () => {

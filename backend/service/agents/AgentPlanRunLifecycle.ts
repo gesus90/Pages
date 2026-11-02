@@ -1,5 +1,9 @@
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
-import { withLogContext, logEvent } from "@/backend/logging/Logger";
+import {
+  withLogContext,
+  logCaughtError,
+  logEvent,
+} from "@/backend/logging/Logger";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { requireWriterRepository } from "./AgentPlanEngineDependencies";
@@ -69,6 +73,14 @@ export async function retireActivePredecessor(
   }
 }
 
+function isEndedStatus(
+  status: AgentPlanRun["status"],
+): status is "succeeded" | "failed" | "cancelled" {
+  return (
+    status === "succeeded" || status === "failed" || status === "cancelled"
+  );
+}
+
 /** Persists final business state and closes only resources whose process end is proven. */
 export async function finalizeScheduledPlanRun(
   active: ActivePlanRun,
@@ -93,6 +105,12 @@ export async function finalizeScheduledPlanRun(
   await dependencies.runs.update(active.view);
   await dependencies.archive?.complete(active.view, active.snapshot);
   if (!hasUnconfirmedCloseout(active)) await active.releaseDefinition?.();
+  if (!hasUnconfirmedCloseout(active) && isEndedStatus(status))
+    await dependencies.steps
+      .finishPlanRun?.(active.view.id, status)
+      .catch((error: unknown) =>
+        logCaughtError("AgentPlanRunLifecycle", error),
+      );
   withLogContext({ runId: active.view.id }, () =>
     logEvent({
       level: "info",

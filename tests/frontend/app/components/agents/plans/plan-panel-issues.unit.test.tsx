@@ -408,3 +408,23 @@ it("shows nothing without findings", () => {
 
   expect(screen.queryByRole("list")).toBeNull();
 });
+
+it("names a finding of a decision by its name, or by its type", () => {
+  renderIssues({
+    nodes: [
+      { id: "plain", type: "decision", x: 0, y: 0 },
+      { id: "named", type: "decision", x: 0, y: 0, name: "Prüfen & bewerten" },
+    ],
+    control: planControl({
+      issues: [
+        issue("plain", "decisionCondition", "condition-in"),
+        issue("named", "decisionBranch", "true-out"),
+      ],
+    }),
+  });
+
+  expect(rows().map((entry) => entry.textContent)).toEqual([
+    row(i18n.t("plans.nodeType.decision"), nodeCause("decisionCondition")),
+    row("Prüfen & bewerten", nodeCause("decisionBranch")),
+  ]);
+});

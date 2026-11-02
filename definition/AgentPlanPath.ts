@@ -1,3 +1,5 @@
+import { isPlanEventEdge } from "./AgentPlanBranching";
+
 import type { AgentPlanEdge } from "./AgentPlan";
 
 /** The nodes each node's flow edges lead to, and the number of edges it was built from. */
@@ -34,6 +36,8 @@ function flowIndex(edges: readonly AgentPlanEdge[]): FlowIndex {
   const followers = new Map<string, string[]>();
   const predecessors = new Map<string, string[]>();
   for (const edge of edges) {
+    // An event returns to a node that ran before; it orders nothing.
+    if (isPlanEventEdge(edge)) continue;
     addEdge(followers, edge.from, edge.to);
     addEdge(predecessors, edge.to, edge.from);
   }
@@ -42,7 +46,7 @@ function flowIndex(edges: readonly AgentPlanEdge[]): FlowIndex {
   return index;
 }
 
-/** Follows only flow edges; data connections never create scheduling dependencies. */
+/** Follows only edges that order execution; data connections and events never create scheduling dependencies. */
 export function hasPlanPath(
   edges: readonly AgentPlanEdge[],
   from: string,

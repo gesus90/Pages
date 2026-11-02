@@ -16,6 +16,7 @@ const TONES = {
   succeeded: "text-success",
   failed: "text-destructive",
   cancelled: "text-muted-foreground",
+  skipped: "text-muted-foreground",
 } as const;
 
 /**

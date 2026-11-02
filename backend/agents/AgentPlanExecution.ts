@@ -114,6 +114,8 @@ export interface PlanSession {
   ): Promise<PlanSessionTurn>;
   /** Adds a prompt to the running turn; absent for runners without steering. */
   steer?(prompt: readonly ContentBlock[]): Promise<AcpSteerOutcome>;
+  /** Whether the closeout has begun: the session takes no further turn, though its end is not yet reported. */
+  readonly isClosing?: boolean;
   /** Ends the session and its helpers; resolves only after the confirmation. */
   close(): Promise<PlanSessionClosed>;
 }
@@ -125,6 +127,10 @@ export interface PlanSessionRunner {
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSession>;
+  finishPlanRun?(
+    runId: string,
+    status: "succeeded" | "failed" | "cancelled",
+  ): Promise<void>;
 }
 
 /** Runs plan nodes: requests to API connections and sessions of CLI runners. */
@@ -137,6 +143,10 @@ export interface PlanExecution {
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSession>;
+  finishPlanRun?(
+    runId: string,
+    status: "succeeded" | "failed" | "cancelled",
+  ): Promise<void>;
 }
 
 /**
@@ -163,6 +173,14 @@ export class AgentPlanExecution implements PlanExecution {
     this.cli = cli;
     this.operations = operations;
     this.authorizer = authorizer;
+  }
+
+  /** Releases private CLI transcripts only after the complete plan has settled. */
+  public async finishPlanRun(
+    runId: string,
+    status: "succeeded" | "failed" | "cancelled",
+  ): Promise<void> {
+    await this.cli.finishPlanRun?.(runId, status);
   }
 
   /** Never passes credential material through a plan. */

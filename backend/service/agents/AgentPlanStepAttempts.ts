@@ -38,6 +38,11 @@ async function attempt(
       creatorStepId: node.step.step.id,
       turn: node.record.loop.turn,
     };
+  else if (node.record?.event)
+    node.retryGroup = {
+      creatorStepId: node.step.step.id,
+      turn: node.record.event.turn,
+    };
   node.record = null;
   node.retryResumeSessionId = context.resumeSessionId;
   node.retryAttemptNumber = context.attemptNumber;
@@ -65,7 +70,8 @@ export async function runPlanNodeAttempts(
     return await runPlanStepWithRetry({
       signal: control.signal,
       previous: node.retry,
-      isSharedSession: node.sessionGroup !== undefined,
+      // The session of an agent with an event input is its own: a retry replaces it as a recovered start, which carries everything again.
+      isSharedSession: node.sessionGroup !== undefined && !node.receivesEvents,
       lastSession: () => node.record,
       attempt: (context) => attempt(node, control, operations, context),
       waiting: () => {

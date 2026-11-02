@@ -10,6 +10,7 @@ export type PlanGroupState =
   | "stopping"
   | "stopped"
   | "completed"
+  | "skipped"
   | "blocked"
   | "failed"
   | "unavailable";
@@ -54,7 +55,10 @@ function hasLostGroupSession(
         step.session?.events.some((event) =>
           event.startsWith("resource session retired:"),
         ),
-    ) && members.some((step) => step.status !== "succeeded")
+    ) &&
+    members.some(
+      (step) => step.status !== "succeeded" && step.status !== "skipped",
+    )
   );
 }
 
@@ -103,7 +107,14 @@ function groupState(
     (hasLostGroupSession(members, run) && !isStoppedRun(run))
   )
     return "blocked";
-  if (members.every((step) => step.status === "succeeded")) return "completed";
+  // A group behind the branch a decision did not take never ran, which is no failure.
+  if (members.every((step) => step.status === "skipped")) return "skipped";
+  if (
+    members.every(
+      (step) => step.status === "succeeded" || step.status === "skipped",
+    )
+  )
+    return "completed";
   if (run.controlError) return "blocked";
   if (
     members.every(

@@ -34,10 +34,12 @@ import {
   prepareSessionAssets,
   cleanupSessionAssets,
 } from "./CliAssetWorkspace";
+import { CliIsolationGate } from "./CliIsolationGate";
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { createCliEnvironment } from "./CliEnvironment";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { cleanupAcpStart } from "./CliAcpStartCleanup";
+import { prepareClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import { captureOwnedNamespace } from "./CliOwnedNamespace";
 import { createAcpRedactor } from "./CliAcpRedaction";
 import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
@@ -75,6 +77,7 @@ import type {
   CliGitHubAccess,
   CliGitHubCredentials,
 } from "./CliGitHubCredentials";
+import type { ClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import type { CliSessionProcess } from "./CliSessionProcess";
 import type { CliWorkerUnits } from "./CliWorkerUnit";
 
@@ -96,7 +99,8 @@ interface SessionDependencies {
   readonly tools?: AgentToolManagerService;
   readonly resources?: AcpResourceScheduler;
   readonly runtime: Pick<AgentCliRuntime, "adapter">;
-  readonly store: Pick<AgentCredentialStore, "prepare" | "secure">;
+  readonly store: Pick<AgentCredentialStore, "prepare" | "secure"> &
+    Partial<Pick<AgentCredentialStore, "finishPlanRun">>;
   readonly locator: Pick<CliLocator, "find" | "locate">;
   readonly runner: Pick<CliProcessRunner, "startSession">;
   /** Absent disables the isolation. */
@@ -104,6 +108,8 @@ interface SessionDependencies {
   /** The limited units every worker starts in; Pica refuses to start without them. */
   readonly units?: Pick<CliWorkerUnits, "isAvailable" | "wrap">;
   readonly github?: Pick<CliGitHubCredentials, "prepare">;
+  /** Prepares the private transcript home of a Claude plan session; defaults to the real folders. */
+  readonly claudeHome?: typeof prepareClaudePlanSessionHome;
 }
 
 /** What a session start has verified about its connection. */
@@ -135,12 +141,6 @@ interface SessionControl {
   readonly observer: PlanSessionObserver;
 }
 
-/** A session request, wrapped in the namespace where bubblewrap works. */
-interface IsolatedRequest {
-  readonly request: CliSessionRequest;
-  readonly isIsolated: boolean;
-}
-
 /** A session request, wrapped in its limited unit where the service manager provides one. */
 interface LimitedRequest {
   readonly request: CliSessionRequest;
@@ -161,23 +161,30 @@ interface LimitedRequest {
  */
 export class CliSessionExecution implements PlanSessionRunner {
   private readonly dependencies: SessionDependencies;
-  private readonly isolation: CliPlanIsolation | null;
-  private readonly isIsolationRequired: boolean;
-  private hasWarnedWithoutIsolation = false;
+  private readonly gate: CliIsolationGate;
   private hasWarnedWithoutUnits = false;
 
   public constructor(dependencies: SessionDependencies) {
     this.dependencies = dependencies;
     const { isolation } = dependencies;
-    this.isolation = isolation
-      ? new CliPlanIsolation(
-          isolation.protectedDirectories,
-          isolation.probe,
-          isolation,
-        )
-      : null;
-    this.isIsolationRequired =
-      dependencies.tools !== undefined || isolation?.isRequired === true;
+    this.gate = new CliIsolationGate(
+      isolation
+        ? new CliPlanIsolation(
+            isolation.protectedDirectories,
+            isolation.probe,
+            isolation,
+          )
+        : null,
+      dependencies.tools !== undefined || isolation?.isRequired === true,
+    );
+  }
+
+  /** Applies the plan transcript retention boundary after the run is terminal. */
+  public async finishPlanRun(
+    runId: string,
+    status: "succeeded" | "failed" | "cancelled",
+  ): Promise<void> {
+    await this.dependencies.store.finishPlanRun?.(runId, status);
   }
 
   /**
@@ -385,6 +392,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     const mode = input.options.access;
     if (!isAcpPermissionMode(mode))
       throw new AgentError(driver.errors.modeRequired);
+    const scoped = await this.scopedHome(driver, input, start);
     const adapter = requireAdapter(start.adapter, driver);
     const purpose = input.chat ? "chat" : "plan";
     const profile = driver.profile(mode, purpose);
@@ -401,26 +409,29 @@ export class CliSessionExecution implements PlanSessionRunner {
     let limited: LimitedRequest | null = null;
     let isPidNamespace = false;
     try {
-      const { request, isIsolated } = await this.isolate({
-        file: adapter,
-        provider: start.provider,
-        home: start.home,
-        arguments: driver.arguments ?? [],
-        workingDirectory: input.directory,
-        isWorkingDirectoryReadOnly: mode === "read_only",
-        credentialDirectory: github?.directory,
-        readOnlyFiles: mcpReadOnlyFiles(input.mcp),
-        environment: {
-          ...launch.environment,
-          ...start.credentials?.environmentFor(
-            openCodeModelProvider(input.agent.model),
-          ),
-          ...github?.environment,
+      const { request, isIsolated } = await this.gate.isolateSession(
+        {
+          file: adapter,
+          provider: start.provider,
+          home: start.home,
+          arguments: driver.arguments ?? [],
+          workingDirectory: input.directory,
+          isWorkingDirectoryReadOnly: mode === "read_only",
+          credentialDirectory: github?.directory,
+          readOnlyFiles: mcpReadOnlyFiles(input.mcp),
+          environment: {
+            ...launch.environment,
+            ...start.credentials?.environmentFor(
+              openCodeModelProvider(input.agent.model),
+            ),
+            ...github?.environment,
+          },
+          timeoutMs: input.options.timeoutMinutes * 60_000,
+          signal: control.signal,
+          onLine: (line) => channel.receive(redact(line)),
         },
-        timeoutMs: input.options.timeoutMinutes * 60_000,
-        signal: control.signal,
-        onLine: (line) => channel.receive(redact(line)),
-      });
+        scoped,
+      );
       requireAcpIsolation(isIsolated, mode, input);
       isPidNamespace = isIsolated;
       limited = await this.limit(request, input);
@@ -471,6 +482,22 @@ export class CliSessionExecution implements PlanSessionRunner {
       });
       throw error;
     }
+  }
+
+  /** A Claude plan session keeps its transcripts in a home of its own, so a retry resumes it and no other run reads it. */
+  private async scopedHome(
+    driver: AcpDriver,
+    input: AgentPlanSessionInput,
+    start: VerifiedStart,
+  ): Promise<ClaudePlanSessionHome | null> {
+    if (driver.provider !== "claude_code" || input.chat) return null;
+    const prepare =
+      this.dependencies.claudeHome ?? prepareClaudePlanSessionHome;
+    return prepare(start.home, {
+      runId: input.resourceContext?.runId ?? "",
+      scopeId: input.resourceContext?.sessionScopeId ?? "",
+      sourceRunId: input.resourceContext?.sourceRunId,
+    });
   }
 
   private async registerNamespace(
@@ -567,34 +594,6 @@ export class CliSessionExecution implements PlanSessionRunner {
       );
     }
     return { request, label: "no limited unit" };
-  }
-
-  /**
-   * Runs in a mount namespace that hides the instance folders, where bubblewrap works.
-   *
-   * @remarks
-   * Where it does not, the session starts as before and one warning says so,
-   * unless the operator demanded isolation: then the node fails before any process.
-   */
-  private async isolate(request: CliSessionRequest): Promise<IsolatedRequest> {
-    if (this.isolation === null) {
-      if (this.isIsolationRequired)
-        throw new AgentError("cli_isolation_unavailable");
-      return { request, isIsolated: false };
-    }
-    const isolated = await this.isolation.isolate(request);
-    if (isolated !== null) return { request: isolated, isIsolated: true };
-    if (this.isIsolationRequired)
-      throw new AgentError("cli_isolation_unavailable");
-    if (!this.hasWarnedWithoutIsolation) {
-      this.hasWarnedWithoutIsolation = true;
-      logDiagnostic(
-        "CliSessionExecution",
-        "warn",
-        "Pages runs CLI agents without a mount namespace because bubblewrap does not work on this host. Install it, or set PAGES_CLI_ISOLATION=required to refuse such runs.",
-      );
-    }
-    return { request, isIsolated: false };
   }
 }
 

@@ -56,6 +56,28 @@ function retryNotice(node: NodeRun, resumeSessionId: string | null): string {
   ].join("\n");
 }
 
+const EVENT_FOLLOW_UP =
+  "This is a follow-up turn of your open session, started by the plan. Your main instruction (AGENT.md) and the inputs of your first turn stay valid and are not repeated. Only the new information below is new: work on it and close with the report requested below.\n\n";
+
+const EVENT_NEW_SESSION =
+  "This is a NEW session. The earlier session of this node is no longer open, so its conversation is not available to you. Your main instruction and inputs follow in full, together with the new information that caused this start.\n\n";
+
+/**
+ * The part of the prompt that is specific to the start: the node's own instruction, or what an event brings.
+ *
+ * @remarks
+ * A follow-up in the open session carries the new information only. A start
+ * in a replacement session carries the full instruction and the new
+ * information, and says that it is a new session.
+ */
+function startBody(node: NodeRun, prepared: PreparedPlanStep): string {
+  const event = node.event;
+  if (event === null || node.eventMode === null) return prepared.input.prompt;
+  if (node.eventMode === "continued")
+    return `${EVENT_FOLLOW_UP}${event.prompt}`;
+  return `${EVENT_NEW_SESSION}${prepared.input.prompt}\n\n## New information that caused this start\n\n${event.prompt}`;
+}
+
 /** Builds the exact session input, including the recovery and retry notices. */
 export async function buildPlanSessionInput(
   node: NodeRun,
@@ -68,20 +90,22 @@ export async function buildPlanSessionInput(
   const recovery = planRecoveryTerms(node.snapshot, node.step.step.id, node);
   const resumeSessionId = recovery.resumeSessionId ?? node.retryResumeSessionId;
   const scope = `${retryNotice(node, resumeSessionId)}${recovery.note}${planTurnScope(node.step, node.loop)}`;
-  const prompt = `${scope}${prepared.input.prompt}\n\n${renderPlanAssignment({
-    contract: terms.contract,
-    usesMcp: terms.mcp !== null,
-    isReadOnly:
-      planSessionReach(
-        prepared.input.agent.connection.provider,
-        prepared.options,
-      ) === "read",
-    runnerLabel: node.record ? runnerLabel(node.record) : "",
-    instanceId: terms.instanceId,
-    directory,
-    requiresAcceptance: true,
-    acceptanceScope: node.step.groupId ? "group" : "node",
-  })}`;
+  const prompt = `${scope}${startBody(node, prepared)}\n\n${renderPlanAssignment(
+    {
+      contract: terms.contract,
+      usesMcp: terms.mcp !== null,
+      isReadOnly:
+        planSessionReach(
+          prepared.input.agent.connection.provider,
+          prepared.options,
+        ) === "read",
+      runnerLabel: node.record ? runnerLabel(node.record) : "",
+      instanceId: terms.instanceId,
+      directory,
+      requiresAcceptance: true,
+      acceptanceScope: node.step.groupId ? "group" : "node",
+    },
+  )}`;
   await dependencies.pin(prompt);
   return {
     ...prepared.input,
@@ -91,7 +115,14 @@ export async function buildPlanSessionInput(
     instanceId: terms.instanceId,
     mcp: terms.mcp,
     resumeSessionId,
-    resourceContext: { runId: node.run.id, stepId: node.step.step.id },
+    resourceContext: {
+      runId: node.run.id,
+      stepId: node.step.step.id,
+      sessionScopeId: node.sessionGroup ?? node.step.step.id,
+      ...(node.run.origin?.mode === "native_resume"
+        ? { sourceRunId: node.run.origin.runId }
+        : {}),
+    },
     journal: dependencies.journal(terms.instanceId),
   };
 }

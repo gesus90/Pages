@@ -410,6 +410,11 @@ export async function executeAntigravity(job, prompt, base = process.env) {
   });
   try {
     await initialize(client);
+    // This adapter's resume is not verified on the runner, so a continuation is refused instead of opening a new conversation.
+    if (job.resumeSessionId)
+      throw Object.assign(new Error("Resume unsupported"), {
+        pagesCode: "acp_session_resume_failed",
+      });
     const session = await client.call("session/new", {
       cwd: job.workspace,
       mcpServers: job.mcpServers,
@@ -419,6 +424,11 @@ export async function executeAntigravity(job, prompt, base = process.env) {
           eagerMcpServers: ["pages"],
         },
       },
+    });
+    await publish({
+      type: "pages.session",
+      sessionId: session.sessionId,
+      canResume: false,
     });
     let options = await chooseAntigravity(
       client,

@@ -1538,9 +1538,10 @@ earlier one, and every concrete blocker. Two separate actions follow:
   the executor's explicit reviewed decision first (`review_required`); its
   prompt then begins with a recovery notice. **Continue the earlier agent
   session** is offered only where the adapter announced `session/resume`, the
-  session ID is known and the profile keeps sessions on disk: Codex plan nodes
-  and Pica; Claude Code plan nodes run with `persistSession: false` and loops
-  start fresh sessions, so they offer **New attempt** only. A refused
+  session ID is known and the profile keeps sessions on disk: Codex plan nodes,
+  Claude Code plan nodes (private plan home, kept seven days after a failed run
+  and moved to the recovery run) and Pica; loops start fresh sessions, so they
+  offer **New attempt** only. A refused
   native resume fails the node visibly (`acp_session_resume_failed`); there is
   no silent fallback. A run stopped on purpose can also continue through this
   reviewed action; the stopped original stays unchanged. Only the newest run
@@ -1605,7 +1606,12 @@ increasing delays. Technical ACP session failures get exactly three total
 attempts, each at least ten seconds apart, and continue through the adapter's
 native resume where it is confirmed. A new session is used only when no tool
 activity could have changed external state; shared sessions without native
-resume and writing remote one-shots stay blocked as concrete safety boundaries.
+resume stay blocked as a concrete safety boundary. Writing remote jobs follow the
+same contract through Runner 1.16.0 (`continuationVersion`), which reports the
+native session and the proven tool activity; an older runner keeps them blocked
+as `remote_evidence_missing`. Every stop before the budget is spent names its own
+cause (`closeout_unconfirmed`, `resume_unavailable`, `session_not_kept`,
+`remote_evidence_missing`, `effect_unknown`) apart from `exhausted`.
 An exhausted quota with an explicit reset waits until one minute after that
 reset; an unknown reset stays blocked. The run details and `read_plan_run`
 retain the policy, attempts, cause, attempt count and scheduled time. Routing

@@ -29,6 +29,8 @@ export interface RecoveryFacts {
   readonly agentStepIds: readonly string[];
   /** The groups of the frozen plan; their summaries are derived, never checkpointed. */
   readonly groupIds: readonly string[];
+  /** The frozen plan has a decision or an event connection; absent counts as none. */
+  readonly hasBranching?: boolean;
 }
 
 /** What a resume would take over, run again and continue natively. */
@@ -133,6 +135,8 @@ export function resumeOption(
   if (run.status === "succeeded") return blocked("succeeded");
   if (continuedRun(facts.executions) !== null)
     return blocked("already_continued");
+  // A cycle's earlier rounds are not part of a checkpoint, so no result of it can be taken over.
+  if (facts.hasBranching) return blocked("branching_unsupported");
   if (facts.latest && facts.latest.id !== run.id) return blocked("superseded");
   if (plan.unverifiedStepIds.length > 0) return blocked("checkpoint_mismatch");
   return AVAILABLE;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { runnerContinuationEvidenceSchema } from "./RunnerContinuation.js";
 import { runnerTerminalSchema } from "./RunnerTerminal.js";
 import { planRemoteResourceSchema } from "./AgentPlanRemoteAccess.js";
 import {
@@ -97,6 +98,8 @@ export const planRemoteProgressSchema = z
     liveHistoryVersion: z.literal(1).optional(),
     outputJournalVersion: z.literal(2).optional(),
     terminal: runnerTerminalSchema.optional(),
+    /** What the runner proved about the session of a continuation job, even when it failed. */
+    continuation: runnerContinuationEvidenceSchema.optional(),
     storageError: z.string().max(40).optional(),
     reason: z.string().max(30).nullable().optional(),
     stdout: z.string().max(100000).optional(),

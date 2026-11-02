@@ -23,6 +23,7 @@ import { capturePlanExecution } from "./AgentPlanExecutionSnapshot";
 import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
 import { AgentPlanRunCommands } from "./AgentPlanRunCommands";
 import { completePlanDrain } from "./AgentPlanDrain";
+import { closeIdlePlanGroups } from "./AgentPlanGroupCloseout";
 import { runPlanInstruction } from "./AgentPlanInstructionControl";
 import {
   patchStep,
@@ -32,11 +33,19 @@ import {
   canSchedule,
   canFinalize,
   isRequestStep,
-  settlePlanPause,
   endedPlanRun,
   countRunningPlanRequests,
 } from "./AgentPlanRunState";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
+import { settlePlanRun } from "./AgentPlanRunSettle";
+import {
+  eventStart,
+  isStaleStart,
+  settleEventPrompt,
+  settlePlanBranching,
+  startedStep,
+  unstartedChanges,
+} from "./branching/AgentPlanBranchSettle";
 import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
 import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
@@ -336,13 +345,15 @@ export class AgentPlanRunEngine {
     await this.writes.run(async () => {
       for (const active of this.active.values()) {
         await completePlanDrain(active, this.dependencies.runs);
-        const previous = active.view;
-        settlePlanPause(active);
-        if (previous !== active.view)
+        if (settlePlanRun(active))
           await this.dependencies.runs.update(active.view);
       }
     });
-    await this.closeIdleGroups();
+    await closeIdlePlanGroups(this.active.values(), {
+      writes: this.writes,
+      runs: this.dependencies.runs,
+      steps: this.dependencies.steps,
+    });
     await this.writes.run(async () => {
       for (const [id, active] of this.active) {
         if (
@@ -351,6 +362,8 @@ export class AgentPlanRunEngine {
         )
           continue;
         updateBlocked(active);
+        if (canSchedule(active) && settlePlanBranching(active))
+          await this.dependencies.runs.update(active.view);
         const ready = canSchedule(active) ? readySteps(active) : [];
         for (const step of ready) {
           if (
@@ -360,10 +373,15 @@ export class AgentPlanRunEngine {
             continue;
           const controller = new AbortController();
           active.controllers.set(step.id, controller);
-          patchStep(active, step.id, { status: "running" });
+          patchStep(active, step.id, startedStep(active, step.id));
           await this.dependencies.runs.update(active.view);
           active.dispatched.add(step.id);
-          const pending = this.execute(active, step, controller);
+          const pending = this.execute(
+            active,
+            step,
+            controller,
+            active.view.steps.find((entry) => entry.id === step.id)?.activation,
+          );
           this.track(active, pending);
         }
         if (canFinalize(active)) {
@@ -384,35 +402,6 @@ export class AgentPlanRunEngine {
         this.schedulePump();
       }, 1000);
       this.resourceTimer.unref();
-    }
-  }
-
-  private async closeIdleGroups(): Promise<void> {
-    const closing = await this.writes.run(() => {
-      const idle = [...this.active.values()].filter(
-        (active) =>
-          active.groupCloseout === "open" &&
-          active.controllers.size === 0 &&
-          (readySteps(active).length === 0 || active.isInterrupted) &&
-          (active.view.status !== "paused" ||
-            active.view.stopRequested ||
-            active.isInterrupted),
-      );
-      for (const active of idle) active.groupCloseout = "closing";
-      return Promise.resolve(idle);
-    });
-    for (const active of closing) {
-      try {
-        if (
-          active.snapshot.groups?.length ||
-          active.snapshot.plan.nodes.some((node) => node.type === "loop")
-        )
-          await this.dependencies.steps.closeGroups(active.view.id);
-      } catch (error: unknown) {
-        logCaughtError("AgentPlanRunEngine", error);
-      } finally {
-        active.groupCloseout = "closed";
-      }
     }
   }
 
@@ -507,10 +496,11 @@ export class AgentPlanRunEngine {
     active: ActivePlanRun,
     node: AgentPlanNode,
     controller: AbortController,
+    activation: number | undefined,
   ): Promise<void> {
     return withLogContext({ runId: active.view.id }, () =>
       withDatabaseLogMetrics((metrics) =>
-        this.executeNode(active, node, controller, metrics),
+        this.executeNode(active, node, controller, { metrics, activation }),
       ),
     );
   }
@@ -519,8 +509,12 @@ export class AgentPlanRunEngine {
     active: ActivePlanRun,
     node: AgentPlanNode,
     controller: AbortController,
-    metrics: DatabaseLogMetrics,
+    context: {
+      readonly metrics: DatabaseLogMetrics;
+      readonly activation: number | undefined;
+    },
   ): Promise<void> {
+    const { metrics, activation } = context;
     logEvent({
       level: "debug",
       event: "agent.step.started",
@@ -551,16 +545,20 @@ export class AgentPlanRunEngine {
     });
     try {
       await this.writes.run(async () => {
+        // A result belongs to the start it was dispatched for.
+        if (isStaleStart(active, node.id, activation)) return;
         const previous = active.view;
         patchStep(
           active,
           node.id,
           changes.status === "paused" && active.view.stopRequested
             ? { ...changes, status: "cancelled", cancellation: "not_started" }
-            : changes,
+            : unstartedChanges(active, node.id, changes),
         );
         active.controllers.delete(node.id);
         active.dispatched.delete(node.id);
+        // A start that a pause ended before it began keeps its news for the resume.
+        if (changes.status !== "paused") settleEventPrompt(active, node.id);
         try {
           const checkpoint = completedPlanWorkCheckpoint(active, node, changes);
           await this.dependencies.runs.update(active.view, checkpoint);
@@ -622,6 +620,7 @@ export class AgentPlanRunEngine {
         return { status: "cancelled", cancellation: "not_started" };
       return this.dependencies.steps.run(active.view, active.snapshot, step, {
         signal: controller.signal,
+        ...eventStart(active, node.id),
         awaitDispatch: () => {
           active.dispatched.delete(node.id);
         },

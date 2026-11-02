@@ -11,7 +11,9 @@ import { PLAN_NODE_TEXT } from "../plan-node-text";
  * The violet data OUT that hands an agent's or a script's result to a later node.
  *
  * @remarks
- * An agent's row reads "Ergebnis"; a script's row names its declared output.
+ * An agent's row reads "Ergebnis OUT", apart from its boolean result; a
+ * script's row names its declared output. A text result can also end at the
+ * event input of an agent.
  */
 export function PlanResultOut(props: {
   readonly nodeId: string;
@@ -42,7 +44,7 @@ export function PlanResultOut(props: {
         onClick={() => graph.begin({ kind: "result", nodeId: props.nodeId })}
       >
         <span className="truncate">
-          {props.output ?? t("plans.resultShort")}
+          {props.output ?? t("plans.resultOutShort")}
         </span>
       </Button>
       <PlanFlowHandle id="value-out" type="source" kind="data" />

@@ -3,20 +3,36 @@ import {
   EdgeLabelRenderer,
   getBezierPath,
   Position,
+  useInternalNode,
 } from "@xyflow/react";
 import { X } from "lucide-react";
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
 import { usePlanFlowContext } from "./plan-flow-context";
 import { keepPlanControlKeys } from "./plan-flow-keys";
+import {
+  PLAN_LINK_DASH,
+  PLAN_LINK_LABEL_TONE,
+  PLAN_LINK_STROKE,
+} from "./plan-link-style";
+import {
+  isPlanReturn,
+  planPortCentre,
+  planReturnPath,
+} from "./plan-flow-route";
+import { planLinkChannel } from "./plan-links";
 
-import type { EdgeProps } from "@xyflow/react";
+import type { EdgeProps, InternalNode } from "@xyflow/react";
+import type { TFunction } from "i18next";
 import type { PlanFlowEdge } from "./plan-flow-model";
+import type { PlanLinkChannel } from "./plan-links";
 
 const ACTION_OFFSET = 32;
+/** Half the width of a port dot. */
+const PORT_RADIUS = 6;
 const ROUTE_LABEL_GAP = 16;
 const PORT_DIRECTIONS = {
   [Position.Left]: { x: -1, y: 0 },
@@ -25,15 +41,106 @@ const PORT_DIRECTIONS = {
   [Position.Bottom]: { x: 0, y: 1 },
 };
 
-/** Every connection is a soft curve; flow is solid, a parameter binding is dashed and names its input. */
-export function PlanFlowEdgeView(
+/** The text before a label: the arrow of a flow, the diamond of a binding; the other kinds name themselves. */
+const LABEL_MARKS: Readonly<Record<PlanLinkChannel, string>> = {
+  flow: "→ ",
+  data: "◇ ",
+  condition: "",
+  true: "",
+  false: "",
+  event: "",
+};
+
+/** The lowest edge of a card, or 0 while it is not measured yet. */
+function nodeBottom(node: InternalNode | undefined): number {
+  if (!node) return 0;
+  return node.internals.positionAbsolute.y + (node.measured.height ?? 0);
+}
+
+/**
+ * The arrow of a connection.
+ *
+ * @remarks
+ * The line ends at the centre of its port, which a port dot covers. The tip of
+ * the arrow therefore sits one port radius before the end of the line, on the
+ * rim of the dot, so the direction stays visible.
+ */
+function PortArrow(props: {
+  readonly id: string;
+  readonly color: string;
+}): React.ReactElement {
+  return (
+    <defs>
+      <marker
+        id={props.id}
+        viewBox="-8 -8 16 16"
+        markerWidth="16"
+        markerHeight="16"
+        markerUnits="userSpaceOnUse"
+        refX={PORT_RADIUS}
+        refY="0"
+        orient="auto"
+      >
+        <polygon
+          points="-6,-4.5 0,0 -6,4.5"
+          strokeLinejoin="round"
+          style={{ fill: props.color, stroke: props.color }}
+        />
+      </marker>
+    </defs>
+  );
+}
+
+/** The edge with both ends moved from the rim of their port to its centre; an unmeasured end stays where it is. */
+function withPortCentres(
   props: EdgeProps<PlanFlowEdge>,
+  source: InternalNode | undefined,
+  target: InternalNode | undefined,
+): EdgeProps<PlanFlowEdge> {
+  if (props.data?.isBoundary) return props;
+  const from = planPortCentre(source, "source", props.sourceHandleId);
+  const to = planPortCentre(target, "target", props.targetHandleId);
+  return {
+    ...props,
+    ...(from ? { sourceX: from.x, sourceY: from.y } : {}),
+    ...(to ? { targetX: to.x, targetY: to.y } : {}),
+  };
+}
+
+/** What the visible label of a connection says: its kind in words, or the input a binding fills. */
+function edgeLabelText(
+  t: TFunction,
+  details: NonNullable<PlanFlowEdge["data"]>,
+  channel: PlanLinkChannel,
+): string {
+  if (details.routeEnd) return details.name;
+  if (details.link.kind === "data") return details.link.parameter;
+  return t(
+    channel === "flow" ? "plans.linkKind.flow" : `plans.linkLabel.${channel}`,
+  );
+}
+
+/**
+ * Every connection is a soft curve; flow is solid, a parameter binding is dashed and names its input.
+ *
+ * @remarks
+ * The boolean wire, the two branches of a decision and the new prompt that
+ * returns to an agent differ in colour, dash and label. The way back runs
+ * below both of its cards, so that it crosses neither.
+ */
+export function PlanFlowEdgeView(
+  edgeProps: EdgeProps<PlanFlowEdge>,
 ): React.ReactElement | null {
-  const { t } = useTranslation();
   const { graph, canEdit } = usePlanFlowContext();
   const isDisconnecting = useRef(false);
+  const source = useInternalNode(edgeProps.source);
+  const target = useInternalNode(edgeProps.target);
+  const props = withPortCentres(edgeProps, source, target);
+  const arrowId = useId();
   const details = props.data;
   if (!details) return null;
+  const channel = planLinkChannel(details.link);
+  const bottom = Math.max(nodeBottom(source), nodeBottom(target));
   if (details.isBoundary)
     return (
       <BaseEdge
@@ -47,11 +154,7 @@ export function PlanFlowEdgeView(
         }}
       />
     );
-  const isData = details.link.kind === "data";
-  const [path, labelX, labelY] = renderedEdgePath(props);
-  let label = t("plans.linkKind.flow");
-  if (details.link.kind === "data") label = details.link.parameter;
-  if (details.routeEnd) label = details.name;
+  const [path, labelX, labelY] = renderedEdgePath(props, channel, bottom);
   function disconnect(event: React.MouseEvent<HTMLButtonElement>): void {
     event.preventDefault();
     event.stopPropagation();
@@ -62,63 +165,101 @@ export function PlanFlowEdgeView(
   }
   return (
     <>
+      <PortArrow id={arrowId} color={PLAN_LINK_STROKE[channel]} />
       <BaseEdge
         id={props.id}
         path={path}
-        markerEnd={props.markerEnd}
+        markerEnd={`url(#${arrowId})`}
         interactionWidth={28}
+        data-plan-link={channel}
         style={{
           stroke: props.selected
             ? "var(--color-foreground)"
-            : "var(--color-muted-foreground)",
+            : PLAN_LINK_STROKE[channel],
           strokeWidth: props.selected ? 2.5 : 1.75,
-          strokeDasharray: isData ? "6 5" : undefined,
+          strokeDasharray: PLAN_LINK_DASH[channel],
         }}
       />
       <EdgeLabelRenderer>
-        <div
-          className="nodrag nopan pointer-events-auto absolute flex items-center gap-1"
-          style={{
-            transform: edgeLabelTransform(props, { x: labelX, y: labelY }),
-          }}
-        >
-          <button
-            type="button"
-            className={cn(
-              "max-w-40 truncate rounded-full border bg-surface px-2 py-0.5 text-[10px] shadow-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-              props.selected
-                ? "border-foreground/60 text-foreground"
-                : "border-border text-muted-foreground",
-              isData && "border-dashed",
-            )}
-            title={details.name}
-            aria-label={`${t(`plans.linkKind.${details.link.kind}`)}: ${details.name}`}
-            aria-pressed={props.selected}
-            onClick={() => graph.selectLink(details.link)}
-          >
-            {isData ? "◇ " : "→ "}
-            {label}
-          </button>
-        </div>
+        <PlanFlowEdgeLabel
+          {...props}
+          channel={channel}
+          anchor={{ x: labelX, y: labelY }}
+        />
         {props.selected && canEdit ? (
-          <>
-            <EdgeEndAction
-              x={props.sourceX}
-              y={props.sourceY}
-              position={props.sourcePosition}
-              label={t("plans.removeLinkAtSource", { name: details.name })}
-              onDisconnect={disconnect}
-            />
-            <EdgeEndAction
-              x={props.targetX}
-              y={props.targetY}
-              position={props.targetPosition}
-              label={t("plans.removeLinkAtTarget", { name: details.name })}
-              onDisconnect={disconnect}
-            />
-          </>
+          <EdgeEndActions {...props} onDisconnect={disconnect} />
         ) : null}
       </EdgeLabelRenderer>
+    </>
+  );
+}
+
+interface PlanFlowEdgeLabelProps extends EdgeProps<PlanFlowEdge> {
+  readonly channel: PlanLinkChannel;
+  readonly anchor: { readonly x: number; readonly y: number };
+}
+
+/** The selectable label in the middle of a connection; it names the kind of the connection in words. */
+function PlanFlowEdgeLabel(
+  props: PlanFlowEdgeLabelProps,
+): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { graph } = usePlanFlowContext();
+  const details = props.data;
+  if (!details) return null;
+  return (
+    <div
+      className="nodrag nopan pointer-events-auto absolute flex items-center gap-1"
+      style={{ transform: edgeLabelTransform(props, props.anchor) }}
+    >
+      <button
+        type="button"
+        data-plan-link-label={props.channel}
+        className={cn(
+          "max-w-48 truncate rounded-full border bg-surface px-2 py-0.5 text-[10px] shadow-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          props.selected
+            ? "border-foreground/60 text-foreground"
+            : PLAN_LINK_LABEL_TONE[props.channel],
+          props.selected &&
+            PLAN_LINK_DASH[props.channel] !== undefined &&
+            "border-dashed",
+        )}
+        title={details.name}
+        aria-label={`${t(`plans.linkKind.${props.channel}`)}: ${details.name}`}
+        aria-pressed={props.selected}
+        onClick={() => graph.selectLink(details.link)}
+      >
+        {LABEL_MARKS[props.channel]}
+        {edgeLabelText(t, details, props.channel)}
+      </button>
+    </div>
+  );
+}
+
+/** The two buttons that release a selected connection at its source and at its target. */
+function EdgeEndActions(
+  props: EdgeProps<PlanFlowEdge> & {
+    readonly onDisconnect: React.MouseEventHandler<HTMLButtonElement>;
+  },
+): React.ReactElement | null {
+  const { t } = useTranslation();
+  const name = props.data?.name ?? "";
+  return (
+    <>
+      <EdgeEndAction
+        x={props.sourceX}
+        y={props.sourceY}
+        position={props.sourcePosition}
+        label={t("plans.removeLinkAtSource", { name })}
+        onDisconnect={props.onDisconnect}
+      />
+      <EdgeEndAction
+        x={props.targetX}
+        y={props.targetY}
+        position={props.targetPosition}
+        label={t("plans.removeLinkAtTarget", { name })}
+        onDisconnect={props.onDisconnect}
+      />
     </>
   );
 }
@@ -161,10 +302,17 @@ function routeLabelPoint(
 
 function renderedEdgePath(
   props: EdgeProps<PlanFlowEdge>,
-): ReturnType<typeof getBezierPath> {
+  channel: PlanLinkChannel,
+  bottom: number,
+): readonly [path: string, labelX: number, labelY: number] {
   const point = routeLabelPoint(props);
-  if (!point) return getBezierPath(props);
-  const [path, x, y, offsetX, offsetY] = getBezierPath({
+  if (!point && channel === "event" && isPlanReturn({ ...props, bottom }))
+    return planReturnPath({ ...props, bottom });
+  if (!point) {
+    const [curve, x, y] = getBezierPath(props);
+    return [curve, x, y];
+  }
+  const [path, x, y] = getBezierPath({
     ...props,
     sourceX: point.isSource ? point.x : props.sourceX,
     sourceY: point.isSource ? point.y : props.sourceY,
@@ -176,7 +324,7 @@ function renderedEdgePath(
   const routed = point.isSource
     ? `M${props.sourceX},${props.sourceY}L${point.x},${point.y} ${curve}`
     : `${path}L${props.targetX},${props.targetY}`;
-  return [routed, x, y, offsetX, offsetY];
+  return [routed, x, y];
 }
 
 interface EdgeEndActionProps {

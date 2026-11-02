@@ -6,6 +6,7 @@ import { readPlanContract } from "@/backend/agents/AgentPlanSessionInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import type { RemotePlanStep } from "./AgentPlanRemoteExecution";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { RunnerExecution } from "@/definition/RunnerExecution";
 
 /** Builds CLI diagnostics in the event transaction, before immutable completion is checkpointed. */
@@ -70,7 +71,9 @@ function remoteAgentResult(
       dispatchedPromptDigest: planContentDigest(program.prompt),
       sessionId:
         progress.terminal?.sessionId ??
+        progress.continuation?.sessionId ??
         (progress.outputJournalVersion === 2 ? null : progress.sessionId),
+      ...remoteContinuation(progress.continuation, runner),
       processId: null,
       startedAt: progress.startedAt,
       turnEndedAt: progress.endedAt,
@@ -99,6 +102,29 @@ function remoteAgentResult(
       acceptance,
       events: [],
     },
+  };
+}
+
+/**
+ * The continuation evidence of a runner that kept the session of a writing job.
+ *
+ * @remarks
+ * The capability follows the runner's own statement and never the tool's
+ * name; a runner without continuation support reports nothing, so the record
+ * has neither capabilities nor effects and the retry decision names the gap.
+ */
+function remoteContinuation(
+  evidence: NonNullable<AgentPlanStepResult["remote"]>["continuation"],
+  runner: string,
+): Pick<AgentPlanSessionRecord, "continuationCapabilities" | "effects"> {
+  if (!evidence) return {};
+  return {
+    continuationCapabilities: {
+      canResume: evidence.canResume,
+      canLoad: false,
+      adapter: `Pages runner ${runner}`,
+    },
+    effects: { tools: evidence.tools, calls: evidence.calls },
   };
 }
 

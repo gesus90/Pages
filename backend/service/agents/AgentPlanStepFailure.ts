@@ -71,6 +71,50 @@ export function planAcceptanceFailure(
   return "plan_acceptance_failed";
 }
 
+/**
+ * What a valid report that shows unmet work is called: not passed.
+ *
+ * @remarks
+ * A report that is missing, unreadable, unproven or contradicted by the
+ * tickets stays a failed acceptance, never a `false`: a boolean result needs
+ * a trustworthy report, otherwise it would hide a configuration error.
+ */
+const UNMET_WORK_ISSUE = /^(?:criterion_unmet|todo_open):/u;
+
+/** Whether the only findings of an open acceptance are criteria that were not met or todos left open. */
+function isNotPassed(acceptance: AgentPlanAcceptance | null): boolean {
+  if (acceptance === null || acceptance.verdict === "accepted") return false;
+  return (
+    acceptance.issues.length > 0 &&
+    acceptance.issues.every((issue) => UNMET_WORK_ISSUE.test(issue))
+  );
+}
+
+/** The failure of a node and, for an agent a decision reads, whether its run passed. */
+export interface PlanAcceptanceOutcome {
+  readonly failure: ReturnType<typeof planAcceptanceFailure>;
+  /** Set only for an agent whose boolean result a decision reads. */
+  readonly passed?: boolean;
+}
+
+/**
+ * Judges a node's acceptance, reporting `false` instead of a failure where a decision reads it.
+ *
+ * @param node - The node and whether a decision reads its boolean result.
+ * @param acceptance - The reconciled report of the turn.
+ */
+export function planAcceptanceOutcome(
+  node: PlanFailureNode & { readonly reportsPassed?: boolean },
+  acceptance: AgentPlanAcceptance | null,
+): PlanAcceptanceOutcome {
+  const failure = planAcceptanceFailure(node, acceptance);
+  if (!node.reportsPassed) return { failure };
+  if (failure === null) return { failure: null, passed: true };
+  return isNotPassed(acceptance)
+    ? { failure: null, passed: false }
+    : { failure };
+}
+
 /** Carries a safe filename diagnosis into run details without storage paths. */
 export function assetFailure(
   error: unknown,

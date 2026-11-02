@@ -20,6 +20,7 @@ const retryCode = z.enum([
   "plan_claude_acp_session_failed",
   "opencode_acp_session_failed",
   "antigravity_acp_session_failed",
+  "plan_runner_session_failed",
   "acp_session_resume_failed",
 ]);
 const timestamp = z.iso.datetime();
@@ -42,11 +43,17 @@ const retry = z
       "reset_unknown",
       "exhausted",
       "unsafe",
+      "closeout_unconfirmed",
+      "resume_unavailable",
+      "session_not_kept",
+      "remote_evidence_missing",
+      "effect_unknown",
       "session",
       "failed",
     ]),
     nextAttemptAt: timestamp.nullable(),
     resetAt: timestamp.nullable(),
+    requiredResumeSessionId: z.string().min(1).max(4_000).optional(),
     attempts: z
       .array(
         z.object({

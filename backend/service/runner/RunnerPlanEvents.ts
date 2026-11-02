@@ -220,10 +220,11 @@ function remoteEvidence(
   result: PlanEvent["result"],
 ): Pick<
   NonNullable<AgentPlanStepResult["remote"]>,
-  "terminal" | "storageError"
+  "terminal" | "continuation" | "storageError"
 > {
   return {
     ...(result?.terminal ? { terminal: result.terminal } : {}),
+    ...(result?.continuation ? { continuation: result.continuation } : {}),
     ...(result?.storageError ? { storageError: result.storageError } : {}),
   };
 }

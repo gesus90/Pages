@@ -4,6 +4,10 @@
 > Pages plan contract 13, Runner 1.15.0, business acceptance for every CLI,
 > upper control actions, actual writer queues and logical workspace removal.
 > The versioned historical sections below describe their original releases.
+>
+> Runner **1.16.0** adds `continuationVersion: 1` (PAGE-191): resumable native
+> sessions and proven tool activity for writing CLI jobs, see
+> [Runner 1.16.0: continuation](#runner-1160-continuation).
 
 Der lokale Teil stellt Protokoll v1, persistente Kopplung und Skriptübertragung bereit. Einstellungen → Agents zeigt API, Lokal und Remote direkt hintereinander vor den Pica-Einstellungen. Die CLI-Pfade sind aufklappbar; Remote verwendet dieselben Tabellenspalten mit tatsächlicher SSH-Prüfzeit und Abteilungsfreigabe. Remote enthält ausschließlich gespeicherte SSH-Anbindungen. Es werden keine Remote-Agenten aus einer Hostliste abgeleitet.
 
@@ -331,3 +335,40 @@ erhalten, gibt aber keine Nachfolger als erfolgreiches Ergebnis frei. Ein
 älterer Runner darf ausstehende versionierte Aufträge nicht übernehmen;
 aktualisieren Sie ihn ausdrücklich und prüfen Sie danach den Laufzustand.
 Scripts und API-Modellaufrufe verwenden ihren bestehenden Ergebnisvertrag.
+
+## Runner 1.16.0: continuation
+
+A runner announces `continuationVersion: 1` in its `reconcile`. Pages then adds
+`continuation: { version: 1, resumeSessionId? }` to the command of a writing
+(`yolo`) CLI job; a runner without the announcement never receives it, and a
+downgrade while such a job is outstanding is refused.
+
+| Tool        | First attempt                                  | Retry after a technical session failure |
+| ----------- | ---------------------------------------------- | --------------------------------------- |
+| Claude Code | `claude -p` without `--no-session-persistence` | `claude -p --resume <session>`          |
+| Codex       | `codex exec` without `--ephemeral`             | `codex exec … resume <session>`         |
+| OpenCode    | ACP `session/new`                              | ACP `session/resume` when announced     |
+| Antigravity | ACP `session/new`; no resume (not verified)    | none; a new session only without tools  |
+
+The job result then carries `continuation`: the native `sessionId` (also for a
+failed or cut job), `canResume`, and `tools` (`none`, `observed`, `unknown`) with
+a call count. `none` is reported only when the event stream began and showed no
+tool call; a cut or malformed stream says `unknown`. Pages stores this as the
+session record's `effects` and continuation capabilities.
+
+The transcripts stay in the host account's own CLI homes (`~/.claude`,
+`~/.codex`, OpenCode's data folder), governed by that CLI's retention. A remote
+job already runs as that account with full access to those homes, so persisting a
+plan session adds no access; Pages never copies or deletes them and keeps only
+the session ID.
+
+Failure codes: a resume that never began returns `acp_session_resume_failed`;
+a Claude or Codex job that began and then broke off without a sign-in, quota,
+rate-limit, model, permission or policy cause returns
+`plan_runner_session_failed`. Both are session-retry codes (three total
+attempts, ten seconds apart); everything else keeps its previous code.
+
+Delivery is separate from the server release: deploy Pages first (it accepts old
+and new runners), then update each runner from the same source through the
+checked setup artifact and restart it. Until then `remote_evidence_missing` stops
+the retry of a writing job with a named cause.

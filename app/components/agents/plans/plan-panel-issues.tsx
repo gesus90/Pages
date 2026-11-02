@@ -70,7 +70,7 @@ function issueSubject(
     name = task ? task.key : translate("plans.ticketUnavailable");
   } else if (node?.type === "start" || node?.type === "end")
     name = translate(`plans.nodeType.${node.type}`);
-  else if (node) name = node.name;
+  else if (node) name = node.name ?? translate("plans.nodeType.decision");
   return name;
 }
 

@@ -21,6 +21,8 @@ export const PLAN_NODE_WIDTH = 280;
 // the rows of plan-node-card and its 1 px border.
 const PLAN_AGENT_WIDTH = 320;
 const PLAN_SOURCE_WIDTH = 260;
+/** The compact logic node: narrower than an agent, as wide as a value source. */
+export const PLAN_DECISION_WIDTH = 260;
 const PLAN_ENDPOINT_WIDTH = 160;
 const PLAN_ENDPOINT_HEIGHT = 56;
 const PLAN_PARAMETER_HEIGHT = 166;
@@ -28,6 +30,10 @@ const PLAN_TICKET_HEIGHT = 101;
 const PLAN_VARIABLE_HEIGHT = 90;
 const AGENT_BASE_HEIGHT = 172;
 const AGENT_INPUT_HEIGHT = 38;
+// The two optional rows of an agent, Ereignis IN and the boolean Ergebnis, with their gaps.
+const AGENT_BRANCHING_HEIGHT = 68;
+// Header, condition row with its binding chip, both outputs and the footer line.
+const PLAN_DECISION_HEIGHT = 237;
 /** Space between a frame's edge and its members. */
 export const PLAN_FRAME_PADDING = 20;
 const FRAME_MIN_WIDTH = 680;
@@ -42,7 +48,12 @@ const FRAME_EDGE = 16;
 
 function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
   const inputs = planStepTemplate(step, sources.agents)?.parameters.length ?? 0;
-  return AGENT_BASE_HEIGHT + 96 + inputs * AGENT_INPUT_HEIGHT;
+  return (
+    AGENT_BASE_HEIGHT +
+    96 +
+    AGENT_BRANCHING_HEIGHT +
+    inputs * AGENT_INPUT_HEIGHT
+  );
 }
 
 /** A script card has the rows of an agent card: its inputs, its output and its profile. */
@@ -109,6 +120,7 @@ export function planNodeWidth(node: AgentPlanNode): number {
   if (node.type === "group" || node.type === "loop")
     return planGroupWidth(node);
   if (node.type === "agent" || node.type === "script") return PLAN_AGENT_WIDTH;
+  if (node.type === "decision") return PLAN_DECISION_WIDTH;
   return node.type === "start" || node.type === "end"
     ? PLAN_ENDPOINT_WIDTH
     : PLAN_SOURCE_WIDTH;
@@ -129,6 +141,7 @@ export function planNodeHeight(
     start: PLAN_ENDPOINT_HEIGHT,
     end: PLAN_ENDPOINT_HEIGHT,
     parameter: PLAN_PARAMETER_HEIGHT,
+    decision: PLAN_DECISION_HEIGHT,
     task: PLAN_TICKET_HEIGHT,
     variable: PLAN_VARIABLE_HEIGHT,
   };
@@ -198,18 +211,12 @@ export function planNodeLabel(
   sources: AgentPlanSources,
 ): string {
   if (node.type === "start" || node.type === "end") return node.type;
-  if (
-    node.type === "variable" ||
-    node.type === "parameter" ||
-    node.type === "group" ||
-    node.type === "loop" ||
-    node.type === "script"
-  )
-    return node.name;
+  if (node.type === "decision") return node.name ?? node.type;
   if (node.type === "task") {
     const task = sources.tasks.find((entry) => entry.id === node.taskId);
     return task ? `${task.key}: ${task.title}` : node.taskId;
   }
+  if (node.type !== "agent") return node.name;
   return (
     node.configuration?.name ??
     sources.agents.find((entry) => entry.id === node.agentId)?.name ??
@@ -224,6 +231,7 @@ const NODE_TINTS = {
   script: "border-plan-script/60 bg-plan-script-subtle",
   group: "border-plan-group/60 bg-plan-group-subtle",
   loop: "border-plan-loop-edge/60 bg-plan-loop-subtle",
+  decision: "border-plan-logic-edge/60 bg-plan-logic-subtle",
   task: "border-plan-ticket-edge bg-plan-ticket-subtle",
   variable: "border-plan-parameter/60 bg-plan-parameter-subtle",
   parameter: "border-plan-parameter/60 bg-plan-parameter-subtle",
@@ -236,6 +244,7 @@ const NODE_ACCENTS = {
   script: "text-plan-script",
   group: "text-plan-group",
   loop: "text-plan-loop",
+  decision: "text-plan-logic",
   task: "text-plan-ticket",
   variable: "text-plan-parameter",
   parameter: "text-plan-parameter",

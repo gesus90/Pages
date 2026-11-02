@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { runnerContinuationRequestSchema } from "./RunnerContinuation";
+
 import type { AgentProviderId } from "./AgentConnection";
 
 /** Existing remote command limit, checked before admission as well as at the runner boundary. */
@@ -67,6 +69,8 @@ export const runnerExecutionSchema = z
     resultPayloadVersion: z.literal(1).optional(),
     /** Requires Runner 1.6.0; credentials and file contents never belong to a durable command. */
     pagesAccess: z.literal(1).optional(),
+    /** Requires Runner 1.16.0; a writing CLI job keeps a resumable native session and proves its tool activity. */
+    continuation: runnerContinuationRequestSchema.optional(),
     program: z.discriminatedUnion("kind", [
       z
         .object({

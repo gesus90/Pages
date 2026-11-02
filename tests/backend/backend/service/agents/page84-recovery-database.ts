@@ -257,10 +257,18 @@ export class RecoveryDatabase {
     if (statement.includes("SELECT recovery_revision")) return [[row.revision]];
     if (statement.includes("recovery_revision"))
       return statement.includes("snapshot_json")
-        ? [[row.view, row.revision, row.snapshot]]
+        ? [[row.view, row.revision, this.currentSnapshot(row)]]
         : [[row.view, row.revision]];
     if (statement.includes("SELECT snapshot_json")) return [[row.snapshot]];
     return [[row.view]];
+  }
+
+  /** The newest adopted continuation, else the first snapshot: what CURRENT_PLAN_SNAPSHOT selects. */
+  private currentSnapshot(row: RunRow): string {
+    const adopted = this.rows.continuations
+      .filter((entry) => entry.runId === row.id)
+      .toSorted((left, right) => right.version - left.version);
+    return adopted[0]?.snapshot ?? row.snapshot;
   }
 
   private execute(statement: string, parameters: SqlParameters): void {

@@ -50,7 +50,7 @@ it("maps Nur Lesen to the default mode with the reading tools only, and keeps us
   expect(profile.options).toMatchObject({
     settingSources: [],
     strictMcpConfig: true,
-    persistSession: false,
+    persistSession: true,
     tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
     disallowedTools: ["Bash", "PowerShell", "Edit", "Write", "NotebookEdit"],
     extraArgs: { "disable-slash-commands": null },

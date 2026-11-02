@@ -218,6 +218,7 @@ export type AgentPlanRecoveryBlocker =
   | "plan_context_changed"
   | "plan_definition_changed"
   | "checkpoint_mismatch"
+  | "branching_unsupported"
   | "nothing_to_release"
   | "workflow_unavailable"
   | "context_not_verified";

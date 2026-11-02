@@ -1,4 +1,4 @@
-import { Handle, MarkerType, Position, ReactFlow } from "@xyflow/react";
+import { Handle, Position, ReactFlow } from "@xyflow/react";
 import { I18nextProvider } from "react-i18next";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
@@ -53,7 +53,6 @@ function edge(
     target: "b",
     targetHandle: "flow-in",
     data: details,
-    markerEnd: { type: MarkerType.ArrowClosed },
     ...overrides,
   };
 }
@@ -127,6 +126,21 @@ it("draws a flow connection as a solid curve with a selectable label at its midd
       name: i18n.t("plans.removeLinkAtSource", { name: "A → B" }),
     }),
   ).toBeNull();
+});
+
+it("puts the tip of the arrow on the rim of the port, one port radius before the end of the line", async () => {
+  const { container } = renderEdges([
+    edge("flow", { link: FLOW_LINK, name: "A → B" }),
+  ]);
+  const path = await edgePath("flow");
+  const arrow = container.querySelector("marker");
+
+  expect(arrow?.getAttribute("refX")).toBe("6");
+  expect(arrow?.getAttribute("markerUnits")).toBe("userSpaceOnUse");
+  expect(path.getAttribute("marker-end")).toBe(`url(#${arrow?.id})`);
+  expect(arrow?.querySelector("polygon")?.getAttribute("style")).toContain(
+    "var(--color-muted-foreground)",
+  );
 });
 
 it("draws a value binding dashed and names its input", async () => {
@@ -265,4 +279,146 @@ it("offers no removal on a read-only canvas", async () => {
       name: i18n.t("plans.removeLinkAtSource", { name: "A → B" }),
     }),
   ).toBeNull();
+});
+
+const WIRE = {
+  kind: "wire",
+  from: "a",
+  to: "b",
+  fromPort: "passed-out",
+  toPort: "condition-in",
+} as const;
+
+function wireName(key: string, name: string): string {
+  return `${i18n.t(`plans.linkKind.${key}`)}: ${name}`;
+}
+
+it("draws the boolean wire dashed in the logic colour and calls it bool", async () => {
+  renderEdges([
+    edge("condition", {
+      link: { ...WIRE, channel: "condition" },
+      name: "A → B",
+    }),
+  ]);
+  const path = await edgePath("condition");
+
+  expect(path.getAttribute("style")).toContain("stroke-dasharray: 5 4");
+  expect(path.getAttribute("style")).toContain("var(--color-plan-logic-edge)");
+  const button = label(wireName("condition", "A → B"));
+  expect(button.textContent).toBe("bool");
+  expect(button.classList).toContain("text-plan-logic");
+  expect(path.getAttribute("data-plan-link")).toBe("condition");
+});
+
+it("draws the true branch green and the false branch amber, each named in words", async () => {
+  renderEdges([
+    edge("yes", {
+      link: {
+        ...WIRE,
+        channel: "branch",
+        fromPort: "true-out",
+        toPort: "flow-in",
+        branch: "true",
+      },
+      name: "A → B",
+    }),
+    edge(
+      "no",
+      {
+        link: {
+          ...WIRE,
+          channel: "branch",
+          fromPort: "false-out",
+          toPort: "flow-in",
+          branch: "false",
+          to: "a",
+        },
+        name: "A → A",
+      },
+      { target: "a" },
+    ),
+  ]);
+  const yes = await edgePath("yes");
+  const no = await edgePath("no");
+
+  expect(yes.getAttribute("style")).toContain("var(--color-success)");
+  expect(yes.getAttribute("style")).not.toContain("stroke-dasharray");
+  expect(no.getAttribute("style")).toContain("var(--color-warning)");
+  expect(label(wireName("true", "A → B")).textContent).toBe("true");
+  expect(label(wireName("false", "A → A")).textContent).toBe("false");
+});
+
+it("draws the event wire dashed in blue and labels it as a new prompt", async () => {
+  renderEdges([
+    edge("event", {
+      link: {
+        ...WIRE,
+        channel: "event",
+        fromPort: "value-out",
+        toPort: "event-in",
+      },
+      name: "A → B",
+    }),
+  ]);
+  const path = await edgePath("event");
+
+  expect(path.getAttribute("style")).toContain("var(--color-info)");
+  expect(path.getAttribute("style")).toContain("stroke-dasharray: 9 5");
+  expect(label(wireName("event", "A → B")).textContent).toBe(
+    i18n.t("plans.linkLabel.event"),
+  );
+});
+
+it("routes the event wire back below both cards instead of across them", async () => {
+  renderEdges([
+    edge(
+      "return",
+      {
+        link: {
+          ...WIRE,
+          channel: "event",
+          from: "b",
+          to: "a",
+          fromPort: "value-out",
+          toPort: "event-in",
+        },
+        name: "B → A",
+      },
+      {
+        source: "b",
+        target: "a",
+        sourceHandle: "flow-out",
+        targetHandle: "flow-in",
+      },
+    ),
+  ]);
+  const path = await edgePath("return");
+
+  const d = path.getAttribute("d") ?? "";
+  expect(d).toMatch(/^M[\d.]+,[\d.]+ L/);
+  expect(d).toContain("Q");
+  expect(d).not.toContain("C");
+});
+
+it("keeps the selection colour and the names of a selected wire", async () => {
+  const { graph } = renderEdges([
+    edge(
+      "condition",
+      { link: { ...WIRE, channel: "condition" }, name: "A → B" },
+      { selected: true },
+    ),
+  ]);
+  const path = await edgePath("condition");
+
+  expect(path.getAttribute("style")).toContain("var(--color-foreground)");
+  fireEvent.click(label(wireName("condition", "A → B")));
+  expect(graph.selectLink).toHaveBeenCalledWith({
+    ...WIRE,
+    channel: "condition",
+  });
+  fireEvent.click(label(i18n.t("plans.removeLinkAtTarget", { name: "A → B" })));
+  expect(graph.disconnect).toHaveBeenCalledWith({
+    ...WIRE,
+    channel: "condition",
+  });
 });

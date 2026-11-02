@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 
 import {
   PlanStatusBadge,
+  planRunCardClass,
   planStatusClass,
   planStatusKey,
 } from "@/app/components/agents/plans/plan-status";
@@ -82,4 +83,36 @@ it("distinguishes a completed execution from an open report", () => {
   expect(planStatusClass("succeeded", false, true)).toContain("text-warning");
   expect(planStatusKey("succeeded", false, true)).toBe("plans.reportOpen");
   expect(planStatusClass("failed", false, true)).toContain("text-destructive");
+});
+
+it("shows a skipped node as quiet and named, not as waiting", () => {
+  const root = badge(<PlanStatusBadge status="skipped" />);
+
+  expect(planStatusKey("skipped")).toBe("plans.status.skipped");
+  expect(root.getAttribute("title")).toBe("Skipped");
+  expect(root.className).toContain("text-muted-foreground");
+  expect(screen.getByText("Skipped")).toBeTruthy();
+  expect(root.querySelector("svg")).not.toBeNull();
+});
+
+it("gives the card of a skipped node a dashed border and no other", () => {
+  const step = {
+    id: "a",
+    name: "A",
+    isBlocked: false,
+    cancellation: "none",
+    output: null,
+    error: null,
+  } as const;
+
+  expect(planRunCardClass({ ...step, status: "skipped" })).toContain(
+    "border-dashed",
+  );
+  expect(planRunCardClass({ ...step, status: "skipped" })).not.toContain(
+    "opacity",
+  );
+  expect(planRunCardClass({ ...step, status: "succeeded" })).not.toContain(
+    "border-dashed",
+  );
+  expect(planRunCardClass(undefined)).toBe(planStatusClass("waiting"));
 });

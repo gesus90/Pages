@@ -8,6 +8,7 @@ import { PlanExecutionDetails } from "./plan-execution-details";
 import { PlanStatusActivity } from "./plan-status-activity";
 import { hasOpenPlanReport, PlanStatusBadge } from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
+import { isPlanDecisionResult, PlanStatusHistory } from "./plan-status-history";
 import { PlanStatusTodos } from "./plan-status-todos";
 import { PlanScriptRun } from "./plan-script-run";
 import { PlanRemoteScriptRun } from "./plan-remote-script-run";
@@ -16,6 +17,7 @@ import { PlanRemoteHistory } from "./plan-remote-history";
 import { PlanStatusReport } from "./plan-status-report";
 import { PlanScriptReport } from "./plan-script/plan-script-report";
 
+import type { TFunction } from "i18next";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 interface StatusDetailsProps {
@@ -33,6 +35,14 @@ function isScript(step: AgentPlanStepResult): boolean {
     (step.execution?.target.kind === "remote" &&
       step.execution.modelAccess.provider === "script")
   );
+}
+
+/** The line under the heading: what kind of node the step is. */
+function nodeKind(step: AgentPlanStepResult, translate: TFunction): string {
+  if (isPlanDecisionResult(step)) return translate("plans.nodeType.decision");
+  return isScript(step)
+    ? translate("plans.nodeType.script")
+    : translate("plans.progress.agent", { name: step.name });
 }
 
 /** Consistent run-step details, with honest empty states when the runner reports no live activity. */
@@ -60,7 +70,7 @@ export function PlanStatusDetails({
       containerClassName="min-h-0 flex-1"
       className="flex flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border/80 px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
     >
-      {isScript(step) ? null : (
+      {isScript(step) || isPlanDecisionResult(step) ? null : (
         <PlanStatusTodos key={step.id} step={step} number={number} />
       )}
       <ScrollViewport
@@ -77,9 +87,7 @@ export function PlanStatusDetails({
               {t("plans.progress.step", { number })} · {step.name}
             </h3>
             <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
-              {isScript(step)
-                ? t("plans.nodeType.script")
-                : t("plans.progress.agent", { name: step.name })}
+              {nodeKind(step, t)}
             </p>
           </div>
           <PlanStatusBadge
@@ -104,11 +112,14 @@ export function PlanStatusDetails({
             {t("plans.progress.filteredOutput")}
           </p>
         ) : null}
+        <PlanStatusHistory step={step} />
         <PlanStatusReport acceptance={step.session?.acceptance} />
         <PlanScriptReport report={step.report} />
         <PlanExecutionDetails step={step} />
         <StepConfiguration step={step} end={end} />
-        {isScript(step) ? null : <PlanStatusActivity step={step} />}
+        {isScript(step) || isPlanDecisionResult(step) ? null : (
+          <PlanStatusActivity step={step} />
+        )}
         <PlanRemoteHistory step={step} />
         <Button
           size="sm"
@@ -133,6 +144,7 @@ function StepConfiguration({
 }: Pick<StatusDetailsProps, "step" | "end">): React.ReactElement | null {
   const { t } = useTranslation();
   if (!step) return null;
+  if (isPlanDecisionResult(step)) return null;
   if (step.script) return <PlanScriptRun step={step} />;
   if (isScript(step)) return <PlanRemoteScriptRun step={step} />;
   if (step.session)

@@ -15,6 +15,7 @@ import {
   planNodeWidth,
 } from "@/app/components/agents/plans/plan-layout";
 
+import { DECISION, reviewCyclePlan } from "./plan-branching-fixture";
 import {
   agentStep,
   EMPTY_SOURCES,
@@ -336,4 +337,138 @@ it("ignores a library connection with an unknown handle", () => {
         targetHandle,
       }),
     ).toBeNull();
+});
+
+it("draws the boolean wire, the branches and the event between the handles of their ports", () => {
+  const edges = planFlowEdges(reviewCyclePlan(), EMPTY_SOURCES, null);
+
+  expect(
+    edges.map((edge) => [
+      edge.id,
+      edge.source,
+      edge.sourceHandle,
+      edge.target,
+      edge.targetHandle,
+    ]),
+  ).toEqual([
+    ["flow:start:check", "start", "flow-out", "check", "flow-in"],
+    [
+      "condition:check:decision",
+      "check",
+      "passed-out",
+      "decision",
+      "condition-in",
+    ],
+    ["branch:decision:true:end", "decision", "true-out", "end", "flow-in"],
+    ["branch:decision:false:fix", "decision", "false-out", "fix", "flow-in"],
+    ["event:fix:check", "fix", "value-out", "check", "event-in"],
+  ]);
+  // The line draws its own arrow, whose tip sits on the rim of the port.
+  expect(edges.some((edge) => edge.markerEnd !== undefined)).toBe(false);
+});
+
+it("selects a wire by its own key", () => {
+  const plan = reviewCyclePlan();
+  const [, , , falseBranch] = planFlowEdges(plan, EMPTY_SOURCES, null).map(
+    (edge) => edge.data?.link,
+  );
+  if (!falseBranch) throw new Error("Missing link");
+
+  const selected = planFlowEdges(plan, EMPTY_SOURCES, falseBranch).filter(
+    (edge) => edge.selected,
+  );
+  expect(selected.map((edge) => edge.id)).toEqual([
+    "branch:decision:false:fix",
+  ]);
+});
+
+it("sizes a decision as a compact card", () => {
+  const [node] = planFlowNodes(planOf([DECISION]), {
+    sources: EMPTY_SOURCES,
+    selectedId: "decision",
+    canEdit: true,
+  });
+
+  expect(node).toMatchObject({
+    id: "decision",
+    selected: true,
+    zIndex: 3,
+    style: { width: 260 },
+    ariaLabel: "decision",
+  });
+  expect(node?.initialWidth).toBeLessThan(planNodeWidth(agentStep("agent")));
+});
+
+it("finds the source behind the boolean result of an agent and the two outputs of a decision", () => {
+  const plan = reviewCyclePlan();
+
+  expect(planFlowSource(plan, "check", "passed-out")).toEqual({
+    kind: "passed",
+    nodeId: "check",
+  });
+  expect(planFlowSource(plan, "decision", "true-out")).toEqual({
+    kind: "branch",
+    nodeId: "decision",
+    branch: "true",
+  });
+  expect(planFlowSource(plan, "decision", "false-out")).toEqual({
+    kind: "branch",
+    nodeId: "decision",
+    branch: "false",
+  });
+  // The text result of an agent stays a result, which can end at an event input.
+  expect(planFlowSource(plan, "fix", "value-out")).toEqual({
+    kind: "result",
+    nodeId: "fix",
+  });
+});
+
+it("refuses outputs a node does not have", () => {
+  const plan = reviewCyclePlan();
+
+  // A decision has no flow OUT of its own, and only an agent has a boolean result.
+  expect(planFlowSource(plan, "decision", "flow-out")).toBeNull();
+  expect(planFlowSource(plan, "start", "passed-out")).toBeNull();
+  expect(planFlowSource(plan, "check", "true-out")).toBeNull();
+  expect(planFlowSource(plan, "decision", "value-out")).toBeNull();
+});
+
+it("turns a complete library connection into a condition, a branch or an event", () => {
+  const plan = reviewCyclePlan();
+
+  expect(
+    planFlowConnection(plan, {
+      source: "check",
+      sourceHandle: "passed-out",
+      target: "decision",
+      targetHandle: "condition-in",
+    }),
+  ).toEqual({
+    source: { kind: "passed", nodeId: "check" },
+    targetId: "decision",
+    parameter: "condition-in",
+  });
+  expect(
+    planFlowConnection(plan, {
+      source: "decision",
+      sourceHandle: "false-out",
+      target: "fix",
+      targetHandle: "flow-in",
+    }),
+  ).toEqual({
+    source: { kind: "branch", nodeId: "decision", branch: "false" },
+    targetId: "fix",
+  });
+  expect(
+    planFlowConnection(plan, {
+      source: "fix",
+      sourceHandle: "value-out",
+      target: "check",
+      targetHandle: "event-in",
+    }),
+  ).toEqual({
+    source: { kind: "result", nodeId: "fix" },
+    targetId: "check",
+    parameter: "event-in",
+  });
 });

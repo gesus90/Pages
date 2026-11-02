@@ -38,7 +38,8 @@ interface GroupSession {
   /** The process ended or was retired; the session cannot be continued. */
   isLost: boolean;
   effective: Readonly<Record<string, string>> | null;
-  readonly capabilities: AgentPlanContinuationCapabilities | null;
+  /** What the adapter announced it can resume; it may announce this after the session opened. */
+  capabilities: AgentPlanContinuationCapabilities | null;
 }
 
 interface GroupTurnInput {
@@ -133,6 +134,33 @@ export class AgentPlanGroupSessions {
     return this.sessions.get(key)?.instanceId;
   }
 
+  /** Whether the session of the key is open and can take another turn. */
+  public isOpen(key: string): boolean {
+    const entry = this.sessions.get(key);
+    return (
+      entry !== undefined &&
+      !entry.isLost &&
+      entry.session.isClosing !== true &&
+      entry.session.next !== undefined
+    );
+  }
+
+  /**
+   * Ends and forgets a session that can no longer take a turn, so that the key can open a new one.
+   *
+   * @param key - The run and group, as `runId/groupId`.
+   * @returns How the old session closed, or `null` when there was none.
+   *
+   * @remarks
+   * Only a start that carries the full instruction may open the session in
+   * its place; the caller marks that start as a new session.
+   */
+  public async discard(key: string): Promise<PlanSessionClosed | null> {
+    const entry = this.sessions.get(key);
+    this.opened.delete(key);
+    return entry ? this.close(key, entry) : null;
+  }
+
   /** Keeps the original tool server and credential for every step in the session. */
   public mcp(key: string): CliSessionMcp | null {
     return this.sessions.get(key)?.mcp ?? null;
@@ -220,6 +248,7 @@ export class AgentPlanGroupSessions {
     const cancel = (): void => controller.abort();
     signal.addEventListener("abort", cancel, { once: true });
     let started: GroupSession["started"] = null;
+    const hasProcessStarted = (): boolean => started !== null;
     let capabilities: AgentPlanContinuationCapabilities | null = null;
     try {
       if (signal.aborted) throw new AgentPlanCancelledError();
@@ -236,6 +265,7 @@ export class AgentPlanGroupSessions {
           ...this.watch(holder, observer),
           capabilities: (announced) => {
             capabilities = announced;
+            if (holder.entry) holder.entry.capabilities = announced;
             observer.capabilities?.(announced);
           },
           started: (details) => {
@@ -275,6 +305,9 @@ export class AgentPlanGroupSessions {
       logCaughtError("AgentPlanGroupSessions", error);
 
       signal.removeEventListener("abort", cancel);
+      // A start that ended before its process began lost nothing: the next start may open the session.
+      if (!hasProcessStarted() && !isReopened && !this.sessions.has(key))
+        this.opened.delete(key);
       throw error;
     }
   }

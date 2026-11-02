@@ -203,6 +203,8 @@ export const AGENT_ERROR_MESSAGES = {
     "The runner could not reserve an execution slot on its host; the job did not start.",
   plan_runner_failed: "The runner ended its turn with an error.",
   plan_runner_incomplete: "The runner ended without completing its turn.",
+  plan_runner_session_failed:
+    "The remote CLI session broke off before it completed its turn; the host reported no sign-in, quota or model cause.",
   plan_runner_permission_denied:
     "The runner refused actions that the run options do not allow; nothing was approved on its behalf.",
   plan_group_acceptance_failed:
@@ -235,6 +237,16 @@ export const AGENT_ERROR_MESSAGES = {
     "The value at the path of the end condition has another type than the expected value. Pages never converts types.",
   plan_loop_session_lost:
     "The retained ACP session of a loop agent is unavailable after its adapter process ended. Pages does not open a new session under the same identity; deliberately start a new run.",
+  plan_decision_input_invalid:
+    "A decision found no valid boolean result of its agent: the agent did not finish, or the same result was already evaluated. The decision is never treated as false.",
+  plan_event_prompt_empty:
+    "The result sent to the event input of this agent holds no usable new information, so the agent was not started again. Nothing was replaced by an empty or invented prompt.",
+  plan_event_prompt_too_large:
+    "The result sent to the event input of this agent is longer than 100000 characters. Pages does not shorten it; let the sending node answer more briefly.",
+  plan_activation_limit:
+    "A node of this cycle started 25 times in one run, the limit that keeps a cycle from running without end. Check why the decision never lets the cycle end.",
+  plan_branching_revision:
+    "A paused run with a decision or an event input cannot switch to a changed revision of its plan. Stop the run and start it again.",
   plan_session_unavailable:
     "This agent session has no open native session that could take another instruction. Its history stays readable.",
   plan_stop_unconfirmed:

@@ -109,5 +109,6 @@ function runStepName(snapshot: AgentPlanSnapshot, node: AgentPlanNode): string {
   const remote = snapshot.remoteSteps?.find((step) => step.step.id === node.id);
   if (remote?.step.type === "agent")
     return remote.step.configuration?.name ?? node.type;
+  if (node.type === "decision") return node.name ?? "Decision";
   return node.type === "loop" || node.type === "script" ? node.name : node.type;
 }

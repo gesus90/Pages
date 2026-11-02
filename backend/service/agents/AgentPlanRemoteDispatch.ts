@@ -11,6 +11,8 @@ export interface RemoteRetryTerms {
   readonly attemptNumber: number;
   /** A finished job of the same attempt may be followed by exactly this new job. */
   readonly allowTerminalRerun: boolean;
+  /** The native session this retry continues; `null` starts a new one and says so. */
+  readonly resumeSessionId: string | null;
 }
 
 export const CANCELLED_BEFORE_DISPATCH: Partial<AgentPlanStepResult> = {

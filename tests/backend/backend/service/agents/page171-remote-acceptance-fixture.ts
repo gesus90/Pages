@@ -195,6 +195,7 @@ export function controlledRemoteService(
       supportsPagesAccess: () => false,
       supportsOpenCode: () => true,
       supportsExactResultPayload: () => true,
+      supportsContinuation: () => false,
       supportsAssetFiles: () => false,
       ready: async () => [],
       cancel: async () => {

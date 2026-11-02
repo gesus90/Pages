@@ -16,6 +16,8 @@ import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { hasPlanBranching } from "@/definition/AgentPlanBranching";
+
 import { checkSessionProcesses } from "../AgentPlanRecovery";
 import { cleanupScanFailure } from "../AgentPlanCleanupFailure";
 import { prepareRecoveredPlan } from "../AgentPlanContinuation";
@@ -119,8 +121,10 @@ function requireOption(option: AgentPlanRecoveryOption): void {
 function frozenNodes(snapshot: AgentPlanSnapshot): {
   readonly agentStepIds: readonly string[];
   readonly groupIds: readonly string[];
+  readonly hasBranching: boolean;
 } {
   return {
+    hasBranching: hasPlanBranching(snapshot.plan),
     agentStepIds: [
       ...snapshot.steps.map((step) => step.step.id),
       ...(snapshot.remoteSteps ?? [])

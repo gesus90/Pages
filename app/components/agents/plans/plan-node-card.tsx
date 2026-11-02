@@ -5,9 +5,10 @@ import { PlanLoopFrame } from "./plan-loop-frame";
 import { planLoopMemberResult } from "./plan-loop-summary";
 import { planRunGroupSession } from "./plan-group-session";
 import { PlanAgentCard } from "./plan-node-card/plan-agent-card";
+import { PlanDecisionCard } from "./plan-node-card/plan-decision-card";
 import { PlanScriptCard } from "./plan-node-card/plan-script-card";
 import { PlanSourceCard } from "./plan-node-card/plan-source-card";
-import { usePlanFlowPorts } from "./use-plan-flow-ports";
+import { planPortLayout, usePlanFlowPorts } from "./use-plan-flow-ports";
 
 import type { NodeProps } from "@xyflow/react";
 import type { PlanFlowNode } from "./plan-flow-model";
@@ -16,19 +17,19 @@ import type { PlanFlowNode } from "./plan-flow-model";
  * Custom React Flow cards retain the Pages instance, ports and recorded run states.
  *
  * @remarks
- * One card family: compact start and end, parameter and ticket cards of
- * medium size and agent and script cards as tall as their inputs. Frames
- * keep their own design.
+ * One card family: compact start and end, parameter, ticket and decision
+ * cards of medium size and agent and script cards as tall as their inputs.
+ * Frames keep their own design.
  */
 export function PlanNodeCard({
   data: { node },
 }: NodeProps<PlanFlowNode>): React.ReactElement {
   const context = usePlanFlowContext();
   const { sources, graph, canEdit, run } = context;
-  usePlanFlowPorts(node, sources);
   const result =
     run?.steps.find((step) => step.id === node.id) ??
     planLoopMemberResult(run, node.id);
+  usePlanFlowPorts(node, sources, planPortLayout(context.draft, node, result));
   if (node.type === "start" || node.type === "end")
     return (
       <PlanEndpoint
@@ -64,6 +65,10 @@ export function PlanNodeCard({
   if (node.type === "script")
     return (
       <PlanScriptCard script={node} result={result} hasRun={run !== null} />
+    );
+  if (node.type === "decision")
+    return (
+      <PlanDecisionCard decision={node} result={result} hasRun={run !== null} />
     );
   return <PlanSourceCard node={node} />;
 }

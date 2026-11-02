@@ -78,6 +78,11 @@ export interface CliSessionRequest {
   readonly isWorkingDirectoryReadOnly?: boolean;
   /** Only this session's temporary GitHub configuration is mounted, read-only, outside its HOME. */
   readonly credentialDirectory?: string;
+  /** The connection's login file, bound writable into the private home so the CLI refreshes its token in place. */
+  readonly credentialFile?: {
+    readonly source: string;
+    readonly target: string;
+  };
   /** Server-approved bundles rebound read-only after the service home is hidden. */
   readonly readOnlyFiles?: readonly string[];
   /** Variables added to the isolated environment; credentials stay out of the arguments. */

@@ -780,6 +780,7 @@
         "plan_history_corrupt": "Ein Verlaufschunk fehlt oder seine Integritätsprüfung ist fehlgeschlagen.",
         "plan_runner_failed": "Der Runner hat seinen Turn mit einem Fehler beendet.",
         "plan_runner_incomplete": "Der Runner endete, ohne seinen Turn abzuschließen.",
+        "plan_runner_session_failed": "Die Remote-CLI-Sitzung brach ab, bevor sie ihren Turn abschließen konnte; der Host meldete keine Anmelde-, Kontingent- oder Modellursache.",
         "plan_runner_permission_denied": "Der Runner hat Aktionen abgelehnt, die die Laufoptionen nicht erlauben; nichts wurde stellvertretend freigegeben.",
         "plan_acceptance_failed": "Der fachliche Auftrag ist blockiert, offen oder unbelegt. Nachfolger bleiben trotz technisch erfolgreichem Ende gesperrt.",
         "plan_group_acceptance_failed": "Der Gruppen-Agent hat die Abnahme nicht bestanden. Sein Abschlussbericht muss jedes Todo und Kriterium belegen; weitere Agents und Nachfolger bleiben gesperrt.",
@@ -822,6 +823,11 @@
         "plan_loop_condition_field": "Das JSON-Ergebnis hat am Pfad der Endbedingung kein Feld.",
         "plan_loop_condition_type": "Der Wert am Pfad der Endbedingung hat einen anderen Typ als der erwartete Wert. Pages wandelt Typen nie um.",
         "plan_loop_session_lost": "Die behaltene ACP-Session eines Loop-Agents ist nach dem Ende ihres Adapterprozesses nicht mehr verfügbar. Pages öffnet unter derselben Identität keine neue Session. Einen neuen Lauf bewusst starten.",
+        "plan_decision_input_invalid": "Die Decision fand kein gültiges boolesches Ergebnis ihres Agenten: Der Agent wurde nicht fertig, oder dasselbe Ergebnis war schon ausgewertet. Sie wird nie als false behandelt.",
+        "plan_event_prompt_empty": "Das Ergebnis am Ereignis-Eingang dieses Agenten enthält keine nutzbaren neuen Informationen, deshalb wurde der Agent nicht erneut gestartet. Es wurde kein leerer oder erfundener Prompt gesendet.",
+        "plan_event_prompt_too_large": "Das Ergebnis am Ereignis-Eingang dieses Agenten ist länger als 100000 Zeichen. Pages kürzt es nicht; der sendende Node sollte kürzer antworten.",
+        "plan_activation_limit": "Ein Node dieses Zyklus wurde in einem Lauf 25-mal gestartet, die Grenze, die einen Zyklus ohne Ende verhindert. Prüfe, warum die Decision den Zyklus nie beendet.",
+        "plan_branching_revision": "Ein pausierter Lauf mit Decision oder Ereignis-Eingang kann nicht auf eine geänderte Revision seines Plans wechseln. Stoppe den Lauf und starte ihn neu.",
         "plan_session_unavailable": "Diese Agenten-Session hat keine offene native Session, die eine weitere Anweisung annehmen könnte. Ihr Verlauf bleibt lesbar.",
         "offline": "Pages ist nicht erreichbar. Prüfe die Verbindung; der Agent läuft weiter.",
         "agent_tool_not_ready": "Ein benötigtes Agent-Tool ist nicht betriebsbereit. Tool und Ursache stehen in den Run-Ereignissen; siehe Einstellungen → Agents → Tools.",
@@ -3933,6 +3939,11 @@
         "reset_unknown": "Kein eindeutiger Reset-Zeitpunkt gemeldet. Der Node bleibt blockiert; es wird kein anderes Modell verwendet.",
         "exhausted": "Alle zehn Wiederholungen sind ausgeschöpft. Der Node bleibt mit der letzten Ursache blockiert.",
         "unsafe": "Eine automatische Wiederholung kann die gemeinsame Session oder bereits begonnene Aktionen nicht sicher erhalten. Seiteneffekte prüfen und ausdrücklich fortsetzen.",
+        "closeout_unconfirmed": "Das Ende des letzten Versuchs ist nicht bestätigt. Solange ein alter Prozess noch laufen könnte, startet kein Ersatz; die Bereinigung muss zuerst bestätigt sein.",
+        "resume_unavailable": "Die frühere native Sitzung wird zum Fortsetzen gebraucht, lässt sich aber nicht fortsetzen (vom Adapter abgelehnt oder nicht angeboten, oder nicht mehr vorhanden). Eine gemeinsame oder bereits genutzte Sitzung wird nie durch eine leere ersetzt.",
+        "session_not_kept": "Der fehlgeschlagene Versuch hatte bereits Werkzeugaktionen, aber seine Sitzung wurde nicht gespeichert oder der Adapter bietet keine Fortsetzung. Eine neue Sitzung könnte diese Wirkungen doppeln. Seiteneffekte prüfen und ausdrücklich fortsetzen.",
+        "remote_evidence_missing": "Der Remote-Runner lieferte keine Sitzungs- und Werkzeugnachweise (Runner ohne Fortsetzungsunterstützung). Ohne Beleg startet ein schreibender Job nicht erneut. Runner ausdrücklich aktualisieren oder Seiteneffekte prüfen und fortsetzen.",
+        "effect_unknown": "Aufgezeichnete oder nicht auszuschließende Werkzeugwirkungen lassen sich nicht abgleichen. Seiteneffekte prüfen und ausdrücklich fortsetzen.",
         "session": "Ein technischer Sitzungsfehler hat den Turn unterbrochen. Der nächste Versuch erfolgt frühestens zehn Sekunden später.",
         "sessionExhausted": "Alle drei Versuche sind fehlgeschlagen. Der Node bleibt mit der letzten konkreten Ursache fehlgeschlagen.",
         "failed": "Der letzte Fehler ist für keinen weiteren automatischen Versuch geeignet. Der Node behält die konkrete Ursache."
@@ -4006,7 +4017,8 @@
       "end": "Ende",
       "parameter": "Parameter",
       "group": "Gruppe",
-      "loop": "Loop"
+      "loop": "Loop",
+      "decision": "Decision"
     },
     "status": {
       "waiting": "Wartet",
@@ -4017,7 +4029,8 @@
       "paused": "Pausiert",
       "pausing": "Pausiert wird …",
       "stopping": "Stop · Closeout läuft",
-      "queued": "Eingereiht — Prozessstart nicht bestätigt"
+      "queued": "Eingereiht — Prozessstart nicht bestätigt",
+      "skipped": "Übersprungen"
     },
     "dataIn": "Daten IN",
     "disconnect": "Datenverbindung für {{name}} entfernen",
@@ -4032,6 +4045,8 @@
       "duplicate": "Diese Verbindung bzw. dieser Daten-IN ist bereits belegt. Erst die Verbindung entfernen.",
       "cycle": "Diese Ablaufverbindung erzeugt einen Zyklus.",
       "type": "Quell- und Zieltyp passen nicht zusammen. Daten dürfen nur direkt zu einem benannten Agent-Parameter-IN.",
+      "typeEvent": "Der Ereignis-Eingang nimmt nur das Text-Ergebnis (Ergebnis OUT) eines Agents oder Scripts an. Der Agent startet damit erneut, das Ergebnis ist sein neuer Prompt.",
+      "typeFlow": "Ein Ablauf-IN nimmt nur einen Ablauf-OUT oder einen true/false-Zweig einer Decision an. Ergebnisse gehören an einen Parameter-, Ereignis- oder Bedingungs-Eingang.",
       "source": "Die Datenquelle fehlt oder ist ungültig.",
       "required": "Dieser erforderliche Parameter benötigt einen verbundenen, nicht leeren Wert.",
       "start": "Mindestens einen expliziten Start hinzufügen.",
@@ -4057,6 +4072,15 @@
       "loopCondition": "Die Endbedingung braucht einen Quell-Agent oder ein Quell-Script dieses Loops und einen gültigen JSON-Pfad wie $.end.",
       "loopPrevious": "Ein Ergebnis des vorherigen Durchlaufs gilt nur innerhalb eines Loops, von einem seiner Mitglieder, und braucht für den ersten Durchlauf einen Standardwert.",
       "loopProvider": "Ein Agent, der seine Session behält, braucht einen ACP-Runner (Codex, Claude Code oder OpenCode). Stelle den Loop auf neue Session je Run um oder wähle einen anderen Agent.",
+      "decisionCondition": "Eine Decision liest genau ein boolesches Agent-Ergebnis. Verbinde den Ergebnis-Ausgang (bool) eines Agenten mit ihrer Bedingung.",
+      "decisionBranch": "Beide Ausgänge einer Decision, true und false, brauchen eine Fortsetzung, damit keine Auswertung ins Leere läuft.",
+      "eventOrder": "Ein Ereignis führt neue Informationen in die Sitzung eines Agenten zurück, der bereits gelaufen ist. Die Quelle muss deshalb hinter dem Ziel im Ablauf stehen.",
+      "eventFanout": "Ein Ergebnis kehrt nur an einen Ereignis-Eingang zurück. Der Agent, der erneut startet, lässt alles hinter sich den Start vergessen; ein zweites Ziel würde die Neuigkeit verlieren. Nutze einen eigenen Node je Ziel.",
+      "eventNesting": "Dieses Ereignis führt über einen anderen Agenten mit Ereignis-Eingang zurück. Dessen Sitzung müsste ohne seine Neuigkeit neu starten. Zwei Zyklen hintereinander sind möglich, verschachtelte nicht.",
+      "branchBoundary": "Decision, boolesches Ergebnis und Ereignis-Eingang gehören auf die oberste Ebene des Plans, nicht in eine Gruppe oder einen Loop. Auch hinter einem Agenten, den ein Ereignis erneut startet, darf keine Gruppe und kein Loop liegen: Sie liefen in der nächsten Runde nicht erneut.",
+      "branchProvider": "Ein Agent mit booleschem Ergebnis oder Ereignis-Eingang hält seine Sitzung offen und braucht einen ACP-Runner (Codex, Claude Code oder OpenCode).",
+      "branchRemote": "Ein Agent mit booleschem Ergebnis oder Ereignis-Eingang läuft nur auf dem Pages-Host, nicht auf einem Remote-Ziel.",
+      "branchGate": "Ein Agent mit booleschem Ergebnis oder Ereignis-Eingang kann das Ticket-Abschluss-Gate nicht nutzen. Schalte das Gate an diesem Agenten aus.",
       "scriptConfiguration": "Prüfe die Scriptkonfiguration.",
       "scriptReportTarget": "Verbinde den Prüfbericht ausdrücklich als Eingabe eines nachfolgenden Prüfscripts, Fix-Agenten oder einer Prüfsperre.",
       "scriptReportGate": "Jeder Pfad vom weitergegebenen Prüfbericht zum Ende muss eine bestandene Script-Prüfsperre durchlaufen.",
@@ -4094,7 +4118,11 @@
     "removeLinkAtTarget": "Verbindung {{name}} am Ziel lösen",
     "linkKind": {
       "flow": "Ablauf",
-      "data": "Daten"
+      "data": "Daten",
+      "condition": "Boolesches Ergebnis (bool)",
+      "true": "Zweig true",
+      "false": "Zweig false",
+      "event": "Ereignis · neuer Prompt"
     },
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
@@ -4166,6 +4194,7 @@
         "stopping": "Stoppt",
         "stopped": "Gestoppt",
         "completed": "Abgeschlossen",
+        "skipped": "Übersprungen",
         "blocked": "Blockiert",
         "failed": "Fehlgeschlagen",
         "unavailable": "Nicht verfügbar"
@@ -4652,7 +4681,8 @@
         "parameter": "Parameter",
         "task": "Tickets",
         "group": "Groups",
-        "loop": "Loop"
+        "loop": "Loop",
+        "decision": "Decision"
       },
       "hint": {
         "start": "Beginn eines Ablaufs hinzufügen.",
@@ -4662,7 +4692,8 @@
         "parameter": "Einen benannten Eingabewert bereitstellen.",
         "task": "Ein lesbares Ticket als Datenquelle verwenden.",
         "group": "Agents in einer gemeinsamen ACP-Gruppe organisieren.",
-        "loop": "Agents und Scripts als Untergraph wiederholen, mit eigener Session je Agent."
+        "loop": "Agents und Scripts als Untergraph wiederholen, mit eigener Session je Agent.",
+        "decision": "Eine Verzweigung hinzufügen: Das Boolean-Ergebnis eines Agents entscheidet, welcher Zweig weiterläuft."
       },
       "addTitle": "{{type}} hinzufügen",
       "add": "Hinzufügen",
@@ -4934,7 +4965,8 @@
         "paused": "Pausiert",
         "succeeded": "Erfolgreich",
         "failed": "Fehlgeschlagen",
-        "cancelled": "Gestoppt"
+        "cancelled": "Gestoppt",
+        "skipped": "Übersprungen"
       },
       "completion": {
         "count_reached": "Anzahl erreicht",
@@ -5132,6 +5164,7 @@
         "plan_context_changed": "Projekt oder Workspace des Plans haben sich geändert; nur ein Start von vorne ist möglich.",
         "plan_definition_changed": "Eine Agent-Definition hat sich geändert; nur ein Start von vorne ist möglich.",
         "checkpoint_mismatch": "Ein abgeschlossenes Ergebnis hat keinen passenden Checkpoint und kann nicht sicher übernommen werden. Von vorne starten.",
+        "branching_unsupported": "Der Plan hat eine Decision oder einen Ereignis-Eingang. Seine Durchläufe lassen sich nicht sicher übernehmen; nur ein Start von vorn ist möglich.",
         "nothing_to_release": "Es wird nichts mehr gehalten.",
         "workflow_unavailable": "Neustart und Fortsetzen sind in dieser Serverzusammensetzung nicht verfügbar.",
         "context_not_verified": "Der Ausführungskontext konnte nicht geprüft werden."
@@ -5352,6 +5385,63 @@
       "confirmed": "Aktueller Auftrag und Pflichtprüfungen bestätigt",
       "excluded": "Außerhalb dieses Auftrags: {{title}} · {{reason}}",
       "missingCheck": "Nachweis fehlt"
+    },
+    "resultOutShort": "Ergebnis OUT",
+    "linkLabel": {
+      "condition": "bool",
+      "true": "true",
+      "false": "false",
+      "event": "Ereignis · neuer Prompt"
+    },
+    "decision": {
+      "caption": "Logik",
+      "condition": "Bedingung",
+      "boolean": "Boolean",
+      "conditionLabel": "Bedingung von {{name}} verbinden",
+      "reads": "{{name}} · Ergebnis",
+      "notConnected": "nicht verbunden",
+      "footer": "Nur ein Zweig wird aktiviert",
+      "when": {
+        "true": "Bedingung erfüllt",
+        "false": "Nachbesserung nötig"
+      },
+      "branch": {
+        "true": "true",
+        "false": "false"
+      },
+      "outLabel": "Zweig {{branch}} von {{name}} verbinden",
+      "evaluated": "Ausgewertet: {{name}} (Durchlauf {{number}}) · {{value}}",
+      "dialog": {
+        "title": "Decision bearbeiten",
+        "hint": "Die Decision wertet bei jedem Durchlauf das Boolean-Ergebnis eines Agents neu aus und aktiviert genau einen Zweig. Ein fehlender oder ungültiger Wert gilt nie als false. Sie ist kein LLM-Agent und ruft kein Modell auf.",
+        "name": "Name (optional)",
+        "condition": "Bedingung (Boolean)",
+        "none": "–"
+      }
+    },
+    "event": {
+      "in": "Ereignis IN",
+      "caption": "neuer Prompt · optional",
+      "resume": "Vorhandene Sitzung fortsetzen",
+      "inLabel": "Ereignis-Eingang von {{name}} verbinden: ein Ergebnis als neuer Prompt"
+    },
+    "passed": {
+      "label": "Ergebnis",
+      "caption": "bool · true / false",
+      "outLabel": "Boolesches Ergebnis von {{name}} verbinden"
+    },
+    "run": {
+      "activation": "Durchlauf {{number}}",
+      "passed": "bestanden",
+      "notPassed": "nicht bestanden",
+      "triggeredBy": "Ereignis von {{names}}",
+      "sessionContinued": "Sitzung fortgesetzt",
+      "sessionRecovered": "Neue Sitzung (wiederhergestellt)",
+      "unknownNode": "ein anderer Node",
+      "history": "Frühere Durchläufe",
+      "historyEntry": "Durchlauf {{number}} · {{status}}",
+      "branchTaken": "Zweig {{branch}} aktiviert",
+      "decisionInput": "Gelesen: {{name}} (Durchlauf {{number}}) · {{value}}"
     }
   },
   "mcpDuration": {

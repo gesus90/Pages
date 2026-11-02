@@ -132,20 +132,29 @@ export function planSummary(
   return { ...planBase(plan, directory), state, latestRun };
 }
 
-function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
-  if (node.type === "group" || node.type === "script" || node.type === "loop")
-    return node.name;
+/** The label of a node that refers to an agent or a ticket of the sources. */
+function referenceLabel(
+  node: AgentPlanNode,
+  sources: AgentPlanSources,
+): string | null {
   if (node.type === "agent")
     return (
       node.configuration?.name ??
       sources.agents.find((agent) => agent.id === node.agentId)?.name ??
       ""
     );
-  if (node.type === "task") {
-    const task = sources.tasks.find((entry) => entry.id === node.taskId);
-    return task ? `${task.key} · ${task.title}` : "";
-  }
+  if (node.type !== "task") return null;
+  const task = sources.tasks.find((entry) => entry.id === node.taskId);
+  return task ? `${task.key} · ${task.title}` : "";
+}
+
+function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
+  if (node.type === "group" || node.type === "script" || node.type === "loop")
+    return node.name;
   if (node.type === "parameter" || node.type === "variable") return node.name;
+  if (node.type === "decision") return node.name ?? "Decision";
+  const reference = referenceLabel(node, sources);
+  if (reference !== null) return reference;
   return node.type === "start" ? "Start" : "End";
 }
 

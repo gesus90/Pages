@@ -5,11 +5,24 @@ import { cn } from "@/app/lib/cn";
 import styles from "./plan-canvas.module.css";
 import { usePlanFlowContext } from "./plan-flow-context";
 
+/** The colour of a port by what it carries; the boolean result, both branches and the new prompt have their own. */
+export type PlanHandleKind =
+  "flow" | "data" | "logic" | "true" | "false" | "event";
+
+const HANDLE_CLASSES: Readonly<Record<PlanHandleKind, string>> = {
+  flow: styles.flowHandle,
+  data: styles.dataHandle,
+  logic: styles.logicHandle,
+  true: styles.trueHandle,
+  false: styles.falseHandle,
+  event: styles.eventHandle,
+};
+
 /** Large pointer targets supplement the labelled port buttons used by keyboards. */
 export function PlanFlowHandle(props: {
   readonly id: string;
   readonly type: "source" | "target";
-  readonly kind: "flow" | "data";
+  readonly kind: PlanHandleKind;
   readonly hasIssue?: boolean;
   readonly style?: React.CSSProperties;
   /** Only anchors a line; it can neither start nor end a connection and shows no dot. */
@@ -28,7 +41,7 @@ export function PlanFlowHandle(props: {
       aria-hidden="true"
       className={cn(
         styles.portHandle,
-        props.kind === "flow" ? styles.flowHandle : styles.dataHandle,
+        HANDLE_CLASSES[props.kind],
         props.isDecorative && styles.anchorHandle,
         props.hasIssue && styles.invalidHandle,
       )}

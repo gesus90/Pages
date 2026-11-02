@@ -172,6 +172,43 @@ export interface AgentPlanLoopSessionLink {
 }
 
 /**
+ * How an agent that receives events kept or lost its session across starts.
+ *
+ * @remarks
+ * An agent with an event input keeps its ACP session open after a start so
+ * that a later event continues it. `created` opened the session, `continued`
+ * sent the event as a follow-up prompt into the open session without the
+ * main instruction, and `recovered` opened a NEW session because the earlier
+ * one was no longer open: that start carries the main instruction, the
+ * parameters and the event, and never pretends to be the same session.
+ */
+export interface AgentPlanEventSessionLink {
+  /** Which start of the node this record belongs to, from 1. */
+  readonly activation: number;
+  readonly role: "created" | "continued" | "recovered";
+  /** The place of this turn in the session of the node, from 1. */
+  readonly turn: number;
+  readonly acpSessionId: string | null;
+  /** The node whose result the follow-up carried; `null` for the first start. */
+  readonly sourceStepId: string | null;
+}
+
+/**
+ * What a remote runner proved about the actions a one-shot session took.
+ *
+ * @remarks
+ * `none` means the runner followed the whole session and saw no tool call, so
+ * a fresh session cannot duplicate an effect. `observed` counts tool calls
+ * whose effects may exist. `unknown` means the stream could not prove either.
+ * A runner without continuation support reports nothing, and the record then
+ * has no such field.
+ */
+export interface AgentPlanSessionEffects {
+  readonly tools: "none" | "observed" | "unknown";
+  readonly calls: number;
+}
+
+/**
  * The observable record of one node: runner, session, process, acceptance and result.
  *
  * @remarks
@@ -199,6 +236,8 @@ export interface AgentPlanSessionRecord {
   readonly dispatchedPromptDigest?: string;
   /** Announced by the verified adapter; does not imply a Pages plan-resume path. */
   readonly continuationCapabilities?: AgentPlanContinuationCapabilities;
+  /** Tool activity a remote runner proved; absent for local sessions and for runners without continuation support. */
+  readonly effects?: AgentPlanSessionEffects;
   /** The runner's own session or thread identifier, once it reported one. */
   readonly sessionId: string | null;
   readonly processId: number | null;
@@ -231,4 +270,6 @@ export interface AgentPlanSessionRecord {
   readonly group?: AgentPlanGroupSessionLink;
   /** The loop iteration and session role of a loop member; absent outside loops. */
   readonly loop?: AgentPlanLoopSessionLink;
+  /** The session role of an agent that receives events; absent for every other agent. */
+  readonly event?: AgentPlanEventSessionLink;
 }

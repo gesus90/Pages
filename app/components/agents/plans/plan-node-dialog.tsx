@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 
+import { PlanDecisionDialog } from "./plan-decision-dialog";
 import { PlanGroupPanel } from "./plan-group-panel";
 import { PlanLoopPanel } from "./plan-loop-panel";
 import { PlanNodeConfigurationFields } from "./plan-node-configuration-fields";
@@ -106,6 +107,18 @@ export function PlanNodeDialog(props: PlanNodeDialogProps): React.ReactElement {
   const step = dialogNode(props.editor.draft, props.nodeId);
   if (step?.type === "script")
     return <PlanScriptEditDialog {...props} script={step} />;
+  if (step?.type === "decision")
+    return (
+      <PlanDecisionDialog
+        key={step.id}
+        decision={step}
+        draft={props.editor.draft}
+        sources={props.editor.sources}
+        graph={props.editor.graph}
+        isDisabled={!props.editor.canEdit || props.editor.isPending}
+        onClose={() => closePanel(props.onClose, step.id)}
+      />
+    );
   if (step?.type === "loop")
     return (
       <PlanLoopPanel

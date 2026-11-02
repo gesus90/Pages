@@ -26,7 +26,7 @@ const RUN_STATUS: Readonly<Record<AgentPlanRun["status"], PicaMobileRunStatus>> 
   };
 
 const STEP_STATUS: Readonly<
-  Record<AgentPlanStepResult["status"], PicaMobileStepStatus>
+  Record<Exclude<AgentPlanStepResult["status"], "skipped">, PicaMobileStepStatus>
 > = {
   waiting: "waiting",
   running: "running",
@@ -36,7 +36,11 @@ const STEP_STATUS: Readonly<
   cancelled: "cancelled",
 };
 
-function toStepStatus(step: AgentPlanStepResult): PicaMobileStepStatus {
+function toStepStatus(
+  step: AgentPlanStepResult & {
+    readonly status: Exclude<AgentPlanStepResult["status"], "skipped">;
+  },
+): PicaMobileStepStatus {
   // A blocked step waits behind a failed or cancelled predecessor.
   return step.isBlocked ? "blocked" : STEP_STATUS[step.status];
 }
@@ -45,10 +49,12 @@ function toStage(
   planned: readonly AgentPlanActiveStep[],
   results: ReadonlyMap<string, AgentPlanStepResult>,
 ): PicaMobileDashboardStage | null {
+  // A node on a branch a decision did not take never ran; the protocol has no state for it.
   const present = planned.flatMap((step) => {
     const result = results.get(step.id);
 
-    return result === undefined ? [] : [{ step, result }];
+    if (result === undefined || result.status === "skipped") return [];
+    return [{ step, result: { ...result, status: result.status } }];
   });
   const [first] = present;
 

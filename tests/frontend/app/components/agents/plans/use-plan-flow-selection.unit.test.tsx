@@ -31,6 +31,7 @@ const NODES: readonly AgentPlanNode[] = [
   scriptStep("script", 1),
   loopNode("loop", []),
   parameterNode(),
+  { id: "decision", type: "decision", x: 0, y: 0 },
 ];
 
 function flowNode(node: AgentPlanNode): PlanFlowNode {
@@ -120,6 +121,16 @@ it("opens agents and groups and edits scripts and loops on double-click", () => 
   expect(graph.select).toHaveBeenCalledTimes(5);
   expect(onOpen.mock.calls).toEqual([["agent"], ["group"]]);
   expect(onEdit.mock.calls).toEqual([["script"], ["loop"]]);
+});
+
+it("edits a decision on double-click, which has no session to open", () => {
+  const { graph, onOpen, onEdit } = show();
+
+  fireEvent.doubleClick(screen.getByTestId("decision"));
+
+  expect(graph.select).toHaveBeenCalledWith("decision");
+  expect(onEdit.mock.calls).toEqual([["decision"]]);
+  expect(onOpen).not.toHaveBeenCalled();
 });
 
 it("ignores double-clicks on controls inside a node but not on its handle", () => {

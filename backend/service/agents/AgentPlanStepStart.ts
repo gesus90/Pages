@@ -42,6 +42,9 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
   readonly resourceContext?: {
     readonly runId: string;
     readonly stepId: string;
+    readonly sessionScopeId?: string;
+    /** The failed run a native recovery resumes; its transcripts move to this run. */
+    readonly sourceRunId?: string;
   };
   readonly directory: string | null;
   /** Rechecks live access immediately before the adapter's provider request or spawn. */

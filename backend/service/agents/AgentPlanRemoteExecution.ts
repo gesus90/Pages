@@ -23,6 +23,7 @@ import {
   type RemoteRetryTerms,
 } from "./AgentPlanRemoteDispatch";
 import { claimRemoteJob } from "./AgentPlanRemoteClaim";
+import { remoteContinuationCommand } from "./AgentPlanRemoteContinuation";
 import { remoteRetryCommand } from "./AgentPlanRemoteRetryCommand";
 import {
   requireRemoteResultPayload,
@@ -102,6 +103,7 @@ interface RemoteExecutionDependencies {
     | "supportsPagesAccess"
     | "supportsOpenCode"
     | "supportsExactResultPayload"
+    | "supportsContinuation"
     | "supportsAssetFiles"
     | "ready"
     | "enqueue"
@@ -310,13 +312,7 @@ export class AgentPlanRemoteExecution {
           target: remote.target,
         },
       );
-    const command = remoteRetryCommand(
-      await resolvedRemoteCommand(run, remote),
-      retry,
-    );
-    requireRemoteResultPayload(command, () =>
-      this.dependencies.runners.supportsExactResultPayload(target.connectionId),
-    );
+    const command = await this.dispatchCommand(run, remote, retry);
     let result: Partial<AgentPlanStepResult>;
     try {
       await this.dependencies.pages?.open(run, remote, execution.attemptId);
@@ -508,6 +504,27 @@ export class AgentPlanRemoteExecution {
     ).find((entry) => entry.workspaceId === selected.workspaceId);
     if (!target) throw new AgentError("plan_access_denied");
     return target;
+  }
+
+  /** The frozen command of this attempt, with the live runner's result and continuation contracts applied. */
+  private async dispatchCommand(
+    run: AgentPlanRun,
+    remote: RemotePlanStep,
+    retry: RemoteRetryTerms | undefined,
+  ): Promise<RunnerExecution> {
+    const { connectionId } = remote.target;
+    const command = remoteRetryCommand(
+      remoteContinuationCommand(await resolvedRemoteCommand(run, remote), {
+        isSupported:
+          this.dependencies.runners.supportsContinuation(connectionId),
+        resumeSessionId: retry?.resumeSessionId ?? null,
+      }),
+      retry,
+    );
+    requireRemoteResultPayload(command, () =>
+      this.dependencies.runners.supportsExactResultPayload(connectionId),
+    );
+    return command;
   }
 }
 

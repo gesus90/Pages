@@ -11,9 +11,23 @@ import type { PlanCanvasProps } from "./plan-flow-context";
 
 export type PlanPaletteKind = Exclude<AgentPlanNode["type"], "variable">;
 
+/** The node types the palette adds at once, because they need no choice. */
+type PlanImmediateKind = "start" | "end" | "loop" | "decision";
+
+const IMMEDIATE_KINDS: readonly PlanPaletteKind[] = [
+  "start",
+  "end",
+  "loop",
+  "decision",
+];
+
+function isImmediateKind(kind: PlanPaletteKind): kind is PlanImmediateKind {
+  return IMMEDIATE_KINDS.includes(kind);
+}
+
 /** An unconfirmed choice never enters the draft. Its position survives the source dialog. */
 export interface PlanPaletteRequest {
-  readonly kind: Exclude<PlanPaletteKind, "start" | "end" | "loop">;
+  readonly kind: Exclude<PlanPaletteKind, PlanImmediateKind>;
   readonly position?: AgentPlanPosition;
 }
 
@@ -49,8 +63,7 @@ export function usePlanNodePalette(canvas: PlanCanvasProps): {
   const blocked = paletteBlock(canvas, t);
   function insert(kind: PlanPaletteKind, position?: AgentPlanPosition): void {
     if (blocked) return;
-    // Start, end and loop need no choice; their node is added at once.
-    if (kind === "start" || kind === "end" || kind === "loop") {
+    if (isImmediateKind(kind)) {
       canvas.graph.add(
         kind,
         kind === "loop" ? t("plans.loops.defaultName") : "",

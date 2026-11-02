@@ -1,4 +1,6 @@
 .canvas {
+  /* The cards tint their surface; their secondary text must still reach 4.5:1. */
+  --color-muted-foreground: var(--color-plan-muted-foreground);
   --xy-background-color: var(--color-background);
   --xy-background-pattern-dots-color: var(--color-border);
   --xy-edge-stroke: var(--color-muted-foreground);
@@ -84,6 +86,24 @@
 
 .canvas .dataHandle {
   --plan-port-color: var(--color-plan-parameter);
+}
+
+/* The boolean result and the condition of a decision, both branches and the
+   input that takes a new prompt each have a colour of their own. */
+.canvas .logicHandle {
+  --plan-port-color: var(--color-plan-logic);
+}
+
+.canvas .trueHandle {
+  --plan-port-color: var(--color-success);
+}
+
+.canvas .falseHandle {
+  --plan-port-color: var(--color-warning);
+}
+
+.canvas .eventHandle {
+  --plan-port-color: var(--color-info);
 }
 
 .canvas .invalidHandle::after {

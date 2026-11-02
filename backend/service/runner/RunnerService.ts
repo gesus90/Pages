@@ -52,6 +52,16 @@ export interface RunnerAuthentication {
   readonly sessionId: string;
 }
 
+/** Keeps the live capability of a connection exactly as its latest reconcile announced it. */
+function markSupport(
+  connections: Set<string>,
+  connectionId: string,
+  isSupported: boolean,
+): void {
+  if (isSupported) connections.add(connectionId);
+  else connections.delete(connectionId);
+}
+
 /** Authorizes short-lived pairing and maintains durable sessions independently of SSH transports. */
 export class RunnerService {
   private readonly repository: RunnerStore;
@@ -73,6 +83,7 @@ export class RunnerService {
   private readonly liveExecutors = new Set<string>();
   private readonly outputExecutors = new Set<string>();
   private readonly exactPayloadExecutors = new Set<string>();
+  private readonly continuationExecutors = new Set<string>();
   private readonly knownOutputVersions = new Map<string, 1 | 2>();
   private readonly observation = new RunnerObservation();
   private readonly communicationExecutors = new Set<string>();
@@ -254,8 +265,10 @@ export class RunnerService {
       if (
         message.type === "reconcile" &&
         message.sessionId === record.state.sessionId
-      )
+      ) {
         this.exactPayloadExecutors.delete(connectionId);
+        this.continuationExecutors.delete(connectionId);
+      }
       this.rememberOutputCapability(
         connectionId,
         message,
@@ -270,27 +283,44 @@ export class RunnerService {
       });
       this.heartbeat(connectionId);
       if (message.type === "reconcile") {
-        if (message.communicationVersion === 1)
-          this.communicationExecutors.add(connectionId);
-        else this.communicationExecutors.delete(connectionId);
-        if (message.liveHistoryVersion === 1)
-          this.liveExecutors.add(connectionId);
-        else this.liveExecutors.delete(connectionId);
+        markSupport(
+          this.communicationExecutors,
+          connectionId,
+          message.communicationVersion === 1,
+        );
+        markSupport(
+          this.liveExecutors,
+          connectionId,
+          message.liveHistoryVersion === 1,
+        );
         if (message.pagesAccessVersion)
           this.pagesExecutors.set(connectionId, message.pagesAccessVersion);
         else this.pagesExecutors.delete(connectionId);
-        if (message.githubAccessVersion === 1)
-          this.githubProbes.add(connectionId);
-        else this.githubProbes.delete(connectionId);
-        if (message.cliExecutorVersion === 1)
-          this.cliExecutors.add(connectionId);
-        else this.cliExecutors.delete(connectionId);
-        if (message.openCodeExecutorVersion === 1)
-          this.openCodeExecutors.add(connectionId);
-        else this.openCodeExecutors.delete(connectionId);
-        if (message.resultPayloadVersion === 1)
-          this.exactPayloadExecutors.add(connectionId);
-        else this.exactPayloadExecutors.delete(connectionId);
+        markSupport(
+          this.githubProbes,
+          connectionId,
+          message.githubAccessVersion === 1,
+        );
+        markSupport(
+          this.cliExecutors,
+          connectionId,
+          message.cliExecutorVersion === 1,
+        );
+        markSupport(
+          this.openCodeExecutors,
+          connectionId,
+          message.openCodeExecutorVersion === 1,
+        );
+        markSupport(
+          this.exactPayloadExecutors,
+          connectionId,
+          message.resultPayloadVersion === 1,
+        );
+        markSupport(
+          this.continuationExecutors,
+          connectionId,
+          message.continuationVersion === 1,
+        );
         if (message.executorVersion === 1 && message.interpreters)
           this.interpreters.set(connectionId, message.interpreters);
         if (message.tools) this.tools.set(connectionId, message.tools);
@@ -337,6 +367,7 @@ export class RunnerService {
     this.liveExecutors.delete(connectionId);
     this.outputExecutors.delete(connectionId);
     this.exactPayloadExecutors.delete(connectionId);
+    this.continuationExecutors.delete(connectionId);
     this.observation.detach(connectionId);
   }
 
@@ -450,6 +481,11 @@ export class RunnerService {
   /** The live runner can return versioned CLI results without a provenance prefix. */
   public supportsExactResultPayload(connectionId: string): boolean {
     return this.exactPayloadExecutors.has(connectionId);
+  }
+
+  /** The live runner keeps a resumable native session for a writing CLI job and proves its tool activity. */
+  public supportsContinuation(connectionId: string): boolean {
+    return this.continuationExecutors.has(connectionId);
   }
 
   /** Resolves a live job from Pages' journal; a runner cannot choose another connection's attempt. */

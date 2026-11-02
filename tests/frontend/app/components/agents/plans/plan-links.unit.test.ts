@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 
 import {
+  planLinkChannel,
   planLinkKey,
   planLinkLabel,
   planLinks,
@@ -8,6 +9,7 @@ import {
 } from "@/app/components/agents/plans/plan-links";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 
+import { eventEdge, reviewCyclePlan } from "./plan-branching-fixture";
 import {
   GROUP_SOURCES,
   agentNode,
@@ -225,4 +227,109 @@ it("names both ends, a group's boundary port and a binding's parameter", () => {
       port: "port",
     }),
   ).toBe("SYN-1: Open work → Codex One · src");
+});
+
+it("projects the boolean wire, both branches and the event as wires with their ports", () => {
+  const links = planLinks(reviewCyclePlan());
+
+  expect(links).toEqual([
+    { kind: "flow", from: "start", to: "check" },
+    {
+      kind: "wire",
+      channel: "condition",
+      from: "check",
+      to: "decision",
+      fromPort: "passed-out",
+      toPort: "condition-in",
+    },
+    {
+      kind: "wire",
+      channel: "branch",
+      from: "decision",
+      to: "end",
+      fromPort: "true-out",
+      toPort: "flow-in",
+      branch: "true",
+    },
+    {
+      kind: "wire",
+      channel: "branch",
+      from: "decision",
+      to: "fix",
+      fromPort: "false-out",
+      toPort: "flow-in",
+      branch: "false",
+    },
+    {
+      kind: "wire",
+      channel: "event",
+      from: "fix",
+      to: "check",
+      fromPort: "value-out",
+      toPort: "event-in",
+    },
+  ]);
+  expect(links.map(planLinkChannel)).toEqual([
+    "flow",
+    "condition",
+    "true",
+    "false",
+    "event",
+  ]);
+});
+
+it("keys every wire apart from the flow and data lines between the same nodes", () => {
+  const keys = planLinks(reviewCyclePlan()).map(planLinkKey);
+
+  expect(keys).toEqual([
+    "flow:start:check",
+    "condition:check:decision",
+    "branch:decision:true:end",
+    "branch:decision:false:fix",
+    "event:fix:check",
+  ]);
+  expect(
+    planLinkChannel({ kind: "data", from: "a", to: "b", parameter: "p" }),
+  ).toBe("data");
+});
+
+it("removes exactly the wire that was chosen", () => {
+  const plan = reviewCyclePlan();
+  const [, , , falseBranch, event] = planLinks(plan);
+  if (falseBranch?.kind !== "wire" || event?.kind !== "wire")
+    throw new Error("Missing wires");
+
+  const withoutFalse = removePlanLink(plan, falseBranch);
+  expect(withoutFalse.edges).toHaveLength(plan.edges.length - 1);
+  expect(withoutFalse.edges).not.toContainEqual({
+    from: "decision",
+    to: "fix",
+    fromPort: "false-out",
+    toPort: "flow-in",
+  });
+  expect(removePlanLink(plan, event).edges).not.toContainEqual(
+    eventEdge("fix", "check"),
+  );
+  expect(planLinks(removePlanLink(plan, event))).toHaveLength(4);
+});
+
+it("keeps an event between the same two nodes when their flow line is removed", () => {
+  const plan = planOf(
+    [agentNode("a", "codex"), agentNode("b", "codex")],
+    [flowEdge("a", "b"), eventEdge("a", "b")],
+  );
+
+  expect(
+    removePlanLink(plan, { kind: "flow", from: "a", to: "b" }).edges,
+  ).toEqual([eventEdge("a", "b")]);
+});
+
+it("names both ends of a wire like those of a flow line", () => {
+  const plan = reviewCyclePlan();
+  const [, condition] = planLinks(plan);
+  if (!condition) throw new Error("Missing wire");
+
+  expect(planLinkLabel(plan, GROUP_SOURCES, condition)).toBe(
+    "Codex One → decision",
+  );
 });

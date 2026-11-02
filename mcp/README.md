@@ -2784,7 +2784,11 @@ Diagnostics also expose `retryAttempts` with the stored attempt ID, end time and
 technical failure class; native session IDs are omitted. `read_plan_run` step
 entries also show the persisted retry policy, failed attempts of its total
 budget, next attempt time and last failure without promising automatic progress
-after a stop or pause. A retained retry named by
+after a stop or pause. A retry stopped before its budget is spent names its own
+`reason` (`closeout_unconfirmed`, `resume_unavailable`, `session_not_kept`,
+`remote_evidence_missing`, `effect_unknown`), apart from `exhausted` after three
+failed attempts and from the unchanged provider reasons; the native session ID
+that a retry must continue is kept server-side and never shown. A retained retry named by
 the authorized run can be read through `read_plan_run_session_events` only if
 its persisted owner/plan/run/node binding still matches. Missing journals return
 `plan_history_unavailable`, not an invented empty success. Historical summaries

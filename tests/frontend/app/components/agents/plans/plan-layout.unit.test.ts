@@ -44,6 +44,12 @@ const VARIABLE: AgentPlanNode = {
   y: 0,
   name: "Variable",
 };
+const DECISION: AgentPlanNode = {
+  id: "decision",
+  type: "decision",
+  x: 0,
+  y: 0,
+};
 const PARAMETER: AgentPlanNode = {
   id: "parameter",
   type: "parameter",
@@ -59,6 +65,8 @@ it("sizes cards by type: compact endpoints, medium sources, agents and scripts b
   expect(planNodeWidth(END)).toBe(160);
   expect(planNodeWidth(TICKET)).toBe(260);
   expect(planNodeWidth(PARAMETER)).toBe(260);
+  // The logic card is as compact as a value source and narrower than an agent.
+  expect(planNodeWidth(DECISION)).toBe(260);
   expect(planNodeWidth(agentNode("a", "codex"))).toBe(320);
   expect(planNodeWidth(scriptNode("s", 0))).toBe(320);
   expect(planNodeHeight(START, GROUP_SOURCES)).toBe(56);
@@ -66,16 +74,18 @@ it("sizes cards by type: compact endpoints, medium sources, agents and scripts b
   expect(planNodeHeight(PARAMETER, GROUP_SOURCES)).toBe(166);
   expect(planNodeHeight(TICKET, GROUP_SOURCES)).toBe(101);
   expect(planNodeHeight(VARIABLE, GROUP_SOURCES)).toBe(90);
+  expect(planNodeHeight(DECISION, GROUP_SOURCES)).toBe(237);
   // An agent grows by one row per input of its template; an unknown agent has none.
-  expect(planNodeHeight(agentNode("a", "codex"), GROUP_SOURCES)).toBe(306);
-  expect(planNodeHeight(agentNode("a", "codex-two"), GROUP_SOURCES)).toBe(344);
-  expect(planNodeHeight(agentNode("a", "missing"), GROUP_SOURCES)).toBe(268);
+  // Its event input and boolean result add 68 to every agent.
+  expect(planNodeHeight(agentNode("a", "codex"), GROUP_SOURCES)).toBe(374);
+  expect(planNodeHeight(agentNode("a", "codex-two"), GROUP_SOURCES)).toBe(412);
+  expect(planNodeHeight(agentNode("a", "missing"), GROUP_SOURCES)).toBe(336);
   expect(
     planNodeHeight(
       agentNode("a", "missing", { configuration: ownCopy("Copy", 3) }),
       GROUP_SOURCES,
     ),
-  ).toBe(382);
+  ).toBe(450);
   expect(planNodeHeight(scriptNode("s", 2), GROUP_SOURCES)).toBe(314);
 });
 
@@ -95,13 +105,13 @@ it("grows a frame with its farthest agent and script members", () => {
     steps: [agentNode("far", "codex", { x: 500, y: 20 })],
   });
   expect(planGroupWidth(group)).toBe(500 + 320 + 2 * PLAN_FRAME_PADDING);
-  expect(planNodeHeight(group, GROUP_SOURCES)).toBe(108 + 20 + 306 + 32 + 32);
+  expect(planNodeHeight(group, GROUP_SOURCES)).toBe(108 + 20 + 374 + 32 + 32);
   const loop = {
     ...emptyPlanLoop("loop", "Loop", { x: 0, y: 0 }),
     steps: [scriptNode("script", 1, {}), agentNode("member", "claude")],
   };
-  // The script with one input (276) is taller than the agent without inputs (268).
-  expect(planNodeHeight(loop, GROUP_SOURCES)).toBe(108 + 276 + 32 + 32);
+  // The agent without inputs (336) is taller than the script with one input (276).
+  expect(planNodeHeight(loop, GROUP_SOURCES)).toBe(108 + 336 + 32 + 32);
 });
 
 it("places members relative to the member area below the frame header", () => {
@@ -175,6 +185,8 @@ it("labels every node type and keeps unavailable resources readable", () => {
     PARAMETER,
     sessionGroup(),
     emptyPlanLoop("loop", "Loop name", { x: 0, y: 0 }),
+    DECISION,
+    { ...DECISION, name: "Prüfen & bewerten" },
     scriptNode("s", 0),
     TICKET,
     LOST_TICKET,
@@ -189,6 +201,8 @@ it("labels every node type and keeps unavailable resources readable", () => {
     "Limit",
     "Session",
     "Loop name",
+    "decision",
+    "Prüfen & bewerten",
     "Script s",
     "SYN-1: Open work",
     "gone",
@@ -206,6 +220,7 @@ it("gives each node type its own tint and accent", () => {
     "script",
     "group",
     "loop",
+    "decision",
     "task",
     "variable",
     "parameter",
@@ -217,6 +232,7 @@ it("gives each node type its own tint and accent", () => {
     "border-plan-script/60 bg-plan-script-subtle",
     "border-plan-group/60 bg-plan-group-subtle",
     "border-plan-loop-edge/60 bg-plan-loop-subtle",
+    "border-plan-logic-edge/60 bg-plan-logic-subtle",
     "border-plan-ticket-edge bg-plan-ticket-subtle",
     "border-plan-parameter/60 bg-plan-parameter-subtle",
     "border-plan-parameter/60 bg-plan-parameter-subtle",
@@ -228,6 +244,7 @@ it("gives each node type its own tint and accent", () => {
     "text-plan-script",
     "text-plan-group",
     "text-plan-loop",
+    "text-plan-logic",
     "text-plan-ticket",
     "text-plan-parameter",
     "text-plan-parameter",

@@ -1,16 +1,21 @@
 import { getBezierPath } from "@xyflow/react";
 
 import { usePlanFlowContext } from "./plan-flow-context";
+import {
+  PLAN_LINK_DASH,
+  PLAN_LINK_STROKE,
+  planConnectionChannel,
+} from "./plan-link-style";
 
 import type { ConnectionLineComponentProps } from "@xyflow/react";
 
-/** The live preview is the same soft curve as the finished connection and marks invalid targets. */
+/** The live preview is the same soft curve as the finished connection, in the colour of its kind, and marks invalid targets. */
 export function PlanFlowConnectionLine(
   props: ConnectionLineComponentProps,
 ): React.ReactElement | null {
   const { graph } = usePlanFlowContext();
   if (!graph.connection) return null;
-  const isData = graph.connection.kind !== "flow";
+  const channel = planConnectionChannel(graph.connection);
   const options = {
     sourceX: props.fromX,
     sourceY: props.fromY,
@@ -20,7 +25,7 @@ export function PlanFlowConnectionLine(
     targetPosition: props.toPosition,
   };
   const [path] = getBezierPath(options);
-  const color = "var(--color-muted-foreground)";
+  const color = PLAN_LINK_STROKE[channel];
   return (
     <g>
       <path
@@ -28,7 +33,7 @@ export function PlanFlowConnectionLine(
         fill="none"
         stroke={color}
         strokeWidth={2}
-        strokeDasharray={isData ? "6 5" : undefined}
+        strokeDasharray={PLAN_LINK_DASH[channel]}
       />
       <circle
         cx={props.toX}

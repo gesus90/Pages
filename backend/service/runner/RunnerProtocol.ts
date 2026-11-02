@@ -191,6 +191,17 @@ function reconcileRunner(
       "Runner 1.13.0 is required for outstanding exact-result jobs",
     );
   if (
+    message.continuationVersion !== 1 &&
+    state.jobs.some(
+      (job) =>
+        job.execution?.continuation !== undefined &&
+        ["queued", "accepted", "running"].includes(job.status),
+    )
+  )
+    throw new Error(
+      "Runner 1.16.0 is required for outstanding continuation jobs",
+    );
+  if (
     message.outputJournalVersion !== 2 &&
     state.jobs.some(requiresChunkExecutor)
   )

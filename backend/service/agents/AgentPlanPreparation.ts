@@ -18,7 +18,7 @@ import {
 import { validateGroupRuntimes } from "./AgentPlanGroupRuntime";
 import { remoteReferenceIssues } from "./AgentPlanReferences";
 import { planBindings } from "./AgentPlanBindings";
-import { hasPlanPath, planSteps } from "./AgentPlanGraph";
+import { arePlanNodesOrdered, planSteps } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 import { validatePlanWorkingCopies } from "./AgentPlanWorkingCopies";
 import {
@@ -400,10 +400,7 @@ export function validateRemoteWorkingCopies(
         )
       )
         continue;
-      if (
-        !hasPlanPath(plan.edges, first.step.id, second.step.id) &&
-        !hasPlanPath(plan.edges, second.step.id, first.step.id)
-      )
+      if (!arePlanNodesOrdered(plan.edges, first.step.id, second.step.id))
         throw new AgentPlanWorkspaceConflictError(
           workspaceConflict("parallel_writers", [
             remoteWorkspaceEntry(first),

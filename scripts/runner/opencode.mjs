@@ -282,8 +282,31 @@ function selectors(session) {
   );
 }
 
-/** Opens a session and judges the contract Pages relies on; no prompt or model call. */
-async function openSession(client, directory, mcpServers) {
+/** Continues the recorded native session; a refusal by the agent is a failed resume, never a new conversation. */
+async function resumeSession(client, directory, request) {
+  try {
+    const session = await client.call("session/resume", {
+      sessionId: request.sessionId,
+      cwd: directory,
+      mcpServers: request.mcpServers,
+    });
+    return { ...session, sessionId: request.sessionId };
+  } catch (error) {
+    if (error.acpCode !== undefined)
+      throw Object.assign(error, { pagesCode: "acp_session_resume_failed" });
+    throw error;
+  }
+}
+
+/**
+ * Opens a session and judges the contract Pages relies on; no prompt or model call.
+ *
+ * @remarks
+ * With `resumeSessionId` the agent continues that session when it announces
+ * `session/resume`; without the capability the open is refused as a failed
+ * resume.
+ */
+async function openSession(client, directory, mcpServers, resumeSessionId) {
   const initialized = await client.call("initialize", {
     protocolVersion: 1,
     clientCapabilities: {
@@ -294,10 +317,19 @@ async function openSession(client, directory, mcpServers) {
   if (initialized?.agentInfo?.name !== "OpenCode")
     return { reason: "agent_mismatch" };
   if (initialized.protocolVersion !== 1) return { reason: "protocol_mismatch" };
-  const session = await client.call("session/new", {
-    cwd: directory,
-    mcpServers,
-  });
+  const canResume =
+    initialized.agentCapabilities?.sessionCapabilities?.resume !== undefined;
+  if (resumeSessionId !== undefined && !canResume)
+    throw Object.assign(new Error("Resume unsupported"), {
+      pagesCode: "acp_session_resume_failed",
+    });
+  const session =
+    resumeSessionId === undefined
+      ? await client.call("session/new", { cwd: directory, mcpServers })
+      : await resumeSession(client, directory, {
+          sessionId: resumeSessionId,
+          mcpServers,
+        });
   const options = selectors(session);
   if (
     typeof session?.sessionId !== "string" ||
@@ -309,6 +341,7 @@ async function openSession(client, directory, mcpServers) {
     reason: null,
     version: initialized.agentInfo.version,
     sessionId: session.sessionId,
+    canResume,
     options,
   };
 }
@@ -470,11 +503,21 @@ async function executeJob(job, prompt) {
     writeOutput,
   );
   try {
-    const opened = await openSession(client, job.workspace, job.mcpServers);
+    const opened = await openSession(
+      client,
+      job.workspace,
+      job.mcpServers,
+      job.resumeSessionId ?? undefined,
+    );
     if (opened.reason)
       throw Object.assign(new Error("Contract"), {
         pagesCode: "opencode_acp_unsupported",
       });
+    await writeOutput({
+      type: "pages.session",
+      sessionId: opened.sessionId,
+      canResume: opened.canResume,
+    });
     let session = await choose(client, opened, [
       "mode",
       job.access === "yolo" ? "pages-yolo" : "pages-read-only",

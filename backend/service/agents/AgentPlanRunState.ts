@@ -7,6 +7,7 @@ import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseou
 
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { hasPlanPath } from "./AgentPlanGraph";
+import { planReadiness } from "./branching/AgentPlanBranchEdges";
 
 import type {
   AgentPlanRun,
@@ -14,6 +15,7 @@ import type {
   AgentPlanStepResult,
 } from "@/definition/AgentPlan";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
+import type { PlanBranchingState } from "./branching/AgentPlanBranchState";
 
 /** Live scheduler state; only the engine mutates it under its serial queue. */
 export interface ActivePlanRun {
@@ -28,6 +30,8 @@ export interface ActivePlanRun {
   releaseDefinition?: () => Promise<void>;
   /** A server shutdown, not a person, ended the run; it closes as interrupted and can be resumed. */
   isInterrupted?: boolean;
+  /** Decisions, skipped branches and returning events; absent until a plan with them needs it. */
+  branching?: PlanBranchingState;
 }
 
 /** Updates one result and derives group summaries. */
@@ -100,20 +104,22 @@ export function updateBlocked(active: ActivePlanRun): void {
   }
 }
 
-/** Returns the complete ready frontier, independent of canvas positions. */
+/**
+ * Returns the complete ready frontier, independent of canvas positions.
+ *
+ * @remarks
+ * A decision is no work for a provider: the scheduler evaluates it itself
+ * when its boolean result has arrived, so it never appears here.
+ */
 export function readySteps(active: ActivePlanRun): readonly AgentPlanNode[] {
+  const results = new Map(active.view.steps.map((step) => [step.id, step]));
   return active.snapshot.plan.nodes.filter((node) => {
-    const step = active.view.steps.find((entry) => entry.id === node.id);
+    const step = results.get(node.id);
     return (
+      node.type !== "decision" &&
       step?.status === "waiting" &&
       !step.isBlocked &&
-      active.snapshot.plan.edges
-        .filter((edge) => edge.to === step.id)
-        .every(
-          (edge) =>
-            active.view.steps.find((entry) => entry.id === edge.from)
-              ?.status === "succeeded",
-        )
+      planReadiness(active.snapshot.plan, results, node.id) === "ready"
     );
   });
 }
@@ -135,6 +141,8 @@ export function canFinalize(active: ActivePlanRun): boolean {
     active.controllers.size === 0 &&
     active.groupCloseout === "closed" &&
     (readySteps(active).length === 0 || active.isInterrupted === true) &&
+    // A result that still waits to start its target is work, unless the run is not going on.
+    ((active.branching?.pending.length ?? 0) === 0 || !canSchedule(active)) &&
     (active.view.status !== "paused" ||
       active.view.stopRequested ||
       active.isInterrupted === true)
@@ -243,46 +251,54 @@ export function hasUnconfirmedRunCloseout(run: AgentPlanRun): boolean {
   );
 }
 
+/** A loop is done when it succeeded with every iteration, or when its branch was never taken. */
+function isCompletedLoop(
+  loop: NonNullable<AgentPlanRun["loops"]>[number],
+): boolean {
+  return (
+    loop.status === "skipped" ||
+    (loop.status === "succeeded" &&
+      !loop.error &&
+      loop.iterations.every(
+        (iteration) =>
+          iteration.status === "succeeded" &&
+          !iteration.error &&
+          iteration.nodes.every(
+            (node) =>
+              node.status === "succeeded" &&
+              !node.isBlocked &&
+              !node.error &&
+              node.session?.resultCode !== -1 &&
+              (!node.session?.acceptance ||
+                node.session.acceptance.verdict === "accepted"),
+          ),
+      ))
+  );
+}
+
 /** Whether every step and loop of a run has durably succeeded and confirmed closeout. */
 export function isCompletedPlanRun(run: AgentPlanRun): boolean {
   if (run.stopRequested || run.controlError || run.steps.length === 0)
     return false;
   if (hasUnconfirmedRunCloseout(run)) return false;
+  // A paused cycle whose only work left is a result on its way back has every node done, yet the run is not.
+  if ((run.pauseBoundary?.pendingStepIds.length ?? 0) > 0) return false;
   if (
     !run.steps.every(
       (step) =>
-        step.status === "succeeded" &&
-        !step.isBlocked &&
-        !step.error &&
-        step.session?.resultCode !== -1 &&
-        (!step.session?.acceptance ||
-          step.session.acceptance.verdict === "accepted"),
+        step.status === "skipped" ||
+        (step.status === "succeeded" &&
+          !step.isBlocked &&
+          !step.error &&
+          step.session?.resultCode !== -1 &&
+          // A boolean result of false is an answer, not an unaccepted node.
+          (step.passed === false ||
+            !step.session?.acceptance ||
+            step.session.acceptance.verdict === "accepted")),
     )
   )
     return false;
-  if (
-    run.loops &&
-    !run.loops.every(
-      (loop) =>
-        loop.status === "succeeded" &&
-        !loop.error &&
-        loop.iterations.every(
-          (iteration) =>
-            iteration.status === "succeeded" &&
-            !iteration.error &&
-            iteration.nodes.every(
-              (node) =>
-                node.status === "succeeded" &&
-                !node.isBlocked &&
-                !node.error &&
-                node.session?.resultCode !== -1 &&
-                (!node.session?.acceptance ||
-                  node.session.acceptance.verdict === "accepted"),
-            ),
-        ),
-    )
-  )
-    return false;
+  if (run.loops && !run.loops.every(isCompletedLoop)) return false;
   return true;
 }
 
@@ -356,22 +372,33 @@ export function countRunningPlanRequests(
 export function settlePlanPause(active: ActivePlanRun): void {
   if (active.view.status !== "pausing" || active.controllers.size !== 0) return;
   const pending = active.view.steps.filter((step) => step.status === "paused");
+  // A result on its way back to an agent is work that waits, though no node is paused for it.
+  const returning = [
+    ...new Set(active.branching?.pending.map((event) => event.targetId)),
+  ];
   const hasFailure = active.view.steps.some(
     (step) => step.status === "failed" || step.isBlocked,
   );
-  if (hasFailure || active.view.controlError || pending.length === 0) return;
+  if (
+    hasFailure ||
+    active.view.controlError ||
+    (pending.length === 0 && returning.length === 0)
+  )
+    return;
   const completed = active.view.steps
     .filter((step) => step.status === "succeeded")
     .map((step) => step.id);
-  const frontier = active.snapshot.plan.nodes
-    .filter(
-      (node) =>
-        pending.some((step) => step.id === node.id) &&
-        active.snapshot.plan.edges
-          .filter((edge) => edge.to === node.id)
-          .every((edge) => completed.includes(edge.from)),
-    )
-    .map((node) => node.id);
+  const results = new Map(active.view.steps.map((step) => [step.id, step]));
+  const frontier = [
+    ...active.snapshot.plan.nodes
+      .filter(
+        (node) =>
+          pending.some((step) => step.id === node.id) &&
+          planReadiness(active.snapshot.plan, results, node.id) === "ready",
+      )
+      .map((node) => node.id),
+    ...returning,
+  ];
   if (frontier.length === 0) return;
   active.view = withGroupResults(
     {
@@ -382,7 +409,10 @@ export function settlePlanPause(active: ActivePlanRun): void {
       pauseBoundary: {
         pausedAt: new Date().toISOString(),
         completedStepIds: completed,
-        pendingStepIds: pending.map((step) => step.id),
+        pendingStepIds: [
+          ...pending.map((step) => step.id),
+          ...returning.filter((id) => !pending.some((step) => step.id === id)),
+        ],
         frontierStepIds: frontier,
       },
     },

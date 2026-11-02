@@ -66,3 +66,26 @@ it("offers no connection on a read-only canvas", () => {
   expect(out.classList).not.toContain("connectable");
   expect(out.classList).not.toContain("connectablestart");
 });
+
+it("colours the ports of the boolean result, both branches and the new prompt by what they carry", () => {
+  const { container } = renderInFlow(
+    <>
+      <PlanFlowHandle id="passed-out" type="source" kind="logic" />
+      <PlanFlowHandle id="true-out" type="source" kind="true" />
+      <PlanFlowHandle id="false-out" type="source" kind="false" />
+      <PlanFlowHandle id="event-in" type="target" kind="event" />
+    </>,
+  );
+
+  expect(handle(container, "passed-out").classList).toContain(
+    styles.logicHandle,
+  );
+  expect(handle(container, "true-out").classList).toContain(styles.trueHandle);
+  expect(handle(container, "false-out").classList).toContain(
+    styles.falseHandle,
+  );
+  expect(handle(container, "event-in").classList).toContain(styles.eventHandle);
+  expect(handle(container, "event-in").classList).not.toContain(
+    styles.flowHandle,
+  );
+});

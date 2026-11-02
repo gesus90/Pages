@@ -1,3 +1,5 @@
+import { planEdgeBranch, planEdgeKind } from "@/definition/AgentPlanBranching";
+import { disconnectPlanEdge } from "@/definition/AgentPlanBranchingEdit";
 import { allPlanSteps, planGroupEdges } from "@/definition/AgentPlanGroup";
 import { allPlanLoopMembers } from "@/definition/AgentPlanLoop";
 import { disconnectLoopFlow } from "@/definition/AgentPlanLoopEdit";
@@ -12,10 +14,12 @@ import { planNodeLabel } from "./plan-layout";
 
 import type {
   AgentPlanBinding,
+  AgentPlanEdge,
   AgentPlanInput,
   AgentPlanSources,
   AgentPlanStep,
 } from "@/definition/AgentPlan";
+import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
@@ -41,8 +45,73 @@ interface PlanDataLink {
   readonly port?: string;
 }
 
+/** What a wire between two ports carries: a result into a decision, a branch out of it or a new prompt. */
+export type PlanWireChannel = "branch" | "condition" | "event";
+
+/**
+ * An edge of the branching contract: the boolean result of an agent into a
+ * decision, an output of a decision into a flow input, or the text result of a
+ * node into the event input of an agent.
+ *
+ * @remarks
+ * Only the first two order execution; an event never does. The ports name the
+ * handles the line starts and ends at, so two wires between the same nodes
+ * stay apart.
+ */
+interface PlanWireLink {
+  readonly kind: "wire";
+  readonly channel: PlanWireChannel;
+  readonly from: string;
+  readonly to: string;
+  readonly fromPort: string;
+  readonly toPort: string;
+  /** The output of a decision a `branch` wire leaves through. */
+  readonly branch?: AgentPlanBranch;
+}
+
 /** One connection the grid draws, selects and removes on its own. */
-export type PlanLink = PlanFlowLink | PlanDataLink;
+export type PlanLink = PlanFlowLink | PlanDataLink | PlanWireLink;
+
+/**
+ * How a connection is drawn and named: its line, its colour and its label.
+ *
+ * @remarks
+ * The two branches have a channel each, so that the colour is never the only
+ * difference between them.
+ */
+export type PlanLinkChannel =
+  "flow" | "data" | "condition" | "true" | "false" | "event";
+
+/** The drawing channel of a connection. */
+export function planLinkChannel(link: PlanLink): PlanLinkChannel {
+  if (link.kind !== "wire") return link.kind;
+  if (link.channel === "branch")
+    return link.branch === "false" ? "false" : "true";
+  return link.channel;
+}
+
+/** The connection an edge of the plan draws; an unknown pair of ports stays a plain flow line. */
+function edgeLink(edge: AgentPlanEdge): PlanLink {
+  const kind = planEdgeKind(edge);
+  if (kind === null || kind === "flow")
+    return { kind: "flow", from: edge.from, to: edge.to };
+  const branch = planEdgeBranch(edge);
+  return {
+    kind: "wire",
+    channel: kind,
+    from: edge.from,
+    to: edge.to,
+    fromPort: edge.fromPort,
+    toPort: edge.toPort,
+    ...(branch ? { branch } : {}),
+  };
+}
+
+/** Whether the edge orders execution as a plain flow line, as every edge did before decisions. */
+function isPlainFlow(edge: AgentPlanEdge): boolean {
+  const kind = planEdgeKind(edge);
+  return kind === null || kind === "flow";
+}
 
 function bindingLinks(
   target: AgentPlanStep | AgentPlanScript | AgentPlanGroup,
@@ -101,7 +170,7 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
   ]);
   const links: PlanLink[] = plan.edges
     .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
-    .map((edge) => ({ kind: "flow", from: edge.from, to: edge.to }));
+    .map(edgeLink);
   for (const target of plan.nodes) {
     if (target.type === "agent" || target.type === "script")
       links.push(...bindingLinks(target, ids, null));
@@ -122,11 +191,18 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
   return links;
 }
 
-/** A stable key; a parameter accepts one binding and two nodes one flow edge. */
+/**
+ * A stable key; a parameter accepts one binding and two nodes one flow edge.
+ *
+ * @remarks
+ * A plain flow keeps `flow:from:to`; a wire names its channel, and a branch
+ * also its output, so that no two connections share a key.
+ */
 export function planLinkKey(link: PlanLink): string {
-  return link.kind === "flow"
-    ? `flow:${link.from}:${link.to}`
-    : `data:${link.to}:${link.parameter}`;
+  if (link.kind === "data") return `data:${link.to}:${link.parameter}`;
+  if (link.kind === "flow") return `flow:${link.from}:${link.to}`;
+  const output = link.branch ? `:${link.branch}` : "";
+  return `${link.channel}:${link.from}${output}:${link.to}`;
 }
 
 /** Removes exactly this connection; both of its nodes stay in the plan. */
@@ -138,11 +214,13 @@ export function removePlanLink(
     return disconnectLoopFlow(draft, link.loopId, link);
   if (link.kind === "flow" && link.groupId !== undefined)
     return disconnectPlanGroupFlow(draft, link.groupId, link);
+  if (link.kind === "wire") return disconnectPlanEdge(draft, link);
   if (link.kind === "flow")
     return {
       ...draft,
       edges: draft.edges.filter(
-        (edge) => edge.from !== link.from || edge.to !== link.to,
+        (edge) =>
+          edge.from !== link.from || edge.to !== link.to || !isPlainFlow(edge),
       ),
     };
   const target = findPlanBindingTarget(draft, link.to);

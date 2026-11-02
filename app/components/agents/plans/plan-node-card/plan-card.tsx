@@ -118,7 +118,9 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
             "block truncate",
             PLAN_NODE_TEXT.title,
             !props.runClass &&
-              (node.type === "agent" || node.type === "script") &&
+              (node.type === "agent" ||
+                node.type === "script" ||
+                node.type === "decision") &&
               planNodeAccent(node.type),
           )}
         >

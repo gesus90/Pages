@@ -1,10 +1,11 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import {
   PlanRecoveryPanel,
   recoverableRunId,
 } from "@/app/components/agents/plans/plan-recovery-panel";
+import { PlanRecoveryResumeDialog } from "@/app/components/agents/plans/plan-recovery/plan-recovery-resume-dialog";
 
 import {
   i18n,
@@ -28,13 +29,31 @@ function renderPanel(runId: string | null, recovery: PlanRecovery): void {
   renderTranslated(<PlanRecoveryPanel runId={runId} recovery={recovery} />);
 }
 
-it("offers recovery only for the newest run that failed, was stopped or is stopping", () => {
+function renderRestart(recovery: PlanRecovery): void {
+  renderTranslated(
+    <PlanRecoveryResumeDialog
+      recovery={recovery}
+      action="restart"
+      onClose={vi.fn()}
+    />,
+  );
+}
+
+it("selects the newest run for all states with recovery controls", () => {
   expect(recoverableRunId(undefined)).toBeNull();
   expect(recoverableRunId(planControl({ status: "failed" }))).toBeNull();
   expect(
-    recoverableRunId(planControl({ status: "running", runId: "run" })),
+    recoverableRunId(planControl({ status: "idle", runId: "run" })),
   ).toBeNull();
-  for (const status of ["failed", "cancelled", "stopping"] as const)
+  for (const status of [
+    "running",
+    "pausing",
+    "paused",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "stopping",
+  ] as const)
     expect(recoverableRunId(planControl({ status, runId: "run" }))).toBe("run");
 });
 
@@ -43,75 +62,83 @@ it("shows nothing without a run, while loading, or for another person's run", ()
   renderPanel("run", recoveryState());
   renderPanel("run", recoveryState({ error: "access_denied" }));
   renderPanel("run", recoveryState({ error: "plan_access_denied" }));
-
   expect(document.body.textContent).toBe("");
 });
 
 it("names why the recovery view could not be read", () => {
   renderPanel("run", recoveryState({ error: "workflow_unavailable" }));
-
   expect(screen.getByRole("alert").textContent).toBe(
     errorText("workflow_unavailable"),
   );
 });
 
-it("shows the state, every blocker, the restart, its result and a refusal", () => {
+it("shows the recovery state and refusal and requires confirmation before restarting", async () => {
   const submit = vi.fn<PlanRecovery["submit"]>(async () => null);
-  renderPanel(
-    "run",
+  renderRestart(
     recoveryState({
-      view: recoveryView({
-        blockers: ["superseded", "cleanup_unconfirmed"],
-        release: { available: true, reason: null },
-      }),
-      isPending: false,
-      result: { commandId: "c", revision: 8, outcome: "released" },
+      view: recoveryView({ restart: { available: true, reason: null } }),
       error: "synthetic_unknown",
       submit,
     }),
   );
-  const section = screen.getByRole("region", {
-    name: i18n.t("plans.recovery.title"),
-  });
-
-  expect(section.getAttribute("aria-busy")).toBe("false");
   expect(
-    screen.getAllByRole("listitem").map((item) => item.textContent),
-  ).toEqual([
-    i18n.t("plans.recovery.blocker.superseded"),
-    i18n.t("plans.recovery.blocker.cleanup_unconfirmed"),
-  ]);
-  expect(screen.getByRole("status").textContent).toBe(
-    i18n.t("plans.recovery.result.released"),
-  );
+    screen.getByRole("dialog", { name: i18n.t("plans.recovery.restart") }),
+  ).toBeDefined();
+  expect(
+    screen.getByText(i18n.t("plans.recovery.state.recoverable")),
+  ).toBeDefined();
   expect(screen.getByRole("alert").textContent).toBe(
     i18n.t("plans.panel.error"),
   );
+  const restart = screen.getByRole("button", {
+    name: i18n.t("plans.recovery.restartAction", { revision: 3 }),
+  });
+  expect(restart.hasAttribute("disabled")).toBe(true);
   fireEvent.click(
-    screen.getByRole("button", {
-      name: i18n.t("plans.recovery.releaseAction"),
+    screen.getByRole("checkbox", {
+      name: i18n.t("plans.recovery.confirmRepeat"),
     }),
   );
-
-  expect(submit).toHaveBeenCalledWith({ action: "release" });
+  fireEvent.click(restart);
+  await waitFor(() =>
+    expect(submit).toHaveBeenCalledWith({
+      action: "restart",
+      revision: 3,
+      confirmRepeat: true,
+      reviewedStepIds: [],
+    }),
+  );
+  expect(
+    screen.queryByRole("button", {
+      name: i18n.t("plans.recovery.releaseAction"),
+    }),
+  ).toBeNull();
 });
 
-it("marks a pending decision and lists no blockers when there are none", () => {
-  renderPanel("run", recoveryState({ view: recoveryView(), isPending: true }));
-
+it("disables restart and closing while a decision is pending", () => {
+  renderRestart(
+    recoveryState({
+      view: recoveryView({ restart: { available: true, reason: null } }),
+      isPending: true,
+    }),
+  );
   expect(
     screen
-      .getByRole("region", { name: i18n.t("plans.recovery.title") })
-      .getAttribute("aria-busy"),
-  ).toBe("true");
-  expect(screen.queryByRole("list")).toBeNull();
-  expect(screen.queryByRole("status")).toBeNull();
+      .getByRole("button", {
+        name: i18n.t("plans.recovery.restartAction", { revision: 3 }),
+      })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+  expect(
+    screen
+      .getByRole("button", { name: i18n.t("settings.agents.cancel") })
+      .hasAttribute("disabled"),
+  ).toBe(true);
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
 it("names the affected resource and safe retry when a cleanup scan is denied", () => {
-  renderPanel(
-    "run",
+  renderRestart(
     recoveryState({
       view: recoveryView(),
       error: "cleanup_unconfirmed",
@@ -122,7 +149,6 @@ it("names the affected resource and safe retry when a cleanup scan is denied", (
       },
     }),
   );
-
   const message = screen.getByRole("alert").textContent;
   expect(message).toContain("Reviewer");
   expect(message).toContain(i18n.t("plans.recovery.cleanupKind.local_session"));

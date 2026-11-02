@@ -235,6 +235,7 @@ export function graphStub(
     resolveGroupEdge: vi.fn(),
     replaceStep: vi.fn(),
     replaceNode: vi.fn(),
+    setDecisionCondition: vi.fn(),
     ...overrides,
   };
 }
