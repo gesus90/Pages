@@ -10,7 +10,6 @@ export const DEFAULT_ACP_RESOURCES: AcpResourceOptions = {
   maxConcurrentAcpSessions: 2,
   memoryAwareScheduling: true,
   minimumAvailableMemory: 2048,
-  acpIdleTimeout: 300_000,
   queueDiscipline: "fifo",
 };
 
@@ -66,7 +65,6 @@ export function readAcpResourceOptions(
       "minimumAvailableMemory",
       0,
     ),
-    acpIdleTimeout: integer(options.acpIdleTimeout, "acpIdleTimeout", 1),
     queueDiscipline: "fifo",
   };
 }

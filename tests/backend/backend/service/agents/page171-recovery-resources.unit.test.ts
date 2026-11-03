@@ -67,6 +67,50 @@ it.each(["pending", "failed"] as const)(
   },
 );
 
+it("releases a run whose failed turn never started a process, without a process scan", async () => {
+  const fixture = await recoveryFixture();
+  const session = fixture.failed.steps.find((step) => step.id === "a")?.session;
+  if (!session) throw new Error("Synthetic session is missing");
+  const run = patchRecoveryStep(fixture.failed, "a", {
+    session: { ...session, closeout: "not_needed", processId: null },
+  });
+  const world = recoveryWorld(fixture, run);
+  const scan = vi.mocked(endTaggedProcesses);
+  scan.mockClear();
+  scan.mockRejectedValue(new Error("Process ownership is unverified"));
+  const released = releasePlanRun(world, run.userId, {
+    operationId: "turn-without-process",
+    planId: run.planId,
+    runId: run.id,
+    expectedRecoveryRevision: 0,
+  });
+  await expect(released).resolves.toMatchObject({ outcome: "released" });
+  expect(scan).not.toHaveBeenCalled();
+  scan.mockReset();
+  scan.mockResolvedValue({ found: 0, remaining: 0 });
+});
+
+it("still refuses a record without closeout need that names a process", async () => {
+  const fixture = await recoveryFixture();
+  const session = fixture.failed.steps.find((step) => step.id === "a")?.session;
+  if (!session) throw new Error("Synthetic session is missing");
+  const run = patchRecoveryStep(fixture.failed, "a", {
+    session: { ...session, closeout: "not_needed", processId: 4242 },
+  });
+  const world = recoveryWorld(fixture, run);
+  vi.mocked(endTaggedProcesses).mockRejectedValueOnce(
+    new Error("Process ownership is unverified"),
+  );
+  await expect(
+    releasePlanRun(world, run.userId, {
+      operationId: "turn-with-process",
+      planId: run.planId,
+      runId: run.id,
+      expectedRecoveryRevision: 0,
+    }),
+  ).rejects.toMatchObject({ code: "cleanup_unconfirmed" });
+});
+
 it("names a denied scan of an unconfirmed local session and keeps its reservation", async () => {
   const fixture = await recoveryFixture();
   const session = fixture.failed.steps.find((step) => step.id === "a")?.session;

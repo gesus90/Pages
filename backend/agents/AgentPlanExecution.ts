@@ -62,7 +62,7 @@ export interface PlanSessionObserver {
   /** Reports automatic retirement so retained run records do not remain silently open. */
   readonly retired?: (
     closed: PlanSessionClosed,
-    reason: "idle_timeout" | "process_exit",
+    reason: "process_exit",
   ) => void;
   /** Reports the newest events while the turn runs; the turn reports them again at its end. */
   readonly progressed?: (events: readonly string[]) => void;

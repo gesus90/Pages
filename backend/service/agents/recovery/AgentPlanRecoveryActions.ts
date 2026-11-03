@@ -18,7 +18,10 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
 
-import { checkSessionProcesses } from "../AgentPlanRecovery";
+import {
+  checkSessionProcesses,
+  needsNoSessionScan,
+} from "../AgentPlanRecovery";
 import { cleanupScanFailure } from "../AgentPlanCleanupFailure";
 import { prepareRecoveredPlan } from "../AgentPlanContinuation";
 import {
@@ -470,6 +473,8 @@ export class AgentPlanRecoveryActions {
       const closeout = step.session?.closeout;
       if (instanceId === undefined || closeout === "confirmed") continue;
       const session = step.session;
+      // A turn refused before its start owns no process; the record that opened a shared session accounts for it.
+      if (session && needsNoSessionScan(session)) continue;
       const cleanup = await (
         session && session.runner !== "api" && session.namespace
           ? settleOwnedNamespace(session.namespace, instanceId).then(

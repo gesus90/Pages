@@ -269,11 +269,11 @@ it("releases an OpenCode connection when the adapter retires the session confirm
   const observer = cli.mock.calls[0]?.[2];
   observer?.retired?.(closed(false), "process_exit");
   expect(isHeld(registry)).toBe(true);
-  observer?.retired?.(closed(true), "idle_timeout");
+  observer?.retired?.(closed(true), "process_exit");
   expect(isHeld(registry)).toBe(false);
   expect(retired.mock.calls).toEqual([
     [closed(false), "process_exit"],
-    [closed(true), "idle_timeout"],
+    [closed(true), "process_exit"],
   ]);
   await execution.open(
     input("opencode"),
@@ -281,7 +281,7 @@ it("releases an OpenCode connection when the adapter retires the session confirm
     OBSERVER,
   );
   expect(() =>
-    cli.mock.calls[1]?.[2].retired?.(closed(true), "idle_timeout"),
+    cli.mock.calls[1]?.[2].retired?.(closed(true), "process_exit"),
   ).not.toThrow();
 });
 

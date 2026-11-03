@@ -217,7 +217,8 @@ function hasContainedSession(session: AgentPlanSessionRecord): boolean {
   );
 }
 
-function needsNoSessionScan(session: AgentPlanSessionRecord): boolean {
+/** Whether the record proves that the attempt left no process to look for. */
+export function needsNoSessionScan(session: AgentPlanSessionRecord): boolean {
   return (
     hasContainedSession(session) ||
     (session.runner === "api" &&

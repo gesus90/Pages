@@ -479,7 +479,6 @@ export function writePagesConfig(
     "maxConcurrentAcpSessions",
     "memoryAwareScheduling",
     "minimumAvailableMemory",
-    "acpIdleTimeout",
     "queueDiscipline",
   ] as const;
   for (const key of resourceKeys) {

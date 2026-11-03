@@ -11,14 +11,12 @@ export function readAcpResourceSettings(
     "maxConcurrentAcpSessions",
     "memoryAwareScheduling",
     "minimumAvailableMemory",
-    "acpIdleTimeout",
     "queueDiscipline",
   ] as const;
   if (!keys.some((key) => table[key] !== undefined)) return {};
   const maxConcurrentAcpSessions = table.maxConcurrentAcpSessions;
   const memoryAwareScheduling = table.memoryAwareScheduling;
   const minimumAvailableMemory = table.minimumAvailableMemory;
-  const acpIdleTimeout = table.acpIdleTimeout;
   if (
     maxConcurrentAcpSessions !== undefined &&
     typeof maxConcurrentAcpSessions !== "number"
@@ -34,15 +32,12 @@ export function readAcpResourceSettings(
     typeof minimumAvailableMemory !== "number"
   )
     throw new Error("Invalid ACP memory reserve");
-  if (acpIdleTimeout !== undefined && typeof acpIdleTimeout !== "number")
-    throw new Error("Invalid ACP idle timeout");
   const settings: Partial<AcpResourceOptions> = {
     ...(maxConcurrentAcpSessions === undefined
       ? {}
       : { maxConcurrentAcpSessions }),
     ...(memoryAwareScheduling === undefined ? {} : { memoryAwareScheduling }),
     ...(minimumAvailableMemory === undefined ? {} : { minimumAvailableMemory }),
-    ...(acpIdleTimeout === undefined ? {} : { acpIdleTimeout }),
     ...(table.queueDiscipline === undefined
       ? {}
       : { queueDiscipline: readQueueDiscipline(table.queueDiscipline) }),

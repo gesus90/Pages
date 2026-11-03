@@ -985,11 +985,11 @@ never permits a silent replacement session. Each turn reauthorizes access.
 
 The footer's read-only ACP identifier belongs to the selected run and group;
 without a real recorded identifier it says "not created yet". ACP identifiers
-are not native thread IDs, process IDs or durable restart handles. After an idle
-timeout or host restart, continuation of a lost retained session blocks rather
+are not native thread IDs, process IDs or durable restart handles. After a
+process exit or host restart, continuation of a lost retained session blocks rather
 than opening an empty context. A deliberately new run gets a new session. Every
 group turn still requires accepted business progress. Pause drains active work
-and preserves retained sessions within existing idle limits; Stop revokes access
+and preserves retained sessions; Stop revokes access
 and closes active or idle retained sessions. Credentialed provider continuation
 must be verified separately for each installed runner version; a local dummy ACP
 peer proves only Pages' protocol, queue and error handling.
@@ -1888,7 +1888,6 @@ Optional flat keys in the instance's `config.toml` (manual edits apply after res
 maxConcurrentAcpSessions = 2  # 0–999; 0 = unlimited up to the absolute ceiling of 999
 memoryAwareScheduling = true
 minimumAvailableMemory = 2048 # MiB, Linux MemAvailable
-acpIdleTimeout = 300000       # milliseconds between native turns
 queueDiscipline = "fifo"
 ```
 
@@ -1918,13 +1917,17 @@ their FIFO position among eligible requests; pausing never frees a live lease.
 Cancelling a queued node removes it without starting its adapter. Node deadlines
 include waiting time.
 
-An idle native session, including a paused group, is closed after five minutes
-by default. A follow-up started by the adapter through steering is active work,
-so it remains under the owning job deadline until Pages closes it or starts
-the next prompt; idle expiry does not interrupt that follow-up. Its run record receives the retirement reason and closing outcome.
-Resume after expiry fails with `plan_context_changed`; Pages does not silently
-start a replacement or replay accepted steps. A failed or unconfirmed cleanup
-continues to occupy capacity, visibly, even beyond the idle timeout.
+Pages never closes a native session because it is idle. A session ends with
+its plan run or Pica job, on Stop, at shutdown, or when its process exits. Since
+an idle session keeps its slot, a run that retains sessions needs a limit above
+the sessions it keeps open at once; otherwise its next start waits for capacity
+until someone stops a run or raises the limit. A
+follow-up started by the adapter through steering is active work, so it remains
+under the owning job deadline until Pages closes it or starts the next prompt.
+When a process exits on its own, the run record receives the reason and closing
+outcome; continuing that session fails with `plan_context_changed`, and Pages
+does not silently start a replacement or replay accepted steps. A failed or
+unconfirmed cleanup continues to occupy capacity, visibly.
 
 At startup Pages cleans durable leases before admitting work, including a
 crash between reservation and recording the process start. Existing run recovery

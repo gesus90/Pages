@@ -51,7 +51,6 @@ it("shows occupied slots, FIFO wait reasons, memory and failed cleanup without p
       maxConcurrentAcpSessions: 1,
       memoryAwareScheduling: true,
       minimumAvailableMemory: 2048,
-      acpIdleTimeout: 300000,
       queueDiscipline: "fifo",
     },
     limitSource: "config",

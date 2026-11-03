@@ -16,13 +16,12 @@ import type { TomlTable } from "smol-toml";
 const memory = vi.hoisted(() => ({ readFile: vi.fn() }));
 vi.mock("node:fs/promises", () => memory);
 
-it("defaults to two native processes, a 2048 MiB reserve, FIFO and five minute retention", () => {
+it("defaults to two native processes, a 2048 MiB reserve and FIFO, without an idle limit", () => {
   expect(readAcpResourceOptions({}, {})).toEqual(DEFAULT_ACP_RESOURCES);
   expect(DEFAULT_ACP_RESOURCES).toEqual({
     maxConcurrentAcpSessions: 2,
     memoryAwareScheduling: true,
     minimumAvailableMemory: 2048,
-    acpIdleTimeout: 300000,
     queueDiscipline: "fifo",
   });
 });
@@ -33,7 +32,6 @@ it("reads operator TOML settings and gives explicit environment overrides preced
       maxConcurrentAcpSessions: 2,
       memoryAwareScheduling: false,
       minimumAvailableMemory: 4096,
-      acpIdleTimeout: 10000,
       queueDiscipline: "fifo",
     },
     "synthetic",
@@ -48,12 +46,10 @@ it("reads operator TOML settings and gives explicit environment overrides preced
     maxConcurrentAcpSessions: 3,
     memoryAwareScheduling: true,
     minimumAvailableMemory: 2048,
-    acpIdleTimeout: 10000,
     queueDiscipline: "fifo",
   });
   expect(writePagesConfig({}, config)).toMatchObject({
     maxConcurrentAcpSessions: 2,
-    acpIdleTimeout: 10000,
   });
 });
 
@@ -83,10 +79,14 @@ it.each<TomlTable>([
   { maxConcurrentAcpSessions: Number.NaN },
   { minimumAvailableMemory: "2048" },
   { memoryAwareScheduling: "true" },
-  { acpIdleTimeout: 0 },
   { queueDiscipline: "priority" },
 ])("rejects malformed TOML settings %j", (settings) => {
   expect(() => readPagesConfig(settings, "synthetic")).toThrow();
+});
+
+it("ignores an idle limit left in an older configuration", () => {
+  const config = readPagesConfig({ acpIdleTimeout: 0 }, "synthetic");
+  expect(readAcpResourceOptions(config, {})).toEqual(DEFAULT_ACP_RESOURCES);
 });
 
 it.each([0, 1, 2, 999])(

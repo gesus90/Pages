@@ -304,7 +304,6 @@ export class AcpResourceScheduler {
       const session = new ScheduledAcpSession(
         native,
         {
-          idleTimeout: this.options.acpIdleTimeout,
           transition: (state, stepId) =>
             this.transition(owner.instanceId, state, stepId),
           finish: (isConfirmed) => this.finish(owner.instanceId, isConfirmed),

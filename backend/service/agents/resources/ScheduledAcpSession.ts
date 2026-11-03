@@ -13,7 +13,6 @@ import type {
 import type { AcpResourceState } from "@/definition/AcpResource";
 
 interface LeaseLifecycle {
-  readonly idleTimeout: number;
   readonly transition: (
     state: AcpResourceState,
     stepId?: string,
@@ -21,15 +20,13 @@ interface LeaseLifecycle {
   readonly finish: (isConfirmed: boolean) => Promise<boolean>;
 }
 
-/** Keeps one lease across turns and retires idle native sessions without replaying work. */
+/** Keeps one lease across turns until its owner closes the session or its process ends. */
 export class ScheduledAcpSession implements PlanSession {
   public readonly turn: Promise<PlanSessionTurn>;
   private readonly session: PlanSession;
   private readonly lifecycle: LeaseLifecycle;
-  private idleTimer: ReturnType<typeof setTimeout> | undefined;
   private closing: Promise<PlanSessionClosed> | null = null;
   private isWorking = true;
-  private pendingSteers = 0;
   private hasAdapterTurn = false;
   private observer: PlanSessionObserver | undefined;
 
@@ -43,7 +40,7 @@ export class ScheduledAcpSession implements PlanSession {
     this.lifecycle = lifecycle;
     this.turn = this.observeTurn(session.turn);
     void session.terminated
-      ?.then(() => this.retire("process_exit"))
+      ?.then(() => this.retire())
       .catch((caughtError: unknown) => {
         logCaughtError("ScheduledAcpSession", caughtError);
 
@@ -59,7 +56,6 @@ export class ScheduledAcpSession implements PlanSession {
   ): Promise<PlanSessionTurn> {
     if (this.closing || this.isWorking || !this.session.next)
       throw new AgentError("plan_context_changed");
-    clearTimeout(this.idleTimer);
     this.hasAdapterTurn = false;
     this.observer = observer;
     this.isWorking = true;
@@ -68,27 +64,20 @@ export class ScheduledAcpSession implements PlanSession {
     return this.observeTurn(this.session.next(input, signal, observer));
   }
 
-  /** An adapter-started follow-up is active work, bounded by its owner's signal rather than idle expiry. */
+  /** An adapter-started follow-up is active work, bounded by its owner's signal. */
   public async steer(
     prompt: readonly ContentBlock[],
   ): Promise<AcpSteerOutcome> {
     if (this.closing || !this.session.steer) return "inactive";
-    this.pendingSteers += 1;
-    clearTimeout(this.idleTimer);
-    try {
-      const outcome = await this.session.steer(prompt);
-      if (outcome === "startedNewTurn" && !this.closing) {
-        this.hasAdapterTurn = true;
-        await this.lifecycle.transition("running");
-      }
-      return outcome;
-    } finally {
-      this.pendingSteers -= 1;
-      this.armIdleTimer();
+    const outcome = await this.session.steer(prompt);
+    if (outcome === "startedNewTurn" && !this.closing) {
+      this.hasAdapterTurn = true;
+      await this.lifecycle.transition("running");
     }
+    return outcome;
   }
 
-  /** Whether an idle retirement or a close has begun, before the session reports its end. */
+  /** Whether a retirement or a close has begun, before the session reports its end. */
   public get isClosing(): boolean {
     return this.closing !== null;
   }
@@ -106,37 +95,16 @@ export class ScheduledAcpSession implements PlanSession {
       return await pending;
     } finally {
       this.isWorking = false;
-      if (!this.closing && !this.hasAdapterTurn) {
+      if (!this.closing && !this.hasAdapterTurn)
         await this.lifecycle.transition("idle");
-        this.armIdleTimer();
-      }
     }
   }
 
-  private armIdleTimer(): void {
-    clearTimeout(this.idleTimer);
-    if (
-      this.closing ||
-      this.isWorking ||
-      this.hasAdapterTurn ||
-      this.pendingSteers > 0
-    )
-      return;
-    this.idleTimer = setTimeout(() => {
-      void this.retire("idle_timeout").catch((caughtError: unknown) => {
-        logCaughtError("ScheduledAcpSession", caughtError);
-
-        // The lease stays occupied; the resource overview reports cleanup_failed.
-      });
-    }, this.lifecycle.idleTimeout);
-    this.idleTimer.unref();
-  }
-
-  private async retire(reason: "idle_timeout" | "process_exit"): Promise<void> {
+  private async retire(): Promise<void> {
     if (this.closing) return;
     try {
       const closed = await this.close();
-      this.observer?.retired?.(closed, reason);
+      this.observer?.retired?.(closed, "process_exit");
     } catch (error: unknown) {
       logCaughtError("ScheduledAcpSession", error);
 
@@ -147,14 +115,13 @@ export class ScheduledAcpSession implements PlanSession {
           leftovers: 0,
           isConfirmed: false,
         },
-        reason,
+        "process_exit",
       );
       throw error;
     }
   }
 
   private async closeOnce(): Promise<PlanSessionClosed> {
-    clearTimeout(this.idleTimer);
     await this.lifecycle.transition("closing");
     try {
       const closed = await this.session.close();

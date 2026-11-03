@@ -129,8 +129,8 @@ it("closes a crashed idle adapter and its descendants before giving back its lea
   await world.scheduler.shutdown();
 });
 
-it("retains paused native sessions until idle expiry, then refuses reuse without a replacement", async () => {
-  const world = resourceWorld({ acpIdleTimeout: 5000 });
+it("keeps an idle paused session open however long it waits, and refuses reuse once closed", async () => {
+  const world = resourceWorld();
   await world.scheduler.recover();
   const native = nativeSession();
   const session = await world.scheduler.open(
@@ -140,10 +140,10 @@ it("retains paused native sessions until idle expiry, then refuses reuse without
   );
   await session.turn;
   world.scheduler.pauseRun("run-a");
-  await vi.advanceTimersByTimeAsync(4999);
+  await vi.advanceTimersByTimeAsync(24 * 60 * 60_000);
   expect(world.scheduler.snapshot().active[0]?.state).toBe("idle");
   expect(native.close).not.toHaveBeenCalled();
-  await vi.advanceTimersByTimeAsync(1);
+  await session.close();
   expect(native.close).toHaveBeenCalledOnce();
   expect(world.scheduler.snapshot().active).toEqual([]);
   const fixture = await parameterRunFixture();
@@ -358,14 +358,15 @@ it("does not override a known unconfirmed process exit with a later empty tag sc
   await world.scheduler.shutdown();
 });
 
-it("reports automatic idle retirement to the retained run observer and refreshes monitoring RAM", async () => {
-  const world = resourceWorld({ acpIdleTimeout: 1000 });
+it("reports a retirement by process exit to the retained run observer and refreshes monitoring RAM", async () => {
+  const world = resourceWorld();
   await world.scheduler.recover();
   const retired = vi.fn();
+  const terminated = deferred<void>();
   const session = await world.scheduler.open(
     owner("a"),
     new AbortController().signal,
-    async () => nativeSession(),
+    async () => ({ ...nativeSession(), terminated: terminated.promise }),
     { started: () => {}, identified: () => {}, retired },
   );
   await session.turn;
@@ -373,10 +374,11 @@ it("reports automatic idle retirement to the retained run observer and refreshes
   expect(world.scheduler.snapshot().active[0]?.isPaused).toBe(true);
   world.memory.mockResolvedValueOnce(3072);
   expect((await world.scheduler.inspect()).availableMemory).toBe(3072);
-  await vi.advanceTimersByTimeAsync(1000);
+  terminated.resolve();
+  await vi.advanceTimersByTimeAsync(0);
   expect(retired).toHaveBeenCalledWith(
     expect.objectContaining({ isConfirmed: true }),
-    "idle_timeout",
+    "process_exit",
   );
   expect(world.records.size).toBe(0);
   await world.scheduler.shutdown();

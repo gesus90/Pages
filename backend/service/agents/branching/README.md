@@ -119,19 +119,19 @@ and on Stop. Its `session.event` record names the role of every start:
 | ----------- | -------------------------------------------------------------------- | ------------------------------------------------ |
 | `created`   | first start                                                          | main instruction and inputs, as ever             |
 | `continued` | the session is open (or a retry resumes it natively)                 | the news only, a follow-up turn in the same session |
-| `recovered` | the session is no longer open (idle timeout, adapter exit)           | NEW session: main instruction, inputs and the news, marked as new |
+| `recovered` | the session is no longer open (adapter exit)                         | NEW session: main instruction, inputs and the news, marked as new |
 
 **Capacity.** A retained session keeps its lease while it waits for the news,
 so a cycle needs two leases at once: the checker waits, the fix works. With the
 default of two concurrent ACP sessions, two cycle runs at the same time can
 hold both leases with their idle checkers; each fix then waits for capacity
-until the idle timeout (`acpIdleTimeout`, 5 minutes) retires a checker, which
-continues as `recovered`. Raise `maxConcurrentAcpSessions` by two for every
-cycle run that has to run at the same time. A process deadline of the agent
+until someone stops a run or raises the limit. Raise
+`maxConcurrentAcpSessions` by two for every cycle run that has to run at the
+same time. A process deadline of the agent
 applies to a turn, not to the idle session: the session still takes the news.
 
-A session counts as no longer open as soon as its closeout has begun (an idle
-retirement included, `isClosing`), not only once its end is reported, so news
+A session counts as no longer open as soon as its closeout has begun
+(`isClosing`), not only once its end is reported, so news
 that arrives meanwhile starts a `recovered` session instead of reaching a
 closing one. A `recovered` start ends the old session first and refuses to
 start when its closeout cannot be confirmed (`plan_closeout_failed`); the
@@ -193,15 +193,16 @@ Found in review and left as they are, with their consequence:
 - A result binding (`{{name}}`) to a node on a branch that was not taken fails
   the receiver with `plan_binding_invalid`; the plan does not check that the
   bound node runs on every path to the receiver.
-- A retained session keeps its capacity lease until the run ends or the idle
-  timeout retires it, so a second cycle behind a finished one may wait for
-  capacity up to `acpIdleTimeout`; it never deadlocks.
-- A start that raced the idle retirement in the few milliseconds between
+- A retained session keeps its capacity lease until the run ends, so a second
+  cycle behind a finished one waits for capacity until that run ends. When all
+  leases belong to sessions waiting for that very start, the run waits with the
+  reason `capacity` until someone stops it or raises the limit.
+- A start that raced the exit of the process in the few milliseconds between
   choosing `continued` and sending the follow-up fails with
   `plan_context_changed`; a new run is the way on. (The much longer window of
   the closeout itself is handled: `isClosing`.)
 - A paused event target shows no session link in the editor until it starts.
-- When the news of an event arrives while an idle retirement of the session is
+- When the news of an event arrives while a retirement of the session is
   closing, the recovered start and the old session's late cleanup can race: the
   cleanup revokes the tool credential of the run and node, which the new session
   may already hold. The start itself is correct; its tool calls can then fail.

@@ -65,7 +65,6 @@ function snapshot(limit = 2): AcpResourceDiagnostics {
       maxConcurrentAcpSessions: limit,
       memoryAwareScheduling: true,
       minimumAvailableMemory: 2048,
-      acpIdleTimeout: 300000,
       queueDiscipline: "fifo",
     },
     limitSource: "config",

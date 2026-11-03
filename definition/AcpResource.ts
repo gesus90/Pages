@@ -22,13 +22,12 @@ export function parseAcpSessionLimit(input: unknown): number | null {
 
 export type AcpResourceLimitSource = "default" | "config" | "environment";
 
-/** Limits for native ACP processes; memory and idle duration use MiB and milliseconds. */
+/** Limits for native ACP processes; memory uses MiB. */
 export interface AcpResourceOptions {
   /** Zero uses the absolute ceiling instead of disabling admission. */
   readonly maxConcurrentAcpSessions: number;
   readonly memoryAwareScheduling: boolean;
   readonly minimumAvailableMemory: number;
-  readonly acpIdleTimeout: number;
   readonly queueDiscipline: "fifo";
 }
 

@@ -114,7 +114,6 @@ it("checks saved active CLI sign-ins after startup without changing login metada
           maxConcurrentAcpSessions: 1,
           memoryAwareScheduling: true,
           minimumAvailableMemory: 0,
-          acpIdleTimeout: 1000,
           queueDiscipline: "fifo",
         },
         availableMemory: 4096,

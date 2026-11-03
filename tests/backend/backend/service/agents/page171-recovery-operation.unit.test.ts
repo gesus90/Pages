@@ -585,7 +585,6 @@ it("keeps the workspace until the run's ACP leases are also confirmed closed", a
         maxConcurrentAcpSessions: 1,
         memoryAwareScheduling: false,
         minimumAvailableMemory: 0,
-        acpIdleTimeout: 60_000,
         queueDiscipline: "fifo",
       },
       limitSource: "default",

@@ -15,7 +15,7 @@ Checked on `task/PAGE-85` (base `e87743b`) before the change:
 | `AcpEvents` / `CliSessionEvents` | Plan sessions kept at most 60 short lines of 200 characters (`noteSessionEvent`); the record stored them redacted. That buffer is no chat history.                                                                                                                                           |
 | Session record                   | `AgentPlanSessionRecord` holds runner, mode, instance, ACP session ID, process, requested configuration, `effective` (adapter-reported model, effort, mode, adapter, isolation), contract, acceptance and the short events. No attempt identity: members of an ACP group share `instanceId`. |
 | Groups                           | `AgentPlanGroupSessions` holds one process and ACP session per run and group, queues member turns (`reserve`) and refuses a lost session (`plan_group_session_lost`).                                                                                                                        |
-| Resources                        | `AcpResourceScheduler` admits every ACP start FIFO; `ScheduledAcpSession` keeps the lease across turns and retires idle sessions after `acpIdleTimeout`. Plan and Pica starts already go through it.                                                                                         |
+| Resources                        | `AcpResourceScheduler` admits every ACP start FIFO; `ScheduledAcpSession` keeps the lease across turns until its owner closes the session. Plan and Pica starts already go through it.                                                                                                       |
 | Recovery                         | `AgentPlanRecovery` ends processes of interrupted runs and marks them failed; there is no API that continues a failed or interrupted run. Pica resumes its own conversations with `session/resume`.                                                                                          |
 | Operation locks                  | `AgentOperationRegistry` locks model connections against login and credential changes, not sessions.                                                                                                                                                                                         |
 
@@ -158,8 +158,8 @@ not part of the input, for the others the column says it is unknown.
 ## Operating limits
 
 - Following and reading never start a process or extend a lease. A retained
-  group session still ends at `acpIdleTimeout`, and an instruction for it then
-  fails with `plan_session_unavailable`.
+  group session stays open until its run ends; after a process exit an
+  instruction for it fails with `plan_session_unavailable`.
 - Instruction turns run in the process that already holds its slot; they
   start nothing new and need no further capacity.
 - A turn alone cannot be cancelled: `AcpSession` ends a turn by ending its

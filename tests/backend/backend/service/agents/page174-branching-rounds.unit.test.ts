@@ -313,7 +313,7 @@ it("does not offer a session that is closing: the news starts a new session inst
   await session.turn;
   expect(groups.isOpen("run-1/check")).toBe(true);
 
-  // The idle timeout began to close the session; its end is not reported yet.
+  // The process ended and the session began to close; its end is not reported yet.
   isClosing = true;
 
   expect(groups.isOpen("run-1/check")).toBe(false);
