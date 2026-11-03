@@ -2564,7 +2564,7 @@
       "restApiName": "REST API",
       "restApiDescription": "Zugriff über unsere REST API für dieses Projekt verwalten.",
       "authentication": "Authentifizierung",
-      "tokenHelp": "Der Token ermöglicht die Synchronisierung von Repositories sowie das Erstellen von Issues und Pull Requests aus Pages.",
+      "tokenHelp": "Der Token ermöglicht die Synchronisierung von Repositories sowie das Erstellen von Issues und Pull Requests aus Pages. YOLO-Planagenten nutzen ihn für Git nur in diesem Repository. Hinterlege dafür einen Fine-grained Personal Access Token, der auf dieses Repository begrenzt ist und Contents: Lesen und Schreiben erlaubt. Kopierte OAuth-Anmeldetoken funktionieren nicht mehr, sobald sie ablaufen oder rotiert werden.",
       "showToken": "Token anzeigen",
       "hideToken": "Token verbergen",
       "repositoryLabel": "GitHub Repository",

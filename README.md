@@ -1221,6 +1221,59 @@ the server's `gh` login or desktop keyring. Missing tokens, decryption failures,
 missing `gh` or missing project write rights appear in the node's effective
 `github` diagnostic, while unrelated YOLO work can continue. Configure the
 connection and explicitly start a new run after correcting such a problem.
+A Git command that needs GitHub also names the problem and this repair on its
+error output: when the session has no credential, and when GitHub answers 401
+for the stored token.
+
+Before a session starts, Pages asks GitHub for the Git push advertisement of the
+repository with the stored token, which changes nothing. The answer appears in
+the `github` diagnostic and in `PAGES_GITHUB_ACCESS` inside the session. It only
+describes the token: the token stays in place whatever GitHub answers, and Git's
+own answer decides. A scheduled synchronization that gets a 401 also clears the
+connected state of the integration, so the panel no longer shows a rejected
+token as connected; saving a token and testing the connection sets it again. The
+connection test reads the repository, so it does not prove push access.
+
+`sh "$PAGES_GIT_PUBLISH" <branch>` is the publish command of a session with a
+credential. It pushes HEAD to that branch of `origin` without force, repeats
+only transport failures, at most three times, and prints `PUBLISHED` only after
+reading the remote branch back and finding HEAD there. It never changes local
+commits or branches, and repeating it after an interruption is safe. Pages tells
+the agent to use it and to report anything else as not published, but does not
+check that claim itself.
+
+An operator can give one plan step a Git route over a host SSH identity, for a
+repository whose project token cannot serve. There is no default: without a
+complete entry in `config.toml` no session gets this route.
+
+```toml
+[[agentGitBridges]]
+projectId = "<project>"
+planId = "<plan>"
+stepId = "<step>"
+repository = "owner/name" # exactly the repository of the project's integration
+sshAlias = "<Host of the server account's SSH configuration>"
+pushRefs = ["refs/heads/main"] # empty or missing: fetching only
+```
+
+Pages reads the entry at start. It applies only to a local YOLO session of
+exactly that step outside a group, while the executor manages the project. No
+key, SSH configuration, home or agent socket enters the namespace. The session
+gets a private socket and a small client that Git starts instead of `ssh`. The
+Pages server decides each request before anything reaches its SSH client: only
+this session's capability, destination `git@github.com`, that repository, and
+`git-upload-pack` or, with `pushRefs`, `git-receive-pack`. It then runs a fixed
+`ssh` call of the alias with strict host key checking, checks live access again
+and relays protocol bytes. For a push it reads the update commands first and
+forwards nothing unless each names a listed branch and none deletes one. The
+alias must resolve to GitHub, or the session does not start. Ending the session
+closes the socket. Each transfer is logged with its service, exit code and
+updated branches.
+
+**The route carries the write authority of that SSH identity.** A listed branch
+can be force-pushed: whether an update is a fast-forward depends on objects the
+bridge does not have, so protect the branch on GitHub. The agent decides what to
+push, like any YOLO agent holding a credential.
 
 Each ACP session gets a temporary `GH_CONFIG_DIR` outside its connection HOME,
 with directory mode 0700 and file mode 0600. Only that directory is mounted

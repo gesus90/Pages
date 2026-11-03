@@ -48,6 +48,7 @@ import { createAgentConfigurationServices } from "./agent-workspace-services.ser
 import { createRemoteServices } from "./remote-services.server";
 import { createRunnerServices } from "./runner-services.server";
 
+import type { AgentGitBridgeSetting } from "@/backend/config/AgentGitBridgeConfig";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
@@ -176,6 +177,7 @@ function createGitHubCredentials(input: {
   readonly dataDirectory: string;
   readonly tokenKey: Buffer;
   readonly workspaces: AgentWorkspaceService;
+  readonly gitBridges?: readonly AgentGitBridgeSetting[];
 }): Pick<
   AgentApplicationServices,
   "agentPlanGitHubCredentials" | "agentCliGitHubCredentials"
@@ -185,6 +187,7 @@ function createGitHubCredentials(input: {
       projects: new ProjectRepository(input.database),
       workspaces: input.workspaces,
       tokenKey: input.tokenKey,
+      gitBridges: input.gitBridges,
     }),
     agentCliGitHubCredentials: new CliGitHubCredentials(input.dataDirectory),
   };
@@ -192,6 +195,8 @@ function createGitHubCredentials(input: {
 
 interface AgentServiceResources {
   readonly acpOptions?: Partial<AcpResourceOptions>;
+  /** Host Git routes an operator configured for single plan steps. */
+  readonly gitBridges?: readonly AgentGitBridgeSetting[];
   readonly agentsDirectory: string;
   readonly ticketAssets: AgentTicketAssetDependencies;
 }

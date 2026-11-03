@@ -68,13 +68,21 @@ export class GitHubSyncBackoff {
    *
    * @param projectId - Project whose scheduled run failed.
    * @param error - Cause of the failure; its HTTP status is logged.
+   * @param usedToken - The encrypted token read before the run, if any.
    *
    * @remarks
    * The schedule is written in its own short statement after the run has
    * ended, so no database work waits on GitHub. A failing write is logged
-   * and otherwise ignored: the project is then simply retried earlier.
+   * and otherwise ignored: the project is then simply retried earlier. A
+   * rejected token also clears the connected state, which is the only place a
+   * project manager would otherwise see it; saving and testing a token sets it
+   * again. Only the token of this run is cleared: a token saved meanwhile stays.
    */
-  public async recordFailure(projectId: string, error: unknown): Promise<void> {
+  public async recordFailure(
+    projectId: string,
+    error: unknown,
+    usedToken: string | null,
+  ): Promise<void> {
     const failures = (this.failures.get(projectId) ?? 0) + 1;
     const delayMs = gitHubSyncRetryDelayMs(failures);
     const nextSyncAt = new Date(Date.parse(this.now()) + delayMs).toISOString();
@@ -84,6 +92,15 @@ export class GitHubSyncBackoff {
 
     try {
       await this.projectRepository.deferNextSync(projectId, nextSyncAt);
+      if (
+        usedToken !== null &&
+        error instanceof GitHubApiError &&
+        error.status === 401
+      )
+        await this.projectRepository.markIntegrationDisconnected(
+          projectId,
+          usedToken,
+        );
     } catch (writeError: unknown) {
       logCaughtError("GitHubSyncBackoff", writeError);
 

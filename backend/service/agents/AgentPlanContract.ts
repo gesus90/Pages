@@ -49,6 +49,19 @@ export interface AgentPlanAssignment extends AgentPlanContractOptions {
   /** Every CLI node must pass business acceptance before successors start. */
   readonly requiresAcceptance?: boolean;
   readonly acceptanceScope?: "node" | "group";
+  /** The session reaches GitHub through the connection of its project. */
+  readonly hasProjectGitHub?: boolean;
+}
+
+/** The credential and publication rules of a session with a project connection. */
+const PROJECT_GITHUB_LINES = [
+  "- GitHub: `printenv PAGES_GITHUB_ACCESS` says what Pages found out about the project connection when this session started. The connection reaches only the repository of this project; do not look for other credentials.",
+  '- Publish with `sh "$PAGES_GIT_PUBLISH" <branch>` (unset without a usable credential). It pushes HEAD without force, repeats only transport failures, at most three times, and reads the remote branch back. Only its `PUBLISHED` line proves a publication: report everything else as not published and keep your commit and branch. A repeated run after an interruption is safe.',
+  "- An authentication or permission failure needs a project manager: do not retry it. Report it as blocked with the message of Git and Pages.",
+] as const;
+
+function gitHubLines(assignment: AgentPlanAssignment): readonly string[] {
+  return assignment.hasProjectGitHub === true ? PROJECT_GITHUB_LINES : [];
 }
 
 function completionInstruction(assignment: AgentPlanAssignment): string {
@@ -237,6 +250,7 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
         ]
       : []),
     ...todoMcpLines(assignment),
+    ...gitHubLines(assignment),
     "",
     "### Closing message",
     "Finish with a short summary: the todos you completed, the todos that stay open and why, and your decisions. Pages shows ticket todos as they are checked after your turn.",
@@ -296,6 +310,7 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
         ]
       : []),
     ...mcpLines(assignment),
+    ...gitHubLines(assignment),
     "",
     "### Closing message and optional progress report",
     "Summarize completed and open work honestly, including missing evidence and your decisions.",

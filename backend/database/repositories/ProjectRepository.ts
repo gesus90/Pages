@@ -486,6 +486,19 @@ export class ProjectRepository {
     await this.integrations.deferNextSync(projectId, nextSyncAt);
   }
 
+  /**
+   * Clears the connected state of an integration, if it still holds the rejected token.
+   *
+   * @param projectId - Project the integration belongs to.
+   * @param rejectedToken - The encrypted token the failed run used.
+   */
+  public async markIntegrationDisconnected(
+    projectId: string,
+    rejectedToken: string,
+  ): Promise<void> {
+    await this.integrations.markDisconnected(projectId, rejectedToken);
+  }
+
   /** Switches the GitHub synchronization of a project on or off. */
   public async setIntegrationSyncEnabled(
     projectId: string,

@@ -255,14 +255,20 @@ export class GitHubSyncRunner {
       return "skipped";
     }
 
+    // Read before the run: a token replaced during it must survive this run's 401.
+    let usedToken: string | null = null;
+
     try {
+      usedToken = await this.projectRepository.findTokenEncrypted(
+        entry.projectId,
+      );
       await this.runProject(owner, entry.projectId);
 
       return "completed";
     } catch (error: unknown) {
       logCaughtError("GitHubSyncRunner", error);
 
-      await this.backoff.recordFailure(entry.projectId, error);
+      await this.backoff.recordFailure(entry.projectId, error, usedToken);
 
       return "failed";
     }

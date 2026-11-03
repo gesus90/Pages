@@ -5,11 +5,15 @@ import { interpreterProfilesSchema } from "@/definition/InterpreterProfile";
 import { isLogRetentionDays } from "@/definition/Logging";
 import { PICA_MOBILE_REPLAY_TTL_RANGE_SECONDS } from "@/definition/PicaMobileNotifications";
 
+import { logCaughtError } from "@/backend/logging/Logger";
+
+import { readAgentGitBridges } from "./AgentGitBridgeConfig";
 import { readMcpHttpConfig } from "./McpHttpConfig";
 
 import { readAcpResourceSettings } from "./AcpResourceSettings";
 import { parseTrustedProxyEntry } from "./TrustedProxies";
 
+import type { AgentGitBridgeSetting } from "./AgentGitBridgeConfig";
 import type { McpHttpConfig } from "./McpHttpConfig";
 import type { InterpreterProfile } from "@/definition/InterpreterProfile";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
@@ -55,6 +59,8 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
    * believed. Missing: no proxy is trusted and the header is ignored.
    */
   readonly trustedProxies?: readonly string[];
+  /** Host Git routes for single plan steps; missing: no session gets one. */
+  readonly agentGitBridges?: readonly AgentGitBridgeSetting[];
 }
 
 /**
@@ -241,10 +247,12 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const interpreters = readInterpreterConfig(table, source);
   const proxies = readProxyConfig(table, source);
   const picaMobile = readPicaMobileConfig(table, source);
+  const gitBridges = readGitBridgeConfig(table, source);
 
   if (firstRun) {
     return {
       ...acpResources,
+      ...gitBridges,
       ...mcpHttp,
       ...picaMobile,
       ...logging,
@@ -265,6 +273,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
 
   return {
     ...acpResources,
+    ...gitBridges,
     ...mcpHttp,
     ...picaMobile,
     ...logging,
@@ -274,6 +283,25 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     firstRun,
     port,
   };
+}
+
+function readGitBridgeConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "agentGitBridges"> {
+  try {
+    const agentGitBridges = readAgentGitBridges(table);
+    return agentGitBridges.length > 0 ? { agentGitBridges } : {};
+  } catch (caughtError: unknown) {
+    logCaughtError("PagesConfig", caughtError);
+
+    throw invalidConfig(
+      source,
+      caughtError instanceof Error
+        ? caughtError.message
+        : '"agentGitBridges" is invalid.',
+    );
+  }
 }
 
 function isTrustedProxyList(value: unknown): value is string[] {

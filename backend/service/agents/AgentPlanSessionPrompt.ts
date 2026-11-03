@@ -104,6 +104,7 @@ export async function buildPlanSessionInput(
       directory,
       requiresAcceptance: true,
       acceptanceScope: node.step.groupId ? "group" : "node",
+      hasProjectGitHub: prepared.input.github !== undefined,
     },
   )}`;
   await dependencies.pin(prompt);

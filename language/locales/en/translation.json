@@ -2564,7 +2564,7 @@
       "restApiName": "REST API",
       "restApiDescription": "Manage access via our REST API for this project.",
       "authentication": "Authentication",
-      "tokenHelp": "The token enables repository synchronization as well as creating issues and pull requests from Pages.",
+      "tokenHelp": "The token enables repository synchronization as well as creating issues and pull requests from Pages. YOLO plan agents use it for Git in this repository only. For that, store a fine-grained personal access token limited to this repository with Contents: read and write. Copied OAuth sign-in tokens stop working when they expire or rotate.",
       "showToken": "Show token",
       "hideToken": "Hide token",
       "repositoryLabel": "GitHub repository",

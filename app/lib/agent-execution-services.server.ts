@@ -83,6 +83,7 @@ async function startAgents(
       agentsDirectory: resolveAgentsDirectory(runtime.configFile.path),
       ticketAssets,
       acpOptions: runtime.getConfig(),
+      gitBridges: runtime.getConfig().agentGitBridges,
     },
   );
   const leftovers = await services.agentCliGitHubCredentials.recover();

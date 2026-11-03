@@ -32,6 +32,7 @@ import type { AgentReferenceResolvers } from "./AgentParameterBinding";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type {
+  AgentPlanGitBridgeGrant,
   AgentPlanGitHubAccess,
   AgentPlanGitHubCredentials,
 } from "./AgentPlanGitHubCredentials";
@@ -51,6 +52,8 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
   readonly beforeStart?: () => Promise<void>;
   /** Resolves live project credentials only for a YOLO spawn; never serialized or bound to a prompt. */
   readonly github?: () => Promise<AgentPlanGitHubAccess>;
+  /** Selects the host Git route of a YOLO spawn, when an operator named this step. */
+  readonly gitBridge?: () => Promise<AgentPlanGitBridgeGrant | null>;
   /** ACP blocks after the prompt text, such as the attachments of a chat message. */
   readonly promptContent?: AcpPromptContent;
 }
@@ -76,7 +79,8 @@ interface StartDependencies {
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
   /** Reads `AGENT.md`; without it the frozen template is used. */
   readonly files?: Pick<AgentDefinitionFiles, "read">;
-  readonly github?: Pick<AgentPlanGitHubCredentials, "resolve">;
+  readonly github?: Pick<AgentPlanGitHubCredentials, "resolve"> &
+    Partial<Pick<AgentPlanGitHubCredentials, "resolveBridge">>;
 }
 
 interface StartContext {
@@ -220,6 +224,7 @@ export class AgentPlanStepStart {
           step,
           options,
           userId: run.userId,
+          planId: snapshot.plan.id,
         }),
         prompt: parameters.prompt,
         ...ticketAssetDelivery(
@@ -380,15 +385,30 @@ function stepGitHubAccess(input: {
   readonly step: AgentPlanStepSnapshot;
   readonly options: AgentRunOptions;
   readonly userId: string;
-}): Pick<AgentPlanExecutionInput, "github"> {
-  const { github, step, options, userId } = input;
+  readonly planId: string;
+}): Pick<AgentPlanExecutionInput, "github" | "gitBridge"> {
+  const { github, step, options, userId, planId } = input;
   const directory = planStepDirectory(step);
-  return github &&
-    directory &&
-    isAcpProvider(step.provider) &&
-    options.access === "yolo"
-    ? { github: () => github.resolve(userId, directory) }
-    : {};
+  if (
+    !github ||
+    !directory ||
+    !isAcpProvider(step.provider) ||
+    options.access !== "yolo"
+  )
+    return {};
+  return {
+    github: () => github.resolve(userId, directory),
+    // A group shares its session between steps, so a grant for one step would outlive it.
+    ...(github.resolveBridge && !step.groupId
+      ? {
+          gitBridge: () =>
+            github.resolveBridge?.(userId, directory, {
+              planId,
+              stepId: step.step.id,
+            }) ?? Promise.resolve(null),
+        }
+      : {}),
+  };
 }
 
 /**

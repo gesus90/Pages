@@ -541,6 +541,7 @@ export class CliSessionExecution implements PlanSessionRunner {
       instanceId: input.instanceId,
       access,
       gh,
+      bridge: mode === "yolo" ? await input.gitBridge?.() : undefined,
       searchPath: createCliEnvironment(
         start.home,
         start.provider,

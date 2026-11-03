@@ -287,6 +287,29 @@ export class ProjectIntegrationRepository {
   }
 
   /**
+   * Clears the connected state of an integration, if it still holds the rejected token.
+   *
+   * @param projectId - Project the integration belongs to.
+   * @param rejectedToken - The encrypted token the failed run used; a replacement stays untouched.
+   */
+  public async markDisconnected(
+    projectId: string,
+    rejectedToken: string,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE project_integrations
+        SET
+            is_connected = 0,
+            updated_at = utc_now()
+        WHERE project_id = $project_id
+            AND token_encrypted = $token_encrypted;
+      `,
+      { project_id: projectId, token_encrypted: rejectedToken },
+    );
+  }
+
+  /**
    * Moves the next scheduled synchronization of a project, e.g. to back off
    * after a failed run, without touching the time of the last successful one.
    *
