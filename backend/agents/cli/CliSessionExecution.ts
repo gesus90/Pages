@@ -582,7 +582,7 @@ export class CliSessionExecution implements PlanSessionRunner {
       const wrapped = await units.wrap(request, input.instanceId);
       return {
         request: { ...wrapped.request, unit: wrapped.unit },
-        label: `unit ${wrapped.unit.name}: memory ${ACP_WORKER_LIMITS.memoryMax}, swap ${ACP_WORKER_LIMITS.memorySwapMax}, tasks ${ACP_WORKER_LIMITS.tasksMax}, CPU ${ACP_WORKER_LIMITS.cpuQuota}`,
+        label: `unit ${wrapped.unit.name}: memory ${ACP_WORKER_LIMITS.memoryMax}, swap ${ACP_WORKER_LIMITS.memorySwapMax}, tasks ${ACP_WORKER_LIMITS.tasksMax}, CPU ${ACP_WORKER_LIMITS.cpuQuota}, OOM score ${ACP_WORKER_LIMITS.oomScoreAdjust}`,
       };
     }
     if (input.chat) throw new AgentError("acp_worker_unit_unavailable");

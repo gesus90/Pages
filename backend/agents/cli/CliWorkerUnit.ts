@@ -4,7 +4,11 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import {
+  logCaughtError,
+  logDiagnostic,
+  logEvent,
+} from "@/backend/logging/Logger";
 
 import { createCliEnvironment } from "./CliEnvironment";
 
@@ -33,17 +37,29 @@ const execFileAsync = promisify(execFile);
  * they start, counted together in the cgroup of its unit.
  *
  * @remarks
- * Memory and swap have no fixed ceiling of their own (`infinity`), so a
- * worker may use what the host has. The host's normal memory accounting still
- * applies to the unit's cgroup, including the kernel's OOM handling, and
- * `OOMPolicy=kill` ends the whole worker if the kernel kills one of its
- * processes. Tasks, CPU and runtime stay bounded; see `docs/AgentWorkerMemory.md`.
+ * Memory and swap have no ceiling per worker (`infinity`), because all workers
+ * share the budget of `ACP_SLICE_LIMITS`. `OOMPolicy=kill` ends the whole worker
+ * if the kernel kills one of its processes, and `oomScoreAdjust` makes the
+ * kernel choose a worker before the platform when the host runs out of memory.
+ * Tasks, CPU and runtime stay bounded; see `docs/AgentWorkerMemory.md`.
  */
 export const ACP_WORKER_LIMITS = {
   memoryMax: "infinity",
   memorySwapMax: "infinity",
   tasksMax: 512,
   cpuQuota: "200%",
+  oomScoreAdjust: 500,
+} as const;
+
+/**
+ * The memory budget all ACP workers share in `pages-acp.slice`.
+ *
+ * @remarks
+ * Starting values for the server with 22 GB; see `docs/AgentWorkerMemory.md`.
+ */
+export const ACP_SLICE_LIMITS = {
+  memoryMax: "10G",
+  memorySwapMax: "2G",
 } as const;
 
 /** A command of the user's service manager, run without a shell. */
@@ -178,12 +194,13 @@ export async function probeWorkerUnits(
 
 /**
  * Starts every ACP worker in its own transient unit of the server account's
- * service manager, with hard limits for memory, swap, tasks, CPU and runtime.
+ * service manager, with hard limits for tasks, CPU and runtime and a memory
+ * budget shared by all workers.
  *
  * @remarks
- * A unit is a cgroup of its own: the kernel ends a worker that exceeds its
- * memory inside that cgroup, and systemd records the reason, so neither the
- * gateway nor Pages meet the global OOM killer for it. The unit works the
+ * The slice of the units is a cgroup with that budget: the kernel ends a worker
+ * when all workers together exceed it, and systemd records the reason, so
+ * neither the gateway nor Pages meet the global OOM killer for it. The unit works the
  * same whether Pages runs as a system or a user service, because the
  * manager starts the process itself instead of moving one. Values travel
  * in a private environment file, never in an argument list, and the
@@ -226,7 +243,8 @@ export class CliWorkerUnits {
   }
 
   /**
-   * Wraps an (isolated) session request so it starts in a limited unit.
+   * Wraps an (isolated) session request so it starts in a limited unit, after
+   * setting the shared budget of the slice.
    *
    * @param request - The request as it would start without a unit.
    * @param instanceId - The tag of the session; the unit name carries it.
@@ -239,6 +257,7 @@ export class CliWorkerUnits {
     readonly request: CliSessionRequest;
     readonly unit: CliWorkerUnitHandle;
   }> {
+    await this.limitSlice();
     const name = `${UNIT_PREFIX}${instanceId}-${randomBytes(4).toString("hex")}.service`;
     const environment = {
       ...createCliEnvironment(
@@ -285,6 +304,28 @@ export class CliWorkerUnits {
         ],
       },
     };
+  }
+
+  /** Repeats on every start, because a runtime property ends with the manager. */
+  private async limitSlice(): Promise<void> {
+    try {
+      await this.command(SYSTEMCTL, [
+        "--user",
+        "set-property",
+        "--runtime",
+        UNIT_SLICE,
+        `MemoryMax=${ACP_SLICE_LIMITS.memoryMax}`,
+        `MemorySwapMax=${ACP_SLICE_LIMITS.memorySwapMax}`,
+      ]);
+    } catch (caughtError: unknown) {
+      // A missing budget must not stop a run.
+      logDiagnostic(
+        "CliWorkerUnit",
+        "warn",
+        `The worker starts without the shared memory budget because ${UNIT_SLICE} could not be limited.`,
+        caughtError,
+      );
+    }
   }
 
   private async managerVariables(
@@ -403,6 +444,7 @@ function unitProperties(terms: {
     `MemorySwapMax=${ACP_WORKER_LIMITS.memorySwapMax}`,
     `TasksMax=${ACP_WORKER_LIMITS.tasksMax}`,
     `CPUQuota=${ACP_WORKER_LIMITS.cpuQuota}`,
+    `OOMScoreAdjust=${ACP_WORKER_LIMITS.oomScoreAdjust}`,
     "OOMPolicy=kill",
     `RuntimeMaxSec=${terms.runtime}`,
     // Pages already waited for a graceful end before it stops a unit.

@@ -1,4 +1,4 @@
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 
 import {
   ACP_WORKER_LIMITS,
@@ -9,11 +9,27 @@ import {
 import type { CliSessionRequest } from "@/backend/agents/cli/CliContracts";
 import type { CliWorkerCommand } from "@/backend/agents/cli/CliWorkerUnit";
 
+const logging = vi.hoisted(() => ({
+  logCaughtError: vi.fn(),
+  logDiagnostic: vi.fn(),
+  logEvent: vi.fn(),
+}));
+
+vi.mock("@/backend/logging/Logger", () => logging);
 vi.mock("node:fs/promises", () => ({
   mkdir: async () => undefined,
   writeFile: async () => undefined,
   rm: async () => undefined,
 }));
+
+const SET_SLICE_LIMITS = [
+  "--user",
+  "set-property",
+  "--runtime",
+  "pages-acp.slice",
+  "MemoryMax=10G",
+  "MemorySwapMax=2G",
+];
 
 const REQUEST: CliSessionRequest = {
   file: "/synthetic/bin/adapter",
@@ -32,11 +48,15 @@ const REQUEST: CliSessionRequest = {
   onLine: () => {},
 };
 
+beforeEach(() => {
+  logging.logDiagnostic.mockReset();
+});
+
 function properties(args: readonly string[]): string[] {
   return args.flatMap((arg, index) => (args[index - 1] === "-p" ? [arg] : []));
 }
 
-it("starts a worker unit without a fixed memory or swap ceiling and keeps every other limit", async () => {
+it("sets the shared slice budget first and starts a worker unit without a ceiling of its own", async () => {
   const command = vi.fn<CliWorkerCommand>(async () => ({
     stdout: "SYNTHETIC=1\n",
   }));
@@ -48,6 +68,11 @@ it("starts a worker unit without a fixed memory or swap ceiling and keeps every 
     memoryMax: "infinity",
     memorySwapMax: "infinity",
   });
+  expect(command.mock.calls[0]).toEqual([
+    "/usr/bin/systemctl",
+    SET_SLICE_LIMITS,
+  ]);
+  expect(logging.logDiagnostic).not.toHaveBeenCalled();
   expect(request.file).toBe("/usr/bin/systemd-run");
   expect(request.arguments).toEqual(
     expect.arrayContaining([
@@ -64,6 +89,7 @@ it("starts a worker unit without a fixed memory or swap ceiling and keeps every 
       "MemorySwapMax=infinity",
       "TasksMax=512",
       "CPUQuota=200%",
+      "OOMScoreAdjust=500",
       "OOMPolicy=kill",
       "RuntimeMaxSec=180",
       "TimeoutStopSec=5s",
@@ -81,14 +107,37 @@ it("starts a worker unit without a fixed memory or swap ceiling and keeps every 
   ]);
 });
 
+it("starts the worker and warns when the slice budget cannot be set", async () => {
+  const refused = new Error("synthetic refusal");
+  const command = vi.fn<CliWorkerCommand>(async (file, args) => {
+    if (file.endsWith("systemctl") && args.includes("set-property"))
+      throw refused;
+    return { stdout: "SYNTHETIC=1\n" };
+  });
+  const units = new CliWorkerUnits("/synthetic/units", command);
+
+  const { request } = await units.wrap(REQUEST, "synthetic-instance");
+
+  expect(command.mock.calls[0]?.[1]).toEqual(SET_SLICE_LIMITS);
+  expect(request.file).toBe("/usr/bin/systemd-run");
+  expect(logging.logDiagnostic).toHaveBeenCalledExactlyOnceWith(
+    "CliWorkerUnit",
+    "warn",
+    expect.stringContaining("pages-acp.slice"),
+    refused,
+  );
+});
+
 it("keeps the bounded capability probe unit at 32M because it never runs a worker", async () => {
   const command = vi.fn<CliWorkerCommand>(async () => ({ stdout: "" }));
 
   expect(await probeWorkerUnits(command)).toBe(true);
 
   const args = command.mock.calls[0]?.[1] ?? [];
-  expect(properties(args)).toEqual(
-    expect.arrayContaining(["MemoryMax=32M", "TasksMax=8", "OOMPolicy=kill"]),
-  );
+  expect(properties(args)).toEqual([
+    "MemoryMax=32M",
+    "TasksMax=8",
+    "OOMPolicy=kill",
+  ]);
   expect(args.at(-1)).toBe("/usr/bin/true");
 });
