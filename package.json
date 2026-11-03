@@ -10,7 +10,7 @@
     "build": "react-router build",
     "format": "prettier --write .",
     "lint": "node scripts/run-lint.mjs",
-    "check": "react-router typegen && tsc --noEmit && prettier --check .",
+    "check": "react-router typegen && NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit && prettier --check .",
     "test:backend": "vitest run --config vitest.backend.config.ts --coverage",
     "test:frontend": "vitest run --config vitest.frontend.config.ts --coverage",
     "browser:test": "node scripts/run-browser-tests.mjs",
