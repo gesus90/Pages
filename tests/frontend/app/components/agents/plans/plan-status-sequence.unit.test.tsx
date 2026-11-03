@@ -10,6 +10,7 @@ import { runStep, syntheticRun, syntheticSession } from "../page72-run-fixture";
 
 import type { RenderResult } from "@testing-library/react";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { PlanSequenceBlock } from "@/app/components/agents/plans/plan-step-sequence";
 import type { ScrollViewport as OriginalViewport } from "@/app/components/ui/scroll-viewport";
 
 const viewportMount = vi.hoisted(() => ({ isAttached: true }));
@@ -44,6 +45,21 @@ afterEach(() => {
   viewportMount.isAttached = true;
 });
 
+/** Each recorded step as one block of its own, keyed by its node. */
+function blocksOf(
+  steps: readonly AgentPlanStepResult[],
+): readonly PlanSequenceBlock[] {
+  return steps.map((step) => ({
+    key: step.id,
+    nodeId: step.id,
+    name: step.name,
+    pass: 1,
+    isLoopPass: false,
+    kind: "actual",
+    result: step,
+  }));
+}
+
 function sequence(
   props: {
     readonly steps?: readonly AgentPlanStepResult[];
@@ -56,9 +72,9 @@ function sequence(
     <I18nextProvider i18n={i18n}>
       <PlanStatusSequence
         run={syntheticRun()}
-        steps={props.steps ?? STEPS}
-        anchorId={props.anchorId ?? null}
-        selectedId={props.selectedId ?? null}
+        blocks={blocksOf(props.steps ?? STEPS)}
+        anchorKey={props.anchorId ?? null}
+        selectedKey={props.selectedId ?? null}
         onSelect={props.onSelect ?? vi.fn()}
       />
     </I18nextProvider>

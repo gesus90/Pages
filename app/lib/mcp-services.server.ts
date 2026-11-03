@@ -32,6 +32,7 @@ import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import { AgentExtensionService } from "@/backend/service/agents/AgentExtensionService";
 import { AgentAdministrationService } from "@/backend/service/agents/AgentAdministrationService";
 import { AgentProjectDeletionService } from "@/backend/service/agents/AgentProjectDeletionService";
+import { ChatInstanceAdministrationService } from "@/backend/service/agents/ChatInstanceAdministrationService";
 import { ProjectDeletionStorage } from "@/backend/service/project/ProjectDeletionStorage";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import { AgentWorkspaceOperationService } from "@/backend/service/agents/AgentWorkspaceOperationService";
@@ -55,6 +56,7 @@ import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTo
 import { runnerAssetUpload } from "./agent-asset-return.server";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
+import type { ChatInstanceAdministrationDependencies } from "@/backend/service/agents/ChatInstanceAdministrationService";
 import type { AgentPlanningServices } from "@/backend/service/agents/AgentPlanningServices";
 import type { AgentWikiCreateDependencies } from "@/backend/service/agents/AgentWikiCreateService";
 import type { AgentWriteDependencies } from "@/backend/service/agents/AgentWriteOperationService";
@@ -129,6 +131,11 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
   /** The permanent project deletion; only MCP clients get it. */
   readonly projectDeletion: AgentProjectDeletionService;
   readonly chatSessions: AgentChatSessionOperationService;
+  /** The connection and instance settings services of the chat administration. */
+  readonly instanceAdministration?: Omit<
+    ChatInstanceAdministrationDependencies,
+    "database"
+  >;
 }
 
 /**
@@ -210,6 +217,14 @@ function createChatOperationRouter(
       context.cache,
       channel,
     ),
+    ...(context.instanceAdministration
+      ? {
+          instanceAdministration: new ChatInstanceAdministrationService({
+            database: context.database,
+            ...context.instanceAdministration,
+          }),
+        }
+      : {}),
     pageAgents: new ChatAgentOperationService({
       database: context.database,
       agents: pageAgents,
@@ -397,6 +412,8 @@ interface McpWorkspace {
   readonly plans: AgentPlanService;
   readonly planRecovery?: AgentPlanRecoveryService;
   readonly planSessions?: AgentSessionService;
+  /** The connection and instance settings services the chat administration uses. */
+  readonly instanceAdministration?: RouterContext["instanceAdministration"];
   /** The publisher the interface announces its changes on too; a new one by default. */
   readonly events?: PagesEventPublisher;
 }
@@ -443,6 +460,7 @@ export function createMcpServices(
     plans: workspace.plans,
     planRecovery: workspace.planRecovery,
     planSessions: workspace.planSessions,
+    instanceAdministration: workspace.instanceAdministration,
     publisher: workspace.tickets?.publisher ?? null,
     chatSessions: createChatSessionOperations({
       database,

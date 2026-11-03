@@ -3340,6 +3340,7 @@
       "fileTypeNotAllowed": "This file type is not allowed or the content does not match the file name. Executable files are blocked.",
       "invalidSetting": "Please check the input.",
       "stepLimit": "Pica reached the execution limit (up to 256 tool calls per request). Changes already made are retained. Please send further work as a new request.",
+      "adminRevoked": "Pica stopped because your administrator rights were withdrawn. Changes already made are retained.",
       "roleMissing": "Pica has no unambiguous valid model selection. An administrator chooses it under Settings › Agents.",
       "profileSelectionRequired": "The previous Pica assignment is ambiguous. An administrator must choose exactly one model here.",
       "connectionUnavailable": "The access of the chat agent is not available. Please contact an administrator.",
@@ -3438,6 +3439,28 @@
       "truncatedPages": "{{name}}: sent cut – pages 1–{{read}} of {{total}} read, {{characters}} characters sent",
       "encrypted": "{{name}}: not sent – the file is protected by a password",
       "noText": "{{name}}: not sent – the file holds no readable text (for example a scan)"
+    },
+    "privileged": {
+      "label": "Administrator actions",
+      "heading": "Pica’s administrator actions",
+      "earlier": "{{count}} earlier actions",
+      "status": {
+        "running": "running …",
+        "completed": "done"
+      },
+      "errors": {
+        "CONFIRMATION_REQUIRED": "waiting for your confirmation – nothing changed",
+        "ADMIN_REQUIRED": "administrator right missing or withdrawn",
+        "FORBIDDEN": "not permitted",
+        "NOT_FOUND": "not found",
+        "CONFLICT": "changed meanwhile – nothing overwritten",
+        "INVALID_REQUEST": "invalid request",
+        "INVALID_ARGUMENTS": "invalid arguments",
+        "CANCELLED": "cancelled",
+        "STEP_LIMIT": "execution limit reached",
+        "RETRY_REFUSED": "not repeated",
+        "FAILED": "failed"
+      }
     },
     "live": {
       "label": "Pica is working on your request",
@@ -4854,6 +4877,17 @@
       "completed": "completed",
       "count": "{{completed}} of {{total}} steps completed execution",
       "unknownTotal": "Executed step count unknown",
+      "position": "{{position}} / {{total}}",
+      "positionEstimate": "{{position}} / approx. {{total}}",
+      "positionLabel": "Step {{position}} · {{completed}} completed",
+      "completedCount": "{{count}} completed",
+      "pass": "Pass {{pass}}",
+      "planned": "Planned · not started",
+      "assumed": "Assumption · not certain yet",
+      "outlook": {
+        "planned": "Planned: this step follows from the known plan and the decisions taken so far. It has not started yet.",
+        "assumed": "Assumption: whether this step runs is not certain yet, for example because of an open decision, a further loop pass or another round. The sequence is estimated again with every run event. The step has not started yet."
+      },
       "elapsed": "Elapsed time including pauses",
       "open": "Open run details",
       "close": "Close run details",
@@ -5542,6 +5576,57 @@
         "down": "Move {{name}} down",
         "remove": "Remove {{name}} from the stack"
       }
+    },
+    "modelPicker": {
+      "search": "Search model or provider",
+      "searchPlaceholder": "Search model or provider …",
+      "tree": "Models by tool",
+      "tools": {
+        "antigravity": "Antigravity",
+        "claude_code": "Claude Code",
+        "codex_cli": "Codex",
+        "opencode": "OpenCode",
+        "openrouter": "OpenRouter API",
+        "openai": "OpenAI API",
+        "anthropic": "Anthropic API",
+        "google_ai_studio": "Google AI Studio",
+        "zai": "Z.AI API"
+      },
+      "sources": {
+        "opencode": "OpenCode",
+        "openrouter": "OpenRouter",
+        "google": "Google",
+        "zai": "Z.AI",
+        "zai-coding-plan": "Z.AI Coding Plan"
+      },
+      "access": {
+        "antigravity": "Google · ACP",
+        "claude_code": "Claude subscription",
+        "codex_cli": "ChatGPT account",
+        "opencode": "OpenCode",
+        "openrouter": "API key",
+        "openai": "API key",
+        "anthropic": "API key",
+        "google_ai_studio": "API key",
+        "zai": "API key"
+      },
+      "accessCount_one": "{{count}} access",
+      "accessCount_other": "{{count}} accesses",
+      "groupLabel_one": "{{tool}}, {{context}}, {{count}} model",
+      "groupLabel_other": "{{tool}}, {{context}}, {{count}} models",
+      "free": "Free",
+      "modelCount_one": "{{count}} model",
+      "modelCount_other": "{{count}} models",
+      "matchCount_one": "{{count}} match",
+      "matchCount_other": "{{count}} matches",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools",
+      "hintMove": "↑↓ move",
+      "hintGroup": "←→ expand/collapse",
+      "hintChoose": "↵ choose",
+      "hintClose": "Esc close",
+      "noMatch": "No model matches “{{query}}”.",
+      "noModels": "No model is released for this execution target."
     }
   },
   "mcpDuration": {

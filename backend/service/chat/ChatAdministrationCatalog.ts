@@ -2,15 +2,20 @@ import {
   AGENT_ADMIN_WRITE_OPERATIONS,
   CHAT_ADMIN_WRITE_OPERATIONS,
 } from "@/definition/AgentAdministration";
+import { CHAT_INSTANCE_WRITE_OPERATIONS } from "@/definition/ChatInstanceAdministration";
 
 import type {
   AgentAdminReadOperation,
   AgentAdminWriteOperation,
 } from "@/definition/AgentAdministration";
+import type { ChatInstanceOperation } from "@/definition/ChatInstanceAdministration";
 
 /** The administration actions described to the chat; Pages still checks every action server-side. */
 export const CHAT_ADMIN_OPERATIONS: Readonly<
-  Record<AgentAdminReadOperation | AgentAdminWriteOperation, string>
+  Record<
+    AgentAdminReadOperation | AgentAdminWriteOperation | ChatInstanceOperation,
+    string
+  >
 > = {
   "admin.users.list":
     "{cursor?, limit?} Admin: Benutzer mit normalen Rollen, Admin-/Aktivstatus, Gruppen, Abteilungen und Verwaltungsbereich, keine Passwörter oder E-Mails",
@@ -59,6 +64,14 @@ export const CHAT_ADMIN_OPERATIONS: Readonly<
     "{role: {id, name, rank, departmentBound, permissions: []}, expectedRole: {...}|null} Admin: normale Rolle anlegen/ändern, bei Rechteentzug Bestätigung der Person nötig. Neue ID ausdrücklich wählen, expectedRole=null nur für neue Rolle",
   "admin.roles.delete":
     "{roleId, expectedRole: {id, name, rank, departmentBound, permissions: []}} Admin: unbenutzte normale Rolle löschen, Bestätigung der Person nötig",
+  "admin.connections.list":
+    "{cursor?, limit?} Admin: Agent-Verbindungen mit Anbieter, Aktivstatus und ob ein Schlüssel hinterlegt ist, nie der Schlüssel selbst",
+  "admin.settings.read":
+    "{} Admin: Firmenname der Instanz und ob ein Logo hinterlegt ist",
+  "admin.connections.setActive":
+    "{connectionId, isActive, expectedIsActive} Admin: eine Agent-Verbindung aktivieren oder deaktivieren, Bestätigung der Person nötig",
+  "admin.settings.setCompanyName":
+    "{companyName, expectedCompanyName|null} Admin: Firmennamen der Instanz ändern",
 };
 
 const CONFIRMED_OPERATIONS: ReadonlySet<string> = new Set([
@@ -69,6 +82,7 @@ const CONFIRMED_OPERATIONS: ReadonlySet<string> = new Set([
   "admin.groups.delete",
   "admin.departments.delete",
   "admin.roles.delete",
+  "admin.connections.setActive",
 ]);
 
 /** These chat actions always require a typed confirmation before dispatch. */
@@ -78,7 +92,9 @@ export function requiresChatAdminConfirmation(operation: string): boolean {
 
 /** A typed confirmation is available for at most one administration mutation in a turn. */
 export function isChatAdminWriteOperation(operation: string): boolean {
-  return [...AGENT_ADMIN_WRITE_OPERATIONS, ...CHAT_ADMIN_WRITE_OPERATIONS].some(
-    (candidate) => candidate === operation,
-  );
+  return [
+    ...AGENT_ADMIN_WRITE_OPERATIONS,
+    ...CHAT_ADMIN_WRITE_OPERATIONS,
+    ...CHAT_INSTANCE_WRITE_OPERATIONS,
+  ].some((candidate) => candidate === operation);
 }

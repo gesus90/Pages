@@ -141,6 +141,8 @@ export interface ChatJobToolEvent {
   readonly tool: string;
   readonly status: "running" | "completed" | "failed";
   readonly error: string | null;
+  /** The tool is an administrator tool; the person sees which calls acted with administrator rights. */
+  readonly isPrivileged?: boolean;
 }
 
 /** A message sent while the job ran changed its status. */

@@ -287,6 +287,7 @@ async function initializeServices(
     accounts: { users: userService, administration: administrationService },
     agents: { ...agentServices, ...planServices },
     wiki: workspaceServices.wikiService,
+    instanceSettings: workspaceServices.instanceSettingsService,
     tasks: taskServices,
     serverCache,
   });
@@ -399,6 +400,8 @@ async function startMcpWorkspace(context: {
   /** The agent services, with the plan service MCP clients and the chat use. */
   readonly agents: AgentApplicationServices & AgentPlanServices;
   readonly wiki: WikiService;
+  /** The instance settings the chat administration changes with the regular rules. */
+  readonly instanceSettings: InstanceSettingsService;
   /** The ticket services, whose GitHub synchronization and event publisher the workspace shares. */
   readonly tasks: Pick<
     ApplicationServices,
@@ -426,6 +429,10 @@ async function startMcpWorkspace(context: {
     plans: context.agents.agentPlanService,
     planRecovery: context.agents.agentPlanRecoveryService,
     planSessions: context.agents.agentSessionService,
+    instanceAdministration: {
+      connections: context.agents.agentConnectionService,
+      settings: context.instanceSettings,
+    },
     events: context.tasks.pagesEventPublisher,
   });
   startWikiMaintenanceScheduler(context.wiki, services.agentAssetService);

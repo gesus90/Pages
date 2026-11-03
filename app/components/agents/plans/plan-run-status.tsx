@@ -7,16 +7,18 @@ import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { focusStatusNode } from "./plan-status-focus";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
-import {
-  planSequencePreview,
-  statusAnchor,
-  statusSteps,
-} from "./plan-run-status-model";
+import { PlanStatusOutlook } from "./plan-status-outlook";
+import { planNodeLabel } from "./plan-layout";
+import { planSequencePreview, workGaps } from "./plan-run-status-model";
+import { planStepSequence } from "./plan-step-sequence";
+import { showsPass } from "./plan-status-sequence";
 import { usePlanStatusTime } from "./use-plan-status-time";
 import { keepPlanControlKeys } from "./plan-flow-keys";
 
+import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { PlanCanvasProps } from "./plan-flow-context";
 import type { PlanFlowEdge, PlanFlowNode } from "./plan-flow-model";
+import type { PlanSequenceBlock } from "./plan-step-sequence";
 
 interface PlanRunStatusProps {
   readonly canvas: PlanCanvasProps;
@@ -29,6 +31,62 @@ export function PlanRunStatus(props: PlanRunStatusProps): React.ReactElement {
   return <RunStatusContent key={props.canvas.run?.id ?? "idle"} {...props} />;
 }
 
+/** The name of the node that blocked a waiting execution, from every record of the run. */
+function blockerName(
+  run: AgentPlanRun | null,
+  block: PlanSequenceBlock | undefined,
+): string | null {
+  const blockedBy = block?.result?.blockedByStepId;
+  if (!blockedBy || !run) return null;
+  return (
+    allPlanRunResults(run).find((entry) => entry.id === blockedBy)?.name ??
+    blockedBy
+  );
+}
+
+function StatusContent({
+  block,
+  run,
+  number,
+  hasPass,
+  end,
+  canLocate,
+  onLocate,
+}: {
+  readonly block: PlanSequenceBlock | undefined;
+  readonly run: AgentPlanRun | null;
+  readonly number: number;
+  readonly hasPass: boolean;
+  readonly end: string | null;
+  readonly canLocate: boolean;
+  readonly onLocate: () => void;
+}): React.ReactElement {
+  const pass = block && hasPass ? block.pass : null;
+  if (block && !block.result && block.kind !== "actual")
+    return (
+      <PlanStatusOutlook
+        name={block.name}
+        number={number}
+        pass={pass}
+        kind={block.kind}
+        canLocate={canLocate}
+        onLocate={onLocate}
+      />
+    );
+  return (
+    <PlanStatusDetails
+      step={block?.result}
+      blockedByName={blockerName(run, block)}
+      number={number}
+      pass={pass}
+      kind={block?.kind}
+      end={end}
+      canLocate={canLocate}
+      onLocate={onLocate}
+    />
+  );
+}
+
 function RunStatusContent({
   canvas,
   isOpen,
@@ -36,24 +94,21 @@ function RunStatusContent({
 }: PlanRunStatusProps): React.ReactElement {
   const { t } = useTranslation();
   const flow = useReactFlow<PlanFlowNode, PlanFlowEdge>();
-  const [chosenId, choose] = useState<string | null>(null);
+  const [chosenKey, choose] = useState<string | null>(null);
   const contentId = useId();
   const panel = useRef<HTMLElement>(null);
   const run = canvas.run;
-  const steps = statusSteps(run);
-  const anchorId = statusAnchor(run, steps);
-  const selectedId = steps.some((step) => step.id === chosenId)
-    ? chosenId
-    : anchorId;
-  const step = steps.find((entry) => entry.id === selectedId);
-  const blockedBy = step?.blockedByStepId;
-  const blockedByName =
-    blockedBy && run
-      ? (allPlanRunResults(run).find((entry) => entry.id === blockedBy)?.name ??
-        blockedBy)
-      : null;
+  const plan = canvas.runPlan ?? canvas.draft;
+  const sequence = planStepSequence(run, plan, (node) =>
+    planNodeLabel(node, canvas.sources),
+  );
+  const selectedKey = sequence.blocks.some((block) => block.key === chosenKey)
+    ? chosenKey
+    : sequence.anchorKey;
+  const index = sequence.blocks.findIndex((block) => block.key === selectedKey);
+  const block: PlanSequenceBlock | undefined = sequence.blocks[index];
   const end = usePlanStatusTime(run);
-  const target = step ? flow.getNode(step.id) : undefined;
+  const target = block ? flow.getNode(block.nodeId) : undefined;
   function locate(): void {
     if (!target) return;
     canvas.graph.select(target.id);
@@ -69,11 +124,13 @@ function RunStatusContent({
     >
       <PlanStatusHeader
         run={run}
-        steps={steps}
-        preview={planSequencePreview(canvas.draft, canvas.sources, t)}
+        sequence={sequence}
+        gaps={workGaps(
+          planSequencePreview(canvas.draft, canvas.sources, t),
+          canvas.draft,
+        )}
         end={end}
-        anchorId={anchorId}
-        selectedId={selectedId}
+        selectedKey={selectedKey}
         isOpen={isOpen}
         contentId={contentId}
         error={canvas.runError ?? null}
@@ -83,10 +140,11 @@ function RunStatusContent({
       />
       {isOpen ? (
         <div id={contentId} className="flex min-h-0 flex-col">
-          <PlanStatusDetails
-            step={step}
-            blockedByName={blockedByName}
-            number={steps.findIndex((entry) => entry.id === selectedId) + 1}
+          <StatusContent
+            block={run ? block : undefined}
+            run={run}
+            number={index + 1}
+            hasPass={block ? showsPass(block, sequence.blocks) : false}
             end={end}
             canLocate={Boolean(target)}
             onLocate={locate}

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { CHAT_LIMITS, canChatSearchWeb } from "@/definition/Chat";
 
@@ -99,6 +100,10 @@ interface ChatDependencies {
    */
   readonly protectedInstructions: () => Promise<PicaInstructions>;
   readonly agents: Pick<AgentProfileService, "resolve">;
+  /** Tells whether the sender is an administrator now; without it no turn offers the administrator catalog. */
+  readonly administrators?: {
+    isAdministrator(userId: string): Promise<boolean>;
+  };
   readonly requests: ChatRequestRegistry;
   readonly languages: Pick<UserSettingsRepository, "findByUserId">;
   /** Today's date as `YYYY-MM-DD`; the current UTC date by default. */
@@ -435,6 +440,8 @@ export class ChatService {
     const isNative = this.dependencies.mode === "acp";
     const canSearchWeb =
       !isNative && canChatSearchWeb(input.agent.connection.provider);
+    const isAdministrator =
+      isNative && (await this.isAdministrator(input.actor.id));
     const instructions = createChatInstructions({
       protectedInstructions: input.protectedInstructions,
       supplement: await this.dependencies.settings.instruction(),
@@ -443,6 +450,7 @@ export class ChatService {
       canSearchWeb,
       maximumActions: CHAT_MAXIMUM_ACTIONS,
       nativeTools: isNative,
+      isAdministrator,
     } satisfies ChatInstructionInput);
     return {
       instructions,
@@ -458,6 +466,20 @@ export class ChatService {
         nativeTools: isNative,
       },
     };
+  }
+
+  /** Only the wording of the instruction depends on it; every tool call resolves the right afresh. */
+  private async isAdministrator(userId: string): Promise<boolean> {
+    try {
+      return (
+        (await this.dependencies.administrators?.isAdministrator(userId)) ===
+        true
+      );
+    } catch (error: unknown) {
+      logCaughtError("ChatService", error);
+
+      return false;
+    }
   }
 
   /** The brief of an ACP job: Pica's protected files, read anew, and the transcript. */

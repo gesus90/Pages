@@ -250,6 +250,7 @@ function isListedOpenCodeModel(entry: Record<string, unknown>): boolean {
   const capabilities = readAgentObject(entry.capabilities);
   return isChatModel({
     status: entry.status,
+    input: capabilities.input,
     output: capabilities.output,
     toolCall: capabilities.toolcall,
   });

@@ -87,6 +87,9 @@ export function picaAcpOutcome(
       return { state: "failed", errorCode: "stepLimit" };
     if (signal.reason === "timeout")
       return { state: "failed", errorCode: "timeout" };
+    // The scope watch aborts with this reason when the administrator right was withdrawn.
+    if (signal.reason === "adminRevoked")
+      return { state: "failed", errorCode: "adminRevoked" };
     return isStopRequested
       ? { state: "stopped", errorCode: null }
       : { state: "interrupted", errorCode: "interrupted" };

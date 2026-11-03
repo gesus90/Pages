@@ -7,22 +7,23 @@ import { PlanPaletteButton } from "./plan-palette-button";
 import { PlanStatusSequence } from "./plan-status-sequence";
 import { PlanStatusDonut } from "./plan-status-donut";
 import { PlanStatusTodoCount } from "./plan-status-todo-count";
+import { PlanPendingSequence } from "./plan-status-pending";
 import { elapsedTime } from "./plan-run-status-model";
 import { hasOpenPlanReport } from "./plan-status";
 
-import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { TFunction } from "i18next";
+import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { PlanSequencePreview } from "./plan-run-status-model";
-
-const CHEVRON_SHAPE =
-  "[clip-path:polygon(0_0,74%_0,100%_50%,74%_100%,0_100%,25%_50%)]";
+import type { PlanStepSequence } from "./plan-step-sequence";
 
 interface StatusHeaderProps {
   readonly run: AgentPlanRun | null;
-  readonly preview: PlanSequencePreview;
-  readonly steps: readonly AgentPlanStepResult[];
+  /** The numbered executions of the run, or the outlook of the plan before it runs. */
+  readonly sequence: PlanStepSequence;
+  /** Agents, scripts and loops of the plan that get no number. */
+  readonly gaps: PlanSequencePreview["gaps"];
   readonly end: string | null;
-  readonly anchorId: string | null;
-  readonly selectedId: string | null;
+  readonly selectedKey: string | null;
   readonly isOpen: boolean;
   readonly contentId: string;
   readonly error: string | null;
@@ -83,26 +84,50 @@ function RunIndicator({
   );
 }
 
+/** The counter's text: the current position and the total, marked when the total is an estimate. */
+function positionText(
+  sequence: PlanStepSequence,
+  translate: TFunction,
+): string {
+  const total = sequence.blocks.length;
+  const position = sequence.position > 0 ? String(sequence.position) : "–";
+  return translate(
+    sequence.isEstimate
+      ? "plans.progress.positionEstimate"
+      : "plans.progress.position",
+    { position, total },
+  );
+}
+
+/** Position and total of the sequence, apart from the executions that completed. */
 function RunDonut({
-  steps,
-  preview,
-}: Pick<StatusHeaderProps, "steps" | "preview">): React.ReactElement {
+  sequence,
+}: Pick<StatusHeaderProps, "sequence">): React.ReactElement {
   const { t } = useTranslation();
-  const completed = steps.filter((step) => step.status === "succeeded").length;
-  const total = steps.length || preview.steps.length;
-  const label = t("plans.progress.count", { completed, total });
+  const { completed } = sequence;
+  const total = sequence.blocks.length;
+  const position = positionText(sequence, t);
+  const label = t("plans.progress.positionLabel", {
+    position,
+    completed,
+  });
   return (
     <div
       className="flex shrink-0 items-center gap-1.75 border-l border-border pl-3"
       role="img"
+      title={total ? label : undefined}
       aria-label={total ? label : t("plans.progress.unknownTotal")}
     >
       <PlanStatusDonut completed={completed} total={total} />
       <span aria-hidden="true" className="min-w-0">
-        <span className="block text-xs leading-4.5 font-medium tabular-nums">
-          {total ? `${completed}/${total}` : "—"}
+        <span className="block text-xs leading-4 font-medium whitespace-nowrap tabular-nums">
+          {total ? position : "—"}
         </span>
-        <span className="sr-only">{t("plans.progress.completed")}</span>
+        {total ? (
+          <span className="block text-[0.6875rem] leading-3.5 whitespace-nowrap text-muted-foreground tabular-nums">
+            {t("plans.progress.completedCount", { count: completed })}
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -122,23 +147,31 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
         error={props.error}
         isReady={props.isReady}
       />
-      <RunDonut steps={props.steps} preview={props.preview} />
+      <RunDonut sequence={props.sequence} />
       <div className="order-2 flex w-full min-w-0 border-border @2xl/status:order-none @2xl/status:w-auto @2xl/status:flex-1 @2xl/status:border-l">
-        {props.run && props.steps.length ? (
+        {props.run && props.sequence.blocks.length ? (
           <PlanStatusSequence
             run={props.run}
-            steps={props.steps}
-            anchorId={props.anchorId}
-            selectedId={props.selectedId}
+            blocks={props.sequence.blocks}
+            anchorKey={props.sequence.anchorKey}
+            selectedKey={props.selectedKey}
             onSelect={props.onSelect}
           />
         ) : (
-          <PlanPendingSequence preview={props.preview} error={props.error} />
+          <PlanPendingSequence
+            blocks={props.sequence.blocks}
+            gaps={props.gaps}
+            error={props.error}
+          />
         )}
       </div>
       <div className="order-1 ml-auto flex shrink-0 items-center gap-x-3 @2xl/status:order-none @2xl/status:ml-0">
         <PlanStatusTodoCount
-          step={props.steps.find((step) => step.id === props.selectedId)}
+          step={
+            props.sequence.blocks.find(
+              (block) => block.key === props.selectedKey,
+            )?.result
+          }
         />
         <span
           title={t("plans.progress.elapsed")}
@@ -167,65 +200,6 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
           </PlanPaletteButton>
         </div>
       </div>
-    </div>
-  );
-}
-
-/**
- * Pending plan steps are a preview only; no run or execution evidence is synthesized.
- *
- * @remarks
- * The numbers follow the flow edges. Flow nodes that Start does not reach or
- * that lie in a cycle follow without a number and are marked as such.
- */
-function PlanPendingSequence({
-  preview,
-  error,
-}: {
-  readonly preview: PlanSequencePreview;
-  readonly error: string | null;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  if (error || (preview.steps.length === 0 && preview.gaps.length === 0))
-    return (
-      <p className="px-3 text-xs text-muted-foreground">
-        {t(error ? "plans.progress.unavailable" : "plans.progress.noRun")}
-      </p>
-    );
-  return (
-    <div
-      className="flex min-w-0 gap-1 overflow-x-auto px-3"
-      aria-label={t("plans.progress.sequence")}
-    >
-      {preview.steps.map((step, index) => (
-        <span
-          key={step.id}
-          title={step.name}
-          className={cn(
-            "flex h-7.5 w-11 shrink-0 items-center justify-center bg-plan-progress-waiting text-xs font-semibold text-foreground",
-            CHEVRON_SHAPE,
-          )}
-        >
-          {index + 1}
-          <span className="sr-only"> · {step.name}</span>
-        </span>
-      ))}
-      {preview.gaps.map((gap) => {
-        const label = `${gap.name} · ${t(`plans.progress.gap.${gap.reason}`)}`;
-        return (
-          <span
-            key={gap.id}
-            title={label}
-            className={cn(
-              "flex h-7.5 w-11 shrink-0 items-center justify-center bg-warning-subtle text-xs font-bold text-warning",
-              CHEVRON_SHAPE,
-            )}
-          >
-            <span aria-hidden="true">!</span>
-            <span className="sr-only">{label}</span>
-          </span>
-        );
-      })}
     </div>
   );
 }

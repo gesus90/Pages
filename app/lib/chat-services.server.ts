@@ -251,6 +251,7 @@ export function createChatServices(
       settings: chatSettingsService,
       protectedInstructions: readPicaInstructions,
       agents: input.agents.agentProfileService,
+      administrators: adminTools,
       requests: input.agents.chatRequests,
       languages,
     }),

@@ -8,7 +8,13 @@ import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
 import type { ToolInventory } from "@/definition/RemoteSetup";
 import type { RunnerOpenRouterResult } from "@/definition/RunnerOpenRouter";
 
-/** Projects only the free catalog explicitly synchronized on this runner. */
+/**
+ * Projects only the free catalog explicitly synchronized on this runner.
+ *
+ * @remarks
+ * The runner lists a model there only when OpenRouter states a prompt and a
+ * completion price of exactly zero, so every row is marked free.
+ */
 export function remoteOpenRouterModels(
   target: AgentPlanRemoteTarget,
   catalog: Extract<RunnerOpenRouterResult, { operation: "catalog" }>,
@@ -31,6 +37,7 @@ export function remoteOpenRouterModels(
     reasoningEfforts: [],
     catalogDefaultReasoningEffort: null,
     reasoningEffort: null,
+    isFree: true,
   }));
 }
 

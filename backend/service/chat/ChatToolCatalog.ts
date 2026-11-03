@@ -13,6 +13,7 @@ import type {
   AgentAdminWriteOperation,
 } from "@/definition/AgentAdministration";
 import type { AgentExtensionReadOperation } from "@/definition/AgentExtensions";
+import type { ChatInstanceOperation } from "@/definition/ChatInstanceAdministration";
 import type { AgentProjectDeletionWriteOperation } from "@/definition/AgentProjectDeletion";
 import type {
   AgentPlanCommandOperation,
@@ -60,6 +61,7 @@ export type ChatOperation = Exclude<
   | PagesAgentWriteOperation
   | AgentAdminReadOperation
   | AgentAdminWriteOperation
+  | ChatInstanceOperation
   | PageAgentReadOperation
   | PageAgentWriteOperation
   | AgentPlanReadOperation
@@ -272,6 +274,11 @@ const COMMENT_WRITES: ReadonlySet<string> = new Set([
 /** Narrows a requested operation to the chat catalog; everything else is refused. */
 export function isChatOperation(value: unknown): value is ChatOperation {
   return typeof value === "string" && Object.hasOwn(CHAT_OPERATIONS, value);
+}
+
+/** Lists every operation of the chat catalog. */
+export function listChatOperations(): readonly ChatOperation[] {
+  return Object.keys(CHAT_OPERATIONS).filter(isChatOperation);
 }
 
 /** Tells whether an operation changes something and therefore needs an operation ID. */

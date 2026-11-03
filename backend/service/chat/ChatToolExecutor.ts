@@ -19,12 +19,17 @@ import {
   PicaPlanConfirmation,
   picaPlanOperationId,
 } from "./PicaPlanConfirmation";
+import {
+  PICA_UNOFFERED_OPERATIONS,
+  isPicaCriticalOperation,
+} from "./admin/PicaOperatorCatalog";
 
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import type { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import type { ChatConfirmationWord } from "@/definition/Chat";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { ChatActionOutcome } from "./ChatPrompt";
+import type { ChatOperation } from "./ChatToolCatalog";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { PicaPlanTurn } from "./PicaPlanConfirmation";
 
@@ -37,6 +42,12 @@ const SERVER_KEYS: ReadonlySet<string> = new Set([
 /** One action the agent requested. */
 export interface ChatActionRequest {
   readonly operation: string;
+  readonly parameters: Readonly<Record<string, unknown>>;
+}
+
+/** An administrator call after Pages checked that its operation exists for the chat. */
+interface AdminCall {
+  readonly operation: ChatOperation;
   readonly parameters: Readonly<Record<string, unknown>>;
 }
 
@@ -61,6 +72,7 @@ export interface ChatToolDependencies {
 export class ChatToolExecutor {
   private readonly dependencies: ChatToolDependencies;
   private readonly planConfirmation = new PicaPlanConfirmation();
+  private readonly adminConfirmation = new PicaPlanConfirmation();
 
   public constructor(dependencies: ChatToolDependencies) {
     this.dependencies = dependencies;
@@ -155,6 +167,92 @@ export class ChatToolExecutor {
         ? { confirmation: turn.confirmation }
         : {}),
     });
+  }
+
+  /**
+   * Runs one administrator operation with server-owned identity and stable keys.
+   *
+   * @param action - The operation and the parameters the model requested.
+   * @param context - The server-owned scope; the caller has resolved the administrator right.
+   * @param turn - The raw human message of this turn and the confirmation word of the person.
+   * @returns The result, or `CONFIRMATION_REQUIRED` with the exact call and the word to type.
+   *
+   * @remarks
+   * A critical change, and any change a service holds back for a
+   * confirmation, runs only after the person replied with the confirmation
+   * word alone in a later message than the one that asked. Pages binds that
+   * reply to the exact operation and parameters; the model can neither
+   * supply nor reuse it. Operations whose result carries a one-time password
+   * do not exist here.
+   */
+  public async runAdmin(
+    action: ChatActionRequest,
+    context: RuntimeExecutionContext,
+    turn: PicaPlanTurn,
+  ): Promise<ChatActionOutcome> {
+    await context.authorize();
+    const { operation } = action;
+    if (
+      !isChatOperation(operation) ||
+      operation.startsWith("plans.") ||
+      Object.hasOwn(PICA_UNOFFERED_OPERATIONS, operation)
+    )
+      return { ok: false, error: "UNKNOWN_OPERATION" };
+    const request: AdminCall = {
+      operation,
+      parameters: Object.fromEntries(
+        Object.entries(action.parameters).filter(
+          ([key]) => !SERVER_KEYS.has(key),
+        ),
+      ),
+    };
+    const isCritical = isPicaCriticalOperation(operation);
+    if (isCritical && !this.adminConfirmation.consume(request, context, turn))
+      return this.consentPrompt(request, turn);
+    const outcome = await this.dispatchAdmin(
+      request,
+      context,
+      turn,
+      isCritical,
+    );
+    if (isCritical || outcome.error !== "CONFIRMATION_REQUIRED") return outcome;
+    // The service holds the change back until the person confirmed it.
+    return this.adminConfirmation.consume(request, context, turn)
+      ? this.dispatchAdmin(request, context, turn, true)
+      : this.consentPrompt(request, turn);
+  }
+
+  private dispatchAdmin(
+    request: AdminCall,
+    context: RuntimeExecutionContext,
+    turn: PicaPlanTurn,
+    isConfirmed: boolean,
+  ): Promise<ChatActionOutcome> {
+    const { operation, parameters } = request;
+    return this.dispatch(context.userId, operation, {
+      ...parameters,
+      ...(isChatWriteOperation(operation)
+        ? { operationId: picaPlanOperationId(request, context, turn.id) }
+        : {}),
+      ...(isConfirmed ? { confirmation: turn.confirmation } : {}),
+    });
+  }
+
+  private consentPrompt(
+    request: AdminCall,
+    turn: PicaPlanTurn,
+  ): ChatActionOutcome {
+    return {
+      ok: false,
+      error: "CONFIRMATION_REQUIRED",
+      result: {
+        operation: request.operation,
+        parameters: request.parameters,
+        confirmation: turn.confirmation,
+        scope:
+          "Name this exact change and its effect to the person, then ask them to reply with the confirmation word alone in a new message. Only that reply allows the change; repeat the identical call afterwards.",
+      },
+    };
   }
 
   private async deletionPrompt(

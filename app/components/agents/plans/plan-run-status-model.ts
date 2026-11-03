@@ -59,6 +59,24 @@ export function planSequencePreview(
 }
 
 /**
+ * The flow nodes without a number that would run agents or scripts.
+ *
+ * @remarks
+ * Only agents, scripts and the loops that repeat them are steps; a decision,
+ * stack, Start or End without a number marks no missing step.
+ */
+export function workGaps(
+  preview: PlanSequencePreview,
+  draft: AgentPlanInput,
+): PlanSequencePreview["gaps"] {
+  const nodes = expandPlanGroups(draft).nodes;
+  return preview.gaps.filter((gap) => {
+    const type = nodes.find((node) => node.id === gap.id)?.type;
+    return type === "agent" || type === "script" || type === "loop";
+  });
+}
+
+/**
  * A run recorded before its steps followed the flow edges, ordered like a new one.
  *
  * @remarks
@@ -75,40 +93,6 @@ export function sequencedRun(
   return steps.every((step, index) => step === run.steps[index])
     ? run
     : { ...run, steps };
-}
-
-/** Counts the executed revision's flow steps once, omitting derived group summaries. */
-export function statusSteps(
-  run: AgentPlanRun | null,
-): readonly AgentPlanStepResult[] {
-  const groups = new Set(
-    run?.steps.flatMap((step) => (step.groupId ? [step.groupId] : [])),
-  );
-  return run?.steps.filter((step) => !groups.has(step.id)) ?? [];
-}
-
-/** Uses the first active frontier member in persisted order, then the recorded pause frontier. */
-export function statusAnchor(
-  run: AgentPlanRun | null,
-  steps: readonly AgentPlanStepResult[],
-): string | null {
-  if (!run) return null;
-  if (isActivePlanRun(run.status)) {
-    return (
-      steps.find((step) => step.status === "running")?.id ??
-      steps.find((step) => run.pauseBoundary?.frontierStepIds.includes(step.id))
-        ?.id ??
-      steps.find(
-        (step) =>
-          step.isBlocked ||
-          step.status === "paused" ||
-          step.status === "waiting",
-      )?.id ??
-      steps.at(-1)?.id ??
-      null
-    );
-  }
-  return steps.at(-1)?.id ?? null;
 }
 
 /** Terminal runs never retain an orange active indicator from an interrupted session. */

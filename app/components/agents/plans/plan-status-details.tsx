@@ -19,11 +19,16 @@ import { PlanScriptReport } from "./plan-script/plan-script-report";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { PlanSequenceBlockKind } from "./plan-step-sequence";
 
 interface StatusDetailsProps {
   readonly step: AgentPlanStepResult | undefined;
   readonly blockedByName?: string | null;
   readonly number: number;
+  /** The loop iteration or start of a repeated execution; absent for a node that runs once. */
+  readonly pass?: number | null;
+  /** Whether the step is only planned or assumed, absent or `actual` once it started. */
+  readonly kind?: PlanSequenceBlockKind;
   readonly end: string | null;
   readonly canLocate: boolean;
   readonly onLocate: () => void;
@@ -50,6 +55,8 @@ export function PlanStatusDetails({
   step,
   blockedByName,
   number,
+  pass,
+  kind,
   end,
   canLocate,
   onLocate,
@@ -78,6 +85,7 @@ export function PlanStatusDetails({
           <div className="min-w-0">
             <h3 className="text-sm leading-5 font-semibold wrap-anywhere">
               {t("plans.progress.step", { number })} · {step.name}
+              {pass ? ` · ${t("plans.progress.pass", { pass })}` : null}
             </h3>
             <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
               {nodeKind(step, t)}
@@ -90,6 +98,11 @@ export function PlanStatusDetails({
             className="rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-4"
           />
         </div>
+        {kind && kind !== "actual" ? (
+          <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
+            {t(`plans.progress.outlook.${kind}`)}
+          </p>
+        ) : null}
         {hasOpenPlanReport(step) ? (
           <p className="text-xs leading-4.5 text-warning wrap-anywhere">
             {t("plans.progress.reportOpenHint")}

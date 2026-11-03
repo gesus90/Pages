@@ -168,6 +168,18 @@ async function choose(label: string, option: string): Promise<void> {
   fireEvent.click(await screen.findByRole("option", { name: option }));
 }
 
+// The node editor's model choice is a tree of tools whose models are tree items.
+async function chooseModel(name: string): Promise<void> {
+  const dialog = screen.getByRole("dialog");
+  fireEvent.click(
+    within(dialog).getByRole("combobox", {
+      name: (accessibleName) =>
+        accessibleName.startsWith(i18n.t("pageAgents.model")),
+    }),
+  );
+  fireEvent.click(await within(dialog).findByRole("treeitem", { name }));
+}
+
 it("opens one of two copies from its menu, changes only its instruction/model/reasoning, and persists it", async () => {
   const server = serverWithCopies();
   renderPlanPage(server);
@@ -183,7 +195,7 @@ it("opens one of two copies from its menu, changes only its instruction/model/re
     within(dialog).getByLabelText(i18n.t("plans.nodeMarkdown")),
     { target: { value: "Y" } },
   );
-  await choose(i18n.t("pageAgents.model"), "Model B · N");
+  await chooseModel("Model B");
   await choose(i18n.t("pageAgents.reasoning"), "high");
   fireEvent.click(
     within(dialog).getByRole("button", { name: i18n.t("plans.closeNode") }),

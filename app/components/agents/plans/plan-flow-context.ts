@@ -18,6 +18,8 @@ export interface PlanCanvasProps {
   /** The saved plan; absent before its first save. */
   readonly planId?: string;
   readonly run: AgentPlanRun | null;
+  /** The saved revision the shown run executes; absent when that revision is not loaded. */
+  readonly runPlan?: AgentPlanInput;
   /** Access or connection failure of the same run polling path. */
   readonly runError?: string | null;
   /** Whether the saved plan may start now, as long as no run is shown; absent while unknown. */

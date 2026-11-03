@@ -5,6 +5,10 @@ import type {
   UserRole,
 } from "./Authorization.js";
 import type { AgentProjectMembers } from "./AgentExtensions.js";
+import type {
+  AgentAdminConnection,
+  AgentAdminSettings,
+} from "./ChatInstanceAdministration.js";
 import type { ProjectDeletionScope } from "./AgentProjectDeletion.js";
 import type { UserGroup } from "./UserGroup.js";
 
@@ -96,6 +100,8 @@ export type AgentAdminReadResult =
   | AgentAdminList<UserGroup>
   | AgentAdminList<UserRole>
   | AgentAdminList<AdministrationActivity>
+  | AgentAdminList<AgentAdminConnection>
+  | AgentAdminSettings
   | AgentProjectMembers
   | {
       readonly permissions: readonly Capability[];
@@ -106,7 +112,14 @@ export type AgentAdminReadResult =
 /** Public idempotent result of a completed administration action. */
 export interface AgentAdminChanged {
   readonly id: string;
-  readonly targetType: "person" | "group" | "department" | "role" | "project";
+  readonly targetType:
+    | "person"
+    | "group"
+    | "department"
+    | "role"
+    | "project"
+    | "connection"
+    | "instance";
   readonly changed: boolean;
   readonly affectedUserIds: readonly string[];
   /** What the deletion of a project removed; present for `project` only, so the audit trail keeps the extent. */

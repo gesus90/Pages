@@ -247,6 +247,7 @@ function agentServices(
     remoteSessions: { shutdown: step("remote sessions") },
     sshClient: { dispose: step("ssh client") },
     agentWorkspaceService: opaque("agent workspaces"),
+    agentConnectionService: opaque("agent connections"),
     pageAgentService: opaque("page agents"),
   });
 }

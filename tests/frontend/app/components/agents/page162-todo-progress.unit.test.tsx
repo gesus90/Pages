@@ -292,11 +292,26 @@ it("places the TODO count immediately before the existing clock and preserves th
   const mounted = mount(
     <PlanStatusHeader
       run={runWithStep(step)}
-      steps={[step]}
-      preview={{ steps: [], gaps: [] }}
+      sequence={{
+        blocks: [
+          {
+            key: "agent",
+            nodeId: step.id,
+            name: step.name,
+            pass: 1,
+            isLoopPass: false,
+            kind: "actual",
+            result: step,
+          },
+        ],
+        anchorKey: "agent",
+        position: 1,
+        completed: 0,
+        isEstimate: false,
+      }}
+      gaps={[]}
       end="2026-10-27T19:01:44Z"
-      anchorId="agent"
-      selectedId="agent"
+      selectedKey="agent"
       isOpen={false}
       contentId="details"
       error={null}

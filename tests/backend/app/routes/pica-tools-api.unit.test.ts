@@ -19,6 +19,7 @@ const fakes = vi.hoisted(() => ({
   consoleContext: vi.fn(),
   release: vi.fn(),
   run: vi.fn(),
+  isAdministrator: vi.fn(),
 }));
 vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
   ...(await importOriginal<typeof LoggerModule>()),
@@ -33,6 +34,7 @@ vi.mock("@/app/lib/services.server", () => ({
       consoleContext: fakes.consoleContext,
       release: fakes.release,
       run: fakes.run,
+      gate: () => fakes.isAdministrator,
     },
   }),
 }));
@@ -44,6 +46,7 @@ const EXECUTION = {
 
 beforeEach(() => {
   fakes.requireAdministrator.mockResolvedValue(undefined);
+  fakes.isAdministrator.mockResolvedValue(true);
   fakes.startConsole.mockResolvedValue("started-task");
   fakes.consoleContext.mockReturnValue(EXECUTION);
 });

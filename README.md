@@ -306,11 +306,13 @@ the current account rights:
 | Milestones | `milestones_create`, `milestones_set_name`, `milestones_set_description`, `milestones_set_status`, `milestones_set_start_at`, `milestones_set_due_at`, `milestones_delete` |
 | Wiki | `wiki_page_create`, `wiki_page_set_title`, `wiki_page_set_content`, `wiki_page_move`, `wiki_page_delete`, `wiki_comment_add`, `wiki_comment_edit`, `wiki_comment_resolve`, `wiki_comment_delete` |
 
-There is no generic operation tool, no administration (accounts, agents,
-connections, instance settings, the tag catalog) and no text-action fallback,
-also not for administrators. `projects.list`, the read behind `projects_list`,
-is also an operation of the agent API. Wiki comments are the only comments
-Pages has; tickets have none.
+There is no generic operation tool and no text-action fallback. A normal
+person gets no administration (accounts, roles, connections, instance
+settings); an administrator in the active admin mode additionally gets the
+administrator catalog described in [Pica administrator
+operator](docs/PicaAdminOperator.md) (PAGE-180). `projects.list`, the read
+behind `projects_list`, is also an operation of the agent API. Wiki comments
+are the only comments Pages has; tickets have none.
 
 Pica acts on user level when the person asks, without a confirmation line or
 word (PAGE-68), and names the result. Every call runs through the existing
@@ -1069,6 +1071,20 @@ Node templates remain optional independent copies, subject to current model
 and resource rights at save and insertion. A withdrawn selection remains visible
 and is refused at save and Play without a fallback. Inside an ACP group, models
 of another runner stay listed but disabled; detach the node to select them.
+In the node editor (PAGE-176) the execution target stands once above the
+model choice. Its panel starts with a search field and lists the target's
+models under collapsible tools (Antigravity, Claude Code, Codex, OpenCode,
+API connections), each header naming the access and model count. Rows show the
+short catalog name; OpenCode models are split by the source OpenCode runs them
+with (OpenCode itself, OpenRouter, other linked keys) with a source badge. A
+green Free badge marks only a model whose catalog states a prompt and completion
+price of exactly zero for that very variant; a missing price is never free. The
+search covers name, model ID, tool, access and source of every model, also in
+closed tools, opens the tools with matches and restores the previous collapsed
+state when cleared. Arrow keys move, Enter chooses or folds, Left/Right fold
+while the search is empty, Escape closes the panel. The selection stores the
+listed model's full connection, route, model and provider; the list follows
+the global chat filter, which also leaves out models stating no text input.
 Double-clicking an
 agent node opens its PageAgentCLI console instead: the fixed ticket panel over
 the dimmed plan with the node's session history, workspace and Git state,

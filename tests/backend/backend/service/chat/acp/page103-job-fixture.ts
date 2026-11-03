@@ -12,6 +12,7 @@ import type {
   AcpSteerOutcome,
 } from "@/backend/agents/acp/AcpChat";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
+import type { RuntimeToolDescription } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import type { PicaBridgeTurn } from "@/backend/service/chat/acp/PicaBridge";
 import type { PicaAcpJobDependencies } from "@/backend/service/chat/acp/PicaAcpJob";
 import type { PicaAcpProvider } from "@/backend/service/chat/acp/PicaAcpRunners";
@@ -84,12 +85,17 @@ export class PicaJobWorld {
   public readonly job: PicaAcpJob;
   public listener: AcpSessionListener | null = null;
   public resumeSessionId: string | null = null;
+  /** The tools the job offered its agent session. */
+  public catalog: readonly RuntimeToolDescription[] = [];
   private binding: PicaBridgeTurn | null = null;
   private readonly first = deferred<PlanSessionTurn>();
 
   public constructor(
     provider: PicaAcpProvider = "codex_cli",
     resumeSessionId: string | null = null,
+    administration: Partial<
+      Pick<PicaAcpJobDependencies, "adminTools" | "tools">
+    > = {},
   ) {
     const agent = {
       ...ASSIGNMENT,
@@ -126,22 +132,26 @@ export class PicaJobWorld {
           readBytes: async () => Buffer.from(""),
         },
         bridge: {
-          open: () => ({
-            server: {
-              type: "http",
-              name: "pages",
-              url: "http://pages.test/bridge",
-              headers: [],
-            },
-            setTurn: (turn) => {
-              this.binding = turn;
-            },
-            close: () => {
-              this.binding = null;
-            },
-          }),
+          open: (owner) => {
+            this.catalog = owner.catalog;
+            return {
+              server: {
+                type: "http",
+                name: "pages",
+                url: "http://pages.test/bridge",
+                headers: [],
+              },
+              setTurn: (turn) => {
+                this.binding = turn;
+              },
+              close: () => {
+                this.binding = null;
+              },
+            };
+          },
         },
         tools: { run: this.tools },
+        ...administration,
         access: {
           requireUser: this.authorize,
         },
@@ -194,11 +204,14 @@ export class PicaJobWorld {
   }
 
   /** Calls the actual turn-bound native registry used by the ACP bridge. */
-  public async call(): Promise<PicaToolOutcome> {
+  public async call(
+    tool = "projects_list",
+    input: unknown = {},
+  ): Promise<PicaToolOutcome> {
     if (!this.binding) throw new Error("No active turn");
     const invoked = await this.binding.tools.invoke(
-      "projects_list",
-      {},
+      tool,
+      input,
       this.binding.context,
     );
     if (!invoked?.isValid) throw new Error("Invalid fake tool input");

@@ -11,6 +11,13 @@ validates untrusted arguments, reauthorizes the context, invokes the existing
 Pages handler and validates its result. Unknown tools and malformed arguments
 never dispatch a service.
 
+A tool has an access class: `user` (the default) or `administrator`. `describe`
+leaves the administrator tools out when asked, and `invoke` runs one only after
+the registry's administrator gate admitted that very call from persisted account
+facts. A registry without a gate, and a gate that cannot answer, refuse it
+(`RuntimeToolDeniedError`). The services behind a handler still check their own
+rights; see `docs/PicaAdminOperator.md`.
+
 Pica uses Codex CLI, Claude Code or opencode through the existing ACP job,
 scheduler, session and tool infrastructure. Pages retains transcripts,
 attachments, settings, confirmation words, execution budgets and cancellation.
