@@ -5,6 +5,10 @@ import { PlanAgentModel } from "@/app/components/agents/plans/plan-node-card/pla
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 
+import {
+  modelTrigger,
+  openModelRows,
+} from "../../definitions/page-agent-fixture";
 import { SOURCES } from "../../page61-plan-fixture";
 import {
   agentStep,
@@ -88,6 +92,16 @@ async function openSelect(name: string): Promise<readonly HTMLElement[]> {
   return screen.getAllByRole("option");
 }
 
+function openModels(): Promise<readonly HTMLElement[]> {
+  return openModelRows(modelTrigger(MODEL));
+}
+
+function rowNamed(rows: readonly HTMLElement[], name: string): HTMLElement {
+  const row = rows.find((entry) => entry.textContent?.includes(name));
+  if (!row) throw new Error(`No model row ${name}`);
+  return row;
+}
+
 const MODEL = i18n.t("pageAgents.model");
 const REASONING = i18n.t("pageAgents.reasoning");
 
@@ -128,23 +142,15 @@ it("shows the saved values while no model is released for the target", () => {
   );
 });
 
-it("lists the released models with runner, model id, price and limits and pins a chosen one", async () => {
+it("lists the released models with their free badge and pins a chosen one", async () => {
   const node = step({ reasoningEffort: "low" });
   const graph = renderModel({ step: node, models: [LEVELS, OTHER] });
-  const options = await openSelect(MODEL);
-  expect(options.map((option) => option.textContent)).toEqual([
-    expect.stringContaining("Level model"),
-    expect.stringContaining("Other model"),
+  const rows = await openModels();
+  expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([
+    `Level model, ${i18n.t("plans.modelPicker.free")}`,
+    "Other model",
   ]);
-  const runner = i18n.t("settings.agents.providerShort.openai");
-  const compact = new Intl.NumberFormat("de", { notation: "compact" });
-  expect(options[0]?.textContent).toContain(
-    `${runner} · vendor/levels · ${i18n.t("settings.agents.freeBadge")} · ` +
-      `${i18n.t("pageAgents.contextLimit", { value: compact.format(128000) })} · ` +
-      i18n.t("pageAgents.outputLimit", { value: compact.format(8000) }),
-  );
-  expect(options[1]?.textContent).toBe(`Other model${runner} · vendor/other`);
-  fireEvent.click(screen.getByRole("option", { name: /Other model/u }));
+  fireEvent.click(rowNamed(rows, "Other model"));
   expect(graph.replaceNode).toHaveBeenCalledWith({
     ...node,
     configuration: {
@@ -189,23 +195,18 @@ it("sets a supported reasoning level and returns to the default", async () => {
 it("keeps a withdrawn model selected as missing and changes no level without a model", async () => {
   const node = step({ model: "vendor/gone", reasoningEffort: "high" });
   const graph = renderModel({ step: node, models: [LEVELS] });
-  const options = await openSelect(MODEL);
-  expect(options[0]?.textContent).toBe(
-    `${i18n.t("pageAgents.missingModel")} · vendor/gone`,
+  expect(modelTrigger(MODEL).textContent).toContain(
+    `vendor/gone · ${i18n.t("pageAgents.missingModel")}`,
   );
-  expect(options[0]?.getAttribute("aria-disabled")).toBe("true");
-  fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
   await openSelect(REASONING);
   fireEvent.click(
     screen.getByRole("option", { name: i18n.t("pageAgents.defaultReasoning") }),
   );
   expect(graph.replaceNode).not.toHaveBeenCalled();
-  expect(
-    screen.getByRole("combobox", { name: MODEL }).getAttribute("data-state"),
-  ).toBe("closed");
+  expect(modelTrigger(MODEL).getAttribute("aria-expanded")).toBe("false");
 });
 
-it("names the alias a model was saved under", async () => {
+it("selects the listed model a saved alias stands for", async () => {
   const claude = pageModel("claude", {
     name: "Sonnet",
     provider: "claude_code",
@@ -220,10 +221,9 @@ it("names the alias a model was saved under", async () => {
     }),
     models: [claude],
   });
-  const options = await openSelect(MODEL);
-  expect(options[0]?.textContent).toContain(
-    i18n.t("plans.savedAlias", { alias: "sonnet" }),
-  );
+  expect(modelTrigger(MODEL).textContent).toContain("Sonnet");
+  const [row] = await openModels();
+  expect(row?.getAttribute("aria-selected")).toBe("true");
 });
 
 it("disables models a group member cannot share and names the group's adapter", async () => {
@@ -242,9 +242,9 @@ it("disables models a group member cannot share and names the group's adapter", 
     ],
     draft: planOf([group]),
   });
-  await openSelect(MODEL);
-  const codex = screen.getByRole("option", { name: "Codex" });
-  const other = screen.getByRole("option", { name: "Other model" });
+  const rows = await openModels();
+  const codex = rowNamed(rows, "Codex");
+  const other = rowNamed(rows, "Other model");
   expect(codex.getAttribute("aria-disabled")).toBe("true");
   expect(codex.textContent).toContain(
     i18n.t("plans.modelRefusal.otherAdapter", {
@@ -267,8 +267,7 @@ it("refuses API models for the only member of a group without naming an adapter"
     models: [OTHER],
     draft: planOf([groupNode("group", [member])]),
   });
-  await openSelect(MODEL);
-  const other = screen.getByRole("option", { name: "Other model" });
+  const other = rowNamed(await openModels(), "Other model");
   expect(other.getAttribute("aria-disabled")).toBe("true");
   expect(other.textContent).toContain(
     i18n.t("plans.modelRefusal.notAcp", {

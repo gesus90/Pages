@@ -88,9 +88,9 @@ describe("resolvePicaMobileHost", () => {
   it.each(["localhost", "127.0.0.1", "[::1]", "pages.localhost", "0.0.0.0"])(
     "never offers the loopback host %s",
     (requestHostname) => {
-      expect(
-        resolvePicaMobileHost({ requestHostname, networkAddresses }),
-      ).toBe("192.168.0.52");
+      expect(resolvePicaMobileHost({ requestHostname, networkAddresses })).toBe(
+        "192.168.0.52",
+      );
     },
   );
 

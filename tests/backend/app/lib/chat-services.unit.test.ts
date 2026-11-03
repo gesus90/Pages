@@ -381,7 +381,9 @@ it("runs tools as the current identity over the shared operation router", () => 
     router: input.router,
     identities: vi.mocked(AgentIdentityService).mock.instances[0],
   });
-  expect(vi.mocked(PicaAdminService).mock.calls).toEqual([[ACCOUNTS]]);
+  expect(vi.mocked(PicaAdminService).mock.calls).toEqual([
+    [ACCOUNTS, undefined],
+  ]);
   expect(services.picaAdminService).toBe(
     vi.mocked(PicaAdminService).mock.instances[0],
   );

@@ -2,17 +2,20 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
   PICA_MOBILE_AUTHENTICATION_TIMEOUT_MILLISECONDS,
-  PICA_MOBILE_CAPABILITY,
   PICA_MOBILE_ERROR_CODE,
   PICA_MOBILE_HEARTBEAT_INTERVAL_MILLISECONDS,
   PICA_MOBILE_HEARTBEAT_TIMEOUT_MILLISECONDS,
+  PICA_MOBILE_MAXIMUM_MESSAGE_BYTES,
   PICA_MOBILE_SUPPORTED_VERSIONS,
 } from "@/definition/PicaMobileProtocol";
 import type { PicaMobileCapability } from "@/definition/PicaMobileProtocol";
 
+import { PicaMobileChatHandler } from "./chat/PicaMobileChatHandler";
 import { PicaMobileNotificationHandler } from "./notifications/PicaMobileNotificationHandler";
 import { PicaMobilePlansHandler } from "./plans/PicaMobilePlansHandler";
+import { readPicaMobileCapabilities } from "./PicaMobileCapabilities";
 import {
+  describePicaMobileAuthenticationFailure,
   encodePicaMobileAvatar,
   encodePicaMobileConnected,
   encodePicaMobileDashboard,
@@ -30,9 +33,14 @@ import type {
   PicaMobileDashboardProvider,
   PicaMobileSessionIdentity,
 } from "./PicaMobileDashboardProvider";
-import type { PicaMobileClientMessage } from "./PicaMobileMessages";
+import type {
+  PicaMobileChatClientMessage,
+  PicaMobileClientMessage,
+} from "./PicaMobileMessages";
 import type { PicaMobileRejection } from "./PicaMobileMessages";
+import type { PicaMobileChatProvider } from "./chat/PicaMobileChatProvider";
 import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
+import type { PicaMobilePlansHost } from "./plans/PicaMobilePlansHandler";
 import type { PicaMobilePlansProvider } from "./plans/PicaMobilePlansProvider";
 
 /** The operations a connection needs on its WebSocket; `ws` provides them. */
@@ -66,12 +74,23 @@ export interface PicaMobileConnectionOptions {
    * announce `plans.v1` and treats both messages as unknown.
    */
   readonly plans?: PicaMobilePlansProvider;
+  /**
+   * Answers the `chat_*` requests; without it the connection does not
+   * announce `chat.v1` and treats the requests as unknown.
+   */
+  readonly chat?: PicaMobileChatProvider;
+  /**
+   * `http://<Host>` of the handshake; `chat_send` protects it as the web
+   * route protects its origin. Absent for a missing or invalid host.
+   */
+  readonly handshakeOrigin?: string;
   /** Clock in milliseconds; tests replace it. */
   readonly now?: () => number;
 }
 
 const CLOSE_GOING_AWAY = 1001;
 const CLOSE_POLICY = 1008;
+const CLOSE_MESSAGE_TOO_BIG = 1009;
 const CLOSE_GRACE_MILLISECONDS = 2_000;
 const REVALIDATION_INTERVAL_MILLISECONDS = 60_000;
 const RATE_WINDOW_MILLISECONDS = 10_000;
@@ -86,6 +105,13 @@ type DashboardMessage = Extract<
   PicaMobileClientMessage,
   { readonly type: "dashboard_get" | "avatar_get" }
 >;
+
+/** Whether a message belongs to `chat.v1`, whose requests all start with `chat_`. */
+function isChatMessage(
+  message: PicaMobileClientMessage,
+): message is PicaMobileChatClientMessage {
+  return message.type.startsWith("chat_");
+}
 
 /**
  * One WebSocket connection of Pica Mobile: authentication, heartbeat and the
@@ -105,6 +131,7 @@ export class PicaMobileConnection {
   private readonly queue = new SerialQueue();
   private readonly notifications: PicaMobileNotificationHandler;
   private readonly plans: PicaMobilePlansHandler;
+  private readonly chat: PicaMobileChatHandler;
   private readonly now: () => number;
   private session: PicaMobileSessionIdentity | null = null;
   private isStopped = false;
@@ -137,37 +164,18 @@ export class PicaMobileConnection {
     this.lastSeen = this.now();
     this.lastValidated = this.lastSeen;
     this.windowStart = this.lastSeen;
+    const host = this.createHost();
+
     this.notifications = new PicaMobileNotificationHandler(
       options.notifications,
-      {
-        session: () => this.session,
-        isOpen: () => !this.isStopped && !this.isClosing,
-        send: (frame) => this.send(frame),
-        reject: (rejection) => this.reject(rejection),
-        rejectUnauthenticated: (requestId) =>
-          this.rejectUnauthenticated(requestId),
-        acknowledge: () => {
-          this.consecutiveRejections = 0;
-        },
-        endSession: (requestId) => this.endSession(requestId),
-        reportFailure: (requestId, error) =>
-          this.reportFailure(requestId, error),
-      },
+      host,
     );
-    this.plans = new PicaMobilePlansHandler(options.plans, {
-      session: () => this.session,
-      isOpen: () => !this.isStopped && !this.isClosing,
-      send: (frame) => this.send(frame),
-      reject: (rejection) => this.reject(rejection),
-      rejectUnauthenticated: (requestId) =>
-        this.rejectUnauthenticated(requestId),
-      acknowledge: () => {
-        this.consecutiveRejections = 0;
-      },
-      endSession: (requestId) => this.endSession(requestId),
-      reportFailure: (requestId, error) => this.reportFailure(requestId, error),
-      enqueue: (task) => this.enqueue(task),
-    });
+    this.plans = new PicaMobilePlansHandler(options.plans, host);
+    this.chat = new PicaMobileChatHandler(
+      options.chat,
+      host,
+      options.handshakeOrigin ?? null,
+    );
   }
 
   /** Starts the heartbeat and the time limit for the authentication. */
@@ -184,16 +192,33 @@ export class PicaMobileConnection {
     this.authenticationTimer.unref();
   }
 
-  /** Handles a text frame of the peer. */
+  /**
+   * Handles a text frame of the peer.
+   *
+   * @remarks
+   * The socket takes frames up to the size of `chat_send`; every other frame
+   * keeps the smaller limit: before authentication a larger one closes the
+   * connection, after it a larger one is refused.
+   */
   public receiveText(text: string): void {
     if (!this.admit()) {
+      return;
+    }
+
+    const isLarge =
+      Buffer.byteLength(text, "utf8") > PICA_MOBILE_MAXIMUM_MESSAGE_BYTES;
+
+    if (isLarge && this.session === null) {
+      this.logClosing("message_too_big");
+      this.close(CLOSE_MESSAGE_TOO_BIG, "Message too big");
+
       return;
     }
 
     this.pendingMessages += 1;
     void this.queue.run(async () => {
       try {
-        await this.handleText(text);
+        await this.handleText(text, isLarge);
       } catch (error: unknown) {
         logCaughtError(COMPONENT, error);
 
@@ -330,19 +355,28 @@ export class PicaMobileConnection {
     return this.windowMessages > MAXIMUM_MESSAGES_PER_WINDOW;
   }
 
-  private async handleText(text: string): Promise<void> {
+  private async handleText(text: string, isLarge: boolean): Promise<void> {
     const parsed = parsePicaMobileMessage(text);
 
     if (!parsed.ok) {
       this.reject(parsed.rejection);
-
-      return;
+    } else if (isLarge && parsed.message.type !== "chat_send") {
+      this.reject({
+        code: PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        message: "Only chat_send may exceed 16384 bytes.",
+        requestId: parsed.message.requestId,
+      });
+    } else {
+      await this.dispatch(parsed.message);
     }
-
-    await this.dispatch(parsed.message);
   }
 
   private async dispatch(message: PicaMobileClientMessage): Promise<void> {
+    if (isChatMessage(message)) {
+      await this.chat.handle(message);
+
+      return;
+    }
     switch (message.type) {
       case "auth":
         await this.authenticate(message);
@@ -367,6 +401,24 @@ export class PicaMobileConnection {
       case "plan_get":
         await this.plans.handle(message);
     }
+  }
+
+  /** What the handlers of the extensions use of this connection. */
+  private createHost(): PicaMobilePlansHost {
+    return {
+      session: () => this.session,
+      isOpen: () => !this.isStopped && !this.isClosing,
+      send: (frame) => this.send(frame),
+      reject: (rejection) => this.reject(rejection),
+      rejectUnauthenticated: (requestId) =>
+        this.rejectUnauthenticated(requestId),
+      acknowledge: () => {
+        this.consecutiveRejections = 0;
+      },
+      endSession: (requestId) => this.endSession(requestId),
+      reportFailure: (requestId, error) => this.reportFailure(requestId, error),
+      enqueue: (task) => this.enqueue(task),
+    };
   }
 
   /** Runs work of the connection itself behind the queued messages, outside their limits. */
@@ -513,7 +565,7 @@ export class PicaMobileConnection {
     }
 
     if (outcome.ok) {
-      const capabilities = await this.readCapabilities();
+      const capabilities = await readPicaMobileCapabilities(this.options);
 
       if (!this.isStopped) {
         this.acceptAuthentication(message.requestId, outcome, capabilities);
@@ -521,36 +573,6 @@ export class PicaMobileConnection {
     } else {
       this.rejectAuthentication(message.requestId, outcome);
     }
-  }
-
-  /** The extensions this connection answers; a push that cannot be decided is not announced. */
-  private async readCapabilities(): Promise<readonly PicaMobileCapability[]> {
-    const capabilities: PicaMobileCapability[] = [];
-    const { dashboard, notifications, plans } = this.options;
-
-    if (dashboard !== undefined) {
-      capabilities.push(PICA_MOBILE_CAPABILITY.DASHBOARD_V1);
-    }
-
-    if (plans !== undefined) {
-      capabilities.push(PICA_MOBILE_CAPABILITY.PLANS_V1);
-    }
-
-    if (notifications === undefined) {
-      return capabilities;
-    }
-
-    capabilities.push(PICA_MOBILE_CAPABILITY.NOTIFICATIONS_V1);
-
-    try {
-      if (await notifications.isPushAvailable()) {
-        capabilities.push(PICA_MOBILE_CAPABILITY.NOTIFICATIONS_PUSH_FCM);
-      }
-    } catch (error: unknown) {
-      logCaughtError(COMPONENT, error);
-    }
-
-    return capabilities;
   }
 
   private acceptAuthentication(
@@ -607,7 +629,7 @@ export class PicaMobileConnection {
       message: "Pica Mobile authentication rejected",
       metadata: { reason: outcome.reason },
     });
-    this.reject(describeAuthenticationFailure(requestId, outcome));
+    this.reject(describePicaMobileAuthenticationFailure(requestId, outcome));
 
     if (this.failedAuthentications >= MAXIMUM_FAILED_AUTHENTICATIONS) {
       this.close(CLOSE_POLICY, "Too many failed authentications");
@@ -724,34 +746,4 @@ export class PicaMobileConnection {
       metadata: { reason },
     });
   }
-}
-
-function describeAuthenticationFailure(
-  requestId: string,
-  outcome: Extract<PicaMobileAuthOutcome, { ok: false }>,
-): PicaMobileRejection {
-  if (outcome.reason === "tooManyAttempts") {
-    return {
-      code: PICA_MOBILE_ERROR_CODE.TOO_MANY_ATTEMPTS,
-      message: "Too many failed sign-in attempts. Try again later.",
-      requestId,
-      ...(outcome.retryAfterSeconds === undefined
-        ? {}
-        : { retryAfterSeconds: outcome.retryAfterSeconds }),
-    };
-  }
-
-  if (outcome.reason === "passwordChangeRequired") {
-    return {
-      code: PICA_MOBILE_ERROR_CODE.PASSWORD_CHANGE_REQUIRED,
-      message: "Change the password in Pages before connecting.",
-      requestId,
-    };
-  }
-
-  return {
-    code: PICA_MOBILE_ERROR_CODE.AUTHENTICATION_FAILED,
-    message: "The credentials are not valid.",
-    requestId,
-  };
 }

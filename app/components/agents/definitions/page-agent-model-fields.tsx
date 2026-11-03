@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { planModelDisplay } from "@/app/components/agents/plans/plan-model-option";
+import { ModelPicker } from "@/app/components/agents/model-picker";
 import { Select } from "@/app/components/ui/select";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
@@ -20,7 +20,6 @@ export function PageAgentModelFields(props: {
   readonly layout?: "columns" | "stacked";
   readonly onChange: (draft: PageAgentInput) => void;
 }): React.ReactElement {
-  const { t } = useTranslation();
   const model = props.models.find(
     (entry) => entry.id === props.draft.modelProfileId,
   );
@@ -40,36 +39,13 @@ export function PageAgentModelFields(props: {
             : "grid min-w-0 gap-4 sm:grid-cols-2"
         }
       >
-        <label className="block min-w-0 space-y-2 text-sm font-medium">
-          <span>{t("pageAgents.model")}</span>
-          <Select
-            value={props.draft.modelProfileId}
-            ariaLabel={t("pageAgents.model")}
-            disabled={props.disabled}
-            onValueChange={selectModel}
-            className="w-full [&>span]:min-w-0 [&>span]:truncate"
-            options={[
-              ...(!model
-                ? [
-                    {
-                      value: props.draft.modelProfileId,
-                      label: `${props.savedModel ? `${props.savedModel} · ` : ""}${t("pageAgents.missingModel")}`,
-                      disabled: true,
-                    },
-                  ]
-                : []),
-              ...props.models.map((entry) => {
-                const display = planModelDisplay(entry, t);
-                return {
-                  value: entry.id,
-                  label: `${display.label} · ${entry.model}`,
-                  icon: display.icon,
-                  description: `${t(`settings.agents.provider.${entry.provider}`)}${entry.isManual ? ` · ${t("picaSettings.manual")}` : ""}${display.free}`,
-                };
-              }),
-            ]}
-          />
-        </label>
+        <ModelPicker
+          value={props.draft.modelProfileId}
+          models={props.models}
+          savedModel={props.savedModel}
+          disabled={props.disabled}
+          onChange={selectModel}
+        />
         <PageAgentReasoningField
           draft={props.draft}
           models={props.models}

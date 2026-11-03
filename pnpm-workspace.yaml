@@ -15,3 +15,13 @@ minimumReleaseAge: 14400
 overrides:
   morgan: ">=1.12.1 <2"
   qs: ">=6.16.0 <7"
+
+# pnpm derives the default from `CI`, so an install with `CI=true` and a later
+# run without it disagree: pnpm calls the modules stale and wants to purge them,
+# which aborts without a terminal (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
+enableGlobalVirtualStore: false
+
+# Gates run unattended. Stale modules fail with a message instead of a silent
+# install, which could purge them in the middle of a run; the setup step is
+# `node scripts/qa-evidence.mjs preflight --scope pages --install`.
+verifyDepsBeforeRun: error

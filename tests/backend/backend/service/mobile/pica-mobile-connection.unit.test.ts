@@ -122,7 +122,10 @@ describe("authentication", () => {
           connectionId: "connection-1",
           user: ANNA_OUTCOME.user,
           sessionToken: null,
-          heartbeat: { intervalMilliseconds: 20_000, timeoutMilliseconds: 45_000 },
+          heartbeat: {
+            intervalMilliseconds: 20_000,
+            timeoutMilliseconds: 45_000,
+          },
           server: { version: "9.9.9", protocolVersions: [1], capabilities: [] },
         },
       },
@@ -185,7 +188,6 @@ describe("authentication", () => {
     expect(world.channel.errorCodes()).toEqual(["already_authenticated"]);
     expect(world.authenticator.authenticate).toHaveBeenCalledTimes(1);
   });
-
 });
 
 describe("rejected authentication", () => {
@@ -370,11 +372,15 @@ describe("protocol violations", () => {
 
     expect(world.channel.closes).toEqual([]);
   });
+});
 
+describe("protocol limits", () => {
   it("closes a client that queues more than it waits for", async () => {
     const world = setup();
 
-    world.authenticator.authenticate.mockReturnValue(new Promise(() => undefined));
+    world.authenticator.authenticate.mockReturnValue(
+      new Promise(() => undefined),
+    );
     for (let count = 0; count < 9; count += 1) {
       world.connection.receiveText(sessionAuth(`a-${count}`));
     }

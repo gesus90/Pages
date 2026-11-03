@@ -265,6 +265,20 @@ export interface ChatSessionActivity {
   readonly selections: readonly ChatSelection[];
 }
 
+/**
+ * The small state of a conversation that another device may have changed.
+ *
+ * @remarks
+ * Read from the conversation and its newest job alone, without messages or
+ * journal; `jobId` and `jobState` are `null` without a job.
+ */
+export interface ChatSessionState {
+  readonly sessionId: string;
+  readonly lastMessageAt: string;
+  readonly jobId: string | null;
+  readonly jobState: ChatJobState | null;
+}
+
 /** What the server did with a sent message on the shared ACP path. */
 export interface ChatJobStart {
   readonly job: ChatJob;

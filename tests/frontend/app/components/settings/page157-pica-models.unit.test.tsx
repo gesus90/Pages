@@ -3,9 +3,9 @@ import { I18nextProvider } from "react-i18next";
 import { expect, it, vi } from "vitest";
 
 import { AgentZaiAccountField } from "@/app/components/settings/agents/agent-zai-account-field";
-import { picaModelOptions } from "@/app/components/settings/agents/pica-model-options";
 import { createI18n } from "@/app/lib/i18n";
 import { GLOBAL_CONNECTION_SCOPE } from "@/definition/AgentConnectionScope";
+import { consumerModels } from "@/definition/AgentModelConsumers";
 
 import type { ComponentProps } from "react";
 import type { AgentForm } from "@/app/components/settings/agents/use-agent-form";
@@ -36,8 +36,8 @@ it("offers only Pica-compatible CLI models and keeps free OpenRouter visible", (
     { ...MODEL, id: "router", model: "openrouter/example:free", isFree: true },
     { ...MODEL, id: "api", provider: "openai", model: "gpt" },
   ];
-  const options = picaModelOptions(models, createI18n("en").t);
-  expect(options.map(({ value }) => value).toSorted()).toEqual([
+  const options = consumerModels("pica", models);
+  expect(options.map(({ id }) => id).toSorted()).toEqual([
     "cli-model",
     "router",
   ]);

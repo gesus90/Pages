@@ -151,27 +151,72 @@ function criterionStatus(
   };
 }
 
-/** Reads an explicit business blocker from a structured agent result, without interpreting ordinary prose. */
-export function explicitPlanBlocker(output: string): string | null {
-  const fenced = [...output.matchAll(/```json[^\n]*\n([\s\S]*?)\n```/gu)].at(
-    -1,
-  )?.[1];
+const BLOCKING_STATUSES = new Set([
+  "blocked",
+  "open",
+  "incomplete",
+  "failed",
+  "cancelled",
+  "error",
+]);
+
+function blockingStatus(text: string): string | null {
   try {
-    const parsed = readAgentObject(JSON.parse(fenced ?? output.trim()));
-    return typeof parsed.status === "string" &&
-      [
-        "blocked",
-        "open",
-        "incomplete",
-        "failed",
-        "cancelled",
-        "error",
-      ].includes(parsed.status.toLowerCase())
-      ? parsed.status.toLowerCase()
+    const { status } = readAgentObject(JSON.parse(text));
+    return typeof status === "string" &&
+      BLOCKING_STATUSES.has(status.toLowerCase())
+      ? status.toLowerCase()
       : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * The JSON object an answer starts with, also over several lines; `null` when
+ * the braces of the first object never close, as in prose that starts with one.
+ */
+function leadingObject(text: string): string | null {
+  if (!text.startsWith("{")) return null;
+  let depth = 0;
+  let isInString = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (isInString) {
+      if (character === "\\") index += 1;
+      else if (character === '"') isInString = false;
+    } else if (character === '"') isInString = true;
+    else if (character === "{") depth += 1;
+    else if (character === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(0, index + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Reads an explicit business blocker from a structured agent result, without interpreting ordinary prose.
+ *
+ * @remarks
+ * A result is a whole JSON answer, the last or the leading `json` fence, or the
+ * JSON object an answer starts with. Every one of them is read: a blocker in
+ * front of a report or of a later fence must not be overruled by what follows.
+ * The first blocker found counts; prose and other JSON values are none.
+ */
+export function explicitPlanBlocker(output: string): string | null {
+  const text = output.trim();
+  const fences = [...text.matchAll(/```json[^\n]*\n([\s\S]*?)\n```/gu)];
+  const candidates = [
+    fences.at(-1)?.[1] ?? text,
+    fences[0]?.index === 0 ? fences[0][1] : null,
+    leadingObject(text),
+  ];
+  for (const candidate of candidates) {
+    const status = candidate === null ? null : blockingStatus(candidate);
+    if (status !== null) return status;
+  }
+  return null;
 }
 
 /**

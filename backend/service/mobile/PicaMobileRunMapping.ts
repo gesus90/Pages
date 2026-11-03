@@ -2,10 +2,7 @@ import type {
   AgentPlanActiveRun,
   AgentPlanActiveStep,
 } from "@/backend/service/agents/AgentPlanActiveRuns";
-import type {
-  AgentPlanRun,
-  AgentPlanStepResult,
-} from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
   PicaMobileDashboardRun,
   PicaMobileDashboardStage,
@@ -17,12 +14,12 @@ import type {
 const RUN_STATUS: Readonly<
   Record<AgentPlanRun["status"], Exclude<PicaMobileRunStatus, "blocked">>
 > = {
-    running: "running",
-    pausing: "pausing",
-    paused: "paused",
-    stopping: "stopping",
-    succeeded: "completed",
-    failed: "failed",
+  running: "running",
+  pausing: "pausing",
+  paused: "paused",
+  stopping: "stopping",
+  succeeded: "completed",
+  failed: "failed",
   cancelled: "cancelled",
 };
 
@@ -39,7 +36,10 @@ export function toPicaMobileRunStatus(
 }
 
 const STEP_STATUS: Readonly<
-  Record<Exclude<AgentPlanStepResult["status"], "skipped">, PicaMobileStepStatus>
+  Record<
+    Exclude<AgentPlanStepResult["status"], "skipped">,
+    PicaMobileStepStatus
+  >
 > = {
   waiting: "waiting",
   running: "running",
@@ -78,14 +78,12 @@ function toStage(
   return {
     id: `stage-${first.step.id}`,
     kind: stageKind(present.length, first.step.isLoop),
-    steps: present.map(
-      ({ step, result }): PicaMobileDashboardStep => ({
-        id: step.id,
-        number: step.number,
-        name: result.name,
-        status: toStepStatus(result),
-      }),
-    ),
+    steps: present.map(({ step, result }): PicaMobileDashboardStep => ({
+      id: step.id,
+      number: step.number,
+      name: result.name,
+      status: toStepStatus(result),
+    })),
   };
 }
 

@@ -2,13 +2,14 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 import {
   readChatJob,
   readChatJobUpdate,
+  readChatSessionState,
   readChatSteer,
 } from "@/definition/ChatJobReader";
 
 import { readChatReply } from "./chat-client";
 
 import type { ChatSendResult } from "@/definition/Chat";
-import type { ChatJobUpdate } from "@/definition/ChatJob";
+import type { ChatJobUpdate, ChatSessionState } from "@/definition/ChatJob";
 
 /**
  * Reads the answer to a sent message: an answer, a started job or a steer.
@@ -40,4 +41,11 @@ export function readChatJobResult(
   return result.update === null || result.update === undefined
     ? null
     : readChatJobUpdate(result.update);
+}
+
+/** Reads the answer of the `sessionState` intent. */
+export function readChatSessionStateResult(
+  result: Readonly<Record<string, unknown>>,
+): ChatSessionState {
+  return readChatSessionState(result.state);
 }

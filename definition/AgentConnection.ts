@@ -116,6 +116,13 @@ export type AgentConnectionLocation =
  * the server, so all are local; connections on another machine are remote.
  * `vendor` names the provider whose models a connection offers, so a CLI
  * subscription is listed together with the API of its vendor.
+ *
+ * Every model choice reads a provider's appearance and abilities here, so a
+ * runner is registered once: `mark` names its brand mark in the model choice
+ * (a key without a drawn mark shows the neutral fallback), and `chatAdapter`
+ * says how Pica answers with it: `acp` over a verified ACP session,
+ * `unverified` for an ACP adapter whose tools are not yet verified, and `null`
+ * for a provider Pica has no adapter for, such as a direct API.
  */
 export const AGENT_PROVIDERS = {
   openrouter: {
@@ -124,6 +131,8 @@ export const AGENT_PROVIDERS = {
     location: "local",
     vendor: "openrouter",
     endpoint: "https://openrouter.ai/api/v1",
+    mark: "openrouter",
+    chatAdapter: null,
   },
   openai: {
     accessKind: "api_key",
@@ -131,6 +140,8 @@ export const AGENT_PROVIDERS = {
     location: "local",
     vendor: "openai",
     endpoint: "https://api.openai.com/v1",
+    mark: "openai",
+    chatAdapter: null,
   },
   google_ai_studio: {
     accessKind: "api_key",
@@ -138,6 +149,8 @@ export const AGENT_PROVIDERS = {
     location: "local",
     vendor: "google_ai_studio",
     endpoint: "https://generativelanguage.googleapis.com/v1beta",
+    mark: "gemini",
+    chatAdapter: null,
   },
   zai: {
     accessKind: "api_key",
@@ -145,6 +158,8 @@ export const AGENT_PROVIDERS = {
     location: "local",
     vendor: "zai",
     endpoint: "https://api.z.ai/api/paas/v4",
+    mark: "zai",
+    chatAdapter: null,
   },
   anthropic: {
     accessKind: "api_key",
@@ -152,30 +167,40 @@ export const AGENT_PROVIDERS = {
     location: "local",
     vendor: "anthropic",
     endpoint: "https://api.anthropic.com/v1",
+    mark: "anthropic",
+    chatAdapter: null,
   },
   codex_cli: {
     accessKind: "cli_account",
     labelKey: "settings.agents.provider.codex_cli",
     location: "local",
     vendor: "openai",
+    mark: "openai",
+    chatAdapter: "acp",
   },
   claude_code: {
     accessKind: "cli_account",
     labelKey: "settings.agents.provider.claude_code",
     location: "local",
     vendor: "anthropic",
+    mark: "claude",
+    chatAdapter: "acp",
   },
   antigravity: {
     accessKind: "cli_account",
     labelKey: "settings.agents.provider.antigravity",
     location: "local",
     vendor: "google_ai_studio",
+    mark: "antigravity",
+    chatAdapter: "unverified",
   },
   opencode: {
     accessKind: "cli_account",
     labelKey: "settings.agents.provider.opencode",
     location: "local",
     vendor: "opencode",
+    mark: "opencode",
+    chatAdapter: "acp",
   },
 } as const;
 

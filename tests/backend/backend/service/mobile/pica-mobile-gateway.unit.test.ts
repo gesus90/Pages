@@ -31,8 +31,15 @@ async function connect(
   const channel = acceptNextUpgrade(listener);
   const attempt = createUpgrade("/pica-mobile", { "user-agent": "okhttp/4" });
 
-  listener.server.emit("upgrade", attempt.request, attempt.socket, Buffer.alloc(0));
-  await vi.waitFor(() => expect(world.gateway.connectionCount).toBeGreaterThan(0));
+  listener.server.emit(
+    "upgrade",
+    attempt.request,
+    attempt.socket,
+    Buffer.alloc(0),
+  );
+  await vi.waitFor(() =>
+    expect(world.gateway.connectionCount).toBeGreaterThan(0),
+  );
 
   return channel;
 }
@@ -64,7 +71,6 @@ describe("listening", () => {
       expect.any(Function),
     );
   });
-
 });
 
 describe("binding failures", () => {
@@ -108,7 +114,10 @@ describe("binding failures", () => {
     });
 
     expect(world.listeners).toHaveLength(0);
-    expect(world.gateway.failure).toEqual({ port: 3000, reason: "portOfPages" });
+    expect(world.gateway.failure).toEqual({
+      port: 3000,
+      reason: "portOfPages",
+    });
   });
 
   it("runs the store step without rebinding the port it already listens on", async () => {
@@ -142,7 +151,9 @@ describe("binding failures", () => {
     const listen = vi
       .spyOn(Server.prototype, "listen")
       .mockImplementation(function (this: Server, ...parameters: unknown[]) {
-        const callback = parameters.find((entry) => typeof entry === "function");
+        const callback = parameters.find(
+          (entry) => typeof entry === "function",
+        );
 
         queueMicrotask(() => (callback as (() => void) | undefined)?.());
 
@@ -188,11 +199,17 @@ describe("moving to another port", () => {
 
     expect(order).toEqual(["stored", "closed old"]);
     expect(world.gateway.port).toBe(3002);
-    expect(channel.close).toHaveBeenCalledWith(1001, "Pica Mobile port changed");
+    expect(channel.close).toHaveBeenCalledWith(
+      1001,
+      "Pica Mobile port changed",
+    );
   });
 
   it("keeps the working listener and its connections when the new port is taken", async () => {
-    const world = createGatewayWorld([{}, { failure: listenFailure("EADDRINUSE") }]);
+    const world = createGatewayWorld([
+      {},
+      { failure: listenFailure("EADDRINUSE") },
+    ]);
 
     await world.gateway.switchTo(3001, stored);
     const channel = await connect(world);
@@ -223,7 +240,9 @@ describe("moving to another port", () => {
   });
 
   it("forgets an earlier failure once a port is bound", async () => {
-    const world = createGatewayWorld([{ failure: listenFailure("EADDRINUSE") }]);
+    const world = createGatewayWorld([
+      { failure: listenFailure("EADDRINUSE") },
+    ]);
 
     await expect(world.gateway.switchTo(3001, stored)).rejects.toBeInstanceOf(
       PicaMobileListenError,
@@ -262,9 +281,14 @@ describe("shutdown", () => {
       const world = createGatewayWorld();
 
       await world.gateway.switchTo(3001, stored);
-      const closeAll = vi.spyOn(world.listeners[0].server, "closeAllConnections");
+      const closeAll = vi.spyOn(
+        world.listeners[0].server,
+        "closeAllConnections",
+      );
 
-      world.listeners[0].close.mockImplementation(() => world.listeners[0].server);
+      world.listeners[0].close.mockImplementation(
+        () => world.listeners[0].server,
+      );
       const closing = world.gateway.close();
 
       await vi.advanceTimersByTimeAsync(3_000);
@@ -291,9 +315,9 @@ describe("accepting connections", () => {
       { method: "session", token: "session-token-anna" },
       { clientAddress: "192.168.0.7", userAgent: "okhttp/4" },
     );
-    expect(JSON.parse(String(vi.mocked(channel.send).mock.calls[0][0]))).toMatchObject(
-      { type: "connected", requestId: "auth-1" },
-    );
+    expect(
+      JSON.parse(String(vi.mocked(channel.send).mock.calls[0][0])),
+    ).toMatchObject({ type: "connected", requestId: "auth-1" });
   });
 
   it("reads fragmented and binary-typed text frames", async () => {
@@ -303,11 +327,7 @@ describe("accepting connections", () => {
     const channel = await connect(world);
     const text = Buffer.from(sessionAuth("auth-2"));
 
-    channel.emit(
-      "message",
-      [text.subarray(0, 10), text.subarray(10)],
-      false,
-    );
+    channel.emit("message", [text.subarray(0, 10), text.subarray(10)], false);
     await vi.waitFor(() => expect(channel.send).toHaveBeenCalledTimes(1));
     channel.emit(
       "message",
@@ -327,9 +347,9 @@ describe("accepting connections", () => {
 
     channel.emit("message", Buffer.from([1, 2, 3]), true);
 
-    expect(JSON.parse(String(vi.mocked(channel.send).mock.calls[0][0]))).toMatchObject(
-      { type: "error", payload: { code: "invalid_message" } },
-    );
+    expect(
+      JSON.parse(String(vi.mocked(channel.send).mock.calls[0][0])),
+    ).toMatchObject({ type: "error", payload: { code: "invalid_message" } });
   });
 
   it("forgets a connection once its socket closed", async () => {
@@ -368,7 +388,6 @@ describe("accepting connections", () => {
 
     expect(() => channel.emit("pong", Buffer.alloc(0))).not.toThrow();
   });
-
 });
 
 describe("refusing connections", () => {
@@ -450,7 +469,6 @@ describe("refusing connections", () => {
     expect(world.gateway.connectionCount).toBe(100);
     expect(refused.written.join("")).toContain("503 Service Unavailable");
   });
-
 });
 
 describe("keeping the server running", () => {
@@ -467,7 +485,9 @@ describe("keeping the server running", () => {
       Buffer.alloc(0),
     );
 
-    expect(() => attempt.socket.emit("error", new Error("ECONNRESET"))).not.toThrow();
+    expect(() =>
+      attempt.socket.emit("error", new Error("ECONNRESET")),
+    ).not.toThrow();
     expect(attempt.socket.destroyed).toBe(true);
   });
 

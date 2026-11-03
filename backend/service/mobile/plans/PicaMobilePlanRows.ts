@@ -97,7 +97,9 @@ function runFields(
  * @returns The row, or `null` for a plan identifier longer than the
  * protocol allows.
  */
-export function toPlanRow(entry: AgentPlanOverviewEntry): PicaMobilePlanRow | null {
+export function toPlanRow(
+  entry: AgentPlanOverviewEntry,
+): PicaMobilePlanRow | null {
   if (entry.planId.length > PICA_MOBILE_MAXIMUM_PLAN_TEXT_LENGTH) {
     return null;
   }
@@ -129,7 +131,10 @@ function compareText(first: string, second: string): number {
   return first < second ? -1 : 1;
 }
 
-function compareRows(first: PicaMobilePlanRow, second: PicaMobilePlanRow): number {
+function compareRows(
+  first: PicaMobilePlanRow,
+  second: PicaMobilePlanRow,
+): number {
   const byRank = rank(first) - rank(second);
 
   if (byRank !== 0) return byRank;

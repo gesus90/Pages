@@ -5,6 +5,7 @@ import { ChatResultBudget } from "./ChatResultBudget";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
+import { registerPicaBrowserTools } from "./browser/PicaBrowserTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { isChatDeleteOperation } from "./ChatToolCatalog";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
@@ -428,7 +429,8 @@ interface AdministratorToolParts {
 }
 
 /**
- * Registers host files, the browser and the administrator catalog of Pages operations.
+ * Registers host files, the restricted browser, the visual operator browser
+ * (PAGE-181) and the administrator catalog of Pages operations.
  *
  * @remarks
  * Every call runs in the administrator scope of its job: the right is
@@ -440,6 +442,7 @@ function registerAdministratorTools(
 ): void {
   const { input, service, budget, execute } = parts;
   registerPicaAdminTools(registry, service, () => spend(input, budget));
+  registerPicaBrowserTools(registry, service, () => spend(input, budget));
   registerPicaOperatorTools(registry, {
     native: PICA_NATIVE_OPERATIONS,
     run: (entry, parameters, context) =>

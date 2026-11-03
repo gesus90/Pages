@@ -11,6 +11,7 @@ import {
   scanAgentPlaceholders,
 } from "@/definition/AgentParameters";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { consumerModels } from "@/definition/AgentModelConsumers";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
@@ -91,7 +92,7 @@ export class AgentAvailabilityService {
       this.dependencies.connections,
       context.viewer,
     );
-    return models.filter((model) => model.isToolCapable !== false);
+    return consumerModels("plan", models);
   }
 
   /** Administration may inspect all agents, but gets no execution authorization bypass. */

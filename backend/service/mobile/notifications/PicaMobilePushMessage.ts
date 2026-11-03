@@ -150,7 +150,9 @@ function describeStep(
     return name;
   }
 
-  return name === "" ? `${word} ${step.number}` : `${word} ${step.number}: ${name}`;
+  return name === ""
+    ? `${word} ${step.number}`
+    : `${word} ${step.number}: ${name}`;
 }
 
 function stepBody(
@@ -223,9 +225,11 @@ function build(
   details: PicaMobilePushDetails | null,
 ): PicaMobilePushMessage {
   const { event, locale } = input;
-  const isStep = event.type === PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED;
+  const isStep =
+    event.type === PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED;
   const tag = isStep ? `run:${event.runId}:step` : event.eventId;
-  const planName = details === null ? "" : clean(details.planName, MAXIMUM_NAME_LENGTH);
+  const planName =
+    details === null ? "" : clean(details.planName, MAXIMUM_NAME_LENGTH);
   const hasDetails = details !== null && planName !== "";
 
   return {

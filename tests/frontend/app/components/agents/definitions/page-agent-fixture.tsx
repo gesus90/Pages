@@ -116,6 +116,27 @@ export async function chooseOption(
   fireEvent.click(await screen.findByRole("option", { name: option }));
 }
 
+/** The trigger of the shared model choice, named by its label and current value. */
+export function modelTrigger(label: string): HTMLElement {
+  return screen.getByRole("combobox", { name: new RegExp(`^${label}`, "u") });
+}
+
+/** Opens the shared model choice with every tool expanded and returns its model rows. */
+export async function openModelRows(
+  trigger: HTMLElement,
+): Promise<readonly HTMLElement[]> {
+  fireEvent.click(trigger);
+  const rows = await screen.findAllByRole("treeitem");
+  for (const row of rows) {
+    if (row.getAttribute("aria-expanded") === "false") {
+      fireEvent.click(row.firstElementChild ?? row);
+    }
+  }
+  return screen
+    .getAllByRole("treeitem")
+    .filter((row) => row.getAttribute("aria-level") === "2");
+}
+
 /** A held answer that a test resolves once it has checked the pending state. */
 export interface HeldAnswer {
   readonly answer: () => Promise<AgentActionAnswer>;

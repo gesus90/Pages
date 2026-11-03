@@ -1,8 +1,8 @@
-# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200)
+# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200, PAGE-201)
 
 Pages stellt für die App Pica Mobile einen WebSocket-Endpunkt bereit. Dieses Dokument ist der Vertrag zwischen Pages und der App: Es beschreibt, wie ein Administrator den Endpunkt einrichtet, wie eine Verbindung aufgebaut wird und welche Nachrichten in Version 1 des Formats gelten.
 
-Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)) und `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)). Chat gehört nicht dazu.
+Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)), `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)) und `chat.v1` (Chat mit Pica in denselben Unterhaltungen wie im Web, samt Dateianhängen über HTTP am selben Port; siehe [Erweiterung chat.v1](#erweiterung-chatv1)).
 
 ## Einrichtung durch einen Administrator
 
@@ -53,13 +53,13 @@ App                                           Pages
  |<---------------------------------------------|
 ```
 
-Der Handshake verlangt weder Cookies noch Header oder Subprotokoll. Eine Browser- oder App-Herkunft (`Origin`) wird nicht ausgewertet, denn der Endpunkt liest keine Cookies; berechtigt ist allein, wer sich mit einer `auth`-Nachricht ausweist. Ein einfacher HTTP-Aufruf des Ports ohne Upgrade wird mit `426 Upgrade Required` beantwortet.
+Der Handshake verlangt weder Cookies noch Header oder Subprotokoll. Eine Browser- oder App-Herkunft (`Origin`) wird nicht ausgewertet, denn der Endpunkt liest keine Cookies; berechtigt ist allein, wer sich mit einer `auth`-Nachricht ausweist. Ein einfacher HTTP-Aufruf des Ports ohne Upgrade wird mit `426 Upgrade Required` beantwortet. Einzige Ausnahme sind die drei Datei-Endpunkte der Erweiterung `chat.v1` unter `/pica-mobile/chat/attachments` (siehe [Dateien](#dateien)); ohne `chat.v1` antworten auch sie mit 426.
 
 Bis `auth` gelingt, lehnt Pages jede andere Nachricht mit `authentication_required` ab. Wer nicht binnen 10 Sekunden erfolgreich authentifiziert, wird mit Code 1008 getrennt.
 
 ## Nachrichtenformat
 
-Jede Nachricht ist ein WebSocket-**Textframe** mit einem JSON-Objekt. Nachrichten des Clients sind höchstens 16 KiB (`16384` Bytes) groß; die Antworten von Pages unterliegen dieser Grenze nicht (ein `avatar` trägt bis zu 128 KiB Bilddaten). Ausgenommen davon sind die Antworten der Erweiterung `notifications.v1`: der Client beendet die Verbindung bei einem Frame über 16384 UTF-16-Codeeinheiten, deshalb hält Pages sie darunter (siehe [notification_event](#notification_event_get-und-notification_event)). Die Nachrichten `plans` und `plan` der Erweiterung `plans.v1` sind höchstens 262144 UTF-16-Codeeinheiten lang. Binärframes lehnt Pages ab. In beide Richtungen gilt dieselbe Hülle:
+Jede Nachricht ist ein WebSocket-**Textframe** mit einem JSON-Objekt. Nachrichten des Clients sind höchstens 16 KiB (`16384` Bytes) groß; einzig `chat_send` der Erweiterung `chat.v1` darf nach der Anmeldung bis 128 KiB (`131072` Bytes) groß sein (siehe [Grenzen von chat.v1](#grenzen-von-chatv1)). Die Antworten von Pages unterliegen dieser Grenze nicht (ein `avatar` trägt bis zu 128 KiB Bilddaten). Ausgenommen davon sind die Antworten der Erweiterung `notifications.v1`: der Client beendet die Verbindung bei einem Frame über 16384 UTF-16-Codeeinheiten, deshalb hält Pages sie darunter (siehe [notification_event](#notification_event_get-und-notification_event)). Die Nachrichten `plans` und `plan` der Erweiterung `plans.v1` sind höchstens 262144 UTF-16-Codeeinheiten lang, die Antworten `chat_*` der Erweiterung `chat.v1` höchstens 524288. Binärframes lehnt Pages ab. In beide Richtungen gilt dieselbe Hülle:
 
 ```json
 {
@@ -127,7 +127,7 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 
 `sessionToken` ist bei `method: "password"` das neu ausgestellte Sitzungstoken und sonst `null`. Die App speichert das Token im sicheren Speicher des Geräts und meldet sich danach mit `method: "session"` an; das Passwort behält sie nicht.
 
-`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1` und `notifications.push.fcm` folgen eigenen Regeln (siehe [Capabilities](#capabilities)), `plans.v1` nennt Pages nur, wenn es `plans_sync` und `plan_get` beantwortet (siehe [Erweiterung plans.v1](#erweiterung-plansv1)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
+`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1` und `notifications.push.fcm` folgen eigenen Regeln (siehe [Capabilities](#capabilities)), `plans.v1` nennt Pages nur, wenn es `plans_sync` und `plan_get` beantwortet (siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `chat.v1` nur, wenn es die acht Chat-Anfragen und die Datei-Endpunkte beantwortet (siehe [Erweiterung chat.v1](#erweiterung-chatv1)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
 
 **`pong`** antwortet auf `ping`:
 
@@ -162,7 +162,7 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `invalid_message`          | kein JSON-Objekt, Pflichtfeld fehlt oder ungültig, Payload ungültig, Binärframe; `avatar_get` mit einer Version, die nicht (mehr) die aktuelle des Kontos ist; `notification_register` mit einer anderen Plattform als `android`, einem anderen Provider als `fcm` oder ungültigem Token, `preview` oder `deviceId` | Verbindung bleibt                                                                    |
 | `unsupported_version`      | `version` nicht unterstützt (`supportedVersions` nennt die erlaubten)                                                                                                                                                                                                                                               | Verbindung bleibt                                                                    |
-| `unknown_type`             | `type` unbekannt, auch `dashboard_get` und `avatar_get` bei einem Pages ohne `dashboard.v1`, die drei `notification_*`-Anfragen bei einem Pages ohne `notifications.v1` und `plans_sync` und `plan_get` bei einem Pages ohne `plans.v1`                                                                             | Verbindung bleibt                                                                    |
+| `unknown_type`             | `type` unbekannt, auch `dashboard_get` und `avatar_get` bei einem Pages ohne `dashboard.v1`, die drei `notification_*`-Anfragen bei einem Pages ohne `notifications.v1` und `plans_sync` und `plan_get` bei einem Pages ohne `plans.v1`, die acht `chat_*`-Anfragen bei einem Pages ohne `chat.v1`                  | Verbindung bleibt                                                                    |
 | `authentication_required`  | andere Nachricht als `auth` vor erfolgreicher Authentifizierung                                                                                                                                                                                                                                                     | Verbindung bleibt                                                                    |
 | `authentication_failed`    | Zugangsdaten oder Sitzungstoken ungültig, Konto deaktiviert; auch bei später beendeter Sitzung, auch als Antwort auf ein `dashboard_get` oder `avatar_get`                                                                                                                                                          | nach 3 Fehlversuchen getrennt; ist die Sitzung beendet, wird die Verbindung getrennt |
 | `password_change_required` | das Konto muss in Pages zuerst sein Passwort ändern                                                                                                                                                                                                                                                                 | wie `authentication_failed`                                                          |
@@ -478,6 +478,83 @@ Innerhalb jeder Klasse gilt `at` absteigend und danach `name`; Zeilen ohne `at` 
 - Dauert ein Lesevorgang der Planliste 500 ms oder länger, schreibt Pages `pica_mobile.plans.slow` mit Dauer und Zeilenzahl ins Protokoll.
 - **Klartext.** Plannamen, Schrittnamen und Fehlercodes laufen wie alle Nachrichten von Version 1 über `ws://` im Klartext durch das Netz (siehe [Sicherheit](#sicherheit)). Fehlertexte, Prompts, Ausgaben, Pfade und Sitzungsdaten enthält der Vertrag nicht.
 
+## Erweiterung chat.v1
+
+Die Erweiterung lässt die App mit Pica chatten, und zwar in **denselben Unterhaltungen** wie den Web-Chat. Sie folgt dem Ticket PAGE-201; der Vertrag gilt für Pages und Pica Mobile wortgleich. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; `dashboard_get`, `avatar_get` und die übrigen Erweiterungen bleiben unverändert. Antworten laufen wie im Web über den ACP-Pfad von Pica und laufen ohne die App auf dem Server weiter; Löschen, Kompaktieren und Chat-Befehle bleiben dem Web vorbehalten. Pages sendet für den Chat nichts von sich aus, jede Antwort trägt die `requestId` ihrer Anfrage.
+
+**Synchron mit dem Web.** Die App fragt im offenen Chat alle 3 Sekunden `chat_state` ab und lädt die Unterhaltung nur bei einer Abweichung neu. Der Web-Chat tut dasselbe mit dem Intent `sessionState` der Route `/chat-api`, solange das Panel offen, die Seite sichtbar und keine eigene Sendung unterwegs ist; Eingabetext und noch nicht gesendete Anhänge bleiben dabei stehen, und eine nicht mehr vorhandene Unterhaltung weicht der zuletzt benutzten.
+
+### Anfragen und Antworten
+
+| App → Pages        | Nutzlast                                              | Antwort                                                                                      |
+| ------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `chat_open`        | `{}`                                                  | `chat_view` mit `attachmentLimitBytes` und `confirmationWord`; zuletzt benutzte Unterhaltung |
+| `chat_new`         | `{}`                                                  | `chat_view` einer neuen, leeren Unterhaltung                                                 |
+| `chat_sessions`    | `{}`                                                  | `chat_sessions`                                                                              |
+| `chat_session_get` | `{ sessionId, before? }`                              | `chat_view`; `before` ist eine Nachrichten-ID und liefert die ältere Seite davor             |
+| `chat_state`       | `{ sessionId }`                                       | `chat_state`                                                                                 |
+| `chat_send`        | `{ sessionId, clientMessageId, text, attachmentIds }` | `chat_sent`                                                                                  |
+| `chat_job_get`     | `{ sessionId, jobId, after }`                         | `chat_job`                                                                                   |
+| `chat_stop`        | `{ sessionId }`                                       | `chat_stopped`                                                                               |
+
+**`chat_view`:** `{ session, messages, hasOlder, pending, job, steers }`
+
+- `session`: `{ id, createdAt, lastMessageAt, preview }`
+- `messages`: älteste zuerst, je Seite die neuesten 30, höchstens 400000 Zeichen Inhalt. Eine einzelne Nachricht wird immer geliefert. `hasOlder` sagt, ob es ältere Nachrichten gibt; `chat_session_get` mit `before` (ID der ältesten gelieferten Nachricht) liest die Seite davor. Eine unbekannte `before`-ID ergibt `chat_failed` `invalidInput`.
+- Nachricht: `{ id, role, content, createdAt, attachments, isStopped? }`. Passt `content` nicht in den Frame, wird der Text gekürzt und `isCut: true` gesetzt.
+- Anhang: `{ id, fileName, contentType, size, origin? }`; `origin: "assistant"` kennzeichnet eine Datei von Pica.
+- `pending`: hochgeladene, noch nicht gesendete Anhänge
+- `job`: `{ id, state, errorCode }` oder `null`, der neueste Job; `state` ist `running`, `completed`, `failed`, `stopped` oder `interrupted`
+- `steers`: `[{ messageId, status }]`; `status` ist `pending`, `delivered`, `accepted`, `followUp` oder `failed`
+
+**`chat_sessions`:** `{ sessions: [{ id, lastMessageAt, preview }] }`, neueste zuerst, höchstens 200, `preview` höchstens 120 Zeichen.
+
+**`chat_state`:** `{ sessionId, lastMessageAt, jobId, jobState }`; ohne Job sind die letzten beiden `null`. Pages liest dafür nur die Unterhaltung und ihren neuesten Job, weder Nachrichten noch Journal.
+
+**`chat_send`:** `clientMessageId` ist eine UUID, die eine Wiederholung derselben Nachricht unverändert behält; Pages speichert eine wiederholte Nachricht nicht doppelt, sondern meldet den Job oder Steer, den sie beim ersten Mal ergab. `text` hat höchstens 20000 Zeichen (sonst `chat_failed` `messageTooLong`), `attachmentIds` höchstens 10 Einträge. Vor dem Senden schützt Pages den Host aus dem Handshake (`http://<Host>`) wie die Web-Route ihren Origin: Picas Browser erreicht diese Adresse nicht. Ein ungültiger `Host` wird übersprungen.
+
+**`chat_sent`:** `{ kind: "job", messageId, jobId }` oder `{ kind: "steer", messageId, jobId, status }`. Eine direkte Antwort ohne Job kann im Produktionspfad nicht vorkommen und ergibt `server_unavailable`; einmalige Quittungen wie temporäre Passwörter erreichen die App nie.
+
+**`chat_job`:** `{ jobId, state, errorCode, cursor, hasMore, events }` oder `{ jobId: null }`, wenn es keinen Job gibt. `after` ist der letzte `cursor`, beim ersten Lesen `0`. `events` enthält nur diese Arten, je `{ sequence, event }`:
+
+| `kind`   | Felder                                                             |
+| -------- | ------------------------------------------------------------------ |
+| `turn`   | `turn`, `origin` (`message` oder `followUp`), optional `startedAt` |
+| `text`   | `turn`, `isReset`, `delta`                                         |
+| `steer`  | `messageId`, `status`                                              |
+| `answer` | `turn`, `messageId`                                                |
+| `end`    | `state`, `errorCode`                                               |
+
+Andere Journal-Einträge überträgt Pages nicht, `cursor` zählt sie trotzdem mit. Eine Seite hat höchstens 200 Einträge und höchstens 200000 Zeichen, sonst ist `hasMore` `true`.
+
+**`chat_stopped`:** `{ sessionId }`. Der Job der eigenen Unterhaltung wird gestoppt; das Schließen der App stoppt nichts.
+
+**`chat_failed`:** Antwort auf eine fachlich abgelehnte Chat-Anfrage: `{ code }`. `code` ist ein Wert von `ChatErrorCode`, zum Beispiel `sessionMissing`, `disabled`, `credentialsInText`, `messageTooLong`, `messageAlreadySent` oder `acpProviderUnsupported`. Texte kommen nicht von Pages. Die vorhandenen Codes der Hülle (`invalid_message`, `authentication_required`, `unknown_type`, `rate_limited`, `server_unavailable`) gelten weiter; andere Fehler als `ChatError`, etwa eine noch laufende andere Antwort des Kontos, ergeben `server_unavailable`.
+
+### Dateien
+
+Gleicher Host und Port wie der WebSocket, `http` zu `ws` und `https` zu `wss`, mit `Authorization: Bearer <Sitzungstoken>`. Das Token steht nie in der Adresse und nie im Protokoll.
+
+| Anfrage                                                                                  | Antwort                                             |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `PUT /pica-mobile/chat/attachments?session=<id>&name=<Dateiname, URL-kodiert>`, Rohdaten | 200 `{ ok: true, attachment }`                      |
+| `GET /pica-mobile/chat/attachments/<id>`                                                 | 200 mit der Datei                                   |
+| `DELETE /pica-mobile/chat/attachments/<id>`                                              | 200 `{ ok: true }`, nur für nicht gesendete Anhänge |
+
+Fehler sind `{ ok: false, error: <ChatErrorCode> }`: Status 404 für `sessionMissing` und `attachmentMissing` (ein fremder und ein fehlender Anhang antworten gleich), 413 für `fileTooLarge`, 400 für andere Fachfehler, 401 mit `accessDenied` für ein fehlendes oder ungültiges Token und eine beendete Sitzung, 429 mit `tooManyTransfers` bei mehr als 4 gleichzeitigen Übertragungen eines Kontos. Ein abgebrochener Transfer gibt seinen Platz frei. Das Token wird wie bei `auth` mit `method: "session"` geprüft und danach wie bei jeder Chat-Anfrage gegen das aktuelle Konto. Beim Hochladen gilt die Grenze des Administrators wie im Web; beim Herunterladen sendet Pages dieselben Kopfzeilen wie der Web-Download (`Content-Disposition: attachment`, `Content-Security-Policy: default-src 'none'; sandbox`, `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-cache`). Alle anderen HTTP-Anfragen am Port antworten weiter mit 426.
+
+### Grenzen von chat.v1
+
+- Text-Frames von Pages an die App haben bei `chat_*` höchstens 524288 UTF-16-Codeeinheiten.
+- Frames an Pages haben bis zur Anmeldung höchstens 16 KiB; ein größerer Frame beendet die Verbindung mit 1009. Nach der Anmeldung lehnt Pages einen Frame über 16 KiB mit `invalid_message` ab, außer `chat_send`, das bis 128 KiB groß sein darf. Größere Frames beendet der WebSocket mit 1009.
+- Chat-Anfragen zählen wie jede Nachricht zum Rate-Limit (30 in 10 Sekunden) und zu den höchstens 8 unerledigten Nachrichten.
+
+### Rechte, Sitzung und Klartext
+
+- Jede Anfrage prüft zuerst die Sitzung. Ist sie beendet oder das Konto deaktiviert, antwortet Pages mit `authentication_failed` und trennt mit Code 1008 („Session ended“), wie bei `dashboard_get`.
+- Die App sieht nur die eigenen Unterhaltungen des angemeldeten Kontos; eine neue Berechtigung, eine Push-Nachricht für Chat-Antworten oder eine neue Datenbankspalte führt die Erweiterung nicht ein.
+- **Klartext.** Chat-Inhalte, Dateien und das Sitzungstoken laufen über `ws://` und `http://` im Klartext durch das Netz (siehe [Sicherheit](#sicherheit)). Betreibe den Endpunkt nur in einem vertrauenswürdigen Netz.
+
 ## Erweiterung notifications.v1 (Android, FCM)
 
 Die Erweiterung benachrichtigt eine angemeldete Android-App über die eigenen Agent-Pläne des Kontos: wenn ein Folgeschritt wirklich startet, ein Lauf bestätigt abgebrochen wird, fehlschlägt oder erfolgreich endet. Zugestellt wird direkt über Firebase Cloud Messaging (FCM HTTP v1). iOS und APNs gehören nicht dazu, es gibt kein Expo-Push-Relay und keine Hintergrundabfrage oder dauerhaft offene Verbindung als Ersatz für Push. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; Pages sendet über die WebSocket-Verbindung nie von sich aus `notification_*`-Nachrichten, die App fragt nur. Betrieb, Konfiguration, Grenzen der Zustellung und die Übergabe an die Geräteprüfung stehen in [PicaMobileNotifications.md](./PicaMobileNotifications.md).
@@ -734,21 +811,22 @@ Pica Mobile führt keinen eigenen Zugang ein, sondern nutzt die Pages-Konten:
 - `method: "session"` weist eine solche Sitzung vor. Sie ist 14 Tage gültig, wie im Browser.
 - Konten, die ihr Passwort erst ändern müssen, können sich nicht verbinden (`password_change_required`), ebenso wenig wie sie Pages im Browser nutzen können.
 
-Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`, `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1` sowie `plans_sync` und `plan_get` der Erweiterung `plans.v1`.
+Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`, `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1` , `plans_sync` und `plan_get` der Erweiterung `plans.v1` sowie die acht `chat_*`-Anfragen und die Datei-Endpunkte der Erweiterung `chat.v1`.
 
 Pages prüft die Sitzung einer Verbindung etwa jede Minute neu. Wurde sie beendet oder das Konto deaktiviert, sendet Pages `authentication_failed` und trennt mit Code 1008 („Session ended“). Schlägt nur die Prüfung selbst fehl (zum Beispiel wegen einer Störung der Datenbank), bleibt die Verbindung bestehen.
 
 ## Heartbeat, Abbrüche und Grenzen
 
-| Wert                                    | Größe         | Wirkung                                                                   |
-| --------------------------------------- | ------------- | ------------------------------------------------------------------------- |
-| WebSocket-Ping des Servers              | alle 20 s     | Standard-Pings; Browser und React Native antworten selbstständig mit Pong |
-| Stille einer Verbindung                 | mehr als 45 s | Pages beendet die Verbindung ohne Abschlussaustausch                      |
-| Zeit bis zur Authentifizierung          | 10 s          | danach Close-Code 1008 „Authentication timeout“                           |
-| Größe einer Nachricht                   | 16 KiB        | größere Frames beenden die Verbindung (Close-Code 1009)                   |
-| unerledigte Nachrichten je Verbindung   | 8             | mehr beenden die Verbindung (1008 „Too many pending messages“)            |
-| Verbindungen insgesamt                  | 100           | weitere Handshakes erhalten HTTP 503                                      |
-| Abschluss-Handshake bei Pages-Schließen | 2 s           | danach wird die Verbindung getrennt                                       |
+| Wert                                    | Größe         | Wirkung                                                                                                                                          |
+| --------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| WebSocket-Ping des Servers              | alle 20 s     | Standard-Pings; Browser und React Native antworten selbstständig mit Pong                                                                        |
+| Stille einer Verbindung                 | mehr als 45 s | Pages beendet die Verbindung ohne Abschlussaustausch                                                                                             |
+| Zeit bis zur Authentifizierung          | 10 s          | danach Close-Code 1008 „Authentication timeout“                                                                                                  |
+| Größe einer Nachricht                   | 16 KiB        | vor der Anmeldung beendet ein größerer Frame die Verbindung (Close-Code 1009); danach wird er mit `invalid_message` abgelehnt, außer `chat_send` |
+| Größe von `chat_send`                   | 128 KiB       | größere Frames beenden die Verbindung (Close-Code 1009)                                                                                          |
+| unerledigte Nachrichten je Verbindung   | 8             | mehr beenden die Verbindung (1008 „Too many pending messages“)                                                                                   |
+| Verbindungen insgesamt                  | 100           | weitere Handshakes erhalten HTTP 503                                                                                                             |
+| Abschluss-Handshake bei Pages-Schließen | 2 s           | danach wird die Verbindung getrennt                                                                                                              |
 
 Jede Nachricht und jedes Pong des Clients gilt als Lebenszeichen. Eine App sollte zusätzlich ein `ping` senden, wenn sie länger als 30 Sekunden nichts gesendet hat, damit Mobilfunk- und NAT-Zustände offen bleiben, und die Laufzeit des `pong` für ihre Verbindungsanzeige nutzen.
 
@@ -764,7 +842,7 @@ Ein Abbruch wegen verlorener Verbindung (1006) oder Pages-Neustart (1001) ist no
 
 ## Sicherheit
 
-- **Kein TLS in Version 1.** Auf `ws://` sind Passwort, Sitzungstoken und alle Nachrichten im Netz lesbar. Betreibe den Endpunkt nur in einem vertrauenswürdigen Netz und gib den Port nicht ins Internet frei. Eine spätere Version ergänzt `wss://`.
+- **Kein TLS in Version 1.** Auf `ws://` sind Passwort, Sitzungstoken und alle Nachrichten im Netz lesbar, mit `chat.v1` auch alle Chat-Inhalte; die Datei-Endpunkte übertragen Dateien und das Sitzungstoken (`Authorization`) über `http://` ebenso im Klartext. Betreibe den Endpunkt nur in einem vertrauenswürdigen Netz und gib den Port nicht ins Internet frei. Eine spätere Version ergänzt `wss://`.
 - Der Endpunkt liest keine Cookies; fremde Webseiten können über den Browser des Administrators keine Verbindung als er aufbauen.
 - Fehlversuche sind pro Verbindung (3) und pro Benutzername und Adresse (Anmeldesperre von Pages) begrenzt.
 - Das Protokoll enthält weder Passwörter noch Tokens: Pages protokolliert Start, Portwechsel, Öffnen und Schließen von Verbindungen, Ablehnungsgründe (nur den Code) und Fehler. Die ersten fünf Ablehnungen je Verbindung werden protokolliert, damit ein Client das Protokoll nicht füllen kann. Nachrichteninhalte stehen nie im Protokoll.

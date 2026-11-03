@@ -2,14 +2,14 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
-import { PicaMascot } from "@/app/components/chat/pica-mascot";
+import { ModelPicker } from "@/app/components/agents/model-picker";
 import {
-  FREE_MODEL_TAG,
-  picaModelOptions,
-} from "@/app/components/settings/agents/pica-model-options";
+  ModelCatalogRefreshContext,
+  useModelCatalogRefresh,
+} from "@/app/components/agents/model-picker/use-model-catalog-refresh";
+import { PicaMascot } from "@/app/components/chat/pica-mascot";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
-import { SearchableSelect } from "@/app/components/ui/searchable-select";
 import { Select } from "@/app/components/ui/select";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import {
@@ -19,6 +19,7 @@ import {
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
+import type { ModelCatalogRefresh } from "@/app/components/agents/model-picker/use-model-catalog-refresh";
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { PicaAdministration } from "@/definition/PicaSettings";
@@ -29,25 +30,40 @@ interface PicaSettingsCardProps {
   readonly models: readonly PageAgentModel[];
 }
 
-/** The fixed chat identity alongside the independently managed agent connections. */
+/**
+ * The fixed chat identity alongside the independently managed agent connections.
+ *
+ * @remarks
+ * The model choice is the shared one of Pages, fed with the models of the
+ * shared catalog that Pica can run. The page's refresh channel checks for a
+ * changed catalog on focus, on opening the choice and while the page is
+ * visible; a refresh never changes the saved choice or the draft.
+ */
 export function PicaSettingsCard({
   settings,
   models,
-}: PicaSettingsCardProps): React.ReactElement {
+  catalogRefresh,
+}: PicaSettingsCardProps & {
+  /** The marker of Pica's model projection; without it the models stay as loaded. */
+  readonly catalogRefresh?: ModelCatalogRefresh;
+}): React.ReactElement {
   const { t } = useTranslation();
   const fetcher = useFetcher<AgentActionResult>({ key: "pica-settings" });
+  const refresh = useModelCatalogRefresh(catalogRefresh);
   return (
     <SettingsCard
       icon={<PicaMascot className="size-7" />}
       title={t("picaSettings.title")}
       description={t("picaSettings.description")}
     >
-      <PicaSettingsForm
-        key={settings.revision}
-        settings={settings}
-        models={models}
-        fetcher={fetcher}
-      />
+      <ModelCatalogRefreshContext value={refresh}>
+        <PicaSettingsForm
+          key={settings.revision}
+          settings={settings}
+          models={models}
+          fetcher={fetcher}
+        />
+      </ModelCatalogRefreshContext>
     </SettingsCard>
   );
 }
@@ -100,6 +116,7 @@ function PicaSettingsForm({
           onValueChange={(choice) => setEnabled(choice === "true")}
         />
       </div>
+      <PicaTarget />
       <PicaModelFields
         models={models}
         modelKey={modelKey}
@@ -150,6 +167,17 @@ interface PicaModelFieldsProps {
   readonly onEffort: (effort: string) => void;
 }
 
+// Pica runs on this host only; the target stands once above the model choice.
+function PicaTarget(): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <p className="flex flex-wrap items-baseline gap-x-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm">
+      <span className="text-muted-foreground">{t("picaSettings.target")}</span>
+      <span className="font-semibold">{t("picaSettings.targetLocal")}</span>
+    </p>
+  );
+}
+
 function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
   const { t } = useTranslation();
   const id = useId();
@@ -163,34 +191,15 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
     defaultLabel: t("pageAgents.defaultReasoning"),
     translate: t,
   });
-  const modelOptions = picaModelOptions(props.models, t);
-  if (!model && props.modelKey)
-    modelOptions.unshift({
-      value: props.modelKey,
-      label: `${props.savedModel} · ${t("pageAgents.missingModel")}`,
-      disabled: true,
-    });
   return (
     <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-      <SearchableSelect
-        id={`${id}-model`}
-        label={t("pageAgents.model")}
+      <ModelPicker
         value={props.modelKey}
-        options={modelOptions}
-        onValueChange={props.onModel}
+        models={props.models}
+        savedModel={props.savedModel}
         disabled={props.disabled}
-        className="border border-border"
-        filters={[
-          { tag: FREE_MODEL_TAG, label: t("settings.agents.freeBadge") },
-        ]}
-        texts={{
-          placeholder: t("picaSettings.chooseModel"),
-          unavailable: t("pageAgents.missingModel"),
-          search: t("picaSettings.searchModels"),
-          empty: t("picaSettings.noModels"),
-          count: (count, total) =>
-            t("settings.agents.catalog.count", { count, total }),
-        }}
+        placeholder={t("picaSettings.chooseModel")}
+        onChange={props.onModel}
       />
       <div className="min-w-0 space-y-2">
         <label htmlFor={`${id}-reasoning`} className="text-sm font-medium">

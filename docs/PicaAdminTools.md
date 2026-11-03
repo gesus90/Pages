@@ -1,5 +1,9 @@
 # Pica administrator browser and files (PAGE-139)
 
+> The visual operator browser (clicking, forms, uploads, live view, takeover)
+> is a separate path, see [PicaOperatorBrowser](PicaOperatorBrowser.md)
+> (PAGE-181). The restricted browser below stays unchanged.
+
 Pica's native API catalog and ACP tool bridge offer `admin_browser_open`,
 `admin_browser_action`, `admin_files_find`, `admin_files_read` and
 `admin_files_edit` to administrators; they carry the `administrator` access

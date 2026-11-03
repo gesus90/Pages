@@ -66,7 +66,7 @@ src/tools/read-operation.ts         dispatch of a tool call to Pages
 src/tools/operation-failure.ts      whitelist of Pages business failures
 scripts/                            release tooling, run directly by Node
 tests/src/, tests/scripts/          unit tests, mirroring the source path
-tests/stdio/                        manual stdio acceptance, no unit test
+tests/stdio/                        stdio acceptance of the bundle, no unit test
 ```
 
 - A file has one purpose. Tool definitions of a domain live in
@@ -218,9 +218,10 @@ tests/stdio/                        manual stdio acceptance, no unit test
 
 ## 10. Unit Tests
 
-The test scope is unit tests only. `tests/stdio/` (`pnpm run test:mcp`) is a
-manual acceptance against a running Pages instance and is not part of the unit
-suite. Do not add integration or end-to-end tests.
+The test scope is unit tests only. `tests/stdio/` is not part of the unit suite:
+`pnpm run test:mcp` runs the real bundle over stdio against a synthetic Pages
+fixture, `pnpm run test:mcp:live` is a manual acceptance against a running Pages
+instance. Add no other integration or end-to-end tests.
 
 ### Location and Names
 

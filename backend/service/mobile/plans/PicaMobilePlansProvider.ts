@@ -30,7 +30,9 @@ export type PicaMobilePlanOutcome =
  */
 export interface PicaMobilePlansReader {
   /** Reads every row of the account, unordered and not yet limited. */
-  readPlans(session: PicaMobileSessionIdentity): Promise<PicaMobilePlansOutcome>;
+  readPlans(
+    session: PicaMobileSessionIdentity,
+  ): Promise<PicaMobilePlansOutcome>;
   /** Reads the latest own run of one plan of the account. */
   readPlan(
     session: PicaMobileSessionIdentity,

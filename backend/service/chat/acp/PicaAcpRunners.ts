@@ -3,14 +3,21 @@ import {
   acpRunOptions,
   agentRunOptionsFor,
 } from "@/definition/AgentConfiguration";
+import { hasChatAdapter } from "@/definition/AgentModelConsumers";
 
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentProviderId } from "@/definition/AgentConnection";
+import type { ChatAdapterProviderId } from "@/definition/AgentModelConsumers";
 
-/** The CLI runners Pica answers with over ACP, including native OpenCode (PAGE-91). */
-export type PicaAcpProvider =
-  "codex_cli" | "claude_code" | "opencode" | "antigravity";
+/**
+ * The CLI runners Pica answers with over ACP, including native OpenCode (PAGE-91).
+ *
+ * @remarks
+ * A provider registers its chat adapter once in `AGENT_PROVIDERS`; the runner
+ * table below then has to name it, or the build fails.
+ */
+export type PicaAcpProvider = ChatAdapterProviderId;
 
 /** What differs between the runners of Pica's ACP path. */
 export interface PicaAcpRunner {
@@ -95,12 +102,7 @@ const RUNNERS: Readonly<Record<PicaAcpProvider, PicaAcpRunner>> = {
 export function isPicaAcpProvider(
   provider: AgentProviderId,
 ): provider is PicaAcpProvider {
-  return (
-    provider === "codex_cli" ||
-    provider === "claude_code" ||
-    provider === "opencode" ||
-    provider === "antigravity"
-  );
+  return hasChatAdapter(provider);
 }
 
 /**

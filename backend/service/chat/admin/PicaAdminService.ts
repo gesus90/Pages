@@ -4,16 +4,28 @@ import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { logEvent } from "@/backend/logging/Logger";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 
+import { PicaOperatorBrowser } from "../browser/PicaOperatorBrowser";
 import { protectPagesOrigin } from "./PicaBrowserNetwork";
 import { PicaAdminBrowser } from "./PicaAdminBrowser";
 import { PicaAdminFiles, adminScope } from "./PicaAdminFiles";
 import { PICA_ADMIN_SCHEMAS, PicaAdminError } from "./PicaAdminContracts";
+import { launchPicaBrowser } from "./PicaBrowserSandbox";
 
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { RuntimeAdministratorGate } from "@/backend/agents/runtime/RuntimeToolRegistry";
+import type { Browser } from "playwright-core";
+import type {
+  PicaBrowserCommand,
+  PicaBrowserOverview,
+  PicaBrowserView,
+} from "@/definition/PicaBrowser";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
+import type { PicaBrowserTool } from "../browser/PicaBrowserContracts";
+import type { PicaBrowserFrame } from "../browser/PicaBrowserSession";
+import type { PicaBrowserSessionStore } from "../browser/PicaBrowserSessionStore";
+import type { PicaBrowserOrigins } from "../browser/PicaBrowserTargets";
 import type { PicaAdminTool } from "./PicaAdminContracts";
 
 /** The scope id of a task the administrator console started, as opposed to a chat job. */
@@ -27,6 +39,16 @@ export interface PicaPrivilegedCall {
   readonly input?: unknown;
   /** Reaches host files or a browser, so the process must not run with OS administrator rights. */
   readonly isHostAccess?: boolean;
+}
+
+/** Optional parts of the operator browser; a bare service refuses nothing it did not offer before. */
+export interface PicaAdminServiceOptions {
+  /** Starts the isolated Chromium; the default is the mandatory namespace sandbox without fallback. */
+  readonly launchBrowser?: () => Promise<Browser>;
+  /** The local origins the operator browser may reach: this Pages instance and released services. */
+  readonly localOrigins?: () => PicaBrowserOrigins;
+  /** Where signed-in sessions the administrator released are kept, encrypted. */
+  readonly browserSessions?: PicaBrowserSessionStore;
 }
 
 interface AdminScope {
@@ -48,13 +70,23 @@ export class PicaAdminService {
   private readonly policy = new UserPolicyService();
   private readonly files = new PicaAdminFiles();
   private readonly browsers = new PicaAdminBrowser();
+  private readonly operatorBrowsers: PicaOperatorBrowser;
   private readonly scopes = new Map<string, AdminScope>();
 
-  public constructor(accounts: {
-    readonly users: Pick<UserService, "getById">;
-    readonly administration: Pick<AdministrationService, "getContext">;
-  }) {
+  public constructor(
+    accounts: {
+      readonly users: Pick<UserService, "getById">;
+      readonly administration: Pick<AdministrationService, "getContext">;
+    },
+    options: PicaAdminServiceOptions = {},
+  ) {
     this.accounts = accounts;
+    this.operatorBrowsers = new PicaOperatorBrowser({
+      launch: options.launchBrowser ?? launchPicaBrowser,
+      origins: options.localOrigins ?? (() => ({ pages: [], services: [] })),
+      store: options.browserSessions ?? null,
+      readFile: (context, relative) => this.files.read(context, relative),
+    });
     registerShutdownTask(
       async () => {
         for (const scope of [...this.scopes.values()])
@@ -141,6 +173,7 @@ export class PicaAdminService {
     scope.removeListener();
     scope.controller.abort("adminScopeEnded");
     await this.browsers.closeScope(scope.context);
+    await this.operatorBrowsers.closeScope(scope.context);
     this.audit(scope.context, "scope.close", "completed");
   }
 
@@ -191,6 +224,65 @@ export class PicaAdminService {
         return { ok: true, result: serialized, error: null };
       },
     );
+  }
+
+  /**
+   * Runs one operator browser tool of the model in the administrator scope of its job.
+   *
+   * @param tool - The operator browser tool.
+   * @param input - The untrusted arguments.
+   * @param context - The server-owned scope of the job or console task.
+   * @returns The outcome; a screenshot travels as image data next to the text.
+   */
+  public async runBrowser(
+    tool: PicaBrowserTool,
+    input: unknown,
+    context: RuntimeExecutionContext,
+  ): Promise<PicaToolOutcome> {
+    return this.runPrivileged(
+      { operation: tool, input, isHostAccess: true },
+      context,
+      (guarded) => this.operatorBrowsers.run(tool, input, guarded),
+    );
+  }
+
+  /** The browsers and saved sessions of an administrator, for the live view of the chat. */
+  public async browserOverview(userId: string): Promise<PicaBrowserOverview> {
+    await this.requireAdministrator(userId);
+    return this.operatorBrowsers.overview(userId);
+  }
+
+  /** The newest picture of one of the administrator's browsers. */
+  public async browserFrame(
+    userId: string,
+    browserId: string,
+  ): Promise<PicaBrowserFrame | null> {
+    await this.requireAdministrator(userId);
+    return this.operatorBrowsers.frame(userId, browserId);
+  }
+
+  /** Applies a control of the administrator to one of their browsers. */
+  public async browserCommand(
+    userId: string,
+    browserId: string,
+    command: PicaBrowserCommand,
+  ): Promise<PicaBrowserView> {
+    await this.requireAdministrator(userId);
+    return this.operatorBrowsers.command(userId, browserId, command);
+  }
+
+  /** A file one of the administrator's browsers downloaded. */
+  public async browserDownload(
+    userId: string,
+    browserId: string,
+    downloadId: string,
+  ): Promise<{
+    readonly fileName: string;
+    readonly contentType: string;
+    readonly bytes: Buffer;
+  }> {
+    await this.requireAdministrator(userId);
+    return this.operatorBrowsers.download(userId, browserId, downloadId);
   }
 
   /**

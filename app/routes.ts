@@ -30,6 +30,7 @@ export default [
   layout("routes/authenticated.tsx", [
     route("settings-api/ticket-assets", "routes/settings-ticket-assets.ts"),
     route("settings-api/interpreters", "routes/settings-interpreters.ts"),
+    route("settings-api/pica-models", "routes/settings-pica-models.ts"),
     route("account-version", "routes/account-version.ts"),
     route(
       "design-themes/:designThemeId/preview",
@@ -39,6 +40,12 @@ export default [
     route("pica-tools-api", "routes/pica-tools-api.ts"),
     route("chat-api", "routes/chat-api.ts"),
     route("chat-api/attachments", "routes/chat-attachments.ts"),
+    route("chat-browser-api", "routes/chat-browser-api.ts"),
+    route("chat/browser/:browserId/frame", "routes/chat-browser-frame.ts"),
+    route(
+      "chat/browser/:browserId/downloads/:downloadId",
+      "routes/chat-browser-download.ts",
+    ),
     route("chat/attachments/:attachmentId", "routes/chat-attachment.ts"),
     route(
       "chat/attachments/:attachmentId/preview",

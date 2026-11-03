@@ -13,6 +13,7 @@ import { useChatContext } from "./use-chat-context";
 import { useChatJob } from "./use-chat-job";
 import { isQuotaDemoCommand, useChatQuotaDemo } from "./use-chat-quota-demo";
 import { useChatSend } from "./use-chat-send";
+import { useChatSync } from "./use-chat-sync";
 import { applyChatSessionRead, useChatUploads } from "./use-chat-uploads";
 
 import type { ChatConfirmationWord, ChatContextSize } from "@/definition/Chat";
@@ -116,6 +117,13 @@ export function useChat(isOpen: boolean): ChatController {
     setError,
     onJob: jobs.attach,
     refresh,
+  });
+  useChatSync({
+    isOpen,
+    view,
+    isSending: sender.sending !== null,
+    reload: refresh,
+    setView,
   });
   const commands = useChatCommands({ setView, setError });
   const context = useChatContext({

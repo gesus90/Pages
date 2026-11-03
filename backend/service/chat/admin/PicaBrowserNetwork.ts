@@ -1,12 +1,12 @@
 import { lookup } from "node:dns/promises";
 import { request } from "node:https";
 import { BlockList, isIP } from "node:net";
-import { hostname, networkInterfaces } from "node:os";
+import { hostname as systemHostname, networkInterfaces } from "node:os";
 
 import { PicaAdminError } from "./PicaAdminContracts";
 
 const denied = new BlockList();
-const pagesHosts = new Set<string>([hostname().toLowerCase()]);
+const pagesHosts = new Set<string>([systemHostname().toLowerCase()]);
 for (const addresses of Object.values(networkInterfaces())) {
   for (const address of addresses ?? []) {
     if (address.family === "IPv4") denied.addAddress(address.address, "ipv4");
@@ -71,20 +71,31 @@ async function protectPagesAddresses(): Promise<void> {
   }
 }
 
-/** Resolves every request, refuses mixed private answers and pins the exact public IPv4 address to TLS. */
-export async function readPublicPage(input: {
-  readonly url: URL;
-  readonly signal: AbortSignal;
-}): Promise<{ body: Buffer; contentType: string; status: number }> {
+/**
+ * Resolves a public host name to the one IPv4 address a request is pinned to.
+ *
+ * @param hostname - The host name of a URL that passed {@link publicBrowserUrl}.
+ * @returns The first answer, once every answer is a public address.
+ * @throws {PicaAdminError} `URL_DENIED` for no answer, or a private, reserved or Pages-owned one.
+ */
+export async function resolvePublicAddress(hostname: string): Promise<string> {
   await protectPagesAddresses();
-  const addresses = await lookup(input.url.hostname, { all: true, family: 4 });
+  const addresses = await lookup(hostname, { all: true, family: 4 });
   if (
     !addresses.length ||
     addresses.some((entry) => denied.check(entry.address, "ipv4"))
   )
     throw new PicaAdminError("URL_DENIED");
+  return addresses[0].address;
+}
+
+/** Resolves every request, refuses mixed private answers and pins the exact public IPv4 address to TLS. */
+export async function readPublicPage(input: {
+  readonly url: URL;
+  readonly signal: AbortSignal;
+}): Promise<{ body: Buffer; contentType: string; status: number }> {
+  const address = await resolvePublicAddress(input.url.hostname);
   input.signal.throwIfAborted();
-  const address = addresses[0].address;
   return new Promise((resolve, reject) => {
     const connection = request(
       input.url,

@@ -50,6 +50,7 @@ administrators without a second description (`PicaOperatorCatalog.ts`):
 | Audit                     | `read_admin_activity`                                                                                                                                                                                                                  |
 | Tickets, wiki, milestones | the ticket links, checklists, tree, wiki anchors, icons and covers, milestone dependencies and initiatives, people search and the other operations the chat catalog knows and no tool of every person covers                           |
 | Host                      | `admin_files_find`, `admin_files_read`, `admin_files_edit`, `admin_browser_open`, `admin_browser_action` (see [PicaAdminTools](PicaAdminTools.md))                                                                                     |
+| Operator browser          | the visual `browser_*` tools (see [PicaOperatorBrowser](PicaOperatorBrowser.md))                                                                                                                                                       |
 
 `PICA_UNOFFERED_OPERATIONS` names the operations no native tool offers, each with
 its reason. A test proves that every operation of the chat catalog is reachable

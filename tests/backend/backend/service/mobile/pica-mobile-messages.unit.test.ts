@@ -44,9 +44,7 @@ describe("valid messages", () => {
   it("reads a session authentication", () => {
     const payload = { method: "session", token: "abc" };
 
-    expect(
-      parsePicaMobileMessage(frame({ type: "auth", payload })),
-    ).toEqual({
+    expect(parsePicaMobileMessage(frame({ type: "auth", payload }))).toEqual({
       ok: true,
       message: { type: "auth", requestId: "r-1", payload },
     });

@@ -4,7 +4,10 @@ import { LRUCache } from "lru-cache";
 
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { SUPPORTED_AVATAR_MIME_TYPES, USER_AVATAR_TYPE } from "@/definition/User";
+import {
+  SUPPORTED_AVATAR_MIME_TYPES,
+  USER_AVATAR_TYPE,
+} from "@/definition/User";
 
 import { shrinkAvatarImage } from "./PicaMobileAvatarImage";
 

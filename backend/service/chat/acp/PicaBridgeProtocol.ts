@@ -73,8 +73,17 @@ async function callTool(
   if (fields === null || typeof fields.name !== "string")
     return failure(id, -32602, "Invalid params");
   const outcome = await handlers.call(fields.name, fields.arguments ?? {});
+  // Screenshots travel as MCP image content, so a vision model sees them; the text keeps only the outcome.
+  const { images, ...answer } = outcome;
   return reply(id, {
-    content: [{ type: "text", text: JSON.stringify(outcome) }],
+    content: [
+      { type: "text", text: JSON.stringify(answer) },
+      ...(images ?? []).map((image) => ({
+        type: "image",
+        data: image.data,
+        mimeType: image.mimeType,
+      })),
+    ],
     isError: !outcome.ok,
   });
 }

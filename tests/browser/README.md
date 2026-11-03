@@ -31,9 +31,19 @@ as the `playwright-core` the agent tools already use.
    directory, does not serve and the run fails at once with "Executable doesn't
    exist". Install the revision into a directory you can write to and point the
    run at it: `PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers pnpm exec playwright install chromium`,
-   then run with the same variable set.
-4. Port 3100 free (`PAGES_BROWSER_PORT` picks another one). A process that
-   already listens on the port is never touched: the run refuses to start.
+   then run with the same variable set. `pnpm run browser:test` does this
+   itself: it starts the browser of every known cache (`PLAYWRIGHT_BROWSERS_PATH`,
+   `$XDG_CACHE_HOME`, `$HOME/.cache`, the cache of the operating-system account),
+   because a copied cache can lack the execute bit, and installs the revision
+   into `$XDG_CACHE_HOME/pages-browser-tests` when none starts. It never changes
+   the mode of a file or switches the Chromium sandbox off.
+4. Port 3100 free. A process that already listens on it is never touched:
+   `pnpm run browser:test` takes a free loopback port instead, and
+   `PAGES_BROWSER_PORT` names one explicitly. Port 3000 is always refused.
+
+`pnpm run browser:test` ends with the exit code of the failed step, with 124
+after `PAGES_BROWSER_TIMEOUT_MINUTES` (default 45) per step and with 3 when no
+browser can be provided.
 
 ## What a run does
 
@@ -112,9 +122,14 @@ loading spinner; keyboard focus ring; the description with its images.
   were made with the Chromium headless shell of Playwright 1.63.0 on Linux; other
   platforms need their own baselines.
 - A difference fails the test and leaves the **expected, actual and diff**
-  images in `results/artifacts/<test>/` (`*-expected.png`, `*-actual.png`,
-  `*-diff.png`), plus a trace. `results/report/index.html` is the HTML report.
-  Both are git-ignored; `PAGES_BROWSER_RESULTS` moves them elsewhere.
+  images in `<results>/artifacts/<test>/` (`*-expected.png`, `*-actual.png`,
+  `*-diff.png`), plus a trace. `<results>/report/index.html` is the HTML report.
+- `<results>` lies outside the checkout: generated reports contain JavaScript
+  and must never reach the gates. `pnpm run browser:test` creates one directory
+  per run under `$XDG_STATE_HOME/pages-browser-tests/`, so a run keeps the
+  evidence of the previous one, and prints it. `PAGES_BROWSER_RESULTS` names
+  another directory outside the checkout. The legacy `tests/browser/results/`
+  of older runs stays git-ignored and is ignored by ESLint.
 
 ### Changing a baseline
 
@@ -170,7 +185,6 @@ playwright.config.ts   projects, tolerances, reporters, snapshot paths
 support/               instance start, HTTP client, seeding, charts, page object, checks
 specs/                 the specs above
 __screenshots__/       reviewed baselines
-results/               reports and artifacts (git-ignored)
 ```
 
 The files follow `GUIDELINES.md` (`pnpm run lint` and `pnpm run check` cover

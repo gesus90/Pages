@@ -3,3 +3,11 @@ allowBuilds:
 
 # Match the repository's ten-day protection, including transitive packages.
 minimumReleaseAge: 14400
+
+# Same pin as the repository root: the default depends on `CI`, and a difference
+# makes `pnpm run` purge the modules, which aborts without a terminal.
+enableGlobalVirtualStore: false
+
+# Stale modules fail with a message instead of a silent install in a gate; the
+# setup step is `node scripts/qa-evidence.mjs preflight --scope mcp --install`.
+verifyDepsBeforeRun: error

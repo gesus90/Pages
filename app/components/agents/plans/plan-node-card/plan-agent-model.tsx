@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ModelPicker } from "@/app/components/agents/model-picker";
 import { Select } from "@/app/components/ui/select";
 import { cn } from "@/app/lib/cn";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
@@ -18,7 +19,6 @@ import {
 } from "@/definition/AgentPlanConfiguration";
 
 import { usePlanFlowContext } from "../plan-flow-context";
-import { planModelDisplay } from "../plan-model-option";
 import { planStepWithModel } from "../plan-node-configuration-fields";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PLAN_FIELD_CLASS } from "./plan-value-input";
@@ -85,7 +85,6 @@ export function PlanAgentModel(props: {
       configuration={configuration}
       models={models}
       model={model}
-      savedAlias={saved?.alias ?? null}
       group={findPlanStep(draft, step.id)?.group ?? null}
     />
   );
@@ -127,90 +126,35 @@ function ModelValues(props: {
 }
 
 /**
- * The limits the provider states for a model, e.g. „128k Kontext · 8k Ausgabe“.
- *
- * @remarks
- * A limit the provider did not state is left out; nothing is shown as zero.
+ * Why a model cannot join the node's group: models of another runner stay
+ * listed but disabled, naming the reason and the way to choose them.
  */
-function useLimitsText(): (model: PageAgentModel) => string {
-  const { t, i18n } = useTranslation();
-  const compact = new Intl.NumberFormat(i18n.language, { notation: "compact" });
-  return (model) =>
-    [
-      model.contextWindow
-        ? t("pageAgents.contextLimit", {
-            value: compact.format(model.contextWindow),
-          })
-        : null,
-      model.maxOutputTokens
-        ? t("pageAgents.outputLimit", {
-            value: compact.format(model.maxOutputTokens),
-          })
-        : null,
-    ]
-      .filter((part) => part !== null)
-      .join(" · ");
-}
-
-/**
- * The choices of the model list: runner and model id tell equal names apart.
- *
- * @remarks
- * A model the node's group cannot share stays visible, disabled, with the
- * reason and the way to choose it.
- */
-function useModelOptions(input: {
+function useGroupRefusal(input: {
   readonly step: AgentPlanStep;
-  readonly models: readonly PageAgentModel[];
   readonly group: AgentPlanGroup | null;
-  readonly model: PageAgentModel | undefined;
-  readonly savedAlias: string | null;
-}): readonly {
-  readonly value: string;
-  readonly label: string;
-  readonly description: string;
-  readonly disabled: boolean;
-  readonly icon: React.ReactNode;
-}[] {
+}): ((model: PageAgentModel) => string | null) | undefined {
   const { t } = useTranslation();
   const { sources } = usePlanFlowContext();
-  const limitsText = useLimitsText();
-  const { group } = input;
-  const adapter = group?.steps
-    .filter((member) => member.id !== input.step.id)
+  const { group, step } = input;
+  if (!group) return undefined;
+  const adapter = group.steps
+    .filter((member) => member.id !== step.id)
     .map((member) => planStepProvider(member, sources.agents))
     .find((provider) => provider !== null);
-  return input.models.map((entry) => {
-    const refusal = group
-      ? planMemberProviderRefusal(
-          group,
-          input.step.id,
-          entry.provider,
-          sources.agents,
-        )
+  return (model) => {
+    const refusal = planMemberProviderRefusal(
+      group,
+      step.id,
+      model.provider,
+      sources.agents,
+    );
+    return refusal
+      ? t(`plans.modelRefusal.${refusal}`, {
+          runner: t(`settings.agents.providerShort.${model.provider}`),
+          adapter: adapter ? t(`settings.agents.providerShort.${adapter}`) : "",
+        })
       : null;
-    const runner = t(`settings.agents.providerShort.${entry.provider}`);
-    const limits = limitsText(entry);
-    const alias =
-      input.savedAlias !== null && entry.id === input.model?.id
-        ? ` · ${t("plans.savedAlias", { alias: input.savedAlias })}`
-        : "";
-    const display = planModelDisplay(entry, t);
-    return {
-      value: entry.id,
-      label: display.label,
-      description: refusal
-        ? t(`plans.modelRefusal.${refusal}`, {
-            runner,
-            adapter: adapter
-              ? t(`settings.agents.providerShort.${adapter}`)
-              : "",
-          })
-        : `${runner} · ${entry.model}${display.free}${alias}${limits ? ` · ${limits}` : ""}`,
-      disabled: refusal !== null,
-      icon: display.icon,
-    };
-  });
+  };
 }
 
 function ModelChoice(props: {
@@ -218,13 +162,12 @@ function ModelChoice(props: {
   readonly configuration: AgentPlanConfiguration;
   readonly models: readonly PageAgentModel[];
   readonly model: PageAgentModel | undefined;
-  readonly savedAlias: string | null;
   readonly group: AgentPlanGroup | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { graph } = usePlanFlowContext();
   const { step, configuration, model } = props;
-  const options = useModelOptions(props);
+  const refusalOf = useGroupRefusal(props);
   const efforts = model?.reasoningEfforts ?? [];
   const effortOptions = reasoningOptions({
     model,
@@ -260,23 +203,17 @@ function ModelChoice(props: {
   }
   return (
     <footer className={FOOTER_CLASS}>
-      <Select
-        ariaLabel={t("pageAgents.model")}
+      <ModelPicker
         value={model ? model.id : planConfigurationModelKey(configuration)}
-        className={`${PLAN_FIELD_CLASS} [&>span]:min-w-0 [&>span]:truncate`}
-        options={[
-          ...(model
-            ? []
-            : [
-                {
-                  value: planConfigurationModelKey(configuration),
-                  label: `${t("pageAgents.missingModel")} · ${configuration.model}`,
-                  disabled: true,
-                },
-              ]),
-          ...options,
-        ]}
-        onValueChange={selectModel}
+        models={props.models}
+        savedModel={configuration.model}
+        disabled={false}
+        isLabelHidden
+        mode="floating"
+        size="compact"
+        refusalOf={refusalOf}
+        triggerClassName={PLAN_FIELD_CLASS}
+        onChange={selectModel}
       />
       <Select
         ariaLabel={t("pageAgents.reasoning")}

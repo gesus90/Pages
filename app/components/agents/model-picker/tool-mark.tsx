@@ -1,10 +1,11 @@
+import { Bot } from "lucide-react";
 import { useId } from "react";
 
 import { cn } from "@/app/lib/cn";
 
 /*
- * Branding note: these are the marks of the tools and providers a plan node
- * runs with, used only to name them beside their written name. The paths are
+ * Branding note: these are the marks of the tools and providers a model
+ * choice lists, used only to name them beside their written name. The paths are
  * the vendors' published marks as collected by Simple Icons (CC0 path data;
  * the OpenAI mark from release 15.0.0), the OpenCode mark from the vendor's own
  * favicon and the Antigravity mark from Google's ACP registry entry. The
@@ -115,10 +116,10 @@ function AntigravityGradient({
  * @remarks
  * Every mark is drawn at 18 × 18 and centered, so the names beside the marks
  * start in one column. The written name always stands beside the mark, so
- * the mark is hidden from assistive technology. An unknown key keeps the
- * empty cell, which holds the column.
+ * the mark is hidden from assistive technology. A tool registered without a
+ * drawn mark gets the same neutral mark, so a new runner needs no change here.
  */
-export function PlanToolMark({
+export function ToolMark({
   mark,
   className,
 }: {
@@ -138,6 +139,9 @@ export function PlanToolMark({
         className,
       )}
     >
+      {shape ? null : (
+        <Bot className="size-[18px] text-muted-foreground" strokeWidth={1.75} />
+      )}
       {shape ? (
         <svg
           viewBox={shape.viewBox}

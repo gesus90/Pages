@@ -266,7 +266,9 @@ export class PicaMobileNotificationDispatcher {
           ? null
           : await this.options.deliveries.nextDueAt();
       const wait =
-        due === null ? IDLE_MILLISECONDS : Date.parse(due) - this.now().getTime();
+        due === null
+          ? IDLE_MILLISECONDS
+          : Date.parse(due) - this.now().getTime();
 
       this.schedule(
         Math.min(Math.max(wait, TICK_GAP_MILLISECONDS), IDLE_MILLISECONDS),
@@ -413,7 +415,10 @@ export class PicaMobileNotificationDispatcher {
       return { kind: "drop", outcome: "rights_revoked" };
     }
 
-    const token = vault.decrypt(registration.deviceId, registration.tokenEncrypted);
+    const token = vault.decrypt(
+      registration.deviceId,
+      registration.tokenEncrypted,
+    );
 
     return token === null
       ? { kind: "drop", outcome: "token_unreadable", remove: registration }
@@ -434,7 +439,9 @@ export class PicaMobileNotificationDispatcher {
 
   /** A run sends at most one step push every ten seconds to a device. */
   private async holdBack(delivery: DeliveryRecord): Promise<Decision | null> {
-    if (delivery.eventType !== PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED) {
+    if (
+      delivery.eventType !== PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED
+    ) {
       return null;
     }
 

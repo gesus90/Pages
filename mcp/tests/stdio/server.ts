@@ -123,8 +123,16 @@ export async function startServer(
   }
   const childEnvironment = await readTestEnvironment(environment);
   await requireAvailablePages(readInstanceUrl(childEnvironment.PAGES_URL));
+  return spawnBundle(bundle, childEnvironment);
+}
+
+/** Starts the bundle as a stdio child with exactly the given environment. */
+export function spawnBundle(
+  bundle: string,
+  environment: NodeJS.ProcessEnv,
+): RunningServer {
   const child = spawn(process.execPath, [bundle], {
-    env: childEnvironment,
+    env: environment,
     shell: false,
     stdio: "pipe",
   });

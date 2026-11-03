@@ -6,6 +6,7 @@ import {
   PICA_MOBILE_SUPPORTED_VERSIONS,
   picaMobileAuthPayloadSchema,
   picaMobileAvatarGetPayloadSchema,
+  picaMobileChatRequestSchema,
   picaMobileDashboardGetPayloadSchema,
   picaMobilePingPayloadSchema,
   picaMobilePlanGetPayloadSchema,
@@ -18,6 +19,9 @@ import { parsePicaMobileNotificationPayload } from "./notifications/PicaMobileNo
 import type {
   PicaMobileAuthPayload,
   PicaMobileAvatarPayload,
+  PicaMobileChatAnswer,
+  PicaMobileChatRequest,
+  PicaMobileChatRequestType,
   PicaMobileConnectedPayload,
   PicaMobileDashboardPayload,
   PicaMobileErrorCode,
@@ -26,6 +30,7 @@ import type {
   PicaMobilePlansPayload,
   PicaMobileServerMessage,
 } from "@/definition/PicaMobileProtocol";
+import type { PicaMobileAuthOutcome } from "./PicaMobileAuthenticator";
 import type { PicaMobileNotificationClientMessage } from "./notifications/PicaMobileNotificationMessages";
 
 /** A message of a client that passed every check of the envelope and its payload. */
@@ -43,7 +48,13 @@ export type PicaMobileClientMessage =
       readonly payload: { readonly version: string };
     }
   | PicaMobileNotificationClientMessage
-  | PicaMobilePlansClientMessage;
+  | PicaMobilePlansClientMessage
+  | PicaMobileChatClientMessage;
+
+/** A message of `chat.v1` that passed every check of its payload. */
+export type PicaMobileChatClientMessage = PicaMobileChatRequest & {
+  readonly requestId: string;
+};
 
 /** A message of `plans.v1` that passed every check of its payload. */
 export type PicaMobilePlansClientMessage =
@@ -74,6 +85,18 @@ export type PicaMobileParseResult =
   | { readonly ok: false; readonly rejection: PicaMobileRejection };
 
 type JsonRecord = Readonly<Record<string, unknown>>;
+
+const CHAT_REQUEST_TYPES: ReadonlySet<string> =
+  new Set<PicaMobileChatRequestType>([
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_OPEN,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_NEW,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_SESSIONS,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_SESSION_GET,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_STATE,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_SEND,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_JOB_GET,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_STOP,
+  ]);
 
 function reject(
   code: PicaMobileErrorCode,
@@ -200,6 +223,27 @@ function parsePlanGetPayload(
       );
 }
 
+/** Reads a request of `chat.v1`; `null` when the type belongs to no chat request. */
+function parseChatPayload(
+  type: string,
+  requestId: string,
+  payload: JsonRecord,
+): PicaMobileParseResult | null {
+  if (!CHAT_REQUEST_TYPES.has(type)) {
+    return null;
+  }
+
+  const parsed = picaMobileChatRequestSchema.safeParse({ type, payload });
+
+  return parsed.success
+    ? { ok: true, message: { ...parsed.data, requestId } }
+    : reject(
+        PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        `The payload of "${type}" is invalid.`,
+        requestId,
+      );
+}
+
 function parseEmptyPayload(
   type: "ping" | "dashboard_get",
   requestId: string,
@@ -240,6 +284,7 @@ function parsePayload(
     default:
       return (
         parsePicaMobileNotificationPayload(type, requestId, payload) ??
+        parseChatPayload(type, requestId, payload) ??
         reject(
           PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
           "The message type is not known.",
@@ -292,6 +337,43 @@ export function parsePicaMobileMessage(text: string): PicaMobileParseResult {
   }
 
   return parsePayload(envelope.type, requestId, envelope.payload);
+}
+
+/**
+ * Builds the rejection of a failed authentication.
+ *
+ * @param requestId - Identifier of the `auth` message that is answered.
+ * @param outcome - Why the authentication failed.
+ * @returns The rejection with its code and, after too many attempts, the wait.
+ */
+export function describePicaMobileAuthenticationFailure(
+  requestId: string,
+  outcome: Extract<PicaMobileAuthOutcome, { ok: false }>,
+): PicaMobileRejection {
+  if (outcome.reason === "tooManyAttempts") {
+    return {
+      code: PICA_MOBILE_ERROR_CODE.TOO_MANY_ATTEMPTS,
+      message: "Too many failed sign-in attempts. Try again later.",
+      requestId,
+      ...(outcome.retryAfterSeconds === undefined
+        ? {}
+        : { retryAfterSeconds: outcome.retryAfterSeconds }),
+    };
+  }
+
+  if (outcome.reason === "passwordChangeRequired") {
+    return {
+      code: PICA_MOBILE_ERROR_CODE.PASSWORD_CHANGE_REQUIRED,
+      message: "Change the password in Pages before connecting.",
+      requestId,
+    };
+  }
+
+  return {
+    code: PICA_MOBILE_ERROR_CODE.AUTHENTICATION_FAILED,
+    message: "The credentials are not valid.",
+    requestId,
+  };
 }
 
 /**
@@ -432,6 +514,24 @@ export function encodePicaMobilePlan(
     type: PICA_MOBILE_SERVER_MESSAGE_TYPE.PLAN,
     requestId,
     payload,
+  });
+}
+
+/**
+ * Builds the text frame of an answer of `chat.v1`.
+ *
+ * @param requestId - Identifier of the chat request that is answered.
+ * @param answer - Type and payload of the answer.
+ * @returns The frame content.
+ */
+export function encodePicaMobileChat(
+  requestId: string,
+  answer: PicaMobileChatAnswer,
+): string {
+  return encode({
+    version: PICA_MOBILE_PROTOCOL_VERSION,
+    requestId,
+    ...answer,
   });
 }
 

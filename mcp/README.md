@@ -400,7 +400,23 @@ Pages request. Both stdout logs must be empty. Neither command should open a
 network listener; inspect the process's listening sockets while it runs (for
 example, with `ss -ltnp` on Linux).
 
-### Stdio end-to-end acceptance
+### Mocked stdio end-to-end check
+
+`pnpm --dir mcp run test:mcp` needs no Pages and no credential. It builds the
+versioned bundle and starts it as a stdio child against
+[tests/stdio/pages-fixture.ts](./tests/stdio/pages-fixture.ts), a synthetic Agent
+API on a free loopback port. The child gets a scratch `HOME` and a synthetic
+credential; an ambient `PAGES_URL` or `PAGES_TOKEN` is ignored.
+[tests/stdio/mock-e2e.ts](./tests/stdio/mock-e2e.ts) checks over the real protocol:
+`initialize`, `tools/list` offering only known tools that Pages offers, no call of
+a tool whose right Pages withdrew, routing to
+`POST /api/v1/agents` with the Bearer credential, serialization of arguments and
+results, refused arguments and unknown tools without a request, the mapping of
+404, 401, 500, invalid JSON and a lost connection, start failures with exit code 1
+and an empty stdout, protocol-only stdout, no credential or failure body in any
+output, and exit code 0 after stdin closes. Only the HTTP boundary is synthetic.
+
+### Stdio end-to-end acceptance against an instance
 
 Use only an already running, explicitly isolated Pages instance with completed
 setup and a personal account allowed to list project names. Set `PAGES_URL` to
@@ -410,7 +426,7 @@ Keep credentials out of commands, files and reports. Then run from the repositor
 root:
 
 ```sh
-CI=true pnpm --dir mcp run test:mcp
+CI=true pnpm --dir mcp run test:mcp:live
 ```
 
 The script builds the versioned bundle and runs [tests/stdio/client.ts](./tests/stdio/client.ts)

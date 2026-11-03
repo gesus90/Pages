@@ -158,8 +158,8 @@ export function acceptNextUpgrade(listener: FakeListener): WebSocket {
   vi.spyOn(channel, "close").mockImplementation(() => undefined);
   vi.spyOn(channel, "ping").mockImplementation(() => undefined);
   vi.spyOn(channel, "terminate").mockImplementation(() => undefined);
-  vi.spyOn(listener.sockets, "handleUpgrade").mockImplementation(
-    (...upgrade) => upgrade[3](channel, upgrade[0]),
+  vi.spyOn(listener.sockets, "handleUpgrade").mockImplementation((...upgrade) =>
+    upgrade[3](channel, upgrade[0]),
   );
 
   return channel;

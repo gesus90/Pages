@@ -77,10 +77,15 @@ pnpm run clean   # removes node_modules/, dist/ and coverage/
   way.
 - There is no watch mode and no `format` script. Format changed files with the
   package's Prettier: `node_modules/.bin/prettier --write <files>`.
-- `pnpm run test:mcp` builds the bundle and runs `tests/stdio/client.ts` against
-  a running Pages instance with a real credential. It is a manual acceptance,
-  not a unit test. Run it only when a task asks for it and names an isolated
-  instance.
+- `pnpm run test:mcp` builds the bundle and runs `tests/stdio/mock-e2e.ts`: the
+  real bundle as a stdio child against the synthetic Pages of
+  `tests/stdio/pages-fixture.ts` on a free loopback port. It needs no instance
+  and no credential and ignores an ambient `PAGES_URL` or `PAGES_TOKEN`.
+- `pnpm run test:mcp:live` builds the bundle and runs `tests/stdio/client.ts`
+  against a running Pages instance with a real credential. It is a manual
+  acceptance. Run it only when a task asks for it and names an isolated instance.
+- `node ../scripts/qa-evidence.mjs preflight --scope mcp --install` repairs
+  stale modules. `pnpm run` refuses them instead of purging them in a gate.
 
 The root gates also cover this package. Run them from the repository root after
 changing `mcp/`; they need the root dependencies and the dependencies of
@@ -118,7 +123,7 @@ changing `mcp/`; they need the root dependencies and the dependencies of
 - Push a tag `mcp-v*`, publish a release, or deploy a bundle.
 - Use or print a real credential, or touch the local credential directory, in
   development or tests.
-- Run `pnpm run test:mcp` against a production instance.
+- Run `pnpm run test:mcp:live` against a production instance.
 - Add a dependency, a coverage-ignore comment, an `eslint-disable` comment, or a
   relaxed rule or threshold.
 - Import from Pages outside `../definition/`, or import code from `mobile/`.

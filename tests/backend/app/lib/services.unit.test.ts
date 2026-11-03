@@ -393,7 +393,10 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
       events: only(vi.mocked(PagesEventPublisher)),
     },
   );
-  expect(createChatServices).toHaveBeenCalledWith({
+  const [chatInput] = vi.mocked(createChatServices).mock.calls[0];
+  const { picaBrowser, ...chatSettings } = chatInput;
+  expect(picaBrowser?.browserSessions).toBeDefined();
+  expect(chatSettings).toEqual({
     database: world.database,
     directory: "/srv/pages/data",
     accounts,

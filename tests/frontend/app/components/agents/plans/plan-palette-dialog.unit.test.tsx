@@ -5,6 +5,7 @@ import { expect, it, vi } from "vitest";
 
 import { PlanPaletteDialog } from "@/app/components/agents/plans/plan-palette-dialog";
 
+import { modelTrigger, openModelRows } from "../definitions/page-agent-fixture";
 import { i18n, renderTranslated } from "./plan-panel-fixture";
 
 import type { AgentPlanSources, AgentPlanTask } from "@/definition/AgentPlan";
@@ -131,18 +132,18 @@ it("names an invalid parameter and adds only a valid parameter name", () => {
 
 it("adds an agent only for a model of the sources and describes each model", async () => {
   const { onConfirm } = renderDialog("agent");
-  const label = i18n.t("plans.palette.chooseAgent");
 
   expect(addButton().hasAttribute("disabled")).toBe(true);
   expect(screen.queryByText(i18n.t("plans.palette.noAgents"))).toBeNull();
-  fireEvent.keyDown(screen.getByRole("combobox", { name: label }), {
-    key: "Enter",
-  });
-  const listbox = await screen.findByRole("listbox");
-  expect(listbox.textContent).toContain(
-    `${i18n.t("settings.agents.provider.openrouter")} · ${i18n.t("picaSettings.manual")} · ${i18n.t("settings.agents.freeBadge")}`,
+  expect(modelTrigger(i18n.t("pageAgents.model")).textContent).toContain(
+    i18n.t("plans.palette.chooseAgent"),
   );
-  fireEvent.click(screen.getByRole("option", { name: "Model m2" }));
+  const rows = await openModelRows(modelTrigger(i18n.t("pageAgents.model")));
+  const second = rows.find((row) => row.textContent?.includes("Model m2"));
+  expect(second?.getAttribute("aria-label")).toContain(
+    i18n.t("plans.modelPicker.free"),
+  );
+  fireEvent.click(second ?? document.body);
   fireEvent.click(addButton());
 
   expect(onConfirm).toHaveBeenCalledWith("m2");

@@ -69,9 +69,9 @@ export const ANNA_OUTCOME: Extract<PicaMobileAuthOutcome, { ok: true }> = {
 
 /** An authenticator whose answers a test sets. */
 export class FakeAuthenticator implements PicaMobileAuthenticator {
-  public readonly authenticate = vi.fn<
-    PicaMobileAuthenticator["authenticate"]
-  >(async () => ANNA_OUTCOME);
+  public readonly authenticate = vi.fn<PicaMobileAuthenticator["authenticate"]>(
+    async () => ANNA_OUTCOME,
+  );
   public readonly isSessionActive = vi.fn<
     PicaMobileAuthenticator["isSessionActive"]
   >(async () => true);
