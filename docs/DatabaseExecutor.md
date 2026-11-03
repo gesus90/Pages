@@ -199,6 +199,27 @@ A failing project is retried after 1 minute, doubling up to 60 minutes
   (`database.worker.closed`) to stderr with its duration and whether the
   checkpoint succeeded.
 
+## Log level
+
+This section applies to the whole server log, not only to the executor.
+
+`PAGES_LOG_LEVEL` sets the lowest severity the server writes, to the daily log
+and to the console. Allowed are `trace`, `debug`, `info`, `warn`, `error` and
+`fatal`, in lowercase; it is read once at the start of the process.
+
+- Unset or empty: `info`.
+- Any other value: `info`, and the server logs one `logging.level.invalid`
+  warning at the start. It does not refuse to start, and the warning does not
+  repeat the value.
+- `debug` or `trace`: for a diagnosis. These levels add the caught exceptions
+  (`application.exception.caught`), the control responses and the trace
+  aggregates such as `database.operations.completed`, and with them most of the
+  size of the log.
+
+Below `debug` no `application.exception.caught` line is written, for any
+component. A code path that must be seen at the default level logs its own
+warning or error, as `agent.recovery.process_scan_failed` does.
+
 ## Known limits
 
 - The executor removes the server-side head-of-line blocking. It does not

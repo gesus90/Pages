@@ -221,6 +221,8 @@ it("allows release after a loop's session and cleanup are confirmed closed", asy
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([42]);
   await expect(hasNoSessionProcesses(run)).resolves.toBe(false);
+  vi.mocked(findTaggedProcesses).mockResolvedValueOnce(null);
+  await expect(hasNoSessionProcesses(run)).resolves.toBe(false);
 });
 
 it("retains a failed remote run's workspace when no closeout was reported without a stop request", async () => {

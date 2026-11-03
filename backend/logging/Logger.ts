@@ -34,6 +34,20 @@ export interface ServerLogEvent {
   readonly error?: unknown;
 }
 
+const LOG_LEVELS: readonly ServerLogEvent["level"][] = [
+  "trace",
+  "debug",
+  "info",
+  "warn",
+  "error",
+  "fatal",
+];
+const DEFAULT_LOG_LEVEL = "info";
+const configuredLogLevel = process.env.PAGES_LOG_LEVEL?.trim() ?? "";
+const selectedLogLevel = LOG_LEVELS.find(
+  (level) => level === configuredLogLevel,
+);
+
 const instanceId = randomUUID();
 const context = new AsyncLocalStorage<LogContext>();
 const writer = new DailyLogWriter(instanceId);
@@ -55,7 +69,7 @@ function flushUnscopedDatabaseMetrics(): void {
 
 const logger = pino(
   {
-    level: "trace",
+    level: selectedLogLevel ?? DEFAULT_LOG_LEVEL,
     base: { schemaVersion: 1, pid: process.pid, instanceId },
     timestamp: false,
     messageKey: "message",
@@ -94,9 +108,12 @@ function boundRecord(record: object): string {
   return `${JSON.stringify(bounded)}\n`;
 }
 
-/** Emits all severities without sampling, using bounded safe metadata and error chains. */
+/** Emits every enabled severity without sampling, using bounded safe metadata and error chains. */
 export function logEvent(event: ServerLogEvent): void {
   try {
+    // Before identifyError: a dropped event must not mark its error as already
+    // reported, or a later warning would point to an errorId no line contains.
+    if (!logger.isLevelEnabled(event.level)) return;
     const errorId = identifyError(event.error);
     logger[event.level](
       {
@@ -155,6 +172,7 @@ export function logDiagnostic(
     error,
   });
   if (level === "trace" || level === "fatal") return;
+  if (!logger.isLevelEnabled(level)) return;
   const argumentsList: unknown[] = [
     redactLogText(message),
     ...(error === undefined ? [] : [serializeLogError(error)]),
@@ -228,6 +246,13 @@ export async function initializeLogging(configPath: string): Promise<void> {
     message: "Instance logging initialized",
     metadata: { timeZone: LOG_TIME_ZONE },
   });
+  if (configuredLogLevel !== "" && selectedLogLevel === undefined)
+    logEvent({
+      level: "warn",
+      event: "logging.level.invalid",
+      component: "Logger",
+      message: `PAGES_LOG_LEVEL is not one of ${LOG_LEVELS.join(", ")}; using ${DEFAULT_LOG_LEVEL}`,
+    });
 }
 
 /** Applies the successfully persisted setting without a process restart. */

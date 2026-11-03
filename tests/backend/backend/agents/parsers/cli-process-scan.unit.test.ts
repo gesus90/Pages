@@ -30,7 +30,7 @@ describe("legacy process ownership", () => {
     const kill = vi.spyOn(process, "kill");
     await expect(
       findTaggedProcesses("run-a", { earliestStart: 100 }),
-    ).rejects.toThrow("ownership is unverified");
+    ).resolves.toBeNull();
     expect(boundary.readFile).not.toHaveBeenCalled();
     expect(kill).not.toHaveBeenCalled();
   });

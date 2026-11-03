@@ -10,7 +10,7 @@ import {
   hasUnconfirmedLoopCloseout,
 } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { endInterruptedScript } from "./AgentPlanScriptRecovery";
 import { cleanupScanFailure } from "./AgentPlanCleanupFailure";
@@ -24,6 +24,22 @@ import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 
+/** A caught exception is a debug event; a real scan fault must reach the default log. */
+function reportScanFault(
+  error: unknown,
+  resource?: Pick<AgentPlanCleanupFailure, "stepId" | "kind">,
+): void {
+  logCaughtError("AgentPlanRecovery", error);
+  logEvent({
+    level: "warn",
+    event: "agent.recovery.process_scan_failed",
+    component: "AgentPlanRecovery",
+    message: "Process scan failed; the session stays unconfirmed",
+    metadata: { ...resource },
+    error,
+  });
+}
+
 /** No session of a run started before the run. */
 async function runScope(
   runStartedAt: string,
@@ -31,7 +47,7 @@ async function runScope(
   try {
     return await readScopeSince(runStartedAt);
   } catch (caughtError: unknown) {
-    logCaughtError("AgentPlanRecovery", caughtError);
+    reportScanFault(caughtError);
 
     // Without a readable start the scan stays unbounded, and therefore strict.
     return null;
@@ -238,11 +254,14 @@ async function scanInstance(
 ): Promise<AgentPlanCleanupFailure | null> {
   try {
     const processes = await findTaggedProcesses(id, scope);
+    // A legacy session has no ownership proof: an expected state, not a fault,
+    // and it stays unconfirmed.
+    if (processes === null) return { ...resource, reason: "scan_unavailable" };
     return processes.length === 0
       ? null
       : { ...resource, reason: "processes_remaining" };
   } catch (caughtError: unknown) {
-    logCaughtError("AgentPlanRecovery", caughtError);
+    reportScanFault(caughtError, resource);
     return cleanupScanFailure(resource.stepId, resource.kind, caughtError);
   }
 }

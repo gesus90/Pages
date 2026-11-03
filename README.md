@@ -2446,10 +2446,12 @@ skipped: …`) and shown to administrators below the theme cards.
 
 ### Server logging (PAGE-67)
 
-Pages uses Pino **10.4.0** behind `backend/logging/Logger.ts`. All six severities
-(`trace`, `debug`, `info`, `warn`, `error`, `fatal`) enter the daily log without
-sampling or a production minimum level. Existing server diagnostics also pass
-through this interface; their operator-console mirror is sanitized centrally.
+Pages uses Pino **10.4.0** behind `backend/logging/Logger.ts`. The six severities
+are `trace`, `debug`, `info`, `warn`, `error` and `fatal`. Every severity from
+`info` upward enters the daily log without sampling; `PAGES_LOG_LEVEL` selects
+another minimum (see [Log level](./docs/DatabaseExecutor.md#log-level)). Existing
+server diagnostics also pass through this interface; their operator-console
+mirror is sanitized centrally and follows the same minimum.
 There is no global console interception. The independent `mcp/` adapter and
 third-party processes retain their own logging boundaries.
 

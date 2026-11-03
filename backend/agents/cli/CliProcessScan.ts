@@ -87,14 +87,17 @@ export async function readScopeSince(
   };
 }
 
-/** Refuses legacy marker discovery: an inherited environment is not ownership evidence. */
-export async function findTaggedProcesses(
-  ...parameters: [tag: string, scope?: TaggedProcessScope | null, root?: string]
-): Promise<readonly number[]> {
-  throw new Error(
-    `Process ownership is unverified for legacy session ${parameters[0]}`,
-  );
-}
+/**
+ * Refuses legacy marker discovery: an inherited environment is not ownership evidence.
+ *
+ * @returns `null`, which means "not confirmed" and never "no process"; a caller
+ * must not treat such a session as free of processes.
+ */
+export const findTaggedProcesses: (
+  tag: string,
+  scope?: TaggedProcessScope | null,
+  root?: string,
+) => Promise<readonly number[] | null> = async () => null;
 
 /** Stops any owned named units but retains uncertainty without durable containment evidence. */
 export async function endTaggedProcesses(
@@ -106,7 +109,7 @@ export async function endTaggedProcesses(
     logCaughtError("CliProcessScan", caughtError);
   });
   await findTaggedProcesses(tag, scope);
-  throw new Error("Process ownership is unverified for this legacy session");
+  throw new Error(`Process ownership is unverified for legacy session ${tag}`);
 }
 
 function isVanished(error: unknown): boolean {
