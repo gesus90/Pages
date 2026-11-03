@@ -9,6 +9,7 @@ import { DATABASE_EXECUTOR_LIMITS } from "./DatabaseExecutorLimits";
 import { DatabaseExecutorError } from "./DatabaseExecutorErrors";
 import {
   DatabaseWorkerClient,
+  withDeadline,
   WorkerStatementError,
 } from "./DatabaseWorkerClient";
 import { currentDatabaseWork } from "./DatabaseWorkContext";
@@ -309,10 +310,11 @@ export class DatabaseExecutor {
     };
   }
 
-  /** Lets the worker checkpoint and close the database. */
+  /** Lets the accepted jobs finish, then lets the worker checkpoint and close. */
   public async close(): Promise<void> {
     clearInterval(this.statusTimer);
     try {
+      await this.drainLanes();
       // The counters live in this process; the last ones must not end with it.
       this.reportStatus();
     } catch (error: unknown) {
@@ -322,6 +324,43 @@ export class DatabaseExecutor {
       // Runs whatever happened above, and a failed close outranks all of it.
       await this.client.close();
     }
+  }
+
+  /**
+   * Waits for the jobs the lanes accepted, because the worker refuses every
+   * statement once it closes, also the COMMIT or ROLLBACK of a job still running.
+   *
+   * @remarks
+   * A job that misses the deadline loses its uncommitted changes when the worker
+   * rolls them back. The close cannot wait for it without end: the checkpoint
+   * needs the time, and that job may never finish.
+   */
+  private async drainLanes(): Promise<void> {
+    const isDrained = await withDeadline(
+      Promise.all([this.writerLane.drain(), this.readerLane.drain()]).then(
+        () => true,
+      ),
+      DATABASE_EXECUTOR_LIMITS.drainTimeoutMs,
+      () => false,
+    );
+    if (isDrained) return;
+    const writer = this.writerLane.status();
+    const readers = this.readerLane.status();
+    this.writerLane.refuseWaiting();
+    this.readerLane.refuseWaiting();
+    logEvent({
+      level: "warn",
+      event: "database.executor.drain_incomplete",
+      component: "DatabaseExecutor",
+      message:
+        "Database jobs were still active when the worker had to close; their uncommitted changes are rolled back",
+      metadata: {
+        writerRunning: writer.running,
+        writerQueued: writer.queued,
+        readerRunning: readers.running,
+        readerQueued: readers.queued,
+      },
+    });
   }
 
   private async endSession(session: number, generation: number): Promise<void> {

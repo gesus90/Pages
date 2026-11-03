@@ -17,7 +17,7 @@ import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 export const SHUTDOWN_LIMITS = {
   /** Longest shared wait for all cleanup steps before the database closes. */
   cleanupBudgetMs: 30_000,
-  /** Longest wait for the database to checkpoint and close. */
+  /** Longest wait for the database to finish its jobs, checkpoint and close. */
   databaseCloseBudgetMs: 45_000,
   /** The process ends here at the latest, whatever still runs. */
   deadlineMs: 80_000,

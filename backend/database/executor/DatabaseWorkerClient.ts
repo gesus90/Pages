@@ -96,8 +96,15 @@ function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-/** Settles with `work`, or with `onTimeout` after `milliseconds`; the timer never outlives it. */
-async function withDeadline<Result>(
+/**
+ * Settles with `work`, or with `onTimeout` after `milliseconds`; the timer never outlives it.
+ *
+ * @param work - The awaited work; it goes on after the deadline.
+ * @param milliseconds - Longest wait.
+ * @param onTimeout - Supplies the result once the wait ended.
+ * @returns The first of both results.
+ */
+export async function withDeadline<Result>(
   work: Promise<Result>,
   milliseconds: number,
   onTimeout: () => Result,

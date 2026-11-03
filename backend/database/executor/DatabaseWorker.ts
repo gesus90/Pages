@@ -464,6 +464,7 @@ function runSession(request: WorkerSessionRequest): void {
   }
   sessions.delete(request.session);
   const { connection } = session;
+  runningReads += 1;
   void session.chain
     .then(() =>
       answer(control, 0, async () => {
@@ -477,7 +478,10 @@ function runSession(request: WorkerSessionRequest): void {
         return null;
       }),
     )
-    .finally(() => releaseReader(connection));
+    .finally(() => {
+      runningReads -= 1;
+      releaseReader(connection);
+    });
 }
 
 function run(request: WorkerRunRequest | WorkerSessionRequest): void {
@@ -505,6 +509,28 @@ async function waitForReads(): Promise<void> {
 }
 
 /**
+ * Ends the transactions no statement of the server can end any more.
+ *
+ * @remarks
+ * DuckDB refuses a checkpoint next to uncommitted changes and next to a read
+ * session older than the last commit. Every statement the server sent has
+ * finished here, so a transaction still open never got its COMMIT and nobody
+ * was told it was stored. A connection without a transaction refuses the
+ * ROLLBACK, which is fine; any other failure comes back from the checkpoint.
+ */
+async function rollBackAbandonedTransactions(
+  open: OpenDatabase,
+): Promise<void> {
+  const connections = [
+    open.writer,
+    ...[...sessions.values()].map((session) => session.connection),
+  ];
+  sessions.clear();
+  for (const connection of connections)
+    await connection.run("ROLLBACK;").catch(() => undefined);
+}
+
+/**
  * Checkpoints pending WAL changes with a live connection, then closes.
  *
  * @remarks
@@ -513,9 +539,7 @@ async function waitForReads(): Promise<void> {
  * checkpoints first. A failed checkpoint is reported; it never implies
  * cleanup.
  */
-async function closeDatabase(
-  rollbackFirst: boolean,
-): Promise<WireError | null> {
+async function closeDatabase(): Promise<WireError | null> {
   const open = database;
   if (open === null) return null;
   isClosing = true;
@@ -523,9 +547,7 @@ async function closeDatabase(
   await waitForReads();
   let failure: WireError | null = null;
   try {
-    // After a lost server an open transaction is abandoned, never committed.
-    if (rollbackFirst)
-      await open.writer.run("ROLLBACK;").catch(() => undefined);
+    await rollBackAbandonedTransactions(open);
     await open.writer.run("CHECKPOINT;");
   } catch (error: unknown) {
     failure = toWireError(error);
@@ -548,7 +570,7 @@ async function handle(message: WorkerRequest): Promise<void> {
     return;
   }
   const startedAt = performance.now();
-  const error = await closeDatabase(false);
+  const error = await closeDatabase();
   // The server's stop deadline may have ended it during the checkpoint.
   if (!process.connected) {
     reportClosedWithoutServer(startedAt, error);
@@ -587,7 +609,7 @@ process.on("message", (message: WorkerRequest) => {
 process.on("disconnect", () => {
   if (isClosing) return;
   const startedAt = performance.now();
-  void closeDatabase(true).then((error) => {
+  void closeDatabase().then((error) => {
     reportClosedWithoutServer(startedAt, error);
   });
 });

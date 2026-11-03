@@ -1,6 +1,9 @@
 import { AsyncResource } from "node:async_hooks";
 
-import { DatabaseOverloadedError } from "./DatabaseExecutorErrors";
+import {
+  DatabaseOverloadedError,
+  DatabaseUnavailableError,
+} from "./DatabaseExecutorErrors";
 
 import type { DatabaseWorkClass } from "./DatabaseWorkContext";
 
@@ -39,7 +42,7 @@ interface WaitingJob {
   readonly workClass: DatabaseWorkClass;
   readonly queuedAt: number;
   readonly start: () => void;
-  readonly refuse: (reason: "queue_timeout" | "aborted") => void;
+  readonly refuse: (reason: "queue_timeout" | "aborted" | "closing") => void;
 }
 
 /**
@@ -52,7 +55,8 @@ interface WaitingJob {
  * waiting places. A job is refused with {@link DatabaseOverloadedError}
  * only before it started: when the queue is full, its budget ran out or its
  * caller aborted. A started job always runs to its end; the lane never
- * cancels it.
+ * cancels it. Once the database closes, {@link DatabaseLane.drain} refuses new
+ * jobs and lets the accepted ones finish.
  */
 export class DatabaseLane {
   private readonly limits: LaneLimits;
@@ -63,6 +67,8 @@ export class DatabaseLane {
   private refusedQueueTimeout = 0;
   private refusedAborted = 0;
   private longestQueueWaitMs = 0;
+  private isDraining = false;
+  private onDrained: (() => void) | null = null;
 
   public constructor(limits: LaneLimits) {
     this.limits = limits;
@@ -75,11 +81,13 @@ export class DatabaseLane {
    * @param options - Class, budget and abort signal of the job.
    * @returns Whatever `work` returns.
    * @throws {DatabaseOverloadedError} When the job was refused unstarted.
+   * @throws {DatabaseUnavailableError} When the database closes; it never started.
    */
   public schedule<Result>(
     work: (queueMs: number) => Promise<Result>,
     options: LaneJobOptions,
   ): Promise<Result> {
+    if (this.isDraining) return this.refuse("closing");
     if (options.signal?.aborted) return this.refuse("aborted");
     if (this.running < this.limits.concurrency && this.waiting.length === 0)
       return this.start(work, performance.now());
@@ -113,6 +121,24 @@ export class DatabaseLane {
       };
       this.waiting.push(job);
     });
+  }
+
+  /**
+   * Refuses every later job and waits for the jobs the lane already accepted.
+   *
+   * @returns Settles once no job runs or waits any more.
+   */
+  public drain(): Promise<void> {
+    this.isDraining = true;
+    return new Promise((resolve) => {
+      this.onDrained = resolve;
+      this.settleDrain();
+    });
+  }
+
+  /** Refuses the jobs that still wait; a started job runs on. */
+  public refuseWaiting(): void {
+    for (const job of [...this.waiting]) job.refuse("closing");
   }
 
   /** Counters of the lane. */
@@ -150,6 +176,7 @@ export class DatabaseLane {
       this.running -= 1;
       this.completed += 1;
       this.next();
+      this.settleDrain();
     }
   }
 
@@ -161,11 +188,18 @@ export class DatabaseLane {
   private remove(job: WaitingJob): void {
     const index = this.waiting.indexOf(job);
     if (index >= 0) this.waiting.splice(index, 1);
+    this.settleDrain();
+  }
+
+  private settleDrain(): void {
+    if (this.running === 0 && this.waiting.length === 0) this.onDrained?.();
   }
 
   private refuse<Result>(
-    reason: "overloaded" | "queue_timeout" | "aborted",
+    reason: "overloaded" | "queue_timeout" | "aborted" | "closing",
   ): Promise<Result> {
+    if (reason === "closing")
+      return Promise.reject(new DatabaseUnavailableError());
     if (reason === "overloaded") this.refusedOverloaded += 1;
     else if (reason === "queue_timeout") this.refusedQueueTimeout += 1;
     else this.refusedAborted += 1;

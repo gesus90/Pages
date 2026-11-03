@@ -39,6 +39,12 @@ export const DATABASE_EXECUTOR_LIMITS = {
   maximumParameterBytes: 64 * 1024 * 1024,
   /** Longest wait for the worker to open the database at start. */
   openTimeoutMs: 120_000,
+  /**
+   * Longest wait at stop for the jobs already accepted, before the worker
+   * closes. Only jobs that still have to send a statement can miss it: a COMMIT
+   * already sent finishes in the worker, however long its checkpoint takes.
+   */
+  drainTimeoutMs: 15_000,
   /** Longest wait for the worker to checkpoint and close at stop. */
   closeTimeoutMs: 120_000,
   /** Longest wait for the worker process to exit after it closed or timed out. */

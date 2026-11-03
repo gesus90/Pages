@@ -65,7 +65,7 @@ All values are in `SHUTDOWN_LIMITS` (`backend/runtime/ShutdownSteps.ts`).
 | Budget                    | Value | Reason                                                                                                                           |
 | ------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Cleanup, shared           | 30 s  | The former total. One stuck step can no longer use up the time of the close; a step without budget left is started, not awaited. |
-| Database close            | 45 s  | Own budget. The longest checkpoint commit in the logs of 2026-11-02 took 41.6 s.                                                 |
+| Database close            | 45 s  | Own budget. The longest checkpoint commit in the logs of 2026-11-02 took 41.6 s. It includes up to 15 s for accepted jobs.       |
 | Hard deadline of the stop | 80 s  | Below the 90 s `TimeoutStopSec` default of systemd, after which the database worker would be killed too.                         |
 | `closeTimeoutMs`          | 120 s | Unchanged, for closes outside a server stop. It cannot end a server stop.                                                        |
 

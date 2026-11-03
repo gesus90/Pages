@@ -134,8 +134,9 @@ export class Database {
    * @remarks
    * DuckDB 1.5.5 can otherwise persist stale secondary indexes in its implicit
    * shutdown checkpoint. The worker checkpoints with its writer connection
-   * after every queued change finished. A failed checkpoint is surfaced; it
-   * never implies cleanup.
+   * after every accepted change finished or, past the drain limit of the
+   * executor, was rolled back. A failed checkpoint is surfaced; it never implies
+   * cleanup.
    */
   public async close(): Promise<void> {
     await this.executor.close();

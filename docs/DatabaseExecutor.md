@@ -78,6 +78,7 @@ All numbers live in `DATABASE_EXECUTOR_LIMITS`
 | Queue budget of a writer job outside requests   | 10 min                              | Agent persistence waits for a slow commit rather than losing progress.            |
 | Result / bound values of one statement          | 64 MiB                              | Larger results must be paged by the repository.                                   |
 | Worker open / close                             | 120 s each                          | WAL replay and the shutdown checkpoint can take long.                             |
+| Jobs finishing before the close                 | 15 s                                | Apart from `COMMIT`, a transaction spent at most 0.55 s in DuckDB in the logs.    |
 | Worker exit after close                         | 5 s                                 | Then the worker is killed; it ignores stop signals and leaves them to the server. |
 | Restarts after unexpected exits                 | 3 within 10 min, delay 1 s doubling | Then the executor stays `failed`.                                                 |
 | `/health` database probe                        | 3 s                                 | Unchanged contract.                                                               |
@@ -126,10 +127,16 @@ close (`closed`, `failed`, `timed_out`, `closing`, `not_attempted`); only a
 confirmed close counts as `closed`. The budgets are in
 [PAGE-199](./PAGE-199.md#time-budgets).
 
-The worker closes on `close()` by waiting for the writer, checkpointing with
-its live writer connection (the DuckDB 1.5.5 workaround of
-`Database.close()`) and closing every connection. If the server disappears,
-the worker rolls back an abandoned transaction, checkpoints and exits. WAL
+`close()` first refuses new jobs and lets the accepted ones finish, because the
+worker refuses every statement once it closes, also the `COMMIT` or `ROLLBACK`
+of a transaction still running. A job past the limit is logged
+(`database.executor.drain_incomplete`), and a `COMMIT` already sent still
+finishes. The worker then waits for the statements it received, rolls back what
+no statement can end any more (the writer's transaction and open read sessions,
+which DuckDB would otherwise answer with a refused `CHECKPOINT`), checkpoints
+with its live writer connection (the DuckDB 1.5.5 workaround of
+`Database.close()`) and closes every connection. If the server disappears, the
+worker does the same and exits. WAL
 replay through an attached in-memory database is unchanged and now happens
 in the worker (`walReplayed` in `database.worker.ready`).
 
