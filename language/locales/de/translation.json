@@ -3340,6 +3340,7 @@
       "fileTypeNotAllowed": "Dieser Dateityp ist nicht erlaubt oder der Inhalt passt nicht zum Dateinamen. Ausführbare Dateien sind gesperrt.",
       "invalidSetting": "Bitte die Eingabe prüfen.",
       "stepLimit": "Pica hat das Ausführungslimit erreicht (höchstens 256 Werkzeugaufrufe pro Auftrag). Bisherige Änderungen bleiben erhalten. Bitte schicke weitere Arbeit als neuen Auftrag.",
+      "adminRevoked": "Pica wurde gestoppt, weil deine Administratorrechte entzogen wurden. Bereits ausgeführte Änderungen bleiben erhalten.",
       "roleMissing": "Für Pica ist kein eindeutiges, gültiges Modell gespeichert. Die Administration wählt es unter Einstellungen › Agents.",
       "profileSelectionRequired": "Die bisherige Pica-Zuweisung ist mehrdeutig. Die Administration muss hier genau ein Modell auswählen.",
       "connectionUnavailable": "Der Zugang des Chat-Agenten ist nicht verfügbar. Bitte wende dich an einen Admin.",
@@ -3438,6 +3439,28 @@
       "truncatedPages": "{{name}}: gekürzt übertragen – Seiten 1–{{read}} von {{total}} gelesen, {{characters}} Zeichen übertragen",
       "encrypted": "{{name}}: nicht übertragen – die Datei ist mit einem Passwort geschützt",
       "noText": "{{name}}: nicht übertragen – die Datei enthält keinen lesbaren Text (z. B. ein Scan)"
+    },
+    "privileged": {
+      "label": "Administrator-Aktionen",
+      "heading": "Administrator-Aktionen von Pica",
+      "earlier": "{{count}} frühere Aktionen",
+      "status": {
+        "running": "läuft …",
+        "completed": "ausgeführt"
+      },
+      "errors": {
+        "CONFIRMATION_REQUIRED": "wartet auf deine Bestätigung – nichts geändert",
+        "ADMIN_REQUIRED": "Administratorrecht fehlt oder wurde entzogen",
+        "FORBIDDEN": "nicht erlaubt",
+        "NOT_FOUND": "nicht gefunden",
+        "CONFLICT": "inzwischen geändert – nichts überschrieben",
+        "INVALID_REQUEST": "ungültige Anfrage",
+        "INVALID_ARGUMENTS": "ungültige Angaben",
+        "CANCELLED": "abgebrochen",
+        "STEP_LIMIT": "Ausführungslimit erreicht",
+        "RETRY_REFUSED": "nicht wiederholt",
+        "FAILED": "fehlgeschlagen"
+      }
     },
     "live": {
       "label": "Pica bearbeitet deine Anfrage",
@@ -4854,6 +4877,17 @@
       "completed": "abgeschlossen",
       "count": "{{completed}} von {{total}} Schritten ausgeführt",
       "unknownTotal": "Keine ausgeführte Schrittmenge bekannt",
+      "position": "{{position}} / {{total}}",
+      "positionEstimate": "{{position}} / ca. {{total}}",
+      "positionLabel": "Schritt {{position}} · {{completed}} abgeschlossen",
+      "completedCount": "{{count}} abgeschlossen",
+      "pass": "Durchlauf {{pass}}",
+      "planned": "Geplant · noch nicht gestartet",
+      "assumed": "Annahme · noch nicht feststehend",
+      "outlook": {
+        "planned": "Geplant: Dieser Schritt folgt aus dem bekannten Plan und den bisher getroffenen Entscheidungen. Er wurde noch nicht gestartet.",
+        "assumed": "Annahme: Ob dieser Schritt läuft, steht noch nicht fest – etwa wegen einer offenen Entscheidung, eines weiteren Loop-Durchlaufs oder einer weiteren Runde. Die Sequenz wird mit jedem Laufereignis neu geschätzt. Der Schritt wurde noch nicht gestartet."
+      },
       "elapsed": "Verstrichene Zeit einschließlich Pausen",
       "open": "Laufdetails öffnen",
       "close": "Laufdetails schließen",
@@ -5542,6 +5576,57 @@
         "down": "{{name}} nach unten",
         "remove": "{{name}} aus dem Stack entfernen"
       }
+    },
+    "modelPicker": {
+      "search": "Modell oder Anbieter suchen",
+      "searchPlaceholder": "Modell oder Anbieter suchen …",
+      "tree": "Modelle nach Werkzeug",
+      "tools": {
+        "antigravity": "Antigravity",
+        "claude_code": "Claude Code",
+        "codex_cli": "Codex",
+        "opencode": "OpenCode",
+        "openrouter": "OpenRouter API",
+        "openai": "OpenAI API",
+        "anthropic": "Anthropic API",
+        "google_ai_studio": "Google AI Studio",
+        "zai": "Z.AI API"
+      },
+      "sources": {
+        "opencode": "OpenCode",
+        "openrouter": "OpenRouter",
+        "google": "Google",
+        "zai": "Z.AI",
+        "zai-coding-plan": "Z.AI Coding Plan"
+      },
+      "access": {
+        "antigravity": "Google · ACP",
+        "claude_code": "Claude-Abo",
+        "codex_cli": "ChatGPT-Konto",
+        "opencode": "OpenCode",
+        "openrouter": "API-Schlüssel",
+        "openai": "API-Schlüssel",
+        "anthropic": "API-Schlüssel",
+        "google_ai_studio": "API-Schlüssel",
+        "zai": "API-Schlüssel"
+      },
+      "accessCount_one": "{{count}} Zugang",
+      "accessCount_other": "{{count}} Zugänge",
+      "groupLabel_one": "{{tool}}, {{context}}, {{count}} Modell",
+      "groupLabel_other": "{{tool}}, {{context}}, {{count}} Modelle",
+      "free": "Free",
+      "modelCount_one": "{{count}} Modell",
+      "modelCount_other": "{{count}} Modelle",
+      "matchCount_one": "{{count}} Treffer",
+      "matchCount_other": "{{count}} Treffer",
+      "toolCount_one": "{{count}} Werkzeug",
+      "toolCount_other": "{{count}} Werkzeuge",
+      "hintMove": "↑↓ navigieren",
+      "hintGroup": "←→ auf-/zuklappen",
+      "hintChoose": "↵ wählen",
+      "hintClose": "Esc schließen",
+      "noMatch": "Kein Modell passt zu „{{query}}“.",
+      "noModels": "Für dieses Ausführungsziel ist kein Modell freigegeben."
     }
   },
   "mcpDuration": {

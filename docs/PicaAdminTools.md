@@ -2,17 +2,23 @@
 
 Pica's native API catalog and ACP tool bridge offer `admin_browser_open`,
 `admin_browser_action`, `admin_files_find`, `admin_files_read` and
-`admin_files_edit`. Every invocation checks the current active account and
-administrator role in admin mode. The tools share the existing turn budget.
+`admin_files_edit` to administrators; they carry the `administrator` access
+class of the `RuntimeToolRegistry` and run beside the management tools of the
+[administrator operator](PicaAdminOperator.md) (PAGE-180). Every invocation checks
+the current active account and administrator role in admin mode. The tools share
+the existing turn budget.
 Their results are untrusted observations, and do not change Pica's protected
 instructions, ordinary permissions, attachment handling or plan execution.
 
 Administrators can also use **Pica admin tools** from Settings or `/pica-tools`.
 That task surface invokes the same native registry. Browser sessions belong to
-one person, conversation and job. Complete tasks explicitly; they expire after
-ten minutes and close automatically on cancellation, job completion, loss of
-administrator eligibility or server shutdown. Active tasks recheck eligibility
-every 250 ms; each action and browser request also rechecks it immediately.
+one person, conversation and job. Complete tasks explicitly; a console task
+expires after ten minutes, and every browser closes automatically on
+cancellation, job completion, loss of administrator eligibility or server
+shutdown. The scope of a chat job has no clock of its own: it ends with the job.
+Active tasks recheck eligibility every 250 ms; each action and browser request
+also rechecks it immediately. Withdrawing the right ends the job with the status
+`adminRevoked`.
 
 ## Host prerequisites and isolation
 
@@ -77,7 +83,7 @@ an OS-wide mandatory lock against an uncooperative concurrent writer.
 ## Audit
 
 Structured `pica.admin.tool` events record user, conversation, run, tool,
-started/completed/refusal status and an opaque SHA-256 correlation digest.
+started/executed/completed/refusal status and an opaque SHA-256 correlation digest.
 Revocation and closure are recorded separately. Raw task text, addresses,
 selectors, file paths, contents and credentials are never audit fields. Only
 bounded, credential-filtered observations reach the requester/model. The

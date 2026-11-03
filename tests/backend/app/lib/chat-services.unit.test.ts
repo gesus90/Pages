@@ -440,6 +440,7 @@ it("answers with the Codex path when it exists", () => {
     settings: services.chatSettingsService,
     protectedInstructions: readPicaInstructions,
     agents: input.agents.agentProfileService,
+    administrators: vi.mocked(PicaAdminService).mock.instances[0],
     requests: REQUESTS,
     languages: vi.mocked(UserSettingsRepository).mock.instances[0],
   });

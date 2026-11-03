@@ -43,6 +43,7 @@ import type { AgentWikiCommentService } from "./AgentWikiCommentService";
 import type { AgentWikiFieldService } from "./AgentWikiFieldService";
 import type { AgentWorkspaceOperationService } from "./AgentWorkspaceOperationService";
 import type { AgentPlanOperationService } from "./AgentPlanOperationService";
+import type { ChatInstanceAdministrationService } from "./ChatInstanceAdministrationService";
 import type { PageAgentOperationService } from "./PageAgentOperationService";
 import type { AgentWriteOperationService } from "./AgentWriteOperationService";
 import type { StructuredImportService } from "./StructuredImportService";
@@ -62,6 +63,19 @@ import type {
   PagesAgentStructuredReadResponse,
 } from "@/definition/PagesAgentOperations";
 
+/** What a service for a group of operations answers: a read, a write or a change of the administration. */
+type AdditionalResponse =
+  PagesAgentReadResponse | PagesAgentWriteResponse | AgentAdminWriteResponse;
+
+/** A service that handles only the operations of its own group and answers `null` for any other. */
+interface AdditionalOperations {
+  handle(
+    identity: AgentIdentity,
+    operation: unknown,
+    input: unknown,
+  ): Promise<AdditionalResponse | null>;
+}
+
 /** Server-owned dependencies; no actor or policy arrives through operation parameters. */
 export interface AgentOperationDependencies {
   readonly projects: ProjectRepository;
@@ -76,6 +90,11 @@ export interface AgentOperationDependencies {
   readonly planning?: AgentPlanningServices;
   readonly extensions?: AgentExtensionService;
   readonly administration?: AgentAdministrationService;
+  /** Connections and instance settings; wired for the chat only. */
+  readonly instanceAdministration?: Pick<
+    ChatInstanceAdministrationService,
+    "handle"
+  >;
   /** Permanent project deletion; wired for MCP only, never for the chat. */
   readonly projectDeletion?: AgentProjectDeletionService;
   readonly workspaces?: AgentWorkspaceOperationService;
@@ -252,55 +271,28 @@ export class AgentOperationRouter {
   private async handleAdditional(
     identity: AgentIdentity,
     input: Readonly<Record<string, unknown>>,
-  ): Promise<
-    | PagesAgentReadResponse
-    | PagesAgentWriteResponse
-    | AgentAdminWriteResponse
-    | null
-  > {
-    const chatSessions = await this.dependencies.chatSessions?.handle(
-      identity,
-      input.operation,
-      input.parameters,
-    );
-    if (chatSessions) return chatSessions;
-    const administration = await this.dependencies.administration?.handle(
-      identity,
-      input.operation,
-      input.parameters,
-    );
-    if (administration) return administration;
-    const deletion = await this.dependencies.projectDeletion?.handle(
-      identity,
-      input.operation,
-      input.parameters,
-    );
-    if (deletion) return deletion;
-    const extension = await this.dependencies.extensions?.handle(
-      identity,
-      input.operation,
-      input.parameters,
-    );
-    if (extension) return extension;
-    const workspace = await this.dependencies.workspaces?.handle(
-      identity,
-      input.operation,
-      input.parameters,
-    );
-    if (workspace) return workspace;
-    const plan = await this.dependencies.plans?.handle(
-      identity,
-      input.operation,
-      input.parameters,
-    );
-    if (plan) return plan;
-    return (
-      (await this.dependencies.pageAgents?.handle(
+  ): Promise<AdditionalResponse | null> {
+    const { dependencies } = this;
+    // The first service that knows the operation answers; the order is the catalog's.
+    const services: readonly (AdditionalOperations | undefined)[] = [
+      dependencies.chatSessions,
+      dependencies.administration,
+      dependencies.instanceAdministration,
+      dependencies.projectDeletion,
+      dependencies.extensions,
+      dependencies.workspaces,
+      dependencies.plans,
+      dependencies.pageAgents,
+    ];
+    for (const service of services) {
+      const response = await service?.handle(
         identity,
         input.operation,
         input.parameters,
-      )) ?? null
-    );
+      );
+      if (response) return response;
+    }
+    return null;
   }
 
   /** Runs a write, or a ticket or milestone read, or returns `null` when the name is none of them. */

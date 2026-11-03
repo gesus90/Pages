@@ -89,7 +89,7 @@ export function PageAgentModelFields(props: {
 }
 
 /** The reasoning level of a model; levels the model lacks stay listed, disabled, with the reason. */
-function PageAgentReasoningField(props: {
+export function PageAgentReasoningField(props: {
   readonly draft: PageAgentInput;
   readonly models: readonly PageAgentModel[];
   readonly model: PageAgentModel | undefined;
@@ -129,7 +129,8 @@ function PageAgentReasoningField(props: {
   );
 }
 
-function PageAgentModelNotices(props: {
+/** Names the alias a saved model stands for, and a saved model that is no longer released. */
+export function PageAgentModelNotices(props: {
   readonly model: PageAgentModel | undefined;
   readonly savedAlias: string | null;
   readonly isModelWithdrawn: boolean;

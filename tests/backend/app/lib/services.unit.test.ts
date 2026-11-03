@@ -386,6 +386,10 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
       plans: world.plans.agentPlanService,
       planRecovery: world.plans.agentPlanRecoveryService,
       planSessions: world.plans.agentSessionService,
+      instanceAdministration: {
+        connections: world.agents.agentConnectionService,
+        settings: only(vi.mocked(InstanceSettingsService)),
+      },
       events: only(vi.mocked(PagesEventPublisher)),
     },
   );

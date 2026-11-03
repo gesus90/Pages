@@ -10,6 +10,8 @@
 export interface AgentModelTraits {
   /** OpenCode's `status`, such as `active`, `beta` or `deprecated`. */
   readonly status: unknown;
+  /** OpenCode's `capabilities.input` modalities; absent where a catalog does not report them. */
+  readonly input?: unknown;
   /** OpenCode's `capabilities.output` modalities. */
   readonly output: unknown;
   /** OpenCode's `capabilities.toolcall`. */
@@ -19,20 +21,24 @@ export interface AgentModelTraits {
 const GENERATED_MEDIA = ["image", "video", "audio"] as const;
 
 function statesModality(
-  output: unknown,
+  modalities: unknown,
   modality: string,
   stated: boolean,
 ): boolean {
   return (
-    typeof output === "object" &&
-    output !== null &&
-    Reflect.get(output, modality) === stated
+    typeof modalities === "object" &&
+    modalities !== null &&
+    Reflect.get(modalities, modality) === stated
   );
 }
 
 /**
  * The global filter for every chat model choice: an active language model
- * that answers in text and generates no image, video or audio.
+ * that reads and answers in text and generates no image, video or audio.
+ *
+ * @remarks
+ * A model that also reads images stays a chat model. A model that states it
+ * reads no text, such as a pure transcription model, is not one.
  *
  * @param traits - The model's properties as OpenCode states them.
  * @returns `true` when Pica and plans may list the model.
@@ -40,6 +46,7 @@ function statesModality(
 export function isChatModel(traits: AgentModelTraits): boolean {
   return (
     (traits.status === undefined || traits.status === "active") &&
+    !statesModality(traits.input, "text", false) &&
     !statesModality(traits.output, "text", false) &&
     GENERATED_MEDIA.every(
       (modality) => !statesModality(traits.output, modality, true),

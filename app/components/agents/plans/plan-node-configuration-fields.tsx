@@ -1,5 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { PageAgentModelFields } from "@/app/components/agents/definitions/page-agent-model-fields";
+import {
+  PageAgentModelNotices,
+  PageAgentReasoningField,
+} from "@/app/components/agents/definitions/page-agent-model-fields";
 import { Select } from "@/app/components/ui/select";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import {
@@ -11,6 +14,7 @@ import {
 import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { PlanExecutionTargetField } from "./plan-execution-target-field";
 import { PlanCompletionGateField } from "./plan-completion-gate-field";
+import { PlanModelPicker } from "./plan-model-picker";
 import { PlanRemoteStatus } from "./plan-remote-status";
 import {
   PlanNodeContentFields,
@@ -90,6 +94,73 @@ function PlanCompletionField(props: {
   );
 }
 
+/**
+ * Model and reasoning level of a node, chosen from the models of its effective execution target.
+ *
+ * @remarks
+ * A model change stores the listed model's connection, route, model and
+ * provider and keeps the saved reasoning level, which the level field then
+ * offers or names as unsupported.
+ */
+function PlanNodeModelFields(props: {
+  readonly step: AgentPlanStep;
+  readonly configuration: AgentPlanConfiguration;
+  readonly planTarget: AgentPlanExecutionTarget | undefined;
+  readonly sources: AgentPlanSources;
+  readonly disabled: boolean;
+  readonly onChange: (step: AgentPlanStep) => void;
+}): React.ReactElement {
+  const { configuration } = props;
+  const models = planTargetModels(
+    props.sources.models ?? [],
+    effectivePlanTarget(props.step, { executionTarget: props.planTarget }),
+  );
+  const saved = planSavedModel(models, configuration);
+  const modelKey = saved?.model.id ?? planConfigurationModelKey(configuration);
+  const draft: PageAgentInput = {
+    name: configuration.name,
+    modelProfileId: modelKey,
+    reasoningEffort: configuration.reasoningEffort,
+    configuration: emptyAgentConfiguration(),
+  };
+  function changeModel(input: PageAgentInput): void {
+    const model = models.find((entry) => entry.id === input.modelProfileId);
+    if (!model) return;
+    props.onChange(
+      planStepWithModel(
+        props.step,
+        configuration,
+        model,
+        input.reasoningEffort,
+      ),
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <PlanModelPicker
+        value={modelKey}
+        models={models}
+        savedModel={configuration.model}
+        disabled={props.disabled}
+        onChange={(id) => changeModel({ ...draft, modelProfileId: id })}
+      />
+      <PageAgentReasoningField
+        draft={draft}
+        models={models}
+        model={saved?.model}
+        savedModel={configuration.model}
+        disabled={props.disabled}
+        onChange={changeModel}
+      />
+      <PageAgentModelNotices
+        model={saved?.model}
+        savedAlias={saved?.alias ?? null}
+        isModelWithdrawn={!models.some((model) => model.id === modelKey)}
+      />
+    </div>
+  );
+}
+
 /** Edits the selected node's content and released model without writing to its template. */
 export function PlanNodeConfigurationFields(props: {
   readonly step: AgentPlanStep;
@@ -108,31 +179,6 @@ export function PlanNodeConfigurationFields(props: {
   const configuration =
     props.step.configuration ?? (source ? copyPlanConfiguration(source) : null);
   if (!configuration) return null;
-  const models = planTargetModels(
-    props.sources.models ?? [],
-    effectivePlanTarget(props.step, { executionTarget: props.planTarget }),
-  );
-  const saved = planSavedModel(models, configuration);
-  const modelKey = saved?.model.id ?? planConfigurationModelKey(configuration);
-  const draft: PageAgentInput = {
-    name: configuration.name,
-    modelProfileId: modelKey,
-    reasoningEffort: configuration.reasoningEffort,
-    configuration: emptyAgentConfiguration(),
-  };
-  function changeModel(input: PageAgentInput): void {
-    if (!configuration) return;
-    const model = models.find((entry) => entry.id === input.modelProfileId);
-    if (!model) return;
-    props.onChange(
-      planStepWithModel(
-        props.step,
-        configuration,
-        model,
-        input.reasoningEffort,
-      ),
-    );
-  }
   return (
     <fieldset disabled={props.disabled} className="space-y-3">
       <PlanNodeNameField
@@ -147,15 +193,13 @@ export function PlanNodeConfigurationFields(props: {
         sources={props.sources}
         onChange={props.onChange}
       />
-      <PageAgentModelFields
-        layout="stacked"
-        savedModel={configuration.model}
-        savedAlias={saved?.alias ?? null}
-        draft={draft}
-        models={models}
+      <PlanNodeModelFields
+        step={props.step}
+        configuration={configuration}
+        planTarget={props.planTarget}
+        sources={props.sources}
         disabled={props.disabled}
-        isModelWithdrawn={!models.some((model) => model.id === modelKey)}
-        onChange={changeModel}
+        onChange={props.onChange}
       />
       <PlanRemoteStatus
         sources={props.sources}

@@ -30,6 +30,8 @@ import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 
 interface PlanRunDisplay {
   readonly run: AgentPlanRun | null;
+  /** The saved plan when it is the revision the run executes. */
+  readonly plan?: AgentPlanInput;
   readonly error: string | null;
 }
 
@@ -52,6 +54,17 @@ function parameterWorkspaces(
   );
 }
 
+/** The saved plan when it is the revision the run executes, so the run is read against its own graph. */
+function executedPlan(
+  page: AgentPlanPage,
+  run: AgentPlanRun | null,
+): AgentPlanInput | undefined {
+  const revision = run?.continuation?.planRevision ?? run?.planRevision;
+  return page.selected?.revision === revision
+    ? (page.selected ?? undefined)
+    : undefined;
+}
+
 function planRunDisplay(
   page: AgentPlanPage,
   control: AgentPlanControl | undefined,
@@ -65,7 +78,7 @@ function planRunDisplay(
   // Shared control metadata never grants access to the executor's run details.
   if (!error && page.selected?.canEdit === false && control?.runId && !run)
     error = "plan_run_unavailable";
-  return { run, error };
+  return { run, error, plan: executedPlan(page, run) };
 }
 
 /** Whether the saved plan may start now; `undefined` while the server has not answered. */
@@ -166,6 +179,7 @@ export function PlanPage({
         onEdit={setEditingNodeId}
         onOpen={setConsoleNodeId}
         run={display.run}
+        runPlan={display.plan}
         runError={display.error}
         isReady={planReadiness(controls.control, editor.isDirty)}
         tickets={editor.tickets}

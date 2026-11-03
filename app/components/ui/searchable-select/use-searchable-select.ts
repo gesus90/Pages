@@ -80,8 +80,13 @@ const ARROW_OFFSETS: Partial<Record<string, number>> = {
 /** Room the open panel needs below the trigger before it opens upwards. */
 const PANEL_HEIGHT = 320;
 
-/** The visible band of the page around an element, narrowed by every clipping ancestor such as a dialog. */
-function visibleBand(element: HTMLElement): {
+/**
+ * The visible band of the page around an element, narrowed by every clipping ancestor such as a dialog.
+ *
+ * @param element - The element a panel is anchored to.
+ * @returns The top and bottom edge of the band in viewport coordinates.
+ */
+export function visibleBand(element: HTMLElement): {
   readonly top: number;
   readonly bottom: number;
 } {

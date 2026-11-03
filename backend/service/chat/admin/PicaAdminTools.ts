@@ -30,6 +30,7 @@ export function registerPicaAdminTools(
       { ok: boolean; result: string | null; error: string | null }
     >({
       id: tool,
+      access: "administrator",
       description: DESCRIPTIONS[tool],
       inputSchema: PICA_ADMIN_SCHEMAS[tool],
       outputSchema: PICA_TOOL_OUTCOME,

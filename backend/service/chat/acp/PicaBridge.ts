@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { ChatError } from "@/backend/error/ChatErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { RuntimeToolDeniedError } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
@@ -144,13 +145,25 @@ export class PicaBridge {
     if (turn === null) return refused("TURN_INACTIVE");
     const callId = randomUUID();
     const tool = name.slice(0, 100);
-    binding.owner.onTool({ callId, tool, status: "running", error: null });
+    // Administrator calls stay marked in the journal, whether they ran or were refused.
+    const privileged =
+      turn.tools.accessOf(name) === "administrator"
+        ? { isPrivileged: true }
+        : {};
+    binding.owner.onTool({
+      callId,
+      tool,
+      status: "running",
+      error: null,
+      ...privileged,
+    });
     const outcome = await this.invoke(turn, name, input);
     binding.owner.onTool({
       callId,
       tool,
       status: outcome.ok ? "completed" : "failed",
       error: outcome.ok ? null : outcome.error,
+      ...privileged,
     });
     return outcome;
   }
@@ -166,6 +179,9 @@ export class PicaBridge {
       if (!invoked.isValid) return refused("INVALID_ARGUMENTS");
       return PICA_TOOL_OUTCOME.parse(invoked.output);
     } catch (error: unknown) {
+      // The gate already audited the refusal; it is an answer, not a failure of Pages.
+      if (error instanceof RuntimeToolDeniedError)
+        return refused("ADMIN_REQUIRED");
       logCaughtError("PicaBridge", error);
 
       if (turn.context.signal.aborted) return refused("CANCELLED");

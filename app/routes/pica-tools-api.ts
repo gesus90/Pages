@@ -42,7 +42,7 @@ export async function action({
     }
     if (typeof input.tool !== "string" || !isPicaAdminTool(input.tool))
       throw new PicaAdminError("UNKNOWN_TOOL");
-    const registry = new RuntimeToolRegistry();
+    const registry = new RuntimeToolRegistry(service.gate());
     registerPicaAdminTools(registry, service, () => true);
     const invoked = await registry.invoke(
       input.tool,

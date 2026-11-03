@@ -155,3 +155,43 @@ it("joins the pinned running job without changing its model", async () => {
   });
   expect(world.acp.start).not.toHaveBeenCalled();
 });
+
+it("tells only an administrator about the administrator tools and the confirmation it must ask for", async () => {
+  const person = chatWorld();
+  await person.chat.submit(OWNER, MESSAGE);
+  const administrator = chatWorld();
+  await new ChatService({
+    ...administrator.dependencies,
+    administrators: {
+      isAdministrator: async (userId: string) => userId === OWNER.id,
+    },
+  }).submit(OWNER, MESSAGE);
+
+  const personal = person.acp.start.mock.calls[0]?.[0].brief.instructions;
+  const operator =
+    administrator.acp.start.mock.calls[0]?.[0].brief.instructions;
+  expect(personal).toContain("Verwaltung, also Benutzer");
+  expect(personal).not.toContain("Administrator im aktiven Admin-Modus");
+  expect(operator).toContain("Administrator im aktiven Admin-Modus");
+  expect(operator).toContain("list_admin_users");
+  expect(operator).toContain("CONFIRMATION_REQUIRED");
+  expect(operator).toContain("„LÖSCHEN“ allein in einer neuen Nachricht");
+  expect(operator).not.toContain("Verwaltung, also Benutzer");
+});
+
+it("treats an administrator check that fails as no administrator", async () => {
+  const world = chatWorld();
+
+  await new ChatService({
+    ...world.dependencies,
+    administrators: {
+      isAdministrator: async () => {
+        throw new Error("Accounts unavailable");
+      },
+    },
+  }).submit(OWNER, MESSAGE);
+
+  expect(world.acp.start.mock.calls[0]?.[0].brief.instructions).not.toContain(
+    "Administrator im aktiven Admin-Modus",
+  );
+});

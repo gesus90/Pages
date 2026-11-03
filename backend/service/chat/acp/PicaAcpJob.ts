@@ -292,7 +292,7 @@ export class PicaAcpJob {
         authorize: () => Promise.resolve(),
         answerFiles: this.dependencies.answerFiles,
         adminTools: this.dependencies.adminTools,
-      }).describe(),
+      }).describe({ includeAdministrator: await this.isAdministrator() }),
       onTool: (event) => {
         void this.journal
           .record({ kind: "tool", ...event })
@@ -303,6 +303,26 @@ export class PicaAcpJob {
       },
     });
     await this.journal.record({ kind: "phase", phase: "starting" });
+  }
+
+  /**
+   * Tells whether the catalog of this job lists the administrator tools.
+   *
+   * @remarks
+   * Only the listing depends on it. Every call resolves the right afresh, so
+   * a person who is none cannot call a tool by guessing its name, and an
+   * unknown answer lists none.
+   */
+  private async isAdministrator(): Promise<boolean> {
+    const tools = this.dependencies.adminTools;
+    if (!tools) return false;
+    try {
+      return await tools.isAdministrator(this.specification.actor.id);
+    } catch (error: unknown) {
+      logCaughtError("PicaAcpJob", error);
+
+      return false;
+    }
   }
 
   private async execute(signal: AbortSignal): Promise<void> {

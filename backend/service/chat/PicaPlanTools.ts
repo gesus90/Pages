@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import { PLAN_READ_TOOLS, PLAN_WRITE_TOOLS } from "@/mcp/src/tools/plans";
 import {
   PLAN_RESOURCE_READ_TOOLS,
@@ -8,17 +6,12 @@ import {
 import { readParameterRecord } from "@/backend/service/agents/AgentParameterReader";
 
 import { PICA_TOOL_OUTCOME } from "./PicaToolSchemas";
+import { nativeToolInputSchema } from "./PicaToolContracts";
 
 import type { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { ChatOperation } from "./ChatToolCatalog";
 import type { PicaToolOutcome } from "./PicaToolSchemas";
-
-function isPlanToolSchema(
-  input: unknown,
-): input is Parameters<typeof z.fromJSONSchema>[0] {
-  return typeof input === "object" && input !== null && !Array.isArray(input);
-}
 
 interface PlanToolDispatch {
   readonly execute: (
@@ -37,26 +30,7 @@ export function registerPicaPlanTools(
   const reads = [...PLAN_READ_TOOLS, ...PLAN_RESOURCE_READ_TOOLS];
   const writes = [...PLAN_WRITE_TOOLS, ...PLAN_RESOURCE_WRITE_TOOLS];
   for (const { operation, tool } of [...reads, ...writes]) {
-    const properties = Object.fromEntries(
-      Object.entries(tool.inputSchema.properties ?? {}).filter(
-        ([key]) => key !== "operationId" && key !== "confirmation",
-      ),
-    );
-    const required = (tool.inputSchema.required ?? []).filter(
-      (key) => key !== "operationId" && key !== "confirmation",
-    );
-    const nativeSchema: Record<string, Parameters<typeof z.fromJSONSchema>[0]> =
-      {};
-    for (const [key, entry] of Object.entries(properties)) {
-      if (!isPlanToolSchema(entry))
-        throw new Error("Invalid static plan tool schema");
-      nativeSchema[key] = entry;
-    }
-    const schema = z.fromJSONSchema({
-      ...tool.inputSchema,
-      properties: nativeSchema,
-      required,
-    });
+    const schema = nativeToolInputSchema(tool);
     const isWrite = writes.some((entry) => entry.operation === operation);
     registry.register({
       id: tool.name,

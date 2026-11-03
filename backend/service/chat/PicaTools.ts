@@ -4,6 +4,7 @@ import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { ChatResultBudget } from "./ChatResultBudget";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
+import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { isChatDeleteOperation } from "./ChatToolCatalog";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
@@ -34,7 +35,7 @@ import type {
 /** Services captured by the server for the native tool catalog of one turn. */
 export interface PicaToolsInput {
   readonly tools: Pick<ChatToolExecutor, "run"> &
-    Partial<Pick<ChatToolExecutor, "runPlan">>;
+    Partial<Pick<ChatToolExecutor, "runPlan" | "runAdmin">>;
   /** Raw current human message only; never a model prompt, history or attachment text. */
   readonly message?: string;
   readonly planTurnId?: string;
@@ -59,6 +60,8 @@ type ToolParameters = Readonly<Record<string, unknown>>;
 interface PicaToolBinding {
   readonly description: string;
   readonly operation: ChatOperation;
+  /** Runs with the administrator rules: fresh administrator check, consent for critical changes. */
+  readonly isPrivileged?: boolean;
   /** Turns the checked input into the operation parameters; without it they are the input. */
   readonly parameters?: (
     input: ToolParameters,
@@ -281,6 +284,13 @@ const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
   },
 };
 
+/** The operations every person's native tools cover; the administrator catalog adds the rest. */
+export const PICA_NATIVE_OPERATIONS: ReadonlySet<string> = new Set(
+  [...Object.values(READ_TOOLS), ...Object.values(WRITE_TOOLS)].map(
+    ({ operation }) => operation,
+  ),
+);
+
 function isPicaReadTool(name: string): name is PicaReadTool {
   return Object.hasOwn(PICA_READ_SCHEMAS, name);
 }
@@ -358,6 +368,25 @@ async function createAnswerFile(
   }
 }
 
+/** An administrator operation: the executor binds its consent to the exact call and the human's later reply. */
+async function dispatchPrivileged(
+  input: PicaToolsInput,
+  binding: PicaToolBinding,
+  parameters: ToolParameters,
+  context: RuntimeExecutionContext,
+): Promise<ChatActionOutcome> {
+  if (!input.tools.runAdmin) return { ok: false, error: "FORBIDDEN" };
+  return await input.tools.runAdmin(
+    { operation: binding.operation, parameters },
+    context,
+    {
+      message: input.message ?? "",
+      id: input.planTurnId,
+      confirmation: await input.sessions.confirmationWord(context.userId),
+    },
+  );
+}
+
 async function dispatchAction(
   input: PicaToolsInput,
   binding: PicaToolBinding,
@@ -366,6 +395,8 @@ async function dispatchAction(
 ): Promise<ChatActionOutcome> {
   if (binding.operation === "plans.delete" && !input.tools.runPlan)
     return { ok: false, error: "CONFIRMATION_REQUIRED" };
+  if (binding.isPrivileged)
+    return await dispatchPrivileged(input, binding, parameters, context);
   const confirmation = isChatDeleteOperation(binding.operation)
     ? await input.sessions.confirmationWord(context.userId)
     : null;
@@ -382,6 +413,49 @@ async function dispatchAction(
     : await input.tools.run(context.userId, action, confirmation);
 }
 
+type PicaExecute = (
+  binding: PicaToolBinding,
+  parameters: ToolParameters,
+  context: RuntimeExecutionContext,
+) => Promise<PicaToolOutcome>;
+
+/** What the administrator tools are registered from. */
+interface AdministratorToolParts {
+  readonly input: PicaToolsInput;
+  readonly service: PicaAdminService;
+  readonly budget: ToolBudget;
+  readonly execute: PicaExecute;
+}
+
+/**
+ * Registers host files, the browser and the administrator catalog of Pages operations.
+ *
+ * @remarks
+ * Every call runs in the administrator scope of its job: the right is
+ * resolved afresh before and after it, and its withdrawal aborts the job.
+ */
+function registerAdministratorTools(
+  registry: RuntimeToolRegistry,
+  parts: AdministratorToolParts,
+): void {
+  const { input, service, budget, execute } = parts;
+  registerPicaAdminTools(registry, service, () => spend(input, budget));
+  registerPicaOperatorTools(registry, {
+    native: PICA_NATIVE_OPERATIONS,
+    run: (entry, parameters, context) =>
+      service.runPrivileged(
+        { operation: entry.operation, input: parameters },
+        context,
+        (guarded) =>
+          execute(
+            { operation: entry.operation, description: "", isPrivileged: true },
+            parameters,
+            guarded,
+          ),
+      ),
+  });
+}
+
 /**
  * Creates the native tools with fixed service dispatch and fresh rights.
  *
@@ -393,15 +467,11 @@ async function dispatchAction(
  * write that failed is not sent again unchanged in the same turn.
  */
 export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
-  const registry = new RuntimeToolRegistry();
+  const registry = new RuntimeToolRegistry(input.adminTools?.gate());
   const failedWrites = new Set<string>();
   const budget: ToolBudget = { calls: 0 };
   const results = new ChatResultBudget();
-  const execute = async (
-    binding: PicaToolBinding,
-    parameters: ToolParameters,
-    context: RuntimeExecutionContext,
-  ): Promise<PicaToolOutcome> => {
+  const execute: PicaExecute = async (binding, parameters, context) => {
     await input.authorize();
     context.signal.throwIfAborted();
     if (!spend(input, budget)) return refused("STEP_LIMIT");
@@ -469,8 +539,11 @@ export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
         createAnswerFile(input, budget, { parameters, context }),
     });
   if (input.adminTools)
-    registerPicaAdminTools(registry, input.adminTools, () =>
-      spend(input, budget),
-    );
+    registerAdministratorTools(registry, {
+      input,
+      service: input.adminTools,
+      budget,
+      execute,
+    });
   return registry;
 }
