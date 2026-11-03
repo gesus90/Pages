@@ -1,7 +1,6 @@
 import { Check, CircleHelp } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { planTodoSummary } from "./plan-status-todo-model";
@@ -57,13 +56,7 @@ export function PlanStatusTodos({
           )}
         </p>
       ) : null}
-      <ScrollViewport
-        axis="vertical"
-        tabIndex={0}
-        aria-label={t("plans.progress.todoList")}
-        containerClassName="min-h-20 max-h-80 min-w-0 flex-1"
-        className="overflow-y-auto overscroll-contain pr-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
-      >
+      <div>
         {items.length ? (
           <ul className="py-1">
             {items.map((item) => (
@@ -80,7 +73,7 @@ export function PlanStatusTodos({
           </p>
         )}
         <PlanStatusWork work={progress?.work} />
-      </ScrollViewport>
+      </div>
     </section>
   );
 }

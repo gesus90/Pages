@@ -18,6 +18,7 @@ import type {
 
 function bindingReference(binding: AgentPlanBinding): string | null {
   if (binding.kind === "source") return binding.nodeId;
+  if (binding.kind === "stack") return binding.stackId;
   return binding.kind === "result" || binding.kind === "previous"
     ? binding.stepId
     : null;

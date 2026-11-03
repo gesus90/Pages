@@ -9,6 +9,7 @@ import {
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { initialLoopRuns } from "./loop/AgentPlanLoopRecord";
 
+import { isPlanOuterRunStep } from "@/definition/AgentPlanStack";
 import type {
   AgentPlanNode,
   AgentPlanRun,
@@ -51,7 +52,10 @@ export function initialPlanRun(
     status: "running",
     stopRequested: false,
     steps: inPlanSequence(
-      snapshot.plan.nodes.filter(isPlanFlowNode),
+      snapshot.plan.nodes.filter(
+        (node) =>
+          isPlanFlowNode(node) && isPlanOuterRunStep(snapshot.plan, node),
+      ),
       planFlowSequence(snapshot.plan).order,
     ).map((node) => ({
       id: node.id,
@@ -110,5 +114,7 @@ function runStepName(snapshot: AgentPlanSnapshot, node: AgentPlanNode): string {
   if (remote?.step.type === "agent")
     return remote.step.configuration?.name ?? node.type;
   if (node.type === "decision") return node.name ?? "Decision";
-  return node.type === "loop" || node.type === "script" ? node.name : node.type;
+  return node.type === "loop" || node.type === "script" || node.type === "stack"
+    ? node.name
+    : node.type;
 }

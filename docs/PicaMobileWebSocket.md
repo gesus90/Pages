@@ -1,8 +1,8 @@
-# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193)
+# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200)
 
 Pages stellt für die App Pica Mobile einen WebSocket-Endpunkt bereit. Dieses Dokument ist der Vertrag zwischen Pages und der App: Es beschreibt, wie ein Administrator den Endpunkt einrichtet, wie eine Verbindung aufgebaut wird und welche Nachrichten in Version 1 des Formats gelten.
 
-Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) und `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)). Chat gehört nicht dazu.
+Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)) und `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)). Chat gehört nicht dazu.
 
 ## Einrichtung durch einen Administrator
 
@@ -59,7 +59,7 @@ Bis `auth` gelingt, lehnt Pages jede andere Nachricht mit `authentication_requir
 
 ## Nachrichtenformat
 
-Jede Nachricht ist ein WebSocket-**Textframe** mit einem JSON-Objekt. Nachrichten des Clients sind höchstens 16 KiB (`16384` Bytes) groß; die Antworten von Pages unterliegen dieser Grenze nicht (ein `avatar` trägt bis zu 128 KiB Bilddaten). Ausgenommen davon sind die Antworten der Erweiterung `notifications.v1`: der Client beendet die Verbindung bei einem Frame über 16384 UTF-16-Codeeinheiten, deshalb hält Pages sie darunter (siehe [notification_event](#notification_event_get-und-notification_event)). Binärframes lehnt Pages ab. In beide Richtungen gilt dieselbe Hülle:
+Jede Nachricht ist ein WebSocket-**Textframe** mit einem JSON-Objekt. Nachrichten des Clients sind höchstens 16 KiB (`16384` Bytes) groß; die Antworten von Pages unterliegen dieser Grenze nicht (ein `avatar` trägt bis zu 128 KiB Bilddaten). Ausgenommen davon sind die Antworten der Erweiterung `notifications.v1`: der Client beendet die Verbindung bei einem Frame über 16384 UTF-16-Codeeinheiten, deshalb hält Pages sie darunter (siehe [notification_event](#notification_event_get-und-notification_event)). Die Nachrichten `plans` und `plan` der Erweiterung `plans.v1` sind höchstens 262144 UTF-16-Codeeinheiten lang. Binärframes lehnt Pages ab. In beide Richtungen gilt dieselbe Hülle:
 
 ```json
 {
@@ -127,7 +127,7 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 
 `sessionToken` ist bei `method: "password"` das neu ausgestellte Sitzungstoken und sonst `null`. Die App speichert das Token im sicheren Speicher des Geräts und meldet sich danach mit `method: "session"` an; das Passwort behält sie nicht.
 
-`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1` und `notifications.push.fcm` folgen eigenen Regeln (siehe [Capabilities](#capabilities)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
+`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1` und `notifications.push.fcm` folgen eigenen Regeln (siehe [Capabilities](#capabilities)), `plans.v1` nennt Pages nur, wenn es `plans_sync` und `plan_get` beantwortet (siehe [Erweiterung plans.v1](#erweiterung-plansv1)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
 
 **`pong`** antwortet auf `ping`:
 
@@ -162,7 +162,7 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `invalid_message`          | kein JSON-Objekt, Pflichtfeld fehlt oder ungültig, Payload ungültig, Binärframe; `avatar_get` mit einer Version, die nicht (mehr) die aktuelle des Kontos ist; `notification_register` mit einer anderen Plattform als `android`, einem anderen Provider als `fcm` oder ungültigem Token, `preview` oder `deviceId` | Verbindung bleibt                                                                    |
 | `unsupported_version`      | `version` nicht unterstützt (`supportedVersions` nennt die erlaubten)                                                                                                                                                                                                                                               | Verbindung bleibt                                                                    |
-| `unknown_type`             | `type` unbekannt, auch `dashboard_get` und `avatar_get` bei einem Pages ohne `dashboard.v1` und die drei `notification_*`-Anfragen bei einem Pages ohne `notifications.v1`                                                                                                                                          | Verbindung bleibt                                                                    |
+| `unknown_type`             | `type` unbekannt, auch `dashboard_get` und `avatar_get` bei einem Pages ohne `dashboard.v1`, die drei `notification_*`-Anfragen bei einem Pages ohne `notifications.v1` und `plans_sync` und `plan_get` bei einem Pages ohne `plans.v1`                                                                             | Verbindung bleibt                                                                    |
 | `authentication_required`  | andere Nachricht als `auth` vor erfolgreicher Authentifizierung                                                                                                                                                                                                                                                     | Verbindung bleibt                                                                    |
 | `authentication_failed`    | Zugangsdaten oder Sitzungstoken ungültig, Konto deaktiviert; auch bei später beendeter Sitzung, auch als Antwort auf ein `dashboard_get` oder `avatar_get`                                                                                                                                                          | nach 3 Fehlversuchen getrennt; ist die Sitzung beendet, wird die Verbindung getrennt |
 | `password_change_required` | das Konto muss in Pages zuerst sein Passwort ändern                                                                                                                                                                                                                                                                 | wie `authentication_failed`                                                          |
@@ -175,7 +175,7 @@ Fünf abgelehnte Nachrichten in Folge trennen die Verbindung (Code 1008, „Too 
 
 ## Erweiterung dashboard.v1
 
-Die Erweiterung liefert der angemeldeten App echte Daten des Kontos: Profil, die eigenen aktiven Plan-Läufe und die zugewiesenen Projekte, dazu das Profilbild. Sie folgt dem Vertrag `PM-13-1` des Clients (Pica Mobile, `docs/wire-contract.md`, Revision vom 30.10.2026) in der Fassung des Tickets PAGE-164; offene Abstimmungspunkte stehen am Ende des Abschnitts. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; die Erweiterung führt weder eine zweite Anmeldung noch einen Push- oder Livekanal, Chat oder Plansteuerung ein und liest nur: sie verändert keine fachlichen Daten (die Sitzungsprüfung vermerkt wie bei jeder Nachricht die letzte Nutzung der Sitzung). Die App fragt nach der Anmeldung, beim Wechsel in den Vordergrund, nach einer Wiederverbindung und beim Herunterziehen zum Aktualisieren; Pages sendet nichts von sich aus.
+Die Erweiterung liefert der angemeldeten App echte Daten des Kontos: Profil, die eigenen aktiven Plan-Läufe und die zugewiesenen Projekte, dazu das Profilbild. Sie folgt dem Vertrag `PM-13-1` des Clients (Pica Mobile, `docs/wire-contract.md`, Revision vom 30.10.2026) in der Fassung des Tickets PAGE-164; offene Abstimmungspunkte stehen am Ende des Abschnitts. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; die Erweiterung führt weder eine zweite Anmeldung noch einen Push- oder Livekanal, Chat oder Plansteuerung ein und liest nur: sie verändert keine fachlichen Daten (die Sitzungsprüfung vermerkt wie bei jeder Nachricht die letzte Nutzung der Sitzung). Die App fragt nach der Anmeldung, beim Wechsel in den Vordergrund, nach einer Wiederverbindung und beim Herunterziehen zum Aktualisieren; ein `dashboard` sendet Pages nie von sich aus. Von sich aus sendet Pages nur die Änderungen der Planliste der Erweiterung [plans.v1](#erweiterung-plansv1).
 
 Pages nennt `dashboard.v1` in `connected.payload.server.capabilities` nur, wenn es den ganzen Vertrag dieses Abschnitts beantwortet; ein Profilbild, das Pages nicht liefern kann, ist dabei kein Ausfall, sondern `avatar: null`. Ein Pages ohne die Erweiterung beantwortet `dashboard_get` und `avatar_get` mit `unknown_type`.
 
@@ -348,6 +348,135 @@ Das Vertragsdokument des Clients lag bei der Umsetzung in Pages nicht vor; die E
 | `icon` eines Projekts                                 | immer `null`                                                                  |
 | `progress` eines Projekts                             | gespeicherte Prozent plus Ziele; `null` ohne Ziele                            |
 | `ticket` eines Laufs                                  | nur bei genau einem Ticket                                                    |
+
+## Erweiterung plans.v1
+
+Die Erweiterung liefert der angemeldeten App eine kompakte Liste der Agent-Pläne, die das Konto betreffen, jeweils mit dem neuesten eigenen Lauf: laufende, pausierte und fehlgeschlagene Läufe ebenso wie beendete. Nach dem ersten vollständigen Stand überträgt Pages nur noch Änderungen und sendet sie bei einer Laufänderung auch von sich aus. Sie folgt dem Ticket PAGE-200; der Vertrag gilt für Pages und Pica Mobile wortgleich. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; `dashboard_get` bleibt unverändert, ältere App-Versionen funktionieren also weiter. Die Erweiterung liest nur und kennt weder Aktionen an Plänen noch Chat.
+
+Pages nennt `plans.v1` in `connected.payload.server.capabilities` nur, wenn die Verbindung `plans_sync` und `plan_get` beantwortet. Ohne die Fähigkeit beantwortet Pages beide Nachrichten mit `unknown_type`. Beide sind nur nach erfolgreichem `auth` zulässig, sonst gilt `authentication_required`.
+
+Die App fragt im Vordergrund weiterhin alle 10 Sekunden mit `plans_sync` ab. Das bleibt als Sicherheitsnetz nötig: Pages meldet von sich aus nur Änderungen eines Laufs, nicht aber Umbenennen oder Löschen eines Plans und keine entzogenen Rechte.
+
+### Welche Pläne und welcher Lauf
+
+- Zur Liste gehören die Pläne, die das Konto jetzt lesen darf und die zusätzlich eine dieser Bedingungen erfüllen: eigener Plan oder Plan des eigenen Teams (beides zusammen ist das Bearbeitungsrecht, `canEdit`), oder es gibt einen eigenen Lauf des Kontos. Global oder anderweitig geteilte Pläne ohne eigenen Lauf gehören nicht dazu.
+- Je Plan zählt nur der neueste **eigene** Lauf. Führt nur ein Kollege einen Team-Plan aus, steht der Plan auf `idle`. Läufe anderer Personen liest Pages für diese Erweiterung nie und überträgt sie nie; ein Lauf ist weiterhin nur für die Person lesbar, die ihn gestartet hat.
+
+### plans_sync und plans
+
+**`plans_sync`** (App → Pages) nennt die `seq` der letzten `plans`-Nachricht, die die App übernommen hat:
+
+```json
+{
+  "version": 1,
+  "type": "plans_sync",
+  "requestId": "s1",
+  "payload": { "since": null }
+}
+```
+
+`since` ist `null` oder eine ganze Zahl ab 1; ein anderer Wert ergibt `invalid_message`.
+
+**`plans`** (Pages → App) antwortet mit der `requestId` der Anfrage oder kommt von Pages aus mit `requestId: null`:
+
+```json
+{
+  "version": 1,
+  "type": "plans",
+  "requestId": null,
+  "payload": {
+    "seq": 412,
+    "plans": [
+      {
+        "id": "p7",
+        "status": "running",
+        "step": "Review",
+        "done": 3,
+        "total": 7
+      }
+    ],
+    "removed": ["p2"]
+  }
+}
+```
+
+| Fall                                                                | Nutzlast                                                                                                                                                   |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `since` ist `null` oder ungleich der aktuellen `seq` der Verbindung | `{ "seq": n, "full": true, "plans": [vollständige Zeilen] }`; die App ersetzt ihre Liste                                                                   |
+| `since` gleich der aktuellen `seq`, keine Änderung                  | nur `{ "seq": n }` mit derselben `seq`                                                                                                                     |
+| `since` gleich der aktuellen `seq`, Änderungen vorhanden            | `{ "seq": n+1, "plans"?: [...], "removed"?: [...] }`                                                                                                       |
+| Von Pages ausgelöst                                                 | wie die Änderungszeile, nur wenn sich etwas geändert hat, frühestens nach dem ersten beantworteten `plans_sync` der Verbindung, höchstens einmal je 300 ms |
+
+- `seq` gilt je Verbindung und steigt mit jeder nicht leeren `plans`-Nachricht um 1; jeder volle Stand ist eine solche Nachricht. Eine neue Verbindung beginnt mit `since: null`, ihr erster voller Stand hat `seq` 1.
+- Empfängt die App von Pages ausgelöst eine `seq` ungleich ihrer letzten plus 1, sendet sie `plans_sync` mit `since: null`.
+- Antwort und von Pages ausgelöste Nachricht entstehen aus demselben Vergleich mit den zuletzt gesendeten Zeilen der Verbindung und laufen in derselben Reihenfolge wie die übrigen Nachrichten; nichts wird doppelt gesendet.
+- Pages überträgt keine Reihenfolge, die App sortiert selbst (siehe unten).
+
+**Zeile.** Eine neue oder vollständige Zeile enthält alle Felder mit Wert. Eine Änderung enthält `id` und nur die geänderten Felder; der Wert `null` bedeutet, dass das Feld weggefallen ist.
+
+| Feld            | Inhalt                                                                                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`            | Plan-ID, höchstens 200 Zeichen                                                                                                                       |
+| `name`          | Planname, höchstens 200 Zeichen, sonst gekürzt                                                                                                       |
+| `status`        | `idle`, `running`, `pausing`, `paused`, `stopping`, `completed`, `failed` oder `cancelled`; `idle` heißt: kein lesbarer eigener Lauf                 |
+| `runId`         | ID des eigenen Laufs; fehlt bei `idle`                                                                                                               |
+| `step`          | Namen der gerade laufenden Schritte, mit `, ` verbunden, höchstens 200 Zeichen; fehlt, wenn keiner läuft                                             |
+| `done`, `total` | erfolgreich erledigte und alle Schritte des Laufs (ganze Zahlen ≥ 0), ohne Start, Ende, Entscheidungen und übersprungene Schritte; fehlen bei `idle` |
+| `error`         | `{ "code": <Text oder null>, "step": <Text oder null> }`; nur vorhanden, wenn ein Schritt oder der Lauf fehlgeschlagen ist                           |
+| `at`            | ISO-8601-Zeit: Ende des Laufs, sonst sein Start; fehlt bei `idle`                                                                                    |
+
+`error.code` ist nur ein maschineller Code nach `^[a-z][a-z0-9_.:-]{0,99}$` (derselbe Code wie `reason` der Benachrichtigungen). Jeder andere Fehlerinhalt ergibt `null`, damit Pfade oder Provider-Ausgaben nie übertragen werden. `error.step` ist der höchstens 200 Zeichen lange Name des ersten fehlgeschlagenen Schritts, `null`, wenn nur der Lauf fehlschlug. Zeichenangaben sind UTF-16-Codeeinheiten; ein gekürzter Text endet nie mit einem halben Zeichen.
+
+**Reihenfolge.** Die App sortiert in diese Klassen:
+
+1. `running`, `pausing` oder `stopping` mit `error`
+2. `running`, `pausing` oder `stopping`
+3. `paused`
+4. `failed`
+5. alle übrigen
+
+Innerhalb jeder Klasse gilt `at` absteigend und danach `name`; Zeilen ohne `at` stehen zuletzt.
+
+**Obergrenzen.** Eine Verbindung hält höchstens 200 Zeilen, ausgewählt in der obigen Reihenfolge. Fällt eine Zeile dadurch heraus, steht sie in `removed`. `plans` und `plan` sind Text-Frames von höchstens 262144 UTF-16-Codeeinheiten; würde ein `plans` länger, lässt Pages weitere Zeilen vom Ende der Reihenfolge weg, bis es passt, und behandelt sie wie Zeilen über der Zeilengrenze.
+
+### plan_get und plan
+
+**`plan_get`** (App → Pages) fragt nach dem neuesten eigenen Lauf eines Plans, mit dessen Stufen:
+
+```json
+{
+  "version": 1,
+  "type": "plan_get",
+  "requestId": "g1",
+  "payload": { "planId": "p7" }
+}
+```
+
+`planId` ist 1 bis 200 Zeichen lang.
+
+**`plan`** (Pages → App) antwortet mit derselben `requestId`:
+
+```json
+{ "version": 1, "type": "plan", "requestId": "g1", "payload": { "planId": "p7", "access": "ok", "run": { "id": "…", "planId": "p7", "name": "Release-Ablauf", "startedByAccountId": "…", "status": "failed", "canResume": false, "stages": [] } } }
+
+{ "version": 1, "type": "plan", "requestId": "g2", "payload": { "planId": "p2", "access": "gone" } }
+```
+
+- `run` hat dieselbe Form wie ein Eintrag aus `dashboard.runs.items` (`id`, `planId`, `name`, optional `ticket`, `startedByAccountId`, `status`, `canResume`, `stages`) und gilt auch für beendete Läufe; `status` kann deshalb auch `completed`, `failed` oder `cancelled` sein.
+- `run: null` heißt: Der Plan gehört zur Liste, aber es gibt keinen lesbaren eigenen Lauf.
+- `gone` heißt: Der Plan gehört nicht oder nicht mehr zur Liste des Kontos, nach derselben Regel wie `plans`.
+- Wäre ein `plan` länger als 262144 Codeeinheiten, kürzt Pages Lauf- und Schrittnamen auf 200 Zeichen; passt es dann immer noch nicht, antwortet Pages mit `server_unavailable`.
+
+### Rechte, Sitzung, Aktualität und Fehler
+
+- Jede Anfrage und jeder von Pages ausgelöste Lesevorgang prüft zuerst die Sitzung. Ist sie beendet oder das Konto deaktiviert, antwortet Pages mit `authentication_failed` (bei einer Anfrage mit deren `requestId`, sonst `null`) und trennt mit Code 1008 („Session ended“).
+- Die Planrechte gelten bei **jedem** Lesevorgang: Ein gelöschter Plan oder ein entzogenes Planrecht fällt mit der nächsten Abfrage heraus.
+- Den Lauf selbst liest Pages mit denselben Prüfungen wie beim Öffnen auf der Planseite (Ticket, Wiki-Seite, Modell, Arbeitsumgebung). Damit nicht jede Abfrage alle Läufe neu prüft, merkt sich Pages je Verbindung das Ergebnis dieser Prüfung und wiederholt sie nur, wenn der Lauf seit der letzten Prüfung geschrieben wurde oder die Prüfung mehr als 60 Sekunden zurückliegt; abgelaufene Prüfungen holt ein Lesevorgang für höchstens 20 Läufe nach, die ältesten zuerst. Die 60 Sekunden entsprechen der regelmäßigen Sitzungsprüfung der Verbindung. **Der Entzug eines einzelnen Rechts an einem Ticket, einer Wiki-Seite oder einem Modell wird also spätestens nach rund 60 Sekunden wirksam.**
+- Scheitert die Prüfung eines Laufs an fehlenden Rechten, steht der Plan auf `idle`, oder er fällt heraus, wenn er nur über diesen Lauf zur Liste gehörte. Kann Pages dagegen nicht lesen (zum Beispiel wegen einer Störung der Datenbank), ist das kein Rechteverlust: Die Anfrage erhält `server_unavailable` mit ihrer `requestId`, und der bisherige Stand der Verbindung (`seq` und zuletzt gesendete Zeilen) bleibt.
+- Pages sendet von sich aus, sobald ein bestätigter Schreibvorgang eines eigenen Laufs den Laufstatus, den Status eines Schritts, den Steuerungsfehler, den Fehlercode oder den Namen des fehlgeschlagenen Schritts ändert; reine Fortschrittsmeldungen lösen nichts aus. Ein Laufstart wird mit dem ersten Schreibvorgang des Laufs gemeldet, spätestens findet ihn die nächste Abfrage. Pages wartet nach einer Änderung 300 ms auf weitere und liest dann einmal; ändert sich an den Zeilen nichts, sendet es nichts. Scheitert dieser Lesevorgang, protokolliert Pages das und sendet nichts; die nächste Abfrage holt es nach. Diese Lesevorgänge zählen weder zum Rate-Limit noch zu den unerledigten Nachrichten der App.
+- Anfragen zählen wie jede Nachricht zum Rate-Limit (30 in 10 Sekunden), zu den höchstens 8 unerledigten Nachrichten und, wenn sie abgelehnt werden, zu den fünf abgelehnten Nachrichten in Folge.
+- Dauert ein Lesevorgang der Planliste 500 ms oder länger, schreibt Pages `pica_mobile.plans.slow` mit Dauer und Zeilenzahl ins Protokoll.
+- **Klartext.** Plannamen, Schrittnamen und Fehlercodes laufen wie alle Nachrichten von Version 1 über `ws://` im Klartext durch das Netz (siehe [Sicherheit](#sicherheit)). Fehlertexte, Prompts, Ausgaben, Pfade und Sitzungsdaten enthält der Vertrag nicht.
 
 ## Erweiterung notifications.v1 (Android, FCM)
 
@@ -605,7 +734,7 @@ Pica Mobile führt keinen eigenen Zugang ein, sondern nutzt die Pages-Konten:
 - `method: "session"` weist eine solche Sitzung vor. Sie ist 14 Tage gültig, wie im Browser.
 - Konten, die ihr Passwort erst ändern müssen, können sich nicht verbinden (`password_change_required`), ebenso wenig wie sie Pages im Browser nutzen können.
 
-Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1` sowie `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1`.
+Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`, `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1` sowie `plans_sync` und `plan_get` der Erweiterung `plans.v1`.
 
 Pages prüft die Sitzung einer Verbindung etwa jede Minute neu. Wurde sie beendet oder das Konto deaktiviert, sendet Pages `authentication_failed` und trennt mit Code 1008 („Session ended“). Schlägt nur die Prüfung selbst fehl (zum Beispiel wegen einer Störung der Datenbank), bleibt die Verbindung bestehen.
 

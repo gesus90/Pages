@@ -3,6 +3,7 @@ import { MarkerType } from "@xyflow/react";
 import { PLAN_PORT } from "@/definition/AgentPlanBranching";
 import { isPlanFlowNode, isPlanResultNode } from "@/definition/AgentPlanGraph";
 import { planLoopEntries, planLoopExits } from "@/definition/AgentPlanLoop";
+import { PLAN_STACK_PORT } from "@/definition/AgentPlanStack";
 
 import {
   PLAN_FRAME_PADDING,
@@ -24,6 +25,7 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
+import type { PlanFrame } from "./plan-layout";
 import type { PlanLink } from "./plan-links";
 import type { PlanConnection } from "./use-plan-connections";
 
@@ -98,21 +100,31 @@ export function planFlowNodes(
       ...(parentId ? { parentId } : {}),
     };
   }
-  return plan.nodes.flatMap((node) => {
-    const parent = project(node);
-    if (node.type !== "group" && node.type !== "loop") return [parent];
+  // A frame precedes its members, a group inside a loop its own agents.
+  function tree(
+    node: AgentPlanNode,
+    parent?: { readonly frame: PlanFrame; readonly isHidden: boolean },
+  ): PlanFlowNode[] {
+    const projected = parent
+      ? {
+          ...project(node, parent.frame.id),
+          hidden: parent.isHidden,
+          position: {
+            x: node.x + PLAN_FRAME_PADDING,
+            y: node.y + planGroupHeaderHeight(parent.frame),
+          },
+        }
+      : project(node);
+    if (node.type !== "group" && node.type !== "loop") return [projected];
+    const isHidden =
+      (parent?.isHidden ?? false) ||
+      (options.collapsedGroups?.has(node.id) ?? false);
     return [
-      parent,
-      ...node.steps.map((step) => ({
-        ...project(step, node.id),
-        hidden: options.collapsedGroups?.has(node.id) ?? false,
-        position: {
-          x: step.x + PLAN_FRAME_PADDING,
-          y: step.y + planGroupHeaderHeight(),
-        },
-      })),
+      projected,
+      ...node.steps.flatMap((step) => tree(step, { frame: node, isHidden })),
     ];
-  });
+  }
+  return plan.nodes.flatMap((node) => tree(node));
 }
 
 /**
@@ -234,11 +246,13 @@ function targetHandle(link: PlanLink, targetId: string): string {
 }
 
 // A data link with a boundary port starts at its legacy group frame, and
-// links of such a frame are never drawn; every drawn data link leaves a value OUT.
-// A wire names the port its edge leaves.
+// links of such a frame are never drawn; every drawn data link leaves a value
+// OUT, or one of the two data outputs of a stack. A wire names the port its edge leaves.
 function sourceHandle(link: PlanLink): string {
   if (link.kind === "wire") return link.fromPort;
-  return link.kind === "flow" ? "flow-out" : "value-out";
+  if (link.kind === "flow") return "flow-out";
+  if (link.output === "content") return PLAN_STACK_PORT.contentOut;
+  return link.output === "count" ? PLAN_STACK_PORT.countOut : "value-out";
 }
 
 /** The output of a decision a source handle belongs to, as an open connection. */
@@ -260,13 +274,7 @@ export function planFlowSource(
   id: string,
   handle: string | null,
 ): PlanConnection | null {
-  const node =
-    plan.nodes.find((entry) => entry.id === id) ??
-    plan.nodes
-      .flatMap((entry) =>
-        entry.type === "group" || entry.type === "loop" ? entry.steps : [],
-      )
-      .find((entry) => entry.id === id);
+  const node = flowNode(plan, id);
   if (!node) return null;
   // A decision has no flow OUT of its own; it leaves through its two outputs.
   if (
@@ -285,7 +293,37 @@ export function planFlowSource(
     return { kind: "source", nodeId: id };
   if (handle === PLAN_PORT.passedOut && node.type === "agent")
     return { kind: "passed", nodeId: id };
-  return branchSource(node, handle);
+  return stackSource(node, handle) ?? branchSource(node, handle);
+}
+
+/** A node of the plan, a member of a frame or of a group inside a loop included. */
+function flowNode(plan: AgentPlanInput, id: string): AgentPlanNode | undefined {
+  return (
+    plan.nodes.find((entry) => entry.id === id) ??
+    plan.nodes
+      .flatMap((entry): readonly AgentPlanNode[] => {
+        if (entry.type === "group") return entry.steps;
+        return entry.type === "loop"
+          ? entry.steps.flatMap((step): readonly AgentPlanNode[] =>
+              step.type === "group" ? [step, ...step.steps] : [step],
+            )
+          : [];
+      })
+      .find((entry) => entry.id === id)
+  );
+}
+
+/** One of the two data outputs of a stack, as an open connection. */
+function stackSource(
+  node: AgentPlanNode,
+  handle: string | null,
+): PlanConnection | null {
+  if (node.type !== "stack") return null;
+  if (handle === PLAN_STACK_PORT.contentOut)
+    return { kind: "stack", nodeId: node.id, output: "content" };
+  return handle === PLAN_STACK_PORT.countOut
+    ? { kind: "stack", nodeId: node.id, output: "count" }
+    : null;
 }
 
 /** The inputs a wire ends at besides the flow IN and the named data inputs. */

@@ -114,7 +114,8 @@ export class AgentPlanStepStart {
    * Start and end are authorized checkpoints; they do not call a model.
    *
    * @remarks
-   * A loop rechecks the executor's access here before its first iteration.
+   * A loop rechecks the executor's access here before its first iteration,
+   * a stack before each trigger.
    */
   public async control(
     run: AgentPlanRun,
@@ -122,7 +123,12 @@ export class AgentPlanStepStart {
     node: AgentPlanNode,
   ): Promise<void> {
     await this.dependencies.access.require(run.userId, snapshot.plan.id);
-    if (node.type !== "start" && node.type !== "end" && node.type !== "loop")
+    if (
+      node.type !== "start" &&
+      node.type !== "end" &&
+      node.type !== "loop" &&
+      node.type !== "stack"
+    )
       throw new AgentError("plan_invalid");
   }
 
@@ -347,9 +353,10 @@ function stepReferences(
 ): AgentReferenceResolvers {
   return {
     ticket: async (id) => {
-      const ticket = step.groupId
-        ? step.prepared.tickets?.[id]
-        : live.tickets?.[id];
+      // A group keeps the tickets it froze at its entry; a ticket a stack handed over later is read live.
+      const ticket =
+        (step.groupId ? step.prepared.tickets?.[id] : undefined) ??
+        live.tickets?.[id];
       if (!ticket) throw new AgentError("parameter_ticket_unavailable");
       return ticket;
     },

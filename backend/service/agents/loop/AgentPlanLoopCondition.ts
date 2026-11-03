@@ -150,3 +150,32 @@ export function evaluateLoopCondition(
     found,
   };
 }
+
+/** Why the boolean of a while loop could not be read from a member's result. */
+export type LoopWhileFailure =
+  | AgentPlanLoopConditionFailure
+  | "plan_loop_while_type"
+  | "plan_loop_while_invalid";
+
+/**
+ * Reads the boolean a member's result carries for the next check of a while loop.
+ *
+ * @param output - The newest result of the member.
+ * @param path - The path of the boolean, such as `$.continue`.
+ * @returns The boolean, or why there is none: a missing field, another type
+ * or no JSON is a failure, never `false`.
+ */
+export function readLoopBoolean(
+  output: string | null,
+  path: string,
+): { readonly value: boolean } | { readonly failure: LoopWhileFailure } {
+  const segments = parsePlanLoopPath(path);
+  if (segments === null) return { failure: "plan_loop_while_invalid" };
+  const extracted = extractLoopJson(output);
+  if ("failure" in extracted) return { failure: extracted.failure };
+  const at = valueAt(extracted.value, segments);
+  if (!at.isFound) return { failure: "plan_loop_condition_field" };
+  return typeof at.value === "boolean"
+    ? { value: at.value }
+    : { failure: "plan_loop_while_type" };
+}

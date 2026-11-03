@@ -29,16 +29,18 @@ export type PlanReadiness = "ready" | "skip" | "wait";
  *
  * @remarks
  * A decision satisfies only the edge of the branch it activated and kills the
- * other one; a node that was skipped kills every edge it leaves. A failed or
- * cancelled source stays pending: the scheduler marks what waits behind it.
+ * other one; a node that was skipped kills every edge it leaves, and so does a
+ * stack whose trigger found it used up. A failed or cancelled source stays
+ * pending: the scheduler marks what waits behind it.
  */
 export function planEdgeState(
   edge: Pick<AgentPlanEdge, "fromPort">,
-  source: Pick<AgentPlanStepResult, "status" | "branch"> | undefined,
+  source: Pick<AgentPlanStepResult, "status" | "branch" | "stack"> | undefined,
 ): PlanEdgeState {
   if (source === undefined) return "pending";
   if (source.status === "skipped") return "dead";
   if (source.status !== "succeeded") return "pending";
+  if (source.stack?.entryId === null) return "dead";
   const branch = planEdgeBranch(edge);
   if (branch === null) return "satisfied";
   return source.branch === branch ? "satisfied" : "dead";

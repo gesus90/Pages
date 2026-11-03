@@ -43,8 +43,17 @@ interface ContinuationRow {
   readonly snapshot: string;
 }
 
+/** One completed loop iteration, with the checks of migration 087 enforced on insert. */
+interface IterationRow {
+  readonly runId: string;
+  readonly loopId: string;
+  readonly iteration: number;
+  readonly json: string;
+}
+
 interface RecoveryRows {
   readonly runs: Map<string, RunRow>;
+  readonly iterations: IterationRow[];
   readonly continuations: ContinuationRow[];
   readonly checkpoints: CheckpointRow[];
   readonly attempts: AttemptRow[];
@@ -72,6 +81,7 @@ export class RecoveryDatabase {
   private readonly queue = new SerialQueue();
   private rows: RecoveryRows = {
     runs: new Map(),
+    iterations: [],
     continuations: [],
     checkpoints: [],
     attempts: [],
@@ -151,6 +161,15 @@ export class RecoveryDatabase {
         : [];
     if (statement.includes("FROM agent_plan_checkpoints"))
       return this.checkpointRows(statement, parameters);
+    if (statement.includes("FROM agent_plan_loop_iterations"))
+      return this.rows.iterations
+        .filter(
+          (row) =>
+            row.runId === parameters.run_id &&
+            row.loopId === parameters.loop_id &&
+            row.iteration === parameters.iteration,
+        )
+        .map((row) => [row.json]);
     if (statement.includes("FROM agent_plan_repair_attempts"))
       return this.attemptRows(statement, parameters);
     if (statement.includes("FROM agent_plan_recovery_executions"))
@@ -178,6 +197,23 @@ export class RecoveryDatabase {
       return lock ? [[lock]] : [];
     }
     throw new Error(`Unexpected synthetic query ${statement}`);
+  }
+
+  private insertIteration(parameters: SqlParameters): void {
+    const source = requiredText(parameters, "count_source");
+    const effective = requiredNumber(parameters, "effective_count");
+    if (
+      !["value", "parameter", "stack", "while"].includes(source) ||
+      effective < 0 ||
+      effective > 999
+    )
+      throw new Error("Synthetic CHECK constraint failed");
+    this.rows.iterations.push({
+      runId: requiredText(parameters, "run_id"),
+      loopId: requiredText(parameters, "loop_id"),
+      iteration: requiredNumber(parameters, "iteration"),
+      json: requiredText(parameters, "iteration_json"),
+    });
   }
 
   private checkpointRows(
@@ -272,6 +308,10 @@ export class RecoveryDatabase {
   }
 
   private execute(statement: string, parameters: SqlParameters): void {
+    if (statement.includes("INSERT INTO agent_plan_loop_iterations")) {
+      this.insertIteration(parameters);
+      return;
+    }
     if (statement.includes("INSERT INTO agent_plan_checkpoints")) {
       this.throwFault("checkpoint");
       this.rows.checkpoints.push({

@@ -18,6 +18,7 @@ import type { PicaMobilePortError } from "@/definition/PicaMobile";
 import type { PicaMobileAuthenticator } from "./PicaMobileAuthenticator";
 import type { PicaMobileDashboardProvider } from "./PicaMobileDashboardProvider";
 import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
+import type { PicaMobilePlansProvider } from "./plans/PicaMobilePlansProvider";
 
 /** What the gateway needs from its surroundings. */
 export interface PicaMobileGatewayOptions {
@@ -26,6 +27,8 @@ export interface PicaMobileGatewayOptions {
   readonly dashboard?: PicaMobileDashboardProvider;
   /** Answers the notification messages of connections; without it `notifications.v1` is not announced. */
   readonly notifications?: PicaMobileNotificationProvider;
+  /** Answers the plan messages of connections; without it `plans.v1` is not announced. */
+  readonly plans?: PicaMobilePlansProvider;
   /** Version of this Pages build, reported to connected clients. */
   readonly serverVersion: string;
   /** Interface to listen on; every interface when missing. */
@@ -353,6 +356,7 @@ export class PicaMobileGateway {
       authenticator: this.options.authenticator,
       dashboard: this.options.dashboard,
       notifications: this.options.notifications,
+      plans: this.options.plans,
       serverVersion: this.options.serverVersion,
     });
 

@@ -36,6 +36,7 @@ export function usePlanFlowSelection(
       if (node.data.node.type === "loop") props.onEdit?.(node.id);
       // A decision has no session either; double-click edits its name and condition.
       if (node.data.node.type === "decision") props.onEdit?.(node.id);
+      if (node.data.node.type === "stack") props.onEdit?.(node.id);
     },
     onEdgeClick: (event, edge) => graph.selectLink(edge.data?.link ?? null),
     onEdgesChange: (changes) => {

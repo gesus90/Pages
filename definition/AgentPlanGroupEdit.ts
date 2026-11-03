@@ -64,13 +64,24 @@ export function findPlanStep(
     if (node.type === "agent" && node.id === id)
       return { step: node, group: null, loop: null };
     if (node.type === "loop") {
-      const member = node.steps.find((entry) => entry.id === id);
-      if (member?.type === "agent")
-        return { step: member, group: null, loop: node };
+      const found = loopStep(node, id);
+      if (found) return found;
     }
     if (node.type !== "group") continue;
     const step = node.steps.find((entry) => entry.id === id);
     if (step) return { step, group: node, loop: null };
+  }
+  return null;
+}
+
+/** An agent of a loop, directly or inside a group of the loop. */
+function loopStep(loop: AgentPlanLoop, id: string): PlanStepLocation | null {
+  for (const member of loop.steps) {
+    if (member.type === "agent" && member.id === id)
+      return { step: member, group: null, loop };
+    if (member.type !== "group") continue;
+    const step = member.steps.find((entry) => entry.id === id);
+    if (step) return { step, group: member, loop };
   }
   return null;
 }
@@ -106,7 +117,9 @@ export function replacePlanNode<Plan extends AgentPlanInput>(
   replacement: AgentPlanNode,
 ): Plan {
   if (
-    (replacement.type === "agent" || replacement.type === "script") &&
+    (replacement.type === "agent" ||
+      replacement.type === "script" ||
+      replacement.type === "group") &&
     planLoopOf(plan, replacement.id)
   )
     return replaceLoopMember(plan, replacement);
@@ -310,17 +323,13 @@ export function connectPlanFlow<Plan extends AgentPlanInput>(
   from: string,
   to: string,
 ): Plan | "groupBoundary" | "loopBoundary" {
+  const edge = { from, to, fromPort: "flow-out", toPort: "flow-in" };
+  // A stack stays an outer node; its edges to loop members make it a step of that loop.
+  if (isStack(plan, from) || isStack(plan, to))
+    return { ...plan, edges: [...plan.edges, edge] };
   const sourceLoop = planLoopOf(plan, from);
-  const targetLoop = planLoopOf(plan, to);
-  if (sourceLoop || targetLoop) {
-    if (sourceLoop?.id !== targetLoop?.id || !sourceLoop) return "loopBoundary";
-    return connectLoopFlow(plan, sourceLoop, {
-      from,
-      to,
-      fromPort: "flow-out",
-      toPort: "flow-in",
-    });
-  }
+  if (sourceLoop || planLoopOf(plan, to))
+    return connectInsideLoop(plan, sourceLoop, edge);
   const source = findPlanStep(plan, from)?.group ?? null;
   const target = findPlanStep(plan, to)?.group ?? null;
   if (
@@ -329,7 +338,6 @@ export function connectPlanFlow<Plan extends AgentPlanInput>(
     )
   )
     return "groupBoundary";
-  const edge = { from, to, fromPort: "flow-out", toPort: "flow-in" };
   if (!source || source.id !== target?.id)
     return { ...plan, edges: [...plan.edges, edge] };
   return replacePlanNode(plan, {
@@ -338,24 +346,58 @@ export function connectPlanFlow<Plan extends AgentPlanInput>(
   });
 }
 
-/** Removes one internal flow edge of a group and keeps both members. */
+/**
+ * Adds an edge between two members of one loop: into their group when both share one, else into the loop.
+ *
+ * @returns `loopBoundary` when the other end lies outside the loop.
+ */
+function connectInsideLoop<Plan extends AgentPlanInput>(
+  plan: Plan,
+  loop: AgentPlanLoop | undefined,
+  edge: AgentPlanEdge,
+): Plan | "loopBoundary" {
+  if (!loop || planLoopOf(plan, edge.to)?.id !== loop.id) return "loopBoundary";
+  const source = findPlanStep(plan, edge.from)?.group;
+  const target = findPlanStep(plan, edge.to)?.group;
+  if (source && source.id === target?.id)
+    return replacePlanNode(plan, {
+      ...source,
+      edges: [...planGroupEdges(source), edge],
+    });
+  return connectLoopFlow(plan, loop, edge);
+}
+
+/** Whether the node is a stack. */
+function isStack(plan: AgentPlanInput, id: string): boolean {
+  return plan.nodes.some((node) => node.id === id && node.type === "stack");
+}
+
+/** Removes one internal flow edge of a group, also inside a loop, and keeps both members. */
 export function disconnectPlanGroupFlow<Plan extends AgentPlanInput>(
   plan: Plan,
   groupId: string,
   link: Pick<AgentPlanEdge, "from" | "to">,
 ): Plan {
+  function without(group: AgentPlanGroup): AgentPlanGroup {
+    return {
+      ...group,
+      edges: planGroupEdges(group).filter(
+        (edge) => edge.from !== link.from || edge.to !== link.to,
+      ),
+    };
+  }
   return {
     ...plan,
-    nodes: plan.nodes.map((node) =>
-      node.type === "group" && node.id === groupId
-        ? {
-            ...node,
-            edges: planGroupEdges(node).filter(
-              (edge) => edge.from !== link.from || edge.to !== link.to,
-            ),
-          }
-        : node,
-    ),
+    nodes: plan.nodes.map((node) => {
+      if (node.type === "group" && node.id === groupId) return without(node);
+      if (node.type !== "loop") return node;
+      return {
+        ...node,
+        steps: node.steps.map((step) =>
+          step.type === "group" && step.id === groupId ? without(step) : step,
+        ),
+      };
+    }),
   };
 }
 

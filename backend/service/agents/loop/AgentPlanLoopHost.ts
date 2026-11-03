@@ -1,5 +1,6 @@
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
+import type { AgentPlanStackHandover } from "@/definition/AgentPlanStack";
 import type { AgentPlanSnapshot } from "../AgentPlanSnapshot";
 
 /**
@@ -33,4 +34,18 @@ export interface LoopHost {
     loopId: string,
     change: (record: AgentPlanLoopRun) => AgentPlanLoopRun,
   ) => Promise<AgentPlanLoopRun>;
+  /**
+   * Triggers a stack of the loop for one iteration and records it with the iteration.
+   *
+   * @remarks
+   * The handover and the stack's node of the iteration are stored in one
+   * write, so a resumed iteration never triggers the stack a second time.
+   *
+   * @returns What the trigger handed over.
+   * @throws When the write failed; the engine has then stopped the run.
+   */
+  readonly triggerStack: (
+    loopId: string,
+    target: { readonly number: number; readonly stackId: string },
+  ) => Promise<AgentPlanStackHandover>;
 }

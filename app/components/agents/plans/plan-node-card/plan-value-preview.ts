@@ -94,6 +94,23 @@ export function planValuePreview(
   }
 }
 
+/** Names a stack output: the entry the shown run handed over last, else what the output carries. */
+function stackBindingPreview(
+  binding: Extract<AgentPlanBinding, { kind: "stack" }>,
+  context: PlanValueContext,
+): string {
+  const { draft, sources, translate } = context;
+  const stack = draft.nodes.find((node) => node.id === binding.stackId);
+  if (stack?.type !== "stack") return translate("plans.validation.source");
+  const name = planNodeLabel(stack, sources);
+  if (binding.output === "count")
+    return translate("plans.stack.preview.count", {
+      name,
+      count: stack.entries.length,
+    });
+  return translate("plans.stack.preview.content", { name });
+}
+
 /** Names the value source of a connected input: a value node, a ticket, a frame's port or a predecessor's result. */
 export function planBindingPreview(
   binding: AgentPlanBinding,
@@ -104,6 +121,7 @@ export function planBindingPreview(
     return planValuePreview(binding.value, context);
   if (binding.kind === "result" || binding.kind === "previous")
     return resultBindingPreview(binding, context);
+  if (binding.kind === "stack") return stackBindingPreview(binding, context);
   const source = draft.nodes.find((node) => node.id === binding.nodeId);
   if (source?.type === "parameter")
     return planValuePreview(source.value, context);

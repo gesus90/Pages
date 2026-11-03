@@ -29,6 +29,15 @@ export const PICA_MOBILE_AUTHENTICATION_TIMEOUT_MILLISECONDS = 10_000;
 /** Largest decoded avatar image the server delivers in an `avatar` message. */
 export const PICA_MOBILE_MAXIMUM_AVATAR_BYTES = 131_072;
 
+/** Most plan rows one connection holds; `plans` never lists more. */
+export const PICA_MOBILE_MAXIMUM_PLAN_ROWS = 200;
+
+/** Longest `plans` or `plan` frame the server sends, in UTF-16 code units. */
+export const PICA_MOBILE_MAXIMUM_PLANS_FRAME_LENGTH = 262_144;
+
+/** Longest text of a plan row field such as a name or a step, in UTF-16 code units. */
+export const PICA_MOBILE_MAXIMUM_PLAN_TEXT_LENGTH = 200;
+
 /** Types of the messages a client sends. */
 export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   AUTH: "auth",
@@ -38,6 +47,8 @@ export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   NOTIFICATION_REGISTER: "notification_register",
   NOTIFICATION_UNREGISTER: "notification_unregister",
   NOTIFICATION_EVENT_GET: "notification_event_get",
+  PLANS_SYNC: "plans_sync",
+  PLAN_GET: "plan_get",
 } as const;
 
 /** Types of the messages the server sends. */
@@ -50,6 +61,8 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
   NOTIFICATION_REGISTERED: "notification_registered",
   NOTIFICATION_UNREGISTERED: "notification_unregistered",
   NOTIFICATION_EVENT: "notification_event",
+  PLANS: "plans",
+  PLAN: "plan",
 } as const;
 
 /**
@@ -63,9 +76,12 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * `notification_event_get` with their answers. `notifications.push.fcm` is
  * named only while the server has a usable FCM sender; without it a
  * registration is refused. There is no `notifications.push.apns`.
+ * `plans.v1` stands for `plans_sync` and `plan_get` with their answers and
+ * for the `plans` messages the server sends on its own.
  */
 export const PICA_MOBILE_CAPABILITY = {
   DASHBOARD_V1: "dashboard.v1",
+  PLANS_V1: "plans.v1",
   NOTIFICATIONS_V1: "notifications.v1",
   NOTIFICATIONS_PUSH_FCM: "notifications.push.fcm",
 } as const;
@@ -131,6 +147,19 @@ export const picaMobileAvatarVersionSchema = z
 /** An `avatar_get` message names the avatar version the dashboard announced. */
 export const picaMobileAvatarGetPayloadSchema = z.object({
   version: picaMobileAvatarVersionSchema,
+});
+
+/**
+ * A `plans_sync` message names the `seq` of the last `plans` message the
+ * client applied; `null` asks for the full list.
+ */
+export const picaMobilePlansSyncPayloadSchema = z.object({
+  since: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).nullable(),
+});
+
+/** A `plan_get` message names the plan whose latest own run the client wants. */
+export const picaMobilePlanGetPayloadSchema = z.object({
+  planId: z.string().min(1).max(PICA_MOBILE_MAXIMUM_PLAN_TEXT_LENGTH),
 });
 
 /** A message of the Pica Mobile protocol, sent in either direction as JSON text. */
@@ -211,7 +240,7 @@ export type PicaMobileDashboardSection<Item> =
   | { readonly status: "ready"; readonly items: readonly Item[] }
   | { readonly status: "forbidden" | "error" };
 
-/** State of a plan run; Pages delivers only the active ones. */
+/** State of a plan run; `dashboard` delivers only the active ones, `plan` every one. */
 export type PicaMobileRunStatus =
   | "running"
   | "pausing"
@@ -247,7 +276,7 @@ export interface PicaMobileDashboardStage {
   readonly steps: readonly PicaMobileDashboardStep[];
 }
 
-/** An active plan run the signed-in account started. */
+/** A plan run the signed-in account started; active in `dashboard`, any in `plan`. */
 export interface PicaMobileDashboardRun {
   /** Identifier of the run. */
   readonly id: string;
@@ -293,6 +322,95 @@ export interface PicaMobileAvatarPayload extends PicaMobileAvatarReference {
   readonly data: string;
 }
 
+/**
+ * State of a plan in `plans`.
+ *
+ * @remarks
+ * `idle` means the account has no own run of the plan it may read; Pages has
+ * no run state `blocked`, so a plan never has it.
+ */
+export type PicaMobilePlanStatus =
+  "idle" | Exclude<PicaMobileRunStatus, "blocked">;
+
+/** The failure of a run as `plans` reports it; neither field ever carries free text. */
+export interface PicaMobilePlanError {
+  /** A machine code such as `plan_step_failed`; `null` for any other failure content. */
+  readonly code: string | null;
+  /** Name of the first failed step; `null` when only the run failed. */
+  readonly step: string | null;
+}
+
+/**
+ * A plan with its latest own run, complete.
+ *
+ * @remarks
+ * Every field without a value is absent. Texts are at most
+ * {@link PICA_MOBILE_MAXIMUM_PLAN_TEXT_LENGTH} code units long.
+ */
+export interface PicaMobilePlanRow {
+  readonly id: string;
+  readonly name: string;
+  readonly status: PicaMobilePlanStatus;
+  /** The own run; absent for `idle`. */
+  readonly runId?: string;
+  /** Names of the steps running now, joined with `, `; absent when none runs. */
+  readonly step?: string;
+  /** Completed steps of the run, without Start, End, decisions and skipped steps. */
+  readonly done?: number;
+  /** Every step of the run, counted like `done`. */
+  readonly total?: number;
+  /** Present only when a step or the run failed. */
+  readonly error?: PicaMobilePlanError;
+  /** ISO-8601 time: end of the run, otherwise its start; absent for `idle`. */
+  readonly at?: string;
+}
+
+/** A field of a plan row besides its identifier. */
+export type PicaMobilePlanRowField = Exclude<keyof PicaMobilePlanRow, "id">;
+
+/**
+ * A plan row as a change: the identifier and the fields that changed.
+ *
+ * @remarks
+ * `null` means the field no longer has a value.
+ */
+export type PicaMobilePlanRowChange = { readonly id: string } & {
+  readonly [Field in PicaMobilePlanRowField]?: NonNullable<
+    PicaMobilePlanRow[Field]
+  > | null;
+};
+
+/**
+ * The payload of `plans`: the answer to `plans_sync` or a change Pages sends on its own.
+ *
+ * @remarks
+ * With `full` the rows replace the list of the client. Without it `plans`
+ * holds new rows in full and changed rows as {@link PicaMobilePlanRowChange},
+ * and `removed` names the plans that left the list. Only `seq` means nothing
+ * changed.
+ */
+export interface PicaMobilePlansPayload {
+  readonly seq: number;
+  readonly full?: true;
+  readonly plans?: readonly PicaMobilePlanRowChange[];
+  readonly removed?: readonly string[];
+}
+
+/**
+ * The answer to `plan_get`.
+ *
+ * @remarks
+ * `ok` with `run: null` means the plan belongs to the list but has no own run
+ * the account may read; `gone` that the plan does not or no longer belong to it.
+ */
+export type PicaMobilePlanPayload =
+  | {
+      readonly planId: string;
+      readonly access: "ok";
+      readonly run: PicaMobileDashboardRun | null;
+    }
+  | { readonly planId: string; readonly access: "gone" };
+
 /** Every message the server sends. */
 export type PicaMobileServerMessage =
   | PicaMobileEnvelope<"connected", PicaMobileConnectedPayload>
@@ -308,7 +426,6 @@ export type PicaMobileServerMessage =
       "notification_unregistered",
       PicaMobileNotificationUnregisteredPayload
     >
-  | PicaMobileEnvelope<
-      "notification_event",
-      PicaMobileNotificationEventPayload
-    >;
+  | PicaMobileEnvelope<"notification_event", PicaMobileNotificationEventPayload>
+  | PicaMobileEnvelope<"plans", PicaMobilePlansPayload>
+  | PicaMobileEnvelope<"plan", PicaMobilePlanPayload>;

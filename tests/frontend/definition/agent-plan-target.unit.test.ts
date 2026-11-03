@@ -239,7 +239,10 @@ describe("withInheritedPlanTarget", () => {
     );
     const targets = inherited.nodes.flatMap((node) => {
       if (node.type === "group" || node.type === "loop")
-        return node.steps.map((step) => [step.id, step.executionTarget]);
+        return node.steps.map((step) => [
+          step.id,
+          "executionTarget" in step ? step.executionTarget : undefined,
+        ]);
       return "executionTarget" in node ? [[node.id, node.executionTarget]] : [];
     });
     expect(targets).toEqual([

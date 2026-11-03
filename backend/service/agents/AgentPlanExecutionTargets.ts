@@ -1,4 +1,5 @@
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
+import { planLoopMembers } from "@/definition/AgentPlanLoop";
 
 import type { AgentPlanInput, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
@@ -17,7 +18,8 @@ export function planExecutionNodes(
     AgentPlanStep | AgentPlanScript
   >((node) => {
     if (node.type === "agent" || node.type === "script") return [node];
-    if (node.type === "group" || node.type === "loop") return node.steps;
+    if (node.type === "group") return node.steps;
+    if (node.type === "loop") return planLoopMembers(node);
     return [];
   });
 }

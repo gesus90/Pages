@@ -23,7 +23,14 @@ export function withGroupResults(
   run: AgentPlanRun,
   snapshot: AgentPlanSnapshot,
 ): AgentPlanRun {
-  const groups: AgentPlanStepResult[] = (snapshot.groups ?? []).map((group) => {
+  // A group inside a loop runs in the loop's iterations; it is no step of the outer graph.
+  const looped = new Set(
+    snapshot.steps.filter((step) => step.loopId).map((step) => step.step.id),
+  );
+  const outer = (snapshot.groups ?? []).filter(
+    (group) => !group.steps.some((member) => looped.has(member.id)),
+  );
+  const groups: AgentPlanStepResult[] = outer.map((group) => {
     const children = run.steps.filter((step) =>
       group.steps.some((member) => member.id === step.id),
     );

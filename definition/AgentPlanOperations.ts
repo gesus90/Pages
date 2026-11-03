@@ -91,7 +91,13 @@ export type AgentPlanBindingEntry =
   | { readonly kind: "literal"; readonly value: AgentParameterValue | null }
   | { readonly kind: "source"; readonly nodeId: string }
   | { readonly kind: "result"; readonly stepId: string }
-  | { readonly kind: "previous"; readonly stepId: string };
+  | { readonly kind: "previous"; readonly stepId: string }
+  | {
+      /** One data output of a stack: the entry handed over last, or the number of entries. */
+      readonly kind: "stack";
+      readonly stackId: string;
+      readonly output: "content" | "count";
+    };
 
 interface AgentPlanNodeBase {
   readonly id: string;
@@ -222,6 +228,7 @@ export interface AgentPlanLoopNodeEntry extends AgentPlanNodeBase {
   readonly steps: readonly (
     | Omit<AgentPlanAgentNodeEntry, "label">
     | Omit<AgentPlanScriptNodeEntry, "label">
+    | Omit<AgentPlanGroupNodeEntry, "label">
   )[];
   readonly edges: readonly AgentPlanGroupEdgeEntry[];
   readonly runs: number;
@@ -240,6 +247,36 @@ export interface AgentPlanLoopNodeEntry extends AgentPlanNodeBase {
       | { readonly type: "string"; readonly value: string }
       | { readonly type: "null" };
   } | null;
+  /** `count` (absent in older loops) or `while`, which checks a boolean before every iteration. */
+  readonly mode?: "count" | "while";
+  /** The member whose result decides the later checks of a while loop. */
+  readonly while?: {
+    readonly sourceNodeId: string;
+    readonly outputPath: string;
+  } | null;
+}
+
+/**
+ * A stack: ordered entries, of which every trigger at its flow input hands over the next.
+ *
+ * @remarks
+ * Its data outputs are read through `stack` bindings: `content`, the entry
+ * handed over last, and `count`, the number of entries. A used-up stack hands
+ * over nothing and starts nothing behind it; a new run starts at the first entry.
+ */
+export interface AgentPlanStackNodeEntry extends AgentPlanNodeBase {
+  readonly type: "stack";
+  readonly name: string;
+  readonly entries: readonly (
+    | { readonly id: string; readonly type: "task"; readonly taskId: string }
+    | {
+        readonly id: string;
+        readonly type: "parameter";
+        readonly name: string;
+        readonly format: "string" | "number" | "json";
+        readonly value: AgentParameterValue;
+      }
+  )[];
 }
 
 /** A node as a client reads it and writes it back in a change. */
@@ -248,6 +285,7 @@ export type AgentPlanNodeEntry =
   | AgentPlanScriptNodeEntry
   | AgentPlanGroupNodeEntry
   | AgentPlanLoopNodeEntry
+  | AgentPlanStackNodeEntry
   | AgentPlanParameterNodeEntry
   | (AgentPlanNodeBase & { readonly type: "start" | "end" | "decision" })
   | (AgentPlanNodeBase & { readonly type: "task"; readonly taskId: string })

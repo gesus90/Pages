@@ -149,7 +149,12 @@ function referenceLabel(
 }
 
 function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
-  if (node.type === "group" || node.type === "script" || node.type === "loop")
+  if (
+    node.type === "group" ||
+    node.type === "script" ||
+    node.type === "loop" ||
+    node.type === "stack"
+  )
     return node.name;
   if (node.type === "parameter" || node.type === "variable") return node.name;
   if (node.type === "decision") return node.name ?? "Decision";

@@ -1,7 +1,15 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import {
+  planLoopMembers,
+  planLoopMode,
+  planLoopScopeIds,
+} from "@/definition/AgentPlanLoop";
+import { planLoopStacks } from "@/definition/AgentPlanStack";
+
 import { resolveLoopCount } from "./AgentPlanLoopCount";
+import { checkLoopWhile } from "./AgentPlanLoopWhile";
 import { evaluateLoopCondition } from "./AgentPlanLoopCondition";
 import { AgentPlanLoopIterationRunner } from "./AgentPlanLoopIterationRunner";
 import {
@@ -20,6 +28,7 @@ import type {
   AgentPlanLoopRun,
 } from "@/definition/AgentPlanLoopRun";
 import type { AgentPlanStepRunner } from "../AgentPlanStepRunner";
+import type { AgentPlanScriptRunner } from "../AgentPlanScriptRunner";
 import type { LoopHost } from "./AgentPlanLoopHost";
 import type { LoopIterationOutcome } from "./AgentPlanLoopIterationRunner";
 
@@ -40,14 +49,18 @@ interface LoopEnd {
  * Deciding from the record makes a resume safe: it neither repeats a finished
  * iteration nor skips the decision a pause interrupted. An evaluated, met
  * condition ends a `max` loop; the count ends either mode, also after a
- * `false` condition. Nothing lets a loop run past its effective count.
+ * `false` condition. Nothing lets a loop run past its effective count; a
+ * bound count of 0 ends it before any iteration.
  */
 function completionOf(
   record: AgentPlanLoopRun,
 ): AgentPlanLoopCompletion | null {
   const last = record.iterations.at(-1);
-  if (!record.count || last?.status !== "succeeded") return null;
+  // A while loop ends only through a check of its boolean.
+  if (!record.count || record.count.source === "while") return null;
+  if (last && last.status !== "succeeded") return null;
   if (
+    last &&
     record.condition?.isActive &&
     last.condition.state === "evaluated" &&
     last.condition.isMet
@@ -98,9 +111,12 @@ export class AgentPlanLoopRunner {
   private readonly steps: Pick<AgentPlanStepRunner, "run" | "closeGroups">;
   private readonly iterations: AgentPlanLoopIterationRunner;
 
-  public constructor(steps: Pick<AgentPlanStepRunner, "run" | "closeGroups">) {
+  public constructor(
+    steps: Pick<AgentPlanStepRunner, "run" | "closeGroups">,
+    scripts?: Pick<AgentPlanScriptRunner, "run">,
+  ) {
     this.steps = steps;
-    this.iterations = new AgentPlanLoopIterationRunner(steps);
+    this.iterations = new AgentPlanLoopIterationRunner(steps, scripts);
   }
 
   /**
@@ -143,6 +159,8 @@ export class AgentPlanLoopRunner {
               status: "failed",
               error: "plan_step_failed",
             });
+      const decided = await this.checkWhile(loop, host);
+      if (decided) return this.end(loop, host, decided);
       const outcome = await this.iterate(loop, host);
       if (outcome === "paused") return this.pause(loop, host);
       if (outcome === "cancelled")
@@ -170,6 +188,31 @@ export class AgentPlanLoopRunner {
     await host.update(loop.id, (entry) => startedLoopRun(entry, loop, count));
   }
 
+  /**
+   * Checks the boolean of a while loop before the next iteration and records the check.
+   *
+   * @returns How the loop ends, or `null` when the next iteration runs. An
+   * unfinished iteration continues without a new check: its check was made.
+   */
+  private async checkWhile(
+    loop: AgentPlanLoop,
+    host: LoopHost,
+  ): Promise<LoopEnd | null> {
+    if (planLoopMode(loop) !== "while") return null;
+    const record = this.record(loop, host);
+    const last = record.iterations.at(-1);
+    if (last && last.status !== "succeeded") return null;
+    const verdict = checkLoopWhile(loop, host.snapshot().plan, record);
+    if ("error" in verdict) return { status: "failed", error: verdict.error };
+    await host.update(loop.id, (entry) => ({
+      ...entry,
+      whileChecks: [...(entry.whileChecks ?? []), verdict.check],
+    }));
+    return verdict.check.value
+      ? null
+      : { status: "succeeded", completion: "while_false" };
+  }
+
   /** Continues the unfinished iteration where it stopped, else starts the next. */
   private async iterate(
     loop: AgentPlanLoop,
@@ -183,10 +226,22 @@ export class AgentPlanLoopRunner {
       );
     else {
       number += 1;
-      const names = new Map(
-        host.snapshot().steps.map((step) => [step.step.id, step.name]),
+      const { plan } = host.snapshot();
+      const names = new Map([
+        ...host
+          .snapshot()
+          .steps.map((step) => [step.step.id, step.name] as const),
+        ...(host.snapshot().scripts ?? []).map(
+          (script) => [script.step.id, script.step.name] as const,
+        ),
+        ...planLoopStacks(plan, loop.id).map(
+          (stack) => [stack.id, stack.name] as const,
+        ),
+      ]);
+      const ids = planLoopScopeIds(plan, loop);
+      await host.update(loop.id, (entry) =>
+        beginIteration(entry, loop, names, ids),
       );
-      await host.update(loop.id, (entry) => beginIteration(entry, loop, names));
     }
     const outcome = await this.iterations.run({ loop, number, host });
     if (outcome === "succeeded") return this.complete(loop, host, number);
@@ -299,17 +354,48 @@ export class AgentPlanLoopRunner {
     loop: AgentPlanLoop,
     host: LoopHost,
   ): Promise<void> {
-    if (loop.sessionPolicy !== "reuse") return;
     const runId = host.run().id;
-    for (const member of loop.steps) {
-      if (member.type !== "agent") continue;
-      await this.steps
-        .closeGroups(runId, `${loop.id}/${member.id}`)
-        .catch((error: unknown) => {
-          logCaughtError("AgentPlanLoopRunner", error);
-        });
+    for (const key of loopSessionKeys(loop, host)) {
+      await this.steps.closeGroups(runId, key).catch((error: unknown) => {
+        logCaughtError("AgentPlanLoopRunner", error);
+      });
     }
   }
+}
+
+/**
+ * The keys of the sessions a loop holds: one per agent and one per group
+ * when it reuses its sessions, one per group and iteration otherwise.
+ *
+ * @remarks
+ * Closing a key that holds no open session is a no-op, so the loop closes
+ * every key it may have opened, on success, failure and stop alike.
+ */
+function loopSessionKeys(
+  loop: AgentPlanLoop,
+  host: LoopHost,
+): readonly string[] {
+  const members = new Set(planLoopMembers(loop).map((member) => member.id));
+  const groups = (host.snapshot().groups ?? []).filter((group) =>
+    group.steps.some((step) => members.has(step.id)),
+  );
+  const iterations = host.current(loop.id)?.iterations.length ?? 0;
+  if (loop.sessionPolicy !== "reuse")
+    return groups.flatMap((group) =>
+      Array.from(
+        { length: iterations },
+        (_, index) => `${loop.id}/${group.id}#${index + 1}`,
+      ),
+    );
+  const grouped = new Set(
+    groups.flatMap((group) => group.steps.map((s) => s.id)),
+  );
+  return [
+    ...planLoopMembers(loop)
+      .filter((member) => member.type === "agent" && !grouped.has(member.id))
+      .map((member) => `${loop.id}/${member.id}`),
+    ...groups.map((group) => `${loop.id}/${group.id}`),
+  ];
 }
 
 function cleanupOf(

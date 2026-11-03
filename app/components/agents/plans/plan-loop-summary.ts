@@ -1,5 +1,8 @@
-import { planLoopParameterRuns } from "@/definition/AgentPlanLoopGraph";
-import { PLAN_LOOP_RUNS_BINDING } from "@/definition/AgentPlanLoop";
+import { planLoopBoundRuns } from "@/definition/AgentPlanLoopGraph";
+import {
+  PLAN_LOOP_RUNS_BINDING,
+  planLoopMode,
+} from "@/definition/AgentPlanLoop";
 
 import type { TFunction } from "i18next";
 import type {
@@ -25,15 +28,16 @@ export function planLoopParameterNode(
  * The number of iterations the loop would run now, or `null` for an unusable source.
  *
  * @remarks
- * A bound parameter counts only with a whole number from 1 to 999; nothing
- * falls back to the saved number.
+ * A bound parameter or stack counts with a whole number from 0 to 999;
+ * nothing falls back to the saved number. A while loop has no count.
  */
 export function planLoopEffectiveRuns(
   draft: AgentPlanInput,
   loop: AgentPlanLoop,
 ): number | null {
+  if (planLoopMode(loop) === "while") return null;
   if (loop.runsSource === "value") return loop.runs;
-  return planLoopParameterRuns(planLoopParameterNode(draft, loop) ?? undefined);
+  return planLoopBoundRuns(loop.bindings[PLAN_LOOP_RUNS_BINDING], draft);
 }
 
 /** The recorded state of a loop in a run, if the run has one. */
@@ -50,6 +54,8 @@ export function planLoopSummary(
   loop: AgentPlanLoop,
   translate: TFunction,
 ): string {
+  if (planLoopMode(loop) === "while")
+    return translate("plans.loops.whileSummary");
   const runs = planLoopEffectiveRuns(draft, loop);
   const mode = translate(`plans.loops.mode.${loop.countMode}Short`);
   return runs === null
@@ -57,13 +63,21 @@ export function planLoopSummary(
     : translate("plans.loops.summary", { mode, count: runs });
 }
 
-/** `2 / 3` for the iteration a running loop is in; absent before it started. */
+/**
+ * `2 / 3` for the iteration a running loop is in; absent before it started.
+ *
+ * @remarks
+ * A bound count of 0 shows `0 / 0`; a while loop has no total and shows
+ * the number of its iteration alone.
+ */
 export function planLoopProgress(
   record: AgentPlanLoopRun | undefined,
 ): string | null {
   if (!record?.count) return null;
+  if (record.count.source === "while") return String(record.iterations.length);
   const current = Math.min(record.iterations.length, record.count.effective);
-  return `${Math.max(current, 1)} / ${record.count.effective}`;
+  const shown = record.count.effective === 0 ? 0 : Math.max(current, 1);
+  return `${shown} / ${record.count.effective}`;
 }
 
 /**

@@ -14,16 +14,29 @@ import type {
   PicaMobileStepStatus,
 } from "@/definition/PicaMobileProtocol";
 
-const RUN_STATUS: Readonly<Record<AgentPlanRun["status"], PicaMobileRunStatus>> =
-  {
+const RUN_STATUS: Readonly<
+  Record<AgentPlanRun["status"], Exclude<PicaMobileRunStatus, "blocked">>
+> = {
     running: "running",
     pausing: "pausing",
     paused: "paused",
     stopping: "stopping",
     succeeded: "completed",
     failed: "failed",
-    cancelled: "cancelled",
-  };
+  cancelled: "cancelled",
+};
+
+/**
+ * Names a Pages run state the way the protocol does.
+ *
+ * @param status - The stored state of the run.
+ * @returns The protocol state; Pages has no `blocked` run, so it never returns it.
+ */
+export function toPicaMobileRunStatus(
+  status: AgentPlanRun["status"],
+): Exclude<PicaMobileRunStatus, "blocked"> {
+  return RUN_STATUS[status];
+}
 
 const STEP_STATUS: Readonly<
   Record<Exclude<AgentPlanStepResult["status"], "skipped">, PicaMobileStepStatus>

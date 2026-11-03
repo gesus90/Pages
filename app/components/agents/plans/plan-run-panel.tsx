@@ -169,8 +169,9 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
         aria-label={t("plans.panel.label")}
         data-plan-panel
         onKeyDown={keepPlanControlKeys}
-        containerClassName="min-h-0 w-full overflow-hidden rounded-xl"
-        className="pointer-events-auto overflow-y-auto rounded-xl border border-border bg-surface/95 text-foreground shadow-panel backdrop-blur-sm"
+        containerClassName="min-h-0 w-full overflow-hidden rounded-xl border border-border bg-surface text-foreground shadow-floating"
+        className="pointer-events-auto @container/plan-panel overflow-y-auto rounded-[inherit]"
+        fadeClassName="hidden"
       >
         <PlanPanelHeading
           page={page}

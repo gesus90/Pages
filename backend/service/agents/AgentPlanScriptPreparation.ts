@@ -96,6 +96,15 @@ export class AgentPlanScriptPreparation {
     return snapshots;
   }
 
+  /** Reads a ticket a stack hands to a script, with the rights of the executor. */
+  public async readTask(
+    userId: string,
+    plan: AgentPlan,
+    taskId: string,
+  ): Promise<AgentPlanTaskSnapshot> {
+    return this.dependencies.tasks.snapshot(userId, plan.projectId, taskId);
+  }
+
   /** Reauthorizes the actual executor and rejects changed directories or interpreter paths at dispatch. */
   public async reauthorize(
     userId: string,
@@ -156,7 +165,9 @@ function sourceInputs(
 ): Readonly<Record<string, string>> {
   const entries: [string, string][] = [];
   for (const input of step.inputs) {
-    if (step.bindings[input.name]?.kind === "result") continue;
+    const kind = step.bindings[input.name]?.kind;
+    // Results and previous results arrive when the script starts.
+    if (kind === "result" || kind === "previous") continue;
     const bound = Object.hasOwn(bindings, input.name)
       ? bindings[input.name]
       : null;

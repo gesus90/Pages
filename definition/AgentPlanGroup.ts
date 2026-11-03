@@ -26,9 +26,12 @@ export interface AgentPlanGroupParameter extends AgentParameter {
  * @remarks
  * `notAcp` covers API agents and every runner whose plan nodes do not run as
  * an ACP session; `otherAdapter` is an ACP agent of another adapter class
- * than the group's; `missingAgent` is a node without a resolvable agent.
+ * than the group's; `missingAgent` is a node without a resolvable agent;
+ * `nestedGroup` is an agent of a group inside a loop, which moves only with
+ * its group.
  */
-export type AgentPlanGroupRefusal = "notAcp" | "otherAdapter" | "missingAgent";
+export type AgentPlanGroupRefusal =
+  "notAcp" | "otherAdapter" | "missingAgent" | "nestedGroup";
 
 /**
  * An ACP group: a subgraph of agents of one adapter class that share one session per run.
@@ -211,14 +214,16 @@ export function planGroupOrder(
   return order.length === group.steps.length ? order : null;
 }
 
-/** Visits each agent once, including the members of group and loop nodes. */
+/** Visits each agent once, including the members of group and loop nodes and of groups inside loops. */
 export function allPlanSteps(plan: AgentPlanInput): readonly AgentPlanStep[] {
-  return plan.nodes.flatMap((node) => {
+  return plan.nodes.flatMap((node): readonly AgentPlanStep[] => {
     if (node.type === "agent") return [node];
     if (node.type === "group") return node.steps;
-    return node.type === "loop"
-      ? node.steps.filter((member) => member.type === "agent")
-      : [];
+    if (node.type !== "loop") return [];
+    return node.steps.flatMap((member): readonly AgentPlanStep[] => {
+      if (member.type === "group") return member.steps;
+      return member.type === "agent" ? [member] : [];
+    });
   });
 }
 
@@ -234,9 +239,11 @@ export function mapPlanSteps<Plan extends AgentPlanInput>(
       if (node.type === "loop")
         return {
           ...node,
-          steps: node.steps.map((member) =>
-            member.type === "agent" ? transform(member) : member,
-          ),
+          steps: node.steps.map((member) => {
+            if (member.type === "group")
+              return { ...member, steps: member.steps.map(transform) };
+            return member.type === "agent" ? transform(member) : member;
+          }),
         };
       return node.type === "group"
         ? { ...node, steps: node.steps.map(transform) }

@@ -4,6 +4,7 @@ import { bindAgentParameters } from "@/backend/service/agents/AgentParameterBind
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import type { AgentTicketParameterService } from "@/backend/service/agents/AgentTicketParameterService";
+import type { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
@@ -37,6 +38,7 @@ export async function parameterRunFixture(
   configuration: AgentConfiguration = emptyAgentConfiguration(),
   provider: AgentProviderId = "openrouter",
   tickets?: Pick<AgentTicketParameterService, "resolve" | "readAssets">,
+  tasks?: Pick<AgentPlanTasks, "snapshot">,
 ): Promise<ParameterRunFixture> {
   const prepared = await preparedParameters(configuration, tickets);
   const step: AgentPlanStepSnapshot = {
@@ -111,7 +113,7 @@ export async function parameterRunFixture(
         github: null,
       }),
     },
-    tasks: {
+    tasks: tasks ?? {
       snapshot: async () => {
         throw new Error("No task nodes in this fixture");
       },

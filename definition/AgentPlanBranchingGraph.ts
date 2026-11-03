@@ -23,7 +23,7 @@ import type { AgentPlanIssue } from "./AgentPlanGraph";
 
 /** The node types an edge of each kind may leave. */
 const SOURCE_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
-  flow: ["start", "agent", "script"],
+  flow: ["start", "agent", "script", "stack"],
   branch: ["decision"],
   condition: ["agent"],
   event: ["agent", "script"],
@@ -31,8 +31,8 @@ const SOURCE_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
 
 /** The node types an edge of each kind may enter. */
 const TARGET_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
-  flow: ["end", "agent", "script"],
-  branch: ["end", "agent", "script"],
+  flow: ["end", "agent", "script", "stack"],
+  branch: ["end", "agent", "script", "stack"],
   condition: ["decision"],
   event: ["agent"],
 };
@@ -282,11 +282,19 @@ function eventRegionIssues(plan: AgentPlanInput): AgentPlanIssue[] {
 /** A condition, branch or event connection may only join top-level nodes, never a group or a loop. */
 function boundaryIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   const inside = new Set(
-    plan.nodes.flatMap((node) =>
-      node.type === "group" || node.type === "loop"
-        ? [node.id, ...node.steps.map((step) => step.id)]
-        : [],
-    ),
+    plan.nodes.flatMap((node): readonly string[] => {
+      if (node.type === "group")
+        return [node.id, ...node.steps.map((step) => step.id)];
+      if (node.type !== "loop") return [];
+      return [
+        node.id,
+        ...node.steps.flatMap((step): readonly string[] =>
+          step.type === "group"
+            ? [step.id, ...step.steps.map((entry) => entry.id)]
+            : [step.id],
+        ),
+      ];
+    }),
   );
   return plan.edges.flatMap((edge): AgentPlanIssue[] => {
     const kind = planEdgeKind(edge);

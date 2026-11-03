@@ -97,7 +97,9 @@ it("keeps an empty frame large enough to drop a first member into", () => {
   expect(planNodeHeight(group, GROUP_SOURCES)).toBe(108 + 160 + 32);
   const loop = emptyPlanLoop("loop", "Loop", { x: 0, y: 0 });
   expect(planNodeWidth(loop)).toBe(680);
-  expect(planNodeHeight(loop, GROUP_SOURCES)).toBe(300);
+  // A loop's header holds its two labelled port rows: In and Out, then Count or While.
+  expect(planGroupHeaderHeight(loop)).toBe(172);
+  expect(planNodeHeight(loop, GROUP_SOURCES)).toBe(172 + 160 + 32);
 });
 
 it("grows a frame with its farthest agent and script members", () => {
@@ -111,7 +113,7 @@ it("grows a frame with its farthest agent and script members", () => {
     steps: [scriptNode("script", 1, {}), agentNode("member", "claude")],
   };
   // The agent without inputs (336) is taller than the script with one input (276).
-  expect(planNodeHeight(loop, GROUP_SOURCES)).toBe(108 + 336 + 32 + 32);
+  expect(planNodeHeight(loop, GROUP_SOURCES)).toBe(172 + 336 + 32 + 32);
 });
 
 it("places members relative to the member area below the frame header", () => {

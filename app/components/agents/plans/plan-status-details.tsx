@@ -68,19 +68,12 @@ export function PlanStatusDetails({
       role="region"
       aria-label={t("plans.progress.open")}
       containerClassName="min-h-0 flex-1"
-      className="flex flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border/80 px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
+      className="flex flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
     >
       {isScript(step) || isPlanDecisionResult(step) ? null : (
         <PlanStatusTodos key={step.id} step={step} number={number} />
       )}
-      <ScrollViewport
-        axis="vertical"
-        tabIndex={0}
-        role="region"
-        aria-label={t("plans.progress.step", { number })}
-        containerClassName="min-w-0 shrink-0"
-        className="overflow-visible overscroll-contain pr-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
-      >
+      <section aria-label={t("plans.progress.step", { number })}>
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-sm leading-5 font-semibold wrap-anywhere">
@@ -133,7 +126,7 @@ export function PlanStatusDetails({
             canLocate ? "plans.progress.locate" : "plans.progress.nodeMissing",
           )}
         </Button>
-      </ScrollViewport>
+      </section>
     </ScrollViewport>
   );
 }

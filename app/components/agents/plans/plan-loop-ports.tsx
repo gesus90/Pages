@@ -1,16 +1,18 @@
 import { useTranslation } from "react-i18next";
 
 import { PlanFlowHandle } from "./plan-flow-handle";
-import { planGroupHeaderHeight } from "./plan-layout";
+import { PLAN_LOOP_PORT_ROW, PLAN_LOOP_TITLE_HEIGHT } from "./plan-layout";
 import { planInTargetClass } from "./plan-flow-ports";
 
 import type { PlanGraphActions } from "./use-plan-graph";
 
-/** The row of the first member's ports below the header; the loop's dots sit on its level. */
-const PORT_ROW_OFFSET = 66;
+/** Where the loop's four flow dots sit: centered on the container edge, level with the In and Out labels. */
+export const PLAN_LOOP_PORT_TOP =
+  PLAN_LOOP_TITLE_HEIGHT + PLAN_LOOP_PORT_ROW / 2;
 
-/** Where the loop's four dots sit: centered on the container edge, level with the ports of the first row. */
-export const PLAN_LOOP_PORT_TOP = planGroupHeaderHeight() + PORT_ROW_OFFSET;
+/** Where the data input of the count or the while boolean sits: one row below. */
+export const PLAN_LOOP_INPUT_TOP =
+  PLAN_LOOP_TITLE_HEIGHT + PLAN_LOOP_PORT_ROW + PLAN_LOOP_PORT_ROW / 2;
 
 // A dot on the container edge is centered on that edge, so the inline offsets
 // name the edge itself and the transform pulls half the dot back.

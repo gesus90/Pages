@@ -47,14 +47,16 @@ import {
   startedStep,
   unstartedChanges,
 } from "./branching/AgentPlanBranchSettle";
-import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
 import {
   shutdownPlanEngine,
   STOP_WAIT_MILLISECONDS,
 } from "./AgentPlanEngineShutdown";
 import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
-import { dispatchPlanScript } from "./AgentPlanScriptDispatch";
+import {
+  dispatchPlanLocalNode,
+  dispatchPlanLoop,
+} from "./AgentPlanNodeDispatch";
 import {
   guardPlanWorkDispatch,
   settlePlanWorkResult,
@@ -72,7 +74,6 @@ import type {
   AgentPlanRun,
   AgentPlanStepResult,
 } from "@/definition/AgentPlan";
-import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
@@ -99,7 +100,7 @@ export class AgentPlanRunEngine {
   private resourceTimer: NodeJS.Timeout | null = null;
   private readonly dependencies: EngineDependencies;
   private readonly commands: AgentPlanRunCommands;
-  private readonly loops: AgentPlanLoopRunner;
+  private readonly nodes: Parameters<typeof dispatchPlanLoop>[3];
   private readonly active = new Map<string, ActivePlanRun>();
   private readonly writes = new SerialQueue();
   private readonly pending = new Set<Promise<void>>();
@@ -107,7 +108,11 @@ export class AgentPlanRunEngine {
 
   public constructor(dependencies: EngineDependencies) {
     this.dependencies = dependencies;
-    this.loops = new AgentPlanLoopRunner(dependencies.steps);
+    this.nodes = {
+      writes: this.writes,
+      dependencies,
+      loops: new AgentPlanLoopRunner(dependencies.steps, dependencies.scripts),
+    };
     this.commands = new AgentPlanRunCommands({
       ...dependencies,
       active: this.active,
@@ -618,12 +623,8 @@ export class AgentPlanRunEngine {
       controller.signal,
     );
     if (remote) return remote;
-    if (node.type === "script")
-      return dispatchPlanScript(active, node.id, controller, {
-        scripts: this.dependencies.scripts,
-        writes: this.writes,
-        runs: this.dependencies.runs,
-      });
+    const local = dispatchPlanLocalNode(active, node, controller, this.nodes);
+    if (local) return local;
     const step = active.snapshot.steps.find(
       (entry) => entry.step.id === node.id,
     );
@@ -651,7 +652,7 @@ export class AgentPlanRunEngine {
       if (active.view.status !== "running") throw new AgentPlanPausedError();
       active.dispatched.add(node.id);
       if (node.type === "loop")
-        return await this.runLoop(active, node, controller);
+        return await dispatchPlanLoop(active, node, controller, this.nodes);
       await this.dependencies.start.control(active.view, active.snapshot, node);
       return { status: "succeeded", output: null, error: null };
     } catch (error: unknown) {
@@ -668,21 +669,6 @@ export class AgentPlanRunEngine {
             : "plan_step_failed",
       };
     }
-  }
-
-  /** A loop is one node: its iterations run inside it and it settles only when they have. */
-  private runLoop(
-    active: ActivePlanRun,
-    node: AgentPlanLoop,
-    controller: AbortController,
-  ): Promise<Partial<AgentPlanStepResult>> {
-    const host = createLoopHost(active, controller.signal, {
-      writes: this.writes,
-      runs: this.dependencies.runs,
-      authorize: () =>
-        this.dependencies.start.control(active.view, active.snapshot, node),
-    });
-    return this.loops.run(node, host);
   }
 
   /** Stores the newest record of a running node; a failure is reported, never thrown. */

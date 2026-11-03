@@ -12,13 +12,14 @@ import type { PlanCanvasProps } from "./plan-flow-context";
 export type PlanPaletteKind = Exclude<AgentPlanNode["type"], "variable">;
 
 /** The node types the palette adds at once, because they need no choice. */
-type PlanImmediateKind = "start" | "end" | "loop" | "decision";
+type PlanImmediateKind = "start" | "end" | "loop" | "decision" | "stack";
 
 const IMMEDIATE_KINDS: readonly PlanPaletteKind[] = [
   "start",
   "end",
   "loop",
   "decision",
+  "stack",
 ];
 
 function isImmediateKind(kind: PlanPaletteKind): kind is PlanImmediateKind {
@@ -29,6 +30,12 @@ function isImmediateKind(kind: PlanPaletteKind): kind is PlanImmediateKind {
 export interface PlanPaletteRequest {
   readonly kind: Exclude<PlanPaletteKind, PlanImmediateKind>;
   readonly position?: AgentPlanPosition;
+}
+
+/** The name an immediately added container starts with. */
+function immediateName(kind: PlanImmediateKind, translate: TFunction): string {
+  if (kind === "loop") return translate("plans.loops.defaultName");
+  return kind === "stack" ? translate("plans.stack.defaultName") : "";
 }
 
 /** Why the palette cannot add a node now, or `null`. */
@@ -64,11 +71,7 @@ export function usePlanNodePalette(canvas: PlanCanvasProps): {
   function insert(kind: PlanPaletteKind, position?: AgentPlanPosition): void {
     if (blocked) return;
     if (isImmediateKind(kind)) {
-      canvas.graph.add(
-        kind,
-        kind === "loop" ? t("plans.loops.defaultName") : "",
-        position,
-      );
+      canvas.graph.add(kind, immediateName(kind, t), position);
       return;
     }
     setRequest({ kind, position });

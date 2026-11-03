@@ -1,4 +1,4 @@
-import { expandPlanGroups, planGroupEdges } from "./AgentPlanGroup";
+import { expandPlanGroups } from "./AgentPlanGroup";
 import { withPortlessPlanGroups } from "./AgentPlanGroupUpgrade";
 import { planGroupIssues } from "./AgentPlanGroupGraph";
 import { planLoopIssues } from "./AgentPlanLoopGraph";
@@ -22,11 +22,11 @@ import { planValueIssue } from "./AgentPlanValue";
 import { hasPlanPath, planPredecessors } from "./AgentPlanPath";
 import { planScriptIssues, planScriptParameters } from "./AgentPlanScript";
 import { scriptReportGraphIssues } from "./AgentPlanScriptReportGraph";
+import { fitsPlanStackOutput, planStackIssues } from "./AgentPlanStackGraph";
+import { isPlanStackTriggered } from "./AgentPlanStack";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
-import type { AgentPlanGroup } from "./AgentPlanGroup";
-import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanScript } from "./AgentPlanScript";
 import type { AgentPlanTargetProblem } from "./AgentPlanTarget";
 import type {
@@ -78,6 +78,12 @@ export interface AgentPlanIssue {
     | "branchProvider"
     | "branchRemote"
     | "branchGate"
+    | "stackScope"
+    | "stackOrder"
+    | "stackEntries"
+    | "stackRemote"
+    | "loopWhile"
+    | "loopNested"
     | "unsupportedRunNotes"
     | "duplicateNode"
     | "port"
@@ -108,8 +114,9 @@ export interface AgentPlanIssue {
 }
 
 export { hasPlanPath } from "./AgentPlanPath";
+export { removePlanNode } from "./AgentPlanRemoval";
 
-/** Start, end, agent, script, decision and loop nodes form the execution graph; tickets, parameters and variables only supply values. */
+/** Start, end, agent, script, decision, loop and stack nodes form the execution graph; tickets, parameters and variables only supply values. */
 export function isPlanFlowNode(node: AgentPlanNode): boolean {
   return (
     node.type === "start" ||
@@ -117,7 +124,8 @@ export function isPlanFlowNode(node: AgentPlanNode): boolean {
     node.type === "agent" ||
     node.type === "script" ||
     node.type === "decision" ||
-    node.type === "loop"
+    node.type === "loop" ||
+    node.type === "stack"
   );
 }
 
@@ -178,87 +186,6 @@ export function withoutTicketFlow<Plan extends AgentPlanInput>(
   let edges = plan.edges;
   for (const ticket of tickets) edges = bridgeNode(edges, ticket);
   return { ...plan, edges };
-}
-
-/**
- * Removing a node also removes its flow and parameter references.
- *
- * @remarks
- * The node may be a member of a group; the group then loses the member and
- * its internal edges. Removing a group removes its members with it, together
- * with every reference to them; keeping the members is
- * {@link ungroupPlanGroup}'s work, never a silent fallback.
- */
-export function removePlanNode<Plan extends AgentPlanInput>(
-  draft: Plan,
-  id: string,
-): Plan {
-  const container = draft.nodes.find((node) => node.id === id);
-  const removed = new Set([
-    id,
-    ...(container?.type === "group" || container?.type === "loop"
-      ? container.steps.map((step) => step.id)
-      : []),
-  ]);
-  function withoutReferences<
-    Node extends
-      AgentPlanStep | AgentPlanScript | AgentPlanGroup | AgentPlanLoop,
-  >(node: Node): Node {
-    const bindings = Object.fromEntries(
-      Object.entries(node.bindings).filter(
-        ([, binding]) =>
-          !(binding.kind === "source" && removed.has(binding.nodeId)) &&
-          !(
-            (binding.kind === "result" || binding.kind === "previous") &&
-            removed.has(binding.stepId)
-          ),
-      ),
-    );
-    return { ...node, bindings };
-  }
-  function withoutMember(
-    node: AgentPlanGroup | AgentPlanLoop,
-  ): AgentPlanGroup | AgentPlanLoop {
-    const steps = node.steps
-      .filter((step) => step.id !== id)
-      .map(withoutReferences);
-    const hasMember = steps.length !== node.steps.length;
-    if (node.type === "loop")
-      return {
-        ...withoutReferences(node),
-        steps,
-        edges: node.edges.filter((edge) => edge.from !== id && edge.to !== id),
-        condition:
-          node.condition?.sourceNodeId === id
-            ? { ...node.condition, sourceNodeId: "" }
-            : node.condition,
-      };
-    return {
-      ...withoutReferences(node),
-      steps: steps.filter((step) => step.type === "agent"),
-      ...(hasMember
-        ? {
-            edges: planGroupEdges(node).filter(
-              (edge) => edge.from !== id && edge.to !== id,
-            ),
-          }
-        : {}),
-    };
-  }
-  return {
-    ...draft,
-    nodes: draft.nodes
-      .filter((node) => node.id !== id)
-      .map((node) => {
-        if (node.type === "agent" || node.type === "script")
-          return withoutReferences(node);
-        if (node.type !== "group" && node.type !== "loop") return node;
-        return withoutMember(node);
-      }),
-    edges: draft.edges.filter(
-      (edge) => !removed.has(edge.from) && !removed.has(edge.to),
-    ),
-  };
 }
 
 function bridgeNode(
@@ -326,7 +253,11 @@ function bindingIssues(
       issues.push({ nodeId: step.id, port: name, reason: "port" });
     // A previous iteration's result is checked with the loop that owns the member.
     else if (binding.kind === "previous") continue;
-    else if (binding.kind === "result" && parameter.type === "ticket")
+    else if (binding.kind === "stack") {
+      const stack = plan.nodes.find((node) => node.id === binding.stackId);
+      if (!fitsPlanStackOutput(stack, binding.output, parameter.type))
+        issues.push({ nodeId: step.id, port: name, reason: "type" });
+    } else if (binding.kind === "result" && parameter.type === "ticket")
       issues.push({ nodeId: step.id, port: name, reason: "ticketHandoff" });
     else if (binding.kind === "result" && parameter.type === "text") {
       const reason = resultIssue(step, binding.stepId, plan);
@@ -361,6 +292,12 @@ function fitsBinding(
       plan.nodes.find((node) => node.id === binding.nodeId),
       parameterType,
     );
+  if (binding.kind === "stack")
+    return fitsPlanStackOutput(
+      plan.nodes.find((node) => node.id === binding.stackId),
+      binding.output,
+      parameterType,
+    );
   return (
     parameterType === "text" &&
     isPlanResultNode(plan.nodes.find((node) => node.id === binding.stepId)) &&
@@ -380,6 +317,7 @@ export function planConnectionIssues(
     ...planGroupIssues(plan, agents, false),
     ...planLoopIssues(plan, agents, false),
     ...planBranchingIssues(plan, agents),
+    ...planStackIssues(plan, expanded),
   ];
   for (const node of expanded.nodes)
     if (node.type === "agent" || node.type === "script")
@@ -417,12 +355,7 @@ function placeholderIssues(
   return parameters.flatMap((parameter): AgentPlanIssue[] => {
     if (parameter.type !== "text" || !named.has(parameter.name)) return [];
     const binding = step.bindings[parameter.name];
-    if (
-      binding?.kind === "result" ||
-      binding?.kind === "source" ||
-      binding?.kind === "previous"
-    )
-      return [];
+    if (binding && binding.kind !== "literal") return [];
     if (binding?.kind === "literal" && hasAgentParameterValue(binding.value))
       return [];
     if (!binding && hasAgentParameterValue(parameter.defaultValue)) return [];
@@ -519,7 +452,8 @@ function hasConnectedValue(
   binding: AgentPlanBinding | undefined,
   plan: AgentPlanInput,
 ): boolean {
-  if (binding?.kind === "result" || binding?.kind === "previous") return true;
+  if (binding && binding.kind !== "literal" && binding.kind !== "source")
+    return true;
   if (binding?.kind !== "source") return false;
   const source = plan.nodes.find((node) => node.id === binding.nodeId);
   if (source?.type === "task") return true;
@@ -586,8 +520,11 @@ function flowExecutionIssues(
     !plan.nodes.some((node) => node.type === "agent" || node.type === "script")
   )
     issues.push({ nodeId: null, port: null, reason: "agent" });
-  for (const node of plan.nodes.filter(isPlanFlowNode))
+  for (const node of plan.nodes.filter(isPlanFlowNode)) {
+    // A stack that nothing triggers is only read, like a value source.
+    if (node.type === "stack" && !isPlanStackTriggered(plan, node.id)) continue;
     issues.push(...flowNodeIssues(node, plan, agents));
+  }
   issues.push(...scriptReportGraphIssues(plan));
   issues.push(...planBranchingExecutionIssues(plan));
   return issues;
@@ -599,19 +536,6 @@ export function planExecutionIssues(
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentPlanIssue[] {
   plan = withPortlessPlanGroups(plan);
-  const unsupported = plan.nodes.flatMap((node): AgentPlanIssue[] =>
-    node.type === "loop"
-      ? node.steps
-          .filter((member) => member.type === "script")
-          .map((member) => ({
-            nodeId: member.id,
-            port: null,
-            reason: "loopScriptUnsupported",
-          }))
-      : [],
-  );
-  if (unsupported.length > 0)
-    return [...planConnectionIssues(plan, agents), ...unsupported];
   if (plan.nodes.some((node) => node.type === "group")) {
     return [
       ...planConnectionIssues(plan, agents),

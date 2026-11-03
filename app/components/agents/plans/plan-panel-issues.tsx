@@ -2,12 +2,14 @@ import { useTranslation } from "react-i18next";
 
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+import { planLoopMembers } from "@/definition/AgentPlanLoop";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { planTargetIssues } from "@/definition/AgentPlanTarget";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { planAgentName } from "./plan-layout";
 
+import type { AgentPlanNode } from "@/definition/AgentPlan";
 import type { TFunction } from "i18next";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
@@ -57,8 +59,8 @@ function issueSubject(
   const node = [
     ...editor.draft.nodes,
     ...expandPlanGroups(editor.draft).nodes,
-    ...editor.draft.nodes.flatMap((entry) =>
-      entry.type === "loop" ? entry.steps : [],
+    ...editor.draft.nodes.flatMap((entry): readonly AgentPlanNode[] =>
+      entry.type === "loop" ? [...entry.steps, ...planLoopMembers(entry)] : [],
     ),
   ].find((entry) => entry.id === issue.nodeId);
   let name = translate("plans.panel.issueTitle.plan");

@@ -7,6 +7,7 @@ import { planRunGroupSession } from "./plan-group-session";
 import { PlanAgentCard } from "./plan-node-card/plan-agent-card";
 import { PlanDecisionCard } from "./plan-node-card/plan-decision-card";
 import { PlanScriptCard } from "./plan-node-card/plan-script-card";
+import { PlanStackCard } from "./plan-node-card/plan-stack-card";
 import { PlanSourceCard } from "./plan-node-card/plan-source-card";
 import { planPortLayout, usePlanFlowPorts } from "./use-plan-flow-ports";
 
@@ -69,6 +70,14 @@ export function PlanNodeCard({
   if (node.type === "decision")
     return (
       <PlanDecisionCard decision={node} result={result} hasRun={run !== null} />
+    );
+  if (node.type === "stack")
+    return (
+      <PlanStackCard
+        stack={node}
+        hasRun={run !== null}
+        isDropTarget={context.dropTarget === node.id}
+      />
     );
   return <PlanSourceCard node={node} />;
 }

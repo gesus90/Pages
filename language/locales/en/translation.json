@@ -835,7 +835,7 @@
         "plan_completed_changed": "This change would repeat completed work. Stop the run and start again.",
         "plan_pause_required": "Pause first and wait for every running step to finish.",
         "plan_connection_unavailable": "Connection interrupted. The displayed state is the last received state; actions are disabled. Reconnecting automatically.",
-        "plan_loop_nested": "A loop holds only agents and scripts. Loops inside loops and groups inside loops are not supported; keep the subgraph flat.",
+        "plan_loop_nested": "A loop holds agents, scripts and groups of agents. Loops inside loops are not supported.",
         "plan_script_interpreter_unavailable": "The configured interpreter is unavailable or not executable. Check this exact profile on the server.",
         "plan_script_permission_denied": "Direct scripts require active administrator mode and current plan, project and approved workspace access.",
         "plan_script_platform_unsupported": "Script execution requires Linux process ownership and cleanup support.",
@@ -870,7 +870,12 @@
         "plan_runner_control_update_required": "New plan jobs require Runner 1.15.0 (planControlVersion 1). Update Pages and Runner together explicitly; existing jobs remain reconcilable.",
         "database_busy": "Pages is busy right now. Please try again in a few seconds.",
         "database_unavailable": "The database is not available right now. Please try again in a few seconds.",
-        "database_outcome_unknown": "The database was interrupted during the change. Please check the current state before repeating it."
+        "database_outcome_unknown": "The database was interrupted during the change. Please check the current state before repeating it.",
+        "plan_loop_while_invalid": "The while loop found no valid boolean: bind a parameter whose value is exactly true or false. Another value is never read as false.",
+        "plan_loop_while_type": "The value at the path of the while condition is not a boolean. Pages never converts types and never reads it as false.",
+        "plan_loop_while_limit": "The while loop reached 999 iterations without its condition turning false.",
+        "plan_stack_invalid": "Check the stack: its name and its entries. An entry is a ticket or a named value, each at most once.",
+        "plan_stack_content_missing": "The node reads the content of a stack, but the newest trigger handed over no entry. An earlier entry is never handed over again."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -4018,7 +4023,8 @@
       "parameter": "Parameter",
       "group": "Group",
       "loop": "Loop",
-      "decision": "Decision"
+      "decision": "Decision",
+      "stack": "Stack"
     },
     "status": {
       "waiting": "Waiting",
@@ -4096,7 +4102,13 @@
       "remoteParameter": "The parameter cannot be resolved. Check its type, required value and placeholders.",
       "remoteRunnerUpdate": "New remote plan jobs require Runner 1.15.0 with planControlVersion 1. Update Pages and Runner together explicitly; existing jobs remain reconcilable.",
       "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
-      "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason."
+      "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason.",
+      "stackScope": "This stack is triggered inside a loop and outside it at once. Connect it to the members of one loop or to the outer flow only.",
+      "stackOrder": "This input reads the content of a stack that is not before it in the flow, so no trigger hands it an entry.",
+      "stackEntries": "Check the entries of the stack: each is a ticket or a valid named value, at most once.",
+      "stackRemote": "A node on a remote target cannot read a stack.",
+      "loopWhile": "The while loop needs a boolean parameter that is exactly true or false, and later checks need a member of the loop and a valid path.",
+      "loopNested": "A loop holds agents, scripts and groups of agents, but no loop."
     },
     "session": {
       "runner": {
@@ -4151,7 +4163,8 @@
       "refusal": {
         "notAcp": "{{name}} does not run plan nodes over ACP and cannot join a session group. The agent was not changed.",
         "otherAdapter": "{{name}} belongs to the ACP class {{adapter}}, the group to {{group}}. Only agents of the same class can join. The agent was not changed.",
-        "missingAgent": "{{name}} has no assigned agent and cannot join a group."
+        "missingAgent": "{{name}} has no assigned agent and cannot join a group.",
+        "nestedGroup": "{{name}} belongs to a group inside a loop and moves with its group only."
       },
       "frame": "Group {{name}}",
       "dropHere": "Release: the agent joins this group",
@@ -4682,7 +4695,8 @@
         "task": "Tickets",
         "group": "Groups",
         "loop": "Loop",
-        "decision": "Decision"
+        "decision": "Decision",
+        "stack": "Stack"
       },
       "hint": {
         "start": "Add the beginning of a flow.",
@@ -4693,7 +4707,8 @@
         "task": "Use a readable ticket as a data source.",
         "group": "Organize agents in a shared ACP group.",
         "loop": "Repeat agents and scripts as one subgraph, with a session of its own per agent.",
-        "decision": "Add a branch: the boolean result of an agent decides which branch continues."
+        "decision": "Add a branch: the boolean result of an agent decides which branch continues.",
+        "stack": "Ordered tickets or values; every trigger hands over the next entry"
       },
       "addTitle": "Add {{type}}",
       "add": "Add",
@@ -4885,7 +4900,6 @@
       "locate": "Show node in plan",
       "nodeMissing": "Node no longer present in plan",
       "todos": "Agent TODO",
-      "todoList": "Agent TODO list, scroll vertically",
       "todoCount": "{{completed}}/{{total}} done",
       "noTodos": "No TODO list was reported for this step.",
       "emptyTodos": "No work list yet.",
@@ -4970,7 +4984,8 @@
       },
       "completion": {
         "count_reached": "Count reached",
-        "condition_met": "End condition met"
+        "condition_met": "End condition met",
+        "while_false": "condition false"
       },
       "session": {
         "title": "Keep agent sessions",
@@ -4999,7 +5014,14 @@
         "parameterNone": "No parameter",
         "noParameters": "The plan has no parameter node. Add one from the palette first.",
         "parameterInvalid": "The bound parameter is missing or not a whole number from 1 to 999. The loop will not start; the saved value is not used instead.",
-        "parameterValue": "Bound parameter {{name}} · value {{count}}."
+        "parameterValue": "Bound parameter {{name}} · value {{count}}.",
+        "counterInfo": "1 to 999 runs the loop that often. 0 binds the count: a parameter or the count output of a stack supplies it when the loop starts; a bound 0 runs no iteration.",
+        "counterHint": "1 to {{maximum}} fixed · 0 = bound count",
+        "counterInvalid": "Not saved: use a whole number from 0 to {{maximum}}. Nothing is rounded or replaced.",
+        "boundInfo": "A number parameter or the count output of a stack. The value is taken once when the loop starts; 0 runs no iteration.",
+        "boundInvalid": "No valid bound count: choose a parameter with a whole number from 0 to 999 or the count of a stack. The loop will not start.",
+        "boundValue": "Bound count · value {{count}}.",
+        "boundLabel": "Bound to"
       },
       "exact": {
         "label": "Run exactly",
@@ -5079,7 +5101,37 @@
       "removeDescription": "Inner nodes in this loop: {{count}}. Disconnect the container and explicitly remove previous-iteration bindings before removing only the container. Deleting the contents also removes the nodes and their connections.",
       "removeFrame": "Remove container, keep nodes",
       "removeWithMembers": "Delete with contents ({{count}} nodes)",
-      "moved": "Loop membership changed. Removed: flow connections {{edges}}, bindings {{bindings}}."
+      "moved": "Loop membership changed. Removed: flow connections {{edges}}, bindings {{bindings}}.",
+      "countToggle": "Count",
+      "while": {
+        "label": "While",
+        "infoLabel": "About the while condition",
+        "info": "Without Count the loop checks this boolean before every iteration, the first one included: true runs the content, false leaves the loop.",
+        "placeholder": "Choose a boolean parameter",
+        "invalid": "No valid boolean: bind a parameter whose value is exactly true or false.",
+        "value": "Bound boolean · currently {{value}}.",
+        "sourceLabel": "Later checks read",
+        "sourceInfoLabel": "About later checks",
+        "sourceInfo": "From the second iteration on, the boolean is read from the newest result of this member at the path; without a member the parameter is read again.",
+        "sourceNone": "The parameter again",
+        "pathLabel": "JSON path of the boolean",
+        "explain": "Checked fresh before every iteration. Initially false runs nothing; another value than true or false stops with a clear message, never as false."
+      },
+      "whileSummary": "While",
+      "whileTooltip": "Checks its boolean before every iteration",
+      "outAfter": "Out · after completion",
+      "inputLabel": "Input {{input}} of {{name}}",
+      "input": {
+        "whileBound": "While ← {{name}}",
+        "whileOpen": "While ← not connected",
+        "countFixed": "Count · fixed {{count}}",
+        "countBound": "Count ← {{name}}",
+        "countOpen": "Count ← not connected"
+      },
+      "inputName": {
+        "runs": "Count",
+        "while": "While"
+      }
     },
     "recovery": {
       "title": "Recover the run",
@@ -5442,6 +5494,54 @@
       "historyEntry": "Pass {{number}} · {{status}}",
       "branchTaken": "Branch {{branch}} activated",
       "decisionInput": "Read: {{name}} (pass {{number}}) · {{value}}"
+    },
+    "stack": {
+      "defaultName": "Stack",
+      "caption": "Data · Stack",
+      "in": "In · next entry",
+      "inLabel": "Trigger input: hands over the next entry",
+      "outLabel": "Connect output {{output}} of {{name}}",
+      "output": {
+        "content": "Content",
+        "count": "Count"
+      },
+      "summary_one": "{{count}} entry · {{delivered}} handed over · {{remaining}} left",
+      "summary_other": "{{count}} entries · {{delivered}} handed over · {{remaining}} left",
+      "progress": "{{delivered}} / {{total}}",
+      "state": {
+        "empty": "Empty",
+        "used": "Used up",
+        "ready": "Ready"
+      },
+      "entries": "Entries in handover order",
+      "emptyHint": "Empty: drag ticket or parameter cards here or add a ticket.",
+      "entry": {
+        "next": "Next",
+        "waiting": "Waiting",
+        "delivered": "Handed over",
+        "deliveredIn": "Handed over · iteration {{number}}"
+      },
+      "addTicket": "Add a ticket to the stack",
+      "loopScope": "In: every iteration of {{name}}",
+      "noContent": "none yet",
+      "countValue": "{{count}} · number",
+      "order": "Fixed order",
+      "reset": "New run starts over",
+      "dropHere": "Release to add as the last entry",
+      "moved": "Added to the stack. Removed: bindings that read the card directly {{bindings}}.",
+      "preview": {
+        "count": "{{name}} · count {{count}}",
+        "content": "{{name}} · content"
+      },
+      "dialog": {
+        "title": "Stack",
+        "hint": "The first trigger hands over the first entry, the next trigger the next one. A used-up stack hands over nothing; only a new run starts over.",
+        "name": "Name",
+        "entries": "Order of the entries",
+        "up": "Move {{name}} up",
+        "down": "Move {{name}} down",
+        "remove": "Remove {{name}} from the stack"
+      }
     }
   },
   "mcpDuration": {

@@ -44,12 +44,21 @@ export function loopSessionTerms(
  * A group member shares the group's session. A member of a loop that reuses
  * its sessions owns one session per agent node, named by loop and node; the
  * iteration is never part of it. Everything else opens a session of its own.
+ *
+ * A group inside a loop keeps sharing one session among its agents: across
+ * all iterations when the loop reuses sessions, within one iteration when the
+ * loop starts fresh ones, so the iteration then names the session.
  */
 export function planSessionGroup(
   step: AgentPlanStepSnapshot,
   terms: LoopSessionTerms | null,
 ): string | undefined {
-  if (step.groupId !== undefined) return step.groupId;
+  if (step.groupId !== undefined) {
+    if (!terms) return step.groupId;
+    return terms.policy === "reuse"
+      ? `${terms.loopId}/${step.groupId}`
+      : `${terms.loopId}/${step.groupId}#${terms.iteration}`;
+  }
   return terms?.policy === "reuse"
     ? `${terms.loopId}/${step.step.id}`
     : undefined;
@@ -63,7 +72,8 @@ export function planTurnScope(
   step: AgentPlanStepSnapshot,
   terms: LoopSessionTerms | null,
 ): string {
-  if (step.groupId) return GROUP_TURN_SCOPE;
+  if (step.groupId)
+    return terms ? GROUP_TURN_SCOPE + loopTurnScope(terms) : GROUP_TURN_SCOPE;
   return terms ? loopTurnScope(terms) : "";
 }
 

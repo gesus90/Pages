@@ -1,8 +1,14 @@
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
-import { expandPlanLoops } from "@/definition/AgentPlanLoop";
+import {
+  expandPlanLoops,
+  planLoopEdges,
+  planLoopGroups,
+  planLoopMembers,
+} from "@/definition/AgentPlanLoop";
 import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
+import { scanAgentPlaceholders } from "@/definition/AgentParameters";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
 import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
@@ -51,6 +57,7 @@ import type {
   AgentPlanScriptSnapshot,
 } from "./AgentPlanScriptPreparation";
 import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
+import type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
 import type {
   AgentPlanSnapshot,
   AgentPlanStepSnapshot,
@@ -119,15 +126,20 @@ export class AgentPlanPreparation {
     );
     const issues = planExecutionIssues(plan, catalog);
     if (issues.length > 0) throw new AgentPlanValidationError(issues);
-    const groups = plan.nodes.filter((node) => node.type === "group");
-    plan = expandPlanGroups(plan);
+    const groups = [
+      ...plan.nodes.filter((node) => node.type === "group"),
+      ...plan.nodes.flatMap((node) =>
+        node.type === "loop" ? planLoopGroups(node) : [],
+      ),
+    ];
+    plan = flattenPlanLoopGroups(expandPlanGroups(plan));
     // The loop stays one node of the snapshot; its members are prepared like any agent.
     const loops = plan.nodes.filter((node) => node.type === "loop");
     const flat = expandPlanLoops(plan);
     const steps = planSteps(flat);
     if (
       steps.length === 0 &&
-      !plan.nodes.some((node) => node.type === "script")
+      !flat.nodes.some((node) => node.type === "script")
     )
       throw new AgentError("plan_invalid");
     const { tasks, issues: referenceIssues } = await this.readTasks(
@@ -143,7 +155,7 @@ export class AgentPlanPreparation {
     const remoteTargets =
       (await this.dependencies.remoteTargets?.list(userId, plan.projectId)) ??
       [];
-    const scripts = await this.prepareScripts(userId, plan, tasks);
+    const scripts = await this.prepareScripts(userId, flat, tasks);
     for (const step of steps) {
       if (step.executionTarget?.kind === "remote") continue;
       snapshots.push(
@@ -197,7 +209,7 @@ export class AgentPlanPreparation {
   }> {
     const issues: AgentPlanIssue[] = [];
     const tasks = await Promise.all(
-      plan.nodes.flatMap((node) =>
+      planTaskNodes(plan).flatMap((node) =>
         node.type === "task"
           ? [
               this.dependencies.tasks
@@ -288,7 +300,7 @@ export class AgentPlanPreparation {
           configuration: step.configuration,
         },
         bindings,
-        template,
+        withoutEmptyStackInputs(template, step, bindings),
       )
       .catch((error: unknown) => {
         const issues = remoteReferenceIssues(plan, step, error);
@@ -364,6 +376,76 @@ function requirePreparedRuntime(
     agentRunOptionsFor(step.provider, step.template.run),
   );
   if (unsupported !== null) throw new AgentError(unsupported);
+}
+
+/**
+ * The template the preparation checks, without the inputs an empty stack can never fill.
+ *
+ * @remarks
+ * Such an input has no stand-in to check: an empty stack hands over nothing,
+ * so the node behind it never starts with it. The node itself binds its
+ * template again with the handed-over entry when it starts.
+ */
+function withoutEmptyStackInputs(
+  template: AgentPlanTemplate,
+  step: AgentPlanStep,
+  bindings: Readonly<Record<string, unknown>>,
+): AgentPlanTemplate {
+  const empty = new Set(
+    Object.entries(step.bindings).flatMap(([name, binding]) =>
+      binding.kind === "stack" &&
+      binding.output === "content" &&
+      bindings[name] === null
+        ? [name]
+        : [],
+    ),
+  );
+  if (empty.size === 0) return template;
+  const { placeholders } = scanAgentPlaceholders(template.markdown);
+  let markdown = template.markdown;
+  for (const found of placeholders.toReversed())
+    if (empty.has(found.name))
+      markdown = markdown.slice(0, found.start) + markdown.slice(found.end);
+  return { ...template, markdown };
+}
+
+/**
+ * The ticket nodes of a plan, the ticket entries of its stacks included.
+ *
+ * @remarks
+ * Every ticket a stack may hand over is read with the executor's rights
+ * before the run starts, so a ticket the executor cannot see refuses the
+ * start instead of failing a later iteration.
+ */
+function planTaskNodes(plan: AgentPlan): readonly AgentPlan["nodes"][number][] {
+  return plan.nodes.flatMap((node): readonly AgentPlan["nodes"][number][] => {
+    if (node.type !== "stack") return [node];
+    return node.entries.flatMap((entry) =>
+      entry.type === "task"
+        ? [{ id: entry.id, type: "task", taskId: entry.taskId, x: 0, y: 0 }]
+        : [],
+    );
+  });
+}
+
+/**
+ * The plan with the groups inside its loops dissolved into their agents.
+ *
+ * @remarks
+ * The snapshot keeps each loop as one node of agents and scripts with their
+ * edges, the edges inside its groups included; which agents share a session
+ * is kept in the snapshot's groups, so their members still take turns in one
+ * session.
+ */
+function flattenPlanLoopGroups(plan: AgentPlan): AgentPlan {
+  return {
+    ...plan,
+    nodes: plan.nodes.map((node) =>
+      node.type === "loop" && planLoopGroups(node).length > 0
+        ? { ...node, steps: planLoopMembers(node), edges: planLoopEdges(node) }
+        : node,
+    ),
+  };
 }
 
 function loopMembership(

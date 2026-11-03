@@ -106,7 +106,7 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
         {props.subtitle ? (
           <span
             className={cn(
-              "block font-medium text-muted-foreground",
+              "block truncate font-medium text-muted-foreground",
               PLAN_NODE_TEXT.meta,
             )}
           >

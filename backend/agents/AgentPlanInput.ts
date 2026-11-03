@@ -10,6 +10,10 @@ import {
   PLAN_LOOP_NAME_LENGTH,
   isPlanLoopRuns,
 } from "@/definition/AgentPlanLoop";
+import {
+  PLAN_STACK_ENTRY_COUNT,
+  PLAN_STACK_NAME_LENGTH,
+} from "@/definition/AgentPlanStack";
 
 import {
   readAgentParameterValue,
@@ -17,15 +21,19 @@ import {
   readAgentTargets,
 } from "./AgentConfigurationInput";
 import { readPlanConfiguration } from "./AgentPlanConfigurationInput";
-import { readPlanLoopCondition } from "./AgentPlanLoopInput";
+import { readPlanLoopCondition, readPlanLoopWhile } from "./AgentPlanLoopInput";
 import { readAgentObject } from "./AgentPayload";
 import { readCompletionGate } from "./AgentPlanWorkInput";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type {
   AgentPlanLoop,
-  AgentPlanLoopMember,
+  AgentPlanLoopContent,
 } from "@/definition/AgentPlanLoop";
+import type {
+  AgentPlanStack,
+  AgentPlanStackEntry,
+} from "@/definition/AgentPlanStack";
 import type {
   AgentPlanScript,
   AgentPlanScriptInput,
@@ -78,12 +86,14 @@ export function readPlanBinding(input: unknown): AgentPlanBinding {
     source: ["kind", "nodeId"],
     result: ["kind", "stepId"],
     previous: ["kind", "stepId"],
+    stack: ["kind", "stackId", "output"],
   };
   if (
     binding.kind !== "literal" &&
     binding.kind !== "source" &&
     binding.kind !== "result" &&
-    binding.kind !== "previous"
+    binding.kind !== "previous" &&
+    binding.kind !== "stack"
   )
     throw new AgentError("plan_invalid");
   const keys = allowed[binding.kind];
@@ -99,6 +109,15 @@ export function readPlanBinding(input: unknown): AgentPlanBinding {
     return { kind: "source", nodeId: readPlanText(binding.nodeId) };
   if (binding.kind === "result")
     return { kind: "result", stepId: readPlanText(binding.stepId) };
+  if (binding.kind === "stack") {
+    if (binding.output !== "content" && binding.output !== "count")
+      throw new AgentError("plan_binding_invalid");
+    return {
+      kind: "stack",
+      stackId: readPlanText(binding.stackId),
+      output: binding.output,
+    };
+  }
   return { kind: "previous", stepId: readPlanText(binding.stepId) };
 }
 
@@ -125,6 +144,7 @@ export function readPlanNode(input: unknown): AgentPlanNode {
   if (node.type === "group") return readGroupNode(node, base);
   if (node.type === "loop") return readLoopNode(node, base);
   if (node.type === "script") return readScriptNode(node, base);
+  if (node.type === "stack") return readStackNode(node, base);
   if (node.type === "decision")
     return {
       ...base,
@@ -360,13 +380,8 @@ export function readPlanInput(input: unknown): AgentPlanInput {
     throw new AgentError("plan_invalid");
   const nodes = plan.nodes.map(readPlanNode);
   if (
-    nodes.reduce(
-      (count, node) =>
-        count +
-        1 +
-        (node.type === "group" || node.type === "loop" ? node.steps.length : 0),
-      0,
-    ) > AGENT_READ_LIMITS.planNodes
+    nodes.reduce((count, node) => count + 1 + containedCount(node), 0) >
+    AGENT_READ_LIMITS.planNodes
   )
     throw new AgentError("plan_invalid");
   return {
@@ -385,6 +400,17 @@ export function readPlanInput(input: unknown): AgentPlanInput {
     edges: plan.edges.map(readEdge),
     ...(revision === undefined ? {} : { revision }),
   };
+}
+
+/** How many nodes a group or loop holds, the agents of a loop's groups included. */
+function containedCount(node: AgentPlanNode): number {
+  if (node.type === "group") return node.steps.length;
+  if (node.type !== "loop") return 0;
+  return node.steps.reduce(
+    (count, step) =>
+      count + 1 + (step.type === "group" ? step.steps.length : 0),
+    0,
+  );
 }
 
 function readWorkspaceBinding(input: unknown): string {
@@ -447,8 +473,9 @@ function readGroupNode(
  * Parses a loop node with its members; its own fields are checked completely here.
  *
  * @throws {AgentError} `plan_loop_invalid` for a malformed field or a member
- * that is neither an agent nor a script, `plan_loop_runs_invalid` for a saved
- * count outside the whole numbers 1 to 999. A count is never corrected.
+ * that is neither an agent, a script nor a group, `plan_loop_nested` for a
+ * loop inside the loop, `plan_loop_runs_invalid` for a saved count outside
+ * the whole numbers 1 to 999. A count is never corrected.
  */
 function readLoopNode(
   node: Record<string, unknown>,
@@ -459,18 +486,22 @@ function readLoopNode(
     node.steps.length > PLAN_LOOP_MEMBER_COUNT ||
     (node.countMode !== "max" && node.countMode !== "expected") ||
     (node.sessionPolicy !== "reuse" && node.sessionPolicy !== "fresh") ||
-    (node.runsSource !== "value" && node.runsSource !== "parameter")
+    (node.runsSource !== "value" && node.runsSource !== "parameter") ||
+    (node.mode !== undefined && node.mode !== "count" && node.mode !== "while")
   )
     throw new AgentError("plan_loop_invalid");
   if (!isPlanLoopRuns(node.runs))
     throw new AgentError("plan_loop_runs_invalid");
-  const steps = node.steps.map((input: unknown): AgentPlanLoopMember => {
+  const steps = node.steps.map((input: unknown): AgentPlanLoopContent => {
     const member = readPlanNode(input);
     if (member.type === "agent" && member.completionGate)
       throw new AgentError("plan_work_gate_unavailable");
-    if (member.type === "loop" || member.type === "group")
-      throw new AgentError("plan_loop_nested");
-    if (member.type !== "agent" && member.type !== "script")
+    if (member.type === "loop") throw new AgentError("plan_loop_nested");
+    if (
+      member.type !== "agent" &&
+      member.type !== "script" &&
+      member.type !== "group"
+    )
       throw new AgentError("plan_loop_invalid");
     return member;
   });
@@ -486,5 +517,59 @@ function readLoopNode(
     countMode: node.countMode,
     sessionPolicy: node.sessionPolicy,
     condition: readPlanLoopCondition(node.condition),
+    ...(node.mode === undefined ? {} : { mode: node.mode }),
+    ...(node.while === undefined
+      ? {}
+      : { while: readPlanLoopWhile(node.while) }),
+  };
+}
+
+function readStackEntry(input: unknown): AgentPlanStackEntry {
+  const entry = readPlanObject(input);
+  const id = readPlanText(entry.id);
+  if (entry.type === "task") {
+    if (
+      Object.keys(entry).some((key) => !["id", "type", "taskId"].includes(key))
+    )
+      throw new AgentError("plan_stack_invalid");
+    return { id, type: "task", taskId: readPlanText(entry.taskId) };
+  }
+  if (entry.type !== "parameter") throw new AgentError("plan_stack_invalid");
+  const parameter = readParameterNode(
+    { ...entry, x: 0, y: 0 },
+    { id, x: 0, y: 0 },
+  );
+  return {
+    id,
+    type: "parameter",
+    name: parameter.name,
+    format: parameter.format,
+    value: parameter.value,
+  };
+}
+
+/**
+ * Parses a stack node with its ordered entries.
+ *
+ * @throws {AgentError} `plan_stack_invalid` for a malformed field, an entry
+ * that is neither a ticket nor a value, a repeated entry or too many entries.
+ */
+function readStackNode(
+  node: Record<string, unknown>,
+  base: AgentPlanPosition & { readonly id: string },
+): AgentPlanStack {
+  if (
+    !Array.isArray(node.entries) ||
+    node.entries.length > PLAN_STACK_ENTRY_COUNT
+  )
+    throw new AgentError("plan_stack_invalid");
+  const entries = node.entries.map(readStackEntry);
+  if (new Set(entries.map((entry) => entry.id)).size !== entries.length)
+    throw new AgentError("plan_stack_invalid");
+  return {
+    ...base,
+    type: "stack",
+    name: readPlanText(node.name, PLAN_STACK_NAME_LENGTH),
+    entries,
   };
 }

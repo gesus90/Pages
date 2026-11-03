@@ -1,7 +1,12 @@
 import { planEdgeBranch, planEdgeKind } from "@/definition/AgentPlanBranching";
 import { disconnectPlanEdge } from "@/definition/AgentPlanBranchingEdit";
 import { allPlanSteps, planGroupEdges } from "@/definition/AgentPlanGroup";
-import { allPlanLoopMembers } from "@/definition/AgentPlanLoop";
+import {
+  PLAN_LOOP_RUNS_BINDING,
+  PLAN_LOOP_WHILE_BINDING,
+  allPlanLoopMembers,
+  planLoopMode,
+} from "@/definition/AgentPlanLoop";
 import { disconnectLoopFlow } from "@/definition/AgentPlanLoopEdit";
 import {
   disconnectPlanGroupFlow,
@@ -23,6 +28,7 @@ import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
+import type { AgentPlanStackOutput } from "@/definition/AgentPlanStack";
 
 /** A flow edge between steps; it orders execution. */
 interface PlanFlowLink {
@@ -43,6 +49,10 @@ interface PlanDataLink {
   readonly parameter: string;
   /** The boundary port a member reads; `from` then names its frame. */
   readonly port?: string;
+  /** The data output of a stack the binding reads; `from` then names the stack. */
+  readonly output?: AgentPlanStackOutput;
+  /** The binding feeds a loop's own input, its count or its while boolean. */
+  readonly isLoopInput?: boolean;
 }
 
 /** What a wire between two ports carries: a result into a decision, a branch out of it or a new prompt. */
@@ -114,7 +124,7 @@ function isPlainFlow(edge: AgentPlanEdge): boolean {
 }
 
 function bindingLinks(
-  target: AgentPlanStep | AgentPlanScript | AgentPlanGroup,
+  target: AgentPlanStep | AgentPlanScript | AgentPlanGroup | AgentPlanLoop,
   ids: ReadonlySet<string>,
   frame: AgentPlanGroup | null,
 ): readonly PlanLink[] {
@@ -123,6 +133,18 @@ function bindingLinks(
       // A previous iteration's result needs no line: the input names its source, and a
       // line from a later member back to an earlier one would cross every card between them.
       if (binding.kind === "literal" || binding.kind === "previous") return [];
+      if (binding.kind === "stack")
+        return ids.has(binding.stackId)
+          ? [
+              {
+                kind: "data",
+                from: binding.stackId,
+                to: target.id,
+                parameter,
+                output: binding.output,
+              },
+            ]
+          : [];
       const from = binding.kind === "source" ? binding.nodeId : binding.stepId;
       const port = frame?.parameters.find((entry) => entry.id === from);
       if (frame && port)
@@ -142,7 +164,33 @@ function bindingLinks(
   );
 }
 
-/** The internal flow edges and member bindings of a loop. */
+/** The input a loop shows: its boolean as a while loop, its count when bound, else none. */
+export function shownLoopInput(
+  loop: AgentPlanLoop,
+): typeof PLAN_LOOP_WHILE_BINDING | typeof PLAN_LOOP_RUNS_BINDING | null {
+  if (planLoopMode(loop) === "while") return PLAN_LOOP_WHILE_BINDING;
+  return loop.runsSource === "parameter" ? PLAN_LOOP_RUNS_BINDING : null;
+}
+
+/** The bindings a loop draws into its own inputs: the bound count, or the boolean of a while loop. */
+function loopInputLinks(
+  loop: AgentPlanLoop,
+  ids: ReadonlySet<string>,
+): readonly PlanLink[] {
+  const shown = shownLoopInput(loop);
+  if (shown === null) return [];
+  const binding = loop.bindings[shown];
+  if (!binding) return [];
+  return bindingLinks(
+    { ...loop, bindings: { [shown]: binding } },
+    ids,
+    null,
+  ).map((link) =>
+    link.kind === "data" ? { ...link, isLoopInput: true } : link,
+  );
+}
+
+/** The internal flow edges and member bindings of a loop, those of its groups included. */
 function loopLinks(
   loop: AgentPlanLoop,
   ids: ReadonlySet<string>,
@@ -157,7 +205,31 @@ function loopLinks(
     }));
   return [
     ...edges,
-    ...loop.steps.flatMap((member) => bindingLinks(member, ids, null)),
+    ...loopInputLinks(loop, ids),
+    ...loop.steps.flatMap((member) =>
+      member.type === "group"
+        ? groupLinks(member, ids)
+        : bindingLinks(member, ids, null),
+    ),
+  ];
+}
+
+/** The internal flow edges and member bindings of a group. */
+function groupLinks(
+  group: AgentPlanGroup,
+  ids: ReadonlySet<string>,
+): readonly PlanLink[] {
+  return [
+    ...bindingLinks(group, ids, null),
+    ...planGroupEdges(group)
+      .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
+      .map((edge): PlanLink => ({
+        kind: "flow",
+        from: edge.from,
+        to: edge.to,
+        groupId: group.id,
+      })),
+    ...group.steps.flatMap((step) => bindingLinks(step, ids, group)),
   ];
 }
 
@@ -167,6 +239,9 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
     ...plan.nodes.map((node) => node.id),
     ...allPlanSteps(plan).map((step) => step.id),
     ...allPlanLoopMembers(plan).map((step) => step.id),
+    ...plan.nodes.flatMap((node) =>
+      node.type === "loop" ? node.steps.map((step) => step.id) : [],
+    ),
   ]);
   const links: PlanLink[] = plan.edges
     .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
@@ -175,18 +250,7 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
     if (target.type === "agent" || target.type === "script")
       links.push(...bindingLinks(target, ids, null));
     if (target.type === "loop") links.push(...loopLinks(target, ids));
-    if (target.type !== "group") continue;
-    links.push(...bindingLinks(target, ids, null));
-    for (const edge of planGroupEdges(target))
-      if (ids.has(edge.from) && ids.has(edge.to))
-        links.push({
-          kind: "flow",
-          from: edge.from,
-          to: edge.to,
-          groupId: target.id,
-        });
-    for (const step of target.steps)
-      links.push(...bindingLinks(step, ids, target));
+    if (target.type === "group") links.push(...groupLinks(target, ids));
   }
   return links;
 }
@@ -235,6 +299,12 @@ export function removePlanLink(
   });
 }
 
+/** The plain names of a stack's outputs in the accessible label of a connection. */
+const STACK_OUTPUT_LABELS = {
+  content: "content",
+  count: "count",
+} as const;
+
 /**
  * Names both ends of a connection, and the parameter of a data connection.
  *
@@ -259,7 +329,11 @@ export function planLinkLabel(
     group?.type === "group" && link.kind === "data"
       ? group.parameters.find((entry) => entry.id === link.port)?.name
       : undefined;
-  const start = port ? `${label(link.from)} · ${port}` : label(link.from);
+  const output =
+    link.kind === "data" && link.output !== undefined
+      ? STACK_OUTPUT_LABELS[link.output]
+      : port;
+  const start = output ? `${label(link.from)} · ${output}` : label(link.from);
   const ends = `${start} → ${label(link.to)}`;
   return link.kind === "data" ? `${ends} · ${link.parameter}` : ends;
 }

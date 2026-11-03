@@ -31,6 +31,7 @@ const PALETTE_KINDS: readonly PlanPaletteKind[] = [
   "group",
   "loop",
   "decision",
+  "stack",
 ];
 
 interface PlanNodePaletteProps {
@@ -74,7 +75,7 @@ export function PlanNodePalette({
       className={cn(
         "size-8 min-h-8 shrink-0 rounded-md p-0 xl:size-8 xl:min-h-8 xl:p-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:min-h-11",
         !view.isOpen &&
-          "border border-border/70 bg-surface/95 shadow-xs backdrop-blur-sm",
+          "rounded-xl border border-border bg-surface shadow-floating",
       )}
     >
       {view.isOpen ? (
@@ -91,15 +92,15 @@ export function PlanNodePalette({
         data-plan-palette
         onKeyDown={keepPlanControlKeys}
         className={cn(
-          "pointer-events-auto flex min-h-0 max-h-full max-w-full flex-col self-end text-foreground @5xl:self-start",
+          "pointer-events-auto flex min-h-0 max-h-full max-w-full shrink-0 flex-col self-end text-foreground @5xl:self-start",
           view.isOpen &&
-            "w-56 flex-1 rounded-xl border border-border bg-surface/95 p-2 shadow-floating backdrop-blur-sm @5xl:flex-none",
+            "min-h-28 w-56 shrink rounded-xl border border-border bg-surface p-2 shadow-floating @5xl:shrink-0",
         )}
       >
         <div
           className={cn(
             "flex shrink-0 items-center justify-between gap-1",
-            view.isOpen && "mb-1.5 min-h-8",
+            view.isOpen && "mb-2 min-h-8 border-b border-border pb-2",
           )}
         >
           {view.isOpen ? <PlanPaletteTabs view={view} baseId={baseId} /> : null}

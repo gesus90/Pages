@@ -13,6 +13,7 @@ import {
 } from "@/app/components/ui/dialog";
 
 import { PlanDecisionDialog } from "./plan-decision-dialog";
+import { PlanStackDialog } from "./plan-stack-dialog";
 import { PlanGroupPanel } from "./plan-group-panel";
 import { PlanLoopPanel } from "./plan-loop-panel";
 import { PlanNodeConfigurationFields } from "./plan-node-configuration-fields";
@@ -102,48 +103,38 @@ function dialogNode(
   );
 }
 
+/** The settings panel of a decision, stack, loop or group; `null` for every other node. */
+function PlanContainerDialog(
+  props: PlanNodeDialogProps & { readonly node: AgentPlanNode },
+): React.ReactElement | null {
+  const { node, editor } = props;
+  const shared = {
+    draft: editor.draft,
+    sources: editor.sources,
+    graph: editor.graph,
+    isDisabled: !editor.canEdit || editor.isPending,
+    onClose: () => closePanel(props.onClose, node.id),
+  };
+  if (node.type === "decision")
+    return <PlanDecisionDialog key={node.id} {...shared} decision={node} />;
+  if (node.type === "stack")
+    return <PlanStackDialog key={node.id} {...shared} stack={node} />;
+  if (node.type === "loop")
+    return (
+      <PlanLoopPanel key={node.id} {...shared} loop={node} run={props.run} />
+    );
+  if (node.type === "group")
+    return <PlanGroupPanel key={node.id} {...shared} group={node} />;
+  return null;
+}
+
 /** Double-click editing stays bound to one node identifier, also while a run is active. */
 export function PlanNodeDialog(props: PlanNodeDialogProps): React.ReactElement {
   const step = dialogNode(props.editor.draft, props.nodeId);
   if (step?.type === "script")
     return <PlanScriptEditDialog {...props} script={step} />;
-  if (step?.type === "decision")
-    return (
-      <PlanDecisionDialog
-        key={step.id}
-        decision={step}
-        draft={props.editor.draft}
-        sources={props.editor.sources}
-        graph={props.editor.graph}
-        isDisabled={!props.editor.canEdit || props.editor.isPending}
-        onClose={() => closePanel(props.onClose, step.id)}
-      />
-    );
-  if (step?.type === "loop")
-    return (
-      <PlanLoopPanel
-        key={step.id}
-        loop={step}
-        draft={props.editor.draft}
-        sources={props.editor.sources}
-        graph={props.editor.graph}
-        run={props.run}
-        isDisabled={!props.editor.canEdit || props.editor.isPending}
-        onClose={() => closePanel(props.onClose, step.id)}
-      />
-    );
-  if (step?.type === "group")
-    return (
-      <PlanGroupPanel
-        key={step.id}
-        group={step}
-        draft={props.editor.draft}
-        sources={props.editor.sources}
-        graph={props.editor.graph}
-        isDisabled={!props.editor.canEdit || props.editor.isPending}
-        onClose={() => closePanel(props.onClose, step.id)}
-      />
-    );
+  if (step && step.type !== "agent")
+    return <PlanContainerDialog {...props} node={step} />;
   if (step?.type !== "agent") return <></>;
   return <PlanAgentEditDialog key={step.id} {...props} step={step} />;
 }

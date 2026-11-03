@@ -4,6 +4,7 @@ import {
   planConfigurationForModel,
 } from "@/definition/AgentPlanConfiguration";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
+import { emptyPlanStack } from "@/definition/AgentPlanStack";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 import type {
   AgentPlanInput,
@@ -78,6 +79,7 @@ export function createPlanNode(input: {
   if (kind === "start" || kind === "end") return { ...base, type: kind };
   if (kind === "loop") return emptyPlanLoop(base.id, reference, base);
   if (kind === "decision") return emptyPlanDecision(base.id, base);
+  if (kind === "stack") return emptyPlanStack(base.id, reference, base);
   if (kind === "group")
     return {
       ...base,

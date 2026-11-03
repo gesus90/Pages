@@ -21,6 +21,30 @@ const ROUNDS: AgentPlanNode = {
   value: { type: "number", number: 4 },
 };
 
+const STACK: AgentPlanNode = {
+  id: "stack",
+  type: "stack",
+  x: 0,
+  y: 900,
+  name: "Tickets",
+  entries: [
+    { id: "e1", type: "task", taskId: "t1" },
+    { id: "e2", type: "task", taskId: "t2" },
+  ],
+};
+
+const FLAG: AgentPlanNode = {
+  id: "flag",
+  type: "parameter",
+  x: 0,
+  y: 1000,
+  name: "weiter",
+  format: "json",
+  value: { type: "text", text: "false" },
+};
+
+const SOURCES = { agents: [], tasks: [] };
+
 function Section(props: {
   readonly initial: AgentPlanLoop;
   readonly draft?: AgentPlanInput;
@@ -36,7 +60,8 @@ function Section(props: {
     <I18nextProvider i18n={i18n}>
       <LoopCountSection
         loop={loop}
-        draft={props.draft ?? loopPlan(loop, [ROUNDS])}
+        draft={props.draft ?? loopPlan(loop, [ROUNDS, STACK, FLAG])}
+        sources={SOURCES}
         isDisabled={props.isDisabled ?? false}
         onChange={change}
       />
@@ -52,188 +77,113 @@ function runsInput(): HTMLInputElement {
   return input;
 }
 
+function countBox(): HTMLInputElement {
+  const box = screen.getByRole("checkbox", {
+    name: i18n.t("plans.loops.countToggle"),
+  });
+  if (!(box instanceof HTMLInputElement)) throw new Error("Missing Count");
+  return box;
+}
+
 function exactSwitch(): HTMLElement {
   return screen.getByRole("switch", {
     name: i18n.t("plans.loops.exact.label"),
   });
 }
 
-function parameterSelect(): HTMLElement {
-  return screen.getByRole("combobox", {
-    name: i18n.t("plans.loops.runs.parameterLabel"),
+async function choose(label: string, option: string): Promise<void> {
+  fireEvent.keyDown(screen.getByRole("combobox", { name: label }), {
+    key: "Enter",
   });
+  fireEvent.click(await screen.findByRole("option", { name: option }));
 }
 
-async function chooseParameter(name: string): Promise<void> {
-  fireEvent.keyDown(parameterSelect(), { key: "Enter" });
-  fireEvent.click(await screen.findByRole("option", { name }));
-}
-
-const LIMITS = { minimum: 1, maximum: 999 };
-
-it("commits a typed whole count and explains what it means in max mode", () => {
+it("commits a fixed count from 1 to 999 and explains it", () => {
   const onChange = vi.fn();
   render(<Section initial={syntheticLoop()} onChange={onChange} />);
+  expect(countBox().checked).toBe(true);
   expect(runsInput().value).toBe("3");
-  expect(
-    screen.getByText(i18n.t("plans.loops.runs.hint", LIMITS)).className,
-  ).toContain("text-muted-foreground");
   fireEvent.change(runsInput(), { target: { value: "7" } });
   expect(onChange).toHaveBeenLastCalledWith(
-    expect.objectContaining({ runs: 7 }),
+    expect.objectContaining({ runs: 7, runsSource: "value" }),
   );
-  expect(
-    screen.getByText(i18n.t("plans.loops.mode.maxLine", { count: 7 })),
-  ).toBeDefined();
   expect(screen.getByRole("note").textContent).toBe(
     i18n.t("plans.loops.mode.maxExplain", { count: 7 }),
   );
 });
 
-it.each(["0", "12345", "2.5", ""])(
-  "keeps the refused count %j visible without committing it",
+it.each(["1000", "2.5", "", "-1"])(
+  "keeps the refused counter %j visible without committing it",
   (text) => {
     const onChange = vi.fn();
     render(<Section initial={syntheticLoop()} onChange={onChange} />);
     fireEvent.change(runsInput(), { target: { value: text } });
     expect(onChange).not.toHaveBeenCalled();
-    expect(runsInput().value).toBe(text);
     expect(runsInput().getAttribute("aria-invalid")).toBe("true");
-    expect(
-      screen.getByText(i18n.t("plans.loops.runs.invalid", LIMITS)).className,
-    ).toContain("text-destructive");
   },
 );
 
-it("takes over a count that changes outside the field", () => {
-  const onChange = vi.fn();
-  const view = render(
-    <I18nextProvider i18n={i18n}>
-      <LoopCountSection
-        loop={syntheticLoop()}
-        draft={loopPlan(syntheticLoop())}
-        isDisabled={false}
-        onChange={onChange}
-      />
-    </I18nextProvider>,
-  );
-  fireEvent.change(runsInput(), { target: { value: "abc" } });
-  view.rerender(
-    <I18nextProvider i18n={i18n}>
-      <LoopCountSection
-        loop={syntheticLoop({ runs: 9 })}
-        draft={loopPlan(syntheticLoop({ runs: 9 }))}
-        isDisabled={false}
-        onChange={onChange}
-      />
-    </I18nextProvider>,
-  );
-  expect(runsInput().value).toBe("9");
-  expect(runsInput().getAttribute("aria-invalid")).toBe("false");
-});
-
-it("switches between max and exact counting", () => {
+it("reads a counter of 0 as a bound count and binds the total of a stack", async () => {
   const onChange = vi.fn();
   render(<Section initial={syntheticLoop()} onChange={onChange} />);
-  expect(exactSwitch().getAttribute("aria-checked")).toBe("false");
-  fireEvent.click(exactSwitch());
-  expect(onChange).toHaveBeenLastCalledWith(
-    expect.objectContaining({ countMode: "expected" }),
-  );
-  expect(exactSwitch().getAttribute("aria-checked")).toBe("true");
-  expect(
-    screen.getByText(i18n.t("plans.loops.mode.expectedLine", { count: 3 })),
-  ).toBeDefined();
-  expect(screen.getByRole("note").textContent).toBe(
-    i18n.t("plans.loops.mode.expectedExplain", { count: 3 }),
-  );
-  fireEvent.click(exactSwitch());
-  expect(onChange).toHaveBeenLastCalledWith(
-    expect.objectContaining({ countMode: "max" }),
-  );
-});
-
-it("binds the count to a parameter node and releases it again", async () => {
-  const onChange = vi.fn();
-  render(<Section initial={syntheticLoop()} onChange={onChange} />);
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: i18n.t("plans.loops.source.parameter"),
-    }),
-  );
+  fireEvent.change(runsInput(), { target: { value: "0" } });
   expect(onChange).toHaveBeenLastCalledWith(
     expect.objectContaining({ runsSource: "parameter" }),
   );
-  expect(screen.queryByRole("textbox")).toBeNull();
-  expect(parameterSelect().textContent).toContain(
-    i18n.t("plans.loops.runs.parameterNone"),
-  );
   expect(
-    screen.getByText(i18n.t("plans.loops.runs.parameterInvalid")).className,
+    screen.getByText(i18n.t("plans.loops.runs.boundInvalid")).className,
   ).toContain("text-destructive");
-  expect(
-    screen.getByText(i18n.t("plans.loops.mode.maxUnresolved"), {
-      selector: "p:not([role])",
+  await choose(i18n.t("plans.loops.runs.boundLabel"), "Tickets · 2");
+  expect(onChange).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      bindings: { runs: { kind: "stack", stackId: "stack", output: "count" } },
     }),
-  ).toBeDefined();
-  expect(screen.getByRole("note").textContent).toBe(
-    i18n.t("plans.loops.mode.maxUnresolved"),
   );
-  fireEvent.keyDown(parameterSelect(), { key: "Enter" });
   expect(
-    await screen.findByRole("option", { name: "spare · —" }),
+    screen.getByText(i18n.t("plans.loops.runs.boundValue", { count: 2 })),
   ).toBeDefined();
-  fireEvent.click(screen.getByRole("option", { name: "rounds · 4" }));
+  await choose(i18n.t("plans.loops.runs.boundLabel"), "rounds · 4");
   expect(onChange).toHaveBeenLastCalledWith(
     expect.objectContaining({
       bindings: { runs: { kind: "source", nodeId: "rounds" } },
     }),
   );
-  expect(
-    screen.getByText(
-      i18n.t("plans.loops.runs.parameterValue", { name: "rounds", count: 4 }),
-    ).className,
-  ).toContain("text-muted-foreground");
-  expect(screen.getByRole("note").textContent).toBe(
-    i18n.t("plans.loops.mode.maxExplain", { count: 4 }),
-  );
-  await chooseParameter(i18n.t("plans.loops.runs.parameterNone"));
-  expect(onChange).toHaveBeenLastCalledWith(
-    expect.objectContaining({ bindings: {} }),
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: i18n.t("plans.loops.source.value") }),
-  );
-  expect(runsInput().value).toBe("3");
 });
 
-it("locks the parameter choice of a plan without parameter nodes", () => {
-  const plan = loopPlan(syntheticLoop());
-  const draft = {
-    ...plan,
-    nodes: plan.nodes.filter((node) => node.type !== "parameter"),
-  };
-  render(
-    <Section
-      initial={syntheticLoop({
-        runsSource: "parameter",
-        countMode: "expected",
-      })}
-      draft={draft}
-      onChange={vi.fn()}
-    />,
+it("switches between max and exact counting", () => {
+  const onChange = vi.fn();
+  render(<Section initial={syntheticLoop()} onChange={onChange} />);
+  fireEvent.click(exactSwitch());
+  expect(onChange).toHaveBeenLastCalledWith(
+    expect.objectContaining({ countMode: "expected" }),
   );
-  expect(parameterSelect()).toHaveProperty("disabled", true);
+});
+
+it("turns into a while loop without Count and binds its boolean", async () => {
+  const onChange = vi.fn();
+  render(<Section initial={syntheticLoop()} onChange={onChange} />);
+  fireEvent.click(countBox());
+  expect(onChange).toHaveBeenLastCalledWith(
+    expect.objectContaining({ mode: "while" }),
+  );
+  expect(screen.queryByRole("textbox")).toBeNull();
   expect(
-    screen.getByText(i18n.t("plans.loops.runs.noParameters")),
-  ).toBeDefined();
-  expect(screen.getByRole("note").textContent).toBe(
-    i18n.t("plans.loops.mode.expectedUnresolved"),
+    screen.getByText(i18n.t("plans.loops.while.invalid")).className,
+  ).toContain("text-destructive");
+  await choose(i18n.t("plans.loops.while.label"), "weiter · false");
+  expect(onChange).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      bindings: { while: { kind: "source", nodeId: "flag" } },
+    }),
   );
+  expect(
+    screen.getByText(i18n.t("plans.loops.while.value", { value: "false" })),
+  ).toBeDefined();
 });
 
 it("locks every count control while the plan is not editable", () => {
   render(<Section initial={syntheticLoop()} isDisabled onChange={vi.fn()} />);
   expect(runsInput().disabled).toBe(true);
+  expect(countBox().disabled).toBe(true);
   expect(exactSwitch()).toHaveProperty("disabled", true);
 });

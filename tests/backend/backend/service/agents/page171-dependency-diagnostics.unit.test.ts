@@ -87,6 +87,9 @@ it("links blocked loop members to their actual failed predecessor", async () => 
       record = change(record);
       return record;
     },
+    triggerStack: async () => {
+      throw new Error("No stack in this loop");
+    },
   };
   const execute = vi.fn();
   const runner = new AgentPlanLoopIterationRunner({ run: execute });

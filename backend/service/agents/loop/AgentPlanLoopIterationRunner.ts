@@ -2,13 +2,22 @@ import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { hasPlanPath } from "@/definition/AgentPlanGraph";
+import {
+  planLoopMembers,
+  planLoopScopeEdges,
+} from "@/definition/AgentPlanLoop";
 
+import { planEdgeState } from "../branching/AgentPlanBranchEdges";
 import {
   patchIteration,
   patchIterationNode,
   withLoopSessions,
 } from "./AgentPlanLoopRecord";
-import { loopRunView, loopStepInput } from "./AgentPlanLoopStep";
+import {
+  loopRunView,
+  loopScriptInput,
+  loopStepInput,
+} from "./AgentPlanLoopStep";
 
 import type {
   AgentPlanEdge,
@@ -19,6 +28,7 @@ import type {
   AgentPlanLoopMember,
 } from "@/definition/AgentPlanLoop";
 import type { AgentPlanLoopIteration } from "@/definition/AgentPlanLoopRun";
+import type { AgentPlanScriptRunner } from "../AgentPlanScriptRunner";
 import type { AgentPlanStepRunner } from "../AgentPlanStepRunner";
 import type { LoopHost } from "./AgentPlanLoopHost";
 
@@ -33,6 +43,9 @@ interface IterationTarget {
   readonly host: LoopHost;
 }
 
+/** Whether a node of an iteration may start, can no longer start in it, or has to wait. */
+type IterationReadiness = "ready" | "skip" | "wait";
+
 function nodeOf(
   iteration: AgentPlanLoopIteration | undefined,
   nodeId: string,
@@ -40,36 +53,49 @@ function nodeOf(
   return iteration?.nodes.find((node) => node.id === nodeId);
 }
 
+/** A node of an iteration that never ran because the edges into it are dead is done, like a succeeded one. */
+function isSettled(node: AgentPlanStepResult): boolean {
+  return node.status === "succeeded" || node.status === "skipped";
+}
+
 /**
  * Runs the subgraph of a loop once: members as their dependencies allow.
  *
  * @remarks
  * This is the loop's inner schedule, not a second engine. Members without an
- * unfinished predecessor start together; agents of ACP runners run side by
- * side, other runners one at a time like the engine limits them. The state of
- * every member is written through the host, so a pause can end the iteration
- * between members and a resume continues it where it stopped.
+ * unfinished predecessor start together; agents of ACP runners and scripts run
+ * side by side, other runners one at a time like the engine limits them. The
+ * agents of a group take turns in their shared session. A stack the loop
+ * triggers is a node of the iteration as well: when it is ready the host hands
+ * over its next entry, and a used-up stack kills the edges out of it, so what
+ * lies behind it is skipped in this iteration. The state of every node is
+ * written through the host, so a pause can end the iteration between members
+ * and a resume continues it where it stopped.
  */
 export class AgentPlanLoopIterationRunner {
   private readonly steps: Pick<AgentPlanStepRunner, "run">;
+  private readonly scripts: Pick<AgentPlanScriptRunner, "run"> | undefined;
 
-  public constructor(steps: Pick<AgentPlanStepRunner, "run">) {
+  public constructor(
+    steps: Pick<AgentPlanStepRunner, "run">,
+    scripts?: Pick<AgentPlanScriptRunner, "run">,
+  ) {
     this.steps = steps;
+    this.scripts = scripts;
   }
 
   /**
-   * Runs the members of one iteration until it ends, pauses or is stopped.
+   * Runs the nodes of one iteration until it ends, pauses or is stopped.
    *
    * @param target - The loop, the iteration number and the engine boundary.
-   * @returns How the iteration ended; `paused` leaves finished members as
+   * @returns How the iteration ended; `paused` leaves finished nodes as
    * they are and the others waiting.
    */
   public async run(target: IterationTarget): Promise<LoopIterationOutcome> {
     const running = new Map<string, Promise<void>>();
     try {
       for (;;) {
-        if (target.host.canDispatch() && !this.hasEnded(target))
-          await this.dispatch(target, running);
+        if (await this.schedule(target, running)) continue;
         if (running.size === 0) break;
         await Promise.race(running.values());
       }
@@ -77,6 +103,21 @@ export class AgentPlanLoopIterationRunner {
       await Promise.allSettled(running.values());
     }
     return this.settle(target);
+  }
+
+  /**
+   * Skips, triggers and starts what the iteration allows now.
+   *
+   * @returns Whether a skip or a trigger changed the iteration, so it is decided again at once.
+   */
+  private async schedule(
+    target: IterationTarget,
+    running: Map<string, Promise<void>>,
+  ): Promise<boolean> {
+    if (!target.host.canDispatch() || this.hasEnded(target)) return false;
+    if (await this.advance(target, running)) return true;
+    await this.dispatch(target, running);
+    return false;
   }
 
   private iteration(
@@ -87,12 +128,82 @@ export class AgentPlanLoopIterationRunner {
       ?.iterations.find((entry) => entry.number === target.number);
   }
 
+  private edges(target: IterationTarget): readonly AgentPlanEdge[] {
+    return planLoopScopeEdges(target.host.snapshot().plan, target.loop);
+  }
+
   private hasEnded(target: IterationTarget): boolean {
     return (
       this.iteration(target)?.nodes.some(
         (node) => node.status === "failed" || node.status === "cancelled",
       ) ?? true
     );
+  }
+
+  /**
+   * Whether a waiting node of the iteration may start.
+   *
+   * @remarks
+   * Every edge into it must have an answer; one satisfied edge is enough, and
+   * a node whose every edge is dead is skipped, which spreads along its edges.
+   */
+  private readiness(
+    target: IterationTarget,
+    nodeId: string,
+  ): IterationReadiness {
+    const iteration = this.iteration(target);
+    const states = this.edges(target)
+      .filter((edge) => edge.to === nodeId)
+      .map((edge) => planEdgeState(edge, nodeOf(iteration, edge.from)));
+    if (states.length === 0) return "ready";
+    if (states.includes("pending")) return "wait";
+    return states.includes("satisfied") ? "ready" : "skip";
+  }
+
+  /** The waiting nodes of the iteration that nothing runs for yet. */
+  private waiting(
+    target: IterationTarget,
+    running: ReadonlyMap<string, unknown>,
+  ): readonly AgentPlanStepResult[] {
+    return (this.iteration(target)?.nodes ?? []).filter(
+      (node) => node.status === "waiting" && !running.has(node.id),
+    );
+  }
+
+  /**
+   * Skips the nodes behind dead edges and triggers the stacks that are ready.
+   *
+   * @returns Whether anything changed, so readiness has to be decided again.
+   */
+  private async advance(
+    target: IterationTarget,
+    running: ReadonlyMap<string, unknown>,
+  ): Promise<boolean> {
+    const { plan } = target.host.snapshot();
+    for (const node of this.waiting(target, running)) {
+      const readiness = this.readiness(target, node.id);
+      if (readiness === "skip") {
+        await target.host.update(target.loop.id, (record) =>
+          patchIterationNode(
+            record,
+            { number: target.number, nodeId: node.id },
+            { status: "skipped", output: null, error: null },
+          ),
+        );
+        return true;
+      }
+      const isStack = plan.nodes.some(
+        (entry) => entry.id === node.id && entry.type === "stack",
+      );
+      if (readiness === "ready" && isStack) {
+        await target.host.triggerStack(target.loop.id, {
+          number: target.number,
+          stackId: node.id,
+        });
+        return true;
+      }
+    }
+    return false;
   }
 
   private async dispatch(
@@ -120,17 +231,13 @@ export class AgentPlanLoopIterationRunner {
     target: IterationTarget,
     running: ReadonlyMap<string, unknown>,
   ): readonly AgentPlanLoopMember[] {
-    const iteration = this.iteration(target);
-    return target.loop.steps.filter(
-      (member) =>
-        nodeOf(iteration, member.id)?.status === "waiting" &&
-        !running.has(member.id) &&
-        target.loop.edges
-          .filter((edge) => edge.to === member.id)
-          .every(
-            (edge) => nodeOf(iteration, edge.from)?.status === "succeeded",
-          ),
-    );
+    const members = planLoopMembers(target.loop);
+    return this.waiting(target, running).flatMap((node) => {
+      const member = members.find((entry) => entry.id === node.id);
+      return member && this.readiness(target, node.id) === "ready"
+        ? [member]
+        : [];
+    });
   }
 
   /** ACP agents and scripts run side by side; any other runner takes a turn alone. */
@@ -153,7 +260,9 @@ export class AgentPlanLoopIterationRunner {
   ): Promise<void> {
     const changes = this.afterStop(
       target,
-      await this.runMember(target, member),
+      member.type === "script"
+        ? await this.runScript(target, member.id)
+        : await this.runMember(target, member),
     );
     try {
       await target.host.update(target.loop.id, (record) =>
@@ -188,13 +297,67 @@ export class AgentPlanLoopIterationRunner {
     };
   }
 
+  /** The iteration before this one, whose results `previous` bindings read. */
+  private previous(
+    target: IterationTarget,
+  ): AgentPlanLoopIteration | undefined {
+    return target.host
+      .current(target.loop.id)
+      ?.iterations.find((entry) => entry.number === target.number - 1);
+  }
+
+  /**
+   * Runs a script member as a process, with this iteration's results as its inputs.
+   *
+   * @remarks
+   * The script runs like a script of the outer graph, through the same runner
+   * and rights; only its record is written into this iteration.
+   */
+  private async runScript(
+    target: IterationTarget,
+    memberId: string,
+  ): Promise<Partial<AgentPlanStepResult>> {
+    const { host, loop, number } = target;
+    const base = host
+      .snapshot()
+      .scripts?.find((entry) => entry.step.id === memberId);
+    const iteration = this.iteration(target);
+    if (!base || !this.scripts)
+      return { status: "failed", error: "plan_script_interpreter_unavailable" };
+    if (!iteration) return { status: "failed", error: "plan_binding_invalid" };
+    const input = loopScriptInput(base, iteration.nodes, this.previous(target));
+    try {
+      return await this.scripts.run(
+        loopRunView(host.run(), input.results),
+        host.snapshot(),
+        input.script,
+        {
+          signal: host.signal,
+          claimStart: () => {
+            host.signal.throwIfAborted();
+            if (!host.canDispatch()) throw new AgentPlanPausedError();
+          },
+          save: async (record) => {
+            await host.update(loop.id, (entry) =>
+              patchIterationNode(
+                entry,
+                { number, nodeId: memberId },
+                { script: record },
+              ),
+            );
+          },
+        },
+      );
+    } catch (error: unknown) {
+      logCaughtError("AgentPlanLoopIterationRunner", error);
+      return { status: "failed", error: "plan_step_failed" };
+    }
+  }
+
   private async runMember(
     target: IterationTarget,
     member: AgentPlanLoopMember,
   ): Promise<Partial<AgentPlanStepResult>> {
-    // Pages runs no scripts yet; a script member fails in the open rather than being skipped.
-    if (member.type === "script")
-      return { status: "failed", error: "plan_script_unavailable" };
     const { host, loop, number } = target;
     const base = host
       .snapshot()
@@ -202,10 +365,7 @@ export class AgentPlanLoopIterationRunner {
     const iteration = this.iteration(target);
     if (!base || !iteration)
       return { status: "failed", error: "plan_binding_invalid" };
-    const previous = host
-      .current(loop.id)
-      ?.iterations.find((entry) => entry.number === number - 1);
-    const input = loopStepInput(base, iteration.nodes, previous);
+    const input = loopStepInput(base, iteration.nodes, this.previous(target));
     let isClaimed = false;
     try {
       return await this.steps.run(
@@ -249,18 +409,16 @@ export class AgentPlanLoopIterationRunner {
       (node) => node.status === "failed" || node.status === "running",
     );
     const outcome = this.outcomeOf(target, nodes, hasFailed);
-    if (outcome === "failed" || outcome === "cancelled")
+    if (outcome === "failed" || outcome === "cancelled") {
+      const edges = this.edges(target);
       await target.host.update(target.loop.id, (record) =>
         patchIteration(record, target.number, {
           nodes: nodes.map((node) =>
-            unstarted(
-              node,
-              outcome,
-              failedPredecessor(node, nodes, target.loop.edges),
-            ),
+            unstarted(node, outcome, failedPredecessor(node, nodes, edges)),
           ),
         }),
       );
+    }
     return outcome;
   }
 
@@ -275,7 +433,7 @@ export class AgentPlanLoopIterationRunner {
       nodes.some((n) => n.status === "cancelled")
     )
       return "cancelled";
-    if (nodes.every((node) => node.status === "succeeded")) return "succeeded";
+    if (nodes.every(isSettled)) return "succeeded";
     return target.host.isPausing() ? "paused" : "failed";
   }
 }

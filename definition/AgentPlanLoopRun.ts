@@ -13,9 +13,27 @@ import type { AgentPlanLoopSessionLink } from "./AgentPlanSession";
  * @remarks
  * `count_reached` says only that the number of iterations was used up; it
  * never claims that a review condition came true. `condition_met` is the
- * early end of a `max` loop.
+ * early end of a `max` loop. `while_false` ends a while loop whose boolean
+ * was `false` before an iteration, the first one included.
  */
-export type AgentPlanLoopCompletion = "count_reached" | "condition_met";
+export type AgentPlanLoopCompletion =
+  "count_reached" | "condition_met" | "while_false";
+
+/**
+ * One check of a while loop before an iteration.
+ *
+ * @remarks
+ * Every check reads its value anew: the bound boolean before the first
+ * iteration, then the newest result of the source member, or the bound
+ * boolean again. A decision is never reused for a later iteration.
+ */
+export interface AgentPlanLoopWhileCheck {
+  /** The iteration the check decided about, counting from 1. */
+  readonly before: number;
+  readonly source: "parameter" | "member";
+  readonly value: boolean;
+  readonly at: string;
+}
 
 /** Why an end condition could not be evaluated; each is a failure, never a silent `false`. */
 export type AgentPlanLoopConditionFailure =
@@ -107,10 +125,19 @@ export interface AgentPlanLoopSession {
 
 /** The count and mode a loop resolved once before its first iteration. */
 export interface AgentPlanLoopCount {
-  readonly source: AgentPlanLoopRunsSource;
-  /** The parameter node of a bound count. */
+  /**
+   * Where the number came from: the saved value, a parameter, the count of a
+   * stack, or `while` for a while loop, whose number is only its upper limit.
+   */
+  readonly source: AgentPlanLoopRunsSource | "stack" | "while";
+  /** The bound node: the parameter of a bound count or a while loop, the stack of a stack count. */
   readonly parameterId: string | null;
-  /** The effective number of iterations, 1 to 999; never changed while the loop runs. */
+  /**
+   * The effective number of iterations, 0 to 999; never changed while the loop runs.
+   *
+   * @remarks
+   * A bound 0 runs no iteration. A while loop stores its limit here.
+   */
   readonly effective: number;
   readonly mode: AgentPlanLoopCountMode;
 }
@@ -139,6 +166,8 @@ export interface AgentPlanLoopRun {
   } | null;
   readonly iterations: readonly AgentPlanLoopIteration[];
   readonly sessions: readonly AgentPlanLoopSession[];
+  /** The checks of a while loop, oldest first; absent for a counting loop. */
+  readonly whileChecks?: readonly AgentPlanLoopWhileCheck[];
   /** Set only when the loop ended regularly and its cleanup was confirmed. */
   readonly completion: AgentPlanLoopCompletion | null;
   readonly cleanup: "not_needed" | "pending" | "confirmed" | "failed";

@@ -216,11 +216,21 @@ export const AGENT_ERROR_MESSAGES = {
   plan_loop_invalid:
     "Check the loop: its name, members, connections, number of iterations, session setting and end condition.",
   plan_loop_nested:
-    "A loop holds only agents and scripts. Loops inside loops and groups inside loops are not supported; keep the subgraph flat.",
+    "A loop holds agents, scripts and groups of agents. Loops inside loops are not supported.",
   plan_loop_runs_invalid:
-    "The number of iterations must be a whole number from 1 to 999. Pages does not round, cut or replace it.",
+    "The number of iterations must be a whole number from 1 to 999, or a bound value from 0 to 999. Pages does not round, cut or replace it.",
   plan_loop_runs_unavailable:
-    "The parameter that sets the number of iterations is missing, not readable or not a number. The loop did not start.",
+    "The parameter or stack that sets the number of iterations is missing, not readable or not a number. The loop did not start.",
+  plan_loop_while_invalid:
+    "The while loop found no valid boolean: bind a parameter whose value is exactly true or false. Another value is never read as false.",
+  plan_loop_while_type:
+    "The value at the path of the while condition is not a boolean. Pages never converts types and never reads it as false.",
+  plan_loop_while_limit:
+    "The while loop reached 999 iterations without its condition turning false, the limit that keeps it from running without end.",
+  plan_stack_invalid:
+    "Check the stack: its name and its entries. An entry is a ticket or a named value, each at most once.",
+  plan_stack_content_missing:
+    "The node reads the content of a stack, but the newest trigger of the stack handed over no entry. An earlier entry is never handed over again.",
   plan_loop_condition_source:
     "The end condition names a source node that is not an agent or script of this loop.",
   plan_loop_condition_path:

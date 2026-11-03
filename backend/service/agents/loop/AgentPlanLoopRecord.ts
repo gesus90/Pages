@@ -1,8 +1,10 @@
-import type { AgentPlanStepResult } from "@/definition/AgentPlan";
-import type {
-  AgentPlanLoop,
-  AgentPlanLoopMember,
+import {
+  isPlanLoopConditionActive,
+  planLoopMembers,
 } from "@/definition/AgentPlanLoop";
+
+import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type {
   AgentPlanLoopCount,
   AgentPlanLoopIteration,
@@ -58,7 +60,7 @@ export function startedLoopRun(
     sessionPolicy: loop.sessionPolicy,
     condition: condition
       ? {
-          isActive: loop.countMode === "max" && condition.isEnabled,
+          isActive: isPlanLoopConditionActive(loop),
           sourceNodeId: condition.sourceNodeId,
           outputPath: condition.outputPath,
           expected: condition.expected,
@@ -68,12 +70,9 @@ export function startedLoopRun(
   };
 }
 
-function waitingNode(
-  member: AgentPlanLoopMember,
-  name: string,
-): AgentPlanStepResult {
+function waitingNode(id: string, name: string): AgentPlanStepResult {
   return {
-    id: member.id,
+    id,
     name,
     status: "waiting",
     isBlocked: false,
@@ -83,11 +82,19 @@ function waitingNode(
   };
 }
 
-/** Appends the next iteration with every member waiting. */
+/**
+ * Appends the next iteration with every node of it waiting.
+ *
+ * @param record - The loop's state.
+ * @param loop - The frozen loop.
+ * @param names - The names of the iteration's nodes.
+ * @param ids - The iteration's nodes: its members and the stacks it triggers.
+ */
 export function beginIteration(
   record: AgentPlanLoopRun,
   loop: AgentPlanLoop,
   names: ReadonlyMap<string, string>,
+  ids: readonly string[] = planLoopMembers(loop).map((member) => member.id),
 ): AgentPlanLoopRun {
   const number = record.iterations.length + 1;
   const iteration: AgentPlanLoopIteration = {
@@ -96,9 +103,7 @@ export function beginIteration(
     status: "running",
     startedAt: new Date().toISOString(),
     endedAt: null,
-    nodes: loop.steps.map((member) =>
-      waitingNode(member, names.get(member.id) ?? member.id),
-    ),
+    nodes: ids.map((id) => waitingNode(id, names.get(id) ?? id)),
     condition: { state: "not_evaluated", reason: "incomplete" },
     error: null,
   };
@@ -160,7 +165,7 @@ export function loopSessionsOf(
   runId: string,
   isOpenAllowed: boolean,
 ): readonly AgentPlanLoopSession[] {
-  return loop.steps.flatMap((member): AgentPlanLoopSession[] => {
+  return planLoopMembers(loop).flatMap((member): AgentPlanLoopSession[] => {
     if (member.type !== "agent") return [];
     const turns = record.iterations.flatMap((iteration) =>
       iteration.nodes.filter((node) => node.id === member.id && node.session),

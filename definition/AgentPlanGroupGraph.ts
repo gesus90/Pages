@@ -114,6 +114,16 @@ function configurationIssues(
   return issues;
 }
 
+/** The groups of a plan, those inside loops included. */
+function allGroups(plan: AgentPlanInput): readonly AgentPlanGroup[] {
+  return plan.nodes.flatMap((node) => {
+    if (node.type === "group") return [node];
+    return node.type === "loop"
+      ? node.steps.filter((step) => step.type === "group")
+      : [];
+  });
+}
+
 /** Validates explicit boundary contracts before expanding them into execution nodes. */
 export function planGroupIssues(
   plan: AgentPlanInput,
@@ -122,8 +132,10 @@ export function planGroupIssues(
 ): readonly AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
   const ids = new Set(plan.nodes.map((node) => node.id));
-  for (const node of plan.nodes) {
-    if (node.type !== "group") continue;
+  const loopEdges = plan.nodes.flatMap((node) =>
+    node.type === "loop" ? node.edges : [],
+  );
+  for (const node of allGroups(plan)) {
     // A neutral group may be saved empty; it needs one agent before it runs.
     if (isExecution && node.steps.length === 0)
       issues.push({ nodeId: node.id, port: null, reason: "groupSize" });
@@ -132,7 +144,7 @@ export function planGroupIssues(
         issues.push({ nodeId: step.id, port: null, reason: "duplicateNode" });
       ids.add(step.id);
     }
-    for (const edge of plan.edges)
+    for (const edge of [...plan.edges, ...loopEdges])
       if (edge.from === node.id || edge.to === node.id)
         issues.push({
           nodeId: node.id,

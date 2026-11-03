@@ -2,6 +2,7 @@ import type { AgentParameterValue } from "@/definition/AgentParameters";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanLoopIteration } from "@/definition/AgentPlanLoopRun";
 import type { AgentPlanStepSnapshot } from "../AgentPlanSnapshot";
+import type { AgentPlanScriptSnapshot } from "../AgentPlanScriptPreparation";
 
 /** What one run of a loop member sees: its own copy of the node and the results it may read. */
 export interface LoopStepInput {
@@ -75,6 +76,55 @@ export function loopStepInput(
     },
     results,
     carried,
+  };
+}
+
+/** What one run of a script member sees: its own copy of the script and the results it may read. */
+export interface LoopScriptInput {
+  readonly script: AgentPlanScriptSnapshot;
+  readonly results: readonly AgentPlanStepResult[];
+}
+
+/**
+ * Builds the script a member runs in one iteration.
+ *
+ * @param base - The frozen script.
+ * @param current - The results of the current iteration so far.
+ * @param previous - The previous iteration, absent in the first.
+ *
+ * @remarks
+ * Like {@link loopStepInput}: a binding to the previous iteration becomes a
+ * result binding to that single earlier result. In the first iteration the
+ * input stays empty; a required one then fails the script, nothing is invented.
+ */
+export function loopScriptInput(
+  base: AgentPlanScriptSnapshot,
+  current: readonly AgentPlanStepResult[],
+  previous: AgentPlanLoopIteration | undefined,
+): LoopScriptInput {
+  const bindings: Record<string, (typeof base.step.bindings)[string]> = {};
+  const results = [...current];
+  for (const [name, binding] of Object.entries(base.step.bindings)) {
+    if (binding.kind !== "previous") {
+      bindings[name] = binding;
+      continue;
+    }
+    const earlier = previous?.nodes.find((node) => node.id === binding.stepId);
+    if (earlier?.status !== "succeeded" || earlier.output === null) continue;
+    results.push({
+      id: previousId(binding.stepId),
+      name: earlier.name,
+      status: "succeeded",
+      isBlocked: false,
+      cancellation: "none",
+      output: earlier.output,
+      error: null,
+    });
+    bindings[name] = { kind: "result", stepId: previousId(binding.stepId) };
+  }
+  return {
+    script: { ...base, step: { ...base.step, bindings } },
+    results,
   };
 }
 

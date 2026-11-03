@@ -2,6 +2,7 @@ import { isPlanFlowNode } from "./AgentPlanGraph";
 import { expandPlanGroups } from "./AgentPlanGroup";
 import { withPortlessPlanGroups } from "./AgentPlanGroupUpgrade";
 import { isPlanEventEdge } from "./AgentPlanBranching";
+import { isPlanOuterRunStep } from "./AgentPlanStack";
 
 import type { AgentPlanInput, AgentPlanNode } from "./AgentPlan";
 
@@ -133,7 +134,9 @@ function flowGraph(plan: Pick<AgentPlanInput, "nodes" | "edges">): {
   readonly depths: ReadonlyMap<string, number>;
 } {
   const nodes = new Map(
-    plan.nodes.filter(isPlanFlowNode).map((node) => [node.id, node]),
+    plan.nodes
+      .filter((node) => isPlanFlowNode(node) && isPlanOuterRunStep(plan, node))
+      .map((node) => [node.id, node]),
   );
   const successors = flowSuccessors(plan, nodes);
   const starts = [...nodes.values()]

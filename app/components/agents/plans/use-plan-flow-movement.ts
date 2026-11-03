@@ -1,10 +1,14 @@
 import { useReactFlow } from "@xyflow/react";
 import { useEffect, useRef, useState } from "react";
 
+import { findPlanGroupLocation } from "@/definition/AgentPlanLoopGroupEdit";
+
 import {
   PLAN_FRAME_PADDING,
-  planGroupHeaderHeight,
   planDropGroup,
+  planDropStack,
+  planGroupHeaderHeight,
+  planMemberOrigin,
 } from "./plan-layout";
 import { planFlowNodes } from "./plan-flow-model";
 import { usePlanFlowMeasurements } from "./use-plan-flow-measurements";
@@ -17,6 +21,7 @@ import type {
 } from "@xyflow/react";
 import type { AgentPlanInput, AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanFlowNode } from "./plan-flow-model";
+import type { PlanFrame } from "./plan-layout";
 import type { PlanGraphActions } from "./use-plan-graph";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 
@@ -28,19 +33,31 @@ interface MovementOptions {
   readonly collapsedGroups: ReadonlySet<string>;
 }
 
+/** The frame a card lies in, a group inside a loop included. */
 function memberGroup(
   plan: AgentPlanInput,
   node: PlanFlowNode,
-): AgentPlanInput["nodes"][number] | undefined {
-  return plan.nodes.find((entry) => entry.id === node.parentId);
+): PlanFrame | null {
+  if (!node.parentId) return null;
+  const top = plan.nodes.find((entry) => entry.id === node.parentId);
+  if (top?.type === "group" || top?.type === "loop") return top;
+  return findPlanGroupLocation(plan, node.parentId)?.group ?? null;
+}
+
+/** The top left corner of a frame on the grid; a group inside a loop counts from the loop's member area. */
+function frameCorner(plan: AgentPlanInput, frame: PlanFrame): XYPosition {
+  const loop = findPlanGroupLocation(plan, frame.id)?.loop;
+  if (!loop) return { x: frame.x, y: frame.y };
+  const origin = planMemberOrigin(loop);
+  return { x: origin.x + frame.x, y: origin.y + frame.y };
 }
 
 function storedPosition(plan: AgentPlanInput, node: PlanFlowNode): XYPosition {
   const group = memberGroup(plan, node);
-  if (group?.type !== "group" && group?.type !== "loop") return node.position;
+  if (!group) return node.position;
   return {
     x: node.position.x - PLAN_FRAME_PADDING,
-    y: node.position.y - planGroupHeaderHeight(),
+    y: node.position.y - planGroupHeaderHeight(group),
   };
 }
 
@@ -49,8 +66,9 @@ function absolutePosition(
   node: PlanFlowNode,
 ): XYPosition {
   const group = memberGroup(plan, node);
-  if (group?.type !== "group" && group?.type !== "loop") return node.position;
-  return { x: group.x + node.position.x, y: group.y + node.position.y };
+  if (!group) return node.position;
+  const corner = frameCorner(plan, group);
+  return { x: corner.x + node.position.x, y: corner.y + node.position.y };
 }
 
 function clientPoint(event: MouseEvent | TouchEvent): XYPosition | null {
@@ -78,6 +96,70 @@ function movementNodes(
 /** Agents and scripts can join a loop; only agents can join a group. */
 function isPlaceable(type: AgentPlanInput["nodes"][number]["type"]): boolean {
   return type === "agent" || type === "script";
+}
+
+/** Tickets and values can join a stack as entries. */
+function isStackEntry(type: AgentPlanInput["nodes"][number]["type"]): boolean {
+  return type === "task" || type === "parameter";
+}
+
+/** What a dragged card would land in under the pointer: a frame, a loop for a group, or a stack. */
+function dropTargetOf(
+  options: MovementOptions,
+  node: PlanFlowNode,
+  point: XYPosition,
+): string | null {
+  const type = node.data.node.type;
+  if (isStackEntry(type) && !node.parentId)
+    return planDropStack(options.draft, point)?.id ?? null;
+  if (type === "group") {
+    const frame = planDropGroup(
+      {
+        ...options.draft,
+        nodes: options.draft.nodes.filter((entry) => entry.id !== node.id),
+      },
+      point,
+      options.sources,
+      node.parentId ?? null,
+    );
+    return frame?.type === "loop" ? frame.id : null;
+  }
+  if (!isPlaceable(type)) return null;
+  const group = planDropGroup(
+    options.draft,
+    point,
+    options.sources,
+    node.parentId ?? null,
+  );
+  return group && !options.collapsedGroups.has(group.id) ? group.id : null;
+}
+
+/** Finishes a drag: a member is placed, a group may enter a loop, a ticket or value may join a stack. */
+function dropNode(
+  options: MovementOptions,
+  node: PlanFlowNode,
+  drop: { readonly position: XYPosition; readonly pointer: XYPosition },
+): void {
+  const { graph } = options;
+  const type = node.data.node.type;
+  const target = {
+    position: drop.position,
+    excludedGroups: options.collapsedGroups,
+    pointer: drop.pointer,
+  };
+  if (isPlaceable(type)) {
+    graph.place(node.id, target);
+    return;
+  }
+  if (type === "group") {
+    graph.placeGroup(node.id, target);
+    return;
+  }
+  const stack = isStackEntry(type)
+    ? planDropStack(options.draft, drop.pointer)
+    : null;
+  if (stack) graph.joinStack(node.id, stack.id);
+  else graph.move(node.id, drop.position.x, drop.position.y);
 }
 
 interface FlowMovementActions {
@@ -162,13 +244,10 @@ export function usePlanFlowMovement(
     if (canEdit && dragState.current !== "cancelled") {
       const position = absolutePosition(draft, node);
       const pointer = clientPoint(event);
-      if (isPlaceable(node.data.node.type))
-        graph.place(node.id, {
-          position,
-          excludedGroups: options.collapsedGroups,
-          pointer: pointer ? flow.screenToFlowPosition(pointer) : position,
-        });
-      else graph.move(node.id, position.x, position.y);
+      dropNode(options, node, {
+        position,
+        pointer: pointer ? flow.screenToFlowPosition(pointer) : position,
+      });
     }
     setPositions({});
     setDropTarget(null);
@@ -182,21 +261,9 @@ export function usePlanFlowMovement(
   }
   const onNodeDrag: OnNodeDrag<PlanFlowNode> = (event, node) => {
     const pointer = clientPoint(event);
-    if (
-      !canEdit ||
-      dragState.current === "cancelled" ||
-      !pointer ||
-      !isPlaceable(node.data.node.type)
-    )
-      return;
-    const group = planDropGroup(
-      draft,
-      flow.screenToFlowPosition(pointer),
-      options.sources,
-      node.parentId ?? null,
-    );
+    if (!canEdit || dragState.current === "cancelled" || !pointer) return;
     setDropTarget(
-      group && !options.collapsedGroups.has(group.id) ? group.id : null,
+      dropTargetOf(options, node, flow.screenToFlowPosition(pointer)),
     );
   };
   return {

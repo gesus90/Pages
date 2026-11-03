@@ -10,6 +10,7 @@ import type {
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
+import type { AgentPlanStack } from "@/definition/AgentPlanStack";
 
 /** A container of nodes on the grid: a session group or a loop. */
 export type PlanFrame = AgentPlanGroup | AgentPlanLoop;
@@ -34,6 +35,19 @@ const AGENT_INPUT_HEIGHT = 38;
 const AGENT_BRANCHING_HEIGHT = 68;
 // Header, condition row with its binding chip, both outputs and the footer line.
 const PLAN_DECISION_HEIGHT = 237;
+/** The Stack card: wide enough for an entry's key and title beside its number. */
+export const PLAN_STACK_WIDTH = 300;
+// Header, the In and Out row, the summary, both data outputs and the footer.
+const STACK_BASE_HEIGHT = 236;
+// One entry of the list with its gap, and the row of an empty list.
+const STACK_ENTRY_HEIGHT = 50;
+const STACK_EMPTY_HEIGHT = 40;
+/** The title row of a loop container. */
+export const PLAN_LOOP_TITLE_HEIGHT = 84;
+/** One labelled port row of a loop container: In and Out, then the count or while input. */
+export const PLAN_LOOP_PORT_ROW = 32;
+// A loop container's header: title, its two port rows and the gap before its members.
+const LOOP_HEADER_HEIGHT = PLAN_LOOP_TITLE_HEIGHT + 2 * PLAN_LOOP_PORT_ROW + 24;
 /** Space between a frame's edge and its members. */
 export const PLAN_FRAME_PADDING = 20;
 const FRAME_MIN_WIDTH = 680;
@@ -62,26 +76,46 @@ function scriptHeight(script: AgentPlanScript): number {
 }
 
 /**
- * Space for the portless frame header and the gap before its first member row.
+ * Space for a frame's header and the gap before its first member row.
+ *
+ * @param frame - The frame; a loop has two labelled port rows below its title,
+ * a group none. Without it the group header is meant.
  */
-export function planGroupHeaderHeight(): number {
-  return 108;
+export function planGroupHeaderHeight(frame?: Pick<PlanFrame, "type">): number {
+  return frame?.type === "loop" ? LOOP_HEADER_HEIGHT : 108;
+}
+
+/** The height of the Stack card for its entries. */
+function stackHeight(stack: AgentPlanStack): number {
+  return (
+    STACK_BASE_HEIGHT +
+    (stack.entries.length === 0
+      ? STACK_EMPTY_HEIGHT
+      : stack.entries.length * STACK_ENTRY_HEIGHT)
+  );
 }
 
 function memberHeight(
-  member: AgentPlanStep | AgentPlanScript,
+  member: AgentPlanStep | AgentPlanScript | AgentPlanGroup,
   sources: AgentPlanSources,
 ): number {
+  if (member.type === "group") return groupHeight(member, sources);
   return member.type === "script"
     ? scriptHeight(member)
     : agentHeight(member, sources);
+}
+
+function memberWidth(
+  member: AgentPlanStep | AgentPlanScript | AgentPlanGroup,
+): number {
+  return member.type === "group" ? planGroupWidth(member) : PLAN_AGENT_WIDTH;
 }
 
 /** A frame grows with its members; an empty frame keeps room to drop the first one. */
 export function planGroupWidth(group: PlanFrame): number {
   const right = Math.max(
     0,
-    ...group.steps.map((step) => step.x + PLAN_AGENT_WIDTH),
+    ...group.steps.map((step) => step.x + memberWidth(step)),
   );
   return Math.max(FRAME_MIN_WIDTH, right + 2 * PLAN_FRAME_PADDING);
 }
@@ -92,7 +126,7 @@ function groupHeight(group: PlanFrame, sources: AgentPlanSources): number {
     ...group.steps.map((step) => step.y + memberHeight(step, sources)),
   );
   return (
-    planGroupHeaderHeight() +
+    planGroupHeaderHeight(group) +
     Math.max(FRAME_MIN_MEMBER_AREA, bottom + FRAME_MEMBER_BOTTOM_GAP) +
     PLAN_FRAME_FOOTER
   );
@@ -102,14 +136,14 @@ function groupHeight(group: PlanFrame, sources: AgentPlanSources): number {
 export function planMemberOrigin(group: PlanFrame): AgentPlanPosition {
   return {
     x: group.x + PLAN_FRAME_PADDING,
-    y: group.y + planGroupHeaderHeight(),
+    y: group.y + planGroupHeaderHeight(group),
   };
 }
 
 /** The absolute grid position of a member. */
 export function planMemberPosition(
   group: PlanFrame,
-  step: AgentPlanStep | AgentPlanScript,
+  step: { readonly x: number; readonly y: number },
 ): AgentPlanPosition {
   const origin = planMemberOrigin(group);
   return { x: origin.x + step.x, y: origin.y + step.y };
@@ -121,6 +155,7 @@ export function planNodeWidth(node: AgentPlanNode): number {
     return planGroupWidth(node);
   if (node.type === "agent" || node.type === "script") return PLAN_AGENT_WIDTH;
   if (node.type === "decision") return PLAN_DECISION_WIDTH;
+  if (node.type === "stack") return PLAN_STACK_WIDTH;
   return node.type === "start" || node.type === "end"
     ? PLAN_ENDPOINT_WIDTH
     : PLAN_SOURCE_WIDTH;
@@ -149,7 +184,29 @@ export function planNodeHeight(
     return groupHeight(node, sources);
   if (node.type === "agent") return agentHeight(node, sources);
   if (node.type === "script") return scriptHeight(node);
+  if (node.type === "stack") return stackHeight(node);
   return heights[node.type];
+}
+
+/**
+ * The stack a dropped ticket or value node lands in, decided by the pointer alone.
+ *
+ * @returns The topmost stack card under the pointer, or `null`.
+ */
+export function planDropStack(
+  plan: AgentPlanInput,
+  point: AgentPlanPosition,
+): AgentPlanStack | null {
+  const stacks = plan.nodes.filter((node) => node.type === "stack");
+  for (const stack of [...stacks].reverse())
+    if (
+      point.x >= stack.x &&
+      point.x <= stack.x + PLAN_STACK_WIDTH &&
+      point.y >= stack.y &&
+      point.y <= stack.y + stackHeight(stack)
+    )
+      return stack;
+  return null;
 }
 
 /**
@@ -232,6 +289,7 @@ const NODE_TINTS = {
   group: "border-plan-group/60 bg-plan-group-subtle",
   loop: "border-plan-loop-edge/60 bg-plan-loop-subtle",
   decision: "border-plan-logic-edge/60 bg-plan-logic-subtle",
+  stack: "border-plan-stack-edge/60 bg-plan-stack-subtle",
   task: "border-plan-ticket-edge bg-plan-ticket-subtle",
   variable: "border-plan-parameter/60 bg-plan-parameter-subtle",
   parameter: "border-plan-parameter/60 bg-plan-parameter-subtle",
@@ -245,6 +303,7 @@ const NODE_ACCENTS = {
   group: "text-plan-group",
   loop: "text-plan-loop",
   decision: "text-plan-logic",
+  stack: "text-plan-stack",
   task: "text-plan-ticket",
   variable: "text-plan-parameter",
   parameter: "text-plan-parameter",

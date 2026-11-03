@@ -6,12 +6,19 @@ import { cn } from "@/app/lib/cn";
 
 import type { PlanGroupNotice } from "./use-plan-group-actions";
 
+/** The translation area of each frame a move can concern. */
+const NOTICE_AREAS = {
+  group: "groups",
+  loop: "loops",
+  stack: "stack",
+} as const;
+
 function useNoticeText(notice: PlanGroupNotice): string {
   const { t } = useTranslation();
   if (notice.kind === "repair")
     return t("plans.groups.frameRepairRequired", { name: notice.name });
   if (notice.kind === "moved")
-    return t(`plans.${notice.frame === "loop" ? "loops" : "groups"}.moved`, {
+    return t(`plans.${NOTICE_AREAS[notice.frame]}.moved`, {
       edges: notice.removedEdges,
       bindings: notice.removedBindings,
     });

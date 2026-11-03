@@ -115,13 +115,16 @@
   --color-plan-logic: #6d28d9;
   --color-plan-logic-edge: #8b5cf6;
   --color-plan-logic-subtle: #f6f2ff;
+  /* Indigo identifies the Stack node, a data container with an order; it
+     stays apart from the violet of parameters and logic. */
+  --color-plan-stack: #4338ca;
+  --color-plan-stack-edge: #6366f1;
+  --color-plan-stack-subtle: #eef0fd;
   /* Secondary text on the tinted plan cards: the page's muted text reaches only
      4.1 to 4.3:1 on these tints, the plan editor needs 4.5:1. */
   --color-plan-muted-foreground: #5f6675;
-  --color-plan-progress-surface: var(--color-surface);
-  --color-plan-progress-shade: var(--color-foreground);
   --color-plan-progress-active-label: var(--color-foreground);
-  --color-plan-progress-done: #258c42;
+  --color-plan-progress-done: #21823c;
   --color-plan-progress-waiting: #d5dbe4;
   --color-plan-progress-label: #ffffff;
   --color-plan-todo-done: #087d59;
@@ -417,17 +420,14 @@
     --color-plan-logic: #b79bff;
     --color-plan-logic-edge: #8a6fd8;
     --color-plan-logic-subtle: #221a3b;
+    --color-plan-stack: #a5b4fc;
+    --color-plan-stack-edge: #6b70d6;
+    --color-plan-stack-subtle: #1b1d3a;
     --color-plan-muted-foreground: #9aa3b2;
-    --color-plan-progress-surface: color-mix(
-      in srgb,
-      var(--color-background) 65%,
-      var(--color-plan-agent-subtle)
-    );
-    --color-plan-progress-shade: var(--color-background);
     --color-plan-progress-active-label: var(--color-background);
     --color-plan-progress-done: #51df5c;
     --color-plan-progress-waiting: #3d4858;
-    --color-plan-progress-label: #ffffff;
+    --color-plan-progress-label: var(--color-background);
     --color-plan-todo-done: #087d59;
     --color-plan-todo-label: #ffffff;
     --color-plan-todo-done-text: #75e4ab;

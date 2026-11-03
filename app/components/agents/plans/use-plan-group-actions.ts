@@ -17,8 +17,16 @@ import {
   placePlanLoopNode,
   ungroupPlanLoop,
 } from "@/definition/AgentPlanLoopEdit";
+import {
+  findPlanGroupLocation,
+  placePlanGroupInLoop,
+  ungroupPlanLoopGroup,
+} from "@/definition/AgentPlanLoopGroupEdit";
+import { joinPlanStack } from "@/definition/AgentPlanStackEdit";
 
 import {
+  PLAN_FRAME_PADDING,
+  planGroupHeaderHeight,
   planDropGroup,
   planMemberOrigin,
   planMemberPosition,
@@ -39,6 +47,8 @@ import type {
   AgentPlanGroupRefusal,
 } from "@/definition/AgentPlanGroup";
 import type { PlanGroupMove } from "@/definition/AgentPlanGroupEdit";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
+import type { PlanGroupPlacement } from "@/definition/AgentPlanLoopGroupEdit";
 import type {
   PlanNodeLocation,
   PlanNodePlacement,
@@ -57,7 +67,7 @@ export type PlanGroupNotice =
     }
   | {
       readonly kind: "moved";
-      readonly frame: "group" | "loop";
+      readonly frame: "group" | "loop" | "stack";
       readonly removedEdges: number;
       readonly removedBindings: number;
     };
@@ -81,6 +91,10 @@ export interface PlanGroupActions {
   readonly removeGroup: (id: string, keepMembers: boolean) => void;
   /** Places a dropped agent node in the frame under the pointer, or outside every frame. */
   readonly place: (id: string, drop: PlanDrop) => void;
+  /** Moves a whole group into the loop under the pointer, within it, or onto the outer grid. */
+  readonly placeGroup: (id: string, drop: PlanDrop) => void;
+  /** Moves a ticket or value node of the grid into a stack as its last entry. */
+  readonly joinStack: (id: string, stackId: string) => void;
   /** Moves an agent node into a group's member area, or out of every frame, from a form. */
   readonly assign: (id: string, groupId: string | null) => void;
   /** Tells why a group refused an agent node. */
@@ -107,6 +121,50 @@ function memberOffset(
   return boundedPosition({
     x: position.x - origin.x,
     y: position.y - origin.y,
+  });
+}
+
+/** The top left corner of the member area of a group inside a loop, on the grid. */
+function nestedMemberOrigin(
+  loop: AgentPlanLoop,
+  group: AgentPlanGroup,
+): AgentPlanPosition {
+  const corner = planMemberOrigin(loop);
+  const inner = planMemberOrigin({ ...group, x: 0, y: 0 });
+  return { x: corner.x + group.x + inner.x, y: corner.y + group.y + inner.y };
+}
+
+/** Moves a dropped agent of a group inside a loop within its group; `false` for any other node. */
+function placeNestedMember(
+  context: Pick<FrameMoveContext, "setDraft" | "setNotice">,
+  found: PlanNodeLocation,
+  drop: PlanDrop,
+): boolean {
+  if (!found.loop || !found.group) return false;
+  const origin = nestedMemberOrigin(found.loop, found.group);
+  const id = found.node.id;
+  context.setDraft((previous) =>
+    moveNestedMember(previous, id, { origin, drop }),
+  );
+  context.setNotice(null);
+  return true;
+}
+
+/** Moves an agent of a group inside a loop to the drop, counted from its group's member area. */
+function moveNestedMember(
+  draft: AgentPlanInput,
+  id: string,
+  target: { readonly origin: AgentPlanPosition; readonly drop: PlanDrop },
+): AgentPlanInput {
+  const current = findPlanNodeLocation(draft, id);
+  if (!current) return draft;
+  const { origin, drop } = target;
+  return replacePlanNode(draft, {
+    ...current.node,
+    ...boundedPosition({
+      x: drop.position.x - origin.x,
+      y: drop.position.y - origin.y,
+    }),
   });
 }
 
@@ -155,8 +213,11 @@ function refusalNotice(
 
 /** Names the connections a move dropped; a move that dropped none needs no notice. */
 function moveNotice(
-  result: PlanGroupMove<AgentPlanInput>,
-  frame: "group" | "loop",
+  result: Pick<
+    PlanGroupMove<AgentPlanInput>,
+    "removedEdges" | "removedBindings"
+  >,
+  frame: "group" | "loop" | "stack",
 ): PlanGroupNotice | null {
   if (result.removedEdges + result.removedBindings === 0) return null;
   return {
@@ -210,6 +271,21 @@ function groupRemoval(
   id: string,
   keepMembers: boolean,
 ): PlanGroupMove<AgentPlanInput> | null {
+  const nested = findPlanGroupLocation(draft, id);
+  if (nested?.loop) {
+    return {
+      plan: keepMembers
+        ? ungroupPlanLoopGroup(draft, id, (step, group) => ({
+            x: boundedPlanCoordinate(group.x + PLAN_FRAME_PADDING + step.x),
+            y: boundedPlanCoordinate(
+              group.y + planGroupHeaderHeight(group) + step.y,
+            ),
+          }))
+        : removePlanNode(draft, id),
+      removedEdges: 0,
+      removedBindings: 0,
+    };
+  }
   const group = draft.nodes.find(
     (node): node is PlanFrame =>
       (node.type === "group" || node.type === "loop") && node.id === id,
@@ -277,6 +353,8 @@ function placeDrop(
   const { draft, setDraft, sources, setNotice, apply } = context;
   const found = findPlanNodeLocation(draft, id);
   if (!found) return;
+  // An agent of a group inside a loop moves within its group only; the group moves as a whole.
+  if (placeNestedMember(context, found, drop)) return;
   const frame = dropFrame(draft, sources, { found, drop });
   if (sameFrame(found, frame)) {
     setDraft((previous) =>
@@ -388,6 +466,82 @@ function applyGroupPlacement(
   setNotice(moveNotice(result, "group"));
 }
 
+/** What a move of a whole group or a stack entry needs from the hook. */
+interface FrameMoveContext {
+  readonly draft: AgentPlanInput;
+  readonly setDraft: Dispatch<SetStateAction<AgentPlanInput>>;
+  readonly sources: AgentPlanSources;
+  readonly setNotice: Dispatch<SetStateAction<PlanGroupNotice | null>>;
+}
+
+/** Moves a whole group into the loop under the pointer, within it, or onto the outer grid. */
+function placeGroupDrop(
+  context: FrameMoveContext,
+  id: string,
+  drop: PlanDrop,
+): void {
+  const { draft, setDraft, sources, setNotice } = context;
+  const placement = groupPlacement(draft, sources, { id, drop });
+  if (!placement) return;
+  const result = placePlanGroupInLoop(draft, placement);
+  if (typeof result === "string") return;
+  setDraft((previous) => {
+    const next = groupPlacement(previous, sources, { id, drop });
+    const moved = next ? placePlanGroupInLoop(previous, next) : null;
+    return moved && typeof moved !== "string" ? moved.plan : previous;
+  });
+  setNotice(moveNotice(result, "loop"));
+}
+
+/** Moves a ticket or value node into a stack as its last entry. */
+function joinStackDrop(
+  context: FrameMoveContext,
+  id: string,
+  stackId: string,
+): void {
+  const result = joinPlanStack(context.draft, stackId, id);
+  if (typeof result === "string") return;
+  context.setDraft((previous) => {
+    const joined = joinPlanStack(previous, stackId, id);
+    return typeof joined === "string" ? previous : joined.plan;
+  });
+  context.setNotice(moveNotice({ ...result, removedEdges: 0 }, "stack"));
+}
+
+/**
+ * Where a dropped group goes: the loop under the pointer, or the outer grid.
+ *
+ * @returns `null` for a group that is gone.
+ */
+function groupPlacement(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+  target: { readonly id: string; readonly drop: PlanDrop },
+): PlanGroupPlacement | null {
+  const found = findPlanGroupLocation(draft, target.id);
+  if (!found) return null;
+  const frame = planDropGroup(
+    {
+      ...draft,
+      nodes: draft.nodes.filter(
+        (node) =>
+          node.id !== target.id && !target.drop.excludedGroups?.has(node.id),
+      ),
+    },
+    target.drop.pointer,
+    sources,
+    found.loop?.id ?? null,
+  );
+  const loop = frame?.type === "loop" ? frame : null;
+  return {
+    groupId: target.id,
+    loopId: loop?.id ?? null,
+    position: loop
+      ? memberOffset(loop, target.drop.position)
+      : boundedPosition(target.drop.position),
+  };
+}
+
 /** Keeps group membership edits, their notices and the removal choice of one plan draft. */
 export function usePlanGroupActions(options: {
   readonly draft: AgentPlanInput;
@@ -441,9 +595,17 @@ export function usePlanGroupActions(options: {
       group ? nextSlot(group) : boundedPosition({ x: outside.x, y: outside.y }),
     );
   }
+  const moves = (): FrameMoveContext => ({
+    draft: options.currentDraft?.() ?? draft,
+    setDraft,
+    sources,
+    setNotice,
+  });
   return {
     notice,
     clearNotice: () => setNotice(null),
+    placeGroup: (id, drop) => placeGroupDrop(moves(), id, drop),
+    joinStack: (id, stackId) => joinStackDrop(moves(), id, stackId),
     removalId,
     requestRemoval: setRemovalId,
     cancelRemoval: () => setRemovalId(null),

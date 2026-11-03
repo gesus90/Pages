@@ -4,6 +4,7 @@ import { setPlanDecisionCondition } from "@/definition/AgentPlanBranchingEdit";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { replacePlanNode } from "@/definition/AgentPlanGroupEdit";
 import { findPlanNodeLocation } from "@/definition/AgentPlanLoopEdit";
+import { findPlanGroupLocation } from "@/definition/AgentPlanLoopGroupEdit";
 
 import { planLinkKey, planLinks, removePlanLink } from "./plan-links";
 import { boundedPlanCoordinate, removePlanNode } from "./plan-node-factory";
@@ -69,6 +70,8 @@ export interface PlanGraphActions
   ) => void;
   readonly replaceStep: (step: AgentPlanStep) => void;
   readonly replaceNode: (node: AgentPlanNode) => void;
+  /** Applies a change to the latest draft, such as an entry added to a stack. */
+  readonly edit: (change: (draft: AgentPlanInput) => AgentPlanInput) => void;
   /**
    * Makes the boolean result of one agent the condition of a decision.
    *
@@ -235,7 +238,9 @@ export function usePlanGraph(
     setDraft((previous) => withMovedNode(previous, id, { x, y }));
   }
   function remove(id: string): void {
-    const node = draft.nodes.find((entry) => entry.id === id);
+    const node =
+      draft.nodes.find((entry) => entry.id === id) ??
+      findPlanGroupLocation(draft, id)?.group;
     if (
       (node?.type === "group" || node?.type === "loop") &&
       node.steps.length > 0
@@ -266,14 +271,6 @@ export function usePlanGraph(
   function replaceNode(node: AgentPlanNode): void {
     setDraft((previous) => replacePlanNode(previous, node));
   }
-  function setDecisionCondition(
-    decisionId: string,
-    agentId: string | null,
-  ): void {
-    setDraft((previous) =>
-      setPlanDecisionCondition(previous, decisionId, agentId),
-    );
-  }
   return {
     issues: canvasIssues(draft, sources),
     ...selection,
@@ -287,6 +284,10 @@ export function usePlanGraph(
     resolveGroupEdge,
     replaceStep: replaceNode,
     replaceNode,
-    setDecisionCondition,
+    edit: (change) => setDraft((previous) => change(previous)),
+    setDecisionCondition: (decisionId, agentId) =>
+      setDraft((previous) =>
+        setPlanDecisionCondition(previous, decisionId, agentId),
+      ),
   };
 }

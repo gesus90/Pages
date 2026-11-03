@@ -107,7 +107,7 @@ export function PlanRunActions(props: PlanRunActionsProps): React.ReactElement {
   const isSettling = status === "pausing" || status === "stopping";
   return (
     <div
-      className="inline-grid shrink-0 grid-cols-[repeat(3,minmax(max-content,1fr))] gap-1"
+      className="inline-grid min-w-0 max-w-full grid-cols-2 gap-1 @sm/plan-panel:grid-cols-[repeat(3,minmax(max-content,1fr))]"
       role="group"
       aria-label={t("plans.panel.actions")}
       aria-busy={props.isPending || isSettling}

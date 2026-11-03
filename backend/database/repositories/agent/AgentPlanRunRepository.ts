@@ -3,7 +3,7 @@ import type { AgentPlanWriterWait } from "@/definition/AgentPlanExecution";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
-import { readTextColumn } from "@/backend/database/RowValue";
+import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   reservePlanResources,
@@ -31,6 +31,13 @@ export interface AgentPlanRunEntry {
   readonly id: string;
   readonly startedAt: string;
   readonly status: AgentPlanRun["status"];
+}
+
+/** The latest run one person started of a plan, without its view, snapshot or results. */
+export interface AgentPlanLatestRunEntry extends AgentPlanRunEntry {
+  readonly planId: string;
+  /** Rises with every committed write of the run. */
+  readonly revision: number;
 }
 
 function readRunStatus(input: string): AgentPlanRun["status"] {
@@ -380,6 +387,42 @@ export class AgentPlanRunRepository {
       id: readTextColumn(row, 0, "id"),
       startedAt: readTextColumn(row, 1, "started_at"),
       status: readRunStatus(readTextColumn(row, 2, "status")),
+    }));
+  }
+
+  /**
+   * Lists the latest run one person started of every plan.
+   *
+   * @param userId - The executor; runs of others are never part of it.
+   * @returns One entry per plan with a run of the person, in no particular
+   * order; reading the run itself still needs the service checks.
+   */
+  public async latestOwn(
+    userId: string,
+  ): Promise<readonly AgentPlanLatestRunEntry[]> {
+    const rows = await this.database.query(
+      `
+      SELECT
+          plan_id,
+          id,
+          status,
+          started_at,
+          recovery_revision
+      FROM agent_plan_runs
+      WHERE user_id = $user_id
+      QUALIFY ROW_NUMBER() OVER (
+          PARTITION BY plan_id
+          ORDER BY started_at DESC, id DESC
+      ) = 1;
+    `,
+      { user_id: userId },
+    );
+    return rows.map((row) => ({
+      planId: readTextColumn(row, 0, "plan_id"),
+      id: readTextColumn(row, 1, "id"),
+      status: readRunStatus(readTextColumn(row, 2, "status")),
+      startedAt: readTextColumn(row, 3, "started_at"),
+      revision: readCountColumn(row, 4, "recovery_revision"),
     }));
   }
 

@@ -1,6 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
+import { isPlanOuterRunStep } from "@/definition/AgentPlanStack";
 import {
   inPlanSequence,
   planFlowSequence,
@@ -266,7 +267,9 @@ function resumedSteps(
   next: AgentPlanSnapshot,
 ): readonly AgentPlanStepResult[] {
   return inPlanSequence(
-    next.plan.nodes.filter(isPlanFlowNode),
+    next.plan.nodes.filter(
+      (node) => isPlanFlowNode(node) && isPlanOuterRunStep(next.plan, node),
+    ),
     planFlowSequence(next.plan).order,
   ).map((node) => {
     const previous = run.steps.find((step) => step.id === node.id);
@@ -288,7 +291,8 @@ function resumedSteps(
 }
 
 function resumedNodeName(node: AgentPlanNode): string {
-  if (node.type === "loop" || node.type === "script") return node.name;
+  if (node.type === "loop" || node.type === "script" || node.type === "stack")
+    return node.name;
   return node.type === "agent"
     ? (node.configuration?.name ?? node.type)
     : node.type;

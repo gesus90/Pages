@@ -10,6 +10,8 @@ export const PLAN_NODE_FIELDS = {
     "countMode",
     "sessionPolicy",
     "condition",
+    "mode",
+    "while",
   ],
   agent: [
     "agentId",
@@ -30,6 +32,7 @@ export const PLAN_NODE_FIELDS = {
     "timeoutSeconds",
   ],
   decision: ["name"],
+  stack: ["name", "entries"],
   task: ["taskId"],
   parameter: ["name", "format", "value"],
   variable: [],
@@ -45,4 +48,5 @@ export const PLAN_ADDABLE_TYPES = [
   "parameter",
   "group",
   "loop",
+  "stack",
 ] as const;

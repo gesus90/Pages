@@ -10,8 +10,24 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 
+import { findPlanGroupLocation } from "@/definition/AgentPlanLoopGroupEdit";
+
+import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanInput } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
+
+/** The group or loop waiting for the removal choice, a group inside a loop included. */
+function removalFrame(
+  draft: AgentPlanInput,
+  id: string | null,
+): AgentPlanGroup | AgentPlanLoop | null {
+  if (id === null) return null;
+  const found =
+    draft.nodes.find((node) => node.id === id) ??
+    findPlanGroupLocation(draft, id)?.group;
+  return found?.type === "group" || found?.type === "loop" ? found : null;
+}
 
 /**
  * Asks how a frame with members goes: the frame alone, or the frame with its members.
@@ -27,9 +43,7 @@ export function PlanGroupRemoval(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const { graph } = props;
-  const found = props.draft.nodes.find((node) => node.id === graph.removalId);
-  const frame =
-    found?.type === "group" || found?.type === "loop" ? found : null;
+  const frame = removalFrame(props.draft, graph.removalId);
   const kind = frame?.type === "loop" ? "loops" : "groups";
   const isOpen = frame !== null && props.canEdit;
   const name = frame?.name ?? "";

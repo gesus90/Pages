@@ -9,6 +9,7 @@ import {
 import { readPlanText } from "./AgentPlanInput";
 import { readPlanLoopRuns } from "./AgentPlanLoopRunInput";
 import { readPlanStepResult } from "./AgentPlanStepResultInput";
+import { readPlanStackRuns } from "./AgentPlanStackRunInput";
 import { readAgentObject } from "./AgentPayload";
 import {
   readPlanRecoveryReason,
@@ -57,6 +58,9 @@ export function readPlanRun(input: unknown): AgentPlanRun {
       : { origin: readPlanRunOrigin(run.origin) }),
     steps: run.steps.map(readPlanStepResult),
     ...(run.loops === undefined ? {} : { loops: readPlanLoopRuns(run.loops) }),
+    ...(run.stacks === undefined
+      ? {}
+      : { stacks: readPlanStackRuns(run.stacks) }),
   };
 }
 

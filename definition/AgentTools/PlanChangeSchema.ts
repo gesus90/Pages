@@ -74,7 +74,49 @@ const BINDING: PropertySchema = {
       required: ["kind", "stepId"],
       additionalProperties: false,
     },
+    {
+      type: "object",
+      properties: {
+        kind: { const: "stack" },
+        stackId: PLAN_NODE_IDENTIFIER_SCHEMA,
+        output: { enum: ["content", "count"] },
+      },
+      required: ["kind", "stackId", "output"],
+      additionalProperties: false,
+    },
   ],
+};
+
+/** The ordered entries of a stack: tickets and typed values. */
+const STACK_ENTRIES: PropertySchema = {
+  type: "array",
+  maxItems: 200,
+  items: {
+    oneOf: [
+      {
+        type: "object",
+        properties: {
+          id: PLAN_NODE_IDENTIFIER_SCHEMA,
+          type: { const: "task" },
+          taskId: PLAN_NODE_IDENTIFIER_SCHEMA,
+        },
+        required: ["id", "type", "taskId"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          id: PLAN_NODE_IDENTIFIER_SCHEMA,
+          type: { const: "parameter" },
+          name: { type: "string", minLength: 1, maxLength: 64 },
+          format: { enum: ["string", "number", "json"] },
+          value: VALUE,
+        },
+        required: ["id", "type", "name", "format", "value"],
+        additionalProperties: false,
+      },
+    ],
+  },
 };
 
 /** Display name syntax for a parameter node. */
@@ -212,6 +254,22 @@ const NODE_FIELDS: ToolProperties = {
   executionTarget: EXECUTION_TARGET,
   runs: { type: "integer", minimum: 1, maximum: 999 },
   runsSource: { enum: ["value", "parameter"] },
+  mode: { enum: ["count", "while"] },
+  while: {
+    oneOf: [
+      { type: "null" },
+      {
+        type: "object",
+        properties: {
+          sourceNodeId: { type: "string", maxLength: 100 },
+          outputPath: { type: "string", maxLength: 200 },
+        },
+        required: ["sourceNodeId", "outputPath"],
+        additionalProperties: false,
+      },
+    ],
+  },
+  entries: STACK_ENTRIES,
   countMode: { enum: ["max", "expected"] },
   sessionPolicy: { enum: ["reuse", "fresh"] },
   condition: {

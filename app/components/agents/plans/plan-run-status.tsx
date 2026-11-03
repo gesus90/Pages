@@ -65,7 +65,7 @@ function RunStatusContent({
       data-plan-run-status
       aria-label={t("plans.progress.label")}
       onKeyDown={keepPlanControlKeys}
-      className="pointer-events-auto absolute left-4 bottom-[calc(env(safe-area-inset-bottom)+8.5rem)] z-20 flex max-h-[min(26rem,36%)] w-[min(56.25rem,calc(100%-2rem))] @container/status flex-col rounded-lg border border-border bg-plan-progress-surface/90 text-foreground shadow-floating backdrop-blur-md md:bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] md:max-h-[min(21.25rem,58%)] md:w-[min(56.25rem,calc(100%-6.5rem))]"
+      className="pointer-events-auto absolute left-4 bottom-[calc(env(safe-area-inset-bottom)+8.5rem)] z-20 flex max-h-[min(26rem,36%)] w-[min(56.25rem,calc(100%-2rem))] @container/status flex-col overflow-hidden rounded-xl border border-border bg-surface text-foreground shadow-floating md:bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] md:max-h-[min(21.25rem,58%)] md:w-[min(56.25rem,calc(100%-6.5rem))]"
     >
       <PlanStatusHeader
         run={run}

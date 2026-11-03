@@ -19,6 +19,7 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   plan_invalid: "graph_invalid",
   plan_loop_invalid: "graph_invalid",
   plan_loop_nested: "graph_invalid",
+  plan_stack_invalid: "graph_invalid",
   plan_loop_runs_invalid: "parameter_value_invalid",
   plan_model_unavailable: "model_unavailable",
   plan_reasoning_unsupported: "reasoning_unsupported",

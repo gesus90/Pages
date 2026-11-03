@@ -2,9 +2,16 @@ import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
+import { planLoopMembers, planLoopMode } from "@/definition/AgentPlanLoop";
 
 import { keepPlanControlKeys } from "./plan-flow-keys";
-import { PLAN_FRAME_FOOTER, planNodeLabel } from "./plan-layout";
+import {
+  PLAN_FRAME_FOOTER,
+  PLAN_LOOP_TITLE_HEIGHT,
+  planGroupHeaderHeight,
+  planNodeLabel,
+} from "./plan-layout";
+import { PlanLoopPortRows } from "./plan-loop-input";
 import { PlanLoopPorts } from "./plan-loop-ports";
 import { loopConditionText } from "./plan-loop-panel/loop-run-section";
 import { PlanLoopStatus } from "./plan-loop-status";
@@ -34,7 +41,7 @@ interface LoopFrameProps {
 
 /** The names of the members in flow order, as far as the internal edges make one chain. */
 function memberChain(loop: AgentPlanLoop, sources: AgentPlanSources): string {
-  const order = [...loop.steps].sort((first, second) =>
+  const order = [...planLoopMembers(loop)].sort((first, second) =>
     first.x === second.x ? first.y - second.y : first.x - second.x,
   );
   return order
@@ -74,16 +81,21 @@ export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
         graph={graph}
         canEdit={props.canEdit}
       />
-      <div className="pointer-events-auto flex min-h-11 items-center gap-5 border-b border-plan-loop-edge/25 px-5 py-5">
+      <div
+        className="pointer-events-auto flex items-center gap-5 border-b border-plan-loop-edge/25 px-5"
+        style={{ height: PLAN_LOOP_TITLE_HEIGHT }}
+      >
         <LoopTitle {...props} label={label} hasIssue={hasIssue} />
         <LoopHeaderActions {...props} label={label} />
       </div>
+      <PlanLoopPortRows {...props} />
       {loop.steps.length === 0 ? (
         <p
           className={cn(
-            "absolute inset-x-5 top-28 text-muted-foreground",
+            "absolute inset-x-5 text-muted-foreground",
             PLAN_NODE_TEXT.field,
           )}
+          style={{ top: planGroupHeaderHeight(loop) }}
         >
           {t(props.canEdit ? "plans.loops.empty" : "plans.loops.emptyReadOnly")}
         </p>
@@ -147,7 +159,11 @@ function LoopHeaderActions(
           "shrink-0 rounded-md border border-plan-loop/30 px-2 py-1.5 font-medium text-foreground",
           PLAN_NODE_TEXT.meta,
         )}
-        title={t(`plans.loops.mode.${loop.countMode}Tooltip`)}
+        title={
+          planLoopMode(loop) === "while"
+            ? t("plans.loops.whileTooltip")
+            : t(`plans.loops.mode.${loop.countMode}Tooltip`)
+        }
       >
         {planLoopSummary(props.draft, loop, t)}
       </span>
@@ -194,7 +210,7 @@ function LoopFooter(props: LoopFrameProps): React.ReactElement {
       style={{ height: PLAN_FRAME_FOOTER }}
     >
       <p className="min-w-0 flex-1 truncate" title={chain}>
-        {t("plans.loops.members", { count: loop.steps.length })}
+        {t("plans.loops.members", { count: planLoopMembers(loop).length })}
         {chain ? ` · ${chain}` : ""}
       </p>
       {props.isDropTarget ? (

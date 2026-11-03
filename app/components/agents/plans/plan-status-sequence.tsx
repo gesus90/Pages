@@ -64,12 +64,12 @@ export function PlanStatusSequence({
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const center = (): void => centerAnchor(element, anchorId);
+    const center = (): void => centerAnchor(element, selectedId ?? anchorId);
     center();
     const observer = new ResizeObserver(center);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [anchorId, run.id, steps.length]);
+  }, [anchorId, selectedId, run.id, steps.length]);
   return (
     <div className="min-w-0 flex-1 px-2">
       <ScrollViewport

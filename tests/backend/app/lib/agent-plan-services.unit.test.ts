@@ -32,6 +32,7 @@ import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanSc
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
+import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
 import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
@@ -326,6 +327,7 @@ it("returns the plan service with its management, templates, sessions and recove
     runnerPagesAccessService: only(vi.mocked(RunnerPagesAccessService)),
     agentPlanService: service,
     agentPlanActiveRunService: ANY_ACTIVE_RUN_SERVICE,
+    agentPlanOverviewService: expect.any(AgentPlanOverviewService) as unknown,
     picaMobileNotifications: NOTIFICATIONS,
     agentPlanManagement: only(vi.mocked(AgentPlanManagement)),
     agentPlanTemplateService: only(vi.mocked(AgentPlanTemplateService)),

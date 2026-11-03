@@ -107,6 +107,19 @@ function withPortCentres(
   };
 }
 
+/** The label of a binding: the input it fills, after the stack output it reads; a loop names its Count or While input. */
+function dataLabelText(
+  t: TFunction,
+  link: Extract<NonNullable<PlanFlowEdge["data"]>["link"], { kind: "data" }>,
+): string {
+  const input = link.isLoopInput
+    ? t(`plans.loops.inputName.${link.parameter}`)
+    : link.parameter;
+  return link.output
+    ? `${t(`plans.stack.output.${link.output}`)} · ${input}`
+    : input;
+}
+
 /** What the visible label of a connection says: its kind in words, or the input a binding fills. */
 function edgeLabelText(
   t: TFunction,
@@ -114,7 +127,7 @@ function edgeLabelText(
   channel: PlanLinkChannel,
 ): string {
   if (details.routeEnd) return details.name;
-  if (details.link.kind === "data") return details.link.parameter;
+  if (details.link.kind === "data") return dataLabelText(t, details.link);
   return t(
     channel === "flow" ? "plans.linkKind.flow" : `plans.linkLabel.${channel}`,
   );

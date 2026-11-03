@@ -10,7 +10,12 @@ import {
   bindPlanParameter,
   connectPlanFlow,
   findPlanBindingTarget,
+  replacePlanNode,
 } from "@/definition/AgentPlanGroupEdit";
+import {
+  PLAN_LOOP_RUNS_BINDING,
+  PLAN_LOOP_WHILE_BINDING,
+} from "@/definition/AgentPlanLoop";
 
 import type {
   AgentPlanBinding,
@@ -18,6 +23,8 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
+import type { AgentPlanStackOutput } from "@/definition/AgentPlanStack";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -40,6 +47,12 @@ export type PlanConnection =
       readonly nodeId: string;
       /** The output of the decision the connection leaves through. */
       readonly branch: AgentPlanBranch;
+    }
+  | {
+      /** One data output of a stack: the entry handed over last, or the number of entries. */
+      readonly kind: "stack";
+      readonly nodeId: string;
+      readonly output: AgentPlanStackOutput;
     };
 
 /** The plan with the new connection, or the issue that refuses it. */
@@ -202,17 +215,68 @@ function attemptConnection(
   if (parameter === PLAN_PORT.conditionIn) return attemptCondition(context, id);
   if (parameter === PLAN_PORT.eventIn) return attemptEvent(context, id);
   if (parameter === undefined) return attemptFlow(context, id);
-  if (connection.kind !== "source" && connection.kind !== "result")
-    return typeIssue(id, parameter);
+  const binding = connectionBinding(connection);
+  if (!binding) return typeIssue(id, parameter);
+  const loop = draft.nodes.find(
+    (node): node is AgentPlanLoop => node.type === "loop" && node.id === id,
+  );
+  if (loop) return attemptLoopInput(context, loop, { parameter, binding });
   const bindings = targetBindings(draft, id);
   if (!bindings) return null;
   if (Object.hasOwn(bindings, parameter))
     return { issue: { nodeId: id, port: parameter, reason: "duplicate" } };
-  const binding: AgentPlanBinding =
-    connection.kind === "source"
-      ? { kind: "source", nodeId: connection.nodeId }
-      : { kind: "result", stepId: connection.nodeId };
   return checked(bindPlanParameter(draft, id, parameter, binding), context);
+}
+
+/** The binding a data connection writes, or `null` for a connection that carries no value. */
+function connectionBinding(
+  connection: PlanConnection,
+): AgentPlanBinding | null {
+  if (connection.kind === "source")
+    return { kind: "source", nodeId: connection.nodeId };
+  if (connection.kind === "result")
+    return { kind: "result", stepId: connection.nodeId };
+  if (connection.kind === "stack")
+    return {
+      kind: "stack",
+      stackId: connection.nodeId,
+      output: connection.output,
+    };
+  return null;
+}
+
+/**
+ * A value into an input of a loop: the count it runs, or the boolean of a while loop.
+ *
+ * @remarks
+ * Binding the count switches the loop to a bound count, binding the boolean
+ * to a while loop; the plan check then decides whether the source fits.
+ */
+function attemptLoopInput(
+  context: PlanConnectionContext,
+  loop: AgentPlanLoop,
+  input: {
+    readonly parameter: string;
+    readonly binding: AgentPlanBinding;
+  },
+): PlanConnectionAttempt {
+  const { parameter, binding } = input;
+  const isRuns = parameter === PLAN_LOOP_RUNS_BINDING;
+  if (!isRuns && parameter !== PLAN_LOOP_WHILE_BINDING)
+    return typeIssue(loop.id, parameter);
+  const fits = isRuns
+    ? (binding.kind === "stack" && binding.output === "count") ||
+      binding.kind === "source"
+    : binding.kind === "source";
+  if (!fits) return typeIssue(loop.id, parameter);
+  const next: AgentPlanLoop = {
+    ...loop,
+    bindings: { ...loop.bindings, [parameter]: binding },
+    ...(isRuns
+      ? { mode: "count" as const, runsSource: "parameter" as const }
+      : { mode: "while" as const }),
+  };
+  return checked(replacePlanNode(context.draft, next), context);
 }
 
 /** Answers whether the open connection may end at an IN, each IN checked once. */

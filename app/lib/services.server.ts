@@ -70,11 +70,12 @@ import type {
   PicaAcpSettings,
 } from "./chat-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
-import type { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
-import type { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
 import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
-import type { AgentPlanServices } from "./agent-plan-services.server";
+import type {
+  AgentPlanLoaderServices,
+  AgentPlanServices,
+} from "./agent-plan-services.server";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { McpApplicationServices } from "./mcp-services.server";
 import type { DiscordApplicationServices } from "./discord-services.server";
@@ -87,17 +88,10 @@ export interface ApplicationServices
     ChatApplicationServices,
     McpApplicationServices,
     DiscordApplicationServices,
-    PreferenceApplicationServices {
+    PreferenceApplicationServices,
+    AgentPlanLoaderServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
-  /** The unfinished runs of one person. */
-  readonly agentPlanActiveRunService: AgentPlanServices["agentPlanActiveRunService"];
-  readonly picaMobileNotifications: AgentPlanServices["picaMobileNotifications"];
-  readonly runnerPagesAccessService: AgentPlanServices["runnerPagesAccessService"];
-  /** Creating, copying and deleting plans from the plan page. */
-  readonly agentPlanManagement: AgentPlanManagement;
-  /** The personal node templates of the plan editor. */
-  readonly agentPlanTemplateService: AgentPlanTemplateService;
   /** The PageAgentCLI sessions of plan nodes: history, live events and instructions. */
   readonly agentSessionService: AgentSessionService;
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;

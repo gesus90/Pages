@@ -8,6 +8,8 @@ import {
   picaMobileAvatarGetPayloadSchema,
   picaMobileDashboardGetPayloadSchema,
   picaMobilePingPayloadSchema,
+  picaMobilePlanGetPayloadSchema,
+  picaMobilePlansSyncPayloadSchema,
   picaMobileRequestIdSchema,
 } from "@/definition/PicaMobileProtocol";
 
@@ -20,6 +22,8 @@ import type {
   PicaMobileDashboardPayload,
   PicaMobileErrorCode,
   PicaMobileErrorPayload,
+  PicaMobilePlanPayload,
+  PicaMobilePlansPayload,
   PicaMobileServerMessage,
 } from "@/definition/PicaMobileProtocol";
 import type { PicaMobileNotificationClientMessage } from "./notifications/PicaMobileNotificationMessages";
@@ -38,7 +42,21 @@ export type PicaMobileClientMessage =
       readonly requestId: string;
       readonly payload: { readonly version: string };
     }
-  | PicaMobileNotificationClientMessage;
+  | PicaMobileNotificationClientMessage
+  | PicaMobilePlansClientMessage;
+
+/** A message of `plans.v1` that passed every check of its payload. */
+export type PicaMobilePlansClientMessage =
+  | {
+      readonly type: "plans_sync";
+      readonly requestId: string;
+      readonly payload: { readonly since: number | null };
+    }
+  | {
+      readonly type: "plan_get";
+      readonly requestId: string;
+      readonly payload: { readonly planId: string };
+    };
 
 /** Why a frame is not a usable message, with what the answer needs. */
 export interface PicaMobileRejection {
@@ -146,6 +164,42 @@ function parseAvatarGetPayload(
       );
 }
 
+function parsePlansSyncPayload(
+  requestId: string,
+  payload: unknown,
+): PicaMobileParseResult {
+  const parsed = picaMobilePlansSyncPayloadSchema.safeParse(payload);
+
+  return parsed.success
+    ? {
+        ok: true,
+        message: { type: "plans_sync", requestId, payload: parsed.data },
+      }
+    : reject(
+        PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        'The payload of "plans_sync" needs a "since" that is null or an integer of at least 1.',
+        requestId,
+      );
+}
+
+function parsePlanGetPayload(
+  requestId: string,
+  payload: unknown,
+): PicaMobileParseResult {
+  const parsed = picaMobilePlanGetPayloadSchema.safeParse(payload);
+
+  return parsed.success
+    ? {
+        ok: true,
+        message: { type: "plan_get", requestId, payload: parsed.data },
+      }
+    : reject(
+        PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        'The payload of "plan_get" needs a "planId" of 1 to 200 characters.',
+        requestId,
+      );
+}
+
 function parseEmptyPayload(
   type: "ping" | "dashboard_get",
   requestId: string,
@@ -179,6 +233,10 @@ function parsePayload(
       return parseEmptyPayload("dashboard_get", requestId, payload);
     case PICA_MOBILE_CLIENT_MESSAGE_TYPE.AVATAR_GET:
       return parseAvatarGetPayload(requestId, payload);
+    case PICA_MOBILE_CLIENT_MESSAGE_TYPE.PLANS_SYNC:
+      return parsePlansSyncPayload(requestId, payload);
+    case PICA_MOBILE_CLIENT_MESSAGE_TYPE.PLAN_GET:
+      return parsePlanGetPayload(requestId, payload);
     default:
       return (
         parsePicaMobileNotificationPayload(type, requestId, payload) ??
@@ -333,6 +391,45 @@ export function encodePicaMobileAvatar(
   return encode({
     version: PICA_MOBILE_PROTOCOL_VERSION,
     type: PICA_MOBILE_SERVER_MESSAGE_TYPE.AVATAR,
+    requestId,
+    payload,
+  });
+}
+
+/**
+ * Builds the text frame of a `plans` message.
+ *
+ * @param requestId - Identifier of the `plans_sync` that is answered; `null`
+ * for a change Pages sends on its own.
+ * @param payload - The sequence number with the full list or the change.
+ * @returns The frame content.
+ */
+export function encodePicaMobilePlans(
+  requestId: string | null,
+  payload: PicaMobilePlansPayload,
+): string {
+  return encode({
+    version: PICA_MOBILE_PROTOCOL_VERSION,
+    type: PICA_MOBILE_SERVER_MESSAGE_TYPE.PLANS,
+    requestId,
+    payload,
+  });
+}
+
+/**
+ * Builds the text frame that answers `plan_get`.
+ *
+ * @param requestId - Identifier of the `plan_get` message that is answered.
+ * @param payload - The latest own run of the plan, or why there is none.
+ * @returns The frame content.
+ */
+export function encodePicaMobilePlan(
+  requestId: string,
+  payload: PicaMobilePlanPayload,
+): string {
+  return encode({
+    version: PICA_MOBILE_PROTOCOL_VERSION,
+    type: PICA_MOBILE_SERVER_MESSAGE_TYPE.PLAN,
     requestId,
     payload,
   });

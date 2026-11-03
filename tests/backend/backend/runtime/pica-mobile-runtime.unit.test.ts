@@ -10,6 +10,7 @@ import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PagesPicaMobileAuthenticator } from "@/backend/service/mobile/PicaMobileAuthenticator";
 import { PagesPicaMobileDashboard } from "@/backend/service/mobile/PicaMobileDashboardService";
 import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
+import { PagesPicaMobilePlans } from "@/backend/service/mobile/plans/PagesPicaMobilePlans";
 import {
   PicaMobileGateway,
   PicaMobileListenError,
@@ -45,6 +46,7 @@ vi.mock("@/backend/service/mobile/PicaMobileGateway", () => ({
 const ANY_AUTHENTICATOR: unknown = expect.any(PagesPicaMobileAuthenticator);
 const ANY_DASHBOARD: unknown = expect.any(PagesPicaMobileDashboard);
 const ANY_NOTIFICATIONS: unknown = expect.any(PagesPicaMobileNotifications);
+const ANY_PLANS: unknown = expect.any(PagesPicaMobilePlans);
 
 const COMPLETED: PagesConfig = {
   databasePath: "/srv/pages/data/pages.duckdb",
@@ -71,6 +73,7 @@ describe("obtainPicaMobileGateway", () => {
       authenticator: ANY_AUTHENTICATOR,
       dashboard: ANY_DASHBOARD,
       notifications: ANY_NOTIFICATIONS,
+      plans: ANY_PLANS,
       serverVersion: PAGES_VERSION,
       listenAddress: "192.168.0.52",
       reservedPort: 3000,

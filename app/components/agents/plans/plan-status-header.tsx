@@ -123,7 +123,7 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
         isReady={props.isReady}
       />
       <RunDonut steps={props.steps} preview={props.preview} />
-      <div className="flex w-full min-w-0 border-border @2xl/status:w-auto @2xl/status:flex-1 @2xl/status:border-l">
+      <div className="order-2 flex w-full min-w-0 border-border @2xl/status:order-none @2xl/status:w-auto @2xl/status:flex-1 @2xl/status:border-l">
         {props.run && props.steps.length ? (
           <PlanStatusSequence
             run={props.run}
@@ -136,34 +136,36 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
           <PlanPendingSequence preview={props.preview} error={props.error} />
         )}
       </div>
-      <PlanStatusTodoCount
-        step={props.steps.find((step) => step.id === props.selectedId)}
-      />
-      <span
-        title={t("plans.progress.elapsed")}
-        aria-label={`${t("plans.progress.elapsed")}: ${duration}`}
-        className="flex shrink-0 items-center gap-1.5 border-l border-border pl-3 text-xs leading-4.5 font-medium tabular-nums"
-      >
-        <Clock3 aria-hidden="true" className="size-4" />
-        {duration}
-      </span>
-      <div className="shrink-0 border-l border-border pl-2.5">
-        <PlanPaletteButton
-          variant="outline"
-          size="icon-sm"
-          tooltip={toggle}
-          aria-label={toggle}
-          aria-expanded={props.isOpen}
-          aria-controls={props.contentId}
-          onClick={props.onToggle}
-          className="size-8 min-h-8 rounded-md bg-surface-hover/80 p-0 xl:size-8 xl:min-h-8 xl:p-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:min-h-11"
+      <div className="order-1 ml-auto flex shrink-0 items-center gap-x-3 @2xl/status:order-none @2xl/status:ml-0">
+        <PlanStatusTodoCount
+          step={props.steps.find((step) => step.id === props.selectedId)}
+        />
+        <span
+          title={t("plans.progress.elapsed")}
+          aria-label={`${t("plans.progress.elapsed")}: ${duration}`}
+          className="flex shrink-0 items-center gap-1.5 border-l border-border pl-3 text-xs leading-4.5 font-medium tabular-nums"
         >
-          {props.isOpen ? (
-            <ChevronDown aria-hidden="true" className="size-4" />
-          ) : (
-            <ChevronUp aria-hidden="true" className="size-4" />
-          )}
-        </PlanPaletteButton>
+          <Clock3 aria-hidden="true" className="size-4" />
+          {duration}
+        </span>
+        <div className="shrink-0 border-l border-border pl-2.5">
+          <PlanPaletteButton
+            variant="outline"
+            size="icon-sm"
+            tooltip={toggle}
+            aria-label={toggle}
+            aria-expanded={props.isOpen}
+            aria-controls={props.contentId}
+            onClick={props.onToggle}
+            className="size-8 min-h-8 rounded-md bg-surface-hover p-0 xl:size-8 xl:min-h-8 xl:p-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:min-h-11"
+          >
+            {props.isOpen ? (
+              <ChevronDown aria-hidden="true" className="size-4" />
+            ) : (
+              <ChevronUp aria-hidden="true" className="size-4" />
+            )}
+          </PlanPaletteButton>
+        </div>
       </div>
     </div>
   );

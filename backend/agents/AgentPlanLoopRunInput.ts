@@ -1,5 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isPlanLoopRuns } from "@/definition/AgentPlanLoop";
+import { isPlanLoopBoundRuns } from "@/definition/AgentPlanLoop";
 
 import { readAgentObject } from "./AgentPayload";
 import { readPlanText } from "./AgentPlanInput";
@@ -14,6 +14,7 @@ import type {
   AgentPlanLoopIteration,
   AgentPlanLoopRun,
   AgentPlanLoopSession,
+  AgentPlanLoopWhileCheck,
 } from "@/definition/AgentPlanLoopRun";
 
 const FAILURES: readonly AgentPlanLoopConditionFailure[] = [
@@ -131,9 +132,14 @@ function readSession(input: unknown): AgentPlanLoopSession {
 function readCount(input: unknown): AgentPlanLoopCount | null {
   if (input === null || input === undefined) return null;
   const count = readAgentObject(input);
-  if (!isPlanLoopRuns(count.effective)) throw invalid();
+  if (!isPlanLoopBoundRuns(count.effective)) throw invalid();
   return {
-    source: oneOf(count.source, ["value", "parameter"] as const),
+    source: oneOf(count.source, [
+      "value",
+      "parameter",
+      "stack",
+      "while",
+    ] as const),
     parameterId: nullableText(count.parameterId, 100),
     effective: count.effective,
     mode: oneOf(count.mode, ["max", "expected"] as const),
@@ -150,6 +156,31 @@ function readCondition(input: unknown): AgentPlanLoopRun["condition"] {
     outputPath: readPlanText(condition.outputPath, 200),
     expected: readPlanLoopValue(condition.expected),
   };
+}
+
+function readWhileCheck(input: unknown): AgentPlanLoopWhileCheck {
+  const check = readAgentObject(input);
+  if (
+    typeof check.before !== "number" ||
+    !Number.isSafeInteger(check.before) ||
+    check.before < 1 ||
+    typeof check.value !== "boolean"
+  )
+    throw invalid();
+  return {
+    before: check.before,
+    source: oneOf(check.source, ["parameter", "member"] as const),
+    value: check.value,
+    at: readPlanText(check.at, 100),
+  };
+}
+
+function readWhileChecks(
+  input: unknown,
+): Pick<AgentPlanLoopRun, "whileChecks"> {
+  if (input === undefined) return {};
+  if (!Array.isArray(input) || input.length > 1_000) throw invalid();
+  return { whileChecks: input.map(readWhileCheck) };
 }
 
 function readLoopRun(input: unknown): AgentPlanLoopRun {
@@ -171,10 +202,15 @@ function readLoopRun(input: unknown): AgentPlanLoopRun {
     condition: readCondition(loop.condition),
     iterations: loop.iterations.map(readIteration),
     sessions: loop.sessions.map(readSession),
+    ...readWhileChecks(loop.whileChecks),
     completion:
       loop.completion === null || loop.completion === undefined
         ? null
-        : oneOf(loop.completion, ["count_reached", "condition_met"] as const),
+        : oneOf(loop.completion, [
+            "count_reached",
+            "condition_met",
+            "while_false",
+          ] as const),
     cleanup: oneOf(loop.cleanup, CLEANUPS),
     startedAt: nullableText(loop.startedAt, 100),
     endedAt: nullableText(loop.endedAt, 100),

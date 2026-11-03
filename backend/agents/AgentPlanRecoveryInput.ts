@@ -70,7 +70,7 @@ const checkpoint = z.strictObject({
     .array(
       z.strictObject({
         name: identifier,
-        kind: z.enum(["literal", "source", "result"]),
+        kind: z.enum(["literal", "source", "result", "stack"]),
         reference: identifier.nullable(),
         digest,
       }),

@@ -185,9 +185,13 @@ it.each<[string, NodeFields, string]>([
   ],
   ["a nested loop", { steps: [loopNode({ id: "inner" })] }, "plan_loop_nested"],
   [
-    "a nested group",
-    { steps: [groupNode({ id: "inner" })] },
-    "plan_loop_nested",
+    "a group holding a script",
+    {
+      steps: [
+        groupNode({ id: "inner", steps: [scriptNode({ id: "inner-script" })] }),
+      ],
+    },
+    "plan_invalid",
   ],
   [
     "a task member",

@@ -29,6 +29,7 @@ import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanSc
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
+import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
 import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
@@ -62,6 +63,8 @@ export interface AgentPlanServices {
   readonly agentPlanService: AgentPlanService;
   /** The unfinished runs of one person, for clients that list them without the plan page. */
   readonly agentPlanActiveRunService: AgentPlanActiveRunService;
+  /** The plans that concern one person with their latest own run, for Pica Mobile. */
+  readonly agentPlanOverviewService: AgentPlanOverviewService;
   /** Pica Mobile notifications for runs of plans the person owns. */
   readonly picaMobileNotifications: PicaMobileNotificationService;
   /** Creating, copying and deleting plans from the plan page, each request once. */
@@ -71,6 +74,17 @@ export interface AgentPlanServices {
   readonly agentSessionService: AgentSessionService;
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;
 }
+
+/** The plan services that loaders and actions reach directly besides the plan service. */
+export type AgentPlanLoaderServices = Pick<
+  AgentPlanServices,
+  | "agentPlanActiveRunService"
+  | "agentPlanOverviewService"
+  | "picaMobileNotifications"
+  | "runnerPagesAccessService"
+  | "agentPlanManagement"
+  | "agentPlanTemplateService"
+>;
 
 /** The interpreter profiles of script nodes, read when needed so a changed list applies without a restart. */
 function planScripts(): AgentPlanScripts {
@@ -212,6 +226,7 @@ async function createPlanViews(
   Pick<
     AgentPlanServices,
     | "agentPlanActiveRunService"
+    | "agentPlanOverviewService"
     | "picaMobileNotifications"
     | "agentPlanManagement"
     | "agentPlanTemplateService"
@@ -219,6 +234,10 @@ async function createPlanViews(
 > {
   return {
     agentPlanActiveRunService: new AgentPlanActiveRunService(
+      dependencies,
+      service,
+    ),
+    agentPlanOverviewService: new AgentPlanOverviewService(
       dependencies,
       service,
     ),

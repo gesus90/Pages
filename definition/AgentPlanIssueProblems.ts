@@ -1,4 +1,5 @@
 import { PLAN_BRANCHING_PROBLEMS } from "./AgentPlanBranchingProblems.js";
+import { PLAN_STACK_PROBLEMS } from "./AgentPlanStackProblems.js";
 
 /**
  * Why the graph check refused a plan, as the plan page names it.
@@ -46,6 +47,7 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "loopPrevious",
   "loopProvider",
   ...PLAN_BRANCHING_PROBLEMS,
+  ...PLAN_STACK_PROBLEMS,
   "unsupportedRunNotes",
   "duplicateNode",
   "port",

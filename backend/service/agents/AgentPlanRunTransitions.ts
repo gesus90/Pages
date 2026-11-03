@@ -102,7 +102,15 @@ function startedLoopMembers(
   });
 }
 
-function failureReason(run: AgentPlanRun): string | null {
+/**
+ * Returns the machine failure code of a run.
+ *
+ * @param run - A stored view of the run.
+ * @returns The error of the first failed step, otherwise the control error of
+ * the run, but only when it is a machine code; `null` for free text such as
+ * paths or provider output, and without any failure.
+ */
+export function failureReason(run: AgentPlanRun): string | null {
   const failed = run.steps.find((step) => step.status === "failed");
   const code = failed?.error ?? run.controlError ?? null;
 

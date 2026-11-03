@@ -29,6 +29,12 @@ import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
 import type { AgentPlanBranch } from "./AgentPlanBranching";
 import type {
+  AgentPlanStack,
+  AgentPlanStackHandover,
+  AgentPlanStackOutput,
+  AgentPlanStackRun,
+} from "./AgentPlanStack";
+import type {
   AgentPlanRemoteStatus,
   AgentPlanRemoteChoice,
 } from "./AgentPlanTarget";
@@ -50,12 +56,21 @@ import type {
  * `previous` is only valid on a member of a loop: it hands the result a member
  * had in the previous iteration to an input. The first iteration has no such
  * result, so the input must then have a default value of its own.
+ *
+ * `stack` reads one of the two data outputs of a stack node: the entry its
+ * newest trigger handed over, or the number of its entries. Reading never
+ * triggers the stack and never consumes an entry.
  */
 export type AgentPlanBinding =
   | { readonly kind: "literal"; readonly value: AgentParameterValue | null }
   | { readonly kind: "source"; readonly nodeId: string }
   | { readonly kind: "result"; readonly stepId: string }
-  | { readonly kind: "previous"; readonly stepId: string };
+  | { readonly kind: "previous"; readonly stepId: string }
+  | {
+      readonly kind: "stack";
+      readonly stackId: string;
+      readonly output: AgentPlanStackOutput;
+    };
 
 export interface AgentPlanPosition {
   readonly x: number;
@@ -113,6 +128,7 @@ export type AgentPlanNode =
   | AgentPlanGroup
   | AgentPlanLoop
   | AgentPlanDecision
+  | AgentPlanStack
   | AgentPlanParameter
   | (AgentPlanPosition & { readonly id: string; readonly type: "end" })
   | (AgentPlanPosition & {
@@ -379,6 +395,8 @@ export interface AgentPlanStepResult {
   readonly trigger?: AgentPlanActivationTrigger;
   /** The earlier starts of the node, oldest first. */
   readonly history?: readonly AgentPlanStepActivation[];
+  /** What a stack node handed over in this start; `entryId: null` when it was used up. */
+  readonly stack?: AgentPlanStackHandover;
 }
 
 /** Only the executor may read this sanitized view or request its stop. */
@@ -414,6 +432,8 @@ export interface AgentPlanRun {
   readonly steps: readonly AgentPlanStepResult[];
   /** The iterations and sessions of the loops of the plan; absent in runs without a loop. */
   readonly loops?: readonly AgentPlanLoopRun[];
+  /** What each stack of the plan handed over so far; absent in runs without a stack. */
+  readonly stacks?: readonly AgentPlanStackRun[];
 }
 
 /** Creates an unsaved plan without guessing a workspace or granting other users access. */

@@ -15,6 +15,7 @@ import { readPlanText } from "./AgentPlanInput";
 import { readPlanSessionRecord } from "./AgentPlanSessionInput";
 import { readAgentObject } from "./AgentPayload";
 import { readPlanScriptRun } from "./AgentPlanScriptRunInput";
+import { readPlanStackHandover } from "./AgentPlanStackRunInput";
 
 import type {
   AgentPlanStepResult,
@@ -56,6 +57,9 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     session: readPlanSessionRecord(step.session),
     ...readStepArtifacts(step),
     ...readPlanActivationFields(step),
+    ...(step.stack === undefined
+      ? {}
+      : { stack: readPlanStackHandover(step.stack) }),
   };
 }
 

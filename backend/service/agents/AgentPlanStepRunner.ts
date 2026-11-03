@@ -53,6 +53,8 @@ import {
   withTurn,
 } from "./AgentPlanSessionRecords";
 
+import { planStackNodeInput } from "./stack/AgentPlanStackInputs";
+
 import type {
   AgentPlanSessionInput,
   PlanExecution,
@@ -84,7 +86,8 @@ interface StepRunnerDependencies {
   readonly start: Pick<AgentPlanStepStart, "prepare"> &
     Partial<Pick<AgentPlanStepStart, "prepareGroup">>;
   readonly execution: PlanExecution;
-  readonly tasks: Pick<AgentPlanTasks, "checklist">;
+  readonly tasks: Pick<AgentPlanTasks, "checklist"> &
+    Partial<Pick<AgentPlanTasks, "snapshot">>;
   readonly access: Pick<AgentPlanSessionAccess, "grant" | "revoke">;
   readonly archive?: Pick<AgentRunArchive, "input">;
   /** Records the PageAgentCLI history and usage of every ACP node. */
@@ -203,6 +206,7 @@ export class AgentPlanStepRunner {
 
   private async execute(node: NodeRun): Promise<Partial<AgentPlanStepResult>> {
     await this.prepareGroup(node);
+    node.step = await planStackNodeInput(node, this.dependencies.tasks);
     const prepared = await this.dependencies.start.prepare(
       node.run,
       node.snapshot,
@@ -510,7 +514,7 @@ export class AgentPlanStepRunner {
     // an agent that receives events keeps its own until the run ends.
     if (!group && node.loop?.policy !== "reuse" && !node.receivesEvents)
       return false;
-    const key = `${node.run.id}/${group?.id ?? node.sessionGroup}`;
+    const key = `${node.run.id}/${node.sessionGroup ?? group?.id}`;
     // Only the newest start of an event agent is kept: it alone holds the current record.
     const nodes = (this.retained.get(key) ?? []).filter(
       (entry) =>
@@ -524,7 +528,9 @@ export class AgentPlanStepRunner {
       ...nodes.map((entry) => entry.step.step.id),
       node.step.step.id,
     ]);
-    if (group?.steps.every((step) => completed.has(step.id))) return false;
+    const isGroupDone = group?.steps.every((step) => completed.has(step.id));
+    // A group inside a loop that reuses sessions keeps its session until the loop ends.
+    if (isGroupDone && node.loop?.policy !== "reuse") return false;
     this.retained.set(key, [...nodes, node]);
     return true;
   }

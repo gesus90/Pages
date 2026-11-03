@@ -154,7 +154,7 @@ it.each<[string, RecordFields]>([
   ],
   [
     "a count outside the allowed runs",
-    { count: { source: "value", effective: 0, mode: "max" } },
+    { count: { source: "value", effective: 1000, mode: "max" } },
   ],
   [
     "an unknown count source",

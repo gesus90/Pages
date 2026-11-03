@@ -4,6 +4,9 @@ import { PagesPicaMobileAuthenticator } from "@/backend/service/mobile/PicaMobil
 import { PagesPicaMobileDashboard } from "@/backend/service/mobile/PicaMobileDashboardService";
 import { PicaMobileGateway } from "@/backend/service/mobile/PicaMobileGateway";
 import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
+import { PagesPicaMobilePlans } from "@/backend/service/mobile/plans/PagesPicaMobilePlans";
+import { PicaMobilePlanRunObserver } from "@/backend/service/mobile/plans/PicaMobilePlanRunObserver";
+import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
 import { PAGES_VERSION } from "@/definition/Version";
 
 import { registerShutdownTask } from "./ProcessLifecycle";
@@ -27,6 +30,7 @@ export function obtainPicaMobileGateway(
   webPort?: number,
 ): PicaMobileGateway {
   if (globalThis.pagesPicaMobileGateway === undefined) {
+    const runs = new PicaMobilePlanRunObserver();
     const gateway = new PicaMobileGateway({
       authenticator: new PagesPicaMobileAuthenticator(
         async () => (await getApplicationServices()).authService,
@@ -50,15 +54,34 @@ export function obtainPicaMobileGateway(
           picaMobileNotifications: services.picaMobileNotifications,
         };
       }),
+      plans: new PagesPicaMobilePlans({
+        resolveServices: async () => {
+          const services = await getApplicationServices();
+
+          return {
+            authService: services.authService,
+            agentPlanOverviewService: services.agentPlanOverviewService,
+          };
+        },
+        observer: runs,
+      }),
       serverVersion: PAGES_VERSION,
       listenAddress: runtime.getConfig().listenAddress,
       reservedPort: webPort,
     });
 
+    const stopObserving = sharedAgentPlanRunObservers().add(runs);
+
     globalThis.pagesPicaMobileGateway = gateway;
-    registerShutdownTask(() => gateway.close(), {
-      step: "pica_mobile_gateway",
-    });
+    registerShutdownTask(
+      async () => {
+        stopObserving();
+        await gateway.close();
+      },
+      {
+        step: "pica_mobile_gateway",
+      },
+    );
   }
 
   return globalThis.pagesPicaMobileGateway;

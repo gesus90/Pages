@@ -9,6 +9,7 @@ import { readAgentObject } from "./AgentPayload";
 import type {
   AgentPlanLoopCondition,
   AgentPlanLoopValue,
+  AgentPlanLoopWhile,
 } from "@/definition/AgentPlanLoop";
 
 function invalid(): AgentError {
@@ -65,4 +66,28 @@ export function readPlanLoopCondition(
     operator: "equals",
     expected: readPlanLoopValue(condition.expected),
   };
+}
+
+/**
+ * Narrows the later checks of a while loop.
+ *
+ * @param input - The stored or submitted setting, or `null` for none.
+ * @throws {AgentError} `plan_loop_invalid` for an unknown field, a too long
+ * member id or an unsupported path. An empty member reads the bound boolean again.
+ */
+export function readPlanLoopWhile(input: unknown): AgentPlanLoopWhile | null {
+  if (input === null) return null;
+  const setting = readAgentObject(input);
+  const { sourceNodeId, outputPath } = setting;
+  if (
+    Object.keys(setting).some(
+      (key) => key !== "sourceNodeId" && key !== "outputPath",
+    ) ||
+    typeof sourceNodeId !== "string" ||
+    sourceNodeId.length > 100 ||
+    typeof outputPath !== "string" ||
+    (outputPath !== "" && parsePlanLoopPath(outputPath) === null)
+  )
+    throw invalid();
+  return { sourceNodeId, outputPath };
 }

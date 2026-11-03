@@ -10,7 +10,11 @@ import type {
   AgentPlanStep,
 } from "./AgentPlan";
 import type { AgentPlanGroup, AgentPlanGroupRefusal } from "./AgentPlanGroup";
-import type { AgentPlanLoop, AgentPlanLoopMember } from "./AgentPlanLoop";
+import type {
+  AgentPlanLoop,
+  AgentPlanLoopContent,
+  AgentPlanLoopMember,
+} from "./AgentPlanLoop";
 
 /** An agent or script node and the frame it belongs to; both `null` outside every frame. */
 export interface PlanNodeLocation {
@@ -46,7 +50,10 @@ export function findPlanLoopMember(
   readonly loop: AgentPlanLoop;
 } | null {
   const loop = planLoopOf(plan, id);
-  const member = loop?.steps.find((step) => step.id === id);
+  const member = loop?.steps.find(
+    (step): step is AgentPlanLoopMember =>
+      step.id === id && step.type !== "group",
+  );
   return loop && member ? { member, loop } : null;
 }
 
@@ -69,6 +76,21 @@ function withoutResultBindings<Node extends AgentPlanLoopMember>(
     node: { ...node, bindings: Object.fromEntries(kept) },
     dropped: entries.length - kept.length,
   };
+}
+
+/** Drops bindings of a loop's content; a group drops those of its agents. */
+function withoutContentBindings(
+  node: AgentPlanLoopContent,
+  isDropped: (binding: AgentPlanBinding) => boolean,
+): { readonly node: AgentPlanLoopContent; readonly dropped: number } {
+  if (node.type !== "group") return withoutResultBindings(node, isDropped);
+  let dropped = 0;
+  const steps = node.steps.map((step) => {
+    const cleaned = withoutResultBindings(step, isDropped);
+    dropped += cleaned.dropped;
+    return cleaned.node;
+  });
+  return { node: { ...node, steps }, dropped };
 }
 
 /**
@@ -95,7 +117,7 @@ function leaveLoop<Plan extends AgentPlanInput>(
   const steps = loop.steps
     .filter((step) => step.id !== member.id)
     .map((step) => {
-      const cleaned = withoutResultBindings(
+      const cleaned = withoutContentBindings(
         step,
         (binding) =>
           isResultBinding(binding) &&
@@ -178,9 +200,25 @@ export function findPlanNodeLocation(
       if (step) return { node: step, group: node, loop: null };
     }
     if (node.type === "loop") {
-      const member = node.steps.find((entry) => entry.id === id);
-      if (member) return { node: member, group: null, loop: node };
+      const found = loopLocation(node, id);
+      if (found) return found;
     }
+  }
+  return null;
+}
+
+/** The location of a member of a loop, an agent of a group inside it included. */
+function loopLocation(
+  loop: AgentPlanLoop,
+  id: string,
+): PlanNodeLocation | null {
+  for (const member of loop.steps) {
+    if (member.type !== "group") {
+      if (member.id === id) return { node: member, group: null, loop };
+      continue;
+    }
+    const step = member.steps.find((entry) => entry.id === id);
+    if (step) return { node: step, group: member, loop };
   }
   return null;
 }
@@ -279,6 +317,8 @@ export function placePlanLoopNode<Plan extends AgentPlanInput>(
 ): PlanFrameMove<Plan> | AgentPlanGroupRefusal {
   const found = findPlanNodeLocation(plan, placement.nodeId);
   if (!found) return "missingAgent";
+  // An agent of a group inside a loop moves with its group, never alone.
+  if (found.loop && found.group) return "nestedGroup";
   const target = plan.nodes.find(
     (node): node is AgentPlanLoop =>
       node.type === "loop" && node.id === placement.loopId,
@@ -315,7 +355,7 @@ export function placePlanLoopNode<Plan extends AgentPlanInput>(
 export function ungroupPlanLoop<Plan extends AgentPlanInput>(
   plan: Plan,
   loopId: string,
-  positionOf: (member: AgentPlanLoopMember) => AgentPlanPosition,
+  positionOf: (member: AgentPlanLoopContent) => AgentPlanPosition,
 ): PlanFrameMove<Plan> {
   const loop = plan.nodes.find(
     (node): node is AgentPlanLoop => node.type === "loop" && node.id === loopId,
@@ -323,7 +363,7 @@ export function ungroupPlanLoop<Plan extends AgentPlanInput>(
   if (!loop) return { plan, removedEdges: 0, removedBindings: 0 };
   let removedBindings = 0;
   const members = loop.steps.map((member) => {
-    const cleaned = withoutResultBindings(
+    const cleaned = withoutContentBindings(
       member,
       (binding) => binding.kind === "previous",
     );
@@ -350,22 +390,27 @@ export function ungroupPlanLoop<Plan extends AgentPlanInput>(
   };
 }
 
-/** Replaces a member of a loop by its ID. */
+/** Replaces a member of a loop by its ID: a direct member, a group, or an agent of a group in it. */
 export function replaceLoopMember<Plan extends AgentPlanInput>(
   plan: Plan,
-  replacement: AgentPlanLoopMember,
+  replacement: AgentPlanLoopContent,
 ): Plan {
+  function replaced(step: AgentPlanLoopContent): AgentPlanLoopContent {
+    if (step.id === replacement.id) return replacement;
+    if (step.type !== "group" || replacement.type !== "agent") return step;
+    return {
+      ...step,
+      steps: step.steps.map((entry) =>
+        entry.id === replacement.id ? replacement : entry,
+      ),
+    };
+  }
   return {
     ...plan,
     nodes: plan.nodes.map((node) =>
       node.type === "loop" &&
-      node.steps.some((step) => step.id === replacement.id)
-        ? {
-            ...node,
-            steps: node.steps.map((step) =>
-              step.id === replacement.id ? replacement : step,
-            ),
-          }
+      planLoopOf({ ...plan, nodes: [node] }, replacement.id) !== undefined
+        ? { ...node, steps: node.steps.map(replaced) }
         : node,
     ),
   };

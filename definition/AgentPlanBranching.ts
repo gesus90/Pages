@@ -108,12 +108,20 @@ export function planOrderEdges(
     : edges;
 }
 
-/** Whether the plan has a decision, a boolean result in use or an event connection. */
+/**
+ * Whether the plan has a decision, a stack, a boolean result in use or an event connection.
+ *
+ * @remarks
+ * A stack belongs here because a used-up stack activates nothing behind its
+ * flow output, like the branch a decision did not take.
+ */
 export function hasPlanBranching(
   plan: Pick<AgentPlanInput, "nodes" | "edges">,
 ): boolean {
   return (
-    plan.nodes.some((node) => node.type === "decision") ||
+    plan.nodes.some(
+      (node) => node.type === "decision" || node.type === "stack",
+    ) ||
     plan.edges.some((edge) => {
       const kind = planEdgeKind(edge);
       return kind === "condition" || kind === "event";

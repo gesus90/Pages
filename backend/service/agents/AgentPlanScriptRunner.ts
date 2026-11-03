@@ -4,6 +4,7 @@ import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { executeScriptProcess } from "./AgentPlanScriptProcess";
+import { planStackScriptInput } from "./stack/AgentPlanStackInputs";
 import { scriptInputJson } from "./AgentPlanScriptInputs";
 import { assessPlanScriptResult } from "./AgentPlanScriptResult";
 import {
@@ -43,6 +44,12 @@ export class AgentPlanScriptRunner {
   ): Promise<Partial<AgentPlanStepResult>> {
     let record: AgentPlanScriptRun | undefined;
     try {
+      script = await planStackScriptInput(script, {
+        plan: snapshot.plan,
+        run,
+        readTask: (taskId) =>
+          this.preparation.readTask(run.userId, snapshot.plan, taskId),
+      });
       const input = scriptInputJson(run, script);
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
       control.signal.throwIfAborted();

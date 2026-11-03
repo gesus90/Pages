@@ -33,6 +33,8 @@ export function planPortLayout(
     result?.passed ?? null,
     result?.trigger?.sources.length ?? 0,
     result?.condition !== undefined,
+    node.type === "stack" ? node.entries.length : null,
+    node.type === "loop" ? [node.mode ?? "count", node.runsSource] : null,
   ]);
 }
 

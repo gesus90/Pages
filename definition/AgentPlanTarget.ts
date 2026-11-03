@@ -1,4 +1,5 @@
 import { runnerToolFor } from "./RunnerExecution";
+import { mapPlanLoopMembers, planLoopMembers } from "./AgentPlanLoop";
 
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution";
 import type { AgentPlanInput, AgentPlanStep } from "./AgentPlan";
@@ -93,10 +94,7 @@ export function withInheritedPlanTarget<Plan extends AgentPlanInput>(
           steps: node.steps.map((step) => inherited(step, target)),
         };
       if (node.type === "loop")
-        return {
-          ...node,
-          steps: node.steps.map((step) => inherited(step, target)),
-        };
+        return mapPlanLoopMembers(node, (step) => inherited(step, target));
       return node;
     }),
   };
@@ -115,7 +113,8 @@ export function planTargetDeviations(
 ): readonly (AgentPlanStep | AgentPlanScript)[] {
   return plan.nodes
     .flatMap<AgentPlanStep | AgentPlanScript>((node) => {
-      if (node.type === "group" || node.type === "loop") return node.steps;
+      if (node.type === "group") return node.steps;
+      if (node.type === "loop") return planLoopMembers(node);
       return node.type === "agent" || node.type === "script" ? [node] : [];
     })
     .filter(
@@ -148,8 +147,7 @@ export function withPlanTargetFollowed<Plan extends AgentPlanInput>(
       if (node.type === "agent" || node.type === "script") return follow(node);
       if (node.type === "group")
         return { ...node, steps: node.steps.map(follow) };
-      if (node.type === "loop")
-        return { ...node, steps: node.steps.map(follow) };
+      if (node.type === "loop") return mapPlanLoopMembers(node, follow);
       return node;
     }),
   };
@@ -319,7 +317,7 @@ export function planTargetIssues(
 ): readonly AgentPlanTargetIssue[] {
   return plan.nodes.flatMap((node): AgentPlanTargetIssue[] => {
     if (node.type === "group" || node.type === "loop")
-      return node.steps
+      return (node.type === "group" ? node.steps : planLoopMembers(node))
         .filter((step) => effectivePlanTarget(step, plan).kind === "remote")
         .map((step): AgentPlanTargetIssue => ({
           nodeId: step.id,
