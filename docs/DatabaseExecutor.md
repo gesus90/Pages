@@ -69,6 +69,7 @@ All numbers live in `DATABASE_EXECUTOR_LIMITS`
 | Limit                                           | Value                               | Reason                                                                            |
 | ----------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
 | Reader connections                              | 2                                   | Writer plus two readers occupy three of the worker's four libuv threads.          |
+| DuckDB `memory_limit` of the worker             | 6 GB                                | See below; DuckDB's default is 80 % of the RAM.                                   |
 | Reads in flight to the worker                   | 4                                   | More wait in the server's reader lane.                                            |
 | Waiting reads                                   | 512                                 | Then new reads are refused.                                                       |
 | Waiting writer jobs                             | 256                                 | Then new writes are refused.                                                      |
@@ -82,6 +83,17 @@ All numbers live in `DATABASE_EXECUTOR_LIMITS`
 | Worker exit after close                         | 5 s                                 | Then the worker is killed; it ignores stop signals and leaves them to the server. |
 | Restarts after unexpected exits                 | 3 within 10 min, delay 1 s doubling | Then the executor stays `failed`.                                                 |
 | `/health` database probe                        | 3 s                                 | Unchanged contract.                                                               |
+
+The worker opens the database file with `memory_limit` set to
+`DATABASE_EXECUTOR_LIMITS.memoryLimit` (PAGE-202), also when it opens the file
+again after a WAL replay; the in-memory instance of that replay keeps DuckDB's
+default. Without the limit DuckDB may use 80 % of the RAM: during the OOM of
+2026-11-03 the worker held about 10 GB of the 22 GB server and the swap was
+full. 6 GB leaves the server, the agent workers and the system enough room on
+that machine. It is a start value, not a setting: it is adjusted in the code
+after the worker's memory has been measured under agent load. A statement that
+needs more fails with DuckDB's out-of-memory error like any other DuckDB error
+of that statement; the worker, its connections and both lanes go on.
 
 Both lanes start jobs strictly first-in-first-out, whatever their class
 (`request`, `background`, `recurring`, see `DatabaseWorkContext.ts`), so no

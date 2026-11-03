@@ -29,6 +29,8 @@ export interface WorkerConfiguration {
   readonly databasePath: string;
   /** Number of reading connections next to the writer. */
   readonly readerConnections: number;
+  /** DuckDB `memory_limit` of the instance, such as `6GB`. */
+  readonly memoryLimit: string;
   /** Largest estimated size of one result, in bytes. */
   readonly maximumResultBytes: number;
 }

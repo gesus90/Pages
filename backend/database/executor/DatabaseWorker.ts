@@ -125,20 +125,23 @@ function toWireError(error: unknown): WireError {
  * the main database loads. Attached to an in-memory instance the same log
  * replays; a checkpoint then writes it into the file, and the file opens.
  */
-async function openInstance(databasePath: string): Promise<{
+async function openInstance(configuration: WorkerConfiguration): Promise<{
   readonly instance: DuckDBInstance;
   readonly walReplayed: boolean;
 }> {
+  const { databasePath } = configuration;
+  // Without it DuckDB may take 80 % of the RAM (PAGE-202).
+  const options = { memory_limit: configuration.memoryLimit };
   try {
     return {
-      instance: await DuckDBInstance.create(databasePath),
+      instance: await DuckDBInstance.create(databasePath, options),
       walReplayed: false,
     };
   } catch (error: unknown) {
     if (!String(error).includes(WAL_REPLAY_FAILURE)) throw error;
     await replayWriteAheadLog(databasePath);
     return {
-      instance: await DuckDBInstance.create(databasePath),
+      instance: await DuckDBInstance.create(databasePath, options),
       walReplayed: true,
     };
   }
@@ -170,9 +173,7 @@ async function openConnection(
 
 async function openDatabase(configuration: WorkerConfiguration): Promise<void> {
   try {
-    const { instance, walReplayed } = await openInstance(
-      configuration.databasePath,
-    );
+    const { instance, walReplayed } = await openInstance(configuration);
     const writer = await openConnection(instance);
     const readers: DuckDBConnection[] = [];
     // One after the other: the setup re-creates the macros in the catalog.

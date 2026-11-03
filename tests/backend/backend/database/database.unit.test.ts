@@ -7,6 +7,7 @@ import {
   IN_MEMORY_DATABASE_PATH,
   isUniqueViolationOn,
 } from "@/backend/database/Database";
+import { DATABASE_EXECUTOR_LIMITS } from "@/backend/database/executor/DatabaseExecutorLimits";
 import { withReadScope } from "@/backend/database/ReadScope";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
@@ -36,6 +37,8 @@ interface EngineState {
   openFailures: Error[];
   /** Paths a worker was started for, in call order. */
   openedPaths: string[];
+  /** DuckDB memory limits a worker was started with, in call order. */
+  openedMemoryLimits: string[];
   /** Workers that were closed, in call order. */
   released: string[];
   /** What the executor asked the worker client at its close, in call order. */
@@ -52,6 +55,7 @@ const engine = vi.hoisted((): EngineState => ({
   closeFailure: null,
   closeSteps: [],
   failingFragment: null,
+  openedMemoryLimits: [],
   openedPaths: [],
   openFailures: [],
   released: [],
@@ -84,6 +88,7 @@ vi.mock(
         configuration: WorkerConfiguration,
       ): Promise<FakeWorkerClient> {
         engine.openedPaths.push(configuration.databasePath);
+        engine.openedMemoryLimits.push(configuration.memoryLimit);
 
         const failure = engine.openFailures.shift();
 
@@ -164,6 +169,7 @@ beforeEach(() => {
   engine.failingFragment = null;
   engine.openFailures = [];
   engine.openedPaths = [];
+  engine.openedMemoryLimits = [];
   engine.released = [];
   engine.closeSteps = [];
   engine.statusFailure = null;
@@ -206,6 +212,9 @@ it("creates the directory of a database file before the worker opens it", async 
 
   expect(mkdir).toHaveBeenCalledWith("/srv/pages/data", { recursive: true });
   expect(engine.openedPaths).toEqual(["/srv/pages/data/pages.duckdb"]);
+  expect(engine.openedMemoryLimits).toEqual([
+    DATABASE_EXECUTOR_LIMITS.memoryLimit,
+  ]);
 });
 
 it("applies unseen migrations in name order, one transaction each, then checkpoints", async () => {

@@ -12,6 +12,13 @@ export const DATABASE_EXECUTOR_LIMITS = {
    * plus two readers leave one thread for the worker's own file access.
    */
   readerConnections: 2,
+  /**
+   * Largest memory the DuckDB instance of the worker may use (PAGE-202).
+   * DuckDB's default of 80 % of the RAM let the worker take about 10 GB of
+   * the 22 GB server during the OOM of 2026-11-03. A start value, adjusted
+   * after measurement; a query beyond it fails on its own.
+   */
+  memoryLimit: "6GB",
   /** Reads the server keeps in flight to the worker; more wait in the server. */
   readsInFlight: 4,
   /** Reads that may wait in the server before new ones are refused. */

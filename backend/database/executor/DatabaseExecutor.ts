@@ -173,6 +173,7 @@ export class DatabaseExecutor {
     const client = await DatabaseWorkerClient.start({
       databasePath,
       readerConnections: DATABASE_EXECUTOR_LIMITS.readerConnections,
+      memoryLimit: DATABASE_EXECUTOR_LIMITS.memoryLimit,
       maximumResultBytes: DATABASE_EXECUTOR_LIMITS.maximumResultBytes,
     });
     return new DatabaseExecutor(client, onInvalidated);
