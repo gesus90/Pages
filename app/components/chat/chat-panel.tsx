@@ -1,3 +1,4 @@
+import { ChatBrowserPanel } from "./browser/chat-browser-panel";
 import { ChatComposer } from "./chat-composer";
 import { ChatDropArea } from "./chat-drop-area";
 import { ChatHeader } from "./chat-header";
@@ -62,6 +63,7 @@ export function ChatPanel({
       ) : (
         <ChatMessageList chat={chat} isOpen={isOpen} />
       )}
+      <ChatBrowserPanel isOpen={isOpen} />
       <ChatPasswordReceipts
         receipts={chat.temporaryPasswords}
         onDismiss={chat.dismissTemporaryPasswords}

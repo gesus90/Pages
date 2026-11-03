@@ -30,9 +30,7 @@ export interface PicaMobileNotificationServices {
  * recipient of a registration is that account and the binding is that
  * session; neither comes from the message.
  */
-export class PagesPicaMobileNotifications
-  implements PicaMobileNotificationProvider
-{
+export class PagesPicaMobileNotifications implements PicaMobileNotificationProvider {
   private readonly resolveServices: () => Promise<PicaMobileNotificationServices>;
 
   /**
@@ -49,7 +47,9 @@ export class PagesPicaMobileNotifications
 
   /** Tells whether Pages has a usable FCM sender. */
   public async isPushAvailable(): Promise<boolean> {
-    return (await this.resolveServices()).picaMobileNotifications.isPushAvailable();
+    return (
+      await this.resolveServices()
+    ).picaMobileNotifications.isPushAvailable();
   }
 
   /** Registers a device for the account of the session. */

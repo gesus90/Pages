@@ -4,7 +4,8 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { defaultAgentRunOptions } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
-import { isPicaModel, isPicaZenModel } from "@/definition/PicaModelSelection";
+import { consumerModels } from "@/definition/AgentModelConsumers";
+import { isPicaZenModel } from "@/definition/PicaModelSelection";
 
 import {
   resolveAgentAssignment,
@@ -116,9 +117,10 @@ export class PicaSettingsService {
     const viewer = await this.viewer(userId);
     requireAgentAdministrator(viewer.actor);
     const settings = await this.read();
-    const models = (
-      await connectionModels(this.dependencies.connections, viewer)
-    ).filter(isPicaModel);
+    const models = consumerModels(
+      "pica",
+      await connectionModels(this.dependencies.connections, viewer),
+    );
     const adoption = await picaSelectionAdoption(
       this.dependencies.connections,
       settings.selection,

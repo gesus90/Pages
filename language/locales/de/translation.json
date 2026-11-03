@@ -1381,7 +1381,6 @@
         }
       },
       "cliLocations": "Installierte CLI-Werkzeuge und Einrichtung",
-      "openCodeZen": "OpenCode Zen",
       "freeBadge": "Kostenlos",
       "openCodeFreeGroup": "opencode · Kostenlos",
       "openCodeProviders": "Provider über die Schlüssel in Pages",
@@ -3440,6 +3439,53 @@
       "encrypted": "{{name}}: nicht übertragen – die Datei ist mit einem Passwort geschützt",
       "noText": "{{name}}: nicht übertragen – die Datei enthält keinen lesbaren Text (z. B. ein Scan)"
     },
+    "browser": {
+      "options": "Optionen, gespeicherte Sitzungen und Downloads",
+      "label": "Browser von Pica",
+      "address": "Adresse",
+      "blank": "Leere Seite",
+      "stage": "Live-Ansicht des Browsers bei {{url}}",
+      "stageControl": "Live-Ansicht des Browsers bei {{url}}. Du hast die Steuerung: Hier klicken, scrollen und tippen.",
+      "loading": "Live-Ansicht wird geladen …",
+      "state": {
+        "running": "Pica arbeitet",
+        "paused": "Pausiert",
+        "takeover": "Du hast die Steuerung",
+        "stopped": "Gestoppt"
+      },
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "takeover": "Übernehmen",
+      "handback": "An Pica zurückgeben",
+      "stop": "Stoppen",
+      "enlarge": "Browseransicht vergrößern",
+      "enlargedDescription": "Vergrößerte Live-Ansicht von Picas Browser mit seiner Steuerung.",
+      "expand": "Browser anzeigen",
+      "collapse": "Browser ausblenden",
+      "actions": "Aktionen im Browser",
+      "noActions": "Noch keine Aktionen.",
+      "byPica": "Pica",
+      "byYou": "Du",
+      "handoverAsked": "Pica bittet dich um die Übernahme: {{reason}} Klicke in das Bild und tippe dort – was du tippst, geht an die Seite, nie an Pica. Danach „An Pica zurückgeben“ wählen.",
+      "takeoverHint": "Du hast die Steuerung. Klicke in das Bild und tippe dort – was du tippst, geht an die Seite, nie an Pica. Danach „An Pica zurückgeben“ wählen.",
+      "stoppedHint": "Der Browser wurde gestoppt und geschlossen.",
+      "approveWrites": "Pica darf Änderungen (Formulare, Schaltflächen) in dieser Pages-Instanz und freigegebenen lokalen Diensten vornehmen",
+      "sessionName": "Name für die angemeldete Sitzung",
+      "saveSession": "Sitzung speichern",
+      "savedSessions": "Gespeicherte Sitzungen",
+      "deleteSession": "Gespeicherte Sitzung {{name}} löschen",
+      "downloads": "Heruntergeladene Dateien",
+      "errors": {
+        "ADMIN_REQUIRED": "Das Administratorrecht fehlt oder wurde entzogen.",
+        "SESSION_DENIED": "Dieser Browser ist nicht mehr verfügbar.",
+        "NOT_IN_TAKEOVER": "Übernimm den Browser zuerst.",
+        "URL_DENIED": "Diese Adresse ist nicht erlaubt.",
+        "SESSIONS_UNAVAILABLE": "Gespeicherte Sitzungen sind auf diesem Server nicht verfügbar.",
+        "RESOURCE_LIMIT": "Zu viele gespeicherte Sitzungen oder die Sitzung ist zu groß.",
+        "NETWORK": "Der Server ist nicht erreichbar.",
+        "BROWSER_FAILED": "Der Browser konnte das nicht ausführen."
+      }
+    },
     "privileged": {
       "label": "Administrator-Aktionen",
       "heading": "Administrator-Aktionen von Pica",
@@ -3459,6 +3505,21 @@
         "CANCELLED": "abgebrochen",
         "STEP_LIMIT": "Ausführungslimit erreicht",
         "RETRY_REFUSED": "nicht wiederholt",
+        "STOPPED_BY_ADMIN": "von dir gestoppt",
+        "PAUSED_BY_ADMIN": "wartet – du hast den Browser pausiert",
+        "ADMIN_HAS_CONTROL": "wartet – du hast die Steuerung",
+        "URL_DENIED": "Adresse nicht erlaubt",
+        "CREDENTIAL_DENIED": "Zugangsdaten tippt Pica nie selbst",
+        "LOCAL_WRITE_NOT_APPROVED": "Änderungen an lokalen Diensten nicht freigegeben",
+        "STALE_REF": "Seite hat sich inzwischen geändert",
+        "ELEMENT_NOT_ACTIONABLE": "Element nicht nutzbar",
+        "ACTION_TIMEOUT": "dauerte zu lange",
+        "NAVIGATION_FAILED": "Seite konnte nicht geladen werden",
+        "SESSION_DENIED": "Browser nicht verfügbar",
+        "SESSION_NOT_FOUND": "gespeicherte Sitzung nicht gefunden",
+        "RESOURCE_LIMIT": "Limit erreicht",
+        "BROWSER_CLOSED": "Browser geschlossen",
+        "ISOLATION_UNAVAILABLE": "isolierter Browser auf diesem Server nicht verfügbar",
         "FAILED": "fehlgeschlagen"
       }
     },
@@ -5626,7 +5687,11 @@
       "hintChoose": "↵ wählen",
       "hintClose": "Esc schließen",
       "noMatch": "Kein Modell passt zu „{{query}}“.",
-      "noModels": "Für dieses Ausführungsziel ist kein Modell freigegeben."
+      "noModels": "Für dieses Ausführungsziel ist kein Modell freigegeben.",
+      "catalog": {
+        "refreshing": "Katalog wird aktualisiert …",
+        "failed": "Katalog konnte nicht aktualisiert werden. Angezeigt wird der zuletzt geladene Stand."
+      }
     }
   },
   "mcpDuration": {
@@ -5925,18 +5990,17 @@
   "picaSettings": {
     "title": "Pica · Chat-Assistent",
     "description": "Der feste Chat-Assistent dieser Pages-Instanz.",
+    "target": "Ausführungsziel",
+    "targetLocal": "Lokal · Pages-Host",
     "enable": "Pica aktivieren",
     "off": "Aus",
     "on": "An",
     "apiAdoption": "Das gespeicherte API-Modell ist über opencode als {{model}} mit derselben Stufe verfügbar. Bitte die Übernahme mit Speichern bestätigen. Bis dahin wird kein anderes Modell eingesetzt.",
     "chooseModel": "Modell auswählen …",
-    "searchModels": "Modell, Anbieter oder Zugang suchen",
-    "noModels": "Kein Modell, Anbieter oder Zugang passt zur Suche.",
     "saved": "Pica-Einstellungen gespeichert.",
     "stopHint": "Ausschalten oder ein Wechsel von Modell, Zugang oder Reasoning stoppt laufende Pica-Antworten kontrolliert. Chats bleiben erhalten. Agent Plans laufen unabhängig weiter. Andere geöffnete Ansichten übernehmen die Änderung beim nächsten Fokus oder innerhalb von 30 Sekunden.",
     "unavailable": "Gespeicherte Pica-Auswahl prüfen:",
     "effortReset": "Die bisherige Reasoning-Stufe wird vom neuen Modell nicht unterstützt. Die Auswahl steht jetzt auf Standard; bitte vor dem Speichern prüfen.",
-    "manual": "manuelle Modell-ID",
     "retired": "Agents werden direkt im Plan mit einem freigegebenen Modell konfiguriert. Bestehende Vorlagen und Verläufe bleiben erhalten.",
     "unsupportedEffort": "Nicht unterstützt – Auswahl korrigieren",
     "aliasResolved": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); beim Speichern wird diese konkrete Version hinterlegt.",

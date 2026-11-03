@@ -2254,6 +2254,21 @@ trustedProxies = ["127.0.0.1", "::1"] # addresses or ranges such as "172.18.0.0/
 - Without `trustedProxies`, no proxy is trusted and nothing changes for an
   installation that is reached directly or without TLS in front.
 
+### Local services for Pica's operator browser
+
+Pica's visual operator browser ([PicaOperatorBrowser](docs/PicaOperatorBrowser.md))
+reaches public HTTPS sites and this Pages instance. A local service it may
+also test has to be released by exact origin in `config.toml` (a manual edit
+that applies after a restart):
+
+```toml
+picaBrowserLocalOrigins = ["http://127.0.0.1:8080"] # scheme, host and port, no path
+```
+
+An invalid entry makes the server exit with code 1 at the start, like any other
+invalid key. Without the key only this instance and the public internet are
+reachable.
+
 ### Data and runtime directories
 
 ```text
@@ -2268,6 +2283,7 @@ trustedProxies = ["127.0.0.1", "::1"] # addresses or ranges such as "172.18.0.0/
     ├── assets/               ticket attachments: <ticket-uuid>/<attachment-uuid>.<extension>
     ├── ticket-attachments/   legacy ticket files until the offline migration
     ├── themes/               design themes, one directory each (optional)
+    ├── pica-browser-sessions/ saved signed-in sessions of Pica's operator browser, encrypted
     └── agents/               isolated logins of CLI model connections
 ```
 

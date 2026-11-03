@@ -66,6 +66,8 @@ export class PicaMobilePushTokenVault {
    * @returns A hexadecimal digest that is equal for equal tokens only.
    */
   public fingerprint(token: string): string {
-    return createHmac("sha256", this.fingerprintKey).update(token).digest("hex");
+    return createHmac("sha256", this.fingerprintKey)
+      .update(token)
+      .digest("hex");
   }
 }

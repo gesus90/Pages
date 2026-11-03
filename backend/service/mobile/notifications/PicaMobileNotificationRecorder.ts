@@ -338,7 +338,8 @@ export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
         }
 
         await sleep(
-          this.options.retryDelayMilliseconds ?? DEFAULT_RETRY_DELAY_MILLISECONDS,
+          this.options.retryDelayMilliseconds ??
+            DEFAULT_RETRY_DELAY_MILLISECONDS,
         );
       }
     }
@@ -371,7 +372,10 @@ export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
 
   private async recordEnding(
     identity: RunIdentity,
-    outcome: { readonly ending: AgentPlanRunEnding; readonly reason: string | null },
+    outcome: {
+      readonly ending: AgentPlanRunEnding;
+      readonly reason: string | null;
+    },
     observedAt: Date,
   ): Promise<void> {
     const access = await this.authorize(identity);

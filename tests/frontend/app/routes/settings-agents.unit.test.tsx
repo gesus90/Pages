@@ -1,6 +1,8 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { planPollingEtag } from "@/app/lib/agent-plan-poll-response.server";
+
 import { readAgentAccount } from "@/app/lib/settings-actions/settings-agents-access.server";
 import { handleAgentsAction } from "@/app/lib/settings-actions/settings-agents-actions.server";
 import SettingsAgentsRoute, {
@@ -127,6 +129,10 @@ it("loads the management data and links OpenCode to its keys", async () => {
     catalogs: {},
     profileDirectory: { groups: [] },
     pica: { settings: {}, models: [] },
+    picaCatalogRefresh: {
+      url: "/settings-api/pica-models",
+      etag: planPollingEtag({ settings: {}, models: [] }),
+    },
   });
   expect(result.init).toMatchObject({
     headers: { "Cache-Control": "no-store" },

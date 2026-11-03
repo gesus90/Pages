@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ModelPicker } from "@/app/components/agents/model-picker";
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -11,8 +12,6 @@ import {
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { isAgentParameterName } from "@/definition/AgentParameters";
-
-import { planModelDisplay } from "./plan-model-option";
 
 import type { AgentPlanSources } from "@/definition/AgentPlan";
 import type { PlanPaletteRequest } from "./use-plan-node-palette";
@@ -147,24 +146,12 @@ function PaletteReference(props: {
     );
   if (props.kind === "agent")
     return (
-      <Select
-        ariaLabel={t("plans.palette.chooseAgent")}
+      <ModelPicker
         value={props.reference}
-        onValueChange={props.onChange}
+        models={props.sources.models ?? []}
         disabled={props.disabled}
-        className="w-full min-w-0 [&>span]:truncate"
-        options={[
-          { value: "", label: t("plans.palette.chooseAgent") },
-          ...(props.sources.models ?? []).map((model) => {
-            const display = planModelDisplay(model, t);
-            return {
-              value: model.id,
-              label: display.label,
-              icon: display.icon,
-              description: `${t(`settings.agents.provider.${model.provider}`)}${model.isManual ? ` · ${t("picaSettings.manual")}` : ""}${display.free}`,
-            };
-          }),
-        ]}
+        placeholder={t("plans.palette.chooseAgent")}
+        onChange={props.onChange}
       />
     );
   return (

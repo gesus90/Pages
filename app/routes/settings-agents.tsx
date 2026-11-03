@@ -8,6 +8,7 @@ import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
 import { RunnerConnectionsCard } from "@/app/components/settings/agents/runner-connections-card";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
+import { picaCatalogRefresh } from "@/app/lib/pica-catalog.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
 import { readAgentAccount } from "@/app/lib/settings-actions/settings-agents-access.server";
@@ -18,6 +19,7 @@ import {
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { ModelCatalogRefresh } from "@/app/components/agents/model-picker/use-model-catalog-refresh";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
 import type {
@@ -43,6 +45,7 @@ type AgentsLoaderData =
         readonly settings: PicaAdministration;
         readonly models: readonly PageAgentModel[];
       };
+      readonly picaCatalogRefresh: ModelCatalogRefresh;
     };
 
 /**
@@ -104,6 +107,7 @@ export async function loader({
         catalogs,
         profileDirectory,
         pica,
+        picaCatalogRefresh: picaCatalogRefresh(pica),
       },
       { headers: AGENT_NO_STORE },
     );
@@ -148,6 +152,7 @@ export default function SettingsAgentsRoute(): React.ReactElement {
       <PicaSettingsCard
         settings={result.pica.settings}
         models={result.pica.models}
+        catalogRefresh={result.picaCatalogRefresh}
       />
       <Link
         className="inline-flex rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-primary-text hover:bg-surface-hover"

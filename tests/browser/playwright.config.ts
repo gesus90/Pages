@@ -2,11 +2,7 @@ import path from "node:path";
 
 import { defineConfig } from "@playwright/test";
 
-import { INSTANCE_ORIGIN } from "./support/paths";
-
-const RESULTS =
-  process.env.PAGES_BROWSER_RESULTS ??
-  path.join(import.meta.dirname, "results");
+import { INSTANCE_ORIGIN, RESULTS_DIRECTORY as RESULTS } from "./support/paths";
 
 const DESKTOP = { height: 900, width: 1440 };
 const MOBILE = { height: 844, width: 390 };

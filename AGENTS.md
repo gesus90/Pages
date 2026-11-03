@@ -224,6 +224,33 @@ non-test gates; neither demonstrates functional coverage.
 - Keep future Pages scripts, discovery, setup, coverage and watch mode scoped to
   Pages. Do not add a root test aggregator or forwarding command for MCP.
 
+### QA gates without a person at the terminal
+
+Gates run unattended, so their setup and evidence are tools, not instructions:
+
+- `node scripts/qa-evidence.mjs preflight --scope pages|mcp --install` repairs
+  stale or missing modules from the frozen lockfile. `pnpm run` refuses stale
+  modules (`verifyDepsBeforeRun: error`) instead of purging them in a gate.
+- `node scripts/qa-evidence.mjs fingerprint --scope pages|mcp [--manifest <file>]`
+  is the one source fingerprint. `pages` includes `mcp/src/` and
+  `mcp/package.json`, because Pages imports them; a change there makes the evidence
+  of both QA steps stale.
+- `node scripts/qa-evidence.mjs coverage --scope pages|mcp --summary <file> [--gaps <file>]`
+  compares raw counters per metric and file and refuses a summary older than the
+  source. It reports; the percentage goal of a run comes from its assignment, and
+  this chapter still sets no mandatory percentage.
+- `node scripts/qa-evidence.mjs verify-handoff --scope pages|mcp --file <report>`
+  decides whether a QA report releases a Git step: status, report, current
+  fingerprint and raw counters of every scope. Everything else blocks.
+- `pnpm run browser:test` provides a Chromium that starts and a free loopback port
+  and writes its reports outside the checkout. Run the two unit suites one after
+  the other: under parallel load, individual Frontend tests exceed their 5 s limit.
+
+Generated output never belongs into a source path. The lint population does not
+depend on Git: only the pruned directories of `scripts/run-lint.mjs` and the
+`ignores` of `eslint.config.js` name generated output, explicitly. Never delete
+preserved reports to pass a gate.
+
 ---
 
 ## 10. Generated and Local Files

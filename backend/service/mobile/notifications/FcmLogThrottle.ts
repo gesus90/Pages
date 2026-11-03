@@ -20,7 +20,10 @@ export class FcmLogThrottle {
    * @param now - Clock in milliseconds.
    * @param intervalMs - Minimum time between two lines with the same key.
    */
-  public constructor(now: () => number, intervalMs: number = DEFAULT_INTERVAL_MS) {
+  public constructor(
+    now: () => number,
+    intervalMs: number = DEFAULT_INTERVAL_MS,
+  ) {
     this.now = now;
     this.intervalMs = intervalMs;
   }
@@ -36,11 +39,18 @@ export class FcmLogThrottle {
     const lastMs = this.lastAllowedAtMs.get(key);
 
     // A clock that stepped backwards must not silence the line until it catches up.
-    if (lastMs !== undefined && nowMs >= lastMs && nowMs - lastMs < this.intervalMs) {
+    if (
+      lastMs !== undefined &&
+      nowMs >= lastMs &&
+      nowMs - lastMs < this.intervalMs
+    ) {
       return false;
     }
 
-    if (!this.lastAllowedAtMs.has(key) && this.lastAllowedAtMs.size >= MAXIMUM_TRACKED_KEYS) {
+    if (
+      !this.lastAllowedAtMs.has(key) &&
+      this.lastAllowedAtMs.size >= MAXIMUM_TRACKED_KEYS
+    ) {
       this.lastAllowedAtMs.clear();
     }
 

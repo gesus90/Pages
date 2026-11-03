@@ -7,16 +7,18 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { PICA_MOBILE_PATH } from "@/definition/PicaMobile";
-import { PICA_MOBILE_MAXIMUM_MESSAGE_BYTES } from "@/definition/PicaMobileProtocol";
+import { PICA_MOBILE_MAXIMUM_CHAT_SEND_BYTES } from "@/definition/PicaMobileProtocol";
 
+import { PicaMobileChatFiles } from "./chat/PicaMobileChatFiles";
 import { PicaMobileConnection } from "./PicaMobileConnection";
 
-import type { IncomingMessage, Server } from "node:http";
+import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import type { Duplex } from "node:stream";
 import type { RawData, WebSocket } from "ws";
 import type { PicaMobilePortError } from "@/definition/PicaMobile";
 import type { PicaMobileAuthenticator } from "./PicaMobileAuthenticator";
 import type { PicaMobileDashboardProvider } from "./PicaMobileDashboardProvider";
+import type { PicaMobileChatProvider } from "./chat/PicaMobileChatProvider";
 import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
 import type { PicaMobilePlansProvider } from "./plans/PicaMobilePlansProvider";
 
@@ -29,6 +31,11 @@ export interface PicaMobileGatewayOptions {
   readonly notifications?: PicaMobileNotificationProvider;
   /** Answers the plan messages of connections; without it `plans.v1` is not announced. */
   readonly plans?: PicaMobilePlansProvider;
+  /**
+   * Answers the chat requests and the attachment endpoints; without it
+   * `chat.v1` is not announced and the endpoints answer 426.
+   */
+  readonly chat?: PicaMobileChatProvider;
   /** Version of this Pages build, reported to connected clients. */
   readonly serverVersion: string;
   /** Interface to listen on; every interface when missing. */
@@ -128,9 +135,31 @@ function readUserAgent(request: IncomingMessage): string | null {
     : null;
 }
 
+/**
+ * The origin `http://<Host>` of a handshake, as the web route sees its own.
+ *
+ * @returns `undefined` for a missing host or one that is more than a host and port.
+ */
+function readHandshakeOrigin(host: string | undefined): string | undefined {
+  if (host === undefined || host.length === 0) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(`http://${host}`);
+
+    return url.host === host.toLowerCase() ? url.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function isEndpointPath(url: string | undefined): boolean {
   try {
-    return new URL(url ?? "/", "http://pica-mobile.invalid").pathname === PICA_MOBILE_PATH;
+    return (
+      new URL(url ?? "/", "http://pica-mobile.invalid").pathname ===
+      PICA_MOBILE_PATH
+    );
   } catch {
     return false;
   }
@@ -149,6 +178,7 @@ function isEndpointPath(url: string | undefined): boolean {
 export class PicaMobileGateway {
   private readonly options: PicaMobileGatewayOptions;
   private readonly changes = new SerialQueue();
+  private readonly files: PicaMobileChatFiles | null;
   private active: Listener | null = null;
   private lastFailure: PicaMobileListenFailure | null = null;
   private isClosed = false;
@@ -160,6 +190,13 @@ export class PicaMobileGateway {
    */
   public constructor(options: PicaMobileGatewayOptions) {
     this.options = options;
+    this.files =
+      options.chat === undefined
+        ? null
+        : new PicaMobileChatFiles({
+            authenticator: options.authenticator,
+            chat: options.chat,
+          });
   }
 
   /** Port the endpoint listens on, or `null` while it listens nowhere. */
@@ -272,7 +309,8 @@ export class PicaMobileGateway {
         this.options.createSocketServer?.() ??
         new WebSocketServer({
           noServer: true,
-          maxPayload: PICA_MOBILE_MAXIMUM_MESSAGE_BYTES,
+          // Only `chat_send` may be this large; the connection holds every other frame to 16 KiB.
+          maxPayload: PICA_MOBILE_MAXIMUM_CHAT_SEND_BYTES,
         }),
       connections: new Set(),
     };
@@ -280,13 +318,9 @@ export class PicaMobileGateway {
     listener.server.on("upgrade", (request, socket, head) =>
       this.handleUpgrade(listener, { request, socket, head }),
     );
-    listener.server.on("request", (request, response) => {
-      response.writeHead(426, {
-        "Content-Type": "text/plain; charset=utf-8",
-        Upgrade: "websocket",
-      });
-      response.end("Pica Mobile speaks WebSocket only.");
-    });
+    listener.server.on("request", (request, response) =>
+      this.handleRequest(request, response),
+    );
 
     try {
       await listen(listener.server, port, this.options.listenAddress);
@@ -303,6 +337,22 @@ export class PicaMobileGateway {
     listener.server.on("error", (error) => logCaughtError(COMPONENT, error));
 
     return listener;
+  }
+
+  /** Answers the attachment endpoints of `chat.v1`; every other request learns to upgrade. */
+  private handleRequest(
+    request: IncomingMessage,
+    response: ServerResponse,
+  ): void {
+    if (this.files?.handle(request, response) === true) {
+      return;
+    }
+
+    response.writeHead(426, {
+      "Content-Type": "text/plain; charset=utf-8",
+      Upgrade: "websocket",
+    });
+    response.end("Pica Mobile speaks WebSocket only.");
   }
 
   private handleUpgrade(
@@ -357,6 +407,8 @@ export class PicaMobileGateway {
       dashboard: this.options.dashboard,
       notifications: this.options.notifications,
       plans: this.options.plans,
+      chat: this.options.chat,
+      handshakeOrigin: readHandshakeOrigin(request.headers.host),
       serverVersion: this.options.serverVersion,
     });
 

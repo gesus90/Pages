@@ -101,7 +101,9 @@ describe("password authentication", () => {
   });
 
   it("rejects wrong credentials", async () => {
-    const { authenticator } = authenticatorFor({ login: vi.fn(async () => null) });
+    const { authenticator } = authenticatorFor({
+      login: vi.fn(async () => null),
+    });
 
     expect(await authenticator.authenticate(credentials, ORIGIN)).toEqual({
       ok: false,

@@ -56,6 +56,7 @@ import { pagesMcpBundlePath } from "@/backend/agents/cli/PagesMcpBundle";
 
 import { startExecutionServices } from "./agent-execution-services.server";
 import { createChatServices } from "./chat-services.server";
+import { picaBrowserOptions } from "./pica-browser.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
 import { createMcpServices } from "./mcp-services.server";
 import { createDiscordServices } from "./discord-services.server";
@@ -290,6 +291,7 @@ async function initializeServices(
     instanceSettings: workspaceServices.instanceSettingsService,
     tasks: taskServices,
     serverCache,
+    tokenKey,
   });
   return {
     ...agentServices,
@@ -408,6 +410,7 @@ async function startMcpWorkspace(context: {
     "gitHubSyncService" | "pagesEventPublisher"
   >;
   readonly serverCache: ServerCache;
+  readonly tokenKey: Buffer;
 }): Promise<McpApplicationServices & ChatApplicationServices> {
   // The publisher of the ticket pages, on its own repository: agent ticket changes
   // follow the same GitHub rule once they are committed.
@@ -436,6 +439,7 @@ async function startMcpWorkspace(context: {
     events: context.tasks.pagesEventPublisher,
   });
   startWikiMaintenanceScheduler(context.wiki, services.agentAssetService);
+  const runtime = await getPagesRuntime();
   return {
     ...services,
     ...createChatServices({
@@ -445,7 +449,12 @@ async function startMcpWorkspace(context: {
       agents: context.agents,
       router: services.chatOperationRouter,
       acp: await picaAcpSettings(),
-      protectedOrigin: (await getPagesRuntime()).getConfig().mcpHttp?.publicUrl,
+      protectedOrigin: runtime.getConfig().mcpHttp?.publicUrl,
+      picaBrowser: picaBrowserOptions({
+        directory,
+        instanceKey: context.tokenKey,
+        config: () => runtime.getConfig(),
+      }),
     }),
   };
 }

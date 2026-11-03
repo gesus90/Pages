@@ -178,7 +178,8 @@ async function takeNextSequence(
     "SELECT last_seq FROM pica_mobile_notification_sequences WHERE run_id = $run_id;",
     { run_id: runId },
   );
-  const next = (row === undefined ? 0 : readCountColumn(row, 0, "last_seq")) + 1;
+  const next =
+    (row === undefined ? 0 : readCountColumn(row, 0, "last_seq")) + 1;
 
   await executor.execute(
     `
@@ -346,7 +347,8 @@ function toStoredEvent(
   seq: number,
 ): StoredNotificationEvent {
   const steps = fresh.flatMap((candidate) => candidate.steps);
-  const isStepEvent = event.type === PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED;
+  const isStepEvent =
+    event.type === PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED;
 
   return {
     eventId: createNotificationEventId(),

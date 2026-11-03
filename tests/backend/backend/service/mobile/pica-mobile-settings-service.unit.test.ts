@@ -6,9 +6,15 @@ import { PicaMobileSettingsService } from "@/backend/service/mobile/PicaMobileSe
 import { PicaMobileSettingsDeniedError } from "@/backend/service/mobile/PicaMobileSettingsService";
 
 import { ACTOR } from "../../../app/actions/action-fixtures";
-import { accountFixture, administratorFixture } from "../../auth/account-fixture";
+import {
+  accountFixture,
+  administratorFixture,
+} from "../../auth/account-fixture";
 import { memoryConfigFiles } from "../../config/memory-config-files";
-import { createGatewayWorld, listenFailure } from "./pica-mobile-gateway-fixture";
+import {
+  createGatewayWorld,
+  listenFailure,
+} from "./pica-mobile-gateway-fixture";
 
 import type { AccountAccess } from "@/definition/Authorization";
 import type { GatewayWorld } from "./pica-mobile-gateway-fixture";
@@ -80,10 +86,14 @@ describe("reading", () => {
       CONFIG_PATH,
       "firstRun = true\nport = 3197\npicaMobilePort = 3001\n",
     );
-    const world = createGatewayWorld([{ failure: listenFailure("EADDRINUSE") }]);
+    const world = createGatewayWorld([
+      { failure: listenFailure("EADDRINUSE") },
+    ]);
     const service = serviceOn(world);
 
-    await world.gateway.switchTo(3001, async () => undefined).catch(() => undefined);
+    await world.gateway
+      .switchTo(3001, async () => undefined)
+      .catch(() => undefined);
 
     expect(await service.read(ACTOR, "localhost")).toMatchObject({
       port: 3001,
@@ -99,7 +109,9 @@ describe("reading", () => {
     );
     const world = createGatewayWorld([{ failure: listenFailure("EACCES") }]);
 
-    await world.gateway.switchTo(80, async () => undefined).catch(() => undefined);
+    await world.gateway
+      .switchTo(80, async () => undefined)
+      .catch(() => undefined);
 
     expect(await serviceOn(world).read(ACTOR, "localhost")).toMatchObject({
       port: 3001,
@@ -174,7 +186,10 @@ describe("storing a port", () => {
       await service.updatePort(ACTOR, 3001);
       const before = storedConfig();
 
-      expect(await service.updatePort(ACTOR, 3002)).toEqual({ ok: false, error });
+      expect(await service.updatePort(ACTOR, 3002)).toEqual({
+        ok: false,
+        error,
+      });
 
       expect(world.gateway.port).toBe(3001);
       expect(storedConfig()).toBe(before);

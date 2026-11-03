@@ -1,4 +1,7 @@
-import { readNullableTextColumn, readTextColumn } from "@/backend/database/RowValue";
+import {
+  readNullableTextColumn,
+  readTextColumn,
+} from "@/backend/database/RowValue";
 
 import type {
   Database,

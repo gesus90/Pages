@@ -11,6 +11,8 @@ export type ChatErrorCode =
   | "messageAlreadySent"
   | "messageTooLong"
   | "tooManyAttachments"
+  /** More than four attachment transfers of one account at once over Pica Mobile. */
+  | "tooManyTransfers"
   | "fileEmpty"
   | "fileTooLarge"
   | "fileNameTooLong"

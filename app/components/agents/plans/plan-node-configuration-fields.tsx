@@ -3,6 +3,7 @@ import {
   PageAgentModelNotices,
   PageAgentReasoningField,
 } from "@/app/components/agents/definitions/page-agent-model-fields";
+import { ModelPicker } from "@/app/components/agents/model-picker";
 import { Select } from "@/app/components/ui/select";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import {
@@ -14,7 +15,6 @@ import {
 import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { PlanExecutionTargetField } from "./plan-execution-target-field";
 import { PlanCompletionGateField } from "./plan-completion-gate-field";
-import { PlanModelPicker } from "./plan-model-picker";
 import { PlanRemoteStatus } from "./plan-remote-status";
 import {
   PlanNodeContentFields,
@@ -137,7 +137,7 @@ function PlanNodeModelFields(props: {
   }
   return (
     <div className="space-y-3">
-      <PlanModelPicker
+      <ModelPicker
         value={modelKey}
         models={models}
         savedModel={configuration.model}

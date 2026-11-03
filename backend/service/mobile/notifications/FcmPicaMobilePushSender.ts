@@ -117,7 +117,10 @@ function readErrorCode(candidate: unknown): string | null {
     : null;
 }
 
-function hasTypeSuffix(detail: Record<string, unknown>, suffix: string): boolean {
+function hasTypeSuffix(
+  detail: Record<string, unknown>,
+  suffix: string,
+): boolean {
   const type = detail["@type"];
 
   return typeof type === "string" && type.endsWith(suffix);
@@ -199,7 +202,10 @@ function parseRetryAfter(header: string | null, nowMs: number): number | null {
   return Math.min(seconds, MAXIMUM_RETRY_AFTER_SECONDS);
 }
 
-function buildRetry(header: string | null, nowMs: number): PicaMobilePushOutcome {
+function buildRetry(
+  header: string | null,
+  nowMs: number,
+): PicaMobilePushOutcome {
   const retryAfterSeconds = parseRetryAfter(header, nowMs);
 
   return retryAfterSeconds === null
@@ -393,7 +399,11 @@ export class FcmPicaMobilePushSender implements PicaMobilePushSender {
 
     const code = reply.facts.errorCode ?? reply.facts.status;
 
-    if (!this.logThrottle.allow(`${reply.statusCode}:${code ?? ""}:${outcome.kind}`)) {
+    if (
+      !this.logThrottle.allow(
+        `${reply.statusCode}:${code ?? ""}:${outcome.kind}`,
+      )
+    ) {
       return;
     }
 

@@ -30,6 +30,7 @@ export default tseslint.config(
     ignores: [
       "build/**",
       "**/coverage/**",
+      "tests/browser/results/**",
       ".react-router/**",
       "**/dist/**",
       "mobile/**",

@@ -28,6 +28,7 @@ import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { isSafeSvg } from "./settings-actions/svg-safety.server";
 
 import type { Database } from "@/backend/database/Database";
+import type { PicaAdminServiceOptions } from "@/backend/service/chat/admin/PicaAdminService";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
@@ -38,6 +39,7 @@ import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsSer
 import type { ExecutionAuthorizer } from "@/backend/agents/ScopedExecution";
 import type {
   ChatContextUsage,
+  ChatJob,
   ChatSessionActivity,
 } from "@/definition/ChatJob";
 
@@ -123,6 +125,10 @@ function createChatActivity(database: Database): {
     userId: string,
     sessionId: string,
   ) => Promise<ChatContextUsage | null>;
+  readonly latestJob: (
+    userId: string,
+    sessionId: string,
+  ) => Promise<ChatJob | null>;
 } {
   const jobs = new ChatJobRepository(database);
   const steers = new ChatSteerRepository(database);
@@ -137,12 +143,15 @@ function createChatActivity(database: Database): {
     },
     adapterContext: async (userId, sessionId) =>
       (await jobs.latest(userId, sessionId))?.usage.context ?? null,
+    latestJob: (userId, sessionId) => jobs.latest(userId, sessionId),
   };
 }
 
 /** What the chat is wired from. */
 export interface ChatServicesInput {
   readonly protectedOrigin?: string;
+  /** The operator browser of Pica (PAGE-181): local origins, saved sessions and an optional launcher. */
+  readonly picaBrowser?: PicaAdminServiceOptions;
   readonly database: Database;
   /** Directory next to the database; attachments live in its `chat-attachments`. */
   readonly directory: string;
@@ -177,7 +186,7 @@ export function createChatServices(
     new ChatSettingsRepository(database),
     input.accounts.administration,
   );
-  const { activity, adapterContext } = createChatActivity(database);
+  const { activity, adapterContext, latestJob } = createChatActivity(database);
   const chatSessionService = new ChatSessionService({
     sessions,
     attachments,
@@ -185,6 +194,7 @@ export function createChatServices(
     languages,
     files,
     activity,
+    latestJob,
     requireEnabled: () =>
       input.agents.picaSettingsService?.requireEnabled() ?? Promise.resolve(),
     admit: (work) =>
@@ -209,7 +219,7 @@ export function createChatServices(
     chatSessionService,
     adapterContext,
   });
-  const adminTools = new PicaAdminService(input.accounts);
+  const adminTools = new PicaAdminService(input.accounts, input.picaBrowser);
   if (input.protectedOrigin) adminTools.protectOrigin(input.protectedOrigin);
   const tools = new ChatToolExecutor({
     router: input.router,

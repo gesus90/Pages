@@ -26,6 +26,11 @@ const WRITE_TEXT_CHARACTERS = 20_000;
 
 const writeText = z.string().max(WRITE_TEXT_CHARACTERS);
 
+/** Base64 characters of one screenshot a tool may return: about 6 MB of image bytes. */
+const PICA_TOOL_IMAGE_CHARACTERS = 8_000_000;
+
+const PICA_TOOL_IMAGES_PER_OUTCOME = 4;
+
 const title = z.string().trim().min(1).max(500);
 
 const projectName = z.string().trim().min(1).max(200);
@@ -327,12 +332,30 @@ export const PICA_FILE_SCHEMA = z
   })
   .strict();
 
+/**
+ * One screenshot a tool hands to the model as image data (PAGE-181).
+ *
+ * @remarks
+ * The bridge turns it into an MCP `image` content block next to the text of
+ * the outcome. It is never logged, journaled or stored.
+ */
+export const PICA_TOOL_IMAGE = z
+  .object({
+    mimeType: z.enum(["image/jpeg", "image/png"]),
+    data: z.string().min(1).max(PICA_TOOL_IMAGE_CHARACTERS),
+  })
+  .strict();
+
 /** Bounded, credential-redacted JSON from existing services; no human-only receipts. */
 export const PICA_TOOL_OUTCOME = z
   .object({
     ok: z.boolean(),
     result: z.string().max(AGENT_READ_LIMITS.totalBytes).nullable(),
     error: z.string().max(100).nullable(),
+    images: z
+      .array(PICA_TOOL_IMAGE)
+      .max(PICA_TOOL_IMAGES_PER_OUTCOME)
+      .optional(),
   })
   .strict();
 

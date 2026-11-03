@@ -55,6 +55,11 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
    * believed. Missing: no proxy is trusted and the header is ignored.
    */
   readonly trustedProxies?: readonly string[];
+  /**
+   * Origins of local services the visual operator browser of Pica may reach
+   * besides this Pages instance, such as `http://127.0.0.1:8080`. Missing: none.
+   */
+  readonly picaBrowserLocalOrigins?: readonly string[];
 }
 
 /**
@@ -240,6 +245,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const logging = readLoggingConfig(table, source);
   const interpreters = readInterpreterConfig(table, source);
   const proxies = readProxyConfig(table, source);
+  const picaBrowser = readPicaBrowserConfig(table, source);
   const picaMobile = readPicaMobileConfig(table, source);
 
   if (firstRun) {
@@ -250,6 +256,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
       ...logging,
       ...interpreters,
       ...proxies,
+      ...picaBrowser,
       databasePath,
       firstRun,
       port,
@@ -270,10 +277,38 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     ...logging,
     ...interpreters,
     ...proxies,
+    ...picaBrowser,
     databasePath,
     firstRun,
     port,
   };
+}
+
+function isBrowserOrigin(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.origin === value
+    );
+  } catch {
+    return false;
+  }
+}
+
+function readPicaBrowserConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "picaBrowserLocalOrigins"> {
+  const entries = table.picaBrowserLocalOrigins;
+  if (entries === undefined) return {};
+  if (!Array.isArray(entries) || !entries.every(isBrowserOrigin))
+    throw invalidConfig(
+      source,
+      '"picaBrowserLocalOrigins" must be a list of origins such as "http://127.0.0.1:8080" (scheme, host and port, no path).',
+    );
+  return { picaBrowserLocalOrigins: entries };
 }
 
 function isTrustedProxyList(value: unknown): value is string[] {
@@ -409,6 +444,8 @@ export function writePagesConfig(
     document.logRetentionDays = config.logRetentionDays;
   if (config.trustedProxies !== undefined)
     document.trustedProxies = [...config.trustedProxies];
+  if (config.picaBrowserLocalOrigins !== undefined)
+    document.picaBrowserLocalOrigins = [...config.picaBrowserLocalOrigins];
 
   const resourceKeys = [
     "maxConcurrentAcpSessions",

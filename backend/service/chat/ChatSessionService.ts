@@ -17,7 +17,11 @@ import type {
   ChatSession,
   ChatSessionView,
 } from "@/definition/Chat";
-import type { ChatSessionActivity } from "@/definition/ChatJob";
+import type {
+  ChatJob,
+  ChatSessionActivity,
+  ChatSessionState,
+} from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { ChatSettingsService } from "./ChatSettingsService";
 
@@ -43,6 +47,11 @@ export interface ChatSessionDependencies {
     userId: string,
     sessionId: string,
   ) => Promise<ChatSessionActivity>;
+  /** Reads only the newest job of an own conversation; absent without the Codex path. */
+  readonly latestJob?: (
+    userId: string,
+    sessionId: string,
+  ) => Promise<ChatJob | null>;
 }
 
 /** What deleting a session also ends: its running job before, its files after. */
@@ -157,6 +166,30 @@ export class ChatSessionService {
   /** Switches to an own session. */
   public async view(actor: User, sessionId: unknown): Promise<ChatSessionView> {
     return this.viewOf(await this.require(actor, sessionId), actor.id);
+  }
+
+  /**
+   * Reads the last message time and the newest job of an own session, so
+   * another device can tell whether its view is behind.
+   *
+   * @remarks
+   * Reads the session and its newest job only, never messages or journal;
+   * the web chat and Pica Mobile ask every few seconds.
+   * @throws {ChatError} `sessionMissing` for an unknown or foreign session.
+   */
+  public async state(
+    actor: User,
+    sessionId: unknown,
+  ): Promise<ChatSessionState> {
+    const session = await this.require(actor, sessionId);
+    const job =
+      (await this.dependencies.latestJob?.(actor.id, session.id)) ?? null;
+    return {
+      sessionId: session.id,
+      lastMessageAt: session.lastMessageAt,
+      jobId: job?.id ?? null,
+      jobState: job?.state ?? null,
+    };
   }
 
   /**

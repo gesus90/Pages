@@ -1,49 +1,50 @@
-import { render } from "@testing-library/react";
 import { expect, it } from "vitest";
 
-import { planModelDisplay } from "@/app/components/agents/plans/plan-model-option";
+import {
+  findModelChoice,
+  modelGroups,
+} from "@/app/components/agents/model-picker/model-catalog";
 
 import { i18n } from "./plan-flow-fixture";
 import { pageModel } from "./plan-model-fixture";
 
-function iconClass(icon: React.ReactNode): string {
-  const { container } = render(<>{icon}</>);
-  return container.firstElementChild?.className ?? "";
-}
-
-it("names a model under its own name with its vendor's icon", () => {
-  const display = planModelDisplay(pageModel("plain"), i18n.t);
-  expect(display.label).toBe("Model plain");
-  expect(display.free).toBe("");
-  expect(iconClass(display.icon)).toContain("bg-[#6467f2]");
+it("names a model under its own name in its provider group", () => {
+  const groups = modelGroups([pageModel("plain")], { translate: i18n.t });
+  const display = findModelChoice(groups, "plain");
+  expect(display?.choice.label).toBe("Model plain");
+  expect(display?.choice.isFree).toBe(false);
+  expect(display?.group.mark).toBeTruthy();
 });
 
 it("marks a free model", () => {
-  expect(
-    planModelDisplay(pageModel("free", { isFree: true }), i18n.t).free,
-  ).toBe(` · ${i18n.t("settings.agents.freeBadge")}`);
+  const groups = modelGroups([pageModel("free", { isFree: true })], {
+    translate: i18n.t,
+  });
+  expect(findModelChoice(groups, "free")?.choice.isFree).toBe(true);
 });
 
-it("names an OpenCode model by its target, provider and model", () => {
-  const display = planModelDisplay(
-    pageModel("remote", {
-      provider: "opencode",
-      model: "anthropic/sonnet",
-      modelName: "Sonnet",
-      targetName: "Runner · Workspace",
-    }),
-    i18n.t,
+it("keeps an OpenCode model's source and remote target", () => {
+  const groups = modelGroups(
+    [
+      pageModel("remote", {
+        provider: "opencode",
+        model: "anthropic/sonnet",
+        modelName: "Sonnet",
+        targetName: "Runner · Workspace",
+      }),
+    ],
+    { translate: i18n.t },
   );
-  expect(display.label).toBe(
-    "Runner · Workspace / opencode · anthropic · Sonnet",
-  );
-  expect(iconClass(display.icon)).toContain("bg-[#d97757]");
+  const display = findModelChoice(groups, "remote");
+  expect(display?.choice.label).toBe("Sonnet");
+  expect(display?.group.sources[0].key).toBe("anthropic");
 });
 
-it("names a local OpenCode model by its listed name without a target", () => {
-  const display = planModelDisplay(
-    pageModel("local", { provider: "opencode", model: "custom/thing" }),
-    i18n.t,
+it("names a local OpenCode model by its listed name", () => {
+  const groups = modelGroups(
+    [pageModel("local", { provider: "opencode", model: "custom/thing" })],
+    { translate: i18n.t },
   );
-  expect(display.label).toBe("opencode · custom · Model local");
+  expect(findModelChoice(groups, "local")?.choice.label).toBe("Model local");
+  expect(groups[0].sources[0].key).toBe("custom");
 });

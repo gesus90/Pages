@@ -139,9 +139,7 @@ function frameLength(payload: PicaMobileNotificationEventPayload): number {
  * are dropped from the end first (`stepCount` keeps the total), then the names
  * shrink; an answer that still does not fit is `gone`, never an oversized frame.
  */
-function fitFrame(
-  payload: OkPayload,
-): PicaMobileNotificationEventPayload {
+function fitFrame(payload: OkPayload): PicaMobileNotificationEventPayload {
   const budget =
     PICA_MOBILE_MAXIMUM_NOTIFICATION_FRAME_LENGTH -
     PICA_MOBILE_NOTIFICATION_ENVELOPE_RESERVE;
@@ -234,7 +232,10 @@ export class PicaMobileNotificationEventReader {
     const access = await this.runs.read(accountId, stored.runId);
 
     if (access.status !== "granted") {
-      return { eventId, access: access.status === "gone" ? "gone" : "forbidden" };
+      return {
+        eventId,
+        access: access.status === "gone" ? "gone" : "forbidden",
+      };
     }
 
     const event = toEvent(stored, access);

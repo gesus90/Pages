@@ -3,6 +3,7 @@ import { logDiagnostic } from "@/backend/logging/Logger";
 import { PagesPicaMobileAuthenticator } from "@/backend/service/mobile/PicaMobileAuthenticator";
 import { PagesPicaMobileDashboard } from "@/backend/service/mobile/PicaMobileDashboardService";
 import { PicaMobileGateway } from "@/backend/service/mobile/PicaMobileGateway";
+import { PagesPicaMobileChat } from "@/backend/service/mobile/chat/PagesPicaMobileChat";
 import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
 import { PagesPicaMobilePlans } from "@/backend/service/mobile/plans/PagesPicaMobilePlans";
 import { PicaMobilePlanRunObserver } from "@/backend/service/mobile/plans/PicaMobilePlanRunObserver";
@@ -64,6 +65,18 @@ export function obtainPicaMobileGateway(
           };
         },
         observer: runs,
+      }),
+      chat: new PagesPicaMobileChat(async () => {
+        const services = await getApplicationServices();
+
+        return {
+          authService: services.authService,
+          chatSessionService: services.chatSessionService,
+          chatService: services.chatService,
+          picaAcpService: services.picaAcpService,
+          chatAttachmentService: services.chatAttachmentService,
+          picaAdminService: services.picaAdminService,
+        };
       }),
       serverVersion: PAGES_VERSION,
       listenAddress: runtime.getConfig().listenAddress,

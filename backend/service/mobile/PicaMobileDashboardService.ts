@@ -58,7 +58,9 @@ async function readSection<Item>(
   }
 }
 
-function toDashboardProject(entry: AssignedProject): PicaMobileDashboardProject {
+function toDashboardProject(
+  entry: AssignedProject,
+): PicaMobileDashboardProject {
   return {
     id: entry.project.id,
     name: entry.project.name,

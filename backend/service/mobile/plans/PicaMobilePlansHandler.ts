@@ -71,7 +71,10 @@ type PlanMessage = Extract<
 >;
 
 /** The rows to leave out so a frame that is `excess` code units too long can fit. */
-function rowsToDrop(rows: readonly PicaMobilePlanRow[], excess: number): number {
+function rowsToDrop(
+  rows: readonly PicaMobilePlanRow[],
+  excess: number,
+): number {
   let dropped = 0;
   let saved = 0;
 
@@ -301,7 +304,10 @@ export class PicaMobilePlansHandler {
       return;
     }
 
-    this.pushTimer = setTimeout(() => this.queuePush(), PUSH_DELAY_MILLISECONDS);
+    this.pushTimer = setTimeout(
+      () => this.queuePush(),
+      PUSH_DELAY_MILLISECONDS,
+    );
     this.pushTimer.unref();
   }
 
@@ -323,7 +329,12 @@ export class PicaMobilePlansHandler {
   private async push(): Promise<void> {
     const session = this.host.session();
 
-    if (this.isStopped || !this.host.isOpen() || session === null || this.reader === null) {
+    if (
+      this.isStopped ||
+      !this.host.isOpen() ||
+      session === null ||
+      this.reader === null
+    ) {
       return;
     }
 

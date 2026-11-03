@@ -13,6 +13,7 @@ import type {
   ChatJobUsage,
   ChatSelectionItem,
   ChatSelectionScope,
+  ChatSessionState,
   ChatSteer,
   ChatTokenUsage,
 } from "./ChatJob";
@@ -211,6 +212,18 @@ export function readChatJob(value: unknown): ChatJob {
     createdAt: text(job.createdAt),
     endedAt: nullableText(job.endedAt),
     usage: readChatJobUsage(job.usage),
+  };
+}
+
+/** Reads the small state of a conversation. */
+export function readChatSessionState(value: unknown): ChatSessionState {
+  const state = fields(value);
+  return {
+    sessionId: text(state.sessionId),
+    lastMessageAt: text(state.lastMessageAt),
+    jobId: nullableText(state.jobId),
+    jobState:
+      state.jobState === null ? null : oneOf(state.jobState, CHAT_JOB_STATES),
   };
 }
 

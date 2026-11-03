@@ -33,8 +33,7 @@ export type PicaMobileRegisterOutcome =
 
 /** The answer to an unregistration. */
 export type PicaMobileUnregisterOutcome =
-  | { readonly kind: "done" }
-  | { readonly kind: "sessionEnded" };
+  { readonly kind: "done" } | { readonly kind: "sessionEnded" };
 
 /** The answer to an event read. */
 export type PicaMobileEventOutcome =

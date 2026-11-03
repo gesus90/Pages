@@ -6,7 +6,13 @@ import { expect, it, vi } from "vitest";
 import { PageAgentModelFields } from "@/app/components/agents/definitions/page-agent-model-fields";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
-import { chooseOption, i18n, MODEL } from "./page-agent-fixture";
+import {
+  chooseOption,
+  i18n,
+  MODEL,
+  modelTrigger,
+  openModelRows,
+} from "./page-agent-fixture";
 
 import type { PageAgentInput, PageAgentModel } from "@/definition/PageAgent";
 
@@ -97,7 +103,7 @@ function renderFields(
 }
 
 function modelPicker(): HTMLElement {
-  return screen.getByRole("combobox", { name: i18n.t("pageAgents.model") });
+  return modelTrigger(i18n.t("pageAgents.model"));
 }
 
 function reasoningPicker(): HTMLElement {
@@ -114,24 +120,28 @@ it("lays the fields out in columns unless they are stacked", () => {
   expect(stacked.querySelector(".sm\\:grid-cols-2")).toBeNull();
 });
 
-it("describes every released model by name, model, provider and badges", async () => {
+it("describes every released model by its short name and free badge", async () => {
   renderFields(draft(MODEL.id));
 
-  expect(modelPicker().textContent).toBe("Sonnet · claude-sonnet");
-  fireEvent.keyDown(modelPicker(), { key: "Enter" });
-  const options = await screen.findAllByRole("option");
+  expect(modelPicker().textContent).toContain("Sonnet");
+  const rows = await openModelRows(modelPicker());
 
-  expect(options.map((option) => option.textContent)).toEqual([
-    `Sonnet · claude-sonnet${i18n.t("settings.agents.provider.openrouter")}`,
-    `Claude Code · Opus · claude-opus${i18n.t("settings.agents.provider.claude_code")} · ${i18n.t("picaSettings.manual")} · ${i18n.t("settings.agents.freeBadge")}`,
-    `Claude Code · Haiku · claude-haiku${i18n.t("settings.agents.provider.claude_code")}`,
+  expect(rows.map((row) => row.getAttribute("aria-label")).toSorted()).toEqual([
+    "Claude Code · Haiku",
+    `Opus, ${i18n.t("plans.modelPicker.free")}`,
+    "Sonnet",
   ]);
 });
 
 it("keeps the chosen level when another model is selected", async () => {
   const { onChange } = renderFields(draft(OPUS.id, "high"));
 
-  await chooseOption(modelPicker(), "Claude Code · Haiku · claude-haiku");
+  const rows = await openModelRows(modelPicker());
+  fireEvent.click(
+    rows.find(
+      (row) => row.getAttribute("aria-label") === "Claude Code · Haiku",
+    ) ?? document.body,
+  );
 
   expect(onChange).toHaveBeenLastCalledWith(draft(HAIKU.id, "high"));
 });
@@ -191,7 +201,7 @@ it("names a withdrawn saved model and asks for a replacement", () => {
     savedModel: "claude-legacy",
   });
 
-  expect(modelPicker().textContent).toBe(
+  expect(modelPicker().textContent).toContain(
     `claude-legacy · ${i18n.t("pageAgents.missingModel")}`,
   );
   expect(screen.getByRole("status").textContent).toBe(
@@ -202,7 +212,9 @@ it("names a withdrawn saved model and asks for a replacement", () => {
 it("marks a missing model without a saved name", () => {
   renderFields(draft("gone"));
 
-  expect(modelPicker().textContent).toBe(i18n.t("pageAgents.missingModel"));
+  expect(modelPicker().textContent).toContain(
+    i18n.t("pageAgents.missingModel"),
+  );
   expect(screen.queryByRole("status")).toBeNull();
 });
 

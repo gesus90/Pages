@@ -8,8 +8,17 @@ import {
   isPicaAdminTool,
 } from "@/backend/service/chat/admin/PicaAdminContracts";
 import { registerPicaAdminTools } from "@/backend/service/chat/admin/PicaAdminTools";
+import { isPicaBrowserTool } from "@/backend/service/chat/browser/PicaBrowserContracts";
+import { registerPicaBrowserTools } from "@/backend/service/chat/browser/PicaBrowserTools";
 
 import type { Route } from "./+types/pica-tools-api";
+
+function isPrivilegedTool(tool: unknown): tool is string {
+  return (
+    typeof tool === "string" &&
+    (isPicaAdminTool(tool) || isPicaBrowserTool(tool))
+  );
+}
 
 /** Dispatches only the native privileged registry, with same-origin protection and server-owned task identity. */
 export async function action({
@@ -40,10 +49,10 @@ export async function action({
         { headers: CHAT_NO_STORE },
       );
     }
-    if (typeof input.tool !== "string" || !isPicaAdminTool(input.tool))
-      throw new PicaAdminError("UNKNOWN_TOOL");
+    if (!isPrivilegedTool(input.tool)) throw new PicaAdminError("UNKNOWN_TOOL");
     const registry = new RuntimeToolRegistry(service.gate());
     registerPicaAdminTools(registry, service, () => true);
+    registerPicaBrowserTools(registry, service, () => true);
     const invoked = await registry.invoke(
       input.tool,
       input.parameters,

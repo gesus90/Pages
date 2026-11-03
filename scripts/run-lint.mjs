@@ -1,8 +1,10 @@
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
+
+import { isSourceFile, walkFiles } from "./source-population.mjs";
 
 /**
  * Default maximum number of files checked per sequential ESLint process.
@@ -30,26 +32,6 @@ const MAX_BLOCK_SIZE = 5000;
 const MIN_MAX_OLD_SPACE_SIZE_MB = 128;
 const MAX_MAX_OLD_SPACE_SIZE_MB = 65536;
 const MAX_CLI_ARG_CHARS = 120_000;
-
-const LINT_EXTENSIONS = new Set([
-  ".js",
-  ".mjs",
-  ".cjs",
-  ".ts",
-  ".mts",
-  ".cts",
-  ".tsx",
-]);
-
-const PRUNED_DIRECTORY_NAMES = new Set([
-  ".git",
-  "node_modules",
-  "build",
-  ".react-router",
-  "mobile",
-  "coverage",
-  "dist",
-]);
 
 const OOM_PATTERNS = [
   /JavaScript heap out of memory/i,
@@ -175,37 +157,18 @@ export function resolveLintConfig(argv, env) {
   };
 }
 
-function collectCandidateFiles(rootDir) {
-  const candidates = [];
-
-  function walk(currentDir, relativeDir) {
-    const entries = readdirSync(currentDir, { withFileTypes: true }).sort(
-      (left, right) => left.name.localeCompare(right.name),
-    );
-    for (const entry of entries) {
-      const relativePath = relativeDir
-        ? `${relativeDir}/${entry.name}`
-        : entry.name;
-      if (entry.isSymbolicLink()) continue;
-      if (entry.isDirectory()) {
-        if (PRUNED_DIRECTORY_NAMES.has(entry.name)) continue;
-        if (relativeDir === "mcp" && entry.name === "node_modules") continue;
-        walk(path.join(currentDir, entry.name), relativePath);
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      const ext = path.extname(entry.name);
-      if (LINT_EXTENSIONS.has(ext)) {
-        candidates.push(relativePath);
-      }
-    }
-  }
-
-  walk(rootDir, "");
-  return candidates.sort((left, right) => left.localeCompare(right));
+/**
+ * Lists every file of a lintable type below the root, independent of Git: what
+ * Git ignores on one machine is no proof that a file is generated. Only
+ * `source-population.mjs` and the `ignores` of `eslint.config.js` name generated
+ * output, explicitly and for every checkout alike.
+ */
+export function collectCandidateFiles(rootDir) {
+  return walkFiles(rootDir, isSourceFile);
 }
 
-async function discoverLintFiles(rootDir) {
+/** The lint population: all candidates that `eslint.config.js` does not name as generated. */
+export async function discoverLintFiles(rootDir) {
   const candidates = collectCandidateFiles(rootDir);
   const eslint = new ESLint({ cwd: rootDir });
   const selected = [];

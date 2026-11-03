@@ -26,8 +26,7 @@ const LOSSY_QUALITY_STEPS: readonly number[] = [80, 65, 50, 35];
 const JPEG_START_OF_SCAN = 0xda;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 const JPEG_FRAME_MARKERS: ReadonlySet<number> = new Set([
-  0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce,
-  0xcf,
+  0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
 ]);
 
 // The native image library loads on first use, so a platform without it
@@ -113,7 +112,10 @@ function readImageSize(bytes: Buffer, mimeType: string): ImageSize | null {
 }
 
 function scaledSize(source: ImageSize, longestEdge: number): ImageSize {
-  const scale = Math.min(1, longestEdge / Math.max(source.width, source.height));
+  const scale = Math.min(
+    1,
+    longestEdge / Math.max(source.width, source.height),
+  );
 
   return {
     width: Math.max(1, Math.round(source.width * scale)),

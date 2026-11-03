@@ -1381,7 +1381,6 @@
         }
       },
       "cliLocations": "Installed CLI tools and setup",
-      "openCodeZen": "OpenCode Zen",
       "freeBadge": "Free",
       "openCodeFreeGroup": "opencode · Free",
       "openCodeProviders": "Providers through the keys in Pages",
@@ -3440,6 +3439,53 @@
       "encrypted": "{{name}}: not sent – the file is protected by a password",
       "noText": "{{name}}: not sent – the file holds no readable text (for example a scan)"
     },
+    "browser": {
+      "options": "Options, saved sessions and downloads",
+      "label": "Pica's browser",
+      "address": "Address",
+      "blank": "Blank page",
+      "stage": "Live view of the browser at {{url}}",
+      "stageControl": "Live view of the browser at {{url}}. You have control: click, scroll and type here.",
+      "loading": "Loading the live view …",
+      "state": {
+        "running": "Pica is working",
+        "paused": "Paused",
+        "takeover": "You have control",
+        "stopped": "Stopped"
+      },
+      "pause": "Pause",
+      "resume": "Resume",
+      "takeover": "Take over",
+      "handback": "Hand back to Pica",
+      "stop": "Stop",
+      "enlarge": "Enlarge the browser view",
+      "enlargedDescription": "Enlarged live view of Pica's browser with its controls.",
+      "expand": "Show the browser",
+      "collapse": "Hide the browser",
+      "actions": "Actions in the browser",
+      "noActions": "No actions yet.",
+      "byPica": "Pica",
+      "byYou": "You",
+      "handoverAsked": "Pica asks you to take over: {{reason}} Click the picture and type there – what you type goes to the page, never to Pica. Then press \"Hand back to Pica\".",
+      "takeoverHint": "You have control. Click the picture and type there – what you type goes to the page, never to Pica. Then press \"Hand back to Pica\".",
+      "stoppedHint": "The browser was stopped and closed.",
+      "approveWrites": "Allow Pica to make changes (forms, buttons) on this Pages instance and released local services",
+      "sessionName": "Name for the signed-in session",
+      "saveSession": "Save session",
+      "savedSessions": "Saved sessions",
+      "deleteSession": "Delete the saved session {{name}}",
+      "downloads": "Downloaded files",
+      "errors": {
+        "ADMIN_REQUIRED": "The administrator right is missing or was withdrawn.",
+        "SESSION_DENIED": "This browser is no longer available.",
+        "NOT_IN_TAKEOVER": "Take over the browser first.",
+        "URL_DENIED": "That address is not allowed.",
+        "SESSIONS_UNAVAILABLE": "Saved sessions are not available on this server.",
+        "RESOURCE_LIMIT": "Too many saved sessions, or the session is too large.",
+        "NETWORK": "The server could not be reached.",
+        "BROWSER_FAILED": "The browser could not do that."
+      }
+    },
     "privileged": {
       "label": "Administrator actions",
       "heading": "Pica’s administrator actions",
@@ -3459,6 +3505,21 @@
         "CANCELLED": "cancelled",
         "STEP_LIMIT": "execution limit reached",
         "RETRY_REFUSED": "not repeated",
+        "STOPPED_BY_ADMIN": "stopped by you",
+        "PAUSED_BY_ADMIN": "waiting – you paused the browser",
+        "ADMIN_HAS_CONTROL": "waiting – you have control",
+        "URL_DENIED": "address not allowed",
+        "CREDENTIAL_DENIED": "credentials are never typed by Pica",
+        "LOCAL_WRITE_NOT_APPROVED": "changes to local services not approved",
+        "STALE_REF": "page changed meanwhile",
+        "ELEMENT_NOT_ACTIONABLE": "element not usable",
+        "ACTION_TIMEOUT": "took too long",
+        "NAVIGATION_FAILED": "page could not be loaded",
+        "SESSION_DENIED": "browser not available",
+        "SESSION_NOT_FOUND": "saved session not found",
+        "RESOURCE_LIMIT": "limit reached",
+        "BROWSER_CLOSED": "browser closed",
+        "ISOLATION_UNAVAILABLE": "isolated browser unavailable on this server",
         "FAILED": "failed"
       }
     },
@@ -5626,7 +5687,11 @@
       "hintChoose": "↵ choose",
       "hintClose": "Esc close",
       "noMatch": "No model matches “{{query}}”.",
-      "noModels": "No model is released for this execution target."
+      "noModels": "No model is released for this execution target.",
+      "catalog": {
+        "refreshing": "Refreshing catalog …",
+        "failed": "The catalog could not be refreshed. The list shows the state loaded last."
+      }
     }
   },
   "mcpDuration": {
@@ -5925,18 +5990,17 @@
   "picaSettings": {
     "title": "Pica · Chat assistant",
     "description": "The fixed chat assistant for this Pages instance.",
+    "target": "Execution target",
+    "targetLocal": "Local · Pages host",
     "enable": "Enable Pica",
     "off": "Off",
     "on": "On",
     "apiAdoption": "The saved API model is available through opencode as {{model}} with the same effort. Confirm adoption with Save. Until then, no other model is used.",
     "chooseModel": "Choose a model …",
-    "searchModels": "Search model, provider or access",
-    "noModels": "No model, provider or access matches the search.",
     "saved": "Pica settings saved.",
     "stopHint": "Turning Pica off or changing its model, connection or reasoning stops running Pica answers through controlled cancellation. Chats are retained. Agent Plans run independently. Other open views refresh on focus or within 30 seconds.",
     "unavailable": "Check the saved Pica selection:",
     "effortReset": "The new model does not support the previous reasoning level. The choice is now Default; review it before saving.",
-    "manual": "manual model ID",
     "retired": "Agents are configured directly in the plan with a permitted model. Existing templates and histories are retained.",
     "unsupportedEffort": "Unsupported – correct the selection",
     "aliasResolved": "The saved value is the alias “{{alias}}”. It stands for {{model}} ({{id}}); saving stores this concrete version.",

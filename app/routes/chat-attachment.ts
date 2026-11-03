@@ -1,15 +1,12 @@
 import { Readable } from "node:stream";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { contentDisposition } from "@/app/lib/content-disposition";
+import { chatAttachmentDownloadHeaders } from "@/app/lib/chat-attachment-headers";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Route } from "./+types/chat-attachment";
-
-/** A downloaded attachment runs no script and loads nothing. */
-const ATTACHMENT_CONTENT_SECURITY_POLICY = "default-src 'none'; sandbox";
 
 /**
  * Sends an attachment of an own chat session as a download.
@@ -31,17 +28,7 @@ export async function loader({
       params.attachmentId,
     );
     return new Response(Readable.toWeb(stream) as ReadableStream, {
-      headers: {
-        "Cache-Control": "private, no-cache",
-        "Content-Disposition": contentDisposition(
-          "attachment",
-          attachment.fileName,
-        ),
-        "Content-Length": String(attachment.size),
-        "Content-Security-Policy": ATTACHMENT_CONTENT_SECURITY_POLICY,
-        "Content-Type": attachment.contentType,
-        "X-Content-Type-Options": "nosniff",
-      },
+      headers: chatAttachmentDownloadHeaders(attachment),
     });
   } catch (error: unknown) {
     logCaughtError("chat_attachment", error);

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ModelCatalogRefreshContext } from "@/app/components/agents/model-picker/use-model-catalog-refresh";
 import { planTargetDeviations } from "@/definition/AgentPlanTarget";
 
 import { PlanRunPanel } from "./plan-run-panel";
@@ -134,8 +135,23 @@ export function PlanPage({
   readonly opening: AgentPlanOpening;
   readonly catalogRefresh?: PlanCatalogRefresh;
 }): React.ReactElement {
+  // Every model choice of the editor shares the page's refresh channel.
+  const refresh = usePlanCatalogRefresh(catalogRefresh);
+  return (
+    <ModelCatalogRefreshContext value={refresh}>
+      <PlanEditorPage page={page} opening={opening} />
+    </ModelCatalogRefreshContext>
+  );
+}
+
+function PlanEditorPage({
+  page,
+  opening,
+}: {
+  readonly page: AgentPlanPage;
+  readonly opening: AgentPlanOpening;
+}): React.ReactElement {
   const { t } = useTranslation();
-  usePlanCatalogRefresh(catalogRefresh);
   const draftEditor = usePlanEditor(page);
   const controls = usePlanControl(
     page.selected?.id,

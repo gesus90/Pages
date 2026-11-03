@@ -56,6 +56,8 @@ async function handleIntent(
       return { sessions: await sessions.list(actor) };
     case "session":
       return { view: await sessions.view(actor, input.sessionId) };
+    case "sessionState":
+      return { state: await sessions.state(actor, input.sessionId) };
     case "send":
       return sendResult(
         await services.chatService.submit(actor, input.message),
@@ -91,7 +93,7 @@ async function handleIntent(
 
 /**
  * The JSON interface of the global chat (A11.4): open, `/new`, `/sessions`,
- * switching, sending, `/delete`, discarding an unsent attachment and cancelling;
+ * switching, the small state another device may have changed, sending, `/delete`, discarding an unsent attachment and cancelling;
  * for Codex agents also reading a job after a cursor and stopping it (PAGE-68).
  *
  * @remarks
