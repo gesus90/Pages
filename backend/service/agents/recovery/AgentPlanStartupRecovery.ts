@@ -244,6 +244,9 @@ export class AgentPlanStartupRecovery {
         : remote;
       let snapshot: unknown = null;
       if (
+        !uncertain.stopRequested &&
+        !uncertain.controlError &&
+        !uncertain.steps.some((step) => step.status === "running") &&
         uncertain.steps.some(
           (step) => step.status === "failed" && step.role === "closeout",
         )
