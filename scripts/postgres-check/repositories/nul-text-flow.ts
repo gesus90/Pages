@@ -31,7 +31,7 @@ function withoutNul(input: unknown): unknown {
 }
 
 /** A step that shows the difference itself: DuckDB keeps the character, PostgreSQL does not. */
-function keptOnlyByDuckdb(statement: string): RepositoryStep {
+export function keptOnlyByDuckdb(statement: string): RepositoryStep {
   return call("stored", async ({ database }) => {
     const rows = await database.query(statement);
     const values = rows.flat();

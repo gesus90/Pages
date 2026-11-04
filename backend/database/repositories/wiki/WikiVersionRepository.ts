@@ -137,7 +137,7 @@ export class WikiVersionRepository {
         LEFT JOIN users AS author
             ON author.id = version.author_id
         WHERE version.page_id = $page_id
-        ORDER BY version.revision DESC, version.created_at DESC, version.id;
+        ORDER BY version.revision DESC, version.created_at DESC, version.creation_order;
       `,
       { page_id: pageId },
     );
@@ -221,7 +221,7 @@ export class WikiVersionRepository {
                     version.created_at,
                     ROW_NUMBER() OVER (
                         PARTITION BY version.page_id
-                        ORDER BY version.revision DESC, version.created_at DESC, version.id
+                        ORDER BY version.revision DESC, version.created_at DESC, version.creation_order
                     ) AS recency
                 FROM wiki_page_versions AS version
             ) AS ranked
@@ -249,7 +249,7 @@ export class WikiVersionRepository {
                 FROM wiki_page_versions
                 WHERE page_id = $page_id
             )
-        ORDER BY created_at DESC, id;
+        ORDER BY creation_order;
       `,
       {
         author_id: version.authorId,

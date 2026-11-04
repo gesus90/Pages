@@ -244,10 +244,10 @@ export class WorkItemWriteRepository {
                 )
             )
             AND (
-                CAST($description AS TEXT) IS NULL
+                CAST($new_description AS TEXT) IS NULL
                 OR CAST($base_description AS TEXT) IS NULL
                 OR description = $base_description
-                OR description = $description
+                OR description = $new_description
             )
         RETURNING id;
       `,
@@ -257,7 +257,11 @@ export class WorkItemWriteRepository {
         created_by: update.reporterId,
         base_description: update.baseDescription ?? null,
         ...snapshotParameters(update.expected),
+        // Once written and once compared: only the written value may lose U+0000.
         description: update.shouldPreserveDescription
+          ? null
+          : update.description,
+        new_description: update.shouldPreserveDescription
           ? null
           : update.description,
         due_at: update.dueAt,
@@ -288,10 +292,16 @@ export class WorkItemWriteRepository {
             updated_at = utc_now()
         WHERE id = $id
             AND archived_at IS NULL
-            AND (description = $base_description OR description = $description)
+            AND (description = $base_description OR description = $new_description)
         RETURNING id;
       `,
-      { base_description: baseDescription, description, id },
+      // Once written and once compared: only the written value may lose U+0000.
+      {
+        base_description: baseDescription,
+        description,
+        id,
+        new_description: description,
+      },
     );
 
     return rows.length > 0;

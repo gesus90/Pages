@@ -296,6 +296,10 @@ between the databases that is meant to stay is this removal.
   device identifiers and push tokens of Pica Mobile.
   `LoginThrottle` counts such a name as its own: it never reaches a password check, so
   its spellings gain no guess.
+- A value that a statement both saves and compares has two names, so that saving it
+  still works (`$description` and `$new_description` in `WorkItemWriteRepository`). A
+  repeated save of the same text with the character then reports a conflict on
+  PostgreSQL, and nothing changes.
 - A statement text is no bound value and stays as it is; repositories interpolate only
   fixed fragments.
 
@@ -311,6 +315,11 @@ keep the results equal:
 - Permissions and memberships keep the order they were saved in, in a column
   `position` (migration 089). It used to rest on the physical order of the rows,
   which `admin.roles.list` and `admin.users.list` show. Accounts list by creation.
+- Tickets, their history, links and checklist items, milestones with their
+  dependencies, comments and page versions keep the order they were created in inside
+  one second, in a column `creation_order` from the sequence `row_creation_order`
+  (migration 090). Existing rows took it from the physical order. Ticket lists use
+  `created_at` and the number of the ticket instead.
 - A tie sorts by creation before it sorts by identifier: `created_at` or `joined_at`.
   Goals and dates get a time-ordered identifier (`createTimeOrderedId`), so two of one
   second keep their order; rows from before stay on their random identifier there.
@@ -326,8 +335,7 @@ keep the results equal:
 - `LIKE` without `ESCAPE` treats a backslash as an escape in PostgreSQL and as itself
   in DuckDB. Name the escape and escape the backslash in the bound text.
 - `rowid` and `regexp_matches` exist only in DuckDB; `translate` tests for a set of
-  characters in both. A comment gets a time-ordered identifier, because it needs its
-  order inside one second and PostgreSQL has no stable row number.
+  characters in both.
 - A parameter next to a whole number takes the type `integer`: `$days * 86400000`
   overflows at 25 days. PostgreSQL computes it ahead, also when no row is touched;
   DuckDB only for a row. Write `CAST($days AS BIGINT)`. A parameter that an earlier

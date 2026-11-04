@@ -91,6 +91,8 @@ import {
 import { readPublicApi } from "./repositories/public-api";
 import { TASK_FACADE_FLOW } from "./repositories/task-facade-flows";
 import { TICKET_CHANGE_FLOW } from "./repositories/ticket-change-flows";
+import { TICKET_WIKI_NUL_FLOW } from "./repositories/ticket-wiki-nul-flow";
+import { CREATION_ORDER_FLOW } from "./repositories/ticket-wiki-order-flows";
 import { TICKET_READ_FLOW } from "./repositories/ticket-read-flows";
 import { WIKI_CONTENT_FLOW } from "./repositories/wiki-content-flows";
 import { WIKI_FACADE_FLOW } from "./repositories/wiki-facade-flow";
@@ -125,6 +127,8 @@ const FLOWS: readonly RepositoryFlow[] = [
   TASK_FACADE_FLOW,
   TICKET_READ_FLOW,
   TICKET_CHANGE_FLOW,
+  CREATION_ORDER_FLOW,
+  TICKET_WIKI_NUL_FLOW,
   WIKI_FACADE_FLOW,
   WIKI_PAGE_FLOW,
   WIKI_CONTENT_FLOW,

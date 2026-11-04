@@ -29,7 +29,9 @@ const MENTIONS = `
         page.title AS page_title,
         COALESCE(comment.body, '') AS excerpt,
         COALESCE(actor.display_name, '') AS actor_name,
-        mention.created_at AS at
+        mention.created_at AS at,
+        0 AS kind_order,
+        COALESCE(comment.creation_order, 0) AS creation_order
     FROM wiki_mentions AS mention
     INNER JOIN wiki_pages AS page
         ON page.id = mention.page_id
@@ -51,7 +53,9 @@ const REPLIES = `
         page.title,
         reply.body,
         COALESCE(actor.display_name, ''),
-        reply.created_at
+        reply.created_at,
+        1,
+        reply.creation_order
     FROM wiki_comments AS reply
     INNER JOIN wiki_comments AS parent
         ON parent.id = reply.parent_id
@@ -73,7 +77,9 @@ const COMMENTS = `
         page.title,
         comment.body,
         COALESCE(actor.display_name, ''),
-        comment.created_at
+        comment.created_at,
+        2,
+        comment.creation_order
     FROM wiki_comments AS comment
     INNER JOIN wiki_pages AS page
         ON page.id = comment.page_id
@@ -105,7 +111,9 @@ const EXPIRED = `
         page.title,
         '',
         '',
-        page.current_until || ' 00:00:00'
+        page.current_until || ' 00:00:00',
+        3,
+        0
     FROM wiki_pages AS page
     INNER JOIN visible_pages
         ON visible_pages.id = page.id
@@ -164,9 +172,8 @@ export class WikiFeedRepository {
         ORDER BY
             entries.at DESC,
             entries.page_id,
-            entries.reason,
-            entries.excerpt,
-            entries.actor_name
+            entries.kind_order,
+            entries.creation_order
         LIMIT 100;
       `,
       { ...visible.parameters, today },

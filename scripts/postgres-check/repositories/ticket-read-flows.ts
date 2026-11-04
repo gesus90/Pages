@@ -65,13 +65,13 @@ const TICKET_ROWS = `
       sort_order, created_at, updated_at, archived_at, github_issue_number
   )
   VALUES
-      ('tie-c', 'project-a', 'TIE-3', 3, 'task', NULL, 'Gleich', '100% fertig', 'status-todo', 'normal',
+      ('tie-c', 'project-a', 'TIE-3', 1, 'task', NULL, 'Gleich', '100% fertig', 'status-todo', 'normal',
        NULL, NULL, NULL, 'user-admin', NULL, NULL,
        5, '2026-01-01 00:00:00', '2026-01-01 00:00:00', NULL, 12),
-      ('tie-a', 'project-a', 'TIE-1', 1, 'epic', NULL, 'Gleich', 'Text', 'status-todo', 'high',
+      ('tie-a', 'project-a', 'TIE-1', 2, 'epic', NULL, 'Gleich', 'Text', 'status-todo', 'high',
        'user-manager', NULL, 'department-a', 'user-admin', 'mile-c', '2026-05-01',
        5, '2026-01-01 00:00:00', '2026-01-01 00:00:00', NULL, 11),
-      ('tie-b', 'project-a', 'TIE-2', 2, 'task', 'tie-a', 'Pfad C:\\Temp\\', 'hundert fertig', 'status-in-progress', 'normal',
+      ('tie-b', 'project-a', 'TIE-2', 3, 'task', 'tie-a', 'Pfad C:\\Temp\\', 'hundert fertig', 'status-in-progress', 'normal',
        NULL, 'group-b', 'department-z', 'user-admin', NULL, NULL,
        5, '2026-01-01 00:00:00', '2026-01-01 00:00:00', NULL, 14),
       ('tie-d', 'project-a', 'TIE-4', 4, 'subtask', 'tie-a', 'Ähnlich', 'Text', 'status-done', 'low',

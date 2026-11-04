@@ -38,7 +38,7 @@ const NUL_USER = {
 } as const;
 
 /** The one approved difference, taken out so that every other one still shows. */
-function withoutNul(input: unknown): unknown {
+export function withoutNul(input: unknown): unknown {
   if (typeof input === "string") return input.replaceAll(NUL, "");
   if (Array.isArray(input)) return input.map(withoutNul);
   if (typeof input === "object" && input !== null)
@@ -49,7 +49,7 @@ function withoutNul(input: unknown): unknown {
 }
 
 /** DuckDB takes a key with the character; PostgreSQL refuses it and merges nothing. */
-function keyRefusedOnPostgres(
+export function keyRefusedOnPostgres(
   name: string,
   run: (world: RepositoryWorld) => Promise<unknown>,
 ): RepositoryStep {
@@ -63,7 +63,7 @@ function keyRefusedOnPostgres(
 }
 
 /** Both databases could agree on a wrong order, so these steps name the right one. */
-function inOrder<Item>(
+export function inOrder<Item>(
   items: readonly Item[] | undefined,
   expected: readonly unknown[],
   read: (item: Item) => unknown = (item) => item,

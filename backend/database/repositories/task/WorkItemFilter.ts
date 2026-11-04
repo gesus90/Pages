@@ -84,7 +84,7 @@ interface EqualityFilter {
 
 /** The order of the Kanban board, which also orders single-item lookups. */
 export const BOARD_ORDER_CLAUSE =
-  "ORDER BY work_items.sort_order ASC, work_items.created_at DESC, work_items.id ASC";
+  "ORDER BY work_items.sort_order ASC, work_items.created_at DESC, work_items.number ASC, work_items.id ASC";
 
 const CONDITION_SEPARATOR = "\n          AND ";
 
@@ -104,10 +104,12 @@ const ARCHIVED_CONDITIONS: Readonly<Record<ArchivedScope, readonly string[]>> =
  */
 const ORDER_CLAUSES: Readonly<Record<WorkItemsOrder, string>> = {
   board: BOARD_ORDER_CLAUSE,
-  due_asc: "ORDER BY work_items.due_at ASC NULLS FIRST, work_items.id ASC",
+  due_asc:
+    "ORDER BY work_items.due_at ASC NULLS FIRST, work_items.created_at ASC, work_items.number ASC, work_items.id ASC",
   due_nulls_last:
-    "ORDER BY work_items.due_at IS NULL ASC, work_items.due_at ASC, work_items.updated_at DESC, work_items.id ASC",
-  updated_desc: "ORDER BY work_items.updated_at DESC, work_items.id ASC",
+    "ORDER BY work_items.due_at IS NULL ASC, work_items.due_at ASC, work_items.updated_at DESC, work_items.created_at ASC, work_items.number ASC, work_items.id ASC",
+  updated_desc:
+    "ORDER BY work_items.updated_at DESC, work_items.created_at ASC, work_items.number ASC, work_items.id ASC",
 };
 
 const EQUALITY_FILTERS: readonly EqualityFilter[] = [

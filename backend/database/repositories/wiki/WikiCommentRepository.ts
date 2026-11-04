@@ -1,4 +1,5 @@
-import { createTimeOrderedId } from "@/backend/database/TimeOrderedId";
+import { randomUUID } from "node:crypto";
+
 import {
   readNullableTextColumn,
   readTextColumn,
@@ -93,7 +94,7 @@ export class WikiCommentRepository {
    * @returns The identifier of the comment.
    */
   public async insert(comment: NewWikiComment): Promise<string> {
-    const id = createTimeOrderedId();
+    const id = randomUUID();
 
     await this.database.execute(
       `
@@ -146,7 +147,7 @@ export class WikiCommentRepository {
         FROM wiki_comments AS comment
         ${JOINS}
         WHERE comment.page_id = $page_id
-        ORDER BY comment.created_at, comment.id;
+        ORDER BY comment.created_at, comment.creation_order;
       `,
       { page_id: pageId },
     );

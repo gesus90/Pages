@@ -71,7 +71,7 @@ export class MilestoneDependencyRepository {
             created_at
         FROM milestone_dependencies
         WHERE project_id IN (${placeholders})
-        ORDER BY created_at ASC, id ASC;
+        ORDER BY created_at ASC, creation_order ASC;
       `,
       parameters,
     );

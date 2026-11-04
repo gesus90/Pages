@@ -122,7 +122,8 @@ export class WorkItemLinkRepository {
             work_items.title AS linked_work_item_title,
             workflow_statuses.key AS linked_work_item_status_key,
             workflow_statuses.is_done AS linked_work_item_is_done,
-            work_item_links.created_at AS created_at
+            work_item_links.created_at AS created_at,
+            work_item_links.creation_order AS creation_order
         FROM work_item_links
         INNER JOIN work_items
             ON work_items.id = work_item_links.linked_work_item_id
@@ -142,7 +143,8 @@ export class WorkItemLinkRepository {
             work_items.title AS linked_work_item_title,
             workflow_statuses.key AS linked_work_item_status_key,
             workflow_statuses.is_done AS linked_work_item_is_done,
-            work_item_links.created_at AS created_at
+            work_item_links.created_at AS created_at,
+            work_item_links.creation_order AS creation_order
         FROM work_item_links
         INNER JOIN work_items
             ON work_items.id = work_item_links.work_item_id
@@ -151,7 +153,7 @@ export class WorkItemLinkRepository {
         WHERE work_item_links.linked_work_item_id = $work_item_id
             AND ${scope.condition}
 
-        ORDER BY direction DESC, created_at ASC, id ASC;
+        ORDER BY direction DESC, creation_order ASC;
       `,
       { work_item_id: workItemId, ...scope.parameters },
     );
