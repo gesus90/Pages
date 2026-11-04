@@ -1,3 +1,5 @@
+import { textWithoutNul } from "./PostgresText";
+
 import type { SqlParameters } from "../Database";
 
 /** Most translated statements kept; repositories own a few hundred. */
@@ -61,9 +63,9 @@ function placeholderName(groups: unknown): string | undefined {
 function toBoundValue(value: SqlParameters[string]): PostgresBoundValue {
   // Boolean columns hold the integers 0 and 1, see `RowValue.ts`.
   if (typeof value === "boolean") return value ? 1 : 0;
-  // PostgreSQL cannot store U+0000 in text. A JSON document holds it only as an
-  // escape of six characters, so no valid document changes here.
-  if (typeof value === "string") return value.replaceAll("\u0000", "");
+  // A text that must keep U+0000 goes out as it is: PostgreSQL refuses the statement
+  // with 22021 and no content, which also ends an open transaction.
+  if (typeof value === "string") return textWithoutNul(value) ?? value;
   return value;
 }
 
@@ -88,7 +90,8 @@ function removedCharacters(
  *
  * @remarks
  * U+0000 leaves every text, also in a read: a text stored without it is found
- * again by the text it was stored with.
+ * again by the text it was stored with. See {@link textWithoutNul} for the texts
+ * that are refused instead.
  */
 export function bindStatement(
   statement: string,

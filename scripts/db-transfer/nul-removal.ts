@@ -1,3 +1,5 @@
+import { textWithoutNul } from "@/backend/database/postgres/PostgresText";
+
 import { TransferRefusal } from "./transfer-refusal";
 
 import type { DatabaseValue } from "@/backend/database/Database";
@@ -5,9 +7,6 @@ import type { TablePlan } from "./table-plan";
 
 /** The one character PostgreSQL cannot store in text. */
 const NUL = "\u0000";
-
-/** A backslash with what it escapes in JSON; other backslashes make no difference here. */
-const JSON_ESCAPE = /\\(?:u[0-9a-fA-F]{4}|[\s\S])/gu;
 
 /** What the removal changed in one column of one table: numbers, no content. */
 export interface RemovedNulColumn {
@@ -20,30 +19,15 @@ export interface RemovedNulColumn {
 /** The numbers of a run, by table and column. */
 export type RemovedNulCounts = Map<string, RemovedNulColumn>;
 
-function escapesOf(text: string): readonly string[] {
-  return (text.match(JSON_ESCAPE) ?? []).filter(
-    (escape) => !escape.includes(NUL),
-  );
-}
-
-function hasSameEscapes(first: string, second: string): boolean {
-  const firstEscapes = escapesOf(first);
-  const secondEscapes = escapesOf(second);
-  return (
-    firstEscapes.length === secondEscapes.length &&
-    firstEscapes.every((escape, index) => escape === secondEscapes[index])
-  );
-}
-
 function removeFromText(
   plan: TablePlan,
   columnIndex: number,
   text: string,
   counts: RemovedNulCounts,
 ): string {
-  const cleaned = text.replaceAll(NUL, "");
+  const cleaned = textWithoutNul(text);
   const column = plan.columns[columnIndex] ?? String(columnIndex);
-  if (!hasSameEscapes(text, cleaned))
+  if (cleaned === null)
     throw new TransferRefusal(
       `Removing U+0000 from a value of ${plan.name}.${column} would create or remove a JSON escape. Nothing of this table was kept. Correct that value in the source first.`,
     );
@@ -64,8 +48,8 @@ function removeFromText(
  * @param counts - Receives the changed values. The copy leaves it out, because
  * the check reads the same file again and reports them.
  * @yields The rows without U+0000 in text; binary values and everything else stay.
- * @throws {TransferRefusal} When the removal would create or remove a JSON escape,
- * as in a backslash, the character and `u0000`.
+ * @throws {TransferRefusal} When {@link textWithoutNul} keeps a text from being
+ * cleaned, the same texts a save on PostgreSQL refuses.
  */
 export async function* cleanRows(
   plan: TablePlan,

@@ -352,6 +352,35 @@ async function storedNote(database: Database, note: string): Promise<unknown> {
   return rows[0]?.[0];
 }
 
+function isInvalidText(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "22021";
+}
+
+/** Where taking the character out would change a real escape, nothing is stored at all. */
+async function checkNulEscapeRefused(database: Database): Promise<void> {
+  const insert = "INSERT INTO check_notes (note) VALUES ($note);";
+  for (const note of [
+    `${NUL_CHECK_TEXT}\\\u0000u0000`,
+    "\\u00\u000000",
+    "\\\u0000\\u0000",
+  ])
+    await assert.rejects(database.execute(insert, { note }), isInvalidText);
+  await assert.rejects(
+    database.transaction(async (transaction) => {
+      await transaction.execute(insert, { note: "before-the-refusal" });
+      await transaction
+        .execute(insert, { note: "\\\u0000u0000" })
+        .catch(() => undefined);
+    }),
+    AbortedTransactionError,
+  );
+  assert.deepEqual(await database.query("SELECT note FROM check_notes;"), []);
+  // The same backslash without an escape arising is only cleaned.
+  assert.equal(await storedNote(database, "\\\\\u0000u0000"), "\\\\u0000");
+  assert.equal(await storedNote(database, "\\\u0000n"), "\\n");
+  await database.execute("DELETE FROM check_notes;");
+}
+
 /** Only the character goes: its JSON escapes, other control characters and bytes stay. */
 async function checkNulInText(database: Database): Promise<void> {
   const document = JSON.stringify({ note: `a\u0000b\\u0000` });
@@ -392,6 +421,8 @@ async function checkNulInText(database: Database): Promise<void> {
   assert.deepEqual(row?.[0], bytes);
   await database.execute("DELETE FROM check_items WHERE id = 90;");
   await database.execute("DELETE FROM check_notes;");
+
+  await checkNulEscapeRefused(database);
 
   const counted = { first: "\u0000a\u0000", second: "\\u0000", third: 1 };
   assert.equal(

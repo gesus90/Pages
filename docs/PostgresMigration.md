@@ -101,9 +101,9 @@ The transfer removes U+0000 from text (see [U+0000 in text](#u0000-in-text)):
 - The report lists table, column, values and characters for each column that lost the
   character, and the sum. A source without it reports `0 values` explicitly.
 - Binary values and the escape `\u0000` of six characters, also as `\\u0000`, stay.
-- The command stops with exit code 1 where the removal would create or remove a JSON
-  escape, as with a backslash, the character and `u0000`. It names table and column;
-  the value has to be corrected in the source first.
+- The command stops with exit code 1 on the texts a save refuses, by the same rule (see
+  [U+0000 in text](#u0000-in-text)). It names table and column; the value has to be
+  corrected in the source first.
 - Two keys that differ only by the character collide in the target. The command then
   stops with SQLSTATE `23505`, also for a unique column that is no primary key, and
   with `23514` where a check constraint refuses the cleaned value.
@@ -277,10 +277,13 @@ the databases that is meant to stay.
   username together for that reason.
 - A statement text is no bound value and stays as it is; repositories interpolate only
   fixed fragments.
-- A backslash directly before the character followed by `u0000` becomes these six
-  characters. Such a text was no valid JSON before, and stays plain text.
-- `db:transfer` is stricter than this: it stops on such a text instead of writing it
-  (see [Data transfer](#data-transfer)).
+- No real escape `\u0000` may arise, disappear or move. Where taking the character out
+  would change their number or place, as with a backslash, the character and `u0000`
+  or with `\u00`, the character and `00`, PostgreSQL refuses the statement with `22021`
+  and no content, and nothing is stored. Any other text with the character is cleaned,
+  also a backslash, the character and `n`. DuckDB stores such a text.
+- `textWithoutNul` in `PostgresText.ts` holds this rule. `db:transfer` uses the same
+  function, so saving and the transfer stop on the same texts.
 
 ## Repository SQL
 
