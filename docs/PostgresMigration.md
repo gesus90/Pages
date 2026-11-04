@@ -140,8 +140,8 @@ configuration of Pages.
 
 5. Copy `backup.env.example` to `/etc/pages/postgres-backup.env` and put the password of
    `pages_backup` into the file `PGPASSFILE` names, both mode 0600.
-6. Copy the four units to `/etc/systemd/system`, replace `@USER@`, `@CHECKOUT@` and
-   `@CONFIG@` and enable both timers.
+6. Copy the four units to `/etc/systemd/system`, replace `@USER@`, `@CHECKOUT@`, `@CONFIG@`
+   and `@NODE_BIN@` and enable both timers.
 7. Start the base backup service once, then the restore check service once. A backup only
    counts after a check passed.
 

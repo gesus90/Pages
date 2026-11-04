@@ -1,5 +1,6 @@
-# Replace @USER@, @CHECKOUT@ and @CONFIG@ (the config.toml of the instance). @USER@ reads
-# the configuration and owns /mnt/Data/PagesPostgres.
+# Replace @USER@, @CHECKOUT@, @CONFIG@ (the config.toml of the instance) and @NODE_BIN@ (the
+# directory of node and pnpm: dirname "$(command -v pnpm)"). @USER@ reads the configuration
+# and owns /mnt/Data/PagesPostgres.
 [Unit]
 Description=Pages PostgreSQL restore check
 RequiresMountsFor=/mnt/Data
@@ -8,6 +9,8 @@ RequiresMountsFor=/mnt/Data
 Type=oneshot
 User=@USER@
 EnvironmentFile=/etc/pages/postgres-backup.env
+# A unit does not read the profile of the user, so nvm's node and pnpm are not on its path.
+Environment=PATH=@NODE_BIN@:/usr/local/bin:/usr/bin:/bin
 WorkingDirectory=@CHECKOUT@
 ExecStart=/usr/bin/env pnpm run postgres:restore-check -- --config @CONFIG@
 Nice=10
