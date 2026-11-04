@@ -31,7 +31,13 @@ export interface StoredAgentImportSource {
   readonly lastRunId: string;
 }
 
-/** Persists resumable import runs and source outcomes on the caller's transaction connection. */
+/**
+ * Persists resumable import runs and source outcomes on the caller's transaction connection.
+ *
+ * @remarks
+ * The casts keep U+0000 in a source key, so PostgreSQL refuses it: without the
+ * character it would be the key of another source.
+ */
 export class AgentImportRepository {
   private readonly database: DatabaseTransaction;
 
@@ -144,7 +150,7 @@ export class AgentImportRepository {
             updated_at
         )
         VALUES (
-            $project_id, $source_key, $target_kind, $target_id, $content_hash,
+            $project_id, CAST($source_key AS TEXT), $target_kind, $target_id, $content_hash,
             $target_revision, $result_json, $last_run_id, $now, $now
         );
       `,
@@ -361,7 +367,7 @@ export class AgentImportRepository {
             created_at
         )
         VALUES (
-            $run_id, $source_key, $target_key, $ordinal, $action,
+            $run_id, CAST($source_key AS TEXT), $target_key, $ordinal, $action,
             $target_id, $error_code, $result_json, $now
         );
       `,

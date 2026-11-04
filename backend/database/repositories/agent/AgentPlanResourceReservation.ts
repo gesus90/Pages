@@ -18,7 +18,13 @@ function snapshotResources(input: unknown): readonly string[] {
   return planWritingWorkspaces(readPlanSnapshot(input));
 }
 
-/** Reserves all actual writer resources atomically; contention queues work instead of refusing a plan. */
+/**
+ * Reserves all actual writer resources atomically; contention queues work instead of refusing a plan.
+ *
+ * @remarks
+ * A holder with a run comes before one without, so a real collision queues the
+ * plan even where an old reservation has no snapshot left to compare with.
+ */
 export async function reservePlanResources(
   transaction: DatabaseTransaction,
   runId: string,
@@ -31,7 +37,7 @@ export async function reservePlanResources(
     FROM agent_plan_workspace_locks AS locks
     LEFT JOIN agent_plan_runs AS runs ON runs.id = locks.run_id
     WHERE locks.run_id <> $run_id
-    ORDER BY locks.workspace_id;
+    ORDER BY runs.id IS NULL, locks.creation_order;
   `,
     { run_id: runId },
   );
@@ -125,7 +131,7 @@ export async function findPlanResourceBlocker(
     FROM agent_plan_workspace_locks AS locks
     LEFT JOIN agent_plan_runs AS runs ON runs.id = locks.run_id
     WHERE locks.run_id <> $run_id
-    ORDER BY locks.workspace_id;
+    ORDER BY runs.id IS NULL, locks.creation_order;
   `,
     { run_id: run.id },
   );

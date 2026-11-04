@@ -92,7 +92,8 @@ export class RunnerHistoryRecoveryRepository {
               packet_json,
               sequence,
               last_attempt_at,
-              ROW_NUMBER() OVER (PARTITION BY job_id ORDER BY sequence, event_id) AS job_position
+              creation_order,
+              ROW_NUMBER() OVER (PARTITION BY job_id ORDER BY sequence, creation_order) AS job_position
           FROM runner_history_recovery
           WHERE connection_id = $connection_id
               AND restored_at IS NULL
@@ -102,7 +103,7 @@ export class RunnerHistoryRecoveryRepository {
               last_attempt_at IS NULL
               OR last_attempt_at < utc_after(INTERVAL '-30 seconds')
           )
-      ORDER BY sequence, event_id
+      ORDER BY sequence, creation_order
       LIMIT 32;
     `,
       { connection_id: connectionId },

@@ -339,7 +339,7 @@ export class AgentPlanRunRepository {
       SELECT view_json
       FROM agent_plan_runs
       WHERE status IN ('running', 'pausing', 'paused', 'stopping')
-      ORDER BY started_at, id;
+      ORDER BY creation_order;
     `,
     );
     return rows.map((row) => {
@@ -355,7 +355,7 @@ export class AgentPlanRunRepository {
       FROM agent_plan_runs
       WHERE status = 'failed'
           AND json_extract_string(view_json, '$.recovery.automaticResume.state') = 'pending'
-      ORDER BY started_at, id;
+      ORDER BY creation_order;
     `);
     return rows.map((row) => {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
@@ -384,7 +384,7 @@ export class AgentPlanRunRepository {
               SELECT run_id
               FROM agent_plan_workspace_locks
           )
-      ORDER BY started_at, id;
+      ORDER BY creation_order;
     `);
     return rows.map((row) => {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));

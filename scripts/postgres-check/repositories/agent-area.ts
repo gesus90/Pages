@@ -63,6 +63,8 @@ import {
   WORKSPACE_CLEANUP_FLOW,
   WORKSPACE_FLOW,
 } from "./agent-profile-flows";
+import { AGENT_NUL_FLOW } from "./agent-nul-flow";
+import { AGENT_ORDER_FLOW } from "./agent-order-flows";
 import {
   CHECKPOINT_FLOW,
   CLEANUP_FAILURE_FLOW,
@@ -138,6 +140,8 @@ export const AGENT_AREA_FLOWS: readonly RepositoryFlow[] = [
   REMOTE_CONNECTION_FLOW,
   REMOTE_FINDING_FLOW,
   REMOTE_WORKSPACE_FLOW,
+  AGENT_ORDER_FLOW,
+  AGENT_NUL_FLOW,
 ];
 
 /** The classes of these directories, whose methods are watched while the flows run. */

@@ -123,7 +123,7 @@ export const PLAN_RUN_FLOW: RepositoryFlow = {
       ),
     ),
     reversedInPostgres("agent_plan_workspace_locks"),
-    refused("reservePlanResources", ({ database }) =>
+    call("reservePlanResources", ({ database }) =>
       database.transaction((transaction) =>
         reservePlanResources(transaction, "run-new", [RESOURCE]),
       ),

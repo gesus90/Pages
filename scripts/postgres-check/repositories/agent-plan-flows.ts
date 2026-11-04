@@ -399,6 +399,19 @@ export const JSON_FUNCTION_FLOW: RepositoryFlow = {
       ),
     ]),
     stored("SELECT json_extract_string(CAST(NULL AS TEXT), '$.a');"),
+    // The six characters of the escape are another text than the character it stands for.
+    stored("SELECT json_extract_string($document, '$.a') = $text;", {
+      document: '{"a":"\\u0000"}',
+      text: "\\u0000",
+    }),
+    stored("SELECT json_extract_string($document, '$.a') = $text;", {
+      document: '{"a":"\\\\u0000"}',
+      text: "\\u0000",
+    }),
+    stored("SELECT json_extract_string($document, '$.a') = $text;", {
+      document: '{"a":"b\\u0000c"}',
+      text: "bc",
+    }),
     ...[
       '{"id":"x"}',
       '{"a":{"id":"x"},"b":[{"id":"x"},{"c":[{"id":"x"}]}]}',

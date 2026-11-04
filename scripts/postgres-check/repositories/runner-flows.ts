@@ -46,6 +46,8 @@ import {
   stored,
 } from "./world";
 
+import { inOrder } from "./saved-order-flows";
+
 import type { RepositoryFlow, RepositoryWorld } from "./world";
 import type { RunnerLiveEvent } from "@/definition/RunnerLiveHistory";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -569,6 +571,19 @@ export const RUNNER_HISTORY_FLOW: RepositoryFlow = {
     ),
     call("RunnerHistoryRecoveryRepository.restore", (world) =>
       history(world).restore("connection-runner"),
+    ),
+    // Same job and sequence: the packet received first goes first, not the smaller id.
+    call("stored", async ({ database }) =>
+      inOrder(
+        await database.query(`
+          SELECT event_id
+          FROM runner_history_recovery
+          WHERE connection_id = 'connection-runner'
+              AND restored_at IS NOT NULL;
+        `),
+        [HISTORY_B],
+        (row) => row[0],
+      ),
     ),
     stored(`
       SELECT event_id, restored_at IS NULL, last_attempt_at IS NULL, diagnosis_json IS NULL

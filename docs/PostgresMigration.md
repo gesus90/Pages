@@ -48,7 +48,7 @@ date comes back as infinity.
 ## JSON functions
 
 `json_extract_string(document, path)` and `json_tree(document, path)`
-(`003_json_functions.sql`) have the names of the DuckDB functions, so a statement
+(`003_json_functions.sql`, `007_json_string_with_nul.sql`) have the names of the DuckDB functions, so a statement
 is the same in both. A path has the form `$.a.b`; `json_tree` without a path starts
 at the document. PostgreSQL refuses a whole JSON document that holds the escape
 `\u0000`, even for another key. JSON.stringify writes that escape for a U+0000, and
@@ -300,6 +300,10 @@ between the databases that is meant to stay is this removal.
   still works (`$description` and `$new_description` in `WorkItemWriteRepository`). A
   repeated save of the same text with the character then reports a conflict on
   PostgreSQL, and nothing changes.
+- An identifier that a later statement looks up must not lose the character, so its
+  `INSERT` holds it in a `CAST` and PostgreSQL refuses it: the key of an operation and
+  the source key of an import. The key that drops a repeated session event is stored as
+  hex with the prefix `nul:` on PostgreSQL, so it still drops its repeats and no others.
 - A statement text is no bound value and stays as it is; repositories interpolate only
   fixed fragments.
 
@@ -320,6 +324,10 @@ keep the results equal:
   one second, in a column `creation_order` from the sequence `row_creation_order`
   (migration 090). Existing rows took it from the physical order. Ticket lists use
   `created_at` and the number of the ticket instead.
+- Plan runs, their reservations and retained history packets of a runner keep the
+  order they were created in, in the same column (migration 091). It decides which
+  run takes a working copy first after a restart, which holder a waiting run names
+  and which packet of a job comes first.
 - A tie sorts by creation before it sorts by identifier: `created_at` or `joined_at`.
   Goals and dates get a time-ordered identifier (`createTimeOrderedId`), so two of one
   second keep their order; rows from before stay on their random identifier there.
@@ -346,8 +354,12 @@ keep the results equal:
 - `CHECKPOINT` belongs to the file of DuckDB and needs extra rights in PostgreSQL.
 - `QUALIFY` exists only in DuckDB: filter the window function in an outer query.
 - Parallel statements through `Promise.all` fail in a DuckDB transaction with
-  `cannot start a transaction within a transaction` and run in PostgreSQL. Run them
-  one after the other when a transaction can call the method.
+  `cannot start a transaction within a transaction` when they are its first statements,
+  and run in PostgreSQL. Run them one after the other when a transaction can call the
+  method. `AgentConnectionScopeRepository.list` and `WikiSearchRepository.search` keep
+  the parallel form, because no caller uses them in a transaction.
+- A reservation with a run comes before one without, then by creation. So a real
+  collision queues a plan even where an old reservation has no snapshot to compare with.
 
 | Area                                          | State                                           |
 | --------------------------------------------- | ----------------------------------------------- |
@@ -373,9 +385,9 @@ These differences remain, because no repository statement can remove them:
   DuckDB. The services validate these numbers first, except the sort order of the
   board, whose statement casts through `DOUBLE PRECISION` like DuckDB does.
 - `upper('ß')` is `ß` in PostgreSQL and `ẞ` in DuckDB.
-- `json_extract_string` returns a string with a U+0000 with the six characters of its
-  escape in PostgreSQL and with the character in DuckDB. Callers only compare it with
-  a fixed word or an identifier, which it equals in neither.
+- `json_extract_string` returns a string with a U+0000 as the character in DuckDB and
+  as a text no identifier has in PostgreSQL (`007_json_string_with_nul.sql`). Callers
+  only compare it with a fixed word or an identifier.
 - `INSERT … ON CONFLICT DO UPDATE` with `NULL` for a `NOT NULL` column that the update
   does not set is refused by PostgreSQL before it finds the conflict; DuckDB takes the
   update. The types of the repositories do not allow such a value.

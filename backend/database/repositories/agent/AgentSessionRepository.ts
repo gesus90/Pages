@@ -74,6 +74,19 @@ function attemptParameters(attempt: AgentSessionAttemptRecord): SqlParameters {
   };
 }
 
+/**
+ * The stored form of the key that drops a repeated event.
+ *
+ * @remarks
+ * PostgreSQL stores text without U+0000, and a key without the character would drop
+ * the events of another key. Hex keeps such a key apart and repeatable.
+ */
+function storedDedupeKey(database: Database, key: string): string {
+  return database.dialect === "postgres" && key.includes("\u0000")
+    ? `nul:${Buffer.from(key, "utf8").toString("hex")}`
+    : key;
+}
+
 /** The PageAgentCLI tables: attempts, events, turn usage and instructions. */
 export class AgentSessionRepository implements AgentSessionStore {
   private readonly database: Database;
@@ -507,7 +520,10 @@ export class AgentSessionRepository implements AgentSessionStore {
       WHERE attempt_id = $attempt_id
           AND dedupe_key = $dedupe_key;
     `,
-      { attempt_id: attemptId, dedupe_key: event.dedupeKey },
+      {
+        attempt_id: attemptId,
+        dedupe_key: storedDedupeKey(this.database, event.dedupeKey),
+      },
     );
     return existing !== undefined;
   }
@@ -548,7 +564,10 @@ export class AgentSessionRepository implements AgentSessionStore {
         kind: event.kind,
         body: event.text,
         is_truncated: event.isTruncated,
-        dedupe_key: event.dedupeKey,
+        dedupe_key:
+          event.dedupeKey === null
+            ? null
+            : storedDedupeKey(this.database, event.dedupeKey),
         created_at: event.createdAt,
       },
     );

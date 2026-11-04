@@ -396,11 +396,25 @@ export const CONNECTION_SCOPE_FLOW: RepositoryFlow = {
         new AgentConnectionScopeRepository(transaction).list(),
       ),
     ),
+    // After a first statement both run it. No caller lists scopes in a transaction.
     call("AgentConnectionScopeRepository.list", ({ database }) =>
-      database.transaction((transaction) =>
-        new AgentConnectionScopeRepository(transaction).list(),
-      ),
+      database.transaction(async (transaction) => {
+        await transaction.query("SELECT 1;");
+        return new AgentConnectionScopeRepository(transaction).list();
+      }),
     ),
+    // As the first statement, DuckDB refuses the parallel start of the transaction.
+    call("AgentConnectionScopeRepository.list", async ({ database }) => {
+      const isListed = await database
+        .transaction((transaction) =>
+          new AgentConnectionScopeRepository(transaction).list(),
+        )
+        .then(
+          () => true,
+          () => false,
+        );
+      return { isAsKnown: isListed === (database.dialect === "postgres") };
+    }),
     call("AgentConnectionScopeRepository.references", (world) =>
       scopes(world).references({ kind: "person", targetId: "user-admin" }),
     ),

@@ -375,6 +375,22 @@ export const REMOTE_WORKSPACE_FLOW: RepositoryFlow = {
     call("RemoteConnectionRepository.workspaceCounts", (world) =>
       connections(world).workspaceCounts(),
     ),
+    prepare(`
+      INSERT INTO remote_workspaces (id, name, connection_id, path, project_id, registered_by)
+      SELECT
+          'remote-count-' || CAST(number AS TEXT),
+          'Zähler',
+          'remote-count-' || CAST(number AS TEXT),
+          '/srv/count',
+          'project-plans',
+          'user-plan-owner'
+      FROM generate_series(1, 9) AS numbers(number);
+    `),
+    reversedInPostgres("remote_workspaces"),
+    call("RemoteConnectionRepository.workspaceCounts", (world) =>
+      connections(world).workspaceCounts(),
+    ),
+    prepare("DELETE FROM remote_workspaces WHERE id LIKE 'remote-count-%';"),
     call("RemoteWorkspaceRepository.saveCheck", (world) =>
       workspaces(world).saveCheck("remote-workspace-b", 1, {
         checkedAt: "2026-03-01 09:00:00",

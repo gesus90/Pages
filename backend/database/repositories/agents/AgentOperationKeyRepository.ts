@@ -43,7 +43,13 @@ export class AgentOperationKeyRepository {
       : null;
   }
 
-  /** Saves one completed result; the composite primary key prevents reuse. */
+  /**
+   * Saves one completed result; the composite primary key prevents reuse.
+   *
+   * @remarks
+   * The cast keeps U+0000 in the identifier, so PostgreSQL refuses it: without the
+   * character it would be the key of another operation.
+   */
   public async insert(
     userId: string,
     operationId: string,
@@ -53,7 +59,7 @@ export class AgentOperationKeyRepository {
       `
       INSERT INTO agent_operation_keys (
           user_id, operation_id, operation, fingerprint, result_json, created_at
-      ) VALUES ($user_id, $operation_id, $operation, $fingerprint, $result_json, $created_at);
+      ) VALUES ($user_id, CAST($operation_id AS TEXT), $operation, $fingerprint, $result_json, $created_at);
     `,
       {
         user_id: userId,
