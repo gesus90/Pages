@@ -496,7 +496,7 @@ export class PicaMobileNotificationEventRepository {
                           event_id,
                           ROW_NUMBER() OVER (
                               PARTITION BY account_id
-                              ORDER BY occurred_at DESC, seq DESC, run_id DESC, event_id DESC
+                              ORDER BY occurred_at DESC, seq DESC, creation_order ASC
                           ) AS event_rank
                       FROM pica_mobile_notification_events
                   )

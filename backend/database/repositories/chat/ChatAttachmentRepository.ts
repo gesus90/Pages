@@ -232,17 +232,18 @@ export class ChatAttachmentRepository {
           AND pica_run_id = $pica_run_id
           AND origin = 'assistant'
           AND message_id IS NULL
-      RETURNING ${RETURNED_COLUMNS};
+      RETURNING ${RETURNED_COLUMNS}, creation_order;
     `,
       { session_id: sessionId, pica_run_id: runId, message_id: messageId },
     );
-    return rows
-      .map(readAttachment)
+    return [...rows]
       .sort(
         (left, right) =>
-          left.fileName.localeCompare(right.fileName) ||
-          left.storageName.localeCompare(right.storageName),
-      );
+          readTextColumn(left, 3, "file_name").localeCompare(
+            readTextColumn(right, 3, "file_name"),
+          ) || Number(left[9]) - Number(right[9]),
+      )
+      .map(readAttachment);
   }
 
   /**
@@ -262,11 +263,13 @@ export class ChatAttachmentRepository {
           AND message_id IS NULL
           AND (CAST($session_id AS TEXT) IS NULL OR session_id = $session_id)
           AND (CAST($pica_run_id AS TEXT) IS NULL OR pica_run_id = $pica_run_id)
-      RETURNING storage_name;
+      RETURNING storage_name, creation_order;
     `,
       { session_id: sessionId, pica_run_id: runId },
     );
-    return rows.map((row) => readTextColumn(row, 0, "storage_name")).sort();
+    return [...rows]
+      .sort((left, right) => Number(left[1]) - Number(right[1]))
+      .map((row) => readTextColumn(row, 0, "storage_name"));
   }
 
   /** Returns an attachment of an own session; foreign and unknown IDs yield `null` alike. */

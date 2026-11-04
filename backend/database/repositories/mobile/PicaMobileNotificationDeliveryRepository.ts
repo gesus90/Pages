@@ -108,23 +108,22 @@ export class PicaMobileNotificationDeliveryRepository {
             WHERE state = 'pending'
                 AND not_before <= $now
                 AND expires_at > $now
-            ORDER BY not_before ASC, seq ASC, run_id ASC, device_id ASC, delivery_id ASC
+            ORDER BY not_before ASC, seq ASC, creation_order ASC
             LIMIT ${Math.trunc(limit)}
         )
-        RETURNING${DELIVERY_COLUMNS};
+        RETURNING${DELIVERY_COLUMNS},
+            creation_order;
       `,
       { locked_until: lockedUntil, now },
     );
 
-    return rows
-      .map((row) => toDelivery(row))
+    return [...rows]
       .sort(
         (first, second) =>
-          first.seq - second.seq ||
-          first.runId.localeCompare(second.runId) ||
-          first.deviceId.localeCompare(second.deviceId) ||
-          first.deliveryId.localeCompare(second.deliveryId),
-      );
+          Number(first[6]) - Number(second[6]) ||
+          Number(first[9]) - Number(second[9]),
+      )
+      .map((row) => toDelivery(row));
   }
 
   /** Makes deliveries whose lock ran out claimable again. */

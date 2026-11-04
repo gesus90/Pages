@@ -337,7 +337,7 @@ export class ChatSessionRepository {
         `
         DELETE FROM chat_attachments
         WHERE session_id = $session_id
-        RETURNING storage_name;
+        RETURNING storage_name, creation_order;
       `,
         { session_id: sessionId },
       );
@@ -350,7 +350,9 @@ export class ChatSessionRepository {
         "DELETE FROM chat_sessions WHERE id = $session_id;",
         { session_id: sessionId },
       );
-      return files.map((row) => readTextColumn(row, 0, "storage_name")).sort();
+      return [...files]
+        .sort((left, right) => Number(left[1]) - Number(right[1]))
+        .map((row) => readTextColumn(row, 0, "storage_name"));
     });
   }
 }

@@ -324,6 +324,10 @@ keep the results equal:
   one second, in a column `creation_order` from the sequence `row_creation_order`
   (migration 090). Existing rows took it from the physical order. Ticket lists use
   `created_at` and the number of the ticket instead.
+- Personal tokens, Discord attempts and deliveries, deliveries and events of Pica Mobile,
+  steers, selections and chat attachments keep the order they were created in, in the
+  same column (migration 092). It decides the latest attempt, the message a change merges
+  into, what is handed out first and which events an account keeps.
 - Plan runs, their reservations and retained history packets of a runner keep the
   order they were created in, in the same column (migration 091). It decides which
   run takes a working copy first after a restart, which holder a waiting run names

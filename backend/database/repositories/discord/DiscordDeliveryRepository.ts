@@ -194,7 +194,7 @@ export class DiscordDeliveryRepository implements DiscordDeliveryStore {
           WHERE project_id = $project_id
               AND subject_key = $subject_key
               AND status = 'pending'
-          ORDER BY created_at ASC, id ASC
+          ORDER BY created_at ASC, creation_order ASC
           LIMIT 1;
         `,
         { project_id: delivery.projectId, subject_key: delivery.subjectKey },
@@ -249,21 +249,23 @@ export class DiscordDeliveryRepository implements DiscordDeliveryStore {
             FROM discord_deliveries
             WHERE status = 'pending'
                 AND next_attempt_at <= $now
-            ORDER BY created_at ASC, id ASC
+            ORDER BY created_at ASC, creation_order ASC
             LIMIT ${Math.trunc(limit)}
         )
-        RETURNING${DELIVERY_COLUMNS};
+        RETURNING${DELIVERY_COLUMNS},
+            creation_order;
       `,
       { locked_until: lockedUntil, now },
     );
 
-    return rows
-      .map((row) => toDelivery(row))
+    return [...rows]
       .sort(
         (first, second) =>
-          first.createdAt.localeCompare(second.createdAt) ||
-          first.id.localeCompare(second.id),
-      );
+          readTextColumn(first, 5, "created_at").localeCompare(
+            readTextColumn(second, 5, "created_at"),
+          ) || Number(first[6]) - Number(second[6]),
+      )
+      .map((row) => toDelivery(row));
   }
 
   /** Makes deliveries whose lock ran out claimable again. */
@@ -386,7 +388,7 @@ export class DiscordDeliveryRepository implements DiscordDeliveryStore {
             AND last_problem IS NOT NULL
             AND status IN ('pending', 'failed')
             AND updated_at > $after
-        ORDER BY updated_at DESC, id DESC
+        ORDER BY updated_at DESC, creation_order
         LIMIT 1;
       `,
       { after: lastSentAt ?? "", project_id: projectId },
