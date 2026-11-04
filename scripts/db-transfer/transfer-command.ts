@@ -16,11 +16,13 @@ import {
   refuseTargetWithData,
   setTargetSequence,
 } from "./postgres-target";
+import { cleanRows } from "./nul-removal";
 import { checksumRows } from "./table-checksum";
 import { planTables } from "./table-plan";
 import { printReport } from "./transfer-report";
 import { TransferRefusal } from "./transfer-refusal";
 
+import type { RemovedNulCounts } from "./nul-removal";
 import type { SequenceOutcome, TableOutcome } from "./transfer-report";
 import type { TablePlan } from "./table-plan";
 
@@ -38,8 +40,14 @@ const USAGE = [
 
 const POSTGRES_URL = /^postgres(?:ql)?:\/\//u;
 
-/** SQLSTATE of a text PostgreSQL cannot store; only U+0000 reaches it from valid UTF-8. */
-const POSTGRES_INVALID_TEXT = "22021";
+/** SQLSTATE of a duplicate key, which the removal of U+0000 can cause. */
+const POSTGRES_UNIQUE_VIOLATION = "23505";
+
+/** What the check of the tables takes from the run and adds to it. */
+interface TableCheck {
+  readonly copyDurations: ReadonlyMap<string, number>;
+  readonly removedNul: RemovedNulCounts;
+}
 
 interface TransferArguments {
   readonly from: string;
@@ -102,7 +110,7 @@ async function copyTables(
   for (const plan of plans) {
     const startedAt = performance.now();
     try {
-      await copyTable(database, plan, source.readRows(plan));
+      await copyTable(database, plan, cleanRows(plan, source.readRows(plan)));
     } catch (error: unknown) {
       throw new TransferRefusal(describeCopyFailure(plan.name, error));
     }
@@ -118,20 +126,22 @@ async function checkTables(
   source: DuckDbSource,
   database: Database,
   plans: readonly TablePlan[],
-  copyDurations: ReadonlyMap<string, number>,
+  check: TableCheck,
 ): Promise<readonly TableOutcome[]> {
   const outcomes: TableOutcome[] = [];
   for (const plan of plans) {
     const startedAt = performance.now();
-    const sourceSum = await checksumRows(source.readRows(plan));
+    const sourceSum = await checksumRows(
+      cleanRows(plan, source.readRows(plan), check.removedNul),
+    );
     const targetSum = await checksumRows(readTargetRows(database, plan));
     outcomes.push({
       table: plan.name,
       sourceRows: sourceSum.rows,
       targetRows: targetSum.rows,
-      sourceChecksum: sourceSum.checksum,
+      expectedChecksum: sourceSum.checksum,
       targetChecksum: targetSum.checksum,
-      copyMs: copyDurations.get(plan.name) ?? null,
+      copyMs: check.copyDurations.get(plan.name) ?? null,
       checkMs: performance.now() - startedAt,
     });
   }
@@ -168,9 +178,14 @@ async function transferBetween(
     await refuseTargetWithData(database, plans);
     copyDurations = await copyTables(source, database, plans);
   }
+  const removedNul: RemovedNulCounts = new Map();
   return printReport({
-    tables: await checkTables(source, database, plans, copyDurations),
+    tables: await checkTables(source, database, plans, {
+      copyDurations,
+      removedNul,
+    }),
     sequences: await checkSequences(source, database),
+    removedNul: [...removedNul.values()],
     totalMs: performance.now() - startedAt,
     hasCopied: !isVerifyOnly,
   });
@@ -198,11 +213,15 @@ function describeError(error: unknown): string {
 }
 
 function describeCopyFailure(table: string, error: unknown): string {
+  const reason =
+    error instanceof TransferRefusal
+      ? error.message
+      : `Copying table ${table} failed (${describeError(error)}).`;
   const hint =
-    postgresErrorCode(error) === POSTGRES_INVALID_TEXT
-      ? " A text holds U+0000, which PostgreSQL cannot store, see docs/PostgresMigration.md."
+    postgresErrorCode(error) === POSTGRES_UNIQUE_VIOLATION
+      ? " Two keys can become equal once U+0000 is gone, see docs/PostgresMigration.md."
       : "";
-  return `Copying table ${table} failed (${describeError(error)}).${hint} Earlier tables stay in the target: use a new database for the next attempt.`;
+  return `${reason}${hint} Earlier tables stay in the target: use a new database for the next attempt.`;
 }
 
 function describeFailure(error: unknown): string {

@@ -87,14 +87,26 @@ a SHA-256 over all columns. A sequence is set to the value DuckDB hands out next
 this value is compared, too. The version tables stay out: PostgreSQL counts its own
 migrations.
 
-The report holds table names and numbers only, with the duration per table and in
-total. The total, plus stopping and starting Pages, is the expected downtime of the
-switch. On a failure the command prints the SQLSTATE and no driver text, since that
-can quote a value. It keeps the facade from logging for the same reason.
+The report holds names and numbers only, with the duration per table and in total. The
+total, plus stopping and starting Pages, is the expected downtime of the switch. On a
+failure the command prints the SQLSTATE and no driver text, since that can quote a
+value. It keeps the facade from logging for the same reason.
 
-A text with U+0000 reaches the target without the character (see
-[U+0000 in text](#u0000-in-text)). The comparison does not expect that yet, so such a
-table ends as a deviation, with exit code 1.
+The transfer removes U+0000 from text (see [U+0000 in text](#u0000-in-text)):
+
+- The command removes it itself, and the checksum of the source is taken over the
+  rows without the character and in the order of the target. These are the values the
+  target must hold, so every other difference in any row or column still ends with
+  exit code 1.
+- The report lists table, column, values and characters for each column that lost the
+  character, and the sum. A source without it reports `0 values` explicitly.
+- Binary values and the escape `\u0000` of six characters, also as `\\u0000`, stay.
+- The command stops with exit code 1 where the removal would create or remove a JSON
+  escape, as with a backslash, the character and `u0000`. It names table and column;
+  the value has to be corrected in the source first.
+- Two keys that differ only by the character collide in the target. The command then
+  stops with SQLSTATE `23505`, also for a unique column that is no primary key, and
+  with `23514` where a check constraint refuses the cleaned value.
 
 ## Running backup
 
@@ -267,6 +279,8 @@ the databases that is meant to stay.
   fixed fragments.
 - A backslash directly before the character followed by `u0000` becomes these six
   characters. Such a text was no valid JSON before, and stays plain text.
+- `db:transfer` is stricter than this: it stops on such a text instead of writing it
+  (see [Data transfer](#data-transfer)).
 
 ## Repository SQL
 

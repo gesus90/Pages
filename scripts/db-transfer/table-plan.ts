@@ -22,6 +22,8 @@ export interface TablePlan {
   readonly columns: readonly string[];
   /** The primary key, or every column for a table without one. */
   readonly sortColumns: readonly string[];
+  /** The columns of type text, the only ones U+0000 can leave. */
+  readonly textColumns: readonly string[];
 }
 
 /** The catalogs a plan is made from. */
@@ -65,6 +67,28 @@ export function columnListOf(plan: TablePlan): string {
 export function sortClauseOf(plan: TablePlan): string {
   return plan.sortColumns
     .map((column) => `${quoteIdentifier(column)} ASC NULLS FIRST`)
+    .join(", ");
+}
+
+/**
+ * The sort order of a table in DuckDB, which equals that of the target.
+ *
+ * @param plan - The table.
+ * @returns The `ORDER BY` terms.
+ *
+ * @remarks
+ * The target sorts a key without U+0000, so the rows of the source have to arrive
+ * in that order to reach the same checksum.
+ */
+export function sourceSortClauseOf(plan: TablePlan): string {
+  return plan.sortColumns
+    .map((column) => {
+      const quoted = quoteIdentifier(column);
+      const term = plan.textColumns.includes(column)
+        ? `replace(${quoted}, chr(0), '')`
+        : quoted;
+      return `${term} ASC NULLS FIRST`;
+    })
     .join(", ");
 }
 
@@ -139,14 +163,16 @@ export function planTables(input: PlanInput): readonly TablePlan[] {
     [...input.targetColumns.keys()],
     input.foreignKeys,
   ).map((name) => {
-    const columns = (input.targetColumns.get(name) ?? []).map(
-      (column) => column.name,
-    );
+    const tableColumns = input.targetColumns.get(name) ?? [];
+    const columns = tableColumns.map((column) => column.name);
     const primaryKey = input.primaryKeys.get(name) ?? [];
     return {
       name,
       columns,
       sortColumns: primaryKey.length > 0 ? primaryKey : columns,
+      textColumns: tableColumns
+        .filter((column) => column.type === "text")
+        .map((column) => column.name),
     };
   });
 }

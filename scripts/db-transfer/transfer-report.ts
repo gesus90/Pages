@@ -1,3 +1,5 @@
+import type { RemovedNulColumn } from "./nul-removal";
+
 /** Digits of a checksum in the report; the comparison uses all of them. */
 const CHECKSUM_DIGITS = 16;
 
@@ -8,7 +10,8 @@ export interface TableOutcome {
   readonly table: string;
   readonly sourceRows: number;
   readonly targetRows: number;
-  readonly sourceChecksum: string;
+  /** Checksum of the rows of the source without U+0000, which the target has to hold. */
+  readonly expectedChecksum: string;
   readonly targetChecksum: string;
   /** `null` when this run did not copy. */
   readonly copyMs: number | null;
@@ -26,6 +29,8 @@ export interface SequenceOutcome {
 export interface TransferReport {
   readonly tables: readonly TableOutcome[];
   readonly sequences: readonly SequenceOutcome[];
+  /** The columns that lost U+0000, in any order. */
+  readonly removedNul: readonly RemovedNulColumn[];
   readonly totalMs: number;
   /** Whether this run copied, so its duration is that of a switch. */
   readonly hasCopied: boolean;
@@ -38,7 +43,7 @@ function seconds(milliseconds: number): string {
 function tableMatches(outcome: TableOutcome): boolean {
   return (
     outcome.sourceRows === outcome.targetRows &&
-    outcome.sourceChecksum === outcome.targetChecksum
+    outcome.expectedChecksum === outcome.targetChecksum
   );
 }
 
@@ -47,7 +52,7 @@ function tableLine(outcome: TableOutcome): string {
     outcome.table.padEnd(44),
     String(outcome.sourceRows).padStart(9),
     String(outcome.targetRows).padStart(9),
-    outcome.sourceChecksum.slice(0, CHECKSUM_DIGITS),
+    outcome.expectedChecksum.slice(0, CHECKSUM_DIGITS),
     outcome.targetChecksum.slice(0, CHECKSUM_DIGITS),
     (outcome.copyMs === null ? "-" : seconds(outcome.copyMs)).padStart(8),
     seconds(outcome.checkMs).padStart(8),
@@ -62,6 +67,27 @@ function sequenceLine(outcome: SequenceOutcome): string {
     String(outcome.targetNext ?? "-").padStart(9),
     outcome.sourceNext === outcome.targetNext ? "ok" : "DEVIATION",
   ].join(" ");
+}
+
+function removedNulLines(columns: readonly RemovedNulColumn[]): string[] {
+  const values = columns.reduce((sum, column) => sum + column.values, 0);
+  const characters = columns.reduce(
+    (sum, column) => sum + column.characters,
+    0,
+  );
+  const sorted = [...columns].sort((first, second) =>
+    `${first.table}.${first.column}`.localeCompare(
+      `${second.table}.${second.column}`,
+    ),
+  );
+  return [
+    `${"column without U+0000".padEnd(64)} ${"values".padStart(9)} ${"chars".padStart(9)}`,
+    ...sorted.map(
+      (column) =>
+        `${`${column.table}.${column.column}`.padEnd(64)} ${String(column.values).padStart(9)} ${String(column.characters).padStart(9)}`,
+    ),
+    `U+0000 removed on purpose: ${String(values)} values, ${String(characters)} characters, ${String(columns.length)} columns. The checksums compare the target with the source without this character.`,
+  ];
 }
 
 function summaryLines(report: TransferReport, deviations: number): string[] {
@@ -93,11 +119,13 @@ export function printReport(report: TransferReport): number {
       .map((outcome) => outcome.sequence),
   ];
   const lines = [
-    `${"table".padEnd(44)} ${"rows src".padStart(9)} ${"rows dst".padStart(9)} ${"checksum src".padEnd(CHECKSUM_DIGITS)} ${"checksum dst".padEnd(CHECKSUM_DIGITS)} ${"copy s".padStart(8)} ${"check s".padStart(8)} result`,
+    `${"table".padEnd(44)} ${"rows src".padStart(9)} ${"rows dst".padStart(9)} ${"checksum exp".padEnd(CHECKSUM_DIGITS)} ${"checksum dst".padEnd(CHECKSUM_DIGITS)} ${"copy s".padStart(8)} ${"check s".padStart(8)} result`,
     ...report.tables.map(tableLine),
     "",
     `${"sequence".padEnd(44)} ${"next src".padStart(9)} ${"next dst".padStart(9)} result`,
     ...report.sequences.map(sequenceLine),
+    "",
+    ...removedNulLines(report.removedNul),
     "",
     ...summaryLines(report, deviating.length),
   ];

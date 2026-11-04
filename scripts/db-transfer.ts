@@ -2,8 +2,9 @@
  * The transfer of a DuckDB file into PostgreSQL, `pnpm run db:transfer`.
  *
  * It opens the file read-only, fills a PostgreSQL database without business data
- * table by table and compares row count and checksum of every table. It prints
- * table names and numbers only. See `docs/PostgresMigration.md`.
+ * table by table and compares row count and checksum of every table against the
+ * source without U+0000. It prints names and numbers only. See
+ * `docs/PostgresMigration.md`.
  */
 
 // The message of a refused statement can quote a value, and the facade logs it

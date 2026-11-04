@@ -6,7 +6,11 @@ import {
   DuckDBListValue,
 } from "@duckdb/node-api";
 
-import { columnListOf, quoteIdentifier, sortClauseOf } from "./table-plan";
+import {
+  columnListOf,
+  quoteIdentifier,
+  sourceSortClauseOf,
+} from "./table-plan";
 import { TransferRefusal } from "./transfer-refusal";
 
 import type { DuckDBConnection, DuckDBValue } from "@duckdb/node-api";
@@ -181,11 +185,11 @@ export class DuckDbSource {
    * Reads every row of a table without holding the table in memory.
    *
    * @param plan - The table.
-   * @yields The rows in the stable order of the plan.
+   * @yields The rows as stored, in the order the target sorts them.
    */
   public async *readRows(plan: TablePlan): AsyncGenerator<DatabaseValue[]> {
     const result = await this.connection.stream(
-      `SELECT ${columnListOf(plan)} FROM ${quoteIdentifier(plan.name)} ORDER BY ${sortClauseOf(plan)};`,
+      `SELECT ${columnListOf(plan)} FROM ${quoteIdentifier(plan.name)} ORDER BY ${sourceSortClauseOf(plan)};`,
     );
     for await (const rows of result.yieldRows())
       for (const row of rows) yield row.map(toDatabaseValue);
