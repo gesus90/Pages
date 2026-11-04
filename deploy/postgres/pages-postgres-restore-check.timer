@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Pages PostgreSQL restore check, after the base backup
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+Unit=pages-postgres-restore-check.service
+
+[Install]
+WantedBy=timers.target

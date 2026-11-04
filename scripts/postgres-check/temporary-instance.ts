@@ -36,7 +36,14 @@ function programPath(name: string): string {
   return path.join(POSTGRES_PROGRAMS, name);
 }
 
-function runProgram(
+/**
+ * Runs a program of the PostgreSQL packages and waits until it ended.
+ *
+ * @param name - The name of the program.
+ * @param parameters - Its parameters.
+ * @throws When it fails; the message holds what the program printed.
+ */
+export function runProgram(
   name: string,
   parameters: readonly string[],
 ): Promise<void> {
@@ -60,7 +67,12 @@ function runProgram(
   });
 }
 
-function freeLoopbackPort(): Promise<number> {
+/**
+ * Finds a port nothing listens on at the moment.
+ *
+ * @returns The port.
+ */
+export function freeLoopbackPort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer();
     server.on("error", reject);
@@ -75,7 +87,13 @@ function freeLoopbackPort(): Promise<number> {
   });
 }
 
-function isProcessAlive(pid: number): boolean {
+/**
+ * Tells whether a process exists.
+ *
+ * @param pid - The process identifier.
+ * @returns Whether it exists.
+ */
+export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
@@ -84,8 +102,12 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-/** Ends a server that refused a regular stop; a second signal leaves it no choice. */
-async function endProcess(pid: number): Promise<void> {
+/**
+ * Ends a server that refused a regular stop; a second signal leaves it no choice.
+ *
+ * @param pid - The process identifier of the server.
+ */
+export async function endProcess(pid: number): Promise<void> {
   process.kill(pid, "SIGQUIT");
   for (let attempt = 0; attempt < STOP_POLLS; attempt += 1) {
     if (!isProcessAlive(pid)) return;
@@ -104,8 +126,15 @@ async function pathExists(target: string): Promise<boolean> {
   }
 }
 
-/** The processes that name a directory on their command line, as a postmaster does. */
-async function processesNaming(directory: string): Promise<readonly number[]> {
+/**
+ * Finds the processes that name a directory on their command line, as a postmaster does.
+ *
+ * @param directory - The directory.
+ * @returns Their process identifiers, without this process.
+ */
+export async function processesNaming(
+  directory: string,
+): Promise<readonly number[]> {
   const entries = await readdir("/proc");
   const found: number[] = [];
   for (const entry of entries) {

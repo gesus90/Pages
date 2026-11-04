@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Pages PostgreSQL base backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+Unit=pages-postgres-base-backup.service
+
+[Install]
+WantedBy=timers.target

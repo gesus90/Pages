@@ -1,0 +1,12 @@
+# Replace @USER@ and @CHECKOUT@. @USER@ owns /mnt/Data/PagesPostgres.
+[Unit]
+Description=Pages PostgreSQL base backup
+RequiresMountsFor=/mnt/Data
+
+[Service]
+Type=oneshot
+User=@USER@
+EnvironmentFile=/etc/pages/postgres-backup.env
+ExecStart=@CHECKOUT@/deploy/postgres/base-backup.sh
+Nice=10
+IOSchedulingClass=idle

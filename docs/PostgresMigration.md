@@ -93,6 +93,129 @@ switch. On a failure the command prints the SQLSTATE and no driver text, since t
 can quote a value; `22021` means a text with U+0000, see the list at the end of this
 page. It keeps the facade from logging for the same reason.
 
+## Running backup
+
+The data is backed up while Pages runs, and a recovery to a point in time is checked.
+On top of the base backup the WAL archive holds every change, so at most the last
+5 minutes (`archive_timeout = 300`) can be lost when the server's own disk fails. The
+oldest kept base backup limits how far back a recovery can go: 7 days with the default.
+
+| Part                                           | Task                                                                                        |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `deploy/postgres/postgresql-pages.conf`        | Settings of the cluster, including `archive_timeout` and `archive_command`.                 |
+| `deploy/postgres/archive-wal.sh`               | Stores a WAL file in `/mnt/Data/PagesPostgres/wal`, after checking the mount by its UUID.   |
+| `deploy/postgres/base-backup.sh`               | `pg_basebackup` to `/mnt/Data/PagesPostgres/base`, keeps the last 7, removes the older WAL. |
+| `deploy/postgres/backup.env.example`           | Mount UUID, directory and connection of the two commands below.                             |
+| `pages-postgres-base-backup.{service,timer}`   | Base backup every day at 03:30.                                                             |
+| `pages-postgres-restore-check.{service,timer}` | `pnpm run postgres:restore-check` every day at 04:30.                                       |
+
+### Setup at the switch
+
+Nothing of this is set up yet; the productive setup happens at the switch. All of it runs
+as one user, who owns `/mnt/Data/PagesPostgres` and the cluster and reads the
+configuration of Pages.
+
+1. With `/mnt/Data` mounted, create `/mnt/Data/PagesPostgres/wal` and `base`, mode 0700.
+   Neither script creates the root: on a missing disk that would land on the system disk.
+2. Copy `postgresql-pages.conf` next to `postgresql.conf`, replace `@CHECKOUT@` and
+   `@MOUNT_UUID@` and add `include = 'postgresql-pages.conf'`. Restart the server:
+   `wal_level` and `archive_mode` take effect only then.
+3. Create the role of the base backup and allow it in `pg_hba.conf`:
+
+   ```sql
+   CREATE ROLE pages_backup LOGIN REPLICATION PASSWORD '<password>';
+   ```
+
+   ```text
+   host replication pages_backup 127.0.0.1/32 scram-sha-256
+   ```
+
+4. In the database `pages`, because a right on a function holds per database, let the role
+   of `databaseUrl` close a WAL file. This role must own the tables and may create a schema
+   in the database, which the owner of the database can:
+
+   ```sql
+   GRANT EXECUTE ON FUNCTION pg_switch_wal() TO pages;
+   ```
+
+5. Copy `backup.env.example` to `/etc/pages/postgres-backup.env` and put the password of
+   `pages_backup` into the file `PGPASSFILE` names, both mode 0600.
+6. Copy the four units to `/etc/systemd/system`, replace `@USER@`, `@CHECKOUT@` and
+   `@CONFIG@` and enable both timers.
+7. Start the base backup service once, then the restore check service once. A backup only
+   counts after a check passed.
+
+While `archive-wal.sh` fails, for example with the disk missing, PostgreSQL keeps the WAL
+in its own `pg_wal` and retries. Nothing is lost, but that disk fills up, and the restore
+check fails. `pg_stat_archiver` shows the failures.
+
+### Restore check
+
+`pnpm run postgres:restore-check -- --config <config.toml>` reads `databaseUrl` from the
+configuration and `PAGES_POSTGRES_BACKUP_ROOT` and `PAGES_POSTGRES_BACKUP_UUID` from the
+environment. Exit code 0 means passed, 1 failed, 2 wrong usage. The steps:
+
+1. Check the mount and compare the newest finished base backup with its manifest
+   (`pg_verifybackup`, SHA-256 per file). A damaged backup ends the command here; it does
+   not fall back to an older one.
+2. Fix a point in time on the running source. A row is confirmed in
+   `pages_restore_check.markers`, then every table of `public` is locked in `SHARE MODE`
+   for the moment it takes to count them and to read the clock. A second row follows after
+   that time, and the WAL file is closed and awaited in the archive.
+3. Copy the backup to `<root>/restore-check-<random>`, start it on a free port with a
+   configuration of its own and replay the archive to that time.
+4. Compare the number of tables and the rows per table with the counts of step 2. The first
+   row must be there and the second must not. Then stop and delete the instance.
+
+**The lock.** A count of a running database fits no point in time, so writers wait for
+that moment. The `LOCK` statement gives up after 800 ms, below the `deadlock_timeout` of
+1 s, so that in a deadlock the server never ends a writer; do not lower that setting. It
+tries again after 15 s, up to five times, and then fails in the step `source` with the
+code `57014`. A vacuum keeps this lock waiting as well. Each count is limited to 5 s.
+
+**The markers.** They lie in a schema of their own, which the command creates, so they
+change neither the tables it counts nor a transfer. It keeps only the two rows of its
+last run. The schema is no migration: Pages does not know it, and DuckDB has no counterpart.
+
+**The instance.** It accepts only its private socket, without a password, since role and
+password come from the source; its port rejects every connection. `archive_mode` is off,
+so it never writes into the archive. It works on a copy, so the backup stays unchanged. A
+directory left by a killed run goes at the next start; if a process still uses it, the
+check fails instead.
+
+**The result** is the log event `postgres.restore_check.passed` or
+`postgres.restore_check.failed`, with the failed step, in
+`<config directory>/postgres-restore-check/log/`, because a running Pages holds the lock on
+its own log directory. The output of the command reaches the journal as well.
+
+### Recovery
+
+For a real recovery, stop the server and keep its directory. Copy a base backup that is
+older than the wanted time into an empty data directory, mode 0700, and add `recovery.signal`
+and these settings:
+
+```text
+restore_command = 'cp /mnt/Data/PagesPostgres/wal/%f %p'
+recovery_target_time = '<time with zone>'
+recovery_target_action = 'promote'
+```
+
+Recovery fails when the archive holds no commit after that time. To recover up to the last
+archived change, leave `recovery_target_time` out. Start the server and remove both settings
+afterwards. The new timeline goes into the archive, so take a new base backup right away.
+
+### Limits
+
+- `/mnt/Data` is a disk in the same machine. The backup protects against a failed system
+  disk and against a mistake, not against fire or theft. A copy outside the house is an
+  open decision.
+- Changes of the last 5 minutes can be missing, and more when the archive has been failing.
+- The check needs the running source and compares numbers of rows, not their content.
+  Equal counts with changed content would only show as a checksum error of the backup
+  (`pg_verifybackup`) or the WAL.
+- The check needs free space for one more copy of the base backup on `/mnt/Data`.
+- Attachments and other files of Pages are not part of this backup.
+
 ## Comparison
 
 `pnpm run postgres:check` migrates a new DuckDB file and a new PostgreSQL database

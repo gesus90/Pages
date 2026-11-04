@@ -210,9 +210,11 @@ non-test gates; neither demonstrates functional coverage.
   (PAGE-172, `pnpm run browser:test`) is one of two other test commands. It is not a
   unit scope, has no coverage, is not part of CI, and is the only place for real
   browser tests; see [tests/browser/README.md](./tests/browser/README.md).
-- `pnpm run postgres:check` (PAGE-212) is the second one, and the only place that starts a real
+- `pnpm run postgres:check` (PAGE-212) is the second one, and the only test that starts a real
   database server, a temporary PostgreSQL instance of its own. Like the browser
   suite it is no unit scope, has no coverage and is not part of CI.
+  `pnpm run postgres:restore-check` (PAGE-219) also starts one, but it is an operating
+  command that checks a backup, no test (`docs/PostgresMigration.md`).
 - Choose scope by behavior: server-side loaders/actions under `app/` belong to
   Backend in Node; isolated React components/hooks belong to Frontend in jsdom.
   Discovery stays disjoint under `tests/backend/` and `tests/frontend/`, with

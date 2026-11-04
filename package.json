@@ -15,6 +15,7 @@
     "test:frontend": "vitest run --config vitest.frontend.config.ts --coverage",
     "browser:test": "node scripts/run-browser-tests.mjs",
     "postgres:check": "tsx scripts/postgres-check.ts",
+    "postgres:restore-check": "tsx scripts/postgres-restore-check.ts",
     "db:transfer": "tsx scripts/db-transfer.ts",
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
     "acp:smoke": "tsx scripts/acp-smoke.ts"

@@ -2260,7 +2260,9 @@ Pages refuses to open it. The migrations build the PostgreSQL schema
 repositories is ported yet, so such a start is not usable beyond them; without
 the key everything stays on DuckDB. `pnpm run postgres:check` tests this path against a
 temporary instance of its own and needs the PostgreSQL 18 programs in
-`/usr/lib/postgresql/18/bin`.
+`/usr/lib/postgresql/18/bin`. The running backup of such a database, its setup and
+`pnpm run postgres:restore-check` are described in
+[docs/PostgresMigration.md](./docs/PostgresMigration.md).
 
 The optional key `picaMobilePort` (1–65535) opens the WebSocket endpoint of the
 Pica Mobile app on that port. Administrators set it under Settings >

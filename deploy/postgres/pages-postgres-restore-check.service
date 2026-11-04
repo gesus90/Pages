@@ -1,0 +1,14 @@
+# Replace @USER@, @CHECKOUT@ and @CONFIG@ (the config.toml of the instance). @USER@ reads
+# the configuration and owns /mnt/Data/PagesPostgres.
+[Unit]
+Description=Pages PostgreSQL restore check
+RequiresMountsFor=/mnt/Data
+
+[Service]
+Type=oneshot
+User=@USER@
+EnvironmentFile=/etc/pages/postgres-backup.env
+WorkingDirectory=@CHECKOUT@
+ExecStart=/usr/bin/env pnpm run postgres:restore-check -- --config @CONFIG@
+Nice=10
+IOSchedulingClass=idle
