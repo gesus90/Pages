@@ -176,7 +176,11 @@ export function interruptedPlanRun(run: AgentPlanRun): AgentPlanRun {
     status: "failed",
     isWaitingForWorkspace: undefined,
     workspaceWait: undefined,
-    recovery: { state: "interrupted", requiresReconciliation: true },
+    recovery: {
+      state: "interrupted",
+      requiresReconciliation: true,
+      automaticResume: { state: "pending" },
+    },
     steps: run.steps.map(interruptedStep),
     ...(run.loops
       ? {

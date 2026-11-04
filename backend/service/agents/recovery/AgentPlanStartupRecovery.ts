@@ -205,6 +205,7 @@ export class AgentPlanStartupRecovery {
             recovery: {
               state: "interrupted" as const,
               requiresReconciliation: true,
+              automaticResume: { state: "pending" as const },
             },
           }),
       steps: steps.map((step) => interruptedStep(step, previous.stopRequested)),

@@ -1,9 +1,9 @@
 import { expect, it, vi } from "vitest";
 
-// The ten seconds a technical session error waits before its retry are not what these tests check.
+// The waits of a technical session error before its retries are not what these tests check.
 vi.mock("@/definition/AgentPlanRetry", async (importOriginal) => {
   const original = await importOriginal<Record<string, unknown>>();
-  return { ...original, PLAN_SESSION_RETRY_DELAY_MILLISECONDS: 5 };
+  return { ...original, PLAN_INFRASTRUCTURE_RETRY_DELAYS: [5, 5, 5] };
 });
 
 import { initialPlanRun } from "@/backend/service/agents/AgentPlanRunStart";

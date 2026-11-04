@@ -11,6 +11,7 @@ import {
 
 import { readPlanActivationFields } from "./AgentPlanActivationInput";
 import { readPlanProgress } from "./AgentPlanProgressInput";
+import { readPlanFailureStop } from "./AgentPlanRetryInput";
 import { readPlanText } from "./AgentPlanInput";
 import { readPlanSessionRecord } from "./AgentPlanSessionInput";
 import { readAgentObject } from "./AgentPayload";
@@ -57,6 +58,9 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     session: readPlanSessionRecord(step.session),
     ...readStepArtifacts(step),
     ...readPlanActivationFields(step),
+    ...(step.failureStop === undefined
+      ? {}
+      : { failureStop: readPlanFailureStop(step.failureStop) }),
     ...(step.stack === undefined
       ? {}
       : { stack: readPlanStackHandover(step.stack) }),

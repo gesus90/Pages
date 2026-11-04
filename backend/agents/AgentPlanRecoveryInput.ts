@@ -27,6 +27,12 @@ const capabilities = z.strictObject({
 const recoveryReason = z.strictObject({
   state: z.enum(["recoverable", "interrupted"]),
   requiresReconciliation: z.boolean(),
+  automaticResume: z
+    .strictObject({
+      state: z.enum(["pending", "started", "stopped"]),
+      reason: z.string().max(100).optional(),
+    })
+    .optional(),
 });
 const acceptance = z.strictObject({
   verdict: z.enum(["accepted", "open", "rejected"]),
@@ -160,6 +166,7 @@ const origin = z.strictObject({
   reusedStepIds: z.array(identifier).max(100),
   retriedStepIds: z.array(identifier).max(100),
   reviewedStepIds: z.array(identifier).max(100),
+  automaticAttempt: z.number().int().positive().optional(),
   requestedAt: z.string().max(64),
 });
 const execution = z.strictObject({

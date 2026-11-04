@@ -397,7 +397,13 @@ function diagnostic(
   return {
     ...identity(run, step, request),
     retryAttempts: (step.session?.retry?.attempts ?? []).map(
-      ({ attemptId, endedAt, code }) => ({ attemptId, endedAt, code }),
+      ({ attemptId, endedAt, code, failureClass, issues }) => ({
+        attemptId,
+        endedAt,
+        code,
+        ...(failureClass ? { failureClass } : {}),
+        ...(issues ? { issues } : {}),
+      }),
     ),
     name: sanitizeArtifactText(step.name),
     status: step.status,

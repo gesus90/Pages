@@ -108,3 +108,19 @@ export function instanceBuiltWith<Instance>(
   }
   return matches[0];
 }
+
+/**
+ * The run repository as the wiring of the plan services meets it at startup.
+ *
+ * @returns The module stand-in; no run waits for its automatic continuation.
+ */
+export function runRepositoryFake(): Record<string, FakeClass> {
+  const fakes = fakeClasses({ AgentPlanRunRepository: [] });
+  // A plain function, because the wiring reads it in the background, also after a reset of the mocks.
+  Reflect.set(
+    Object(fakes.AgentPlanRunRepository.prototype),
+    "pendingAutomaticResumes",
+    async () => [],
+  );
+  return fakes;
+}

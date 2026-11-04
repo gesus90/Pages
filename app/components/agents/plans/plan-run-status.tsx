@@ -8,6 +8,7 @@ import { focusStatusNode } from "./plan-status-focus";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
 import { PlanStatusOutlook } from "./plan-status-outlook";
+import { PlanAutomaticResumeNote } from "./plan-status-retry";
 import { planNodeLabel } from "./plan-layout";
 import { planSequencePreview, workGaps } from "./plan-run-status-model";
 import { planStepSequence } from "./plan-step-sequence";
@@ -74,16 +75,19 @@ function StatusContent({
       />
     );
   return (
-    <PlanStatusDetails
-      step={block?.result}
-      blockedByName={blockerName(run, block)}
-      number={number}
-      pass={pass}
-      kind={block?.kind}
-      end={end}
-      canLocate={canLocate}
-      onLocate={onLocate}
-    />
+    <>
+      <PlanAutomaticResumeNote run={run} />
+      <PlanStatusDetails
+        step={block?.result}
+        blockedByName={blockerName(run, block)}
+        number={number}
+        pass={pass}
+        kind={block?.kind}
+        end={end}
+        canLocate={canLocate}
+        onLocate={onLocate}
+      />
+    </>
   );
 }
 

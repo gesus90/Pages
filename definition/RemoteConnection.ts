@@ -200,6 +200,9 @@ export interface RemoteConnectionCheck {
 export type RemoteSessionStatus =
   "idle" | "connecting" | "connected" | "reconnecting" | "blocked";
 
+/** How many reconnects one series of a lost connection makes. */
+export const REMOTE_RECONNECT_MAXIMUM_ATTEMPTS = 10;
+
 /**
  * The live logical SSH connection of a remote connection.
  *

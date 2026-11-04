@@ -1,11 +1,14 @@
 import { useTranslation } from "react-i18next";
 
-import {
-  PLAN_MAXIMUM_RETRIES,
-  PLAN_SESSION_MAXIMUM_ATTEMPTS,
-} from "@/definition/AgentPlanRetry";
+import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
-import type { AgentPlanRetry } from "@/definition/AgentPlanRetry";
+import type {
+  AgentPlanBlockerClass,
+  AgentPlanFailureStop,
+  AgentPlanRetry,
+  AgentPlanRetryAttempt,
+} from "@/definition/AgentPlanRetry";
+import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 
 /** Shows persisted attempts and the actual retry deadline; a missing reset never promises automatic progress. */
@@ -20,16 +23,14 @@ export function PlanStatusRetry({
   const formatTime = (instant: string): string =>
     new Date(instant).toLocaleString(i18n.resolvedLanguage);
   const attempt = retry.attempts.at(-1);
-  const policy = retry.policy ?? "provider";
-  const isSessionPolicy = policy === "session";
-  const maximum = isSessionPolicy
-    ? PLAN_SESSION_MAXIMUM_ATTEMPTS
-    : PLAN_MAXIMUM_RETRIES;
-  const failedAttempts = Math.min(retry.attempts.length, maximum);
-  const reason =
-    isSessionPolicy && retry.reason === "exhausted"
-      ? "sessionExhausted"
-      : retry.reason;
+  const failureClass = retryClass(retry, attempt);
+  const maximum = PLAN_BLOCKER_RETRIES[failureClass] + 1;
+  const failedAttempts = Math.min(
+    retry.attempts.filter(
+      (entry) => (entry.failureClass ?? "infrastructure") === failureClass,
+    ).length,
+    maximum,
+  );
   return (
     <section
       role="status"
@@ -40,24 +41,20 @@ export function PlanStatusRetry({
         {t(
           retry.state === "completed"
             ? "plans.retry.completedHint"
-            : `plans.retry.reason.${reason}`,
+            : `plans.retry.reason.${retry.reason}`,
         )}
       </p>
+      <p>{t(`plans.retry.class.${failureClass}`)}</p>
       <p>
-        {isSessionPolicy
-          ? t(sessionAttemptKey(retry.state), {
-              attempt:
-                retry.state === "blocked" || retry.state === "waiting"
-                  ? failedAttempts
-                  : Math.min(failedAttempts + 1, maximum),
-              failed: failedAttempts,
-              next: Math.min(failedAttempts + 1, maximum),
-              maximum,
-            })
-          : t("plans.retry.count", {
-              count: failedAttempts,
-              maximum,
-            })}
+        {t(attemptKey(retry.state), {
+          attempt:
+            retry.state === "blocked" || retry.state === "waiting"
+              ? failedAttempts
+              : Math.min(failedAttempts + 1, maximum),
+          failed: failedAttempts,
+          next: Math.min(failedAttempts + 1, maximum),
+          maximum,
+        })}
       </p>
       {attempt ? (
         <p>
@@ -91,10 +88,62 @@ export function PlanStatusRetry({
   );
 }
 
-/** One key per persisted session-retry state, so a blocked attempt never promises a successor. */
-function sessionAttemptKey(state: AgentPlanRetry["state"]): string {
-  if (state === "waiting") return "plans.retry.sessionWaiting";
-  if (state === "running") return "plans.retry.sessionRunning";
-  if (state === "completed") return "plans.retry.sessionCompleted";
-  return "plans.retry.sessionBlocked";
+/** The class of a record; one written before the classes held only technical failures. */
+function retryClass(
+  retry: AgentPlanRetry,
+  attempt: AgentPlanRetryAttempt | undefined,
+): AgentPlanBlockerClass {
+  return retry.failureClass ?? attempt?.failureClass ?? "infrastructure";
+}
+
+/** One key per persisted retry state, so a blocked attempt never promises a successor. */
+function attemptKey(state: AgentPlanRetry["state"]): string {
+  if (state === "waiting") return "plans.retry.attemptWaiting";
+  if (state === "running") return "plans.retry.attemptRunning";
+  if (state === "completed") return "plans.retry.attemptCompleted";
+  return "plans.retry.attemptBlocked";
+}
+
+/** Says why a failed node stopped, for every node, also one without a retry record. */
+export function PlanStatusStop({
+  stop,
+}: {
+  readonly stop: AgentPlanFailureStop | undefined;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!stop) return null;
+  return (
+    <p className="text-xs leading-4.5 text-destructive wrap-anywhere">
+      {t("plans.retry.stop", {
+        failureClass: t(`plans.retry.class.${stop.failureClass}`),
+        attempts: stop.attempts,
+        maximum: stop.maximumAttempts,
+      })}
+    </p>
+  );
+}
+
+/** Says whether a run a server restart interrupted continues on its own, and why not. */
+export function PlanAutomaticResumeNote({
+  run,
+}: {
+  readonly run: AgentPlanRun | null;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const resume = run?.recovery?.automaticResume;
+  if (!resume) return null;
+  return (
+    <p className="mb-2 text-xs leading-4.5 text-muted-foreground wrap-anywhere">
+      {t(`plans.retry.automaticResume.${resume.state}`, {
+        reason: resume.reason
+          ? t([
+              `plans.recovery.blocker.${resume.reason}`,
+              `plans.retry.automaticResume.reason.${resume.reason}`,
+              `settings.agents.error.${resume.reason}`,
+              "plans.retry.automaticResume.reason.other",
+            ])
+          : "",
+      })}
+    </p>
+  );
 }

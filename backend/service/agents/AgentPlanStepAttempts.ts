@@ -48,7 +48,8 @@ async function attempt(
   node.retryAttemptNumber = context.attemptNumber;
   control.awaitDispatch?.();
   try {
-    return await operations.execute(context);
+    const result = await operations.execute(context);
+    return control.settle ? await control.settle(result) : result;
   } catch (error: unknown) {
     if (
       !node.hasStarted &&

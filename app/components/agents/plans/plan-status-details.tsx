@@ -12,7 +12,7 @@ import { isPlanDecisionResult, PlanStatusHistory } from "./plan-status-history";
 import { PlanStatusTodos } from "./plan-status-todos";
 import { PlanScriptRun } from "./plan-script-run";
 import { PlanRemoteScriptRun } from "./plan-remote-script-run";
-import { PlanStatusRetry } from "./plan-status-retry";
+import { PlanStatusRetry, PlanStatusStop } from "./plan-status-retry";
 import { PlanRemoteHistory } from "./plan-remote-history";
 import { PlanStatusReport } from "./plan-status-report";
 import { PlanScriptReport } from "./plan-script/plan-script-report";
@@ -113,6 +113,7 @@ export function PlanStatusDetails({
             {t("plans.progress.blockedBy", { name: blockedByName })}
           </p>
         ) : null}
+        <PlanStatusStop stop={step.failureStop} />
         {step.isDisplayFiltered ? (
           <p className="text-xs text-muted-foreground">
             {t("plans.progress.filteredOutput")}

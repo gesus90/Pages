@@ -1,5 +1,12 @@
 # Recoverable plan runs (PAGE-84, executing since PAGE-127)
 
+## PAGE-210: continuing after a restart
+
+A run a server restart interrupted now continues on its own where that is safe,
+as described in [PlanRetries.md](../PlanRetries.md). Where this document says an
+interrupted run never replays automatically, that rule applies. Failures that
+stay with a person keep the explicit recovery below.
+
 ## PAGE-128: stopped runs and provider waits
 
 A reviewed `resume` can now also continue the newest explicitly stopped run

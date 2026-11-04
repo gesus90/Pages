@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AgentPlanRetry } from "@/definition/AgentPlanRetry";
 import type { ActivePlanRun } from "./AgentPlanRunState";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 
@@ -13,6 +14,8 @@ export interface RemoteRetryTerms {
   readonly allowTerminalRerun: boolean;
   /** The native session this retry continues; `null` starts a new one and says so. */
   readonly resumeSessionId: string | null;
+  /** The failed attempts, which the notice to the agent is written from. */
+  readonly retry: AgentPlanRetry | null;
 }
 
 export const CANCELLED_BEFORE_DISPATCH: Partial<AgentPlanStepResult> = {

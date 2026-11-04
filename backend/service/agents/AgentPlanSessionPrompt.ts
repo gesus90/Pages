@@ -1,8 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isPlanSessionRetryCode } from "@/backend/agents/AgentSessionFailure";
-import { PLAN_SESSION_MAXIMUM_ATTEMPTS } from "@/definition/AgentPlanRetry";
 
 import { renderPlanAssignment } from "./AgentPlanContract";
+import { planRetryNotice } from "./AgentPlanRetryNotice";
 import { planSessionReach } from "./AgentPlanSessionAccess";
 import { runnerLabel } from "./AgentPlanSessionRecords";
 import { planRecoveryTerms } from "./recovery/AgentPlanRecoveryPrompt";
@@ -25,35 +24,11 @@ interface PromptDependencies {
   readonly journal: (instanceId: string) => AgentPlanSessionInput["journal"];
 }
 
-/**
- * Tells the agent why a fresh attempt follows a technical session error.
- *
- * @remarks
- * A native resume keeps the earlier conversation. A new session is marked as
- * such and must reconcile the working state before repeating an action.
- */
+/** The notice of a running retry; a first attempt has none. */
 function retryNotice(node: NodeRun, resumeSessionId: string | null): string {
   const retry = node.retry;
-  if (!retry || retry.state !== "running" || retry.attempts.length === 0)
-    return "";
-  const policy =
-    retry.policy ??
-    (retry.attempts.some((attempt) => isPlanSessionRetryCode(attempt.code))
-      ? "session"
-      : "provider");
-  if (policy !== "session") return "";
-  const failedAttempt = node.retryAttemptNumber - 1;
-  const mode =
-    resumeSessionId === null
-      ? "starts a new native session and does not remember the earlier conversation"
-      : "continues the earlier native session";
-  return [
-    "## Pages automatic session retry",
-    "",
-    `A technical session error ended attempt ${failedAttempt} of ${PLAN_SESSION_MAXIMUM_ATTEMPTS}. This attempt ${mode}. Files and other external effects of the earlier attempt may already exist. Inspect the current state first, keep correct results, and do not repeat a completed external action.`,
-    "",
-    "",
-  ].join("\n");
+  if (retry?.state !== "running") return "";
+  return planRetryNotice(retry, resumeSessionId !== null);
 }
 
 const EVENT_FOLLOW_UP =
@@ -76,6 +51,15 @@ function startBody(node: NodeRun, prepared: PreparedPlanStep): string {
   if (node.eventMode === "continued")
     return `${EVENT_FOLLOW_UP}${event.prompt}`;
   return `${EVENT_NEW_SESSION}${prepared.input.prompt}\n\n## New information that caused this start\n\n${event.prompt}`;
+}
+
+/** The prompt of a request to an API provider, which has no session that could remember anything. */
+export function planRequestPrompt(
+  node: NodeRun,
+  prepared: PreparedPlanStep,
+): string {
+  const recovery = planRecoveryTerms(node.snapshot, node.step.step.id, node);
+  return `${retryNotice(node, null)}${recovery.note}${prepared.input.prompt}`;
 }
 
 /** Builds the exact session input, including the recovery and retry notices. */

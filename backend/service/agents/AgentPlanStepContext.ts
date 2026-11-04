@@ -1,4 +1,4 @@
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanRetry } from "@/definition/AgentPlanRetry";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
@@ -20,6 +20,10 @@ export interface StepRunControl {
   readonly runInstruction?: (
     work: PlanInstructionWork,
   ) => Promise<PlanSessionTurn>;
+  /** Judges the result of one attempt beyond its own acceptance, so a failed gate can be repaired in the step. */
+  readonly settle?: (
+    result: Partial<AgentPlanStepResult>,
+  ) => Promise<Partial<AgentPlanStepResult>>;
   /** Persists the newest record of the node; never throws. */
   readonly save: (session: AgentPlanSessionRecord) => Promise<void>;
   /** The iteration of a loop member, which decides how its session is named and kept. */

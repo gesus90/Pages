@@ -4,14 +4,22 @@ import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { dispatchRemotePlanStep } from "./AgentPlanRemoteDispatch";
 import { runPlanStepWithRetry } from "./AgentPlanStepRetry";
 
+import type { RemoteRetryTerms } from "./AgentPlanRemoteDispatch";
+import type { RetryAttemptContext } from "./AgentPlanStepRetry";
+
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AgentPlanRetry } from "@/definition/AgentPlanRetry";
 import type { ActivePlanRun } from "./AgentPlanRunState";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 
 interface RemoteRetryDependencies {
   readonly service: AgentPlanRemoteExecution;
   readonly runs: Partial<Pick<AgentPlanRunRepository, "resetRemoteRetry">>;
+  /** Judges the result of one attempt beyond its own acceptance, as for a local node. */
+  readonly settle?: (
+    result: Partial<AgentPlanStepResult>,
+  ) => Promise<Partial<AgentPlanStepResult>>;
 }
 
 const CANCELLED_BEFORE_DISPATCH: Partial<AgentPlanStepResult> = {
@@ -30,6 +38,20 @@ function isReadOnlyRemote(active: ActivePlanRun, stepId: string): boolean {
   return (
     command.program.kind !== "cli" || command.program.access === "read_only"
   );
+}
+
+/** What a job of a later attempt has to know; the first attempt is no retry. */
+function remoteRetryTerms(
+  context: RetryAttemptContext,
+  retry: AgentPlanRetry | null,
+): RemoteRetryTerms | undefined {
+  if (context.attemptNumber <= 1) return undefined;
+  return {
+    attemptNumber: context.attemptNumber,
+    allowTerminalRerun: true,
+    resumeSessionId: context.resumeSessionId,
+    retry,
+  };
 }
 
 /** Reopens the stored remote projection before the next job can be admitted. */
@@ -87,6 +109,7 @@ export function dispatchRemoteStepWithRetry(
     isSharedSession: false,
     isRemote: true,
     isReadOnly,
+    isScript: remote.step.type !== "agent",
     lastSession: () => lastSession,
     attempt: async (context) => {
       if (context.attemptNumber > 1 && lastSession)
@@ -99,14 +122,7 @@ export function dispatchRemoteStepWithRetry(
         active,
         stepId,
         signal,
-        retry:
-          context.attemptNumber > 1
-            ? {
-                attemptNumber: context.attemptNumber,
-                allowTerminalRerun: true,
-                resumeSessionId: context.resumeSessionId,
-              }
-            : undefined,
+        retry: remoteRetryTerms(context, lastSession?.retry ?? null),
       })?.catch((error: unknown): Partial<AgentPlanStepResult> => {
         // A continuation the live runner cannot carry out ends this attempt with the earlier record in place.
         if (
@@ -117,10 +133,13 @@ export function dispatchRemoteStepWithRetry(
         throw error;
       });
       if (!result) throw new AgentError("plan_context_changed");
-      lastSession = result.session ?? lastSession;
-      return lastSession && !result.session
-        ? { ...result, session: lastSession }
+      const settled = dependencies.settle
+        ? await dependencies.settle(result)
         : result;
+      lastSession = settled.session ?? lastSession;
+      return lastSession && !settled.session
+        ? { ...settled, session: lastSession }
+        : settled;
     },
     waiting: () => {
       active.dispatched.delete(stepId);

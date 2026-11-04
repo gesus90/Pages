@@ -1,5 +1,5 @@
 import { logCaughtError } from "@/backend/logging/Logger";
-import { PLAN_MAXIMUM_RETRIES } from "@/definition/AgentPlanRetry";
+import { REMOTE_RECONNECT_MAXIMUM_ATTEMPTS } from "@/definition/RemoteConnection";
 
 import type { RemoteSessionView } from "@/definition/RemoteConnection";
 import type { RemoteSession } from "./RemoteSession";
@@ -7,7 +7,7 @@ import type { RemoteSession } from "./RemoteSession";
 const IDLE_VIEW: RemoteSessionView = {
   status: "idle",
   attempts: 0,
-  maximumAttempts: PLAN_MAXIMUM_RETRIES,
+  maximumAttempts: REMOTE_RECONNECT_MAXIMUM_ATTEMPTS,
   nextAttemptAt: null,
   cause: null,
   connectedAt: null,

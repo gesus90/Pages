@@ -371,7 +371,10 @@ it("does not start the first internal agent after an unsuccessful outer predeces
   };
   const run = await world.engine.start("owner", snapshot);
   await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
-  runtime.first.resolve(groupTurn({ failure: "failed" }));
+  // A hard stop: no automatic attempt comes between the failure and the end of the run.
+  runtime.first.resolve(
+    groupTurn({ failure: "failed", errorCode: "plan_context_changed" }),
+  );
   await vi.waitFor(() =>
     expect(world.stored.get(run.id)?.status).toBe("failed"),
   );

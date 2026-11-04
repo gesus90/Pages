@@ -22,6 +22,7 @@ import {
   resumeOption,
 } from "./AgentPlanRecoveryPlanning";
 
+import type { AgentPlanAutomaticResumeDecision } from "./AgentPlanAutoResume";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
   AgentPlanCheckpoint,
@@ -340,6 +341,40 @@ export class AgentPlanRecoveryService {
   ): Promise<AgentPlanRecoveryResult> {
     // The idempotency read must also cover preparation, before another command can create its run.
     return this.controls.run(() => this.executeControl(userId, runId, input));
+  }
+
+  /**
+   * Continues a run a server restart interrupted, without a decision of the executor.
+   *
+   * @param decide - Reads the facts of the run and returns the command, or why it stops.
+   * @param request - The executor, the run and which automatic attempt this is.
+   * @returns The result of the resume, or the reason nothing started.
+   *
+   * @remarks
+   * It shares the queue and every check of an explicit resume, including the
+   * current rights of the executor and the proven end of the earlier processes.
+   */
+  public async automaticResume(
+    decide: (
+      actions: AgentPlanRecoveryActions,
+    ) => Promise<AgentPlanAutomaticResumeDecision>,
+    request: {
+      readonly userId: string;
+      readonly runId: string;
+      readonly automaticAttempt: number;
+    },
+  ): Promise<AgentPlanRecoveryResult | string> {
+    const { actions } = this;
+    if (!actions) return "workflow_unavailable";
+    return this.controls.run(async () => {
+      const decision = await decide(actions);
+      if (typeof decision === "string") return decision;
+      return actions.resume({
+        ...request,
+        command: decision,
+        requestDigest: planContentDigest(decision),
+      });
+    });
   }
 
   private async requireControlAccess(

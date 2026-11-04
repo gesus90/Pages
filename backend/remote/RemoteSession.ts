@@ -1,9 +1,10 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { RemoteError } from "@/backend/error/RemoteErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { PLAN_RETRY_DELAYS } from "@/backend/service/agents/AgentPlanStepRetry";
-import { PLAN_MAXIMUM_RETRIES } from "@/definition/AgentPlanRetry";
-import { isRemoteFailureCode } from "@/definition/RemoteConnection";
+import {
+  isRemoteFailureCode,
+  REMOTE_RECONNECT_MAXIMUM_ATTEMPTS,
+} from "@/definition/RemoteConnection";
 
 import { SSH_FAILURE_EXIT_CODE } from "./SshFailure";
 
@@ -16,6 +17,12 @@ import type { SshClient, SshMaster, SshMasterResult } from "./SshClient";
 import type { SshTarget } from "./SshOptions";
 import type { SshProcessResult } from "./SshProcess";
 import type { SshPty, SshPtyRequest } from "./SshPty";
+
+/** The growing waits between the reconnects of one series. */
+const REMOTE_RECONNECT_DELAYS = [
+  1_000, 5_000, 10_000, 20_000, 30_000, 60_000, 120_000, 180_000, 240_000,
+  300_000,
+] as const;
 
 /** What a logical connection needs from its surroundings. */
 export interface RemoteSessionDependencies {
@@ -58,8 +65,8 @@ const SERIES_FAILURES: ReadonlySet<RemoteFailureCode> = new Set([
  * permanently open socket is assumed. While it is open, keepalive probes
  * watch the transport. A lost transport, or a first connect that fails
  * because the machine is not reachable or not confirmed yet, starts a series
- * of at most {@link PLAN_MAXIMUM_RETRIES} reconnect attempts at the growing
- * intervals of the agent plan retries; after the last failure the connection
+ * of at most {@link REMOTE_RECONNECT_MAXIMUM_ATTEMPTS} reconnect attempts at growing
+ * intervals; after the last failure the connection
  * stays blocked until a person starts a new series. A command whose transport
  * was lost or whose connect failed is reported as such and never repeated, so
  * no step runs twice silently.
@@ -89,7 +96,7 @@ export class RemoteSession {
     return {
       status: this.status,
       attempts: this.attempts,
-      maximumAttempts: PLAN_MAXIMUM_RETRIES,
+      maximumAttempts: REMOTE_RECONNECT_MAXIMUM_ATTEMPTS,
       nextAttemptAt: this.nextAttemptAt,
       cause: this.cause,
       connectedAt: this.connectedAt,
@@ -289,7 +296,7 @@ export class RemoteSession {
   }
 
   private scheduleAttempt(): void {
-    const delays = this.dependencies.delays ?? PLAN_RETRY_DELAYS;
+    const delays = this.dependencies.delays ?? REMOTE_RECONNECT_DELAYS;
     const delay = delays[Math.min(this.attempts, delays.length - 1)];
     const generation = this.generation;
     this.nextAttemptAt = new Date(Date.now() + delay).toISOString();
@@ -328,7 +335,7 @@ export class RemoteSession {
     }
     this.attempts += 1;
     this.cause = opened.failure;
-    if (this.attempts >= PLAN_MAXIMUM_RETRIES) {
+    if (this.attempts >= REMOTE_RECONNECT_MAXIMUM_ATTEMPTS) {
       this.status = "blocked";
       return;
     }

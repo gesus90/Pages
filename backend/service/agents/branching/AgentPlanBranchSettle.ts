@@ -459,7 +459,12 @@ export function startedStep(
 ): Partial<AgentPlanStepResult> {
   if (!hasPlanBranching(active.snapshot.plan)) return { status: "running" };
   const current = active.view.steps.find((step) => step.id === stepId);
-  return { status: "running", activation: (current?.activation ?? 0) + 1 };
+  // A new start has not failed; the stop of an earlier round stays in its history.
+  return {
+    status: "running",
+    activation: (current?.activation ?? 0) + 1,
+    failureStop: undefined,
+  };
 }
 
 /**

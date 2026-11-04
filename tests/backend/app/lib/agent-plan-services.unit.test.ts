@@ -59,7 +59,7 @@ import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
 import type { PicaMobileNotificationService } from "@/backend/service/mobile/notifications/PicaMobileNotificationService";
 
-const { fakeClasses, opaque, partial } = await vi.hoisted(
+const { fakeClasses, opaque, partial, runRepositoryFake } = await vi.hoisted(
   async () => import("./service-wiring-fakes"),
 );
 
@@ -122,7 +122,7 @@ vi.mock("@/backend/database/repositories/agent/AgentProfileRepository", () =>
   fakeClasses({ AgentProfileRepository: ["list"] }),
 );
 vi.mock("@/backend/database/repositories/agent/AgentPlanRunRepository", () =>
-  fakeClasses({ AgentPlanRunRepository: [] }),
+  runRepositoryFake(),
 );
 vi.mock(
   "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository",

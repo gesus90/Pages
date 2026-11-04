@@ -3,12 +3,12 @@ import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { scriptAssessmentVerdict } from "@/definition/AgentPlanScriptReport";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
-import {
-  PLAN_MAXIMUM_RETRIES,
-  PLAN_SESSION_MAXIMUM_ATTEMPTS,
-} from "@/definition/AgentPlanRetry";
-import { isPlanSessionRetryCode } from "@/backend/agents/AgentSessionFailure";
+import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
+import {
+  failedPlanAttempts,
+  planBlockerClassOf,
+} from "./AgentPlanBlockerRules";
 import { sharingEntry } from "./PageAgentOperationDefinition";
 import { sanitizeArtifactText } from "./AgentPlanOutput";
 
@@ -270,32 +270,30 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
 /** Exposes the stored retry budget without native session identifiers. */
 function stepRetry(
   step: AgentPlanStepResult,
-): Pick<AgentPlanRunStepEntry, "retry"> {
+): Pick<AgentPlanRunStepEntry, "retry" | "failureStop"> {
+  const stop = step.failureStop ? { failureStop: step.failureStop } : {};
   const retry = step.session?.retry;
-  if (!retry) return {};
-  const policy =
-    retry.policy ??
-    (retry.attempts.some((attempt) => isPlanSessionRetryCode(attempt.code))
-      ? "session"
-      : "provider");
-  const maximumAttempts =
-    policy === "session"
-      ? PLAN_SESSION_MAXIMUM_ATTEMPTS
-      : PLAN_MAXIMUM_RETRIES + 1;
+  if (!retry) return stop;
+  const last = retry.attempts.at(-1);
+  const failureClass =
+    retry.failureClass ?? last?.failureClass ?? planBlockerClassOf(last?.code);
   return {
+    ...stop,
     retry: {
-      policy,
+      failureClass,
       state: retry.state,
       reason: retry.reason,
-      attemptsFailed: retry.attempts.length,
-      maximumAttempts,
+      attemptsFailed: failedPlanAttempts(retry.attempts, failureClass),
+      maximumAttempts: PLAN_BLOCKER_RETRIES[failureClass] + 1,
       nextAttemptAt: retry.nextAttemptAt,
       resetAt: retry.resetAt,
-      lastError: retry.attempts.at(-1)?.code ?? null,
-      attempts: retry.attempts.map(({ attemptId, endedAt, code }) => ({
-        attemptId,
-        endedAt,
-        code,
+      lastError: last?.code ?? null,
+      attempts: retry.attempts.map((attempt) => ({
+        attemptId: attempt.attemptId,
+        endedAt: attempt.endedAt,
+        code: attempt.code,
+        failureClass: attempt.failureClass ?? planBlockerClassOf(attempt.code),
+        ...(attempt.issues ? { issues: attempt.issues } : {}),
       })),
     },
   };
@@ -342,6 +340,9 @@ export function runDetail(run: AgentPlanRun): AgentPlanRunDetail {
     endedAt: runEnd(run),
     status: run.status,
     stopRequested: run.stopRequested,
+    ...(run.recovery?.automaticResume
+      ? { automaticResume: run.recovery.automaticResume }
+      : {}),
     steps: run.steps.map(stepStatus),
     loops: (run.loops ?? []).map((loop) => ({
       loopId: loop.id,

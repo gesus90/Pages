@@ -217,7 +217,10 @@ it("keeps the failure of a fix agent that ran beside one that succeeded: the run
   const runtime = branchRuntime({
     check: [branchReport(false), branchReport(true)],
     fixa: [`${FIX_ANSWER}\n${branchReport(true)}`],
-    fixb: ["This answer has no closing report at all."],
+    fixb: Array.from(
+      { length: 3 },
+      () => "This answer has no closing report at all.",
+    ),
   });
   const world = await branchEngine(runtime.execution, {
     nodes: (agent) => [

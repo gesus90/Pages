@@ -36,12 +36,12 @@ import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
 import { buildPlanContract } from "./AgentPlanContract";
 import {
   buildPlanSessionInput,
+  planRequestPrompt,
   planRetryGroupResume,
 } from "./AgentPlanSessionPrompt";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { runPlanNodeAttempts } from "./AgentPlanStepAttempts";
 import { planSessionReach } from "./AgentPlanSessionAccess";
-import { planRecoveryTerms } from "./recovery/AgentPlanRecoveryPrompt";
 import {
   createSessionRecord,
   initialStepAttemptId,
@@ -281,10 +281,9 @@ export class AgentPlanStepRunner {
       }),
       startedAt: new Date().toISOString(),
     });
-    const recovery = planRecoveryTerms(node.snapshot, node.step.step.id, node);
     const input = {
       ...prepared.input,
-      prompt: recovery.note + prepared.input.prompt,
+      prompt: planRequestPrompt(node, prepared),
     };
     await this.pin(node, input.prompt);
     const output = sanitizePlanOutput(

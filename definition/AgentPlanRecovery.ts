@@ -11,6 +11,15 @@ import type {
 export interface AgentPlanRecoveryReason {
   readonly state: "recoverable" | "interrupted";
   readonly requiresReconciliation: boolean;
+  /** Set for a run a server restart interrupted, which continues on its own within its budget. */
+  readonly automaticResume?: AgentPlanAutomaticResume;
+}
+
+/** Where the automatic continuation of a run that a restart interrupted stands. */
+export interface AgentPlanAutomaticResume {
+  readonly state: "pending" | "started" | "stopped";
+  /** Why it stopped: a recovery option, a recovery error or a code of the run. */
+  readonly reason?: string;
 }
 
 export type AgentPlanFailureClass =
@@ -55,6 +64,8 @@ export interface AgentPlanRunOrigin {
   readonly retriedStepIds: readonly string[];
   /** Nodes whose possible side effects the executor reviewed before the new attempt. */
   readonly reviewedStepIds: readonly string[];
+  /** Which automatic continuation after a restart this is; absent for a decision of the executor. */
+  readonly automaticAttempt?: number;
   readonly requestedAt: string;
 }
 

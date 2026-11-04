@@ -99,6 +99,8 @@ export interface RecoveryRequest<
   readonly runId: string;
   readonly command: Command;
   readonly requestDigest: string;
+  /** Set by the automatic continuation after a restart, never by a request of a person. */
+  readonly automaticAttempt?: number;
 }
 
 /** A stored result returned instead of a second start in the same transaction. */
@@ -203,6 +205,13 @@ export class AgentPlanRecoveryActions {
         ...frozenNodes(snapshot),
       },
     };
+  }
+
+  /** The recovery revision of a run, which every command names. */
+  public async sourceRevision(
+    runId: string,
+  ): Promise<{ readonly revision: number }> {
+    return this.dependencies.executions.source(runId);
   }
 
   /** Starts the saved revision from the start as a new run; the earlier run stays as it was. */
@@ -323,6 +332,9 @@ export class AgentPlanRecoveryActions {
           reusedStepIds,
           retriedStepIds: plan.retriedStepIds,
           reviewedStepIds: command.reviewedStepIds,
+          ...(request.automaticAttempt === undefined
+            ? {}
+            : { automaticAttempt: request.automaticAttempt }),
         }),
         reused: plan.reused,
         loops: loops.loops,
@@ -548,7 +560,12 @@ export class AgentPlanRecoveryActions {
     facts: RecoveryFacts,
     decision: Pick<
       AgentPlanRunOrigin,
-      "kind" | "mode" | "reusedStepIds" | "retriedStepIds" | "reviewedStepIds"
+      | "kind"
+      | "mode"
+      | "reusedStepIds"
+      | "retriedStepIds"
+      | "reviewedStepIds"
+      | "automaticAttempt"
     >,
   ): AgentPlanRunOrigin {
     return {

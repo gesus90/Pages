@@ -28,6 +28,7 @@ import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
 import type { AgentPlanBranch } from "./AgentPlanBranching";
+import type { AgentPlanFailureStop } from "./AgentPlanRetry";
 import type {
   AgentPlanStack,
   AgentPlanStackHandover,
@@ -361,6 +362,8 @@ export interface AgentPlanStepResult {
   readonly cancellation: "none" | "requested" | "confirmed" | "not_started";
   readonly output: string | null;
   readonly error: string | null;
+  /** Why a failed node stopped: the class of its failure and its attempts. */
+  readonly failureStop?: AgentPlanFailureStop;
   /** Read-only UI projection indicates that displayed text was filtered or shortened. */
   readonly isDisplayFiltered?: boolean;
   /** Runner, session, process, contract, acceptance and result of an agent node. */

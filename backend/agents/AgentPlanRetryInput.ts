@@ -1,28 +1,15 @@
 import { z } from "zod";
 
 import { AgentError } from "@/backend/error/AgentErrors";
-import {
-  PLAN_MAXIMUM_RETRIES,
-  PLAN_SESSION_MAXIMUM_ATTEMPTS,
-} from "@/definition/AgentPlanRetry";
+import { PLAN_RETRY_HISTORY_LIMIT } from "@/definition/AgentPlanRetry";
 
 import type {
+  AgentPlanFailureStop,
   AgentPlanRetry,
   AgentProviderFailure,
 } from "@/definition/AgentPlanRetry";
 
-const retryCode = z.enum([
-  "provider_unreachable",
-  "provider_unavailable",
-  "provider_rate_limited",
-  "provider_quota_exhausted",
-  "plan_acp_session_failed",
-  "plan_claude_acp_session_failed",
-  "opencode_acp_session_failed",
-  "antigravity_acp_session_failed",
-  "plan_runner_session_failed",
-  "acp_session_resume_failed",
-]);
+const blockerClass = z.enum(["harm", "form", "infrastructure", "open"]);
 const timestamp = z.iso.datetime();
 const providerFailure = z.object({
   code: z.enum([
@@ -36,10 +23,13 @@ const providerFailure = z.object({
 const retry = z
   .object({
     policy: z.enum(["provider", "session"]).optional(),
+    failureClass: blockerClass.optional(),
     state: z.enum(["waiting", "running", "blocked", "completed", "cancelled"]),
     reason: z.enum([
       "transient",
       "quota",
+      "repair",
+      "hard_stop",
       "reset_unknown",
       "exhausted",
       "unsafe",
@@ -60,22 +50,32 @@ const retry = z
           attemptId: z.string().max(100).nullable(),
           sessionId: z.string().max(4_000).nullable(),
           endedAt: timestamp,
-          code: retryCode,
+          code: z.string().min(1).max(100),
+          failureClass: blockerClass.optional(),
+          issues: z.array(z.string().max(200)).max(50).optional(),
         }),
       )
       .min(1)
-      .max(PLAN_MAXIMUM_RETRIES + 1),
+      .max(PLAN_RETRY_HISTORY_LIMIT),
   })
   .refine((record) =>
     record.state === "waiting"
       ? record.nextAttemptAt !== null
       : record.nextAttemptAt === null,
-  )
-  .refine(
-    (record) =>
-      record.policy !== "session" ||
-      record.attempts.length <= PLAN_SESSION_MAXIMUM_ATTEMPTS,
   );
+
+const failureStop = z.strictObject({
+  failureClass: blockerClass,
+  attempts: z.number().int().min(1).max(PLAN_RETRY_HISTORY_LIMIT),
+  maximumAttempts: z.number().int().min(1).max(PLAN_RETRY_HISTORY_LIMIT),
+});
+
+/** Validates the stored reason a failed step stopped. */
+export function readPlanFailureStop(input: unknown): AgentPlanFailureStop {
+  const parsed = failureStop.safeParse(input);
+  if (!parsed.success) throw new AgentError("plan_invalid");
+  return parsed.data;
+}
 
 /** Keeps historical records without provider retry metadata readable. */
 export function readPlanProviderFailure(input: unknown): AgentProviderFailure {

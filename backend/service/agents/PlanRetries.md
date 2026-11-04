@@ -1,50 +1,57 @@
-# Agent Plan retries (PAGE-128, PAGE-191)
+# Agent Plan retries (PAGE-128, PAGE-191, PAGE-210)
 
 `AgentPlanStepRunner` keeps a failed unfinished node inside the existing engine
 while it waits. There is no additional worker, queue, provider or model choice.
 Every attempt prepares the frozen node again and rechecks current access before
 dispatch. Completed predecessor nodes and scripts are never replayed by this
-policy. Scripts retain their own distinct exit, timeout and cleanup failures.
+policy.
 
-## One sequence, one policy
+## One rule per class
 
-Each unfinished node or turn has one persisted retry record. The policy is
-fixed by the first classified retryable failure of that sequence:
+A run stops only when a person has to decide. `AgentPlanBlockerRules` assigns
+every error code to exactly one class; the record type makes a new code fail the
+type check until it has a class, and a code nobody knows counts as functionally
+open. Each class has its own budget within one node:
 
-- A provider failure follows the existing provider policy. The original attempt
-  is followed by at most ten retries with waits of 1, 5, 10, 20, 30, 60, 120,
-  180, 240 and 300 seconds. The eleventh failed attempt blocks the node with its
-  last provider cause.
-- A technical ACP session failure follows the session policy. The original
-  attempt is followed by at most two retries, each after at least ten seconds,
-  so one sequence never exceeds three total attempts. The third failed attempt
-  blocks the node with `exhausted` and keeps all three attempts.
+| Class            | Examples                                                                                                                           | Behaviour                                                     |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `harm`           | credential-shaped output, foreign writer, missing right or isolation, process that may still run, an agent that declares `blocked` | stops at once, a person decides                               |
+| `form`           | missing or unreadable closing report, oversized answer                                                                             | back to the agent with the concrete error, at most 2 times    |
+| `infrastructure` | session died, restart, provider briefly away                                                                                       | continues on its own at most 3 times, after 10 s, 60 s, 300 s |
+| `open`           | acceptance not met, failed work gate, any unknown code                                                                             | at most 2 repair rounds in the same node                      |
 
-A session failure never extends an already running provider sequence: it ends
-that sequence without starting another three-attempt policy. A transient
-provider failure inside a session sequence shares the three-attempt session
-budget. Provider rate-limit, quota and reset rules remain authoritative; the
-ten-second session path never shortens a provider lockout or attaches ten more
-provider retries behind a three-attempt sequence.
+The closing report refines the code `plan_acceptance_failed`: `business_blocked`
+is `harm`, a missing or unreadable report and a report that only leaves entries
+out are `form`, everything else is `open`. A functional failure without a regular
+agent turn, such as a refused start, has nothing to send a repair to and stops at
+once. Scripts are never repeated, because Pages cannot reconcile their effects;
+they stop with their class like any other node.
 
-Authentication, access, model/configuration, privacy/ZDR/guardrail, explicit
-business `blocked`, invalid requirements, acceptance and deliberate
-stop/cancel/timeout outcomes keep their codes and are not transient session
-failures. Script failures and Pica chats are outside this policy.
+When the budget is spent the node stops with `exhausted`. Every failed node
+carries `failureStop` with the class and the attempts, which the run details and
+`read_plan_run` show. Every failed attempt stays in the history of the retry
+record with its code, class and findings. The work in the workspace is untouched.
 
-The session policy covers the verified ACP session failures
-`plan_acp_session_failed`, `plan_claude_acp_session_failed`,
-`opencode_acp_session_failed`, `antigravity_acp_session_failed`, the failed
-resume `acp_session_resume_failed` and, for a remote Codex or Claude CLI that
-ended without a terminal event or with `error_during_execution`,
-`plan_runner_session_failed`. A generic adapter code is classified from its
-available sanitized inner diagnostic first, so an authentication, quota,
-model, permission or policy cause does not enter the session path merely
-because its outer code looks generic.
+Provider rate-limit, quota and reset rules remain authoritative inside the
+infrastructure budget: a wait never ends before a reported reset.
+
+## Restart
+
+A server restart ends a run as interrupted. `AgentPlanAutoResume` then continues
+it as a new linked run, at most three times per chain of runs and after the same
+growing waits; the count travels in `origin.automaticAttempt`. It uses every check
+of an explicit resume, including the current rights of the executor, verified
+checkpoints and the proven end of the earlier processes. It stays with a person,
+with the reason in `recovery.automaticResume`, when the run also failed for
+another reason, the plan changed, a script or loop had started, or tool effects
+exist that no native session can continue. Runs interrupted before this rule are
+not taken up.
 
 ## Safe continuation
 
-A retry continues the failed turn; it never restarts the plan. The first
+A retry continues the failed turn; it never restarts the plan. A repair after a
+form or functional failure takes the same path, with the concrete error in front
+of the assignment. The first
 choice is the adapter's native session resume, using the recorded session ID
 and the adapter's confirmed `session/resume` capability. A native resume keeps
 the earlier conversation and its tool history.
@@ -66,7 +73,8 @@ an exhausted budget (`reason` of the retry record, shown in the run details,
 
 | `reason`                  | Cause                                                                                                  |
 | ------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `exhausted`               | All three attempts failed; the last concrete error and all three attempts are kept.                    |
+| `exhausted`               | The attempts of the class are spent; the last concrete error and all attempts are kept.                |
+| `hard_stop`               | A failure of the class `harm` ended a running sequence.                                                |
 | `closeout_unconfirmed`    | The end of the failed attempt is not confirmed, so no replacement may start.                           |
 | `resume_unavailable`      | A native session was required (tools ran, shared group/loop session) but it cannot continue.           |
 | `session_not_kept`        | Tools ran but the session was not kept, or the adapter offers no continuation.                         |
@@ -155,7 +163,7 @@ actions: state reconciliation and idempotency remain the agent's duty.
 ## Provider waits and quota resets
 
 Temporary `provider_unreachable`, `provider_unavailable` and rate-limit failures
-follow the provider waits above. A quota failure with an unambiguous reset waits
+follow the infrastructure waits above. A quota failure with an unambiguous reset waits
 until that UTC instant plus 60 seconds, or the increasing retry delay, whichever
 is later. A quota without a known reset stays blocked as `reset_unknown`. There
 is no periodic probe of an unknown budget and no fallback model. HTTP
@@ -178,9 +186,9 @@ Pause closes dispatch and retains the deadline and failed-attempt history;
 continuing the active paused run observes the same deadline. A resume never
 performs a second attempt for the same wait. Reload, reconnect and server or
 runner recovery keep the counter, deadline, attempt/session references and
-failure metadata; they do not reset the budget and startup starts no provider or
-timer automatically. The executor can explicitly continue after checkpoint and
-side-effect review. A later independent turn starts with a fresh counter.
+failure metadata; they do not reset the budget. The continuation after a restart is the
+one described under Restart; the executor can also continue explicitly after
+checkpoint and side-effect review. A later independent turn starts with a fresh counter.
 
 Retries require a confirmed native closeout, or a remote job whose terminal
 state is proven. Recorded tool activity prevents a new-session replay unless
@@ -196,9 +204,9 @@ records without these optional fields stay readable and follow the provider
 policy; there is no schema migration. PageAgentCLI journals still own native
 attempt messages and usage.
 
-Run details and `read_plan_run` show the policy, cause, state, attempt count of
-the total budget, next attempt and last failure; the UI shows `Versuch 1/3` to
-`3/3` for session sequences. Success after a retry stays a normal successful
+Run details and `read_plan_run` show the class, cause, state, attempt count of
+the budget of the class, next attempt and last failure. Records with the older
+`policy` field stay readable and follow the classes as well. Success after a retry stays a normal successful
 result with the earlier failures in its history. A final failure names the last
 concrete cause and the full attempt history. Late or duplicate events of an
 older attempt cannot overwrite the newer attempt's record. Successors receive

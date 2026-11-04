@@ -342,6 +342,20 @@ export class AgentPlanRunRepository {
     });
   }
 
+  /** Lists runs a restart interrupted that have not decided yet whether they continue on their own. */
+  public async pendingAutomaticResumes(): Promise<readonly AgentPlanRun[]> {
+    const rows = await this.database.query(`
+      SELECT view_json
+      FROM agent_plan_runs
+      WHERE status = 'failed'
+          AND json_extract_string(view_json, '$.recovery.automaticResume.state') = 'pending';
+    `);
+    return rows.map((row) => {
+      const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
+      return readPlanRun(input);
+    });
+  }
+
   /** Persists interrupted progress while retaining reservations for unknown processes. */
   public async interrupt(run: AgentPlanRun): Promise<void> {
     await this.progress.interrupt(run);

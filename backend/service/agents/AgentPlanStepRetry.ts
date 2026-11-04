@@ -1,27 +1,28 @@
 import { setTimeout as wait } from "node:timers/promises";
 
 import { isPlanRetryCode } from "@/backend/agents/AgentProviderFailure";
-import { isPlanSessionRetryCode } from "@/backend/agents/AgentSessionFailure";
 import {
-  PLAN_MAXIMUM_RETRIES,
-  PLAN_SESSION_MAXIMUM_ATTEMPTS,
-  PLAN_SESSION_RETRY_DELAY_MILLISECONDS,
+  PLAN_BLOCKER_RETRIES,
+  PLAN_INFRASTRUCTURE_RETRY_DELAYS,
 } from "@/definition/AgentPlanRetry";
+
+import {
+  canReturnPlanFailureToAgent,
+  classifyPlanStepFailure,
+  failedPlanAttempts,
+} from "./AgentPlanBlockerRules";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
+  AgentPlanBlockerClass,
   AgentPlanRetry,
   AgentPlanRetryAttempt,
-  AgentPlanRetryPolicy,
 } from "@/definition/AgentPlanRetry";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 
-/** Growing waits before each of the ten provider retries; remote reconnects follow the same scheme. */
-export const PLAN_RETRY_DELAYS = [
-  1_000, 5_000, 10_000, 20_000, 30_000, 60_000, 120_000, 180_000, 240_000,
-  300_000,
-] as const;
 const RESET_GRACE_MILLISECONDS = 60_000;
+const MAXIMUM_ATTEMPT_ISSUES = 50;
+const MAXIMUM_ISSUE_LENGTH = 200;
 
 /** What the next attempt may continue after the previous failed attempt. */
 export interface RetryAttemptContext {
@@ -42,6 +43,8 @@ interface RetryWork {
   readonly isRemote?: boolean;
   /** Reading-only remote work has no possible external mutation to duplicate. */
   readonly isReadOnly?: boolean;
+  /** A script is no agent and Pages cannot reconcile its effects, so it never runs twice on its own. */
+  readonly isScript?: boolean;
   /** The record of the last failed attempt, after a pause and a reload as well. */
   readonly lastSession: () => AgentPlanSessionRecord | null;
   readonly attempt: (
@@ -53,18 +56,8 @@ interface RetryWork {
   ) => Promise<AgentPlanSessionRecord | null>;
 }
 
-function retryPolicyOf(
-  retry: AgentPlanRetry | null,
-): AgentPlanRetryPolicy | null {
-  if (!retry) return null;
-  if (retry.policy) return retry.policy;
-  return retry.attempts.some((attempt) => isPlanSessionRetryCode(attempt.code))
-    ? "session"
-    : "provider";
-}
-
 /** Local sessions record tool events; a remote runner proves its tool activity or lack of it. */
-function hasToolActivity(session: AgentPlanSessionRecord): boolean {
+export function hasToolActivity(session: AgentPlanSessionRecord): boolean {
   return (
     session.events.some((event) => event.startsWith("tool ")) ||
     (session.effects !== undefined && session.effects.tools !== "none")
@@ -85,18 +78,6 @@ function hasConfirmedCloseout(
   return (
     session?.closeout === "confirmed" || session?.closeout === "not_needed"
   );
-}
-
-/** Provider retries keep their earlier safety rule: no replay after tool activity or in a shared session. */
-function hasUnsafeProviderReplay(
-  session: AgentPlanSessionRecord | null | undefined,
-  work: Pick<RetryWork, "isSharedSession" | "isRemote" | "isReadOnly">,
-): boolean {
-  if (!session) return true;
-  if (work.isSharedSession) return true;
-  if (work.isRemote && work.isReadOnly !== true) return true;
-  if (!hasConfirmedCloseout(session)) return true;
-  return hasToolActivity(session);
 }
 
 /**
@@ -134,55 +115,39 @@ function hasUnsafeSessionReplay(
 function retryAttempt(
   session: AgentPlanSessionRecord | null | undefined,
   code: AgentPlanRetryAttempt["code"],
+  failureClass: AgentPlanBlockerClass,
 ): AgentPlanRetryAttempt {
+  const issues = (session?.acceptance?.issues ?? [])
+    .slice(0, MAXIMUM_ATTEMPT_ISSUES)
+    .map((issue) => issue.slice(0, MAXIMUM_ISSUE_LENGTH));
   return {
     attemptId: session?.attemptId ?? null,
     sessionId: session?.sessionId ?? null,
     endedAt: session?.endedAt ?? new Date().toISOString(),
     code,
+    failureClass,
+    ...(issues.length > 0 ? { issues } : {}),
   };
 }
 
-function failureCode(
-  result: Partial<AgentPlanStepResult>,
-): AgentPlanRetryAttempt["code"] | null {
-  if (isPlanRetryCode(result.error)) return result.error;
-  if (isPlanSessionRetryCode(result.error)) return result.error;
-  return null;
-}
-
-function retryPolicyFor(
-  previous: AgentPlanRetryPolicy | null,
-  code: AgentPlanRetryAttempt["code"],
-): AgentPlanRetryPolicy | null {
-  if (previous === "provider") return isPlanRetryCode(code) ? "provider" : null;
-  if (previous === "session") return "session";
-  if (isPlanRetryCode(code)) return "provider";
-  if (isPlanSessionRetryCode(code)) return "session";
-  return null;
-}
-
-function maximumAttempts(policy: AgentPlanRetryPolicy): number {
-  return policy === "session"
-    ? PLAN_SESSION_MAXIMUM_ATTEMPTS
-    : PLAN_MAXIMUM_RETRIES + 1;
-}
-
 function retryDelay(
-  policy: AgentPlanRetryPolicy,
+  failureClass: AgentPlanBlockerClass,
   failedAttempts: number,
 ): number {
-  return policy === "session"
-    ? PLAN_SESSION_RETRY_DELAY_MILLISECONDS
-    : PLAN_RETRY_DELAYS[failedAttempts - 1];
+  if (failureClass !== "infrastructure") return 0;
+  return PLAN_INFRASTRUCTURE_RETRY_DELAYS[
+    Math.min(failedAttempts, PLAN_INFRASTRUCTURE_RETRY_DELAYS.length) - 1
+  ];
 }
 
 function retryReason(
-  policy: AgentPlanRetryPolicy,
+  failureClass: AgentPlanBlockerClass,
+  code: AgentPlanRetryAttempt["code"],
   resetAt: string | null,
 ): AgentPlanRetry["reason"] {
+  if (failureClass !== "infrastructure") return "repair";
   if (resetAt !== null) return "quota";
-  return policy === "session" ? "session" : "transient";
+  return isPlanRetryCode(code) ? "transient" : "session";
 }
 
 /** The native session a tool-using or shared attempt must keep across every later attempt. */
@@ -200,7 +165,7 @@ function pinnedResumeSession(
 
 /** What decides whether a failed attempt may be followed by another one. */
 interface BlockerFacts {
-  readonly policy: AgentPlanRetryPolicy;
+  readonly failureClass: AgentPlanBlockerClass;
   readonly error: string | null | undefined;
   readonly code: AgentPlanRetryAttempt["code"];
   readonly session: AgentPlanSessionRecord | null | undefined;
@@ -214,19 +179,61 @@ function retryBlocker(
   work: RetryWork,
   facts: BlockerFacts,
 ): AgentPlanRetry["reason"] | null {
-  const { policy, session } = facts;
-  if (policy === "session") {
-    const unsafe = hasUnsafeSessionReplay(
-      session,
-      work,
-      facts.requiredResumeSessionId,
-      facts.code,
-    );
-    if (unsafe) return unsafe;
-  } else if (hasUnsafeProviderReplay(session, work)) return "unsafe";
+  const unsafe = hasUnsafeSessionReplay(
+    facts.session,
+    work,
+    facts.requiredResumeSessionId,
+    facts.code,
+  );
+  if (unsafe) return unsafe;
   if (facts.error === "provider_quota_exhausted" && facts.resetAt === null)
     return "reset_unknown";
-  return facts.failedAttempts >= maximumAttempts(policy) ? "exhausted" : null;
+  return facts.failedAttempts > PLAN_BLOCKER_RETRIES[facts.failureClass]
+    ? "exhausted"
+    : null;
+}
+
+/**
+ * The reason a failure ends the step whatever its budget says, or `null`.
+ *
+ * @remarks
+ * A hard stop is never repeated. A functional failure without a regular agent
+ * turn has nothing to send a repair to: a refused start fails the same way again.
+ */
+function terminalReason(
+  failureClass: AgentPlanBlockerClass,
+  result: Partial<AgentPlanStepResult>,
+): AgentPlanRetry["reason"] | null {
+  if (failureClass === "harm") return "hard_stop";
+  if (failureClass === "infrastructure") return null;
+  return canReturnPlanFailureToAgent(failureClass, {
+    error: result.error,
+    acceptance: result.session?.acceptance,
+  })
+    ? null
+    : "failed";
+}
+
+/** Whether a further attempt may follow, and when; the budget and the safety of a replay decide. */
+function nextRetryState(
+  work: RetryWork,
+  facts: BlockerFacts,
+): Pick<AgentPlanRetry, "state" | "reason" | "nextAttemptAt"> {
+  const blocker = retryBlocker(work, facts);
+  if (blocker)
+    return { state: "blocked", reason: blocker, nextAttemptAt: null };
+  const delay = retryDelay(facts.failureClass, facts.failedAttempts);
+  const release =
+    facts.resetAt === null
+      ? 0
+      : Date.parse(facts.resetAt) + RESET_GRACE_MILLISECONDS;
+  return {
+    state: "waiting",
+    reason: retryReason(facts.failureClass, facts.code, facts.resetAt),
+    nextAttemptAt: new Date(
+      Math.max(Date.now() + delay, release),
+    ).toISOString(),
+  };
 }
 
 function retryDecision(
@@ -234,53 +241,42 @@ function retryDecision(
   work: RetryWork,
   previous: AgentPlanRetry | null,
 ): AgentPlanRetry | null {
-  if (result.status !== "failed") return null;
-  const code = failureCode(result);
-  if (code === null) return null;
-  const previousPolicy = retryPolicyOf(previous);
-  const policy = retryPolicyFor(previousPolicy, code);
+  if (result.status !== "failed" || work.isScript) return null;
   const session = result.session;
+  const code = result.error ?? "plan_step_failed";
+  const failureClass = classifyPlanStepFailure({
+    error: result.error,
+    acceptance: session?.acceptance,
+    output: result.output,
+  });
+  const terminal = terminalReason(failureClass, result);
+  // A first failure that ends the step at once has no sequence to record; its stop is on the step.
+  if (terminal && !previous) return null;
   const resetAt = session?.providerFailure?.resetAt ?? null;
-  const attempts = [...(previous?.attempts ?? []), retryAttempt(session, code)];
-  if (policy === null)
-    return previousPolicy === null
-      ? null
-      : {
-          policy: previousPolicy,
-          attempts,
-          resetAt,
-          state: "blocked",
-          reason: "failed",
-          nextAttemptAt: null,
-        };
+  const attempts = [
+    ...(previous?.attempts ?? []),
+    retryAttempt(session, code, failureClass),
+  ];
   const requiredResumeSessionId = pinnedResumeSession(previous, session, work);
   const base = {
-    policy,
+    failureClass,
     attempts,
     resetAt,
-    nextAttemptAt: null,
     ...(requiredResumeSessionId ? { requiredResumeSessionId } : {}),
   };
-  const blocker = retryBlocker(work, {
-    policy,
-    error: result.error,
-    code,
-    session,
-    requiredResumeSessionId,
-    resetAt,
-    failedAttempts: attempts.length,
-  });
-  if (blocker) return { ...base, state: "blocked", reason: blocker };
-  const delay = retryDelay(policy, attempts.length);
-  const release =
-    resetAt === null ? 0 : Date.parse(resetAt) + RESET_GRACE_MILLISECONDS;
+  if (terminal)
+    return { ...base, state: "blocked", reason: terminal, nextAttemptAt: null };
   return {
     ...base,
-    state: "waiting",
-    reason: retryReason(policy, resetAt),
-    nextAttemptAt: new Date(
-      Math.max(Date.now() + delay, release),
-    ).toISOString(),
+    ...nextRetryState(work, {
+      failureClass,
+      error: result.error,
+      code,
+      session,
+      requiredResumeSessionId,
+      resetAt,
+      failedAttempts: failedPlanAttempts(attempts, failureClass),
+    }),
   };
 }
 
@@ -289,26 +285,19 @@ function retryContinuation(
   work: RetryWork,
 ): RetryAttemptContext {
   const attemptNumber = retry.attempts.length + 1;
-  if (retryPolicyOf(retry) === "session") {
-    const last = retry.attempts.at(-1);
-    const session = work.lastSession();
-    const isResumeUsable =
-      last?.code !== "acp_session_resume_failed" &&
-      (retry.requiredResumeSessionId !== undefined ||
-        (canResumeSession(session) && session?.sessionId === last?.sessionId));
-    // The newest attempt's session is the one to continue; the pinned ID only covers an attempt that never reported one.
-    const resumeSessionId =
-      last?.sessionId ?? retry.requiredResumeSessionId ?? null;
-    return {
-      attemptNumber,
-      resumeSessionId: isResumeUsable ? resumeSessionId : null,
-      isNewSessionAfterFailure: !isResumeUsable,
-    };
-  }
+  const last = retry.attempts.at(-1);
+  const session = work.lastSession();
+  const isResumeUsable =
+    last?.code !== "acp_session_resume_failed" &&
+    (retry.requiredResumeSessionId !== undefined ||
+      (canResumeSession(session) && session?.sessionId === last?.sessionId));
+  // The newest attempt's session is the one to continue; the pinned ID only covers an attempt that never reported one.
+  const resumeSessionId =
+    last?.sessionId ?? retry.requiredResumeSessionId ?? null;
   return {
     attemptNumber,
-    resumeSessionId: null,
-    isNewSessionAfterFailure: false,
+    resumeSessionId: isResumeUsable ? resumeSessionId : null,
+    isNewSessionAfterFailure: !isResumeUsable,
   };
 }
 

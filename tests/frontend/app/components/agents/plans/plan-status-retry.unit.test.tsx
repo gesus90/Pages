@@ -49,7 +49,13 @@ it("shows the waiting reason, the bounded count, the last cause and both deadlin
   const status = screen.getByRole("status");
   expect(screen.getByText("Waiting for automatic retry")).toBeTruthy();
   expect(status.textContent).toContain("The quota is exhausted.");
-  expect(screen.getByText("Retries: 10 of 10")).toBeTruthy();
+  // A record from before the classes counts as infrastructure, with its budget of four attempts.
+  expect(screen.getByText("Infrastructure")).toBeTruthy();
+  expect(
+    screen.getByText(
+      "Attempt 4 of 4 failed. Attempt 4 of 4 follows after the wait.",
+    ),
+  ).toBeTruthy();
   expect(status.textContent).toContain("Last failure:");
   expect(screen.getByText(`Reported reset: ${localTime(RESET)}`)).toBeTruthy();
   expect(screen.getByText(`Next attempt: ${localTime(NEXT)}`)).toBeTruthy();
@@ -91,7 +97,11 @@ it("omits the last cause before any attempt failed", () => {
     attempts: [],
   });
   expect(screen.getByText("Automatic retry blocked")).toBeTruthy();
-  expect(screen.getByText("Retries: 0 of 10")).toBeTruthy();
+  expect(
+    screen.getByText(
+      "0 of 4 attempts failed. No further automatic attempt follows.",
+    ),
+  ).toBeTruthy();
   expect(screen.queryByText(/Last failure/u)).toBeNull();
   expect(screen.queryByRole("listitem")).toBeNull();
 });

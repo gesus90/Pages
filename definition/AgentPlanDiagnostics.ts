@@ -22,7 +22,7 @@ export interface AgentPlanDiagnostic {
   /** Recorded automatic retries; missing legacy IDs and absent detailed exit data are not reconstructed. */
   readonly retryAttempts: readonly Pick<
     AgentPlanRetryAttempt,
-    "attemptId" | "endedAt" | "code"
+    "attemptId" | "endedAt" | "code" | "failureClass" | "issues"
   >[];
   readonly name: string;
   readonly status:

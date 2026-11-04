@@ -18,6 +18,7 @@ import {
   logEvent,
   withLogContext,
 } from "@/backend/logging/Logger";
+import { planNodeStop } from "./AgentPlanBlockerRules";
 import { dispatchRemoteStepWithRetry } from "./AgentPlanRemoteRetry";
 import { savePlanSession } from "./AgentPlanSessionPersistence";
 import { capturePlanExecution } from "./AgentPlanExecutionSnapshot";
@@ -196,6 +197,11 @@ export class AgentPlanRunEngine {
    */
   public isActive(id: string): boolean {
     return this.active.has(id);
+  }
+
+  /** Whether the server is stopping, so nothing new may start. */
+  public isShuttingDown(): boolean {
+    return this.isClosing;
   }
 
   /** Persists an explicit pause before releasing the execution gate. */
@@ -538,17 +544,19 @@ export class AgentPlanRunEngine {
       component: "AgentPlanRunEngine",
       message: "Agent plan step started",
     });
-    const changes = await this.outcome(active, node, controller)
-      .then((result) =>
-        settlePlanWorkResult(this.dependencies.workGate, active, node, result),
-      )
-      .catch((error: unknown): Partial<AgentPlanStepResult> => {
+    const outcome = await this.outcome(active, node, controller).catch(
+      (error: unknown): Partial<AgentPlanStepResult> => {
         logCaughtError("AgentPlanRunEngine", error);
         return {
           status: "failed",
           error: error instanceof AgentError ? error.code : "plan_step_failed",
         };
-      });
+      },
+    );
+    const changes =
+      outcome.status === "failed"
+        ? { ...outcome, failureStop: planNodeStop(active.view, node, outcome) }
+        : outcome;
     logEvent({
       level: changes.status === "failed" ? "error" : "info",
       event: "agent.step.completed",
@@ -611,11 +619,17 @@ export class AgentPlanRunEngine {
   ): Promise<Partial<AgentPlanStepResult>> {
     await guardPlanWorkDispatch(this.dependencies.workGate, active, node.id);
     const isStopped = active.view.stopRequested || controller.signal.aborted;
+    // The gate belongs to each attempt: a failed gate is a repair in the same step, not its end.
+    const settle = (
+      result: Partial<AgentPlanStepResult>,
+    ): Promise<Partial<AgentPlanStepResult>> =>
+      settlePlanWorkResult(this.dependencies.workGate, active, node, result);
     const remote = dispatchRemoteStepWithRetry(
       this.dependencies.remoteExecution
         ? {
             service: this.dependencies.remoteExecution,
             runs: this.dependencies.runs,
+            settle,
           }
         : undefined,
       active,
@@ -633,6 +647,7 @@ export class AgentPlanRunEngine {
         return { status: "cancelled", cancellation: "not_started" };
       return this.dependencies.steps.run(active.view, active.snapshot, step, {
         signal: controller.signal,
+        settle,
         ...eventStart(active, node.id),
         awaitDispatch: () => {
           active.dispatched.delete(node.id);

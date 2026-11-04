@@ -18,6 +18,7 @@ import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/Ag
 import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import { AgentPlanRecoveryExecutionRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository";
+import { AgentPlanAutoResume } from "@/backend/service/agents/recovery/AgentPlanAutoResume";
 import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import { AgentPlanCleanupFailureRepository } from "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository";
@@ -206,7 +207,7 @@ export async function createAgentPlanService(input: {
     agentPlanService: service,
     ...views,
     agentSessionService: pageAgentSessions,
-    agentPlanRecoveryService: createRecoveryService(input, {
+    agentPlanRecoveryService: startPlanRecovery(input, {
       service,
       access,
       preparation,
@@ -215,6 +216,20 @@ export async function createAgentPlanService(input: {
       remoteExecution,
     }),
   };
+}
+
+/** Builds the recovery and lets the runs a restart interrupted continue; the wait runs in the background. */
+function startPlanRecovery(
+  input: Parameters<typeof createAgentPlanService>[0],
+  parts: Parameters<typeof createRecoveryService>[1],
+): AgentPlanRecoveryService {
+  const recovery = createRecoveryService(input, parts);
+  void new AgentPlanAutoResume({
+    runs: parts.runs,
+    recovery,
+    engine: parts.engine,
+  }).start();
+  return recovery;
 }
 
 /** The services that read, list or announce plans and runs through the plan service. */
@@ -287,7 +302,7 @@ function createPlanSessionAccess(
   );
 }
 
-/** Records the runs a server stop interrupted and repairs their files; nothing starts again. */
+/** Records the runs a server stop interrupted and repairs their files; their automatic continuation follows separately. */
 async function recoverRuns(
   input: Parameters<typeof createAgentPlanService>[0],
   service: AgentPlanService,

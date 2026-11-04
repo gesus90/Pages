@@ -77,10 +77,15 @@ async function engineFixture(hasGate: boolean): Promise<{
     },
     steps: {
       closeGroups: async () => {},
-      run: async () => ({
-        status: "succeeded",
-        output: '{"status":"done","message":"unchanged final JSON"}',
-      }),
+      // The step runner judges every attempt through the gate the engine hands it.
+      run: async (...request) => {
+        const control = request[3];
+        const result = {
+          status: "succeeded" as const,
+          output: '{"status":"done","message":"unchanged final JSON"}',
+        };
+        return control.settle ? control.settle(result) : result;
+      },
     },
   });
   return { engine, gate, observed, successor, snapshot };

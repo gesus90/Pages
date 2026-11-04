@@ -7,7 +7,10 @@ import type { AgentPlanSessionEvents } from "./AgentPlanSessionEvents.js";
 import type { AgentPlanRemoteStatusProblem } from "./AgentPlanRemoteStatus.js";
 import type { AgentPlanWorkspaceConflict } from "./AgentPlanWorkspaceConflict.js";
 import type { AgentPlanRecoveryEntry } from "./AgentPlanRecoveryEntry.js";
+import type { AgentPlanAutomaticResume } from "./AgentPlanRecovery.js";
 import type {
+  AgentPlanBlockerClass,
+  AgentPlanFailureStop,
   AgentPlanRetry,
   AgentPlanRetryAttempt,
 } from "./AgentPlanRetry.js";
@@ -491,21 +494,23 @@ export interface AgentPlanRunStepEntry {
   readonly endedAt: string | null;
   /** Whether {@link AgentPlanReport} has something for this node. */
   readonly hasReport: boolean;
+  /** Why a failed node stopped: the class of its failure and its attempts. */
+  readonly failureStop?: AgentPlanFailureStop;
   /** Persisted automatic retry state, for active waits and finished histories. */
   readonly retry?: {
-    readonly policy: "provider" | "session";
+    readonly failureClass: AgentPlanBlockerClass;
     readonly state: AgentPlanRetry["state"];
     readonly reason: AgentPlanRetry["reason"];
-    /** Failed attempts so far; the first attempt is not added to this list. */
+    /** Failed attempts of this class so far. */
     readonly attemptsFailed: number;
-    /** Total attempts a policy admits, the first attempt included. */
+    /** Total attempts the class admits, the first attempt included. */
     readonly maximumAttempts: number;
     readonly nextAttemptAt: string | null;
     readonly resetAt: string | null;
     readonly lastError: AgentPlanRetryAttempt["code"] | null;
     readonly attempts: readonly Pick<
       AgentPlanRetryAttempt,
-      "attemptId" | "endedAt" | "code"
+      "attemptId" | "endedAt" | "code" | "failureClass" | "issues"
     >[];
   };
 }
@@ -516,6 +521,8 @@ export interface AgentPlanRunDetail extends AgentPlanRunSummary {
   /** ISO 8601 time the last node ended, `null` while the run is active. */
   readonly endedAt: string | null;
   readonly stopRequested: boolean;
+  /** Set for a run a server restart interrupted: whether it continues on its own, or why not. */
+  readonly automaticResume?: AgentPlanAutomaticResume;
   readonly steps: readonly AgentPlanRunStepEntry[];
   readonly continuationVersion?: number;
   readonly appliedPlanRevision?: number;

@@ -144,7 +144,7 @@ export const AGENT_ERROR_MESSAGES = {
   plan_dependency_failed:
     "A dependency failed or was cancelled; this step is blocked.",
   plan_interrupted:
-    "The server interrupted this run. It cannot be resumed automatically.",
+    "The server interrupted this run. Pages continues it on its own up to three times where that is safe; otherwise it waits for a decision.",
   plan_run_option_unsupported:
     "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
   plan_mcp_unavailable:

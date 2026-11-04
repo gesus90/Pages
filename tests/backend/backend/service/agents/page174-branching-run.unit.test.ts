@@ -231,20 +231,28 @@ it("stops a cycle that never passes at the activation limit with a concrete erro
 });
 
 it("never turns a missing input into false: a checker that failed leaves the decision unevaluated", async () => {
-  const runtime = branchRuntime({ check: ["No report at all."] });
+  const runtime = branchRuntime({
+    check: ["No report at all.", "No report at all.", "No report at all."],
+  });
   const world = await branchEngine(runtime.execution);
   const started = await world.engine.start("owner", world.snapshot);
   const run = await finished(world, started.id);
   expect(run.status).toBe("failed");
-  // A missing report is a failed acceptance, not a reported false.
+  // A missing report is a form error: it goes back to the agent twice, and never becomes a reported false.
   expect(stepOf(run, "check")).toMatchObject({
     status: "failed",
     error: "plan_acceptance_failed",
+    failureStop: { failureClass: "form", attempts: 3, maximumAttempts: 3 },
   });
   expect(stepOf(run, "check").passed).toBeUndefined();
   expect(stepOf(run, "decision").status).not.toBe("succeeded");
   expect(stepOf(run, "decision").branch).toBeUndefined();
-  expect(runtime.calls.map((call) => call.stepId)).toEqual(["check"]);
+  expect(runtime.calls.map((call) => call.stepId)).toEqual([
+    "check",
+    "check",
+    "check",
+  ]);
+  expect(runtime.calls[1]?.prompt).toContain("report_missing");
 });
 
 it("starts the target once when two senders finish together, with both results and no second start", async () => {
