@@ -70,7 +70,8 @@ export const picaMobilePushTokenSchema = z
   .string()
   .min(1)
   .max(PICA_MOBILE_MAXIMUM_PUSH_TOKEN_LENGTH)
-  .regex(/^\S+$/u);
+  .regex(/^\S+$/u)
+  .refine((token) => !token.includes("\u0000"));
 
 /** How much of a run a push notification reveals before the device is unlocked. */
 export const picaMobileNotificationPreviewSchema = z.enum([

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { holdsNulCharacter } from "@/backend/security/IdentityText";
 
 import type { LoginThrottle } from "@/backend/auth/LoginThrottle";
 import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
@@ -68,8 +69,9 @@ export class AuthService {
   ): Promise<LoginResult | null> {
     this.loginThrottle.assertAllowed(username, clientAddress);
 
-    const credentials =
-      await this.userService.findCredentialsByUsername(username);
+    const credentials = holdsNulCharacter(username)
+      ? null
+      : await this.userService.findCredentialsByUsername(username);
     const isPasswordValid = await this.passwordHasher.verify(
       credentials?.passwordHash ?? (await this.getDecoyPasswordHash()),
       password,

@@ -5,6 +5,7 @@ import {
   createAgentCredential,
   hashAgentCredential,
 } from "@/backend/security/AgentCredential";
+import { holdsNulCharacter } from "@/backend/security/IdentityText";
 
 import type {
   PersonalAgentTokenRepository,
@@ -81,6 +82,8 @@ export class PersonalAgentTokenService {
 
   /** Resolves identity and rights anew; expired, revoked and unknown credentials fail closed. */
   public async verify(token: string): Promise<AgentIdentity> {
+    if (holdsNulCharacter(token))
+      throw new McpAuthorizationError("invalid_token", 401);
     return this.verifyHash(hashAgentCredential(token));
   }
 

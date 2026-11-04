@@ -4,6 +4,7 @@ import {
   createAgentCredential,
   hashAgentCredential,
 } from "@/backend/security/AgentCredential";
+import { holdsNulCharacter } from "@/backend/security/IdentityText";
 
 import type { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import type {
@@ -82,6 +83,7 @@ export class AgentRunCredentialService {
    * valid session credential.
    */
   public async verify(token: string): Promise<AgentIdentity | null> {
+    if (holdsNulCharacter(token)) return null;
     return this.verifyHash(hashAgentCredential(token));
   }
 

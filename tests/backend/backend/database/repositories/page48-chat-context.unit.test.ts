@@ -106,6 +106,7 @@ it("stores a client message ID with its message and refuses a second message wit
   });
   boundary.query
     .mockResolvedValueOnce([["session"]])
+    .mockResolvedValueOnce([])
     .mockResolvedValueOnce([["message-1", "user", "Hallo", "today"]]);
   expect(
     await repository.append("owner", "session", {
@@ -119,11 +120,20 @@ it("stores a client message ID with its message and refuses a second message wit
     content: "Hallo",
     createdAt: "today",
   });
-  const [statement, parameters] = boundary.query.mock.calls[1];
-  expect(statement).toContain("ON CONFLICT DO NOTHING");
+  const [check, checked] = boundary.query.mock.calls[1];
+  expect(check).toContain("AND client_message_id = $client_message_id");
+  expect(checked).toEqual({
+    session_id: "session",
+    client_message_id: "browser-1",
+  });
+  const [statement, parameters] = boundary.query.mock.calls[2];
+  expect(statement).toContain("INSERT INTO chat_messages");
   expect(parameters).toMatchObject({ client_message_id: "browser-1" });
 
-  boundary.query.mockResolvedValueOnce([["session"]]).mockResolvedValueOnce([]);
+  boundary.query
+    .mockResolvedValueOnce([["session"]])
+    .mockResolvedValueOnce([["message-1"]]);
+  boundary.query.mockClear();
   await expect(
     repository.append("owner", "session", {
       role: "user",
@@ -131,6 +141,7 @@ it("stores a client message ID with its message and refuses a second message wit
       clientMessageId: "browser-1",
     }),
   ).rejects.toMatchObject({ code: "messageAlreadySent" });
+  expect(boundary.query).toHaveBeenCalledTimes(2);
 
   boundary.query.mockResolvedValueOnce([
     ["message-1", "user", "Hallo", "today"],

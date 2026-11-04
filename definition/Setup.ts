@@ -84,7 +84,7 @@ function checkRequiredText(
   value: string,
   maximumLength: number,
 ): SetupFieldError | null {
-  if (value.trim() === "") {
+  if (value.trim() === "" || value.includes("\u0000")) {
     return "required";
   }
 

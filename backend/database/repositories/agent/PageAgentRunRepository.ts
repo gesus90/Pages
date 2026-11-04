@@ -61,7 +61,7 @@ export class PageAgentRunRepository {
           $prompt,
           $started_at
       )
-      ON CONFLICT DO NOTHING;
+      ON CONFLICT (plan_run_id, step_id) DO NOTHING;
     `,
       {
         plan_run_id: planRunId,
@@ -137,7 +137,7 @@ export class PageAgentRunRepository {
           $input,
           $result
       )
-      ON CONFLICT DO NOTHING;
+      ON CONFLICT (agent_id, run_id) DO NOTHING;
     `,
       {
         agent_id: record.agentId,

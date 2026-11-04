@@ -4,6 +4,7 @@ import { LRUCache } from "lru-cache";
 
 import { parseUserAgent } from "@/backend/auth/UserAgent";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { holdsNulCharacter } from "@/backend/security/IdentityText";
 
 import type { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import type { UserService } from "@/backend/service/UserService";
@@ -83,7 +84,7 @@ export class SessionService {
    * expired sessions, or when the user has since been deactivated.
    */
   public async authenticate(token: string | null): Promise<User | null> {
-    if (!token) {
+    if (!token || holdsNulCharacter(token)) {
       return null;
     }
 

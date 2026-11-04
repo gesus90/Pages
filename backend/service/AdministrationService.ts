@@ -25,6 +25,7 @@ import type {
   AuthorizationRepository,
   AuthorizationSnapshot,
 } from "@/backend/database/repositories/AuthorizationRepository";
+import { holdsNulCharacter } from "@/backend/security/IdentityText";
 import type {
   AccountAccess,
   AccountMode,
@@ -587,6 +588,8 @@ export class AdministrationService {
   private validateProfile(input: AccountProfileInput): void {
     validateAdministrationName(input.username);
     if (
+      holdsNulCharacter(input.username) ||
+      holdsNulCharacter(input.email ?? "") ||
       (!input.firstName.trim() && !input.lastName.trim()) ||
       input.firstName.length > 200 ||
       input.lastName.length > 200 ||

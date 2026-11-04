@@ -167,8 +167,7 @@ export class LoginThrottle {
 }
 
 function toUsernameKey(username: string): string {
-  // PostgreSQL finds the same account with and without U+0000, so these names share a counter.
-  return `user:${username.replaceAll("\u0000", "").trim().toLowerCase()}`;
+  return `user:${username.trim().toLowerCase()}`;
 }
 
 function toAddressKey(clientAddress: string): string {

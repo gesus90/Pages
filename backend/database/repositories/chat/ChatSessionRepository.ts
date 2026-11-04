@@ -70,6 +70,32 @@ const SESSION_COLUMNS = `
         LIMIT 1
     ) AS preview`;
 
+/**
+ * Tells whether a message of the session already carries the client message ID.
+ *
+ * @remarks
+ * The session row is locked by now, so nothing can come between this and the insert.
+ * It replaces `ON CONFLICT DO NOTHING`, under which the text of a message would count
+ * as deciding a conflict, and DuckDB cannot name the target of an `INSERT … SELECT`.
+ */
+async function holdsClientMessage(
+  transaction: DatabaseTransaction,
+  sessionId: string,
+  clientMessageId: string | null,
+): Promise<boolean> {
+  if (clientMessageId === null) return false;
+  const rows = await transaction.query(
+    `
+    SELECT id
+    FROM chat_messages
+    WHERE session_id = $session_id
+        AND client_message_id = $client_message_id;
+  `,
+    { session_id: sessionId, client_message_id: clientMessageId },
+  );
+  return rows.length > 0;
+}
+
 /** Removes the Pica jobs of a session with their journal, steers, selections and agent session. */
 async function removeAcpJobs(
   transaction: DatabaseTransaction,
@@ -247,7 +273,9 @@ export class ChatSessionRepository {
         { session_id: sessionId, user_id: userId },
       );
       if (updated.length === 0) throw new ChatError("sessionMissing");
-      // The unique index on the client message ID refuses a message sent twice.
+      const clientMessageId = message.clientMessageId ?? null;
+      if (await holdsClientMessage(transaction, sessionId, clientMessageId))
+        throw new ChatError("messageAlreadySent");
       const rows = await transaction.query(
         `
         INSERT INTO chat_messages (
@@ -269,7 +297,6 @@ export class ChatSessionRepository {
             $is_stopped
         FROM chat_messages
         WHERE session_id = $session_id
-        ON CONFLICT DO NOTHING
         RETURNING
             id,
             role,
@@ -282,11 +309,10 @@ export class ChatSessionRepository {
           session_id: sessionId,
           role: message.role,
           content: message.content,
-          client_message_id: message.clientMessageId ?? null,
+          client_message_id: clientMessageId,
           is_stopped: message.isStopped ?? null,
         },
       );
-      if (rows.length === 0) throw new ChatError("messageAlreadySent");
       return readMessage(rows[0]);
     });
   }

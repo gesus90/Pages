@@ -22,25 +22,37 @@ function nulEscapePositions(text: string): readonly number[] {
   return positions;
 }
 
+function isValidJson(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Takes U+0000 out of a text for PostgreSQL, which cannot store the character.
+ * Takes U+0000 out of a text that is about to be stored on PostgreSQL, which cannot
+ * store the character.
  *
  * @param text - The text.
- * @returns The text without the character, or `null` when taking it out would
- * change the number or the place of the real escapes `\u0000`, as a backslash,
- * the character and `u0000` would.
+ * @returns The text without the character, or `null` when that is not allowed: it
+ * would change the number or the place of the real escapes `\u0000`, as a backslash,
+ * the character and `u0000` would, or it would make a valid JSON document of an
+ * invalid one.
  *
  * @remarks
  * Saving and `db:transfer` share this rule, so both stop on the same texts. A valid
- * JSON document holds no such character and passes unchanged.
+ * JSON document holds no such character and passes unchanged. Only for values to be
+ * written: a value that is compared must keep its identity.
  */
 export function textWithoutNul(text: string): string | null {
   if (!text.includes(NUL)) return text;
   const cleaned = text.replaceAll(NUL, "");
   const before = nulEscapePositions(text);
   const after = nulEscapePositions(cleaned);
-  return before.length === after.length &&
-    before.every((position, index) => position === after[index])
-    ? cleaned
-    : null;
+  const hasSameEscapes =
+    before.length === after.length &&
+    before.every((position, index) => position === after[index]);
+  return hasSameEscapes && !isValidJson(cleaned) ? cleaned : null;
 }

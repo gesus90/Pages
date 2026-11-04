@@ -2,7 +2,10 @@ import { strict as assert } from "node:assert";
 
 import { Database, isUniqueViolationOn } from "@/backend/database/Database";
 import { sqlForDialect } from "@/backend/database/DatabaseDialect";
-import { AbortedTransactionError } from "@/backend/database/postgres/PostgresConnection";
+import {
+  AbortedTransactionError,
+  NulTextQueryError,
+} from "@/backend/database/postgres/PostgresConnection";
 import { bindStatement } from "@/backend/database/postgres/PostgresStatement";
 import {
   DatabaseOutcomeUnknownError,
@@ -352,6 +355,61 @@ async function storedNote(database: Database, note: string): Promise<unknown> {
   return rows[0]?.[0];
 }
 
+/** A compared value keeps its identity: it finds nothing and merges nothing. */
+async function checkNulComparison(database: Database): Promise<void> {
+  const note = "a\u0000b";
+  await storedNote(database, "ab");
+  const whereNote = "WHERE note = $note";
+  assert.deepEqual(
+    await database.query(`SELECT note FROM check_notes ${whereNote};`, {
+      note,
+    }),
+    [],
+  );
+  const [count] = await database.query(
+    `SELECT COUNT(*) FROM check_notes ${whereNote};`,
+    { note },
+  );
+  assert.equal(count?.[0], 0);
+  await database.execute(`UPDATE check_notes SET note = 'x' ${whereNote};`, {
+    note,
+  });
+  await database.execute(`DELETE FROM check_notes ${whereNote};`, { note });
+  assert.deepEqual(await database.query("SELECT note FROM check_notes;"), [
+    ["ab"],
+  ]);
+  await assert.rejects(
+    database.query("SELECT CAST($note AS TEXT);", { note }),
+    NulTextQueryError,
+  );
+  await database.execute(
+    "INSERT INTO check_items (id, name) VALUES (91, 'ab');",
+  );
+  await assert.rejects(
+    database.execute(
+      `INSERT INTO check_items (id, name) VALUES (92, $note)
+       ON CONFLICT (name) DO UPDATE SET amount = 7;`,
+      { note },
+    ),
+    isInvalidText,
+  );
+  await assert.rejects(
+    database.execute(
+      "UPDATE check_notes SET note = $note WHERE note = $note;",
+      { note },
+    ),
+    isInvalidText,
+  );
+  assert.deepEqual(
+    await database.query("SELECT amount FROM check_items WHERE id = 91;"),
+    [[null]],
+  );
+  await database.execute("DELETE FROM check_items WHERE id = 91;");
+  // Taking the character out must not make a valid JSON document of an invalid one.
+  await assert.rejects(storedNote(database, '{"a":"b\u0000"}'), isInvalidText);
+  await database.execute("DELETE FROM check_notes;");
+}
+
 function isInvalidText(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "22021";
 }
@@ -402,13 +460,7 @@ async function checkNulInText(database: Database): Promise<void> {
   );
   assert.equal(await storedNote(database, "\u0000"), "");
 
-  // What was stored without the character is found by the text it was stored with.
-  await storedNote(database, "a\u0000b");
-  const found = await database.query(
-    "SELECT note FROM check_notes WHERE note = $note;",
-    { note: "a\u0000b" },
-  );
-  assert.deepEqual(found, [["ab"]]);
+  await checkNulComparison(database);
 
   const bytes = Buffer.from([0, 65, 0]);
   await database.execute(
@@ -424,10 +476,11 @@ async function checkNulInText(database: Database): Promise<void> {
 
   await checkNulEscapeRefused(database);
 
-  const counted = { first: "\u0000a\u0000", second: "\\u0000", third: 1 };
   assert.equal(
-    bindStatement("SELECT $first, $second, $first, $third;", counted)
-      .removedNulCharacters,
+    bindStatement(
+      "INSERT INTO check_items (id, name, content) VALUES ($third, $first, $second);",
+      { first: "\u0000a\u0000", second: "\\u0000", third: 1 },
+    ).removedNulCharacters,
     2,
   );
 }

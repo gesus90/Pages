@@ -1,5 +1,9 @@
+import { randomUUID } from "node:crypto";
+
+import { parameterUses } from "./PostgresParameterUse";
 import { textWithoutNul } from "./PostgresText";
 
+import type { ParameterUse } from "./PostgresParameterUse";
 import type { SqlParameters } from "../Database";
 
 /** Most translated statements kept; repositories own a few hundred. */
@@ -23,14 +27,17 @@ export type PostgresBoundValue = string | number | bigint | Buffer | null;
 interface TranslatedStatement {
   readonly text: string;
   readonly names: readonly string[];
+  readonly uses: ReadonlyMap<string, ParameterUse>;
 }
 
 /** A statement ready for the driver. */
 export interface BoundStatement {
   readonly text: string;
   readonly values: readonly PostgresBoundValue[];
-  /** U+0000 characters taken out of the values; this number is all a log may say about them. */
+  /** U+0000 characters taken out of written values; this number is all a log may say about them. */
   readonly removedNulCharacters: number;
+  /** What stands in for compared values with U+0000; a result must not hold any of them. */
+  readonly comparisonStandIns: readonly string[];
 }
 
 const translations = new Map<string, TranslatedStatement>();
@@ -48,7 +55,7 @@ function translate(statement: string): TranslatedStatement {
       return `$${String(names.indexOf(name) + 1)}`;
     },
   );
-  const translation = { text, names };
+  const translation = { text, names, uses: parameterUses(statement) };
   if (translations.size < MAX_STATEMENTS)
     translations.set(statement, translation);
   return translation;
@@ -63,19 +70,22 @@ function placeholderName(groups: unknown): string | undefined {
 function toBoundValue(value: SqlParameters[string]): PostgresBoundValue {
   // Boolean columns hold the integers 0 and 1, see `RowValue.ts`.
   if (typeof value === "boolean") return value ? 1 : 0;
-  // A text that must keep U+0000 goes out as it is: PostgreSQL refuses the statement
-  // with 22021 and no content, which also ends an open transaction.
-  if (typeof value === "string") return textWithoutNul(value) ?? value;
   return value;
 }
 
-function removedCharacters(
-  value: SqlParameters[string] | undefined,
-  bound: PostgresBoundValue,
-): number {
-  return typeof value === "string" && typeof bound === "string"
-    ? value.length - bound.length
-    : 0;
+/**
+ * The value for a text with U+0000, by what the statement does with it.
+ *
+ * @remarks
+ * No stored text holds the character on PostgreSQL, so a compared value equals none:
+ * a stand-in no row can hold gives the result of a value that is not found, with the
+ * counts and the `<>` of such a value. A text that goes out as it is makes PostgreSQL
+ * refuse the statement with 22021 and no content, which also ends an open transaction.
+ */
+function textWithNulFor(text: string, use: ParameterUse | undefined): string {
+  if (use === "written") return textWithoutNul(text) ?? text;
+  if (use === "compared") return `no-stored-text-${randomUUID()}`;
+  return text;
 }
 
 /**
@@ -89,28 +99,30 @@ function removedCharacters(
  * message names the parameter, never a value.
  *
  * @remarks
- * U+0000 leaves every text, also in a read: a text stored without it is found
- * again by the text it was stored with. See {@link textWithoutNul} for the texts
- * that are refused instead.
+ * Only a value that `parameterUses` knows as written loses U+0000. See
+ * {@link textWithNulFor} for all others.
  */
 export function bindStatement(
   statement: string,
   parameters: SqlParameters,
 ): BoundStatement {
-  const { text, names } = translate(statement);
+  const { text, names, uses } = translate(statement);
   for (const name of Object.keys(parameters))
     if (!names.includes(name))
       throw new Error(`The statement has no parameter "${name}".`);
+  let removedNulCharacters = 0;
+  const comparisonStandIns: string[] = [];
   const values = names.map((name) => {
     const value = parameters[name];
     if (value === undefined)
       throw new Error(`The statement needs a value for "${name}".`);
-    return toBoundValue(value);
+    if (typeof value !== "string" || !value.includes("\u0000"))
+      return toBoundValue(value);
+    const bound = textWithNulFor(value, uses.get(name));
+    if (uses.get(name) === "written")
+      removedNulCharacters += value.length - bound.length;
+    if (uses.get(name) === "compared") comparisonStandIns.push(bound);
+    return bound;
   });
-  const removedNulCharacters = names.reduce(
-    (sum, name, index) =>
-      sum + removedCharacters(parameters[name], values[index] ?? null),
-    0,
-  );
-  return { text, values, removedNulCharacters };
+  return { text, values, removedNulCharacters, comparisonStandIns };
 }

@@ -36,6 +36,33 @@ async function failTimes(
   }
 }
 
+describe("a username with U+0000", () => {
+  it("is refused like unknown credentials, before any lookup", async () => {
+    const world = worldWithAnna();
+    const lookup = vi.spyOn(
+      world.sessionWorld.users,
+      "findCredentialsByUsername",
+    );
+
+    await expect(
+      world.service.login("anna\u0000", PASSWORD),
+    ).resolves.toBeNull();
+
+    expect(lookup).not.toHaveBeenCalled();
+    expect(world.sessionWorld.repository.sessions).toHaveLength(0);
+  });
+
+  it("gets locked itself, so its spellings gain no password guess", async () => {
+    const world = worldWithAnna();
+    await failTimes(world, USERNAME_FAILURE_LIMIT, "anna\u0000");
+
+    await expect(world.service.login("anna\u0000", PASSWORD)).rejects.toThrow(
+      TooManyLoginAttemptsError,
+    );
+    await expect(world.service.login("anna", PASSWORD)).resolves.not.toBeNull();
+  });
+});
+
 describe("successful login", () => {
   it("returns the user together with a working session token", async () => {
     const world = worldWithAnna();

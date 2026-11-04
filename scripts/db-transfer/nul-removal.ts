@@ -29,7 +29,7 @@ function removeFromText(
   const column = plan.columns[columnIndex] ?? String(columnIndex);
   if (cleaned === null)
     throw new TransferRefusal(
-      `Removing U+0000 from a value of ${plan.name}.${column} would create or remove a JSON escape. Nothing of this table was kept. Correct that value in the source first.`,
+      `Removing U+0000 from a value of ${plan.name}.${column} would change a JSON escape or make a valid JSON document. Nothing of this table was kept. Correct that value in the source first.`,
     );
   const key = `${plan.name}.${column}`;
   const known = counts.get(key);

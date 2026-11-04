@@ -79,6 +79,8 @@ function readProfile(formData: FormData): AccountProfileInput | null {
     firstName.length > MAXIMUM_NAME_LENGTH ||
     lastName.length > MAXIMUM_NAME_LENGTH ||
     username.length > MAXIMUM_USERNAME_LENGTH ||
+    username.includes("\u0000") ||
+    email?.includes("\u0000") === true ||
     (email !== null && !isValidEmail(email))
   ) {
     return null;

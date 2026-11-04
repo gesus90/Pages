@@ -23,6 +23,14 @@ export class AbortedTransactionError extends Error {
   }
 }
 
+/** A statement cannot use a text with U+0000 as it asked to; the error holds no content. */
+export class NulTextQueryError extends Error {
+  public constructor() {
+    super("A query cannot return a text with U+0000.");
+    this.name = "NulTextQueryError";
+  }
+}
+
 /**
  * The code of a driver or server error for the log metadata.
  *
@@ -65,6 +73,22 @@ function refuseSilentRollback(
     lastResult(result)?.command === "ROLLBACK"
   )
     throw new AbortedTransactionError();
+}
+
+/** A query that returns a compared value cannot answer for a text with U+0000. */
+function refuseEchoedStandIn(
+  rows: readonly DatabaseValue[][],
+  standIns: readonly string[],
+): void {
+  if (standIns.length === 0) return;
+  const isEchoed = rows.some((row) =>
+    row.some(
+      (value) =>
+        typeof value === "string" &&
+        standIns.some((standIn) => value.includes(standIn)),
+    ),
+  );
+  if (isEchoed) throw new NulTextQueryError();
 }
 
 function lastResult(result: QueryResult | QueryResult[]): QueryResult | null {
@@ -117,10 +141,8 @@ export class PostgresConnection {
     parameters: SqlParameters,
     mode: WorkerRunMode,
   ): Promise<readonly DatabaseValue[][]> {
-    const { text, values, removedNulCharacters } = bindStatement(
-      statement,
-      parameters,
-    );
+    const { text, values, removedNulCharacters, comparisonStandIns } =
+      bindStatement(statement, parameters);
     if (removedNulCharacters > 0)
       logEvent({
         level: "warn",
@@ -130,6 +152,7 @@ export class PostgresConnection {
         metadata: { count: removedNulCharacters },
       });
     const startedAt = performance.now();
+    let rows: readonly DatabaseValue[][];
     try {
       // Without values the driver uses the simple protocol, the only one that
       // runs several statements in one call; migrations rely on that.
@@ -147,10 +170,12 @@ export class PostgresConnection {
         walBytesBefore: null,
         walBytesAfter: null,
       });
-      return mode === "rows" ? (lastResult(result)?.rows ?? []) : [];
+      rows = mode === "rows" ? (lastResult(result)?.rows ?? []) : [];
     } catch (error: unknown) {
       throw this.translateFailure(statement, values.length, error);
     }
+    refuseEchoedStandIn(rows, comparisonStandIns);
+    return rows;
   }
 
   /** Returns the connection; one that is broken or holds a transaction is closed. */

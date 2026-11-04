@@ -260,30 +260,44 @@ CREATE DATABASE pages TEMPLATE template0 ENCODING 'UTF8' LOCALE_PROVIDER libc LO
 
 ## U+0000 in text
 
-PostgreSQL cannot store the character U+0000 in text. On PostgreSQL it therefore
-leaves every text bound to a statement (`bindStatement` in `PostgresStatement.ts`),
-which covers all repositories, the answers of Pica included. DuckDB keeps it. This is
-a deliberate change of data, decided on 2026-11-04, and the one difference between
-the databases that is meant to stay.
+PostgreSQL cannot store the character U+0000 in text. A value that a statement
+writes loses it on PostgreSQL; a value that a statement compares never does. DuckDB
+keeps the character. This is a deliberate change of data, decided on 2026-11-04, and
+it covers saving and `db:transfer`, never reading or identity. The one difference
+between the databases that is meant to stay is this removal.
+
+`bindStatement` decides by what the statement does with each parameter
+(`parameterUses` in `PostgresParameterUse.ts`), and only for a text with the character:
+
+| Use        | Where                                                                                                                                       | Value                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `written`  | Alone in a row of `INSERT`, `col = $value` or `col = COALESCE($value, col)`, in no column of an `ON CONFLICT` target                        | Cleaned, counted                                                                 |
+| `compared` | `SELECT`, `WITH`, `DELETE`, `WHERE`, `FROM`                                                                                                 | Replaced by a text no row holds, so it finds nothing, and `COUNT(*)` answers `0` |
+| `unclear`  | Anything else: a name with two kinds of use, a value inside an expression, `ON CONFLICT` without a target, `RETURNING`, any other statement | Sent as it is, PostgreSQL refuses with `22021`, nothing changes                  |
 
 - Only the character goes. All other characters and binary values stay, and so does
   the escape `\u0000` of six characters, also as `\\u0000`. A valid JSON document holds
   no such character, so it passes unchanged.
-- Each statement that lost one logs `database.text.nul_removed` with the number of
-  characters and no content. A statement that was rolled back or only read counts, too.
-- It applies to reads as well: a text stored without the character is found again by
-  the text it was stored with. Therefore `a\u0000b` also finds a stored `ab`, and
-  collides with it in a unique column. `LoginThrottle` counts both spellings of a
-  username together for that reason.
+- `textWithoutNul` in `PostgresText.ts` holds the rule for written values. It refuses,
+  with `22021` and no content, where taking the character out would change the number or
+  place of the real escapes `\u0000`, or make valid JSON of an invalid text. `db:transfer`
+  uses the same function, so both stop on the same texts. This also stops a plain text
+  that happens to be JSON without the character, such as `5` and the character.
+- A query that would return a compared value fails with `NulTextQueryError`.
+- Each statement that lost a character logs `database.text.nul_removed` with the number
+  of characters and no content. A statement that was rolled back counts, too.
+- A key written without a conflict target can collide with one that has no character
+  (`23505`); that refuses and merges nothing. An `INSERT` that should keep a text value
+  names its conflict target, or checks first as `ChatSessionRepository.append` does,
+  because DuckDB cannot name the target of an `INSERT … SELECT`.
+- At the identity boundaries, a name or credential with the character is refused before
+  any statement, on both databases, like unknown credentials: login, session and agent
+  tokens (`holdsNulCharacter`), usernames and email addresses of accounts and the setup,
+  device identifiers and push tokens of Pica Mobile.
+  `LoginThrottle` counts such a name as its own: it never reaches a password check, so
+  its spellings gain no guess.
 - A statement text is no bound value and stays as it is; repositories interpolate only
   fixed fragments.
-- No real escape `\u0000` may arise, disappear or move. Where taking the character out
-  would change their number or place, as with a backslash, the character and `u0000`
-  or with `\u00`, the character and `00`, PostgreSQL refuses the statement with `22021`
-  and no content, and nothing is stored. Any other text with the character is cleaned,
-  also a backslash, the character and `n`. DuckDB stores such a text.
-- `textWithoutNul` in `PostgresText.ts` holds this rule. `db:transfer` uses the same
-  function, so saving and the transfer stop on the same texts.
 
 ## Repository SQL
 
@@ -339,7 +353,7 @@ both physical orders.
 
 These differences remain, because no repository statement can remove them:
 
-- U+0000 in a text, see [U+0000 in text](#u0000-in-text). This one is decided, not
+- U+0000 in a text, see [U+0000 in text](#u0000-in-text). The removal is decided, not
   left over.
 - A fraction bound to an integer column is refused by PostgreSQL and rounded by
   DuckDB. The services validate these numbers first, except the sort order of the
