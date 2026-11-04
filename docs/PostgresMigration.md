@@ -308,6 +308,12 @@ keep the results equal:
 - `NULL` sorts first in ascending and last in descending order in DuckDB, a session
   setting of the worker. PostgreSQL does the opposite and has no such setting, so
   a nullable sort key says `NULLS FIRST` or `NULLS LAST`.
+- Permissions and memberships keep the order they were saved in, in a column
+  `position` (migration 089). It used to rest on the physical order of the rows,
+  which `admin.roles.list` and `admin.users.list` show. Accounts list by creation.
+- A tie sorts by creation before it sorts by identifier: `created_at` or `joined_at`.
+  Goals and dates get a time-ordered identifier (`createTimeOrderedId`), so two of one
+  second keep their order; rows from before stay on their random identifier there.
 - A list ends its `ORDER BY` on a unique key. Rows with equal sort keys otherwise
   come back in the physical order, and an `UPDATE` changes that in PostgreSQL only.
 - `to_days` and `to_minutes` exist only in DuckDB. Use `$days * INTERVAL '1 day'`

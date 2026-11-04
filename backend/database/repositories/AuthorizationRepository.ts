@@ -135,10 +135,12 @@ export class AuthorizationRepository {
       "DELETE FROM role_permissions WHERE role_id = $id;",
       { id: role.id },
     );
-    for (const permission of new Set(role.permissions)) {
+    for (const [position, permission] of [
+      ...new Set(role.permissions),
+    ].entries()) {
       await this.database.execute(
-        "INSERT INTO role_permissions (role_id, permission) VALUES ($id, $permission);",
-        { id: role.id, permission },
+        "INSERT INTO role_permissions (role_id, permission, position) VALUES ($id, $permission, $position);",
+        { id: role.id, permission, position },
       );
     }
   }
@@ -226,10 +228,10 @@ export class AuthorizationRepository {
       "SELECT id, name FROM departments ORDER BY name, id;",
     );
     const memberships = await this.database.query(
-      "SELECT user_id, department_id FROM department_members ORDER BY user_id, department_id;",
+      "SELECT user_id, department_id FROM department_members ORDER BY user_id, position, department_id;",
     );
     const management = await this.database.query(
-      "SELECT user_id, department_id FROM managed_departments ORDER BY user_id, department_id;",
+      "SELECT user_id, department_id FROM managed_departments ORDER BY user_id, position, department_id;",
     );
     const accounts = await this.database.query(`
       SELECT
@@ -245,7 +247,7 @@ export class AuthorizationRepository {
           access.has_had_department
       FROM user_authorization AS access
       INNER JOIN users ON users.id = access.user_id
-      ORDER BY access.user_id;
+      ORDER BY users.created_at, access.user_id;
     `);
     return {
       roles,
@@ -291,20 +293,24 @@ export class AuthorizationRepository {
       "DELETE FROM department_members WHERE user_id = $id;",
       { id: account.userId },
     );
-    for (const department of new Set(account.departments)) {
+    for (const [position, department] of [
+      ...new Set(account.departments),
+    ].entries()) {
       await this.database.execute(
-        "INSERT INTO department_members (user_id, department_id) VALUES ($id, $department);",
-        { id: account.userId, department },
+        "INSERT INTO department_members (user_id, department_id, position) VALUES ($id, $department, $position);",
+        { id: account.userId, department, position },
       );
     }
     await this.database.execute(
       "DELETE FROM managed_departments WHERE user_id = $id;",
       { id: account.userId },
     );
-    for (const department of new Set(account.managedDepartments)) {
+    for (const [position, department] of [
+      ...new Set(account.managedDepartments),
+    ].entries()) {
       await this.database.execute(
-        "INSERT INTO managed_departments (user_id, department_id) VALUES ($id, $department);",
-        { id: account.userId, department },
+        "INSERT INTO managed_departments (user_id, department_id, position) VALUES ($id, $department, $position);",
+        { id: account.userId, department, position },
       );
     }
   }
@@ -314,7 +320,7 @@ export class AuthorizationRepository {
       "SELECT id, name, hierarchy_rank, department_bound FROM roles ORDER BY hierarchy_rank DESC, name, id;",
     );
     const permissions = await this.database.query(
-      "SELECT role_id, permission FROM role_permissions ORDER BY role_id, permission;",
+      "SELECT role_id, permission FROM role_permissions ORDER BY role_id, position, permission;",
     );
     return rows.map((row) => {
       const id = readTextColumn(row, 0, "id");

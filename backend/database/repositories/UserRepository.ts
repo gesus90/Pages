@@ -148,7 +148,7 @@ export class UserRepository {
           avatar_image_url,
           must_change_password
       FROM users
-      ORDER BY display_name, id;
+      ORDER BY display_name, created_at, id;
     `);
 
     return rows.map((row) => this.toUser(row));

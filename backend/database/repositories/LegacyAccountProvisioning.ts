@@ -83,10 +83,10 @@ async function seedLegacyProfile(
   if (inserted.length === 0) {
     return;
   }
-  for (const permission of role.permissions) {
+  for (const [position, permission] of role.permissions.entries()) {
     await transaction.execute(
-      "INSERT INTO role_permissions (role_id, permission) VALUES ($id, $permission);",
-      { id: role.id, permission },
+      "INSERT INTO role_permissions (role_id, permission, position) VALUES ($id, $permission, $position);",
+      { id: role.id, permission, position },
     );
   }
 }

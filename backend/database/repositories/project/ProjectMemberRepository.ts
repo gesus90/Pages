@@ -145,6 +145,7 @@ export class ProjectMemberRepository {
                 ELSE 2
             END,
             users.display_name ASC,
+            project_members.joined_at ASC,
             users.id ASC;
       `,
       { project_id: projectId },

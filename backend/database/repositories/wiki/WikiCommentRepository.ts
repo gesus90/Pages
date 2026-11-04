@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-
+import { createTimeOrderedId } from "@/backend/database/TimeOrderedId";
 import {
   readNullableTextColumn,
   readTextColumn,
@@ -74,24 +73,6 @@ function readComment(row: readonly DatabaseValue[]): StoredWikiComment {
   };
 }
 
-let lastCommentMillisecond = 0;
-
-/**
- * Creates a comment identifier that sorts by creation.
- *
- * @remarks
- * Comments list by their creation time in seconds, then by identifier, so that
- * two comments of one second keep their order in every database. It has the
- * layout of a UUIDv7: the milliseconds first, then random bits.
- */
-function createCommentId(): string {
-  lastCommentMillisecond = Math.max(Date.now(), lastCommentMillisecond + 1);
-  const time = lastCommentMillisecond.toString(16).padStart(12, "0");
-  const random = randomUUID();
-
-  return `${time.slice(0, 8)}-${time.slice(8)}-7${random.slice(15)}`;
-}
-
 /** Owns persistence of the comments below pages. */
 export class WikiCommentRepository {
   private readonly database: DatabaseTransaction;
@@ -112,7 +93,7 @@ export class WikiCommentRepository {
    * @returns The identifier of the comment.
    */
   public async insert(comment: NewWikiComment): Promise<string> {
-    const id = createCommentId();
+    const id = createTimeOrderedId();
 
     await this.database.execute(
       `

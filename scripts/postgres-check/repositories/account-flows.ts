@@ -81,6 +81,17 @@ export const USER_FLOW: RepositoryFlow = {
         isActive: false,
       }),
     ),
+    // Accounts list by creation; pinned, so that a new second cannot change the order.
+    prepare(`
+      UPDATE users
+      SET created_at = CASE id
+          WHEN 'user-manager' THEN '2026-01-01 00:00:00'
+          WHEN 'user-employee' THEN '2026-01-02 03:04:05'
+          WHEN 'user-admin' THEN '2026-01-03 00:00:00'
+          WHEN 'user-same-name-a' THEN '2026-01-04 00:00:00'
+          ELSE '2026-01-05 00:00:00'
+      END;
+    `),
     stored(`
       SELECT user_id, role_id, is_admin, active_mode, first_name, last_name, all_projects
       FROM user_authorization

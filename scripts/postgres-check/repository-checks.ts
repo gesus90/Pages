@@ -84,6 +84,10 @@ import {
 } from "./repositories/messaging-area";
 import { PROJECT_DELETION_FLOW } from "./repositories/project-deletion-flow";
 import { PROJECT_FLOW } from "./repositories/project-flows";
+import {
+  AREA_NUL_FLOW,
+  SAVED_ORDER_FLOW,
+} from "./repositories/saved-order-flows";
 import { readPublicApi } from "./repositories/public-api";
 import { TASK_FACADE_FLOW } from "./repositories/task-facade-flows";
 import { TICKET_CHANGE_FLOW } from "./repositories/ticket-change-flows";
@@ -116,6 +120,8 @@ const FLOWS: readonly RepositoryFlow[] = [
   CONNECTION_FLOW,
   GITHUB_FLOW,
   PROJECT_FLOW,
+  SAVED_ORDER_FLOW,
+  AREA_NUL_FLOW,
   TASK_FACADE_FLOW,
   TICKET_READ_FLOW,
   TICKET_CHANGE_FLOW,

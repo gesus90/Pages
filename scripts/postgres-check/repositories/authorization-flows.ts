@@ -1,6 +1,6 @@
 import { CAPABILITY } from "@/definition/Authorization";
 
-import { call, prepare, refused, stored } from "./world";
+import { call, prepare, refused, reversedInPostgres, stored } from "./world";
 
 import type { AccountAccess, UserRole } from "@/definition/Authorization";
 import type { RepositoryFlow } from "./world";
@@ -74,26 +74,11 @@ export const AUTHORIZATION_FLOW: RepositoryFlow = {
     call("AuthorizationRepository.saveAccount", ({ authorization }) =>
       authorization.saveAccount(ACCOUNT),
     ),
-    // PostgreSQL reuses the freed place of a row after VACUUM and DuckDB appends,
-    // which shows a read of rows without an order.
-    prepare(`
-      DELETE FROM role_permissions
-      WHERE role_id = 'role-lead'
-          AND permission = 'write';
-      DELETE FROM department_members
-      WHERE department_id = 'department-z';
-    `),
-    prepare("VACUUM role_permissions;"),
-    prepare("VACUUM department_members;"),
-    prepare(`
-      INSERT INTO role_permissions (role_id, permission)
-      VALUES ('role-lead', 'manage_users');
-      INSERT INTO department_members (user_id, department_id)
-      VALUES ('user-same-name-a', 'department-b');
-      UPDATE user_authorization
-      SET first_name = first_name
-      WHERE user_id = 'user-employee';
-    `),
+    // Saved order, shown by a physical order that differs in PostgreSQL only.
+    reversedInPostgres("role_permissions"),
+    reversedInPostgres("department_members"),
+    reversedInPostgres("managed_departments"),
+    reversedInPostgres("user_authorization"),
     call("AuthorizationRepository.snapshot", ({ authorization }) =>
       authorization.snapshot(),
     ),
