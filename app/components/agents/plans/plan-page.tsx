@@ -214,6 +214,7 @@ function PlanEditorPage({
             run={display.run}
             error={controls.error}
             onRunStarted={(id) => running.select(id, "follow")}
+            onRecoveryDecided={controls.readAgain}
           />
         }
       />

@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 import { readPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 
+import { startVisiblePolling } from "./plan-visible-polling";
+
 import type {
   AgentPlanRecoveryCommand,
   AgentPlanRecoveryResult,
@@ -10,12 +12,24 @@ import type {
 } from "@/definition/AgentPlanRecovery";
 import type { AgentPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 
+const RECOVERY_POLL_MILLISECONDS = 5_000;
+
 /** A command without the revision and key, which the hook adds itself. */
 export type PlanRecoveryRequest = AgentPlanRecoveryCommand extends infer Command
   ? Command extends AgentPlanRecoveryCommand
     ? Omit<Command, "expectedRevision" | "idempotencyKey">
     : never
   : never;
+
+/** What decides beyond the view of the run when the view is read again. */
+export interface PlanRecoveryFollowing {
+  /** The run has not ended yet, so its view is read cyclically. */
+  readonly isRunActive: boolean;
+  /** A new value reads the view once, because a change of it may change the options. */
+  readonly readKey: string;
+  /** Reports the end of a decision, which may have changed the control. */
+  readonly onDecided: () => void;
+}
 
 interface RecoveryDecision {
   readonly fingerprint: string;
@@ -31,12 +45,24 @@ interface RecoveryState {
   readonly cleanupFailure: AgentPlanCleanupFailure | null;
 }
 
+const NO_FOLLOWING: PlanRecoveryFollowing = {
+  isRunActive: false,
+  readKey: "",
+  onDecided: () => undefined,
+};
+
 class RecoveryRequestError extends Error {
   public readonly cleanupFailure: AgentPlanCleanupFailure | null;
+  public readonly status: number;
 
-  public constructor(code: string, failure: AgentPlanCleanupFailure | null) {
+  public constructor(
+    code: string,
+    failure: AgentPlanCleanupFailure | null,
+    status: number,
+  ) {
     super(code);
     this.cleanupFailure = failure;
+    this.status = status;
   }
 }
 
@@ -50,7 +76,7 @@ function isRecoveryView(input: unknown): input is AgentPlanRecoveryView {
   );
 }
 
-function readFailure(payload: unknown): RecoveryRequestError {
+function readFailure(payload: unknown, status: number): RecoveryRequestError {
   const code =
     typeof payload === "object" &&
     payload !== null &&
@@ -65,7 +91,7 @@ function readFailure(payload: unknown): RecoveryRequestError {
     "cleanupFailure" in payload
       ? readPlanCleanupFailure(payload.cleanupFailure)
       : null;
-  return new RecoveryRequestError(code, failure);
+  return new RecoveryRequestError(code, failure, status);
 }
 
 function isRecoveryResult(input: unknown): input is AgentPlanRecoveryResult {
@@ -102,7 +128,8 @@ async function sendDecision(
     typeof payload === "object" && payload !== null && "result" in payload
       ? payload.result
       : null;
-  if (!response.ok || !isRecoveryResult(answered)) throw readFailure(payload);
+  if (!response.ok || !isRecoveryResult(answered))
+    throw readFailure(payload, response.status);
   return answered;
 }
 
@@ -119,7 +146,8 @@ async function loadView(
     typeof payload === "object" && payload !== null && "recovery" in payload
       ? payload.recovery
       : null;
-  if (!response.ok || !isRecoveryView(recovery)) throw readFailure(payload);
+  if (!response.ok || !isRecoveryView(recovery))
+    throw readFailure(payload, response.status);
   return recovery;
 }
 
@@ -163,15 +191,19 @@ async function decideCurrent(input: {
  *
  * @param runId - The newest run of the plan, or `null` when there is none to recover.
  * @param onStarted - Selects a run that a restart or resume started.
+ * @param following - What decides beyond the view when it is read again.
  *
  * @remarks
  * Each decision carries the revision the executor saw and a fresh key, so a
  * double click or a repeated request starts nothing twice. The view is read
  * again after every decision and after a reload, from the server's state.
+ * It is read cyclically only while the run has not ended or its cleanup is
+ * open, and while a failed read may still succeed.
  */
 export function usePlanRecovery(
   runId: string | null,
   onStarted: (runId: string) => void,
+  following: PlanRecoveryFollowing = NO_FOLLOWING,
 ): {
   readonly view: AgentPlanRecoveryView | null;
   readonly error: string | null;
@@ -197,7 +229,12 @@ export function usePlanRecovery(
     readonly value: AgentPlanRecoveryResult;
   } | null>(null);
   const [generation, setGeneration] = useState(0);
-  useRecoveryRefresh(runId, generation, setState);
+  useRecoveryRefresh(
+    runId,
+    `${generation}:${following.readKey}`,
+    following.isRunActive,
+    setState,
+  );
   const current = state.runId === runId ? state : null;
   async function submit(
     request: PlanRecoveryRequest,
@@ -243,6 +280,7 @@ export function usePlanRecovery(
       inFlight.current = false;
       setPending(false);
       setGeneration((value) => value + 1);
+      following.onDecided();
     }
   }
   return {
@@ -257,15 +295,19 @@ export function usePlanRecovery(
 
 function useRecoveryRefresh(
   runId: string | null,
-  generation: number,
+  readKey: string,
+  isRunActive: boolean,
   setState: React.Dispatch<React.SetStateAction<RecoveryState>>,
 ): void {
   useEffect(() => {
     if (!runId) return;
     const controller = new AbortController();
-    async function load(id: string): Promise<void> {
+    async function load(id: string): Promise<number | null> {
+      const startedAt = Date.now();
+      let shouldRepeat = isRunActive;
       try {
         const view = await loadView(id, controller.signal);
+        shouldRepeat ||= view.isCleanupUnconfirmed;
         setState((previous) => ({
           runId: id,
           view,
@@ -274,7 +316,10 @@ function useRecoveryRefresh(
             previous.runId === id ? previous.cleanupFailure : null,
         }));
       } catch (error: unknown) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted) return null;
+        // A refusal stays one until something changes; a failed connection or server may recover.
+        shouldRepeat =
+          !(error instanceof RecoveryRequestError) || error.status >= 500;
         setState({
           runId: id,
           view: null,
@@ -285,12 +330,14 @@ function useRecoveryRefresh(
           cleanupFailure: null,
         });
       }
+      return shouldRepeat
+        ? Math.max(0, RECOVERY_POLL_MILLISECONDS - (Date.now() - startedAt))
+        : null;
     }
-    void load(runId);
-    const timer = setInterval(() => void load(runId), 5000);
+    const stopPolling = startVisiblePolling(() => load(runId));
     return () => {
       controller.abort();
-      clearInterval(timer);
+      stopPolling();
     };
-  }, [runId, generation, setState]);
+  }, [runId, readKey, isRunActive, setState]);
 }

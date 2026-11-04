@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { keepPlanControlKeys } from "./plan-flow-keys";
@@ -34,6 +35,8 @@ interface PlanRunPanelProps {
   readonly error: string | null;
   /** Shows a run that a restart or resume started. */
   readonly onRunStarted: (runId: string) => void;
+  /** Reads the control again after a recovery decision, which no command reports. */
+  readonly onRecoveryDecided: () => void;
 }
 
 const RUN_INTENTS: readonly string[] = [
@@ -86,6 +89,21 @@ function panelPresentation(props: PlanRunPanelProps): {
       ? "plan_continuation_deleted"
       : (control?.issue ?? null),
   };
+}
+
+/** Everything that may change the options of the view without being part of it. */
+function recoveryReadKey(
+  control: AgentPlanControl | undefined,
+  planRevision: number | undefined,
+): string {
+  return JSON.stringify([
+    control?.status,
+    control?.continuationVersion,
+    control?.canPlay,
+    control?.canRestart,
+    control?.resumeAction,
+    planRevision,
+  ]);
 }
 
 /** The resume of a failed run as far as the executor's recovery view allows it. */
@@ -152,7 +170,11 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const management = usePlanManagement();
   const recoveryRunId =
     page.selected?.canEdit === false ? null : recoverableRunId(control);
-  const recovery = usePlanRecovery(recoveryRunId, props.onRunStarted);
+  const recovery = usePlanRecovery(recoveryRunId, props.onRunStarted, {
+    isRunActive: control !== undefined && isActivePlanRun(control.status),
+    readKey: recoveryReadKey(control, page.selected?.revision),
+    onDecided: props.onRecoveryDecided,
+  });
   const presentation = panelPresentation(props);
   const recoveryResume = resumeState(control, recovery, t);
   const state = panelState(props, presentation.error, recoveryResume);

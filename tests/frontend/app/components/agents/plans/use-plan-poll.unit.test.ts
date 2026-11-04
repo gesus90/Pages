@@ -7,10 +7,12 @@ import { syntheticRun } from "../page72-run-fixture";
 
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 
 const ANY_SIGNAL: unknown = expect.any(AbortSignal);
 
 let fetchMock = vi.fn<typeof fetch>();
+let visibility: "hidden" | "visible" = "visible";
 
 function answer(body: unknown, etag?: string): Response {
   return new Response(JSON.stringify(body), {
@@ -27,9 +29,33 @@ function headersOf(call: number): unknown {
   return fetchMock.mock.calls[call]?.[1]?.headers;
 }
 
+function control(status: AgentPlanControl["status"]): AgentPlanControl {
+  return {
+    runId: status === "idle" ? null : "run",
+    status,
+    canPlay: status === "idle",
+    canPause: false,
+    canResume: false,
+    canStop: false,
+    canEdit: true,
+    issue: null,
+    planRevision: 1,
+    continuationVersion: 0,
+    frontierStepIds: [],
+  };
+}
+
 async function flush(milliseconds = 0): Promise<void> {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(milliseconds);
+  });
+}
+
+async function setTabVisibility(state: "hidden" | "visible"): Promise<void> {
+  visibility = state;
+  await act(async () => {
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(0);
   });
 }
 
@@ -37,9 +63,14 @@ beforeEach(() => {
   vi.useFakeTimers();
   fetchMock = vi.fn<typeof fetch>();
   vi.stubGlobal("fetch", fetchMock);
+  visibility = "visible";
+  vi.spyOn(document, "visibilityState", "get").mockImplementation(
+    () => visibility,
+  );
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -79,6 +110,16 @@ it("opens an observation, renews it with the entity tag and keeps the state on 3
   });
 });
 
+it("retries at the active pace until a first answer is known", async () => {
+  fetchMock
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce(answer({ ok: true, control: control("idle") }));
+  renderHook(() => usePlanPoll("/control", undefined));
+  await flush();
+  await flush(2_000);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
 it("shows a refused poll and asks without a tag afterwards", async () => {
   fetchMock
     .mockResolvedValueOnce(answer({ ok: false, error: "forbidden" }, '"x"'))
@@ -86,7 +127,9 @@ it("shows a refused poll and asks without a tag afterwards", async () => {
   const { result } = renderHook(() => usePlanPoll("/poll", undefined));
   await flush();
   expect(result.current.error).toBe("forbidden");
-  await flush(2_000);
+  await flush(15_999);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await flush(1);
   expect(headersOf(1)).toEqual({ "X-Plan-Observation": "renew" });
   expect(result.current.error).toBe("general");
 });
@@ -107,13 +150,185 @@ it("follows an active run only until it ends", async () => {
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
-it("keeps polling an active address that answers without a run", async () => {
+it("keeps polling an active address that answers without a run at the idle pace", async () => {
   fetchMock
     .mockResolvedValueOnce(answer({ ok: false, error: "missing" }))
     .mockResolvedValueOnce(answer({ ok: false, error: "missing" }));
   renderHook(() => usePlanPoll("/run", undefined, "active"));
   await flush();
   await flush(2_000);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await flush(14_000);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+it("reads an active run's control every two seconds and an idle control every 16", async () => {
+  fetchMock.mockImplementation(() =>
+    Promise.resolve(answer({ ok: true, control: control("running") })),
+  );
+  renderHook(() => usePlanPoll("/control", undefined));
+  await flush();
+  await flush(10_000);
+  expect(fetchMock).toHaveBeenCalledTimes(6);
+  fetchMock.mockReset();
+  fetchMock.mockImplementation(() =>
+    Promise.resolve(answer({ ok: true, control: control("failed") })),
+  );
+  await flush(2_000);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await flush(15_999);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await flush(1);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+it("stays within 20 reads in five minutes without an active run", async () => {
+  fetchMock.mockImplementation(() =>
+    Promise.resolve(answer({ ok: true, control: control("idle") })),
+  );
+  renderHook(() => usePlanPoll("/control", undefined));
+  await flush();
+  await flush(300_000);
+  expect(fetchMock).toHaveBeenCalledTimes(19);
+});
+
+it("keeps the pace of an active run through unchanged answers", async () => {
+  fetchMock
+    .mockResolvedValueOnce(
+      answer({ ok: true, control: control("running") }, '"c1"'),
+    )
+    .mockImplementation(() =>
+      Promise.resolve(new Response(null, { status: 304 })),
+    );
+  renderHook(() => usePlanPoll("/control", undefined));
+  await flush();
+  await flush(4_000);
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+});
+
+it("reads nothing while the tab is hidden and at once on its return", async () => {
+  fetchMock.mockImplementation(() =>
+    Promise.resolve(answer({ ok: true, control: control("running") }, '"c1"')),
+  );
+  renderHook(() => usePlanPoll("/control", undefined));
+  await flush();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await setTabVisibility("hidden");
+  await flush(120_000);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await setTabVisibility("visible");
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(headersOf(1)).toEqual({
+    "If-None-Match": '"c1"',
+    "X-Plan-Observation": "open",
+  });
+  await flush(2_000);
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(headersOf(2)).toEqual({
+    "If-None-Match": '"c1"',
+    "X-Plan-Observation": "renew",
+  });
+});
+
+it("does not start reading in a hidden tab", async () => {
+  visibility = "hidden";
+  fetchMock.mockImplementation(() =>
+    Promise.resolve(answer({ ok: true, control: control("idle") })),
+  );
+  renderHook(() => usePlanPoll("/control", undefined));
+  await flush(60_000);
+  expect(fetchMock).not.toHaveBeenCalled();
+  await setTabVisibility("visible");
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("stays silent after a read that answers in the hidden tab", async () => {
+  let respond: (response: Response) => void = () => undefined;
+  fetchMock.mockReturnValueOnce(
+    new Promise((resolve) => {
+      respond = resolve;
+    }),
+  );
+  renderHook(() => usePlanPoll("/control", undefined));
+  await flush();
+  await setTabVisibility("hidden");
+  respond(answer({ ok: true, control: control("running") }));
+  await flush(60_000);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("does not start a second read when the tab returns during a read", async () => {
+  let respond: (response: Response) => void = () => undefined;
+  fetchMock
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        respond = resolve;
+      }),
+    )
+    .mockImplementation(() =>
+      Promise.resolve(answer({ ok: true, control: control("running") })),
+    );
+  renderHook(() => usePlanPoll("/control", undefined));
+  await flush();
+  await setTabVisibility("hidden");
+  await setTabVisibility("visible");
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  respond(answer({ ok: true, control: control("running") }));
+  await flush(2_000);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(headersOf(1)).toEqual({ "X-Plan-Observation": "open" });
+});
+
+it("reads an ended run once on return and does not repeat it", async () => {
+  fetchMock.mockImplementation(() =>
+    Promise.resolve(answer({ ok: true, run: run("succeeded") })),
+  );
+  renderHook(() => usePlanPoll("/run", undefined, "active"));
+  await flush();
+  await setTabVisibility("hidden");
+  await setTabVisibility("visible");
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  await flush(60_000);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+it("reads at once on a read request and keeps the answer until the new one", async () => {
+  fetchMock.mockResolvedValueOnce(
+    answer({ ok: true, control: control("failed") }),
+  );
+  const { result, rerender } = renderHook(
+    ({ request }: { readonly request: number }) =>
+      usePlanPoll("/control", undefined, "always", request),
+    { initialProps: { request: 0 } },
+  );
+  await flush();
+  fetchMock.mockResolvedValueOnce(
+    answer({ ok: true, control: control("running") }),
+  );
+  rerender({ request: 1 });
+  expect(result.current.response).toMatchObject({
+    control: { status: "failed" },
+  });
+  await flush();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(result.current.response).toMatchObject({
+    control: { status: "running" },
+  });
+});
+
+it("reads at once after a command, also from the idle pace", async () => {
+  fetchMock.mockImplementation(() =>
+    Promise.resolve(answer({ ok: true, control: control("idle") })),
+  );
+  const initialProps: { readonly command: AgentPlanActionResult | undefined } =
+    { command: undefined };
+  const { rerender } = renderHook(
+    ({ command }) => usePlanPoll("/control", command),
+    { initialProps },
+  );
+  await flush();
+  rerender({ command: { ok: true, intent: "play-plan" } });
+  await flush();
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 

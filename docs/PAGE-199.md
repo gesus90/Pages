@@ -107,8 +107,9 @@ snapshot, the latest checkpoint, the latest hundred repair attempts), so it uses
 `readTransaction`: one snapshot, no place in the writer queue. A decision taken on
 it stays fenced by `expectedRevision` in `control`, which runs on the writer. The
 view can lag a write still running by that write's duration; it never shows an
-uncommitted state. It is polled every 5 s per open view, and a request still issues
-many reads; neither was changed. A composition without `readTransaction` falls back
+uncommitted state. A request still issues many reads; that was not changed. Since
+PAGE-206 an open view polls it every 5 s only while the run has not ended or its
+cleanup is open, and not from a hidden tab. A composition without `readTransaction` falls back
 to the writer, which today only narrow test doubles do.
 
 ## Diagnosis

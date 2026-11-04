@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { usePlanControl } from "@/app/components/agents/plans/use-plan-control";
@@ -45,8 +45,10 @@ it("polls the plan's control and prefers the polled state", () => {
   expect(usePlanPoll).toHaveBeenCalledWith(
     "/agent-api/plan-runs?planId=plan%201",
     command,
+    "always",
+    0,
   );
-  expect(result.current).toEqual({ control: polled, error: null });
+  expect(result.current).toMatchObject({ control: polled, error: null });
 });
 
 it("keeps the initial control without a polled one", () => {
@@ -65,7 +67,7 @@ it("keeps the initial control without a polled one", () => {
   ).toBe(INITIAL);
   expect(
     renderHook(() => usePlanControl("plan", INITIAL, undefined)).result.current,
-  ).toEqual({ control: INITIAL, error: "forbidden" });
+  ).toMatchObject({ control: INITIAL, error: "forbidden" });
 });
 
 it("does not poll an unsaved plan", () => {
@@ -73,6 +75,20 @@ it("does not poll an unsaved plan", () => {
   const { result } = renderHook(() =>
     usePlanControl(undefined, undefined, undefined),
   );
-  expect(usePlanPoll).toHaveBeenCalledWith(null, undefined);
-  expect(result.current).toEqual({ control: undefined, error: null });
+  expect(usePlanPoll).toHaveBeenCalledWith(null, undefined, "always", 0);
+  expect(result.current).toMatchObject({ control: undefined, error: null });
+});
+
+it("asks the poll for a new read on request", () => {
+  vi.mocked(usePlanPoll).mockReturnValue({ response: undefined, error: null });
+  const { result } = renderHook(() =>
+    usePlanControl("plan", INITIAL, undefined),
+  );
+  act(() => result.current.readAgain());
+  expect(usePlanPoll).toHaveBeenLastCalledWith(
+    "/agent-api/plan-runs?planId=plan",
+    undefined,
+    "always",
+    1,
+  );
 });
