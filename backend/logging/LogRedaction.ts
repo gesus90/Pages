@@ -31,7 +31,10 @@ export function redactLogText(text: string): string {
       /\b(?:gh[pousr]_[\w]+|github_pat_[\w]+|sk-[\w-]{8,}|xox[baprs]-[\w-]+)/gu,
       REDACTED,
     )
-    .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/giu, `$1${REDACTED}@`)
+    .replace(
+      /((?:https?|postgres(?:ql)?):\/\/)[^\s/@]+:[^\s/@]+@/giu,
+      `$1${REDACTED}@`,
+    )
     .replace(/([?&][^\s=&#]+)=([^\s&#]*)/gu, `$1=${REDACTED}`)
     .replace(
       /((?:[\w-]*(?:password|passwd|secret|token|cookie|authorization|credential|private[_-]?key|api[_-]?key)[\w-]*)["']?\s*[:=]\s*)(?:"[^"\n]*"|'[^'\n]*'|[^\s,;}]+)/giu,

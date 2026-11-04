@@ -35,6 +35,7 @@ export const CONFIG_KEY = {
   FIRST_RUN: "firstRun",
   PORT: "port",
   DATABASE_PATH: "databasePath",
+  DATABASE_URL: "databaseUrl",
 } as const;
 
 /** Settings that do not depend on the setup state. */
@@ -83,7 +84,16 @@ export interface PendingSetupConfig extends BaseConfig {
 /** Configuration of an instance whose setup finished. */
 export interface CompletedSetupConfig extends BaseConfig {
   readonly firstRun: false;
+  /**
+   * Still names the data directory next to the database, such as the GitHub
+   * token key, when {@link databaseUrl} selects PostgreSQL.
+   */
   readonly databasePath: string;
+  /**
+   * Connection URL of the PostgreSQL database; missing: DuckDB at
+   * {@link databasePath}. A secret: it never reaches a log line or a client.
+   */
+  readonly databaseUrl?: string;
 }
 
 /**
@@ -233,6 +243,41 @@ function readDatabasePath(table: TomlTable, source: string): string | null {
   return path.normalize(value);
 }
 
+function isPostgresUrl(value: string): boolean {
+  try {
+    const { protocol, password } = new URL(value);
+    // The driver decodes the password; a bad escape would only fail at the start.
+    decodeURIComponent(password);
+    return protocol === "postgres:" || protocol === "postgresql:";
+  } catch {
+    // The parser error quotes its input, and this input holds a password.
+    return false;
+  }
+}
+
+function readDatabaseUrl(
+  table: TomlTable,
+  source: string,
+  firstRun: boolean,
+): Pick<CompletedSetupConfig, "databaseUrl"> {
+  const value = table[CONFIG_KEY.DATABASE_URL];
+  if (value === undefined) return {};
+  // The messages never quote the value: it holds a password.
+  if (typeof value !== "string" || !isPostgresUrl(value))
+    throw invalidConfig(
+      source,
+      `"${CONFIG_KEY.DATABASE_URL}" must be a postgres:// or postgresql:// URL.`,
+    );
+  // The setup wizard only prepares a DuckDB file, so it would finish on a
+  // database the next start no longer opens.
+  if (firstRun)
+    throw invalidConfig(
+      source,
+      `"${CONFIG_KEY.DATABASE_URL}" needs a finished setup. Remove it or set "${CONFIG_KEY.FIRST_RUN} = false".`,
+    );
+  return { databaseUrl: value };
+}
+
 /**
  * Reads the Pages settings from a parsed configuration file.
  *
@@ -248,6 +293,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const firstRun = readFirstRun(table, source);
   const port = readPort(table, source);
   const databasePath = readDatabasePath(table, source);
+  const databaseUrl = readDatabaseUrl(table, source, firstRun);
   const logging = readLoggingConfig(table, source);
   const interpreters = readInterpreterConfig(table, source);
   const proxies = readProxyConfig(table, source);
@@ -287,6 +333,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     ...interpreters,
     ...proxies,
     ...picaBrowser,
+    ...databaseUrl,
     databasePath,
     firstRun,
     port,
@@ -485,6 +532,9 @@ export function writePagesConfig(
     const setting = config[key];
     if (setting !== undefined) document[key] = setting;
   }
+
+  if (!config.firstRun && config.databaseUrl !== undefined)
+    document[CONFIG_KEY.DATABASE_URL] = config.databaseUrl;
 
   if (config.databasePath === null) {
     delete document[CONFIG_KEY.DATABASE_PATH];

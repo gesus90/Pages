@@ -9,6 +9,8 @@ import {
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { DatabaseExecutor } from "./executor/DatabaseExecutor";
+import { postgresErrorCode } from "./postgres/PostgresConnection";
+import { PostgresExecutor } from "./postgres/PostgresExecutor";
 import { DatabaseOutcomeUnknownError } from "./executor/DatabaseExecutorErrors";
 import { currentReadScope, readScopeKey, statementKind } from "./ReadScope";
 import {
@@ -23,6 +25,8 @@ import type {
   WriterSession,
 } from "./executor/DatabaseExecutor";
 import type { DatabaseLogSummary } from "@/backend/logging/DatabaseLogMetrics";
+import type { DatabaseDialect } from "./DatabaseDialect";
+import type { DatabaseEngine } from "./DatabaseEngine";
 import type { Migration } from "./Migration";
 import type { ReadScope } from "./ReadScope";
 
@@ -44,14 +48,25 @@ export type SqlParameters = Readonly<
  *
  * @remarks
  * DuckDB reports the offending key as `Duplicate key "column: value"`, so the
- * message is the only place that names the column.
+ * message is the only place that names the column. PostgreSQL names it in the
+ * detail of the error, as `Key (column)=(value)`, or `Key (column, other)=…`
+ * for a key of several columns.
  */
 export function isUniqueViolationOn(error: unknown, column: string): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.message.includes(`Duplicate key "${column}: `)) return true;
   return (
-    error instanceof Error &&
-    error.message.includes(`Duplicate key "${column}: `)
+    "code" in error &&
+    error.code === POSTGRES_UNIQUE_VIOLATION &&
+    "detail" in error &&
+    typeof error.detail === "string" &&
+    (error.detail.startsWith(`Key (${column})=`) ||
+      error.detail.startsWith(`Key (${column}, `))
   );
 }
+
+/** SQLSTATE of a rejected duplicate in a UNIQUE or PRIMARY KEY constraint. */
+const POSTGRES_UNIQUE_VIOLATION = "23505";
 
 /** Database path that opens a private in-memory database. */
 export const IN_MEMORY_DATABASE_PATH = ":memory:";
@@ -89,15 +104,19 @@ export interface DatabaseTransaction {
  * writer connection, so a transaction keeps the writer until it finished and
  * no other request can join it. Reads run on reader connections of the same
  * instance and see the last committed state, so a long write never holds
- * them back.
+ * them back. {@link Database.connect} opens PostgreSQL instead, behind the same
+ * methods (see `postgres/PostgresExecutor.ts`); DuckDB stays the default until
+ * the switch.
  */
 export class Database {
-  private readonly executor: DatabaseExecutor;
+  private readonly executor: DatabaseEngine;
+  private readonly engineDialect: DatabaseDialect;
   /** Counts finished writes, so a read scope knows when its answers ended. */
   private writes = 0;
 
-  private constructor(executor: DatabaseExecutor) {
+  private constructor(executor: DatabaseEngine, dialect: DatabaseDialect) {
     this.executor = executor;
+    this.engineDialect = dialect;
   }
 
   /**
@@ -124,8 +143,35 @@ export class Database {
         metadata: { ...metrics.finish() },
       });
 
-      return new Database(executor);
+      return new Database(executor, "duckdb");
     });
+  }
+
+  /**
+   * Opens a PostgreSQL database through a connection pool.
+   *
+   * @param databaseUrl - The connection URL; it never reaches a log line.
+   * @returns An open database.
+   * @throws The error of the driver or server when no connection opens.
+   */
+  public static async connect(databaseUrl: string): Promise<Database> {
+    return withDatabaseLogMetrics(async (metrics) => {
+      const executor = await startPostgres(databaseUrl);
+      logEvent({
+        level: "info",
+        event: "database.opened",
+        component: "Database",
+        message: "PostgreSQL connection pool initialized",
+        metadata: { ...metrics.finish() },
+      });
+
+      return new Database(executor, "postgres");
+    });
+  }
+
+  /** The SQL dialect of this database, see `DatabaseDialect.ts`. */
+  public get dialect(): DatabaseDialect {
+    return this.engineDialect;
   }
 
   /**
@@ -144,7 +190,10 @@ export class Database {
       level: "info",
       event: "database.closed",
       component: "Database",
-      message: "DuckDB connection closed",
+      message:
+        this.engineDialect === "duckdb"
+          ? "DuckDB connection closed"
+          : "PostgreSQL connection pool closed",
     });
   }
 
@@ -377,6 +426,23 @@ export class Database {
         },
       );
     }
+  }
+}
+
+async function startPostgres(databaseUrl: string): Promise<PostgresExecutor> {
+  try {
+    return await PostgresExecutor.start(databaseUrl);
+  } catch (error: unknown) {
+    logEvent({
+      level: "error",
+      event: "database.open_failed",
+      component: "Database",
+      message: "The PostgreSQL database could not be opened",
+      error,
+      metadata: { code: postgresErrorCode(error) },
+    });
+
+    throw error;
   }
 }
 

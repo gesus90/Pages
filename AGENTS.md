@@ -154,8 +154,10 @@ For backend work:
 For database work:
 
 - Follow all SQL formatting and structure rules from `GUIDELINES.md`.
-- DuckDB is the only supported database. Do not add another database driver,
-  dialect or fallback.
+- DuckDB is the only supported database until the switch to PostgreSQL decided
+  on 2026-11-03. `backend/database/postgres/` is that path, built beside DuckDB
+  behind the same facade and checked by `pnpm run postgres:check`. Do not add
+  any other database driver, dialect or fallback.
 - Add a new migration for schema changes, as a numbered `.sql` file in
   `backend/database/migrations/`.
 - Do not rewrite previously applied migrations.
@@ -201,9 +203,12 @@ non-test gates; neither demonstrates functional coverage.
 - Keep exactly two Pages unit test scripts: `test:backend` and `test:frontend`,
   both with coverage. No `test` script, aggregator, alias or MCP forwarding
   command. The browser and visual regression suite of `tests/browser/`
-  (PAGE-172, `pnpm run browser:test`) is the one other test command. It is not a
+  (PAGE-172, `pnpm run browser:test`) is one of two other test commands. It is not a
   unit scope, has no coverage, is not part of CI, and is the only place for real
   browser tests; see [tests/browser/README.md](./tests/browser/README.md).
+- `pnpm run postgres:check` (PAGE-212) is the second one, and the only place that starts a real
+  database server, a temporary PostgreSQL instance of its own. Like the browser
+  suite it is no unit scope, has no coverage and is not part of CI.
 - Choose scope by behavior: server-side loaders/actions under `app/` belong to
   Backend in Node; isolated React components/hooks belong to Frontend in jsdom.
   Discovery stays disjoint under `tests/backend/` and `tests/frontend/`, with

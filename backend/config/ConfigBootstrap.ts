@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
+import path from "node:path";
 
 import { inspectPagesDatabase } from "@/backend/database/PagesDatabaseInspector";
 
@@ -62,6 +63,16 @@ async function prepareConfig(
 ): Promise<void> {
   if (config.firstRun) {
     await mkdir(resolveDefaultDataDirectory(configFile.path), {
+      mode: PRIVATE_DIRECTORY_MODE,
+      recursive: true,
+    });
+
+    return;
+  }
+
+  // With PostgreSQL the path only names the data directory; no file exists there.
+  if (config.databaseUrl !== undefined) {
+    await mkdir(path.dirname(config.databasePath), {
       mode: PRIVATE_DIRECTORY_MODE,
       recursive: true,
     });

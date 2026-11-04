@@ -2251,6 +2251,15 @@ logRetentionDays = 30
 
 Setting `firstRun = true` opens the setup wizard again on the next start.
 
+The optional key `databaseUrl` (a `postgres://` or `postgresql://` URL) selects
+PostgreSQL instead of the DuckDB file. It is a secret: Pages never writes it to
+a log line. It needs a finished setup, and `databasePath` stays required because
+it names the data directory. The PostgreSQL schema does not exist yet (PAGE-213),
+so until then a start with this key ends at the migrations; without the key
+everything stays on DuckDB. `pnpm run postgres:check` tests this path against a
+temporary instance of its own and needs the PostgreSQL 18 programs in
+`/usr/lib/postgresql/18/bin`.
+
 The optional key `picaMobilePort` (1–65535) opens the WebSocket endpoint of the
 Pica Mobile app on that port. Administrators set it under Settings >
 Connections > Pica Mobile; without the key Pages opens no extra port. See

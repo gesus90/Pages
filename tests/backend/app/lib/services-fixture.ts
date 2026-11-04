@@ -258,6 +258,7 @@ export function runtimeFixture(publicUrl?: string): PagesRuntime {
     configFile: { path: "/srv/pages/config.json" },
     getConfig: () => ({ port: 3100, mcpHttp: { publicUrl } }),
     getDatabasePath: () => DATABASE_PATH,
+    getDatabaseUrl: () => null,
   });
 }
 

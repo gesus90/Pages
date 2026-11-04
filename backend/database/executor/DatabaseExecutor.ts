@@ -14,6 +14,7 @@ import {
 } from "./DatabaseWorkerClient";
 import { currentDatabaseWork } from "./DatabaseWorkContext";
 
+import type { DatabaseEngine } from "../DatabaseEngine";
 import type { DatabaseValue, SqlParameters } from "../Database";
 import type { LaneStatus } from "./DatabaseLane";
 import type {
@@ -96,8 +97,14 @@ function isCommitLike(statement: string): boolean {
   return /^\s*(?:COMMIT|CHECKPOINT)\b/iu.test(statement);
 }
 
-/** Whether a writer job holds an open transaction after `statement`. */
-function holdsTransaction(statement: string, wasOpen: boolean): boolean {
+/**
+ * Tells whether a connection holds an open transaction after a statement.
+ *
+ * @param statement - The statement that just ran.
+ * @param wasOpen - Whether a transaction was open before it.
+ * @returns Whether one is open now.
+ */
+export function holdsTransaction(statement: string, wasOpen: boolean): boolean {
   if (/^\s*BEGIN\b/iu.test(statement)) return true;
   return wasOpen && !/^\s*(?:COMMIT|ROLLBACK)\b/iu.test(statement);
 }
@@ -127,7 +134,7 @@ function laneCounters(
  * connections of the same DuckDB instance, so a long write never holds them
  * back. Both lanes are bounded and refuse jobs only before they started.
  */
-export class DatabaseExecutor {
+export class DatabaseExecutor implements DatabaseEngine {
   private readonly client: DatabaseWorkerClient;
   private readonly writerLane = new DatabaseLane({
     concurrency: 1,

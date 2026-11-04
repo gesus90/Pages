@@ -125,6 +125,15 @@ export class PagesRuntime {
   }
 
   /**
+   * Returns the connection URL that selects PostgreSQL.
+   *
+   * @returns The URL, or `null` for DuckDB, also while the setup is pending.
+   */
+  public getDatabaseUrl(): string | null {
+    return this.config.firstRun ? null : (this.config.databaseUrl ?? null);
+  }
+
+  /**
    * Runs a setup completion while no other one runs.
    *
    * @param work - Completion steps.

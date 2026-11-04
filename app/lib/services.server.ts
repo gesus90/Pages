@@ -687,9 +687,12 @@ async function openConfiguredServices(): Promise<ApplicationServices> {
   });
   const runtime = await getPagesRuntime();
   const databasePath = runtime.getDatabasePath();
+  const databaseUrl = runtime.getDatabaseUrl();
 
   const services = await initializeServices(
-    await Database.create(databasePath),
+    databaseUrl === null
+      ? await Database.create(databasePath)
+      : await Database.connect(databaseUrl),
     databasePath,
   );
   logEvent({
