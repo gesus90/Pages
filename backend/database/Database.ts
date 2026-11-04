@@ -19,13 +19,14 @@ import {
   UnknownMigrationError,
 } from "./Migration";
 import { readTextColumn } from "./RowValue";
+import { sqlForDialect } from "./DatabaseDialect";
 
 import type {
   DatabaseExecutorStatus,
   WriterSession,
 } from "./executor/DatabaseExecutor";
 import type { DatabaseLogSummary } from "@/backend/logging/DatabaseLogMetrics";
-import type { DatabaseDialect } from "./DatabaseDialect";
+import type { DatabaseDialect, DialectSql } from "./DatabaseDialect";
 import type { DatabaseEngine } from "./DatabaseEngine";
 import type { Migration } from "./Migration";
 import type { ReadScope } from "./ReadScope";
@@ -71,13 +72,29 @@ const POSTGRES_UNIQUE_VIOLATION = "23505";
 /** Database path that opens a private in-memory database. */
 export const IN_MEMORY_DATABASE_PATH = ":memory:";
 
-const CREATE_MIGRATIONS_TABLE = `
-  CREATE TABLE IF NOT EXISTS schema_migrations (
-      name TEXT PRIMARY KEY,
-      checksum TEXT NOT NULL,
-      applied_at TEXT NOT NULL DEFAULT utc_now()
-  );
-`;
+/** PostgreSQL keeps its own table, so a copied DuckDB table never counts as applied. */
+const MIGRATIONS_TABLE: Readonly<Record<DatabaseDialect, string>> = {
+  duckdb: "schema_migrations",
+  postgres: "postgres_schema_migrations",
+};
+
+/** PostgreSQL has no `utc_now()` yet when this runs: its first migration creates it. */
+const CREATE_MIGRATIONS_TABLE: DialectSql = {
+  duckdb: `
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+        name TEXT PRIMARY KEY,
+        checksum TEXT NOT NULL,
+        applied_at TEXT NOT NULL DEFAULT utc_now()
+    );
+  `,
+  postgres: `
+    CREATE TABLE IF NOT EXISTS postgres_schema_migrations (
+        name TEXT PRIMARY KEY,
+        checksum TEXT NOT NULL,
+        applied_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+    );
+  `,
+};
 
 /** Statement access that is bound to one open transaction. */
 export interface DatabaseTransaction {
@@ -205,14 +222,17 @@ export class Database {
   /**
    * Applies every migration that the database has not seen yet.
    *
-   * @param migrations - All known migrations; they run in name order.
+   * @param migrations - All known migrations of this dialect, see
+   * `migrationsFor`; they run in name order.
    * @throws {MigrationChecksumError} When an applied migration was edited.
    * @throws {UnknownMigrationError} When the database is ahead of the code.
    * @throws When a migration fails; it is rolled back completely.
    */
   public async migrate(migrations: readonly Migration[]): Promise<void> {
     return withDatabaseLogMetrics(async (metrics) => {
-      await this.execute(CREATE_MIGRATIONS_TABLE);
+      await this.execute(
+        sqlForDialect(this.engineDialect, CREATE_MIGRATIONS_TABLE),
+      );
 
       const appliedChecksums = await this.readAppliedChecksums();
       const knownNames = new Set(migrations.map((migration) => migration.name));
@@ -243,7 +263,7 @@ export class Database {
       // DuckDB cannot replay an ALTER TABLE on a table whose defaults call
       // utc_now() from the write-ahead log; writing the schema change into the
       // file right away keeps a later unclean stop from leaving such a log.
-      if (appliedCount > 0) {
+      if (appliedCount > 0 && this.engineDialect === "duckdb") {
         await this.execute("CHECKPOINT;");
       }
       logEvent({
@@ -381,7 +401,7 @@ export class Database {
 
   private async readAppliedChecksums(): Promise<ReadonlyMap<string, string>> {
     const rows = await this.query(
-      "SELECT name, checksum FROM schema_migrations ORDER BY name;",
+      `SELECT name, checksum FROM ${MIGRATIONS_TABLE[this.engineDialect]} ORDER BY name;`,
     );
 
     return new Map(
@@ -404,7 +424,7 @@ export class Database {
         await transaction.execute(migration.sql);
         await transaction.execute(
           `
-            INSERT INTO schema_migrations (
+            INSERT INTO ${MIGRATIONS_TABLE[this.engineDialect]} (
                 name,
                 checksum
             )

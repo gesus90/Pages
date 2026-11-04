@@ -13,6 +13,7 @@ import { Database } from "@/backend/database/Database";
 import { closeLogging, initializeLogging } from "@/backend/logging/Logger";
 
 import { checkClosed, FACADE_CHECKS } from "./postgres-check/facade-checks";
+import { runSchemaChecks } from "./postgres-check/schema-checks";
 import {
   causeWrongPasswordFailure,
   checkConfiguration,
@@ -57,6 +58,7 @@ async function runChecks(
       await check.run(database);
       console.info(`ok   ${check.name}`);
     }
+    await runSchemaChecks(instance, database);
   } finally {
     await database.close();
   }

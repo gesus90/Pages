@@ -160,6 +160,10 @@ For database work:
   any other database driver, dialect or fallback.
 - Add a new migration for schema changes, as a numbered `.sql` file in
   `backend/database/migrations/`.
+- Until the switch, every new DuckDB migration needs a matching PostgreSQL
+  migration in `backend/database/postgres/migrations/`. `pnpm run postgres:check`
+  compares both schemas; a deliberate difference goes into its list with a reason
+  (`docs/PostgresMigration.md`).
 - Do not rewrite previously applied migrations.
 - Keep SQL explicit and readable.
 - Parameterize dynamic values.

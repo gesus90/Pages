@@ -31,9 +31,10 @@ vi.mock("@/backend/database/Database", () => ({
     create: vi.fn(),
   }),
 }));
-vi.mock("@/backend/database/Migrations", () => ({
-  DATABASE_MIGRATIONS: [{ version: 1, name: "synthetic", sql: "" }],
-}));
+vi.mock("@/backend/database/Migrations", () => {
+  const migrations = [{ version: 1, name: "synthetic", sql: "" }];
+  return { DATABASE_MIGRATIONS: migrations, migrationsFor: () => migrations };
+});
 vi.mock("@/backend/runtime/ProcessLifecycle", () => ({
   registerShutdownTask: vi.fn(),
 }));

@@ -176,6 +176,16 @@ export class TemporaryPostgres {
     return `postgresql://${USER_NAME}:${password}@127.0.0.1:${String(this.port)}/${DATABASE_NAME}`;
   }
 
+  /**
+   * The correct connection URL of another database of this server.
+   *
+   * @param databaseName - The name of the database.
+   * @returns The URL.
+   */
+  public urlOfDatabase(databaseName: string): string {
+    return `postgresql://${USER_NAME}:${this.password}@127.0.0.1:${String(this.port)}/${databaseName}`;
+  }
+
   /** Creates the cluster and starts its server. */
   public async start(): Promise<void> {
     const data = this.dataDirectory();

@@ -10,7 +10,7 @@ import { SessionService } from "@/backend/auth/SessionService";
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { Database } from "@/backend/database/Database";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
-import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
+import { migrationsFor } from "@/backend/database/Migrations";
 import { GitHubSyncScheduler } from "@/backend/github/GitHubSyncScheduler";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
@@ -223,7 +223,7 @@ async function initializeServices(
   database: Database,
   databasePath: string,
 ): Promise<ApplicationServices> {
-  await database.migrate(DATABASE_MIGRATIONS);
+  await database.migrate(migrationsFor(database.dialect));
 
   const passwordHasher = new PasswordHasher();
   const serverCache = new ServerCache();

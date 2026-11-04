@@ -11,8 +11,9 @@ PostgreSQL is being built beside this path (decided on 2026-11-03, see PAGE-212)
 `Database.connect` runs the same facade through
 `backend/database/postgres/PostgresExecutor.ts`, a pool of 10 connections with
 the same lanes and budgets. The writer lane still runs one job at a time,
-because repositories rely on it; the other 9 connections serve reads. Everything
-below describes DuckDB, which stays the default until the switch.
+because repositories rely on it; the other 9 connections serve reads. Its schema
+and its migrations are described in `docs/PostgresMigration.md`. Everything below
+describes DuckDB, which stays the default until the switch.
 
 ## Owner model
 
