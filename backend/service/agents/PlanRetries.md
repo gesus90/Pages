@@ -27,8 +27,13 @@ agent turn, such as a refused start, has nothing to send a repair to and stops a
 once. Scripts are never repeated, because Pages cannot reconcile their effects;
 they stop with their class like any other node.
 
+A later attempt refused before it has its own record, for instance when its
+preparation finds a right withdrawn, counts as a failed attempt without an attempt
+ID. The node keeps the record of the earlier attempt with its session and closeout,
+so it still counts as started and the retry history stays complete.
+
 When the budget is spent the node stops with `exhausted`. Every failed node
-carries `failureStop` with the class and the attempts, which the run details and
+carries `failureStop` with the class, the attempts of the class and all attempts, which the run details and
 `read_plan_run` show. Every failed attempt stays in the history of the retry
 record with its code, class and findings. The work in the workspace is untouched.
 

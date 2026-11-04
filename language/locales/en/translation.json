@@ -4056,7 +4056,7 @@
         "infrastructure": "Infrastructure",
         "open": "Functionally open"
       },
-      "stop": "Stopped. Class: {{failureClass}}. Attempts: {{attempts}} of {{maximum}}.",
+      "stop": "Stopped. Class: {{failureClass}}. Attempts of this class: {{attempts}} of {{maximum}}. Failed attempts in total: {{total}}.",
       "automaticResume": {
         "pending": "A server restart interrupted this run. Pages continues it on its own after a short wait.",
         "started": "A server restart interrupted this run. Pages continued it as a new run.",

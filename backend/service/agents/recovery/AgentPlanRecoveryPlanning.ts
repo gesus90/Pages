@@ -162,7 +162,12 @@ export function releaseOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
  * A native session counts only with its identifier and the adapter's
  * announced `session/resume`; a loop's sessions always start new.
  */
-export function planResume(facts: RecoveryFacts): ResumePlan {
+export function planResume(
+  facts: Pick<
+    RecoveryFacts,
+    "run" | "checkpoints" | "agentStepIds" | "groupIds"
+  >,
+): ResumePlan {
   const { run, checkpoints } = facts;
   const reused: AgentPlanStepResult[] = [];
   const unverified: string[] = [];

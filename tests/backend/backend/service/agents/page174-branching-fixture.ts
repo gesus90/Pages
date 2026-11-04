@@ -202,6 +202,8 @@ export async function branchEngine(
     readonly nodes?: (
       agent: (id: string, x: number) => AgentPlanStep,
     ) => readonly AgentPlanNode[];
+    /** Runs before each preparation of a node, so a later attempt can be refused before its record. */
+    readonly beforePrepare?: () => void | Promise<void>;
   } = {},
 ): Promise<BranchEngine> {
   const configuration = branchConfiguration();
@@ -268,7 +270,13 @@ export async function branchEngine(
   // The real repositories, with their rules for completed work and checkpoints, over an in-memory store.
   const database = new RecoveryDatabase(snapshot);
   const runner = new AgentPlanStepRunner({
-    start: base.start,
+    start: {
+      ...base.start,
+      prepare: async (...input) => {
+        await shape.beforePrepare?.();
+        return base.start.prepare(...input);
+      },
+    },
     execution,
     tasks: {
       checklist: async () => {

@@ -229,7 +229,11 @@ function stoppedStep(
     ...step,
     failureStop:
       stop.failureClass === "infrastructure"
-        ? { ...stop, attempts: Math.min(attempts, stop.maximumAttempts) }
+        ? {
+            ...stop,
+            attempts: Math.min(attempts, stop.maximumAttempts),
+            totalAttempts: Math.max(attempts, stop.totalAttempts),
+          }
         : stop,
   };
 }

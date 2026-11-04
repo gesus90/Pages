@@ -19,6 +19,46 @@ interface AttemptOperations {
   readonly save: (changes: Partial<AgentPlanSessionRecord>) => Promise<void>;
 }
 
+/**
+ * Puts the record of the earlier attempt back when this one ended without its own.
+ *
+ * @remarks
+ * A start refused before its record has nothing else to show, and the earlier
+ * record holds what really ran: its session, its closeout and the retry history.
+ * The result stays without a session, so the earlier report does not judge this
+ * failure. Only a pause carries it, because it stores what it returns.
+ */
+function keepEarlierRecord(
+  node: NodeRun,
+  earlier: AgentPlanSessionRecord | null,
+  result: Partial<AgentPlanStepResult>,
+): Partial<AgentPlanStepResult> {
+  if (node.record !== null || earlier === null) return result;
+  node.record = earlier;
+  return result.status === "paused" ? { ...result, session: earlier } : result;
+}
+
+/** One attempt: its execution and the verdict of the gate, or what its failure leaves. */
+async function settledAttempt(
+  node: NodeRun,
+  control: StepRunControl,
+  operations: AttemptOperations,
+  context: RetryAttemptContext,
+): Promise<Partial<AgentPlanStepResult>> {
+  try {
+    const result = await operations.execute(context);
+    return control.settle ? await control.settle(result) : result;
+  } catch (error: unknown) {
+    if (
+      !node.hasStarted &&
+      (error instanceof AgentPlanPausedError ||
+        control.signal.reason instanceof AgentPlanPausedError)
+    )
+      return operations.paused();
+    return operations.failure(error);
+  }
+}
+
 async function attempt(
   node: NodeRun,
   control: StepRunControl,
@@ -43,22 +83,16 @@ async function attempt(
       creatorStepId: node.step.step.id,
       turn: node.record.event.turn,
     };
+  const earlier = node.record;
   node.record = null;
   node.retryResumeSessionId = context.resumeSessionId;
   node.retryAttemptNumber = context.attemptNumber;
   control.awaitDispatch?.();
-  try {
-    const result = await operations.execute(context);
-    return control.settle ? await control.settle(result) : result;
-  } catch (error: unknown) {
-    if (
-      !node.hasStarted &&
-      (error instanceof AgentPlanPausedError ||
-        control.signal.reason instanceof AgentPlanPausedError)
-    )
-      return operations.paused();
-    return operations.failure(error);
-  }
+  return keepEarlierRecord(
+    node,
+    earlier,
+    await settledAttempt(node, control, operations, context),
+  );
 }
 
 /** Keeps retry waits outside attempt timeouts and lets pause/stop cancel a durable wait immediately. */

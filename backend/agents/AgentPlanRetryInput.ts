@@ -68,6 +68,7 @@ const failureStop = z.strictObject({
   failureClass: blockerClass,
   attempts: z.number().int().min(1).max(PLAN_RETRY_HISTORY_LIMIT),
   maximumAttempts: z.number().int().min(1).max(PLAN_RETRY_HISTORY_LIMIT),
+  totalAttempts: z.number().int().min(1).max(PLAN_RETRY_HISTORY_LIMIT),
 });
 
 /** Validates the stored reason a failed step stopped. */

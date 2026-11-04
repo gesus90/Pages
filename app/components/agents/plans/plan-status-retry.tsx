@@ -118,6 +118,7 @@ export function PlanStatusStop({
         failureClass: t(`plans.retry.class.${stop.failureClass}`),
         attempts: stop.attempts,
         maximum: stop.maximumAttempts,
+        total: stop.totalAttempts,
       })}
     </p>
   );

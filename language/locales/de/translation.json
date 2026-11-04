@@ -4056,7 +4056,7 @@
         "infrastructure": "Infrastruktur",
         "open": "Fachlich offen"
       },
-      "stop": "Gestoppt. Klasse: {{failureClass}}. Versuche: {{attempts}} von {{maximum}}.",
+      "stop": "Gestoppt. Klasse: {{failureClass}}. Versuche dieser Klasse: {{attempts}} von {{maximum}}. Fehlgeschlagene Versuche insgesamt: {{total}}.",
       "automaticResume": {
         "pending": "Ein Neustart des Servers hat diesen Lauf unterbrochen. Pages setzt ihn nach kurzer Wartezeit selbst fort.",
         "started": "Ein Neustart des Servers hat diesen Lauf unterbrochen. Pages hat ihn als neuen Lauf fortgesetzt.",

@@ -6,6 +6,8 @@ vi.mock("@/definition/AgentPlanRetry", async (importOriginal) => {
   return { ...original, PLAN_INFRASTRUCTURE_RETRY_DELAYS: [5, 5, 5] };
 });
 
+import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { initialPlanRun } from "@/backend/service/agents/AgentPlanRunStart";
 import { patchStep } from "@/backend/service/agents/AgentPlanRunState";
 import {
@@ -231,4 +233,74 @@ it("fails a node whose start an event caused when its news is gone, instead of r
   expect(eventStart(active, "check")).toEqual({
     event: { prompt: NEWS, activation: 2, sourceStepIds: ["fix"] },
   });
+});
+
+it("continues after a technical refusal of a later attempt, on the record that exists, and counts it", async () => {
+  const runtime = branchRuntime({
+    check: ["No report at all.", branchReport(true)],
+    fix: [],
+  });
+  let prepares = 0;
+  const world = await branchEngine(runtime.execution, {
+    beforePrepare: () => {
+      prepares += 1;
+      if (prepares === 2) throw new AgentError("plan_runner_admission_failed");
+    },
+  });
+  const started = await world.engine.start("owner", world.snapshot);
+  const run = await finished(world, started.id);
+  expect(run.steps.find((s) => s.id === "check")).toMatchObject({
+    status: "succeeded",
+    session: {
+      retry: {
+        state: "completed",
+        attempts: [
+          { failureClass: "form" },
+          { failureClass: "infrastructure", attemptId: null },
+        ],
+      },
+    },
+  });
+});
+
+it("keeps record and retry state when a pause ends a later attempt before its record, and goes on after the resume", async () => {
+  const runtime = branchRuntime({
+    check: ["No report at all.", branchReport(true)],
+    fix: [],
+  });
+  let prepares = 0;
+  let runId: string | null = null;
+  const world = await branchEngine(runtime.execution, {
+    beforePrepare: async () => {
+      prepares += 1;
+      if (prepares !== 2) return;
+      await vi.waitFor(() => expect(runId).not.toBeNull());
+      await world.engine.pause(runId ?? "");
+      throw new AgentPlanPausedError();
+    },
+  });
+  const started = await world.engine.start("owner", world.snapshot);
+  runId = started.id;
+  await expect
+    .poll(() => world.read(started.id).status, { timeout: 8000 })
+    .toBe("paused");
+  expect(
+    world.read(started.id).steps.find((s) => s.id === "check"),
+  ).toMatchObject({
+    session: {
+      sessionId: "native-check",
+      retry: { state: "waiting", attempts: [{ failureClass: "form" }] },
+    },
+  });
+  await world.engine.resume(started.id);
+  const run = await finished(world, started.id);
+  expect(run.steps.find((s) => s.id === "check")).toMatchObject({
+    status: "succeeded",
+    session: {
+      retry: { state: "completed", attempts: [{ failureClass: "form" }] },
+    },
+  });
+  expect(runtime.calls.filter((call) => call.stepId === "check")).toHaveLength(
+    2,
+  );
 });

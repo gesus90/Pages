@@ -439,6 +439,7 @@ export function planFailureStop(
       1,
     ),
     maximumAttempts: PLAN_BLOCKER_RETRIES[failureClass] + 1,
+    totalAttempts: Math.max(retry?.attempts.length ?? 0, 1),
   };
 }
 

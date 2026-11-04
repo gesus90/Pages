@@ -112,17 +112,26 @@ function hasUnsafeSessionReplay(
     : "effect_unknown";
 }
 
+/**
+ * One failed attempt for the history.
+ *
+ * @param session - The record of this attempt; absent for a start refused before it had one.
+ * @param code - The code it failed with.
+ * @param failureClass - The class of the failure.
+ * @param lastSessionId - The native session the sequence stands on, which a refused start did not leave.
+ */
 function retryAttempt(
   session: AgentPlanSessionRecord | null | undefined,
   code: AgentPlanRetryAttempt["code"],
   failureClass: AgentPlanBlockerClass,
+  lastSessionId: string | null | undefined,
 ): AgentPlanRetryAttempt {
   const issues = (session?.acceptance?.issues ?? [])
     .slice(0, MAXIMUM_ATTEMPT_ISSUES)
     .map((issue) => issue.slice(0, MAXIMUM_ISSUE_LENGTH));
   return {
     attemptId: session?.attemptId ?? null,
-    sessionId: session?.sessionId ?? null,
+    sessionId: session?.sessionId ?? lastSessionId ?? null,
     endedAt: session?.endedAt ?? new Date().toISOString(),
     code,
     failureClass,
@@ -236,6 +245,12 @@ function nextRetryState(
   };
 }
 
+function reportedReset(
+  session: AgentPlanSessionRecord | null | undefined,
+): string | null {
+  return session?.providerFailure?.resetAt ?? null;
+}
+
 function retryDecision(
   result: Partial<AgentPlanStepResult>,
   work: RetryWork,
@@ -252,12 +267,14 @@ function retryDecision(
   const terminal = terminalReason(failureClass, result);
   // A first failure that ends the step at once has no sequence to record; its stop is on the step.
   if (terminal && !previous) return null;
-  const resetAt = session?.providerFailure?.resetAt ?? null;
+  const resetAt = reportedReset(session);
+  // What decides a replay is the newest record that exists: a refused start changed nothing of it.
+  const replayed = session ?? work.lastSession();
   const attempts = [
     ...(previous?.attempts ?? []),
-    retryAttempt(session, code, failureClass),
+    retryAttempt(session, code, failureClass, replayed?.sessionId),
   ];
-  const requiredResumeSessionId = pinnedResumeSession(previous, session, work);
+  const requiredResumeSessionId = pinnedResumeSession(previous, replayed, work);
   const base = {
     failureClass,
     attempts,
@@ -272,7 +289,7 @@ function retryDecision(
       failureClass,
       error: result.error,
       code,
-      session,
+      session: replayed,
       requiredResumeSessionId,
       resetAt,
       failedAttempts: failedPlanAttempts(attempts, failureClass),
@@ -381,7 +398,9 @@ export async function runPlanStepWithRetry(
     }
     work.signal.throwIfAborted();
     const result = await work.attempt(continuation);
-    if (work.signal.aborted) return abortedResult(retry, work, result);
+    // A pause is no failure, also without an abort: the sequence goes on from where it stands after the resume.
+    if (work.signal.aborted || result.status === "paused")
+      return abortedResult(retry, work, result);
     const next = retryDecision(result, work, retry);
     if (next) {
       retry = next;

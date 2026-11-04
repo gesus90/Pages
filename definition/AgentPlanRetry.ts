@@ -67,6 +67,8 @@ export interface AgentPlanFailureStop {
   readonly attempts: number;
   /** The attempts the class admits, the first one included. */
   readonly maximumAttempts: number;
+  /** Every failed attempt of the node, of all classes. */
+  readonly totalAttempts: number;
 }
 
 /** Durable waiting state inside the existing session JSON; no separate job or model selection. */

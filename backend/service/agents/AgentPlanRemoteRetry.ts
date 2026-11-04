@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 
 import { dispatchRemotePlanStep } from "./AgentPlanRemoteDispatch";
+import { errorCode } from "./AgentPlanStepFailure";
 import { runPlanStepWithRetry } from "./AgentPlanStepRetry";
 
 import type { RemoteRetryTerms } from "./AgentPlanRemoteDispatch";
@@ -37,6 +38,13 @@ function isReadOnlyRemote(active: ActivePlanRun, stepId: string): boolean {
   if (!command) return false;
   return (
     command.program.kind !== "cli" || command.program.access === "read_only"
+  );
+}
+
+/** A continuation the live runner cannot carry out is a failed attempt, also the first one. */
+function isResumeFailure(error: unknown): boolean {
+  return (
+    error instanceof AgentError && error.code === "acp_session_resume_failed"
   );
 }
 
@@ -124,20 +132,22 @@ export function dispatchRemoteStepWithRetry(
         signal,
         retry: remoteRetryTerms(context, lastSession?.retry ?? null),
       })?.catch((error: unknown): Partial<AgentPlanStepResult> => {
-        // A continuation the live runner cannot carry out ends this attempt with the earlier record in place.
+        // A later attempt refused before its job ends with the earlier record in place, so it stays in the history.
         if (
-          error instanceof AgentError &&
-          error.code === "acp_session_resume_failed"
+          error instanceof AgentPlanPausedError ||
+          signal.aborted ||
+          (context.attemptNumber === 1 && !isResumeFailure(error))
         )
-          return { status: "failed", error: error.code };
-        throw error;
+          throw error;
+        return { status: "failed", error: errorCode(error) };
       });
       if (!result) throw new AgentError("plan_context_changed");
       const settled = dependencies.settle
         ? await dependencies.settle(result)
         : result;
       lastSession = settled.session ?? lastSession;
-      return lastSession && !settled.session
+      // A failure without its own record must not be judged by the report of the earlier one.
+      return lastSession && !settled.session && settled.status !== "failed"
         ? { ...settled, session: lastSession }
         : settled;
     },

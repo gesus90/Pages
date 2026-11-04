@@ -1,5 +1,8 @@
 import { expect, it } from "vitest";
 
+import { AgentError } from "@/backend/error/AgentErrors";
+import { planResume } from "@/backend/service/agents/recovery/AgentPlanRecoveryPlanning";
+
 import {
   branchEdges,
   branchEngine,
@@ -8,6 +11,7 @@ import {
   reportOnly,
 } from "./page174-branching-fixture";
 
+import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 
 const FIX_ANSWER = (round: number): string =>
@@ -330,4 +334,82 @@ it("ends the retained session of the checker when the run is stopped during the 
   expect(runtime.closed).toContain("check");
   expect(stepOf(run, "check").session?.closeout).toBe("confirmed");
   expect(stepOf(run, "end").status).not.toBe("succeeded");
+});
+
+/** Refuses every preparation of the plan's agents after the first one. */
+function refusingAfterFirst(code: AgentErrorCode): () => void {
+  let prepares = 0;
+  return () => {
+    prepares += 1;
+    if (prepares > 1) throw new AgentError(code);
+  };
+}
+
+it("keeps the session and the whole history when a later attempt is refused before its record", async () => {
+  const runtime = branchRuntime({ check: ["No report at all."] });
+  const world = await branchEngine(runtime.execution, {
+    beforePrepare: refusingAfterFirst("plan_access_denied"),
+  });
+  const started = await world.engine.start("owner", world.snapshot);
+  const run = await finished(world, started.id);
+  const check = stepOf(run, "check");
+  expect(check).toMatchObject({
+    status: "failed",
+    error: "plan_access_denied",
+    failureStop: {
+      failureClass: "harm",
+      attempts: 1,
+      maximumAttempts: 1,
+      totalAttempts: 2,
+    },
+  });
+  expect(check.session?.sessionId).toBe("native-check");
+  expect(check.session?.closeout).toBe("confirmed");
+  expect(check.session?.retry).toMatchObject({
+    state: "blocked",
+    reason: "hard_stop",
+    failureClass: "harm",
+  });
+  expect(
+    check.session?.retry?.attempts.map((attempt) => [
+      attempt.code,
+      attempt.failureClass,
+      attempt.attemptId === null,
+    ]),
+  ).toEqual([
+    ["plan_acceptance_failed", "form", false],
+    ["plan_access_denied", "harm", true],
+  ]);
+  expect(runtime.calls.map((call) => call.stepId)).toEqual(["check"]);
+  // The first attempt ran, so whatever continues the run has to review its effects.
+  expect(
+    planResume({
+      run,
+      checkpoints: [],
+      agentStepIds: ["check", "fix"],
+      groupIds: [],
+    }).retriedStepIds,
+  ).toContain("check");
+});
+
+it("does not let the report of the earlier attempt turn a refused start into a repair round", async () => {
+  const runtime = branchRuntime({ check: ["No report at all."] });
+  const world = await branchEngine(runtime.execution, {
+    beforePrepare: refusingAfterFirst("plan_model_unavailable"),
+  });
+  const started = await world.engine.start("owner", world.snapshot);
+  const run = await finished(world, started.id);
+  const check = stepOf(run, "check");
+  expect(check.error).toBe("plan_model_unavailable");
+  expect(check.session?.retry).toMatchObject({
+    state: "blocked",
+    reason: "failed",
+    failureClass: "open",
+  });
+  expect(check.session?.retry?.attempts).toHaveLength(2);
+  expect(check.failureStop).toMatchObject({
+    failureClass: "open",
+    attempts: 1,
+    totalAttempts: 2,
+  });
 });
