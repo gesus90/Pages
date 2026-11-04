@@ -398,12 +398,20 @@ export class ProjectRepository {
     return this.tags.findByProjectId(projectId);
   }
 
-  /** Replaces all tags assigned to the project. */
+  /**
+   * Replaces all tags assigned to the project.
+   *
+   * @remarks
+   * All or nothing: PostgreSQL refuses a tag with U+0000, and the old tags must
+   * survive that.
+   */
   public async setTags(
     projectId: string,
     tags: readonly string[],
   ): Promise<void> {
-    await this.tags.replace(projectId, tags);
+    await this.transaction((repository) =>
+      repository.tags.replace(projectId, tags),
+    );
   }
 
   /** Returns the non-archived planning dates of a project. */

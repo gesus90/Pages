@@ -413,6 +413,10 @@ export const AREA_NUL_FLOW: RepositoryFlow = {
     keyRefusedOnPostgres("ProjectRepository.setTags", ({ projects }) =>
       projects.setTags(NUL_PROJECT, [`tag${NUL}`]),
     ),
+    // PostgreSQL refuses and keeps the old tag; DuckDB stores the tag with the character.
+    call("ProjectRepository.findTags", async ({ projects }) =>
+      withoutNul(await projects.findTags(NUL_PROJECT)),
+    ),
     prepare("DELETE FROM project_tags WHERE project_id = 'project-nul';"),
     // A character inside JSON is the escape of six characters and stays in both.
     call("AdministrationActivityRepository.insert", ({ activity }) =>
