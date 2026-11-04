@@ -37,6 +37,7 @@ import {
 } from "./AgentPlanRemoteCancellation";
 import {
   completedGatedRemote,
+  remoteAssessmentTerms,
   settleRemoteAcceptance,
   requiresRemoteAcceptance,
 } from "./AgentPlanRemoteAcceptance";
@@ -67,6 +68,8 @@ import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
 import type { AgentPlanContract } from "@/definition/AgentPlanSession";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
+import type { AgentPlanStepReport } from "@/definition/AgentPlanStepReport";
+import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { RunnerService } from "@/backend/service/runner/RunnerService";
 import type { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpenRouterService";
@@ -94,6 +97,7 @@ interface RemoteExecutionDependencies {
   readonly tasks?: Pick<AgentPlanTasks, "checklist">;
   readonly parameters?: AgentPlanRemoteParameters;
   readonly pages?: RunnerPagesAccessService;
+  readonly stepReports?: Pick<AgentPlanStepReportService, "open" | "close">;
   readonly targets: Pick<AgentPlanRemoteTargets, "list" | "choices">;
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly runners: Pick<
@@ -315,6 +319,7 @@ export class AgentPlanRemoteExecution {
     const command = await this.dispatchCommand(run, remote, retry);
     let result: Partial<AgentPlanStepResult>;
     try {
+      await this.openStepReport(run, remote, execution.attemptId);
       await this.dependencies.pages?.open(run, remote, execution.attemptId);
       const job = await claimRemoteJob({
         runners: this.dependencies.runners,
@@ -339,6 +344,11 @@ export class AgentPlanRemoteExecution {
       remote,
       current?.steps.find((step) => step.id === remote.step.id) ?? result,
     );
+    const stepReport = await this.closeStepReport(
+      run,
+      remote,
+      execution.attemptId,
+    );
     return settleRemoteAcceptance({
       remote,
       run,
@@ -347,6 +357,7 @@ export class AgentPlanRemoteExecution {
       projectId: async () =>
         (await this.dependencies.access.require(run.userId, run.planId))
           .projectId,
+      stepReport,
     });
   }
 
@@ -432,6 +443,48 @@ export class AgentPlanRemoteExecution {
       }),
     );
     return { ...run, steps };
+  }
+
+  /** Lets the agent of a gated CLI step report through the tool, under the scope of its Pages credential. */
+  private async openStepReport(
+    run: AgentPlanRun,
+    remote: RemotePlanStep,
+    attemptId: string,
+  ): Promise<void> {
+    const { stepReports, access } = this.dependencies;
+    if (
+      !stepReports ||
+      remote.command.pagesAccess !== 1 ||
+      !requiresRemoteAcceptance(remote)
+    )
+      return;
+    const terms = remoteAssessmentTerms(remote);
+    if (!terms) return;
+    await stepReports.open({
+      runId: run.id,
+      sessionScopeId: remote.step.id,
+      stepId: remote.step.id,
+      attemptId,
+      terms: {
+        ...terms,
+        projectId: (await access.require(run.userId, run.planId)).projectId,
+      },
+    });
+  }
+
+  /** Ends the reporting of a finished job, so nothing can change what gets assessed. */
+  private async closeStepReport(
+    run: AgentPlanRun,
+    remote: RemotePlanStep,
+    attemptId: string,
+  ): Promise<AgentPlanStepReport | null> {
+    const { stepReports } = this.dependencies;
+    if (!stepReports) return null;
+    return stepReports.close({
+      runId: run.id,
+      sessionScopeId: remote.step.id,
+      attemptId,
+    });
   }
 
   private canUsePages(

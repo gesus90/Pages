@@ -29,6 +29,9 @@ export function PlanStatusReport({
         {t("plans.progress.report")} ·{" "}
         {t(`plans.progress.reportVerdict.${acceptance.verdict}`)}
       </h4>
+      {acceptance.message ? (
+        <p className="wrap-anywhere">{acceptance.message}</p>
+      ) : null}
       {acceptance.summary ? (
         <p className="wrap-anywhere">{acceptance.summary}</p>
       ) : null}

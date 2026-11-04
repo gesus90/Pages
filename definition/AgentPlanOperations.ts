@@ -6,8 +6,10 @@ import type { AgentPlanDiagnostic } from "./AgentPlanDiagnostics.js";
 import type { AgentPlanSessionEvents } from "./AgentPlanSessionEvents.js";
 import type { AgentPlanRemoteStatusProblem } from "./AgentPlanRemoteStatus.js";
 import type { AgentPlanWorkspaceConflict } from "./AgentPlanWorkspaceConflict.js";
-import type { AgentPlanRecoveryEntry } from "./AgentPlanRecoveryEntry.js";
-import type { AgentPlanAutomaticResume } from "./AgentPlanRecovery.js";
+import type {
+  AgentPlanAutomaticResume,
+  AgentPlanRecoveryEntry,
+} from "./AgentPlanRecoveryEntry.js";
 import type {
   AgentPlanBlockerClass,
   AgentPlanFailureStop,

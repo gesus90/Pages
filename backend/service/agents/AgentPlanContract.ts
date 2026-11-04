@@ -60,6 +60,10 @@ const PROJECT_GITHUB_LINES = [
   "- An authentication or permission failure needs a project manager: do not retry it. Report it as blocked with the message of Git and Pages.",
 ] as const;
 
+/** The intended way to report a result, for every session that reaches Pages through MCP. */
+const STEP_REPORT_LINE =
+  "Report your result by calling the Pages MCP tool `report_step_result`: `status` (`done`, or `blocked` when a person has to decide), `message`, `todos` and `criteria` with the IDs above, `decisions` and `summary`. This is the intended way. Pages checks the call at once; when it refuses, correct what `details.problems` names and call again. A valid call is the result of this step, a later call of this attempt replaces it, and it takes precedence over any text in your closing message.";
+
 function gitHubLines(assignment: AgentPlanAssignment): readonly string[] {
   return assignment.hasProjectGitHub === true ? PROJECT_GITHUB_LINES : [];
 }
@@ -72,7 +76,7 @@ function completionInstruction(assignment: AgentPlanAssignment): string {
       ". Missing, stale or unproven work fails the node and blocks successors even after exit 0. Keep evidence in these separate metadata calls; preserve the exact final JSON contract of the assignment. Never claim success when confirmation is refused."
     );
   if (assignment.requiresAcceptance)
-    return `${assignment.acceptanceScope === "node" ? "This agent node requires business acceptance." : "This is an internal group step."} Complete every todo and criterion and include a valid pages-report with the required IDs, done todos, met criteria and real evidence. Missing or invalid reports, open todos, unmet criteria and missing evidence fail this step and block all later steps. Report unfinished work honestly; do not invent completion.`;
+    return `${assignment.acceptanceScope === "node" ? "This agent node requires business acceptance." : "This is an internal group step."} Complete every todo and criterion and ${assignment.usesMcp ? "report them through `report_step_result`" : "include a valid pages-report"} with the required IDs, done todos, met criteria and real evidence. Missing or invalid reports, open todos, unmet criteria and missing evidence fail this step and block all later steps. Report unfinished work honestly; do not invent completion.`;
   return "Complete the assignment and report unfinished or blocked work honestly. A technical turn completion never establishes business success.";
 }
 
@@ -86,7 +90,7 @@ function itemLine(item: AgentPlanContractItem): string {
 function readOnlyMcpSection(contract: AgentPlanContract): string {
   const keys = contract.tickets.map((ticket) => `\`${ticket.key}\``).join(", ");
   return [
-    "- The Pages MCP server is connected read-only: you may read Pages content, every change is refused.",
+    "- The Pages MCP server is connected read-only: you may read Pages content and report your result with `report_step_result`, every other change is refused.",
     ...(keys
       ? [
           `- Read ticket ${keys} with \`read_ticket\` and \`read_ticket_checklist\`. Do not try to change tickets or their checklists; report your progress and leave open entries open.`,
@@ -197,7 +201,7 @@ function todoMcpLines(assignment: AgentPlanAssignment): readonly string[] {
   const keys = contract.tickets.map((ticket) => `\`${ticket.key}\``).join(", ");
   if (assignment.isReadOnly)
     return [
-      "- The Pages MCP server is connected read-only: you may read Pages content, every change is refused.",
+      "- The Pages MCP server is connected read-only: you may read Pages content and report your result with `report_step_result`, every other change is refused.",
       ...(keys
         ? [
             `- Read ticket ${keys} with \`read_ticket\` and \`read_ticket_checklist\`. You cannot change its status or checklist in this mode; name the todos you finished in your closing message.`,
@@ -217,6 +221,24 @@ function todoMcpLines(assignment: AgentPlanAssignment): readonly string[] {
     '- When every current todo is done, move the ticket to its review status ("Review") the same way. Never set it to done.',
     "- Changes of the ticket by others, new revisions and your own writes do not stop the run: read again, take over the current list and continue without redoing finished work.",
   ];
+}
+
+/** The text report remains the way of a session without Pages MCP and the fallback of every other. */
+const REPORT_FALLBACK_LEAD =
+  "Only if that tool is unavailable, include a fenced pages-report block with a JSON object like this instead:";
+
+function todoReportLead(assignment: AgentPlanAssignment): string {
+  if (assignment.usesMcp) return REPORT_FALLBACK_LEAD;
+  return assignment.requiresAcceptance
+    ? "Include this pages-report block; it is also the record of todos without a ticket entry:"
+    : "A pages-report block is optional and only shown. It is the only record of a todo without a ticket entry:";
+}
+
+function reportLead(assignment: AgentPlanAssignment): string {
+  if (assignment.usesMcp) return REPORT_FALLBACK_LEAD;
+  return assignment.requiresAcceptance
+    ? "Include a fenced pages-report block with a JSON object like this:"
+    : "You may include a fenced pages-report block with a JSON object like this to describe progress:";
 }
 
 function renderTodoAssignment(assignment: AgentPlanAssignment): string {
@@ -254,9 +276,8 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
     "",
     "### Closing message",
     "Finish with a short summary: the todos you completed, the todos that stay open and why, and your decisions. Pages shows ticket todos as they are checked after your turn.",
-    assignment.requiresAcceptance
-      ? "Include this pages-report block; it is also the record of todos without a ticket entry:"
-      : "A pages-report block is optional and only shown. It is the only record of a todo without a ticket entry:",
+    ...(assignment.usesMcp ? [STEP_REPORT_LINE] : []),
+    todoReportLead(assignment),
     "```pages-report",
     example,
     "```",
@@ -315,9 +336,8 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
     "### Closing message and optional progress report",
     "Summarize completed and open work honestly, including missing evidence and your decisions.",
     completionInstruction(assignment),
-    assignment.requiresAcceptance
-      ? "Include a fenced pages-report block with a JSON object like this:"
-      : "You may include a fenced pages-report block with a JSON object like this to describe progress:",
+    ...(assignment.usesMcp ? [STEP_REPORT_LINE] : []),
+    reportLead(assignment),
     "```pages-report",
     example,
     "```",

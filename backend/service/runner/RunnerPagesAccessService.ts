@@ -15,6 +15,7 @@ import {
   planSessionScope,
 } from "@/backend/service/agents/AgentPlanSessionAccess";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
+import { AGENT_STEP_REPORT_OPERATION } from "@/definition/AgentPlanStepReport";
 
 import { RunnerAssetUploads } from "./RunnerAssetUploads";
 
@@ -556,6 +557,11 @@ export class RunnerPagesAccessService {
       return {
         isError: true,
         code: error instanceof AgentOperationError ? error.code : "FORBIDDEN",
+        // A refused step report is only useful when the agent learns what to correct.
+        ...(error instanceof AgentOperationError &&
+        entry.operation === AGENT_STEP_REPORT_OPERATION
+          ? { details: error.details }
+          : {}),
       };
     } finally {
       const attemptId = access.run.steps.find(

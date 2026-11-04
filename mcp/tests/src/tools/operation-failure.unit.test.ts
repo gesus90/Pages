@@ -390,3 +390,45 @@ describe("operationFailure plan findings", () => {
     expect(failure?.details).toEqual({ reason: "graph_invalid", issues });
   });
 });
+
+describe("operationFailure step report problems", () => {
+  it.each([
+    ["step_report_invalid", "INVALID_REQUEST", 400],
+    ["step_report_foreign", "FORBIDDEN", 403],
+    ["step_report_closed", "CONFLICT", 409],
+  ])(
+    "keeps what %s asks the agent to correct",
+    async (reason, code, status) => {
+      const problems = ["todos: T9 is no todo of this step (T1)"];
+      const failure = await operationFailure(
+        failureResponse(status, { code, details: { reason, problems } }),
+      );
+      expect(failure?.details).toEqual({ reason, problems });
+    },
+  );
+
+  it.each([
+    ["no list", "text"],
+    ["too many entries", Array.from({ length: 51 }, () => "text")],
+    ["an entry that is no text", [1]],
+    ["an entry that is too long", ["x".repeat(501)]],
+  ])("drops problems with %s", async (_, problems) => {
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: { reason: "step_report_invalid", problems },
+      }),
+    );
+    expect(failure?.details).toEqual({ reason: "step_report_invalid" });
+  });
+
+  it("keeps a step report reason without problems", async () => {
+    const failure = await operationFailure(
+      failureResponse(400, {
+        code: "INVALID_REQUEST",
+        details: { reason: "step_report_invalid" },
+      }),
+    );
+    expect(failure?.details).toEqual({ reason: "step_report_invalid" });
+  });
+});

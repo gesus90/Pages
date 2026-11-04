@@ -16,7 +16,10 @@ const EFFECTS =
 
 /** What each finding of the acceptance means, so the agent can act on it without knowing Pages. */
 const ISSUE_MEANINGS: readonly (readonly [RegExp, string])[] = [
-  [/^report_missing$/u, "your final answer has no pages-report block"],
+  [
+    /^report_missing$/u,
+    "you neither called report_step_result nor wrote a pages-report block",
+  ],
   [
     /^report_invalid$/u,
     "the pages-report block is no valid JSON or lacks its todos or criteria list",
@@ -41,9 +44,19 @@ const ISSUE_MEANINGS: readonly (readonly [RegExp, string])[] = [
   [/^business_/u, "your answer declares the work as not finished"],
 ];
 
-function issueLine(issue: string): string {
+/**
+ * One finding of the acceptance, in words an agent can act on.
+ *
+ * @param issue - The stable code of the finding.
+ * @returns The code with its meaning; a code without a known meaning stays as it is.
+ */
+export function describePlanIssue(issue: string): string {
   const meaning = ISSUE_MEANINGS.find(([pattern]) => pattern.test(issue))?.[1];
-  return meaning ? `- ${issue}: ${meaning}` : `- ${issue}`;
+  return meaning ? `${issue}: ${meaning}` : issue;
+}
+
+function issueLine(issue: string): string {
+  return `- ${describePlanIssue(issue)}`;
 }
 
 /** The concrete error an agent gets back: what failed and every finding of the acceptance. */

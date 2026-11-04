@@ -183,6 +183,12 @@ historischer Vertrag oder Verlust der ausführenden Engine gibt keinen Nachfolge
 frei. Die tatsächliche Prozessausgabe und der Closeout bleiben diagnostizierbar;
 der Lauf wird nicht automatisch erneut gestartet.
 
+Der vorgesehene Weg für das Ergebnis ist das MCP-Werkzeug `report_step_result`,
+das die Runner-Brücke wie jedes Werkzeug zu Pages weiterleitet. Pages hält das
+Ergebnis je Versuch in `agent_plan_step_reports`, damit es einen Pages-Neustart
+während des Remote-Auftrags übersteht, und bevorzugt es vor dem Text. Der
+`pages-report` bleibt als Rückfall, auch für ältere Runner.
+
 Die Konsole liest zunächst ein aktuelles Fenster und hält höchstens **150 Ereignisse** in Zustand und DOM. Frühere Abschnitte kommen per exklusivem `before`-Cursor; SSE-Reconnect verwendet den letzten bestätigten Sequenzwert. Manuelles Lesen oder Textauswahl hält das Fenster fest. „Neueste Ausgabe verfolgen“ springt wieder zum Ende. Laden, Retention und Lesefehler werden angezeigt. Der Download unter dem bestehenden Session-Pfad (`/download`) liest höchstens 32 öffentliche Ereignisse je Pull aus den Chunks. Er bildet keinen vollständigen JSON-String oder Browser-Blob. Jede Seite prüft die aktuellen Run-/Ressourcenrechte erneut; private Rohchunks und deren Indizes haben keinen Browser-Endpunkt.
 
 Keine feste Gesamtausgabegrenze bedeutet **keine unendliche Platte**. Vor einem neuen privaten Chunk prüft der Runner 4 MiB Platz plus 8 MiB Reserve; ENOSPC, EDQUOT, EACCES, EROFS und EIO sind Fehler mit erhaltenem bestätigtem Präfix. Pages-Schreibfehler lassen die Transaktion zurückrollen und halten das ACK zurück; der Runner behält den Beleg. Abgeschlossene Chunks gehören weiterhin zum jeweiligen Job-/Run-Lebenszyklus; die Projektlöschung entfernt auch dessen öffentliche Chunks. Es werden keine fremden Läufe oder Dateien zur Platzbeschaffung gelöscht. Für isolierte Nachweise kann `PAGES_RUNNER_DIRECTORY` einen neuen absoluten privaten Runnerordner wählen; der Standard bleibt `~/.config/pages-runner`.

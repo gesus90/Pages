@@ -32,6 +32,9 @@ import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { ProjectDeletionStorage } from "@/backend/service/project/ProjectDeletionStorage";
 import { AnnouncingTaskService } from "@/backend/service/AnnouncingTaskService";
+import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
+import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
+import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import { TaskGitHubPublisher } from "@/backend/service/task/TaskGitHubPublisher";
 import { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder";
@@ -407,7 +410,7 @@ async function startMcpWorkspace(context: {
   /** The ticket services, whose GitHub synchronization and event publisher the workspace shares. */
   readonly tasks: Pick<
     ApplicationServices,
-    "gitHubSyncService" | "pagesEventPublisher"
+    "gitHubSyncService" | "pagesEventPublisher" | "taskService"
   >;
   readonly serverCache: ServerCache;
   readonly tokenKey: Buffer;
@@ -430,6 +433,10 @@ async function startMcpWorkspace(context: {
     agentWorkspaces: context.agents.agentWorkspaceService,
     pageAgents: context.agents.pageAgentService,
     plans: context.agents.agentPlanService,
+    stepReports: new AgentPlanStepReportService(
+      new AgentPlanStepReportRepository(context.database),
+      new AgentPlanTasks(context.tasks.taskService, users),
+    ),
     planRecovery: context.agents.agentPlanRecoveryService,
     planSessions: context.agents.agentSessionService,
     instanceAdministration: {

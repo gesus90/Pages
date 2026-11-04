@@ -19,6 +19,7 @@ const WRITING_TOOLS = [
 ];
 const ADDITIVE_TOOL_NAMES = [
   "prepare_asset_upload",
+  "report_step_result",
   "create_wiki_page",
   "apply_wiki_import",
   "apply_structured_import",

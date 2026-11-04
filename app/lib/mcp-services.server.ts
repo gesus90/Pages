@@ -55,6 +55,7 @@ import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTo
 
 import { runnerAssetUpload } from "./agent-asset-return.server";
 
+import type { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { ChatInstanceAdministrationDependencies } from "@/backend/service/agents/ChatInstanceAdministrationService";
 import type { AgentPlanningServices } from "@/backend/service/agents/AgentPlanningServices";
@@ -338,14 +339,21 @@ function createBinaryAssetServices(input: {
   readonly identities: AgentIdentityService;
   readonly personalAgentTokenService: PersonalAgentTokenService;
   readonly workspace: Parameters<typeof createAssetServices>[1];
+  readonly stepReports: AgentPlanStepReportService | undefined;
 }): ReturnType<typeof createAssetServices> & {
   readonly apiFor: (operations: AgentOperationRouter) => PagesAgentApiService;
   readonly runCredentials: AgentRunCredentialService;
   readonly agentUploadTicketService: AgentUploadTicketService;
   readonly agentAssetDownloadService: AgentAssetDownloadService;
 } {
-  const { database, users, identities, personalAgentTokenService, workspace } =
-    input;
+  const {
+    database,
+    users,
+    identities,
+    personalAgentTokenService,
+    workspace,
+    stepReports,
+  } = input;
   const runCredentials = new AgentRunCredentialService(
     new AgentRunCredentialRepository(database),
     identities,
@@ -378,6 +386,7 @@ function createBinaryAssetServices(input: {
         {
           runs: runCredentials,
           workGate: new AgentPlanWorkGate(database, users),
+          stepReports,
           downloads: agentAssetDownloadService,
           upload: runnerAssetUpload(async () => ({
             agentUploadTicketService,
@@ -410,6 +419,8 @@ interface McpWorkspace {
   readonly pageAgents: PageAgentService;
   /** The agent plans shared by MCP clients and the signed-in chat. */
   readonly plans: AgentPlanService;
+  /** Takes what a plan session reports through `report_step_result`. */
+  readonly stepReports?: AgentPlanStepReportService;
   readonly planRecovery?: AgentPlanRecoveryService;
   readonly planSessions?: AgentSessionService;
   /** The connection and instance settings services the chat administration uses. */
@@ -441,6 +452,7 @@ export function createMcpServices(
     identities,
     personalAgentTokenService,
     workspace,
+    stepReports: workspace.stepReports,
   });
   const pagesEventPublisher = workspace.events ?? new PagesEventPublisher();
   const creation = {

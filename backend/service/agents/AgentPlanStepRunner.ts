@@ -32,7 +32,7 @@ import {
   AgentPlanGroupSessions,
   type GroupSessionResume,
 } from "./AgentPlanGroupSessions";
-import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
+import { AgentPlanTurnReports } from "./AgentPlanTurnReports";
 import { buildPlanContract } from "./AgentPlanContract";
 import {
   buildPlanSessionInput,
@@ -76,6 +76,7 @@ import type {
 } from "./AgentPlanStepStart";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
+import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
 import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
@@ -89,6 +90,8 @@ interface StepRunnerDependencies {
   readonly tasks: Pick<AgentPlanTasks, "checklist"> &
     Partial<Pick<AgentPlanTasks, "snapshot">>;
   readonly access: Pick<AgentPlanSessionAccess, "grant" | "revoke">;
+  /** Takes what a session reports through `report_step_result`. */
+  readonly stepReports?: Pick<AgentPlanStepReportService, "open" | "close">;
   readonly archive?: Pick<AgentRunArchive, "input">;
   /** Records the PageAgentCLI history and usage of every ACP node. */
   readonly sessions?: Pick<
@@ -111,14 +114,17 @@ interface StepRunnerDependencies {
 export class AgentPlanStepRunner {
   private readonly dependencies: StepRunnerDependencies;
   private readonly groups: AgentPlanGroupSessions;
-  private readonly assessment: AgentPlanStepAssessment;
+  private readonly turnReports: AgentPlanTurnReports;
   private readonly retained = new Map<string, NodeRun[]>();
   private readonly groupInputs = new Map<string, Promise<AgentPlanSnapshot>>();
 
   public constructor(dependencies: StepRunnerDependencies) {
     this.dependencies = dependencies;
     this.groups = new AgentPlanGroupSessions(dependencies.execution);
-    this.assessment = new AgentPlanStepAssessment(dependencies.tasks);
+    this.turnReports = new AgentPlanTurnReports(
+      dependencies.stepReports,
+      dependencies.tasks,
+    );
   }
 
   /**
@@ -351,6 +357,8 @@ export class AgentPlanStepRunner {
           reach,
           canSetStatus: step.step.completion === "todos",
         });
+    const terms = { contract, reach, instruction };
+    if (mcp) await this.turnReports.open(node, prepared, terms);
     const input = await buildPlanSessionInput(
       node,
       prepared,
@@ -379,7 +387,7 @@ export class AgentPlanStepRunner {
     this.offerInstructions(node, groupKey, input);
     node.hasStarted = true;
     try {
-      return await this.finish(node, session, { contract, reach, instruction });
+      return await this.finish(node, session, terms);
     } catch (error: unknown) {
       logCaughtError("AgentPlanStepRunner", error);
 
@@ -448,14 +456,8 @@ export class AgentPlanStepRunner {
     const turn = await session.turn;
     if (node.record) node.record = withTurn(node.record, turn);
     await this.dependencies.sessions?.settle(node.record, turn);
-    const assessed =
-      turn.failure === null && turn.errorCode === null
-        ? await this.assessment.assess(terms, turn.output, {
-            userId: node.run.userId,
-            projectId: node.snapshot.plan.projectId,
-            provider: node.step.provider,
-          })
-        : null;
+    const reported = await this.turnReports.assess(node, turn, terms);
+    const { assessed, output } = reported;
     const acceptance = assessed?.acceptance ?? null;
     const outcome = planAcceptanceOutcome(node, acceptance);
     const acceptanceFailure = outcome.failure;
@@ -469,7 +471,7 @@ export class AgentPlanStepRunner {
     if (!acceptanceFailure && this.retain(node, turn))
       return {
         status: "succeeded",
-        output: sanitizePlanOutput(turn.output),
+        output,
         error: null,
         session: node.record,
         ...passed,
@@ -482,7 +484,6 @@ export class AgentPlanStepRunner {
       ...closedSessionChanges(closed),
       resultCode: failure === null ? 0 : -1,
     });
-    const output = sanitizePlanOutput(turn.output);
     if (isConfirmedPlanCancellation(turn, closed, node.control.signal))
       return {
         status: "cancelled",

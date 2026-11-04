@@ -661,8 +661,8 @@ records, are destructive; purely additive operations are not. This includes
 checklist changes, comment resolution, plan parameter updates and Pause.
 Play and Resume also set `openWorldHint: true` because they may invoke models
 or affect a workspace. All other tools are limited to Pages records. Journaled
-writes are idempotent through `operationId`; `delete_chat_sessions` and
-`prepare_asset_upload` are the two exceptions. Hints describe the contract;
+writes are idempotent through `operationId`; `delete_chat_sessions`,
+`prepare_asset_upload` and `report_step_result` are the exceptions. Hints describe the contract;
 client confirmation dialogs depend on the client, and Pages still checks rights
 and any required typed confirmation on every call.
 
@@ -2495,6 +2495,26 @@ Large results use the same snapshot-bound `cursor`, UTF-8 chunks and SHA-256 as
 then join the chunks before parsing JSON. A changed attempt invalidates its old
 cursor. This is stored run evidence, not a live stream, complete session-event
 history; run-scoped credentials cannot use this read.
+
+`report_step_result` exists only for the credential of a running plan session
+and is neither listed for nor callable with a personal credential, OAuth or the
+chat. It reports the result of the step that session runs: the credential names
+the run and the step, and a session group's credential counts for the member
+whose turn runs. `status` (`done` or `blocked`) and `message` are required;
+`todos` (`id`, `status`), `criteria` (`id`, `met`, `evidence`), `decisions` and
+`summary` carry the rest. Optional `runId` and `stepId` only refuse a call meant
+for another run or step with `FORBIDDEN`. Pages checks each call at once, so a
+`done` needs every todo done and every criterion met with real evidence, and
+checked ticket entries where the session can check them. A refused call sets
+nothing and answers `INVALID_REQUEST`, `FORBIDDEN` or `CONFLICT` with
+`details.reason` (`step_report_invalid`, `step_report_foreign` or
+`step_report_closed`) and `details.problems`, which name what to correct. A valid
+call is the result of the step, whatever the closing text says, and a later call
+of the same attempt replaces it; a new attempt starts without a result. After the
+turn the same conditions are checked again against the current tickets.
+Without a call the `pages-report` block of the final answer still counts, so
+older plans and runners keep working. The tool carries additive hints because it
+changes only the session's own result, and a read-only session may call it.
 
 `read_plan_run_checkpoint` reads one immutable completion of the connected
 executor's run, after the same current plan and resource checks as recovery.

@@ -52,6 +52,17 @@ function propertiesOf(schema: Schema): [string, unknown][] {
   );
 }
 
+// These writes are not replayed by an operation id: a chat deletion is bound to
+// the person's own confirmation, an upload to its one-use ticket, the ticket work
+// record to its expected metadata revision, and a step report replaces the earlier
+// one of its attempt anyway.
+const WITHOUT_OPERATION_ID = [
+  "delete_chat_sessions",
+  "prepare_asset_upload",
+  "save_ticket_work",
+  "report_step_result",
+];
+
 describe("the MCP tool catalog", () => {
   const tools = TOOL_ENTRIES.map((entry) => entry.tool);
   const objects = tools.flatMap((tool) =>
@@ -134,14 +145,6 @@ describe("the MCP tool catalog", () => {
   });
 
   it("marks reads as read-only and requires an operation id for every write", () => {
-    // These writes are not replayed by an operation id: a chat deletion is
-    // bound to the person's own confirmation, an upload to its one-use ticket,
-    // and the ticket work record to its expected metadata revision.
-    const withoutOperationId = [
-      "delete_chat_sessions",
-      "prepare_asset_upload",
-      "save_ticket_work",
-    ];
     for (const tool of tools) {
       const names = Object.keys(tool.inputSchema.properties ?? {});
       if (tool.annotations?.readOnlyHint === true) {
@@ -149,7 +152,7 @@ describe("the MCP tool catalog", () => {
         expect(names, tool.name).not.toContain("operationId");
       } else {
         expect(tool.annotations?.readOnlyHint, tool.name).toBe(false);
-        if (!withoutOperationId.includes(tool.name))
+        if (!WITHOUT_OPERATION_ID.includes(tool.name))
           expect(tool.inputSchema.required, tool.name).toContain("operationId");
       }
     }

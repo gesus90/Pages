@@ -138,6 +138,7 @@ export async function deleteProjectAgentData(
     "agent_plan_cleanup_failures",
     "agent_workspace_cleanup",
     "agent_plan_work",
+    "agent_plan_step_reports",
     "pica_mobile_notification_deliveries",
     "pica_mobile_notification_occurrences",
     "pica_mobile_notification_sequences",

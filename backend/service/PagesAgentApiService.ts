@@ -6,6 +6,7 @@ import { loggedOperation } from "@/backend/logging/LoggedOperation";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { AGENT_STEP_REPORT_OPERATION } from "@/definition/AgentPlanStepReport";
 
 import { resolveAgentTicketReference } from "./agents/AgentTicketValidation";
 import {
@@ -14,6 +15,7 @@ import {
   sessionOperations,
 } from "./mcp/AgentOperationCatalog";
 
+import type { AgentPlanStepReportService } from "./agents/AgentPlanStepReportService";
 import type { AgentPlanWorkGate } from "./agents/AgentPlanWorkGate";
 import type { AgentTicketAssetService } from "./agents/AgentTicketAssetService";
 import type { AgentAsset } from "@/definition/PagesAgentWrites";
@@ -70,6 +72,7 @@ function isRunTicketCall(scope: AgentRunScope, parameters: unknown): boolean {
 /** Verifies personal stdio credentials and dispatches the implemented operations. */
 export class PagesAgentApiService {
   private readonly workGate: AgentPlanWorkGate | undefined;
+  private readonly stepReports: AgentPlanStepReportService | undefined;
   private readonly personal: PersonalAgentTokenService;
   private readonly projects: AgentProjectService;
   private readonly operations: AgentOperationRouter;
@@ -85,6 +88,7 @@ export class PagesAgentApiService {
     capabilities:
       | {
           readonly workGate?: AgentPlanWorkGate;
+          readonly stepReports?: AgentPlanStepReportService;
           readonly runs?: AgentRunCredentialService;
           readonly downloads?: AgentAssetDownloadService;
           readonly upload?: (
@@ -95,25 +99,19 @@ export class PagesAgentApiService {
       | AgentRunCredentialService
       | null = null,
   ) {
-    this.workGate =
-      capabilities && !("verify" in capabilities)
-        ? capabilities.workGate
-        : undefined;
+    const named =
+      capabilities && !("verify" in capabilities) ? capabilities : null;
+    this.workGate = named?.workGate;
+    this.stepReports = named?.stepReports;
     this.personal = personal;
     this.projects = projects;
     this.operations = operations;
-    this.publish =
-      capabilities && !("verify" in capabilities)
-        ? capabilities.upload
-        : undefined;
+    this.publish = named?.upload;
     this.runs =
       capabilities && "verify" in capabilities
         ? capabilities
-        : (capabilities?.runs ?? null);
-    this.downloads =
-      capabilities && "verify" in capabilities
-        ? null
-        : (capabilities?.downloads ?? null);
+        : (named?.runs ?? null);
+    this.downloads = named?.downloads ?? null;
   }
 
   /** Receives only the private runner binary channel; the upload capability revalidates its originating scope. */
@@ -265,16 +263,29 @@ export class PagesAgentApiService {
         credential: null,
         tools: allowed,
       };
-    if (
-      !allowed.some((operation) => operation === input.operation) ||
-      (scope.reach === "tickets" && !isRunTicketCall(scope, input.parameters))
-    )
+    if (!allowed.some((operation) => operation === input.operation))
+      throw new AgentOperationError("FORBIDDEN");
+    if (input.operation === AGENT_STEP_REPORT_OPERATION)
+      return this.reportStep(identity, input.parameters);
+    if (scope.reach === "tickets" && !isRunTicketCall(scope, input.parameters))
       throw new AgentOperationError("FORBIDDEN");
     if (input.operation === "assets.upload.prepare")
       return this.operations.prepareUpload(identity, token, input.parameters);
     if (input.operation === "assets.download.prepare")
       return this.prepareDownload(identity, token, input.parameters);
     return this.dispatch(identity, token, input);
+  }
+
+  /** The credential alone names the run and the step, so this operation has no ticket to check. */
+  private async reportStep(
+    identity: AgentIdentity,
+    parameters: unknown,
+  ): Promise<PagesAgentReadResponse> {
+    if (!this.stepReports) throw new AgentOperationError("FORBIDDEN");
+    return {
+      apiVersion: "1",
+      result: await this.stepReports.report(identity, parameters),
+    };
   }
 
   private async prepareDownload(

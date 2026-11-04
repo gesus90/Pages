@@ -191,6 +191,9 @@ function readAcceptance(input: unknown): AgentPlanAcceptance | null {
     decisions: texts(acceptance.decisions, 50),
     issues: texts(acceptance.issues, 500),
     summary: text(acceptance.summary),
+    ...(typeof acceptance.message === "string"
+      ? { message: text(acceptance.message) }
+      : {}),
   };
 }
 

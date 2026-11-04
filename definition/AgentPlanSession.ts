@@ -114,6 +114,8 @@ export interface AgentPlanAcceptance {
   /** Stable progress and report issue codes used by the group's acceptance gate. */
   readonly issues: readonly string[];
   readonly summary: string;
+  /** What the agent said through `report_step_result`; absent for a text report. */
+  readonly message?: string;
 }
 
 /** How the process of a session ended. */

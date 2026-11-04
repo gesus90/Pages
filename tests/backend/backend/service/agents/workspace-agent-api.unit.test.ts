@@ -150,7 +150,9 @@ it("does not offer or run them for the credential of an agent plan session", asy
     parameters: {},
   });
 
-  expect(offered).toMatchObject({ tools: ["ticket.read"] });
+  expect(offered).toMatchObject({
+    tools: ["ticket.read", "run.step.report"],
+  });
   await expect(
     api().handle("session-token", {
       operation: "workspaces.list",

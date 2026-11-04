@@ -1,5 +1,6 @@
 import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation.js";
 
+import type { AgentPlanStepReportReceipt } from "./AgentPlanStepReport.js";
 import type { AgentPlanWorkView } from "./AgentPlanWork.js";
 import type { AgentPlanCleanupFailure } from "./AgentPlanCleanupResource.js";
 import type { AgentAssetDownload } from "./AgentAssetTransfer.js";
@@ -192,6 +193,7 @@ export interface PagesAgentReadResponse {
   readonly apiVersion: "1";
   readonly result:
     | AgentPlanWorkView
+    | AgentPlanStepReportReceipt
     | AgentAssetDownload
     | AgentProjectReference
     | AgentProjectList
@@ -339,10 +341,25 @@ export const AGENT_REJECTION_REASONS = [
   "checklist_items_invalid",
   "checklist_item_duplicate",
   "checklist_item_unknown",
+  "step_report_invalid",
+  "step_report_foreign",
+  "step_report_closed",
 ] as const;
 
 export interface AgentRejectionReason {
   readonly reason: (typeof AGENT_REJECTION_REASONS)[number];
+}
+
+/** Why `report_step_result` refused a call. */
+export type StepReportRejectionReason = Extract<
+  (typeof AGENT_REJECTION_REASONS)[number],
+  "step_report_invalid" | "step_report_foreign" | "step_report_closed"
+>;
+
+/** A refused step report; every problem says what the agent has to correct. */
+export interface AgentStepReportRejection {
+  readonly reason: StepReportRejectionReason;
+  readonly problems: readonly string[];
 }
 
 /** The graph check refused a plan; every finding names its node and port. */
@@ -363,5 +380,6 @@ export type AgentOperationDetails =
   | AgentLimitDetails
   | AgentRevisionConflict
   | AgentRejectionReason
+  | AgentStepReportRejection
   | AgentPlanCleanupRejection
   | AgentPlanGraphRejection;

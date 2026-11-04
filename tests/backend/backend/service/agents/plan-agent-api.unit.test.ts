@@ -148,7 +148,9 @@ it("does not offer or run plan operations for the credential of a plan session",
     parameters: {},
   });
 
-  expect(offered).toMatchObject({ tools: ["ticket.read"] });
+  expect(offered).toMatchObject({
+    tools: ["ticket.read", "run.step.report"],
+  });
   await expect(
     api().handle("session-token", {
       operation: "plans.list",

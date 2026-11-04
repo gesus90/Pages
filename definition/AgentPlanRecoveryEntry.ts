@@ -3,6 +3,13 @@ import type {
   AgentPlanCleanupFailureRecord,
 } from "./AgentPlanCleanupResource.js";
 
+/** Where the automatic continuation of a run that a restart interrupted stands. */
+export interface AgentPlanAutomaticResume {
+  readonly state: "pending" | "started" | "stopped";
+  /** Why it stopped: a recovery option, a recovery error or a code of the run. */
+  readonly reason?: string;
+}
+
 /** Existing recovery availability, projected without checkpoints, prompts or provider-session identifiers. */
 export interface AgentPlanRecoveryEntry {
   readonly planId: string;

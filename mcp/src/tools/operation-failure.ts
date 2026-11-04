@@ -13,6 +13,8 @@ import type {
   AgentPlanGraphRejection,
   AgentProjectCandidates,
   AgentRejectionReason,
+  AgentStepReportRejection,
+  StepReportRejectionReason,
 } from "../../../definition/PagesAgentOperations.js";
 
 /** Every reason of the contract, so a new one cannot be left out of the whitelist unnoticed. */
@@ -74,6 +76,16 @@ const REJECTION_REASONS: Readonly<
   checklist_items_invalid: true,
   checklist_item_duplicate: true,
   checklist_item_unknown: true,
+  step_report_invalid: true,
+  step_report_foreign: true,
+  step_report_closed: true,
+};
+
+/** The reasons whose problems tell an agent what to correct in its step report. */
+const STEP_REPORT_REASONS: Readonly<Record<StepReportRejectionReason, true>> = {
+  step_report_invalid: true,
+  step_report_foreign: true,
+  step_report_closed: true,
 };
 
 /** Every finding of the plan graph check, so a refused plan names what to fix. */
@@ -161,6 +173,8 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
 
 /** Findings a refusal carries at most. */
 const MAXIMUM_ISSUES = 50;
+/** The length of one step report problem, as Pages bounds it. */
+const MAXIMUM_PROBLEM_TEXT = 500;
 
 function isRejectionReason(
   input: unknown,
@@ -322,10 +336,39 @@ function readIssues(input: unknown): AgentPlanIssueEntry[] | undefined {
   return issues;
 }
 
+function isStepReportReason(
+  input: unknown,
+): input is StepReportRejectionReason {
+  return typeof input === "string" && Object.hasOwn(STEP_REPORT_REASONS, input);
+}
+
+/** The problems of a refused step report, or `undefined` when any of them is malformed. */
+function readProblems(input: unknown): readonly string[] | undefined {
+  if (!Array.isArray(input) || input.length > MAXIMUM_ISSUES) return undefined;
+  const problems: string[] = [];
+  for (const entry of input) {
+    if (typeof entry !== "string" || entry.length > MAXIMUM_PROBLEM_TEXT)
+      return undefined;
+    problems.push(entry);
+  }
+  return problems;
+}
+
+function readStepReportRejection(
+  input: object,
+): AgentStepReportRejection | undefined {
+  if (!("reason" in input) || !isStepReportReason(input.reason))
+    return undefined;
+  const problems =
+    "problems" in input ? readProblems(input.problems) : undefined;
+  return problems && { reason: input.reason, problems };
+}
+
 function readReason(
   input: unknown,
 ):
   | AgentRejectionReason
+  | AgentStepReportRejection
   | AgentPlanGraphRejection
   | AgentPlanCleanupRejection
   | undefined {
@@ -339,6 +382,8 @@ function readReason(
     const cleanupFailure = readPlanCleanupFailure(input.cleanupFailure);
     if (cleanupFailure) return { reason: input.reason, cleanupFailure };
   }
+  const stepReport = readStepReportRejection(input);
+  if (stepReport) return stepReport;
   if (input.reason !== "graph_invalid" || !("issues" in input))
     return { reason: input.reason };
   const issues = readIssues(input.issues);

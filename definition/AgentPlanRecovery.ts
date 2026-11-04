@@ -6,6 +6,9 @@ import type {
   AgentPlanCleanupResource,
   AgentPlanCleanupFailureRecord,
 } from "./AgentPlanCleanupResource";
+import type { AgentPlanAutomaticResume } from "./AgentPlanRecoveryEntry";
+
+export type { AgentPlanAutomaticResume } from "./AgentPlanRecoveryEntry";
 
 /** Additive reasons keep older run statuses readable without reopening old failures. */
 export interface AgentPlanRecoveryReason {
@@ -13,13 +16,6 @@ export interface AgentPlanRecoveryReason {
   readonly requiresReconciliation: boolean;
   /** Set for a run a server restart interrupted, which continues on its own within its budget. */
   readonly automaticResume?: AgentPlanAutomaticResume;
-}
-
-/** Where the automatic continuation of a run that a restart interrupted stands. */
-export interface AgentPlanAutomaticResume {
-  readonly state: "pending" | "started" | "stopped";
-  /** Why it stopped: a recovery option, a recovery error or a code of the run. */
-  readonly reason?: string;
 }
 
 export type AgentPlanFailureClass =

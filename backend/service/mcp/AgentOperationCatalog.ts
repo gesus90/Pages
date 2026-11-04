@@ -1,4 +1,5 @@
 import { AGENT_ADMIN_READ_OPERATIONS } from "@/definition/AgentAdministration";
+import { AGENT_STEP_REPORT_OPERATION } from "@/definition/AgentPlanStepReport";
 import { AGENT_EXTENSION_READ_OPERATIONS } from "@/definition/AgentExtensions";
 import {
   AGENT_PROJECT_DELETION_READ_OPERATIONS,
@@ -133,13 +134,15 @@ function forSession(
  * @returns For the `tickets` reach the listed ticket operations; for `read`
  * every reading operation; for `full` every operation of the executor except
  * the upload, which only a personal credential completes. Whatever the reach,
- * never the deletion of a project, which needs a person at a keyboard.
+ * never the deletion of a project, which needs a person at a keyboard, and
+ * always the report of the session's own step, which a personal credential
+ * never has.
  */
 export function sessionOperations(
   scope: AgentRunScope,
   isAdmin: boolean,
 ): readonly PagesAgentApiBusinessOperation[] {
-  return forSession(scope, isAdmin).filter(
+  const operations = forSession(scope, isAdmin).filter(
     (operation) =>
       !AGENT_PLAN_COMMAND_OPERATIONS.some((command) => command === operation) &&
       !AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS.some(
@@ -157,4 +160,5 @@ export function sessionOperations(
         (deletion) => deletion === operation,
       ),
   );
+  return [...operations, AGENT_STEP_REPORT_OPERATION];
 }

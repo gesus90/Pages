@@ -11,6 +11,7 @@ import type {
   AgentPlanCriterionStatus,
   AgentPlanTodoStatus,
 } from "@/definition/AgentPlanSession";
+import type { AgentPlanStepReport } from "@/definition/AgentPlanStepReport";
 
 const REPORT_BLOCK = /```pages-report[^\n]*\n([\s\S]*?)\n```/gu;
 const MAXIMUM_REPORT_TEXT = 2_000;
@@ -92,6 +93,25 @@ function readPlanReport(output: string): PlanReport | "invalid" | null {
         )
       : null,
     decisions: (Array.isArray(report.decisions) ? report.decisions : [])
+      .map(shortText)
+      .filter(Boolean)
+      .slice(0, MAXIMUM_DECISIONS),
+    summary: shortText(report.summary),
+  };
+}
+
+/** The report of a `report_step_result` call, which is complete by its form. */
+function toolReport(report: AgentPlanStepReport): PlanReport {
+  return {
+    hasTodos: true,
+    todos: new Map(report.todos.map((todo) => [todo.id, todo.status])),
+    criteria: new Map(
+      report.criteria.map((criterion) => [
+        criterion.id,
+        { met: criterion.met, evidence: shortText(criterion.evidence) },
+      ]),
+    ),
+    decisions: report.decisions
       .map(shortText)
       .filter(Boolean)
       .slice(0, MAXIMUM_DECISIONS),
@@ -219,12 +239,34 @@ export function explicitPlanBlocker(output: string): string | null {
   return null;
 }
 
+function reportFormIssue(
+  contract: AgentPlanContract,
+  parsed: PlanReport | "invalid" | null,
+): string | null {
+  if (parsed === null) return "report_missing";
+  return parsed === "invalid" ||
+    !parsed.hasTodos ||
+    (contract.criteria.length > 0 && parsed.criteria === null)
+    ? "report_invalid"
+    : null;
+}
+
+/** The blocker of the result that counts: a tool result says it itself, and text no longer overrules it. */
+function reportedBlocker(
+  output: string,
+  stepReport: AgentPlanStepReport | null,
+): string | null {
+  if (!stepReport) return explicitPlanBlocker(output);
+  return stepReport.status === "blocked" ? "blocked" : null;
+}
+
 /**
  * Describes business progress independently of the runner's execution result.
  *
  * @param contract - The current todos and criteria, reconciled with the sent report IDs.
  * @param output - The final answer of the agent.
  * @param states - The checklist entries of the bound tickets, read after the turn.
+ * @param stepReport - The result of a `report_step_result` call; it takes precedence over the final answer.
  * @returns Diagnostic progress, including missing reports and open or unproven work.
  *
  * @remarks
@@ -237,22 +279,18 @@ export function evaluatePlanAcceptance(
   contract: AgentPlanContract,
   output: string,
   states: AgentPlanTicketStates,
+  stepReport: AgentPlanStepReport | null = null,
 ): AgentPlanAcceptance {
-  const parsed = readPlanReport(output);
+  const parsed = stepReport ? toolReport(stepReport) : readPlanReport(output);
   const report = parsed === "invalid" ? null : parsed;
   const issues: string[] = states.unreadable.map(
     (key) => `ticket_unreadable:${key}`,
   );
   issues.push(...states.changed.map((key) => `ticket_changed:${key}`));
-  const blocker = explicitPlanBlocker(output);
+  const blocker = reportedBlocker(output, stepReport);
   if (blocker) issues.push(`business_${blocker}`);
-  if (parsed === null) issues.push("report_missing");
-  else if (
-    parsed === "invalid" ||
-    !parsed.hasTodos ||
-    (contract.criteria.length > 0 && parsed.criteria === null)
-  )
-    issues.push("report_invalid");
+  const formIssue = reportFormIssue(contract, parsed);
+  if (formIssue) issues.push(formIssue);
   const todos = contract.todos.map((todo) =>
     todoStatus(todo, report, issues, states),
   );
@@ -266,7 +304,22 @@ export function evaluatePlanAcceptance(
     decisions: report?.decisions ?? [],
     issues,
     summary: report?.summary ?? "",
+    ...(stepReport ? { message: shortText(stepReport.message) } : {}),
   };
+}
+
+/**
+ * The output of a step that reported through the tool.
+ *
+ * @param output - The final answer of the agent.
+ * @param stepReport - The reported result, if there is one.
+ * @returns The final answer; a session that reported and then said nothing hands its message on, so successors have something to read.
+ */
+export function planStepOutput(
+  output: string,
+  stepReport: AgentPlanStepReport | null,
+): string {
+  return output.trim() === "" && stepReport ? stepReport.message : output;
 }
 
 function todoListStatus(
@@ -290,6 +343,7 @@ function todoListStatus(
  * @param contract - The current todo list of the node.
  * @param output - The final answer; an optional report describes unbound todos and decisions.
  * @param states - The checklist entries of the bound tickets, read after the turn.
+ * @param stepReport - The result of a `report_step_result` call; it takes precedence over the final answer.
  * @returns Diagnostic progress without an execution verdict.
  *
  * @remarks
@@ -302,6 +356,7 @@ export function evaluateTodoCompletion(
   contract: AgentPlanContract,
   output: string,
   states: AgentPlanTicketStates,
+  stepReport: AgentPlanStepReport | null = null,
 ): AgentPlanAcceptance {
-  return evaluatePlanAcceptance(contract, output, states);
+  return evaluatePlanAcceptance(contract, output, states, stepReport);
 }

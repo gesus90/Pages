@@ -1,3 +1,4 @@
+import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { DATABASE_PATH, servicesWorld } from "./services-fixture";
@@ -384,6 +385,7 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
       agentWorkspaces: world.agents.agentWorkspaceService,
       pageAgents: world.agents.pageAgentService,
       plans: world.plans.agentPlanService,
+      stepReports: expect.any(AgentPlanStepReportService) as unknown,
       planRecovery: world.plans.agentPlanRecoveryService,
       planSessions: world.plans.agentSessionService,
       instanceAdministration: {

@@ -1,11 +1,13 @@
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { AgentWorkspaceCleanupService } from "@/backend/service/agents/AgentWorkspaceCleanupService";
 import { createPlanWorkspaceAccess } from "./plan-access-services.server";
+import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import { AgentPlanRemoteParameters } from "@/backend/service/agents/AgentPlanRemoteParameters";
 import { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
 import { AgentPlanRemoteAccessRepository } from "@/backend/database/repositories/agent/AgentPlanRemoteAccessRepository";
+import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentPlanRemoteTargets } from "@/backend/service/agents/AgentPlanRemoteTargets";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -467,8 +469,13 @@ function createRemoteExecution(
     evidence: new AgentPlanRemoteAccessRepository(input.database),
     api: input.api,
   });
+  const planTasks = new AgentPlanTasks(input.tasks, input.users);
   const remoteExecution = new AgentPlanRemoteExecution({
-    tasks: new AgentPlanTasks(input.tasks, input.users),
+    tasks: planTasks,
+    stepReports: new AgentPlanStepReportService(
+      new AgentPlanStepReportRepository(input.database),
+      planTasks,
+    ),
     parameters,
     pages,
     targets: remoteTargets,
@@ -504,6 +511,10 @@ function createPlanEngine(
       execution: input.agents.agentPlanExecution,
       tasks: parts.tasks,
       access: parts.sessions,
+      stepReports: new AgentPlanStepReportService(
+        new AgentPlanStepReportRepository(input.database),
+        parts.tasks,
+      ),
       archive: input.agents.agentRunArchive,
       sessions: parts.pageAgentSessions,
     }),

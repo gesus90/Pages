@@ -9,6 +9,7 @@ import type {
   AgentPlanContract,
 } from "@/definition/AgentPlanSession";
 import type { AgentProviderId } from "@/definition/AgentConnection";
+import type { AgentPlanStepReport } from "@/definition/AgentPlanStepReport";
 import type { AgentRunReach } from "@/definition/McpAuthorization";
 import type { AgentPlanTicketStates } from "./AgentPlanAcceptance";
 import type {
@@ -42,6 +43,7 @@ export class AgentPlanStepAssessment {
     terms: AgentPlanSessionTerms,
     output: string,
     scope: AssessmentScope,
+    stepReport: AgentPlanStepReport | null = null,
   ): Promise<{
     readonly acceptance: AgentPlanAcceptance;
     readonly contract: AgentPlanContract;
@@ -65,7 +67,10 @@ export class AgentPlanStepAssessment {
       contract.completion === "todos"
         ? evaluateTodoCompletion
         : evaluatePlanAcceptance;
-    return { acceptance: evaluate(contract, output, states), contract };
+    return {
+      acceptance: evaluate(contract, output, states, stepReport),
+      contract,
+    };
   }
 
   private ticketStates(

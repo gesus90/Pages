@@ -1,3 +1,4 @@
+import type { AGENT_STEP_REPORT_OPERATION } from "./AgentPlanStepReport.js";
 import type { AgentExtensionReadOperation } from "./AgentExtensions.js";
 import type { AgentAdminReadOperation } from "./AgentAdministration.js";
 import type { AgentProjectDeletionReadOperation } from "./AgentProjectDeletion.js";
@@ -32,6 +33,7 @@ export interface PagesAgentApiIdentity {
 export type PagesAgentApiBusinessOperation =
   | "ticket.work.read"
   | "ticket.work.save"
+  | typeof AGENT_STEP_REPORT_OPERATION
   | "assets.download.prepare"
   | "projects.names.list"
   | "chat.sessions.list"

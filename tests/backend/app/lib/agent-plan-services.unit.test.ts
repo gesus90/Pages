@@ -82,9 +82,7 @@ vi.mock("@/backend/logging/Logger", () => ({
   logCaughtError: vi.fn(),
   logDiagnostic: vi.fn(),
 }));
-vi.mock("@/backend/runtime/PagesRuntime", () => ({
-  getPagesRuntime: vi.fn(),
-}));
+vi.mock("@/backend/runtime/PagesRuntime", () => ({ getPagesRuntime: vi.fn() }));
 vi.mock("@/backend/service/agents/AgentPlanWorkGate", () =>
   fakeClasses({ AgentPlanWorkGate: [] }),
 );
@@ -460,6 +458,7 @@ it("drives runs with the engine and reports engine activity to the runners", asy
     execution: agents.agentPlanExecution,
     tasks: vi.mocked(AgentPlanTasks).mock.instances[0],
     access: sessions,
+    stepReports: expect.any(Object) as unknown,
     archive: agents.agentRunArchive,
     sessions: only(vi.mocked(AgentSessionService)),
   });
@@ -508,6 +507,7 @@ it("lets runners reach Pages and run remote steps through the shared targets", a
   });
   expect(vi.mocked(AgentPlanRemoteExecution).mock.calls[0][0]).toEqual({
     tasks: vi.mocked(AgentPlanTasks).mock.instances[1],
+    stepReports: expect.any(Object) as unknown,
     parameters,
     pages,
     targets,
