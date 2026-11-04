@@ -78,6 +78,35 @@ interface PageChange {
   readonly coalesceMinutes: number;
 }
 
+/** Title and text as the database would store them; only U+0000 needs it to tell. */
+async function storedTexts(
+  repository: WikiRepository,
+  edit: Pick<PageChange, "title" | "content">,
+): Promise<{ readonly title: string; readonly content: string }> {
+  const stored = (text: string): Promise<string> | string =>
+    text.includes("\u0000") ? repository.writes.storedTextForm(text) : text;
+
+  return {
+    title: await stored(edit.title),
+    content: await stored(edit.content),
+  };
+}
+
+/** Whether saving this edit would leave the page as it is stored. */
+async function leavesPageAsStored(
+  repository: WikiRepository,
+  current: WikiPageRecord,
+  edit: Pick<PageChange, "title" | "content" | "icon">,
+): Promise<boolean> {
+  const { title, content } = await storedTexts(repository, edit);
+
+  return (
+    title === current.title &&
+    content === current.content &&
+    edit.icon === current.icon
+  );
+}
+
 /** Creates and changes the content and metadata of pages. */
 export class WikiPageService {
   private readonly repository: WikiRepository;
@@ -196,9 +225,7 @@ export class WikiPageService {
 
       if (
         current.revision !== input.expectedRevision &&
-        (current.title !== edit.title ||
-          current.content !== edit.content ||
-          current.icon !== edit.icon)
+        !(await leavesPageAsStored(repository, current, edit))
       ) {
         throw new WikiConflictError(await reader.assemble(current));
       }
@@ -484,11 +511,7 @@ export class WikiPageService {
     const { coalesceMinutes, ...edit } = change;
     const reader = new WikiPageReader(repository);
 
-    if (
-      edit.title === current.title &&
-      edit.content === current.content &&
-      edit.icon === current.icon
-    ) {
+    if (await leavesPageAsStored(repository, current, edit)) {
       return reader.assemble(current);
     }
 
@@ -508,9 +531,10 @@ export class WikiPageService {
       coalesceMinutes,
     );
     await repository.links.replace(current.id, extractWikiLinks(edit.content));
+    const stored = await storedTexts(repository, edit);
     const actions = [
-      current.title !== edit.title ? "wiki_title_changed" : null,
-      current.content !== edit.content ? "wiki_content_changed" : null,
+      current.title !== stored.title ? "wiki_title_changed" : null,
+      current.content !== stored.content ? "wiki_content_changed" : null,
       current.icon !== edit.icon ? "wiki_icon_changed" : null,
       JSON.stringify(extractWikiLinks(current.content)) !==
       JSON.stringify(extractWikiLinks(edit.content))

@@ -1,5 +1,6 @@
 import { textWithoutNul } from "@/backend/database/postgres/PostgresText";
 
+import { storedTextForm } from "../StoredTextForm";
 import { snapshotParameters } from "./WorkItemSnapshotSql";
 
 import type { TaskDatabase } from "./TaskDatabase";
@@ -83,6 +84,11 @@ export class WorkItemWriteRepository {
    */
   public constructor(database: TaskDatabase) {
     this.database = database;
+  }
+
+  /** Returns the text as this database would store it, see `storedTextForm`. */
+  public async storedTextForm(text: string): Promise<string> {
+    return storedTextForm(this.database, text);
   }
 
   /** Replaces the GitHub linkage stored on a work item. */

@@ -307,6 +307,13 @@ between the databases that is meant to stay is this removal.
   save of `a\0b` on PostgreSQL, and is a conflict on DuckDB. No read or other comparison
   treats `a\0b` as `ab`. `postgres:check` proves this with two connections
   (`repeated-save-checks.ts`).
+- A service that compares a text about to be saved with a stored one uses
+  `storedTextForm` (`TaskWriteService`, `TaskFieldService`, `WikiPageService`). Without
+  it a repeated save with U+0000 is a conflict, a new version or a new history entry on
+  PostgreSQL only. The value that is saved stays the original, so its removal is counted.
+  Reads and identities never use this form. Not adjusted: the comparisons of the structured
+  imports (`StructuredImportDecision`, `WikiImportUpdateSource`), where a source text with
+  the character counts as changed on PostgreSQL each time it is imported.
 - A statement text is no bound value and stays as it is; repositories interpolate only
   fixed fragments.
 

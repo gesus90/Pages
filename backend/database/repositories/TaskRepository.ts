@@ -413,6 +413,11 @@ export class TaskRepository {
     return this.writes.updateStatusAndOrder(id, statusId, sortOrder, isDone);
   }
 
+  /** Returns the text as this database would store it, see `storedTextForm`. */
+  public async storedTextForm(text: string): Promise<string> {
+    return this.writes.storedTextForm(text);
+  }
+
   /** Replaces a current description atomically; returns false when inactive or changed meanwhile. */
   public async updateDescription(
     id: string,

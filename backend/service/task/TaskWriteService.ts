@@ -12,6 +12,7 @@ import {
 } from "@/definition/Task";
 
 import { validateTicketDescriptionSources } from "./TaskDescriptionAssetService";
+import { storedFormOfText } from "./TaskStoredText";
 import {
   ticketDescriptionAddress,
   ticketDescriptionReferences,
@@ -308,7 +309,7 @@ export class TaskWriteService {
       assertDescriptionCurrent(
         existing.description,
         input.baseDescription,
-        values.description,
+        await storedFormOfText(this.taskRepository, values.description),
       );
     }
 
@@ -358,9 +359,11 @@ export class TaskWriteService {
 
     this.cache.invalidateWorkItems();
 
+    // Against what is stored: a save with U+0000 that changes nothing leaves no entry.
     await this.history.recordUpdate(actor, original, {
       ...values,
-      description,
+      title: await storedFormOfText(this.taskRepository, values.title),
+      description: await storedFormOfText(this.taskRepository, description),
     });
 
     const updated = await this.requireStored(
@@ -404,7 +407,7 @@ export class TaskWriteService {
     assertDescriptionCurrent(
       existing.description,
       change.baseDescription,
-      proposed,
+      await storedFormOfText(this.taskRepository, proposed),
     );
 
     const description = await this.persistDescription(
@@ -412,7 +415,8 @@ export class TaskWriteService {
       id,
       proposed,
       async (repository, rewritten) => {
-        if (rewritten === existing.description) return rewritten;
+        const stored = await storedFormOfText(this.taskRepository, rewritten);
+        if (stored === existing.description) return rewritten;
         if (
           !(await repository.updateDescription(
             id,
@@ -424,7 +428,12 @@ export class TaskWriteService {
         return rewritten;
       },
     );
-    if (description === existing.description) return existing;
+    if (
+      (await storedFormOfText(this.taskRepository, description)) ===
+      existing.description
+    ) {
+      return existing;
+    }
 
     this.cache.invalidateWorkItems();
     await this.history.recordDescriptionChanged(actor, existing, description);

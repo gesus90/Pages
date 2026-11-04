@@ -1,5 +1,6 @@
 import { strict as assert } from "node:assert";
 
+import { storedTextForm } from "@/backend/database/repositories/StoredTextForm";
 import { WorkItemWriteRepository } from "@/backend/database/repositories/task/WorkItemWriteRepository";
 import { agentTransactionScope } from "@/backend/service/agents/AgentTransactionScope";
 
@@ -47,6 +48,32 @@ function setRepeatRow(description: string): RepositoryStep {
 
 /** Saving the same text twice works, and a change by someone else stays a conflict. */
 export const REPEAT_SAVE_STEPS: readonly RepositoryStep[] = [
+  // The form a comparison with a stored text needs: gone only where saving removes it.
+  ...(
+    [
+      ["storedTextForm", ({ database }) => storedTextForm(database, TEXT)],
+      [
+        "WorkItemWriteRepository.storedTextForm",
+        ({ database }) =>
+          new WorkItemWriteRepository(database).storedTextForm(TEXT),
+      ],
+      [
+        "TaskRepository.storedTextForm",
+        ({ tasks }) => tasks.storedTextForm(TEXT),
+      ],
+      [
+        "WikiPageWriteRepository.storedTextForm",
+        ({ wiki }) => wiki.writes.storedTextForm(TEXT),
+      ],
+    ] as const satisfies readonly (readonly [string, RepositoryStep["run"]])[]
+  ).map(([name, read]) =>
+    call(name, async (world) => {
+      const expected =
+        world.database.dialect === "postgres" ? TEXT.replaceAll(NUL, "") : TEXT;
+      assert.equal(await read(world), expected);
+    }),
+  ),
+  call("storedTextForm", ({ database }) => storedTextForm(database, "ohne")),
   prepare(`
     INSERT INTO work_items (id, project_id, key, number, type, title, description, status_id, created_by)
     VALUES ('nul-repeat', 'project-a', 'NUL-3', 3, 'task', 'Ziel', 'Ziel', 'status-todo', 'user-admin');

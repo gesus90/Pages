@@ -7,6 +7,8 @@ import {
   validateTitle,
 } from "@/backend/service/task/WorkItemValidation";
 
+import { storedFormOfText } from "./TaskStoredText";
+
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { WorkItemConflictField } from "@/backend/error/WorkItemErrors";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -120,9 +122,10 @@ export class TaskFieldService {
 
     assertActive(existing);
     validateTitle(title);
-    assertCurrent("title", existing.title, change.baseTitle, title);
+    const storedTitle = await storedFormOfText(this.taskRepository, title);
+    assertCurrent("title", existing.title, change.baseTitle, storedTitle);
 
-    if (title === existing.title) {
+    if (storedTitle === existing.title) {
       return existing;
     }
 

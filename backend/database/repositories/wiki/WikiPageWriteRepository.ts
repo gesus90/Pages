@@ -1,5 +1,6 @@
 import { readTextColumn } from "@/backend/database/RowValue";
 
+import { storedTextForm } from "../StoredTextForm";
 import { readCount } from "./WikiPageRows";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
@@ -45,6 +46,11 @@ export class WikiPageWriteRepository {
    */
   public constructor(database: DatabaseTransaction) {
     this.database = database;
+  }
+
+  /** Returns the text as this database would store it, see `storedTextForm`. */
+  public async storedTextForm(text: string): Promise<string> {
+    return storedTextForm(this.database, text);
   }
 
   /**
