@@ -18,6 +18,7 @@ import { WikiStateRepository } from "@/backend/database/repositories/wiki/WikiSt
 import { WikiVersionRepository } from "@/backend/database/repositories/wiki/WikiVersionRepository";
 
 import { keptOnlyByDuckdb } from "./nul-text-flow";
+import { REPEAT_SAVE_STEPS } from "./ticket-repeat-save-flow";
 import { keyRefusedOnPostgres, withoutNul } from "./saved-order-flows";
 import { call, prepare, stored } from "./world";
 
@@ -544,6 +545,7 @@ export const TICKET_WIKI_NUL_FLOW: RepositoryFlow = {
   steps: [
     ...WRITE_STEPS,
     ...WRITE_PATHS,
+    ...REPEAT_SAVE_STEPS,
     ...COMPARE_STEPS,
     prepare(`
       DELETE FROM wiki_favorites;

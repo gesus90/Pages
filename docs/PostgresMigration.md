@@ -297,13 +297,13 @@ between the databases that is meant to stay is this removal.
   `LoginThrottle` counts such a name as its own: it never reaches a password check, so
   its spellings gain no guess.
 - A value that a statement both saves and compares has two names, so that saving it
-  still works (`$description` and `$new_description` in `WorkItemWriteRepository`). A
-  repeated save of the same text with the character then reports a conflict on
-  PostgreSQL, and nothing changes.
-- An identifier that a later statement looks up must not lose the character, so its
-  `INSERT` holds it in a `CAST` and PostgreSQL refuses it: the key of an operation and
-  the source key of an import. The key that drops a repeated session event is stored as
-  hex with the prefix `nul:` on PostgreSQL, so it still drops its repeats and no others.
+  still works (`$description` and `$new_description` in `WorkItemWriteRepository`). The
+  compared one keeps the character, so a second save of the same text cannot find the
+  first by comparison. A save with the character that matched nothing therefore asks
+  the saving statement what becomes of the text: if that is the stored text, it counts
+  as an unchanged save and succeeds; otherwise the old text and time stay and it stays
+  a conflict. On PostgreSQL this also holds for a stored `ab` and a save of `a\0b`; on
+  DuckDB, which keeps the character, that is a conflict.
 - A statement text is no bound value and stays as it is; repositories interpolate only
   fixed fragments.
 
