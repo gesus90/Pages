@@ -13,6 +13,11 @@ an interrupted failure, which continues under PAGE-210. Pica Mobile knows a
 closed set of states, so it receives `failed` with the error code
 `work_done_closeout_open`.
 
+When a detached remote closeout fails after a restart, its frozen plan identifies
+waiting successors before the run is settled. If the graph is unavailable or invalid,
+the run keeps the conservative failure status; unrelated waiting work is not treated
+as completed.
+
 ## PAGE-210: continuing after a restart
 
 A run a server restart interrupted now continues on its own where that is safe,

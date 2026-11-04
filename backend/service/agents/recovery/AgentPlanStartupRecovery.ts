@@ -1,4 +1,4 @@
-import { logEvent } from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import {
@@ -14,6 +14,7 @@ import {
   isCompletedPlanRun,
   settleDetachedRun,
 } from "../AgentPlanRunState";
+import { markDetachedCloseoutBlocks } from "../AgentPlanDetachedBlocks";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -24,7 +25,7 @@ interface StartupRecoveryDependencies {
     AgentPlanRunRepository,
     "unfinished" | "interrupt" | "reserving" | "release"
   > &
-    Partial<Pick<AgentPlanRunRepository, "update">>;
+    Partial<Pick<AgentPlanRunRepository, "snapshot" | "update">>;
   readonly sessions?: Pick<AgentPlanSessionAccess, "revoke">;
   readonly endSession?: typeof endInterruptedSession;
   readonly hasNoProcesses?: typeof hasNoSessionProcesses;
@@ -241,7 +242,22 @@ export class AgentPlanStartupRecovery {
             ),
           }
         : remote;
-      const settled = settleDetachedRun(uncertain);
+      let snapshot: unknown = null;
+      if (
+        uncertain.steps.some(
+          (step) => step.status === "failed" && step.role === "closeout",
+        )
+      ) {
+        try {
+          snapshot =
+            (await this.dependencies.runs.snapshot?.(uncertain.id)) ?? null;
+        } catch (error: unknown) {
+          logCaughtError("AgentPlanStartupRecovery", error);
+        }
+      }
+      const settled = settleDetachedRun(
+        markDetachedCloseoutBlocks(uncertain, snapshot),
+      );
       if (settled !== remote) {
         await this.dependencies.runs.interrupt(settled);
         settledRuns += 1;

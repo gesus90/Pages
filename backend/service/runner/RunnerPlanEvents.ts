@@ -10,6 +10,7 @@ import { recordRemoteAgentResult } from "@/backend/service/agents/AgentPlanRemot
 import { recordRemoteScriptResult } from "@/backend/service/agents/AgentPlanRemoteScriptResult";
 import { planWorkStep } from "@/backend/service/agents/AgentPlanWorkContext";
 import { settleDetachedRun } from "@/backend/service/agents/AgentPlanRunState";
+import { markDetachedCloseoutBlocks } from "@/backend/service/agents/AgentPlanDetachedBlocks";
 
 import { runnerPlanCheckpoint } from "./RunnerPlanCheckpoint";
 
@@ -330,11 +331,14 @@ function updatedRun(
   run: AgentPlanRun,
   step: AgentPlanStepResult,
   isDetached: boolean,
+  snapshot: unknown,
 ): AgentPlanRun {
   const steps = run.steps.map((entry) => (entry.id === step.id ? step : entry));
   const result: AgentPlanRun = { ...run, steps };
   // An engine closes its own runs; only a run without one settles here.
-  return isDetached ? settleDetachedRun(result) : result;
+  return isDetached
+    ? settleDetachedRun(markDetachedCloseoutBlocks(result, snapshot))
+    : result;
 }
 
 /** A legacy CLI completion may contain a transport prefix, so it cannot release result consumers. */
@@ -392,7 +396,7 @@ export function applyRunnerPlanEvent(
     snapshot,
     input.isDetached === true,
   );
-  const result = updatedRun(run, updated, input.isDetached === true);
+  const result = updatedRun(run, updated, input.isDetached === true, snapshot);
   return {
     run: result,
     ...(updated.status === "succeeded"
