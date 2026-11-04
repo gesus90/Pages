@@ -40,6 +40,7 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   plan_name_taken: "plan_name_taken",
   plan_running: "plan_running",
   plan_run_unavailable: "plan_run_unavailable",
+  plan_run_unreadable: "plan_run_unreadable",
   plan_history_unavailable: "plan_history_unavailable",
   plan_start_rejection_record_failed: "plan_start_rejection_record_failed",
   plan_remote_unavailable: "plan_remote_unavailable",

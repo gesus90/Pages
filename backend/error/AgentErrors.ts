@@ -71,6 +71,8 @@ export const AGENT_ERROR_MESSAGES = {
   plan_json_invalid: "Enter one valid JSON value with finite numbers.",
   plan_number_invalid: "Enter one finite number.",
   plan_run_unavailable: "This run is no longer active. Start a new run.",
+  plan_run_unreadable:
+    "The stored record of this run is damaged and cannot be read.",
   plan_start_rejection_record_failed:
     "The start was refused, but its diagnostic could not be stored. Check database availability before trying again.",
   plan_continuation_deleted: "Continuation point deleted – restart required.",

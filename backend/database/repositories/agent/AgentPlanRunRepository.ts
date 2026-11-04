@@ -5,6 +5,7 @@ import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 import {
   reservePlanResources,
   retireRestartSource,
@@ -52,6 +53,30 @@ function readRunStatus(input: string): AgentPlanRun["status"] {
   )
     throw new AgentError("plan_invalid");
   return input;
+}
+
+/** Who started a run and of which plan, without its view or snapshot. */
+export interface AgentPlanRunOwnership {
+  readonly userId: string;
+  readonly planId: string;
+}
+
+/**
+ * Parses a stored record; whatever fails while parsing means the record is damaged.
+ *
+ * @remarks
+ * The query runs before this, so a database failure stays what it is.
+ *
+ * @throws {AgentError} `plan_run_unreadable` for damaged JSON or an unknown structure.
+ */
+function readStoredRecord<Result>(read: () => Result): Result {
+  try {
+    return read();
+  } catch (error: unknown) {
+    logCaughtError("AgentPlanRunRepository", error);
+
+    throw new AgentError("plan_run_unreadable");
+  }
 }
 
 /** Durable sanitized run views and transactional working-copy reservations. */
@@ -220,16 +245,42 @@ export class AgentPlanRunRepository {
       "SELECT view_json FROM agent_plan_runs WHERE id = $id;",
       { id },
     );
-    const input: unknown = row
-      ? JSON.parse(readTextColumn(row, 0, "view_json"))
+    if (!row) return null;
+    return readStoredRecord(() => {
+      const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
+      return readPlanRun(input);
+    });
+  }
+
+  /** Names owner and plan from the columns, which stay readable when the record is damaged. */
+  public async ownership(id: string): Promise<AgentPlanRunOwnership | null> {
+    const [row] = await this.database.query(
+      `
+      SELECT
+          user_id,
+          plan_id
+      FROM agent_plan_runs
+      WHERE id = $id;
+    `,
+      { id },
+    );
+    return row
+      ? {
+          userId: readTextColumn(row, 0, "user_id"),
+          planId: readTextColumn(row, 1, "plan_id"),
+        }
       : null;
-    return input === null ? null : readPlanRun(input);
   }
 
   /** Keeps private snapshot content off the read API while exposing references for live authorization. */
   public async resources(id: string): Promise<AgentPlanRunResources> {
-    const snapshots = await this.continuations.snapshots(id);
-    const references = snapshots.map(readPlanRunResources);
+    const texts = await this.continuations.snapshotTexts(id);
+    const references = readStoredRecord(() =>
+      texts.map((text) => {
+        const snapshot: unknown = JSON.parse(text);
+        return readPlanRunResources(snapshot);
+      }),
+    );
     const first = references[0];
     if (!first) throw new AgentError("plan_access_denied");
     const remoteWorkspaceIds = [
@@ -351,9 +402,15 @@ export class AgentPlanRunRepository {
     `,
       { user_id: userId, plan_id: planId },
     );
-    return rows.map((row) => {
-      const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
-      return readPlanRun(input);
+    // One damaged record must not take the history of the plan page with it.
+    return rows.flatMap((row) => {
+      try {
+        const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
+        return [readPlanRun(input)];
+      } catch (error: unknown) {
+        logCaughtError("AgentPlanRunRepository", error);
+        return [];
+      }
     });
   }
 

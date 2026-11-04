@@ -746,6 +746,7 @@
         "plan_json_invalid": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",
         "plan_number_invalid": "Genau eine endliche Zahl eingeben.",
         "plan_run_unavailable": "Dieser Plan hat bereits einen aktiven oder pausierten Lauf; stoppen Sie ihn vor einem neuen Start. Oder der gewählte Lauf ist nicht mehr aktiv.",
+        "plan_run_unreadable": "Der gespeicherte Datensatz dieses Laufs ist beschädigt und kann nicht gelesen werden.",
         "plan_start_rejection_record_failed": "Der Start wurde abgelehnt, aber seine Diagnose konnte nicht gespeichert werden. Vor einem neuen Versuch die Datenbankverfügbarkeit prüfen.",
         "plan_run_option_unsupported": "Der Runner kann die Laufoptionen dieses Agenten nicht durchsetzen, etwa „Nur lesen“ zusammen mit Shell. Passe die Laufoptionen an.",
         "plan_mcp_unavailable": "Der Knoten braucht den Pages-MCP-Adapter für Agent-Sitzungen, aber dieser Server hat keinen.",

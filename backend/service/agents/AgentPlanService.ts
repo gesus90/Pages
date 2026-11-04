@@ -2,7 +2,7 @@ import {
   authorizedPlanControl,
   readPlanControlRun,
 } from "./AgentPlanControlAccess";
-import { readAuthorizedPlanRun } from "./AgentPlanRunReader";
+import { findPlanRun, readAuthorizedPlanRun } from "./AgentPlanRunReader";
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { randomUUID } from "node:crypto";
 
@@ -488,7 +488,7 @@ export class AgentPlanService {
 
   /** Authorizes control of an own run without granting access to historical ticket or provider content. */
   public async controlRun(userId: string, id: string): Promise<AgentPlanRun> {
-    const run = await this.dependencies.runs.find(id);
+    const run = await findPlanRun(this.dependencies, userId, id);
     if (
       !run ||
       run.userId !== userId ||

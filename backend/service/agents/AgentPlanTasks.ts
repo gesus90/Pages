@@ -1,4 +1,12 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import {
+  ProjectAccessDeniedError,
+  ProjectNotFoundError,
+} from "@/backend/error/ProjectErrors";
+import {
+  WorkItemAccessDeniedError,
+  WorkItemNotFoundError,
+} from "@/backend/error/WorkItemErrors";
 import { materializeTicketChecklist } from "@/backend/service/task/TicketChecklist";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -14,6 +22,15 @@ export interface AgentPlanTicketChecklist {
   readonly key: string;
   readonly title: string;
   readonly checklist: MaterializedChecklist;
+}
+
+function isHiddenTicketError(error: unknown): boolean {
+  return (
+    error instanceof WorkItemNotFoundError ||
+    error instanceof WorkItemAccessDeniedError ||
+    error instanceof ProjectNotFoundError ||
+    error instanceof ProjectAccessDeniedError
+  );
 }
 
 /** Reuses ticket visibility, including department restrictions, instead of reading raw project tickets. */
@@ -120,6 +137,30 @@ export class AgentPlanTasks {
 
       if (error instanceof AgentError) throw error;
       throw new AgentError("plan_binding_invalid");
+    }
+  }
+
+  /**
+   * Checks that the executor may still see a ticket a stored run used.
+   *
+   * @remarks
+   * Reading a run checks access only. Archive state, type and project are
+   * rules for new bindings, which {@link AgentPlanTasks.snapshot} applies on
+   * every save and start; a ticket that later left them keeps its runs readable.
+   *
+   * @throws {AgentError} `plan_access_denied` when the ticket is hidden or gone.
+   */
+  public async requireReadable(userId: string, taskId: string): Promise<void> {
+    const actor = await this.users.getById(userId);
+    if (!actor?.isActive) throw new AgentError("plan_access_denied");
+    try {
+      await this.tasks.getById(actor, taskId);
+    } catch (error: unknown) {
+      logCaughtError("AgentPlanTasks", error);
+
+      if (isHiddenTicketError(error))
+        throw new AgentError("plan_access_denied");
+      throw error;
     }
   }
 }

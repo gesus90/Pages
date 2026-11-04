@@ -746,6 +746,7 @@
         "plan_json_invalid": "Enter exactly one valid JSON value. Numbers must be finite.",
         "plan_number_invalid": "Enter exactly one finite number.",
         "plan_run_unavailable": "This plan already has an active or paused run; stop it before starting again. Or the selected run is no longer active.",
+        "plan_run_unreadable": "The stored record of this run is damaged and cannot be read.",
         "plan_start_rejection_record_failed": "The start was refused, but its diagnosis could not be saved. Check database availability before trying again.",
         "plan_run_option_unsupported": "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
         "plan_mcp_unavailable": "The node needs the Pages MCP adapter for agent sessions, but this server has none.",

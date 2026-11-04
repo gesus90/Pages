@@ -316,6 +316,7 @@ export const AGENT_REJECTION_REASONS = [
   "plan_schema_unsupported",
   "plan_running",
   "plan_run_unavailable",
+  "plan_run_unreadable",
   "plan_history_unavailable",
   "plan_start_rejection_record_failed",
   "plan_remote_unavailable",

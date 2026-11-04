@@ -83,6 +83,13 @@ export class AgentPlanContinuationRepository {
 
   /** Returns every basis for authorization, newest first; historical results stay protected. */
   public async snapshots(id: string): Promise<readonly unknown[]> {
+    return (await this.snapshotTexts(id)).map(
+      (text) => JSON.parse(text) as unknown,
+    );
+  }
+
+  /** Returns every basis as stored, so a caller can tell a damaged record from a failed query. */
+  public async snapshotTexts(id: string): Promise<readonly string[]> {
     const rows = await this.database.query(
       `
       SELECT snapshot_json
@@ -99,9 +106,7 @@ export class AgentPlanContinuationRepository {
     `,
       { id },
     );
-    return rows.map(
-      (row) => JSON.parse(readTextColumn(row, 0, "snapshot_json")) as unknown,
-    );
+    return rows.map((row) => readTextColumn(row, 0, "snapshot_json"));
   }
 
   private async requireCurrent(
