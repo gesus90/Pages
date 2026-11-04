@@ -120,6 +120,7 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
             !props.runClass &&
               (node.type === "agent" ||
                 node.type === "script" ||
+                node.type === "git_closeout" ||
                 node.type === "decision") &&
               planNodeAccent(node.type),
           )}

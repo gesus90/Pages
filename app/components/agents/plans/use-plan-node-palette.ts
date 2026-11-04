@@ -12,7 +12,8 @@ import type { PlanCanvasProps } from "./plan-flow-context";
 export type PlanPaletteKind = Exclude<AgentPlanNode["type"], "variable">;
 
 /** The node types the palette adds at once, because they need no choice. */
-type PlanImmediateKind = "start" | "end" | "loop" | "decision" | "stack";
+type PlanImmediateKind =
+  "start" | "end" | "loop" | "decision" | "stack" | "git_closeout";
 
 const IMMEDIATE_KINDS: readonly PlanPaletteKind[] = [
   "start",
@@ -20,6 +21,7 @@ const IMMEDIATE_KINDS: readonly PlanPaletteKind[] = [
   "loop",
   "decision",
   "stack",
+  "git_closeout",
 ];
 
 function isImmediateKind(kind: PlanPaletteKind): kind is PlanImmediateKind {
@@ -35,6 +37,8 @@ export interface PlanPaletteRequest {
 /** The name an immediately added container starts with. */
 function immediateName(kind: PlanImmediateKind, translate: TFunction): string {
   if (kind === "loop") return translate("plans.loops.defaultName");
+  if (kind === "git_closeout")
+    return translate("plans.gitCloseout.defaultName");
   return kind === "stack" ? translate("plans.stack.defaultName") : "";
 }
 

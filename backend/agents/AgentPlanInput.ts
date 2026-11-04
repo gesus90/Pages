@@ -4,6 +4,10 @@ import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { planValueIssue } from "@/definition/AgentPlanValue";
+import {
+  PLAN_GIT_CLOSEOUT_COMMAND_LENGTH,
+  planGitCloseoutIssues,
+} from "@/definition/AgentPlanGitCloseout";
 import { planScriptIssues } from "@/definition/AgentPlanScript";
 import {
   PLAN_LOOP_MEMBER_COUNT,
@@ -34,6 +38,7 @@ import type {
   AgentPlanStack,
   AgentPlanStackEntry,
 } from "@/definition/AgentPlanStack";
+import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import type {
   AgentPlanScript,
   AgentPlanScriptInput,
@@ -145,6 +150,7 @@ export function readPlanNode(input: unknown): AgentPlanNode {
   if (node.type === "group") return readGroupNode(node, base);
   if (node.type === "loop") return readLoopNode(node, base);
   if (node.type === "script") return readScriptNode(node, base);
+  if (node.type === "git_closeout") return readGitCloseoutNode(node, base);
   if (node.type === "stack") return readStackNode(node, base);
   if (node.type === "decision")
     return {
@@ -296,6 +302,41 @@ function readScriptNode(
   if (planScriptIssues(script).length > 0)
     throw new AgentError("plan_script_invalid");
   return script;
+}
+
+/**
+ * Parses a Git closeout; only the configuration Play needs may still be open.
+ *
+ * @remarks
+ * The role is fixed, so a client cannot turn the node into an ordinary step.
+ * The check command may be empty in a draft, see `planGitCloseoutIssues`.
+ */
+function readGitCloseoutNode(
+  node: Record<string, unknown>,
+  base: AgentPlanPosition & { readonly id: string },
+): AgentPlanGitCloseout {
+  const { name, checkCommand, timeoutSeconds } = node;
+  if (
+    typeof name !== "string" ||
+    typeof checkCommand !== "string" ||
+    typeof timeoutSeconds !== "number"
+  )
+    throw new AgentError("plan_git_closeout_invalid");
+  const closeout: AgentPlanGitCloseout = {
+    ...base,
+    type: "git_closeout",
+    name: name.trim(),
+    role: "closeout",
+    checkCommand,
+    timeoutSeconds,
+    bindings: readBindings(node.bindings),
+  };
+  const issues = planGitCloseoutIssues(closeout);
+  if (issues.includes("name") || issues.includes("timeout"))
+    throw new AgentError("plan_git_closeout_invalid");
+  if (checkCommand.length > PLAN_GIT_CLOSEOUT_COMMAND_LENGTH)
+    throw new AgentError("plan_git_closeout_invalid");
+  return closeout;
 }
 
 function readEdge(input: unknown): AgentPlanEdge {

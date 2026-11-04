@@ -25,6 +25,7 @@ import type {
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
+import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
@@ -124,7 +125,12 @@ function isPlainFlow(edge: AgentPlanEdge): boolean {
 }
 
 function bindingLinks(
-  target: AgentPlanStep | AgentPlanScript | AgentPlanGroup | AgentPlanLoop,
+  target:
+    | AgentPlanStep
+    | AgentPlanScript
+    | AgentPlanGitCloseout
+    | AgentPlanGroup
+    | AgentPlanLoop,
   ids: ReadonlySet<string>,
   frame: AgentPlanGroup | null,
 ): readonly PlanLink[] {
@@ -247,7 +253,11 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
     .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
     .map(edgeLink);
   for (const target of plan.nodes) {
-    if (target.type === "agent" || target.type === "script")
+    if (
+      target.type === "agent" ||
+      target.type === "script" ||
+      target.type === "git_closeout"
+    )
       links.push(...bindingLinks(target, ids, null));
     if (target.type === "loop") links.push(...loopLinks(target, ids));
     if (target.type === "group") links.push(...groupLinks(target, ids));

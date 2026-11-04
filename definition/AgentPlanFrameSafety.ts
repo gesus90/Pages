@@ -14,7 +14,12 @@ function referencesFrame(node: AgentPlanNode, frameId: string): boolean {
         references(binding, frameId),
       ) || node.steps.some((step) => referencesFrame(step, frameId))
     );
-  if (node.type !== "agent" && node.type !== "script") return false;
+  if (
+    node.type !== "agent" &&
+    node.type !== "script" &&
+    node.type !== "git_closeout"
+  )
+    return false;
   return Object.values(node.bindings).some((binding) =>
     references(binding, frameId),
   );

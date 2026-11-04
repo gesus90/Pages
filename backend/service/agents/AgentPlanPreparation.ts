@@ -137,10 +137,7 @@ export class AgentPlanPreparation {
     const loops = plan.nodes.filter((node) => node.type === "loop");
     const flat = expandPlanLoops(plan);
     const steps = planSteps(flat);
-    if (
-      steps.length === 0 &&
-      !flat.nodes.some((node) => node.type === "script")
-    )
+    if (steps.length === 0 && !flat.nodes.some(isScriptRuntimeNode))
       throw new AgentError("plan_invalid");
     const { tasks, issues: referenceIssues } = await this.readTasks(
       userId,
@@ -356,10 +353,15 @@ export class AgentPlanPreparation {
       plan,
       tasks,
     );
-    if (plan.nodes.some((node) => node.type === "script") && !scripts)
+    if (plan.nodes.some(isScriptRuntimeNode) && !scripts)
       throw new AgentError("plan_script_interpreter_unavailable");
     return scripts;
   }
+}
+
+/** Scripts and the Git closeout both run as processes of the script runtime. */
+function isScriptRuntimeNode(node: AgentPlan["nodes"][number]): boolean {
+  return node.type === "script" || node.type === "git_closeout";
 }
 
 function requirePreparedRuntime(

@@ -17,6 +17,8 @@ export interface ScriptProcessRequest {
   readonly resources: string;
   readonly input: string;
   readonly timeoutSeconds: number;
+  /** Additions of Pages' own Git closeout; scripts of a plan get none. */
+  readonly environment?: Readonly<Record<string, string>>;
   readonly signal: AbortSignal;
   readonly claimStart: () => void;
   readonly save: (record: AgentPlanScriptRun) => Promise<void>;
@@ -62,11 +64,14 @@ export async function executeScriptProcess(
         cwd: request.record.directory,
         shell: false,
         detached: true,
-        env: scriptEnvironment({
-          directory: request.resources,
-          interpreter: request.program,
-          instanceId: request.record.instanceId,
-        }),
+        env: {
+          ...scriptEnvironment({
+            directory: request.resources,
+            interpreter: request.program,
+            instanceId: request.record.instanceId,
+          }),
+          ...request.environment,
+        },
         stdio: ["pipe", "pipe", "pipe", "pipe"],
       },
     );

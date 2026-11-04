@@ -19,6 +19,7 @@ import type {
 } from "./AgentPlan";
 import type { AgentPlanGroup, AgentPlanGroupRefusal } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
+import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
 import type { AgentPlanScript } from "./AgentPlanScript";
 
 /** Grid columns between members when an older group is laid out in its frame. */
@@ -93,7 +94,13 @@ function loopStep(loop: AgentPlanLoop, id: string): PlanStepLocation | null {
 export function findPlanBindingTarget(
   plan: AgentPlanInput,
   id: string,
-): AgentPlanStep | AgentPlanScript | AgentPlanGroup | AgentPlanLoop | null {
+):
+  | AgentPlanStep
+  | AgentPlanScript
+  | AgentPlanGitCloseout
+  | AgentPlanGroup
+  | AgentPlanLoop
+  | null {
   return (
     findPlanStep(plan, id)?.step ??
     planLoopOf(plan, id)?.steps.find(
@@ -101,8 +108,15 @@ export function findPlanBindingTarget(
         member.type === "script" && member.id === id,
     ) ??
     plan.nodes.find(
-      (node): node is AgentPlanScript | AgentPlanGroup | AgentPlanLoop =>
+      (
+        node,
+      ): node is
+        | AgentPlanScript
+        | AgentPlanGitCloseout
+        | AgentPlanGroup
+        | AgentPlanLoop =>
         (node.type === "script" ||
+          node.type === "git_closeout" ||
           node.type === "group" ||
           node.type === "loop") &&
         node.id === id,

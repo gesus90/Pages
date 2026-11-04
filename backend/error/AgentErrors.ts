@@ -101,6 +101,28 @@ export const AGENT_ERROR_MESSAGES = {
     "The configured interpreter could not be started. No replacement was used.",
   plan_script_exit:
     "The script exited with an error. See its exit code and stderr in the run details.",
+  plan_git_closeout_invalid:
+    "The Git closeout needs a name, a check command and a time limit of 60 to 86400 seconds.",
+  plan_git_closeout_state:
+    "The workspace is not ready for the Git closeout. The result in the run details names the cause; the remote is unchanged.",
+  plan_git_closeout_conflict:
+    "The rebase on origin/main has conflicts. The result in the run details names the files; the work and the remote are unchanged.",
+  plan_git_closeout_secrets:
+    "The diff contains credential-shaped content. The result in the run details names the files; nothing was pushed.",
+  plan_git_closeout_remote:
+    "origin is not the repository of the project, or main kept moving through three integrations. Nothing was pushed.",
+  plan_git_closeout_permission:
+    "The remote refused the access or the update. Nothing was pushed and no credential was changed.",
+  plan_git_closeout_check:
+    "The check command failed or changed files after the rebase. Nothing was pushed; see stderr in the run details.",
+  plan_git_closeout_unreachable:
+    "The remote could not be reached. The work is unchanged; the closeout can be resumed.",
+  plan_git_closeout_unverified:
+    "The push ended, but a fresh read of the remote did not prove it. The work branch stays.",
+  plan_git_closeout_cleanup:
+    "The commit is published, but switching to main or deleting the work branch did not finish.",
+  plan_git_closeout_result_invalid:
+    "The Git closeout ended without a readable result. Compare the remote with the workspace before repeating it.",
   plan_script_signal: "The script ended through a signal. See the run details.",
   plan_script_timeout:
     "The configured timeout elapsed. See the owned process cleanup status.",

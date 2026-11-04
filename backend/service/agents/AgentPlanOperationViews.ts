@@ -152,6 +152,7 @@ function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
   if (
     node.type === "group" ||
     node.type === "script" ||
+    node.type === "git_closeout" ||
     node.type === "loop" ||
     node.type === "stack"
   )

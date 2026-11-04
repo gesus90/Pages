@@ -3,6 +3,7 @@ import {
   copyPlanConfiguration,
   planConfigurationForModel,
 } from "@/definition/AgentPlanConfiguration";
+import { emptyPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 import { emptyPlanStack } from "@/definition/AgentPlanStack";
 import { createRandomUuid } from "@/app/lib/random-uuid";
@@ -80,6 +81,8 @@ export function createPlanNode(input: {
   if (kind === "loop") return emptyPlanLoop(base.id, reference, base);
   if (kind === "decision") return emptyPlanDecision(base.id, base);
   if (kind === "stack") return emptyPlanStack(base.id, reference, base);
+  if (kind === "git_closeout")
+    return emptyPlanGitCloseout(base.id, reference, base);
   if (kind === "group")
     return {
       ...base,

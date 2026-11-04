@@ -225,6 +225,22 @@ export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
 }
 
 /**
+ * The fixed Git closeout: no model and no agent take part.
+ *
+ * @remarks
+ * Its work branch is the name of the plan's workspace; the `ticket` input names
+ * the commit, and `checkCommand` verifies a state a rebase changed.
+ */
+export interface AgentPlanGitCloseoutNodeEntry extends AgentPlanNodeBase {
+  readonly type: "git_closeout";
+  readonly name: string;
+  readonly role: "closeout";
+  readonly checkCommand: string;
+  readonly timeoutSeconds: number;
+  readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
+}
+
+/**
  * A loop as a client reads it and edits through targeted fields and membership changes.
  *
  * @remarks
@@ -292,6 +308,7 @@ export interface AgentPlanStackNodeEntry extends AgentPlanNodeBase {
 export type AgentPlanNodeEntry =
   | AgentPlanAgentNodeEntry
   | AgentPlanScriptNodeEntry
+  | AgentPlanGitCloseoutNodeEntry
   | AgentPlanGroupNodeEntry
   | AgentPlanLoopNodeEntry
   | AgentPlanStackNodeEntry

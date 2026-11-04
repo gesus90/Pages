@@ -105,7 +105,11 @@ export function joinPlanStack<Plan extends AgentPlanInput>(
     .map((candidate): AgentPlanNode => {
       if (candidate.id === stackId)
         return { ...stack, entries: [...stack.entries, entry] };
-      if (candidate.type === "agent" || candidate.type === "script")
+      if (
+        candidate.type === "agent" ||
+        candidate.type === "script" ||
+        candidate.type === "git_closeout"
+      )
         return clean(candidate);
       if (candidate.type === "group")
         return { ...clean(candidate), steps: candidate.steps.map(clean) };

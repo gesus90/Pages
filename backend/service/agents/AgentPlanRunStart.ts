@@ -117,7 +117,10 @@ export function recoveredPlanRun(
 export function planStepRole(
   node: AgentPlanNode,
 ): Pick<AgentPlanStepResult, "role"> {
-  return (node.type === "agent" || node.type === "script") && node.role
+  return (node.type === "agent" ||
+    node.type === "script" ||
+    node.type === "git_closeout") &&
+    node.role
     ? { role: node.role }
     : {};
 }
@@ -129,7 +132,10 @@ function runStepName(snapshot: AgentPlanSnapshot, node: AgentPlanNode): string {
   if (remote?.step.type === "agent")
     return remote.step.configuration?.name ?? node.type;
   if (node.type === "decision") return node.name ?? "Decision";
-  return node.type === "loop" || node.type === "script" || node.type === "stack"
+  return node.type === "loop" ||
+    node.type === "script" ||
+    node.type === "git_closeout" ||
+    node.type === "stack"
     ? node.name
     : node.type;
 }

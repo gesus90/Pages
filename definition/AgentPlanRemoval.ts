@@ -6,6 +6,7 @@ import type {
   AgentPlanNode,
   AgentPlanStep,
 } from "./AgentPlan";
+import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanScript } from "./AgentPlanScript";
@@ -27,7 +28,11 @@ export function removePlanNode<Plan extends AgentPlanInput>(
   const removed = new Set([id, ...containedIds(container)]);
   function withoutReferences<
     Node extends
-      AgentPlanStep | AgentPlanScript | AgentPlanGroup | AgentPlanLoop,
+      | AgentPlanStep
+      | AgentPlanScript
+      | AgentPlanGitCloseout
+      | AgentPlanGroup
+      | AgentPlanLoop,
   >(node: Node): Node {
     const bindings = Object.fromEntries(
       Object.entries(node.bindings).filter(
@@ -86,7 +91,11 @@ export function removePlanNode<Plan extends AgentPlanInput>(
     nodes: draft.nodes
       .filter((node) => node.id !== id)
       .map((node) => {
-        if (node.type === "agent" || node.type === "script")
+        if (
+          node.type === "agent" ||
+          node.type === "script" ||
+          node.type === "git_closeout"
+        )
           return withoutReferences(node);
         if (node.type !== "group" && node.type !== "loop") return node;
         return withoutMember(node);

@@ -22,13 +22,14 @@ import {
 import type { TFunction } from "i18next";
 import type { AgentParameter } from "@/definition/AgentParameters";
 import type { AgentPlanBinding, AgentPlanStep } from "@/definition/AgentPlan";
+import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentParameterValue } from "@/definition/AgentParameters";
 import type { PlanValueContext } from "./plan-value-preview";
 
 interface PlanAgentInputProps {
   /** An agent, or a script with its declared text inputs. */
-  readonly step: AgentPlanStep | AgentPlanScript;
+  readonly step: AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout;
   /** The node's name, which the controls of the row name. */
   readonly label: string;
   readonly parameter: AgentParameter;
@@ -236,7 +237,7 @@ function ManualValue(
       onChange={change}
     />
   );
-  if (parameter.type !== "text") return input;
+  if (parameter.type !== "text" || step.type === "git_closeout") return input;
   return (
     <div className="flex min-w-0 items-center gap-1">
       <div className="min-w-0 flex-1">{input}</div>

@@ -35,7 +35,10 @@ const CODE_TITLES: readonly (readonly [RegExp, string])[] = [
     "model",
   ],
   [/^plan_script_/, "script"],
-  [/^plan_run_|^plan_continuation_|^plan_closeout_|^plan_pause_/, "run"],
+  [
+    /^plan_run_|^plan_continuation_|^plan_closeout_|^plan_git_closeout_|^plan_pause_/,
+    "run",
+  ],
 ];
 
 function codeTitle(

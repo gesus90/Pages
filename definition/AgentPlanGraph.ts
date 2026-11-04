@@ -20,6 +20,11 @@ import {
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planValueIssue } from "./AgentPlanValue";
 import { hasPlanPath, planPredecessors } from "./AgentPlanPath";
+import {
+  PLAN_GIT_CLOSEOUT_PARAMETERS,
+  PLAN_GIT_CLOSEOUT_TICKET_INPUT,
+  planGitCloseoutIssues,
+} from "./AgentPlanGitCloseout";
 import { planScriptIssues, planScriptParameters } from "./AgentPlanScript";
 import { scriptReportGraphIssues } from "./AgentPlanScriptReportGraph";
 import { fitsPlanStackOutput, planStackIssues } from "./AgentPlanStackGraph";
@@ -27,6 +32,7 @@ import { isPlanStackTriggered } from "./AgentPlanStack";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
+import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
 import type { AgentPlanScript } from "./AgentPlanScript";
 import type { AgentPlanTargetProblem } from "./AgentPlanTarget";
 import type {
@@ -110,7 +116,9 @@ export interface AgentPlanIssue {
     | "scriptReportTarget"
     | "scriptReportGate"
     | "loopScriptUnsupported"
-    | "scriptUnavailable";
+    | "scriptUnavailable"
+    | "gitCloseoutConfiguration"
+    | "gitCloseoutRemote";
 }
 
 export { hasPlanPath } from "./AgentPlanPath";
@@ -123,18 +131,20 @@ export function isPlanFlowNode(node: AgentPlanNode): boolean {
     node.type === "end" ||
     node.type === "agent" ||
     node.type === "script" ||
+    node.type === "git_closeout" ||
     node.type === "decision" ||
     node.type === "loop" ||
     node.type === "stack"
   );
 }
 
-/** Agents and scripts hand their result on through their result port. */
+/** Agents, scripts and the Git closeout hand their result on through their result port. */
 export function isPlanResultNode(
   node: AgentPlanNode | undefined,
-): node is AgentPlanStep | AgentPlanScript {
+): node is AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout {
   return (
     node?.type === "agent" ||
+    node?.type === "git_closeout" ||
     (node?.type === "script" && node.outputs.length === 1)
   );
 }
@@ -227,15 +237,16 @@ function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
 
 /** The inputs of an agent's template or a script's declaration. */
 function inputParameters(
-  step: AgentPlanStep | AgentPlanScript,
+  step: AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout,
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentParameter[] {
+  if (step.type === "git_closeout") return PLAN_GIT_CLOSEOUT_PARAMETERS;
   if (step.type === "script") return planScriptParameters(step);
   return planStepTemplate(step, agents)?.parameters ?? [];
 }
 
 function bindingIssues(
-  step: AgentPlanStep | AgentPlanScript,
+  step: AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout,
   plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): AgentPlanIssue[] {
@@ -270,7 +281,7 @@ function bindingIssues(
 
 /** Why a result binding of a text input cannot deliver, or `null` when it can. */
 function resultIssue(
-  step: AgentPlanStep | AgentPlanScript,
+  step: AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout,
   sourceId: string,
   plan: AgentPlanInput,
 ): "resultSource" | "resultOrder" | null {
@@ -280,7 +291,7 @@ function resultIssue(
 }
 
 function fitsBinding(
-  step: AgentPlanStep | AgentPlanScript,
+  step: AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout,
   binding: AgentPlanBinding,
   plan: AgentPlanInput,
   parameterType: AgentParameter["type"],
@@ -320,7 +331,11 @@ export function planConnectionIssues(
     ...planStackIssues(plan, expanded),
   ];
   for (const node of expanded.nodes)
-    if (node.type === "agent" || node.type === "script")
+    if (
+      node.type === "agent" ||
+      node.type === "script" ||
+      node.type === "git_closeout"
+    )
       issues.push(...bindingIssues(node, expanded, agents));
   if (new Set(plan.nodes.map((node) => node.id)).size !== plan.nodes.length)
     issues.push({ nodeId: null, port: null, reason: "duplicateNode" });
@@ -448,6 +463,49 @@ function scriptIssues(
   return issues;
 }
 
+/** Work on another host leaves nothing in the local workspace that a closeout could publish. */
+function hasRemoteWork(plan: AgentPlanInput): boolean {
+  return (
+    plan.executionTarget?.kind === "remote" ||
+    plan.nodes.some(
+      (node) =>
+        (node.type === "agent" || node.type === "script") &&
+        node.executionTarget?.kind === "remote",
+    )
+  );
+}
+
+/** Checks the ticket, the check command and the place of a Git closeout before Play. */
+function gitCloseoutIssues(
+  closeout: AgentPlanGitCloseout,
+  plan: AgentPlanInput,
+): AgentPlanIssue[] {
+  const issues: AgentPlanIssue[] = [];
+  const binding = closeout.bindings[PLAN_GIT_CLOSEOUT_TICKET_INPUT];
+  if (
+    !(binding?.kind === "literal" && hasAgentParameterValue(binding.value)) &&
+    !hasConnectedValue(binding, plan)
+  )
+    issues.push({
+      nodeId: closeout.id,
+      port: PLAN_GIT_CLOSEOUT_TICKET_INPUT,
+      reason: "required",
+    });
+  if (planGitCloseoutIssues(closeout).length > 0)
+    issues.push({
+      nodeId: closeout.id,
+      port: null,
+      reason: "gitCloseoutConfiguration",
+    });
+  if (hasRemoteWork(plan))
+    issues.push({
+      nodeId: closeout.id,
+      port: null,
+      reason: "gitCloseoutRemote",
+    });
+  return issues;
+}
+
 function hasConnectedValue(
   binding: AgentPlanBinding | undefined,
   plan: AgentPlanInput,
@@ -501,6 +559,8 @@ function flowNodeIssues(
       ),
     );
   if (node.type === "script") issues.push(...scriptIssues(node, plan));
+  if (node.type === "git_closeout")
+    issues.push(...gitCloseoutIssues(node, plan));
   return issues;
 }
 
@@ -517,7 +577,12 @@ function flowExecutionIssues(
   if (ends.length === 0)
     issues.push({ nodeId: null, port: null, reason: "end" });
   if (
-    !plan.nodes.some((node) => node.type === "agent" || node.type === "script")
+    !plan.nodes.some(
+      (node) =>
+        node.type === "agent" ||
+        node.type === "script" ||
+        node.type === "git_closeout",
+    )
   )
     issues.push({ nodeId: null, port: null, reason: "agent" });
   for (const node of plan.nodes.filter(isPlanFlowNode)) {

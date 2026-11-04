@@ -75,6 +75,8 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "scriptReportTarget",
   "scriptReportGate",
   "loopScriptUnsupported",
+  "gitCloseoutConfiguration",
+  "gitCloseoutRemote",
 ] as const;
 
 export type AgentPlanIssueProblem = (typeof AGENT_PLAN_ISSUE_PROBLEMS)[number];

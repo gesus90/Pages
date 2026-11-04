@@ -35,6 +35,7 @@ const AGENT_INPUT_HEIGHT = 38;
 const AGENT_BRANCHING_HEIGHT = 68;
 // Header, condition row with its binding chip, both outputs and the footer line.
 const PLAN_DECISION_HEIGHT = 237;
+const PLAN_GIT_CLOSEOUT_HEIGHT = 200;
 /** The Stack card: wide enough for an entry's key and title beside its number. */
 export const PLAN_STACK_WIDTH = 300;
 // Header, the In and Out row, the summary, both data outputs and the footer.
@@ -153,7 +154,12 @@ export function planMemberPosition(
 export function planNodeWidth(node: AgentPlanNode): number {
   if (node.type === "group" || node.type === "loop")
     return planGroupWidth(node);
-  if (node.type === "agent" || node.type === "script") return PLAN_AGENT_WIDTH;
+  if (
+    node.type === "agent" ||
+    node.type === "script" ||
+    node.type === "git_closeout"
+  )
+    return PLAN_AGENT_WIDTH;
   if (node.type === "decision") return PLAN_DECISION_WIDTH;
   if (node.type === "stack") return PLAN_STACK_WIDTH;
   return node.type === "start" || node.type === "end"
@@ -184,6 +190,7 @@ export function planNodeHeight(
     return groupHeight(node, sources);
   if (node.type === "agent") return agentHeight(node, sources);
   if (node.type === "script") return scriptHeight(node);
+  if (node.type === "git_closeout") return PLAN_GIT_CLOSEOUT_HEIGHT;
   if (node.type === "stack") return stackHeight(node);
   return heights[node.type];
 }
@@ -286,6 +293,7 @@ const NODE_TINTS = {
   end: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
   agent: "border-plan-agent/60 bg-plan-agent-subtle",
   script: "border-plan-script/60 bg-plan-script-subtle",
+  git_closeout: "border-plan-script/60 bg-plan-script-subtle",
   group: "border-plan-group/60 bg-plan-group-subtle",
   loop: "border-plan-loop-edge/60 bg-plan-loop-subtle",
   decision: "border-plan-logic-edge/60 bg-plan-logic-subtle",
@@ -300,6 +308,7 @@ const NODE_ACCENTS = {
   end: "text-plan-checkpoint",
   agent: "text-plan-agent",
   script: "text-plan-script",
+  git_closeout: "text-plan-script",
   group: "text-plan-group",
   loop: "text-plan-loop",
   decision: "text-plan-logic",

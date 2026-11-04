@@ -55,6 +55,24 @@ function currentEntry(
   return entry;
 }
 
+/**
+ * The ticket the newest trigger of a stack handed over, for a node that needs the ticket itself.
+ *
+ * @throws {AgentError} `plan_binding_invalid` for an entry that is no ticket.
+ */
+export function planStackTicketId(
+  binding: StackBinding,
+  context: Pick<PlanStackInputContext, "plan" | "run">,
+): string {
+  const entry = currentEntry(binding, { ...context, readTask: noTaskRead });
+  if (entry.type !== "task") throw new AgentError("plan_binding_invalid");
+  return entry.taskId;
+}
+
+function noTaskRead(): Promise<AgentPlanTaskSnapshot> {
+  return Promise.reject(new AgentError("plan_binding_invalid"));
+}
+
 /** The value of an entry for a parameter: the ticket itself, its text, or the entry's own value. */
 async function entryValue(
   entry: AgentPlanStackEntry,

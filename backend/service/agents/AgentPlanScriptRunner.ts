@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
 
+import { assessGitCloseoutResult } from "./AgentPlanGitCloseout";
 import { executeScriptProcess } from "./AgentPlanScriptProcess";
 import { planStackScriptInput } from "./stack/AgentPlanStackInputs";
 import { scriptInputJson } from "./AgentPlanScriptInputs";
@@ -19,6 +21,10 @@ import type {
   AgentPlanScriptSnapshot,
 } from "./AgentPlanScriptPreparation";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
+import type {
+  AgentPlanGitCloseoutAccess,
+  AgentPlanGitCloseoutRuntime,
+} from "./AgentPlanGitCloseout";
 
 /** The existing engine owns persistence, pause gates and cancellation. */
 export interface ScriptRunControl {
@@ -30,9 +36,17 @@ export interface ScriptRunControl {
 /** Executes script nodes as processes, with no model, agent identity or ACP session. */
 export class AgentPlanScriptRunner {
   private readonly preparation: AgentPlanScriptPreparation;
+  private readonly gitCloseout: Pick<
+    AgentPlanGitCloseoutRuntime,
+    "open"
+  > | null;
 
-  public constructor(preparation: AgentPlanScriptPreparation) {
+  public constructor(
+    preparation: AgentPlanScriptPreparation,
+    gitCloseout: Pick<AgentPlanGitCloseoutRuntime, "open"> | null = null,
+  ) {
     this.preparation = preparation;
+    this.gitCloseout = gitCloseout;
   }
 
   /** Persists an attempt before spawn and returns only after its owned resources have settled. */
@@ -43,6 +57,7 @@ export class AgentPlanScriptRunner {
     control: ScriptRunControl,
   ): Promise<Partial<AgentPlanStepResult>> {
     let record: AgentPlanScriptRun | undefined;
+    let access: AgentPlanGitCloseoutAccess | null = null;
     try {
       script = await planStackScriptInput(script, {
         plan: snapshot.plan,
@@ -60,23 +75,80 @@ export class AgentPlanScriptRunner {
         script.step.content,
       );
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
+      access = await this.openGitCloseout(run, snapshot, script, record);
       record = await executeScriptProcess({
         record,
         program: script.interpreter.path,
         resources,
-        input,
+        input: access?.input ?? input,
         timeoutSeconds: script.step.timeoutSeconds,
+        environment: access?.environment,
         signal: control.signal,
         claimStart: control.claimStart,
-        save: control.save,
+        save: gitCloseoutSave(access, control.save),
       });
       if (record.closeout === "confirmed")
         await removeScriptResources(record.instanceId);
-      return completedResult(record, script);
+      return completedResult(redactedRecord(record, access), script);
     } catch (error: unknown) {
       record = await closeUnstartedRecord(record);
       return refusedResult(error, record, control.signal);
+    } finally {
+      await closeGitCloseout(access);
     }
+  }
+
+  private async openGitCloseout(
+    run: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+    script: AgentPlanScriptSnapshot,
+    record: AgentPlanScriptRun,
+  ): Promise<AgentPlanGitCloseoutAccess | null> {
+    if (!script.gitCloseout) return null;
+    if (!this.gitCloseout)
+      throw new AgentError("plan_script_interpreter_unavailable");
+    return this.gitCloseout.open({
+      run,
+      plan: snapshot.plan,
+      closeout: script.gitCloseout,
+      workspace: script.workspace,
+      instanceId: record.instanceId,
+    });
+  }
+}
+
+/** The namespace proves the end of the processes when a crash leaves the credentials behind. */
+function gitCloseoutSave(
+  access: AgentPlanGitCloseoutAccess | null,
+  save: ScriptRunControl["save"],
+): ScriptRunControl["save"] {
+  if (!access) return save;
+  return async (record) => {
+    if (record.namespace) await access.recordNamespace(record.namespace);
+    await save(record);
+  };
+}
+
+function redactedRecord(
+  record: AgentPlanScriptRun,
+  access: AgentPlanGitCloseoutAccess | null,
+): AgentPlanScriptRun {
+  if (!access) return record;
+  return {
+    ...record,
+    stderr: access.redact(record.stderr),
+    stdout: record.stdout === null ? null : access.redact(record.stdout),
+  };
+}
+
+/** A failed removal is logged where it happens; it must not hide the result of the step. */
+async function closeGitCloseout(
+  access: AgentPlanGitCloseoutAccess | null,
+): Promise<void> {
+  try {
+    await access?.cleanup();
+  } catch (error: unknown) {
+    logCaughtError("AgentPlanScriptRunner", error);
   }
 }
 
@@ -116,13 +188,14 @@ function completedResult(
   if (record.closeout === "failed") status = "failed";
   let error = record.failure ? `plan_script_${record.failure}` : null;
   if (record.closeout === "failed") error = "plan_script_cleanup";
-  return assessPlanScriptResult(script.step, {
+  const assessed = assessPlanScriptResult(script.step, {
     status,
     cancellation: scriptCancellation(record),
     output: script.step.outputs.length === 0 ? null : record.stdout,
     error,
     script: record,
   });
+  return script.gitCloseout ? assessGitCloseoutResult(assessed) : assessed;
 }
 
 function scriptCancellation(

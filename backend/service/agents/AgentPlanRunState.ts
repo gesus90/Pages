@@ -420,7 +420,9 @@ export function isRequestStep(active: ActivePlanRun, id: string): boolean {
   return (
     (step !== undefined && !isAcpProvider(step.provider)) ||
     active.snapshot.plan.nodes.some(
-      (node) => node.id === id && node.type === "script",
+      (node) =>
+        node.id === id &&
+        (node.type === "script" || node.type === "git_closeout"),
     )
   );
 }

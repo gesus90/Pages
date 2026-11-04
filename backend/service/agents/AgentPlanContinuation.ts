@@ -293,7 +293,12 @@ function resumedSteps(
 }
 
 function resumedNodeName(node: AgentPlanNode): string {
-  if (node.type === "loop" || node.type === "script" || node.type === "stack")
+  if (
+    node.type === "loop" ||
+    node.type === "script" ||
+    node.type === "git_closeout" ||
+    node.type === "stack"
+  )
     return node.name;
   return node.type === "agent"
     ? (node.configuration?.name ?? node.type)

@@ -328,6 +328,7 @@ export class AgentWorkspaceService {
     const github = await this.requireGitHub(workspace.projectId);
     return {
       id: workspace.id,
+      name: workspace.name,
       path: await this.dependencies.paths.resolve(workspace),
       directoryIdentity: workspace.directoryIdentity,
       revision: workspace.revision,

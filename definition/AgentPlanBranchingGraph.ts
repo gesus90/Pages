@@ -23,7 +23,7 @@ import type { AgentPlanIssue } from "./AgentPlanGraph";
 
 /** The node types an edge of each kind may leave. */
 const SOURCE_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
-  flow: ["start", "agent", "script", "stack"],
+  flow: ["start", "agent", "script", "git_closeout", "stack"],
   branch: ["decision"],
   condition: ["agent"],
   event: ["agent", "script"],
@@ -31,8 +31,8 @@ const SOURCE_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
 
 /** The node types an edge of each kind may enter. */
 const TARGET_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
-  flow: ["end", "agent", "script", "stack"],
-  branch: ["end", "agent", "script", "stack"],
+  flow: ["end", "agent", "script", "git_closeout", "stack"],
+  branch: ["end", "agent", "script", "git_closeout", "stack"],
   condition: ["decision"],
   event: ["agent"],
 };

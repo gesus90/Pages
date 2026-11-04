@@ -30,7 +30,7 @@ export function dispatchPlanLocalNode(
   context: PlanNodeDispatchContext,
 ): Promise<Partial<AgentPlanStepResult>> | null {
   const { writes, dependencies } = context;
-  if (node.type === "script")
+  if (node.type === "script" || node.type === "git_closeout")
     return dispatchPlanScript(active, node.id, controller, {
       scripts: dependencies.scripts,
       writes,

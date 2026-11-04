@@ -88,7 +88,7 @@ export function clonePlanGraph(
   const copyNode = (node: AgentPlanNode): AgentPlanNode => {
     const base = { ...node, id: mapped(node.id) };
     if (node.type === "agent") return copyStep(node);
-    if (base.type === "script")
+    if (base.type === "script" || base.type === "git_closeout")
       return { ...base, bindings: bindings(base.bindings) };
     if (base.type === "group")
       return {

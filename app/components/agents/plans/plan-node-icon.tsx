@@ -4,6 +4,7 @@ import {
   Braces,
   FlagTriangleRight,
   GitFork,
+  GitPullRequestArrow,
   Layers,
   Play,
   Repeat2,
@@ -61,6 +62,7 @@ export function PlanScriptIcon(props: {
 const NODE_ICONS = {
   agent: Bot,
   script: PlanScriptIcon,
+  git_closeout: GitPullRequestArrow,
   group: Boxes,
   loop: Repeat2,
   decision: GitFork,

@@ -24,6 +24,8 @@ import {
   copyPlanConfiguration,
   planConfigurationForModel,
 } from "@/definition/AgentPlanConfiguration";
+import { PLAN_GIT_CLOSEOUT_TIMEOUT } from "@/definition/AgentPlanGitCloseout";
+import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import { PLAN_SCRIPT_TIMEOUT } from "@/definition/AgentPlanScript";
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
@@ -98,9 +100,14 @@ function findNode(plan: AgentPlanInput, id: string): AgentPlanNode {
 function findInputNode(
   plan: AgentPlanInput,
   id: string,
-): AgentPlanStep | AgentPlanScript | AgentPlanLoop {
+): AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout | AgentPlanLoop {
   const node = findNode(plan, id);
-  if (node.type !== "agent" && node.type !== "script" && node.type !== "loop")
+  if (
+    node.type !== "agent" &&
+    node.type !== "script" &&
+    node.type !== "git_closeout" &&
+    node.type !== "loop"
+  )
     throw refused("element_missing");
   return node;
 }
@@ -126,6 +133,13 @@ function newNodeFields(
     return { steps: [], edges: [], parameters: [], bindings: {} };
   if (change.type === "parameter")
     return { format: defaultFormat(change.fields.value) };
+  // As on the palette: the default time limit, and Play waits for the command.
+  if (change.type === "git_closeout")
+    return {
+      checkCommand: "",
+      timeoutSeconds: PLAN_GIT_CLOSEOUT_TIMEOUT.initial,
+      bindings: {},
+    };
   // As in the script dialog: no inputs and the default timeout until named.
   if (change.type === "script")
     return {

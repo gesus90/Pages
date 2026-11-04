@@ -6,6 +6,7 @@ import { cn } from "@/app/lib/cn";
 import { planInTargetClass } from "./plan-flow-ports";
 import { PlanFlowHandle } from "./plan-flow-handle";
 
+import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentPlanStep } from "@/definition/AgentPlan";
@@ -21,7 +22,7 @@ import type { PlanGraphActions } from "./use-plan-graph";
  */
 export function disconnectPlanInput(
   graph: PlanGraphActions,
-  node: AgentPlanStep | AgentPlanScript | AgentPlanGroup,
+  node: AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout | AgentPlanGroup,
   name: string,
 ): void {
   graph.replaceNode({

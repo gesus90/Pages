@@ -246,3 +246,58 @@ browser cookie for one year. An explicit plan URL wins; reopening without a plan
 restores the preference and rechecks access. A missing/revoked plan remains
 visibly unavailable. Without a preference, existing default-plan behavior
 applies. Remembering a selection starts no run.
+
+## Git closeout node (PAGE-211)
+
+`git_closeout` is a node type with a fixed process, for the closing Git step that
+plans otherwise rebuild as a script or an agent with a long prompt. No model and
+no agent take part. Existing plans with such a step keep running unchanged and
+are not converted.
+
+The node is frozen as a script of this runtime: its program is
+`AgentPlanGitCloseoutSource.ts`, its interpreter the Node.js of the server. Attempt
+records, the time limit, the process boundary, stop and recovery are the ones
+described above, and so is the requirement of active administrator mode. It runs
+at the top level of a local plan only; a plan with remote work refuses it with
+`gitCloseoutRemote`.
+
+The work branch is the name of the plan's workspace. In order, the node:
+
+1. checks that the workspace is the top level of its working copy, that both URLs
+   of `origin` name the repository of the project's GitHub link (owner and name, so
+   a host alias of the account stays valid), that the active branch is the work
+   branch, and that no Git operation is unfinished;
+2. fetches `origin/main` and combines all changes, uncommitted and untracked ones
+   included and ignored files excluded, into one commit on it. The message is
+   `(<ticket key>) <ticket title>` of the ticket bound to the `ticket` input;
+3. scans the added lines and file names for high-confidence credential shapes;
+4. runs `checkCommand` with `/bin/sh -c` in the workspace when a rebase changed the
+   tree. The command does not receive the Git route's environment, and its output
+   only reaches stderr;
+5. pushes `HEAD:refs/heads/main` as a normal fast-forward. A refused push because
+   main moved integrates again, at most 3 times; a changed tree checks again;
+6. proves the push by a fresh read of the remote, and only then switches to `main`
+   and deletes the local work branch. Remote branches are never deleted.
+
+A rebase conflict, secrets in the diff, a deviating `origin` and missing rights end
+the step without a change to the remote. Conflicts are not resolved; the result
+names the files. **Every stop before the push restores the state it found**,
+uncommitted changes uncommitted again, so a repeat decides anew and never publishes
+an unchecked state. A check the time limit ended is due again through a marker in
+the Git directory, since the rebased state then looks integrated. Nothing to publish
+is `noOp`, never an empty commit, and leaves the work branch in place, because only
+a proven push may remove it. A failure of the cleanup after the push keeps
+`pushVerified: true` and names `cleanup_failed`.
+
+The result port delivers one JSON object with `status` (`done` or `blocked`),
+`commitSha`, `baseSha`, `remoteMainSha`, `pushVerified` and `noOp`, plus `rebased`,
+`integrations`, `checkRan`, `workBranchDeleted` and, on a stop, `reason`, `message`
+and `files`. A failed step keeps it as its output beside the error code.
+
+Unlike a plan's script, the program gets the Git route an agent of the project gets:
+the stored project token through its private credential helper, or the operator's
+Git bridge when `agentGitBridges` names exactly this plan and node id. `origin` and
+stored credentials are never changed, and an executor who may not manage the project
+gets no token, so that Git's refusal ends the step. The commit identity is what
+`git config` answers in the workspace for the server account. The credential folder
+is not hidden from the check command by the file system; a workspace stays no sandbox.

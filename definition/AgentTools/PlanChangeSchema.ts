@@ -345,7 +345,13 @@ const NODE_FIELDS: ToolProperties = {
     minLength: 1,
     maxLength: 120,
     description:
-      "parameter: letters, digits and _ starting with a letter; script: the name its card shows",
+      "parameter: letters, digits and _ starting with a letter; script and git_closeout: the name the card shows",
+  },
+  checkCommand: {
+    type: "string",
+    maxLength: 4000,
+    description:
+      "git_closeout: the shell command that verifies a state a rebase changed, before the push. Play is refused while it is empty.",
   },
   format: FORMAT,
   value: VALUE,

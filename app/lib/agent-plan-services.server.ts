@@ -27,6 +27,8 @@ import { AgentPlanCleanupFailureRepository } from "@/backend/database/repositori
 import type { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
+import { CliLocator } from "@/backend/agents/cli/CliLocator";
+import { AgentPlanGitCloseoutRuntime } from "@/backend/service/agents/AgentPlanGitCloseout";
 import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
@@ -502,7 +504,15 @@ function createPlanEngine(
   return new AgentPlanRunEngine({
     workGate: new AgentPlanWorkGate(input.database, input.users),
     remoteExecution: parts.remoteExecution,
-    scripts: new AgentPlanScriptRunner(parts.scripts),
+    scripts: new AgentPlanScriptRunner(
+      parts.scripts,
+      new AgentPlanGitCloseoutRuntime({
+        tasks: parts.tasks,
+        github: input.agents.agentPlanGitHubCredentials,
+        credentials: input.agents.agentCliGitHubCredentials,
+        locator: new CliLocator(),
+      }),
+    ),
     runs: parts.runs,
     start: parts.start,
     resources: input.agents.acpResourceScheduler,

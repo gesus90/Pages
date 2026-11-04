@@ -44,6 +44,7 @@ import type {
   AgentPlanScript,
   AgentPlanScriptRun,
 } from "./AgentPlanScript";
+import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
 import type { AgentPlanScriptAssessment } from "./AgentPlanScriptReport";
 import type {
   AgentPlanRecoveryReason,
@@ -137,6 +138,7 @@ export interface AgentPlanDecision extends AgentPlanPosition {
 export type AgentPlanNode =
   | AgentPlanStep
   | AgentPlanScript
+  | AgentPlanGitCloseout
   | AgentPlanGroup
   | AgentPlanLoop
   | AgentPlanDecision

@@ -2,7 +2,17 @@ import { planLinkKey, planLinks } from "./plan-links";
 
 import type { ReactFlowProps } from "@xyflow/react";
 import type { PlanCanvasProps } from "./plan-flow-context";
+import type { AgentPlanNode } from "@/definition/AgentPlan";
 import type { PlanFlowEdge, PlanFlowNode } from "./plan-flow-model";
+
+/** These nodes have no session to open; double-click edits their settings instead. */
+const OPENS_SETTINGS: ReadonlySet<AgentPlanNode["type"]> = new Set([
+  "script",
+  "git_closeout",
+  "loop",
+  "decision",
+  "stack",
+]);
 
 /** Keyboard, pointer and inspector selection share one domain selection, including read-only plans. */
 export function usePlanFlowSelection(
@@ -31,12 +41,7 @@ export function usePlanFlowSelection(
       graph.select(node.id);
       if (node.data.node.type === "agent" || node.data.node.type === "group")
         props.onOpen?.(node.id);
-      // A script has no session to open; double-click edits it instead.
-      if (node.data.node.type === "script") props.onEdit?.(node.id);
-      if (node.data.node.type === "loop") props.onEdit?.(node.id);
-      // A decision has no session either; double-click edits its name and condition.
-      if (node.data.node.type === "decision") props.onEdit?.(node.id);
-      if (node.data.node.type === "stack") props.onEdit?.(node.id);
+      if (OPENS_SETTINGS.has(node.data.node.type)) props.onEdit?.(node.id);
     },
     onEdgeClick: (event, edge) => graph.selectLink(edge.data?.link ?? null),
     onEdgesChange: (changes) => {

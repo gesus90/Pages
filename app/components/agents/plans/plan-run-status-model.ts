@@ -72,7 +72,12 @@ export function workGaps(
   const nodes = expandPlanGroups(draft).nodes;
   return preview.gaps.filter((gap) => {
     const type = nodes.find((node) => node.id === gap.id)?.type;
-    return type === "agent" || type === "script" || type === "loop";
+    return (
+      type === "agent" ||
+      type === "script" ||
+      type === "git_closeout" ||
+      type === "loop"
+    );
   });
 }
 

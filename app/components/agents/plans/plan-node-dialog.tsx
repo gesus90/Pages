@@ -13,6 +13,7 @@ import {
 } from "@/app/components/ui/dialog";
 
 import { PlanDecisionDialog } from "./plan-decision-dialog";
+import { PlanGitCloseoutDialog } from "./plan-git-closeout-dialog";
 import { PlanStackDialog } from "./plan-stack-dialog";
 import { PlanGroupPanel } from "./plan-group-panel";
 import { PlanLoopPanel } from "./plan-loop-panel";
@@ -119,6 +120,8 @@ function PlanContainerDialog(
     return <PlanDecisionDialog key={node.id} {...shared} decision={node} />;
   if (node.type === "stack")
     return <PlanStackDialog key={node.id} {...shared} stack={node} />;
+  if (node.type === "git_closeout")
+    return <PlanGitCloseoutDialog key={node.id} {...shared} closeout={node} />;
   if (node.type === "loop")
     return (
       <PlanLoopPanel key={node.id} {...shared} loop={node} run={props.run} />

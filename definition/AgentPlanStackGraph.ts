@@ -98,7 +98,12 @@ function scopeIssues(
 /** Every node of a plan that reads inputs, the members of groups and loops included. */
 function bindingNodes(plan: AgentPlanInput): readonly BindingNode[] {
   return plan.nodes.flatMap((node): readonly BindingNode[] => {
-    if (node.type === "agent" || node.type === "script") return [node];
+    if (
+      node.type === "agent" ||
+      node.type === "script" ||
+      node.type === "git_closeout"
+    )
+      return [node];
     if (node.type === "group") return node.steps;
     if (node.type !== "loop") return [];
     return [node, ...planLoopMembers(node)];
@@ -127,7 +132,10 @@ function orderIssues(
 function remoteIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   return bindingNodes(plan).flatMap((node) => {
     if (node.type === "loop" || node.type === "group") return [];
-    const target = node.executionTarget ?? plan.executionTarget;
+    const target =
+      node.type === "git_closeout"
+        ? plan.executionTarget
+        : (node.executionTarget ?? plan.executionTarget);
     if (target?.kind !== "remote") return [];
     return Object.entries(node.bindings).flatMap(
       ([name, binding]): AgentPlanIssue[] =>

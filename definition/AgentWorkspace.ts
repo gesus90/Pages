@@ -45,6 +45,8 @@ export interface AgentWorkspaceView extends AgentWorkspaceChoice {
 /** A reauthorized working-directory contract for the later CLI runner, never a sandbox. */
 export interface ResolvedAgentWorkspace {
   readonly id: string;
+  /** Absent only in run snapshots stored before the Git closeout, which names its branch after it. */
+  readonly name?: string;
   readonly path: string;
   readonly directoryIdentity: string;
   readonly revision: number;
