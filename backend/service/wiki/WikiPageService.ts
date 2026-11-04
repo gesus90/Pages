@@ -246,6 +246,7 @@ export class WikiPageService {
    * @param versionId - Version to take the text from.
    * @returns The page, with a new version on top.
    * @throws {WikiValidationError} When the version does not exist.
+   * @throws {WikiConflictError} When the page changes while it is restored.
    */
   public async restoreVersion(
     actor: User,
@@ -515,10 +516,18 @@ export class WikiPageService {
       return reader.assemble(current);
     }
 
-    const revision = await repository.writes.saveEdit(current.id, {
-      ...edit,
-      editorId: viewer.user.id,
-    });
+    const revision = await repository.writes.saveEdit(
+      current.id,
+      { ...edit, editorId: viewer.user.id },
+      current.revision,
+    );
+    if (revision === 0) {
+      const latest = await reader.require(viewer.scope, current.id);
+      if (await leavesPageAsStored(repository, latest, edit)) {
+        return reader.assemble(latest);
+      }
+      throw new WikiConflictError(await reader.assemble(latest));
+    }
 
     await repository.versions.save(
       {

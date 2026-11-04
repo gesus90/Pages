@@ -145,9 +145,14 @@ export class WikiPageWriteRepository {
    *
    * @param id - Page identifier.
    * @param edit - New values.
-   * @returns The new revision.
+   * @param expectedRevision - Revision read before the edit, when a conflict must be detected.
+   * @returns The new revision, or zero when the page is missing or has changed.
    */
-  public async saveEdit(id: string, edit: WikiPageEdit): Promise<number> {
+  public async saveEdit(
+    id: string,
+    edit: WikiPageEdit,
+    expectedRevision?: number,
+  ): Promise<number> {
     const rows = await this.database.query(
       `
         UPDATE wiki_pages
@@ -159,11 +164,13 @@ export class WikiPageWriteRepository {
             revision = revision + 1,
             updated_at = utc_now()
         WHERE id = $id
+            AND revision = COALESCE($expected_revision, revision)
         RETURNING revision;
       `,
       {
         content: edit.content,
         editor_id: edit.editorId,
+        expected_revision: expectedRevision ?? null,
         icon: edit.icon,
         id,
         title: edit.title,

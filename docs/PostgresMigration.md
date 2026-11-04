@@ -314,6 +314,9 @@ between the databases that is meant to stay is this removal.
   Reads and identities never use this form. Not adjusted: the comparisons of the structured
   imports (`StructuredImportDecision`, `WikiImportUpdateSource`), where a source text with
   the character counts as changed on PostgreSQL each time it is imported.
+- Wiki edits compare the revision in the write itself. If another transaction commits
+  while an edit waits for the row, a different stored result is a conflict; the same
+  desired stored result succeeds without another revision or history entry.
 - A statement text is no bound value and stays as it is; repositories interpolate only
   fixed fragments.
 
