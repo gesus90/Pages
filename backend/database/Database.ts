@@ -11,6 +11,7 @@ import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { DatabaseExecutor } from "./executor/DatabaseExecutor";
 import { postgresErrorCode } from "./postgres/PostgresConnection";
 import { PostgresExecutor } from "./postgres/PostgresExecutor";
+import { requireByteOrderedDatabase } from "./postgres/PostgresLocale";
 import { DatabaseOutcomeUnknownError } from "./executor/DatabaseExecutorErrors";
 import { currentReadScope, readScopeKey, statementKind } from "./ReadScope";
 import {
@@ -170,6 +171,7 @@ export class Database {
    * @param databaseUrl - The connection URL; it never reaches a log line.
    * @returns An open database.
    * @throws The error of the driver or server when no connection opens.
+   * @throws {PostgresLocaleError} When the database sorts text differently from DuckDB.
    */
   public static async connect(databaseUrl: string): Promise<Database> {
     return withDatabaseLogMetrics(async (metrics) => {
@@ -451,7 +453,9 @@ export class Database {
 
 async function startPostgres(databaseUrl: string): Promise<PostgresExecutor> {
   try {
-    return await PostgresExecutor.start(databaseUrl);
+    const executor = await PostgresExecutor.start(databaseUrl);
+    await requireFittingLocale(executor);
+    return executor;
   } catch (error: unknown) {
     logEvent({
       level: "error",
@@ -462,6 +466,16 @@ async function startPostgres(databaseUrl: string): Promise<PostgresExecutor> {
       metadata: { code: postgresErrorCode(error) },
     });
 
+    throw error;
+  }
+}
+
+/** Releases the pool of a database that is refused, so the refusal leaves no connection behind. */
+async function requireFittingLocale(executor: PostgresExecutor): Promise<void> {
+  try {
+    await requireByteOrderedDatabase(executor);
+  } catch (error: unknown) {
+    await executor.close();
     throw error;
   }
 }

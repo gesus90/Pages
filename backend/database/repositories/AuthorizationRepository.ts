@@ -223,13 +223,13 @@ export class AuthorizationRepository {
   private async readSnapshot(): Promise<AuthorizationSnapshot> {
     const roles = await this.readRoles();
     const departments = await this.database.query(
-      "SELECT id, name FROM departments ORDER BY name;",
+      "SELECT id, name FROM departments ORDER BY name, id;",
     );
     const memberships = await this.database.query(
-      "SELECT user_id, department_id FROM department_members;",
+      "SELECT user_id, department_id FROM department_members ORDER BY user_id, department_id;",
     );
     const management = await this.database.query(
-      "SELECT user_id, department_id FROM managed_departments;",
+      "SELECT user_id, department_id FROM managed_departments ORDER BY user_id, department_id;",
     );
     const accounts = await this.database.query(`
       SELECT
@@ -244,7 +244,8 @@ export class AuthorizationRepository {
           access.all_projects,
           access.has_had_department
       FROM user_authorization AS access
-      INNER JOIN users ON users.id = access.user_id;
+      INNER JOIN users ON users.id = access.user_id
+      ORDER BY access.user_id;
     `);
     return {
       roles,
@@ -310,10 +311,10 @@ export class AuthorizationRepository {
 
   private async readRoles(): Promise<UserRole[]> {
     const rows = await this.database.query(
-      "SELECT id, name, hierarchy_rank, department_bound FROM roles ORDER BY hierarchy_rank DESC, name;",
+      "SELECT id, name, hierarchy_rank, department_bound FROM roles ORDER BY hierarchy_rank DESC, name, id;",
     );
     const permissions = await this.database.query(
-      "SELECT role_id, permission FROM role_permissions;",
+      "SELECT role_id, permission FROM role_permissions ORDER BY role_id, permission;",
     );
     return rows.map((row) => {
       const id = readTextColumn(row, 0, "id");

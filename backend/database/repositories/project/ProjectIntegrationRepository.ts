@@ -253,7 +253,8 @@ export class ProjectIntegrationRepository {
                 project_integrations.next_sync_at IS NULL
                 OR project_integrations.next_sync_at <= $now
             )
-            AND projects.archived_at IS NULL;
+            AND projects.archived_at IS NULL
+        ORDER BY project_integrations.project_id;
       `,
       { now: nowIso },
     );

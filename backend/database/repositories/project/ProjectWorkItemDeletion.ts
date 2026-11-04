@@ -37,7 +37,8 @@ export async function deleteProjectWorkItemData(
     `
       SELECT storage_name
       FROM work_item_attachments
-      WHERE work_item_id IN (${PROJECT_WORK_ITEMS});
+      WHERE work_item_id IN (${PROJECT_WORK_ITEMS})
+      ORDER BY storage_name;
     `,
     parameters,
   );

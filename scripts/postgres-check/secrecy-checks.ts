@@ -105,10 +105,16 @@ export async function checkLogs(
     assert.equal(line.includes(correctPassword), false);
     assert.equal(line.includes(WRONG_PASSWORD), false);
   }
-  const failure = pagesLog
-    .split("\n")
-    .find((line) => line.includes('"database.open_failed"'));
-  assert.ok(failure?.includes(`"code":"${INVALID_PASSWORD_CODE}"`));
+  // The refused locales of the repository checks log the same event without this code.
+  assert.ok(
+    pagesLog
+      .split("\n")
+      .some(
+        (line) =>
+          line.includes('"database.open_failed"') &&
+          line.includes(`"code":"${INVALID_PASSWORD_CODE}"`),
+      ),
+  );
   assert.ok(pagesLog.includes('"postgres_check.quoted_url"'));
   return lines.length;
 }

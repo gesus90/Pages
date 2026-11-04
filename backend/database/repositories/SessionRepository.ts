@@ -58,7 +58,7 @@ export class SessionRepository {
             $user_id,
             $token_hash,
             $user_agent,
-            utc_after(to_days($lifetime_days))
+            utc_after($lifetime_days * INTERVAL '1 day')
         WHERE EXISTS (
             SELECT 1
             FROM users
@@ -163,7 +163,7 @@ export class SessionRepository {
         WHERE token_hash = $token_hash
             AND (
                 last_used_at IS NULL
-                OR last_used_at < utc_after(to_minutes(-1))
+                OR last_used_at < utc_after(INTERVAL '-1 minute')
             );
       `,
       { token_hash: tokenHash },
@@ -198,7 +198,7 @@ export class SessionRepository {
         FROM sessions
         WHERE user_id = $user_id
             AND expires_at > utc_now()
-        ORDER BY is_current DESC, last_used_at DESC;
+        ORDER BY is_current DESC, last_used_at DESC, id;
       `,
       { token_hash: currentTokenHash, user_id: userId },
     );

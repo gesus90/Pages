@@ -53,7 +53,7 @@ export class ProjectGoalRepository {
             position
         FROM project_goals
         WHERE project_id = $project_id
-        ORDER BY position ASC, created_at ASC;
+        ORDER BY position ASC, created_at ASC, id ASC;
       `,
       { project_id: projectId },
     );

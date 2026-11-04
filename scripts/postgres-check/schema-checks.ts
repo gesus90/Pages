@@ -70,8 +70,13 @@ const READ_FIXED_TIMES: DialectSql = {
   `,
 };
 
-/** Reads the scripts from disk: `Migrations.ts` needs the Vite build, this check runs without it. */
-async function readMigrations(
+/**
+ * Reads the scripts from disk: `Migrations.ts` needs the Vite build, this check runs without it.
+ *
+ * @param directory - The directory of the scripts below `backend/database/`.
+ * @returns The migrations in name order.
+ */
+export async function readMigrations(
   directory: string,
 ): Promise<readonly Migration[]> {
   const root = path.join(DATABASE_DIRECTORY, directory);

@@ -158,7 +158,7 @@ export class ProjectCoreRepository {
       FROM projects
       ${PROJECT_JOIN_MANAGER}
       WHERE projects.archived_at IS NULL
-      ORDER BY projects.updated_at DESC, projects.name;
+      ORDER BY projects.updated_at DESC, projects.name, projects.id;
     `);
 
     return rows.map(toProject);
@@ -184,7 +184,7 @@ export class ProjectCoreRepository {
       FROM projects
       ${PROJECT_JOIN_MANAGER}
       WHERE projects.archived_at IS NOT NULL
-      ORDER BY projects.archived_at DESC, projects.name;
+      ORDER BY projects.archived_at DESC, projects.name, projects.id;
     `);
     return rows.map(toArchivedProject);
   }
@@ -219,7 +219,7 @@ export class ProjectCoreRepository {
             ON project_members.project_id = projects.id
         WHERE project_members.user_id = $member_id
             AND projects.archived_at IS NULL
-        ORDER BY projects.updated_at DESC, projects.name;
+        ORDER BY projects.updated_at DESC, projects.name, projects.id;
       `,
       { member_id: memberId },
     );

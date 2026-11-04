@@ -60,6 +60,24 @@ export interface NewUser {
   readonly createdAt?: string;
 }
 
+/**
+ * Reads the result of `sha256(data)` as lowercase hexadecimal text.
+ *
+ * @remarks
+ * Both databases know the function: DuckDB answers with the text, PostgreSQL
+ * with the bytes.
+ */
+function readDigestColumn(
+  row: readonly DatabaseValue[],
+  index: number,
+  column: string,
+): string {
+  const digest = row[index];
+  return Buffer.isBuffer(digest)
+    ? digest.toString("hex")
+    : readTextColumn(row, index, column);
+}
+
 /** Owns persistence operations for users. */
 export class UserRepository {
   private readonly database: Pick<
@@ -130,7 +148,7 @@ export class UserRepository {
           avatar_image_url,
           must_change_password
       FROM users
-      ORDER BY display_name;
+      ORDER BY display_name, id;
     `);
 
     return rows.map((row) => this.toUser(row));
@@ -513,7 +531,7 @@ export class UserRepository {
 
     return {
       mimeType: readTextColumn(row, 0, "mime_type"),
-      sha256: readTextColumn(row, 1, "image_digest"),
+      sha256: readDigestColumn(row, 1, "image_digest"),
     };
   }
 

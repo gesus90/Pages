@@ -144,7 +144,8 @@ export class ProjectMemberRepository {
                 WHEN 'member' THEN 1
                 ELSE 2
             END,
-            users.display_name ASC;
+            users.display_name ASC,
+            users.id ASC;
       `,
       { project_id: projectId },
     );
