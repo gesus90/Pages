@@ -1,19 +1,23 @@
 # Database executor
 
-Pages keeps DuckDB as its only database, but since PAGE-197 the server no
-longer holds a DuckDB handle itself. A local worker process owns the
-database file; the server talks to it over the Node IPC channel. The
-`Database` class (`backend/database/Database.ts`) stays the facade every
-repository uses, with the same `execute`, `query` and `transaction`
+The live Pages instance uses PostgreSQL, selected by `databaseUrl` in its
+completed configuration. The `Database` class (`backend/database/Database.ts`)
+stays the facade every repository uses, with the same `execute`, `query` and `transaction`
 methods, plus `readTransaction` for consistent read-only snapshots.
 
-PostgreSQL is being built beside this path (decided on 2026-11-03, see PAGE-212):
-`Database.connect` runs the same facade through
+`Database.connect` runs PostgreSQL through
 `backend/database/postgres/PostgresExecutor.ts`, a pool of 10 connections with
 the same lanes and budgets. The writer lane still runs one job at a time,
 because repositories rely on it; the other 9 connections serve reads. Its schema
-and its migrations are described in `docs/PostgresMigration.md`. Everything below
-describes DuckDB, which stays the default until the switch.
+and its migrations are described in `docs/PostgresMigration.md`. PostgreSQL does
+not start the DuckDB worker.
+
+The release retains DuckDB as a legacy fallback until PAGE-221. With completed
+setup and no `databaseUrl`, Pages uses `databasePath` and a local worker process
+owns the DuckDB file; the server talks to it over Node IPC. The setup wizard
+currently asks for a DuckDB file path and creates or opens that database; it does
+not offer a PostgreSQL URL. A pending setup does not select PostgreSQL. These
+sections describe the retained DuckDB executor unless explicitly stated otherwise.
 
 ## Owner model
 
@@ -243,9 +247,12 @@ warning or error, as `agent.recovery.process_scan_failed` does.
 
 ## Rollout and rollback
 
-Rollout is a normal deploy of the built `build/` directory: the server forks
+For an installation that still uses DuckDB, rollout is a normal deploy of the
+built `build/` directory: the server forks
 `build/server/database-worker.mjs` itself, and no configuration, migration
 or data change is involved. Watch `database.worker.*`, `database.queue.slow`
 and the WAL fields of `database.statement.slow` after the deploy. To roll
 back, deploy the previous build. The database file format is unchanged, and
-both versions checkpoint on a regular stop.
+both versions checkpoint on a regular stop. This is not a PostgreSQL-to-DuckDB
+rollback procedure: once PostgreSQL has accepted new writes, returning to the old
+DuckDB file would lose those writes and requires an explicit data-loss decision.

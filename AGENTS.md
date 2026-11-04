@@ -49,7 +49,7 @@ Pages is a self-hosted project management and wiki application built with:
 - Node.js
 - Vite
 - React Router
-- DuckDB
+- PostgreSQL and the legacy DuckDB fallback
 - i18next
 
 The application uses server-side rendering and is intended to support multiple users.
@@ -82,7 +82,7 @@ Service
     ↓
 Repository
     ↓
-DuckDB
+Database executor (PostgreSQL or DuckDB)
 ```
 
 Responsibilities:
@@ -154,13 +154,13 @@ For backend work:
 For database work:
 
 - Follow all SQL formatting and structure rules from `GUIDELINES.md`.
-- DuckDB is the only supported database until the switch to PostgreSQL decided
-  on 2026-11-03. `backend/database/postgres/` is that path, built beside DuckDB
-  behind the same facade and checked by `pnpm run postgres:check`. Do not add
-  any other database driver, dialect or fallback.
+- The live instance uses PostgreSQL selected by `databaseUrl`. The release also
+  retains DuckDB as a legacy fallback until PAGE-221. Both use the same facade;
+  PostgreSQL is checked by `pnpm run postgres:check`. Do not add another database
+  driver, dialect or fallback.
 - Add a new migration for schema changes, as a numbered `.sql` file in
   `backend/database/migrations/`.
-- Until the switch, every new DuckDB migration needs a matching PostgreSQL
+- While both backends are retained, every new DuckDB migration needs a matching PostgreSQL
   migration in `backend/database/postgres/migrations/`. `pnpm run postgres:check`
   compares both schemas; a deliberate difference goes into its list with a reason
   (`docs/PostgresMigration.md`).

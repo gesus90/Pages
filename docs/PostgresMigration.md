@@ -1,7 +1,11 @@
 # PostgreSQL migration
 
-PostgreSQL replaces DuckDB (decided on 2026-11-03). Until the switch both exist
-side by side; `docs/DatabaseExecutor.md` describes the facade they share.
+The live Pages instance uses PostgreSQL through `databaseUrl`. DuckDB remains a
+legacy fallback in the release until PAGE-221; `docs/DatabaseExecutor.md`
+describes the facade both backends share. A completed setup without `databaseUrl`
+uses `databasePath` and DuckDB. The current setup wizard asks for a DuckDB file
+path and does not configure a PostgreSQL URL; it does not select PostgreSQL while
+setup is pending.
 
 ## Schema
 
@@ -16,7 +20,7 @@ the scripts; PostgreSQL counts its own in `postgres_schema_migrations`. It runs 
 `CHECKPOINT`: that only protects DuckDB's write-ahead log and needs extra rights
 here.
 
-Until the switch every new DuckDB migration needs a matching PostgreSQL migration
+While both backends remain, every new DuckDB migration needs a matching PostgreSQL migration
 (`AGENTS.md`).
 
 ## Types
@@ -72,7 +76,8 @@ The steps of a switch:
    shows it.
 3. Run the command. It opens the file read-only and writes nothing next to it.
 4. Switch only after exit code 0. Exit code 1 is a deviation or a failure, exit code 2
-   wrong usage. After a failed copy, drop the database and start with a new one.
+   wrong usage. Preserve a failed target for diagnosis and determine whether it contains
+   data that must be retained before choosing how to retry.
 
 The command migrates the target and refuses one that holds business data: any table
 of something else, or a row a migration did not write, including a seeded row that
@@ -110,10 +115,12 @@ The transfer removes U+0000 from text (see [U+0000 in text](#u0000-in-text)):
 
 ## Running backup
 
-The data is backed up while Pages runs, and a recovery to a point in time is checked.
-On top of the base backup the WAL archive holds every change, so at most the last
-5 minutes (`archive_timeout = 300`) can be lost when the server's own disk fails. The
-oldest kept base backup limits how far back a recovery can go: 7 days with the default.
+The example below backs up while Pages runs and checks recovery to a point in time.
+On top of the base backup its WAL archive holds changes. With the example's
+`archive_timeout = 300`, the last 5 minutes and any archive delay may be lost if
+the server's own disk fails. An archiving failure can increase that loss. The oldest kept base
+backup limits how far back recovery can go; retention and actual recovery objectives
+depend on the installation.
 
 | Part                                           | Task                                                                                        |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -124,11 +131,12 @@ oldest kept base backup limits how far back a recovery can go: 7 days with the d
 | `pages-postgres-base-backup.{service,timer}`   | Base backup every day at 03:30.                                                             |
 | `pages-postgres-restore-check.{service,timer}` | `pnpm run postgres:restore-check` every day at 04:30.                                       |
 
-### Setup at the switch
+### Example backup setup
 
-Nothing of this is set up yet; the productive setup happens at the switch. All of it runs
-as one user, who owns `/mnt/Data/PagesPostgres` and the cluster and reads the
-configuration of Pages.
+The live instance has productive backup and restore verification in place. The
+following is a supported example, not a description of a particular host's
+topology or retention policy. In this example all commands run as one user, who
+owns the backup root and the cluster and can read the Pages configuration.
 
 1. With `/mnt/Data` mounted, create `/mnt/Data/PagesPostgres/wal` and `base`, mode 0700.
    Neither script creates the root: on a missing disk that would land on the system disk.
