@@ -216,7 +216,7 @@ export class MilestoneRepository {
         FROM milestones
         WHERE project_id IN (${placeholders})
             AND archived_at IS NULL
-        ORDER BY due_at ASC, name ASC;
+        ORDER BY due_at ASC NULLS FIRST, name ASC, id ASC;
       `,
       parameters,
     );

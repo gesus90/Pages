@@ -307,19 +307,6 @@ const WORK_ITEM_CHANGE_STEPS: readonly RepositoryStep[] = [
   call("TaskRepository.update", ({ tasks }) =>
     tasks.update("item-a", { ...UPDATE, baseDescription: "veraltet" }),
   ),
-  // `update` is a listed gap until PAGE-215; the steps after it start from its result.
-  prepare(`
-    UPDATE work_items
-    SET
-        title = 'Neu',
-        description = 'Neu beschrieben',
-        priority = 'high',
-        assignee_id = 'user-manager',
-        parent_id = NULL,
-        milestone_id = NULL,
-        due_at = '2026-06-01'
-    WHERE id = 'item-a';
-  `),
   call("TaskRepository.updateFromGitHub", ({ tasks }) =>
     tasks.updateFromGitHub("item-b", {
       title: "Von GitHub",
@@ -595,7 +582,7 @@ const LIFECYCLE_STEPS: readonly RepositoryStep[] = [
   prepare("DELETE FROM labels;"),
 ];
 
-/** The ticket facade over `task/`; its statements themselves belong to PAGE-215. */
+/** The ticket facade over `task/`. */
 export const TASK_FACADE_FLOW: RepositoryFlow = {
   title: "ticket facade",
   steps: [

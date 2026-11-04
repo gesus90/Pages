@@ -106,7 +106,9 @@ export class WorkItemLifecycleRepository {
         GROUP BY
             work_items.type,
             work_items.archived_at IS NULL
-        ORDER BY work_items.type;
+        ORDER BY
+            work_items.type,
+            work_items.archived_at IS NULL;
       `,
       { root_id: rootId, ...scope.parameters },
     );

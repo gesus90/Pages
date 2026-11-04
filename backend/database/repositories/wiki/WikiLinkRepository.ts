@@ -177,7 +177,7 @@ export class WikiLinkRepository {
         FROM projects AS project
         WHERE project.description LIKE $needle ESCAPE '\\'
             AND ${projects.sql}
-        ORDER BY project.name;
+        ORDER BY project.name, project.id;
       `,
       { ...projects.parameters, needle: `%${escapeLike(needle)}%` },
     );

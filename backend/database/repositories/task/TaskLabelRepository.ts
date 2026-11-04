@@ -131,7 +131,8 @@ export class TaskLabelRepository {
         INNER JOIN work_items
             ON work_items.id = work_item_labels.work_item_id
         WHERE ${scope.condition}
-        GROUP BY work_item_labels.label_id;
+        GROUP BY work_item_labels.label_id
+        ORDER BY work_item_labels.label_id;
       `,
       scope.parameters,
     );
@@ -233,7 +234,7 @@ export class TaskLabelRepository {
         INNER JOIN labels
             ON labels.id = work_item_labels.label_id
         WHERE work_item_labels.work_item_id IN (${placeholders})
-        ORDER BY labels.name ASC;
+        ORDER BY labels.name ASC, work_item_labels.work_item_id ASC;
       `,
       parameters,
     );

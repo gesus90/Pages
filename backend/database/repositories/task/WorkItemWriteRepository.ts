@@ -244,8 +244,8 @@ export class WorkItemWriteRepository {
                 )
             )
             AND (
-                $description IS NULL
-                OR $base_description IS NULL
+                CAST($description AS TEXT) IS NULL
+                OR CAST($base_description AS TEXT) IS NULL
                 OR description = $base_description
                 OR description = $description
             )
@@ -471,7 +471,7 @@ export class WorkItemWriteRepository {
         UPDATE work_items
         SET
             status_id = $status_id,
-            sort_order = $sort_order,
+            sort_order = CAST(CAST($sort_order AS DOUBLE PRECISION) AS BIGINT),
             completed_at = CASE WHEN $is_done = 1 THEN utc_now() ELSE NULL END,
             updated_at = utc_now()
         WHERE id = $id

@@ -8,6 +8,9 @@ import { createInCondition } from "./WikiVisibility";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 
+/** A user name with one of these characters cannot be written as a mention. */
+const NOT_MENTIONABLE_CHARACTERS = "\t\n\f\r @()[]<>,;:!?\"'";
+
 /** Looks up accounts and projects for the wiki. */
 export class WikiLookupRepository {
   private readonly database: DatabaseTransaction;
@@ -227,7 +230,7 @@ export class WikiLookupRepository {
             display_name
         FROM users
         WHERE is_active = 1
-            AND NOT regexp_matches(username, '[\\s@()\\[\\]<>,;:!?"'']')
+            AND translate(username, $not_mentionable, '') = username
             AND (
                 display_name ILIKE $pattern ESCAPE '\\'
                 OR username ILIKE $pattern ESCAPE '\\'
@@ -235,7 +238,10 @@ export class WikiLookupRepository {
         ORDER BY display_name, id
         LIMIT ${Math.trunc(limit)};
       `,
-      { pattern: `%${escapeLike(query)}%` },
+      {
+        not_mentionable: NOT_MENTIONABLE_CHARACTERS,
+        pattern: `%${escapeLike(query)}%`,
+      },
     );
 
     return rows.map((row) => ({

@@ -114,11 +114,11 @@ export class WorkItemCountRepository {
       `
         SELECT
             COUNT(CASE WHEN statuses.is_done = 0 THEN 1 END) AS open_count,
-            COUNT(CASE WHEN statuses.is_done = 0 AND work_items.due_at IS NOT NULL AND TRY_CAST(work_items.due_at AS DATE) <= $today_date THEN 1 END) AS overdue_count,
+            COUNT(CASE WHEN statuses.is_done = 0 AND work_items.due_at IS NOT NULL AND try_date(work_items.due_at) <= $today_date THEN 1 END) AS overdue_count,
             COUNT(CASE WHEN statuses.is_done = 0 AND statuses.key = 'in_progress' THEN 1 END) AS in_progress_count,
             COUNT(CASE WHEN statuses.is_done = 0 AND (work_items.assignee_id = $user_id OR work_items.assignee_group_id IN (SELECT group_id FROM user_group_members WHERE user_id = $user_id)) THEN 1 END) AS assigned_count,
             COUNT(CASE WHEN statuses.is_done = 0 AND work_items.created_at >= $week_ago_start THEN 1 END) AS open_delta_count,
-            COUNT(CASE WHEN statuses.is_done = 0 AND work_items.due_at IS NOT NULL AND TRY_CAST(work_items.due_at AS DATE) <= $today_date AND TRY_CAST(work_items.due_at AS DATE) >= $yesterday_date THEN 1 END) AS overdue_delta_count
+            COUNT(CASE WHEN statuses.is_done = 0 AND work_items.due_at IS NOT NULL AND try_date(work_items.due_at) <= $today_date AND try_date(work_items.due_at) >= $yesterday_date THEN 1 END) AS overdue_delta_count
         FROM work_items
         INNER JOIN workflow_statuses AS statuses
             ON statuses.id = work_items.status_id
@@ -172,7 +172,8 @@ export class WorkItemCountRepository {
         WHERE work_items.project_id IN (${placeholders})
             AND ${departmentScope.condition}
             AND work_items.archived_at IS NULL
-        GROUP BY work_items.project_id, statuses.is_done;
+        GROUP BY work_items.project_id, statuses.is_done
+        ORDER BY work_items.project_id, statuses.is_done;
       `,
       { ...parameters, ...departmentScope.parameters },
     );

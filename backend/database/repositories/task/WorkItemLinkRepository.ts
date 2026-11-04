@@ -149,7 +149,9 @@ export class WorkItemLinkRepository {
         INNER JOIN workflow_statuses
             ON workflow_statuses.id = work_items.status_id
         WHERE work_item_links.linked_work_item_id = $work_item_id
-            AND ${scope.condition};
+            AND ${scope.condition}
+
+        ORDER BY direction DESC, created_at ASC, id ASC;
       `,
       { work_item_id: workItemId, ...scope.parameters },
     );

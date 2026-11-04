@@ -141,10 +141,13 @@ async function checkRefusals(
   database: Database,
   migrations: readonly Migration[],
 ): Promise<void> {
-  const baseline = migrations[0];
+  const [baseline, ...later] = migrations;
   assert.ok(baseline);
   await assert.rejects(
-    database.migrate([{ ...baseline, sql: `${baseline.sql}\n-- edited\n` }]),
+    database.migrate([
+      { ...baseline, sql: `${baseline.sql}\n-- edited\n` },
+      ...later,
+    ]),
     MigrationChecksumError,
   );
   await assert.rejects(database.migrate([]), UnknownMigrationError);

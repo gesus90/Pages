@@ -107,7 +107,8 @@ export class WorkItemQueryRepository {
       SELECT work_items.key
       FROM work_items
       WHERE work_items.key IN (${placeholders})
-          AND ${scope.condition};
+          AND ${scope.condition}
+      ORDER BY work_items.key;
     `,
       { ...parameters, ...scope.parameters },
     );
@@ -165,7 +166,8 @@ export class WorkItemQueryRepository {
       SELECT DISTINCT github_issue_number
       FROM work_items
       WHERE project_id = $project_id
-          AND github_issue_number IS NOT NULL;
+          AND github_issue_number IS NOT NULL
+      ORDER BY github_issue_number;
     `,
       { project_id: projectId },
     );

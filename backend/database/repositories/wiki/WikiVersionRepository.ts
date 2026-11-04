@@ -137,7 +137,7 @@ export class WikiVersionRepository {
         LEFT JOIN users AS author
             ON author.id = version.author_id
         WHERE version.page_id = $page_id
-        ORDER BY version.revision DESC, version.created_at DESC;
+        ORDER BY version.revision DESC, version.created_at DESC, version.id;
       `,
       { page_id: pageId },
     );
@@ -221,14 +221,12 @@ export class WikiVersionRepository {
                     version.created_at,
                     ROW_NUMBER() OVER (
                         PARTITION BY version.page_id
-                        ORDER BY version.revision DESC, version.created_at DESC
+                        ORDER BY version.revision DESC, version.created_at DESC, version.id
                     ) AS recency
                 FROM wiki_page_versions AS version
             ) AS ranked
             WHERE ranked.recency > $keep_last
-                AND ranked.created_at < utc_after(
-                    to_days(CAST(-$retention_days AS INTEGER))
-                )
+                AND ranked.created_at < utc_after($retention_days * INTERVAL '-1 day')
         );
       `,
       { keep_last: keepLast, retention_days: retentionDays },
@@ -245,12 +243,13 @@ export class WikiVersionRepository {
         FROM wiki_page_versions
         WHERE page_id = $page_id
             AND author_id = $author_id
-            AND created_at >= utc_after(to_minutes(CAST(-$minutes AS INTEGER)))
+            AND created_at >= utc_after($minutes * INTERVAL '-1 minute')
             AND revision = (
                 SELECT MAX(revision)
                 FROM wiki_page_versions
                 WHERE page_id = $page_id
-            );
+            )
+        ORDER BY created_at DESC, id;
       `,
       {
         author_id: version.authorId,

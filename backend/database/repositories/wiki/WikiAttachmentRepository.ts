@@ -192,7 +192,7 @@ export class WikiAttachmentRepository {
    */
   public async listStorageNames(): Promise<string[]> {
     const rows = await this.database.query(
-      "SELECT storage_name FROM wiki_attachments;",
+      "SELECT storage_name FROM wiki_attachments ORDER BY storage_name;",
     );
 
     return rows.map((row) => readTextColumn(row, 0, "storage_name"));

@@ -74,6 +74,24 @@ function readComment(row: readonly DatabaseValue[]): StoredWikiComment {
   };
 }
 
+let lastCommentMillisecond = 0;
+
+/**
+ * Creates a comment identifier that sorts by creation.
+ *
+ * @remarks
+ * Comments list by their creation time in seconds, then by identifier, so that
+ * two comments of one second keep their order in every database. It has the
+ * layout of a UUIDv7: the milliseconds first, then random bits.
+ */
+function createCommentId(): string {
+  lastCommentMillisecond = Math.max(Date.now(), lastCommentMillisecond + 1);
+  const time = lastCommentMillisecond.toString(16).padStart(12, "0");
+  const random = randomUUID();
+
+  return `${time.slice(0, 8)}-${time.slice(8)}-7${random.slice(15)}`;
+}
+
 /** Owns persistence of the comments below pages. */
 export class WikiCommentRepository {
   private readonly database: DatabaseTransaction;
@@ -94,7 +112,7 @@ export class WikiCommentRepository {
    * @returns The identifier of the comment.
    */
   public async insert(comment: NewWikiComment): Promise<string> {
-    const id = randomUUID();
+    const id = createCommentId();
 
     await this.database.execute(
       `
@@ -147,7 +165,7 @@ export class WikiCommentRepository {
         FROM wiki_comments AS comment
         ${JOINS}
         WHERE comment.page_id = $page_id
-        ORDER BY comment.created_at, comment.rowid;
+        ORDER BY comment.created_at, comment.id;
       `,
       { page_id: pageId },
     );
@@ -203,7 +221,7 @@ export class WikiCommentRepository {
       `
         UPDATE wiki_comments
         SET
-            resolved_at = CASE WHEN $resolved_by IS NULL THEN NULL ELSE utc_now() END,
+            resolved_at = CASE WHEN CAST($resolved_by AS TEXT) IS NULL THEN NULL ELSE utc_now() END,
             resolved_by = $resolved_by
         WHERE id = $id;
       `,

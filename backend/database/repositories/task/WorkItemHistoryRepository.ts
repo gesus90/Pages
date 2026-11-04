@@ -70,7 +70,7 @@ export class WorkItemHistoryRepository {
             ON users.id = work_item_history.user_id
         WHERE work_items.project_id = $project_id
             AND ${scope.condition}
-        ORDER BY work_item_history.created_at DESC
+        ORDER BY work_item_history.created_at DESC, work_item_history.id ASC
         LIMIT 200;
       `,
       { project_id: projectId, ...scope.parameters },
@@ -99,7 +99,7 @@ export class WorkItemHistoryRepository {
         LEFT JOIN users
             ON users.id = work_item_history.user_id
         WHERE work_item_history.work_item_id = $work_item_id
-        ORDER BY work_item_history.created_at DESC;
+        ORDER BY work_item_history.created_at DESC, work_item_history.id ASC;
       `,
       { work_item_id: workItemId },
     );

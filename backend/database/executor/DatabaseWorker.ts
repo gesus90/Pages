@@ -45,6 +45,7 @@ const IN_MEMORY_DATABASE_PATH = ":memory:";
  * - `utc_now()` is the current UTC time and `utc_after(time_shift)` the time
  *   `time_shift` (an interval) from now, both as `YYYY-MM-DD HH:MM:SS` text,
  *   the format all timestamp columns store.
+ * - `try_date(date_text)` is the date in a text, or `NULL` when it holds none.
  * - NULL values sort first in ascending and last in descending order, which
  *   is the order the `ORDER BY` clauses of the repositories rely on.
  */
@@ -54,6 +55,8 @@ const CONNECTION_SETUP = `
       strftime((now() AT TIME ZONE 'UTC') + time_shift, '%Y-%m-%d %H:%M:%S');
   CREATE OR REPLACE MACRO utc_now() AS
       utc_after(INTERVAL 0 DAY);
+  CREATE OR REPLACE MACRO try_date(date_text) AS
+      TRY_CAST(date_text AS DATE);
 `;
 
 /** Text DuckDB reports when it cannot replay the write-ahead log of a file. */

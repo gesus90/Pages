@@ -275,7 +275,7 @@ export class WorkItemAttachmentRepository {
    */
   public async listStorageNames(): Promise<string[]> {
     const rows = await this.database.query(
-      "SELECT storage_name FROM work_item_attachments;",
+      "SELECT storage_name FROM work_item_attachments ORDER BY storage_name;",
     );
 
     return rows.map((row) => readTextColumn(row, 0, "storage_name"));

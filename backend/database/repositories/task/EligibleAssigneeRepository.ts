@@ -75,7 +75,7 @@ export class EligibleAssigneeRepository {
             users.must_change_password
         FROM users
         WHERE users.is_active = 1
-        ORDER BY users.display_name ASC;
+        ORDER BY users.display_name ASC, users.id ASC;
       `,
     );
 

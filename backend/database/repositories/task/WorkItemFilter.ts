@@ -84,7 +84,7 @@ interface EqualityFilter {
 
 /** The order of the Kanban board, which also orders single-item lookups. */
 export const BOARD_ORDER_CLAUSE =
-  "ORDER BY work_items.sort_order ASC, work_items.created_at DESC";
+  "ORDER BY work_items.sort_order ASC, work_items.created_at DESC, work_items.id ASC";
 
 const CONDITION_SEPARATOR = "\n          AND ";
 
@@ -104,10 +104,10 @@ const ARCHIVED_CONDITIONS: Readonly<Record<ArchivedScope, readonly string[]>> =
  */
 const ORDER_CLAUSES: Readonly<Record<WorkItemsOrder, string>> = {
   board: BOARD_ORDER_CLAUSE,
-  due_asc: "ORDER BY work_items.due_at ASC",
+  due_asc: "ORDER BY work_items.due_at ASC NULLS FIRST, work_items.id ASC",
   due_nulls_last:
-    "ORDER BY work_items.due_at IS NULL ASC, work_items.due_at ASC, work_items.updated_at DESC",
-  updated_desc: "ORDER BY work_items.updated_at DESC",
+    "ORDER BY work_items.due_at IS NULL ASC, work_items.due_at ASC, work_items.updated_at DESC, work_items.id ASC",
+  updated_desc: "ORDER BY work_items.updated_at DESC, work_items.id ASC",
 };
 
 const EQUALITY_FILTERS: readonly EqualityFilter[] = [
@@ -304,8 +304,12 @@ function createSearchFragments(
   return [
     {
       condition:
-        "(LOWER(work_items.title) LIKE $search OR LOWER(work_items.key) LIKE $search)",
-      parameters: { search: `%${term.toLowerCase()}%` },
+        "(LOWER(work_items.title) LIKE $search ESCAPE '\\' OR LOWER(work_items.key) LIKE $search ESCAPE '\\')",
+      // PostgreSQL escapes with a backslash unless told otherwise, DuckDB does
+      // not. `%` and `_` stay wildcards here, a backslash stays itself in both.
+      parameters: {
+        search: `%${term.toLowerCase().replaceAll("\\", "\\\\")}%`,
+      },
     },
   ];
 }

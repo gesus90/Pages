@@ -41,7 +41,8 @@ export async function deleteWikiPages(
     `
       SELECT storage_name
       FROM wiki_attachments
-      WHERE page_id IN (${selection.sql});
+      WHERE page_id IN (${selection.sql})
+      ORDER BY storage_name;
     `,
     selection.parameters,
   );

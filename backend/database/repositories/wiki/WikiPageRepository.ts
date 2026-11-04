@@ -508,9 +508,7 @@ export class WikiPageRepository {
         SELECT page.id
         FROM wiki_pages AS page
         WHERE page.deleted_root_id = page.id
-            AND page.deleted_at <= utc_after(
-                to_days(CAST(-$retention_days AS INTEGER))
-            )
+            AND page.deleted_at <= utc_after($retention_days * INTERVAL '-1 day')
         ORDER BY page.id;
       `,
       { retention_days: retentionDays },
@@ -533,7 +531,8 @@ export class WikiPageRepository {
         FROM wiki_pages AS page
         WHERE page.scope = 'private'
             AND page.deleted_at IS NULL
-        GROUP BY page.owner_id;
+        GROUP BY page.owner_id
+        ORDER BY page.owner_id;
       `,
     );
 

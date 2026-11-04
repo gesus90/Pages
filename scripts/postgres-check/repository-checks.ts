@@ -28,6 +28,40 @@ import { ProjectLifecycleRepository } from "@/backend/database/repositories/proj
 import { ProjectMemberRepository } from "@/backend/database/repositories/project/ProjectMemberRepository";
 import { ProjectTagRepository } from "@/backend/database/repositories/project/ProjectTagRepository";
 import { ProjectTemplateRepository } from "@/backend/database/repositories/project/ProjectTemplateRepository";
+import { EligibleAssigneeRepository } from "@/backend/database/repositories/task/EligibleAssigneeRepository";
+import { MilestoneDependencyRepository } from "@/backend/database/repositories/task/MilestoneDependencyRepository";
+import { MilestoneInitiativeRepository } from "@/backend/database/repositories/task/MilestoneInitiativeRepository";
+import { MilestoneRepository } from "@/backend/database/repositories/task/MilestoneRepository";
+import { TaskLabelRepository } from "@/backend/database/repositories/task/TaskLabelRepository";
+import { TicketAssetAuditRepository } from "@/backend/database/repositories/task/TicketAssetAuditRepository";
+import { TicketAssetMigrationRepository } from "@/backend/database/repositories/task/TicketAssetMigrationRepository";
+import { WorkflowStatusRepository } from "@/backend/database/repositories/task/WorkflowStatusRepository";
+import { WorkItemAttachmentRepository } from "@/backend/database/repositories/task/WorkItemAttachmentRepository";
+import { WorkItemChecklistRepository } from "@/backend/database/repositories/task/WorkItemChecklistRepository";
+import { WorkItemChecklistRevisionRepository } from "@/backend/database/repositories/task/WorkItemChecklistRevisionRepository";
+import { WorkItemCountRepository } from "@/backend/database/repositories/task/WorkItemCountRepository";
+import { WorkItemHistoryRepository } from "@/backend/database/repositories/task/WorkItemHistoryRepository";
+import { WorkItemKeyRepository } from "@/backend/database/repositories/task/WorkItemKeyRepository";
+import { WorkItemLifecycleRepository } from "@/backend/database/repositories/task/WorkItemLifecycleRepository";
+import { WorkItemLinkRepository } from "@/backend/database/repositories/task/WorkItemLinkRepository";
+import { WorkItemProjectMoveRepository } from "@/backend/database/repositories/task/WorkItemProjectMoveRepository";
+import { WorkItemQueryRepository } from "@/backend/database/repositories/task/WorkItemQueryRepository";
+import { WorkItemTemplateRepository } from "@/backend/database/repositories/task/WorkItemTemplateRepository";
+import { WorkItemTreeRepository } from "@/backend/database/repositories/task/WorkItemTreeRepository";
+import { WorkItemWriteRepository } from "@/backend/database/repositories/task/WorkItemWriteRepository";
+import { WikiAnchorRepository } from "@/backend/database/repositories/wiki/WikiAnchorRepository";
+import { WikiAttachmentRepository } from "@/backend/database/repositories/wiki/WikiAttachmentRepository";
+import { WikiCommentRepository } from "@/backend/database/repositories/wiki/WikiCommentRepository";
+import { WikiFeedRepository } from "@/backend/database/repositories/wiki/WikiFeedRepository";
+import { WikiLinkRepository } from "@/backend/database/repositories/wiki/WikiLinkRepository";
+import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
+import { WikiMentionRepository } from "@/backend/database/repositories/wiki/WikiMentionRepository";
+import { WikiPageRepository } from "@/backend/database/repositories/wiki/WikiPageRepository";
+import { WikiPageWriteRepository } from "@/backend/database/repositories/wiki/WikiPageWriteRepository";
+import { WikiSearchRepository } from "@/backend/database/repositories/wiki/WikiSearchRepository";
+import { WikiSettingsRepository } from "@/backend/database/repositories/wiki/WikiSettingsRepository";
+import { WikiStateRepository } from "@/backend/database/repositories/wiki/WikiStateRepository";
+import { WikiVersionRepository } from "@/backend/database/repositories/wiki/WikiVersionRepository";
 
 import {
   SESSION_FLOW,
@@ -44,7 +78,12 @@ import { PROJECT_DELETION_FLOW } from "./repositories/project-deletion-flow";
 import { PROJECT_FLOW } from "./repositories/project-flows";
 import { readPublicApi } from "./repositories/public-api";
 import { TASK_FACADE_FLOW } from "./repositories/task-facade-flows";
+import { TICKET_CHANGE_FLOW } from "./repositories/ticket-change-flows";
+import { TICKET_READ_FLOW } from "./repositories/ticket-read-flows";
+import { WIKI_CONTENT_FLOW } from "./repositories/wiki-content-flows";
 import { WIKI_FACADE_FLOW } from "./repositories/wiki-facade-flow";
+import { WIKI_PAGE_FLOW } from "./repositories/wiki-page-flows";
+import { WIKI_STATE_FLOW } from "./repositories/wiki-state-flows";
 import { createWorld } from "./repositories/world";
 import { readMigrations } from "./schema-checks";
 
@@ -70,7 +109,12 @@ const FLOWS: readonly RepositoryFlow[] = [
   GITHUB_FLOW,
   PROJECT_FLOW,
   TASK_FACADE_FLOW,
+  TICKET_READ_FLOW,
+  TICKET_CHANGE_FLOW,
   WIKI_FACADE_FLOW,
+  WIKI_PAGE_FLOW,
+  WIKI_CONTENT_FLOW,
+  WIKI_STATE_FLOW,
   PROJECT_DELETION_FLOW,
 ];
 
@@ -101,30 +145,45 @@ const AREA_CLASSES: Readonly<Record<string, { readonly prototype: object }>> = {
   ProjectMemberRepository,
   ProjectTagRepository,
   ProjectTemplateRepository,
+  EligibleAssigneeRepository,
+  MilestoneDependencyRepository,
+  MilestoneInitiativeRepository,
+  MilestoneRepository,
+  TaskLabelRepository,
+  TicketAssetAuditRepository,
+  TicketAssetMigrationRepository,
+  WorkflowStatusRepository,
+  WorkItemAttachmentRepository,
+  WorkItemChecklistRepository,
+  WorkItemChecklistRevisionRepository,
+  WorkItemCountRepository,
+  WorkItemHistoryRepository,
+  WorkItemKeyRepository,
+  WorkItemLifecycleRepository,
+  WorkItemLinkRepository,
+  WorkItemProjectMoveRepository,
+  WorkItemQueryRepository,
+  WorkItemTemplateRepository,
+  WorkItemTreeRepository,
+  WorkItemWriteRepository,
+  WikiAnchorRepository,
+  WikiAttachmentRepository,
+  WikiCommentRepository,
+  WikiFeedRepository,
+  WikiLinkRepository,
+  WikiLookupRepository,
+  WikiMentionRepository,
+  WikiPageRepository,
+  WikiPageWriteRepository,
+  WikiSearchRepository,
+  WikiSettingsRepository,
+  WikiStateRepository,
+  WikiVersionRepository,
 };
 
 const STORED_TIME = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/u;
 const GENERATED_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
-
-/**
- * Facade methods whose statements lie in `task/`, which PAGE-215 ports and this
- * area must not change.
- *
- * @remarks
- * Only these may still differ. An entry that no longer differs fails the check,
- * so the list shrinks with PAGE-215 and cannot hide a new difference.
- */
-const FOREIGN_GAPS: Readonly<Record<string, string>> = {
-  "TaskRepository.findMilestonesByProjectIds":
-    "task/MilestoneRepository.ts sorts by the nullable due_at without NULLS FIRST",
-  "TaskRepository.findAll":
-    "task/WorkItemFilter.ts ends the board order on created_at, without a unique last key",
-  "TaskRepository.countWorkItemsOverview":
-    "task/WorkItemCountRepository.ts uses TRY_CAST, which only DuckDB knows",
-  "TaskRepository.update":
-    "task/WorkItemWriteRepository.ts tests untyped parameters with IS NULL",
-};
 
 /** What one step ended with, in a form both databases can be compared on. */
 interface StepOutcome {
@@ -209,63 +268,31 @@ async function runFlows(world: RepositoryWorld): Promise<StepOutcome[]> {
   return outcomes;
 }
 
-/** One step that failed or differs. */
-interface StepDifference {
-  readonly name: string;
-  readonly text: string;
-}
-
 /**
  * Compares what the two databases did, step by step.
  *
  * @param duckdb - The steps on DuckDB.
  * @param postgres - The same steps on PostgreSQL.
- * @returns One entry per step that failed or differs. A step DuckDB fails is
- * a fault of the flow and is never covered by {@link FOREIGN_GAPS}.
+ * @returns One text per step that failed or differs.
  */
 function findDifferences(
   duckdb: readonly StepOutcome[],
   postgres: readonly StepOutcome[],
-): readonly StepDifference[] {
-  const findings: StepDifference[] = [];
+): readonly string[] {
+  const findings: string[] = [];
   duckdb.forEach((expected, index) => {
     const actual = postgres[index];
-    const { name, label } = expected;
+    const { label } = expected;
     if (!expected.isExpected)
-      findings.push({
-        name: `DuckDB ${name}`,
-        text: `${label}: DuckDB ${expected.text}`,
-      });
+      findings.push(`${label}: DuckDB ${expected.text}`);
     if (!actual?.isExpected)
-      findings.push({
-        name,
-        text: `${label}: PostgreSQL ${String(actual?.text)}`,
-      });
+      findings.push(`${label}: PostgreSQL ${String(actual?.text)}`);
     else if (actual.text !== expected.text)
-      findings.push({
-        name,
-        text: `${label}:\n  DuckDB     ${expected.text}\n  PostgreSQL ${actual.text}`,
-      });
+      findings.push(
+        `${label}:\n  DuckDB     ${expected.text}\n  PostgreSQL ${actual.text}`,
+      );
   });
   return findings;
-}
-
-/** Fails on every difference outside the list, and on a list entry that no longer differs. */
-function requireOnlyForeignGaps(differences: readonly StepDifference[]): void {
-  const unexplained = differences.filter(
-    ({ name }) => FOREIGN_GAPS[name] === undefined,
-  );
-  assert.equal(
-    unexplained.length,
-    0,
-    `The databases differ:\n${unexplained.map(({ text }) => text).join("\n")}`,
-  );
-  const found = new Set(differences.map(({ name }) => name));
-  assert.deepEqual(
-    Object.keys(FOREIGN_GAPS).filter((name) => !found.has(name)),
-    [],
-    "The list names a gap that no longer exists.",
-  );
 }
 
 /** Notes each call of a public method of the area, also behind a facade. */
@@ -398,7 +425,12 @@ export async function runRepositoryChecks(
     },
   );
   checkComparisonFindsDifferences(duckdb);
-  requireOnlyForeignGaps(findDifferences(duckdb, postgres));
+  const differences = findDifferences(duckdb, postgres);
+  assert.equal(
+    differences.length,
+    0,
+    `The databases differ:\n${differences.join("\n")}`,
+  );
   const missing = missingFromFlows(api, called);
   assert.deepEqual(missing, [], "No step reaches these public methods.");
   const methodCount = [...api.methods.values()].reduce(
@@ -409,8 +441,6 @@ export async function runRepositoryChecks(
     (step) => step.isRefusal,
   ).length;
   console.info(
-    `ok   repositories: ${String(api.files.length)} files, ${String(methodCount)} public methods and functions, ${String(duckdb.length)} steps with ${String(refusals)} refusals, same results in both databases except the listed gaps`,
+    `ok   repositories: ${String(api.files.length)} files, ${String(methodCount)} public methods and functions, ${String(duckdb.length)} steps with ${String(refusals)} refusals, same results in both databases`,
   );
-  for (const [method, reason] of Object.entries(FOREIGN_GAPS))
-    console.info(`gap  ${method}: ${reason} (PAGE-215)`);
 }

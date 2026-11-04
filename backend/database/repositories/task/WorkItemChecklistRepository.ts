@@ -64,7 +64,7 @@ export class WorkItemChecklistRepository {
             updated_at
         FROM work_item_checklist_items
         WHERE work_item_id = $work_item_id
-        ORDER BY sort_order ASC, created_at ASC;
+        ORDER BY sort_order ASC, created_at ASC, id ASC;
       `,
       { work_item_id: workItemId },
     );

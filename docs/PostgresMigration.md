@@ -39,6 +39,12 @@ where DuckDB creates macros per connection. Both answer with the same text. They
 use the start of the transaction, truncate fractions of a second and ignore the
 time zone of the session.
 
+`try_date(date_text)` (`002_try_date.sql`) is the date in a text, or `NULL`. DuckDB
+answers with `TRY_CAST`, which PostgreSQL does not have, and its own date input
+reads other forms such as `Jan 1 2026`. The function follows what DuckDB accepts.
+Callers only compare the result, because a year beyond the range of a PostgreSQL
+date comes back as infinity.
+
 ## Comparison
 
 `pnpm run postgres:check` migrates a new DuckDB file and a new PostgreSQL database
@@ -81,28 +87,37 @@ keep the results equal:
   or a literal such as `INTERVAL '-1 minute'`.
 - `sha256(data)` answers with text in DuckDB and with bytes in PostgreSQL. The
   reader accepts both.
-- A parameter needs a type from its context: `$value IS NULL` alone fails in
-  PostgreSQL with `42P18`.
+- A parameter needs a type from its context: `$value IS NULL` fails in PostgreSQL
+  with `42P18`, also when a later use would give it one. Write
+  `CAST($value AS TEXT) IS NULL`.
+- `LIKE` without `ESCAPE` treats a backslash as an escape in PostgreSQL and as itself
+  in DuckDB. Name the escape and escape the backslash in the bound text.
+- `rowid` and `regexp_matches` exist only in DuckDB; `translate` tests for a set of
+  characters in both. A comment gets a time-ordered identifier, because it needs its
+  order inside one second and PostgreSQL has no stable row number.
+- `CHECKPOINT` belongs to the file of DuckDB and needs extra rights in PostgreSQL.
 
-| Area                                          | State                                             |
-| --------------------------------------------- | ------------------------------------------------- |
-| Files directly in `repositories/`, `project/` | Ported, compared by `postgres:check` (PAGE-214)   |
-| `task/`, `wiki/`                              | PAGE-215; `FOREIGN_GAPS` lists what still differs |
-| Agents, plans and runners                     | PAGE-216                                          |
-| Chat, Discord, MCP and Mobile                 | PAGE-217                                          |
+| Area                                          | State                                           |
+| --------------------------------------------- | ----------------------------------------------- |
+| Files directly in `repositories/`, `project/` | Ported, compared by `postgres:check` (PAGE-214) |
+| `task/`, `wiki/`                              | Ported, compared by `postgres:check` (PAGE-215) |
+| Agents, plans and runners                     | PAGE-216                                        |
+| Chat, Discord, MCP and Mobile                 | PAGE-217                                        |
 
 `postgres:check` reads the public methods and exported functions of a ported area
 from its source, runs flows through them on PostgreSQL and on DuckDB, and compares
 every result. It masks only times in the stored format and generated identifiers.
-It fails on a method no flow reaches, on any difference outside `FOREIGN_GAPS`, and
-on an entry of that list that no longer differs.
+It fails on a method no flow reaches and on any difference. A flow reverses the
+physical order of a table in PostgreSQL before it reads a list, so a list without a
+unique last sort key shows as a difference.
 
 These differences remain, because no repository statement can remove them:
 
 - PostgreSQL cannot store the character U+0000 in text and refuses the statement;
   DuckDB stores it.
 - A fraction bound to an integer column is refused by PostgreSQL and rounded by
-  DuckDB. The services validate these numbers first.
+  DuckDB. The services validate these numbers first, except the sort order of the
+  board, whose statement casts through `DOUBLE PRECISION` like DuckDB does.
 - `upper('ß')` is `ß` in PostgreSQL and `ẞ` in DuckDB.
 - `execute` with several statements and no values is all or nothing in PostgreSQL;
   DuckDB keeps the statements before a failing one. Only migrations use this form,

@@ -45,7 +45,7 @@ export class WorkflowStatusRepository {
           position,
           is_done
       FROM workflow_statuses
-      ORDER BY position ASC;
+      ORDER BY position ASC, id ASC;
     `);
 
     return rows.map(toWorkflowStatus);

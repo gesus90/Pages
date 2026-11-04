@@ -161,7 +161,12 @@ export class WikiFeedRepository {
             UNION ALL
             ${EXPIRED}
         ) AS entries
-        ORDER BY entries.at DESC, entries.page_id
+        ORDER BY
+            entries.at DESC,
+            entries.page_id,
+            entries.reason,
+            entries.excerpt,
+            entries.actor_name
         LIMIT 100;
       `,
       { ...visible.parameters, today },

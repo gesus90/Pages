@@ -12,7 +12,11 @@ import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 
-import type { Database, SqlParameters } from "@/backend/database/Database";
+import type {
+  Database,
+  DatabaseTransaction,
+  SqlParameters,
+} from "@/backend/database/Database";
 
 /** The repositories of the area on one database. */
 export interface RepositoryWorld {
@@ -116,6 +120,54 @@ export function prepare(
   return call("prepare", ({ database }) =>
     database.execute(statement, parameters),
   );
+}
+
+/**
+ * A read that has to fail, for a repository that only reads: the table it needs
+ * is gone for the length of a transaction that never commits.
+ *
+ * @param name - The method it calls.
+ * @param table - The table the method reads.
+ * @param read - The call on the open transaction.
+ * @returns The step.
+ */
+export function refusedWithoutTable(
+  name: string,
+  table: string,
+  read: (transaction: DatabaseTransaction) => Promise<unknown>,
+): RepositoryStep {
+  return refused(name, ({ database }) =>
+    database.transaction(async (transaction) => {
+      await transaction.execute(`ALTER TABLE ${table} RENAME TO hidden_table;`);
+      await read(transaction);
+    }),
+  );
+}
+
+/**
+ * Reverses the physical order of a table, in PostgreSQL only.
+ *
+ * @param table - The table.
+ * @returns The step.
+ *
+ * @remarks
+ * Equal sort keys come back in the physical order, also through an index. A
+ * list without a unique last key therefore differs after this step, where a
+ * single `UPDATE` can leave the order alone.
+ */
+export function reversedInPostgres(table: string): RepositoryStep {
+  return call("prepare", async ({ database }) => {
+    if (database.dialect !== "postgres") return;
+    await database.transaction(async (transaction) => {
+      await transaction.execute(
+        `CREATE TEMPORARY TABLE reversed_rows ON COMMIT DROP AS TABLE ${table};`,
+      );
+      await transaction.execute(`TRUNCATE ${table};`);
+      await transaction.execute(
+        `INSERT INTO ${table} TABLE reversed_rows ORDER BY ctid DESC;`,
+      );
+    });
+  });
 }
 
 /**

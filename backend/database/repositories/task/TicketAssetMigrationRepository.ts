@@ -18,6 +18,9 @@ export class TicketAssetMigrationRepository {
 
   /** Flushes the database before its locked, filesystem-level backup is taken. */
   public async checkpoint(): Promise<void> {
+    // PostgreSQL has no write-ahead log of its own to flush for a file copy, and
+    // CHECKPOINT needs rights the Pages role does not hold.
+    if (this.database.dialect === "postgres") return;
     await this.database.execute("CHECKPOINT;");
   }
 
