@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   access,
   mkdtemp,
@@ -88,17 +89,25 @@ export function freeLoopbackPort(): Promise<number> {
 }
 
 /**
- * Tells whether a process exists.
+ * Tells whether a process is still running, excluding stopped zombies.
  *
  * @param pid - The process identifier.
- * @returns Whether it exists.
+ * @returns Whether it is running, or exists when its state cannot be read.
  */
 export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
-    return true;
   } catch {
     return false;
+  }
+  try {
+    const stat = readFileSync(`/proc/${String(pid)}/stat`, "utf8");
+    const nameEnd = stat.lastIndexOf(")");
+    if (nameEnd < 0) return true;
+    const state = stat.slice(nameEnd + 2, nameEnd + 3);
+    return state !== "Z" && state !== "X";
+  } catch {
+    return true;
   }
 }
 
