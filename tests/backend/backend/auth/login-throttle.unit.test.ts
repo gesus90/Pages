@@ -39,6 +39,16 @@ describe("LoginThrottle", () => {
     expect(() => throttle.assertAllowed("anna", null)).not.toThrow();
   });
 
+  it("counts a username with U+0000 for the account PostgreSQL finds with it", () => {
+    const throttle = createThrottle({ now: 1_000 });
+    failTimes(throttle, 2, "anna\u0000");
+    failTimes(throttle, 1, "\u0000anna");
+
+    expect(() => throttle.assertAllowed("anna", null)).toThrow(
+      TooManyLoginAttemptsError,
+    );
+  });
+
   it("blocks the username at its limit and reports the remaining seconds", () => {
     const clock = { now: 1_000 };
     const throttle = createThrottle(clock);

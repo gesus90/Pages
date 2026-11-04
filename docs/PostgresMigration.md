@@ -90,8 +90,11 @@ migrations.
 The report holds table names and numbers only, with the duration per table and in
 total. The total, plus stopping and starting Pages, is the expected downtime of the
 switch. On a failure the command prints the SQLSTATE and no driver text, since that
-can quote a value; `22021` means a text with U+0000, see the list at the end of this
-page. It keeps the facade from logging for the same reason.
+can quote a value. It keeps the facade from logging for the same reason.
+
+A text with U+0000 reaches the target without the character (see
+[U+0000 in text](#u0000-in-text)). The comparison does not expect that yet, so such a
+table ends as a deviation, with exit code 1.
 
 ## Running backup
 
@@ -243,6 +246,28 @@ the database with:
 CREATE DATABASE pages TEMPLATE template0 ENCODING 'UTF8' LOCALE_PROVIDER libc LOCALE 'C.UTF-8';
 ```
 
+## U+0000 in text
+
+PostgreSQL cannot store the character U+0000 in text. On PostgreSQL it therefore
+leaves every text bound to a statement (`bindStatement` in `PostgresStatement.ts`),
+which covers all repositories, the answers of Pica included. DuckDB keeps it. This is
+a deliberate change of data, decided on 2026-11-04, and the one difference between
+the databases that is meant to stay.
+
+- Only the character goes. All other characters and binary values stay, and so does
+  the escape `\u0000` of six characters, also as `\\u0000`. A valid JSON document holds
+  no such character, so it passes unchanged.
+- Each statement that lost one logs `database.text.nul_removed` with the number of
+  characters and no content. A statement that was rolled back or only read counts, too.
+- It applies to reads as well: a text stored without the character is found again by
+  the text it was stored with. Therefore `a\u0000b` also finds a stored `ab`, and
+  collides with it in a unique column. `LoginThrottle` counts both spellings of a
+  username together for that reason.
+- A statement text is no bound value and stays as it is; repositories interpolate only
+  fixed fragments.
+- A backslash directly before the character followed by `u0000` becomes these six
+  characters. Such a text was no valid JSON before, and stays plain text.
+
 ## Repository SQL
 
 A statement is written once for both databases. `sqlForDialect` is for what cannot
@@ -297,13 +322,8 @@ both physical orders.
 
 These differences remain, because no repository statement can remove them:
 
-- PostgreSQL cannot store the character U+0000 in text and refuses the statement;
-  DuckDB stores it.
-  In agents and runners this concerns the texts stored as they are: session events
-  and instructions, the pinned prompt, and the input and result of a run record. In
-  chat, Discord and MCP it concerns messages, file names, summaries, the system
-  instruction, server names, client names and token names. A text inside a JSON
-  document is stored as the escape `\u0000` in both.
+- U+0000 in a text, see [U+0000 in text](#u0000-in-text). This one is decided, not
+  left over.
 - A fraction bound to an integer column is refused by PostgreSQL and rounded by
   DuckDB. The services validate these numbers first, except the sort order of the
   board, whose statement casts through `DOUBLE PRECISION` like DuckDB does.

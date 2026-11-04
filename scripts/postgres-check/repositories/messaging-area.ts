@@ -42,6 +42,7 @@ import {
 } from "./mcp-token-flows";
 import { MOBILE_DELIVERY_FLOW, MOBILE_EVENT_FLOW } from "./mobile-flows";
 import { MOBILE_REGISTRATION_FLOW } from "./mobile-registration-flows";
+import { NUL_TEXT_FLOW } from "./nul-text-flow";
 
 import type { RepositoryFlow } from "./world";
 
@@ -65,6 +66,7 @@ export const MESSAGING_AREA_FLOWS: readonly RepositoryFlow[] = [
   MOBILE_REGISTRATION_FLOW,
   MOBILE_EVENT_FLOW,
   MOBILE_DELIVERY_FLOW,
+  NUL_TEXT_FLOW,
 ];
 
 /** The classes of these directories, whose methods are watched while the flows run. */

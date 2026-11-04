@@ -3,6 +3,7 @@ import { strict as assert } from "node:assert";
 import { Database, isUniqueViolationOn } from "@/backend/database/Database";
 import { sqlForDialect } from "@/backend/database/DatabaseDialect";
 import { AbortedTransactionError } from "@/backend/database/postgres/PostgresConnection";
+import { bindStatement } from "@/backend/database/postgres/PostgresStatement";
 import {
   DatabaseOutcomeUnknownError,
   DatabaseUnavailableError,
@@ -339,6 +340,67 @@ export async function checkClosed(database: Database): Promise<void> {
   );
 }
 
+/** A text the log of the run must not hold, because it stands beside a removed U+0000. */
+export const NUL_CHECK_TEXT = "text-beside-a-nul-of-the-check";
+
+async function storedNote(database: Database, note: string): Promise<unknown> {
+  await database.execute("DELETE FROM check_notes;");
+  await database.execute("INSERT INTO check_notes (note) VALUES ($note);", {
+    note,
+  });
+  const rows = await database.query("SELECT note FROM check_notes;");
+  return rows[0]?.[0];
+}
+
+/** Only the character goes: its JSON escapes, other control characters and bytes stay. */
+async function checkNulInText(database: Database): Promise<void> {
+  const document = JSON.stringify({ note: `a\u0000b\\u0000` });
+  assert.equal(document.includes("\u0000"), false);
+  for (const unchanged of [
+    document,
+    "\\u0000",
+    "\\\\u0000",
+    "\u0001\u001f\t\n ü🦊",
+    "",
+  ])
+    assert.equal(await storedNote(database, unchanged), unchanged);
+  assert.deepEqual(JSON.parse(String(await storedNote(database, document))), {
+    note: `a\u0000b\\u0000`,
+  });
+  assert.equal(
+    await storedNote(database, `\u0000${NUL_CHECK_TEXT}\u0000\u0000ä`),
+    `${NUL_CHECK_TEXT}ä`,
+  );
+  assert.equal(await storedNote(database, "\u0000"), "");
+
+  // What was stored without the character is found by the text it was stored with.
+  await storedNote(database, "a\u0000b");
+  const found = await database.query(
+    "SELECT note FROM check_notes WHERE note = $note;",
+    { note: "a\u0000b" },
+  );
+  assert.deepEqual(found, [["ab"]]);
+
+  const bytes = Buffer.from([0, 65, 0]);
+  await database.execute(
+    "INSERT INTO check_items (id, name, content) VALUES (90, 'nul-bytes', $content);",
+    { content: bytes },
+  );
+  const [row] = await database.query(
+    "SELECT content FROM check_items WHERE id = 90;",
+  );
+  assert.deepEqual(row?.[0], bytes);
+  await database.execute("DELETE FROM check_items WHERE id = 90;");
+  await database.execute("DELETE FROM check_notes;");
+
+  const counted = { first: "\u0000a\u0000", second: "\\u0000", third: 1 };
+  assert.equal(
+    bindStatement("SELECT $first, $second, $first, $third;", counted)
+      .removedNulCharacters,
+    2,
+  );
+}
+
 /** Every check of the open facade, in the order they build on each other. */
 export const FACADE_CHECKS: readonly FacadeCheck[] = [
   { name: "execute: several statements, then bound values", run: checkExecute },
@@ -360,6 +422,10 @@ export const FACADE_CHECKS: readonly FacadeCheck[] = [
   },
   { name: "synchronous_commit stays on", run: checkSynchronousCommit },
   { name: "dialect choice", run: checkDialect },
+  {
+    name: "U+0000 leaves a bound text, nothing else does",
+    run: checkNulInText,
+  },
   { name: "pool of 10: readers beside the writer", run: checkPool },
   { name: "lost idle connections are replaced", run: checkLostIdleConnections },
   {

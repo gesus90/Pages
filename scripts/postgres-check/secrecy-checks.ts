@@ -6,6 +6,8 @@ import { ConfigError, readPagesConfig } from "@/backend/config/PagesConfig";
 import { Database } from "@/backend/database/Database";
 import { logEvent } from "@/backend/logging/Logger";
 
+import { NUL_CHECK_TEXT } from "./facade-checks";
+
 import type { TemporaryPostgres } from "./temporary-instance";
 
 const WRONG_PASSWORD = "wrong-password-of-the-check";
@@ -104,7 +106,18 @@ export async function checkLogs(
     assert.equal(line.includes("postgresql://pages_check"), false);
     assert.equal(line.includes(correctPassword), false);
     assert.equal(line.includes(WRONG_PASSWORD), false);
+    assert.equal(line.includes(NUL_CHECK_TEXT), false);
   }
+  // Facade check: three characters in one text, reported as a number and nothing else.
+  assert.ok(
+    pagesLog
+      .split("\n")
+      .some(
+        (line) =>
+          line.includes('"database.text.nul_removed"') &&
+          line.includes('"count":3'),
+      ),
+  );
   // The refused locales of the repository checks log the same event without this code.
   assert.ok(
     pagesLog

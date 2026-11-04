@@ -117,7 +117,18 @@ export class PostgresConnection {
     parameters: SqlParameters,
     mode: WorkerRunMode,
   ): Promise<readonly DatabaseValue[][]> {
-    const { text, values } = bindStatement(statement, parameters);
+    const { text, values, removedNulCharacters } = bindStatement(
+      statement,
+      parameters,
+    );
+    if (removedNulCharacters > 0)
+      logEvent({
+        level: "warn",
+        event: "database.text.nul_removed",
+        component: "Database",
+        message: "U+0000 removed from text bound to a statement",
+        metadata: { count: removedNulCharacters },
+      });
     const startedAt = performance.now();
     try {
       // Without values the driver uses the simple protocol, the only one that

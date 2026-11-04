@@ -27,6 +27,8 @@ interface TranslatedStatement {
 export interface BoundStatement {
   readonly text: string;
   readonly values: readonly PostgresBoundValue[];
+  /** U+0000 characters taken out of the values; this number is all a log may say about them. */
+  readonly removedNulCharacters: number;
 }
 
 const translations = new Map<string, TranslatedStatement>();
@@ -59,7 +61,19 @@ function placeholderName(groups: unknown): string | undefined {
 function toBoundValue(value: SqlParameters[string]): PostgresBoundValue {
   // Boolean columns hold the integers 0 and 1, see `RowValue.ts`.
   if (typeof value === "boolean") return value ? 1 : 0;
+  // PostgreSQL cannot store U+0000 in text. A JSON document holds it only as an
+  // escape of six characters, so no valid document changes here.
+  if (typeof value === "string") return value.replaceAll("\u0000", "");
   return value;
+}
+
+function removedCharacters(
+  value: SqlParameters[string] | undefined,
+  bound: PostgresBoundValue,
+): number {
+  return typeof value === "string" && typeof bound === "string"
+    ? value.length - bound.length
+    : 0;
 }
 
 /**
@@ -71,6 +85,10 @@ function toBoundValue(value: SqlParameters[string]): PostgresBoundValue {
  * twice stays one value.
  * @throws When a placeholder has no value or a value has no placeholder. The
  * message names the parameter, never a value.
+ *
+ * @remarks
+ * U+0000 leaves every text, also in a read: a text stored without it is found
+ * again by the text it was stored with.
  */
 export function bindStatement(
   statement: string,
@@ -86,5 +104,10 @@ export function bindStatement(
       throw new Error(`The statement needs a value for "${name}".`);
     return toBoundValue(value);
   });
-  return { text, values };
+  const removedNulCharacters = names.reduce(
+    (sum, name, index) =>
+      sum + removedCharacters(parameters[name], values[index] ?? null),
+    0,
+  );
+  return { text, values, removedNulCharacters };
 }
