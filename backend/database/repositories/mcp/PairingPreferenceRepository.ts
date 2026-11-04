@@ -35,10 +35,10 @@ export class PairingPreferenceRepository {
       SET expires_at = CASE
           WHEN source = 'oauth' THEN CASE
               WHEN $days = 0 THEN expires_at
-              ELSE LEAST(expires_at, created_at + $days * 86400000)
+              ELSE LEAST(expires_at, created_at + CAST($days AS BIGINT) * 86400000)
           END
           WHEN $days = 0 THEN NULL
-          ELSE created_at + $days * 86400000
+          ELSE created_at + CAST($days AS BIGINT) * 86400000
       END
       WHERE user_id = $user_id
           AND revoked_at IS NULL

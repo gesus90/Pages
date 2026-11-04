@@ -69,7 +69,7 @@ export class ChatContextRepository {
               SELECT id
               FROM chat_messages
               WHERE session_id = $session_id
-              ORDER BY position DESC
+              ORDER BY position DESC, id DESC
               LIMIT 1
           )
       RETURNING id;

@@ -78,6 +78,10 @@ import {
 } from "./repositories/agent-area";
 import { GITHUB_FLOW } from "./repositories/github-flow";
 import { CONNECTION_FLOW, INSTANCE_FLOW } from "./repositories/instance-flows";
+import {
+  MESSAGING_AREA_CLASSES,
+  MESSAGING_AREA_FLOWS,
+} from "./repositories/messaging-area";
 import { PROJECT_DELETION_FLOW } from "./repositories/project-deletion-flow";
 import { PROJECT_FLOW } from "./repositories/project-flows";
 import { readPublicApi } from "./repositories/public-api";
@@ -120,6 +124,7 @@ const FLOWS: readonly RepositoryFlow[] = [
   WIKI_CONTENT_FLOW,
   WIKI_STATE_FLOW,
   ...AGENT_AREA_FLOWS,
+  ...MESSAGING_AREA_FLOWS,
   PROJECT_DELETION_FLOW,
 ];
 
@@ -185,6 +190,7 @@ const AREA_CLASSES: Readonly<Record<string, { readonly prototype: object }>> = {
   WikiStateRepository,
   WikiVersionRepository,
   ...AGENT_AREA_CLASSES,
+  ...MESSAGING_AREA_CLASSES,
 };
 
 const STORED_TIME = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/u;

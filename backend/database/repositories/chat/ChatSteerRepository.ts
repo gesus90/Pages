@@ -100,7 +100,8 @@ export class ChatSteerRepository {
           job_id,
           status
       FROM chat_steers
-      WHERE session_id = $session_id;
+      WHERE session_id = $session_id
+      ORDER BY message_id;
     `,
       { session_id: sessionId },
     );
@@ -147,7 +148,8 @@ export class ChatSteerRepository {
           message_id,
           items
       FROM chat_selections
-      WHERE session_id = $session_id;
+      WHERE session_id = $session_id
+      ORDER BY created_at, message_id;
     `,
       { session_id: sessionId },
     );

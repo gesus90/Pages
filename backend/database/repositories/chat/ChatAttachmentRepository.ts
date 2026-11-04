@@ -238,7 +238,11 @@ export class ChatAttachmentRepository {
     );
     return rows
       .map(readAttachment)
-      .sort((left, right) => left.fileName.localeCompare(right.fileName));
+      .sort(
+        (left, right) =>
+          left.fileName.localeCompare(right.fileName) ||
+          left.storageName.localeCompare(right.storageName),
+      );
   }
 
   /**
@@ -256,13 +260,13 @@ export class ChatAttachmentRepository {
       DELETE FROM chat_attachments
       WHERE origin = 'assistant'
           AND message_id IS NULL
-          AND ($session_id IS NULL OR session_id = $session_id)
-          AND ($pica_run_id IS NULL OR pica_run_id = $pica_run_id)
+          AND (CAST($session_id AS TEXT) IS NULL OR session_id = $session_id)
+          AND (CAST($pica_run_id AS TEXT) IS NULL OR pica_run_id = $pica_run_id)
       RETURNING storage_name;
     `,
       { session_id: sessionId, pica_run_id: runId },
     );
-    return rows.map((row) => readTextColumn(row, 0, "storage_name"));
+    return rows.map((row) => readTextColumn(row, 0, "storage_name")).sort();
   }
 
   /** Returns an attachment of an own session; foreign and unknown IDs yield `null` alike. */

@@ -83,7 +83,7 @@ export class PersonalAgentTokenRepository {
           CAST(rotation_requested_at AS TEXT)
       FROM personal_agent_tokens
       WHERE user_id = $user_id
-      ORDER BY created_at DESC;
+      ORDER BY created_at DESC, id;
     `,
       { user_id: userId },
     );
@@ -128,7 +128,8 @@ export class PersonalAgentTokenRepository {
               SELECT token_hash FROM mcp_http_access
               WHERE mcp_http_access.token_hash = personal_agent_tokens.token_hash
                   AND mcp_http_access.expires_at > $now
-          ));
+          ))
+      ORDER BY id;
     `,
       { token_hash: tokenHash, now },
     );
@@ -164,7 +165,8 @@ export class PersonalAgentTokenRepository {
       SELECT id
       FROM personal_agent_tokens
       WHERE token_hash = $hash
-          OR (previous_token_hash = $hash AND previous_valid_until > $now);
+          OR (previous_token_hash = $hash AND previous_valid_until > $now)
+      ORDER BY id;
     `,
       { hash: tokenHash, now },
     );

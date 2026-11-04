@@ -151,7 +151,8 @@ async function displaceMovedToken(
       SELECT device_id
       FROM pica_mobile_push_registrations
       WHERE token_fingerprint = $token_fingerprint
-          AND device_id <> $device_id;
+          AND device_id <> $device_id
+      ORDER BY device_id;
     `,
     {
       token_fingerprint: binding.tokenFingerprint,

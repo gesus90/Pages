@@ -391,7 +391,7 @@ export class ChatJobRepository {
         WHERE state = 'running'
         RETURNING id;
       `);
-      const ids = rows.map((row) => readTextColumn(row, 0, "id"));
+      const ids = rows.map((row) => readTextColumn(row, 0, "id")).sort();
       for (const id of ids) {
         await transaction.execute(
           `

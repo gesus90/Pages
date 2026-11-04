@@ -66,7 +66,7 @@ const SESSION_COLUMNS = `
         FROM chat_messages
         WHERE chat_messages.session_id = chat_sessions.id
             AND chat_messages.role = 'user'
-        ORDER BY chat_messages.position
+        ORDER BY chat_messages.position, chat_messages.id
         LIMIT 1
     ) AS preview`;
 
@@ -189,7 +189,7 @@ export class ChatSessionRepository {
           is_stopped
       FROM chat_messages
       WHERE session_id = $session_id
-      ORDER BY position;
+      ORDER BY position, id;
     `,
       { session_id: sessionId },
     );
@@ -324,7 +324,7 @@ export class ChatSessionRepository {
         "DELETE FROM chat_sessions WHERE id = $session_id;",
         { session_id: sessionId },
       );
-      return files.map((row) => readTextColumn(row, 0, "storage_name"));
+      return files.map((row) => readTextColumn(row, 0, "storage_name")).sort();
     });
   }
 }

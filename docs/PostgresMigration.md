@@ -106,6 +106,13 @@ keep the results equal:
 - `rowid` and `regexp_matches` exist only in DuckDB; `translate` tests for a set of
   characters in both. A comment gets a time-ordered identifier, because it needs its
   order inside one second and PostgreSQL has no stable row number.
+- A parameter next to a whole number takes the type `integer`: `$days * 86400000`
+  overflows at 25 days. PostgreSQL computes it ahead, also when no row is touched;
+  DuckDB only for a row. Write `CAST($days AS BIGINT)`. A parameter that an earlier
+  part of the statement already typed as `BIGINT` needs no cast; PostgreSQL reads the
+  `WHERE` of an `UPDATE` first.
+- `RETURNING` has no order in either database, and DuckDB has no `UPDATE` inside a
+  `WITH`. A method that returns a list from it sorts in TypeScript.
 - `CHECKPOINT` belongs to the file of DuckDB and needs extra rights in PostgreSQL.
 - `QUALIFY` exists only in DuckDB: filter the window function in an outer query.
 - Parallel statements through `Promise.all` fail in a DuckDB transaction with
@@ -117,7 +124,7 @@ keep the results equal:
 | Files directly in `repositories/`, `project/` | Ported, compared by `postgres:check` (PAGE-214) |
 | `task/`, `wiki/`                              | Ported, compared by `postgres:check` (PAGE-215) |
 | `agent/`, `agents/`, `runner/`, `remote/`     | Ported, compared by `postgres:check` (PAGE-216) |
-| Chat, Discord, MCP and Mobile                 | PAGE-217                                        |
+| `chat/`, `discord/`, `mcp/`, `mobile/`        | Ported, compared by `postgres:check` (PAGE-217) |
 
 `postgres:check` reads the public methods and exported functions of a ported area
 from its source, runs flows through them on PostgreSQL and on DuckDB, and compares
@@ -133,8 +140,10 @@ These differences remain, because no repository statement can remove them:
 - PostgreSQL cannot store the character U+0000 in text and refuses the statement;
   DuckDB stores it.
   In agents and runners this concerns the texts stored as they are: session events
-  and instructions, the pinned prompt, and the input and result of a run record. A
-  text inside a JSON document is stored as the escape `\u0000` in both.
+  and instructions, the pinned prompt, and the input and result of a run record. In
+  chat, Discord and MCP it concerns messages, file names, summaries, the system
+  instruction, server names, client names and token names. A text inside a JSON
+  document is stored as the escape `\u0000` in both.
 - A fraction bound to an integer column is refused by PostgreSQL and rounded by
   DuckDB. The services validate these numbers first, except the sort order of the
   board, whose statement casts through `DOUBLE PRECISION` like DuckDB does.

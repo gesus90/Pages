@@ -248,7 +248,7 @@ export class DiscordAttemptRepository implements DiscordAttemptStore {
         FROM discord_connection_attempts
         WHERE project_id = $project_id
             AND user_id = $user_id
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, id DESC
         LIMIT 1;
       `,
       { project_id: projectId, user_id: userId },
