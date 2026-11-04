@@ -299,11 +299,14 @@ between the databases that is meant to stay is this removal.
 - A value that a statement both saves and compares has two names, so that saving it
   still works (`$description` and `$new_description` in `WorkItemWriteRepository`). The
   compared one keeps the character, so a second save of the same text cannot find the
-  first by comparison. A save with the character that matched nothing therefore asks
-  the saving statement what becomes of the text: if that is the stored text, it counts
-  as an unchanged save and succeeds; otherwise the old text and time stay and it stays
-  a conflict. On PostgreSQL this also holds for a stored `ab` and a save of `a\0b`; on
-  DuckDB, which keeps the character, that is a conflict.
+  first by it. The statement therefore also accepts the stored text that equals
+  `textWithoutNul` of the new text, where `removes_nul_on_save()` is true: PostgreSQL
+  yes, DuckDB no. It stays one conditional statement, with all its other conditions, so
+  nothing is written to get an answer, and a concurrent change is seen when PostgreSQL
+  re-reads the locked row. This applies to these two saves only: a stored `ab` accepts a
+  save of `a\0b` on PostgreSQL, and is a conflict on DuckDB. No read or other comparison
+  treats `a\0b` as `ab`. `postgres:check` proves this with two connections
+  (`repeated-save-checks.ts`).
 - A statement text is no bound value and stays as it is; repositories interpolate only
   fixed fragments.
 

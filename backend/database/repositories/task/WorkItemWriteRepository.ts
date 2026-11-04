@@ -1,4 +1,4 @@
-import { readTextColumn } from "@/backend/database/RowValue";
+import { textWithoutNul } from "@/backend/database/postgres/PostgresText";
 
 import { snapshotParameters } from "./WorkItemSnapshotSql";
 
@@ -60,8 +60,17 @@ export interface WorkItemGitHubLink {
   readonly lastSyncAt: string | null;
 }
 
-/** Runs a statement on the database or on an open transaction. */
-type StatementRunner = Pick<TaskDatabase, "query">;
+/**
+ * What a database that cannot store U+0000 makes of a text when it saves it.
+ *
+ * @remarks
+ * A compared value keeps the character, so a second save of the same text would not
+ * find the first one. This form lets one statement recognize a save that leaves the
+ * stored text as it is. A text the rule refuses stays as it is, and saving it fails.
+ */
+function savedForm(description: string): string {
+  return textWithoutNul(description) ?? description;
+}
 
 /** Owns the write access to work items. */
 export class WorkItemWriteRepository {
@@ -215,17 +224,76 @@ export class WorkItemWriteRepository {
 
   /** Updates fields atomically; returns false when inactive or the description changed meanwhile. */
   public async update(id: string, update: WorkItemUpdate): Promise<boolean> {
-    if (await this.writeUpdate(this.database, id, update)) return true;
-    if (
-      update.shouldPreserveDescription ||
-      update.baseDescription === undefined
-    ) {
-      return false;
-    }
-
-    return this.retryRepeatedSave(id, update.description, (runner, stored) =>
-      this.writeUpdate(runner, id, { ...update, baseDescription: stored }),
+    const rows = await this.database.query(
+      `
+        UPDATE work_items
+        SET
+            title = $title,
+            description = COALESCE($description, description),
+            status_id = $status_id,
+            priority = $priority,
+            assignee_id = $assignee_id,
+            assignee_group_id = $assignee_group_id,
+            created_by = $created_by,
+            parent_id = $parent_id,
+            milestone_id = $milestone_id,
+            due_at = $due_at,
+            start_at = $start_at,
+            updated_at = utc_now()
+        WHERE id = $id
+            AND archived_at IS NULL
+            AND (
+                NOT $has_expected
+                OR (
+                    title = $base_title
+                    AND status_id = $base_status_id
+                    AND priority = $base_priority
+                    AND assignee_id IS NOT DISTINCT FROM $base_assignee_id
+                    AND assignee_group_id IS NOT DISTINCT FROM $base_assignee_group_id
+                    AND created_by = $base_reporter_id
+                    AND parent_id IS NOT DISTINCT FROM $base_parent_id
+                    AND milestone_id IS NOT DISTINCT FROM $base_milestone_id
+                    AND due_at IS NOT DISTINCT FROM $base_due_at
+                    AND start_at IS NOT DISTINCT FROM $base_start_at
+                )
+            )
+            AND (
+                CAST($new_description AS TEXT) IS NULL
+                OR CAST($base_description AS TEXT) IS NULL
+                OR description = $base_description
+                OR description = $new_description
+                OR (removes_nul_on_save() AND description = $saved_description)
+            )
+        RETURNING id;
+      `,
+      {
+        assignee_group_id: update.assigneeGroupId,
+        assignee_id: update.assigneeId,
+        created_by: update.reporterId,
+        base_description: update.baseDescription ?? null,
+        ...snapshotParameters(update.expected),
+        // Once written and once compared: only the written value may lose U+0000.
+        description: update.shouldPreserveDescription
+          ? null
+          : update.description,
+        new_description: update.shouldPreserveDescription
+          ? null
+          : update.description,
+        saved_description: update.shouldPreserveDescription
+          ? null
+          : savedForm(update.description),
+        due_at: update.dueAt,
+        id,
+        milestone_id: update.milestoneId,
+        parent_id: update.parentId,
+        priority: update.priority,
+        start_at: update.startAt,
+        status_id: update.statusId,
+        title: update.title,
+      },
     );
+
+    return rows.length > 0;
   }
 
   /** Replaces a current description atomically; returns false when inactive or changed meanwhile. */
@@ -234,21 +302,34 @@ export class WorkItemWriteRepository {
     description: string,
     baseDescription: string,
   ): Promise<boolean> {
-    if (
-      await this.writeDescription(
-        this.database,
-        id,
+    const rows = await this.database.query(
+      `
+        UPDATE work_items
+        SET
+            description = $description,
+            updated_at = utc_now()
+        WHERE id = $id
+            AND archived_at IS NULL
+            AND (
+                description = $base_description
+                OR description = $new_description
+                OR (removes_nul_on_save() AND description = $saved_description)
+            )
+        RETURNING id;
+      `,
+      // Once written and once compared: only the written value may lose U+0000.
+      {
+        base_description: baseDescription,
         description,
-        baseDescription,
-      )
-    ) {
-      return true;
-    }
-
-    return this.retryRepeatedSave(id, description, (runner, stored) =>
-      this.writeDescription(runner, id, description, stored),
+        id,
+        new_description: description,
+        saved_description: savedForm(description),
+      },
     );
+
+    return rows.length > 0;
   }
+
   /** Replaces a title atomically; returns false when inactive or no longer the base title. */
   public async updateTitle(
     id: string,
@@ -436,165 +517,5 @@ export class WorkItemWriteRepository {
         status_id: statusId,
       },
     );
-  }
-
-  private async writeUpdate(
-    runner: StatementRunner,
-    id: string,
-    update: WorkItemUpdate,
-  ): Promise<boolean> {
-    const rows = await runner.query(
-      `
-        UPDATE work_items
-        SET
-            title = $title,
-            description = COALESCE($description, description),
-            status_id = $status_id,
-            priority = $priority,
-            assignee_id = $assignee_id,
-            assignee_group_id = $assignee_group_id,
-            created_by = $created_by,
-            parent_id = $parent_id,
-            milestone_id = $milestone_id,
-            due_at = $due_at,
-            start_at = $start_at,
-            updated_at = utc_now()
-        WHERE id = $id
-            AND archived_at IS NULL
-            AND (
-                NOT $has_expected
-                OR (
-                    title = $base_title
-                    AND status_id = $base_status_id
-                    AND priority = $base_priority
-                    AND assignee_id IS NOT DISTINCT FROM $base_assignee_id
-                    AND assignee_group_id IS NOT DISTINCT FROM $base_assignee_group_id
-                    AND created_by = $base_reporter_id
-                    AND parent_id IS NOT DISTINCT FROM $base_parent_id
-                    AND milestone_id IS NOT DISTINCT FROM $base_milestone_id
-                    AND due_at IS NOT DISTINCT FROM $base_due_at
-                    AND start_at IS NOT DISTINCT FROM $base_start_at
-                )
-            )
-            AND (
-                CAST($new_description AS TEXT) IS NULL
-                OR CAST($base_description AS TEXT) IS NULL
-                OR description = $base_description
-                OR description = $new_description
-            )
-        RETURNING id;
-      `,
-      {
-        assignee_group_id: update.assigneeGroupId,
-        assignee_id: update.assigneeId,
-        created_by: update.reporterId,
-        base_description: update.baseDescription ?? null,
-        ...snapshotParameters(update.expected),
-        // Once written and once compared: only the written value may lose U+0000.
-        description: update.shouldPreserveDescription
-          ? null
-          : update.description,
-        new_description: update.shouldPreserveDescription
-          ? null
-          : update.description,
-        due_at: update.dueAt,
-        id,
-        milestone_id: update.milestoneId,
-        parent_id: update.parentId,
-        priority: update.priority,
-        start_at: update.startAt,
-        status_id: update.statusId,
-        title: update.title,
-      },
-    );
-
-    return rows.length > 0;
-  }
-
-  private async writeDescription(
-    runner: StatementRunner,
-    id: string,
-    description: string,
-    baseDescription: string,
-  ): Promise<boolean> {
-    const rows = await runner.query(
-      `
-        UPDATE work_items
-        SET
-            description = $description,
-            updated_at = utc_now()
-        WHERE id = $id
-            AND archived_at IS NULL
-            AND (description = $base_description OR description = $new_description)
-        RETURNING id;
-      `,
-      // Once written and once compared: only the written value may lose U+0000.
-      {
-        base_description: baseDescription,
-        description,
-        id,
-        new_description: description,
-      },
-    );
-
-    return rows.length > 0;
-  }
-
-  /**
-   * Repeats a save whose text holds U+0000 and that found no matching description.
-   *
-   * @remarks
-   * PostgreSQL stores such a text without the character, and a compared value keeps
-   * it, so a second save of the same text cannot find the first by comparison. A save
-   * that would leave the stored text as it is succeeds with that text as its base.
-   */
-  private async retryRepeatedSave(
-    id: string,
-    description: string,
-    save: (runner: StatementRunner, stored: string) => Promise<boolean>,
-  ): Promise<boolean> {
-    if (!description.includes("\u0000")) return false;
-
-    return this.database.transaction(async (transaction) => {
-      const stored = await this.findTextUnchangedBySaving(
-        transaction,
-        id,
-        description,
-      );
-
-      return stored !== null && save(transaction, stored);
-    });
-  }
-
-  /**
-   * Returns the stored description when saving this text leaves it as it is.
-   *
-   * @remarks
-   * Only the statement that saves knows what a database makes of the text, and this
-   * one does not compare it. A text that differs is put back before the transaction
-   * ends, so the row and its time stay as they were.
-   */
-  private async findTextUnchangedBySaving(
-    runner: StatementRunner,
-    id: string,
-    description: string,
-  ): Promise<string | null> {
-    const [row] = await runner.query(
-      "SELECT description FROM work_items WHERE id = $id AND archived_at IS NULL;",
-      { id },
-    );
-    if (!row) return null;
-    const stored = readTextColumn(row, 0, "description");
-    const [saved = []] = await runner.query(
-      "UPDATE work_items SET description = $description WHERE id = $id RETURNING description;",
-      { description, id },
-    );
-    if (readTextColumn(saved, 0, "description") === stored) return stored;
-    await runner.query(
-      "UPDATE work_items SET description = $stored WHERE id = $id RETURNING id;",
-      { id, stored },
-    );
-
-    return null;
   }
 }

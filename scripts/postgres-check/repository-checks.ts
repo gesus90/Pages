@@ -99,6 +99,7 @@ import { WIKI_FACADE_FLOW } from "./repositories/wiki-facade-flow";
 import { WIKI_PAGE_FLOW } from "./repositories/wiki-page-flows";
 import { WIKI_STATE_FLOW } from "./repositories/wiki-state-flows";
 import { createWorld } from "./repositories/world";
+import { runRepeatedSaveChecks } from "./repeated-save-checks";
 import { readMigrations } from "./schema-checks";
 
 import type { PublicApi } from "./repositories/public-api";
@@ -431,6 +432,8 @@ export async function runRepositoryChecks(
 ): Promise<void> {
   await checkLocaleRefusal(instance, administration);
   console.info("ok   a database with other text rules is refused");
+  await runRepeatedSaveChecks(instance, administration);
+  console.info("ok   a repeated save with U+0000 under a concurrent change");
 
   const api = await readPublicApi();
   const called = new Set<string>();

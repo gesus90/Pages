@@ -46,6 +46,7 @@ const IN_MEMORY_DATABASE_PATH = ":memory:";
  *   `time_shift` (an interval) from now, both as `YYYY-MM-DD HH:MM:SS` text,
  *   the format all timestamp columns store.
  * - `try_date(date_text)` is the date in a text, or `NULL` when it holds none.
+ * - `removes_nul_on_save()` is false: DuckDB stores the character U+0000.
  * - NULL values sort first in ascending and last in descending order, which
  *   is the order the `ORDER BY` clauses of the repositories rely on.
  */
@@ -57,6 +58,8 @@ const CONNECTION_SETUP = `
       utc_after(INTERVAL 0 DAY);
   CREATE OR REPLACE MACRO try_date(date_text) AS
       TRY_CAST(date_text AS DATE);
+  CREATE OR REPLACE MACRO removes_nul_on_save() AS
+      FALSE;
 `;
 
 /** Text DuckDB reports when it cannot replay the write-ahead log of a file. */
