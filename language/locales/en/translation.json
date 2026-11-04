@@ -4138,6 +4138,7 @@
       "succeeded": "Succeeded",
       "failed": "Failed",
       "cancelled": "Cancelled",
+      "work_done_closeout_open": "Work done, closeout open",
       "paused": "Paused",
       "pausing": "Pausing …",
       "stopping": "Stop · closing",
@@ -4689,6 +4690,11 @@
           "hint": "The last run stopped at a failure.",
           "hint_resumable": "The last run stopped; Resume takes over its successful steps."
         },
+        "work_done_closeout_open": {
+          "label": "Work done, closeout open",
+          "hint": "Every work step passed; only the closeout failed. Start begins a new run.",
+          "hint_resumable": "Every work step passed; Resume repeats only the closeout."
+        },
         "blocked": {
           "label": "Not ready to start",
           "hint": "Please fix the plan errors."
@@ -5040,6 +5046,7 @@
         "stopping": "Stopping …",
         "succeeded": "Completed",
         "reportOpen": "Completed · report open",
+        "work_done_closeout_open": "Closeout open",
         "cancelled": "Stopped",
         "failed": "Failed",
         "blocked": "Blocked",
@@ -5261,6 +5268,7 @@
         "recoverable": "Failed, recoverable",
         "interrupted": "Interrupted by a server stop",
         "failed_terminal": "Failed, cause not classified",
+        "work_done_closeout_open": "Work done, closeout open",
         "cancelled": "Stopped on purpose",
         "succeeded": "Succeeded"
       },

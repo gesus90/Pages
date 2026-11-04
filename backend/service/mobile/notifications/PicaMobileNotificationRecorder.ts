@@ -86,6 +86,8 @@ const ENDING_EVENT: Readonly<
   succeeded: PICA_MOBILE_NOTIFICATION_EVENT_TYPE.RUN_SUCCEEDED,
   failed: PICA_MOBILE_NOTIFICATION_EVENT_TYPE.RUN_FAILED,
   cancelled: PICA_MOBILE_NOTIFICATION_EVENT_TYPE.RUN_CANCELLED,
+  // The event types are closed in the stored table and in Pica Mobile; the reason names this ending.
+  work_done_closeout_open: PICA_MOBILE_NOTIFICATION_EVENT_TYPE.RUN_FAILED,
 };
 
 function isSafeIdentifier(value: string): boolean {

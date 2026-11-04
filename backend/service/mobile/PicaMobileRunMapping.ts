@@ -3,6 +3,7 @@ import type {
   AgentPlanActiveStep,
 } from "@/backend/service/agents/AgentPlanActiveRuns";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { PicaMobileNotificationRunStatus } from "@/definition/PicaMobileNotifications";
 import type {
   PicaMobileDashboardRun,
   PicaMobileDashboardStage,
@@ -21,6 +22,8 @@ const RUN_STATUS: Readonly<
   succeeded: "completed",
   failed: "failed",
   cancelled: "cancelled",
+  // Pica Mobile refuses a whole answer with a state it does not know; the error code names this one.
+  work_done_closeout_open: "failed",
 };
 
 /**
@@ -33,6 +36,18 @@ export function toPicaMobileRunStatus(
   status: AgentPlanRun["status"],
 ): Exclude<PicaMobileRunStatus, "blocked"> {
   return RUN_STATUS[status];
+}
+
+/**
+ * Names a Pages run state the way a notification does.
+ *
+ * @param status - The stored state of the run.
+ * @returns The state itself, or `failed` for the one state Pica Mobile does not know.
+ */
+export function toPicaMobileNotificationRunStatus(
+  status: AgentPlanRun["status"],
+): PicaMobileNotificationRunStatus {
+  return status === "work_done_closeout_open" ? "failed" : status;
 }
 
 const STEP_STATUS: Readonly<

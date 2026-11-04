@@ -49,7 +49,8 @@ function readRunStatus(input: string): AgentPlanRun["status"] {
     input !== "succeeded" &&
     input !== "failed" &&
     input !== "cancelled" &&
-    input !== "paused"
+    input !== "paused" &&
+    input !== "work_done_closeout_open"
   )
     throw new AgentError("plan_invalid");
   return input;

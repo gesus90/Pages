@@ -4,6 +4,7 @@ import { isAgentParameterName } from "@/definition/AgentParameters";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import { planLoopMembers } from "@/definition/AgentPlanLoop";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
+import { isResumablePlanRunEnd } from "@/definition/AgentPlanRunState";
 import { planTargetIssues } from "@/definition/AgentPlanTarget";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
@@ -42,7 +43,7 @@ function codeTitle(
   control: AgentPlanControl | undefined,
   translate: TFunction,
 ): string {
-  if (control?.status === "failed" && control.canPlay)
+  if (control && isResumablePlanRunEnd(control.status) && control.canPlay)
     return translate("plans.panel.issueTitle.lastRun");
   const area =
     CODE_TITLES.find(([pattern]) => pattern.test(code))?.[1] ?? "plan";

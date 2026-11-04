@@ -147,6 +147,8 @@ export interface AgentPlanAgentNodeEntry extends AgentPlanNodeBase {
   /** Progress scope only; neither mode gates execution. Absent means `report`. */
   readonly completion?: "report" | "todos";
   readonly completionGate?: AgentPlanCompletionGate;
+  /** Marks the closing Git step of the plan; absent means an ordinary work step. */
+  readonly role?: "closeout";
   readonly configuration?: AgentPlanConfigurationEntry;
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }
@@ -217,6 +219,8 @@ export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
     readonly policy?: "report" | "gate";
   }[];
   readonly timeoutSeconds: number;
+  /** Marks the closing Git step of the plan; absent means an ordinary work step. */
+  readonly role?: "closeout";
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }
 
@@ -311,7 +315,8 @@ export type AgentPlanRunStatus =
   | "cancelled"
   | "paused"
   | "pausing"
-  | "stopping";
+  | "stopping"
+  | "work_done_closeout_open";
 
 /** A run of the connected account, assigned to its plan by `planId`. */
 export interface AgentPlanRunSummary {

@@ -317,6 +317,11 @@ const NODE_FIELDS: ToolProperties = {
     ],
   },
   completion: { enum: ["report", "todos"] },
+  role: {
+    enum: ["closeout", null],
+    description:
+      "closeout marks the closing Git step of the plan: when only such a step fails, the run ends as work_done_closeout_open and a resume repeats just that step. null removes the mark. Group and loop members refuse it.",
+  },
   completionGate: {
     type: "object",
     description:

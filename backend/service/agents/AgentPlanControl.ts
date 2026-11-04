@@ -2,6 +2,7 @@ import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import {
   isActivePlanRun,
   isPlanWriterWaitActive,
+  isResumablePlanRunEnd,
 } from "@/definition/AgentPlanRunState";
 
 import type { AgentPlanRun, AgentPlanView } from "@/definition/AgentPlan";
@@ -56,7 +57,7 @@ export function planControl(
         ? run.workspaceWait
         : undefined,
     canRestart: canIdentify,
-    resumeAction: run.status === "failed" ? "recovery" : "paused",
+    resumeAction: isResumablePlanRunEnd(run.status) ? "recovery" : "paused",
     canPause: canControl && run.status === "running",
     canResume: canControl && resumableStatus(run, issue),
     canStop: canControl && isActive,
@@ -102,5 +103,7 @@ function runControlMetadata(
 }
 
 function resumableStatus(run: AgentPlanRun, issue: string | null): boolean {
-  return (run.status === "paused" || run.status === "failed") && !issue;
+  return (
+    (run.status === "paused" || isResumablePlanRunEnd(run.status)) && !issue
+  );
 }

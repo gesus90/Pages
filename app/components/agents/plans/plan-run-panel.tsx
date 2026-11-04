@@ -2,7 +2,10 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import {
+  isActivePlanRun,
+  isResumablePlanRunEnd,
+} from "@/definition/AgentPlanRunState";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { keepPlanControlKeys } from "./plan-flow-keys";
@@ -113,7 +116,7 @@ function resumeState(
   translate: TFunction,
 ): PlanRecoveryResumeState | null {
   const view = recovery.view;
-  if (control?.status !== "failed" || !view) return null;
+  if (!control || !isResumablePlanRunEnd(control.status) || !view) return null;
   return {
     isAvailable: view.resume.available && !recovery.isPending,
     reason: view.resume.reason

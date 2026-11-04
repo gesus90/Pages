@@ -102,8 +102,14 @@ function readScriptReport(
 /** Reads optional references without assigning a cause to historical records. */
 function readStepReferences(
   step: Record<string, unknown>,
-): Pick<AgentPlanStepResult, "groupId" | "failedStepId" | "blockedByStepId"> {
+): Pick<
+  AgentPlanStepResult,
+  "groupId" | "role" | "failedStepId" | "blockedByStepId"
+> {
+  if (step.role !== undefined && step.role !== "closeout")
+    throw new AgentError("plan_invalid");
   return {
+    ...(step.role === undefined ? {} : { role: step.role }),
     ...(step.groupId === undefined
       ? {}
       : { groupId: readPlanText(step.groupId) }),

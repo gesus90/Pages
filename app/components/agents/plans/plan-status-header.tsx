@@ -51,6 +51,7 @@ function indicatorStatus(
 const DOT_TONES: Readonly<Record<string, string>> = {
   succeeded: "bg-plan-progress-done",
   reportOpen: "bg-warning",
+  work_done_closeout_open: "bg-warning",
   notReady: "bg-status-active",
   idle: "bg-muted-foreground",
   cancelled: "bg-muted-foreground",

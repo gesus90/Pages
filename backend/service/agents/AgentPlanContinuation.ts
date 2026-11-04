@@ -13,6 +13,7 @@ import {
 } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { withGroupResults } from "./AgentPlanGroupResults";
+import { planStepRole } from "./AgentPlanRunStart";
 import { groupRuntimeFields } from "./AgentPlanGroupRuntime";
 import { initialLoopRun } from "./loop/AgentPlanLoopRecord";
 import { continueRemotePlanExecution } from "./AgentPlanExecutionSnapshot";
@@ -278,6 +279,7 @@ function resumedSteps(
     return {
       id: node.id,
       groupId: snapshot?.groupId,
+      ...planStepRole(node),
       name: snapshot?.name ?? resumedNodeName(node),
       status: "waiting",
       isBlocked: false,

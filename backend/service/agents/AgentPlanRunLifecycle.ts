@@ -75,10 +75,8 @@ export async function retireActivePredecessor(
 
 function isEndedStatus(
   status: AgentPlanRun["status"],
-): status is "succeeded" | "failed" | "cancelled" {
-  return (
-    status === "succeeded" || status === "failed" || status === "cancelled"
-  );
+): status is "succeeded" | "failed" | "cancelled" | "work_done_closeout_open" {
+  return !isActivePlanRun(status);
 }
 
 /** Persists final business state and closes only resources whose process end is proven. */
@@ -107,7 +105,11 @@ export async function finalizeScheduledPlanRun(
   if (!hasUnconfirmedCloseout(active)) await active.releaseDefinition?.();
   if (!hasUnconfirmedCloseout(active) && isEndedStatus(status))
     await dependencies.steps
-      .finishPlanRun?.(active.view.id, status)
+      // An open closeout keeps its transcripts like a failure: its resume may continue the session.
+      .finishPlanRun?.(
+        active.view.id,
+        status === "work_done_closeout_open" ? "failed" : status,
+      )
       .catch((error: unknown) =>
         logCaughtError("AgentPlanRunLifecycle", error),
       );

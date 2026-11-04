@@ -97,6 +97,7 @@ function isRunStatus(input: unknown): input is AgentPlanRun["status"] {
       "failed",
       "cancelled",
       "paused",
+      "work_done_closeout_open",
     ].includes(input)
   );
 }

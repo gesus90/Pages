@@ -67,6 +67,11 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
               {t("plans.console.readOnly")}
             </span>
           ) : null}
+          {props.run?.status === "work_done_closeout_open" ? (
+            <span className="rounded-md bg-warning-subtle px-2 py-0.5 font-medium text-warning">
+              {t("plans.status.work_done_closeout_open")}
+            </span>
+          ) : null}
         </div>
       </div>
       {props.runs.length > 0 ? (

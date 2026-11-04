@@ -1,4 +1,7 @@
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import {
+  isActivePlanRun,
+  isResumablePlanRunEnd,
+} from "@/definition/AgentPlanRunState";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
@@ -19,7 +22,8 @@ export interface AgentPlanStartedStep {
 }
 
 /** The ending states a run reaches once. */
-export type AgentPlanRunEnding = "succeeded" | "failed" | "cancelled";
+export type AgentPlanRunEnding =
+  "succeeded" | "failed" | "cancelled" | "work_done_closeout_open";
 
 /**
  * A change between two stored views of a run that is worth a notification.
@@ -36,7 +40,7 @@ export type AgentPlanRunTransition =
   | {
       readonly kind: "run_ended";
       readonly ending: AgentPlanRunEnding;
-      /** The failure code of the first failed step, for a failed run. */
+      /** The failure code of the run, for a failed run or an open closeout. */
       readonly reason: string | null;
     };
 
@@ -106,11 +110,13 @@ function startedLoopMembers(
  * Returns the machine failure code of a run.
  *
  * @param run - A stored view of the run.
- * @returns The error of the first failed step, otherwise the control error of
- * the run, but only when it is a machine code; `null` for free text such as
- * paths or provider output, and without any failure.
+ * @returns The ended state for an open closeout, whose work is done. Otherwise
+ * the error of the first failed step or the control error of the run, but only
+ * when it is a machine code; `null` for free text such as paths or provider
+ * output, and without any failure.
  */
 export function failureReason(run: AgentPlanRun): string | null {
+  if (run.status === "work_done_closeout_open") return run.status;
   const failed = run.steps.find((step) => step.status === "failed");
   const code = failed?.error ?? run.controlError ?? null;
 
@@ -149,7 +155,7 @@ export function detectPlanRunTransitions(
     transitions.push({
       kind: "run_ended",
       ending: next.status,
-      reason: next.status === "failed" ? failureReason(next) : null,
+      reason: isResumablePlanRunEnd(next.status) ? failureReason(next) : null,
     });
   }
 

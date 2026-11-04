@@ -13,6 +13,7 @@ const RECOVERABLE_STATUSES = new Set([
   "failed",
   "cancelled",
   "stopping",
+  "work_done_closeout_open",
 ]);
 const ACCESS_ERRORS = new Set(["access_denied", "plan_access_denied"]);
 

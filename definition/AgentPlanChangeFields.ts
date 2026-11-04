@@ -20,6 +20,7 @@ export const PLAN_NODE_FIELDS = {
     "executionTarget",
     "completion",
     "completionGate",
+    "role",
     "configuration",
   ],
   script: [
@@ -30,6 +31,7 @@ export const PLAN_NODE_FIELDS = {
     "inputs",
     "outputs",
     "timeoutSeconds",
+    "role",
   ],
   decision: ["name"],
   stack: ["name", "entries"],

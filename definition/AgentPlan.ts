@@ -78,6 +78,15 @@ export interface AgentPlanPosition {
   readonly y: number;
 }
 
+/**
+ * What a step means to the end of its run, as the plan declares it.
+ *
+ * @remarks
+ * `closeout` marks the closing Git step: when only such a step fails, the work
+ * of the run counts as done and the run ends as `work_done_closeout_open`.
+ */
+export type AgentPlanStepRole = "closeout";
+
 /** Each agent instance has its own identifier and parameter values. */
 export interface AgentPlanStep extends AgentPlanPosition {
   readonly id: string;
@@ -94,6 +103,8 @@ export interface AgentPlanStep extends AgentPlanPosition {
   readonly completion?: AgentPlanCompletion;
   /** Standalone-node opt-in for current ticket scope, required checks and successor gating. */
   readonly completionGate?: AgentPlanCompletionGate;
+  /** Only on a node of the flow itself; absent means an ordinary work step. */
+  readonly role?: AgentPlanStepRole;
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
 
@@ -353,6 +364,8 @@ export interface AgentPlanStepResult {
   readonly remote?: AgentPlanRemoteProgress;
   readonly id: string;
   readonly groupId?: string;
+  /** Copied from the node when the run starts, so the stored run alone decides its end. */
+  readonly role?: AgentPlanStepRole;
   readonly failedStepId?: string;
   /** A failed or cancelled predecessor that prevented this waiting node from running. */
   readonly blockedByStepId?: string;
@@ -419,7 +432,8 @@ export interface AgentPlanRun {
     | "stopping"
     | "succeeded"
     | "failed"
-    | "cancelled";
+    | "cancelled"
+    | "work_done_closeout_open";
   readonly pauseBoundary?: AgentPlanPauseBoundary;
   readonly continuation?: AgentPlanContinuation;
   readonly stopRequested: boolean;

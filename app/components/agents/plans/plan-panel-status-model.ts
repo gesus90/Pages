@@ -3,7 +3,7 @@ import type { PlanRecoveryResumeState } from "./plan-run-actions";
 
 /** The colour family of the status marker. */
 export type PlanPanelTone =
-  "ready" | "blocked" | "active" | "paused" | "neutral" | "error";
+  "ready" | "blocked" | "active" | "paused" | "neutral" | "error" | "open";
 
 /**
  * The one line the collapsed panel shows: a status marker and a short sentence.
@@ -46,6 +46,13 @@ function pausedState(control: AgentPlanControl): PlanPanelState {
 
 function endedState(input: PlanPanelStateInput): PlanPanelState | null {
   const control = input.control;
+  // The work is done, so this reads apart from a failure, also while the recovery view still loads.
+  if (control?.status === "work_done_closeout_open")
+    return {
+      state: "work_done_closeout_open",
+      tone: "open",
+      variant: input.recovery?.isAvailable ? "resumable" : undefined,
+    };
   if (control?.status === "failed" && input.recovery)
     return {
       state: "failed",

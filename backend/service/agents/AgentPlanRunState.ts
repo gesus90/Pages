@@ -280,6 +280,21 @@ function isCompletedLoop(
   );
 }
 
+/** A step that durably succeeded, or whose branch was never taken. */
+function isCompletedPlanStep(step: AgentPlanStepResult): boolean {
+  return (
+    step.status === "skipped" ||
+    (step.status === "succeeded" &&
+      !step.isBlocked &&
+      !step.error &&
+      step.session?.resultCode !== -1 &&
+      // A boolean result of false is an answer, not an unaccepted node.
+      (step.passed === false ||
+        !step.session?.acceptance ||
+        step.session.acceptance.verdict === "accepted"))
+  );
+}
+
 /** Whether every step and loop of a run has durably succeeded and confirmed closeout. */
 export function isCompletedPlanRun(run: AgentPlanRun): boolean {
   if (run.stopRequested || run.controlError || run.steps.length === 0)
@@ -287,23 +302,66 @@ export function isCompletedPlanRun(run: AgentPlanRun): boolean {
   if (hasUnconfirmedRunCloseout(run)) return false;
   // A paused cycle whose only work left is a result on its way back has every node done, yet the run is not.
   if ((run.pauseBoundary?.pendingStepIds.length ?? 0) > 0) return false;
-  if (
-    !run.steps.every(
-      (step) =>
-        step.status === "skipped" ||
-        (step.status === "succeeded" &&
-          !step.isBlocked &&
-          !step.error &&
-          step.session?.resultCode !== -1 &&
-          // A boolean result of false is an answer, not an unaccepted node.
-          (step.passed === false ||
-            !step.session?.acceptance ||
-            step.session.acceptance.verdict === "accepted")),
-    )
-  )
-    return false;
+  if (!run.steps.every(isCompletedPlanStep)) return false;
   if (run.loops && !run.loops.every(isCompletedLoop)) return false;
   return true;
+}
+
+/** A step that never started because a failed closeout step comes before it. */
+function waitsBehindCloseout(
+  step: AgentPlanStepResult,
+  run: AgentPlanRun,
+  closeoutIds: ReadonlySet<string>,
+): boolean {
+  if (
+    (step.status !== "waiting" && step.status !== "paused") ||
+    !step.isBlocked
+  )
+    return false;
+  if (step.blockedByStepId !== undefined)
+    return closeoutIds.has(step.blockedByStepId);
+  // A group summary names no predecessor; its members do.
+  const members = run.steps.filter((entry) => entry.groupId === step.id);
+  return (
+    members.length > 0 &&
+    members.every((member) => waitsBehindCloseout(member, run, closeoutIds))
+  );
+}
+
+/**
+ * Whether only steps the plan marks as closeout keep the run from having succeeded.
+ *
+ * @remarks
+ * Every other step completed, or never started because it follows the failed
+ * closeout, like the step that moves the ticket after the push. Such a step is
+ * no failed work, and a resume starts it for the first time. Unconfirmed
+ * process cleanup, an explicit stop and a control error stay what they were.
+ *
+ * @param run - The view of the run; the roles come from its own results.
+ * @returns `false` for every run without a step marked as closeout.
+ */
+export function isWorkDoneCloseoutOpen(run: AgentPlanRun): boolean {
+  if (run.stopRequested || run.controlError || hasUnconfirmedRunCloseout(run))
+    return false;
+  const failed = run.steps.filter((step) => step.status === "failed");
+  if (failed.length === 0 || failed.some((step) => step.role !== "closeout"))
+    return false;
+  const closeoutIds = new Set(failed.map((step) => step.id));
+  const isSettled = (step: AgentPlanStepResult): boolean =>
+    closeoutIds.has(step.id) ||
+    isCompletedPlanStep(step) ||
+    waitsBehindCloseout(step, run, closeoutIds);
+  return (
+    run.steps.every(isSettled) &&
+    (run.loops ?? []).every(
+      (loop) =>
+        isCompletedLoop(loop) ||
+        run.steps.some(
+          (step) =>
+            step.id === loop.id && waitsBehindCloseout(step, run, closeoutIds),
+        ),
+    )
+  );
 }
 
 /**
@@ -332,6 +390,14 @@ export function settleDetachedRun(run: AgentPlanRun): AgentPlanRun {
   )
     return {
       ...endedPlanRun(run, "succeeded"),
+      recovery: undefined,
+    };
+  if (
+    (run.status === "running" || run.status === "pausing") &&
+    isWorkDoneCloseoutOpen(run)
+  )
+    return {
+      ...endedPlanRun(run, "work_done_closeout_open"),
       recovery: undefined,
     };
   if (run.status === "stopping" || run.status === "running")
@@ -431,6 +497,7 @@ export function finalPlanStatus(
 ): AgentPlanRun["status"] {
   if (hasUnconfirmedCloseout(active)) return "failed";
   if (active.view.stopRequested) return "cancelled";
+  if (isWorkDoneCloseoutOpen(active.view)) return "work_done_closeout_open";
   return hasFailure || active.view.controlError ? "failed" : "succeeded";
 }
 

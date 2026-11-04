@@ -72,6 +72,7 @@ function isStatus(input: unknown): input is AgentPlanControl["status"] {
       "succeeded",
       "failed",
       "cancelled",
+      "work_done_closeout_open",
     ].includes(input)
   );
 }

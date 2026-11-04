@@ -2,6 +2,7 @@ import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { PLAN_NODE_TEXT } from "./plan-node-text";
 
@@ -28,8 +29,7 @@ function sessionState(
   if (acpSessionId === null)
     return record.resultCode === -1 ? "failed" : "not_created";
   if (record.closeout === "pending") {
-    if (run && ["succeeded", "failed", "cancelled"].includes(run.status))
-      return "failed";
+    if (run && !isActivePlanRun(run.status)) return "failed";
     return "active";
   }
   return record.resultCode === -1 ? "failed" : "closed";

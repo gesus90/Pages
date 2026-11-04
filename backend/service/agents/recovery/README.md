@@ -1,5 +1,18 @@
 # Recoverable plan runs (PAGE-84, executing since PAGE-127)
 
+## PAGE-209: work done, closeout open
+
+A plan can mark an agent or script node of its flow with `role: "closeout"`. When
+only such a step fails, and every other step completed or never started because
+it follows that step, the run ends as `work_done_closeout_open` instead of
+`failed`. The state holds no plan, so a new start is possible. A resume takes
+over the verified work results as usual and repeats only the closeout step;
+steps behind it start for the first time. Without the field nothing changes.
+Runs stored earlier keep their status. A server stop during the closeout stays
+an interrupted failure, which continues under PAGE-210. Pica Mobile knows a
+closed set of states, so it receives `failed` with the error code
+`work_done_closeout_open`.
+
 ## PAGE-210: continuing after a restart
 
 A run a server restart interrupted now continues on its own where that is safe,

@@ -1,3 +1,5 @@
+import { isResumablePlanRunEnd } from "./AgentPlanRunState";
+
 import type { AgentPlanRun, AgentPlanStepResult } from "./AgentPlan";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 
@@ -73,7 +75,7 @@ function groupControlState(
     members.some((step) => step.status === "cancelled")
   )
     return "stopped";
-  if (run.status === "failed") return "blocked";
+  if (isResumablePlanRunEnd(run.status)) return "blocked";
   if (run.status === "paused") return "paused";
   if (members.some((step) => step.status === "running")) return "running";
   if (members.some((step) => step.status === "paused")) return "paused";

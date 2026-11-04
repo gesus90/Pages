@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
+import { isResumablePlanRunEnd } from "@/definition/AgentPlanRunState";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
@@ -43,7 +44,12 @@ type MiddleMode = "pause" | "resume" | "recover";
 
 function middleMode(props: PlanRunActionsProps): MiddleMode {
   if (props.control?.status === "paused") return "resume";
-  if (props.control?.status === "failed" && props.recovery) return "recover";
+  if (
+    props.control &&
+    isResumablePlanRunEnd(props.control.status) &&
+    props.recovery
+  )
+    return "recover";
   return "pause";
 }
 

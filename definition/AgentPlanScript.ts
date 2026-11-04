@@ -1,7 +1,11 @@
 import { isAgentParameterName } from "./AgentParameters";
 import type { AgentParameter } from "./AgentParameters";
 import type { AcpNamespaceOwner } from "./AcpResource";
-import type { AgentPlanBinding, AgentPlanPosition } from "./AgentPlan";
+import type {
+  AgentPlanBinding,
+  AgentPlanPosition,
+  AgentPlanStepRole,
+} from "./AgentPlan";
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution";
 import type {
   InterpreterCheck,
@@ -98,6 +102,8 @@ export interface AgentPlanScript extends AgentPlanPosition {
   readonly id: string;
   readonly type: "script";
   readonly name: string;
+  /** Only on a node of the flow itself; absent means an ordinary work step. */
+  readonly role?: AgentPlanStepRole;
   readonly executionTarget?: AgentPlanExecutionTarget;
   readonly interpreterProfileId: string;
   readonly content: string;

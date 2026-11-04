@@ -60,6 +60,7 @@ export function initialPlanRun(
     ).map((node) => ({
       id: node.id,
       groupId: snapshot.steps.find((step) => step.step.id === node.id)?.groupId,
+      ...planStepRole(node),
       name: runStepName(snapshot, node),
       status: "waiting",
       isBlocked: false,
@@ -105,6 +106,20 @@ export function recoveredPlanRun(
     },
     snapshot,
   );
+}
+
+/**
+ * The role a node hands to its result in the run.
+ *
+ * @param node - A node of the frozen plan.
+ * @returns The field to spread into the result; empty for an ordinary work step.
+ */
+export function planStepRole(
+  node: AgentPlanNode,
+): Pick<AgentPlanStepResult, "role"> {
+  return (node.type === "agent" || node.type === "script") && node.role
+    ? { role: node.role }
+    : {};
 }
 
 function runStepName(snapshot: AgentPlanSnapshot, node: AgentPlanNode): string {

@@ -4138,6 +4138,7 @@
       "succeeded": "Erfolgreich",
       "failed": "Gestört",
       "cancelled": "Abgebrochen",
+      "work_done_closeout_open": "Arbeit fertig, Abschluss offen",
       "paused": "Pausiert",
       "pausing": "Pausiert wird …",
       "stopping": "Stop · Closeout läuft",
@@ -4689,6 +4690,11 @@
           "hint": "Der letzte Lauf ist an einem Fehler angehalten.",
           "hint_resumable": "Der letzte Lauf ist angehalten; Fortsetzen übernimmt seine erfolgreichen Schritte."
         },
+        "work_done_closeout_open": {
+          "label": "Arbeit fertig, Abschluss offen",
+          "hint": "Alle Arbeitsschritte haben bestanden; nur der Abschluss ist gescheitert. Starten beginnt einen neuen Lauf.",
+          "hint_resumable": "Alle Arbeitsschritte haben bestanden; Fortsetzen wiederholt nur den Abschluss."
+        },
         "blocked": {
           "label": "Nicht startbereit",
           "hint": "Bitte die Planfehler beheben."
@@ -5040,6 +5046,7 @@
         "stopping": "Stoppt …",
         "succeeded": "Fertig",
         "reportOpen": "Fertig · Bericht offen",
+        "work_done_closeout_open": "Abschluss offen",
         "cancelled": "Gestoppt",
         "failed": "Fehlgeschlagen",
         "blocked": "Blockiert",
@@ -5261,6 +5268,7 @@
         "recoverable": "Gescheitert, wiederherstellbar",
         "interrupted": "Durch Serverstopp unterbrochen",
         "failed_terminal": "Gescheitert, Ursache nicht eingeordnet",
+        "work_done_closeout_open": "Arbeit fertig, Abschluss offen",
         "cancelled": "Bewusst gestoppt",
         "succeeded": "Erfolgreich"
       },

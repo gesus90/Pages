@@ -11,6 +11,8 @@ import {
   PICA_MOBILE_NOTIFICATION_EVENT_TYPE,
 } from "@/definition/PicaMobileNotifications";
 
+import { toPicaMobileNotificationRunStatus } from "../PicaMobileRunMapping";
+
 import { findStepName } from "./PicaMobileRunNames";
 
 import type {
@@ -91,7 +93,10 @@ function toEvent(
       ),
     },
     // The status is read now, never the one at the time of the event.
-    run: { id: event.runId, status: access.run.status },
+    run: {
+      id: event.runId,
+      status: toPicaMobileNotificationRunStatus(access.run.status),
+    },
   };
 
   if (event.type === PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED) {

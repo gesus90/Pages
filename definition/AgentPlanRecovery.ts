@@ -288,7 +288,8 @@ export interface AgentPlanRecoveryView {
     | "interrupted"
     | "failed_terminal"
     | "cancelled"
-    | "succeeded";
+    | "succeeded"
+    | "work_done_closeout_open";
   readonly checkpoint: AgentPlanCheckpoint | null;
   readonly attempts: readonly AgentPlanRepairAttempt[];
   readonly nodes: readonly {
@@ -318,7 +319,9 @@ export interface AgentPlanRecoveryView {
 
 /** Shared state contract: historical terminal failures and explicit stops never acquire repair actions. */
 export function canRecordPlanRepair(run: AgentPlanRun): boolean {
+  if (run.stopRequested) return false;
   return (
-    run.status === "failed" && !run.stopRequested && run.recovery !== undefined
+    run.status === "work_done_closeout_open" ||
+    (run.status === "failed" && run.recovery !== undefined)
   );
 }

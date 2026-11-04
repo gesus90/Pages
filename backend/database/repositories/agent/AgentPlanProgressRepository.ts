@@ -90,7 +90,8 @@ function requireRunIdentity(previous: AgentPlanRun, run: AgentPlanRun): void {
   if (
     (previous.status === "succeeded" ||
       previous.status === "cancelled" ||
-      previous.status === "failed") &&
+      previous.status === "failed" ||
+      previous.status === "work_done_closeout_open") &&
     previous.status !== run.status
   )
     throw new AgentPlanRecoveryError("action_unavailable");

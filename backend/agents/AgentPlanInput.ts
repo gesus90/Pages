@@ -48,6 +48,7 @@ import type {
   AgentPlanPosition,
   AgentPlanParameter,
   AgentPlanStep,
+  AgentPlanStepRole,
 } from "@/definition/AgentPlan";
 
 /** Bounds untrusted graph labels and identifiers before any resource lookup. */
@@ -169,6 +170,15 @@ function readNodeBase(
   return { id: readPlanText(node.id), ...readPosition(node) };
 }
 
+/** Narrows the optional role of a step; `null` removes a mark through a targeted change. */
+function readStepRole(input: unknown): {
+  readonly role?: AgentPlanStepRole;
+} {
+  if (input === undefined || input === null) return {};
+  if (input !== "closeout") throw new AgentError("plan_invalid");
+  return { role: input };
+}
+
 function readExecutionTarget(
   input: unknown,
 ): Pick<AgentPlanInput, "executionTarget"> {
@@ -200,6 +210,7 @@ function readStepNode(
     ...(node.completionGate === undefined
       ? {}
       : { completionGate: readCompletionGate(node.completionGate) }),
+    ...readStepRole(node.role),
     ...readExecutionTarget(node.executionTarget),
     ...(node.configuration === undefined
       ? {}
@@ -272,6 +283,7 @@ function readScriptNode(
   const script: AgentPlanScript = {
     ...base,
     ...readExecutionTarget(node.executionTarget),
+    ...readStepRole(node.role),
     type: "script",
     name: name.trim(),
     interpreterProfileId,
@@ -445,6 +457,7 @@ function readGroupNode(
     if (raw.type !== "agent") throw new AgentError("plan_invalid");
     const step = readStepNode(raw, readNodeBase(raw));
     if (step.completionGate) throw new AgentError("plan_work_gate_unavailable");
+    if (step.role) throw new AgentError("plan_invalid");
     return step;
   });
   const ports: readonly unknown[] = node.parameters;
@@ -497,6 +510,8 @@ function readLoopNode(
     if (member.type === "agent" && member.completionGate)
       throw new AgentError("plan_work_gate_unavailable");
     if (member.type === "loop") throw new AgentError("plan_loop_nested");
+    if ((member.type === "agent" || member.type === "script") && member.role)
+      throw new AgentError("plan_invalid");
     if (
       member.type !== "agent" &&
       member.type !== "script" &&

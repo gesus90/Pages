@@ -110,7 +110,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: buildReadTool({
       name: "list_plan_runs",
       title: "List plan runs",
-      description: `Lists the account's runs of a visible plan: runId, planId, planName, startedAt (ISO 8601) and status (running, pausing, paused, stopping, succeeded, failed or cancelled). order newest (default) or oldest sorts by start. 20 runs per page unless limit says otherwise; pass nextCursor with the same query to continue, total counts all runs. ${RUN_DESCRIPTION}`,
+      description: `Lists the account's runs of a visible plan: runId, planId, planName, startedAt (ISO 8601) and status (running, pausing, paused, stopping, succeeded, failed, cancelled or work_done_closeout_open, which means every work step passed and only a step the plan marks with role closeout failed; it holds no plan, and resuming repeats only that step). order newest (default) or oldest sorts by start. 20 runs per page unless limit says otherwise; pass nextCursor with the same query to continue, total counts all runs. ${RUN_DESCRIPTION}`,
       properties: {
         planId: IDENTIFIER_SCHEMA,
         order: { enum: ["newest", "oldest"] },
@@ -125,7 +125,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: buildReadTool({
       name: "read_plan_run",
       title: "Read plan run",
-      description: `Reads one run of the account: runId, planId, planName, planRevision, startedAt, endedAt, status, stopRequested appliedPlanRevision, continuationVersion, loop iterations with their member statuses, and every node with status, isBlocked, blockedByStepId when recorded, error, verdict, startedAt, endedAt, hasReport and its persisted retry state (policy, attempts failed of the total budget, next attempt, reset and failed attempt codes). For remote attempts, these timestamps are Pages observations, not proven process start and end times. ${RUN_DESCRIPTION}`,
+      description: `Reads one run of the account: runId, planId, planName, planRevision, startedAt, endedAt, status (work_done_closeout_open means every work step passed and only a step the plan marks with role closeout failed; it holds no plan, and resuming repeats only that step), stopRequested appliedPlanRevision, continuationVersion, loop iterations with their member statuses, and every node with status, isBlocked, blockedByStepId when recorded, error, verdict, startedAt, endedAt, hasReport and its persisted retry state (policy, attempts failed of the total budget, next attempt, reset and failed attempt codes). For remote attempts, these timestamps are Pages observations, not proven process start and end times. ${RUN_DESCRIPTION}`,
       properties: RUN_SELECTION,
     }),
   },

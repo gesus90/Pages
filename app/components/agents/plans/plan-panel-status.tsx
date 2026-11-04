@@ -11,6 +11,7 @@ const TONES: Readonly<Record<PlanPanelTone, string>> = {
   paused: "bg-muted text-foreground",
   neutral: "bg-muted text-muted-foreground",
   error: "bg-destructive-subtle text-destructive",
+  open: "bg-warning-subtle text-warning",
 };
 
 /**
