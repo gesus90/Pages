@@ -56,6 +56,43 @@ one such plan would break every list of plans, so both functions read the docume
 with a marker in its place. `json_extract_string` puts the escape back into an
 object or array it returns.
 
+## Data transfer
+
+`pnpm run db:transfer -- --from <duckdb-file> --to <postgres-url>` copies a DuckDB
+file into a PostgreSQL database and compares both. `--verify-only` compares without
+writing, for example once more right before the switch.
+
+The steps of a switch:
+
+1. Stop Pages cleanly and keep a backup of the file. The command refuses a file with
+   a write-ahead log, and a file that does not have exactly the migrations of this
+   version: run this version on it once first.
+2. Create an empty database with the locale below. Leave the password out of the URL
+   and set `PGPASSWORD`: `pnpm run` prints its command line, and the process list
+   shows it.
+3. Run the command. It opens the file read-only and writes nothing next to it.
+4. Switch only after exit code 0. Exit code 1 is a deviation or a failure, exit code 2
+   wrong usage. After a failed copy, drop the database and start with a new one.
+
+The command migrates the target and refuses one that holds business data: any table
+of something else, or a row a migration did not write, including a seeded row that
+was changed later. It tells them apart by the transaction of the row (`xmin`), which
+for an unchanged seeded row is the one of its migration.
+
+It copies table by table in the order of the foreign keys of the target (there are
+none today), each table in one transaction and in blocks of at most 100 rows or
+16 MiB. The seeded rows are replaced by those of the source. Afterwards it reads every
+table again on both sides, sorted by the primary key, and compares the row count and
+a SHA-256 over all columns. A sequence is set to the value DuckDB hands out next, and
+this value is compared, too. The version tables stay out: PostgreSQL counts its own
+migrations.
+
+The report holds table names and numbers only, with the duration per table and in
+total. The total, plus stopping and starting Pages, is the expected downtime of the
+switch. On a failure the command prints the SQLSTATE and no driver text, since that
+can quote a value; `22021` means a text with U+0000, see the list at the end of this
+page. It keeps the facade from logging for the same reason.
+
 ## Comparison
 
 `pnpm run postgres:check` migrates a new DuckDB file and a new PostgreSQL database

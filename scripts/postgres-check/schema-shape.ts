@@ -4,7 +4,7 @@ import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { DialectSql } from "@/backend/database/DatabaseDialect";
 
 /** The PostgreSQL column type behind each DuckDB type, see `docs/PostgresMigration.md`. */
-const POSTGRES_TYPE_OF_DUCKDB_TYPE: Readonly<Record<string, string>> = {
+export const POSTGRES_TYPE_OF_DUCKDB_TYPE: Readonly<Record<string, string>> = {
   VARCHAR: "text",
   BIGINT: "bigint",
   BOOLEAN: "boolean",
