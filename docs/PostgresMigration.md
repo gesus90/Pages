@@ -318,7 +318,7 @@ keep the results equal:
   a nullable sort key says `NULLS FIRST` or `NULLS LAST`.
 - Permissions and memberships keep the order they were saved in, in a column
   `position` (migration 089). It used to rest on the physical order of the rows,
-  which `admin.roles.list` and `admin.users.list` show. Accounts list by creation.
+  which `admin.roles.list` and `admin.users.list` show.
 - Tickets, their history, links and checklist items, milestones with their
   dependencies, comments and page versions keep the order they were created in inside
   one second, in a column `creation_order` from the sequence `row_creation_order`
@@ -332,9 +332,12 @@ keep the results equal:
   order they were created in, in the same column (migration 091). It decides which
   run takes a working copy first after a restart, which holder a waiting run names
   and which packet of a job comes first.
-- A tie sorts by creation before it sorts by identifier: `created_at` or `joined_at`.
-  Goals and dates get a time-ordered identifier (`createTimeOrderedId`), so two of one
-  second keep their order; rows from before stay on their random identifier there.
+- Projects, goals, dates, accounts and sessions keep the order they were created in, in
+  the same column (migration 093). A person changing their profile moves behind others
+  of the same name, because that write used to move the row to the end of the table.
+  Members of a project with the same name follow the accounts, as the old join did.
+  In lists of about 30 to 127 rows the old sort of DuckDB mixed ties in a way that
+  depended on the other rows; that order is stored nowhere and does not come back.
 - A list ends its `ORDER BY` on a unique key. Rows with equal sort keys otherwise
   come back in the physical order, and an `UPDATE` changes that in PostgreSQL only.
 - `to_days` and `to_minutes` exist only in DuckDB. Use `$days * INTERVAL '1 day'`

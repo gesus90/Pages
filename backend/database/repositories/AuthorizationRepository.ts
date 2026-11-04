@@ -247,7 +247,7 @@ export class AuthorizationRepository {
           access.has_had_department
       FROM user_authorization AS access
       INNER JOIN users ON users.id = access.user_id
-      ORDER BY users.created_at, access.user_id;
+      ORDER BY access.creation_order;
     `);
     return {
       roles,

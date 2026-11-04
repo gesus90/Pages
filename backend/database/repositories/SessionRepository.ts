@@ -198,7 +198,7 @@ export class SessionRepository {
         FROM sessions
         WHERE user_id = $user_id
             AND expires_at > utc_now()
-        ORDER BY is_current DESC, last_used_at DESC, created_at, id;
+        ORDER BY is_current DESC, last_used_at DESC, creation_order;
       `,
       { token_hash: currentTokenHash, user_id: userId },
     );

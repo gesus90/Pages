@@ -1,6 +1,5 @@
 import { strict as assert } from "node:assert";
 
-import { createTimeOrderedId } from "@/backend/database/TimeOrderedId";
 import { CAPABILITY } from "@/definition/Authorization";
 
 import { call, prepare, reversedInPostgres, stored } from "./world";
@@ -26,8 +25,6 @@ const CREATED_ACCOUNTS = [
   "user-same-name-a",
   "user-same-name-b",
 ];
-
-const CREATION_TITLES = ["Z zuerst angelegt", "A danach angelegt"];
 
 const NUL_USER = {
   id: "user-nul-text",
@@ -72,6 +69,191 @@ export function inOrder<Item>(
   assert.deepEqual(items.map(read), expected);
   return items;
 }
+
+const GOAL_STEPS: readonly RepositoryStep[] = [
+  ...["goal-order-z", "goal-order-a"].map((id) =>
+    call("ProjectRepository.insertGoal", ({ projects }) =>
+      projects.insertGoal({ id, projectId: PROJECT, title: id, position: 1 }),
+    ),
+  ),
+  prepare("UPDATE project_goals SET created_at = '2026-01-01 00:00:00';"),
+  reversedInPostgres("project_goals"),
+  call("ProjectRepository.findGoals", async ({ projects }) =>
+    inOrder(
+      await projects.findGoals(PROJECT),
+      ["goal-order-z", "goal-order-a"],
+      ({ id }) => id,
+    ),
+  ),
+];
+
+const EVENT_STEPS: readonly RepositoryStep[] = [
+  ...["event-order-z", "event-order-a"].map((id) =>
+    call("ProjectRepository.insertEvent", ({ projects }) =>
+      projects.insertEvent({
+        id,
+        projectId: PROJECT,
+        title: id,
+        description: "",
+        eventDate: "2026-05-01",
+        eventTime: null,
+        type: "general",
+      }),
+    ),
+  ),
+  prepare("UPDATE project_events SET created_at = '2026-01-01 00:00:00';"),
+  reversedInPostgres("project_events"),
+  call("ProjectRepository.findEvents", async ({ projects }) =>
+    inOrder(
+      await projects.findEvents(PROJECT),
+      ["event-order-z", "event-order-a"],
+      ({ id }) => id,
+    ),
+  ),
+];
+
+const SAME_NAME_PROJECTS = ["project-order-z", "project-order-a"];
+const PIN_SAME_NAME_PROJECTS = `
+  UPDATE projects
+  SET updated_at = '2999-01-01 00:00:00'
+  WHERE id IN ('project-order-z', 'project-order-a');
+`;
+
+const SAME_NAME_PROJECT_STEPS: readonly RepositoryStep[] = [
+  ...SAME_NAME_PROJECTS.map((id) =>
+    call("ProjectRepository.insert", ({ projects }) =>
+      projects.insert({
+        ...NEW_PROJECT,
+        id,
+        name: "Gleicher Name",
+        description: "fundstelle-ordnung",
+      }),
+    ),
+  ),
+  prepare(PIN_SAME_NAME_PROJECTS),
+  reversedInPostgres("projects"),
+  call("ProjectRepository.findAll", async ({ projects }) =>
+    inOrder(
+      (await projects.findAll()).slice(0, 2),
+      SAME_NAME_PROJECTS,
+      ({ id }) => id,
+    ),
+  ),
+  call("WikiLinkRepository.findProjectsMentioning", async ({ wiki }) =>
+    inOrder(
+      await wiki.links.findProjectsMentioning(
+        {
+          userId: "user-admin",
+          isAdmin: true,
+          departmentIds: [],
+          projectIds: SAME_NAME_PROJECTS,
+        },
+        "fundstelle-ordnung",
+      ),
+      SAME_NAME_PROJECTS,
+      ({ id }) => id,
+    ),
+  ),
+  ...SAME_NAME_PROJECTS.map((id) =>
+    call("ProjectRepository.archive", ({ projects }) => projects.archive(id)),
+  ),
+  prepare(`
+    UPDATE projects
+    SET archived_at = '2999-01-01 00:00:00'
+    WHERE id IN ('project-order-z', 'project-order-a');
+  `),
+  call("ProjectRepository.findArchived", async ({ projects }) =>
+    inOrder(
+      (await projects.findArchived()).slice(0, 2),
+      SAME_NAME_PROJECTS,
+      ({ id }) => id,
+    ),
+  ),
+  ...SAME_NAME_PROJECTS.map((id) =>
+    call("ProjectRepository.deletePermanently", ({ projects }) =>
+      projects.deletePermanently(id),
+    ),
+  ),
+];
+
+const SESSION_STEPS: readonly RepositoryStep[] = [
+  prepare(`
+    INSERT INTO sessions (id, user_id, token_hash, expires_at, last_used_at)
+    VALUES
+        ('session-order-z', 'user-admin', 'token-order-z', '2999-01-01 00:00:00', '2026-01-01 00:00:00'),
+        ('session-order-a', 'user-admin', 'token-order-a', '2999-01-01 00:00:00', '2026-01-01 00:00:00');
+  `),
+  reversedInPostgres("sessions"),
+  call("SessionRepository.listActiveByUserId", async ({ sessions }) =>
+    inOrder(
+      await sessions.listActiveByUserId("user-admin", "no-current-token"),
+      ["session-order-z", "session-order-a"],
+      ({ id }) => id,
+    ),
+  ),
+  prepare("DELETE FROM sessions WHERE id LIKE 'session-order-%';"),
+];
+
+const MEMBER_STEPS: readonly RepositoryStep[] = [
+  // Against the order of the two accounts: the list follows the accounts, not this.
+  call("ProjectRepository.addMember", ({ projects }) =>
+    projects.addMember(PROJECT, "user-same-name-b", "viewer"),
+  ),
+  call("ProjectRepository.addMember", ({ projects }) =>
+    projects.addMember(PROJECT, "user-same-name-a", "viewer"),
+  ),
+  reversedInPostgres("project_members"),
+  call("ProjectRepository.findMembers", async ({ projects }) =>
+    inOrder(
+      (await projects.findMembers(PROJECT)).filter(
+        ({ displayName }) => displayName === "Same Name",
+      ),
+      ["user-same-name-a", "user-same-name-b"],
+      ({ userId }) => userId,
+    ),
+  ),
+];
+
+/** Changing a profile moves the person behind others of the same name. */
+const PROFILE_STEPS: readonly RepositoryStep[] = [
+  reversedInPostgres("users"),
+  call("UserRepository.findAll", async ({ users }) =>
+    inOrder(
+      (await users.findAll()).filter(
+        ({ displayName }) => displayName === "Same Name",
+      ),
+      ["user-same-name-a", "user-same-name-b"],
+      ({ id }) => id,
+    ),
+  ),
+  call("UserRepository.updateProfile", ({ users }) =>
+    users.updateProfile("user-same-name-a", {
+      displayName: "Same Name",
+      username: "same-a",
+      email: null,
+    }),
+  ),
+  call("UserRepository.findAll", async ({ users }) =>
+    inOrder(
+      (await users.findAll()).filter(
+        ({ displayName }) => displayName === "Same Name",
+      ),
+      ["user-same-name-b", "user-same-name-a"],
+      ({ id }) => id,
+    ),
+  ),
+  prepare("UPDATE users SET is_active = 1 WHERE id = 'user-same-name-b';"),
+  call("TaskRepository.findEligibleAssignees", async ({ tasks }) =>
+    inOrder(
+      (await tasks.findEligibleAssignees()).filter(
+        ({ displayName }) => displayName === "Same Name",
+      ),
+      ["user-same-name-b", "user-same-name-a"],
+      ({ id }) => id,
+    ),
+  ),
+  prepare("UPDATE users SET is_active = 0 WHERE id = 'user-same-name-b';"),
+];
 
 /** The order people see: permissions and memberships as saved, ties as created. */
 export const SAVED_ORDER_FLOW: RepositoryFlow = {
@@ -130,63 +312,13 @@ export const SAVED_ORDER_FLOW: RepositoryFlow = {
     call("ProjectRepository.insert", ({ projects }) =>
       projects.insert({ ...NEW_PROJECT, id: PROJECT, name: "Ordnung" }),
     ),
-    // Identifiers that sort against the alphabet of the titles and across one second.
-    call("ProjectRepository.insertGoal", ({ projects }) =>
-      projects.insertGoal({
-        id: createTimeOrderedId(),
-        projectId: PROJECT,
-        title: "Z zuerst angelegt",
-        position: 1,
-      }),
-    ),
-    call("ProjectRepository.insertGoal", ({ projects }) =>
-      projects.insertGoal({
-        id: createTimeOrderedId(),
-        projectId: PROJECT,
-        title: "A danach angelegt",
-        position: 1,
-      }),
-    ),
-    prepare("UPDATE project_goals SET created_at = '2026-01-01 00:00:00';"),
-    reversedInPostgres("project_goals"),
-    call("ProjectRepository.findGoals", async ({ projects }) =>
-      inOrder(
-        await projects.findGoals(PROJECT),
-        CREATION_TITLES,
-        ({ title }) => title,
-      ),
-    ),
-    call("ProjectRepository.insertEvent", ({ projects }) =>
-      projects.insertEvent({
-        id: createTimeOrderedId(),
-        projectId: PROJECT,
-        title: "Z zuerst angelegt",
-        description: "",
-        eventDate: "2026-05-01",
-        eventTime: null,
-        type: "general",
-      }),
-    ),
-    call("ProjectRepository.insertEvent", ({ projects }) =>
-      projects.insertEvent({
-        id: createTimeOrderedId(),
-        projectId: PROJECT,
-        title: "A danach angelegt",
-        description: "",
-        eventDate: "2026-05-01",
-        eventTime: null,
-        type: "general",
-      }),
-    ),
-    prepare("UPDATE project_events SET created_at = '2026-01-01 00:00:00';"),
-    reversedInPostgres("project_events"),
-    call("ProjectRepository.findEvents", async ({ projects }) =>
-      inOrder(
-        await projects.findEvents(PROJECT),
-        CREATION_TITLES,
-        ({ title }) => title,
-      ),
-    ),
+    // Identifiers against the alphabet of creation, all within one pinned second.
+    ...GOAL_STEPS,
+    ...EVENT_STEPS,
+    ...SAME_NAME_PROJECT_STEPS,
+    ...SESSION_STEPS,
+    ...MEMBER_STEPS,
+    ...PROFILE_STEPS,
     call("ProjectRepository.deletePermanently", ({ projects }) =>
       projects.deletePermanently(PROJECT),
     ),
@@ -198,6 +330,16 @@ export const AREA_NUL_FLOW: RepositoryFlow = {
   title: "U+0000 in core and projects",
   steps: [
     call("UserRepository.insert", ({ users }) => users.insert(NUL_USER)),
+    call("UserRepository.findById", async ({ users }) =>
+      withoutNul(await users.findById(NUL_USER.id)),
+    ),
+    call("UserRepository.updateProfile", ({ users }) =>
+      users.updateProfile(NUL_USER.id, {
+        displayName: `Ge${NUL}ändert`,
+        username: NUL_USER.username,
+        email: null,
+      }),
+    ),
     call("UserRepository.findById", async ({ users }) =>
       withoutNul(await users.findById(NUL_USER.id)),
     ),

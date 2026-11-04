@@ -76,7 +76,7 @@ export class ProjectEventRepository {
         FROM project_events
         WHERE project_id = $project_id
             AND archived_at IS NULL
-        ORDER BY event_date ASC, event_time ASC NULLS FIRST, created_at ASC, id ASC;
+        ORDER BY event_date ASC, event_time ASC NULLS FIRST, created_at ASC, creation_order ASC;
       `,
       { project_id: projectId },
     );

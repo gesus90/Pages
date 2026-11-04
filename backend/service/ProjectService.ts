@@ -5,7 +5,6 @@ import {
   ServerCache,
   stableIdKey,
 } from "@/backend/cache/ServerCache";
-import { createTimeOrderedId } from "@/backend/database/TimeOrderedId";
 import { ProjectManagementDeniedError } from "@/backend/error/ProjectErrors";
 import { encryptGitHubToken } from "@/backend/github/GitHubTokenCrypto";
 import { CAPABILITY } from "@/definition/Authorization";
@@ -353,7 +352,7 @@ export class ProjectService {
 
     const existing = await this.projectRepository.findGoals(projectId);
     const goal: NewProjectGoal = {
-      id: createTimeOrderedId(),
+      id: randomUUID(),
       projectId,
       title: trimmed,
       position: existing.length,
@@ -458,7 +457,7 @@ export class ProjectService {
       description: event.description.trim(),
       eventDate: event.eventDate,
       eventTime: normalizeEventTime(event.eventTime),
-      id: createTimeOrderedId(),
+      id: randomUUID(),
       projectId,
       title,
       type: event.type.trim().slice(0, 40) || "general",

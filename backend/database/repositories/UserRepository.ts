@@ -148,7 +148,7 @@ export class UserRepository {
           avatar_image_url,
           must_change_password
       FROM users
-      ORDER BY display_name, created_at, id;
+      ORDER BY display_name, creation_order;
     `);
 
     return rows.map((row) => this.toUser(row));
@@ -388,6 +388,10 @@ export class UserRepository {
    * @param profile - New display name, username, email, and optional avatar info.
    * @throws {UsernameTakenError} When the username is already in use.
    * @throws {EmailTakenError} When the email address is already in use.
+   *
+   * @remarks
+   * The user moves behind others of the same name: this write used to move the row
+   * to the end of the table, because it sets indexed columns, and that order was shown.
    */
   public async updateProfile(
     id: string,
@@ -409,6 +413,7 @@ export class UserRepository {
               email = $email,
               avatar_type = COALESCE($avatar_type, avatar_type),
               avatar_image_url = COALESCE($avatar_image_url, avatar_image_url),
+              creation_order = nextval('row_creation_order'),
               updated_at = utc_now()
           WHERE id = $id;
         `,
