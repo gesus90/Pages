@@ -72,6 +72,10 @@ import {
   AUTHORIZATION_FLOW,
   GROUP_FLOW,
 } from "./repositories/authorization-flows";
+import {
+  AGENT_AREA_CLASSES,
+  AGENT_AREA_FLOWS,
+} from "./repositories/agent-area";
 import { GITHUB_FLOW } from "./repositories/github-flow";
 import { CONNECTION_FLOW, INSTANCE_FLOW } from "./repositories/instance-flows";
 import { PROJECT_DELETION_FLOW } from "./repositories/project-deletion-flow";
@@ -115,6 +119,7 @@ const FLOWS: readonly RepositoryFlow[] = [
   WIKI_PAGE_FLOW,
   WIKI_CONTENT_FLOW,
   WIKI_STATE_FLOW,
+  ...AGENT_AREA_FLOWS,
   PROJECT_DELETION_FLOW,
 ];
 
@@ -179,6 +184,7 @@ const AREA_CLASSES: Readonly<Record<string, { readonly prototype: object }>> = {
   WikiSettingsRepository,
   WikiStateRepository,
   WikiVersionRepository,
+  ...AGENT_AREA_CLASSES,
 };
 
 const STORED_TIME = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/u;
@@ -217,10 +223,11 @@ function stableValue(input: unknown): unknown {
   return input === undefined ? "<undefined>" : input;
 }
 
-/** Errors of the code keep their name and text; the words of a server are its own. */
+/** Errors of the code keep their name, code and text; the words of a server are its own. */
 function refusalText(error: unknown): string {
   if (!(error instanceof Error)) return "not an error";
-  if (error.name !== "Error" && error.name !== "error") return error.name;
+  if (error.name !== "Error" && error.name !== "error")
+    return "code" in error ? `${error.name} ${String(error.code)}` : error.name;
   const isOfTheCode =
     error.message.startsWith("Database returned") ||
     error.message.startsWith("A read transaction") ||

@@ -37,7 +37,8 @@ export class RunnerHistoryRecoveryRepository {
       `
       SELECT DISTINCT connection_id
       FROM runner_history_recovery
-      WHERE restored_at IS NULL;
+      WHERE restored_at IS NULL
+      ORDER BY connection_id;
     `,
     );
     return rows.map((row) => readTextColumn(row, 0, "connection_id"));
@@ -91,7 +92,7 @@ export class RunnerHistoryRecoveryRepository {
               packet_json,
               sequence,
               last_attempt_at,
-              ROW_NUMBER() OVER (PARTITION BY job_id ORDER BY sequence) AS job_position
+              ROW_NUMBER() OVER (PARTITION BY job_id ORDER BY sequence, event_id) AS job_position
           FROM runner_history_recovery
           WHERE connection_id = $connection_id
               AND restored_at IS NULL
@@ -101,7 +102,7 @@ export class RunnerHistoryRecoveryRepository {
               last_attempt_at IS NULL
               OR last_attempt_at < utc_after(INTERVAL '-30 seconds')
           )
-      ORDER BY sequence
+      ORDER BY sequence, event_id
       LIMIT 32;
     `,
       { connection_id: connectionId },

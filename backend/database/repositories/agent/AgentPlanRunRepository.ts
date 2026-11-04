@@ -335,7 +335,12 @@ export class AgentPlanRunRepository {
   /** Returns unfinished public records for service-controlled recovery after restart. */
   public async unfinished(): Promise<readonly AgentPlanRun[]> {
     const rows = await this.database.query(
-      "SELECT view_json FROM agent_plan_runs WHERE status IN ('running', 'pausing', 'paused', 'stopping');",
+      `
+      SELECT view_json
+      FROM agent_plan_runs
+      WHERE status IN ('running', 'pausing', 'paused', 'stopping')
+      ORDER BY started_at, id;
+    `,
     );
     return rows.map((row) => {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
@@ -349,7 +354,8 @@ export class AgentPlanRunRepository {
       SELECT view_json
       FROM agent_plan_runs
       WHERE status = 'failed'
-          AND json_extract_string(view_json, '$.recovery.automaticResume.state') = 'pending';
+          AND json_extract_string(view_json, '$.recovery.automaticResume.state') = 'pending'
+      ORDER BY started_at, id;
     `);
     return rows.map((row) => {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
@@ -377,7 +383,8 @@ export class AgentPlanRunRepository {
           AND id IN (
               SELECT run_id
               FROM agent_plan_workspace_locks
-          );
+          )
+      ORDER BY started_at, id;
     `);
     return rows.map((row) => {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
@@ -466,8 +473,8 @@ export class AgentPlanRunRepository {
    * Lists the latest run one person started of every plan.
    *
    * @param userId - The executor; runs of others are never part of it.
-   * @returns One entry per plan with a run of the person, in no particular
-   * order; reading the run itself still needs the service checks.
+   * @returns One entry per plan with a run of the person, by plan; reading the
+   * run itself still needs the service checks.
    */
   public async latestOwn(
     userId: string,
@@ -480,12 +487,22 @@ export class AgentPlanRunRepository {
           status,
           started_at,
           recovery_revision
-      FROM agent_plan_runs
-      WHERE user_id = $user_id
-      QUALIFY ROW_NUMBER() OVER (
-          PARTITION BY plan_id
-          ORDER BY started_at DESC, id DESC
-      ) = 1;
+      FROM (
+          SELECT
+              plan_id,
+              id,
+              status,
+              started_at,
+              recovery_revision,
+              ROW_NUMBER() OVER (
+                  PARTITION BY plan_id
+                  ORDER BY started_at DESC, id DESC
+              ) AS run_position
+          FROM agent_plan_runs
+          WHERE user_id = $user_id
+      ) AS runs
+      WHERE run_position = 1
+      ORDER BY plan_id;
     `,
       { user_id: userId },
     );

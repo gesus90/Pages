@@ -21,7 +21,8 @@ export class RunnerDeployKeyRepository {
           public_key,
           title
       FROM runner_deploy_keys
-      WHERE project_id = $project_id;
+      WHERE project_id = $project_id
+      ORDER BY title, key_id;
     `,
       { project_id: projectId },
     );

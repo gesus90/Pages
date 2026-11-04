@@ -83,7 +83,7 @@ export class AgentPlanStartRejectionRepository {
         FROM agent_plan_start_rejections
         WHERE user_id = $user_id
             AND plan_id = $plan_id
-            AND ($before IS NULL OR sequence_number < (
+            AND (CAST($before AS TEXT) IS NULL OR sequence_number < (
                 SELECT sequence_number
                 FROM agent_plan_start_rejections
                 WHERE id = $before

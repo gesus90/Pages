@@ -81,18 +81,17 @@ export class AgentConnectionScopeRepository {
 
   /** Reads every scope in two statements, for the administration list. */
   public async list(): Promise<ReadonlyMap<string, AgentConnectionScope>> {
-    const [modes, targets] = await Promise.all([
-      this.database.query(`
-        SELECT
-            connections.id,
-            scopes.mode
-        FROM agent_connections AS connections
-        LEFT JOIN agent_connection_scopes AS scopes
-            ON scopes.connection_id = connections.id
-        ORDER BY connections.id;
-      `),
-      this.targetRows(null),
-    ]);
+    // One after the other: DuckDB refuses parallel statements in a transaction.
+    const modes = await this.database.query(`
+      SELECT
+          connections.id,
+          scopes.mode
+      FROM agent_connections AS connections
+      LEFT JOIN agent_connection_scopes AS scopes
+          ON scopes.connection_id = connections.id
+      ORDER BY connections.id;
+    `);
+    const targets = await this.targetRows(null);
     const scopes = new Map<string, AgentConnectionScope>();
     for (const row of modes) {
       const id = readTextColumn(row, 0, "id");

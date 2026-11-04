@@ -8,8 +8,17 @@ const REPOSITORIES = fileURLToPath(
   new URL("../../../backend/database/repositories/", import.meta.url),
 );
 
-/** The directories of the area: the files directly below `repositories/`, `project/`, `task/` and `wiki/`. */
-const AREA_DIRECTORIES = ["", "project", "task", "wiki"] as const;
+/** The directories of the ported area, with the files directly below `repositories/` as the empty name. */
+const AREA_DIRECTORIES = [
+  "",
+  "agent",
+  "agents",
+  "project",
+  "remote",
+  "runner",
+  "task",
+  "wiki",
+] as const;
 
 /** What the area offers to other code. */
 export interface PublicApi {

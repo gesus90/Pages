@@ -255,7 +255,8 @@ export class RemoteConnectionRepository {
             connection_id,
             COUNT(*) AS workspace_count
         FROM remote_workspaces
-        GROUP BY connection_id;
+        GROUP BY connection_id
+        ORDER BY connection_id;
       `);
       return new Map(
         rows.map((row): [string, number] => [

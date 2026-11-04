@@ -15,7 +15,8 @@ export class AgentPlanWorkspaceRepository {
     const rows = await this.database.query(`
       SELECT id FROM agent_workspaces
       UNION
-      SELECT id FROM remote_workspaces;
+      SELECT id FROM remote_workspaces
+      ORDER BY id;
     `);
     return new Set(rows.map((row) => readTextColumn(row, 0, "id")));
   }

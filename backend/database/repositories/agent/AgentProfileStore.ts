@@ -172,7 +172,8 @@ export class AgentProfileStore {
       `
       SELECT function
       FROM agent_legacy_function_assignments
-      WHERE profile_id = $id;
+      WHERE profile_id = $id
+      ORDER BY function;
     `,
       { id },
     );
@@ -197,7 +198,8 @@ export class AgentProfileStore {
           AND (
               json_extract_string(node.value, '$.agentId') = $id
               OR json_extract_string(node.value, '$.personalAgentId') = $id
-          );
+          )
+      ORDER BY plans.id;
     `,
       { id },
     );

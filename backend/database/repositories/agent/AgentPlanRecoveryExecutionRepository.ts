@@ -90,7 +90,7 @@ export class AgentPlanRecoveryExecutionRepository {
         SELECT execution_json
         FROM agent_plan_recovery_executions
         WHERE run_id = $run_id
-        ORDER BY result_revision DESC
+        ORDER BY result_revision DESC, id DESC
         LIMIT 50;
       `,
       { run_id: runId },

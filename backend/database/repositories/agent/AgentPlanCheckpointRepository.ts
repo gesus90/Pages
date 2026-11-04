@@ -99,7 +99,7 @@ export class AgentPlanCheckpointRepository {
         SELECT checkpoint_json
         FROM agent_plan_checkpoints
         WHERE run_id = $run_id
-            AND ($version IS NULL OR version = $version)
+            AND (CAST($version AS DOUBLE PRECISION) IS NULL OR version = $version)
         ORDER BY version DESC
         LIMIT 1;
       `,

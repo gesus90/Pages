@@ -287,7 +287,7 @@ export class AgentImportRepository {
         SELECT result_json
         FROM agent_import_items
         WHERE run_id = $run_id
-        ORDER BY ordinal;
+        ORDER BY ordinal, source_key;
       `,
       { run_id: runId },
     );
@@ -307,7 +307,7 @@ export class AgentImportRepository {
         SELECT result_json
         FROM agent_import_items
         WHERE run_id = $run_id
-        ORDER BY ordinal;
+        ORDER BY ordinal, source_key;
       `,
       { run_id: runId },
     );

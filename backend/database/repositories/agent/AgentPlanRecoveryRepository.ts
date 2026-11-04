@@ -113,7 +113,7 @@ export class AgentPlanRecoveryRepository {
           SELECT attempt_json
           FROM agent_plan_repair_attempts
           WHERE run_id = $run_id
-          ORDER BY result_revision DESC
+          ORDER BY result_revision DESC, id DESC
           LIMIT 100;
         `,
         { run_id: runId },

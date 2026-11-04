@@ -45,6 +45,17 @@ reads other forms such as `Jan 1 2026`. The function follows what DuckDB accepts
 Callers only compare the result, because a year beyond the range of a PostgreSQL
 date comes back as infinity.
 
+## JSON functions
+
+`json_extract_string(document, path)` and `json_tree(document, path)`
+(`003_json_functions.sql`) have the names of the DuckDB functions, so a statement
+is the same in both. A path has the form `$.a.b`; `json_tree` without a path starts
+at the document. PostgreSQL refuses a whole JSON document that holds the escape
+`\u0000`, even for another key. JSON.stringify writes that escape for a U+0000, and
+one such plan would break every list of plans, so both functions read the document
+with a marker in its place. `json_extract_string` puts the escape back into an
+object or array it returns.
+
 ## Comparison
 
 `pnpm run postgres:check` migrates a new DuckDB file and a new PostgreSQL database
@@ -96,12 +107,16 @@ keep the results equal:
   characters in both. A comment gets a time-ordered identifier, because it needs its
   order inside one second and PostgreSQL has no stable row number.
 - `CHECKPOINT` belongs to the file of DuckDB and needs extra rights in PostgreSQL.
+- `QUALIFY` exists only in DuckDB: filter the window function in an outer query.
+- Parallel statements through `Promise.all` fail in a DuckDB transaction with
+  `cannot start a transaction within a transaction` and run in PostgreSQL. Run them
+  one after the other when a transaction can call the method.
 
 | Area                                          | State                                           |
 | --------------------------------------------- | ----------------------------------------------- |
 | Files directly in `repositories/`, `project/` | Ported, compared by `postgres:check` (PAGE-214) |
 | `task/`, `wiki/`                              | Ported, compared by `postgres:check` (PAGE-215) |
-| Agents, plans and runners                     | PAGE-216                                        |
+| `agent/`, `agents/`, `runner/`, `remote/`     | Ported, compared by `postgres:check` (PAGE-216) |
 | Chat, Discord, MCP and Mobile                 | PAGE-217                                        |
 
 `postgres:check` reads the public methods and exported functions of a ported area
@@ -110,15 +125,26 @@ every result. It masks only times in the stored format and generated identifiers
 It fails on a method no flow reaches and on any difference. A flow reverses the
 physical order of a table in PostgreSQL before it reads a list, so a list without a
 unique last sort key shows as a difference.
+An index read backwards undoes that reversal, so a list sorted descending is read in
+both physical orders.
 
 These differences remain, because no repository statement can remove them:
 
 - PostgreSQL cannot store the character U+0000 in text and refuses the statement;
   DuckDB stores it.
+  In agents and runners this concerns the texts stored as they are: session events
+  and instructions, the pinned prompt, and the input and result of a run record. A
+  text inside a JSON document is stored as the escape `\u0000` in both.
 - A fraction bound to an integer column is refused by PostgreSQL and rounded by
   DuckDB. The services validate these numbers first, except the sort order of the
   board, whose statement casts through `DOUBLE PRECISION` like DuckDB does.
 - `upper('ß')` is `ß` in PostgreSQL and `ẞ` in DuckDB.
+- `json_extract_string` returns a string with a U+0000 with the six characters of its
+  escape in PostgreSQL and with the character in DuckDB. Callers only compare it with
+  a fixed word or an identifier, which it equals in neither.
+- `INSERT … ON CONFLICT DO UPDATE` with `NULL` for a `NOT NULL` column that the update
+  does not set is refused by PostgreSQL before it finds the conflict; DuckDB takes the
+  update. The types of the repositories do not allow such a value.
 - `execute` with several statements and no values is all or nothing in PostgreSQL;
   DuckDB keeps the statements before a failing one. Only migrations use this form,
   and they run in a transaction.

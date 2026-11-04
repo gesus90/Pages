@@ -124,7 +124,8 @@ export class AgentAssetRepository {
       SELECT ${COLUMNS}
       FROM agent_assets
       WHERE status <> 'linked'
-          AND expires_at <= $now;
+          AND expires_at <= $now
+      ORDER BY expires_at, id;
     `,
         { now },
       )
@@ -149,7 +150,7 @@ export class AgentAssetRepository {
   /** Keeps live staged files safe from orphan sweeping. */
   public async stagedStorageNames(): Promise<string[]> {
     const rows = await this.database.query(
-      "SELECT storage_name FROM agent_assets WHERE status = 'staged';",
+      "SELECT storage_name FROM agent_assets WHERE status = 'staged' ORDER BY storage_name;",
     );
     return rows.map((row) => readTextColumn(row, 0, "storage_name"));
   }

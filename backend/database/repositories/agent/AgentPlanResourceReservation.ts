@@ -30,7 +30,8 @@ export async function reservePlanResources(
     SELECT locks.workspace_id, runs.snapshot_json
     FROM agent_plan_workspace_locks AS locks
     LEFT JOIN agent_plan_runs AS runs ON runs.id = locks.run_id
-    WHERE locks.run_id <> $run_id;
+    WHERE locks.run_id <> $run_id
+    ORDER BY locks.workspace_id;
   `,
     { run_id: runId },
   );
@@ -123,7 +124,8 @@ export async function findPlanResourceBlocker(
     SELECT locks.workspace_id, runs.view_json, runs.snapshot_json
     FROM agent_plan_workspace_locks AS locks
     LEFT JOIN agent_plan_runs AS runs ON runs.id = locks.run_id
-    WHERE locks.run_id <> $run_id;
+    WHERE locks.run_id <> $run_id
+    ORDER BY locks.workspace_id;
   `,
     { run_id: run.id },
   );
