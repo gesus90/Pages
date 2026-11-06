@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -16,7 +15,6 @@ import {
   evaluateHandoff,
   handoffIssues,
   inspectDependencies,
-  isInFingerprintScope,
   isSummaryStale,
   populationIssues,
 } from "@/scripts/qa-evidence.mjs";
@@ -123,20 +121,6 @@ it("leaves attached ticket assets out of the manifest", () => {
   );
 
   expect(result.fileCount).toBe(1);
-});
-
-it.each([
-  ["backend/x.ts", "pages", true],
-  ["mobile/x.ts", "pages", false],
-  // Pages imports the tool catalog, so a change there is stale for both steps.
-  ["mcp/src/tools/x.ts", "pages", true],
-  ["mcp/package.json", "pages", true],
-  ["mcp/tests/x.ts", "pages", false],
-  ["mcp/src/tools/x.ts", "mcp", true],
-  ["mcp/tests/x.ts", "mcp", true],
-  ["backend/x.ts", "mcp", false],
-])("decides whether %s belongs to the %s fingerprint", (file, scope, isIn) => {
-  expect(isInFingerprintScope(file, scope)).toBe(isIn);
 });
 
 it("names why installed modules cannot serve a gate", () => {
@@ -259,21 +243,6 @@ it("needs the coverage of both Pages scopes and the fingerprint of its own repor
   expect(evaluateHandoff(withoutFrontend, "pages", CURRENT)).toEqual([
     "coverage_missing:frontend",
   ]);
-  expect(evaluateHandoff(handoff({}), "mcp", CURRENT)).toEqual([
-    "fingerprint_missing",
-    "coverage_missing:mcp",
-  ]);
-});
-
-it("releases Git for a complete MCP report, whose status may stand in a fence", () => {
-  const text = [
-    '```json\n{"status":"done"}\n```',
-    `mcp-fingerprint: ${CURRENT}`,
-    `coverage-mcp: ${TOTALS}`,
-    GOOD_REPORT,
-  ].join("\n");
-
-  expect(evaluateHandoff(text, "mcp", CURRENT)).toEqual([]);
 });
 
 describe("counters that cannot be measurements", () => {
@@ -356,17 +325,6 @@ describe("population of the coverage scopes", () => {
     },
   );
 
-  it("matches the independent MCP configuration without executing it", () => {
-    const config = readFileSync("mcp/vitest.config.ts", "utf8");
-    const include = ["src/**/*.ts", "scripts/**/*.ts", "build.config.ts"];
-
-    expect(config).toContain(
-      'include: ["src/**/*.ts", "scripts/**/*.ts", "build.config.ts"]',
-    );
-    expect(COVERAGE_POPULATIONS.mcp.include).toEqual(include);
-    expect(COVERAGE_POPULATIONS.mcp.exclude).toEqual([]);
-  });
-
   const FILES = [
     "backend/a.ts",
     "app/lib/b.server.ts",
@@ -417,10 +375,6 @@ describe("the checkout behind a fingerprint", () => {
   beforeEach(async () => {
     root = await mkdtemp(path.join(tmpdir(), "pages-evidence-unit-"));
     await place("backend/A.ts");
-    await place("mcp/src/server.ts");
-    await place("mcp/tests/client.ts");
-    await place("mcp/package.json");
-    await place("mcp/node_modules/.pnpm/lock.yaml", "mcp-lock");
     await place("node_modules/.pnpm/lock.yaml", "pages-lock");
     await place("package.json");
   });
@@ -437,7 +391,7 @@ describe("the checkout behind a fingerprint", () => {
 
   const noGit = (): readonly string[] => [];
 
-  function fingerprint(scope: "pages" | "mcp"): string {
+  function fingerprint(scope: "pages"): string {
     return currentManifest(root, scope, noGit).fingerprint;
   }
 
@@ -477,9 +431,7 @@ describe("the checkout behind a fingerprint", () => {
 
     await place("coverage/backend/report.js");
     await place("build/server/index.js");
-    await place("mcp/dist/bundle.cjs");
     await place("tests/browser/results/report/trace/generated.js");
-    await place("mobile/app.ts");
     await place("data/pages.duckdb");
     await place(".env");
     await place("server.log");
@@ -494,10 +446,6 @@ describe("a QA report bound to the checkout", () => {
   beforeEach(async () => {
     root = await mkdtemp(path.join(tmpdir(), "pages-handoff-unit-"));
     await place("backend/A.ts");
-    await place("mcp/src/server.ts");
-    await place("mcp/tests/client.ts");
-    await place("mcp/package.json");
-    await place("mcp/node_modules/.pnpm/lock.yaml", "mcp-lock");
     await place("node_modules/.pnpm/lock.yaml", "pages-lock");
     await place("package.json");
   });
@@ -514,20 +462,17 @@ describe("a QA report bound to the checkout", () => {
 
   const noGit = (): readonly string[] => [];
 
-  function fingerprint(scope: "pages" | "mcp"): string {
+  function fingerprint(scope: "pages"): string {
     return currentManifest(root, scope, noGit).fingerprint;
   }
 
   const FRESH_LINES = JSON.stringify(summary().total);
 
-  function report(kind: "pages" | "mcp"): string {
-    const lines =
-      kind === "pages"
-        ? [
-            `coverage-backend: ${FRESH_LINES}`,
-            `coverage-frontend: ${FRESH_LINES}`,
-          ]
-        : [`coverage-mcp: ${FRESH_LINES}`];
+  function report(kind: "pages"): string {
+    const lines = [
+      `coverage-backend: ${FRESH_LINES}`,
+      `coverage-frontend: ${FRESH_LINES}`,
+    ];
     return [
       '{"status":"done"}',
       `${kind}-fingerprint: ${fingerprint(kind)}`,
@@ -536,25 +481,21 @@ describe("a QA report bound to the checkout", () => {
     ].join("\n");
   }
 
-  function released(kind: "pages" | "mcp", text: string): readonly string[] {
+  function released(kind: "pages", text: string): readonly string[] {
     return handoffIssues(root, kind, text, noGit);
   }
 
-  it.each(["pages", "mcp"] as const)(
+  it.each(["pages"] as const)(
     "releases Git for a fresh %s report on the unchanged checkout",
     (kind) => {
       expect(released(kind, report(kind))).toEqual([]);
     },
   );
 
-  it.each<[string, string, "pages" | "mcp"]>([
+  it.each<[string, string, "pages"]>([
     ["a source file", "backend/A.ts", "pages"],
     ["the configuration", "package.json", "pages"],
     ["the installed dependencies", "node_modules/.pnpm/lock.yaml", "pages"],
-    ["shared MCP source", "mcp/src/server.ts", "pages"],
-    ["shared MCP source", "mcp/src/server.ts", "mcp"],
-    ["an MCP test", "mcp/tests/client.ts", "mcp"],
-    ["the MCP dependencies", "mcp/node_modules/.pnpm/lock.yaml", "mcp"],
   ])(
     "refuses a report after a change of %s (%s, %s)",
     async (_, file, kind) => {
@@ -573,13 +514,5 @@ describe("a QA report bound to the checkout", () => {
     await place("backend/New.ts");
 
     expect(released("pages", text)).toContain("fingerprint_stale");
-  });
-
-  it("keeps Pages evidence valid after a change of an MCP test only", async () => {
-    const text = report("pages");
-
-    await place("mcp/tests/client.ts", "changed");
-
-    expect(released("pages", text)).toEqual([]);
   });
 });

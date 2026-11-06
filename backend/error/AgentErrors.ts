@@ -176,7 +176,7 @@ export const AGENT_ERROR_MESSAGES = {
   plan_run_option_unsupported:
     "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
   plan_mcp_unavailable:
-    "The node needs the Pages MCP adapter for agent sessions, but this server has none.",
+    "The agent of the node cannot reach the Pages tools of its step.",
   codex_permission_mode_required:
     "Codex CLI agents run only in “Read only” or “YOLO”. Choose one of the two modes for this agent.",
   claude_permission_mode_required:

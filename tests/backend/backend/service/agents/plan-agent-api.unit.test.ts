@@ -1,11 +1,9 @@
 import { beforeEach, expect, it } from "vitest";
 
-import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
-import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
 import {
   AGENT_PLAN_READ_OPERATIONS,
   AGENT_PLAN_WRITE_OPERATIONS,
@@ -14,10 +12,8 @@ import {
 import { PlanWorld, runnablePlan } from "./plan-operation-world";
 
 import type { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
-import type { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { WikiRepository } from "@/backend/database/repositories/WikiRepository";
-import type { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 
 /** Stands in for a dependency the tested path never reaches. */
@@ -25,36 +21,25 @@ const UNUSED: unknown = Object.create(null);
 
 let world = new PlanWorld();
 
-/** A personal credential store with one token per synthetic person. */
-class PersonalTokens extends PersonalAgentTokenService {
-  public constructor() {
-    super(
-      UNUSED as PersonalAgentTokenRepository,
-      UNUSED as AgentIdentityService,
-    );
-  }
-
-  /** Resolves `token-<person>` to that person. */
-  public override async verify(token: string): Promise<AgentIdentity> {
-    if (!token.startsWith("token-"))
-      throw new McpAuthorizationError("invalid_token", 401);
-    return world.identity(token.slice("token-".length));
-  }
-
-  /** Carries no credential details. */
-  public override async credential(): Promise<null> {
-    return null;
-  }
-}
-
 /** The session credential store: one token narrowed to the operation `ticket.read`. */
 class SessionTokens extends AgentRunCredentialService {
   public constructor() {
     super(UNUSED as AgentRunCredentialRepository);
   }
 
-  /** Resolves the one known session token with its scope. */
+  /** Resolves `token-<person>` to a full session of that person and the one known session token to its narrow scope. */
   public override async verify(token: string): Promise<AgentIdentity | null> {
+    if (token.startsWith("token-"))
+      return {
+        ...world.identity(token.slice("token-".length)),
+        run: {
+          runId: "run-1",
+          stepId: "step-1",
+          operations: [],
+          tickets: [],
+          reach: "full",
+        },
+      };
     if (token !== "session-token") return null;
     return {
       ...world.identity("owner"),
@@ -71,7 +56,6 @@ class SessionTokens extends AgentRunCredentialService {
 
 function api(): PagesAgentApiService {
   return new PagesAgentApiService(
-    new PersonalTokens(),
     new AgentProjectService(UNUSED as ProjectRepository),
     new AgentOperationRouter({
       projects: UNUSED as ProjectRepository,

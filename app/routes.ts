@@ -89,7 +89,7 @@ function createRouteBuilder(target: "api" | "spa"): RouteBuilder {
   };
 }
 
-/** Sign-in, setup, pairing, MCP and the other routes without the workspace frame. */
+/** Sign-in, setup and the other routes without the workspace frame. */
 function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource, page, indexPage } = routes;
   return [
@@ -112,15 +112,12 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     resource("app-api/login", "routes/login-data.ts"),
     resource("app-api/change-password", "routes/change-password-data.ts"),
     resource("app-api/setup", "routes/setup-data.ts"),
-    resource("app-api/pair", "routes/pair-data.ts"),
-    resource("app-api/mcp-login", "routes/mcp-login-data.ts"),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),
     resource("favicon.ico", "routes/favicon.ts"),
     resource("api/v1/agent-assets", "routes/api-v1-agent-assets.ts"),
-    resource("api/v1/agents", "routes/api-v1-agents.ts"),
     resource("api/v1/pica-bridge", "routes/api-v1-pica-bridge.ts"),
-    resource("api/v1/pairing/:endpoint?", "routes/api-v1-pairing.ts"),
+    resource("api/v1/plan-bridge", "routes/api-v1-plan-bridge.ts"),
     resource(
       "api/core/v1/live-decisions",
       "routes/api-core-v1-live-decisions.ts",
@@ -129,17 +126,6 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       "api/core/v1/status-access",
       "routes/api-core-v1-status-access.ts",
     ),
-    ...page("pair", {
-      browser: "routes/pair.tsx",
-      server: "routes/pair-server.ts",
-    }),
-    resource("mcp", "routes/mcp.ts"),
-    ...page("mcp-login", {
-      browser: "routes/mcp-login.tsx",
-      server: "routes/mcp-login-server.ts",
-    }),
-    resource("oauth/:endpoint", "routes/mcp-oauth.ts"),
-    resource(".well-known/:document/:resource?", "routes/mcp-discovery.ts"),
     resource("discord/callback", "routes/discord-callback.ts"),
     ...page("discord/result", { browser: "routes/discord-result.tsx" }),
     resource("instance-logo", "routes/instance-logo.ts"),

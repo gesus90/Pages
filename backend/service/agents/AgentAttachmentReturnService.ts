@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
-import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { AgentAssetRevisionRepository } from "@/backend/database/repositories/agents/AgentAssetRevisionRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -264,26 +263,19 @@ async function requireCredential(
   request: AuthorizedAssetReturn,
   scope: TaskDatabase,
 ): Promise<void> {
-  if (identity.run) {
-    const current = await new AgentRunCredentialRepository(scope).findValid(
-      request.credentialHash,
-      Date.now(),
-    );
-    if (
-      !current ||
-      current.userId !== identity.userId ||
-      current.scope.reach !== "full" ||
-      current.scope.runId !== identity.run.runId ||
-      current.scope.stepId !== identity.run.stepId
-    )
-      throw new AgentOperationError("FORBIDDEN");
-    return;
-  }
-  const owner = await new PersonalAgentTokenRepository(scope).findOwner(
+  if (!identity.run) throw new AgentOperationError("FORBIDDEN");
+  const current = await new AgentRunCredentialRepository(scope).findValid(
     request.credentialHash,
     Date.now(),
   );
-  if (owner !== identity.userId) throw new AgentOperationError("FORBIDDEN");
+  if (
+    !current ||
+    current.userId !== identity.userId ||
+    current.scope.reach !== "full" ||
+    current.scope.runId !== identity.run.runId ||
+    current.scope.stepId !== identity.run.stepId
+  )
+    throw new AgentOperationError("FORBIDDEN");
 }
 
 function shouldReplace(

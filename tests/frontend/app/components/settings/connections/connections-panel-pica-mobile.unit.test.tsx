@@ -6,18 +6,13 @@ import { expect, it } from "vitest";
 import { ConnectionsPanel } from "@/app/components/settings/connections/connections-panel";
 import { createI18n } from "@/app/lib/i18n";
 
-import type { McpConnectionsView } from "@/definition/McpConnections";
+import type { ConnectionsView } from "@/definition/Connections";
 
 const i18n = createI18n("de");
 
-const BASE: McpConnectionsView = {
-  origin: "https://pages.example",
-  packageVersion: "1.2.3",
-  tokens: [],
-  validityDays: 30,
-};
+const BASE: ConnectionsView = {};
 
-function renderPanel(view: McpConnectionsView): void {
+function renderPanel(view: ConnectionsView): void {
   const router = createMemoryRouter([
     {
       path: "/",
@@ -34,7 +29,7 @@ function renderPanel(view: McpConnectionsView): void {
   );
 }
 
-it("shows the Pica Mobile card above the personal connections for an administrator", async () => {
+it("shows the Pica Mobile card for an administrator", async () => {
   renderPanel({
     ...BASE,
     picaMobile: {
@@ -45,13 +40,8 @@ it("shows the Pica Mobile card above the personal connections for an administrat
     },
   });
 
-  const mobile = await screen.findByRole("heading", { name: "Pica Mobile" });
-  const personal = screen.getByRole("heading", {
-    name: "Persönliche MCP-Verbindungen",
-  });
-
   expect(
-    mobile.compareDocumentPosition(personal) & Node.DOCUMENT_POSITION_FOLLOWING,
+    await screen.findByRole("heading", { name: "Pica Mobile" }),
   ).toBeTruthy();
 });
 
@@ -59,9 +49,7 @@ it("shows no Pica Mobile card to anyone else", async () => {
   renderPanel(BASE);
 
   expect(
-    await screen.findByRole("heading", {
-      name: "Persönliche MCP-Verbindungen",
-    }),
+    await screen.findByRole("heading", { name: "Verbindungen" }),
   ).toBeTruthy();
   expect(screen.queryByRole("heading", { name: "Pica Mobile" })).toBeNull();
   expect(screen.queryByLabelText("WebSocket-Port")).toBeNull();

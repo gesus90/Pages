@@ -48,7 +48,7 @@ PID namespace. Once the namespace supervisor exits, its descendants are gone;
 Pages does not inspect other processes' environments for those probes. Plan
 sessions already require that same namespace boundary.
 
-The Pages MCP readiness probe also runs in its own PID namespace. A confirmed
+A confirmed
 Antigravity plan closeout stores the namespace evidence with its session so a
 later plan check can rely on the destroyed namespace. Older and unconfirmed
 sessions do not acquire that evidence retroactively.
@@ -86,9 +86,9 @@ namespace isolation in both modes. Global MCP, hooks and unreviewed settings are
 refused; project hook files are also refused because they can execute outside
 the tool permission path.
 
-The adapter supports stdio, HTTP and SSE MCP. Pages retains its existing scoped
-stdio Pages-MCP bridge, so no additional listener or persistent HTTP token is
-needed. Shared ACP launch contracts accept HTTP/SSE entries only when the actual
+The adapter supports stdio, HTTP and SSE MCP. Pages offers the tools of a plan
+step as an HTTP MCP server (`/api/v1/plan-bridge`) with a step-bound token, so no
+separate process is started. Shared ACP launch contracts accept HTTP/SSE entries only when the actual
 handshake advertises their transport. Tokens travel through protocol input or
 a process environment, never the process argument list.
 

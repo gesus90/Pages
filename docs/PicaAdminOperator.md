@@ -35,7 +35,7 @@ argument.
 
 ## The catalog
 
-The administrator catalog is derived from the static tool contracts MCP clients
+The administrator catalog is derived from the static tool contracts plan agents
 use (`definition/AgentTools`), so a new operation of the agent API reaches
 administrators without a second description (`PicaOperatorCatalog.ts`):
 
@@ -147,9 +147,9 @@ passwords and keys are never log fields.
 
 ## ACP and MCP compatibility
 
-MCP clients keep their catalog, names, schemas and descriptions. The chat-only
-operations are no entries of the MCP tool registry; the descriptions the native
-tools show differ from the MCP ones only because the chat never lets the model
+Plan agents keep their catalog, names, schemas and descriptions. The chat-only
+operations are no entries of the shared tool registry; the descriptions the native
+tools show differ from the shared ones only because the chat never lets the model
 pass a confirmation. The ACP bridge keeps its endpoint, token and protocol; it
 lists a role-dependent catalog and marks privileged calls in the journal.
 

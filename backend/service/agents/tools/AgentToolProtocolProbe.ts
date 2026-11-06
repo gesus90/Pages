@@ -30,16 +30,8 @@ function protocolProvider(tool: AgentToolDefinition): NativeAcpProviderId {
   return tool.id === "claude_acp" ? "claude_code" : "codex_cli";
 }
 
-function protocolArguments(
-  tool: AgentToolDefinition,
-  file: string,
-): readonly string[] {
-  if (tool.id === "antigravity_acp") return ["--uid="];
-  return tool.id === "pages_mcp" ? [file, "health-check"] : [];
-}
-
-function protocolFile(tool: AgentToolDefinition, file: string): string {
-  return tool.id === "pages_mcp" ? process.execPath : file;
+function protocolArguments(tool: AgentToolDefinition): readonly string[] {
+  return tool.id === "antigravity_acp" ? ["--uid="] : [];
 }
 
 function isolatedArguments(
@@ -88,8 +80,8 @@ export class AgentToolProtocolProbe {
     const instanceId = randomUUID();
     let receive: (line: string) => void = () => undefined;
     const scope = await readSpawnScope();
-    const file = protocolFile(tool, input.file);
-    const args = protocolArguments(tool, input.file);
+    const { file } = input;
+    const args = protocolArguments(tool);
     const child = this.runner.startSession({
       file: "/usr/bin/bwrap",
       toolFile: file,
@@ -122,11 +114,7 @@ export class AgentToolProtocolProbe {
       if (!record(message)) return;
       if (message.id === 1) {
         version = this.initialized(tool, message.result);
-        if (
-          version === null ||
-          tool.probe === "acp" ||
-          tool.id === "pages_mcp"
-        ) {
+        if (version === null || tool.probe === "acp") {
           finish(version);
           return;
         }

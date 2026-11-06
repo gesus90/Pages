@@ -21,13 +21,13 @@ import type { PicaBrowserOrigins } from "@/backend/service/chat/browser/PicaBrow
  * widens the list, because a client chooses its `Host` header.
  */
 export function picaBrowserOrigins(
-  config: Pick<PagesConfig, "port" | "mcpHttp" | "picaBrowserLocalOrigins">,
+  config: Pick<PagesConfig, "port" | "publicUrl" | "picaBrowserLocalOrigins">,
 ): PicaBrowserOrigins {
   const pages = new Set([
     `http://127.0.0.1:${config.port}`,
     `http://localhost:${config.port}`,
   ]);
-  const publicUrl = config.mcpHttp?.publicUrl;
+  const { publicUrl } = config;
   if (publicUrl) pages.add(publicUrl);
   const pageOrigins = normalizeBrowserOrigins([...pages]);
   return {
@@ -49,7 +49,7 @@ export function picaBrowserOptions(input: {
   readonly instanceKey: Buffer;
   readonly config: () => Pick<
     PagesConfig,
-    "port" | "mcpHttp" | "picaBrowserLocalOrigins"
+    "port" | "publicUrl" | "picaBrowserLocalOrigins"
   >;
 }): PicaAdminServiceOptions {
   return {

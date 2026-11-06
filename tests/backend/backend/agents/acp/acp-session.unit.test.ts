@@ -1,12 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-import {
-  INSTANCE_ID,
-  PROMPT,
-  WORKSPACE,
-  methodsOf,
-  startCodexSession,
-} from "./acp-harness";
+import { PROMPT, WORKSPACE, methodsOf, startCodexSession } from "./acp-harness";
 import { FAKE_SESSION_ID } from "./fake-acp-adapter";
 
 import type { ReceivedCall } from "./fake-acp-adapter";
@@ -90,14 +84,12 @@ it("starts the ACP session in the workspace, takes the stored mode, model and ef
     cwd: WORKSPACE,
     mcpServers: [
       {
+        type: "http",
         name: "pages",
-        command: "/synthetic/bin/node",
-        args: ["/synthetic/pages-mcp.cjs"],
-        env: [
-          { name: "PAGES_URL", value: "http://pages.invalid" },
-          { name: "PAGES_TOKEN", value: "synthetic-run-token" },
-          { name: "PAGES_RUN_INSTANCE", value: INSTANCE_ID },
-          { name: "PAGES_CORRELATION_ID", value: correlationIdMatcher },
+        url: "http://pages.invalid/api/v1/plan-bridge",
+        headers: [
+          { name: "Authorization", value: "Bearer synthetic-run-token" },
+          { name: "X-Correlation-ID", value: correlationIdMatcher },
         ],
       },
     ],

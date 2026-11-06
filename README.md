@@ -89,7 +89,7 @@ remain available when navigating back, with an unsaved indicator.
 
 ## Ticket and milestone archive rights
 
-UI and MCP archiving share the server decision in `TaskAccessGuard`: the current
+UI and agent archiving share the server decision in `TaskAccessGuard`: the current
 `milestones` capability plus responsibility for the visible target's project.
 Project responsibility is the project's Manager assignment or the scoped
 `manage_projects` capability (managed project departments or `allProjects`).
@@ -99,10 +99,10 @@ applies, and tickets must be public or in the account's own departments. Hidden
 descendants prevent archiving an entire subtree. Milestones follow project
 visibility and have no separate department assignment.
 
-Administrators qualify in active administrator mode in the UI. MCP keeps the
-existing personal-administrator interpretation, regardless of the browser's
-selected role mode; it does not change that mode. Both channels use the same
-archive service and policy with their existing account interpretation.
+Administrators qualify in active administrator mode in the UI. Agent tools
+keep the existing personal-administrator interpretation, regardless of the
+browser's selected role mode; it does not change that mode. Both channels use
+the same archive service and policy with their existing account interpretation.
 
 Archiving is soft: ticket rows and workflow status remain, and active descendants
 are archived recursively by default. Only newly archived tickets receive archive
@@ -110,15 +110,14 @@ history entries. A milestone leaves active views; its incident dependencies are
 removed, while its tickets and their assignments remain. There is no automatic
 purge. Permanent deletion is a separate administrator action in Pages.
 
-The compatible MCP names `delete_ticket` and `delete_milestone` mean archiving.
+The agent tools `delete_ticket` and `delete_milestone` mean archiving.
 They require exact `LÖSCHEN`/`DELETE` confirmation in the current account language.
 Every call, including an `operationId` replay, rechecks the account, target
 visibility and archive rights. `tools/list` advertises operations and proves no
 right on a target. Visible unauthorized targets return `FORBIDDEN`; hidden or
 missing targets return `NOT_FOUND`. Rejected calls create no archive history,
 project activity or operation key. Identical authorized repeats return the stored
-result without writing again; changed input returns `CONFLICT`. See the
-[MCP archive contract](./mcp/README.md#milestones-initiatives-tags-and-links).
+result without writing again; changed input returns `CONFLICT`.
 
 ## GitHub issues: Done and archive
 
@@ -249,7 +248,7 @@ person. Titles cannot ping anyone: every message disables all mentions
 in titles are neutralized as well. Tickets that belong to a department are not
 announced, because the channel is not limited to that department.
 
-Changes made in the interface and by agents (MCP and chat) are announced after
+Changes made in the interface and by agents (plan steps and chat) are announced after
 the Pages change committed. A refused, conflicting or rolled back change
 announces nothing.
 
@@ -572,9 +571,8 @@ conversation share when the assigned model's catalog provides that limit. This
 is conversation context only: system instructions, new attachments and current
 turn action results are excluded.
 
-MCP session deletion uses a separate adapter and still requires exactly
-**LÖSCHEN**, including with an English interface. See the
-[MCP session tools](./mcp/README.md#pica-sessions).
+Session deletion by an agent tool uses a separate adapter and still requires
+exactly **LÖSCHEN**, including with an English interface.
 
 ## Pica quota demo (PAGE-96)
 
@@ -870,9 +868,9 @@ removed after the sign-in) live in an owner-only `pages-ssh-*` folder in the
 temporary directory. The target needs a POSIX login shell.
 
 Agent Plans can select an authorized remote profile for supported script and
-agent nodes. MCP plan operations can read and select these targets under the
-same permissions; the separate MCP workspace administration operations still
-manage local workspaces.
+agent nodes. The plan tools of Pica can read and select these targets under the
+same permissions; the separate workspace administration tools still manage
+local workspaces.
 
 ## Agent Plans
 
@@ -901,7 +899,7 @@ Its header shows project, workspace, server status and Play/Pause/Resume/Stop.
 Expand it to choose a plan, rename it, select a project and one of its
 workspaces, and explicitly save. Full context names stay available in the
 expanded panel. Workspace administration uses the existing management page.
-The existing Pica/MCP plan operations and their save paths remain: the owner and
+The existing Pica plan operations and their save paths remain: the owner and
 the members and leaders of a plan's team (see Team plans and templates) save and run it.
 Readers a plan is only shared with see control metadata without private run
 outputs and cannot edit or run the plan.
@@ -939,7 +937,7 @@ bindings or the loop's condition. Disconnect or unbind the affected items, or
 clear the condition, before moving the member. Dissolving a group or loop keeps
 its members and internal connections; connected frame edges, frame input aliases
 and previous-iteration bindings must be repaired explicitly first. Pages does not
-invent replacement flow connections. The editor and MCP apply the same rule.
+invent replacement flow connections. The editor and the agent tools apply the same rule.
 
 The header shows the runner, a readable status and successful agent steps over
 the known group membership of the selected run. Failures and blocked inputs
@@ -1000,7 +998,7 @@ The practical example can be reproduced with
 --effort <effort> --output <artifact folder>`.
 The script uses transient definitions and in-memory plan storage with the real
 scheduler, parameter binding, acceptance and Codex adapter. It connects no Pages
-MCP server, changes no tickets, and records neither credentials nor account files.
+plan bridge, changes no tickets, and records neither credentials nor account files.
 
 A parameter node contains one name and one value: string, finite number or a
 single valid JSON value, including an object or array. Invalid JSON is rejected
@@ -1149,7 +1147,7 @@ The panel labels this as past evidence separately from current Play availability
 A refused save-and-play does not save its draft; a remote registered path is
 not presented as a proven canonical identity. Details are hidden if the
 requester no longer has access to the target. `read_plan_control` exposes the
-same personal refusal over MCP. Stable preparation failures, including an
+same personal refusal to agents. Stable preparation failures, including an
 unavailable interpreter and bounded graph-validation findings, are also recorded.
 The editor's older-entry action and `read_plan_control` with
 `includeStartRejections: true` read one personal entry at a time; pass
@@ -1197,7 +1195,7 @@ instead of asked.
 A Codex CLI, Claude Code or OpenCode agent runs in exactly one of two permission modes,
 chosen on the Agent Plan node. **Read only** reads the workspace and Pages content
 and may search the web, but creates, changes and deletes no files, runs no
-commands and calls only reading Pages MCP operations; the server offers no
+commands and calls only reading Pages tool operations; the server offers no
 changing tool to it, and inside bubblewrap the workspace is mounted read-only.
 For Claude Code the model gets no tool but Read, Glob, Grep, WebSearch and
 WebFetch, so no file change and no command exists for it, and Pages answers
@@ -1205,7 +1203,7 @@ every remaining request itself. Codex reads files only through its shell,
 which Read only switches off, so a Codex node in Read only works with Pages
 content and the web; give it YOLO, or Claude Code, when it has to read the
 workspace. **YOLO** gives the session every tool of the runner without
-approval prompts: files in the workspace, shell, web and the full Pages MCP
+approval prompts: files in the workspace, shell, web and the full Pages tool
 catalog with the executor's rights. It starts only inside the bubblewrap
 isolation, which keeps the instance folders and the other credentials out of
 reach. An agent without run options reads only; an agent saved with the earlier
@@ -1319,11 +1317,28 @@ token. Use a token restricted by GitHub when repository isolation is required.
 The handoff exposes only the selected project's token, never credentials of
 another Pages project or connection.
 
-Every Codex CLI, Claude Code or OpenCode plan node gets the local Pages MCP
-process with its own credential: in Read only with every reading operation, in YOLO with every
-operation of the executor, both under the executor's current rights. The
-credential travels in the process environment or the session request, never in
-arguments, prompts or the interface, and is revoked when the node closes.
+Every Codex CLI, Claude Code or OpenCode plan node gets the Pages tools of its
+step through the plan bridge, an HTTP MCP endpoint of Pages itself
+(`/api/v1/plan-bridge`), with its own credential: in Read only with every
+reading operation, in YOLO with every operation of the executor, both under the
+executor's current rights. The session gets a random bearer of exactly this
+step. The API process that serves the bridge holds it in memory only; it never
+reaches the database, a manifest, a journal, a log, an argument list or an
+environment. A local native owner receives it once over its private socket
+and keeps it in memory, and the adapter gets it only in the `session/new`
+request. Behind it stands the step credential, which Pages keeps as a hash for
+the upload and attachment checks and whose clear text never leaves the API
+process. The API admits a call only while the stored run runs (or is pausing) and a
+step of the bearer's session (the members of a retained group share it) is
+`running`, checked anew for every call; so the bearer is refused as soon as its
+step has finished, failed, been cancelled, paused or recovered, even while other
+steps of the run continue, and it is refused after every restart of the API
+(a native session that survives the restart keeps running without Pages tools).
+With `runsMode = "separate"` the engine asks the API for the bearer over the
+private run API socket and receives the bearer only. The default address is
+the loopback port of the process itself (`PAGES_AGENT_API_URL` overrides it); several API instances behind one shared
+address are not supported, because each instance only knows its own bearers. No
+separate process starts, and Pages offers no MCP access for external clients.
 
 Every session node requires a regular runner turn and a clean, confirmed
 closeout. **OpenCode nodes and all internal group members additionally
@@ -1405,7 +1420,7 @@ work settles, and releases reservations only after confirmed cleanup. An
 unconfirmed closeout remains a visible failure and keeps its reservations.
 Stopping never rolls back external changes. Reload preserves server state.
 After a server interruption, unfinished runs are marked failed
-rather than silently replaying work; processes and MCP credentials the
+rather than silently replaying work; processes and step credentials the
 interrupted sessions left behind are ended at startup. These scans skip
 unreadable processes of the server account that started before the run, such
 as its service manager; a later unreadable process keeps the cleanup
@@ -1442,7 +1457,7 @@ department is guessed for them.
   project of the plan read, change and run the same plan, and list and insert the same
   templates in the Templates tab (after a normal reload; there is no live
   co-editing). Both conditions are checked again on every server operation and
-  for every access path: the plan page, the Agent API, MCP and Pica. A project
+  for every access path: the plan page, the plan tools of agents and Pica. A project
   access alone, a membership or leadership alone, and an administrator role
   never count (an administrator who neither belongs to nor leads the department
   has no access to its plans; project access itself stays as the project rules
@@ -1478,7 +1493,7 @@ department is guessed for them.
   the owner: project and department form the shared area and the name space,
   so a move would shift who sees the plan and which names it collides with
   (`plan_project_owner_only`, HTTP 403). The plan page has no share editor, so
-  the share is changed through the Agent API, MCP and Pica; a save from the plan
+  the share is changed through the plan tools of agents and Pica; a save from the plan
   page carries the share unchanged. Runs, workspace reservations and the
   pause rules are unchanged: a paused run keeps its original workspace and
   cannot resume on a plan that was moved. The person who saved
@@ -1639,14 +1654,14 @@ fixed reason such as denied scan access, an unavailable scan, remaining
 processes or a resource cleanup failure. The decision remains refused and can
 be retried after the cause is addressed. The last bounded cleanup failure is
 persisted with its time, original run/revision, known attempt and requested
-action. The panel and MCP show it as historical even after release or a server
+action. The panel and the agent tools show it as historical even after release or a server
 restart. A diagnostic-storage failure is reported separately and never claims
 release. Only the latest recorded failure is exposed; this is not a paginated
 process-scan history.
 A server shutdown records running work as interrupted; nothing is resumed
 automatically at startup.
 
-Personal MCP clients can read these decisions with `read_plan_run_recovery`,
+Agents can read these decisions with `read_plan_run_recovery`,
 request cleanup with `release_plan_run`, or explicitly request a new linked run
 with `restart_plan_run` or `continue_plan_run`. Restart requires confirmation
 that all steps can repeat; continuation requires the selected mode and reviewed
@@ -1696,9 +1711,9 @@ revision is refused, and a plan with an active run starts nothing second. The
 answer names the new run (`runId`). `GET` on the same path returns the view
 the panel shows.
 
-### Plans over MCP and in the Pica chat
+### Plans in the Pica chat and for plan agents
 
-MCP clients and Pica reach the same plans under the same rules: list and read
+Pica reaches the plans under the same rules as the plan page: list and read
 visible plans with their nodes, connections and status (`idle`, `running` or
 `paused`, latest run, and whether the plan could start), create plans, change
 their structure (nodes, flow connections and agent inputs) and their parameter
@@ -1708,26 +1723,24 @@ tied to its run and node. Only the owner and the members and leaders of the plan
 change a plan, its share and its workspace within the project (another project and deleting only the owner); a hidden plan answers
 like a missing one, and runs stay private to the person who started them. Pica
 finds a plan by name, asks back when several match, shows run dates and statuses
-in plain words, and cannot start, stop or delete plans. The tools and their
-errors are listed in the
-[MCP reference](./mcp/README.md#agent-plans).
+in plain words, and cannot start, stop or delete plans. The plan agents of a
+running step reach the same tools through the plan bridge, narrowed to their
+step.
 
-### External MCP over stdio and HTTP
+### No external MCP access
 
-External clients may use the client-started stdio adapter or the opt-in central
-`/mcp` Streamable HTTP endpoint of the existing Pages server. Both use shared
-tools and current personal authorization. HTTP supports OAuth discovery, public
-registration and Authorization Code with S256 PKCE, plus the existing explicit
-browser code-pairing flow through `/mcp-login`. Personal connections, expiry,
-last usage and revocation appear under Settings → Connections. Pica retains its
-native tools and internal job-token bridge, with no external OAuth dependency.
+Pages offers no MCP access for external clients: the stdio adapter, the
+central `/mcp` endpoint, the OAuth and pairing flows and the personal MCP
+connections are gone, and the MCP concept of Pages is planned anew. Pica keeps
+its native tools and the internal job-token bridge, plan agents keep the
+step-bound plan bridge, and Remote runners keep their own pairing and
+channel.
 
-Configure the optional `listenAddress` and `[mcpHttp].publicUrl` in the existing
-TOML file; keep listener address, public HTTPS origin and trusted reverse proxies
-separate. HTTP is limited to loopback. See the [MCP configuration, protocol,
-authorization and client instructions](./mcp/README.md#central-http-mcp-and-personal-authorization)
-for concrete settings, lifetimes and supported boundaries. No production proxy,
-TLS, database or deployment changes are part of enabling this source feature.
+The optional `listenAddress` and `publicUrl` in the TOML file name the
+interface the server listens on and the origin users reach it at; Pica's
+operator browser reads the origin as a Pages origin. Earlier files that name it
+as `[mcpHttp].publicUrl` are still read and are rewritten as `publicUrl` when
+Pages saves the file.
 
 ## Getting started
 
@@ -1751,14 +1764,6 @@ the address it actually uses.
 
 `pnpm install` only accepts package versions that were published at least ten
 days ago (`minimumReleaseAge` in `pnpm-workspace.yaml`).
-
-The `mcp/` folder is a separate package with its own manifest and lockfile.
-`pnpm run lint` also checks its source with type information, so install its
-dependencies once as CI does (also required on the builder for the shipped Pages MCP artifact):
-
-```sh
-pnpm --dir mcp install
-```
 
 ### Agent Tool & Runtime Manager (PAGE-69)
 
@@ -1805,7 +1810,7 @@ After listening, Pages reconstructs required dependencies from active CLI
 connections and saved optional integrations in the background. It checks local
 sign-ins without a model request. Other Pages features remain available while
 optional checks fail. Native runs wait for readiness, including an executable
-CLI, approved adapter, workspace, functional bubblewrap and required MCP/browser
+CLI, approved adapter, workspace, functional bubblewrap and required browser
 components. The existing ACP handshake still confirms the exact model, effort
 and permission mode before the prompt. No provider, model or runner fallback is
 introduced. Readiness failures appear in run events and the Tools inventory.
@@ -1823,21 +1828,16 @@ is not treated as a security boundary. Firefox can be provisioned and tested,
 but plan sessions currently select Chromium.
 
 A model-free health check initializes ACP without creating a session; Playwright
-MCP initialization also confirms a nonempty tool catalog. The Pages production build runs the independent MCP package build and ships
-`pages-mcp-v<version>.cjs` next to the server entry; runtime installation of that
-private package is unnecessary. The MCP test suite stays independent. Pages MCP initialization
-checks its bundled version without a real token or API request; authorized
-session startup and the existing MCP readiness machinery perform the later
-credential-scoped checks. Browser checks actually launch/close a headless browser;
+MCP initialization also confirms a nonempty tool catalog. Authorized session
+startup and the existing MCP readiness machinery perform the later
+credential-scoped checks of the plan bridge. Browser checks actually launch/close a headless browser;
 bubblewrap checks actually create a namespace. Installed, ready and running are
 separate inventory facts. Checks have bounded deadlines; they expose safe
 structured diagnoses, never raw npm output, prompts or secrets.
 
 #### Linux provisioning and container deployment
 
-Node **>=22.22.0** is a prerequisite for Pages itself. Native agent tools use
-the standalone Pages MCP package, whose declared runtime minimum is **Node 24**;
-the tool manager enforces that requirement. Node must be supplied by the
+Node **>=22.22.0** is a prerequisite for Pages itself. Node must be supplied by the
 operator from a trusted distribution. Pages cannot replace the runtime of
 its own running process. npm must be available on the service PATH. Bubblewrap
 and browser system libraries require a separate authorized host setup; the web
@@ -1963,7 +1963,7 @@ scheduler is independent of any future workflow orchestration.
 
 ### Limited worker units (PAGE-127)
 
-Every ACP worker — the adapter, its CLI runner, the MCP bridge and every
+Every ACP worker — the adapter, its CLI runner and every
 helper they start — runs inside the bubblewrap namespace **and** in a
 transient unit of the server account's systemd user manager, named
 `pages-acp-<instance>-<random>.service` in `pages-acp.slice`. The unit is a
@@ -2028,7 +2028,7 @@ installation check does not prove that namespaces work: Pages performs its
 existing isolated probe on an actual start. `PAGES_CLI_ISOLATION=required` also
 makes isolation mandatory for the other CLI paths. Register an authorized
 workspace, optionally narrow its roots with `PAGES_WORKSPACE_ROOTS`, and provide
-the existing Pages MCP bundle and instance URL as for the other ACP runners.
+the instance URL as for the other ACP runners.
 OpenCode's native internal HTTP listener uses loopback, an ephemeral port and a
 fresh process password. No fixed OpenCode server or IDE session is reused.
 
@@ -2084,7 +2084,7 @@ chooses a mode; it is never promoted to YOLO. Read only uses native deny rules
 for edits, commands, delegation and other changing tools, plus a read-only
 workspace mount. Its Pages credential offers only reading operations and the
 server checks every call. YOLO enables all tools available in native ACP and
-the complete Pages MCP catalog authorized for the executor, without an extra
+the complete Pages tool catalog authorized for the executor, without an extra
 tool allowlist or user approval loop. Native explicit deny rules still apply;
 Pages retains the explicit `*.env` and `*.env.*` read denials. Unexpected ACP
 permission requests are refused in Read only and automatically approved in
@@ -2184,9 +2184,9 @@ It starts the node exactly like a plan does (connection sign-in, adapter,
 isolation, mode), sends a short prompt and prints what the run record would
 hold: adapter and model as reported, session mode, events, closing report and
 whether any process of the session is left. `--stop-after <seconds>` stops the
-node like the stop button, `--timeout <minutes>` applies a deadline,
-`--mcp-bundle` and `--mcp-url` with `PAGES_SMOKE_TOKEN` connect a Pages MCP
-server.
+node like the stop button and `--timeout <minutes>` applies a deadline. The
+session has no Pages tools: the plan bridge accepts only the bearer of an
+active step, which exists only in the memory of the running server.
 
 YOLO needs [bubblewrap](https://github.com/containers/bubblewrap)
 with working unprivileged user namespaces for the server
@@ -2456,7 +2456,7 @@ themes/
   `primary-foreground`, `ring`, `sidebar-active` (the selected entry of the
   sidebar), `field`, `field-border`, `field-border-hover` (input fields),
   `panel-body`, `auth-glow-warm`, `auth-glow-cool` and `auth-button-from` (the
-  stage of the sign-in and pairing pages); a role that is left out keeps the
+  stage of the sign-in pages); a role that is left out keeps the
   Standard value. Pages turns the roles into custom properties itself; a
   manifest cannot carry CSS.
 - `materials` (optional) sets `shadowStrength` (0 to 8; the Standard design uses
@@ -2477,8 +2477,8 @@ are `trace`, `debug`, `info`, `warn`, `error` and `fatal`. Every severity from
 another minimum (see [Log level](./docs/DatabaseExecutor.md#log-level)). Existing
 server diagnostics also pass through this interface; their operator-console
 mirror is sanitized centrally and follows the same minimum.
-There is no global console interception. The independent `mcp/` adapter and
-third-party processes retain their own logging boundaries.
+There is no global console interception. Third-party processes retain their
+own logging boundaries.
 
 Logs are UTF-8 JSON Lines: one JSON object followed by LF, with escaped newlines
 in messages/stacks. Example: `~/.pages/log/pages-2026-10-17.jsonl`. `log/` is
@@ -2612,8 +2612,7 @@ after eviction is also a baseline. Failed/disconnected requests do not advance
 the baseline. There is no persistence or synchronization between processes, and
 changes that occur and revert between polls cannot be observed by this mechanism.
 
-The route/client inventory also checked interval-driven mixed interfaces: `/pair`
-binds/updates security state, `/api/v1/pairing/token` exchanges credentials,
+The route/client inventory also checked interval-driven mixed interfaces:
 `/chat-api` POST mixes journal/content reads and mutations, and project Discord
 reads may retrieve external channel data. They retain ordinary logging. Search,
 draft autosaves, full-page revalidation and ACP SSE streams also retain their
@@ -2687,7 +2686,7 @@ lifecycle aggregates and individual failures/control responses; login/logout and
 permission denials and delivered account-authorization changes; committed wiki/ticket/milestone events; DuckDB statement
 aggregates, slow statements, transactions and errors; cache operations; GitHub, wiki,
 Discord and model-catalog jobs; provider/integration responses;
-Pages-owned Agent API/MCP requests; plan/run/step, CLI/ACP session, tool, cancellation,
+Pages-owned plan bridge requests; plan/run/step, CLI/ACP session, tool, cancellation,
 closeout and persistence diagnostics, including Pica jobs. Browser telemetry,
 third-party internals, full CLI stdout, prompts and content chunks are intentionally
 excluded. Development includes request/error and database/service instrumentation;
@@ -2725,9 +2724,8 @@ on pull requests; it runs no tests and no browser suite.
 for developers, CI and agents. It discovers all non-ignored `.js`, `.mjs`,
 `.cjs`, `.ts`, `.mts`, `.cts` and `.tsx` files from the repository root using
 the active Flat Config (`eslint.config.js`, which excludes `build/**`,
-`**/coverage/**`, `.react-router/**`, `**/dist/**` and `mobile/**`), partitions
-them into deterministic, disjoint blocks while keeping `mcp/**` (`mcp/tsconfig.json`)
-separate from root project files (`tsconfig.json`), and checks one block process
+`**/coverage/**`, `.react-router/**` and `**/dist/**`), partitions
+them into deterministic, disjoint blocks of the root project files (`tsconfig.json`), and checks one block process
 at a time (`concurrency = 1`, `--concurrency=off`, `--max-warnings=0`, no `--fix`).
 Each child process exits before the next block starts so TypeScript
 `projectService` contexts do not accumulate across blocks.
@@ -2749,8 +2747,7 @@ remaining unchecked file counts.
 
 **Memory characteristics and `projectService` boundaries:** `eslint.config.js`
 enables `projectService: true` for typed rules. Even a small block (for example
-50 files) loads the enclosing TypeScript program (`tsconfig.json` or
-`mcp/tsconfig.json`), requiring a baseline of roughly `1.15–1.20 GiB` V8 heap
+50 files) loads the enclosing TypeScript program (`tsconfig.json`), requiring a baseline of roughly `1.15–1.20 GiB` V8 heap
 (`~1.45 GiB` process RSS) per child process; at `200` files per block, measured
 per-process peak usage is `~1.35–1.50 GiB` V8 heap and `~1.60–1.70 GiB` RSS.
 `--max-old-space-size` bounds only V8 old-space heap, not total process RSS
@@ -2774,8 +2771,7 @@ Pages has two separate unit-test scopes. Each runs Vitest once with V8 coverage:
 - **Frontend** is for isolated components, hooks and client utilities.
 - Tests in both scopes mock external boundaries such as DuckDB, the file
   system, the network and subprocesses. Smoke, end-to-end, browser, integration
-  and live tests are not part of these scopes, and the tests do not import or
-  start the independent `mcp/` package.
+  and live tests are not part of these scopes.
 - **Coverage is a diagnostic report** per source module (statements, branches,
   functions, lines) without a required percentage. The two reports are
   independent and are not added up.
@@ -2825,64 +2821,14 @@ The `notifications.v1` extension adds Android push notifications for plan runs
 over FCM; the operator setup and the handover to the device test are in
 [docs/PicaMobileNotifications.md](./docs/PicaMobileNotifications.md).
 
-## Pica Mobile (submodule)
+## Pica Mobile
 
-`mobile/` is the native Pica app for Android and iOS (PAGE-99): Expo, React
-Native and TypeScript. It has its own repository, manifest, lockfile,
-dependencies, tests and builds, and Pages needs nothing from it. `pnpm run
-check`, `lint` and `build` of Pages ignore `mobile/`, the Pages tests never
-import from it, and no mobile dependency enters the Pages or MCP manifests. See
-[mobile/README.md](./mobile/README.md) for the app, its builds and its
-architecture.
-
-**Set up** (after the conversion below). A clone gets the app with the
-submodule; Pages works without it:
-
-```sh
-git clone --recurse-submodules <url of Pages>   # new clone
-git submodule update --init mobile               # existing clone
-pnpm --dir mobile install                        # its own dependencies
-```
-
-**Update** to the newest commit of the app and record it in Pages:
-
-```sh
-git submodule update --remote mobile
-git add mobile
-git commit -m "chore(mobile): update Pica Mobile"
-```
-
-Work on the app inside `mobile/`: it is a normal repository there. Commit and
-push in `mobile/` first, then commit the new `mobile` pointer in Pages. A CI
-checkout of Pages does not fetch submodules (the default of `actions/checkout`),
-so Pages CI stays independent; the app's CI runs in its own repository.
-
-**One-time conversion (open step).** The app is committed as a plain folder
-`mobile/` because creating the repository needs a GitHub login that the
-implementation did not have. Run once, in the Pages checkout, with the history of
-the folder moving into the new repository:
-
-```sh
-# 1. The empty repository, under the owner of Pages.
-gh repo create gesus90/pica-mobile --private \
-  --description "Pica Mobile: native Android and iOS app for Pages"
-
-# 2. Publish the history of mobile/ as the history of the new repository.
-git subtree split --prefix=mobile --branch mobile-main
-git push git@github.com:gesus90/pica-mobile.git mobile-main:main
-git branch -D mobile-main
-
-# 3. Replace the folder with the submodule.
-git rm -r mobile
-rm -rf mobile                # also removes the ignored node_modules/
-git submodule add -b main git@github.com:gesus90/pica-mobile.git mobile
-git commit -m "chore(mobile): register Pica Mobile as a submodule"
-
-pnpm --dir mobile install
-```
-
-Use the HTTPS address instead of SSH if collaborators clone without SSH keys; a
-private repository needs access for each of them.
+The native Pica app for Android and iOS lives in its own GitHub project,
+"Pica Mobile", and is not part of this repository. Pages keeps its server side
+of the app: the WebSocket protocol (`chat.v1`, `plans.v1`), the mobile
+connection settings and push notifications. See
+[docs/PicaMobileWebSocket.md](./docs/PicaMobileWebSocket.md) and
+[docs/PicaMobileNotifications.md](./docs/PicaMobileNotifications.md).
 
 ## Repository layout
 
@@ -2894,8 +2840,6 @@ private repository needs access for each of them.
 | `language/`    | i18next setup and the German and English translations                    |
 | `tests/`       | Unit-test scopes and setup                                               |
 | `scripts/`     | Maintenance and proof scripts (`acp:smoke`)                              |
-| `mcp/`         | Independent MCP server package with its own manifest and lockfile        |
-| `mobile/`      | Independent Pica Mobile app (Expo); a submodule once converted           |
 | `assets/`      | Logo, README banner and the Pica mascot (`assets/pica/`)                 |
 | `server.mjs`   | Entry point of the production server                                     |
 
@@ -2906,10 +2850,6 @@ Further documentation:
 - [AGENTS.md](./AGENTS.md): working rules for AI coding agents, including
   architecture boundaries and database migrations
 - [tests/README.md](./tests/README.md): unit-test scopes and coverage
-- [mcp/README.md](./mcp/README.md): the independent stdio MCP adapter, setup and
-  tool reference
-- [mobile/README.md](./mobile/README.md): the independent Pica Mobile app, its
-  architecture and builds (see [Pica Mobile](#pica-mobile-submodule))
 - [.env.example](./.env.example): optional environment variables
 
 ## Security notes

@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { CliSessionProcess } from "@/backend/agents/cli/CliSessionProcess";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
+import { PlanBridgeGrants } from "@/backend/service/agents/bridge/PlanBridgeGrants";
 import { AgentPlanSessionAccess } from "@/backend/service/agents/AgentPlanSessionAccess";
 
 import type { Database } from "@/backend/database/Database";
@@ -89,12 +90,17 @@ it("issues unlimited run credentials until revocation, rather than expiring afte
   };
   const issued = await credentials.issue("owner", scope, 0);
   expect(issued.expiresAt).toBe(Number.MAX_SAFE_INTEGER);
-  const sessionAccess = new AgentPlanSessionAccess(credentials, {
-    bundle: "/synthetic/mcp.mjs",
-    node: "/synthetic/node",
-    url: "http://synthetic.invalid",
+  const sessionAccess = new AgentPlanSessionAccess(
+    credentials,
+    { url: "http://synthetic.invalid" },
+    new PlanBridgeGrants(async () => true),
+  );
+  await sessionAccess.grant({
+    userId: "owner",
+    instanceId: "instance",
+    ...scope,
+    lifetimeMs: 0,
   });
-  await sessionAccess.grant({ userId: "owner", ...scope, lifetimeMs: 0 });
   expect(execute.mock.calls[1]?.[1]).toMatchObject({
     expires_at: Number.MAX_SAFE_INTEGER,
   });

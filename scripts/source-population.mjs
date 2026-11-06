@@ -9,15 +9,8 @@ const GENERATED_DIRECTORY_NAMES = new Set([
   "dist",
 ]);
 
-/**
- * Generated or independent only directly below the root: `mobile/` is the
- * independent app, while `backend/service/mobile/` is source of Pages.
- */
-const GENERATED_ROOT_DIRECTORIES = new Set([
-  "build",
-  ".react-router",
-  "mobile",
-]);
+/** Generated only directly below the root. */
+const GENERATED_ROOT_DIRECTORIES = new Set(["build", ".react-router"]);
 
 /** Generated output at a fixed path: the Cargo build of `pages-core`. */
 const GENERATED_NESTED_DIRECTORIES = new Set(["core/target"]);

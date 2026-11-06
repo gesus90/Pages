@@ -5,7 +5,6 @@ import {
 import { loggedOperation } from "@/backend/logging/LoggedOperation";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
-import { logCaughtError } from "@/backend/logging/Logger";
 import { AGENT_STEP_REPORT_OPERATION } from "@/definition/AgentPlanStepReport";
 
 import { resolveAgentTicketReference } from "./agents/AgentTicketValidation";
@@ -28,7 +27,6 @@ import type {
 } from "@/definition/PagesAgentOperations";
 import type { AgentProjectService } from "./mcp/AgentProjectService";
 import type { AgentRunCredentialService } from "./mcp/AgentRunCredentialService";
-import type { PersonalAgentTokenService } from "./mcp/PersonalAgentTokenService";
 import type {
   AgentIdentity,
   AgentRunScope,
@@ -69,11 +67,10 @@ function isRunTicketCall(scope: AgentRunScope, parameters: unknown): boolean {
   );
 }
 
-/** Verifies personal stdio credentials and dispatches the implemented operations. */
+/** Verifies plan step credentials and dispatches the implemented operations. */
 export class PagesAgentApiService {
   private readonly workGate: AgentPlanWorkGate | undefined;
   private readonly stepReports: AgentPlanStepReportService | undefined;
-  private readonly personal: PersonalAgentTokenService;
   private readonly projects: AgentProjectService;
   private readonly operations: AgentOperationRouter;
   private readonly runs: AgentRunCredentialService | null;
@@ -82,7 +79,6 @@ export class PagesAgentApiService {
     ((ticket: string, bytes: Buffer) => Promise<AgentAsset>) | undefined;
 
   public constructor(
-    personal: PersonalAgentTokenService,
     projects: AgentProjectService,
     operations: AgentOperationRouter,
     capabilities:
@@ -103,7 +99,6 @@ export class PagesAgentApiService {
       capabilities && !("verify" in capabilities) ? capabilities : null;
     this.workGate = named?.workGate;
     this.stepReports = named?.stepReports;
-    this.personal = personal;
     this.projects = projects;
     this.operations = operations;
     this.publish = named?.upload;
@@ -145,22 +140,16 @@ export class PagesAgentApiService {
    * Resolves current rights from the presented credential on every API call.
    *
    * @remarks
-   * A personal credential acts with the full rights of its owner. The
-   * credential of an agent plan session acts with the rights of its executor,
-   * narrowed to the operations and tickets of its node.
+   * The credential of an agent plan session acts with the rights of its
+   * executor, narrowed to the operations and tickets of its node. There is no
+   * other kind of credential.
+   *
+   * @throws {McpAuthorizationError} When the text is no valid session credential.
    */
   public async verify(token: string): Promise<AgentIdentity> {
-    try {
-      return await this.personal.verify(token);
-    } catch (error: unknown) {
-      logCaughtError("PagesAgentApiService", error);
-
-      if (!(error instanceof McpAuthorizationError) || this.runs === null)
-        throw error;
-      const session = await this.runs.verify(token);
-      if (session === null) throw error;
-      return session;
-    }
+    const session = this.runs === null ? null : await this.runs.verify(token);
+    if (session === null) throw new McpAuthorizationError("invalid_token", 401);
+    return session;
   }
 
   /**
@@ -180,8 +169,6 @@ export class PagesAgentApiService {
     | PagesAgentReadResponse
     | PagesAgentStructuredReadResponse
     | PagesAgentWriteResponse
-    | { readonly token: string; readonly expiresAt: number | null }
-    | { readonly revoked: true }
   > {
     const identity = await this.verify(token);
     return withDatabaseWork(
@@ -191,45 +178,12 @@ export class PagesAgentApiService {
           "PagesAgentApiService",
           "integration.agent_api",
           async () => {
-            if (identity.run)
-              return this.handleSession(identity, identity.run, token, input);
-            return this.handlePersonal(identity, token, input);
+            if (!identity.run)
+              throw new McpAuthorizationError("invalid_token", 401);
+            return this.handleSession(identity, identity.run, token, input);
           },
         ),
     );
-  }
-
-  /** Serves a personal credential with the full current rights of its owner. */
-  private async handlePersonal(
-    identity: AgentIdentity,
-    token: string,
-    input: Readonly<Record<string, unknown>>,
-  ): Promise<
-    | PagesAgentApiVerification
-    | PagesAgentApiProjectNames
-    | PagesAgentReadResponse
-    | PagesAgentStructuredReadResponse
-    | PagesAgentWriteResponse
-    | { readonly token: string; readonly expiresAt: number | null }
-    | { readonly revoked: true }
-  > {
-    if (input.operation === "verify") {
-      return {
-        apiVersion: "1",
-        identity,
-        credential: await this.personal.credential(token),
-        tools: ownerOperations(identity.isAdmin),
-      };
-    }
-    if (input.operation === "credential.rotate")
-      return this.personal.rotateCredential(token);
-    if (input.operation === "credential.revoke")
-      return this.personal.revokeCredential(token);
-    if (input.operation === "assets.upload.prepare")
-      return this.operations.prepareUpload(identity, token, input.parameters);
-    if (input.operation === "assets.download.prepare")
-      return this.prepareDownload(identity, token, input.parameters);
-    return this.dispatch(identity, token, input);
   }
 
   /**
@@ -260,7 +214,6 @@ export class PagesAgentApiService {
       return {
         apiVersion: "1",
         identity: { userId, isAdmin, permissions },
-        credential: null,
         tools: allowed,
       };
     if (!allowed.some((operation) => operation === input.operation))

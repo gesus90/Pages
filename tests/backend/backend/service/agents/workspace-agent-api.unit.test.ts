@@ -1,11 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
-import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
 import {
   AGENT_WORKSPACE_READ_OPERATIONS,
   AGENT_WORKSPACE_WRITE_OPERATIONS,
@@ -14,10 +12,8 @@ import {
 import { WorkspaceWorld } from "./workspace-world";
 
 import type { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
-import type { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { WikiRepository } from "@/backend/database/repositories/WikiRepository";
-import type { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 
 vi.mock("node:fs/promises", async () => {
@@ -30,36 +26,25 @@ const UNUSED: unknown = Object.create(null);
 
 let world = new WorkspaceWorld();
 
-/** A personal credential store that knows one token, owned by the administrator. */
-class PersonalTokens extends PersonalAgentTokenService {
-  public constructor() {
-    super(
-      UNUSED as PersonalAgentTokenRepository,
-      UNUSED as AgentIdentityService,
-    );
-  }
-
-  /** Resolves the one known token to the administrator. */
-  public override async verify(token: string): Promise<AgentIdentity> {
-    if (token !== "personal-token")
-      throw new McpAuthorizationError("invalid_token", 401);
-    return world.identity("admin");
-  }
-
-  /** Carries no credential details. */
-  public override async credential(): Promise<null> {
-    return null;
-  }
-}
-
 /** The session credential store: one token narrowed to the operation `ticket.read`. */
 class SessionTokens extends AgentRunCredentialService {
   public constructor() {
     super(UNUSED as AgentRunCredentialRepository);
   }
 
-  /** Resolves the one known session token with its scope. */
+  /** Resolves `personal-token` to a full session of the administrator and the one known session token to its narrow scope. */
   public override async verify(token: string): Promise<AgentIdentity | null> {
+    if (token === "personal-token")
+      return {
+        ...world.identity("admin"),
+        run: {
+          runId: "run-1",
+          stepId: "step-1",
+          operations: [],
+          tickets: [],
+          reach: "full",
+        },
+      };
     if (token !== "session-token") return null;
     return {
       ...world.identity("admin"),
@@ -76,7 +61,6 @@ class SessionTokens extends AgentRunCredentialService {
 
 function api(): PagesAgentApiService {
   return new PagesAgentApiService(
-    new PersonalTokens(),
     new AgentProjectService(UNUSED as ProjectRepository),
     new AgentOperationRouter({
       projects: UNUSED as ProjectRepository,

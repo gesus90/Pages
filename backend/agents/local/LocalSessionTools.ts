@@ -13,7 +13,6 @@ export function pinLocalSessionTools(
   input: {
     readonly instanceId: string;
     readonly provider: AcpProviderId;
-    readonly hasMcp: boolean;
     readonly browser: boolean;
   },
 ): void {
@@ -22,7 +21,6 @@ export function pinLocalSessionTools(
     "bubblewrap",
     ...providerToolIds(input.provider),
   ]);
-  if (input.hasMcp) required.add("pages_mcp");
   if (input.browser) {
     required.add("playwright_mcp");
     required.add("chromium");

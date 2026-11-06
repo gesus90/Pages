@@ -1,8 +1,0 @@
-# Add to ~/.codex/config.toml after pairing under the same operating-system account.
-# Replace the synthetic absolute bundle path and Pages instance address.
-[mcp_servers.pages]
-command = "node"
-args = ["/absolute/path/pages-mcp-vX.Y.Z.cjs"]
-
-[mcp_servers.pages.env]
-PAGES_URL = "http://127.0.0.1:3000"

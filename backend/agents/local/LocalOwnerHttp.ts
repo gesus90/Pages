@@ -149,6 +149,9 @@ export class LocalOwnerHttp {
       case "attach":
         this.attachment = command.token;
         return { ok: true };
+      case "bearer":
+        this.session.receiveBearer(command.token);
+        return { ok: true };
       case "read":
         return {
           records: await this.journal.page(command.after, command.limit),

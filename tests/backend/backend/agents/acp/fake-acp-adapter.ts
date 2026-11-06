@@ -354,6 +354,8 @@ export function fakeAcpAgent(options: FakeAdapterOptions = {}): FakeCodexAgent {
       record(methods.agent.initialize, context.params);
       return {
         agentCapabilities: {
+          // The real Codex and Claude adapters accept HTTP MCP servers, as the plan bridge needs.
+          mcpCapabilities: { http: true },
           promptCapabilities: options.promptCapabilities,
           ...options.continuation,
         },

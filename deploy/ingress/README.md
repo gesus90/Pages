@@ -12,7 +12,7 @@ The entrance
   (`no-cache`, with the security headers of Pages);
 - passes everything else to the API: changes (every method but `GET` and
   `HEAD`), React Router data requests (`*.data`), the server resources of
-  `app/routes.ts` such as `/api/v1/*`, `/mcp`, `/oauth/*`, `/.well-known/*`,
+  `app/routes.ts` such as `/api/v1/*`,
   `/live-changes` (event stream, unbuffered), attachments, and WebSocket
   upgrades of runners and consoles;
 - passes `/live-changes` to `pages-core` instead when started with

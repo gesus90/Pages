@@ -42,7 +42,6 @@ vi.mock("node:fs/promises", async () =>
     await import("../../backend/config/memory-config-files")
   ).memoryConfigFiles.promisesModule(),
 );
-vi.mock("@/mcp/package.json", () => ({ default: { version: "9.9.9" } }));
 vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
   ...(await importOriginal<typeof LoggerModule>()),
   logCaughtError: vi.fn(),
@@ -70,8 +69,6 @@ vi.mock("@/app/lib/services.server", async () => {
     getApplicationServices: async () => ({
       administrationService: { getContext: async () => currentAccount() },
       permissionService: new Permissions(async () => currentAccount()),
-      personalAgentTokenService: { list: async () => [] },
-      pairingService: { validity: async () => 30, setValidity: vi.fn() },
     }),
   };
 });
@@ -163,7 +160,7 @@ describe("loader", () => {
     )) as Record<string, unknown>;
 
     expect(view).not.toHaveProperty("picaMobile");
-    expect(view).toHaveProperty("validityDays", 30);
+    expect(view).toHaveProperty("audience");
   });
 
   it("refuses a request without a session with 401", async () => {
@@ -302,9 +299,9 @@ describe("refusing the wrong accounts", () => {
     expect(response.status).toBe(401);
   });
 
-  it("leaves the personal intents working", async () => {
+  it("refuses the retired token intents", async () => {
     const response = await post({ intent: "set-token-duration", days: "7" });
 
-    expect(await json(response)).toEqual({ updated: true });
+    expect(response.status).toBe(400);
   });
 });

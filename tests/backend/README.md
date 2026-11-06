@@ -27,13 +27,12 @@ a directory is a unit test.
 The scope guard in `scope/backend-scope.unit.test.ts` verifies the configured
 Node environment, exact script and positive/negative discovery examples. It
 also scans direct imports throughout Backend test sources and helpers for
-Frontend test-tree, independent MCP package and MCP/browser-runner imports.
+Frontend test-tree and MCP/browser-runner imports.
 This static guard supports source review; it cannot prove arbitrary transitive
 or computed imports safe. Review new test boundaries as well as the filename.
 
 Excluded: `tests/frontend/`, React rendering/hooks/DOM assertions, browser,
-E2E, smoke, integration, live-provider and MCP protocol tests; executable modules
-and tests from the independent top-level `mcp/` package; actual databases,
+E2E, smoke, integration, live-provider and MCP protocol tests; actual databases,
 running external services, network requests, listening sockets and subprocesses.
 
 ## Behavioral analysis and unit boundaries
@@ -50,7 +49,7 @@ regressions are retained alongside the new PAGE-32 units.
 | Authorization and administration | Active accounts, admin versus role mode, rank/capabilities, own/managed departments, project responsibility, group/role/user lifecycle, last-admin protection | Persisted account facts, authorization/user repositories, session and cache callbacks |
 | Projects and work items | Creation/update/visibility, membership, archive/delete, integration settings, hierarchy/move/status/order, milestones, labels, checklist/history, refusal without writes | Repository methods or database query/transaction contracts; GitHub publication |
 | Wiki | Read/search, page creation/version/restore, revisions/conflicts, anchors, move/trash, comments, uploads/covers, maintenance and private/project rights | Wiki/project repositories, file storage, visibility lookup and clocks |
-| Pages Agent API and pairing | Input/size/range/patch validation, Unicode/conflicts/replay, current rights, operation dispatch, device approval/CSRF/expiry/polling/throttle, token eligibility and connection scopes | Repository/token/identity facts, filesystem metadata, credential/provider callbacks; no independent MCP executable imports |
+| Pages Agent API | Input/size/range/patch validation, Unicode/conflicts/replay, current rights, operation dispatch, token eligibility and connection scopes | Repository/token/identity facts, filesystem metadata, credential/provider callbacks |
 | Providers and agent adapters | Synthetic model catalogs and output parsing, reasoning options, request/response/error mapping, cancellation and timeout behavior | Fetch/HTTP callbacks, CLI spawn, process table/signals and filesystem; the existing ACP adapter fake runs in process without a real child or MCP transport |
 | Request processing | Middleware, signed session/language cookies, redirects, JSON budgets, form/image/SVG validation, settings/user actions and focused resource routes | Service factories, runtime and handler collaborators; Requests/Responses are local objects |
 | Configuration and runtime | Config parsing/defaults/invalid values, bootstrap/setup-location refusal, secret handling, cache/queue behavior, static paths and server error dispatch | Config files, database inspector, filesystem, request listener and server listen; no port is opened |
@@ -68,7 +67,6 @@ no GitHub request is sent. Discord tests use a synthetic API behind mocked fetch
 Pages-owned `backend/service/mcp/` and `backend/auth/McpActorContext.ts` are
 server authorization/business logic; their tests are not MCP protocol tests.
 No MCP server, client, transport or process is started, even through helpers.
-Pages connection instructions may read only static `mcp/package.json` metadata.
 
 ## Diagnostic coverage
 

@@ -1,7 +1,5 @@
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { request as httpRequest } from "node:http";
-import { promisify } from "node:util";
 
 import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath, URL } from "node:url";
@@ -10,7 +8,6 @@ import tailwindcss from "@tailwindcss/vite";
 import { reactRouter } from "@react-router/dev/vite";
 import { defineConfig, transformWithEsbuild } from "vite";
 
-import mcpManifest from "./mcp/package.json";
 import appRoutes, { FORWARDED_RESOURCE } from "./app/routes";
 
 import type { RouteConfigEntry } from "@react-router/dev/routes";
@@ -90,30 +87,6 @@ function pagesPicaInstructions(): Plugin {
       }
     },
     name: "pages-pica-instructions",
-  };
-}
-
-/** Builds the independent MCP package at build time and ships only its standalone server artifact. */
-function pagesMcpBundle(): Plugin {
-  return {
-    name: "pages-mcp-bundle",
-    apply: "build",
-    applyToEnvironment: (environment) => environment.name === "ssr",
-    async generateBundle() {
-      const directory = fileURLToPath(new URL("./mcp/", import.meta.url));
-      await promisify(execFile)(process.execPath, ["build.config.ts"], {
-        cwd: directory,
-        timeout: 120_000,
-      });
-      const fileName = `pages-mcp-v${mcpManifest.version}.cjs`;
-      this.emitFile({
-        type: "asset",
-        fileName,
-        source: await readFile(
-          new URL(`./mcp/dist/${fileName}`, import.meta.url),
-        ),
-      });
-    },
   };
 }
 
@@ -273,7 +246,7 @@ export default defineConfig({
     tailwindcss(),
     reactRouter(),
     ...(isApiBuild
-      ? [pagesDevelopmentRuntime(), pagesPicaInstructions(), pagesMcpBundle()]
+      ? [pagesDevelopmentRuntime(), pagesPicaInstructions()]
       : [pagesDevelopmentApi(), pagesStaticApp()]),
   ],
   resolve: {

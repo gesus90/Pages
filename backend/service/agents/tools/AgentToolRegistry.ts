@@ -107,17 +107,6 @@ export const AGENT_TOOL_REGISTRY: readonly AgentToolDefinition[] = [
     probe: "acp",
   },
   {
-    id: "pages_mcp",
-    name: "Pages MCP",
-    kind: "mcp",
-    binary: "pages-mcp",
-    packageName: null,
-    version: null,
-    versions: ["bundled"],
-    dependencies: ["node"],
-    probe: "mcp",
-  },
-  {
     id: "playwright_mcp",
     name: "Playwright MCP",
     kind: "mcp",

@@ -6,7 +6,6 @@ import type { MiddlewareFunction } from "react-router";
 
 /** Paths that stay reachable while the setup is pending. */
 const PATHS_DURING_SETUP: ReadonlySet<string> = new Set([
-  "/api/v1/agents",
   "/api/v1/agent-assets",
   "/app-api/root",
   "/app-api/setup",

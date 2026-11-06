@@ -122,7 +122,7 @@ Each channel has its own switch; the others keep their way.
 3. **Consoles**: `PAGES_INGRESS_CONSOLE_OPTION=--core-console http://127.0.0.1:3200`,
    restart the entrance. Back: remove it.
 
-Neither the app in `mobile/` nor an installed runner needs an update.
+Neither the Pica Mobile app nor an installed runner needs an update.
 
 ## What it reads and writes
 

@@ -9,7 +9,7 @@ pnpm run test:backend
 ```
 
 This includes existing focused Backend regressions and the new authentication,
-authorization, account administration, project, task, wiki, pairing, configuration,
+authorization, account administration, project, task, wiki, configuration,
 request-processing and provider/parser tests. The behavioral analysis, boundary
 choices, measured coverage and remaining gaps are in
 [Backend scope](./backend/README.md). Empty discovery is an error.
@@ -18,7 +18,7 @@ PAGE-33 extends and validates the Frontend suite using exactly
 `pnpm run test:frontend`. Its [behavioral analysis, boundaries and measured gaps](./frontend/README.md)
 are separate from PAGE-32; existing focused UI regressions remain selected.
 Pages CI test execution remains absent after PAGE-35; check and lint are non-test
-gates. The independent MCP package retains its own CI test job after Pages check.
+gates.
 
 | Command                  | Discovery (relative to repository root) | Environment | Reports              |
 | ------------------------ | --------------------------------------- | ----------- | -------------------- |
@@ -69,10 +69,8 @@ Use imports from `vitest`; test globals are disabled. Production aliases
 same source directories in both configs so existing imports and mock targets
 stay consistent.
 There are no test-directory aliases and no root-wide `@` alias: neither scope
-aliases the other test tree or executable independent `mcp/` sources. Frontend
-additionally resolves exactly `@/mcp/package.json` for static connection-version
-metadata, so coverage can transform the mixed connection route. Cross-scope test
-imports are not part of this structure.
+aliases the other test tree. Cross-scope test imports are not part of this
+structure.
 
 Backend has no setup file because Node unit tests need no global initialization.
 Frontend setup registers Testing Library cleanup after each test, including hook
@@ -89,11 +87,10 @@ service factories, timers/schedulers and subprocess adapters. Repository unit
 tests use a mocked database contract, not a real database. Do not start real
 services or compose database, network or subprocess chains.
 
-Pages-owned Agent API, OAuth, pairing and wiki behavior belongs here, including
-Pages modules in `backend/service/mcp/`. Do not import executable modules from
-the independent top-level `mcp/` package or start its server, client, transport or
-process, even through helpers. Its package version remains static metadata for
-Pages connection instructions. There is no MCP setup, discovery or coverage here.
+Pages-owned Agent API, plan bridge and wiki behavior belongs here, including
+Pages modules in `backend/service/mcp/`. Do not start an MCP server, client,
+transport or process, even through helpers. There is no MCP setup, discovery or
+coverage here.
 
 ## Diagnostic coverage
 
@@ -119,7 +116,7 @@ scope's result look better. The two include sets together select all current
 Pages TypeScript source under `app/`, `backend/`, `definition/` and `language/`.
 
 Build/tooling configs, maintenance scripts, SQL/JSON/CSS/assets, generated route
-types, test infrastructure and the independent MCP package are outside these
+types and test infrastructure are outside these
 runtime unit-source includes. They are not excluded based on coverage results.
 
 Each scope produces a readable terminal table plus the following files in its

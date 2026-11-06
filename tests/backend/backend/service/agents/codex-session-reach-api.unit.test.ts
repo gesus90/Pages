@@ -1,21 +1,17 @@
 import { beforeEach, expect, it } from "vitest";
 
-import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
-import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
 import { AGENT_ADMIN_WRITE_OPERATIONS } from "@/definition/AgentAdministration";
 import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
 
 import { PlanWorld, runnablePlan } from "./plan-operation-world";
 
 import type { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
-import type { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { WikiRepository } from "@/backend/database/repositories/WikiRepository";
-import type { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import type {
   AgentIdentity,
   AgentRunReach,
@@ -25,21 +21,6 @@ import type {
 const UNUSED: unknown = Object.create(null);
 
 let world = new PlanWorld();
-
-/** No personal credential is valid; only session credentials reach the API here. */
-class NoPersonalTokens extends PersonalAgentTokenService {
-  public constructor() {
-    super(
-      UNUSED as PersonalAgentTokenRepository,
-      UNUSED as AgentIdentityService,
-    );
-  }
-
-  /** Refuses every personal credential. */
-  public override async verify(): Promise<AgentIdentity> {
-    throw new McpAuthorizationError("invalid_token", 401);
-  }
-}
 
 /** Session credentials named `<reach>-<person>`, without bound tickets. */
 class SessionTokens extends AgentRunCredentialService {
@@ -67,7 +48,6 @@ class SessionTokens extends AgentRunCredentialService {
 
 function api(): PagesAgentApiService {
   return new PagesAgentApiService(
-    new NoPersonalTokens(),
     new AgentProjectService(UNUSED as ProjectRepository),
     new AgentOperationRouter({
       projects: UNUSED as ProjectRepository,

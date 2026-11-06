@@ -59,7 +59,6 @@ import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 import { PICA_WORKSPACE_DIRECTORY_NAME } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
-import { pagesMcpBundlePath } from "@/backend/agents/cli/PagesMcpBundle";
 
 import {
   createServiceCache,
@@ -326,19 +325,15 @@ async function initializeServices(
 }
 
 /**
- * Where plan sessions find the Pages MCP bundle and how it reaches this instance.
+ * Where plan sessions reach the plan bridge of this instance.
  *
  * @remarks
- * `PAGES_MCP_BUNDLE` names a built bundle; without it the bundle of the MCP
- * package next to the server is used when it exists. `PAGES_AGENT_API_URL`
- * overrides the loopback address of the configured port, for example behind
- * a reverse proxy.
+ * `PAGES_AGENT_API_URL` overrides the loopback address of the configured
+ * port, for example behind a reverse proxy.
  */
 function planMcpSettings(port: number): AgentPlanMcpSettings {
   return {
-    bundle: pagesMcpBundlePath(),
     url: configuredValue("PAGES_AGENT_API_URL") ?? `http://127.0.0.1:${port}`,
-    node: process.execPath,
   };
 }
 
@@ -346,9 +341,9 @@ function planMcpSettings(port: number): AgentPlanMcpSettings {
  * Where Pica's Codex sessions reach the tool bridge and keep their working directories.
  *
  * @remarks
- * The bridge uses the same local address as the Pages MCP process of plan
- * nodes. The working directories lie next to the agent folders, outside the
- * folders the isolation hides.
+ * The bridge uses the same local address as the plan bridge of plan nodes.
+ * The working directories lie next to the agent folders, outside the folders
+ * the isolation hides.
  */
 async function picaAcpSettings(): Promise<PicaAcpSettings> {
   const runtime = await getPagesRuntime();
@@ -406,7 +401,7 @@ async function startMcpWorkspace(context: {
     readonly users: UserService;
     readonly administration: AdministrationService;
   };
-  /** The agent services, with the plan service MCP clients and the chat use. */
+  /** The agent services, with the plan service the agent tools and the chat use. */
   readonly agents: AgentApplicationServices & AgentPlanServices;
   readonly wiki: WikiService;
   /** The instance settings the chat administration changes with the regular rules. */
@@ -467,7 +462,7 @@ async function startMcpWorkspace(context: {
       agents: context.agents,
       router: services.chatOperationRouter,
       acp: await picaAcpSettings(),
-      protectedOrigin: runtime.getConfig().mcpHttp?.publicUrl,
+      protectedOrigin: runtime.getConfig().publicUrl,
       picaBrowser: picaBrowserOptions({
         directory,
         instanceKey: context.tokenKey,

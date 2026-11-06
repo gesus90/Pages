@@ -4,8 +4,6 @@ import { OPENCODE_ACP_DRIVER } from "@/backend/agents/acp/OpenCodeAcpDriver";
 import { SUPPORTED_OPENCODE_VERSION } from "@/backend/agents/cli/OpenCodeVersion";
 
 const MCP = {
-  node: "/usr/bin/node",
-  bundle: "/pages/mcp.js",
   url: "http://127.0.0.1:3000",
   token: "mcp-token",
   tools: null,
@@ -55,7 +53,11 @@ it("starts a read-only plan node with the Pages MCP server and default variants"
     },
   });
   expect(launch.mcpServers).toEqual([
-    expect.objectContaining({ name: "pages", command: "/usr/bin/node" }),
+    expect.objectContaining({
+      type: "http",
+      name: "pages",
+      url: "http://127.0.0.1:3000/api/v1/plan-bridge",
+    }),
   ]);
   expect(launch.sessionMeta).toEqual({});
 });

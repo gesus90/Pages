@@ -2,7 +2,6 @@ import { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSt
 import { ChatAttachmentRepository } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
 import { DiscordAttemptRepository } from "@/backend/database/repositories/discord/DiscordAttemptRepository";
 import { DiscordDeliveryRepository } from "@/backend/database/repositories/discord/DiscordDeliveryRepository";
-import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { PicaMobileNotificationDeliveryRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationDeliveryRepository";
 import { PicaMobileNotificationEventRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationEventRepository";
 
@@ -46,20 +45,6 @@ const ANSWER_FILE = `
 export const MESSAGING_ORDER_FLOW: RepositoryFlow = {
   title: "messaging creation order",
   steps: [
-    ...createdRows(`
-      INSERT INTO personal_agent_tokens (id, user_id, name, token_hash, created_at)
-      VALUES ($id, '${USER}', $id, $id, 5);
-    `),
-    reversedInPostgres("personal_agent_tokens"),
-    call("PersonalAgentTokenRepository.list", async ({ database }) =>
-      inOrder(
-        await new PersonalAgentTokenRepository(database).list(USER),
-        [...CREATED],
-        (token) => token.id,
-      ),
-    ),
-    prepare(`DELETE FROM personal_agent_tokens WHERE user_id = '${USER}';`),
-
     ...CREATED.map((id) =>
       call("DiscordAttemptRepository.insertAttempt", ({ database }) =>
         new DiscordAttemptRepository(database).insertAttempt({

@@ -90,8 +90,6 @@ export function startAcpSession(
       node.hasMcp === false
         ? null
         : {
-            node: "/synthetic/bin/node",
-            bundle: "/synthetic/pages-mcp.cjs",
             url: "http://pages.invalid",
             token: "synthetic-run-token",
             tools: null,

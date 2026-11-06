@@ -31,11 +31,22 @@ export class AgentLocalSessionPreparation {
     this.start = start;
   }
 
-  /** Uses the pinned original prompt only after checking its persisted attempt and digest. */
-  public async prepare(launch: LocalSessionLaunch): Promise<{
+  /**
+   * Uses the pinned original prompt only after checking its persisted attempt and digest.
+   *
+   * @param launch - The stored turn request, which carries no bearer.
+   * @param bearer - The plan bridge bearer the owner holds in memory; required exactly when the turn offers Pages tools.
+   * @throws {AgentError} `plan_mcp_unavailable` when the turn needs a bearer and none was handed over.
+   */
+  public async prepare(
+    launch: LocalSessionLaunch,
+    bearer: string | null,
+  ): Promise<{
     readonly input: AgentPlanSessionInput;
     readonly recording: AgentSessionStart;
   }> {
+    if (launch.mcp !== null && bearer === null)
+      throw new AgentError("plan_mcp_unavailable");
     const run = await this.requireRun(launch);
     const { result, record } = requireLaunchRecord(run, launch);
     const snapshot = readPlanSnapshot(await this.runs.snapshot(run.id));
@@ -74,7 +85,10 @@ export class AgentLocalSessionPreparation {
         directory,
         instanceId: launch.instanceId,
         options: { ...prepared.options, timeoutMinutes: launch.timeoutMinutes },
-        mcp: launch.mcp,
+        mcp:
+          launch.mcp === null || bearer === null
+            ? null
+            : { ...launch.mcp, token: bearer },
         resumeSessionId: launch.resumeSessionId,
         resourceContext: {
           runId: run.id,

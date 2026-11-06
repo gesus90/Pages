@@ -9,8 +9,10 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { readPlanSnapshot } from "../AgentPlanSnapshot";
 import { RunsSocket } from "./RunsSocket";
 
+import type { AgentPlanSessionGrants } from "../AgentPlanSessionAccess";
 import type { RunApiCleanupRepository } from "@/backend/database/repositories/agent/RunApiCleanupRepository";
 import type {
+  PagesPlanBridgeOpened,
   PagesRunnerRequest,
   PagesRunnerFacts,
 } from "@/definition/PagesRunsRunner";
@@ -26,11 +28,13 @@ export interface RunApiServices {
   readonly pages: RunnerPagesAccessService;
   readonly runs: AgentPlanRunRepository;
   readonly cleanup: RunApiCleanupRepository;
+  /** Opens and ends the plan bridge bearers, which only the API process may hold. */
+  readonly planAccess: AgentPlanSessionGrants;
 }
 
 type RunApiStepRequest = Extract<
   PagesRunnerRequest,
-  { readonly runId: string }
+  { readonly operation: "openPages" | "closePages" }
 >;
 
 /** Private API endpoint path; callers open a new connection for each bounded request. */
@@ -121,7 +125,40 @@ export class RunApiBridge {
         return null;
       case "openPages":
         return this.openPages(request);
+      case "openPlanBridge":
+        return this.openPlanBridge(request);
+      case "closePlanBridge":
+        return this.services.planAccess.revoke(request.runId, request.stepId);
     }
+  }
+
+  /** The API issues the credential and keeps the bearer; the engine only receives the bearer. */
+  private async openPlanBridge(
+    request: Extract<
+      PagesRunnerRequest,
+      { readonly operation: "openPlanBridge" }
+    >,
+  ): Promise<PagesPlanBridgeOpened> {
+    const access = await this.services.planAccess.grant({
+      userId: request.userId,
+      runId: request.runId,
+      stepId: request.stepId,
+      instanceId: request.instanceId,
+      tickets: request.tickets,
+      lifetimeMs: request.lifetimeMs,
+      reach: request.reach,
+      ...(request.canSetStatus === undefined
+        ? {}
+        : { canSetStatus: request.canSetStatus }),
+    });
+    return {
+      access: access
+        ? {
+            token: access.token,
+            tools: access.tools ? [...access.tools] : null,
+          }
+        : null,
+    };
   }
 
   private async openPages(request: RunApiStepRequest): Promise<null> {

@@ -20,11 +20,11 @@ import { sendToBackend } from "@/app/lib/backend-request";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
-import type { McpConnectionsView } from "@/definition/McpConnections";
+import type { ConnectionsView } from "@/definition/Connections";
 import type { Route } from "./+types/settings-connections";
 
 /** The connection metadata together with the account and rights it was read for. */
-export interface ConnectionsData extends McpConnectionsView {
+export interface ConnectionsData extends ConnectionsView {
   readonly audience: LocalStateAudience;
 }
 
@@ -35,14 +35,6 @@ function isConnectionsData(value: unknown): value is ConnectionsData {
   return (
     typeof value === "object" &&
     value !== null &&
-    "origin" in value &&
-    typeof value.origin === "string" &&
-    "packageVersion" in value &&
-    typeof value.packageVersion === "string" &&
-    "validityDays" in value &&
-    typeof value.validityDays === "number" &&
-    "tokens" in value &&
-    Array.isArray(value.tokens) &&
     "audience" in value &&
     isLocalStateAudience(value.audience)
   );
@@ -84,7 +76,7 @@ export async function clientAction({
   return sendToBackend(request);
 }
 
-/** Renders personal stdio connections and their validity preference. */
+/** Renders the connections of the account. */
 export default function SettingsConnectionsRoute(): React.ReactElement {
   const view = useLocalStateRoute(
     useLoaderData<typeof clientLoader>(),

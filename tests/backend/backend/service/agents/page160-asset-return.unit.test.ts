@@ -12,10 +12,18 @@ import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { UploadedFile } from "@/backend/service/WikiService";
 import type { AttachmentReturnTarget } from "@/backend/service/agents/AgentAttachmentReturnTarget";
 
+const RUN_SCOPE = {
+  runId: "run-1",
+  stepId: "step-1",
+  reach: "full",
+  operations: [],
+  tickets: [],
+} as const;
 const IDENTITY: AgentIdentity = {
   userId: TICKET_ACTOR.id,
   isAdmin: true,
   permissions: [],
+  run: RUN_SCOPE,
 };
 const ORIGINAL = Buffer.from(
   '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10"/></svg>',
@@ -48,7 +56,12 @@ const originRead = vi.fn(async () => ({
   },
 }));
 const actor = vi.fn(async () => TICKET_ACTOR);
-const credentialOwner = vi.fn(async () => TICKET_ACTOR.id);
+const credentialRecord = vi.fn<
+  () => Promise<{
+    readonly userId: string;
+    readonly scope: typeof RUN_SCOPE;
+  } | null>
+>(async () => ({ userId: TICKET_ACTOR.id, scope: RUN_SCOPE }));
 const upload = vi.fn(async (uploaded: UploadedFile) => {
   const chunks = [];
   for await (const bytes of uploaded.body) chunks.push(Buffer.from(bytes));
@@ -88,10 +101,10 @@ vi.mock("@/backend/database/repositories/UserRepository", () => ({
   }),
 }));
 vi.mock(
-  "@/backend/database/repositories/mcp/PersonalAgentTokenRepository",
+  "@/backend/database/repositories/mcp/AgentRunCredentialRepository",
   () => ({
-    PersonalAgentTokenRepository: vi.fn().mockImplementation(function () {
-      return { findOwner: credentialOwner };
+    AgentRunCredentialRepository: vi.fn().mockImplementation(function () {
+      return { findValid: credentialRecord };
     }),
   }),
 );
@@ -177,7 +190,10 @@ beforeEach(() => {
   KEYS.clear();
   REPLACED.clear();
   vi.clearAllMocks();
-  credentialOwner.mockResolvedValue(TICKET_ACTOR.id);
+  credentialRecord.mockResolvedValue({
+    userId: TICKET_ACTOR.id,
+    scope: RUN_SCOPE,
+  });
 });
 
 describe("permanent asset returns", () => {
@@ -262,7 +278,10 @@ describe("permanent asset returns", () => {
     await expect(
       returns.upload(file(), async () => readOnly, "ticket", REQUEST),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    credentialOwner.mockResolvedValueOnce("revoked-owner");
+    credentialRecord.mockResolvedValueOnce({
+      userId: "revoked-owner",
+      scope: RUN_SCOPE,
+    });
     await expect(
       returns.upload(file(), async () => IDENTITY, "ticket", REQUEST),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });

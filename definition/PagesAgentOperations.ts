@@ -106,6 +106,25 @@ export const PAGES_AGENT_LIMITS = {
   textCharacters: 200,
 } as const;
 
+/**
+ * The largest request envelope an operation may carry.
+ *
+ * @param operation - The requested operation name; unknown values get the base limit.
+ * @returns The limit in UTF-8 bytes of the serialized `{ operation, parameters }`.
+ */
+export function agentEnvelopeLimit(operation: unknown): number {
+  if (operation === "wiki.page.create" || operation === "wiki.page.setContent")
+    return PAGES_AGENT_LIMITS.wikiEnvelopeBytes;
+  if (
+    operation === "plans.create" ||
+    operation === "plans.update" ||
+    operation === "plans.parameter.create" ||
+    operation === "plans.parameter.update"
+  )
+    return PAGES_AGENT_LIMITS.planWriteEnvelopeBytes;
+  return PAGES_AGENT_LIMITS.requestBytes;
+}
+
 /** A visible target offered for exact project resolution. */
 export interface AgentProjectReference {
   readonly id: string;

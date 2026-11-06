@@ -71,7 +71,7 @@ export function planClaudeAcpLaunch(
       CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP: "1",
       CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
     },
-    mcpServers: pagesMcpServers(instanceId, mcp),
+    mcpServers: pagesMcpServers(mcp),
     sessionMeta: {
       claudeCode: {
         options: profile.options,

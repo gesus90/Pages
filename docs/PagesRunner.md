@@ -132,7 +132,7 @@ Ein älterer Runner erhält für Ressourcenparameter eine konkrete Meldung **„
 
 Die bestehende Grenze von 100000 Zeichen für einen Remote-Prompt gilt auch nach der vollständigen Parameterauflösung einschließlich der Knotenanweisung. Überschreitet die vollständige Aufgabe diese Grenze, nennt die Vorbereitung Knoten, beteiligte Parameter und Größenlimit, bevor ein Lauf startet. Inhalte werden nicht gekürzt. Erst zur Laufzeit verfügbare Vorgängerergebnisse werden beim Dispatch mit derselben Meldung geprüft.
 
-Die statischen Pages-Werkzeugverträge liegen gemeinsam unter `definition/AgentTools/`. Runner-Zugang und unabhängiges MCP-Paket verwenden dieselben Beschreibungen und Schemata; die bisherigen MCP-Importpfade bleiben als Re-Exports erhalten. Pages startet dafür keinen MCP-Paketprozess und importiert für den Runner-Zugang keine ausführbaren Module aus `mcp/`.
+Die statischen Pages-Werkzeugverträge liegen gemeinsam unter `definition/AgentTools/`. Runner-Zugang, die Plan-Bridge lokaler Sitzungen (`/api/v1/plan-bridge`) und Pica verwenden dieselben Beschreibungen und Schemata. Pages startet dafür keinen MCP-Prozess.
 
 ## OpenCode über ACP (PAGE-154, Runner 1.7.0)
 

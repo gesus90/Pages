@@ -387,6 +387,7 @@ export class AgentPlanStepRunner {
           userId: run.userId,
           runId: run.id,
           stepId: node.sessionGroup ?? step.step.id,
+          instanceId,
           tickets: contract.tickets,
           lifetimeMs: node.sessionGroup
             ? 0

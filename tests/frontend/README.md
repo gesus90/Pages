@@ -64,7 +64,7 @@ PAGE-33 adds the following units without migrating or deleting existing tests:
 | Searchable select | Labelled combobox/listbox, selected/unavailable value, case-insensitive multiword/keyword search, combined tags, empty results, disabled controls/options, focus, keyboard wrapping/selection/Escape/blur | Only `scrollIntoView`, because jsdom has no layout |
 | Toasts | Last three messages, manual/timed dismissal, hover/focus pause with remaining duration, invalid events, cleanup | Fake timers; real document events |
 | User management hooks | Intent-specific failures/blocking agents and pending state; fresh success closes once; reopening ignores old success; delayed loading avoids flashes | Router navigation/action data; fake timers |
-| Personal connections | Confirmation before mutation; cancel; failed mutation retains selection; successful retry and validity feedback; ignore stale success | Router fetcher and toast notification; no MCP runtime |
+| Connections | The Pica Mobile card for administrators and the section frame | Router and public connection metadata; no MCP runtime |
 | Connection route UI | Empty public loader view; instructions from version/origin metadata; recoverable error and retry button | Server auth/service factory fail if invoked; memory router has only a fixture loader; revalidation callback |
 | Pica Mobile card | Design brief texts without star, range hint or TLS note; live address preview with IPv6 brackets and a missing host; port validation and disabled save; submitted form; refusal messages per error code; inactive-endpoint status; card present only for the administrator view | Router fetcher and toast notification; no server action |
 
@@ -91,13 +91,8 @@ hydration or accessibility-tool compatibility. No real services, network,
 PostgreSQL, external filesystem, provider or subprocess chains are used.
 
 Pages-owned connection UI may be tested with public connection metadata and
-mocked server/submit boundaries. Executable modules of the independent `mcp/`
-package are neither subjects nor test dependencies, including through helpers;
-no MCP server, client, process or transport starts. The Frontend config's one
-exact `@/mcp/package.json` alias supports static version metadata in the mixed
-connection route. It does not alias the package's source tree. Without this alias,
-Vite's client transform fails and V8 silently omits that route after a parse
-warning; the corrected report retains its untested server branches.
+mocked server/submit boundaries. No MCP server, client, process or transport
+starts.
 
 ## Diagnostic coverage and remaining gaps
 

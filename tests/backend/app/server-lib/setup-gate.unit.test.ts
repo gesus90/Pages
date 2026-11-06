@@ -57,7 +57,6 @@ describe("requireFinishedSetup", () => {
     "/setup.data",
     "/health",
     "/set-language",
-    "/api/v1/agents",
     "/api/v1/agent-assets",
   ])("keeps %s reachable while the setup is pending", async (path) => {
     runtime.isSetupPending.mockReturnValue(true);
@@ -65,7 +64,7 @@ describe("requireFinishedSetup", () => {
     expect(await gate(path)).toBe("next-result");
   });
 
-  it.each(["/setup/", "/health/extra", "/api/v1/agents/other", "/Setup"])(
+  it.each(["/setup/", "/health/extra", "/api/v1/agent-assets/other", "/Setup"])(
     "does not widen the exception to %s",
     async (path) => {
       runtime.isSetupPending.mockReturnValue(true);

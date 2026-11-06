@@ -11,14 +11,11 @@ import type {
 } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 
-/** The local MCP process of a session and how it reaches Pages. */
+/** The step-bound Pages tool access of a session and how it reaches Pages. */
 export interface CliSessionMcp {
-  /** The Node binary that runs the bundle. */
-  readonly node: string;
-  readonly bundle: string;
-  /** The web and API address of Pages, never an MCP network endpoint. */
+  /** The web and API address of this Pages instance; the plan bridge lies below it. */
   readonly url: string;
-  /** The credential of the session; it travels in a process environment or input, never in arguments. */
+  /** The credential of the step; it travels in the `session/new` input, never in arguments or a process environment. */
   readonly token: string;
   /**
    * The MCP tool names the session may call; `null` offers every tool the

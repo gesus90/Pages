@@ -66,11 +66,7 @@ export class AgentToolManagerService {
   private readonly pending = new Map<AgentToolId, Promise<void>>();
   private readonly shutdownController = new AbortController();
   private readonly requested = new Set<AgentToolId>();
-  private readonly startupTools = new Set<AgentToolId>([
-    "node",
-    "bubblewrap",
-    "pages_mcp",
-  ]);
+  private readonly startupTools = new Set<AgentToolId>(["node", "bubblewrap"]);
   private started: Promise<void> | null = null;
   private settingsFailure = false;
   private settingsQueue: Promise<void> = Promise.resolve();
@@ -220,7 +216,6 @@ export class AgentToolManagerService {
   /** Used by the shared execution path before a native node can start. */
   public async ensureReady(input: {
     readonly provider: CliProviderId;
-    readonly hasPagesMcp: boolean;
     readonly browser: boolean;
     readonly instanceId: string;
   }): Promise<ReadonlyMap<AgentToolId, AgentToolLocation>> {
@@ -235,7 +230,6 @@ export class AgentToolManagerService {
       "node",
       "bubblewrap",
       ...providerToolIds(input.provider),
-      ...(input.hasPagesMcp ? ["pages_mcp" as const] : []),
       ...(input.browser ? ["chromium" as const] : []),
     ];
     const required = this.closure(ids);

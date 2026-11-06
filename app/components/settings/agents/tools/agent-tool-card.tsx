@@ -139,7 +139,6 @@ function ToolSupportedVersions({
 }): React.ReactElement {
   const { t } = useTranslation();
   if (tool.id === "bubblewrap") return <span>{t("agentTools.namespace")}</span>;
-  if (tool.id === "pages_mcp") return <span>{t("agentTools.bundled")}</span>;
   return <span>{tool.supportedVersions.join(", ")}</span>;
 }
 

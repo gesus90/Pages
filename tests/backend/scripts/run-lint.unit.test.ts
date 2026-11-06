@@ -44,7 +44,7 @@ it("collects source without Git, also below paths a gitignore would name", async
   );
 });
 
-it("treats the root directories of generated output and the app only at the root", async () => {
+it("treats the root directories of generated output only at the root", async () => {
   const sources = [
     "backend/database/repositories/mobile/Rows.ts",
     "backend/service/build/Plan.ts",
@@ -52,13 +52,12 @@ it("treats the root directories of generated output and the app only at the root
     "tests/backend/backend/service/mobile/gateway.unit.test.ts",
   ];
   for (const source of sources) await place(source);
-  await place("mobile/app.ts");
   await place("build/server.js");
 
   expect([...collectCandidateFiles(directory)].toSorted()).toEqual(sources);
 });
 
-it("checks the format of Pages sources named like the independent app", async () => {
+it("checks the format of the Pages sources of Pica Mobile", async () => {
   const ignored = async (file: string): Promise<boolean> =>
     (
       await prettier.getFileInfo(path.join(ROOT, file), {
@@ -66,7 +65,6 @@ it("checks the format of Pages sources named like the independent app", async ()
       })
     ).ignored;
 
-  await expect(ignored("mobile/app.ts")).resolves.toBe(true);
   await expect(ignored("backend/service/mobile/Gateway.ts")).resolves.toBe(
     false,
   );
@@ -75,12 +73,9 @@ it("checks the format of Pages sources named like the independent app", async ()
 it("leaves out dependencies, builds, other file types and links", async () => {
   await place("app/a.ts");
   await place("node_modules/x/index.js");
-  await place("mcp/node_modules/x/index.js");
-  await place("mcp/dist/bundle.ts");
   await place("build/server.js");
   await place("coverage/backend/prettify.js");
   await place(".react-router/types/a.ts");
-  await place("mobile/app.ts");
   await place("app/notes.md");
   await symlink(path.join(directory, "app/a.ts"), path.join(directory, "l.ts"));
 
@@ -92,8 +87,6 @@ it.each([
   "tests/browser/results/artifacts/run/generated.mjs",
   "build/server.js",
   "coverage/backend/prettify.js",
-  "mcp/coverage/prettify.js",
-  "mcp/dist/pages-mcp.js",
 ])("classifies %s as generated", async (file) => {
   const eslint = new ESLint({ cwd: ROOT });
 
@@ -104,7 +97,6 @@ it.each([
   "backend/service/agents/AgentPlanAcceptance.ts",
   "app/root.tsx",
   "scripts/run-lint.mjs",
-  "mcp/src/server.ts",
   "tests/browser/support/paths.ts",
   // Neighbours of the generated directory and files Git would ignore stay source.
   "tests/browser/results.ts",
@@ -121,12 +113,11 @@ it.each([
   );
 });
 
-it("keeps the two TypeScript projects apart in blocks", () => {
-  const blocks = buildLintBlocks(["a.ts", "b.ts", "c.ts", "mcp/d.ts"], 2);
+it("splits the files into blocks of the given size", () => {
+  const blocks = buildLintBlocks(["a.ts", "b.ts", "c.ts"], 2);
 
   expect(blocks.map((block) => [block.scope, block.files])).toEqual([
     ["root", ["a.ts", "b.ts"]],
     ["root", ["c.ts"]],
-    ["mcp", ["mcp/d.ts"]],
   ]);
 });

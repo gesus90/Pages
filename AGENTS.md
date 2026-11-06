@@ -182,12 +182,9 @@ for behavior selection, boundaries, results and gaps. Backend validation says
 nothing about Frontend coverage.
 
 Keep the two Pages scripts `test:backend` and `test:frontend` separate. No root
-`test` script, aggregate, alias or MCP forwarding command is allowed. Pages CI
-test execution remains absent after PAGE-35. The independent **MCP check** job
-(PAGE-57) runs that package's own tests after **Pages check**. Its Vitest suite
-under `mcp/tests/` remains outside Pages discovery and coverage; see
-[mcp/README.md](./mcp/README.md). Run `pnpm run check` and `pnpm run lint` as
-non-test gates; neither demonstrates functional coverage.
+`test` script, aggregate or alias is allowed. Pages CI test execution remains
+absent after PAGE-35. Run `pnpm run check` and `pnpm run lint` as non-test
+gates; neither demonstrates functional coverage.
 
 ### Rules for future test work
 
@@ -201,8 +198,7 @@ non-test gates; neither demonstrates functional coverage.
   mandatory percentage, per-file quota or replacement threshold applies for now.
   Do not hide gaps with coverage-ignore comments or blanket exclusions.
 - Keep exactly two Pages unit test scripts: `test:backend` and `test:frontend`,
-  both with coverage. No `test` script, aggregator, alias or MCP forwarding
-  command. The browser and visual regression suite of `tests/browser/`
+  both with coverage. No `test` script, aggregator or alias. The browser and visual regression suite of `tests/browser/`
   (PAGE-172, `pnpm run browser:test`) is one of two other test commands. It is not a
   unit scope, has no coverage, is not part of CI, and is the only place for real
   browser tests; see [tests/browser/README.md](./tests/browser/README.md).
@@ -222,31 +218,29 @@ non-test gates; neither demonstrates functional coverage.
 - Intended reports go to `coverage/backend/` and `coverage/frontend/`: terminal
   and file text tables, HTML, JSON counters and per-module JSON metric summaries.
   PAGE-32 validates Backend reports; PAGE-33 separately validates Frontend reports.
-- Pages tests may verify Pages-owned Agent API, pairing, wiki and database
-  behavior. They must not import executable modules from the independent `mcp/`
-  package or start an MCP server, client, transport or process, including through
-  a shared helper. Use mocks or stubs at an MCP boundary. Pages connection
-  instructions may read the package version from `mcp/package.json`; this is
-  static runtime metadata.
+- Pages tests may verify Pages-owned Agent API, plan bridge, wiki and database
+  behavior. They must not start an MCP server, client, transport or process,
+  including through a shared helper. Use mocks or stubs at an MCP boundary.
 - Keep future Pages scripts, discovery, setup, coverage and watch mode scoped to
-  Pages. Do not add a root test aggregator or forwarding command for MCP.
+  Pages. Do not add a root test aggregator.
+- The MCP concept of Pages is planned anew. Until then there is no `mcp/`
+  package and no access for external MCP clients; the Pica tool bridge and the
+  step-bound plan bridge are internal to Pages and no basis for one.
 
 ### QA gates without a person at the terminal
 
 Gates run unattended, so their setup and evidence are tools, not instructions:
 
-- `node scripts/qa-evidence.mjs preflight --scope pages|mcp --install` repairs
+- `node scripts/qa-evidence.mjs preflight --scope pages --install` repairs
   stale or missing modules from the frozen lockfile. `pnpm run` refuses stale
   modules (`verifyDepsBeforeRun: error`) instead of purging them in a gate.
-- `node scripts/qa-evidence.mjs fingerprint --scope pages|mcp [--manifest <file>]`
-  is the one source fingerprint. `pages` includes `mcp/src/` and
-  `mcp/package.json`, because Pages imports them; a change there makes the evidence
-  of both QA steps stale.
-- `node scripts/qa-evidence.mjs coverage --scope pages|mcp --summary <file> [--gaps <file>]`
+- `node scripts/qa-evidence.mjs fingerprint --scope pages [--manifest <file>]`
+  is the one source fingerprint.
+- `node scripts/qa-evidence.mjs coverage --scope pages --summary <file> [--gaps <file>]`
   compares raw counters per metric and file and refuses a summary older than the
   source. It reports; the percentage goal of a run comes from its assignment, and
   this chapter still sets no mandatory percentage.
-- `node scripts/qa-evidence.mjs verify-handoff --scope pages|mcp --file <report>`
+- `node scripts/qa-evidence.mjs verify-handoff --scope pages --file <report>`
   decides whether a QA report releases a Git step: status, report, current
   fingerprint and raw counters of every scope. Everything else blocks.
 - `pnpm run browser:test` provides a Chromium that starts and a free loopback port
@@ -296,7 +290,7 @@ Before considering a task complete:
 
 - Confirm the requested behavior is implemented.
 - Confirm changed code follows `GUIDELINES.md`.
-- Run `pnpm run check` and `pnpm run lint`; do not claim test or coverage validation from these gates. Run `pnpm run test:backend` for Backend behavior changes and the tests required by the current task unless that task explicitly prohibits execution. Frontend validation remains separate. Keep the independent MCP package outside Pages test discovery and coverage.
+- Run `pnpm run check` and `pnpm run lint`; do not claim test or coverage validation from these gates. Run `pnpm run test:backend` for Backend behavior changes and the tests required by the current task unless that task explicitly prohibits execution. Frontend validation remains separate.
 - Confirm no unrelated code was changed.
 - Confirm types and interfaces match the implementation.
 - Update documentation only when documented behavior changed.
@@ -327,17 +321,10 @@ Do not:
 
 ---
 
-## 14. Independent Mobile App
+## 14. Pica Mobile
 
-`mobile/` is the independent native Pica app (Expo, React Native, TypeScript),
-meant to become a Git submodule. It has its own `AGENTS.md`, manifest, lockfile,
-dependencies, tests and builds.
-
-- Work in `mobile/` follows `mobile/AGENTS.md` and its own gates. The Pages
-  gates (`pnpm run check`, `pnpm run lint`, `react-router build`) ignore
-  `mobile/` and must stay green without installing its dependencies.
-- Do not add a mobile dependency to the Pages, backend or MCP manifests, and do
-  not import code from `mobile/` into Pages or the reverse. Pages tests do not
-  start or import the app.
-- Do not touch `mobile/` for a Pages task or the other way round unless the task
-  names both.
+The native Pica app lives in its own GitHub project "Pica Mobile" and is no
+part of this repository. The Pages side of the app (`backend/service/mobile/`,
+the mobile connection settings, push notifications and the WebSocket protocols
+`chat.v1` and `plans.v1`) is ordinary Pages source and follows this file and
+`GUIDELINES.md`. Do not add app code or an app dependency to Pages.

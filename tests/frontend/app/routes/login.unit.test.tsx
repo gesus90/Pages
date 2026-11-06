@@ -64,7 +64,7 @@ vi.mock("@/app/components/login/login-setup-hint", () => ({
 }));
 
 const BRANDING = { companyName: "Acme", logoUrl: null };
-const PAIR = "/pair?code=BCDFGHJK";
+const OLD_PAIRING_LINK = "/pair?code=BCDFGHJK";
 
 beforeEach(() => {
   vi.mocked(getAuthenticatedUser).mockReset();
@@ -86,18 +86,18 @@ function loginPost(
   return formPost(path, fields);
 }
 
-it("sends a signed-in visitor on to the validated destination", async () => {
+it("sends a signed-in visitor to the dashboard, whatever destination is asked for", async () => {
   vi.mocked(getAuthenticatedUser).mockResolvedValue(ACTOR);
 
   const response = await responseOf(
     loader(
       routeArguments(
-        pagesRequest(`/login?returnTo=${encodeURIComponent(PAIR)}`),
+        pagesRequest(`/login?returnTo=${encodeURIComponent(OLD_PAIRING_LINK)}`),
       ),
     ),
   );
 
-  expect(response.headers.get("Location")).toBe(PAIR);
+  expect(response.headers.get("Location")).toBe("/dashboard");
 });
 
 it("offers the sign-in in the visitor's language", async () => {
@@ -111,16 +111,6 @@ it("offers the sign-in in the visitor's language", async () => {
     branding: BRANDING,
     language: "en",
     loginPath: "/login",
-  });
-});
-
-it("keeps a pairing destination in the sign-in path", async () => {
-  const loaded = await loader(
-    routeArguments(pagesRequest(`/login?returnTo=${encodeURIComponent(PAIR)}`)),
-  );
-
-  expect(loaded).toMatchObject({
-    loginPath: `/login?returnTo=${encodeURIComponent(PAIR)}`,
   });
 });
 
@@ -194,12 +184,15 @@ it("signs a valid login in with a session cookie", async () => {
   const response = await responseOf(
     action(
       routeArguments(
-        loginPost(undefined, `/login?returnTo=${encodeURIComponent(PAIR)}`),
+        loginPost(
+          undefined,
+          `/login?returnTo=${encodeURIComponent(OLD_PAIRING_LINK)}`,
+        ),
       ),
     ),
   );
 
-  expect(response.headers.get("Location")).toBe(PAIR);
+  expect(response.headers.get("Location")).toBe("/dashboard");
   await expect(
     sessionCookie.parse(response.headers.get("Set-Cookie")),
   ).resolves.toBe("token-1");

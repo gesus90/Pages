@@ -15,7 +15,7 @@ import { AgentWikiFieldService } from "@/backend/service/agents/AgentWikiFieldSe
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
-import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
+import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import { CAPABILITY } from "@/definition/Authorization";
 
 import {
@@ -127,19 +127,25 @@ export class TextWorld {
     });
     // The credential store is the transport boundary; authorization below uses current account facts.
     const credentialStore: unknown = Object.create(
-      PersonalAgentTokenService.prototype,
+      AgentRunCredentialService.prototype,
     );
-    const personal = credentialStore as PersonalAgentTokenService;
-    vi.spyOn(personal, "verify").mockResolvedValue({
+    const runs = credentialStore as AgentRunCredentialService;
+    vi.spyOn(runs, "verify").mockResolvedValue({
       userId: "writer",
       isAdmin: false,
       permissions: [],
+      run: {
+        runId: "run-1",
+        stepId: "step-1",
+        operations: [],
+        tickets: [],
+        reach: "full",
+      },
     });
-    vi.spyOn(personal, "credential").mockResolvedValue(null);
     this.api = new PagesAgentApiService(
-      personal,
       new AgentProjectService(new ProjectRepository(database)),
       this.router,
+      runs,
     );
   }
 

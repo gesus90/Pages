@@ -22,6 +22,7 @@ import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredent
 import { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
 
 import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
+import type { AgentPlanSessionGrants } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type {
   AgentPlanServices,
@@ -45,6 +46,7 @@ export async function createPlanRemoteServices(
   input: PlanRemoteServiceInput,
   access: AgentPlanAccess,
   runs: AgentPlanRunRepository,
+  planAccess: AgentPlanSessionGrants,
 ): Promise<{
   remoteTargets: AgentPlanRemoteTargets;
   remoteExecution: AgentPlanRemoteExecution;
@@ -73,7 +75,11 @@ export async function createPlanRemoteServices(
     evidence: new AgentPlanRemoteAccessRepository(input.database),
     api: input.api,
   });
-  const transport = await createPlanRemoteTransport(input, runs, pages);
+  const transport = await createPlanRemoteTransport(
+    input,
+    { runs, planAccess },
+    pages,
+  );
   const planTasks = new AgentPlanTasks(input.tasks, input.users);
   const remoteExecution = new AgentPlanRemoteExecution({
     tasks: planTasks,
@@ -94,7 +100,10 @@ export async function createPlanRemoteServices(
 
 async function createPlanRemoteTransport(
   input: PlanRemoteServiceInput,
-  runs: AgentPlanRunRepository,
+  local: {
+    readonly runs: AgentPlanRunRepository;
+    readonly planAccess: AgentPlanSessionGrants;
+  },
   pages: RunnerPagesAccessService,
 ): Promise<PlanRemoteTransport> {
   const runtime = await getPagesRuntime();
@@ -123,7 +132,14 @@ async function createPlanRemoteTransport(
     config.databaseUrl
   ) {
     const bridge = new RunApiBridge(
-      { runners, provider, pages, runs, cleanup },
+      {
+        runners,
+        provider,
+        pages,
+        runs: local.runs,
+        cleanup,
+        planAccess: local.planAccess,
+      },
       {
         databasePath: runtime.getDatabasePath(),
       },

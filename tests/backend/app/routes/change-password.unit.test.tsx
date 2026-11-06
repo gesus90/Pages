@@ -90,7 +90,7 @@ function post(path = "/change-password"): Request {
   });
 }
 
-it("sends a signed-out visitor to the login with the way back", async () => {
+it("sends a signed-out visitor to the login with the dashboard as the way back", async () => {
   vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
 
   const response = await responseOf(
@@ -102,7 +102,7 @@ it("sends a signed-out visitor to the login with the way back", async () => {
   );
 
   expect(response.status).toBe(302);
-  expect(response.headers.get("Location")).toBe("/login?returnTo=%2Fpair");
+  expect(response.headers.get("Location")).toBe("/login?returnTo=%2Fdashboard");
 });
 
 it("sends a user without a required change on to the destination", async () => {
@@ -136,7 +136,7 @@ it("accepts only form posts", async () => {
   expect(getAuthenticatedUser).not.toHaveBeenCalled();
 });
 
-it("redirects to the destination after a successful change", async () => {
+it("redirects to the dashboard after a successful change", async () => {
   vi.mocked(getAuthenticatedUser).mockResolvedValue(USER);
   vi.mocked(handleChangePassword).mockResolvedValue(
     data({ intent: "change-password", outcome: "success" }),
@@ -146,7 +146,7 @@ it("redirects to the destination after a successful change", async () => {
     action(routeArguments(post("/change-password?returnTo=/pair"))),
   );
 
-  expect(response.headers.get("Location")).toBe("/pair");
+  expect(response.headers.get("Location")).toBe("/dashboard");
   const [call] = vi.mocked(handleChangePassword).mock.calls;
   expect(call?.[0].user).toBe(USER);
   expect(call?.[0].services).toBe(services);

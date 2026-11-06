@@ -8,15 +8,11 @@ import {
 
 it.each([
   "node_modules",
-  "mcp/node_modules",
-  "mcp/dist",
   "coverage",
-  "mcp/coverage",
   "backend/x/dist",
   ".git",
   "build",
   ".react-router",
-  "mobile",
 ])("classifies the directory %s as generated", (directory) => {
   expect(isGeneratedDirectory(directory)).toBe(true);
 });

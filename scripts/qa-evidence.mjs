@@ -21,7 +21,6 @@ const REPORT_BLOCK = /```pages-report[^\n]*\n([\s\S]*?)\n```/gu;
 /** The coverage scopes a QA report must name. */
 const REPORT_COVERAGE_SCOPES = {
   pages: ["backend", "frontend"],
-  mcp: ["mcp"],
 };
 
 /**
@@ -57,34 +56,10 @@ export const COVERAGE_POPULATIONS = {
     ],
     exclude: ["app/**/*.server.{ts,tsx}"],
   },
-  mcp: {
-    directory: "mcp",
-    include: ["src/**/*.ts", "scripts/**/*.ts", "build.config.ts"],
-    exclude: [],
-  },
 };
 
 /** Package directories with their own lockfile and modules. */
-const PACKAGES = { pages: ".", mcp: "mcp" };
-
-/** What Pages runs of the MCP package: the shared tool catalog and its version. */
-function isPagesMcpPath(file) {
-  return file.startsWith("mcp/src/") || file === "mcp/package.json";
-}
-
-/**
- * Whether a repository path belongs to a fingerprint scope.
- *
- * @remarks
- * The two scopes overlap on purpose. Pages imports `mcp/src/`, so a change
- * there makes the evidence of both QA steps stale; a change of an MCP test
- * or script only the evidence of the MCP step.
- */
-export function isInFingerprintScope(file, scope) {
-  if (scope === "mcp") return file.startsWith("mcp/");
-  if (file.startsWith("mobile/")) return false;
-  return !file.startsWith("mcp/") || isPagesMcpPath(file);
-}
+const PACKAGES = { pages: "." };
 
 /**
  * Builds the sorted manifest and its SHA-256.
@@ -292,7 +267,7 @@ function readCoverageIssues(text, scope) {
  * Decides whether a QA report releases Git; everything else blocks it.
  *
  * @param text - The whole report as the QA step answered.
- * @param report - `pages` or `mcp`, each judged on its own.
+ * @param report - `pages`.
  * @param currentFingerprint - The fingerprint of the checkout now.
  * @returns Every reason the report does not release Git; empty when it does.
  *
@@ -394,15 +369,12 @@ function listRepositoryFiles(root, listTracked) {
  * The manifest of a checkout now.
  *
  * @param root - The checkout.
- * @param scope - `pages` or `mcp`.
+ * @param scope - `pages`.
  * @param listTracked - The tracked files; a checkout without Git has none.
  */
 export function currentManifest(root, scope, listTracked = gitTrackedFiles) {
-  const files = listRepositoryFiles(root, listTracked).filter((file) =>
-    isInFingerprintScope(file, scope),
-  );
   return buildManifest(
-    files,
+    listRepositoryFiles(root, listTracked),
     (file) => {
       const absolute = path.join(root, file);
       return existsSync(absolute) ? sha256File(absolute) : null;
@@ -427,10 +399,9 @@ function fingerprintCommand(root, scope, manifestFile) {
   return 0;
 }
 
-function newestSourceTime(root, scope) {
+function newestSourceTime(root) {
   return Math.max(
     ...listRepositoryFiles(root, gitTrackedFiles)
-      .filter((file) => isInFingerprintScope(file, scope))
       .map((file) => path.join(root, file))
       .filter((file) => existsSync(file))
       .map((file) => statSync(file).mtimeMs),
@@ -444,12 +415,7 @@ function coverageCommand(root, input) {
     return 1;
   }
   const result = evaluateCoverage(summary);
-  if (
-    isSummaryStale(
-      statSync(input.summary).mtimeMs,
-      newestSourceTime(root, input.scope),
-    )
-  ) {
+  if (isSummaryStale(statSync(input.summary).mtimeMs, newestSourceTime(root))) {
     result.issues.push("summary_stale");
   }
   if (input.population) {
@@ -545,7 +511,7 @@ function main(args) {
   const scope = readOption(args, "--scope");
   if (!Object.hasOwn(PACKAGES, scope ?? "")) {
     console.error(
-      "Usage: qa-evidence.mjs preflight --scope pages|mcp [--install] | fingerprint --scope pages|mcp [--manifest <file>] | coverage --scope pages|mcp --summary <file> [--gaps <file>] [--population backend|frontend|mcp] | verify-handoff --scope pages|mcp --file <report>",
+      "Usage: qa-evidence.mjs preflight --scope pages [--install] | fingerprint --scope pages [--manifest <file>] | coverage --scope pages --summary <file> [--gaps <file>] [--population backend|frontend] | verify-handoff --scope pages --file <report>",
     );
     return USAGE_EXIT_CODE;
   }

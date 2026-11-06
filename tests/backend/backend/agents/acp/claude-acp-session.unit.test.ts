@@ -53,7 +53,7 @@ it("opens the session in the workspace with the managed Claude options, takes mo
   });
   expect(paramsOf(started.calls, "session/new")[0]).toMatchObject({
     cwd: WORKSPACE,
-    mcpServers: [{ name: "pages", command: "/synthetic/bin/node" }],
+    mcpServers: [{ type: "http", name: "pages" }],
     _meta: {
       claudeCode: {
         options: {

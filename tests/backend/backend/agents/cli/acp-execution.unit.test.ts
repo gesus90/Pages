@@ -188,8 +188,6 @@ function input(
         }
       : {}),
     mcp: {
-      node: "/synthetic/bin/node",
-      bundle: "/synthetic/pages-mcp.cjs",
       url: "http://pages.invalid",
       token: "synthetic-run-token",
       tools: null,
@@ -289,7 +287,7 @@ it("starts a Claude Code node through the Claude ACP adapter with the connection
   const created = fake.calls.find((call) => call.method === "session/new");
   expect(created?.params).toMatchObject({
     cwd: WORKSPACE,
-    mcpServers: [{ name: "pages", command: "/synthetic/bin/node" }],
+    mcpServers: [{ type: "http", name: "pages" }],
     _meta: {
       claudeCode: {
         options: {

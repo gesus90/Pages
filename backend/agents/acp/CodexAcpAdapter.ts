@@ -69,7 +69,7 @@ export function planCodexAcpLaunch(
       INITIAL_AGENT_MODE: profile.sessionMode,
       NO_BROWSER: "1",
     },
-    mcpServers: pagesMcpServers(instanceId, mcp),
+    mcpServers: pagesMcpServers(mcp),
     sessionMeta: { mcpStartupAwaitTimeoutMs: MCP_STARTUP_WAIT_MS },
   };
 }

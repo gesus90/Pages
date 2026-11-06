@@ -81,7 +81,7 @@ import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanAccess, AgentPlanTeam } from "./AgentPlanAccess";
 import type { AgentPlanPreparation } from "./AgentPlanPreparation";
 import type { PlanRunEnginePort } from "./runs/PlanRunEnginePort";
-import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
+import type { AgentPlanSessionGrants } from "./AgentPlanSessionAccess";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 import type { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
@@ -104,7 +104,7 @@ export interface PlanDependencies {
   readonly preparation: AgentPlanPreparation;
   readonly engine: PlanRunEnginePort;
   /** Ends the MCP access of interrupted sessions; absent without plan sessions. */
-  readonly sessions?: AgentPlanSessionAccess;
+  readonly sessions?: AgentPlanSessionGrants;
   /** Serves the prompts nodes were sent. */
   readonly archive?: AgentRunArchive;
   /** The interpreter profiles of script nodes; absent, no profile exists. */

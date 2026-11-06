@@ -40,18 +40,12 @@ import { AgentPlanOperationService } from "@/backend/service/agents/AgentPlanOpe
 import { ChatAgentOperationService } from "@/backend/service/agents/ChatAgentOperationService";
 import { PageAgentOperationService } from "@/backend/service/agents/PageAgentOperationService";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
-import { OAuthRepository } from "@/backend/database/repositories/mcp/OAuthRepository";
-import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
-import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
-import { PairingService } from "@/backend/service/mcp/PairingService";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
-import { OAuthService } from "@/backend/service/mcp/OAuthService";
-import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
 
 import { runnerAssetUpload } from "./agent-asset-return.server";
 
@@ -72,9 +66,8 @@ import type { Database } from "@/backend/database/Database";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
 
-/** Personal authentication and operation services shared by stdio clients and Pages. */
+/** The operation services behind the agent API, the plan bridge and the chat. */
 export interface McpApplicationServices {
-  readonly oauthService: OAuthService;
   readonly agentAssetService: AgentAssetService;
   readonly agentTicketUploadService: AgentTicketUploadService;
   /** The same operation catalog for the chat agent: UI role mode, changes marked as AI actions. */
@@ -83,8 +76,6 @@ export interface McpApplicationServices {
   readonly agentAssetDownloadService: AgentAssetDownloadService;
   readonly pagesEventPublisher: PagesEventPublisher;
   readonly pagesAgentApiService: PagesAgentApiService;
-  readonly personalAgentTokenService: PersonalAgentTokenService;
-  readonly pairingService: PairingService;
 }
 
 /** What the operations of one agent channel share. */
@@ -124,12 +115,12 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
   readonly planRecovery?: AgentPlanRecoveryService;
   readonly planSessions?: AgentSessionService;
   readonly users: Pick<UserService, "getById">;
-  /** The plan service of the plan page; MCP clients and the chat use it alike. */
+  /** The plan service of the plan page; the agent tools and the chat use it alike. */
   readonly plans: AgentPlanService;
   readonly publisher: AgentTicketPublisher | null;
   readonly writes: Omit<AgentWriteDependencies, "create">;
   readonly creation: AgentWikiCreateDependencies;
-  /** The permanent project deletion; only MCP clients get it. */
+  /** The permanent project deletion; only the agent tools get it. */
   readonly projectDeletion: AgentProjectDeletionService;
   readonly chatSessions: AgentChatSessionOperationService;
   /** The connection and instance settings services of the chat administration. */
@@ -140,7 +131,7 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
 }
 
 /**
- * Builds the operation catalog of MCP clients, including imports and uploads.
+ * Builds the operation catalog of the agent tools, including imports and uploads.
  *
  * @remarks
  * The workspace registry and the permanent deletion of projects belong to this
@@ -256,26 +247,6 @@ function createChatOperationRouter(
   });
 }
 
-/** Shares the existing database and fresh identity checks between personal tokens and pairing. */
-function createPersonalAuthorization(
-  database: Database,
-  identities: AgentIdentityService,
-): Pick<
-  McpApplicationServices,
-  "personalAgentTokenService" | "pairingService"
-> {
-  return {
-    personalAgentTokenService: new PersonalAgentTokenService(
-      new PersonalAgentTokenRepository(database),
-      identities,
-    ),
-    pairingService: new PairingService(
-      new PairingRepository(database),
-      identities,
-    ),
-  };
-}
-
 /** Shares the normal own-session service with the MCP-specific confirmation adapter. */
 function createChatSessionOperations(input: {
   readonly database: Database;
@@ -337,7 +308,6 @@ function createBinaryAssetServices(input: {
   readonly database: Database;
   readonly users: Pick<UserService, "getById">;
   readonly identities: AgentIdentityService;
-  readonly personalAgentTokenService: PersonalAgentTokenService;
   readonly workspace: Parameters<typeof createAssetServices>[1];
   readonly stepReports: AgentPlanStepReportService | undefined;
 }): ReturnType<typeof createAssetServices> & {
@@ -346,22 +316,12 @@ function createBinaryAssetServices(input: {
   readonly agentUploadTicketService: AgentUploadTicketService;
   readonly agentAssetDownloadService: AgentAssetDownloadService;
 } {
-  const {
-    database,
-    users,
-    identities,
-    personalAgentTokenService,
-    workspace,
-    stepReports,
-  } = input;
+  const { database, users, identities, workspace, stepReports } = input;
   const runCredentials = new AgentRunCredentialService(
     new AgentRunCredentialRepository(database),
     identities,
   );
-  const authority = new AgentUploadAuthorityService(
-    personalAgentTokenService,
-    runCredentials,
-  );
+  const authority = new AgentUploadAuthorityService(runCredentials);
   const agentUploadTicketService = new AgentUploadTicketService((hash) =>
     authority.verify(hash),
   );
@@ -380,7 +340,6 @@ function createBinaryAssetServices(input: {
   return {
     apiFor: (operations) =>
       new PagesAgentApiService(
-        personalAgentTokenService,
         new AgentProjectService(new ProjectRepository(database)),
         operations,
         {
@@ -413,11 +372,11 @@ interface McpWorkspace {
     readonly cache: ServerCache;
     readonly publisher: AgentTicketPublisher | null;
   };
-  /** The agent workspace registry; MCP clients manage workspaces through it. */
+  /** The agent workspace registry; the agent tools manage workspaces through it. */
   readonly agentWorkspaces: AgentWorkspaceService;
-  /** The user-agent management shared by MCP clients and the signed-in chat. */
+  /** The user-agent management shared by the agent tools and the signed-in chat. */
   readonly pageAgents: PageAgentService;
-  /** The agent plans shared by MCP clients and the signed-in chat. */
+  /** The agent plans shared by the agent tools and the signed-in chat. */
   readonly plans: AgentPlanService;
   /** Takes what a plan session reports through `report_step_result`. */
   readonly stepReports?: AgentPlanStepReportService;
@@ -437,8 +396,6 @@ export function createMcpServices(
   workspace: McpWorkspace,
 ): McpApplicationServices {
   const identities = new AgentIdentityService(users, administration);
-  const { personalAgentTokenService, pairingService } =
-    createPersonalAuthorization(database, identities);
   const {
     staging,
     agentAssetService,
@@ -450,7 +407,6 @@ export function createMcpServices(
     database,
     users,
     identities,
-    personalAgentTokenService,
     workspace,
     stepReports: workspace.stepReports,
   });
@@ -498,12 +454,6 @@ export function createMcpServices(
   return {
     agentAssetService,
     agentTicketUploadService,
-    oauthService: new OAuthService({
-      repository: new OAuthRepository(database),
-      identities,
-      personal: personalAgentTokenService,
-      pairing: pairingService,
-    }),
     chatOperationRouter: createChatOperationRouter(
       routers,
       workspace.pageAgents,
@@ -511,8 +461,6 @@ export function createMcpServices(
     agentUploadTicketService,
     agentAssetDownloadService,
     pagesEventPublisher,
-    personalAgentTokenService,
-    pairingService,
     pagesAgentApiService: apiFor(
       createMcpOperationRouter(
         routers,

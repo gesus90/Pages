@@ -32,19 +32,15 @@ export async function loader({
   const user = await getAuthenticatedUser(request);
 
   if (user) {
-    return redirect(loginDestination(request));
+    return redirect(loginDestination());
   }
 
   const services = await getApplicationServices();
-  const destination = loginDestination(request);
 
   return {
     branding: await services.instanceSettingsService.getBranding(),
     language: await resolveAnonymousLanguage(request),
-    loginPath:
-      destination === "/dashboard"
-        ? "/login"
-        : `/login?returnTo=${encodeURIComponent(destination)}`,
+    loginPath: "/login",
   };
 }
 
@@ -109,7 +105,7 @@ export async function action({
     );
   }
 
-  return redirect(loginDestination(request), {
+  return redirect(loginDestination(), {
     headers: {
       "Set-Cookie": await sessionCookie.serialize(loginResult.sessionToken, {
         secure: resolveCookieSecure(request),

@@ -129,12 +129,6 @@ function requireAdapter(adapter: string | null, driver: AcpDriver): string {
   return adapter;
 }
 
-function mcpReadOnlyFiles(
-  mcp: AgentPlanSessionInput["mcp"],
-): readonly string[] {
-  return mcp ? [mcp.bundle] : [];
-}
-
 /** The stop signal and the observer of one session start. */
 interface SessionControl {
   readonly signal: AbortSignal;
@@ -418,7 +412,6 @@ export class CliSessionExecution implements PlanSessionRunner {
           workingDirectory: input.directory,
           isWorkingDirectoryReadOnly: mode === "read_only",
           credentialDirectory: github?.directory,
-          readOnlyFiles: mcpReadOnlyFiles(input.mcp),
           environment: {
             ...launch.environment,
             ...start.credentials?.environmentFor(

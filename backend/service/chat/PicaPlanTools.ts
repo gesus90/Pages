@@ -1,8 +1,11 @@
-import { PLAN_READ_TOOLS, PLAN_WRITE_TOOLS } from "@/mcp/src/tools/plans";
+import {
+  PLAN_READ_TOOLS,
+  PLAN_WRITE_TOOLS,
+} from "@/definition/AgentTools/Plans";
 import {
   PLAN_RESOURCE_READ_TOOLS,
   PLAN_RESOURCE_WRITE_TOOLS,
-} from "@/mcp/src/tools/plan-resources";
+} from "@/definition/AgentTools/PlanResources";
 import { readParameterRecord } from "@/backend/service/agents/AgentParameterReader";
 
 import { PICA_TOOL_OUTCOME } from "./PicaToolSchemas";

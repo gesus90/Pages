@@ -2,7 +2,7 @@
 export interface LintBlock {
   readonly index: number;
   readonly total: number;
-  readonly scope: "root" | "mcp";
+  readonly scope: "root";
   readonly files: readonly string[];
 }
 

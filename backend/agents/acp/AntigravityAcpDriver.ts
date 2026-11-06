@@ -94,7 +94,7 @@ export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
       [RUN_INSTANCE_VARIABLE]: specification.instanceId,
       BROWSER: "/bin/true",
     },
-    mcpServers: pagesMcpServers(specification.instanceId, specification.mcp),
+    mcpServers: pagesMcpServers(specification.mcp),
     sessionMeta: {
       antigravity: {
         ...(specification.profile.mode === "read_only"

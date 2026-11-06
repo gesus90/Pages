@@ -3,10 +3,6 @@ import { homedir } from "node:os";
 import { access, realpath } from "node:fs/promises";
 import { constants } from "node:fs";
 
-import {
-  pagesMcpBundlePath,
-  PAGES_MCP_VERSION,
-} from "@/backend/agents/cli/PagesMcpBundle";
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 
 import { AgentToolFiles } from "./AgentToolFiles";
@@ -38,14 +34,7 @@ export function createAgentToolManager(input: {
         release: null,
         version: process.versions.node,
       };
-    if (tool.id === "bubblewrap")
-      return builtInLocation("/usr/bin/bwrap", "system", null);
-    if (tool.id === "pages_mcp")
-      return builtInLocation(
-        pagesMcpBundlePath(),
-        "bundled",
-        PAGES_MCP_VERSION,
-      );
+    if (tool.id === "bubblewrap") return builtInLocation("/usr/bin/bwrap");
     const location = await input.locator.locate(tool.binary);
     if (location.path && !(await isTrustedSystemLocation(location.path)))
       return null;
@@ -95,12 +84,10 @@ async function isTrustedSystemLocation(file: string): Promise<boolean> {
 
 async function builtInLocation(
   file: string,
-  source: "system" | "bundled",
-  version: string | null,
 ): Promise<AgentToolLocation | null> {
   try {
-    await access(file, source === "bundled" ? constants.R_OK : constants.X_OK);
-    return { file, source, version, release: null };
+    await access(file, constants.X_OK);
+    return { file, source: "system", version: null, release: null };
   } catch {
     return null;
   }

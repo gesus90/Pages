@@ -31,11 +31,11 @@ Migration `072_runner_plan_events.sql` ergänzt ausschließlich Ereignisbelege: 
 
 Beim Wiederabgleich bleibt Pages maßgeblich; fehlende akzeptierte/laufende Jobs werden als `lost` abgeschlossen. Unbestätigtes Remote-Cleanup behält Workspace-Reservierungen. Startup-Recovery behandelt Remote-Runs nicht als lokale Prozesse. Ereignisübernahme und Wiederabgleich wiederholen keinen Launch. Noch nicht ausgelieferte Start-Claims behalten ihre ID; der Runner startet nur einen bislang nicht beanspruchten Claim. Die bestehende DAG-Engine disponiert nach dem bestätigten Ergebnis den nächsten Schritt.
 
-## Parität zwischen Editor, MCP und Pica
+## Parität zwischen Editor, Agentenwerkzeugen und Pica
 
-Die historische Matrix liegt unter `mcp/docs/PAGE-119-inventory.md`. Der aktuelle gemeinsame Vertrag umfasst:
+Der gemeinsame Vertrag umfasst:
 
-| Editor-Funktion                                                                                    | MCP / natives Pica-Werkzeug                                                                                | Gemeinsame Prüfung                                                                                           |
+| Editor-Funktion                                                                                    | Agentenwerkzeug / natives Pica-Werkzeug                                                                    | Gemeinsame Prüfung                                                                                           |
 | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Pläne finden, lesen, Quellen und eigene Runs/Berichte                                              | `list_plans`, `read_plan`, `read_plan_sources`, `list_plan_runs`, `read_plan_run`, `read_plan_run_reports` | Sichtbarkeit, Ressourcen, private Runs                                                                       |
 | Erstellen, Name/Freigabe/Workspace ändern, Nodes und Verbindungen bearbeiten                       | `create_plan`, `update_plan`                                                                               | Planservice, Graph, Rechte, erwartete Revision, Operationsjournal                                            |

@@ -41,22 +41,17 @@ export function createSecurityHeaders(): Record<string, string> {
 }
 
 /**
- * Page addresses whose address carries a one-time code, an authorization
- * request or the result of a connection: pairing, MCP consent and the
+ * Page addresses whose address carries the result of a connection: the
  * Discord result. Their documents are never stored and never name their
  * address to anyone, as they did with server rendering (PAGE-235).
  */
-export const SENSITIVE_DOCUMENT_PATHS: readonly string[] = [
-  "/pair",
-  "/mcp-login",
-  "/discord/result",
-];
+export const SENSITIVE_DOCUMENT_PATHS: readonly string[] = ["/discord/result"];
 
 /**
  * Builds the headers of the static app's document for one page address.
  *
  * @param pathname - The page address, decoded; compared as the router
- * matches it, so `/Pair/` counts as `/pair`.
+ * matches it, so `/Discord/Result/` counts as `/discord/result`.
  * @returns The security headers; `no-cache` so a new build arrives on the
  * next visit, or `no-store` and `no-referrer` for a sensitive address.
  */

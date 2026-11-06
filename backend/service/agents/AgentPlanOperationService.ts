@@ -60,7 +60,7 @@ function isPersonalEvidenceRead(operation: unknown, input: unknown): boolean {
 
 /**
  * Lists, reads, creates and changes agent plans, and reads runs and their reports,
- * for MCP clients and the chat.
+ * for the agent tools and the chat.
  *
  * @remarks
  * The adapter holds no right of its own: every call runs through the plan

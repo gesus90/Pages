@@ -179,7 +179,6 @@ it("blocks a run before leasing native capacity when a required dependency fails
   await expect(
     world.manager.ensureReady({
       provider: "codex_cli",
-      hasPagesMcp: true,
       browser: false,
       instanceId: "run",
     }),
@@ -192,14 +191,12 @@ it("requires explicit optional browser access and refuses removal during active 
   await expect(
     world.manager.ensureReady({
       provider: "codex_cli",
-      hasPagesMcp: true,
       browser: true,
       instanceId: "run",
     }),
   ).rejects.toMatchObject({ diagnostic: "disabled" });
   await world.manager.ensureReady({
     provider: "codex_cli",
-    hasPagesMcp: true,
     browser: false,
     instanceId: "run",
   });

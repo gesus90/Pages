@@ -18,22 +18,17 @@ const typedSourceFiles = [
   "language/**/*.ts",
   "tests/**/*.{ts,tsx}",
   "vitest.*.config.ts",
-  "mcp/src/**/*.ts",
-  "mcp/scripts/**/*.ts",
-  "mcp/tests/**/*.ts",
 ];
 
 /** ESLint flat configuration for Pages. */
 export default tseslint.config(
   {
-    // `mobile/` is an independent package with its own ESLint configuration.
     ignores: [
       "build/**",
       "**/coverage/**",
       "tests/browser/results/**",
       ".react-router/**",
       "**/dist/**",
-      "mobile/**",
       "core/target/**",
     ],
   },
@@ -57,7 +52,6 @@ export default tseslint.config(
       "definition/**/*.ts",
       "language/**/*.ts",
       "tests/backend/**/*.{ts,tsx}",
-      "mcp/**/*.ts",
       "*.config.{js,mjs,ts}",
     ],
     languageOptions: {

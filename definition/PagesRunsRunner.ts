@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { AGENT_RUN_REACHES } from "./McpAuthorization";
 import { runnerExecutionSchema } from "./RunnerExecution";
 import { runnerPlanBindingSchema } from "./RunnerProtocol";
 
@@ -40,7 +41,45 @@ export const pagesRunnerRequestSchema = z.discriminatedUnion("operation", [
   z
     .object({ ...step, operation: z.enum(["openPages", "closePages"]) })
     .strict(),
+  z
+    .object({
+      version: z.literal(1),
+      operation: z.literal("openPlanBridge"),
+      userId: z.string().min(1).max(200),
+      runId: z.string().min(1),
+      stepId: z.string().min(1),
+      instanceId: z.string().min(1),
+      tickets: z.array(
+        z.object({ id: z.string().min(1), key: z.string().min(1) }).strict(),
+      ),
+      lifetimeMs: z.number().int().min(0),
+      reach: z.enum(AGENT_RUN_REACHES),
+      canSetStatus: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      version: z.literal(1),
+      operation: z.literal("closePlanBridge"),
+      runId: z.string().min(1),
+      stepId: z.string().min(1).nullable(),
+    })
+    .strict(),
 ]);
+
+/** What the API answers to `openPlanBridge`: the bearer of the step and its tools, never the credential; none for a node without access. */
+export const pagesPlanBridgeOpenedSchema = z
+  .object({
+    access: z
+      .object({
+        token: z.string().min(1),
+        tools: z.array(z.string()).nullable(),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+export type PagesPlanBridgeOpened = z.infer<typeof pagesPlanBridgeOpenedSchema>;
 export type PagesRunnerRequest = z.infer<typeof pagesRunnerRequestSchema>;
 
 /** Live capabilities expire with their source observation; durable progress is read from PostgreSQL. */

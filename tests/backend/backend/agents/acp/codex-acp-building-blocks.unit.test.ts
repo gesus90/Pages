@@ -75,8 +75,6 @@ it("starts the adapter with the Codex CLI of the connection and keeps the MCP cr
     runnerFile: "/synthetic/bin/codex",
     profile,
     mcp: {
-      node: "/synthetic/bin/node",
-      bundle: "/synthetic/mcp.cjs",
       url: "http://pages.invalid",
       token: "secret-run-token",
       tools: null,
@@ -91,12 +89,12 @@ it("starts the adapter with the Codex CLI of the connection and keeps the MCP cr
   });
   expect(JSON.stringify(launch.environment)).not.toContain("secret-run-token");
   expect(
-    launch.mcpServers[0] && "env" in launch.mcpServers[0]
-      ? launch.mcpServers[0].env
+    launch.mcpServers[0] && "headers" in launch.mcpServers[0]
+      ? launch.mcpServers[0].headers
       : undefined,
   ).toContainEqual({
-    name: "PAGES_TOKEN",
-    value: "secret-run-token",
+    name: "Authorization",
+    value: "Bearer secret-run-token",
   });
   expect(
     planCodexAcpLaunch({

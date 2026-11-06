@@ -81,9 +81,9 @@ describe("test:backend command", () => {
     expect(scripts.test).toBeUndefined();
   });
 
-  it("keeps the frontend and MCP scopes out of the backend script", () => {
-    expect(scripts["test:backend"]).not.toMatch(/frontend|mcp|playwright/u);
-    expect(scripts["test:frontend"]).not.toMatch(/backend|mcp/u);
+  it("keeps the frontend scope out of the backend script", () => {
+    expect(scripts["test:backend"]).not.toMatch(/frontend|playwright/u);
+    expect(scripts["test:frontend"]).not.toMatch(/backend/u);
   });
 });
 
@@ -96,10 +96,10 @@ describe("backend discovery", () => {
     expect(backendConfig.test?.name).toBe("pages-backend-unit");
   });
 
-  it("does not select the frontend tree, the MCP package or other test kinds", () => {
+  it("does not select the frontend tree or other test kinds", () => {
     const include = JSON.stringify(backendConfig.test?.include);
 
-    expect(include).not.toMatch(/frontend|mcp|e2e|integration|smoke|live/u);
+    expect(include).not.toMatch(/frontend|e2e|integration|smoke|live/u);
     expect(backendConfig.test?.setupFiles ?? []).toEqual([]);
   });
 
@@ -120,7 +120,6 @@ describe("backend discovery", () => {
     ["tests/backend/new/service.test.ts", false],
     ["tests/backend/new/fixture.ts", false],
     ["tests/frontend/new/component.unit.test.tsx", false],
-    ["mcp/tests/new.unit.test.ts", false],
     ["backend/new/service.unit.test.ts", false],
   ])("selects %s: %s", (file, isSelected) => {
     const matches = discoveryPatterns().some((pattern) =>
@@ -138,21 +137,6 @@ describe("backend test boundaries", () => {
 
   it("finds the test sources to inspect", () => {
     expect(testFiles.length).toBeGreaterThan(0);
-  });
-
-  it("never imports the independent MCP package", () => {
-    const offenders = testFiles.flatMap((file) =>
-      readImports(file)
-        .filter((specifier) =>
-          resolvesInto(file, specifier, path.join(REPOSITORY_ROOT, "mcp")),
-        )
-        .map(
-          (specifier) =>
-            `${path.relative(REPOSITORY_ROOT, file)}: ${specifier}`,
-        ),
-    );
-
-    expect(offenders).toEqual([]);
   });
 
   it("never imports the frontend test tree", () => {

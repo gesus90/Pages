@@ -9,12 +9,11 @@ import { isSourceFile, walkFiles } from "./source-population.mjs";
 /**
  * Default maximum number of files checked per sequential ESLint process.
  *
- * Chosen from repository measurements (~3,520 linted files across root
- * `tsconfig.json` and `mcp/tsconfig.json`): `projectService: true` has a fixed
+ * Chosen from repository measurements: `projectService: true` has a fixed
  * ~5s / ~1.15 GiB V8-heap (~1.45 GiB RSS) bootstrap per TypeScript project.
- * Blocks of at most 200 files within one package boundary keep per-process peak
- * V8 heap around ~1.35-1.50 GiB and peak RSS around ~1.65-1.75 GiB while
- * releasing the TypeScript project context after every block.
+ * Blocks of at most 200 files keep per-process peak V8 heap around
+ * ~1.35-1.50 GiB and peak RSS around ~1.65-1.75 GiB while releasing the
+ * TypeScript project context after every block.
  */
 export const DEFAULT_BLOCK_SIZE = 200;
 
@@ -183,40 +182,23 @@ export async function discoverLintFiles(rootDir) {
 
 /**
  * Splits discovered files into deterministic, disjoint blocks of at most
- * `blockSize` files while keeping `mcp/**` (`mcp/tsconfig.json`) and root
- * project files (`tsconfig.json`) in separate blocks so a single ESLint child
- * process never loads both TypeScript programs simultaneously.
+ * `blockSize` files, so a single ESLint child process loads the TypeScript
+ * project (`tsconfig.json`) for a bounded number of files.
  */
 export function buildLintBlocks(files, blockSize) {
-  const rootScopeFiles = [];
-  const mcpScopeFiles = [];
-
-  for (const file of files) {
-    if (file.startsWith("mcp/")) {
-      mcpScopeFiles.push(file);
-    } else {
-      rootScopeFiles.push(file);
-    }
-  }
-
   const blocks = [];
-  for (const [scope, scopeFiles] of [
-    ["root", rootScopeFiles],
-    ["mcp", mcpScopeFiles],
-  ]) {
-    for (let offset = 0; offset < scopeFiles.length; offset += blockSize) {
-      const slice = scopeFiles.slice(offset, offset + blockSize);
-      const argChars = slice.reduce((sum, item) => sum + item.length + 1, 0);
-      if (argChars > MAX_CLI_ARG_CHARS) {
-        throw new Error(
-          `Block CLI arguments (${argChars} chars) exceed safe limit (${MAX_CLI_ARG_CHARS} chars); reduce --block-size.`,
-        );
-      }
-      blocks.push({
-        scope,
-        files: slice,
-      });
+  for (let offset = 0; offset < files.length; offset += blockSize) {
+    const slice = files.slice(offset, offset + blockSize);
+    const argChars = slice.reduce((sum, item) => sum + item.length + 1, 0);
+    if (argChars > MAX_CLI_ARG_CHARS) {
+      throw new Error(
+        `Block CLI arguments (${argChars} chars) exceed safe limit (${MAX_CLI_ARG_CHARS} chars); reduce --block-size.`,
+      );
     }
+    blocks.push({
+      scope: "root",
+      files: slice,
+    });
   }
 
   return blocks.map((block, index) => ({

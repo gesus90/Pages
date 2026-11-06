@@ -68,33 +68,6 @@ it("contains the Antigravity probe in its own PID namespace", async () => {
   expect(endTaggedProcesses).not.toHaveBeenCalled();
 });
 
-it("contains the Pages MCP readiness probe in its own PID namespace", async () => {
-  const world = toolWorld();
-  const fake = toolMcpSpawn();
-  const spawn = vi.fn(fake.spawn);
-  const health = new AgentToolHealthService({
-    files: world.storage,
-    runner: new CliProcessRunner({
-      spawn,
-      signalGroup: () => undefined,
-    }),
-    resolve: async () => null,
-  });
-  await expect(
-    health.check(
-      agentToolDefinition("pages_mcp"),
-      toolLocation("pages_mcp"),
-      new AbortController().signal,
-    ),
-  ).resolves.toMatchObject({ status: "ready" });
-  expect(fake.methods).toEqual(["initialize"]);
-  const [file, args] = spawn.mock.calls[0] ?? [];
-  expect(file).toBe("/usr/bin/bwrap");
-  expect(args).toContain("--unshare-pid");
-  expect(args).toContain("health-check");
-  expect(endTaggedProcesses).not.toHaveBeenCalled();
-});
-
 it("initializes the real ACP client contract with a fake process without a session or model prompt", async () => {
   const world = toolWorld();
   const fake = fakeCliSpawn();

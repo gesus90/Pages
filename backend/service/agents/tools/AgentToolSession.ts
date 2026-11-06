@@ -128,7 +128,6 @@ async function waitForAgentTools(input: {
   const ready = manager
     .ensureReady({
       provider,
-      hasPagesMcp: request.mcp !== null,
       browser: request.options.browser === true && !request.chat,
       instanceId: request.instanceId,
     })

@@ -1,3 +1,4 @@
+import { restoredLocalMcp } from "@/backend/agents/local/LocalSessionContracts";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
@@ -192,7 +193,7 @@ async function restoreHolder(
     record,
     stepId: node.step.step.id,
     userId: node.run.userId,
-    mcp: launch.mcp,
+    mcp: restoredLocalMcp(launch),
     session,
     started: started?.kind === "started" ? started.details : null,
     turns: position?.kind === "position" ? position.turns : undefined,
@@ -221,7 +222,7 @@ async function restoredInput(
     directory: record.requested.directory,
     options: record.requested.options,
     instanceId: record.instanceId,
-    mcp: launch.mcp,
+    mcp: restoredLocalMcp(launch),
     prompt: launch.prompt,
     acceptanceInstruction: launch.instruction,
     recording: sessionStart(node, record.instanceId) ?? undefined,

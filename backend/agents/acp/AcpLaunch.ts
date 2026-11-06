@@ -1,12 +1,11 @@
-import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
+import {
+  CORRELATION_ENVIRONMENT_VARIABLE,
+  CORRELATION_HEADER,
+} from "@/definition/RequestCorrelation";
 
-import type {
-  McpServer,
-  McpServerStdio,
-  McpCapabilities,
-} from "@agentclientprotocol/sdk";
+import type { McpServer, McpCapabilities } from "@agentclientprotocol/sdk";
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 
 /** The name of the Pages MCP server in every session. */
@@ -31,36 +30,35 @@ export function requireAcpMcpCapabilities(
   }
 }
 
+/** Where the plan bridge listens, below the address of this Pages instance. */
+const PLAN_BRIDGE_PATH = "/api/v1/plan-bridge";
+
 /**
  * The Pages MCP server of one session, or none for a node without MCP access.
  *
- * @param instanceId - The tag every process of the session carries.
- * @param mcp - The local MCP process of the node and how it reaches Pages.
+ * @param mcp - The step-bound bridge access of the node and how it reaches Pages.
  * @returns The server entry for `session/new`.
  *
  * @remarks
  * The credential travels in the `session/new` request over the input of the
- * adapter, never in an argument list. The instance tag also reaches the MCP
- * process, so the closeout finds it.
+ * adapter, never in an argument list or a process environment. The adapter
+ * itself connects to the plan bridge of Pages; no further process starts.
  */
 export function pagesMcpServers(
-  instanceId: string,
   mcp: CliSessionMcp | null,
-): readonly McpServerStdio[] {
+): readonly McpServer[] {
   if (mcp === null) return [];
   return [
     {
+      type: "http",
       name: PAGES_MCP_SERVER,
-      command: mcp.node,
-      args: [mcp.bundle],
-      env: [
-        { name: "PAGES_URL", value: mcp.url },
-        { name: "PAGES_TOKEN", value: mcp.token },
-        { name: RUN_INSTANCE_VARIABLE, value: instanceId },
-        ...Object.entries(correlationEnvironment()).map(([name, value]) => ({
-          name,
-          value,
-        })),
+      url: `${mcp.url.replace(/\/$/u, "")}${PLAN_BRIDGE_PATH}`,
+      headers: [
+        { name: "Authorization", value: `Bearer ${mcp.token}` },
+        {
+          name: CORRELATION_HEADER,
+          value: correlationEnvironment()[CORRELATION_ENVIRONMENT_VARIABLE],
+        },
       ],
     },
   ];

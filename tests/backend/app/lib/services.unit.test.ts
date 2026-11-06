@@ -296,11 +296,7 @@ it("builds the plans on the agents and ends plan runs before a project is delete
     agents: world.agents,
     tasks: only(vi.mocked(AnnouncingTaskService)),
     users: only(vi.mocked(UserService)),
-    mcp: {
-      bundle: "/srv/pages/mcp/pages-mcp.mjs",
-      url: "http://127.0.0.1:3100",
-      node: process.execPath,
-    },
+    mcp: { url: "http://127.0.0.1:3100" },
   });
   await expect(input.api()).resolves.toEqual(opaque("agent api"));
   expect(vi.mocked(ProjectDeletionStorage).mock.calls).toEqual([

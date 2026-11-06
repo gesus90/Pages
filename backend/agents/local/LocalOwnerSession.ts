@@ -36,6 +36,9 @@ import type {
 } from "./LocalSessionContracts";
 import type { LocalSessionJournal } from "./LocalSessionJournal";
 
+/** The API hands the bearer over right after it attached; a start without it fails. */
+const BEARER_WAIT_MS = 60_000;
+
 interface OwnerDependencies {
   readonly database: Database;
   readonly runs: AgentPlanRunRepository;
@@ -61,6 +64,8 @@ export class LocalOwnerSession {
   private turns = 0;
   private canConfirmNoSession = true;
   private launch: LocalSessionLaunch;
+  /** The plan bridge bearer; it arrives over the private socket and never reaches a file. */
+  private readonly bearer = localDeferred<string>();
   private closing: Promise<PlanSessionClosed> | null = null;
   private cancellation: Promise<void> | null = null;
   private checkingStop = false;
@@ -118,6 +123,11 @@ export class LocalOwnerSession {
       this.session.next(input, this.controller.signal, this.observer()),
       launch,
     );
+  }
+
+  /** Takes the plan bridge bearer into memory; the first one wins. */
+  public receiveBearer(token: string): void {
+    this.bearer.resolve(token);
   }
 
   /** A user's durable Stop ends only this owner's native session. */
@@ -251,7 +261,10 @@ export class LocalOwnerSession {
   ): Promise<
     Awaited<ReturnType<AgentLocalSessionPreparation["prepare"]>>["input"]
   > {
-    const prepared = await this.dependencies.preparation.prepare(launch);
+    const prepared = await this.dependencies.preparation.prepare(
+      launch,
+      await this.bearerFor(launch),
+    );
     const shared = this.recorder?.current;
     await this.listener?.drained();
     const attempt = {
@@ -286,6 +299,22 @@ export class LocalOwnerSession {
     this.listener ??= new LocalAcpJournalListener(this.recorder, this.journal);
     await this.recorder.drained();
     return { ...prepared.input, journal: this.listener };
+  }
+
+  private async bearerFor(launch: LocalSessionLaunch): Promise<string | null> {
+    if (launch.mcp === null) return null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new AgentError("plan_mcp_unavailable")),
+        BEARER_WAIT_MS,
+      );
+    });
+    try {
+      return await Promise.race([this.bearer.promise, expired]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private observer(): PlanSessionObserver {

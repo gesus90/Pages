@@ -35,7 +35,7 @@ function forbiddenImport(file: string, specifier: string): boolean {
     ? path.resolve(path.dirname(file), specifier)
     : path.resolve(REPOSITORY_ROOT, specifier.replace(/^@\//u, ""));
   return (
-    ["mcp", "tests/backend"].some((area) => {
+    ["tests/backend"].some((area) => {
       const root = path.resolve(REPOSITORY_ROOT, area);
       return target === root || target.startsWith(`${root}${path.sep}`);
     }) ||
@@ -67,7 +67,7 @@ describe("frontend command and discovery", () => {
       "vitest run --config vitest.frontend.config.ts --coverage",
     );
     expect(scripts["test:frontend"]).not.toMatch(
-      /backend|mcp|browser|e2e|integration/u,
+      /backend|browser|e2e|integration/u,
     );
   });
 
@@ -100,7 +100,6 @@ describe("frontend command and discovery", () => {
     ["tests/frontend/new/fixture.tsx", false],
     ["tests/backend/new/route.unit.test.tsx", false],
     ["tests/e2e/component.unit.test.tsx", false],
-    ["mcp/tests/component.unit.test.ts", false],
     ["app/components/new.unit.test.tsx", false],
   ])("selects %s: %s", (file, isSelected) => {
     expect(patterns().some((pattern) => path.matchesGlob(file, pattern))).toBe(

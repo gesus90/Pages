@@ -3,6 +3,8 @@ import { z } from "zod";
 import { AGENT_ERROR_MESSAGES } from "@/backend/error/AgentErrors";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
+import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
+
 const identifier = z.uuid();
 const text = z.string().max(200_000);
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -14,7 +16,11 @@ const reported = z.object({
   reportedAt: z.string().nullable(),
 });
 
-/** An immutable native turn request; it contains no provider credential. */
+/**
+ * An immutable native turn request; it contains no provider credential and no
+ * plan bridge bearer. The bearer reaches the owner only through the `bearer`
+ * command of the private socket and stays in its memory.
+ */
 export const localLaunchSchema = z.object({
   runId: identifier,
   stepId: identifier,
@@ -30,10 +36,7 @@ export const localLaunchSchema = z.object({
   timeoutMinutes: count,
   mcp: z
     .object({
-      node: z.string(),
-      bundle: z.string(),
       url: z.string(),
-      token: z.string().max(4096),
       tools: z.array(z.string()).nullable(),
     })
     .nullable(),
@@ -271,6 +274,7 @@ export const localJournalRecordSchema = z.object({
 /** Authenticated IPC commands are bounded independently of journal contents. */
 export const localCommandSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("attach"), token: identifier }),
+  z.object({ kind: z.literal("bearer"), token: z.string().min(43).max(128) }),
   z.object({ kind: z.literal("read"), after: count, limit: count.max(200) }),
   z.object({ kind: z.literal("ack"), sequence: count, digest: z.string() }),
   z.object({ kind: z.literal("cancel") }),
@@ -285,6 +289,19 @@ export const localCommandSchema = z.discriminatedUnion("kind", [
 ]);
 
 export type LocalSessionLaunch = z.infer<typeof localLaunchSchema>;
+
+/**
+ * The Pages tool access of a restored native session as the plan engine sees it.
+ *
+ * @param launch - The stored turn request of the session.
+ * @returns The address and tools without a bearer: the bearer lives only in
+ * the memory of the owner, and the engine never needs it again.
+ */
+export function restoredLocalMcp(
+  launch: LocalSessionLaunch,
+): CliSessionMcp | null {
+  return launch.mcp === null ? null : { ...launch.mcp, token: "" };
+}
 export type LocalOwnerManifest = z.infer<typeof localOwnerManifestSchema>;
 export type LocalOwnerProof = z.infer<typeof localOwnerProofSchema>;
 export type LocalSessionMutation = z.infer<typeof localMutationSchema>;

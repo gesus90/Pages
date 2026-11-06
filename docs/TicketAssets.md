@@ -16,7 +16,7 @@ Attachment URLs remain `/aufgaben/attachments/<attachment-uuid>`.
 
 ## Upload and save
 
-The ticket UI uploads directly to the ticket store. MCP clients preparing an
+The ticket UI uploads directly to the ticket store. Agents preparing an
 upload to an existing ticket pass `{fileName, ticketId}` to
 `prepare_asset_upload`; `ticketId` is its immutable UUID. The binary response
 returns the permanent attachment link and `expiresAt: null`.

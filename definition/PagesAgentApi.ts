@@ -6,7 +6,6 @@ import type { AgentTextRangeReadOperation } from "./AgentTextRange.js";
 import type { AgentWorkspaceReadOperation } from "./AgentWorkspaceOperations.js";
 import type { AgentPlanReadOperation } from "./AgentPlanOperations.js";
 import type { PageAgentReadOperation } from "./PageAgentOperations.js";
-import type { McpCredentialDetails } from "./McpPairing.js";
 import type { PagesAgentWriteOperation } from "./PagesAgentWrites.js";
 import type {
   PagesAgentCommentOperation,
@@ -55,7 +54,6 @@ export interface PagesAgentApiVerification {
   readonly apiVersion: "1";
   readonly identity: PagesAgentApiIdentity;
   readonly tools: readonly PagesAgentApiBusinessOperation[];
-  readonly credential?: McpCredentialDetails | null;
 }
 
 /** Result of `projects.names.list`: names only, without identifiers or content. */

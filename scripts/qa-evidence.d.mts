@@ -42,7 +42,7 @@ export function inspectDependencies(input: {
 
 export function evaluateHandoff(
   text: string,
-  report: "pages" | "mcp",
+  report: "pages",
   currentFingerprint: string,
 ): readonly string[];
 
@@ -53,7 +53,7 @@ export function isSummaryStale(
 
 export const COVERAGE_POPULATIONS: Readonly<
   Record<
-    "backend" | "frontend" | "mcp",
+    "backend" | "frontend",
     {
       readonly directory: string;
       readonly include: readonly string[];
@@ -65,19 +65,19 @@ export const COVERAGE_POPULATIONS: Readonly<
 export function populationIssues(
   summaryFiles: readonly string[],
   files: readonly string[],
-  scope: "backend" | "frontend" | "mcp",
+  scope: "backend" | "frontend",
   root: string,
 ): readonly string[];
 
 export function currentManifest(
   root: string,
-  scope: "pages" | "mcp",
+  scope: "pages",
   listTracked?: (root: string) => readonly string[],
 ): EvidenceManifest;
 
 export function handoffIssues(
   root: string,
-  report: "pages" | "mcp",
+  report: "pages",
   text: string,
   listTracked?: (root: string) => readonly string[],
 ): readonly string[];

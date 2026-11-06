@@ -757,7 +757,7 @@
         "plan_run_unreadable": "The stored record of this run is damaged and cannot be read.",
         "plan_start_rejection_record_failed": "The start was refused, but its diagnosis could not be saved. Check database availability before trying again.",
         "plan_run_option_unsupported": "The runner cannot enforce the run options of this agent, such as read-only access with commands. Change the run options.",
-        "plan_mcp_unavailable": "The node needs the Pages MCP adapter for agent sessions, but this server has none.",
+        "plan_mcp_unavailable": "The agent of the node cannot reach the Pages tools of its step.",
         "plan_work_gate_failed": "Current ticket work is not confirmed. Complete relevant TODOs and confirm actual evidence for every required check before completion or a successor can start.",
         "plan_work_gate_unavailable": "The required ticket check needs TODO progress, bound tickets and a writable CLI session. Group and loop members are not supported in version 1.",
         "plan_work_gate_write_required": "The executor needs current ticket and project write rights before this node starts.",
@@ -1424,7 +1424,7 @@
     },
     "connections": {
       "title": "Connections",
-      "description": "MCP clients that access Pages on your behalf. They never get more permissions than your account.",
+      "description": "Apps that connect to Pages with your account.",
       "picaMobile": {
         "title": "Pica Mobile",
         "description": "Connect Pica Mobile to Pages.",
@@ -1449,75 +1449,10 @@
           "general": "The port could not be saved. Try again."
         }
       },
-      "stdio": {
-        "title": "Personal MCP connections",
-        "description": "Manage stdio, HTTP pairing and OAuth connections for your account.",
-        "pair": "Pair client",
-        "column": {
-          "name": "Name",
-          "status": "Status",
-          "created": "Created",
-          "lastUsed": "Last used",
-          "expires": "Valid until",
-          "actions": "Actions"
-        },
-        "source": {
-          "pairing": "Paired",
-          "manual": "Created manually",
-          "oauth": "HTTP · OAuth"
-        },
-        "status": {
-          "active": "Active",
-          "rotationPending": "Rotation pending",
-          "expired": "Expired",
-          "revoked": "Revoked"
-        },
-        "rotated": "rotated {{time}}",
-        "ended": "Ended connections ({{count}})",
-        "empty": {
-          "title": "No MCP client paired yet.",
-          "description": "Start pairing in the terminal of the device that runs your MCP client.",
-          "action": "Show instructions"
-        }
-      },
-      "menu": {
-        "label": "Actions for {{name}}",
-        "rotate": "Request rotation …",
-        "revoke": "Revoke …"
-      },
-      "revoke": {
-        "title": "Revoke connection?",
-        "description": "“{{name}}” loses access to Pages immediately. Pair the client again to use it.",
-        "confirm": "Revoke",
-        "success": "Connection revoked."
-      },
-      "rotate": {
-        "title": "Request rotation?",
-        "description": "“{{name}}” automatically receives a new access value with its next request; the old one then stops working. Name, validity and permissions stay the same. The new value never appears in the browser.",
-        "hint": "If you suspect misuse, revoke the connection instead.",
-        "confirm": "Request rotation",
-        "success": "Rotation requested."
-      },
-      "guide": {
-        "title": "Pair MCP client",
-        "description": "Pairing starts on the device that runs your MCP client.",
-        "step1": "Run in the terminal:",
-        "step2": "Confirm the link in the browser. If no browser opens, enter the code at {{origin}}/pair.",
-        "step3": "In the MCP client, set only PAGES_URL; the paired access is used automatically.",
-        "addressHint": "If the client reaches Pages at a different address, adjust it.",
-        "copy": "Copy command",
-        "enterCode": "Enter code",
-        "close": "Close",
-        "copied": "Command copied.",
-        "copyError": "Could not copy. Select the command and copy it manually."
-      },
       "error": {
         "load": "Connections could not be loaded.",
-        "action": "The change could not be saved. Please try again.",
         "retry": "Try again"
       },
-      "save": "Save",
-      "cancel": "Cancel",
       "loading": "Loading connections"
     },
     "terminal": {
@@ -5787,85 +5722,6 @@
       }
     }
   },
-  "mcpDuration": {
-    "label": "Validity in days",
-    "hint": "1 to 365 days. 0 means unlimited.",
-    "unlimited": "Unlimited",
-    "current": "Current: {{duration}}"
-  },
-  "mcpPairing": {
-    "title": "Connect MCP client",
-    "subtitle": "An MCP client wants to access this Pages instance on your behalf.",
-    "warning": "Only confirm a pairing that you have just started yourself.",
-    "approve": "Connect",
-    "deny": "Deny",
-    "code": {
-      "label": "Pairing code",
-      "compare": "Compare the code with your terminal.",
-      "validUntil": "Valid until {{time}}.",
-      "spoken": "Pairing code: {{letters}}"
-    },
-    "details": {
-      "client": "Client",
-      "clientHint": "stated by the client",
-      "device": "Device",
-      "version": "Package version",
-      "requested": "Requested",
-      "account": "Account",
-      "switchAccount": "Use another account"
-    },
-    "form": {
-      "name": "Connection name",
-      "nameHint": "The connection appears under this name in your settings.",
-      "nameDefault": "{{client}} on {{device}}",
-      "validity": "Validity",
-      "validityHint": "After that, the client must be paired again.",
-      "confirmMatch": "The code matches my terminal, and I started this pairing myself.",
-      "error": {
-        "name": "Enter a name.",
-        "confirmMatch": "Confirm that the code matches."
-      }
-    },
-    "rights": "The client gets the same permissions as your account, no more. Pages checks them on every call. You can revoke the connection at any time under Settings › Connections.",
-    "rightsAdmin": "Your admin permission applies via MCP regardless of the selected mode.",
-    "enter": {
-      "description": "Enter the code shown by the pairing command in your terminal.",
-      "label": "Pairing code",
-      "hint": "Eight letters, e.g. BCDF-GHJK.",
-      "submit": "Continue",
-      "errorFormat": "Enter the eight-letter code.",
-      "errorLocked": "Too many attempts. Try again in {{minutes}} minutes."
-    },
-    "approved": {
-      "title": "Connection confirmed",
-      "description": "The client takes over the access automatically. You can then close this window.",
-      "waiting": "Waiting for the client …",
-      "claimed": "The client has taken over the access.",
-      "notClaimed": "The client did not collect the access. Start pairing again in the terminal.",
-      "cancelled": "The client cancelled the pairing.",
-      "open": "Open connections"
-    },
-    "denied": {
-      "title": "Pairing denied",
-      "description": "The client gets no access. If you did not start this pairing yourself, nothing else is needed.",
-      "dashboard": "Go to dashboard"
-    },
-    "invalid": {
-      "title": "Invalid code",
-      "description": "This pairing code is invalid, expired or already used. Start pairing again in the terminal."
-    },
-    "expired": {
-      "title": "Code expired",
-      "description": "The code has expired. Start pairing again in the terminal."
-    },
-    "cancelled": {
-      "title": "Pairing cancelled",
-      "description": "The client ended the pairing. No access was granted."
-    },
-    "error": {
-      "decision": "The decision could not be saved. Please try again."
-    }
-  },
   "pageAgents": {
     "create": "Create agent",
     "noModels": "No authorized admin model is available.",
@@ -5972,7 +5828,6 @@
     "activity": "Instance {{instance}} · PID {{pid}} · session {{session}}",
     "authentication": "Connection {{connection}}: {{status}}",
     "namespace": "Functional namespace probe",
-    "bundled": "Bundled version",
     "names": {
       "node": "Node.js",
       "bubblewrap": "Bubblewrap",
@@ -5981,7 +5836,6 @@
       "opencode": "OpenCode CLI / native ACP",
       "codex_acp": "Codex ACP",
       "claude_acp": "Claude ACP (external)",
-      "pages_mcp": "Pages MCP",
       "playwright_mcp": "Playwright MCP",
       "chromium": "Chromium",
       "firefox": "Firefox (optional)",
@@ -6068,18 +5922,6 @@
       "accessUnverified": "Access to this connection is not verified. Verify it in the agent settings first.",
       "profileSelectionRequired": "Multiple profiles are available. Explicitly choose a connection."
     }
-  },
-  "mcpHttp": {
-    "title": "Connect an MCP client",
-    "description": "Approve access with your current Pages permissions. Client labels are supplied by the requesting application.",
-    "instance": "Pages instance",
-    "lifetime": "Access expires after one hour or earlier if revoked or your account loses access. Renew by signing in and approving again.",
-    "approve": "Allow access",
-    "deny": "Deny",
-    "error": "This request is invalid, expired or already used. Start a new connection in your client.",
-    "pair": "Enter a pairing code",
-    "endpoint": "HTTP MCP endpoint",
-    "hint": "Use OAuth in a compatible HTTP client, or enter a pairing code. Keep bearer tokens in the client’s protected credentials."
   },
   "picaSettings": {
     "title": "Pica · Chat assistant",

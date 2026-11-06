@@ -117,7 +117,6 @@ export class LocalSessions {
           pinLocalSessionTools(this.input.tools, {
             instanceId: entry.instanceId,
             provider: record.runner,
-            hasMcp: owned.manifest.launch.mcp !== null,
             browser: record.requested.options?.browser === true,
           });
       } catch (error: unknown) {
@@ -374,7 +373,6 @@ export class LocalSessions {
     pinLocalSessionTools(this.input.tools, {
       instanceId: entry.instanceId,
       provider: input.recording.provider,
-      hasMcp: launch.mcp !== null,
       browser: input.options.browser === true,
     });
     try {
@@ -386,6 +384,9 @@ export class LocalSessions {
       this.proven.add(entry.instanceId);
       this.launching.delete(entry.instanceId);
       const raw = await this.bind(entry, launch, admitted, observer);
+      // The bearer travels only through the private socket into the owner's memory.
+      if (input.mcp)
+        await this.control(entry, { kind: "bearer", token: input.mcp.token });
       // The scheduler wraps this exact proxy after the callback returns.
       return raw;
     } catch (error: unknown) {
@@ -450,7 +451,10 @@ export class LocalSessions {
   private launch(
     input: AgentPlanExecutionInput,
     instanceId: string,
-    mcp: AgentPlanSessionInput["mcp"],
+    mcp: {
+      readonly url: string;
+      readonly tools: readonly string[] | null;
+    } | null,
     timeoutMinutes: number,
   ): LocalSessionLaunch {
     const recording = input.recording;
@@ -469,7 +473,9 @@ export class LocalSessions {
       userId: input.userId,
       prompt: input.prompt,
       instruction: input.acceptanceInstruction ?? "",
-      mcp,
+      mcp: mcp
+        ? { url: mcp.url, tools: mcp.tools ? [...mcp.tools] : null }
+        : null,
       timeoutMinutes,
       resumeSessionId:
         "resumeSessionId" in input ? input.resumeSessionId : null,

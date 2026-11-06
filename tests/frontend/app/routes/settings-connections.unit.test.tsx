@@ -12,7 +12,7 @@ import SettingsConnectionsRoute, {
 
 import type * as ReactRouter from "react-router";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
-import type { McpConnectionsView } from "@/definition/McpConnections";
+import type { ConnectionsView } from "@/definition/Connections";
 
 const revalidate = vi.hoisted(() => vi.fn());
 vi.mock("react-router", async (importOriginal) => ({
@@ -33,12 +33,8 @@ beforeEach(() => {
   revalidate.mockReset();
 });
 
-const view: McpConnectionsView & { readonly audience: LocalStateAudience } = {
+const view: ConnectionsView & { readonly audience: LocalStateAudience } = {
   audience: { userId: "user-1", authorizationVersion: "account:pica:1" },
-  origin: "https://pages.example",
-  packageVersion: "1.2.3",
-  tokens: [],
-  validityDays: 30,
 };
 const i18n = createI18n("en");
 
@@ -53,25 +49,12 @@ function renderRoute(element: React.ReactElement): void {
   );
 }
 
-it("shows the empty connections state and opens instructions using public metadata", async () => {
+it("shows the connections section using public metadata", async () => {
   renderRoute(<SettingsConnectionsRoute />);
   expect(
-    await screen.findByText(i18n.t("settings.connections.stdio.empty.title")),
-  ).toBeTruthy();
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: i18n.t("settings.connections.stdio.pair"),
+    await screen.findByRole("heading", {
+      name: i18n.t("settings.connections.title"),
     }),
-  );
-  expect(
-    screen.getByRole("dialog", {
-      name: i18n.t("settings.connections.guide.title"),
-    }),
-  ).toBeTruthy();
-  expect(
-    screen.getByText(
-      "node pages-mcp-v1.2.3.js pair --url https://pages.example",
-    ),
   ).toBeTruthy();
   expect(getAuthenticatedUser).not.toHaveBeenCalled();
   expect(getApplicationServices).not.toHaveBeenCalled();

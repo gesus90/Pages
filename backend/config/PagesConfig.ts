@@ -7,12 +7,11 @@ import { PICA_MOBILE_REPLAY_TTL_RANGE_SECONDS } from "@/definition/PicaMobileNot
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { readAgentGitBridges } from "./AgentGitBridgeConfig";
-import { readMcpHttpConfig } from "./McpHttpConfig";
+import { readPublicAddressConfig } from "./PublicAddressConfig";
 import { readAcpResourceSettings } from "./AcpResourceSettings";
 import { parseTrustedProxyEntry } from "./TrustedProxies";
 
 import type { AgentGitBridgeSetting } from "./AgentGitBridgeConfig";
-import type { McpHttpConfig } from "./McpHttpConfig";
 import type { InterpreterProfile } from "@/definition/InterpreterProfile";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { TomlTable } from "smol-toml";
@@ -46,7 +45,8 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly runsMode?: "server" | "separate";
   readonly port: number;
   readonly listenAddress?: string;
-  readonly mcpHttp?: McpHttpConfig;
+  /** Origin users reach this instance at; Pica's operator browser treats it as a Pages origin. */
+  readonly publicUrl?: string;
   /** Port of the Pica Mobile WebSocket endpoint; missing: the endpoint is off. */
   readonly picaMobilePort?: number;
   /**
@@ -314,7 +314,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const integrations = readIntegrationsConfig(table, source);
   const runs = readRunsConfig(table, source);
   const acpResources = readAcpResourceSettings(table);
-  const mcpHttp = readMcpHttpConfig(table);
+  const address = readPublicAddressConfig(table);
   const firstRun = readFirstRun(table, source);
   const port = readPort(table, source);
   const databasePath = readDatabasePath(table, source);
@@ -333,7 +333,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
       ...runs,
       ...acpResources,
       ...gitBridges,
-      ...mcpHttp,
+      ...address,
       ...picaMobile,
       ...logging,
       ...interpreters,
@@ -362,7 +362,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     ...runs,
     ...acpResources,
     ...gitBridges,
-    ...mcpHttp,
+    ...address,
     ...picaMobile,
     ...logging,
     ...interpreters,
@@ -607,7 +607,9 @@ export function writePagesConfig(
   writeServiceModes(document, config);
   if (config.listenAddress !== undefined)
     document.listenAddress = config.listenAddress;
-  if (config.mcpHttp !== undefined) document.mcpHttp = { ...config.mcpHttp };
+  // The origin moves from the key of the removed MCP endpoint to its own key.
+  delete document.mcpHttp;
+  if (config.publicUrl !== undefined) document.publicUrl = config.publicUrl;
   writePicaMobileSettings(document, config);
   if (config.interpreterProfiles !== undefined)
     document.interpreterProfiles = config.interpreterProfiles.map(

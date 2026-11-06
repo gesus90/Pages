@@ -84,7 +84,7 @@ function splitPath(pathname: string): string[] {
  *
  * @remarks
  * React Router matches page addresses regardless of case and of trailing
- * slashes, so `/Pair/` opens the pairing page like `/pair`. A list of page
+ * slashes, so `/Discord/Result/` opens the result page like `/discord/result`. A list of page
  * addresses has to be compared in this form to cover every address of a page.
  */
 export function normalizePagePath(pathname: string): string {

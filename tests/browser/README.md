@@ -20,9 +20,7 @@ as the `playwright-core` the agent tools already use.
 ## Prerequisites
 
 1. `pnpm install --frozen-lockfile` in the repository root.
-2. `pnpm --dir mcp install --frozen-lockfile`: the Pages build bundles the
-   independent MCP package, so its dependencies must exist.
-3. A Chromium for Playwright: `pnpm exec playwright install chromium` downloads
+2. A Chromium for Playwright: `pnpm exec playwright install chromium` downloads
    it into the Playwright cache. On a machine that lacks the system libraries
    Chromium needs, `pnpm exec playwright install --with-deps chromium` installs
    them too and needs `sudo`. Playwright looks for the exact browser revision
@@ -37,7 +35,7 @@ as the `playwright-core` the agent tools already use.
    because a copied cache can lack the execute bit, and installs the revision
    into `$XDG_CACHE_HOME/pages-browser-tests` when none starts. It never changes
    the mode of a file or switches the Chromium sandbox off.
-4. Port 3100 free. A process that already listens on it is never touched:
+3. Port 3100 free. A process that already listens on it is never touched:
    `pnpm run browser:test` takes a free loopback port instead, and
    `PAGES_BROWSER_PORT` names one explicitly. Port 3000 is always refused.
 

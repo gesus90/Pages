@@ -130,8 +130,6 @@ it("starts the adapter with the Claude CLI of the connection and keeps the MCP c
     runnerFile: "/synthetic/bin/claude",
     profile,
     mcp: {
-      node: "/synthetic/bin/node",
-      bundle: "/synthetic/mcp.cjs",
       url: "http://pages.invalid",
       token: "secret-run-token",
       tools: null,
@@ -150,14 +148,12 @@ it("starts the adapter with the Claude CLI of the connection and keeps the MCP c
   });
   expect(launch.mcpServers).toEqual([
     {
+      type: "http",
       name: "pages",
-      command: "/synthetic/bin/node",
-      args: ["/synthetic/mcp.cjs"],
-      env: [
-        { name: "PAGES_URL", value: "http://pages.invalid" },
-        { name: "PAGES_TOKEN", value: "secret-run-token" },
-        { name: "PAGES_RUN_INSTANCE", value: "instance" },
-        { name: "PAGES_CORRELATION_ID", value: correlationIdMatcher },
+      url: "http://pages.invalid/api/v1/plan-bridge",
+      headers: [
+        { name: "Authorization", value: "Bearer secret-run-token" },
+        { name: "X-Correlation-ID", value: correlationIdMatcher },
       ],
     },
   ]);

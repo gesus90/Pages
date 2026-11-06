@@ -12,13 +12,11 @@ async function requirePasswordChange(request: Request): Promise<User> {
   const user = await getAuthenticatedUser(request);
 
   if (!user) {
-    throw redirect(
-      `/login?returnTo=${encodeURIComponent(loginDestination(request))}`,
-    );
+    throw redirect(`/login?returnTo=${encodeURIComponent(loginDestination())}`);
   }
 
   if (!user.mustChangePassword) {
-    throw redirect(loginDestination(request));
+    throw redirect(loginDestination());
   }
 
   return user;
@@ -57,6 +55,6 @@ export async function action({
   });
 
   return result.data.outcome === "success"
-    ? redirect(loginDestination(request))
+    ? redirect(loginDestination())
     : result;
 }

@@ -855,5 +855,5 @@ Ein Abbruch wegen verlorener Verbindung (1006) oder Pages-Neustart (1001) ist no
 ## Entwurfsentscheidungen
 
 - **Eigener Port statt Pfad am Webserver.** Die App-Adresse bleibt unabhängig vom Webserver (und von einem späteren Proxy) und der Administrator wählt den Port. Der Endpunkt ist standardmäßig aus.
-- **Sitzungen statt neuer Tokenart.** Die vorhandenen Pairing- und Personal-Tokens gehören zu MCP-Agenten mit eigenem Geltungsbereich; Pica Mobile ist ein Client des Benutzers selbst, deshalb nutzt es dessen Login und Sitzung.
+- **Sitzungen statt neuer Tokenart.** Pica Mobile ist ein Client des Benutzers selbst, deshalb nutzt es dessen Login und Sitzung statt eines eigenen Tokens.
 - **`version` in jeder Nachricht.** So lässt sich Version 2 neben Version 1 einführen, ohne dass der Handshake sich ändert; Pages nennt in `unsupported_version` die unterstützten Versionen.

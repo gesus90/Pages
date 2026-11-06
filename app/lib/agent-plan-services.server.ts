@@ -2,6 +2,8 @@ import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
 import { QueuedPlanRunEngine } from "@/backend/service/agents/runs/QueuedPlanRunEngine";
+import { RunApiPlanAccess } from "@/backend/service/agents/runs/RunApiPlanAccess";
+import { runApiSocketPath } from "@/backend/service/agents/runs/RunApiBridge";
 import { runsSocketPath } from "@/backend/service/agents/runs/RunsSocket";
 import { AgentLocalSessionPreparation } from "@/backend/service/agents/AgentLocalSessionPreparation";
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
@@ -40,6 +42,9 @@ import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
 import { AgentPlanSessionAccess } from "@/backend/service/agents/AgentPlanSessionAccess";
+import { PlanBridgeGrants } from "@/backend/service/agents/bridge/PlanBridgeGrants";
+import { planSessionActivity } from "@/backend/service/agents/bridge/PlanSessionActivity";
+import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { AgentPlanStepRunner } from "@/backend/service/agents/AgentPlanStepRunner";
 import { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
@@ -62,7 +67,10 @@ import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPa
 import type { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import type { Database } from "@/backend/database/Database";
-import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
+import type {
+  AgentPlanMcpSettings,
+  AgentPlanSessionGrants,
+} from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
@@ -73,6 +81,8 @@ import type { AgentApplicationServices } from "./agent-services.server";
 /** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
 export interface AgentPlanServices {
   readonly runnerPagesAccessService: RunnerPagesAccessService;
+  /** The bearers of the plan bridge; only the API process that serves the bridge holds them. */
+  readonly planBridgeGrants: PlanBridgeGrants;
   readonly agentPlanService: AgentPlanService;
   readonly agentLocalSessionPreparation: AgentLocalSessionPreparation;
   /** The unfinished runs of one person, for clients that list them without the plan page. */
@@ -99,6 +109,7 @@ export type AgentPlanLoaderServices = Pick<
   | "agentPlanRunHistoryService"
   | "picaMobileNotifications"
   | "runnerPagesAccessService"
+  | "planBridgeGrants"
   | "agentPlanManagement"
   | "agentPlanTemplateService"
 >;
@@ -155,13 +166,16 @@ export async function createAgentPlanService(input: {
   const runtime = createScriptRuntime(input, access, workspaces);
   const { tasks, scripts, scriptPreparation } = runtime;
   const start = createPlanStepStart(input, access, tasks);
-  const sessions = createPlanSessionAccess(input.database, input.mcp);
+  const { sessions, local, grants } = await createPlanSessionAccess(
+    input,
+    runs,
+  );
   const pageAgentSessions = await createPageAgentSessions(input, {
     run: (userId, id) => service.run(userId, id),
     stop: (userId, id) => service.stop(userId, id),
   });
   const { remoteTargets, remoteExecution, pages } =
-    await createPlanRemoteServices(input, access, runs);
+    await createPlanRemoteServices(input, access, runs, local);
   const engine = await createPlanEngine(input, {
     remoteExecution,
     scripts: scriptPreparation,
@@ -217,6 +231,7 @@ export async function createAgentPlanService(input: {
   });
   return {
     runnerPagesAccessService: pages,
+    planBridgeGrants: grants,
     agentPlanService: service,
     agentLocalSessionPreparation: new AgentLocalSessionPreparation(runs, start),
     ...views,
@@ -349,14 +364,40 @@ function startWorkspaceCleanup(
   }).start();
 }
 
-function createPlanSessionAccess(
-  database: Database,
-  settings: AgentPlanMcpSettings,
-): AgentPlanSessionAccess {
-  return new AgentPlanSessionAccess(
-    new AgentRunCredentialService(new AgentRunCredentialRepository(database)),
-    settings,
+/**
+ * The plan bridge access of this process.
+ *
+ * @remarks
+ * `local` issues credentials and holds the bearers; it belongs to the process
+ * that serves the bridge. An engine in its own process (`runsMode =
+ * "separate"`) uses `sessions`, which asks the API for each bearer.
+ */
+async function createPlanSessionAccess(
+  input: Parameters<typeof createAgentPlanService>[0],
+  runs: AgentPlanRunRepository,
+): Promise<{
+  readonly sessions: AgentPlanSessionGrants;
+  readonly local: AgentPlanSessionAccess;
+  readonly grants: PlanBridgeGrants;
+}> {
+  const grants = new PlanBridgeGrants(planSessionActivity(runs));
+  const local = new AgentPlanSessionAccess(
+    new AgentRunCredentialService(
+      new AgentRunCredentialRepository(input.database),
+    ),
+    input.mcp,
+    grants,
   );
+  if (!isPagesRunsProcess()) return { sessions: local, local, grants };
+  const runtime = await getPagesRuntime();
+  return {
+    sessions: new RunApiPlanAccess(
+      runApiSocketPath(runtime.getDatabasePath()),
+      input.mcp,
+    ),
+    local,
+    grants,
+  };
 }
 
 /** Records the runs a server stop interrupted and repairs their files; their automatic continuation follows separately. */
@@ -503,7 +544,7 @@ async function createPlanEngine(
     readonly runs: AgentPlanRunRepository;
     readonly start: AgentPlanStepStart;
     readonly tasks: AgentPlanTasks;
-    readonly sessions: AgentPlanSessionAccess;
+    readonly sessions: AgentPlanSessionGrants;
     readonly pageAgentSessions: AgentSessionService;
   },
 ): Promise<PlanRunEnginePort> {

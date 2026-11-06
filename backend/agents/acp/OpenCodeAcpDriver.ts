@@ -85,9 +85,7 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
           compaction: { auto: true },
         }),
       },
-      mcpServers: isChat
-        ? []
-        : pagesMcpServers(specification.instanceId, specification.mcp),
+      mcpServers: isChat ? [] : pagesMcpServers(specification.mcp),
       sessionMeta: {},
     };
   },

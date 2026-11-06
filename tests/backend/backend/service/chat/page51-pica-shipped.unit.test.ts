@@ -12,7 +12,7 @@ import {
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, "../../../../..");
 
 /** Production sources, including the independent MCP package, read as text only. */
-const SOURCE_ROOTS = ["app", "backend", "definition", "language", "mcp/src"];
+const SOURCE_ROOTS = ["app", "backend", "definition", "language"];
 
 const LOADER = "backend/service/chat/PicaInstructionFiles.ts";
 

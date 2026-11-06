@@ -73,8 +73,8 @@ export function toolWorld(): {
   const current = new Map<AgentToolId, AgentToolLocation>();
   const previous = new Map<AgentToolId, AgentToolLocation>();
   const system = new Map<AgentToolId, AgentToolLocation>(
-    ["node", "bubblewrap", "pages_mcp"].map((id) => {
-      if (id !== "node" && id !== "bubblewrap" && id !== "pages_mcp")
+    ["node", "bubblewrap"].map((id) => {
+      if (id !== "node" && id !== "bubblewrap")
         throw new Error("Invalid fixture");
       return [id, toolLocation(id, "synthetic", "system")];
     }),

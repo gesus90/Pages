@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
   resolve: {
-    // Restrict aliases to production namespaces; tests and mcp are not targets.
+    // Restrict aliases to production namespaces; tests are not a target.
     alias: {
       "@/app": fileURLToPath(new URL("./app", import.meta.url)),
       "@/assets": fileURLToPath(new URL("./assets", import.meta.url)),

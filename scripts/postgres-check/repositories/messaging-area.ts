@@ -10,10 +10,6 @@ import { DiscordAttemptRepository } from "@/backend/database/repositories/discor
 import { DiscordConnectionRepository } from "@/backend/database/repositories/discord/DiscordConnectionRepository";
 import { DiscordDeliveryRepository } from "@/backend/database/repositories/discord/DiscordDeliveryRepository";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
-import { OAuthRepository } from "@/backend/database/repositories/mcp/OAuthRepository";
-import { PairingPreferenceRepository } from "@/backend/database/repositories/mcp/PairingPreferenceRepository";
-import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
-import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { PicaMobileNotificationDeliveryRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationDeliveryRepository";
 import { PicaMobileNotificationEventRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationEventRepository";
 import { PicaMobilePushRegistrationRepository } from "@/backend/database/repositories/mobile/PicaMobilePushRegistrationRepository";
@@ -34,12 +30,7 @@ import {
   DISCORD_CONNECTION_FLOW,
   DISCORD_DELIVERY_FLOW,
 } from "./discord-flows";
-import { OAUTH_FLOW, RUN_CREDENTIAL_FLOW } from "./mcp-flows";
-import {
-  PAIRING_FLOW,
-  PAIRING_PREFERENCE_FLOW,
-  PERSONAL_TOKEN_FLOW,
-} from "./mcp-token-flows";
+import { RUN_CREDENTIAL_FLOW } from "./mcp-flows";
 import { MOBILE_DELIVERY_FLOW, MOBILE_EVENT_FLOW } from "./mobile-flows";
 import { MESSAGING_ORDER_FLOW } from "./messaging-order-flow";
 import { MOBILE_REGISTRATION_FLOW } from "./mobile-registration-flows";
@@ -47,7 +38,7 @@ import { NUL_TEXT_FLOW } from "./nul-text-flow";
 
 import type { RepositoryFlow } from "./world";
 
-/** The flows of Pica sessions, Discord delivery, MCP access and Pica Mobile. */
+/** The flows of Pica sessions, Discord delivery, agent credentials and Pica Mobile. */
 export const MESSAGING_AREA_FLOWS: readonly RepositoryFlow[] = [
   CHAT_SESSION_FLOW,
   CHAT_ATTACHMENT_FLOW,
@@ -60,10 +51,6 @@ export const MESSAGING_AREA_FLOWS: readonly RepositoryFlow[] = [
   DISCORD_CONNECTION_FLOW,
   DISCORD_DELIVERY_FLOW,
   RUN_CREDENTIAL_FLOW,
-  OAUTH_FLOW,
-  PERSONAL_TOKEN_FLOW,
-  PAIRING_FLOW,
-  PAIRING_PREFERENCE_FLOW,
   MOBILE_REGISTRATION_FLOW,
   MOBILE_EVENT_FLOW,
   MOBILE_DELIVERY_FLOW,
@@ -87,10 +74,6 @@ export const MESSAGING_AREA_CLASSES: Readonly<
   DiscordConnectionRepository,
   DiscordDeliveryRepository,
   AgentRunCredentialRepository,
-  OAuthRepository,
-  PairingPreferenceRepository,
-  PairingRepository,
-  PersonalAgentTokenRepository,
   PicaMobileNotificationDeliveryRepository,
   PicaMobileNotificationEventRepository,
   PicaMobilePushRegistrationRepository,

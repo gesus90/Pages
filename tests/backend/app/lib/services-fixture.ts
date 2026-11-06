@@ -8,7 +8,6 @@ import { createMcpServices } from "@/app/lib/mcp-services.server";
 import { createPreferenceServices } from "@/app/lib/preference-services.server";
 import { Database } from "@/backend/database/Database";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
-import { pagesMcpBundlePath } from "@/backend/agents/cli/PagesMcpBundle";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { GitHubJobWorker } from "@/backend/service/integrations/GitHubJobWorker";
 
@@ -55,9 +54,6 @@ vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
   logCaughtError: vi.fn(),
   logDiagnostic: vi.fn(),
   logEvent: vi.fn(),
-}));
-vi.mock("@/backend/agents/cli/PagesMcpBundle", () => ({
-  pagesMcpBundlePath: vi.fn(),
 }));
 vi.mock("@/app/lib/agent-execution-services.server", () => ({
   startExecutionServices: vi.fn(),
@@ -276,7 +272,7 @@ function agentServices(
 export function runtimeFixture(publicUrl?: string): PagesRuntime {
   return partial<PagesRuntime>({
     configFile: { path: "/srv/pages/config.json" },
-    getConfig: () => ({ port: 3100, mcpHttp: { publicUrl } }),
+    getConfig: () => ({ port: 3100, publicUrl }),
     getDatabasePath: () => DATABASE_PATH,
     getDatabaseUrl: () => "postgresql://localhost/pages",
   });
@@ -324,7 +320,6 @@ export function servicesWorld(): ServicesWorld {
   vi.mocked(Database.connect).mockResolvedValue(world.database);
   vi.mocked(getPagesRuntime).mockResolvedValue(runtimeFixture());
   vi.mocked(resolveGitHubTokenKey).mockReturnValue(world.tokenKey);
-  vi.mocked(pagesMcpBundlePath).mockReturnValue("/srv/pages/mcp/pages-mcp.mjs");
   vi.mocked(startExecutionServices).mockResolvedValue({
     agentServices: world.agents,
   });

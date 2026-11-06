@@ -41,8 +41,12 @@ Both processes use private Unix sockets under the data directory:
   tolerate a restarting API through bounded reconnect attempts. Explicit retry
   dispatch is not blindly replayed after transport loss.
 
-The API retains the authenticated runner WebSocket channels and remote Pages
-credentials. The worker reads durable progress directly from PostgreSQL, uses
+The API retains the authenticated runner WebSocket channels, remote Pages
+credentials and the bearers of the plan bridge: the worker asks the API over
+this socket to open or end the bearer of a local session step (`openPlanBridge`,
+`closePlanBridge`) and receives the bearer only. The bearer lives in API memory,
+so an API restart ends every local session's Pages tools, and the API drops a
+bearer as soon as no step of its session is `running` in the stored run. The worker reads durable progress directly from PostgreSQL, uses
 the private bridge for channel operations, and persists deferred capability
 cleanup. The API consumes cleanup after reconnect/restart. Neither credentials
 nor full plan snapshots are sent over this bridge. The shared PostgreSQL writer

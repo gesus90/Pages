@@ -41,18 +41,12 @@ import { AgentPlanOperationService } from "@/backend/service/agents/AgentPlanOpe
 import { ChatAgentOperationService } from "@/backend/service/agents/ChatAgentOperationService";
 import { PageAgentOperationService } from "@/backend/service/agents/PageAgentOperationService";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
-import { OAuthRepository } from "@/backend/database/repositories/mcp/OAuthRepository";
-import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
-import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
-import { PairingService } from "@/backend/service/mcp/PairingService";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
-import { OAuthService } from "@/backend/service/mcp/OAuthService";
-import { PersonalAgentTokenService } from "@/backend/service/mcp/PersonalAgentTokenService";
 
 import type { AgentPlanningServices } from "@/backend/service/agents/AgentPlanningServices";
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
@@ -183,19 +177,6 @@ vi.mock(
   "@/backend/database/repositories/mcp/AgentRunCredentialRepository",
   () => fakeClasses({ AgentRunCredentialRepository: [] }),
 );
-vi.mock("@/backend/database/repositories/mcp/OAuthRepository", () =>
-  fakeClasses({ OAuthRepository: [] }),
-);
-vi.mock(
-  "@/backend/database/repositories/mcp/PersonalAgentTokenRepository",
-  () => fakeClasses({ PersonalAgentTokenRepository: [] }),
-);
-vi.mock("@/backend/database/repositories/mcp/PairingRepository", () =>
-  fakeClasses({ PairingRepository: [] }),
-);
-vi.mock("@/backend/service/mcp/PairingService", () =>
-  fakeClasses({ PairingService: [] }),
-);
 vi.mock("@/backend/service/agents/AgentPlanWorkGate", () =>
   fakeClasses({ AgentPlanWorkGate: [] }),
 );
@@ -213,12 +194,6 @@ vi.mock("@/backend/service/mcp/AgentProjectService", () =>
 );
 vi.mock("@/backend/service/mcp/AgentRunCredentialService", () =>
   fakeClasses({ AgentRunCredentialService: [] }),
-);
-vi.mock("@/backend/service/mcp/OAuthService", () =>
-  fakeClasses({ OAuthService: [] }),
-);
-vi.mock("@/backend/service/mcp/PersonalAgentTokenService", () =>
-  fakeClasses({ PersonalAgentTokenService: [] }),
 );
 
 type Workspace = Parameters<typeof createMcpServices>[3];
@@ -319,41 +294,12 @@ it("shares the ticket cache, publisher and events of the interface", () => {
   ]);
 });
 
-it("authorizes personal tokens, pairing and OAuth with fresh identities", () => {
-  const services = create();
+it("resolves the rights of run credentials with fresh identities", () => {
+  create();
 
-  const [identities] = vi.mocked(AgentIdentityService).mock.instances;
   expect(vi.mocked(AgentIdentityService).mock.calls).toEqual([
     [USERS, ADMINISTRATION],
   ]);
-  expect(vi.mocked(PersonalAgentTokenService).mock.calls[0]).toEqual([
-    vi.mocked(PersonalAgentTokenRepository).mock.instances[0],
-    identities,
-  ]);
-  expect(vi.mocked(PairingService).mock.calls[0]).toEqual([
-    vi.mocked(PairingRepository).mock.instances[0],
-    identities,
-  ]);
-  expect(vi.mocked(OAuthService).mock.calls[0][0]).toEqual({
-    repository: vi.mocked(OAuthRepository).mock.instances[0],
-    identities,
-    personal: services.personalAgentTokenService,
-    pairing: services.pairingService,
-  });
-  expect(services.oauthService).toBe(vi.mocked(OAuthService).mock.instances[0]);
-  expect(services.personalAgentTokenService).toBe(
-    vi.mocked(PersonalAgentTokenService).mock.instances[0],
-  );
-  expect(services.pairingService).toBe(
-    vi.mocked(PairingService).mock.instances[0],
-  );
-  for (const repository of [
-    PersonalAgentTokenRepository,
-    PairingRepository,
-    OAuthRepository,
-  ]) {
-    expect(vi.mocked(repository).mock.calls).toEqual([[DATABASE]]);
-  }
 });
 
 it("stages agent assets next to the database and keeps referenced ticket uploads", async () => {
@@ -390,7 +336,7 @@ it("stages agent assets next to the database and keeps referenced ticket uploads
   );
 });
 
-it("verifies upload and download tickets with personal tokens and run credentials", async () => {
+it("verifies upload and download tickets with run credentials", async () => {
   const input = workspace();
   const services = create(input);
 
@@ -399,7 +345,6 @@ it("verifies upload and download tickets with personal tokens and run credential
     vi.mocked(AgentIdentityService).mock.instances[0],
   ]);
   expect(vi.mocked(AgentUploadAuthorityService).mock.calls[0]).toEqual([
-    services.personalAgentTokenService,
     vi.mocked(AgentRunCredentialService).mock.instances[0],
   ]);
   vi.mocked(AgentUploadAuthorityService.prototype.verify).mockResolvedValue(
@@ -443,7 +388,6 @@ it("serves the agent API over the MCP catalog with run, download and upload capa
     vi.mocked(PagesAgentApiService).mock.instances[0],
   );
   expect(vi.mocked(PagesAgentApiService).mock.calls[0]).toEqual([
-    services.personalAgentTokenService,
     vi.mocked(AgentProjectService).mock.instances[0],
     vi.mocked(AgentOperationRouter).mock.instances[1],
     {

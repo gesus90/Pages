@@ -42,19 +42,3 @@ export interface AgentIdentity {
   /** Present for the credential of an agent plan session, which narrows the rights. */
   readonly run?: AgentRunScope;
 }
-
-/** Public personal-token summary; neither a credential nor its hash is included. */
-export interface PersonalAgentToken {
-  readonly id: string;
-  readonly userId: string;
-  readonly name: string;
-  readonly createdAt: number;
-  readonly expiresAt: number | null;
-  readonly revokedAt: number | null;
-  readonly source: "manual" | "pairing" | "oauth";
-  readonly device: string | null;
-  readonly lastUsedAt: number | null;
-  readonly rotatedAt: number | null;
-  readonly rotationRequestedAt: number | null;
-  readonly status: "active" | "expired" | "revoked";
-}

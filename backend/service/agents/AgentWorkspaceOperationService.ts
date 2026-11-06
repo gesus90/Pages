@@ -191,7 +191,7 @@ class OperationRecorder {
 }
 
 /**
- * Lists and manages agent workspaces for connected MCP clients.
+ * Lists and manages agent workspaces for the agent tools.
  *
  * @remarks
  * Every call runs under the rules of the interface: the registry decides who

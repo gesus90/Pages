@@ -99,7 +99,7 @@ export interface AgentOperationDependencies {
   readonly projectDeletion?: AgentProjectDeletionService;
   readonly workspaces?: AgentWorkspaceOperationService;
   readonly chatSessions?: Pick<AgentChatSessionOperationService, "handle">;
-  /** Agent plans and their runs, offered to MCP clients and the chat alike. */
+  /** Agent plans and their runs, offered to the agent tools and the chat alike. */
   readonly plans?: Pick<AgentPlanOperationService, "handle">;
   readonly pageAgents?: Pick<PageAgentOperationService, "handle">;
   /** The agent surface the reads run for; MCP when absent. */

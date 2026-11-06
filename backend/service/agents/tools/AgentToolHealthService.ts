@@ -86,10 +86,7 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
         await access(location.file, constants.X_OK);
         return await this.browser(tool, location, signal);
       }
-      await access(
-        location.file,
-        tool.id === "pages_mcp" ? constants.R_OK : constants.X_OK,
-      );
+      await access(location.file, constants.X_OK);
       if (tool.id === "antigravity_acp")
         await access(
           path.join(path.dirname(location.file), "localharness_external"),
@@ -176,10 +173,7 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
       tool.id === "playwright_mcp"
         ? await this.packageVersion(tool, location)
         : reported;
-    if (
-      version === null ||
-      (tool.id !== "pages_mcp" && !isAgentToolVersionSupported(tool, version))
-    )
+    if (version === null || !isAgentToolVersionSupported(tool, version))
       return {
         status: "unsupported",
         diagnostic: "version_unsupported",

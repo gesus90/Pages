@@ -1,6 +1,6 @@
 # Memory of ACP worker units
 
-Every ACP worker (adapter, CLI runner, MCP bridge and the helpers they start)
+Every ACP worker (adapter, CLI runner and the helpers they start)
 runs in a transient unit of the server account's systemd user manager, in
 `pages-acp.slice`. The limits of a unit are defined in `ACP_WORKER_LIMITS`, the
 budget of the slice in `ACP_SLICE_LIMITS` (both in

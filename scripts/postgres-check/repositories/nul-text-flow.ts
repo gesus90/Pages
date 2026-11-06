@@ -5,8 +5,6 @@ import { ChatSessionRepository } from "@/backend/database/repositories/chat/Chat
 import { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
 import { DiscordConnectionRepository } from "@/backend/database/repositories/discord/DiscordConnectionRepository";
 import { DiscordDeliveryRepository } from "@/backend/database/repositories/discord/DiscordDeliveryRepository";
-import { PairingRepository } from "@/backend/database/repositories/mcp/PairingRepository";
-import { PersonalAgentTokenRepository } from "@/backend/database/repositories/mcp/PersonalAgentTokenRepository";
 import { DEFAULT_DISCORD_EVENTS } from "@/definition/Discord";
 
 import { call, prepare, stored } from "./world";
@@ -203,58 +201,6 @@ export const NUL_TEXT_FLOW: RepositoryFlow = {
       "SELECT content_json FROM discord_deliveries WHERE id = 'delivery-nul';",
     ),
     prepare("DELETE FROM discord_deliveries WHERE id = 'delivery-nul';"),
-    call("PairingRepository.insert", ({ database }) =>
-      new PairingRepository(database).insert({
-        id: "pairing-nul",
-        codeHash: "code-nul",
-        secretHash: "secret-nul",
-        clientName: TEXT,
-        device: "Gerät",
-        packageVersion: "1",
-        createdAt: 1,
-        expiresAt: 2,
-        status: "pending",
-        userId: null,
-        decidedAt: null,
-        name: null,
-        validitySeconds: null,
-        csrfHash: null,
-        lastPollAt: null,
-        pollInterval: 5,
-      }),
-    ),
-    call("PairingRepository.find", async ({ database }) =>
-      withoutNul(await new PairingRepository(database).find("code-nul")),
-    ),
-    keptOnlyByDuckdb(
-      "SELECT client_name FROM mcp_pairing_requests WHERE id = 'pairing-nul';",
-    ),
-    prepare("DELETE FROM mcp_pairing_requests WHERE id = 'pairing-nul';"),
-    call("PersonalAgentTokenRepository.insert", ({ database }) =>
-      new PersonalAgentTokenRepository(database).insert(
-        {
-          id: "token-nul",
-          userId: OWNER,
-          name: TEXT,
-          createdAt: 1,
-          expiresAt: null,
-          revokedAt: null,
-          source: "manual",
-          device: null,
-          lastUsedAt: null,
-          rotatedAt: null,
-          rotationRequestedAt: null,
-        },
-        "hash-nul",
-      ),
-    ),
-    call("PersonalAgentTokenRepository.list", async ({ database }) =>
-      withoutNul(await new PersonalAgentTokenRepository(database).list(OWNER)),
-    ),
-    keptOnlyByDuckdb(
-      "SELECT name FROM personal_agent_tokens WHERE id = 'token-nul';",
-    ),
-    prepare("DELETE FROM personal_agent_tokens WHERE id = 'token-nul';"),
     call("ChatSessionRepository.remove", ({ database }) =>
       new ChatSessionRepository(database).remove(OWNER, SESSION),
     ),

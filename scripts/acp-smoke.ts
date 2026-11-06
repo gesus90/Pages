@@ -23,7 +23,6 @@ import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
 import { acpRunOptions } from "@/definition/AgentConfiguration";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
-import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 
@@ -47,7 +46,6 @@ interface SmokeOptions {
   /** Aborts the node after this many seconds, as the stop button does. */
   readonly stopAfterSeconds: number | null;
   readonly prompt: string;
-  readonly mcp: CliSessionMcp | null;
 }
 
 function fail(message: string): never {
@@ -64,23 +62,6 @@ function readProvider(value: string | undefined): CliProviderId {
   return fail("--provider must be codex_cli or claude_code");
 }
 
-async function readMcp(
-  values: Readonly<Record<string, string | undefined>>,
-): Promise<CliSessionMcp | null> {
-  const bundle = values["mcp-bundle"];
-  if (bundle === undefined) return null;
-  const token = process.env.PAGES_SMOKE_TOKEN;
-  if (token === undefined || token === "")
-    return fail("PAGES_SMOKE_TOKEN must hold the credential of the MCP server");
-  return {
-    node: process.execPath,
-    bundle: path.resolve(bundle),
-    url: values["mcp-url"] ?? "http://127.0.0.1:3000",
-    token,
-    tools: null,
-  };
-}
-
 async function readOptions(argv: readonly string[]): Promise<SmokeOptions> {
   const { values } = parseArgs({
     args: [...argv],
@@ -95,8 +76,6 @@ async function readOptions(argv: readonly string[]): Promise<SmokeOptions> {
       timeout: { type: "string", default: "0" },
       "stop-after": { type: "string" },
       "prompt-file": { type: "string" },
-      "mcp-bundle": { type: "string" },
-      "mcp-url": { type: "string" },
     },
   });
   const { data, connection, workspace, model } = values;
@@ -118,7 +97,6 @@ async function readOptions(argv: readonly string[]): Promise<SmokeOptions> {
       promptFile === undefined
         ? DEFAULT_PROMPT
         : await readFile(promptFile, "utf8"),
-    mcp: await readMcp(values),
   };
 }
 
@@ -148,7 +126,7 @@ function sessionInput(
     directory: options.workspace,
     options: acpRunOptions(options.mode, options.timeoutMinutes),
     instanceId,
-    mcp: options.mcp,
+    mcp: null,
   };
 }
 

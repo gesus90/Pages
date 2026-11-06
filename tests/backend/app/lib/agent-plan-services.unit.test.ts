@@ -41,6 +41,7 @@ import { AgentPlanRunHistoryService } from "@/backend/service/agents/AgentPlanRu
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
+import { PlanBridgeGrants } from "@/backend/service/agents/bridge/PlanBridgeGrants";
 import { AgentPlanSessionAccess } from "@/backend/service/agents/AgentPlanSessionAccess";
 import { AgentPlanStepRunner } from "@/backend/service/agents/AgentPlanStepRunner";
 import { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart";
@@ -199,6 +200,7 @@ it("returns the plan service with its management, templates, sessions and recove
   const service = only(vi.mocked(AgentPlanService));
   expect(services).toEqual({
     runnerPagesAccessService: only(vi.mocked(RunnerPagesAccessService)),
+    planBridgeGrants: expect.any(PlanBridgeGrants) as unknown,
     agentLocalSessionPreparation: expect.any(
       AgentLocalSessionPreparation,
     ) as unknown,
@@ -359,6 +361,7 @@ it("drives runs with the engine and reports engine activity to the runners", asy
   expect(vi.mocked(AgentPlanSessionAccess).mock.calls[0]).toEqual([
     vi.mocked(AgentRunCredentialService).mock.instances[0],
     MCP,
+    expect.any(PlanBridgeGrants),
   ]);
   expect(vi.mocked(AgentRunCredentialService).mock.calls[0]).toEqual([
     vi.mocked(AgentRunCredentialRepository).mock.instances[0],
