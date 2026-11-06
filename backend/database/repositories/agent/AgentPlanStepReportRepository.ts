@@ -55,6 +55,11 @@ export class AgentPlanStepReportRepository {
           step_id = excluded.step_id,
           attempt_id = excluded.attempt_id,
           terms_json = excluded.terms_json,
+          closed_at = CASE
+              WHEN agent_plan_step_reports.attempt_id = excluded.attempt_id
+                  THEN agent_plan_step_reports.closed_at
+              ELSE NULL
+          END,
           report_json = CASE
               WHEN agent_plan_step_reports.attempt_id = excluded.attempt_id
                   THEN agent_plan_step_reports.report_json
@@ -84,7 +89,8 @@ export class AgentPlanStepReportRepository {
           report_json
       FROM agent_plan_step_reports
       WHERE run_id = $run_id
-          AND session_scope_id = $session_scope_id;
+          AND session_scope_id = $session_scope_id
+          AND closed_at IS NULL;
     `,
       { run_id: scope.runId, session_scope_id: scope.sessionScopeId },
     );
@@ -114,6 +120,7 @@ export class AgentPlanStepReportRepository {
       WHERE run_id = $run_id
           AND session_scope_id = $session_scope_id
           AND attempt_id = $attempt_id
+          AND closed_at IS NULL
       RETURNING attempt_id;
     `,
       {
@@ -136,7 +143,8 @@ export class AgentPlanStepReportRepository {
   ): Promise<string | null> {
     const [row] = await this.database.query(
       `
-      DELETE FROM agent_plan_step_reports
+      UPDATE agent_plan_step_reports
+      SET closed_at = COALESCE(closed_at, $closed_at)
       WHERE run_id = $run_id
           AND session_scope_id = $session_scope_id
           AND attempt_id = $attempt_id
@@ -146,6 +154,7 @@ export class AgentPlanStepReportRepository {
         run_id: slot.runId,
         session_scope_id: slot.sessionScopeId,
         attempt_id: slot.attemptId,
+        closed_at: new Date().toISOString(),
       },
     );
     return row ? readNullableTextColumn(row, 0, "report_json") : null;

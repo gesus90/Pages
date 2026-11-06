@@ -1,7 +1,8 @@
 import { screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
-import WikiHomeRoute, { loader } from "@/app/routes/wiki-home";
+import WikiHomeRoute from "@/app/routes/wiki-home";
+import { loader } from "@/app/routes/wiki-home-server";
 
 import {
   ACTOR,
@@ -12,6 +13,14 @@ import {
 
 const wiki = vi.hoisted(() => ({ home: vi.fn(), forMe: vi.fn() }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "u-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({
     wikiService: wiki,
@@ -38,14 +47,22 @@ it("loads the start page lists of the actor", async () => {
 
   await expect(
     loader(routeArguments(pagesRequest("/wiki"), { user: ACTOR })),
-  ).resolves.toEqual({ feed: [{ id: "f-1" }], home: { recent: [] } });
+  ).resolves.toEqual({
+    feed: [{ id: "f-1" }],
+    home: { recent: [] },
+    audience: AUDIENCE,
+  });
   expect(wiki.home).toHaveBeenCalledWith(ACTOR);
   expect(wiki.forMe).toHaveBeenCalledWith(ACTOR);
 });
 
 it("hands both lists to the start page", () => {
   renderRoute(WikiHomeRoute, {
-    loaderData: { feed: [{ id: "f-1" }], home: { recent: [] } },
+    loaderData: {
+      feed: [{ id: "f-1" }],
+      home: { recent: [] },
+      audience: AUDIENCE,
+    },
   });
 
   expect(screen.getByRole("status").textContent).toBe('1 {"recent":[]}');

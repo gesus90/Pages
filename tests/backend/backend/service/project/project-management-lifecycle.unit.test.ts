@@ -100,17 +100,27 @@ describe("department assignment", () => {
     ]);
 
     expect(world.state.departmentWrites.get("alpha")).toEqual(["design"]);
+    expect(world.state.outbox).toEqual([
+      { kind: "project.access.changed", objectId: "alpha" },
+    ]);
     for (const invalidation of invalidations)
       expect(invalidation).toHaveBeenCalled();
   });
 
   it("drops duplicates", async () => {
+    // Duplicates of the current set are the same set: nothing is rewritten.
     await world.service.setDepartments(world.user("lead"), "alpha", [
       "engineering",
       "engineering",
     ]);
+    expect(world.writes).toEqual([]);
+    expect(world.state.outbox).toEqual([]);
 
-    expect(world.state.departmentWrites.get("alpha")).toEqual(["engineering"]);
+    await world.service.setDepartments(world.user("admin"), "alpha", [
+      "design",
+      "design",
+    ]);
+    expect(world.state.departmentWrites.get("alpha")).toEqual(["design"]);
   });
 
   it("refuses a reader before looking at the selection", async () => {
@@ -162,6 +172,9 @@ describe("archiving", () => {
 
     expect(world.state.projects.has("alpha")).toBe(false);
     expect(world.state.archived.has("alpha")).toBe(true);
+    expect(world.state.outbox).toEqual([
+      { kind: "project.access.changed", objectId: "alpha" },
+    ]);
     expect(invalidate).toHaveBeenCalled();
   });
 

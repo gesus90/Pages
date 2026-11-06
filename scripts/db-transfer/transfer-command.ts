@@ -4,7 +4,7 @@ import { Database } from "@/backend/database/Database";
 import { postgresErrorCode } from "@/backend/database/postgres/PostgresConnection";
 import { PostgresLocaleError } from "@/backend/database/postgres/PostgresLocale";
 
-import { readMigrations } from "../postgres-check/schema-checks";
+import { readMigrations } from "../read-database-migrations";
 import { DuckDbSource } from "./duckdb-source";
 import {
   copyTable,

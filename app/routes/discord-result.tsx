@@ -25,16 +25,8 @@ function readOutcome(value: string | null): DiscordResultOutcome {
   return OUTCOMES.find((outcome) => outcome === value) ?? "invalid";
 }
 
-/** Keeps the page out of caches and the address out of referrers. */
-export function headers(): Headers {
-  return new Headers({
-    "Cache-Control": "no-store",
-    "Referrer-Policy": "no-referrer",
-  });
-}
-
-/** Reads the outcome of the Discord callback from the address. */
-export function loader({ request }: Route.LoaderArgs): {
+/** Reads the outcome of the Discord callback from the address, in the browser (PAGE-235). */
+export function clientLoader({ request }: Route.ClientLoaderArgs): {
   readonly outcome: DiscordResultOutcome;
 } {
   return {
@@ -52,7 +44,7 @@ export function loader({ request }: Route.LoaderArgs): {
  */
 export default function DiscordResultRoute(): React.ReactElement {
   const { t } = useTranslation();
-  const { outcome } = useLoaderData<typeof loader>();
+  const { outcome } = useLoaderData<typeof clientLoader>();
   const isAuthorized = outcome === "authorized";
   const Icon = isAuthorized ? CheckCircle2 : CircleAlert;
 

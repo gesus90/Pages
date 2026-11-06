@@ -2,6 +2,8 @@ import { workspaceReferenceIds } from "@/backend/agents/AgentWorkspaceReferences
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 
+import { MemoryAgentPayloads } from "./memory-agent-payloads";
+
 import type {
   Database,
   DatabaseTransaction,
@@ -19,6 +21,7 @@ interface RunRow {
   view: string;
   revision: number;
   status: string;
+  engineFile?: string;
 }
 
 interface CheckpointRow {
@@ -77,6 +80,7 @@ function requiredNumber(parameters: SqlParameters, name: string): number {
 
 /** In-memory transaction boundary with rollback and controlled storage faults; no SQL engine or process. */
 export class RecoveryDatabase {
+  private readonly agentFiles = new MemoryAgentPayloads();
   private readonly plan: AgentPlanSnapshot;
   private readonly queue = new SerialQueue();
   private rows: RecoveryRows = {
@@ -107,8 +111,12 @@ export class RecoveryDatabase {
   }
 
   /** Structural database access for the real repositories under test. */
-  public asDatabase(): Pick<Database, "query" | "execute" | "transaction"> {
+  public asDatabase(): Pick<
+    Database,
+    "query" | "execute" | "transaction" | "agentFiles"
+  > {
     return {
+      agentFiles: this.agentFiles,
       query: async (statement, parameters = {}) =>
         this.query(statement, parameters),
       execute: async (statement, parameters = {}) =>
@@ -117,6 +125,7 @@ export class RecoveryDatabase {
         this.queue.run(async () => {
           const before = structuredClone(this.rows);
           const transaction: DatabaseTransaction = {
+            agentFiles: this.agentFiles,
             query: async (statement, parameters = {}) =>
               this.query(statement, parameters),
             execute: async (statement, parameters = {}) =>
@@ -290,12 +299,18 @@ export class RecoveryDatabase {
         .map((row) => [row.view]);
     const row = rows.find((entry) => entry.id === parameters.id);
     if (!row) return [];
+    if (statement.includes("SELECT engine_file"))
+      return [[row.engineFile ?? null]];
     if (statement.includes("SELECT recovery_revision")) return [[row.revision]];
     if (statement.includes("recovery_revision"))
       return statement.includes("snapshot_json")
         ? [[row.view, row.revision, this.currentSnapshot(row)]]
         : [[row.view, row.revision]];
-    if (statement.includes("SELECT snapshot_json")) return [[row.snapshot]];
+    if (
+      statement.includes("snapshot_json") ||
+      statement.includes("snapshot_file")
+    )
+      return [[row.snapshot]];
     return [[row.view]];
   }
 
@@ -308,6 +323,11 @@ export class RecoveryDatabase {
   }
 
   private execute(statement: string, parameters: SqlParameters): void {
+    if (statement.includes("SET engine_file")) {
+      const row = this.rows.runs.get(requiredText(parameters, "id"));
+      if (row) row.engineFile = requiredText(parameters, "engine_file");
+      return;
+    }
     if (statement.includes("INSERT INTO agent_plan_loop_iterations")) {
       this.insertIteration(parameters);
       return;
@@ -432,7 +452,10 @@ export class RecoveryDatabase {
       userId: requiredText(parameters, "user_id"),
       status: requiredText(parameters, "status"),
       view: requiredText(parameters, "view_json"),
-      snapshot: requiredText(parameters, "snapshot_json"),
+      snapshot:
+        typeof parameters.snapshot_file === "string"
+          ? parameters.snapshot_file
+          : requiredText(parameters, "snapshot_json"),
       revision: 0,
     });
   }

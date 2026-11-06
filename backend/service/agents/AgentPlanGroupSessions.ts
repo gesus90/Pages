@@ -20,6 +20,7 @@ import type {
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type { AgentPlanGroupSessionLink } from "@/definition/AgentPlanSession";
 import type { AgentPlanContinuationCapabilities } from "@/definition/AgentPlanRecovery";
+import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 
 interface GroupSession {
   readonly instanceId: string;
@@ -132,6 +133,68 @@ export class AgentPlanGroupSessions {
   /** Returns the original process instance when another step joins its group. */
   public instanceId(key: string): string | undefined {
     return this.sessions.get(key)?.instanceId;
+  }
+
+  /** Restores the same retained native session without opening or prompting an adapter. */
+  public restore(
+    key: string,
+    input: {
+      readonly record: AgentPlanSessionRecord;
+      readonly userId: string;
+      readonly mcp: CliSessionMcp | null;
+      readonly session: PlanSession;
+      readonly started: GroupSession["started"];
+      readonly stepId: string;
+      readonly turns?: number;
+    },
+  ): void {
+    const { record, session } = input;
+    const requested = record.requested;
+    if (
+      record.runner === "api" ||
+      !isAcpProvider(record.runner) ||
+      !requested.options
+    )
+      throw new AgentError("plan_context_changed");
+    const options = agentRunOptionsFor(record.runner, requested.options);
+    const link = record.group ?? record.loop ?? record.event;
+    const restored: GroupSession = {
+      instanceId: record.instanceId,
+      mcp: input.mcp,
+      session,
+      controller: new AbortController(),
+      started: input.started,
+      adapter: record.runner,
+      creatorStepId: record.group?.creatorStepId ?? input.stepId,
+      turns: input.turns ?? link?.turn ?? 1,
+      acpSessionId: record.sessionId,
+      isLost: false,
+      effective: record.turnEndedAt === null ? null : record.effective,
+      capabilities: record.continuationCapabilities ?? null,
+      fingerprint: JSON.stringify({
+        adapter: record.runner,
+        connection: requested.connectionId,
+        model: requested.model,
+        effort: requested.reasoningEffort,
+        user: input.userId,
+        directory: requested.directory,
+        access: options.access,
+        shell: options.shell,
+        web: options.web,
+        browser: options.browser === true,
+      }),
+    };
+    this.sessions.set(key, restored);
+    this.opened.add(key);
+    this.queues.set(
+      key,
+      this.confirmTurn(restored, session.turn).then(
+        () => undefined,
+        (error: unknown) => {
+          logCaughtError("AgentPlanGroupSessions", error);
+        },
+      ),
+    );
   }
 
   /** Whether the session of the key is open and can take another turn. */

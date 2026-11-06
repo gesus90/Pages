@@ -1,11 +1,12 @@
-import type { AgentPlanWriterWait } from "./AgentPlanExecution";
-import type { AgentPlanCompletionGate } from "./AgentPlanWork";
+import type { PlanRunCommandReceipt } from "./PagesRuns";
 import type {
+  AgentPlanWriterWait,
   AgentPlanExecutionTarget,
   AgentPlanRemoteTarget,
   AgentPlanStepExecution,
   AgentPlanRemoteProgress,
 } from "./AgentPlanExecution";
+import type { AgentPlanCompletionGate } from "./AgentPlanWork";
 import type { AgentPlanProgress } from "./AgentPlanProgress";
 import type { PlanRemoteAccess } from "./AgentPlanRemoteAccess";
 import type { AgentPlanControl } from "./AgentPlanControl";
@@ -290,6 +291,13 @@ export interface AgentPlanPage {
   readonly remoteWorkspaces?: readonly AgentPlanRemoteChoice[];
   readonly selected: AgentPlanView | null;
   readonly sources: AgentPlanSources;
+  /**
+   * The newest run of the person in full, or none.
+   *
+   * @remarks
+   * The further history is listed as {@link AgentPlanRunSummary} entries by
+   * its own read endpoint; a run of it is read in full when it is chosen.
+   */
   readonly runs: readonly AgentPlanRun[];
   readonly directory: AgentProfileDirectory;
 }
@@ -419,6 +427,8 @@ export interface AgentPlanStepResult {
 
 /** Only the executor may read this sanitized view or request its stop. */
 export interface AgentPlanRun {
+  /** Durable command acknowledgement; execution state may still be unchanged. */
+  readonly command?: PlanRunCommandReceipt;
   readonly id: string;
   readonly planId: string;
   readonly planName: string;
@@ -454,6 +464,12 @@ export interface AgentPlanRun {
   /** What each stack of the plan handed over so far; absent in runs without a stack. */
   readonly stacks?: readonly AgentPlanStackRun[];
 }
+
+/** A run of the history list by its start and status, without its snapshot or results. */
+export type AgentPlanRunSummary = Pick<
+  AgentPlanRun,
+  "id" | "startedAt" | "status"
+>;
 
 /** Creates an unsaved plan without guessing a workspace or granting other users access. */
 export function emptyAgentPlan(): AgentPlanInput {

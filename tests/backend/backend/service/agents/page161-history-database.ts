@@ -1,3 +1,5 @@
+import { MemoryAgentPayloads } from "./memory-agent-payloads";
+
 import type {
   DatabaseTransaction,
   DatabaseValue,
@@ -14,10 +16,12 @@ const COLUMNS = [
   "sha256",
   "previous_sha256",
   "events_jsonl",
+  "events_file",
 ] as const;
 
 /** Models only the journal's SQL storage boundary, never opens DuckDB or a network. */
 export class HistoryDatabase implements DatabaseTransaction {
+  public readonly agentFiles = new MemoryAgentPayloads();
   public readonly chunks = new Map<string, SqlParameters>();
   public failure: string | null = null;
 
@@ -39,6 +43,7 @@ export class HistoryDatabase implements DatabaseTransaction {
     parameters: SqlParameters = {},
   ): Promise<readonly DatabaseValue[][]> {
     if (this.failure) throw new Error(this.failure);
+    if (statement.includes("FROM agent_session_events")) return [];
     let chunks = [...this.chunks.values()].filter(
       (chunk) => chunk.attempt_id === parameters.attempt_id,
     );

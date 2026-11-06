@@ -113,7 +113,7 @@ export async function finalizeScheduledPlanRun(
       .catch((error: unknown) =>
         logCaughtError("AgentPlanRunLifecycle", error),
       );
-  withLogContext({ runId: active.view.id }, () =>
+  withLogContext({ ...active.logContext, runId: active.view.id }, () =>
     logEvent({
       level: "info",
       event: "agent.run.completed",

@@ -5,6 +5,53 @@ import { parseTrustedProxyEntry } from "@/backend/config/TrustedProxies";
 import type { IncomingMessage } from "node:http";
 
 /**
+ * Builds the check that tells whether a TCP peer is a trusted proxy.
+ *
+ * @param trustedProxies - Addresses or ranges from the `trustedProxies` setting.
+ * @param options - `isLoopbackTrusted` also trusts every loopback peer.
+ * @returns A check of the peer address of a socket.
+ *
+ * @remarks
+ * An IPv4 client of a dual-stack socket shows up as `::ffff:a.b.c.d`;
+ * BlockList matches that form against IPv4 entries.
+ */
+export function createTrustedPeerCheck(
+  trustedProxies: readonly string[],
+  options: { readonly isLoopbackTrusted?: boolean } = {},
+): (address: string | undefined) => boolean {
+  const proxies = new BlockList();
+
+  for (const entry of trustedProxies) {
+    const parsed = parseTrustedProxyEntry(entry);
+
+    if (parsed === null) {
+      continue;
+    }
+
+    if (parsed.prefix === null) {
+      proxies.addAddress(parsed.address, parsed.family);
+    } else {
+      proxies.addSubnet(parsed.address, parsed.prefix, parsed.family);
+    }
+  }
+
+  if (options.isLoopbackTrusted === true) {
+    proxies.addSubnet("127.0.0.0", 8, "ipv4");
+    proxies.addAddress("::1", "ipv6");
+  }
+
+  return (address) => {
+    const version = address === undefined ? 0 : isIP(address);
+
+    if (address === undefined || version === 0) {
+      return false;
+    }
+
+    return proxies.check(address, version === 4 ? "ipv4" : "ipv6");
+  };
+}
+
+/**
  * Builds the check that tells whether a trusted proxy forwarded a request that
  * reached it over HTTPS.
  *
@@ -24,37 +71,36 @@ import type { IncomingMessage } from "node:http";
 export function createForwardedHttpsCheck(
   trustedProxies: readonly string[],
 ): (request: IncomingMessage) => boolean {
-  const proxies = new BlockList();
-
-  for (const entry of trustedProxies) {
-    const parsed = parseTrustedProxyEntry(entry);
-
-    if (parsed === null) {
-      continue;
-    }
-
-    if (parsed.prefix === null) {
-      proxies.addAddress(parsed.address, parsed.family);
-    } else {
-      proxies.addSubnet(parsed.address, parsed.prefix, parsed.family);
-    }
-  }
-
-  // An IPv4 client of a dual-stack socket shows up as `::ffff:a.b.c.d`;
-  // BlockList matches that form against IPv4 entries.
-  function isTrustedPeer(address: string | undefined): boolean {
-    const version = address === undefined ? 0 : isIP(address);
-
-    if (address === undefined || version === 0) {
-      return false;
-    }
-
-    return proxies.check(address, version === 4 ? "ipv4" : "ipv6");
-  }
+  const isTrustedPeer = createTrustedPeerCheck(trustedProxies);
 
   return (request) =>
     isTrustedPeer(request.socket.remoteAddress) &&
     readForwardedProtocol(request.headers["x-forwarded-proto"]) === "https";
+}
+
+/**
+ * Reads the client a proxy in front of Pages reports, such as the static app's entrance.
+ *
+ * @param peer - The TCP peer of the request.
+ * @param forwardedFor - The request's `X-Forwarded-For`.
+ * @param isTrustedPeer - Whether the peer is a proxy whose header is believed.
+ * @returns The address the nearest proxy saw, the last of the header, when
+ * the peer is trusted and named one; the peer otherwise.
+ *
+ * @remarks
+ * The static app's entrance (PAGE-235) connects over loopback for every
+ * browser. Without this, every visitor of the entrance would look like a
+ * local process, which some checks of the MCP endpoints allow more. A client
+ * that connects directly cannot change its address with the header.
+ */
+export function forwardedClientAddress(
+  peer: string,
+  forwardedFor: string | null,
+  isTrustedPeer: (address: string | undefined) => boolean,
+): string {
+  if (forwardedFor === null || !isTrustedPeer(peer)) return peer;
+  const nearest = forwardedFor.split(",").at(-1)?.trim() ?? "";
+  return isIP(nearest) === 0 ? peer : nearest;
 }
 
 /**

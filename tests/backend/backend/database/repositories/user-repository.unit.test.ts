@@ -55,7 +55,10 @@ const NEW_USER: NewUser = {
 };
 
 function duplicate(column: string): Error {
-  return new Error(`Constraint Error: Duplicate key "${column}: grace"`);
+  return Object.assign(new Error("duplicate key"), {
+    code: "23505",
+    detail: `Key (${column})=(grace) already exists.`,
+  });
 }
 
 it("finds a user by id or email and returns null for unknown accounts", async () => {

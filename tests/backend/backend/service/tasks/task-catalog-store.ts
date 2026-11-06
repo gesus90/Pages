@@ -48,16 +48,19 @@ function installLabelAssignments(state: TaskState): void {
   const proto = TaskRepository.prototype;
   vi.spyOn(proto, "assignLabel").mockImplementation(
     async (workItemId, labelId) => {
-      state.writes.push("assignLabel");
       const assigned = state.assignedLabels.get(workItemId) ?? new Set();
+      if (assigned.has(labelId)) return false;
+      state.writes.push("assignLabel");
       assigned.add(labelId);
       state.assignedLabels.set(workItemId, assigned);
+      return true;
     },
   );
   vi.spyOn(proto, "unassignLabel").mockImplementation(
     async (workItemId, labelId) => {
+      if (!state.assignedLabels.get(workItemId)?.delete(labelId)) return false;
       state.writes.push("unassignLabel");
-      state.assignedLabels.get(workItemId)?.delete(labelId);
+      return true;
     },
   );
   vi.spyOn(proto, "findLabelsForWorkItemIds").mockImplementation(

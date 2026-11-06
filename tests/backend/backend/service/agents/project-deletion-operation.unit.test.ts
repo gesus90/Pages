@@ -9,6 +9,12 @@ import { PROJECT_DELETION_COUNT_KEYS } from "@/definition/AgentProjectDeletion";
 
 import { ProjectDeletionWorld } from "../project/project-deletion-world";
 
+/** The outbox row that announces the deletion of the first project. */
+const ALPHA_ACCESS_CHANGED = {
+  kind: "project.access.changed",
+  objectId: "alpha",
+} as const;
+
 let world = new ProjectDeletionWorld();
 beforeEach(() => {
   world = new ProjectDeletionWorld();
@@ -37,6 +43,7 @@ describe("deleting a project with either confirmation word", () => {
       });
       expect(world.projects.has("alpha")).toBe(false);
       expect(world.data.has("alpha")).toBe(false);
+      expect(world.events).toEqual([ALPHA_ACCESS_CHANGED]);
     },
   );
 

@@ -2,8 +2,6 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-import { inspectPagesDatabase } from "@/backend/database/PagesDatabaseInspector";
-
 import {
   ConfigError,
   DEFAULT_CONFIG,
@@ -28,23 +26,15 @@ export interface ConfigBootstrapResult {
  * Builds the first configuration of an installation without one.
  *
  * @remarks
- * Installations from before the setup wizard keep their database at the
- * default path and have no configuration file. They must not run the setup
- * again, so such a database with an active administrator is adopted as a
- * finished setup.
+ * A legacy database file must not be adopted or overwritten automatically.
  */
 async function createInitialConfig(configPath: string): Promise<PagesConfig> {
   const databasePath = resolveDefaultDatabasePath(configPath);
 
-  if (!existsSync(databasePath)) {
-    return DEFAULT_CONFIG;
-  }
-
-  const inspection = await inspectPagesDatabase(databasePath);
-
-  if (inspection.kind === "pages" && inspection.hasActiveAdministrator) {
-    return { databasePath, firstRun: false, port: DEFAULT_CONFIG.port };
-  }
+  if (existsSync(databasePath))
+    throw new ConfigError(
+      "A legacy database file exists without a configuration. Configure PostgreSQL explicitly before starting Pages.",
+    );
 
   return DEFAULT_CONFIG;
 }
@@ -70,21 +60,10 @@ async function prepareConfig(
     return;
   }
 
-  // With PostgreSQL the path only names the data directory; no file exists there.
-  if (config.databaseUrl !== undefined) {
-    await mkdir(path.dirname(config.databasePath), {
-      mode: PRIVATE_DIRECTORY_MODE,
-      recursive: true,
-    });
-
-    return;
-  }
-
-  if (!existsSync(config.databasePath)) {
-    throw new ConfigError(
-      `The database "${config.databasePath}" named in "${configFile.path}" does not exist. Restore it, correct "databasePath", or set "firstRun = true" to run the setup again.`,
-    );
-  }
+  await mkdir(path.dirname(config.databasePath), {
+    mode: PRIVATE_DIRECTORY_MODE,
+    recursive: true,
+  });
 }
 
 /**

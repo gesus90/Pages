@@ -2,10 +2,8 @@
 import { cleanup, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-import TasksLayout, {
-  loader,
-  shouldRevalidate,
-} from "@/app/routes/tasks-layout";
+import TasksLayout, { shouldRevalidate } from "@/app/routes/tasks-layout";
+import { loader } from "@/app/routes/tasks-layout-server";
 
 import {
   ACTOR,
@@ -24,6 +22,14 @@ const tree = vi.hoisted(() => ({
   findExpandedKeys: vi.fn(),
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "u-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({
     ticketTreeService: tree,
@@ -78,6 +84,7 @@ it("loads the visible tree and its opened branches", async () => {
   ).resolves.toEqual({
     entries: [{ key: "PAGE-1" }],
     expandedKeys: ["PAGE-1"],
+    audience: AUDIENCE,
   });
 });
 

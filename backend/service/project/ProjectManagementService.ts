@@ -230,7 +230,19 @@ export class ProjectManagementService {
         )
       )
         throw new ProjectDepartmentError("departmentOutOfScope");
+      const current = project.departments.map((department) => department.id);
+      // The same set changes nothing: no rewrite, no event.
+      if (
+        current.length === next.length &&
+        next.every((id) => current.includes(id))
+      )
+        return;
       await repository.setDepartments(projectId, next);
+      // The event commits with the new assignment, also for agent callers.
+      await repository.appendEvent({
+        type: "project.access.changed",
+        id: projectId,
+      });
     });
     this.invalidateScope(projectId);
   }
@@ -252,7 +264,11 @@ export class ProjectManagementService {
         )
       )
         throw new ProjectManagementDeniedError();
-      await repository.archive(projectId);
+      if (await repository.archive(projectId))
+        await repository.appendEvent({
+          type: "project.access.changed",
+          id: projectId,
+        });
     });
     this.invalidateScope(projectId);
   }

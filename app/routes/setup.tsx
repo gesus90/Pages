@@ -5,9 +5,13 @@ import { AuthLayout } from "@/app/components/auth/auth-layout";
 import { LanguageSwitcher } from "@/app/components/login/language-switcher";
 import { SetupCompleted } from "@/app/components/setup/setup-completed";
 import { SetupWizard } from "@/app/components/setup/setup-wizard";
-import { SETUP_FORM_FIELD } from "@/app/lib/setup/setup-action-data";
-import { handleSetupAction } from "@/app/lib/setup/setup-actions.server";
-import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+import {
+  isSetupActionData,
+  isSetupLoaderData,
+  SETUP_FORM_FIELD,
+} from "@/app/lib/setup/setup-action-data";
+import { sendToBackend } from "@/app/lib/backend-request";
+import { readRouteData } from "@/app/lib/local-state/route-data";
 import { LANGUAGE } from "@/language/Language";
 
 import type { ShouldRevalidateFunctionArgs } from "react-router";
@@ -16,12 +20,11 @@ import type {
   SetupIntent,
   SetupLoaderData,
 } from "@/app/lib/setup/setup-action-data";
-import type { SetupActionResult } from "@/app/lib/setup/setup-actions.server";
-import type { loader as rootLoader } from "@/app/root";
+import type { clientLoader as rootLoader } from "@/app/root";
 import type { Route } from "./+types/setup";
 
 const SETUP_INTENTS: ReadonlySet<unknown> = new Set<SetupIntent>([
-  "check-database-path",
+  "check-database-connection",
   "complete",
   "verify-token",
 ]);
@@ -32,55 +35,22 @@ function isSetupIntent(value: unknown): value is SetupIntent {
 
 /** Wizard requests whose answers never change what the loaders return. */
 const CHECK_INTENTS: ReadonlySet<unknown> = new Set<SetupIntent>([
-  "check-database-path",
+  "check-database-connection",
   "verify-token",
 ]);
 
 /**
- * Tells the wizard whether the setup is pending and whether the setup link
- * carried a valid token.
- *
- * @remarks
- * The suggested database path is only revealed together with a valid
- * token. After the setup finished, the page only offers the way to sign in.
+ * Reads from the API whether the setup is pending and whether the setup link
+ * carried a valid token (PAGE-235).
  */
-export async function loader({
+export async function clientLoader({
   request,
-}: Route.LoaderArgs): Promise<SetupLoaderData> {
-  const runtime = await getPagesRuntime();
-
-  if (!runtime.isSetupPending()) {
-    return { status: "completed" };
-  }
-
-  const token = new URL(request.url).searchParams.get(SETUP_FORM_FIELD.TOKEN);
-
-  if (token !== null && runtime.verifySetupToken(token)) {
-    return {
-      access: {
-        suggestedDatabasePath: runtime.getSuggestedDatabasePath(),
-        token,
-      },
-      hasRejectedToken: false,
-      status: "pending",
-    };
-  }
-
-  return { access: null, hasRejectedToken: token !== null, status: "pending" };
-}
-
-/** Checks the token or the database path, or finishes the setup. */
-export async function action({
-  request,
-}: Route.ActionArgs): Promise<SetupActionResult> {
-  if (request.method !== "POST") {
-    throw new Response("Method Not Allowed", {
-      headers: { Allow: "POST" },
-      status: 405,
-    });
-  }
-
-  return handleSetupAction(await getPagesRuntime(), request);
+}: Route.ClientLoaderArgs): Promise<SetupLoaderData> {
+  return readRouteData({
+    endpoint: `/app-api/setup${new URL(request.url).search}`,
+    signal: request.signal,
+    isPayload: isSetupLoaderData,
+  });
 }
 
 /**
@@ -93,13 +63,15 @@ export async function action({
  */
 export async function clientAction({
   request,
-  serverAction,
 }: Route.ClientActionArgs): Promise<SetupActionData> {
   const formData = await request.clone().formData();
   const intent = formData.get(SETUP_FORM_FIELD.INTENT);
 
   try {
-    return await serverAction();
+    const answer = await sendToBackend(request);
+    if (!isSetupActionData(answer))
+      throw new Error("The setup action answered in another form.");
+    return answer;
   } catch (error: unknown) {
     if (error instanceof Response || !isSetupIntent(intent)) {
       throw error;
@@ -110,7 +82,7 @@ export async function clientAction({
 }
 
 /**
- * Skips reloading the page data after token and path checks, which run
+ * Skips reloading the page data after token and connection checks, which run
  * while typing.
  */
 export function shouldRevalidate({
@@ -126,7 +98,7 @@ export function shouldRevalidate({
 
 /** Renders the setup wizard on the stage of the login page. */
 export default function SetupRoute(): React.ReactElement {
-  const loaderData = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof clientLoader>();
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
   const location = useLocation();
 

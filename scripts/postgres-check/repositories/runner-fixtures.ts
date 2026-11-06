@@ -1,3 +1,8 @@
+import { RunnerHistoryRecoveryRepository } from "@/backend/database/repositories/runner/RunnerHistoryRecoveryRepository";
+import {
+  appendRunnerSessionEvents,
+  prepareRunnerSessionEvents,
+} from "@/backend/database/repositories/runner/RunnerSessionEvents";
 import {
   ATTEMPT,
   remoteExecutionFixture,
@@ -5,7 +10,7 @@ import {
   sessionFixture,
   stepFixture,
 } from "./plan-fixtures";
-import { call } from "./world";
+import { call, refused } from "./world";
 
 import type { RepositoryStep, RepositoryWorld } from "./world";
 import type { DatabaseTransaction } from "@/backend/database/Database";
@@ -131,5 +136,37 @@ export function callInTransaction(
 ): RepositoryStep {
   return call(name, (world) =>
     world.database.transaction((transaction) => run(world, transaction)),
+  );
+}
+
+/** Appends actual prepared runner history through the existing receipt transaction. */
+export function appendPreparedRunnerEvents(
+  events: readonly RunnerLiveEvent[],
+  launchId?: string,
+): RepositoryStep {
+  return call("appendRunnerSessionEvents", async ({ database }) => {
+    const input = { binding: RUNNER_BINDING, jobId: JOB_ID, events, launchId };
+    const prepared = await prepareRunnerSessionEvents(database, input);
+    return database.transaction((transaction) =>
+      appendRunnerSessionEvents(transaction, { ...input, prepared }),
+    );
+  });
+}
+
+/** Retains one synchronized custody packet on the same repository instance. */
+export function retainPreparedHistory(
+  connectionId: string,
+  event: Parameters<RunnerHistoryRecoveryRepository["prepare"]>[0],
+  isRefusal = false,
+): RepositoryStep {
+  return (isRefusal ? refused : call)(
+    "RunnerHistoryRecoveryRepository.retain",
+    async ({ database }) => {
+      const repository = new RunnerHistoryRecoveryRepository(database);
+      await repository.prepare(event);
+      return database.transaction((transaction) =>
+        repository.retain(transaction, connectionId, event),
+      );
+    },
   );
 }

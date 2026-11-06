@@ -25,6 +25,26 @@ export interface AgentPlanRunResources {
   readonly ticketAssets?: readonly AgentTicketAsset[];
 }
 
+/**
+ * Reads one stored file or ticket asset reference.
+ *
+ * @throws {Error} When the reference names no known source.
+ */
+export function readStoredTicketAsset(reference: unknown): AgentTicketAsset {
+  const asset = readAgentObject(reference);
+  if (
+    asset.source !== "ticket" &&
+    asset.source !== "wiki" &&
+    asset.source !== "agent"
+  )
+    throw new Error("Invalid stored ticket asset source");
+  return {
+    source: asset.source,
+    id: readPlanText(asset.id),
+    link: readPlanText(asset.link),
+  };
+}
+
 function readTicketAssets(
   parameters: Record<string, unknown>,
 ): readonly AgentTicketAsset[] {
@@ -37,20 +57,8 @@ function readTicketAssets(
     const references: readonly unknown[] = Array.isArray(ticket.assets)
       ? ticket.assets
       : [];
-    for (const reference of references) {
-      const asset = readAgentObject(reference);
-      if (
-        asset.source !== "ticket" &&
-        asset.source !== "wiki" &&
-        asset.source !== "agent"
-      )
-        throw new Error("Invalid stored ticket asset source");
-      assets.push({
-        source: asset.source,
-        id: readPlanText(asset.id),
-        link: readPlanText(asset.link),
-      });
-    }
+    for (const reference of references)
+      assets.push(readStoredTicketAsset(reference));
   }
   return assets;
 }

@@ -169,6 +169,11 @@ export class ProjectDeletionService {
       const details = await repository.describeDeletion(projectId);
       if (!details) throw new ProjectNotFoundError();
       const files = await repository.deletePermanently(projectId);
+      // The event commits with the deletion, also for agent callers.
+      await repository.appendEvent({
+        type: "project.access.changed",
+        id: projectId,
+      });
       return { files, memberIds: details.memberIds, scope: details.scope };
     });
   }

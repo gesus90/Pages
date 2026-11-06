@@ -4,10 +4,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { handleProjectAction } from "@/app/lib/project-actions/project-actions.server";
 import { handleProjectScopeAction } from "@/app/lib/project-actions/project-scope-actions.server";
-import ProjectDetailRoute, {
-  action,
-  loader,
-} from "@/app/routes/project-detail";
+import ProjectDetailRoute from "@/app/routes/project-detail";
+import { action, loader } from "@/app/routes/project-detail-server";
 import {
   ProjectAccessDeniedError,
   ProjectNotFoundError,
@@ -48,6 +46,14 @@ const services = vi.hoisted(() => ({
   discordConnectionService: { isConnected: vi.fn() },
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "u-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => services,
 }));
@@ -337,7 +343,12 @@ it("turns a failed action into an error answer", async () => {
 
 it("switches between the tabs through the address", async () => {
   renderRoute(ProjectDetailRoute, {
-    loaderData: { project: PROJECT, activeTab: "general", canWrite: true },
+    loaderData: {
+      project: PROJECT,
+      activeTab: "general",
+      canWrite: true,
+      audience: AUDIENCE,
+    },
   });
 
   expect(screen.getByRole("heading").textContent).toBe("Pages");
@@ -352,7 +363,7 @@ it("switches between the tabs through the address", async () => {
 
 it("falls back to the loaded tab for an unknown address tab", () => {
   renderRoute(ProjectDetailRoute, {
-    loaderData: { project: PROJECT, activeTab: "activity" },
+    loaderData: { project: PROJECT, activeTab: "activity", audience: AUDIENCE },
     url: "/?tab=unknown",
   });
 

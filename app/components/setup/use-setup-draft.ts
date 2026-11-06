@@ -19,7 +19,7 @@ export type SetupStep = (typeof SETUP_STEPS)[number];
 const FIELDS_BY_STEP: Readonly<Record<SetupStep, readonly SetupField[]>> = {
   administrator: ["username", "password", "email"],
   company: ["companyName"],
-  database: ["databasePath"],
+  database: ["databaseUrl"],
   welcome: [],
 };
 
@@ -29,7 +29,7 @@ export interface SetupDraftValues {
   readonly username: string;
   readonly password: string;
   readonly email: string;
-  readonly databasePath: string;
+  readonly databaseUrl: string;
 }
 
 /** The entered values, the current step, and how to move between steps. */
@@ -61,29 +61,27 @@ function findFirstStepWithError(errors: SetupFieldErrors): number {
 /**
  * Keeps the values and the step of the wizard.
  *
- * @param suggestedDatabasePath - Path the server suggests, used until the
+ * @param suggestedDatabaseUrl - Connection suggestion, used until the
  * field is edited; `null` before access was granted.
  *
  * @remarks
  * Moving forward checks the fields of the current step with the same rules
  * the server applies. Moving back never loses entered values.
  */
-export function useSetupDraft(
-  suggestedDatabasePath: string | null,
-): SetupDraft {
+export function useSetupDraft(suggestedDatabaseUrl: string | null): SetupDraft {
   const [enteredValues, setEnteredValues] = useState(EMPTY_VALUES);
-  const [databasePath, setDatabasePath] = useState<string | null>(null);
+  const [databaseUrl, setDatabaseUrl] = useState<string | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<SetupFieldErrors>({});
   const step = SETUP_STEPS[stepIndex];
   const values = {
     ...enteredValues,
-    databasePath: databasePath ?? suggestedDatabasePath ?? "",
+    databaseUrl: databaseUrl ?? suggestedDatabaseUrl ?? "",
   };
 
   function setField(field: SetupField, value: string): void {
-    if (field === "databasePath") {
-      setDatabasePath(value);
+    if (field === "databaseUrl") {
+      setDatabaseUrl(value);
     } else {
       setEnteredValues((current) => ({ ...current, [field]: value }));
     }

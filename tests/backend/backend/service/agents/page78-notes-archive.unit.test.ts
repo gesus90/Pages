@@ -39,6 +39,7 @@ it("archives only the sent prompt and answer, without reading any workspace file
       discardInput: vi.fn(),
       markArchived: vi.fn(),
       unarchived: vi.fn(),
+      snapshotText: async (text) => text,
       keys: vi.fn(),
       get: vi.fn(),
     },

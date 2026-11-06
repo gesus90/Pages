@@ -10,6 +10,7 @@ import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { agentChannelPolicy } from "@/backend/auth/McpActorContext";
 import { CAPABILITY } from "@/definition/Authorization";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { recordPagesEvent } from "@/backend/service/events/PagesEventPublisher";
 
 import { createAgentTaskContext } from "./AgentTaskAccess";
 import { agentTransactionScope } from "./AgentTransactionScope";
@@ -199,8 +200,11 @@ export class AgentTicketTransaction {
       return { actor, result: stored, published: null, event: null };
     }
     const outcome = await run.work(context);
-    if (outcome.event !== null)
+    if (outcome.event !== null) {
       await this.recordActivity(context, run.operation, outcome.event);
+      // The outbox row commits with the change; a repeated call stores none.
+      await recordPagesEvent(transaction, outcome.event);
+    }
     await operations.insert(run.userId, run.request.operationId, {
       operation: run.operation,
       fingerprint: hash,

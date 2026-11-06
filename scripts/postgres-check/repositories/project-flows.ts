@@ -109,6 +109,24 @@ const CORE_STEPS: readonly RepositoryStep[] = [
   refused("ProjectRepository.setDepartments", ({ projects }) =>
     projects.setDepartments("project-a", [MISSING_TEXT]),
   ),
+  // The event of an access change is an outbox row of kind and project (PAGE-236).
+  call("ProjectRepository.appendEvent", async ({ projects, database }) => {
+    await projects.appendEvent({
+      type: "project.access.changed",
+      id: "project-a",
+    });
+    const rows = await database.query(
+      "SELECT kind, object_id, audience_project_id FROM pages_event_outbox ORDER BY position DESC LIMIT 1;",
+    );
+    return {
+      isAsKnown:
+        JSON.stringify(rows) ===
+        JSON.stringify([["project.access.changed", "project-a", null]]),
+    };
+  }),
+  refused("ProjectRepository.appendEvent", ({ projects }) =>
+    projects.appendEvent({ type: "Project Access", id: "project-a" }),
+  ),
   call("ProjectRepository.update", ({ projects }) =>
     projects.update("project-a", {
       ...PROJECT_UPDATE,

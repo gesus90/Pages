@@ -1,0 +1,36 @@
+[Unit]
+Description=Pages plan engine (%i)
+After=network-online.target pages-postgres@%i.service pages-api@%i.service
+Wants=pages-postgres@%i.service
+PartOf=pages.target
+StartLimitIntervalSec=0
+Wants=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=all
+WatchdogSec=60
+TimeoutStartSec=180
+User=pages
+Group=pages
+WorkingDirectory=/opt/pages
+ExecStart=/usr/bin/env node --max-old-space-size=768 /opt/pages/pages-runs.mjs --config /etc/pages/%i/config.toml
+Restart=always
+RestartSec=5
+# Zielarchitektur rev12: pages-runs 1 GB starting budget.
+MemoryMax=1G
+OOMScoreAdjust=-250
+MemorySwapMax=0
+TimeoutStopSec=45
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pages/%i /etc/pages/%i
+Environment=NODE_ENV=production
+EnvironmentFile=-/etc/pages/%i/runtime.env
+
+[Install]
+WantedBy=pages.target

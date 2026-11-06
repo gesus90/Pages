@@ -10,6 +10,7 @@ import { Database } from "@/backend/database/Database";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
 import { pagesMcpBundlePath } from "@/backend/agents/cli/PagesMcpBundle";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+import { GitHubJobWorker } from "@/backend/service/integrations/GitHubJobWorker";
 
 import type { Mock } from "vitest";
 import type { AgentApplicationServices } from "@/app/lib/agent-services.server";
@@ -20,6 +21,8 @@ import type { McpApplicationServices } from "@/app/lib/mcp-services.server";
 import type { PreferenceApplicationServices } from "@/app/lib/preference-services.server";
 import type { PagesRuntime } from "@/backend/runtime/PagesRuntime";
 
+import type * as LoggerModule from "@/backend/logging/Logger";
+
 const { fakeClass, fakeClasses, opaque, partial } = await vi.hoisted(
   async () => import("./service-wiring-fakes"),
 );
@@ -28,12 +31,12 @@ const { fakeClass, fakeClasses, opaque, partial } = await vi.hoisted(
 // opens a database, a file, a process or a socket.
 vi.mock("@/backend/database/Database", () => ({
   Database: Object.assign(fakeClass(["migrate", "close"]), {
-    create: vi.fn(),
+    connect: vi.fn(),
   }),
 }));
 vi.mock("@/backend/database/Migrations", () => {
   const migrations = [{ version: 1, name: "synthetic", sql: "" }];
-  return { DATABASE_MIGRATIONS: migrations, migrationsFor: () => migrations };
+  return { POSTGRES_MIGRATIONS: migrations };
 });
 vi.mock("@/backend/runtime/ProcessLifecycle", () => ({
   registerShutdownTask: vi.fn(),
@@ -47,7 +50,8 @@ vi.mock("@/backend/runtime/PagesRuntime", () => ({
 vi.mock("@/backend/service/chat/acp/PicaAcpWorkspace", () => ({
   PICA_WORKSPACE_DIRECTORY_NAME: "pica-sessions",
 }));
-vi.mock("@/backend/logging/Logger", () => ({
+vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
+  ...(await importOriginal<typeof LoggerModule>()),
   logCaughtError: vi.fn(),
   logDiagnostic: vi.fn(),
   logEvent: vi.fn(),
@@ -90,9 +94,24 @@ vi.mock("@/backend/auth/SessionService", () =>
   fakeClasses({ SessionService: ["removeExpiredSessions"] }),
 );
 vi.mock("@/backend/cache/ServerCache", () => fakeClasses({ ServerCache: [] }));
-vi.mock("@/backend/github/GitHubSyncScheduler", () =>
-  fakeClasses({ GitHubSyncScheduler: ["start", "stop"] }),
+vi.mock("@/backend/service/integrations/GitHubJobWorker", () =>
+  fakeClasses({ GitHubJobWorker: ["start", "stop"] }),
 );
+vi.mock("@/backend/service/integrations/GitHubJobClient", () =>
+  fakeClasses({ GitHubJobClient: [] }),
+);
+vi.mock(
+  "@/backend/database/repositories/integrations/GitHubCreationRepository",
+  () => fakeClasses({ GitHubCreationRepository: [] }),
+);
+vi.mock("@/backend/service/agents/runs/RunsProcessing", () => ({
+  claimRunsProcessing: vi.fn(),
+  claimRunApiProcessing: vi.fn(),
+}));
+vi.mock("@/backend/service/integrations/IntegrationProcessing", () => ({
+  claimIntegrationProcessing: vi.fn(),
+  canProcessIntegrations: () => true,
+}));
 vi.mock("@/backend/database/repositories/SessionRepository", () =>
   fakeClasses({ SessionRepository: [] }),
 );
@@ -158,7 +177,7 @@ vi.mock("@/backend/service/AnnouncingTaskService", () =>
   }),
 );
 vi.mock("@/backend/service/events/PagesEventPublisher", () =>
-  fakeClasses({ PagesEventPublisher: [] }),
+  fakeClasses({ PagesEventPublisher: ["subscribe", "announce"] }),
 );
 vi.mock("@/backend/service/task/TaskGitHubPublisher", () =>
   fakeClasses({ TaskGitHubPublisher: ["attach"] }),
@@ -259,7 +278,7 @@ export function runtimeFixture(publicUrl?: string): PagesRuntime {
     configFile: { path: "/srv/pages/config.json" },
     getConfig: () => ({ port: 3100, mcpHttp: { publicUrl } }),
     getDatabasePath: () => DATABASE_PATH,
-    getDatabaseUrl: () => null,
+    getDatabaseUrl: () => "postgresql://localhost/pages",
   });
 }
 
@@ -270,9 +289,10 @@ export function runtimeFixture(publicUrl?: string): PagesRuntime {
  * @returns The collaborators and the shutdown log.
  */
 export function servicesWorld(): ServicesWorld {
+  vi.mocked(GitHubJobWorker.prototype.start).mockResolvedValue(undefined);
   globalThis.pagesServices = undefined;
   globalThis.pagesShutdownHandlerRegistered = undefined;
-  globalThis.pagesSyncSchedulerStarted = undefined;
+  globalThis.pagesGitHubWorkerStarted = undefined;
   globalThis.pagesWikiMaintenanceStarted = undefined;
   const { steps, step } = shutdownSteps();
   const world: ServicesWorld = {
@@ -301,7 +321,7 @@ export function servicesWorld(): ServicesWorld {
     shutdownSteps: steps,
     shutdownStep: step,
   };
-  vi.mocked(Database.create).mockResolvedValue(world.database);
+  vi.mocked(Database.connect).mockResolvedValue(world.database);
   vi.mocked(getPagesRuntime).mockResolvedValue(runtimeFixture());
   vi.mocked(resolveGitHubTokenKey).mockReturnValue(world.tokenKey);
   vi.mocked(pagesMcpBundlePath).mockReturnValue("/srv/pages/mcp/pages-mcp.mjs");

@@ -1,4 +1,5 @@
 import { CredentialStoreError } from "./credential-error.js";
+import { correlationHeaders } from "./request-correlation.js";
 import {
   IMPORT_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
@@ -50,6 +51,7 @@ export async function postAgentRequest(
         Authorization: `Bearer ${requestedToken}`,
         "Content-Type": "application/json",
         Accept: "application/json",
+        ...correlationHeaders(),
       },
       body: JSON.stringify(input),
       redirect: "error",

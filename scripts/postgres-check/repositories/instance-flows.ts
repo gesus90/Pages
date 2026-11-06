@@ -1,6 +1,43 @@
+import { Client } from "pg";
+
+import {
+  LIVE_CHANGE_CHANNEL,
+  LiveChangeNotificationRepository,
+} from "@/backend/database/repositories/LiveChangeNotificationRepository";
+
 import { call, MISSING_TEXT, prepare, refused, stored } from "./world";
 
 import type { RepositoryFlow } from "./world";
+
+/**
+ * Sends one live notice and returns what a listening session of the API receives.
+ *
+ * @param databaseUrl - The disposable check database.
+ * @param repository - The repository under check.
+ * @param payload - The notice.
+ * @returns The payload as it arrived on the channel.
+ */
+async function notifiedPayload(
+  databaseUrl: string,
+  repository: LiveChangeNotificationRepository,
+  payload: string,
+): Promise<string | undefined> {
+  const listener = new Client({
+    connectionString: databaseUrl,
+    connectionTimeoutMillis: 10_000,
+  });
+  await listener.connect();
+  try {
+    await listener.query(`LISTEN ${LIVE_CHANGE_CHANNEL};`);
+    const received = new Promise<string | undefined>((resolve) => {
+      listener.on("notification", (message) => resolve(message.payload));
+    });
+    await repository.notify(payload);
+    return await received;
+  } finally {
+    await listener.end();
+  }
+}
 
 const CONNECTION = {
   id: "connection-b",
@@ -123,6 +160,15 @@ export const INSTANCE_FLOW: RepositoryFlow = {
           affectedUserIds: [],
         },
       }),
+    ),
+    call(
+      "LiveChangeNotificationRepository.notify",
+      ({ database, databaseUrl }) =>
+        notifiedPayload(
+          databaseUrl,
+          new LiveChangeNotificationRepository(database),
+          '{"type":"wiki.page.updated","id":"page-1"}',
+        ),
     ),
   ],
 };

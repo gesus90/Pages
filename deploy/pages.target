@@ -1,0 +1,8 @@
+[Unit]
+Description=Pages platform (default instance)
+Wants=pages-service-monitor@default.service pages-service-monitor@default.timer
+Wants=pages-postgres@default.service pages-api@default.service pages-runs@default.service pages-integrations@default.service
+After=pages-postgres@default.service pages-api@default.service pages-runs@default.service pages-integrations@default.service
+
+[Install]
+WantedBy=multi-user.target

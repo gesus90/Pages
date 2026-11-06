@@ -74,7 +74,11 @@ describe("readPagesConfig", () => {
   it("normalizes the database path", () => {
     expect(
       readPagesConfig(
-        { databasePath: "/srv/./pages//pages.duckdb", firstRun: false },
+        {
+          databasePath: "/srv/./pages//pages.duckdb",
+          databaseUrl: "postgresql://localhost/pages",
+          firstRun: false,
+        },
         "config.toml",
       ),
     ).toMatchObject({ databasePath: "/srv/pages/pages.duckdb" });
@@ -105,7 +109,12 @@ describe("readPagesConfig", () => {
     });
     expect(
       readPagesConfig(
-        { databasePath: "/srv/pages.duckdb", firstRun: false, trustedProxies },
+        {
+          databasePath: "/srv/pages.duckdb",
+          databaseUrl: "postgresql://localhost/pages",
+          firstRun: false,
+          trustedProxies,
+        },
         "config.toml",
       ),
     ).toMatchObject({ firstRun: false, trustedProxies });
@@ -141,11 +150,17 @@ describe("writePagesConfig", () => {
     expect(
       writePagesConfig(
         { custom: 1, databasePath: "/old", port: 1 },
-        { databasePath: "/new/pages.duckdb", firstRun: false, port: 2 },
+        {
+          databasePath: "/new/pages.duckdb",
+          databaseUrl: "postgresql://localhost/pages",
+          firstRun: false,
+          port: 2,
+        },
       ),
     ).toEqual({
       custom: 1,
       databasePath: "/new/pages.duckdb",
+      databaseUrl: "postgresql://localhost/pages",
       firstRun: false,
       port: 2,
     });

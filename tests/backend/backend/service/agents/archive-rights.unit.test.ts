@@ -23,6 +23,7 @@ describe.each(["ticket.delete", "milestone.delete"] as const)(
         });
         expect(world.activity).toHaveLength(1);
         expect(world.events).toHaveLength(1);
+        expect(world.outbox).toHaveLength(1);
       },
     );
 

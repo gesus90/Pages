@@ -1,3 +1,5 @@
+import { afterCallCommit } from "@/backend/database/CallTransaction";
+
 import type { WikiAttachmentService } from "./WikiAttachmentService";
 import type { WikiSettingsService } from "./WikiSettingsService";
 import type { WikiTrashService } from "./WikiTrashService";
@@ -33,16 +35,22 @@ export class WikiMaintenanceService {
   /**
    * Runs one cleanup: expired trash with its files, old versions, and files
    * that no attachment refers to any more.
+   *
+   * @returns The trash roots that were removed for good.
    */
-  public async run(): Promise<void> {
+  public async run(): Promise<readonly string[]> {
     const settings = await this.settings.get();
-    const names = await this.trash.purgeExpired(settings.trashRetentionDays);
+    const purged = await this.trash.purgeExpired(settings.trashRetentionDays);
 
-    await this.attachments.removeFiles(names);
-    await this.versions.prune(
-      settings.versionRetentionDays,
-      settings.versionKeepLast,
-    );
-    await this.attachments.sweep();
+    // Inside an announced call, files and the other cleanups follow the committed purge.
+    await afterCallCommit(async () => {
+      await this.attachments.removeFiles(purged.files);
+      await this.versions.prune(
+        settings.versionRetentionDays,
+        settings.versionKeepLast,
+      );
+      await this.attachments.sweep();
+    });
+    return purged.rootIds;
   }
 }

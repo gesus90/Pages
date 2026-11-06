@@ -3,7 +3,7 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { registerShutdownTask } from "./ProcessLifecycle";
-import { isRemoteConsoleChannel } from "./RemoteConsoleChannel";
+import { isRemoteConsoleChannel, RUNNER_CHANNEL_PATH } from "./ChannelPaths";
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import type { WebSocket } from "ws";
@@ -15,7 +15,6 @@ import type {
   RunnerService,
 } from "@/backend/service/runner/RunnerService";
 
-const CHANNEL_PATH = /^\/runner\/v1\/channel\/([a-f0-9-]{36})$/u;
 const MAXIMUM_PAYLOAD = 2 * 1024 * 1024;
 const MAXIMUM_BUFFERED_BYTES = 4 * 1024 * 1024;
 
@@ -217,7 +216,7 @@ async function upgrade(input: {
 }): Promise<void> {
   const { request, socket, server } = input;
   try {
-    const connectionId = CHANNEL_PATH.exec(request.url ?? "")?.[1];
+    const connectionId = RUNNER_CHANNEL_PATH.exec(request.url ?? "")?.[1];
     if (server.clients.size >= 200) throw new Error("Runner channel limit");
     const protocols = request.headers["sec-websocket-protocol"]
       ?.split(",")

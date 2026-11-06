@@ -1,7 +1,6 @@
 import { strict as assert } from "node:assert";
 
 import { Database, isUniqueViolationOn } from "@/backend/database/Database";
-import { sqlForDialect } from "@/backend/database/DatabaseDialect";
 import {
   AbortedTransactionError,
   NulTextQueryError,
@@ -261,12 +260,7 @@ async function checkSynchronousCommit(database: Database): Promise<void> {
 }
 
 async function checkDialect(database: Database): Promise<void> {
-  assert.equal(database.dialect, "postgres");
-  const statement = sqlForDialect(database.dialect, {
-    duckdb: "SELECT 'duckdb';",
-    postgres: "SELECT 'postgres';",
-  });
-  assert.deepEqual(await database.query(statement), [["postgres"]]);
+  assert.deepEqual(await database.query("SELECT 'postgres';"), [["postgres"]]);
 }
 
 async function checkPool(database: Database): Promise<void> {

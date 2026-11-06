@@ -340,6 +340,7 @@ it("shares one catalog refresh between login, catalog reads and the scheduler", 
     cli: runtime,
   });
   expect(vi.mocked(AgentCliLoginService).mock.calls[0][0]).toEqual({
+    agentToolManagerService: services.agentToolManagerService,
     repository,
     store: only(vi.mocked(AgentCredentialStore)),
     locator: vi.mocked(CliLocator).mock.instances[1],

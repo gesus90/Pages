@@ -283,6 +283,16 @@ export function renderPlanPage(
         loader: ({ request }) => page(server, request),
         action: ({ request }) => act(server, request),
       },
+      {
+        // The console reads the run history on its own once it opens (PAGE-228).
+        path: "/agent-api/plan-run-summaries",
+        loader: ({ request }) => ({
+          ok: true,
+          intent: "run-summaries",
+          planId: new URL(request.url).searchParams.get("planId"),
+          runs: [],
+        }),
+      },
     ],
     { initialEntries: [address] },
   );

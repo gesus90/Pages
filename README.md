@@ -41,7 +41,7 @@ Pages is in early development (version 0.1.0).
 | Area      | Technology                                               |
 | --------- | -------------------------------------------------------- |
 | UI        | React 19, TypeScript, Tailwind CSS 4, Radix UI, Lucide   |
-| Framework | React Router 8 in framework mode, server-side rendering  |
+| Framework | React Router 8 in framework mode; static app without server rendering, API server |
 | Runtime   | Node.js                                                  |
 | Database  | DuckDB, one file per instance                            |
 | Text      | i18next (German, English), Tiptap editor                 |
@@ -2287,6 +2287,18 @@ pnpm start --config /srv/pages/config.toml # another configuration file
 The development server always reads `~/.pages/config.toml`; start parameters
 and the configured port do not apply to it.
 
+### Static app and entrance (PAGE-235)
+
+The interface is a static app without server rendering: `build/client` holds
+its `index.html`, the hashed files and the service worker `sw.js`, which keeps
+the app available offline. Pages read their data from the API's endpoints and
+keep the signed-in account's last answers in the browser, so the app also opens
+while the API is stopped. `pnpm start` serves the app and the API from one
+process. In production the entrance `pages-ingress.mjs` serves the app as its
+own process and passes everything else to the API, so a stopped or restarting
+API does not take the interface down. Its template and the switch-over are in
+[deploy/ingress/README.md](./deploy/ingress/README.md).
+
 Optional environment variables are documented in [`.env.example`](./.env.example).
 Pages does not load a `.env` file by itself: export the variables in the shell
 or service environment, or start the production server with
@@ -2692,9 +2704,10 @@ All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 
 | Script          | What it does                                                                                                                                              |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`           | Starts the React Router development server (Vite) with server-side rendering.                                                                             |
-| `build`         | Creates the production build in `build/`.                                                                                                                 |
-| `start`         | Runs the production server from `build/` through `server.mjs`. Run `build` first. Accepts `--port <number>` and `--config <path>`.                       |
+| `dev`           | Starts the development server of the static app (Vite). It passes server requests to `dev:api`. |
+| `dev:api`       | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address. |
+| `build`         | Builds the static app (`ssr: false`) into `build/client` and the API into `build/server` (`scripts/build.mjs`). |
+| `start`         | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`. |
 | `check`         | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`. |
 | `lint`          | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing. |
 | `format`        | Runs `prettier --write` and rewrites files in place.                                                                                                      |

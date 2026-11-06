@@ -2,11 +2,9 @@ import { act, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { requireAgentAccount } from "@/app/lib/settings-actions/settings-agents-access.server";
-import SettingsAgentToolsRoute, {
-  action,
-  headers,
-  loader,
-} from "@/app/routes/settings-agent-tools";
+import SettingsAgentToolsRoute from "@/app/routes/settings-agent-tools";
+import { loader as dataLoader } from "@/app/routes/settings-agent-tools-data";
+import { action, loader } from "@/app/routes/settings-agent-tools-server";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentToolReadinessError } from "@/backend/service/agents/tools/AgentToolReadinessError";
 
@@ -14,7 +12,6 @@ import {
   accountAccess,
   ACTOR,
   formPost,
-  headerArguments,
   i18n,
   pagesRequest,
   renderRoute,
@@ -28,6 +25,16 @@ const tools = vi.hoisted(() => ({
   manage: vi.fn(),
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({
     agentToolManagerService: tools,
@@ -68,7 +75,7 @@ it("lists the tools for a current administrator without caching", async () => {
     routeArguments(pagesRequest("/settings/agents/tools"), { user: ACTOR }),
   );
 
-  expect(result.data).toEqual({ tools: [{ id: "node" }] });
+  expect(result.data).toEqual({ tools: [{ id: "node" }], audience: AUDIENCE });
   expect(result.init).toMatchObject({
     headers: { "Cache-Control": "no-store" },
   });
@@ -177,22 +184,22 @@ it("reports a tool that is not ready with its diagnostic", async () => {
   });
 });
 
-it("never caches the tool page", () => {
-  const result = new Headers(
-    headers(
-      headerArguments({ "Cache-Control": "public", "X-Frame-Options": "DENY" }),
-    ),
+it("never caches the tool page", async () => {
+  const response = await dataLoader(
+    routeArguments(pagesRequest("/settings-api/agent-tools"), { user: ACTOR }),
   );
 
-  expect(result.get("Cache-Control")).toBe("no-store");
-  expect(result.get("X-Frame-Options")).toBe("DENY");
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
 });
 
 it("renders the inventory and polls its status", async () => {
   vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-  const reload = vi.fn(() => ({ tools: [{ id: "node" }, { id: "codex" }] }));
+  const reload = vi.fn(() => ({
+    tools: [{ id: "node" }, { id: "codex" }],
+    audience: AUDIENCE,
+  }));
   const view = renderRoute(SettingsAgentToolsRoute, {
-    loaderData: { tools: [{ id: "node" }] },
+    loaderData: { tools: [{ id: "node" }], audience: AUDIENCE },
     loader: reload,
   });
 

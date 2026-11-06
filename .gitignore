@@ -2,6 +2,8 @@ node_modules/
 dist/
 build/
 coverage/
+# Cargo output of pages-core.
+core/target/
 .react-router/
 data/
 

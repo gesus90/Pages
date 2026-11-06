@@ -3,17 +3,14 @@ import { createRoot } from "react-dom/client";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import Root, {
-  ErrorBoundary,
-  headers,
-  Layout,
-  links,
-  loader,
-  meta,
-  middleware,
-} from "@/app/root";
-import { createSecurityHeaders } from "@/app/lib/security-headers";
+import Root, { ErrorBoundary, Layout, links, meta } from "@/app/root";
+import { loader } from "@/app/routes/root-data";
+import { middleware } from "@/app/routes/root-server";
 import { databaseRequestMiddleware } from "@/app/lib/database-failure.server";
+import {
+  createDocumentHeaders,
+  createSecurityHeaders,
+} from "@/app/lib/security-headers";
 import { requireFinishedSetup } from "@/app/lib/setup-gate.server";
 import { STANDARD_ACTIVE_DESIGN_THEME } from "@/definition/DesignTheme";
 import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
@@ -119,15 +116,16 @@ it("registers the stylesheet and the favicon, the title and the security headers
   expect(meta(routeArguments<Parameters<typeof meta>[0]>({}))).toEqual([
     { title: "Pages" },
   ]);
-  expect(headers(routeArguments<Parameters<typeof headers>[0]>({}))).toEqual(
-    createSecurityHeaders(),
-  );
+  expect(createDocumentHeaders("/dashboard")).toEqual({
+    ...createSecurityHeaders(),
+    "Cache-Control": "no-cache",
+  });
 });
 
 it("starts the setup wizard in the chosen language without touching the services", async () => {
   server.isSetupPending.mockResolvedValue(true);
 
-  await expect(load()).resolves.toEqual({
+  await expect((await load()).json()).resolves.toEqual({
     language: "de",
     theme: DEFAULT_USER_SETTINGS.theme,
     designTheme: STANDARD_ACTIVE_DESIGN_THEME,
@@ -141,7 +139,7 @@ it("uses the personal language, mode and design of a signed-in visitor", async (
   server.getUserSettings.mockResolvedValue({ language: "en", theme: "dark" });
   server.getActiveTheme.mockResolvedValue(CUSTOM_DESIGN);
 
-  await expect(load()).resolves.toEqual({
+  await expect((await load()).json()).resolves.toEqual({
     language: "en",
     theme: "dark",
     designTheme: CUSTOM_DESIGN,
@@ -152,7 +150,7 @@ it("uses the personal language, mode and design of a signed-in visitor", async (
 });
 
 it("falls back to the browser language and the standard design for anonymous visitors", async () => {
-  await expect(load()).resolves.toEqual({
+  await expect((await load()).json()).resolves.toEqual({
     language: "en",
     theme: DEFAULT_USER_SETTINGS.theme,
     designTheme: STANDARD_ACTIVE_DESIGN_THEME,

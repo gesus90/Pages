@@ -2,10 +2,8 @@
 import { cleanup, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-import DiscordResultRoute, {
-  headers,
-  loader,
-} from "@/app/routes/discord-result";
+import { createDocumentHeaders } from "@/app/lib/security-headers";
+import DiscordResultRoute, { clientLoader } from "@/app/routes/discord-result";
 
 import {
   i18n,
@@ -23,7 +21,7 @@ vi.mock("@/app/lib/services.server", () => ({
 }));
 
 it("keeps the result out of caches and referrers", () => {
-  const response = headers();
+  const response = new Headers(createDocumentHeaders("/discord/result"));
 
   expect(response.get("Cache-Control")).toBe("no-store");
   expect(response.get("Referrer-Policy")).toBe("no-referrer");
@@ -31,16 +29,27 @@ it("keeps the result out of caches and referrers", () => {
 
 it("reads a known outcome from the address", () => {
   expect(
-    loader(routeArguments(pagesRequest("/discord/result?outcome=expired"))),
+    clientLoader({
+      ...routeArguments(pagesRequest("/discord/result?outcome=expired")),
+      serverLoader: async () => undefined,
+    }),
   ).toEqual({ outcome: "expired" });
 });
 
 it("treats a missing or unknown outcome as an invalid link", () => {
-  expect(loader(routeArguments(pagesRequest("/discord/result")))).toEqual({
+  expect(
+    clientLoader({
+      ...routeArguments(pagesRequest("/discord/result")),
+      serverLoader: async () => undefined,
+    }),
+  ).toEqual({
     outcome: "invalid",
   });
   expect(
-    loader(routeArguments(pagesRequest("/discord/result?outcome=hacked"))),
+    clientLoader({
+      ...routeArguments(pagesRequest("/discord/result?outcome=hacked")),
+      serverLoader: async () => undefined,
+    }),
   ).toEqual({ outcome: "invalid" });
 });
 

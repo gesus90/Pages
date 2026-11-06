@@ -1,4 +1,5 @@
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
+import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanScriptRunner } from "./AgentPlanScriptRunner";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
@@ -10,6 +11,9 @@ import type { AgentPlanRunRepository } from "@/backend/database/repositories/age
 
 /** Runtime boundaries shared with the run command aggregate. */
 export interface EngineDependencies {
+  /** Startup restores state and consumes pending controls before releasing dispatch. */
+  readonly deferScheduling?: boolean;
+  readonly localSessions?: LocalSessions;
   readonly workGate?: AgentPlanWorkGate;
   readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly scripts?: Pick<AgentPlanScriptRunner, "run">;
@@ -18,10 +22,15 @@ export interface EngineDependencies {
     AgentPlanRunRepository,
     "insert" | "create" | "update" | "find"
   > &
-    Partial<Pick<AgentPlanRunRepository, "resetRemoteRetry">>;
+    Partial<
+      Pick<
+        AgentPlanRunRepository,
+        "resetRemoteRetry" | "prepareSnapshot" | "snapshot" | "engineState"
+      >
+    >;
   readonly start: Pick<AgentPlanStepStart, "control">;
   readonly steps: Pick<AgentPlanStepRunner, "run" | "closeGroups"> &
-    Partial<Pick<AgentPlanStepRunner, "revise" | "finishPlanRun">>;
+    Partial<Pick<AgentPlanStepRunner, "revise" | "finishPlanRun" | "restore">>;
   readonly archive?: AgentRunArchive;
   readonly files?: AgentDefinitionFiles;
 }

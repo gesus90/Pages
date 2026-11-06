@@ -1,27 +1,27 @@
 # PostgreSQL migration
 
-The live Pages instance uses PostgreSQL through `databaseUrl`. DuckDB remains a
-legacy fallback in the release until PAGE-221; `docs/DatabaseExecutor.md`
-describes the facade both backends share. A completed setup without `databaseUrl`
-uses `databasePath` and DuckDB. The current setup wizard asks for a DuckDB file
-path and does not configure a PostgreSQL URL; it does not select PostgreSQL while
-setup is pending.
+Pages uses PostgreSQL through the required `databaseUrl`. The setup wizard
+accepts a PostgreSQL connection and initializes an empty database. DuckDB is
+not a runtime backend; its migrations and development-only driver remain for
+the explicit offline transfer command. The historical database and backups must
+be retained. Returning to an old version after PostgreSQL writes would lose
+those writes unless an explicit reconciliation is performed.
 
 ## Schema
 
 `backend/database/postgres/migrations/001_baseline.sql` holds the end state of
 the DuckDB migrations 001 to 088: tables, primary keys, unique and check
 constraints, indexes, defaults, the sequences, the one view and the rows a fresh
-database starts with. The history is not replayed. The DuckDB schema has no
-foreign keys, so PostgreSQL has none either.
+database starts with. The history is not replayed. The historical baseline has
+no foreign keys; later PostgreSQL-only migrations add their own constraints.
 
-`Database.migrate` runs both dialects. `migrationsFor(database.dialect)` picks
-the scripts; PostgreSQL counts its own in `postgres_schema_migrations`. It runs no
+`Database.migrate` runs the PostgreSQL scripts and counts them in
+`postgres_schema_migrations`. It runs no
 `CHECKPOINT`: that only protects DuckDB's write-ahead log and needs extra rights
 here.
 
-While both backends remain, every new DuckDB migration needs a matching PostgreSQL migration
-(`AGENTS.md`).
+New schema migrations are added only to the PostgreSQL migration directory.
+The historical DuckDB migrations describe the source accepted by offline transfer.
 
 ## Types
 
@@ -188,7 +188,7 @@ environment. Exit code 0 means passed, 1 failed, 2 wrong usage. The steps:
 3. Copy the backup to `<root>/restore-check-<random>`, start it on a free port with a
    configuration of its own and replay the archive to that time.
 4. Compare the number of tables and the rows per table with the counts of step 2. The first
-   row must be there and the second must not. Then stop and delete the instance.
+   row must be there and the second must not. Then stop the instance and retain its private work directory.
 
 **The lock.** A count of a running database fits no point in time, so writers wait for
 that moment. The `LOCK` statement gives up after 800 ms, below the `deadlock_timeout` of
@@ -203,8 +203,9 @@ last run. The schema is no migration: Pages does not know it, and DuckDB has no 
 **The instance.** It accepts only its private socket, without a password, since role and
 password come from the source; its port rejects every connection. `archive_mode` is off,
 so it never writes into the archive. It works on a copy, so the backup stays unchanged. A
-directory left by a killed run goes at the next start; if a process still uses it, the
-check fails instead.
+directory from a completed or interrupted run is retained. If a process still uses
+an earlier work directory, the check fails instead of touching it. Each retained copy
+needs additional disk space.
 
 **The result** is the log event `postgres.restore_check.passed` or
 `postgres.restore_check.failed`, with the failed step, in
@@ -239,20 +240,20 @@ afterwards. The new timeline goes into the archive, so take a new base backup ri
 - The check needs free space for one more copy of the base backup on `/mnt/Data`.
 - Attachments and other files of Pages are not part of this backup.
 
-## Comparison
+## PostgreSQL checks and historical parity
 
-`pnpm run postgres:check` migrates a new DuckDB file and a new PostgreSQL database
-and compares tables, columns with order, type, nullability and default, primary
-keys, unique constraints, foreign keys, check constraints, indexes, sequences,
-view columns and the rows of the fresh databases without their time stamps. It
-fails on a difference that is not in this list, and on an entry of the list
-(`SCHEMA_DEVIATIONS` in `scripts/postgres-check/schema-comparison.ts`) that no
-longer occurs.
-
-| Difference                                             | Reason                                                                                                    |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `schema_migrations` exists only in DuckDB              | The version table of the DuckDB migrations; PostgreSQL has its own migrations and counts them separately. |
-| `postgres_schema_migrations` exists only in PostgreSQL | A table of its own, so a copied DuckDB version table can never count as applied PostgreSQL migrations.    |
+`pnpm run postgres:check` checks migration idempotence, checksum and unknown
+migration refusal, rollback, time functions and repository flows. The development
+check compares the historical DuckDB migration catalog with its PostgreSQL
+counterpart through `010_removes_nul_on_save.sql` in a separate empty database.
+Current PostgreSQL-only migrations are checked against all declared tables,
+columns, indexes, views and explicit or identity-owned sequences, alongside
+migration idempotence and refusal checks. Historical parity does not require new
+runtime tables or file-reference columns in the frozen offline transfer schema.
+The DuckDB dependency is limited to offline tooling, not the production runtime.
+Repository flows now exercise PostgreSQL with their explicit behavioral
+expectations. The former cross-database repository comparison belongs to the
+accepted migration evidence; it is not rerun by this PostgreSQL-only product check.
 
 ## Database locale
 
@@ -389,23 +390,24 @@ keep the results equal:
 - A reservation with a run comes before one without, then by creation. So a real
   collision queues a plan even where an old reservation has no snapshot to compare with.
 
-| Area                                          | State                                           |
-| --------------------------------------------- | ----------------------------------------------- |
-| Files directly in `repositories/`, `project/` | Ported, compared by `postgres:check` (PAGE-214) |
-| `task/`, `wiki/`                              | Ported, compared by `postgres:check` (PAGE-215) |
-| `agent/`, `agents/`, `runner/`, `remote/`     | Ported, compared by `postgres:check` (PAGE-216) |
-| `chat/`, `discord/`, `mcp/`, `mobile/`        | Ported, compared by `postgres:check` (PAGE-217) |
+| Area                                          | State                                            |
+| --------------------------------------------- | ------------------------------------------------ |
+| Files directly in `repositories/`, `project/` | Ported, exercised by `postgres:check` (PAGE-214) |
+| `task/`, `wiki/`                              | Ported, exercised by `postgres:check` (PAGE-215) |
+| `agent/`, `agents/`, `runner/`, `remote/`     | Ported, exercised by `postgres:check` (PAGE-216) |
+| `chat/`, `discord/`, `mcp/`, `mobile/`        | Ported, exercised by `postgres:check` (PAGE-217) |
 
 `postgres:check` reads the public methods and exported functions of a ported area
-from its source, runs flows through them on PostgreSQL and on DuckDB, and compares
-every result. It masks only times in the stored format and generated identifiers.
-It fails on a method no flow reaches and on any difference. A flow reverses the
-physical order of a table in PostgreSQL before it reads a list, so a list without a
-unique last sort key shows as a difference.
+from its source and runs the existing flows against a fresh PostgreSQL database.
+It checks expected refusals, explicit behavioral assertions, and whether each public
+method is reached. The earlier cross-database comparison is retained as historical
+migration evidence, rather than being represented by two identical PostgreSQL runs.
+A flow reverses the physical order of a table in PostgreSQL before it reads a list,
+so explicit order assertions detect a missing unique last sort key.
 An index read backwards undoes that reversal, so a list sorted descending is read in
 both physical orders.
 
-These differences remain, because no repository statement can remove them:
+The following differences were recorded by the previous release’s cross-database comparison:
 
 - U+0000 in a text, see [U+0000 in text](#u0000-in-text). The removal is decided, not
   left over.

@@ -4,20 +4,20 @@ import {
   mkdir,
   mkdtemp,
   readFile,
-  rm,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 
 import {
-  endProcess,
   freeLoopbackPort,
-  isProcessAlive,
   processesNaming,
   runProgram,
+  startOwnedPostgres,
 } from "../postgres-check/temporary-instance";
 import { WORK_DIRECTORY_PREFIX } from "./backup-location";
 import { RestoreCheckFailure } from "./restore-check-failure";
+
+import type { OwnedPostgres } from "../postgres-check/temporary-instance";
 
 /** Replaying a day of WAL can take long; a failed recovery ends the server at once. */
 const RECOVERY_TIMEOUT_SECONDS = 3600;
@@ -90,17 +90,17 @@ function serverSettings(
 }
 
 /**
- * A throwaway copy of a base backup, recovered to a point in time.
+ * A retained copy of a base backup, recovered to a point in time.
  *
  * @remarks
- * It works on a copy, so the backup stays as it is. Nothing of it outlives
- * {@link remove}.
+ * It works on a copy, so the backup stays as it is. The work copy is retained.
  */
 export class RestoredInstance {
   private readonly workDirectory: string;
   private readonly port: number;
   private copying: Promise<void> | null = null;
   private removal: Promise<void> | null = null;
+  private owner: OwnedPostgres | null = null;
 
   private constructor(workDirectory: string, port: number) {
     this.workDirectory = workDirectory;
@@ -149,9 +149,8 @@ export class RestoredInstance {
    * Starts the server and waits until recovery reached its target and promoted.
    *
    * @remarks
-   * `pg_ctl --wait` is not enough: in PostgreSQL 18 it can return while recovery
-   * still runs, and a connection then fails with `57P03`. With `hot_standby = off`
-   * the server accepts connections only after it promoted.
+   * The process owner is acquired before waiting for promotion. With
+   * `hot_standby = off`, the server accepts connections only after promotion.
    *
    * @throws {RestoreCheckFailure} When the server ends first, for example because
    * a WAL file is missing or damaged, so the target stays out of reach.
@@ -160,13 +159,10 @@ export class RestoredInstance {
     if (this.removal !== null)
       throw new RestoreCheckFailure("recovery", "The check is ending.");
     try {
-      await runProgram("pg_ctl", [
-        "start",
-        "--wait",
-        `--timeout=${String(RECOVERY_TIMEOUT_SECONDS)}`,
-        `--pgdata=${this.dataDirectory()}`,
-        `--log=${this.serverLog()}`,
-      ]);
+      this.owner = await startOwnedPostgres({
+        arguments: ["-D", this.dataDirectory()],
+        logFile: this.serverLog(),
+      });
     } catch {
       throw await this.recoveryFailure();
     }
@@ -174,13 +170,13 @@ export class RestoredInstance {
   }
 
   /**
-   * Stops the server and deletes the work directory, and proves both are gone.
+   * Stops the server and retains the work directory for inspection.
    *
    * @returns The one removal, also when a signal and the regular end both ask for it.
-   * @throws When a process or the directory remains.
+   * @throws When the owned process did not stop cleanly.
    */
   public remove(): Promise<void> {
-    this.removal ??= this.stopAndDelete();
+    this.removal ??= this.stopAndPreserve();
     return this.removal;
   }
 
@@ -210,9 +206,7 @@ export class RestoredInstance {
     const deadline = Date.now() + RECOVERY_TIMEOUT_SECONDS * 1000;
     while (Date.now() < deadline) {
       if (await this.isAccepting()) return;
-      const pid = await this.readPostmasterPid();
-      if (pid === null || !isProcessAlive(pid))
-        throw await this.recoveryFailure();
+      if (!this.owner?.isRunning()) throw await this.recoveryFailure();
       await new Promise((resolve) => setTimeout(resolve, RECOVERY_POLL_MS));
     }
     throw await this.recoveryFailure();
@@ -238,11 +232,10 @@ export class RestoredInstance {
     );
   }
 
-  private async stopAndDelete(): Promise<void> {
-    // A copy in progress would write into the directory while it is deleted.
+  private async stopAndPreserve(): Promise<void> {
+    // Let any in-flight copy finish before stopping its owned server.
     await this.copying?.catch(() => undefined);
     await this.stop();
-    await rm(this.workDirectory, { recursive: true, force: true });
     const remaining = await processesNaming(this.workDirectory);
     if (remaining.length > 0)
       throw new Error(
@@ -270,28 +263,9 @@ export class RestoredInstance {
       .join(" ");
   }
 
-  private async readPostmasterPid(): Promise<number | null> {
-    const file = await readFile(
-      path.join(this.dataDirectory(), "postmaster.pid"),
-      "utf8",
-    ).catch(() => null);
-    return file === null ? null : Number(file.split("\n")[0]);
-  }
-
-  /** Immediate: the data is thrown away, so a clean shutdown protects nothing. */
   private async stop(): Promise<void> {
-    const pid = await this.readPostmasterPid();
-    if (pid === null) return;
-    try {
-      await runProgram("pg_ctl", [
-        "stop",
-        "--wait",
-        "--mode=immediate",
-        `--pgdata=${this.dataDirectory()}`,
-      ]);
-    } catch (error: unknown) {
-      console.error("pg_ctl stop failed; ending the server directly.", error);
-      if (isProcessAlive(pid)) await endProcess(pid);
-    }
+    if (this.owner === null) return;
+    await this.owner.stop();
+    this.owner = null;
   }
 }

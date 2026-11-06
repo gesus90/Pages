@@ -1,6 +1,6 @@
 import { isPlanHistoryReadFailure } from "./AgentPlanControlAccess";
 
-import type { AgentPlanRecoveryEntry } from "@/definition/AgentPlanOperations";
+import type { AgentPlanRecoveryEntry } from "@/definition/AgentPlanRecoveryEntry";
 import type { AgentPlanRecoveryView } from "@/definition/AgentPlanRecovery";
 import type { AgentPlanService } from "./AgentPlanService";
 

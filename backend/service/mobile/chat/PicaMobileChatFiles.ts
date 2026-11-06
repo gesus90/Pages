@@ -85,11 +85,14 @@ function readChatFileRequest(request: IncomingMessage): ChatFileRequest | null {
   return request.method === "DELETE" ? { kind: "discard", attachmentId } : null;
 }
 
-function readOrigin(request: IncomingMessage): PicaMobileClientOrigin {
+function readOrigin(
+  request: IncomingMessage,
+  clientAddress: string | null,
+): PicaMobileClientOrigin {
   const userAgent = request.headers["user-agent"];
 
   return {
-    clientAddress: request.socket.remoteAddress ?? null,
+    clientAddress,
     userAgent:
       typeof userAgent === "string"
         ? userAgent.slice(0, MAXIMUM_USER_AGENT_LENGTH)
@@ -149,16 +152,27 @@ export class PicaMobileChatFiles {
    *
    * @param request - A plain HTTP request on the port of Pica Mobile.
    * @param response - Its answer.
+   * @param clientAddress - The app's address; the peer of the request unless
+   * `pages-core` relayed it (PAGE-239).
    * @returns Whether the request is one of the endpoints; the caller answers every other one.
    */
-  public handle(request: IncomingMessage, response: ServerResponse): boolean {
+  public handle(
+    request: IncomingMessage,
+    response: ServerResponse,
+    clientAddress: string | null = request.socket.remoteAddress ?? null,
+  ): boolean {
     const fileRequest = readChatFileRequest(request);
 
     if (fileRequest === null) {
       return false;
     }
 
-    void this.serve(request, response, fileRequest).catch((error: unknown) => {
+    const origin = readOrigin(request, clientAddress);
+
+    void this.serve(request, response, {
+      fileRequest,
+      origin,
+    }).catch((error: unknown) => {
       logCaughtError(COMPONENT, error);
 
       if (response.headersSent) {
@@ -174,9 +188,13 @@ export class PicaMobileChatFiles {
   private async serve(
     request: IncomingMessage,
     response: ServerResponse,
-    fileRequest: ChatFileRequest,
+    target: {
+      readonly fileRequest: ChatFileRequest;
+      readonly origin: PicaMobileClientOrigin;
+    },
   ): Promise<void> {
-    const session = await this.authenticate(request);
+    const { fileRequest, origin } = target;
+    const session = await this.authenticate(request, origin);
 
     if (session === null) {
       respond(response, 401, { ok: false, error: "accessDenied" });
@@ -203,6 +221,7 @@ export class PicaMobileChatFiles {
 
   private async authenticate(
     request: IncomingMessage,
+    origin: PicaMobileClientOrigin,
   ): Promise<PicaMobileSessionIdentity | null> {
     const token = BEARER.exec(request.headers.authorization ?? "")?.[1];
 
@@ -212,7 +231,7 @@ export class PicaMobileChatFiles {
 
     const outcome = await this.options.authenticator.authenticate(
       { method: "session", token },
-      readOrigin(request),
+      origin,
     );
 
     return outcome.ok ? { userId: outcome.user.id, sessionToken: token } : null;

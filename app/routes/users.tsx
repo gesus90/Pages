@@ -1,64 +1,86 @@
 import { useLoaderData } from "react-router";
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { ManagementWorkspace } from "@/app/components/users/management-workspace";
 import {
-  authenticatedUserContext,
-  requireUserManagement,
-} from "@/app/lib/auth.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { handleUsersAction } from "@/app/lib/user-actions/user-actions.server";
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 
-import type { MiddlewareFunction } from "react-router";
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { AdministrationPageData } from "@/definition/Authorization";
 import type { WikiPrivatePagesByOwner } from "@/definition/Wiki";
-import type { UsersActionResult } from "@/app/lib/user-actions/user-action-support.server";
 import type { Route } from "./+types/users";
-
-/** Checks management access independently of navigation visibility. */
-export const middleware: MiddlewareFunction[] = [requireUserManagement];
 
 /** The management view with what an administrator sees of private wiki pages. */
 export interface UsersPageData extends AdministrationPageData {
   readonly privateWikiPages: WikiPrivatePagesByOwner;
+  readonly audience: LocalStateAudience;
 }
 
-/** Loads one server-filtered management view. */
-export async function loader({
-  context,
-}: Route.LoaderArgs): Promise<UsersPageData> {
-  const actor = context.get(authenticatedUserContext);
-  if (!actor)
-    throw new Error("Authenticated middleware did not provide a user.");
-  const services = await getApplicationServices();
-  const [directory, privateWikiPages] = await Promise.all([
-    services.administrationService.pageData(actor.id),
-    services.wikiService.listAllPlaceholders(actor),
-  ]);
-  return { ...directory, privateWikiPages };
+/** The rights-checked endpoint of the management view; it carries the same middleware. */
+const USERS_PAGE_ENDPOINT = "/users-api/page";
+
+function isUsersPageData(value: unknown): value is UsersPageData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "privateWikiPages" in value &&
+    typeof value.privateWikiPages === "object" &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
+  );
 }
 
-/** Applies validated mutations through the transactional A2 service boundary. */
-export async function action({
+/** The management view, kept per account and rights, the admin mode included. */
+const USERS_PAGE_STATE: LocalStateRouteKind<UsersPageData> = {
+  schemaVersion: 1,
+  isPayload: isUsersPageData,
+  isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
+  ownerOf: (page) => page.audience.userId,
+  isRefused: () => false,
+};
+
+/**
+ * Opens the management view from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint applies the management middleware and the server loader; an
+ * account without management access gets the same refusal as before.
+ */
+export async function clientLoader({
   request,
-  context,
-}: Route.ActionArgs): Promise<UsersActionResult> {
-  if (request.method !== "POST")
-    throw new Response("Method Not Allowed", {
-      headers: { Allow: "POST" },
-      status: 405,
-    });
-  const actor = context.get(authenticatedUserContext);
-  if (!actor) throw new Response("Forbidden", { status: 403 });
-  const formData = await request.formData();
-  return handleUsersAction(formData.get("intent"), {
-    actor,
-    formData,
-    services: await getApplicationServices(),
-  });
+}: Route.ClientLoaderArgs): Promise<WithLocalState<UsersPageData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), USERS_PAGE_STATE, () =>
+    readRouteData({
+      endpoint: `${USERS_PAGE_ENDPOINT}${url.search}`,
+      signal: request.signal,
+      isPayload: isUsersPageData,
+    }),
+  );
+}
+
+/** Sends a change of users, roles or departments to the API, which runs the page's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Renders users, roles and departments in their permitted sections. */
 export default function UsersRoute(): React.ReactElement {
-  const page = useLoaderData<typeof loader>();
+  const page = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    USERS_PAGE_STATE,
+  );
   return (
     <ManagementWorkspace
       directory={page}

@@ -55,7 +55,7 @@ export function keyRefusedOnPostgres(
       () => true,
       () => false,
     );
-    return { isAsApproved: isStored === (world.database.dialect === "duckdb") };
+    return { isAsApproved: !isStored };
   });
 }
 

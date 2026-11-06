@@ -1,5 +1,7 @@
-import { retireRestartSource } from "./AgentPlanResourceReservation";
 import { isDeepStrictEqual } from "node:util";
+
+import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
+import { retireRestartSource } from "./AgentPlanResourceReservation";
 
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
@@ -51,9 +53,14 @@ export interface RecoveryExecutionWrite {
  * against an older revision is refused. Nothing here starts a process.
  */
 export class AgentPlanRecoveryExecutionRepository {
-  private readonly database: Pick<Database, "query" | "transaction">;
+  private readonly database: Pick<
+    Database,
+    "query" | "transaction" | "agentFiles"
+  >;
 
-  public constructor(database: Pick<Database, "query" | "transaction">) {
+  public constructor(
+    database: Pick<Database, "query" | "transaction" | "agentFiles">,
+  ) {
     this.database = database;
   }
 
@@ -77,7 +84,12 @@ export class AgentPlanRecoveryExecutionRepository {
     return {
       run: readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json"))),
       revision,
-      snapshot: JSON.parse(readTextColumn(row, 2, "snapshot_json")),
+      snapshot: JSON.parse(
+        await readStoredAgentPayload(
+          this.database,
+          readTextColumn(row, 2, "snapshot_json"),
+        ),
+      ),
     };
   }
 

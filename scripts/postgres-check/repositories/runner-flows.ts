@@ -1,3 +1,5 @@
+import { strict as assert } from "node:assert";
+
 import { RunnerDeployKeyRepository } from "@/backend/database/repositories/runner/RunnerDeployKeyRepository";
 import { RunnerHistoryRecoveryRepository } from "@/backend/database/repositories/runner/RunnerHistoryRecoveryRepository";
 import { RunnerPlanEventRepository } from "@/backend/database/repositories/runner/RunnerPlanEventRepository";
@@ -5,6 +7,7 @@ import { RunnerRepository } from "@/backend/database/repositories/runner/RunnerR
 import {
   appendRunnerSessionEvents,
   persistRunnerSessionEvents,
+  prepareRunnerSessionEvents,
   runnerSessionState,
 } from "@/backend/database/repositories/runner/RunnerSessionEvents";
 import { persistRunnerSessionUsage } from "@/backend/database/repositories/runner/RunnerSessionUsage";
@@ -25,6 +28,8 @@ import {
 } from "./plan-fixtures";
 import {
   callInTransaction,
+  appendPreparedRunnerEvents,
+  retainPreparedHistory,
   JOB,
   JOB_ID,
   OTHER_JOB,
@@ -360,13 +365,21 @@ export const RUNNER_SESSION_FLOW: RepositoryFlow = {
         { stepId: "review", events: [] },
       ),
     ),
-    callInTransaction("persistRunnerSessionEvents", (_world, transaction) =>
-      persistRunnerSessionEvents(
-        transaction,
-        runFixture(RUN_ID, PLAN_ID, { steps: [REMOTE_STEP] }),
-        { stepId: "review", events: [LIVE_EVENT] },
-      ),
-    ),
+    call("persistRunnerSessionEvents", async ({ database }) => {
+      const prepared = await prepareRunnerSessionEvents(database, {
+        binding: RUNNER_BINDING,
+        jobId: JOB_ID,
+        launchId: LAUNCH_ID,
+        events: [LIVE_EVENT],
+      });
+      return database.transaction((transaction) =>
+        persistRunnerSessionEvents(
+          transaction,
+          runFixture(RUN_ID, PLAN_ID, { steps: [REMOTE_STEP] }),
+          { stepId: "review", events: [LIVE_EVENT], prepared },
+        ),
+      );
+    }),
     callInTransaction("persistRunnerSessionEvents", (_world, transaction) =>
       persistRunnerSessionEvents(
         transaction,
@@ -392,23 +405,13 @@ export const RUNNER_SESSION_FLOW: RepositoryFlow = {
         (usage) => ({ ...usage, reportedAt: "<clock>" }),
       ),
     ),
-    callInTransaction("appendRunnerSessionEvents", (_world, transaction) =>
-      appendRunnerSessionEvents(transaction, {
-        binding: RUNNER_BINDING,
-        jobId: JOB_ID,
-        launchId: LAUNCH_ID,
-        events: [
-          { ...LIVE_EVENT, sequence: 2, text: "password=geheim und mehr" },
-        ],
-      }),
+    appendPreparedRunnerEvents(
+      [{ ...LIVE_EVENT, sequence: 2, text: "password=geheim und mehr" }],
+      LAUNCH_ID,
     ),
-    callInTransaction("appendRunnerSessionEvents", (_world, transaction) =>
-      appendRunnerSessionEvents(transaction, {
-        binding: RUNNER_BINDING,
-        jobId: JOB_ID,
-        events: [{ ...LIVE_EVENT, sequence: 2_005, text: "x".repeat(4_000) }],
-      }),
-    ),
+    appendPreparedRunnerEvents([
+      { ...LIVE_EVENT, sequence: 2_005, text: "x".repeat(4_000) },
+    ]),
     stored(
       "SELECT next_sequence FROM agent_session_attempts WHERE attempt_id = $id;",
       { id: ATTEMPT },
@@ -472,53 +475,26 @@ export const RUNNER_HISTORY_FLOW: RepositoryFlow = {
     call("RunnerHistoryRecoveryRepository.restore", (world) =>
       history(world).restore("connection-runner"),
     ),
-    callInTransaction(
-      "RunnerHistoryRecoveryRepository.retain",
-      (world, transaction) =>
-        history(world).retain(
-          transaction,
-          "connection-runner",
-          planEvent(HISTORY_EMPTY, 9, []),
-        ),
-    ),
+    retainPreparedHistory("connection-runner", planEvent(HISTORY_EMPTY, 9, [])),
     stored(
       "SELECT COUNT(*) FROM runner_history_recovery WHERE event_id = '10000000-0000-4000-8000-000000000000';",
     ),
-    callInTransaction(
-      "RunnerHistoryRecoveryRepository.retain",
-      (world, transaction) =>
-        history(world).retain(
-          transaction,
-          "connection-runner",
-          planEvent(HISTORY_B, 10, [{ ...LIVE_EVENT, sequence: 3000 }]),
-        ),
+    retainPreparedHistory(
+      "connection-runner",
+      planEvent(HISTORY_B, 10, [{ ...LIVE_EVENT, sequence: 3000 }]),
     ),
-    callInTransaction(
-      "RunnerHistoryRecoveryRepository.retain",
-      (world, transaction) =>
-        history(world).retain(
-          transaction,
-          "connection-runner",
-          planEvent(HISTORY_A, 10, [{ ...LIVE_EVENT, sequence: 3001 }]),
-        ),
+    retainPreparedHistory(
+      "connection-runner",
+      planEvent(HISTORY_A, 10, [{ ...LIVE_EVENT, sequence: 3001 }]),
     ),
-    callInTransaction(
-      "RunnerHistoryRecoveryRepository.retain",
-      (world, transaction) =>
-        history(world).retain(
-          transaction,
-          "connection-other",
-          planEvent(HISTORY_OTHER, 2, [{ ...LIVE_EVENT, sequence: 1 }]),
-        ),
+    retainPreparedHistory(
+      "connection-other",
+      planEvent(HISTORY_OTHER, 2, [{ ...LIVE_EVENT, sequence: 1 }]),
     ),
-    refused("RunnerHistoryRecoveryRepository.retain", ({ database }) =>
-      database.transaction((transaction) =>
-        new RunnerHistoryRecoveryRepository(database).retain(
-          transaction,
-          "connection-runner",
-          planEvent(HISTORY_A, 11, [{ ...LIVE_EVENT, sequence: 1 }]),
-        ),
-      ),
+    retainPreparedHistory(
+      "connection-runner",
+      planEvent(HISTORY_A, 11, [{ ...LIVE_EVENT, sequence: 1 }]),
+      true,
     ),
     prepare(`
       INSERT INTO runner_history_recovery (event_id, connection_id, job_id, sequence, packet_json)
@@ -607,11 +583,17 @@ export const RUNNER_HISTORY_FLOW: RepositoryFlow = {
       ORDER BY event_id;
     `),
     prepare(
-      "UPDATE runner_history_recovery SET packet_json = 'kein JSON' WHERE event_id = '40000000-0000-4000-8000-000000000000';",
+      "UPDATE runner_history_recovery SET packet_file = jsonb_set(packet_file::JSONB, '{sha256}', to_jsonb(repeat('0', 64)))::TEXT WHERE event_id = '40000000-0000-4000-8000-000000000000';",
     ),
-    refused("RunnerHistoryRecoveryRepository.restore", (world) =>
-      history(world).restore("connection-other"),
-    ),
+    call("RunnerHistoryRecoveryRepository.restore", async (world) => {
+      assert.equal(await history(world).restore("connection-other"), 0);
+      const [row] = await world.database.query(
+        "SELECT restored_at, diagnosis_json FROM runner_history_recovery WHERE event_id = '40000000-0000-4000-8000-000000000000';",
+      );
+      assert.ok(row);
+      assert.equal(row[0], null);
+      assert.notEqual(row[1], null);
+    }),
     call("RunnerRepository.remove", (world) =>
       runners(world).remove("connection-runner"),
     ),

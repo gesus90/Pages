@@ -8,6 +8,7 @@ import { RemoteError, remoteErrorStatus } from "@/backend/error/RemoteErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { consoleCommandSchema } from "@/definition/RemoteConsole";
 
+import { consoleScopeOf, isRemoteConsoleChannel } from "./ChannelPaths";
 import { createForwardedHttpsCheck } from "./ForwardedProtocol";
 import { registerShutdownTask } from "./ProcessLifecycle";
 
@@ -21,32 +22,6 @@ import type {
 import type { RemoteConsoleSession } from "@/backend/service/remote/RemoteConsoleSession";
 import type { RemoteConsoleEvent } from "@/definition/RemoteConsole";
 
-const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-
-/** The channel lives next to the console route it belongs to. */
-const CHANNEL_PATHS: readonly {
-  readonly pattern: RegExp;
-  readonly kind: RemoteConsoleScope["kind"];
-}[] = [
-  {
-    pattern: new RegExp(`^/agents/workspaces/(${UUID})/console/socket$`, "u"),
-    kind: "workspace",
-  },
-  {
-    pattern: new RegExp(
-      `^/agents/workspaces/remote/connections/(${UUID})/console/socket$`,
-      "u",
-    ),
-    kind: "connection",
-  },
-  {
-    pattern: new RegExp(
-      `^/agents/workspaces/remote/connections/(${UUID})/setup/socket$`,
-      "u",
-    ),
-    kind: "setup",
-  },
-];
 const MAXIMUM_CHANNELS = 100;
 const MAXIMUM_PAYLOAD = 64 * 1024;
 /** Output waits for acknowledgements long before this; reaching it means a stuck peer. */
@@ -85,26 +60,6 @@ interface ChannelAdmission {
   readonly session: RemoteConsoleSession;
 }
 
-function scopeOf(pathname: string): RemoteConsoleScope | null {
-  for (const { pattern, kind } of CHANNEL_PATHS) {
-    const id = pattern.exec(pathname)?.[1];
-    if (id) return { kind, id };
-  }
-  return null;
-}
-
-/**
- * Whether an upgrade request addresses a console channel.
- *
- * @param url - The request target, path and query.
- * @returns `true` for the channel path of a workspace, connection or setup console.
- */
-export function isRemoteConsoleChannel(url: string | undefined): boolean {
-  // A malformed absolute request target must not throw inside the upgrade event.
-  if (!URL.canParse(url ?? "/", "http://pages.invalid")) return false;
-  return scopeOf(new URL(url ?? "/", "http://pages.invalid").pathname) !== null;
-}
-
 function rejectUpgrade(socket: Duplex, error: unknown): void {
   const status =
     error instanceof RemoteError ? remoteErrorStatus(error.code) : 400;
@@ -126,7 +81,7 @@ async function admit(
   isForwardedHttps: (request: IncomingMessage) => boolean,
 ): Promise<ChannelAdmission> {
   const url = new URL(request.url ?? "/", "http://pages.invalid");
-  const scope = scopeOf(url.pathname);
+  const scope = consoleScopeOf(url.pathname);
   const host = request.headers.host;
   const origin = `${isForwardedHttps(request) ? "https" : "http"}://${host}`;
   if (!scope || !host || request.headers.origin !== origin)

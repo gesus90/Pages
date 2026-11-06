@@ -17,47 +17,35 @@ import {
 import { useDocumentDesignTheme } from "@/app/components/common/use-document-design-theme";
 import { useDocumentTheme } from "@/app/components/common/use-document-theme";
 import { DraftProvider } from "@/app/components/common/draft-provider";
+import { useServiceWorker } from "@/app/components/common/use-service-worker";
+import { useSupersededSession } from "@/app/components/common/use-superseded-session";
 import { BackgroundSaveStatus } from "@/app/components/common/background-save-status";
+import { ServiceStatusLight } from "@/app/components/common/service-status-light";
 import { buttonVariants } from "@/app/components/ui/button";
 import { Toaster } from "@/app/components/ui/toast";
-import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import {
   getColorSchemeMeta,
   getThemeColorMetas,
 } from "@/app/lib/document-theme";
 import { createI18n } from "@/app/lib/i18n";
-import { createSecurityHeaders } from "@/app/lib/security-headers";
-import {
-  resolveAnonymousLanguage,
-  resolveSetupLanguage,
-} from "@/app/lib/language.server";
-import { databaseRequestMiddleware } from "@/app/lib/database-failure.server";
-import { getApplicationServices } from "@/app/lib/services.server";
+import { loadRoot } from "@/app/lib/local-state/root-loader";
+import { isLocalStateNavigation } from "@/app/lib/local-state/local-state-navigation";
 import {
   isTaskOverlayMutation,
   isTaskOverlayNavigation,
 } from "@/app/lib/task-overlay-navigation";
-import {
-  isSetupPending,
-  requireFinishedSetup,
-} from "@/app/lib/setup-gate.server";
 import stylesheet from "@/app/styles/tailwind.css?url";
 import favicon from "@/assets/favicon.svg?url&no-inline";
-import { STANDARD_ACTIVE_DESIGN_THEME } from "@/definition/DesignTheme";
-import { DEFAULT_USER_SETTINGS } from "@/definition/Settings";
 import { LANGUAGE } from "@/language/Language";
 
 import type { ReactNode } from "react";
 import type {
-  HeadersFunction,
   LinksFunction,
   MetaFunction,
-  MiddlewareFunction,
   ShouldRevalidateFunctionArgs,
 } from "react-router";
-import type { ActiveDesignTheme } from "@/definition/DesignTheme";
-import type { UserTheme } from "@/definition/Settings";
-import type { Language } from "@/language/Language";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
+import type { RootData } from "@/app/lib/root-data";
 import type { Route } from "./+types/root";
 
 /** Which translated copy the error page shows. */
@@ -98,74 +86,52 @@ function resolveErrorKind(error: unknown): ErrorKind {
   return ERROR_KIND_BY_STATUS[error.status] ?? "generic";
 }
 
-/**
- * Runs requests as database request work, answers a refused or unconfirmed
- * database job with `503` (PAGE-197), and keeps every route but the setup
- * wizard closed until the setup finished.
- */
-export const middleware: MiddlewareFunction[] = [
-  ...databaseRequestMiddleware,
-  requireFinishedSetup,
-];
+/** Pages a visitor reaches when the account changes or its session ended. */
+const ACCOUNT_BOUNDARY_PATHS: ReadonlySet<string> = new Set([
+  "/login",
+  "/change-password",
+]);
 
-/** Keeps the shell settings when only a board overlay opens or closes. */
+/**
+ * Keeps the shell settings when only a board overlay opens or closes or a
+ * local-state route opens; reads them again on the way to the sign-in page.
+ *
+ * @remarks
+ * A route that finds the session ended redirects to the sign-in page during
+ * a client navigation (PAGE-235). The root loader then names the visitor
+ * anew, so the previous account's kept answers and drafts leave the page.
+ */
 export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
-  return isTaskOverlayNavigation(args) || isTaskOverlayMutation(args)
+  if (
+    ACCOUNT_BOUNDARY_PATHS.has(args.nextUrl.pathname) &&
+    args.currentUrl.pathname !== args.nextUrl.pathname
+  )
+    return true;
+  return isTaskOverlayNavigation(args) ||
+    isTaskOverlayMutation(args) ||
+    isLocalStateNavigation(args)
     ? false
     : args.defaultShouldRevalidate;
 }
 
 /**
- * Selects the document language, color mode and design theme.
+ * Loads the document language, color mode and design theme from the API.
  *
  * @remarks
- * Signed-in visitors use their persisted personal language, color mode and
- * design theme. Everyone else falls back to their browser's
- * `Accept-Language` preference, to the default mode `system`, which follows
- * the operating system, and to the Standard design. The setup wizard starts
- * in German unless the visitor chose a language; it never touches the
- * services, because no database exists yet.
+ * The static app has no server rendering (PAGE-235); `/app-api/root`
+ * answers what the root loader answered before. It also names the
+ * document's account for the browser's local state, and opens the document
+ * from that state when the backend is down (see `loadRoot`).
  */
-export async function loader({ request }: Route.LoaderArgs): Promise<{
-  language: Language;
-  theme: UserTheme;
-  designTheme: ActiveDesignTheme;
-  draftOwnerId: string | null;
-}> {
-  const { theme: defaultTheme } = DEFAULT_USER_SETTINGS;
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<RootData>> {
+  return loadRoot(request.signal);
+}
 
-  if (await isSetupPending()) {
-    return {
-      language: await resolveSetupLanguage(request),
-      theme: defaultTheme,
-      designTheme: STANDARD_ACTIVE_DESIGN_THEME,
-      draftOwnerId: null,
-    };
-  }
-
-  const user = await getAuthenticatedUser(request);
-
-  if (user) {
-    const services = await getApplicationServices();
-    const [settings, designTheme] = await Promise.all([
-      services.settingsService.getUserSettings(user.id),
-      services.designThemeService.getActiveTheme(user.id),
-    ]);
-
-    return {
-      language: settings.language,
-      theme: settings.theme,
-      designTheme,
-      draftOwnerId: user.id,
-    };
-  }
-
-  return {
-    language: await resolveAnonymousLanguage(request),
-    theme: defaultTheme,
-    designTheme: STANDARD_ACTIVE_DESIGN_THEME,
-    draftOwnerId: null,
-  };
+/** Shown in the static `index.html` until the root loader answered. */
+export function HydrateFallback(): React.ReactElement {
+  return <div aria-busy="true" className="min-h-screen bg-background" />;
 }
 
 /** Registers the global Tailwind stylesheet and the Pages project favicon. */
@@ -177,26 +143,24 @@ export const links: LinksFunction = () => [
 /** Defines the document metadata shared by Pages routes. */
 export const meta: MetaFunction = () => [{ title: "Pages" }];
 
-/** Sends the security headers with every HTML document. */
-export const headers: HeadersFunction = () => createSecurityHeaders();
-
 /**
  * Provides the HTML document and request-scoped localization provider.
  *
  * @remarks
  * The color mode and the design theme are written to the document root, and
- * the stylesheet of a design theme sits in the head, so the server renders
- * what the client hydrates and no script is needed to choose a palette. Also
- * renders around thrown-response error pages (for example a 403 from a
- * permission check), where the router does not provide this route's own
- * loader data, so a default language, mode and design are used instead.
+ * the stylesheet of a design theme sits in the head, once the root loader
+ * answered; the static `index.html` renders with the defaults. Also renders
+ * around thrown-response error pages (for example a 403 from a permission
+ * check), where the router does not provide this route's own loader data,
+ * so a default language, mode and design are used instead. The root loader
+ * names the account of the browser's local state (see `loadRoot`).
  */
 export function Layout({
   children,
 }: {
   children: ReactNode;
 }): React.ReactElement {
-  const loaderData = useRouteLoaderData<typeof loader>("root");
+  const loaderData = useRouteLoaderData<typeof clientLoader>("root");
   const language = loaderData?.language ?? LANGUAGE.GERMAN;
   const theme = useDocumentTheme(loaderData?.theme);
   const designTheme = useDocumentDesignTheme(loaderData?.designTheme);
@@ -209,11 +173,17 @@ export function Layout({
   if (loaderData && loaderData.draftOwnerId !== draftOwnerId) {
     setDraftOwnerId(loaderData.draftOwnerId);
   }
+  // Another tab changed the browser's account: nothing of this one stays visible.
+  const isSuperseded = useSupersededSession();
 
   return (
     <html lang={language} data-design-theme={designTheme.id} data-theme={theme}>
       <head>
         <meta charSet="utf-8" />
+        {/* The static document opens every page, also pairing or an MCP consent
+            with a code in the address after an in-app navigation, which no
+            header can follow; so no request of the app names its address. */}
+        <meta name="referrer" content="no-referrer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content={getColorSchemeMeta(theme)} />
         {getThemeColorMetas(theme).map((color) => (
@@ -232,9 +202,17 @@ export function Layout({
       </head>
       <body>
         <I18nextProvider i18n={i18n}>
-          <DraftProvider key={draftOwnerId ?? "anonymous"}>
-            {children}
-            <Toaster />
+          <DraftProvider
+            key={draftOwnerId ?? "anonymous"}
+            ownerId={draftOwnerId}
+          >
+            {isSuperseded ? null : (
+              <>
+                {children}
+                <Toaster />
+                <ServiceStatusLight />
+              </>
+            )}
           </DraftProvider>
         </I18nextProvider>
         <ScrollRestoration />
@@ -244,8 +222,9 @@ export function Layout({
   );
 }
 
-/** Renders the active framework route. */
+/** Renders the active framework route and keeps the app available offline. */
 export default function Root(): React.ReactElement {
+  useServiceWorker();
   return <Outlet />;
 }
 

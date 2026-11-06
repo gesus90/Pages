@@ -35,6 +35,7 @@ export async function checkpointRunnerMessage(
       ? await events.fenceStoppedRuns(record.state)
       : record.state;
   const result = applyRunnerMessage(basis, message);
+  if (result.state !== record.state) await events?.prepareHistory(message);
   if (result.state !== record.state)
     await repository.checkpoint(
       connectionId,

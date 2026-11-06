@@ -6,20 +6,20 @@ import { DatabaseLane } from "../executor/DatabaseLane";
 import { DATABASE_EXECUTOR_LIMITS } from "../executor/DatabaseExecutorLimits";
 import { DatabaseUnavailableError } from "../executor/DatabaseExecutorErrors";
 import { currentDatabaseWork } from "../executor/DatabaseWorkContext";
-import { withDeadline } from "../executor/DatabaseWorkerClient";
+import { withDeadline } from "../DatabaseDeadline";
 import { PostgresConnection, postgresErrorCode } from "./PostgresConnection";
+import { withPostgresWriterOwnership } from "./PostgresWriterOwnership";
 import { BYTEA_COLUMN_TYPE, createTypeParsers } from "./PostgresValues";
 
 import type { Pool, PoolClient } from "pg";
-
 import type { DatabaseEngine } from "../DatabaseEngine";
 import type { DatabaseValue, SqlParameters } from "../Database";
 import type {
   DatabaseExecutorStatus,
   ReaderSession,
   WriterSession,
-} from "../executor/DatabaseExecutor";
-import type { DatabaseWorkerState } from "../executor/DatabaseWorkerClient";
+  DatabaseWorkerState,
+} from "../DatabaseExecutorTypes";
 import type { PostgresConnectionRole } from "./PostgresConnection";
 
 /** Connections of the pool: one always stays free for the writer. */
@@ -55,8 +55,8 @@ function protectDatabaseUrl(databaseUrl: string): void {
  * @remarks
  * Repositories rely on one writer: a transaction reads and writes without any
  * other change between its statements. The writer lane therefore keeps running
- * one job at a time on one connection, also here, until the repositories are
- * ported; reads share the other connections and see the last committed state.
+ * one job at a time on one connection and takes the same PostgreSQL advisory
+ * lock in every process. Reads share the other connections and see the last committed state.
  * The lanes and their budgets are those of `DatabaseExecutor`.
  */
 export class PostgresExecutor implements DatabaseEngine {
@@ -133,10 +133,12 @@ export class PostgresExecutor implements DatabaseEngine {
       (queueMs) => {
         recordDatabaseWaitMetrics(queueMs, 0);
         return this.withConnection("writer", (connection) =>
-          work({
-            run: (statement, parameters, mode) =>
-              connection.run(statement, parameters, mode),
-          }),
+          withPostgresWriterOwnership(connection, () =>
+            work({
+              run: (statement, parameters, mode) =>
+                connection.run(statement, parameters, mode),
+            }),
+          ),
         );
       },
       {

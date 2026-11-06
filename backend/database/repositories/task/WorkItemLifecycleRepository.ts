@@ -189,9 +189,13 @@ export class WorkItemLifecycleRepository {
     return this.setArchived(ids, "utc_now()", "IS NULL");
   }
 
-  /** Brings the given archived work items back. */
-  public async restoreMany(ids: readonly string[]): Promise<void> {
-    await this.setArchived(ids, "NULL", "IS NOT NULL");
+  /**
+   * Brings the given archived work items back.
+   *
+   * @returns The ids that were archived and are restored now.
+   */
+  public async restoreMany(ids: readonly string[]): Promise<string[]> {
+    return this.setArchived(ids, "NULL", "IS NOT NULL");
   }
 
   /**

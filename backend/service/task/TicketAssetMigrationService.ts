@@ -40,21 +40,37 @@ export class TicketAssetMigrationService {
   private readonly directory: string;
   private readonly backupDirectory: string;
   private readonly files: TicketFileStore;
+  private readonly backupDatabase: (directory: string) => Promise<void>;
 
   public constructor(
     repository: TicketAssetMigrationRepository,
     directory: string,
     backupDirectory: string,
+    backupDatabase: (directory: string) => Promise<void>,
   ) {
     this.repository = repository;
     this.directory = path.resolve(directory);
     this.backupDirectory = path.resolve(backupDirectory);
     this.files = new TicketFileStore(this.directory);
+    this.backupDatabase = backupDatabase;
     if (
       this.backupDirectory === this.directory ||
       this.backupDirectory.startsWith(`${this.directory}${path.sep}`)
     )
       throw new Error("The backup must be outside the Pages data directory.");
+  }
+
+  /** Validates and reports the planned moves without writing files or metadata. */
+  public async inspect(): Promise<readonly TicketAssetMigrationEntry[]> {
+    const previous = await this.readManifest();
+    const attachments = await this.repository.attachments();
+    const entries: TicketAssetMigrationEntry[] = [];
+    for (const attachment of attachments)
+      entries.push(await this.planEntry(attachment));
+    await this.requireCompleteLegacyStore(entries, previous);
+    await this.requireCompleteAssetStore(entries);
+    if (previous) this.requireMatchingManifest(previous, entries);
+    return entries;
   }
 
   /** Refuses every inconsistency before moving originals; repeat with the same backup after interruption. */
@@ -255,7 +271,8 @@ export class TicketAssetMigrationService {
     entries: readonly TicketAssetMigrationEntry[],
   ): Promise<void> {
     await this.repository.checkpoint();
-    await mkdir(this.backupDirectory, { recursive: false });
+    await mkdir(this.backupDirectory, { recursive: false, mode: 0o700 });
+    await this.backupDatabase(this.backupDirectory);
     const backupData = path.join(this.backupDirectory, "data");
     await cp(this.directory, backupData, {
       recursive: true,

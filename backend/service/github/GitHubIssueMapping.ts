@@ -7,6 +7,11 @@ import {
 } from "@/backend/service/task/TicketDescriptionReferences";
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 
+import {
+  withoutGitHubCreationMarker,
+  preserveGitHubCreationMarker,
+} from "./GitHubCreationIdentity";
+
 import type {
   NewWorkItemHistory,
   WorkItemGitHubLink,
@@ -97,7 +102,7 @@ export function hashWorkItemContent(item: WorkItemDetail): string {
 export function hashRemoteIssueContent(remote: GitHubIssueData): string {
   return computeGitHubContentHash(
     remote.title,
-    remote.body,
+    withoutGitHubCreationMarker(remote.body),
     remote.state === "closed",
   );
 }
@@ -117,7 +122,9 @@ export function buildGitHubIssuePatch(
 
   return {
     ...(item.title === remote.title ? {} : { title: item.title }),
-    ...(item.description === remote.body ? {} : { body: item.description }),
+    ...(item.description === withoutGitHubCreationMarker(remote.body)
+      ? {}
+      : { body: preserveGitHubCreationMarker(item.description, remote.body) }),
     ...(nextState === remote.state ? {} : { state: nextState }),
   };
 }
@@ -221,7 +228,7 @@ export function buildWorkItemUpdateFromRemote(
   return {
     assigneeGroupId: item.assigneeGroupId,
     assigneeId: item.assigneeId,
-    description: remote.body,
+    description: withoutGitHubCreationMarker(remote.body),
     dueAt: item.dueAt,
     milestoneId: item.milestoneId,
     parentId: item.parentId,

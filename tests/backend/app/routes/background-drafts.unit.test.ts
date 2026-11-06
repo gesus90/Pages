@@ -43,6 +43,7 @@ const actor: User = {
 };
 const content = { title: "Title", content: "text", revision: 1, icon: null };
 const description = { description: "Text", updatedAt: "2026-10-15 10:00:00" };
+const OPERATION_ID = randomUUID();
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -56,6 +57,7 @@ function request(
     authenticated?: boolean;
     streamId?: string;
     sequence?: number;
+    operationId?: string;
   } = {},
 ): { request: Request; context: RouterContextProvider } {
   const context = new RouterContextProvider();
@@ -72,6 +74,7 @@ function request(
         ...(typeof input === "object" && input !== null ? input : {}),
         streamId: options.streamId ?? randomUUID(),
         sequence: options.sequence ?? 1,
+        operationId: options.operationId ?? OPERATION_ID,
       }),
     }),
     context,
@@ -112,6 +115,7 @@ it("passes the exact revision and authenticated actor to the wiki service", asyn
     content: content.content,
     icon: content.icon,
     expectedRevision: 1,
+    operationId: OPERATION_ID,
   });
 });
 
@@ -155,7 +159,11 @@ it("reports the latest accessible description in a visible conflict", async () =
   expect(boundaries.descriptionUpdate).toHaveBeenCalledExactlyOnceWith(
     actor,
     "ticket",
-    { baseDescription: "Text", description: "Edited" },
+    {
+      baseDescription: "Text",
+      description: "Edited",
+      operationId: OPERATION_ID,
+    },
   );
 });
 
@@ -195,11 +203,11 @@ it("refuses a delayed older HTTP attempt after a newer no-op acknowledgement", a
   const args = wikiArgs({ base: content, draft: content });
   const newer = request(
     { base: content, draft: content },
-    { streamId, sequence: 2 },
+    { streamId, sequence: 2, operationId: randomUUID() },
   );
   const older = request(
     { base: content, draft: { ...content, content: "Late" } },
-    { streamId, sequence: 1 },
+    { streamId, sequence: 1, operationId: randomUUID() },
   );
   expect((await saveWiki({ ...args, ...newer })).status).toBe(200);
   const response = await saveWiki({ ...args, ...older });

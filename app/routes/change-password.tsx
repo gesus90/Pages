@@ -1,63 +1,51 @@
 import { useTranslation } from "react-i18next";
-import { redirect, useActionData, useNavigation } from "react-router";
+import { useActionData, useNavigation } from "react-router";
 
 import { AuthHeading } from "@/app/components/auth/auth-heading";
 import { AuthLayout } from "@/app/components/auth/auth-layout";
 import { RequiredPasswordForm } from "@/app/components/auth/required-password-form";
-import { getAuthenticatedUser } from "@/app/lib/auth.server";
-import { loginDestination } from "@/app/lib/login-destination.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { handleChangePassword } from "@/app/lib/settings-actions/settings-account-actions.server";
+import { sendToBackend } from "@/app/lib/backend-request";
+import { readRouteData } from "@/app/lib/local-state/route-data";
 
-import type { User } from "@/definition/User";
+import type { action } from "./change-password-server";
 import type { Route } from "./+types/change-password";
 
-async function requirePasswordChange(request: Request): Promise<User> {
-  const user = await getAuthenticatedUser(request);
-
-  if (!user) {
-    throw redirect(
-      `/login?returnTo=${encodeURIComponent(loginDestination(request))}`,
-    );
-  }
-
-  if (!user.mustChangePassword) {
-    throw redirect(loginDestination(request));
-  }
-
-  return user;
+/** The endpoint's answer while the password must be replaced. */
+interface PasswordChangeRequired {
+  readonly isPasswordChangeRequired: true;
 }
 
-/** Allows only authenticated accounts whose password must be replaced. */
-export async function loader({ request }: Route.LoaderArgs): Promise<null> {
-  await requirePasswordChange(request);
+function isPasswordChangeRequired(
+  value: unknown,
+): value is PasswordChangeRequired {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "isPasswordChangeRequired" in value &&
+    value.isPasswordChangeRequired === true
+  );
+}
+
+/**
+ * Lets only authenticated accounts whose password must be replaced stay,
+ * as the API decides; everyone else is redirected (PAGE-235).
+ */
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<null> {
+  await readRouteData({
+    endpoint: `/app-api/change-password${new URL(request.url).search}`,
+    signal: request.signal,
+    isPayload: isPasswordChangeRequired,
+  });
   return null;
 }
 
-/** Replaces the temporary password before any workspace request is allowed. */
-export async function action({
+/** Sends the new password to the API, which runs the page's action. */
+export async function clientAction({
   request,
-}: Route.ActionArgs): Promise<
-  Response | Awaited<ReturnType<typeof handleChangePassword>>
-> {
-  if (request.method !== "POST") {
-    throw new Response("Method Not Allowed", {
-      headers: { Allow: "POST" },
-      status: 405,
-    });
-  }
-
-  const user = await requirePasswordChange(request);
-  const result = await handleChangePassword({
-    formData: await request.formData(),
-    request,
-    services: await getApplicationServices(),
-    user,
-  });
-
-  return result.data.outcome === "success"
-    ? redirect(loginDestination(request))
-    : result;
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Shows the mandatory password replacement without workspace navigation. */

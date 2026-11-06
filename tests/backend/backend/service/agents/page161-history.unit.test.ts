@@ -7,6 +7,7 @@ import {
 import {
   appendSessionHistoryChunks,
   readSessionHistoryChunks,
+  prepareSessionHistoryChunks,
 } from "@/backend/database/repositories/agent/AgentSessionHistoryChunks";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
@@ -24,6 +25,19 @@ import type {
   RunnerMessage,
   RunnerState,
 } from "@/definition/RunnerProtocol";
+
+async function appendHistory(
+  database: HistoryDatabase,
+  owner: { readonly attemptId: string; readonly launchId: string },
+  events: readonly AgentSessionEvent[],
+): Promise<void> {
+  const prepared = await prepareSessionHistoryChunks(
+    database,
+    "plan-page161",
+    events,
+  );
+  await appendSessionHistoryChunks(database, owner, events, prepared);
+}
 
 function event(
   sequence: number,
@@ -46,7 +60,7 @@ function event(
 it("rotates the public journal at 4 MiB and reads bounded older and newer windows after a restart", async () => {
   const database = new HistoryDatabase();
   const events = Array.from({ length: 1100 }, (_, index) => event(index + 1));
-  await appendSessionHistoryChunks(
+  await appendHistory(
     database,
     { attemptId: "attempt-page161", launchId: "launch-page161" },
     events,
@@ -95,14 +109,14 @@ it("rotates the public journal at 4 MiB and reads bounded older and newer window
     }),
   ).toBeNull();
   await expect(
-    appendSessionHistoryChunks(
+    appendHistory(
       database,
       { attemptId: "attempt-page161", launchId: "foreign" },
       [event(1101)],
     ),
   ).rejects.toThrow("launch changed");
   await expect(
-    appendSessionHistoryChunks(
+    appendHistory(
       database,
       { attemptId: "attempt-page161", launchId: "launch-page161" },
       [event(1100)],
@@ -112,7 +126,7 @@ it("rotates the public journal at 4 MiB and reads bounded older and newer window
   if (!second) throw new Error("Expected two chunks");
   database.chunks.set("attempt-page161:2", {
     ...second,
-    events_jsonl: `${String(second.events_jsonl)}damage`,
+    sha256: "0".repeat(64),
   });
   await expect(
     readSessionHistoryChunks(database, "attempt-page161", {
@@ -124,7 +138,7 @@ it("rotates the public journal at 4 MiB and reads bounded older and newer window
 
 it("reports missing chunks and storage failures and keeps legacy retention visible", async () => {
   const database = new HistoryDatabase();
-  await appendSessionHistoryChunks(
+  await appendHistory(
     database,
     { attemptId: "attempt-page161", launchId: "launch" },
     Array.from({ length: 1100 }, (_, index) => event(index + 8)),
@@ -147,11 +161,9 @@ it("reports missing chunks and storage failures and keeps legacy retention visib
   ).rejects.toMatchObject({ code: "plan_history_corrupt" });
   database.failure = "ENOSPC";
   await expect(
-    appendSessionHistoryChunks(
-      database,
-      { attemptId: "other", launchId: "launch" },
-      [event(1, "other")],
-    ),
+    appendHistory(database, { attemptId: "other", launchId: "launch" }, [
+      event(1, "other"),
+    ]),
   ).rejects.toThrow("ENOSPC");
 });
 

@@ -203,12 +203,18 @@ export class GitHubApiClient {
     repo: string,
     state: "all" | "open" | "closed" = "all",
   ): Promise<GitHubIssueData[]> {
-    const response = await this.send(
-      "GET",
-      `/repos/${owner}/${repo}/issues?state=${state}&per_page=100`,
-    );
-
-    return toIssueList(response);
+    const issues: GitHubIssueData[] = [];
+    let page = 1;
+    for (;;) {
+      const response = await this.send(
+        "GET",
+        `/repos/${owner}/${repo}/issues?state=${state}&per_page=100&page=${page}`,
+      );
+      issues.push(...toIssueList(response));
+      // Pagination counts raw records, including pull requests removed above.
+      if (!Array.isArray(response) || response.length < 100) return issues;
+      page += 1;
+    }
   }
 
   /** Loads a single issue by number. */

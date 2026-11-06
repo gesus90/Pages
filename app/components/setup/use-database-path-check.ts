@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
 
 import { readSetupRejection } from "@/app/lib/setup/setup-action-data";
@@ -12,11 +12,11 @@ import type {
 } from "@/app/lib/setup/setup-action-data";
 import type { DatabaseLocationStatus } from "@/definition/Setup";
 
-/** Time without typing before the path is checked. */
-export const DATABASE_PATH_CHECK_DELAY_MS = 400;
+/** Time without typing before the connection is checked. */
+export const DATABASE_URL_CHECK_DELAY_MS = 400;
 
-/** The state of the check for the path currently entered. */
-export interface DatabasePathCheck {
+/** The state of the check for the connection currently entered. */
+export interface DatabaseUrlCheck {
   /** Result for exactly the current value, or `null` while unknown. */
   readonly status: DatabaseLocationStatus | null;
   readonly isChecking: boolean;
@@ -25,25 +25,25 @@ export interface DatabasePathCheck {
 }
 
 /**
- * Checks the entered database path on the server shortly after typing stops.
+ * Checks the entered database connection on the server shortly after typing stops.
  *
  * @param token - Setup token sent with the check.
- * @param databasePath - Path as currently entered.
+ * @param databaseUrl - Connection as currently entered.
  * @param onRejected - Receives a refused check, such as an invalid token.
  * @returns The result for the current value.
  *
  * @remarks
- * Each answer names the value it was computed for. An answer for an older
- * value is never shown for the current one, and a newer check replaces a
- * running one.
+ * A request identifier matches each answer without returning the URL.
  */
-export function useDatabasePathCheck(
+export function useDatabaseUrlCheck(
   token: string,
-  databasePath: string,
+  databaseUrl: string,
   onRejected: (rejection: SetupRejection) => void,
-): DatabasePathCheck {
+): DatabaseUrlCheck {
   const { submit, data: actionData } = useFetcher<SetupActionData>();
-  const isEmpty = databasePath.trim() === "";
+  const pending = useRef<{ input: string; requestId: string } | null>(null);
+  const nextRequest = useRef(0);
+  const isEmpty = databaseUrl.trim() === "";
 
   useEffect(() => {
     if (isEmpty) {
@@ -51,14 +51,16 @@ export function useDatabasePathCheck(
     }
 
     const timer = window.setTimeout(() => {
+      const requestId = String(++nextRequest.current);
+      pending.current = { input: databaseUrl, requestId };
       void submit(
-        { databasePath, intent: "check-database-path", token },
+        { databaseUrl, requestId, intent: "check-database-connection", token },
         { action: "/setup", method: "post" },
       );
-    }, DATABASE_PATH_CHECK_DELAY_MS);
+    }, DATABASE_URL_CHECK_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [databasePath, isEmpty, submit, token]);
+  }, [databaseUrl, isEmpty, submit, token]);
 
   useNewActionData(actionData, (result) => {
     const rejection = readSetupRejection(result);
@@ -79,7 +81,8 @@ export function useDatabasePathCheck(
   const status =
     actionData !== undefined &&
     "location" in actionData &&
-    actionData.location.input === databasePath
+    pending.current?.input === databaseUrl &&
+    actionData.location.input === pending.current.requestId
       ? actionData.location.status
       : null;
   const hasFailed =

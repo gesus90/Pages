@@ -413,7 +413,7 @@ export const CONNECTION_SCOPE_FLOW: RepositoryFlow = {
           () => true,
           () => false,
         );
-      return { isAsKnown: isListed === (database.dialect === "postgres") };
+      return { isAsKnown: isListed };
     }),
     call("AgentConnectionScopeRepository.references", (world) =>
       scopes(world).references({ kind: "person", targetId: "user-admin" }),

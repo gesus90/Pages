@@ -25,7 +25,7 @@ it("submits the in-memory draft and exposes pending state", () => {
     username: "admin",
     password: "synthetic-password",
     email: "",
-    databasePath: "/pages.duckdb",
+    databaseUrl: "postgresql://localhost/pages",
   };
   act(() => result.current.finish("synthetic-token", values));
   expect(fetcher.submit).toHaveBeenCalledExactlyOnceWith(
@@ -54,11 +54,11 @@ it("delivers server field errors once and exposes a refused location", () => {
   fetcher.data = {
     intent: "complete",
     error: "databaseLocation",
-    location: { input: "/pages.duckdb", status: "foreign" },
+    location: { input: "", status: "foreign" },
   };
   rerender();
   expect(result.current.refusedLocation).toEqual({
-    input: "/pages.duckdb",
+    input: "",
     status: "foreign",
   });
   expect(result.current.error).toBeNull();

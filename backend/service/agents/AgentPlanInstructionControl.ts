@@ -63,6 +63,34 @@ export async function runPlanInstruction(
   }
 }
 
+/** Tracks a proven owner's already dispatched console turn without sending an instruction again. */
+export async function restorePlanInstruction(
+  active: ActivePlanRun,
+  persistence: InstructionPersistence,
+  input: {
+    readonly instanceId: string;
+    readonly pending: Promise<PlanSessionTurn>;
+  },
+): Promise<void> {
+  const id = `instruction/${input.instanceId}`;
+  active.controllers.set(id, new AbortController());
+  active.dispatched.add(id);
+  try {
+    const turn = await input.pending;
+    if (turn.failure !== null || turn.errorCode !== null)
+      await persistFailure(active, persistence);
+  } catch (error: unknown) {
+    if (!active.view.stopRequested) await persistFailure(active, persistence);
+    throw error;
+  } finally {
+    await persistence.writes.run(async () => {
+      active.controllers.delete(id);
+      active.dispatched.delete(id);
+    });
+    await persistence.settled();
+  }
+}
+
 async function persistFailure(
   active: ActivePlanRun,
   persistence: InstructionPersistence,

@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
-import { useId } from "react";
+import { lazy, Suspense, useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
@@ -9,9 +9,7 @@ import { planNodeAccent } from "./plan-layout";
 import { keepPlanControlKeys } from "./plan-flow-keys";
 import { PlanNodeIcon } from "./plan-node-icon";
 import { PlanPaletteButton } from "./plan-palette-button";
-import { PlanPaletteDialog } from "./plan-palette-dialog";
 import { PlanPaletteTabs } from "./plan-palette-tabs";
-import { PlanScriptDialog } from "./plan-script/plan-script-dialog";
 import { PlanTemplateList } from "./plan-templates/plan-template-list";
 
 import type { PlanCanvasProps } from "./plan-flow-context";
@@ -34,6 +32,14 @@ const PALETTE_KINDS: readonly PlanPaletteKind[] = [
   "decision",
   "stack",
 ];
+
+// The dialogs of a dropped node load when one is requested.
+const PlanPaletteDialog = lazy(async () => ({
+  default: (await import("./plan-palette-dialog")).PlanPaletteDialog,
+}));
+const PlanScriptDialog = lazy(async () => ({
+  default: (await import("./plan-script/plan-script-dialog")).PlanScriptDialog,
+}));
 
 interface PlanNodePaletteProps {
   readonly canvas: PlanCanvasProps;
@@ -151,29 +157,33 @@ function PlanPaletteRequestDialog({
   if (!request) return null;
   if (request.kind === "script")
     return (
-      <PlanScriptDialog
-        script={null}
-        interpreters={canvas.sources.interpreters}
-        remoteTargets={canvas.sources.remoteTargets}
-        planTarget={canvas.draft.executionTarget}
-        workspace={canvas.workspaces?.find(
-          (entry) => entry.id === canvas.draft.workspaceId,
-        )}
-        disabled={Boolean(palette.blocked)}
-        onApply={palette.confirmScript}
-        onClose={palette.close}
-        onCloseAutoFocus={restorePaletteFocus}
-      />
+      <Suspense fallback={null}>
+        <PlanScriptDialog
+          script={null}
+          interpreters={canvas.sources.interpreters}
+          remoteTargets={canvas.sources.remoteTargets}
+          planTarget={canvas.draft.executionTarget}
+          workspace={canvas.workspaces?.find(
+            (entry) => entry.id === canvas.draft.workspaceId,
+          )}
+          disabled={Boolean(palette.blocked)}
+          onApply={palette.confirmScript}
+          onClose={palette.close}
+          onCloseAutoFocus={restorePaletteFocus}
+        />
+      </Suspense>
     );
   return (
-    <PlanPaletteDialog
-      key={request.kind}
-      request={{ ...request, kind: request.kind }}
-      sources={canvas.sources}
-      blocked={palette.blocked}
-      onConfirm={palette.confirm}
-      onClose={palette.close}
-    />
+    <Suspense fallback={null}>
+      <PlanPaletteDialog
+        key={request.kind}
+        request={{ ...request, kind: request.kind }}
+        sources={canvas.sources}
+        blocked={palette.blocked}
+        onConfirm={palette.confirm}
+        onClose={palette.close}
+      />
+    </Suspense>
   );
 }
 

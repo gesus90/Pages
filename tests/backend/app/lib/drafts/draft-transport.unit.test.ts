@@ -6,7 +6,7 @@ import {
 } from "@/app/lib/drafts/draft-transport";
 import { WIKI_LIMITS } from "@/definition/Wiki";
 
-import type { DraftEntry } from "@/app/lib/drafts/draft-queue";
+import type { DraftAttempt } from "@/app/lib/drafts/draft-queue";
 import type {
   DescriptionContent,
   WikiSaveContent,
@@ -23,20 +23,16 @@ const DESCRIPTION: DescriptionContent = {
   updatedAt: "2026-01-01 00:00:00",
 };
 
-function entry<T>(id: string, value: T): DraftEntry<T> {
+const OPERATION_ID = "5f0c1d2e-3a4b-4c5d-8e6f-708192a3b4c5";
+
+function entry<T>(id: string, value: T): DraftAttempt<T> {
   return {
     id,
-    href: `/${id}`,
-    label: id,
+    operationId: OPERATION_ID,
     streamId: "stream-1",
     sequence: 4,
     base: value,
     draft: value,
-    error: null,
-    isSaving: false,
-    hasChanges: false,
-    hasEdited: false,
-    hasUnconfirmedWrite: false,
   };
 }
 
@@ -98,6 +94,7 @@ describe("the wiki draft adapter", () => {
       redirect: "error",
     });
     expect(JSON.parse(String(init?.body))).toEqual({
+      operationId: OPERATION_ID,
       base: WIKI,
       draft: WIKI,
       streamId: "stream-1",

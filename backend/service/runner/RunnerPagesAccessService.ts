@@ -81,6 +81,7 @@ export class RunnerPagesAccessService {
     attemptId: string,
   ): Promise<void> {
     if (remote.command.pagesAccess !== 1) return;
+    if (this.active.has(attemptId)) return;
     const node = remote.step;
     if (
       node.type !== "agent" ||
@@ -130,7 +131,15 @@ export class RunnerPagesAccessService {
     attemptId: string,
   ): Promise<void> {
     this.uploads.close(attemptId);
-    if (!this.active.delete(attemptId)) return;
+    const capability = this.active.get(attemptId);
+    this.active.delete(attemptId);
+    const run = await this.dependencies.runs.find(runId);
+    const step = run?.steps.find((entry) => entry.id === stepId);
+    if (
+      step?.execution?.attemptId !== attemptId ||
+      (!capability && step.resourceAccess?.pages !== "active")
+    )
+      return;
     await this.dependencies.credentials.revoke(runId, stepId);
     await this.dependencies.evidence.write(runId, attemptId, (previous) => ({
       files: previous?.files ?? [],

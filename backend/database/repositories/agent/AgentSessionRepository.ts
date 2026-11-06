@@ -1,25 +1,15 @@
-import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
-
-import {
-  appendSessionHistoryChunks,
-  readSessionHistoryChunks,
-} from "./AgentSessionHistoryChunks";
-
+import { AgentSessionEventRepository } from "./AgentSessionEventRepository";
 import {
   ATTEMPT_COLUMNS,
   MESSAGE_COLUMNS,
   USAGE_COLUMNS,
   readAttemptRow,
-  readEventRow,
   readMessageRow,
   readUsageRow,
 } from "./AgentSessionRows";
 
-import type {
-  Database,
-  DatabaseTransaction,
-  SqlParameters,
-} from "@/backend/database/Database";
+import type { SqlParameters } from "@/backend/database/Database";
+import type { AgentSessionDatabase } from "./AgentSessionDatabase";
 import type {
   AgentSessionAttemptRecord,
   AgentSessionStore,
@@ -74,25 +64,14 @@ function attemptParameters(attempt: AgentSessionAttemptRecord): SqlParameters {
   };
 }
 
-/**
- * The stored form of the key that drops a repeated event.
- *
- * @remarks
- * PostgreSQL stores text without U+0000, and a key without the character would drop
- * the events of another key. Hex keeps such a key apart and repeatable.
- */
-function storedDedupeKey(database: Database, key: string): string {
-  return database.dialect === "postgres" && key.includes("\u0000")
-    ? `nul:${Buffer.from(key, "utf8").toString("hex")}`
-    : key;
-}
-
 /** The PageAgentCLI tables: attempts, events, turn usage and instructions. */
 export class AgentSessionRepository implements AgentSessionStore {
-  private readonly database: Database;
+  private readonly database: AgentSessionDatabase;
+  private readonly events: AgentSessionEventRepository;
 
-  public constructor(database: Database) {
+  public constructor(database: AgentSessionDatabase) {
     this.database = database;
+    this.events = new AgentSessionEventRepository(database);
   }
 
   /** Stores the state of an attempt; the event sequence is kept as it is. */
@@ -188,150 +167,30 @@ export class AgentSessionRepository implements AgentSessionStore {
     return row ? readAttemptRow(row) : null;
   }
 
-  /**
-   * Numbers and stores events in one transaction and removes those beyond the retention.
-   *
-   * @throws {Error} For an attempt without a row; its events would have no node.
-   */
+  /** Assigns sequences, publishes synchronized files and applies the existing event retention. */
   public async appendEvents(
     attemptId: string,
     events: readonly NewAgentSessionEvent[],
     retain: number,
   ): Promise<readonly AgentSessionEvent[]> {
-    return this.database.transaction(async (transaction) => {
-      const [attempt] = await transaction.query(
-        `
-        SELECT
-            next_sequence,
-            step_id,
-            instance_id
-        FROM agent_session_attempts
-        WHERE attempt_id = $attempt_id;
-      `,
-        { attempt_id: attemptId },
-      );
-      if (!attempt) throw new Error("Unknown PageAgentCLI attempt");
-      let next = readCountColumn(attempt, 0, "next_sequence");
-      const stored: AgentSessionEvent[] = [];
-      for (const event of events) {
-        if (await this.isDuplicate(transaction, attemptId, event)) continue;
-        await this.insertEvent(transaction, attemptId, next, event);
-        stored.push({
-          id: `${attemptId}:${next}`,
-          sequence: next,
-          stepId: readTextColumn(attempt, 1, "step_id"),
-          attemptId,
-          turn: event.turn,
-          kind: event.kind,
-          createdAt: event.createdAt,
-          text: event.text,
-          isTruncated: event.isTruncated,
-        });
-        next += 1;
-      }
-      await appendSessionHistoryChunks(
-        transaction,
-        {
-          attemptId,
-          launchId: readTextColumn(attempt, 2, "instance_id"),
-        },
-        stored,
-      );
-      await transaction.execute(
-        `
-        UPDATE agent_session_attempts
-        SET next_sequence = $next_sequence
-        WHERE attempt_id = $attempt_id;
-      `,
-        { attempt_id: attemptId, next_sequence: next },
-      );
-      await transaction.execute(
-        `
-        DELETE FROM agent_session_events
-        WHERE attempt_id = $attempt_id
-            AND sequence < $first_kept;
-      `,
-        { attempt_id: attemptId, first_kept: next - retain },
-      );
-      return stored;
-    });
+    return this.events.appendEvents(attemptId, events, retain);
   }
 
-  /** Reads events after a sequence, in order, and where retention cut the history. */
+  /** Reads retained events in either storage form with integrity verification. */
   public async readEvents(
     attemptId: string,
     after: number,
     limit: number,
   ): Promise<StoredSessionEvents> {
-    const rows = await this.database.query(
-      `
-      SELECT
-          agent_session_events.sequence,
-          agent_session_events.turn,
-          agent_session_events.kind,
-          agent_session_events.body,
-          agent_session_events.is_truncated,
-          agent_session_events.created_at,
-          agent_session_attempts.step_id
-      FROM agent_session_events
-      INNER JOIN agent_session_attempts
-          ON agent_session_attempts.attempt_id = agent_session_events.attempt_id
-      WHERE agent_session_events.attempt_id = $attempt_id
-          AND agent_session_events.sequence > $after
-      ORDER BY agent_session_events.sequence
-      LIMIT $limit;
-    `,
-      { attempt_id: attemptId, after, limit },
-    );
-    const [first] = await this.database.query(
-      `
-      SELECT MIN(sequence)
-      FROM agent_session_events
-      WHERE attempt_id = $attempt_id;
-    `,
-      { attempt_id: attemptId },
-    );
-    const oldest =
-      first?.[0] === null || first?.[0] === undefined
-        ? null
-        : readCountColumn(first, 0, "sequence");
-    return {
-      events: rows.map((row) => readEventRow(row, attemptId)),
-      retainedFrom: oldest !== null && oldest > 1 ? oldest : null,
-    };
+    return this.events.readEvents(attemptId, after, limit);
   }
 
-  /** Reads the chunk journal, falling back to explicitly retained legacy rows without inventing older history. */
+  /** Reads the immutable journal or the retained legacy event history. */
   public async readWindow(
     attemptId: string,
     window: AgentSessionHistoryWindow,
   ): Promise<AgentSessionEventPage> {
-    const archived = await readSessionHistoryChunks(
-      this.database,
-      attemptId,
-      window,
-    );
-    if (archived) return archived;
-    const isBackward = window.tail === true || window.before !== undefined;
-    const stored = await this.readEvents(
-      attemptId,
-      isBackward ? 0 : window.after,
-      isBackward ? 2001 : window.limit + 1,
-    );
-    const eligible = stored.events.filter(
-      (event) => window.before === undefined || event.sequence < window.before,
-    );
-    const events = isBackward
-      ? eligible.slice(-window.limit)
-      : eligible.slice(0, window.limit);
-    return {
-      events,
-      cursor: events.at(-1)?.sequence ?? (window.after || null),
-      hasMore: !isBackward && eligible.length > events.length,
-      hasEarlier: (events[0]?.sequence ?? 0) > (stored.retainedFrom ?? 1),
-      retainedFrom: stored.retainedFrom,
-      source: "journal",
-    };
+    return this.events.readWindow(attemptId, window);
   }
 
   /** Stores a turn's tokens; a second report of the same turn replaces the first. */
@@ -505,71 +364,5 @@ export class AgentSessionRepository implements AgentSessionStore {
       { updated_at: new Date().toISOString() },
     );
     return rows.length;
-  }
-
-  private async isDuplicate(
-    transaction: DatabaseTransaction,
-    attemptId: string,
-    event: NewAgentSessionEvent,
-  ): Promise<boolean> {
-    if (event.dedupeKey === null) return false;
-    const [existing] = await transaction.query(
-      `
-      SELECT sequence
-      FROM agent_session_events
-      WHERE attempt_id = $attempt_id
-          AND dedupe_key = $dedupe_key;
-    `,
-      {
-        attempt_id: attemptId,
-        dedupe_key: storedDedupeKey(this.database, event.dedupeKey),
-      },
-    );
-    return existing !== undefined;
-  }
-
-  private async insertEvent(
-    transaction: DatabaseTransaction,
-    attemptId: string,
-    sequence: number,
-    event: NewAgentSessionEvent,
-  ): Promise<void> {
-    await transaction.execute(
-      `
-      INSERT INTO agent_session_events (
-          attempt_id,
-          sequence,
-          turn,
-          kind,
-          body,
-          is_truncated,
-          dedupe_key,
-          created_at
-      )
-      VALUES (
-          $attempt_id,
-          $sequence,
-          $turn,
-          $kind,
-          $body,
-          $is_truncated,
-          $dedupe_key,
-          $created_at
-      );
-    `,
-      {
-        attempt_id: attemptId,
-        sequence,
-        turn: event.turn,
-        kind: event.kind,
-        body: event.text,
-        is_truncated: event.isTruncated,
-        dedupe_key:
-          event.dedupeKey === null
-            ? null
-            : storedDedupeKey(this.database, event.dedupeKey),
-        created_at: event.createdAt,
-      },
-    );
   }
 }

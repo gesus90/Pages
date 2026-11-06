@@ -3,11 +3,8 @@ import { cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { handleWikiPageAction } from "@/app/lib/wiki-actions/wiki-page-actions.server";
-import WikiPageRoute, {
-  action,
-  loader,
-  shouldRevalidate,
-} from "@/app/routes/wiki-page";
+import WikiPageRoute, { shouldRevalidate } from "@/app/routes/wiki-page";
+import { action, loader } from "@/app/routes/wiki-page-server";
 import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -33,6 +30,14 @@ const wiki = vi.hoisted(() => ({
   listComments: vi.fn(),
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "u-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({
     wikiService: wiki,
@@ -121,6 +126,7 @@ it("shows the placeholder of a private page", async () => {
   await expect(loader(pageArguments())).resolves.toEqual({
     kind: "placeholder",
     placeholder: { ownerName: "Grace" },
+    audience: AUDIENCE,
   });
 });
 
@@ -163,6 +169,7 @@ it("answers a missing page with the neutral notice", async () => {
 
   await expect(loader(pageArguments())).resolves.toEqual({
     kind: "notFound",
+    audience: AUDIENCE,
   });
   expect(logCaughtError).toHaveBeenCalledWith("wiki_page", missing);
 });
@@ -199,7 +206,11 @@ it("keeps the editor's data while autosave runs", () => {
 
 it("renders the private placeholder", () => {
   renderRoute(WikiPageRoute, {
-    loaderData: { kind: "placeholder", placeholder: { ownerName: "Grace" } },
+    loaderData: {
+      kind: "placeholder",
+      placeholder: { ownerName: "Grace" },
+      audience: AUDIENCE,
+    },
   });
 
   expect(screen.getByText("private Grace")).toBeTruthy();
@@ -218,7 +229,7 @@ it("shows the neutral notice for a missing page", () => {
 
 it("shows the notice without the wiki frame", () => {
   renderRoute(WikiPageRoute, {
-    loaderData: { kind: "page", view: { page: PAGE } },
+    loaderData: { kind: "page", view: { page: PAGE }, audience: AUDIENCE },
   });
 
   expect(screen.getByRole("status").textContent).toBe(
@@ -236,6 +247,7 @@ it("renders the page with the data of the wiki frame", () => {
       backlinks: {},
       attachments: [],
       comments: [],
+      audience: AUDIENCE,
     },
     parent: {
       id: "routes/wiki",

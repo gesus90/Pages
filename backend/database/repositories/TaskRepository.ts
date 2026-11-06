@@ -1,3 +1,4 @@
+import { AgentOperationKeyRepository } from "./agents/AgentOperationKeyRepository";
 import { EligibleAssigneeRepository } from "./task/EligibleAssigneeRepository";
 import { UserGroupRepository } from "./UserGroupRepository";
 import { MilestoneDependencyRepository } from "./task/MilestoneDependencyRepository";
@@ -86,6 +87,8 @@ export type {
  * and holds no persistence logic of its own.
  */
 export class TaskRepository {
+  /** Results of saves by operation ID, so a repetition changes nothing twice. */
+  public readonly operations: AgentOperationKeyRepository;
   private readonly statuses: WorkflowStatusRepository;
   private readonly milestones: MilestoneRepository;
   private readonly dependencies: MilestoneDependencyRepository;
@@ -109,6 +112,7 @@ export class TaskRepository {
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {
+    this.operations = new AgentOperationKeyRepository(database);
     this.statuses = new WorkflowStatusRepository(database);
     this.milestones = new MilestoneRepository(database);
     this.dependencies = new MilestoneDependencyRepository(database);
@@ -508,8 +512,12 @@ export class TaskRepository {
     return this.lifecycle.archiveMany(ids);
   }
 
-  /** Restores the given archived work items keeping their workflow status. */
-  public async restoreMany(ids: readonly string[]): Promise<void> {
+  /**
+   * Restores the given archived work items keeping their workflow status.
+   *
+   * @returns The ids that were archived and are restored now.
+   */
+  public async restoreMany(ids: readonly string[]): Promise<string[]> {
     return this.lifecycle.restoreMany(ids);
   }
 
@@ -607,16 +615,27 @@ export class TaskRepository {
     return this.labels.findByWorkItemIds(workItemIds);
   }
 
-  /** Assigns a label to a work item. */
-  public async assignLabel(workItemId: string, labelId: string): Promise<void> {
+  /**
+   * Assigns a label to a work item.
+   *
+   * @returns Whether the label was not assigned before.
+   */
+  public async assignLabel(
+    workItemId: string,
+    labelId: string,
+  ): Promise<boolean> {
     return this.labels.assign(workItemId, labelId);
   }
 
-  /** Removes a label from a work item. */
+  /**
+   * Removes a label from a work item.
+   *
+   * @returns Whether the label was assigned.
+   */
   public async unassignLabel(
     workItemId: string,
     labelId: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     return this.labels.unassign(workItemId, labelId);
   }
 

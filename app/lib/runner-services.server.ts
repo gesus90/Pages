@@ -1,4 +1,4 @@
-import { createPlanWorkspaceAccess } from "./plan-access-services.server";
+import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentPlanRemoteTargets } from "@/backend/service/agents/AgentPlanRemoteTargets";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -16,6 +16,8 @@ import { RunnerDeployKeyService } from "@/backend/service/runner/RunnerDeployKey
 import { RunnerGitHubContext } from "@/backend/service/runner/RunnerGitHubContext";
 import { OfflineRunnerGitHubClient } from "@/backend/service/runner/OfflineRunnerGitHubClient";
 import { HttpRunnerGitHubClient } from "@/backend/service/runner/HttpRunnerGitHubClient";
+
+import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
@@ -79,18 +81,22 @@ export function createRunnerServices(input: {
   const runnerService = new RunnerService(
     new RunnerRepository(database),
     remote.remoteConnectionService,
-    new RunnerPlanEventService(new RunnerPlanEventRepository(database), {
-      plans: createPlanWorkspaceAccess(
-        { database, agents: { ...input.configuration, ...remote } },
-        new AgentPlanRepository(database),
-      ).access,
-      runs: new AgentPlanRunRepository(database),
-      profiles,
-      targets: new AgentPlanRemoteTargets(
-        remote.remoteWorkspaceService,
-        remote.remoteConnectionService,
-      ),
-    }),
+    new RunnerPlanEventService(
+      new RunnerPlanEventRepository(database),
+      {
+        plans: createPlanWorkspaceAccess(
+          { database, agents: { ...input.configuration, ...remote } },
+          new AgentPlanRepository(database),
+        ).access,
+        runs: new AgentPlanRunRepository(database),
+        profiles,
+        targets: new AgentPlanRemoteTargets(
+          remote.remoteWorkspaceService,
+          remote.remoteConnectionService,
+        ),
+      },
+      { shouldRecoverHistory: canProcessRuns() },
+    ),
   );
   const runnerSetupService = new RunnerSetupService({
     runners: runnerService,

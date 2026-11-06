@@ -106,7 +106,7 @@ export function SetupWizard({
 }: SetupWizardProps): React.ReactElement {
   const setupAccess = useSetupAccess(initialAccess, hasRejectedToken);
   const { access } = setupAccess;
-  const draft = useSetupDraft(access?.suggestedDatabasePath ?? null);
+  const draft = useSetupDraft(null);
   const [isAlreadyCompleted, setIsAlreadyCompleted] = useState(false);
 
   function handleRejected(rejection: SetupRejection, token: string): void {

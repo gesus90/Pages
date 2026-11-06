@@ -131,6 +131,9 @@ export async function deleteProjectAgentData(
   }
   for (const table of [
     "agent_plan_checkpoints",
+    "agent_local_session_owners",
+    "plan_run_commands",
+    "plan_run_api_cleanup",
     "agent_plan_loop_iterations",
     "agent_plan_continuations",
     "agent_plan_repair_attempts",

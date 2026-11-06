@@ -25,6 +25,10 @@ stderr. The adapter has no direct database access and opens no network listener.
 
 `PAGES_URL` identifies the Pages web application and API, not an MCP endpoint.
 Pages API requests and browser pairing links need network access to Pages.
+When a Pages worker starts the adapter, its validated `PAGES_CORRELATION_ID`
+is forwarded as `X-Correlation-ID` on Agent API calls and asset uploads. This
+field is tracing metadata only; it grants no authority. See
+[request correlation](../docs/RequestCorrelation.md).
 Start without arguments, or use the credential commands; any other start argument
 fails before credential lookup or any Pages request.
 

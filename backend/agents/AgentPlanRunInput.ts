@@ -1,3 +1,4 @@
+import { planRunCommandReceiptSchema } from "@/definition/PagesRuns";
 import { planWriterWaitSchema } from "@/definition/AgentPlanExecution";
 import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -41,6 +42,7 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     ...(run.endedAt === undefined
       ? {}
       : { endedAt: readPlanText(run.endedAt) }),
+    ...readRunCommand(run.command),
     planRevision,
     status,
     stopRequested,
@@ -100,4 +102,10 @@ function isRunStatus(input: unknown): input is AgentPlanRun["status"] {
       "work_done_closeout_open",
     ].includes(input)
   );
+}
+
+function readRunCommand(input: unknown): Pick<AgentPlanRun, "command"> {
+  return input === undefined
+    ? {}
+    : { command: planRunCommandReceiptSchema.parse(input) };
 }

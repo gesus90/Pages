@@ -3,7 +3,8 @@ import { data } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { handleProjectOverviewAction } from "@/app/lib/project-overview-actions.server";
-import ProjectsRoute, { action, loader } from "@/app/routes/projects";
+import ProjectsRoute from "@/app/routes/projects";
+import { action, loader } from "@/app/routes/projects-server";
 
 import {
   ACTOR,
@@ -27,6 +28,14 @@ const projectService = vi.hoisted(() => ({
 }));
 const resetFilters = vi.hoisted(() => vi.fn());
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "u-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({ projectService }),
 }));
@@ -84,6 +93,7 @@ const LOADED = {
   canManageProjects: false,
   projects: [{ id: "p-1" }],
   departmentChoices: { available: [], selectionRequired: false },
+  audience: AUDIENCE,
 };
 
 beforeEach(() => {

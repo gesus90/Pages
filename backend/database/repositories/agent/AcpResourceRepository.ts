@@ -1,4 +1,5 @@
 import {
+  readCountColumn,
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
@@ -31,9 +32,13 @@ function state(input: string): AcpResourceState {
 
 /** Durable capacity journal independent of whether a run managed to record its process start. */
 export class AcpResourceRepository implements AcpResourceStore {
-  private readonly database: Pick<Database, "query" | "execute">;
+  private readonly database: Pick<Database, "query" | "execute"> &
+    Partial<Pick<Database, "transaction">>;
 
-  public constructor(database: Pick<Database, "query" | "execute">) {
+  public constructor(
+    database: Pick<Database, "query" | "execute"> &
+      Partial<Pick<Database, "transaction">>,
+  ) {
     this.database = database;
   }
 
@@ -78,7 +83,44 @@ export class AcpResourceRepository implements AcpResourceStore {
 
   /** Upserts before spawn and on lifecycle transitions; contains no prompts or credentials. */
   public async save(record: AcpResourceRecord): Promise<void> {
+    await this.writeRecord(this.database, record);
+  }
+
+  /** Counts all service leases and reserves the next slot inside the shared writer transaction. */
+  public async tryReserve(
+    record: AcpResourceRecord,
+    limit: number,
+  ): Promise<boolean> {
+    if (!this.database.transaction)
+      throw new Error("Shared ACP admission requires database transactions");
+    return this.database.transaction(async (transaction) => {
+      const [count] = await transaction.query(
+        "SELECT COUNT(*) AS occupied FROM acp_resource_leases;",
+      );
+      if (!count || readCountColumn(count, 0, "occupied") >= limit)
+        return false;
+      const [existing] = await transaction.query(
+        "SELECT instance_id FROM acp_resource_leases WHERE instance_id = $id;",
+        { id: record.instanceId },
+      );
+      if (existing) return false;
+      await this.writeRecord(transaction, record);
+      return true;
+    });
+  }
+
+  /** Deletes only after the scheduler has proved that no process remains. */
+  public async remove(instanceId: string): Promise<void> {
     await this.database.execute(
+      "DELETE FROM acp_resource_leases WHERE instance_id = $instance_id;",
+      { instance_id: instanceId },
+    );
+  }
+  private async writeRecord(
+    executor: Pick<Database, "execute">,
+    record: AcpResourceRecord,
+  ): Promise<void> {
+    await executor.execute(
       `
       INSERT INTO acp_resource_leases (
           instance_id,
@@ -108,14 +150,6 @@ export class AcpResourceRepository implements AcpResourceStore {
           ? JSON.stringify(record.namespace)
           : null,
       },
-    );
-  }
-
-  /** Deletes only after the scheduler has proved that no process remains. */
-  public async remove(instanceId: string): Promise<void> {
-    await this.database.execute(
-      "DELETE FROM acp_resource_leases WHERE instance_id = $instance_id;",
-      { instance_id: instanceId },
     );
   }
 }

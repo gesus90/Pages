@@ -6,11 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "react-router dev",
+    "dev:api": "PAGES_ROUTES=api react-router dev --port 5174",
     "start": "node server.mjs",
-    "build": "react-router build",
+    "build": "node scripts/build.mjs",
     "format": "prettier --write .",
     "lint": "node scripts/run-lint.mjs",
-    "check": "react-router typegen && NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit && prettier --check .",
+    "check": "PAGES_ROUTES=all react-router typegen && NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit && prettier --check .",
     "test:backend": "vitest run --config vitest.backend.config.ts --coverage",
     "test:frontend": "vitest run --config vitest.frontend.config.ts --coverage",
     "browser:test": "node scripts/run-browser-tests.mjs",
@@ -22,7 +23,6 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.7.0",
-    "@duckdb/node-api": "1.5.5-r.5",
     "@floating-ui/dom": "^1.8.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@lydell/node-pty": "1.2.0-beta.15",
@@ -74,6 +74,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@duckdb/node-api": "1.5.5-r.5",
     "@playwright/test": "1.63.0",
     "@react-router/dev": "^8.4.0",
     "@tailwindcss/vite": "^4.3.3",

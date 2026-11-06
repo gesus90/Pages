@@ -24,10 +24,20 @@ export const sessionCookie = createCookie(SESSION_COOKIE_NAME, {
 export async function getSessionToken(
   request: Request,
 ): Promise<string | null> {
+  return readSessionToken(request.headers.get("Cookie"));
+}
+
+/**
+ * Reads the session token from a `Cookie` header, such as one `pages-core` passes on.
+ *
+ * @param cookieHeader - The header as the browser sent it.
+ * @returns The token, or `null` when the header holds none.
+ */
+export async function readSessionToken(
+  cookieHeader: string | null,
+): Promise<string | null> {
   try {
-    const token: unknown = await sessionCookie.parse(
-      request.headers.get("Cookie"),
-    );
+    const token: unknown = await sessionCookie.parse(cookieHeader);
 
     return typeof token === "string" ? token : null;
   } catch (caughtError: unknown) {

@@ -1,4 +1,5 @@
 import { ASSET_UPLOAD_TIMEOUT_MS } from "./request-constants.js";
+import { correlationHeaders } from "./request-correlation.js";
 import { operationFailure } from "./tools/operation-failure.js";
 
 import type { PagesConfiguration } from "./configuration.js";
@@ -16,6 +17,7 @@ export async function uploadAgentAsset(
     headers: {
       "X-Pages-Upload-Ticket": ticket,
       "Content-Type": "application/octet-stream",
+      ...correlationHeaders(),
     },
     body,
     duplex: "half",

@@ -260,15 +260,19 @@ export class WikiTrashService {
    * Removes everything that stayed in the trash longer than allowed.
    *
    * @param retentionDays - Days a deleted page stays in the trash.
-   * @returns Storage names of attachment files to remove from the disk.
+   * @returns The trash roots removed and the storage names of attachment
+   * files to remove from the disk.
    */
-  public async purgeExpired(retentionDays: number): Promise<string[]> {
+  public async purgeExpired(retentionDays: number): Promise<{
+    readonly rootIds: readonly string[];
+    readonly files: readonly string[];
+  }> {
     return this.repository.transaction(async (repository) => {
       const files: string[] = [];
+      const rootIds =
+        await repository.pages.findExpiredTrashRoots(retentionDays);
 
-      for (const rootId of await repository.pages.findExpiredTrashRoots(
-        retentionDays,
-      )) {
+      for (const rootId of rootIds) {
         files.push(
           ...(await repository.deletePages({
             parameters: { root_id: rootId },
@@ -277,7 +281,7 @@ export class WikiTrashService {
         );
       }
 
-      return files;
+      return { rootIds, files };
     });
   }
 

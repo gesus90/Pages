@@ -7,11 +7,16 @@ import {
 } from "@/backend/service/github/GitHubIssueMapping";
 import { WORK_ITEM_PRIORITY, WORK_ITEM_TYPE } from "@/definition/Task";
 
+import { withoutGitHubCreationMarker } from "./GitHubCreationIdentity";
+import { applyTicketChange } from "./GitHubLocalChange";
+
 import type { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
+import type { GitHubChangeEvents } from "./GitHubLocalChange";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import type { GitHubSyncAccessGuard } from "@/backend/service/github/GitHubSyncAccessGuard";
 import type { GitHubSyncContextLoader } from "@/backend/service/github/GitHubSyncContextLoader";
 import type { TaskService } from "@/backend/service/TaskService";
+import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type { WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
@@ -23,6 +28,8 @@ export interface GitHubExternalIssueTriageOptions {
   readonly accessGuard: GitHubSyncAccessGuard;
   readonly contextLoader: GitHubSyncContextLoader;
   readonly now: () => string;
+  /** Stores each local change with its event. */
+  readonly events: GitHubChangeEvents;
 }
 
 /** Imports, links, or dismisses GitHub issues that have no Pages task yet. */
@@ -33,6 +40,7 @@ export class GitHubExternalIssueTriage {
   private readonly accessGuard: GitHubSyncAccessGuard;
   private readonly contextLoader: GitHubSyncContextLoader;
   private readonly now: () => string;
+  private readonly events: GitHubChangeEvents;
 
   /**
    * Creates an external issue triage.
@@ -46,6 +54,7 @@ export class GitHubExternalIssueTriage {
     this.accessGuard = options.accessGuard;
     this.contextLoader = options.contextLoader;
     this.now = options.now;
+    this.events = options.events;
   }
 
   /**
@@ -92,30 +101,37 @@ export class GitHubExternalIssueTriage {
       throw new Error("No workflow status is available for imported tasks.");
     }
 
-    const created = await this.taskService.create(actor, {
-      description: remote.body,
-      dueAt: null,
-      milestoneId: null,
-      parentId: null,
-      priority: WORK_ITEM_PRIORITY.NORMAL,
-      projectId,
-      statusId: openStatus.id,
-      title: remote.title,
-      type: WORK_ITEM_TYPE.TASK,
-      skipGitHubSync: true,
-    });
-    const timestamp = this.now();
-
-    await this.taskRepository.updateGitHubLink(
-      created.id,
-      buildLinkFromRemote(remote, timestamp),
-    );
-    await this.gitHubRepository.markExternalIssueImported(
-      external.id,
-      created.id,
-    );
-    await this.taskRepository.insertHistory(
-      buildSyncHistoryEntry(actor.id, created.id, remote.number),
+    // The issue was read before; the new ticket, its link, the import mark and
+    // its history commit together with the event, never one without the others.
+    const created = await this.events.announce(
+      async () => {
+        const task = await this.taskService.create(actor, {
+          description: withoutGitHubCreationMarker(remote.body),
+          dueAt: null,
+          milestoneId: null,
+          parentId: null,
+          priority: WORK_ITEM_PRIORITY.NORMAL,
+          projectId,
+          statusId: openStatus.id,
+          title: remote.title,
+          type: WORK_ITEM_TYPE.TASK,
+          skipGitHubSync: true,
+        });
+        await this.taskRepository.updateGitHubLink(
+          task.id,
+          buildLinkFromRemote(remote, this.now()),
+        );
+        await this.gitHubRepository.markExternalIssueImported(
+          external.id,
+          task.id,
+        );
+        await this.taskRepository.insertHistory(
+          buildSyncHistoryEntry(actor.id, task.id, remote.number),
+        );
+        return task;
+      },
+      (task): PagesEvent[] => [{ type: "ticket.changed", id: task.id }],
+      { opensAtFirstWrite: true },
     );
 
     const linked = await this.taskRepository.findById(
@@ -173,18 +189,23 @@ export class GitHubExternalIssueTriage {
     );
     const timestamp = this.now();
 
-    await this.taskRepository.updateFromGitHub(
-      item.id,
-      buildWorkItemUpdateFromRemote(item, remote, item.statusId),
-    );
-    await this.taskRepository.updateGitHubLink(
-      item.id,
-      buildLinkFromRemote(remote, timestamp),
-    );
-    await this.gitHubRepository.markExternalIssueImported(external.id, item.id);
-    await this.taskRepository.insertHistory(
-      buildSyncHistoryEntry(actor.id, item.id, remote.number),
-    );
+    await applyTicketChange(this.events, item.id, async () => {
+      await this.taskRepository.updateFromGitHub(
+        item.id,
+        buildWorkItemUpdateFromRemote(item, remote, item.statusId),
+      );
+      await this.taskRepository.updateGitHubLink(
+        item.id,
+        buildLinkFromRemote(remote, timestamp),
+      );
+      await this.gitHubRepository.markExternalIssueImported(
+        external.id,
+        item.id,
+      );
+      await this.taskRepository.insertHistory(
+        buildSyncHistoryEntry(actor.id, item.id, remote.number),
+      );
+    });
 
     const linked = await this.taskRepository.findById(
       item.id,

@@ -3,13 +3,15 @@ import { useEffect, useState } from "react";
 import { usePlanPoll } from "./use-plan-poll";
 
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanRunSummary } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 
 interface RunContext {
   readonly planId: string | undefined;
   readonly control: AgentPlanControl | undefined;
   readonly controlError: string | null;
+  /** The history by start and status; `null` while it is not read. */
+  readonly summaries?: readonly AgentPlanRunSummary[] | null;
 }
 
 interface RunSelection {
@@ -52,7 +54,8 @@ function runReadAccess(
     selection !== null &&
     selection.planId === context.planId &&
     selection.mode === "history" &&
-    !history.some((entry) => entry.id === id);
+    !history.some((entry) => entry.id === id) &&
+    !context.summaries?.some((entry) => entry.id === id);
   const isDenied = context.control?.issue === "plan_access_denied";
   const error = context.controlError ?? (isDenied ? "accessDenied" : null);
   return {
@@ -130,6 +133,18 @@ function selectedRun(
   );
 }
 
+/** The known runs in full and the rest of the history by its summary, newest first. */
+function listedRuns(
+  runs: readonly AgentPlanRun[],
+  summaries: readonly AgentPlanRunSummary[] | null,
+): readonly AgentPlanRunSummary[] {
+  if (!summaries) return runs;
+  const known = new Set(runs.map((entry) => entry.id));
+  return [...runs, ...summaries.filter((entry) => !known.has(entry.id))].sort(
+    (left, right) => right.startedAt.localeCompare(left.startedAt),
+  );
+}
+
 /** Follows current own control unless history was deliberately selected; denied context hides cached content. */
 export function usePlanRun(
   history: readonly AgentPlanRun[],
@@ -139,7 +154,7 @@ export function usePlanRun(
   readonly run: AgentPlanRun | null;
   readonly selectedId: string;
   readonly select: (id: string, mode: "follow" | "history") => void;
-  readonly runs: readonly AgentPlanRun[];
+  readonly runs: readonly AgentPlanRunSummary[];
   readonly error: string | null;
 } {
   const { planId, control } = context;
@@ -183,7 +198,7 @@ export function usePlanRun(
     run: error || access.isMissing ? null : run,
     selectedId,
     select,
-    runs: error ? [] : runs,
+    runs: error ? [] : listedRuns(runs, context.summaries ?? null),
     error,
   };
 }

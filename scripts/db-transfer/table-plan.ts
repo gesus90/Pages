@@ -1,4 +1,4 @@
-import { POSTGRES_TYPE_OF_DUCKDB_TYPE } from "../postgres-check/schema-shape";
+import { POSTGRES_TYPE_OF_DUCKDB_TYPE } from "../postgres-check/legacy-schema-shape";
 import { TransferRefusal } from "./transfer-refusal";
 
 /** A column as a catalog describes it. */

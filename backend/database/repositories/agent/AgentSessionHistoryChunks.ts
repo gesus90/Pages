@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 
 import {
+  readAgentPayload,
+  requireAgentFiles,
+} from "@/backend/storage/AgentPayloadFileStore";
+
+import {
   readCountColumn,
   readNullableTextColumn,
   readTextColumn,
@@ -8,7 +13,7 @@ import {
 import { agentSessionEventSchema } from "@/definition/AgentSessionHistory";
 import { AgentError } from "@/backend/error/AgentErrors";
 
-import { readEventRow } from "./AgentSessionRows";
+import { readStoredEventRow } from "./AgentSessionRows";
 
 import type {
   DatabaseTransaction,
@@ -22,7 +27,7 @@ import type {
 
 const CHUNK_BYTES = 4_194_304;
 const CHUNK_COLUMNS =
-  "launch_id, chunk_index, byte_offset, byte_length, first_sequence, last_sequence, sha256, previous_sha256, events_jsonl";
+  "launch_id, chunk_index, byte_offset, byte_length, first_sequence, last_sequence, sha256, previous_sha256, events_jsonl, events_file";
 
 interface HistoryChunk {
   readonly attemptId: string;
@@ -35,6 +40,7 @@ interface HistoryChunk {
   readonly digest: string;
   readonly previous: string | null;
   readonly contents: string;
+  readonly reference?: string;
 }
 
 function chunkDigest(chunk: Omit<HistoryChunk, "digest">): string {
@@ -54,10 +60,11 @@ function chunkDigest(chunk: Omit<HistoryChunk, "digest">): string {
     .digest("hex");
 }
 
-function readChunk(
+async function readChunk(
+  transaction: DatabaseTransaction,
   row: readonly DatabaseValue[],
   attemptId: string,
-): HistoryChunk {
+): Promise<HistoryChunk> {
   const chunk: HistoryChunk = {
     attemptId,
     launchId: readTextColumn(row, 0, "launch_id"),
@@ -68,7 +75,11 @@ function readChunk(
     last: readCountColumn(row, 5, "last_sequence"),
     digest: readTextColumn(row, 6, "sha256"),
     previous: readNullableTextColumn(row, 7, "previous_sha256"),
-    contents: readTextColumn(row, 8, "events_jsonl"),
+    contents: await readAgentPayload(
+      transaction,
+      readTextColumn(row, 8, "events_jsonl"),
+      readNullableTextColumn(row, 9, "events_file"),
+    ),
   };
   if (
     chunk.bytes > CHUNK_BYTES ||
@@ -79,43 +90,74 @@ function readChunk(
   return chunk;
 }
 
-function newChunk(
-  attemptId: string,
-  launchId: string,
-  previous: HistoryChunk | null,
-): HistoryChunk {
-  return {
-    attemptId,
-    launchId,
-    index: (previous?.index ?? 0) + 1,
-    offset: previous ? previous.offset + previous.bytes : 0,
-    bytes: 0,
-    first: 0,
-    last: previous?.last ?? 0,
-    digest: "",
-    previous: previous?.digest ?? null,
-    contents: "",
-  };
+/** A complete immutable chunk synchronized before its reference transaction. */
+export interface PreparedSessionChunk {
+  readonly contents: string;
+  readonly reference: string;
+  readonly bytes: number;
+  readonly first: number;
+  readonly last: number;
+}
+
+/** Serializes validated events into bounded files without holding a database transaction. */
+export async function prepareSessionHistoryChunks(
+  access: DatabaseTransaction,
+  planId: string,
+  events: readonly AgentSessionEvent[],
+): Promise<readonly PreparedSessionChunk[]> {
+  const chunks: PreparedSessionChunk[] = [];
+  let contents = "";
+  let bytes = 0;
+  let first = 0;
+  let last = 0;
+  for (const event of events) {
+    const line = `${JSON.stringify(agentSessionEventSchema.parse(event))}\n`;
+    const lineBytes = Buffer.byteLength(line);
+    if (lineBytes > CHUNK_BYTES)
+      throw new Error("Session history event too large");
+    if (contents && bytes + lineBytes > CHUNK_BYTES) {
+      chunks.push({
+        contents,
+        first,
+        last,
+        bytes,
+        reference: await requireAgentFiles(access).write(planId, contents),
+      });
+      contents = "";
+      bytes = 0;
+      first = 0;
+    }
+    first ||= event.sequence;
+    last = event.sequence;
+    contents += line;
+    bytes += lineBytes;
+  }
+  if (contents)
+    chunks.push({
+      contents,
+      first,
+      last,
+      bytes,
+      reference: await requireAgentFiles(access).write(planId, contents),
+    });
+  return chunks;
 }
 
 async function persistChunk(
   transaction: DatabaseTransaction,
   chunk: HistoryChunk,
 ): Promise<void> {
+  if (!chunk.reference) throw new Error("Prepared history file missing.");
   await transaction.execute(
     `
     INSERT INTO agent_session_history_chunks (
         attempt_id, launch_id, chunk_index, byte_offset, byte_length,
-        first_sequence, last_sequence, sha256, previous_sha256, events_jsonl
+        first_sequence, last_sequence, sha256, previous_sha256, events_jsonl, events_file
     ) VALUES (
         $attempt_id, $launch_id, $chunk_index, $byte_offset, $byte_length,
-        $first_sequence, $last_sequence, $sha256, $previous_sha256, $events_jsonl
+        $first_sequence, $last_sequence, $sha256, $previous_sha256, $events_jsonl, $events_file
     )
-    ON CONFLICT (attempt_id, chunk_index) DO UPDATE SET
-        byte_length = excluded.byte_length,
-        last_sequence = excluded.last_sequence,
-        sha256 = excluded.sha256,
-        events_jsonl = excluded.events_jsonl;
+    ;
   `,
     {
       attempt_id: chunk.attemptId,
@@ -127,18 +169,35 @@ async function persistChunk(
       last_sequence: chunk.last,
       sha256: chunkDigest(chunk),
       previous_sha256: chunk.previous,
-      events_jsonl: chunk.contents,
+      events_jsonl: "",
+      events_file: chunk.reference,
     },
   );
 }
 
-/** Appends public events in the existing receipt transaction; a chunk and its index are one atomic row. */
+function requirePreparedHistory(
+  events: readonly AgentSessionEvent[],
+  prepared: readonly PreparedSessionChunk[],
+): void {
+  if (
+    !prepared.length ||
+    prepared[0]?.first !== events[0]?.sequence ||
+    prepared.at(-1)?.last !== events.at(-1)?.sequence
+  )
+    throw new Error(
+      "Session history must be synchronized before its transaction.",
+    );
+}
+
+/** Publishes only prepared immutable chunks with their chain index in the receipt transaction. */
 export async function appendSessionHistoryChunks(
   transaction: DatabaseTransaction,
   owner: { readonly attemptId: string; readonly launchId: string },
   events: readonly AgentSessionEvent[],
+  prepared: readonly PreparedSessionChunk[] = [],
 ): Promise<void> {
   if (!events.length) return;
+  requirePreparedHistory(events, prepared);
   const [row] = await transaction.query(
     `
     SELECT ${CHUNK_COLUMNS}
@@ -149,46 +208,34 @@ export async function appendSessionHistoryChunks(
   `,
     { attempt_id: owner.attemptId },
   );
-  let chunk = row
-    ? readChunk(row, owner.attemptId)
-    : newChunk(owner.attemptId, owner.launchId, null);
-  if (chunk.launchId !== owner.launchId)
+  let index = row ? readCountColumn(row, 1, "chunk_index") : 0;
+  let offset = row
+    ? readCountColumn(row, 2, "byte_offset") +
+      readCountColumn(row, 3, "byte_length")
+    : 0;
+  let previous = row ? readTextColumn(row, 6, "sha256") : null;
+  let last = row
+    ? readCountColumn(row, 5, "last_sequence")
+    : (events[0]?.sequence ?? 1) - 1;
+  if (row && readTextColumn(row, 0, "launch_id") !== owner.launchId)
     throw new Error("Session history launch changed");
-  const entries = row
-    ? events
-    : [
-        ...(await readExistingPrefix(
-          transaction,
-          owner.attemptId,
-          events[0]?.sequence ?? 1,
-        )),
-        ...events,
-      ];
-  for (const event of entries) {
-    if (
-      event.attemptId !== owner.attemptId ||
-      (chunk.last > 0 && event.sequence !== chunk.last + 1)
-    )
+  for (const part of prepared) {
+    if (part.first !== last + 1)
       throw new Error("Session history event out of sequence");
-    const line = `${JSON.stringify(agentSessionEventSchema.parse(event))}\n`;
-    const bytes = Buffer.byteLength(line);
-    if (bytes > CHUNK_BYTES) throw new Error("Session history event too large");
-    if (chunk.bytes + bytes > CHUNK_BYTES) {
-      await persistChunk(transaction, chunk);
-      chunk = newChunk(owner.attemptId, owner.launchId, {
-        ...chunk,
-        digest: chunkDigest(chunk),
-      });
-    }
-    chunk = {
-      ...chunk,
-      first: chunk.first || event.sequence,
-      last: event.sequence,
-      bytes: chunk.bytes + bytes,
-      contents: chunk.contents + line,
+    const chunk: HistoryChunk = {
+      ...part,
+      attemptId: owner.attemptId,
+      launchId: owner.launchId,
+      index: ++index,
+      offset,
+      previous,
+      digest: "",
     };
+    await persistChunk(transaction, chunk);
+    previous = chunkDigest(chunk);
+    offset += chunk.bytes;
+    last = chunk.last;
   }
-  await persistChunk(transaction, chunk);
 }
 
 async function readExistingPrefix(
@@ -202,7 +249,7 @@ async function readExistingPrefix(
     SELECT
         agent_session_events.sequence, agent_session_events.turn, agent_session_events.kind,
         agent_session_events.body, agent_session_events.is_truncated, agent_session_events.created_at,
-        agent_session_attempts.step_id
+        agent_session_attempts.step_id, agent_session_events.body_file
     FROM agent_session_events
     INNER JOIN agent_session_attempts
         ON agent_session_attempts.attempt_id = agent_session_events.attempt_id
@@ -213,7 +260,9 @@ async function readExistingPrefix(
   `,
     { attempt_id: attemptId, before },
   );
-  return rows.map((row) => readEventRow(row, attemptId));
+  return Promise.all(
+    rows.map((row) => readStoredEventRow(transaction, row, attemptId)),
+  );
 }
 
 function chunkEvents(chunk: HistoryChunk): readonly AgentSessionEvent[] {
@@ -259,7 +308,7 @@ async function requireChunkLink(
     throw new AgentError("plan_history_corrupt");
 }
 
-/** Reads at most two 4-MiB chunks and returns a bounded sequence window, with explicit retention metadata. */
+/** Reads a bounded event window from immutable chunks, including retained legacy prefixes. */
 export async function readSessionHistoryChunks(
   transaction: DatabaseTransaction,
   attemptId: string,
@@ -274,7 +323,12 @@ export async function readSessionHistoryChunks(
     { attempt_id: attemptId },
   );
   if (!bounds || bounds[0] === null) return null;
-  const first = readCountColumn(bounds, 0, "first_sequence");
+  const chunkFirst = readCountColumn(bounds, 0, "first_sequence");
+  const prefix =
+    chunkFirst > 1
+      ? await readExistingPrefix(transaction, attemptId, chunkFirst)
+      : [];
+  const first = prefix[0]?.sequence ?? chunkFirst;
   const last = readCountColumn(bounds, 1, "last_sequence");
   if (
     window.after > last ||
@@ -294,7 +348,16 @@ export async function readSessionHistoryChunks(
     cursor,
     limit: window.limit,
   });
-  return historyPage(events, { first, last }, window.after);
+  const candidates = [
+    ...prefix.filter((event) =>
+      isBackward ? event.sequence < cursor : event.sequence > cursor,
+    ),
+    ...events,
+  ];
+  const selected = isBackward
+    ? candidates.slice(-window.limit)
+    : candidates.slice(0, window.limit);
+  return historyPage(selected, { first, last }, window.after);
 }
 
 function historyPage(
@@ -331,13 +394,17 @@ async function readHistoryWindow(
     WHERE attempt_id = $attempt_id
         AND ${query.filter}
     ORDER BY chunk_index ${query.order}
-    LIMIT 2;
+    LIMIT $chunk_limit;
   `,
-    { attempt_id: attemptId, cursor: query.cursor },
+    {
+      attempt_id: attemptId,
+      cursor: query.cursor,
+      chunk_limit: query.limit + 1,
+    },
   );
   const candidates: AgentSessionEvent[] = [];
   for (const row of rows) {
-    const chunk = readChunk(row, attemptId);
+    const chunk = await readChunk(transaction, row, attemptId);
     await requireChunkLink(transaction, chunk);
     const entries = chunkEvents(chunk).filter((event) =>
       query.isBackward

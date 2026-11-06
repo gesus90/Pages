@@ -23,6 +23,7 @@ import {
 import type {
   Database,
   DatabaseTransaction,
+  SqlParameters,
 } from "@/backend/database/Database";
 import type { NewProjectActivity } from "@/backend/database/repositories/ProjectRepository";
 import type { NewWorkItemHistory } from "@/backend/database/repositories/TaskRepository";
@@ -72,6 +73,8 @@ export class ArchiveWorld {
   public readonly history: NewWorkItemHistory[] = [];
   public readonly activity: NewProjectActivity[] = [];
   public readonly events: PagesEvent[] = [];
+  /** Parameters of the outbox rows the transactions appended, in commit order. */
+  public readonly outbox: SqlParameters[] = [];
   public dependencies: MilestoneDependency[] = [];
   public readonly writes = { tickets: 0, milestones: 0, dependencies: 0 };
   public readonly operations: AgentExtensionService;
@@ -79,8 +82,11 @@ export class ArchiveWorld {
     query: vi.fn(async () => {
       throw new Error("Unexpected database query");
     }),
-    execute: vi.fn(async () => {
-      throw new Error("Unexpected database write");
+    execute: vi.fn(async (statement: string, parameters?: SqlParameters) => {
+      // The outbox row of a change is the only write that bypasses the repository spies.
+      if (!statement.includes("INSERT INTO pages_event_outbox"))
+        throw new Error("Unexpected database write");
+      this.outbox.push(parameters ?? {});
     }),
   };
 
@@ -180,6 +186,7 @@ export class ArchiveWorld {
       history: this.history.length,
       activity: this.activity.length,
       events: this.events.length,
+      outbox: this.outbox.length,
       keys: this.keys.size,
     };
   }
@@ -196,6 +203,7 @@ export class ArchiveWorld {
         const counts = { ...this.writes };
         const historyLength = this.history.length;
         const activityLength = this.activity.length;
+        const outboxLength = this.outbox.length;
         try {
           return await work(this.connection);
         } catch (error: unknown) {
@@ -211,6 +219,7 @@ export class ArchiveWorld {
           Object.assign(this.writes, counts);
           this.history.length = historyLength;
           this.activity.length = activityLength;
+          this.outbox.length = outboxLength;
           throw error;
         }
       },

@@ -14,7 +14,12 @@ import {
 } from "@/backend/database/repositories/agent/AgentSessionRows";
 import { PageAgentRunRepository } from "@/backend/database/repositories/agent/PageAgentRunRepository";
 
-import { callAtAnyTime, OWNER, STARTED_AT } from "./plan-fixtures";
+import {
+  appendPreparedHistory,
+  callAtAnyTime,
+  OWNER,
+  STARTED_AT,
+} from "./plan-fixtures";
 import {
   call,
   MISSING_TEXT,
@@ -234,7 +239,7 @@ export const AGENT_SESSION_FLOW: RepositoryFlow = {
       sessions(world).readEvents(ATTEMPT_ID, 0, 10),
     ),
     prepare(
-      "UPDATE agent_session_history_chunks SET events_jsonl = 'verändert' WHERE attempt_id = $id;",
+      "UPDATE agent_session_history_chunks SET sha256 = repeat('0', 64) WHERE attempt_id = $id;",
       { id: ATTEMPT_ID },
     ),
     refused("AgentSessionRepository.readWindow", (world) =>
@@ -266,24 +271,23 @@ export const AGENT_SESSION_FLOW: RepositoryFlow = {
       ),
     ),
     call("appendSessionHistoryChunks", ({ database }) =>
-      database.transaction((transaction) =>
-        appendSessionHistoryChunks(
-          transaction,
-          { attemptId: ATTEMPT_ID, launchId: "launch-1" },
-          [
-            {
-              id: `${ATTEMPT_ID}:5`,
-              sequence: 5,
-              stepId: "review",
-              attemptId: ATTEMPT_ID,
-              turn: 1,
-              kind: "status",
-              createdAt: STARTED_AT,
-              text: "Bestehender Anfang",
-              isTruncated: false,
-            },
-          ],
-        ),
+      appendPreparedHistory(
+        database,
+        ATTEMPT.key.planId,
+        { attemptId: ATTEMPT_ID, launchId: "launch-1" },
+        [
+          {
+            id: `${ATTEMPT_ID}:5`,
+            sequence: 5,
+            stepId: "review",
+            attemptId: ATTEMPT_ID,
+            turn: 1,
+            kind: "status",
+            createdAt: STARTED_AT,
+            text: "Bestehender Anfang",
+            isTruncated: false,
+          },
+        ],
       ),
     ),
     call("readSessionHistoryChunks", ({ database }) =>
@@ -303,24 +307,23 @@ export const AGENT_SESSION_FLOW: RepositoryFlow = {
       ),
     ),
     refused("appendSessionHistoryChunks", ({ database }) =>
-      database.transaction((transaction) =>
-        appendSessionHistoryChunks(
-          transaction,
-          { attemptId: ATTEMPT_ID, launchId: "launch-other" },
-          [
-            {
-              id: `${ATTEMPT_ID}:6`,
-              sequence: 6,
-              stepId: "review",
-              attemptId: ATTEMPT_ID,
-              turn: 1,
-              kind: "status",
-              createdAt: STARTED_AT,
-              text: "Anderer Start",
-              isTruncated: false,
-            },
-          ],
-        ),
+      appendPreparedHistory(
+        database,
+        ATTEMPT.key.planId,
+        { attemptId: ATTEMPT_ID, launchId: "launch-other" },
+        [
+          {
+            id: `${ATTEMPT_ID}:6`,
+            sequence: 6,
+            stepId: "review",
+            attemptId: ATTEMPT_ID,
+            turn: 1,
+            kind: "status",
+            createdAt: STARTED_AT,
+            text: "Anderer Start",
+            isTruncated: false,
+          },
+        ],
       ),
     ),
     call("readEventRow", async ({ database }) =>

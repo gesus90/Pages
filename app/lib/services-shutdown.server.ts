@@ -11,13 +11,11 @@ import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService
 import type { AgentApplicationServices } from "./agent-services.server";
 
 /**
- * Closes the database on process shutdown so DuckDB finishes queued
- * statements and checkpoints its write-ahead log instead of leaving it for
- * a replay on the next start.
+ * Detaches durable native work and closes PostgreSQL after transient requests have drained.
  *
  * @param database - Central database access to close on shutdown.
  * @param agents - The agent services, which stop before it.
- * @param plans - The plan service, whose runs close as interrupted.
+ * @param plans - The plan service, which detaches proven durable local runs and drains other work.
  *
  * @remarks
  * The steps keep their order but do not depend on each other (PAGE-199): a
@@ -36,6 +34,7 @@ export function registerShutdownHandler(
   globalThis.pagesShutdownHandlerRegistered = true;
 
   const shutdown = async (): Promise<void> => {
+    agents.localSessions?.detachAll();
     const failures = await runShutdownSteps([
       { step: "chat_requests", work: () => agents.chatRequests.shutdown() },
       { step: "plans", work: () => plans.shutdown() },

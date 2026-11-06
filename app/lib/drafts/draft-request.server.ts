@@ -4,6 +4,7 @@ import {
   backgroundSaveCoordinator,
   SupersededBackgroundSaveError,
 } from "@/backend/service/BackgroundSaveCoordinator";
+import { OperationReusedError } from "@/backend/service/InterfaceOperationJournal";
 import { draftOrderSchema } from "@/definition/BackgroundSave";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -27,6 +28,7 @@ export async function readDraftRequest<T>(
   draft: T;
   streamId: string;
   sequence: number;
+  operationId: string;
 }> {
   if (args.request.method !== "POST") {
     throw Response.json(
@@ -72,6 +74,12 @@ export async function runDraftWrite(
 
     if (error instanceof SupersededBackgroundSaveError) {
       return Response.json({ ok: false, error: "superseded" }, { status: 409 });
+    }
+    if (error instanceof OperationReusedError) {
+      return Response.json(
+        { ok: false, error: "operationReused" },
+        { status: 409 },
+      );
     }
     throw error;
   }

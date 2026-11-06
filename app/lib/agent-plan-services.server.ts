@@ -1,14 +1,15 @@
+import { canProcessRuns } from "@/backend/runtime/RunsMode";
+import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
+import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
+import { QueuedPlanRunEngine } from "@/backend/service/agents/runs/QueuedPlanRunEngine";
+import { runsSocketPath } from "@/backend/service/agents/runs/RunsSocket";
+import { AgentLocalSessionPreparation } from "@/backend/service/agents/AgentLocalSessionPreparation";
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { AgentWorkspaceCleanupService } from "@/backend/service/agents/AgentWorkspaceCleanupService";
-import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
-import { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
-import { AgentPlanRemoteParameters } from "@/backend/service/agents/AgentPlanRemoteParameters";
-import { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
-import { AgentPlanRemoteAccessRepository } from "@/backend/database/repositories/agent/AgentPlanRemoteAccessRepository";
+import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
-import { AgentPlanRemoteTargets } from "@/backend/service/agents/AgentPlanRemoteTargets";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanConfigurationUpgrade";
@@ -24,8 +25,6 @@ import { AgentPlanAutoResume } from "@/backend/service/agents/recovery/AgentPlan
 import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import { AgentPlanCleanupFailureRepository } from "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository";
-import type { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
-import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
 import { CliLocator } from "@/backend/agents/cli/CliLocator";
 import { AgentPlanGitCloseoutRuntime } from "@/backend/service/agents/AgentPlanGitCloseout";
@@ -35,6 +34,7 @@ import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptR
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
+import { AgentPlanRunHistoryService } from "@/backend/service/agents/AgentPlanRunHistoryService";
 import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
@@ -52,6 +52,15 @@ import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSess
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+
+import { createPlanRemoteServices } from "./agent-plan-remote-services.server";
+import { createPlanWorkspaceAccess } from "./plan-access-services.server";
+import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
+
+import type { PlanRunEnginePort } from "@/backend/service/agents/runs/PlanRunEnginePort";
+import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
+import type { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
+import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/AgentSessionService";
@@ -60,16 +69,18 @@ import type { UserService } from "@/backend/service/UserService";
 import type { PlanDependencies } from "@/backend/service/agents/AgentPlanService";
 import type { PicaMobileNotificationService } from "@/backend/service/mobile/notifications/PicaMobileNotificationService";
 import type { AgentApplicationServices } from "./agent-services.server";
-import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
 
 /** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
 export interface AgentPlanServices {
   readonly runnerPagesAccessService: RunnerPagesAccessService;
   readonly agentPlanService: AgentPlanService;
+  readonly agentLocalSessionPreparation: AgentLocalSessionPreparation;
   /** The unfinished runs of one person, for clients that list them without the plan page. */
   readonly agentPlanActiveRunService: AgentPlanActiveRunService;
   /** The plans that concern one person with their latest own run, for Pica Mobile. */
   readonly agentPlanOverviewService: AgentPlanOverviewService;
+  /** The runs of the plan page's history the person may read, without their content. */
+  readonly agentPlanRunHistoryService: AgentPlanRunHistoryService;
   /** Pica Mobile notifications for runs of plans the person owns. */
   readonly picaMobileNotifications: PicaMobileNotificationService;
   /** Creating, copying and deleting plans from the plan page, each request once. */
@@ -85,6 +96,7 @@ export type AgentPlanLoaderServices = Pick<
   AgentPlanServices,
   | "agentPlanActiveRunService"
   | "agentPlanOverviewService"
+  | "agentPlanRunHistoryService"
   | "picaMobileNotifications"
   | "runnerPagesAccessService"
   | "agentPlanManagement"
@@ -133,7 +145,7 @@ export async function createAgentPlanService(input: {
 }): Promise<AgentPlanServices> {
   const plans = new AgentPlanRepository(input.database);
   const runs = new AgentPlanRunRepository(input.database);
-  await upgradeStoredPlans(input.database, plans);
+  if (canProcessRuns()) await upgradeStoredPlans(input.database, plans);
   const {
     agentWorkspaceService: workspaces,
     agentProfileService: profiles,
@@ -142,26 +154,15 @@ export async function createAgentPlanService(input: {
   const { access, workspaceCatalog } = createPlanWorkspaceAccess(input, plans);
   const runtime = createScriptRuntime(input, access, workspaces);
   const { tasks, scripts, scriptPreparation } = runtime;
-  const start = new AgentPlanStepStart({
-    access,
-    tasks,
-    profiles,
-    parameters,
-    files: input.agents.agentDefinitionFiles,
-    github: input.agents.agentPlanGitHubCredentials,
-  });
+  const start = createPlanStepStart(input, access, tasks);
   const sessions = createPlanSessionAccess(input.database, input.mcp);
   const pageAgentSessions = await createPageAgentSessions(input, {
     run: (userId, id) => service.run(userId, id),
     stop: (userId, id) => service.stop(userId, id),
   });
-  const { remoteTargets, remoteExecution, pages } = createRemoteExecution(
-    input,
-    access,
-    runs,
-  );
-  await pages.recover();
-  const engine = createPlanEngine(input, {
+  const { remoteTargets, remoteExecution, pages } =
+    await createPlanRemoteServices(input, access, runs);
+  const engine = await createPlanEngine(input, {
     remoteExecution,
     scripts: scriptPreparation,
     runs,
@@ -171,7 +172,11 @@ export async function createAgentPlanService(input: {
     pageAgentSessions,
   });
   // The runner services are built first; runner facts learn which runs an engine still drives.
-  input.agents.runnerService.attachRunOwnership((id) => engine.isActive(id));
+  const localEngine: AgentPlanRunEngine | null =
+    engine instanceof AgentPlanRunEngine ? engine : null;
+  input.agents.runnerService.attachRunOwnership(
+    (id) => localEngine?.isActive(id) ?? true,
+  );
   const preparation = new AgentPlanPreparation({
     workspaceCatalog,
     remoteExecution,
@@ -204,11 +209,16 @@ export async function createAgentPlanService(input: {
   };
   const service = new AgentPlanService(dependencies);
   const views = await createPlanViews(input, dependencies, service);
-  await recoverRuns(input, service);
-  startWorkspaceCleanup(input.database, runs, engine, remoteExecution);
+  await startOwnedPlanProcessing(input, {
+    service,
+    runs,
+    engine,
+    remoteExecution,
+  });
   return {
     runnerPagesAccessService: pages,
     agentPlanService: service,
+    agentLocalSessionPreparation: new AgentLocalSessionPreparation(runs, start),
     ...views,
     agentSessionService: pageAgentSessions,
     agentPlanRecoveryService: startPlanRecovery(input, {
@@ -222,17 +232,58 @@ export async function createAgentPlanService(input: {
   };
 }
 
+function createPlanStepStart(
+  input: Parameters<typeof createAgentPlanService>[0],
+  access: AgentPlanAccess,
+  tasks: AgentPlanTasks,
+): AgentPlanStepStart {
+  return new AgentPlanStepStart({
+    access,
+    tasks,
+    profiles: input.agents.agentProfileService,
+    parameters: input.agents.agentParameterService,
+    files: input.agents.agentDefinitionFiles,
+    github: input.agents.agentPlanGitHubCredentials,
+  });
+}
+
+async function startOwnedPlanProcessing(
+  input: Parameters<typeof createAgentPlanService>[0],
+  parts: {
+    readonly service: AgentPlanService;
+    readonly runs: AgentPlanRunRepository;
+    readonly engine: PlanRunEnginePort;
+    readonly remoteExecution: AgentPlanRemoteExecution;
+  },
+): Promise<void> {
+  if (!canProcessRuns()) return;
+  const { service, runs, engine, remoteExecution } = parts;
+  await recoverRuns(input, service);
+  startWorkspaceCleanup(input.database, runs, engine, remoteExecution);
+  if (!(engine instanceof AgentPlanRunEngine)) return;
+  const runtime = await getPagesRuntime();
+  const worker = new PlanRunCommandWorker(
+    input.database,
+    engine,
+    remoteExecution,
+    runsSocketPath(runtime.getDatabasePath()),
+  );
+  await worker.start();
+  registerShutdownTask(() => worker.stop(), { step: "run_command_inbox" });
+}
+
 /** Builds the recovery and lets the runs a restart interrupted continue; the wait runs in the background. */
 function startPlanRecovery(
   input: Parameters<typeof createAgentPlanService>[0],
   parts: Parameters<typeof createRecoveryService>[1],
 ): AgentPlanRecoveryService {
   const recovery = createRecoveryService(input, parts);
-  void new AgentPlanAutoResume({
-    runs: parts.runs,
-    recovery,
-    engine: parts.engine,
-  }).start();
+  if (canProcessRuns())
+    void new AgentPlanAutoResume({
+      runs: parts.runs,
+      recovery,
+      engine: parts.engine,
+    }).start();
   return recovery;
 }
 
@@ -246,6 +297,7 @@ async function createPlanViews(
     AgentPlanServices,
     | "agentPlanActiveRunService"
     | "agentPlanOverviewService"
+    | "agentPlanRunHistoryService"
     | "picaMobileNotifications"
     | "agentPlanManagement"
     | "agentPlanTemplateService"
@@ -260,6 +312,7 @@ async function createPlanViews(
       dependencies,
       service,
     ),
+    agentPlanRunHistoryService: new AgentPlanRunHistoryService(dependencies),
     ...(await createPicaMobileNotificationServices({
       database: input.database,
       users: input.users,
@@ -285,7 +338,7 @@ function createPlanManagement(
 function startWorkspaceCleanup(
   database: Database,
   runs: AgentPlanRunRepository,
-  engine: AgentPlanRunEngine,
+  engine: PlanRunEnginePort,
   remoteExecution: AgentPlanRemoteExecution,
 ): void {
   new AgentWorkspaceCleanupService({
@@ -333,7 +386,7 @@ function createRecoveryService(
     readonly service: AgentPlanService;
     readonly access: AgentPlanAccess;
     readonly preparation: AgentPlanPreparation;
-    readonly engine: AgentPlanRunEngine;
+    readonly engine: PlanRunEnginePort;
     readonly runs: AgentPlanRunRepository;
     readonly remoteExecution: AgentPlanRemoteExecution;
   },
@@ -397,9 +450,12 @@ async function createPageAgentSessions(
   runs: AgentSessionRunAccess,
 ): Promise<AgentSessionService> {
   const store = new AgentSessionRepository(input.database);
-  const journal = new AgentSessionJournal(store);
+  const journal = new AgentSessionJournal(store, {
+    followExternalWrites:
+      !canProcessRuns() || Boolean(input.agents.localSessions),
+  });
   const inbox = new AgentSessionInbox(store, journal);
-  await inbox.recover();
+  if (canProcessRuns()) await inbox.recover();
   return new AgentSessionService({
     runs,
     store,
@@ -439,57 +495,7 @@ async function repairAgentFiles(input: {
   await input.agents.agentRunArchive.recover();
 }
 
-function createRemoteExecution(
-  input: Parameters<typeof createAgentPlanService>[0],
-  access: AgentPlanAccess,
-  runs: AgentPlanRunRepository,
-): {
-  remoteTargets: AgentPlanRemoteTargets;
-  remoteExecution: AgentPlanRemoteExecution;
-  pages: RunnerPagesAccessService;
-} {
-  const remoteTargets = new AgentPlanRemoteTargets(
-    input.agents.remoteWorkspaceService,
-    input.agents.remoteConnectionService,
-  );
-  const parameters = new AgentPlanRemoteParameters({
-    targets: remoteTargets,
-    tickets: input.agents.agentTicketParameterService,
-    content: input.agents.agentContentAccess,
-    assets: input.agents.agentTicketAssetService,
-    authorization: new AuthorizationRepository(input.database),
-    users: input.users,
-  });
-  const pages = new RunnerPagesAccessService({
-    parameters,
-    runs,
-    plans: access,
-    runners: input.agents.runnerService,
-    credentials: new AgentRunCredentialService(
-      new AgentRunCredentialRepository(input.database),
-    ),
-    evidence: new AgentPlanRemoteAccessRepository(input.database),
-    api: input.api,
-  });
-  const planTasks = new AgentPlanTasks(input.tasks, input.users);
-  const remoteExecution = new AgentPlanRemoteExecution({
-    tasks: planTasks,
-    stepReports: new AgentPlanStepReportService(
-      new AgentPlanStepReportRepository(input.database),
-      planTasks,
-    ),
-    parameters,
-    pages,
-    targets: remoteTargets,
-    access,
-    runners: input.agents.runnerService,
-    provider: input.agents.runnerOpenRouterService,
-    runs,
-  });
-  return { remoteTargets, remoteExecution, pages };
-}
-
-function createPlanEngine(
+async function createPlanEngine(
   input: Parameters<typeof createAgentPlanService>[0],
   parts: {
     readonly remoteExecution: AgentPlanRemoteExecution;
@@ -500,8 +506,16 @@ function createPlanEngine(
     readonly sessions: AgentPlanSessionAccess;
     readonly pageAgentSessions: AgentSessionService;
   },
-): AgentPlanRunEngine {
+): Promise<PlanRunEnginePort> {
+  const runtime = await getPagesRuntime();
+  if (!canProcessRuns())
+    return new QueuedPlanRunEngine(
+      input.database,
+      runsSocketPath(runtime.getDatabasePath()),
+    );
   return new AgentPlanRunEngine({
+    deferScheduling: true,
+    localSessions: input.agents.localSessions ?? undefined,
     workGate: new AgentPlanWorkGate(input.database, input.users),
     remoteExecution: parts.remoteExecution,
     scripts: new AgentPlanScriptRunner(
@@ -517,6 +531,7 @@ function createPlanEngine(
     start: parts.start,
     resources: input.agents.acpResourceScheduler,
     steps: new AgentPlanStepRunner({
+      localSessions: input.agents.localSessions ?? undefined,
       start: parts.start,
       execution: input.agents.agentPlanExecution,
       tasks: parts.tasks,

@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { TemporaryPostgres } from "../../../scripts/postgres-check/temporary-instance";
+
 import { startPagesInstance } from "./pages-instance";
 import { INSTANCE_PORT, SERVER_ROOT, STATE_DIRECTORY_VARIABLE } from "./paths";
 import { completeSetup, seedFixtures } from "./seed";
@@ -35,47 +37,66 @@ function createStorageState(client: PagesClient): string {
 /**
  * Starts the isolated instance, seeds it and hands the sessions to the tests.
  *
- * @returns The teardown that stops the instance and removes its files.
+ * @returns The teardown that stops the owned servers and retains their files.
  *
  * @remarks
  * The instance has its own database and accounts. Nothing of the running
- * Pages installation is read or written. Setting `PAGES_BROWSER_KEEP=1` keeps
- * the private directory, for example to read the server log after a failure.
+ * Pages installation is read or written. Both private directories are retained.
  */
 export default async function globalSetup(): Promise<() => Promise<void>> {
-  const instance = await startPagesInstance({
-    port: INSTANCE_PORT,
-    repositoryRoot: SERVER_ROOT,
-  });
-  const keepFiles = process.env.PAGES_BROWSER_KEEP === "1";
+  const postgres = await TemporaryPostgres.prepare();
+  await postgres.start();
+  let instance: Awaited<ReturnType<typeof startPagesInstance>>;
+  try {
+    instance = await startPagesInstance({
+      port: INSTANCE_PORT,
+      repositoryRoot: SERVER_ROOT,
+    });
+  } catch (error: unknown) {
+    await postgres.remove();
+    throw error;
+  }
 
   try {
     const admin = await completeSetup(
       instance.origin,
       instance.setupToken,
-      path.join(instance.directory, "data", "pages.duckdb"),
+      postgres.url,
     );
     const { reader, seed } = await seedFixtures(admin, instance.origin);
     const stateDirectory = path.join(instance.directory, "state");
 
-    await mkdir(stateDirectory, { recursive: true });
+    await mkdir(stateDirectory, { recursive: true, mode: 0o700 });
     await writeFile(
       path.join(stateDirectory, "seed.json"),
       JSON.stringify(seed),
+      { mode: 0o600 },
     );
     await writeFile(
       path.join(stateDirectory, "admin.json"),
       createStorageState(admin),
+      { mode: 0o600 },
     );
     await writeFile(
       path.join(stateDirectory, "reader.json"),
       createStorageState(reader),
+      { mode: 0o600 },
     );
     process.env[STATE_DIRECTORY_VARIABLE] = stateDirectory;
   } catch (error: unknown) {
-    await instance.stop({ keepFiles: true });
+    try {
+      await instance.stop({ keepFiles: true });
+    } finally {
+      await postgres.remove();
+    }
     throw error;
   }
 
-  return () => instance.stop({ keepFiles });
+  return async () => {
+    try {
+      await instance.stop({ keepFiles: true });
+    } finally {
+      await postgres.remove();
+    }
+  };
 }

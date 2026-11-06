@@ -458,8 +458,12 @@ function installArchiveStatements(state: TaskState): void {
     return changed;
   });
   vi.spyOn(proto, "restoreMany").mockImplementation(async (ids) => {
-    state.writes.push("restoreMany");
-    for (const id of ids) patch(state, id, { archivedAt: null });
+    const changed = ids.filter(
+      (id) => (state.tickets.get(id)?.archivedAt ?? null) !== null,
+    );
+    for (const id of changed) patch(state, id, { archivedAt: null });
+    if (changed.length > 0) state.writes.push("restoreMany");
+    return changed;
   });
   vi.spyOn(proto, "findSubtreeStorageNames").mockImplementation(async (id) =>
     collectSubtree(state, id).flatMap(

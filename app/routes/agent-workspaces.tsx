@@ -1,19 +1,24 @@
-import { data as routeData, useLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
 
+import { TerminalScreenReaderModeContext } from "@/app/components/agents/workspaces/remote/console/use-terminal-screen-reader-mode";
 import { WorkspaceLoadError } from "@/app/components/agents/workspaces/workspace-load-error";
 import { WorkspacePage } from "@/app/components/agents/workspaces/workspace-page";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { loadRemoteOverview } from "@/app/lib/remote-actions.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import {
-  agentFailureResponse,
-  AGENT_NO_STORE,
-} from "@/app/lib/settings-actions/settings-agents-response.server";
-import { AgentError } from "@/backend/error/AgentErrors";
-import { logCaughtError } from "@/backend/logging/Logger";
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 
 import type { ShouldRevalidateFunctionArgs } from "react-router";
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { AgentWorkspacePage } from "@/definition/AgentWorkspace";
 import type { RemoteOverview } from "@/definition/RemoteConnection";
 import type { TerminalScreenReaderMode } from "@/definition/Settings";
@@ -22,84 +27,68 @@ import type { Route } from "./+types/agent-workspaces";
 const REMOTE_ACTION = "/agents/workspaces/remote";
 
 /** Local registrations and the remote connections and profiles of one page. */
-interface WorkspaceOverview {
+export interface WorkspaceOverview {
   readonly page: AgentWorkspacePage;
   readonly remote: RemoteOverview;
   /** The person's screen reader mode of the remote console. */
   readonly terminalScreenReader: TerminalScreenReaderMode;
+  readonly audience: LocalStateAudience;
 }
 
-/** Keeps directory metadata and action responses out of browser and proxy caches. */
-export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
-  const response = new Headers(parentHeaders);
-  response.set("Cache-Control", AGENT_NO_STORE["Cache-Control"]);
-  return response;
+/** The rights-checked endpoint of the workspace directory. */
+const WORKSPACE_PAGE_ENDPOINT = "/agent-api/workspace-page";
+
+function isWorkspaceOverview(value: unknown): value is WorkspaceOverview {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "page" in value &&
+    typeof value.page === "object" &&
+    value.page !== null &&
+    "remote" in value &&
+    typeof value.remote === "object" &&
+    value.remote !== null &&
+    "terminalScreenReader" in value &&
+    typeof value.terminalScreenReader === "string" &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
+  );
+}
+
+/** The workspace directory, kept per account and rights. */
+const WORKSPACE_PAGE_STATE: LocalStateRouteKind<WorkspaceOverview> = {
+  schemaVersion: 1,
+  isPayload: isWorkspaceOverview,
+  isCurrent: (overview) => isCurrentLocalStateAudience(overview.audience),
+  ownerOf: (overview) => overview.audience.userId,
+  isRefused: () => false,
 };
 
 /**
- * Loads only the registrations of accessible projects, the remote connections
- * the person may use and the management controls the person holds.
+ * Opens the directory from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint runs the server loader with its checks; a failed load shows
+ * the same error as before.
  */
-export async function loader({
-  context,
-}: Route.LoaderArgs): Promise<ReturnType<typeof routeData<WorkspaceOverview>>> {
-  try {
-    const user = context.get(authenticatedUserContext);
-    if (!user) throw new AgentError("workspace_access_denied");
-    const services = await getApplicationServices();
-    const [page, remote, terminalScreenReader] = await Promise.all([
-      services.agentWorkspaceService.page(user.id),
-      loadRemoteOverview(services, user.id),
-      services.settingsService.getTerminalScreenReader(user.id),
-    ]);
-    return routeData(
-      { page, remote, terminalScreenReader },
-      { headers: AGENT_NO_STORE },
-    );
-  } catch (error: unknown) {
-    logCaughtError("agent_workspaces", error);
-
-    throw agentFailureResponse(error);
-  }
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<WorkspaceOverview>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), WORKSPACE_PAGE_STATE, () =>
+    readRouteData({
+      endpoint: `${WORKSPACE_PAGE_ENDPOINT}${url.search}`,
+      signal: request.signal,
+      isPayload: isWorkspaceOverview,
+    }),
+  );
 }
 
-/** Mutates registration metadata only; the service rechecks project access and management rights. */
-export async function action(args: Route.ActionArgs): Promise<Response> {
-  let intent = "";
-  try {
-    const { user, services, formData } = await readSettingsRequest(args);
-    intent = String(formData.get("intent") ?? "");
-    const id = String(formData.get("workspaceId") ?? "");
-    if (id.length > 100) throw new AgentError("workspace_invalid");
-    if (intent === "workspace-usages")
-      return Response.json(
-        {
-          ok: true,
-          intent,
-          workspaceUsages: await services.agentWorkspaceService.usages(
-            user.id,
-            id,
-          ),
-        },
-        { headers: AGENT_NO_STORE },
-      );
-    if (intent === "save-workspace") {
-      const content = String(formData.get("workspace") ?? "");
-      if (content.length > 50000) throw new AgentError("workspace_invalid");
-      const proposed: unknown = JSON.parse(content);
-      await services.agentWorkspaceService.save(user.id, id || null, proposed);
-    } else if (intent === "delete-workspace") {
-      const revision = Number(formData.get("revision"));
-      if (!Number.isSafeInteger(revision) || revision < 1)
-        throw new AgentError("workspace_invalid");
-      await services.agentWorkspaceService.remove(user.id, id, revision);
-    } else throw new AgentError("workspace_invalid");
-    return Response.json({ ok: true, intent }, { headers: AGENT_NO_STORE });
-  } catch (error: unknown) {
-    logCaughtError("agent_workspaces", error);
-
-    return agentFailureResponse(error, intent);
-  }
+/** Sends a change of a workspace registration to the API, which runs the page's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /**
@@ -119,8 +108,15 @@ export function shouldRevalidate({
 
 /** Shares the existing Pages cards and dialogs with the central agent administration. */
 export default function AgentWorkspacesRoute(): React.ReactElement {
-  const { page, remote } = useLoaderData<typeof loader>();
-  return <WorkspacePage page={page} remote={remote} />;
+  const { page, remote, terminalScreenReader } = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    WORKSPACE_PAGE_STATE,
+  );
+  return (
+    <TerminalScreenReaderModeContext value={terminalScreenReader}>
+      <WorkspacePage page={page} remote={remote} />
+    </TerminalScreenReaderModeContext>
+  );
 }
 
 /** A failed load keeps the page chrome and offers a retry. */

@@ -51,16 +51,17 @@ browser can be provided.
 the end:
 
 - `node server.mjs --config <tmp>/config.toml --port 3100` from the production
-  build, with a private `HOME`, configuration, DuckDB database and attachment
-  store in `/tmp/pages-browser-*`, listening on `127.0.0.1` only. The server
+  build, with a private `HOME`, configuration and attachment store in
+  `/tmp/pages-browser-*`, listening on `127.0.0.1` only. A separate private
+  PostgreSQL instance supplies the empty setup database. The server
   sees none of the caller's environment except `PATH`. Nothing of a running Pages
   installation, its data directory or port 3000 is read or written.
 - It completes the setup wizard over HTTP, as a browser form would, then
   creates the accounts and data below. There is no manual sign-in: the sessions
   are written to Playwright storage state files and picked by the tests with
   `test.use({ account: "reader" })` (default: `admin`).
-- At the end the server is stopped and the directory is removed.
-  `PAGES_BROWSER_KEEP=1` keeps it, for example to read `server.log`.
+- At the end both owned servers are stopped and their private directories are
+  retained, including the logs, for inspection.
 
 | Seeded                         | What it is for                                                                      |
 | ------------------------------ | ----------------------------------------------------------------------------------- |

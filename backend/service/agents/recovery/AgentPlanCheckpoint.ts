@@ -107,6 +107,9 @@ function checkpointResult(
           })),
           decisions: acceptance.decisions.map(sanitizePlanOutput),
           summary: sanitizePlanOutput(acceptance.summary),
+          ...(acceptance.message === undefined
+            ? {}
+            : { message: sanitizePlanOutput(acceptance.message) }),
         }
       : null,
   };

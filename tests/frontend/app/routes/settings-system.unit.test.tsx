@@ -7,16 +7,13 @@ import {
   createServerSettingsService,
   handleSystemSettingsAction,
 } from "@/app/lib/settings-actions/settings-system-actions.server";
-import SettingsSystemRoute, {
-  action,
-  headers,
-  loader,
-} from "@/app/routes/settings-system";
+import SettingsSystemRoute from "@/app/routes/settings-system";
+import { loader as dataLoader } from "@/app/routes/settings-system-data";
+import { action, loader } from "@/app/routes/settings-system-server";
 
 import {
   ACTOR,
   formPost,
-  headerArguments,
   pagesRequest,
   renderRoute,
   routeArguments,
@@ -35,6 +32,16 @@ const serverSettings = vi.hoisted(() => ({
   readLogging: vi.fn(),
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => services,
 }));
@@ -75,13 +82,12 @@ beforeEach(() => {
   });
 });
 
-it("keeps system documents out of caches and keeps parent headers", () => {
-  const result = new Headers(
-    headers(headerArguments({ "X-Frame-Options": "DENY" })),
+it("keeps system data out of caches", async () => {
+  const response = await dataLoader(
+    routeArguments(pagesRequest("/settings-api/system"), { user: ACTOR }),
   );
 
-  expect(result.get("Cache-Control")).toBe("no-store");
-  expect(result.get("X-Frame-Options")).toBe("DENY");
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
 });
 
 it("requires the user of the authentication middleware", async () => {
@@ -106,6 +112,7 @@ it("loads every system setting for a granted administrator", async () => {
     loader(routeArguments(pagesRequest("/settings/system"), { user: ACTOR })),
   ).resolves.toEqual({
     access: "granted",
+    audience: AUDIENCE,
     branding: { companyName: "Acme" },
     chatSettings: { instruction: "" },
     logging: { retentionDays: 7 },
@@ -136,6 +143,7 @@ it("renders the system section for a granted administrator", () => {
   renderRoute(SettingsSystemRoute, {
     loaderData: {
       access: "granted",
+      audience: AUDIENCE,
       branding: { companyName: "Acme" },
       chatSettings: {},
       logging: {},

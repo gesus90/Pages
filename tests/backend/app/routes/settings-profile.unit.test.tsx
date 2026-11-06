@@ -5,10 +5,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { handleSettingsAction } from "@/app/lib/settings-actions/settings-actions.server";
 import { getSessionToken } from "@/app/lib/session.server";
-import SettingsProfileRoute, {
-  action,
-  loader,
-} from "@/app/routes/settings-profile";
+import SettingsProfileRoute from "@/app/routes/settings-profile";
+import { action, loader } from "@/app/routes/settings-profile-server";
 
 import {
   accountAccess,
@@ -36,6 +34,16 @@ const services = vi.hoisted(() => ({
   designThemeService: { getSelection: vi.fn() },
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => services,
 }));
@@ -128,6 +136,7 @@ function loaded(
     designThemes: { themes: [] },
     sessions: [],
     canEditProfile,
+    audience: AUDIENCE,
   };
 }
 
@@ -155,6 +164,7 @@ it("lets an administrator in the admin mode edit the profile", async () => {
     loader(routeArguments(pagesRequest("/settings"), { user: ACTOR })),
   ).resolves.toEqual({
     account,
+    audience: AUDIENCE,
     canEditProfile: true,
     designThemes: { themes: [] },
     email: "ada@example.com",

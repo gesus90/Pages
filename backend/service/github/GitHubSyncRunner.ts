@@ -5,6 +5,7 @@ import {
   createEmptySyncCounters,
 } from "@/backend/service/github/GitHubSyncRun";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
+import { hasSyncChanges } from "@/definition/GitHub";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
@@ -49,6 +50,8 @@ export interface GitHubSyncRunnerOptions {
 export interface ScheduledSyncResult {
   readonly completed: number;
   readonly failed: number;
+  /** Projects whose run changed something, for the live view of open pages. */
+  readonly changedProjectIds?: readonly string[];
 }
 
 /** Outcome of one project in a scheduled batch. */
@@ -142,9 +145,10 @@ export class GitHubSyncRunner {
     const due = await this.projectRepository.findDueSyncIntegrations(timestamp);
     let completed = 0;
     let failed = 0;
+    const changedProjectIds: string[] = [];
 
     for (const entry of due) {
-      const outcome = await this.runDueProject(entry);
+      const outcome = await this.runDueProject(entry, changedProjectIds);
 
       if (outcome === "completed") {
         completed += 1;
@@ -153,7 +157,7 @@ export class GitHubSyncRunner {
       }
     }
 
-    return { completed, failed };
+    return { completed, failed, changedProjectIds };
   }
 
   /**
@@ -244,7 +248,10 @@ export class GitHubSyncRunner {
     }
   }
 
-  private async runDueProject(entry: DueGitHubSync): Promise<DueSyncOutcome> {
+  private async runDueProject(
+    entry: DueGitHubSync,
+    changedProjectIds: string[],
+  ): Promise<DueSyncOutcome> {
     if (this.runningProjects.has(entry.projectId)) {
       return "skipped";
     }
@@ -262,7 +269,8 @@ export class GitHubSyncRunner {
       usedToken = await this.projectRepository.findTokenEncrypted(
         entry.projectId,
       );
-      await this.runProject(owner, entry.projectId);
+      const summary = await this.runProject(owner, entry.projectId);
+      if (hasSyncChanges(summary)) changedProjectIds.push(entry.projectId);
 
       return "completed";
     } catch (error: unknown) {

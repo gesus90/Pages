@@ -19,7 +19,7 @@ import { PermissionService } from "@/backend/auth/PermissionService";
 import { SessionService } from "@/backend/auth/SessionService";
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { Database } from "@/backend/database/Database";
-import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
+import { POSTGRES_MIGRATIONS } from "@/backend/database/Migrations";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
@@ -36,6 +36,8 @@ import { logDiagnostic } from "@/backend/logging/Logger";
 import { AdministrationService } from "@/backend/service/AdministrationService";
 import { AnnouncingTaskService } from "@/backend/service/AnnouncingTaskService";
 import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
+import { GitHubJobClient } from "@/backend/service/integrations/GitHubJobClient";
+import { GitHubCreationRepository } from "@/backend/database/repositories/integrations/GitHubCreationRepository";
 import { GroupAdministrationService } from "@/backend/service/GroupAdministrationService";
 import { HealthService } from "@/backend/service/HealthService";
 import { InstanceSettingsService } from "@/backend/service/InstanceSettingsService";
@@ -63,6 +65,12 @@ const { opaque } = await vi.hoisted(
 
 let world: ServicesWorld;
 
+/** The routed API facade is distinct from the elected consumer's direct facade. */
+function apiGitHubService(): GitHubSyncService {
+  expect(GitHubSyncService).toHaveBeenCalledTimes(2);
+  return vi.mocked(GitHubSyncService).mock.instances[0];
+}
+
 /** The only instance a fake class created. */
 function only<Instance>(fake: {
   readonly mock: { readonly instances: Instance[] };
@@ -81,9 +89,9 @@ it("migrates the database of a finished setup and keeps its services for later r
 
   expect(globalThis.pagesServices).toBe(activated);
   const services = await activated;
-  expect(world.database.migrate).toHaveBeenCalledWith(DATABASE_MIGRATIONS);
+  expect(world.database.migrate).toHaveBeenCalledWith(POSTGRES_MIGRATIONS);
   await expect(getApplicationServices()).resolves.toBe(services);
-  expect(Database.create).not.toHaveBeenCalled();
+  expect(Database.connect).not.toHaveBeenCalled();
 });
 
 it("returns every service group together with the core services", async () => {
@@ -114,7 +122,7 @@ it("returns every service group together with the core services", async () => {
     taskAttachmentService: only(vi.mocked(TaskAttachmentService)),
     ticketAssetAuditService: only(vi.mocked(TicketAssetAuditService)),
     ticketTreeService: only(vi.mocked(TicketTreeService)),
-    gitHubSyncService: only(vi.mocked(GitHubSyncService)),
+    gitHubSyncService: apiGitHubService(),
     pagesEventPublisher: only(vi.mocked(PagesEventPublisher)),
     authService: only(vi.mocked(AuthService)),
   });
@@ -203,7 +211,10 @@ it("announces ticket changes and synchronizes them with GitHub", async () => {
     events,
   ]);
   expect(vi.mocked(GitHubSyncService).mock.calls[0][0]).toEqual({
+    jobs: only(vi.mocked(GitHubJobClient)),
+    creations: only(vi.mocked(GitHubCreationRepository)),
     cache,
+    events,
     gitHubRepository: only(vi.mocked(GitHubRepository)),
     projectRepository,
     projectService,
@@ -213,7 +224,7 @@ it("announces ticket changes and synchronizes them with GitHub", async () => {
     userRepository: only(vi.mocked(UserRepository)),
   });
   expect(AnnouncingTaskService.prototype.setGitHubSync).toHaveBeenCalledWith(
-    only(vi.mocked(GitHubSyncService)),
+    apiGitHubService(),
   );
   expect(createDiscordServices).toHaveBeenCalledWith({
     database: world.database,
@@ -360,7 +371,7 @@ it("publishes agent ticket changes to GitHub through their own ticket repository
     only(vi.mocked(ServerCache)),
   ]);
   expect(TaskGitHubPublisher.prototype.attach).toHaveBeenCalledWith(
-    only(vi.mocked(GitHubSyncService)),
+    apiGitHubService(),
   );
 });
 

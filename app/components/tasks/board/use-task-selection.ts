@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useFetcher, useSearchParams } from "react-router";
 
 import type { loader as panelLoader } from "@/app/routes/task-panel-data";
-import type { loader as boardLoader } from "@/app/routes/tasks";
+import type { loader as boardLoader } from "@/app/routes/tasks-server";
 import type { WorkItemDetail } from "@/definition/Task";
 
 const NO_RELATED: readonly WorkItemDetail[] = [];

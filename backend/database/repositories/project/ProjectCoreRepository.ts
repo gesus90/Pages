@@ -359,17 +359,19 @@ export class ProjectCoreRepository {
   }
 
   /** Marks a project as archived without deleting persisted data. */
-  public async archive(id: string): Promise<void> {
-    await this.database.execute(
+  public async archive(id: string): Promise<boolean> {
+    const rows = await this.database.query(
       `
         UPDATE projects
         SET
             archived_at = utc_now(),
             updated_at = utc_now()
         WHERE id = $id
-            AND archived_at IS NULL;
+            AND archived_at IS NULL
+        RETURNING id;
       `,
       { id },
     );
+    return rows.length > 0;
   }
 }

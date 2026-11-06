@@ -2,7 +2,8 @@
 import { cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import DashboardRoute, { loader } from "@/app/routes/dashboard";
+import DashboardRoute from "@/app/routes/dashboard";
+import { loader } from "@/app/routes/dashboard-server";
 
 import type { DashboardLoaderData } from "@/app/routes/dashboard";
 
@@ -26,6 +27,14 @@ const services = vi.hoisted(() => ({
   },
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "u-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => services,
 }));
@@ -189,6 +198,7 @@ it("aggregates the numbers and sections of the dashboard", async () => {
     inProgressTickets: 3,
     projectCount: 5,
     newProjects: 1,
+    audience: AUDIENCE,
   });
   expect(
     loaded.myTasks.map((task) => [task.id, task.isDueToday, task.isOverdue]),
@@ -250,6 +260,7 @@ it("renders the greeting, the numbers and the four panels", () => {
     projectOverview: [],
     recentlyEdited: [],
     upcomingDeadlines: [],
+    audience: AUDIENCE,
   };
   vi.useRealTimers();
   renderRoute(DashboardRoute, { loaderData });

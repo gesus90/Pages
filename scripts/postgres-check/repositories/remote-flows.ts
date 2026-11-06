@@ -2,6 +2,7 @@ import {
   parseRemoteRoots,
   RemoteConnectionRepository,
 } from "@/backend/database/repositories/remote/RemoteConnectionRepository";
+import { RemoteConsoleSessionRepository } from "@/backend/database/repositories/remote/RemoteConsoleSessionRepository";
 import { RemoteInstallFindingRepository } from "@/backend/database/repositories/remote/RemoteInstallFindingRepository";
 import { RemoteWorkspaceRepository } from "@/backend/database/repositories/remote/RemoteWorkspaceRepository";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
@@ -18,6 +19,7 @@ import {
 
 import type { RepositoryFlow, RepositoryWorld } from "./world";
 import type { RemoteConnectionRecord } from "@/backend/database/repositories/remote/RemoteConnectionRepository";
+import type { StoredConsoleSession } from "@/backend/database/repositories/remote/RemoteConsoleSessionRepository";
 import type { RemoteWorkspaceRecord } from "@/backend/database/repositories/remote/RemoteWorkspaceRepository";
 import type { InstallFinding } from "@/definition/RemoteSetup";
 
@@ -84,6 +86,98 @@ function findings({
 function workspaces({ database }: RepositoryWorld): RemoteWorkspaceRepository {
   return new RemoteWorkspaceRepository(database);
 }
+
+const CONSOLE: StoredConsoleSession = {
+  id: "remote-console-a",
+  ownerId: OWNER,
+  scopeKind: "workspace",
+  scopeId: "remote-workspace-b",
+  columns: 80,
+  rows: 24,
+  attempts: 1,
+  lastSequence: 0,
+};
+
+function consoles({
+  database,
+}: RepositoryWorld): RemoteConsoleSessionRepository {
+  return new RemoteConsoleSessionRepository(database);
+}
+
+/** Whether the stored console is exactly the expected one, or absent. */
+async function isConsoleAsKnown(
+  world: RepositoryWorld,
+  id: string,
+  expected: StoredConsoleSession | null,
+): Promise<{ readonly isAsKnown: boolean }> {
+  const found = await consoles(world).find(id);
+  return { isAsKnown: JSON.stringify(found) === JSON.stringify(expected) };
+}
+
+/** Console identities across an API restart: lease, renewal, owner and expiry (PAGE-239). */
+export const REMOTE_CONSOLE_SESSION_FLOW: RepositoryFlow = {
+  title: "remote console sessions",
+  steps: [
+    call("RemoteConsoleSessionRepository.find", (world) =>
+      isConsoleAsKnown(world, CONSOLE.id, null),
+    ),
+    call("RemoteConsoleSessionRepository.save", (world) =>
+      consoles(world).save(CONSOLE, 90),
+    ),
+    call("RemoteConsoleSessionRepository.find", (world) =>
+      isConsoleAsKnown(world, CONSOLE.id, CONSOLE),
+    ),
+    call("RemoteConsoleSessionRepository.save", (world) =>
+      consoles(world).save(
+        { ...CONSOLE, columns: 120, rows: 40, attempts: 2, lastSequence: 7 },
+        90,
+      ),
+    ),
+    // Another account cannot take over or move the progress of the console.
+    call("RemoteConsoleSessionRepository.save", (world) =>
+      consoles(world).save(
+        { ...CONSOLE, ownerId: "user-other", attempts: 9, lastSequence: 99 },
+        90,
+      ),
+    ),
+    call("RemoteConsoleSessionRepository.find", (world) =>
+      isConsoleAsKnown(world, CONSOLE.id, {
+        ...CONSOLE,
+        columns: 120,
+        rows: 40,
+        attempts: 2,
+        lastSequence: 7,
+      }),
+    ),
+    refused("RemoteConsoleSessionRepository.save", (world) =>
+      consoles(world).save(
+        { ...CONSOLE, id: "remote-console-b", columns: 1 },
+        90,
+      ),
+    ),
+    call("RemoteConsoleSessionRepository.save", (world) =>
+      consoles(world).save({ ...CONSOLE, id: "remote-console-expired" }, -1),
+    ),
+    call("RemoteConsoleSessionRepository.find", (world) =>
+      isConsoleAsKnown(world, "remote-console-expired", null),
+    ),
+    call("RemoteConsoleSessionRepository.removeExpired", async (world) => {
+      await consoles(world).removeExpired();
+      const rows = await world.database.query(
+        "SELECT id FROM remote_console_sessions ORDER BY id;",
+      );
+      return {
+        isAsKnown: JSON.stringify(rows) === JSON.stringify([[CONSOLE.id]]),
+      };
+    }),
+    call("RemoteConsoleSessionRepository.remove", (world) =>
+      consoles(world).remove(CONSOLE.id),
+    ),
+    call("RemoteConsoleSessionRepository.find", (world) =>
+      isConsoleAsKnown(world, CONSOLE.id, null),
+    ),
+  ],
+};
 
 /** SSH connections and their latest test. */
 export const REMOTE_CONNECTION_FLOW: RepositoryFlow = {

@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { action, headers, loader } from "@/app/routes/settings-system";
+import { loader as dataLoader } from "@/app/routes/settings-system-data";
+import { action, loader } from "@/app/routes/settings-system-server";
 
 import { administratorFixture } from "../../backend/auth/account-fixture";
 import { routeArguments } from "../server-lib/route-arguments";
@@ -27,10 +28,14 @@ const services = vi.hoisted(() => ({
 
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async () => ({
-    administrationService: { getContext: services.getContext },
+    administrationService: {
+      getContext: services.getContext,
+      version: async (): Promise<string> => "v1",
+    },
     instanceSettingsService: { getBranding: services.getBranding },
     wikiService: { getSettings: services.wikiSettings },
     chatSettingsService: { administration: services.chatSettings },
+    picaSettingsService: { read: async () => ({ revision: 1 }) },
   }),
 }));
 vi.mock("@/app/lib/settings-actions/settings-system-actions.server", () => ({
@@ -110,18 +115,16 @@ it.each(["GET", "PUT", "DELETE"])(
   },
 );
 
-it("keeps system documents and action snapshots uncacheable and preserves parent security headers", () => {
-  const responseHeaders = new Headers(
-    headers({
-      parentHeaders: new Headers({
-        "X-Frame-Options": "DENY",
-        "Cache-Control": "public",
-      }),
-      actionHeaders: new Headers(),
-      loaderHeaders: new Headers(),
-      errorHeaders: undefined,
-    }),
+it("keeps system data uncacheable", async () => {
+  services.getContext.mockResolvedValueOnce(
+    administratorFixture({ mode: "role" }),
   );
-  expect(responseHeaders.get("Cache-Control")).toBe("no-store");
-  expect(responseHeaders.get("X-Frame-Options")).toBe("DENY");
+  const response = await dataLoader(
+    routeArguments(
+      new Request("http://pages.invalid/settings-api/system"),
+      ACTOR,
+      {},
+    ),
+  );
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
 });

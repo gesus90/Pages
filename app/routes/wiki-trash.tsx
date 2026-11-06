@@ -1,48 +1,74 @@
 import { useLoaderData } from "react-router";
 
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { WikiTrashView } from "@/app/components/wiki/wiki-trash-view";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { parseInstant } from "@/app/lib/region-format";
-import { getApplicationServices } from "@/app/lib/services.server";
+import {
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
 
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { WikiTrashItem } from "@/app/components/wiki/wiki-trash-view";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { Route } from "./+types/wiki-trash";
 
-const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
+/** The wiki trash as its endpoint answers it. */
+export interface WikiTrashLoaderData {
+  readonly entries: readonly WikiTrashItem[];
+  readonly audience: LocalStateAudience;
+}
 
-/** Loads the deleted pages the account may restore, with their remaining time. */
-export async function loader({
-  context,
-}: Route.LoaderArgs): Promise<{ readonly entries: readonly WikiTrashItem[] }> {
-  const actor = context.get(authenticatedUserContext);
+function isWikiTrashLoaderData(value: unknown): value is WikiTrashLoaderData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "entries" in value &&
+    Array.isArray(value.entries) &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
+  );
+}
 
-  if (!actor) {
-    throw new Error("Authenticated middleware did not provide a user.");
-  }
+/** The wiki trash, kept per account, rights and address. */
+const WIKI_TRASH_STATE: LocalStateRouteKind<WikiTrashLoaderData> = {
+  schemaVersion: 1,
+  isPayload: isWikiTrashLoaderData,
+  isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
+  ownerOf: (page) => page.audience.userId,
+  isRefused: () => false,
+};
 
-  const { wikiService } = await getApplicationServices();
-  const [entries, settings] = await Promise.all([
-    wikiService.listTrash(actor),
-    wikiService.getSettings(),
-  ]);
-  const now = Date.now();
-
-  return {
-    entries: entries.map((entry) => {
-      const deletedAt = parseInstant(entry.deletedAt)?.getTime() ?? now;
-      const elapsed = Math.floor((now - deletedAt) / DAY_MILLISECONDS);
-
-      return {
-        ...entry,
-        daysLeft: Math.max(0, settings.trashRetentionDays - elapsed),
-      };
+/**
+ * Opens the trash from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint runs the server loader with its permission checks.
+ */
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<WikiTrashLoaderData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), WIKI_TRASH_STATE, () =>
+    readRouteData({
+      endpoint: `/wiki-api/trash${url.search}`,
+      signal: request.signal,
+      isPayload: isWikiTrashLoaderData,
     }),
-  };
+  );
 }
 
 /** Renders the wiki trash. */
 export default function WikiTrashRoute(): React.ReactElement {
-  const { entries } = useLoaderData<typeof loader>();
+  const { entries } = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    WIKI_TRASH_STATE,
+  );
 
   return <WikiTrashView entries={entries} />;
 }

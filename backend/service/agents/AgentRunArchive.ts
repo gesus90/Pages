@@ -38,6 +38,7 @@ type ArchiveRepository = Pick<
   | "discardInput"
   | "markArchived"
   | "unarchived"
+  | "snapshotText"
   | "keys"
   | "get"
 >;
@@ -147,10 +148,14 @@ export class AgentRunArchive {
       for (const stored of await this.repository.unarchived())
         await this.report(
           `write the run records of plan run ${stored.id}`,
-          () =>
+          async () =>
             this.archive(
               readPlanRun(JSON.parse(stored.viewJson) as unknown),
-              readArchiveSteps(JSON.parse(stored.snapshotJson) as unknown),
+              readArchiveSteps(
+                JSON.parse(
+                  await this.repository.snapshotText(stored.snapshotJson),
+                ) as unknown,
+              ),
             ),
         );
       for (const { agentId, runId } of await this.repository.keys())

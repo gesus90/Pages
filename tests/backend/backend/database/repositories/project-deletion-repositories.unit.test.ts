@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
-import { DATABASE_MIGRATIONS } from "@/backend/database/Migrations";
+import { POSTGRES_MIGRATIONS } from "@/backend/database/Migrations";
 import { ProjectLifecycleRepository } from "@/backend/database/repositories/project/ProjectLifecycleRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 
@@ -277,7 +277,7 @@ describe("every project relation of the schema is part of the deletion", () => {
     "run_id",
     "workspace_id",
   ];
-  const schema = parseMigrationSchema(DATABASE_MIGRATIONS);
+  const schema = parseMigrationSchema(POSTGRES_MIGRATIONS);
 
   it("reads the layout of the shipped migrations", () => {
     expect(schema.get("work_items")).toContain("project_id");

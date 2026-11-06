@@ -8,9 +8,12 @@ export class RunnerHistoryRecovery {
   private readonly active = new Map<string, Promise<void>>();
   private readonly retries = new Map<string, NodeJS.Timeout>();
 
-  public constructor(repository: RunnerHistoryRecoveryRepository) {
+  public constructor(
+    repository: RunnerHistoryRecoveryRepository,
+    options: { readonly shouldRecover?: boolean } = {},
+  ) {
     this.repository = repository;
-    void this.resume();
+    if (options.shouldRecover !== false) void this.resume();
   }
 
   /** Shares each connection's current import and retries failures without blocking another connection. */

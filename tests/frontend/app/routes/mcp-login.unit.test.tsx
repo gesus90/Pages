@@ -6,12 +6,8 @@ import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { clientSocketAddressContext } from "@/app/lib/client-address.server";
 import { requireMcpHttp } from "@/app/lib/mcp-http.server";
 import { getSessionToken } from "@/app/lib/session.server";
-import McpLogin, {
-  action,
-  ErrorBoundary,
-  headers,
-  loader,
-} from "@/app/routes/mcp-login";
+import McpLogin, { ErrorBoundary } from "@/app/routes/mcp-login";
+import { action, loader } from "@/app/routes/mcp-login-server";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 
 import {
@@ -84,9 +80,13 @@ beforeEach(() => {
   services.oauthService.decide.mockReset();
 });
 
-it("keeps consent pages out of caches and referrers", () => {
-  expect(headers().get("Referrer-Policy")).toBe("no-referrer");
-  expect(headers().get("Cache-Control")).toBe("no-store");
+it("keeps consent pages out of caches and referrers", async () => {
+  const response = await responseOf(
+    loader(consentArguments(pagesRequest("/mcp-login?code=nope"))),
+  );
+
+  expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
 });
 
 it("sends a visitor without a request to the pairing with a valid code", async () => {

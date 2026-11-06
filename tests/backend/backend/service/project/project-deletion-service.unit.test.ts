@@ -110,6 +110,9 @@ describe.each(["ui", "mcp"] as const)(
       expect(outcome.files.ticketAttachments).toEqual(["alpha-ticket-file"]);
       expect(world.projects.has("alpha")).toBe(false);
       expect(world.projects.has("beta")).toBe(true);
+      expect(world.events).toEqual([
+        { kind: "project.access.changed", objectId: "alpha" },
+      ]);
     });
 
     it("describes without deleting", async () => {
@@ -184,6 +187,7 @@ describe.each(["ui", "mcp"] as const)(
       ).rejects.toThrow("disk full");
       expect(world.projects.has("alpha")).toBe(true);
       expect(world.data.get("alpha")?.tickets).toBe(4);
+      expect(world.events).toEqual([]);
     });
   },
 );

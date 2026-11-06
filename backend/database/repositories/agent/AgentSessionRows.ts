@@ -1,3 +1,4 @@
+import { readAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
 import {
   readBooleanColumn,
   readCountColumn,
@@ -6,6 +7,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 
+import type { AgentPayloadAccess } from "@/backend/storage/AgentPayloadFileStore";
 import type { DatabaseValue } from "@/backend/database/Database";
 import type { AgentSessionAttemptRecord } from "@/backend/service/agents/sessions/AgentSessionStore";
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
@@ -228,6 +230,20 @@ export function readEventRow(row: Row, attemptId: string): AgentSessionEvent {
     stepId: readTextColumn(row, 6, "step_id"),
     attemptId,
   };
+}
+
+/** Resolves an explicit event file column before applying the unchanged event contract. */
+export async function readStoredEventRow(
+  access: AgentPayloadAccess,
+  row: Row,
+  attemptId: string,
+): Promise<AgentSessionEvent> {
+  const body = await readAgentPayload(
+    access,
+    readTextColumn(row, 3, "body"),
+    readNullableTextColumn(row, 7, "body_file"),
+  );
+  return readEventRow([...row.slice(0, 3), body, ...row.slice(4)], attemptId);
 }
 
 /** Reads a turn's usage selected with {@link USAGE_COLUMNS}. */

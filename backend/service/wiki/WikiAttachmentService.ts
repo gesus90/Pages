@@ -3,6 +3,7 @@ import {
   WikiPageNotFoundError,
   WikiValidationError,
 } from "@/backend/error/WikiErrors";
+import { afterCallCommit } from "@/backend/database/CallTransaction";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import { countCharacters, WIKI_LIMITS } from "@/definition/Wiki";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -263,7 +264,8 @@ export class WikiAttachmentService {
       await this.repository.writes.setCover(page.id, null);
     }
 
-    await this.files.remove([stored.storageName]);
+    // Inside an announced call the file goes only once the removal committed.
+    await afterCallCommit(() => this.files.remove([stored.storageName]));
   }
 
   /**

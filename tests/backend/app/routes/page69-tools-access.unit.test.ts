@@ -2,7 +2,7 @@ import { RouterContextProvider } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { action, loader } from "@/app/routes/settings-agent-tools";
+import { action, loader } from "@/app/routes/settings-agent-tools-server";
 
 import { TICKET_ACTOR } from "../../backend/service/agents/page55-ticket-fixture";
 import { TOOL_ADMIN } from "../../backend/service/agents/tools/page69-tool-world";
@@ -15,12 +15,16 @@ const services = vi.hoisted(() => ({
 }));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async () => ({
-    administrationService: { getContext: services.getContext },
+    administrationService: {
+      getContext: services.getContext,
+      version: async (): Promise<string> => "v1",
+    },
     agentToolManagerService: {
       list: services.list,
       manage: services.manage,
       setEnabled: services.setEnabled,
     },
+    picaSettingsService: { read: async () => ({ revision: 1 }) },
   }),
 }));
 

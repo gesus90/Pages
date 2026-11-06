@@ -38,6 +38,8 @@ export interface AgentSessionEventInput {
 export type AgentSessionEventListener = (event: AgentSessionEvent) => void;
 
 interface JournalOptions {
+  /** Local owners import in another process; followers also read committed external appends. */
+  readonly followExternalWrites?: boolean;
   /** Masks secrets the generic redaction does not know, such as a project credential. */
   readonly redact?: (text: string) => string;
   readonly clock?: () => string;
@@ -68,11 +70,17 @@ export class AgentSessionJournal {
   private readonly clock: () => string;
   private readonly queues = new Map<string, SerialQueue>();
   private readonly followers = new Map<string, Set<Follower>>();
+  private readonly externalTimers = new Map<
+    Follower,
+    ReturnType<typeof setTimeout>
+  >();
+  private readonly followExternalWrites: boolean;
 
   public constructor(store: AgentSessionStore, options: JournalOptions = {}) {
     this.store = store;
     this.redact = options.redact ?? ((text) => text);
     this.clock = options.clock ?? (() => new Date().toISOString());
+    this.followExternalWrites = options.followExternalWrites === true;
   }
 
   /**
@@ -156,11 +164,14 @@ export class AgentSessionJournal {
     followers.add(follower);
     this.followers.set(attemptId, followers);
     const stop = (): void => {
+      clearTimeout(this.externalTimers.get(follower));
+      this.externalTimers.delete(follower);
       followers.delete(follower);
       if (followers.size === 0) this.followers.delete(attemptId);
     };
     try {
       await this.replay(attemptId, follower);
+      if (this.followExternalWrites) this.followExternal(attemptId, follower);
     } catch (error: unknown) {
       logCaughtError("AgentSessionJournal", error);
 
@@ -168,6 +179,30 @@ export class AgentSessionJournal {
       throw error;
     }
     return stop;
+  }
+
+  private followExternal(attemptId: string, follower: Follower): void {
+    const refresh = async (): Promise<void> => {
+      if (!this.followers.get(attemptId)?.has(follower)) return;
+      try {
+        await this.replay(attemptId, follower);
+      } catch (error: unknown) {
+        logCaughtError("AgentSessionJournal", error);
+      }
+      if (this.followers.get(attemptId)?.has(follower))
+        this.externalTimers.set(
+          follower,
+          setTimeout(() => {
+            void refresh();
+          }, 250),
+        );
+    };
+    this.externalTimers.set(
+      follower,
+      setTimeout(() => {
+        void refresh();
+      }, 250),
+    );
   }
 
   private async replay(attemptId: string, follower: Follower): Promise<void> {

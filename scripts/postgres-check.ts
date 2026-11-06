@@ -3,7 +3,7 @@
  *
  * It starts a server of its own in a temporary directory on a free loopback
  * port, runs the checks through the database facade, stops the server and
- * deletes the directory. It touches no other instance, does not use the
+ * retains the private directory. It touches no other instance, does not use the
  * `postgresql` service, and is no part of `test:backend` or CI: unit tests never
  * start a database server. Later tickets add their checks here.
  */
@@ -92,7 +92,9 @@ async function main(): Promise<void> {
     await closeLogging();
     await instance.remove();
   }
-  console.info("ok   no process and no temporary directory remain");
+  console.info(
+    `ok   owned server stopped; private evidence retained in ${instance.directory}`,
+  );
   console.info("postgres:check passed");
 }
 

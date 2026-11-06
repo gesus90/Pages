@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { lazy, Suspense, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
@@ -17,7 +17,6 @@ import { planPanelIssues } from "./plan-panel-issues";
 import { PlanPanelStatus } from "./plan-panel-status";
 import { planPanelState } from "./plan-panel-status-model";
 import { recoverableRunId } from "./plan-recovery-panel";
-import { PlanRecoveryResumeDialog } from "./plan-recovery/plan-recovery-resume-dialog";
 import { usePlanRecovery } from "./use-plan-recovery";
 
 import type { TFunction } from "i18next";
@@ -28,6 +27,12 @@ import type {
   PlanRunIntent,
 } from "./plan-run-actions";
 import type { usePlanEditor } from "./use-plan-editor";
+
+// Only a disturbed run asks how to continue; the dialog loads then.
+const PlanRecoveryResumeDialog = lazy(async () => ({
+  default: (await import("./plan-recovery/plan-recovery-resume-dialog"))
+    .PlanRecoveryResumeDialog,
+}));
 
 interface PlanRunPanelProps {
   readonly page: AgentPlanPage;
@@ -241,11 +246,13 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
         ) : null}
       </ScrollViewport>
       {recoveryAction ? (
-        <PlanRecoveryResumeDialog
-          recovery={recovery}
-          action={recoveryAction}
-          onClose={() => setRecoveryAction(null)}
-        />
+        <Suspense fallback={null}>
+          <PlanRecoveryResumeDialog
+            recovery={recovery}
+            action={recoveryAction}
+            onClose={() => setRecoveryAction(null)}
+          />
+        </Suspense>
       ) : null}
       <PlanManagementDialogs
         page={page}

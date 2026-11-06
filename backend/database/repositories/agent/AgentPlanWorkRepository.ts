@@ -1,3 +1,4 @@
+import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanWorkRecord } from "@/backend/agents/AgentPlanWorkInput";
@@ -44,7 +45,12 @@ export class AgentPlanWorkRepository {
     return {
       run: readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json"))),
       snapshot: readAgentObject(
-        JSON.parse(readTextColumn(row, 1, "snapshot_json")),
+        JSON.parse(
+          await readStoredAgentPayload(
+            this.database,
+            readTextColumn(row, 1, "snapshot_json"),
+          ),
+        ),
       ),
     };
   }

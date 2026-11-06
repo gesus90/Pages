@@ -201,7 +201,8 @@ export class TaskLabelService {
       throw new WorkItemValidationError("labelNotFound");
     }
 
-    await this.taskRepository.assignLabel(workItemId, labelId);
+    // A label assigned before changes nothing and is not recorded again.
+    if (!(await this.taskRepository.assignLabel(workItemId, labelId))) return;
     this.cache.invalidateLabels();
     await this.history.recordLabelAdded(actor, workItemId, label.name);
   }
@@ -216,7 +217,8 @@ export class TaskLabelService {
 
     const label = await this.taskRepository.findLabelById(labelId);
 
-    await this.taskRepository.unassignLabel(workItemId, labelId);
+    // A label that was not assigned changes nothing and is not recorded.
+    if (!(await this.taskRepository.unassignLabel(workItemId, labelId))) return;
     this.cache.invalidateLabels();
     await this.history.recordLabelRemoved(
       actor,

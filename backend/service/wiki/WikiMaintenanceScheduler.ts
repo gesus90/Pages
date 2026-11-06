@@ -1,11 +1,14 @@
 import { loggedJob } from "@/backend/logging/LoggedOperation";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
-import type { WikiService } from "@/backend/service/WikiService";
+/** The part of the wiki service the scheduler runs; it does not read the outcome. */
+interface WikiMaintenance {
+  readonly runMaintenance: () => Promise<unknown>;
+}
 
 /** Cleans up the wiki once at the start and then at a fixed interval. */
 export class WikiMaintenanceScheduler {
-  private readonly wikiService: Pick<WikiService, "runMaintenance">;
+  private readonly wikiService: WikiMaintenance;
   private readonly intervalMs: number;
   private timer: NodeJS.Timeout | null = null;
 
@@ -16,7 +19,7 @@ export class WikiMaintenanceScheduler {
    * @param intervalMs - Time between two cleanups in milliseconds.
    */
   public constructor(
-    wikiService: Pick<WikiService, "runMaintenance">,
+    wikiService: WikiMaintenance,
     intervalMs = 60 * 60 * 1000,
   ) {
     this.wikiService = wikiService;

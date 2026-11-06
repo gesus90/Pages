@@ -46,6 +46,8 @@ export type AgentActionResult =
 export const AGENT_NO_STORE = { "Cache-Control": "no-store" };
 
 const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
+  plan_payload_missing: 500,
+  plan_payload_corrupt: 500,
   profile_management_retired: 410,
   connection_not_found: 404,
   check_in_progress: 409,

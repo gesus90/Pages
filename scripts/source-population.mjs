@@ -19,6 +19,9 @@ const GENERATED_ROOT_DIRECTORIES = new Set([
   "mobile",
 ]);
 
+/** Generated output at a fixed path: the Cargo build of `pages-core`. */
+const GENERATED_NESTED_DIRECTORIES = new Set(["core/target"]);
+
 /** File types that are source wherever they lie, ignored by Git or not. */
 const SOURCE_EXTENSIONS = new Set([
   ".js",
@@ -43,6 +46,7 @@ export function isGeneratedDirectory(relativePath) {
   const name = path.posix.basename(relativePath);
   return (
     GENERATED_DIRECTORY_NAMES.has(name) ||
+    GENERATED_NESTED_DIRECTORIES.has(relativePath) ||
     (!relativePath.includes("/") && GENERATED_ROOT_DIRECTORIES.has(name))
   );
 }

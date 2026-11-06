@@ -1,3 +1,7 @@
+import {
+  requireAgentFiles,
+  readStoredAgentPayload,
+} from "@/backend/storage/AgentPayloadFileStore";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { RUNNER_TOOL_PROVIDERS } from "@/definition/RunnerExecution";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
@@ -12,20 +16,27 @@ import {
 
 import {
   appendRunnerSessionEvents,
+  prepareRunnerSessionEvents,
   runnerSessionState,
 } from "./RunnerSessionEvents";
 
 import type {
   Database,
   DatabaseTransaction,
+  DatabaseValue,
 } from "@/backend/database/Database";
-import type { RunnerJob, RunnerMessage } from "@/definition/RunnerProtocol";
+import type {
+  RunnerJob,
+  RunnerMessage,
+  RunnerPlanBinding,
+} from "@/definition/RunnerProtocol";
 
 type PlanEvent = Extract<RunnerMessage, { type: "event" }>;
 
 /** Durable custody of history is independent of control and result projection. */
 export class RunnerHistoryRecoveryRepository {
   private readonly database: Database;
+  private readonly prepared = new WeakMap<PlanEvent, string>();
 
   public constructor(database: Database) {
     this.database = database;
@@ -44,6 +55,19 @@ export class RunnerHistoryRecoveryRepository {
     return rows.map((row) => readTextColumn(row, 0, "connection_id"));
   }
 
+  /** Synchronizes the complete custody packet before a checkpoint opens its receipt transaction. */
+  public async prepare(event: PlanEvent): Promise<void> {
+    if (!event.history?.length) return;
+    if (!event.job.plan) throw new Error("History recovery binding missing");
+    this.prepared.set(
+      event,
+      await requireAgentFiles(this.database).write(
+        event.job.plan.planId,
+        JSON.stringify(event),
+      ),
+    );
+  }
+
   /** Retains the complete validated packet before transport progress can be confirmed. */
   public async retain(
     transaction: DatabaseTransaction,
@@ -51,6 +75,11 @@ export class RunnerHistoryRecoveryRepository {
     event: PlanEvent,
   ): Promise<void> {
     if (!event.history?.length) return;
+    const reference = this.prepared.get(event);
+    if (!reference)
+      throw new Error(
+        "Runner custody must be synchronized before its transaction.",
+      );
     await transaction.execute(
       `
       INSERT INTO runner_history_recovery (
@@ -58,13 +87,19 @@ export class RunnerHistoryRecoveryRepository {
           connection_id,
           job_id,
           sequence,
-          packet_json
+          packet_json,
+          packet_file,
+          payload_plan_id,
+          payload_run_id
       ) VALUES (
           $event_id,
           $connection_id,
           $job_id,
           $sequence,
-          $packet_json
+          '{}',
+          $packet_file,
+          $payload_plan_id,
+          $payload_run_id
       );
     `,
       {
@@ -72,7 +107,9 @@ export class RunnerHistoryRecoveryRepository {
         connection_id: connectionId,
         job_id: event.job.jobId,
         sequence: event.sequence,
-        packet_json: JSON.stringify(event),
+        packet_file: reference,
+        payload_plan_id: event.job.plan?.planId ?? null,
+        payload_run_id: event.job.plan?.runId ?? null,
       },
     );
   }
@@ -89,7 +126,7 @@ export class RunnerHistoryRecoveryRepository {
           SELECT
               event_id,
               job_id,
-              packet_json,
+              COALESCE(packet_file, packet_json) AS packet_json,
               sequence,
               last_attempt_at,
               creation_order,
@@ -114,29 +151,10 @@ export class RunnerHistoryRecoveryRepository {
       const jobId = readTextColumn(row, 1, "job_id");
       if (blocked.has(jobId)) continue;
       const eventId = readTextColumn(row, 0, "event_id");
+      let binding: RunnerPlanBinding | undefined;
       try {
-        await this.database.transaction(async (transaction) => {
-          const message = runnerMessageSchema.parse(
-            JSON.parse(readTextColumn(row, 2, "packet_json")),
-          );
-          if (message.type !== "event" || !message.job.plan)
-            throw new Error("History recovery binding missing");
-          const job = await this.currentJob(transaction, connectionId, jobId);
-          await this.initializeAttempt(transaction, job);
-          await appendRunnerSessionEvents(transaction, {
-            binding: message.job.plan,
-            jobId,
-            launchId: message.job.launch?.id,
-            events: message.history ?? [],
-          });
-          await transaction.execute(
-            `
-            UPDATE runner_history_recovery
-            SET restored_at = utc_now(), diagnosis_json = NULL
-            WHERE event_id = $event_id;
-          `,
-            { event_id: eventId },
-          );
+        await this.restorePacket(connectionId, row, (preparedBinding) => {
+          binding = preparedBinding;
         });
         restored += 1;
       } catch (error: unknown) {
@@ -150,13 +168,6 @@ export class RunnerHistoryRecoveryRepository {
         `,
           { event_id: eventId, diagnosis_json: JSON.stringify(issues) },
         );
-        const message = runnerMessageSchema.safeParse(
-          JSON.parse(readTextColumn(row, 2, "packet_json")),
-        );
-        const binding =
-          message.success && message.data.type === "event"
-            ? message.data.job.plan
-            : undefined;
         reportRunnerSchemaIssues(issues, {
           jobId,
           runId: binding?.runId,
@@ -208,6 +219,52 @@ export class RunnerHistoryRecoveryRepository {
       { job_id: jobId },
     );
     return Number(row?.[0] ?? 0);
+  }
+
+  private async restorePacket(
+    connectionId: string,
+    row: readonly DatabaseValue[],
+    rememberBinding: (binding: RunnerPlanBinding) => void,
+  ): Promise<void> {
+    const eventId = readTextColumn(row, 0, "event_id");
+    const jobId = readTextColumn(row, 1, "job_id");
+    const message = runnerMessageSchema.parse(
+      JSON.parse(
+        await readStoredAgentPayload(
+          this.database,
+          readTextColumn(row, 2, "packet_json"),
+        ),
+      ),
+    );
+    if (message.type !== "event" || !message.job.plan)
+      throw new Error("History recovery binding missing");
+    const eventBinding = message.job.plan;
+    rememberBinding(eventBinding);
+    const prepared = await prepareRunnerSessionEvents(this.database, {
+      binding: eventBinding,
+      jobId,
+      launchId: message.job.launch?.id,
+      events: message.history ?? [],
+    });
+    await this.database.transaction(async (transaction) => {
+      const job = await this.currentJob(transaction, connectionId, jobId);
+      await this.initializeAttempt(transaction, job);
+      await appendRunnerSessionEvents(transaction, {
+        binding: eventBinding,
+        jobId,
+        launchId: message.job.launch?.id,
+        events: message.history ?? [],
+        prepared,
+      });
+      await transaction.execute(
+        `
+            UPDATE runner_history_recovery
+            SET restored_at = utc_now(), diagnosis_json = NULL, packet_file = NULL
+            WHERE event_id = $event_id;
+          `,
+        { event_id: eventId },
+      );
+    });
   }
 
   private async currentJob(

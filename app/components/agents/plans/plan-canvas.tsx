@@ -1,5 +1,5 @@
 import { ReactFlow, ReactFlowProvider, useConnection } from "@xyflow/react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -23,7 +23,6 @@ import { usePlanFlowConnections } from "./use-plan-flow-connections";
 import { usePlanFlowMovement } from "./use-plan-flow-movement";
 import { usePlanFlowSelection } from "./use-plan-flow-selection";
 import { usePlanGroupCollapse } from "./use-plan-group-collapse";
-import { PlanTemplateDialog } from "./plan-templates/plan-template-dialog";
 import { usePlanTemplates } from "./plan-templates/use-plan-templates";
 import styles from "./plan-canvas.module.css";
 
@@ -35,6 +34,11 @@ const NODE_TYPES = { plan: PlanNodeCard };
 const EDGE_TYPES = { plan: PlanFlowEdgeView };
 // Hides React Flow's corner link; the MIT license permits it and the notice stays with the source.
 const PRO_OPTIONS = { hideAttribution: true };
+// Saving a node template is rare; its dialog loads when it is asked for.
+const PlanTemplateDialog = lazy(async () => ({
+  default: (await import("./plan-templates/plan-template-dialog"))
+    .PlanTemplateDialog,
+}));
 
 /**
  * The execution plan uses React Flow for rendering, measurement, connections and viewport gestures.
@@ -245,22 +249,24 @@ function PlanTemplateSave({
   const { t } = useTranslation();
   if (!templates.saving) return null;
   return (
-    <PlanTemplateDialog
-      key={templates.saving.id}
-      node={templates.saving}
-      target={{
-        planId: canvas.planId ?? "",
-        workspaceId: canvas.draft.workspaceId,
-      }}
-      context={{
-        draft: canvas.draft,
-        sources: canvas.sources,
-        workspaces: canvas.workspaces ?? [],
-        translate: t,
-      }}
-      onSaved={templates.saved}
-      onClose={templates.closeSave}
-    />
+    <Suspense fallback={null}>
+      <PlanTemplateDialog
+        key={templates.saving.id}
+        node={templates.saving}
+        target={{
+          planId: canvas.planId ?? "",
+          workspaceId: canvas.draft.workspaceId,
+        }}
+        context={{
+          draft: canvas.draft,
+          sources: canvas.sources,
+          workspaces: canvas.workspaces ?? [],
+          translate: t,
+        }}
+        onSaved={templates.saved}
+        onClose={templates.closeSave}
+      />
+    </Suspense>
   );
 }
 

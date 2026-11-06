@@ -1,3 +1,6 @@
+import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
+import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
+import { storedPlanBranchState } from "@/backend/service/agents/branching/AgentPlanBranchPersistence";
 import {
   planStepExecutionSchema,
   planRemoteProgressSchema,
@@ -19,7 +22,6 @@ import {
   loopIterationCheckpoints,
   requireImmutableIterations,
 } from "@/backend/service/agents/recovery/AgentPlanLoopCheckpoint";
-
 import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
 
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
@@ -263,11 +265,13 @@ function settlesRemoteGate(input: {
 
 /** Run progress, successful completion and workspace release form one transaction. */
 export class AgentPlanProgressRepository {
-  private readonly database: Pick<Database, "transaction">;
+  private readonly database: Pick<Database, "transaction" | "agentFiles">;
   private readonly checkpoints: AgentPlanCheckpointRepository;
   private readonly iterations = new AgentPlanLoopIterationRepository();
 
-  public constructor(database: Pick<Database, "transaction" | "query">) {
+  public constructor(
+    database: Pick<Database, "transaction" | "query" | "agentFiles">,
+  ) {
     this.database = database;
     this.checkpoints = new AgentPlanCheckpointRepository(database);
   }
@@ -278,8 +282,21 @@ export class AgentPlanProgressRepository {
     checkpoint?: AgentPlanCheckpointInput,
     journal?: AgentPlanRunJournal,
   ): Promise<void> {
+    const branchState = storedPlanBranchState(run);
+    const engineFile =
+      branchState === null
+        ? null
+        : await requireAgentFiles(this.database).write(
+            run.planId,
+            JSON.stringify(branchState),
+          );
     await this.database.transaction(async (transaction) => {
       const previous = await this.read(transaction, run.id);
+      if (engineFile)
+        await transaction.execute(
+          "UPDATE agent_plan_runs SET engine_file = $engine_file WHERE id = $id;",
+          { id: run.id, engine_file: engineFile },
+        );
       run = {
         ...run,
         stopRequested: previous.run.stopRequested || run.stopRequested,
@@ -409,7 +426,12 @@ export class AgentPlanProgressRepository {
     return {
       run: readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json"))),
       revision: Number(row[1]),
-      snapshot: JSON.parse(readTextColumn(row, 2, "snapshot_json")),
+      snapshot: JSON.parse(
+        await readStoredAgentPayload(
+          transaction,
+          readTextColumn(row, 2, "snapshot_json"),
+        ),
+      ),
     };
   }
 

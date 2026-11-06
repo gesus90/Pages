@@ -32,6 +32,21 @@ const FALLBACK_CONTENT_TYPE = "application/octet-stream";
 const HASHED_ASSET_PREFIX = "/assets/";
 const HASHED_ASSET_CACHE = "public, max-age=31536000, immutable";
 const OTHER_ASSET_CACHE = "public, max-age=3600";
+/**
+ * Files of the static app that name the current build (PAGE-235): a browser
+ * asks again before using a kept copy, so it picks up a new build at once.
+ */
+const BUILD_ENTRY_FILES: ReadonlySet<string> = new Set(["/sw.js"]);
+const BUILD_ENTRY_CACHE = "no-cache";
+/** The app's document is answered with its security headers by `AppDocument`. */
+const APP_DOCUMENT_PATH = "/index.html";
+
+function cacheControl(pathname: string): string {
+  if (BUILD_ENTRY_FILES.has(pathname)) return BUILD_ENTRY_CACHE;
+  return pathname.startsWith(HASHED_ASSET_PREFIX)
+    ? HASHED_ASSET_CACHE
+    : OTHER_ASSET_CACHE;
+}
 
 function decodePathname(requestUrl: string): string | null {
   try {
@@ -104,7 +119,7 @@ export async function serveStaticAsset(
 
   const pathname = decodePathname(request.url ?? "/");
 
-  if (pathname === null) {
+  if (pathname === null || pathname === APP_DOCUMENT_PATH) {
     return false;
   }
 
@@ -116,9 +131,7 @@ export async function serveStaticAsset(
   }
 
   response.writeHead(200, {
-    "Cache-Control": pathname.startsWith(HASHED_ASSET_PREFIX)
-      ? HASHED_ASSET_CACHE
-      : OTHER_ASSET_CACHE,
+    "Cache-Control": cacheControl(pathname),
     "Content-Length": size,
     "Content-Type":
       CONTENT_TYPES[path.extname(filePath).toLowerCase()] ??
@@ -144,5 +157,35 @@ export async function serveStaticAsset(
       .pipe(response);
   }
 
+  return true;
+}
+
+/**
+ * Answers a request for a hashed file that the build does not contain with `404`.
+ *
+ * @param request - A request no file of the build answered.
+ * @param response - Response to write the refusal to.
+ * @returns Whether the request named a hashed file and was refused.
+ *
+ * @remarks
+ * A browser that still runs an earlier build may ask for one of its files
+ * after an update (PAGE-235). It must fail at once instead of receiving the
+ * app's document, so React Router loads the page again with the current
+ * build. Never cached, because the same name may come with a later build.
+ */
+export function refuseMissingAsset(
+  request: IncomingMessage,
+  response: ServerResponse,
+): boolean {
+  const pathname = decodePathname(request.url ?? "/");
+  if (pathname === null || !pathname.startsWith(HASHED_ASSET_PREFIX))
+    return false;
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  response.writeHead(404, {
+    "Cache-Control": "no-store",
+    "Content-Type": "text/plain; charset=utf-8",
+    "X-Content-Type-Options": "nosniff",
+  });
+  response.end(request.method === "HEAD" ? undefined : "Not Found");
   return true;
 }

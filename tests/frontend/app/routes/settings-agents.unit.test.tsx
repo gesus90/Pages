@@ -5,11 +5,9 @@ import { planPollingEtag } from "@/app/lib/agent-plan-poll-response.server";
 
 import { readAgentAccount } from "@/app/lib/settings-actions/settings-agents-access.server";
 import { handleAgentsAction } from "@/app/lib/settings-actions/settings-agents-actions.server";
-import SettingsAgentsRoute, {
-  action,
-  headers,
-  loader,
-} from "@/app/routes/settings-agents";
+import SettingsAgentsRoute from "@/app/routes/settings-agents";
+import { loader as dataLoader } from "@/app/routes/settings-agents-data";
+import { action, loader } from "@/app/routes/settings-agents-server";
 import { AgentAccessDeniedError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -17,7 +15,6 @@ import {
   accountAccess,
   ACTOR,
   formPost,
-  headerArguments,
   i18n,
   pagesRequest,
   renderRoute,
@@ -36,6 +33,16 @@ const services = vi.hoisted(() => ({
   runnerGitHubMode: "offline",
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => services,
 }));
@@ -90,13 +97,16 @@ beforeEach(() => {
   services.openCodeProviderLinks.describe.mockResolvedValue(LINKS);
 });
 
-it("never caches the agent settings and keeps parent headers", () => {
-  const result = new Headers(
-    headers(headerArguments({ "X-Frame-Options": "DENY" })),
+it("never caches the agent settings", async () => {
+  vi.mocked(readAgentAccount).mockResolvedValue(
+    accountAccess({ isAdmin: true }),
   );
 
-  expect(result.get("Cache-Control")).toBe("no-store");
-  expect(result.get("X-Frame-Options")).toBe("DENY");
+  const response = await dataLoader(
+    routeArguments(pagesRequest("/settings-api/agents"), { user: ACTOR }),
+  );
+
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
 });
 
 it("asks an administrator outside the admin mode to switch it on", async () => {
@@ -133,6 +143,7 @@ it("loads the management data and links OpenCode to its keys", async () => {
       url: "/settings-api/pica-models",
       etag: planPollingEtag({ settings: {}, models: [] }),
     },
+    audience: AUDIENCE,
   });
   expect(result.init).toMatchObject({
     headers: { "Cache-Control": "no-store" },
@@ -194,6 +205,7 @@ it("renders the management sections for the admin mode", () => {
       catalogs: {},
       profileDirectory: {},
       pica: { settings: {}, models: [{ id: "m" }] },
+      audience: AUDIENCE,
     },
   });
 

@@ -1,9 +1,11 @@
 import { strict as assert } from "node:assert";
+import { Client } from "pg";
 
 import { Database } from "@/backend/database/Database";
+import { bindStatement } from "@/backend/database/postgres/PostgresStatement";
 import { WorkItemWriteRepository } from "@/backend/database/repositories/task/WorkItemWriteRepository";
 
-import { readMigrations } from "./schema-checks";
+import { readMigrations } from "../read-database-migrations";
 
 import type { SqlParameters } from "@/backend/database/Database";
 import type { WorkItemUpdate } from "@/backend/database/repositories/task/WorkItemWriteRepository";
@@ -39,6 +41,8 @@ interface Connections {
   readonly saving: Database;
   readonly other: Database;
   readonly observer: Database;
+  /** An external writer does not participate in the Pages advisory writer lane. */
+  readonly interfering: Client;
 }
 
 /** The row as a concurrent reader finds it. */
@@ -56,9 +60,6 @@ interface OtherChange {
   readonly statement: string;
   readonly parameters: SqlParameters;
 }
-
-/** Ends the transaction of the other connection without storing its change. */
-class RolledBackByCheck extends Error {}
 
 async function readRow({ observer }: Connections): Promise<StoredRow> {
   const [row] = await observer.query(
@@ -130,15 +131,19 @@ async function saveDuring(
 ): Promise<boolean> {
   const writes = new WorkItemWriteRepository(connections.saving);
   let saved: Promise<boolean> | undefined;
+  await connections.interfering.query("BEGIN;");
   try {
-    await connections.other.transaction(async (transaction) => {
-      await transaction.execute(change.statement, change.parameters);
-      saved = save(writes);
-      await waitForLock(connections);
-      if (ending === "rollback") throw new RolledBackByCheck();
-    });
+    const bound = bindStatement(change.statement, change.parameters);
+    await connections.interfering.query(bound.text, bound.values);
+    saved = save(writes);
+    await waitForLock(connections);
+    await connections.interfering.query(
+      ending === "commit" ? "COMMIT;" : "ROLLBACK;",
+    );
   } catch (error: unknown) {
-    if (!(error instanceof RolledBackByCheck)) throw error;
+    await connections.interfering.query("ROLLBACK;");
+    await saved?.catch(() => undefined);
+    throw error;
   }
   assert.ok(saved);
   return saved;
@@ -300,7 +305,12 @@ export async function runRepeatedSaveChecks(
     Database.connect(url),
     Database.connect(url),
   ]);
+  const interfering = new Client({
+    connectionString: url,
+    connectionTimeoutMillis: 10_000,
+  });
   try {
+    await interfering.connect();
     await observer.migrate(await readMigrations("postgres/migrations"));
     await observer.execute(
       `
@@ -309,12 +319,17 @@ export async function runRepeatedSaveChecks(
       `,
       { id: ID },
     );
-    const connections = { saving, other, observer };
+    const connections = { saving, other, observer, interfering };
     await checkConcurrentChanges(connections);
     await checkConcurrentExpectedField(connections);
     await checkConflictWritesNothing(connections);
     await checkRepeatsAtOnce(connections);
   } finally {
-    await Promise.all([saving.close(), other.close(), observer.close()]);
+    await Promise.all([
+      saving.close(),
+      other.close(),
+      observer.close(),
+      interfering.end(),
+    ]);
   }
 }

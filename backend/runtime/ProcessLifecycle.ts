@@ -23,6 +23,11 @@ const tasks: ShutdownTask[] = [];
 let isInstalled = false;
 let isStopping = false;
 
+/** Lets readiness probes stop renewing systemd before shutdown starts draining services. */
+export function isProcessStopping(): boolean {
+  return isStopping;
+}
+
 /**
  * Adds ordered cleanup before the central writer is flushed and closed.
  *

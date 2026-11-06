@@ -1,3 +1,5 @@
+import { strict as assert } from "node:assert";
+
 import { AdministrationActivityRepository } from "@/backend/database/repositories/AdministrationActivityRepository";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
@@ -21,6 +23,8 @@ import type {
 /** The repositories of the area on one database. */
 export interface RepositoryWorld {
   readonly database: Database;
+  /** URL of this disposable check database, never a runtime configuration fallback. */
+  readonly databaseUrl: string;
   readonly activity: AdministrationActivityRepository;
   readonly authorization: AuthorizationRepository;
   readonly boards: UserBoardPreferencesRepository;
@@ -60,11 +64,16 @@ export const MISSING_TEXT = NOTHING as string;
  * Creates the repositories of the area on one database.
  *
  * @param database - The migrated database.
+ * @param databaseUrl - The explicitly selected disposable database of this check.
  * @returns The repositories.
  */
-export function createWorld(database: Database): RepositoryWorld {
+export function createWorld(
+  database: Database,
+  databaseUrl: string,
+): RepositoryWorld {
   return {
     database,
+    databaseUrl,
     activity: new AdministrationActivityRepository(database),
     authorization: new AuthorizationRepository(database),
     boards: new UserBoardPreferencesRepository(database),
@@ -157,12 +166,28 @@ export function refusedWithoutTable(
  */
 export function reversedInPostgres(table: string): RepositoryStep {
   return call("prepare", async ({ database }) => {
-    if (database.dialect !== "postgres") return;
     await database.transaction(async (transaction) => {
+      const dependents =
+        table === "agent_plan_runs"
+          ? [
+              "agent_local_session_owners",
+              "agent_local_session_results",
+              "plan_run_commands",
+              "plan_run_api_cleanup",
+            ]
+          : [];
+      for (const dependent of dependents) {
+        const [row] = await transaction.query(
+          `SELECT COUNT(*) FROM ${dependent};`,
+        );
+        assert.equal(row?.[0], 0, `Reversal must preserve ${dependent}.`);
+      }
       await transaction.execute(
         `CREATE TEMPORARY TABLE reversed_rows ON COMMIT DROP AS TABLE ${table};`,
       );
-      await transaction.execute(`TRUNCATE ${table};`);
+      await transaction.execute(
+        `TRUNCATE ${[table, ...dependents].join(", ")};`,
+      );
       await transaction.execute(
         `INSERT INTO ${table} TABLE reversed_rows ORDER BY ctid DESC;`,
       );

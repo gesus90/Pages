@@ -16,10 +16,13 @@ import {
   listenFailure,
 } from "./pica-mobile-gateway-fixture";
 
-vi.mock("@/backend/logging/Logger", () => ({
+vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
+  ...(await importOriginal<typeof LoggerModule>()),
   logCaughtError: vi.fn(),
   logEvent: vi.fn(),
 }));
+
+import type * as LoggerModule from "@/backend/logging/Logger";
 
 const stored = vi.fn(async () => undefined);
 
@@ -500,7 +503,12 @@ describe("keeping the server running", () => {
       end: vi.fn(),
     };
 
-    world.listeners[0].server.emit("request", {}, response);
+    // A request on the app's own port names its peer.
+    world.listeners[0].server.emit(
+      "request",
+      { socket: { remoteAddress: "127.0.0.1" } },
+      response,
+    );
 
     expect(response.writeHead).toHaveBeenCalledWith(
       426,

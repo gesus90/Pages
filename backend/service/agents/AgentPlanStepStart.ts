@@ -3,7 +3,6 @@ import {
   agentRunOptionsFor,
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
-
 import {
   placeholderNames,
   scanAgentPlaceholders,
@@ -15,6 +14,7 @@ import { validatePlanParameterContext } from "./AgentPlanParameterContext";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
 import type { AgentTicketInput } from "@/definition/AgentTicketParameter";
+import type { AgentSessionStart } from "./sessions/AgentSessionAttempts";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { AcpPromptContent } from "@/backend/agents/acp/AcpChat";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
@@ -39,6 +39,10 @@ import type {
 
 /** A working directory is a separate process contract, never a prompt convention. */
 export interface AgentPlanExecutionInput extends TextExecutionInput {
+  /** Server-created identity of the attempt whose real native owner records this turn. */
+  readonly recording?: AgentSessionStart;
+  /** The original rendered acceptance instruction, retained privately by a native owner. */
+  readonly acceptanceInstruction?: string;
   /** Ownership retained across queued starts and group turns; contains no credentials. */
   readonly resourceContext?: {
     readonly runId: string;
@@ -46,6 +50,7 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
     readonly sessionScopeId?: string;
     /** The failed run a native recovery resumes; its transcripts move to this run. */
     readonly sourceRunId?: string;
+    readonly isLocalInstruction?: boolean;
   };
   readonly directory: string | null;
   /** Rechecks live access immediately before the adapter's provider request or spawn. */

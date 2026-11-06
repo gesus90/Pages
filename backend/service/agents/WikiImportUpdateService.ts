@@ -4,6 +4,7 @@ import { AgentImportRepository } from "@/backend/database/repositories/agents/Ag
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { recordPagesEvent } from "@/backend/service/events/PagesEventPublisher";
 
 import {
   requireWikiImportPage,
@@ -104,7 +105,16 @@ export class WikiImportUpdateService {
       if ((await verify()).userId !== identity.userId)
         throw new AgentOperationError("FORBIDDEN");
       const outcome = await this.dependencies.database.transaction(
-        (transaction) => this.run(transaction, identity.userId, input),
+        async (transaction) => {
+          const updated = await this.run(transaction, identity.userId, input);
+          // The outbox rows commit with the pages; a repeated call stores none.
+          for (const id of updated.updatedPageIds)
+            await recordPagesEvent(transaction, {
+              type: "wiki.page.updated",
+              id,
+            });
+          return updated;
+        },
       );
       for (const id of outcome.updatedPageIds)
         this.dependencies.events.publish({ type: "wiki.page.updated", id });

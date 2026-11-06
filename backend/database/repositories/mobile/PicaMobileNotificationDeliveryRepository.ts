@@ -109,12 +109,13 @@ export class PicaMobileNotificationDeliveryRepository {
                 AND not_before <= $now
                 AND expires_at > $now
             ORDER BY not_before ASC, seq ASC, creation_order ASC
-            LIMIT ${Math.trunc(limit)}
+            LIMIT $limit
+            FOR UPDATE SKIP LOCKED
         )
         RETURNING${DELIVERY_COLUMNS},
             creation_order;
       `,
-      { locked_until: lockedUntil, now },
+      { locked_until: lockedUntil, now, limit: Math.max(1, Math.trunc(limit)) },
     );
 
     return [...rows]

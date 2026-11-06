@@ -125,7 +125,7 @@ describe("confirmPlanDeletion client consent", () => {
         "plan-1, revision 7?",
       );
       expect(fixture.elicit.mock.calls[0]?.[0].message).toContain(
-        "Only the saved plan is removed. Finished history remains stored but is no longer listed without the plan.",
+        "The saved plan and its private snapshot/session payload files are removed. Public finished run records remain stored but are no longer listed without the plan.",
       );
       expect(fixture.elicit.mock.calls[0]?.[0].message).toContain(
         "Workspace files, templates and provider sessions remain untouched.",

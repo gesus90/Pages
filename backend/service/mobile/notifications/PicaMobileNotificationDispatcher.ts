@@ -1,5 +1,6 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { recordServiceProgress } from "@/backend/runtime/ServiceWorkHealth";
 import { PICA_MOBILE_NOTIFICATION_EVENT_TYPE } from "@/definition/PicaMobileNotifications";
 
 import { buildPicaMobilePushMessage } from "./PicaMobilePushMessage";
@@ -27,6 +28,8 @@ import type { PicaMobilePushTokenVault } from "./PicaMobilePushTokenVault";
 
 /** What the dispatcher is created with. */
 export interface PicaMobileNotificationDispatcherOptions {
+  /** Production consumers require current process ownership, including callback-triggered work. */
+  readonly canDispatch?: () => boolean;
   readonly deliveries: PicaMobileNotificationDeliveryRepository;
   readonly events: Pick<
     PicaMobileNotificationEventRepository,
@@ -205,7 +208,7 @@ export class PicaMobileNotificationDispatcher {
   }
 
   private schedule(delayMilliseconds: number): void {
-    if (this.isStopped) {
+    if (this.isStopped || this.options.canDispatch?.() === false) {
       return;
     }
 
@@ -244,6 +247,7 @@ export class PicaMobileNotificationDispatcher {
 
     try {
       handled = await this.work();
+      recordServiceProgress("integrations.fcm");
     } catch (error: unknown) {
       logCaughtError(COMPONENT, error);
     } finally {
@@ -280,6 +284,7 @@ export class PicaMobileNotificationDispatcher {
   }
 
   private async work(): Promise<number> {
+    if (this.options.canDispatch?.() === false) return 0;
     const { deliveries, sender } = this.options;
     const moment = this.now();
     const now = moment.toISOString();

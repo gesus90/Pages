@@ -1,84 +1,48 @@
-import { useLoaderData } from "react-router";
+import { useEffect } from "react";
+import { useLoaderData, useRevalidator } from "react-router";
 
 import { AppShell } from "@/app/components/common/app-shell";
 import { ChatLauncher } from "@/app/components/chat/chat-launcher";
 import { RegionProvider } from "@/app/components/common/region-provider";
 import { useAuthorizationRefresh } from "@/app/components/common/use-authorization-refresh";
+import { useLiveChanges } from "@/app/components/common/use-live-changes";
 import {
-  authenticatedUserContext,
-  requireAuthenticatedUser,
-} from "@/app/lib/auth.server";
-import { getApplicationServices } from "@/app/lib/services.server";
+  onLocalStateAudienceChanged,
+  rememberLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import { isLocalStateNavigation } from "@/app/lib/local-state/local-state-navigation";
+import { loadShell } from "@/app/lib/local-state/shell-loader";
 import {
   isTaskOverlayMutation,
   isTaskOverlayNavigation,
 } from "@/app/lib/task-overlay-navigation";
-import { PERMISSION } from "@/definition/Role";
 
-import type { InstanceBranding } from "@/definition/Instance";
-import type { RegionPreferences } from "@/app/components/common/region-provider";
-import type {
-  MiddlewareFunction,
-  ShouldRevalidateFunctionArgs,
-} from "react-router";
-import type { User } from "@/definition/User";
-import type { AccountAccess } from "@/definition/Authorization";
+import type { ShouldRevalidateFunctionArgs } from "react-router";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
+import type { ShellData } from "@/app/lib/shell-data";
 import type { Route } from "./+types/authenticated";
 
-/** Applies persistent-session authentication to all nested workspace routes. */
-export const middleware: MiddlewareFunction[] = [requireAuthenticatedUser];
-
-/** Keeps navigation data when only a ticket overlay opens or closes. */
+/** Keeps navigation data when only a ticket overlay opens or closes or a local-state route opens. */
 export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
-  return isTaskOverlayNavigation(args) || isTaskOverlayMutation(args)
+  return isTaskOverlayNavigation(args) ||
+    isTaskOverlayMutation(args) ||
+    isLocalStateNavigation(args)
     ? false
     : args.defaultShouldRevalidate;
 }
 
-interface AuthenticatedLoaderData {
-  readonly account: AccountAccess;
-  readonly authorizationVersion: string;
-  readonly user: User;
-  readonly canViewProjects: boolean;
-  readonly canViewUsers: boolean;
-  /** How the user wants dates and times shown. */
-  readonly region: RegionPreferences;
-  /** Company name and logo of the instance. */
-  readonly branding: InstanceBranding;
-  readonly isPicaEnabled: boolean;
-}
-
-/** Returns the authenticated user and their navigation permissions. */
-export async function loader({
-  context,
-}: Route.LoaderArgs): Promise<AuthenticatedLoaderData> {
-  const user = context.get(authenticatedUserContext);
-
-  if (!user) {
-    throw new Error("Authenticated middleware did not provide a user.");
-  }
-
-  const services = await getApplicationServices();
-  const navigation = await services.administrationService.navigation(user.id);
-  const { dateFormat, timezone } =
-    await services.settingsService.getUserSettings(user.id);
-  const branding = await services.instanceSettingsService.getBranding();
-  const canViewProjects = await services.permissionService.allows(
-    user,
-    PERMISSION.PARTICIPATE_IN_PROJECTS,
-  );
-  const pica = await services.picaSettingsService.read();
-
-  return {
-    isPicaEnabled: pica.isEnabled,
-    branding,
-    canViewProjects,
-    canViewUsers: navigation.canViewUsers,
-    region: { dateFormat, timezone },
-    user,
-    authorizationVersion: `${navigation.version}:pica:${pica.revision}`,
-    account: navigation.account,
-  };
+/**
+ * Loads the authenticated user and their navigation permissions from the API.
+ *
+ * @remarks
+ * The endpoint runs behind the authentication middleware; a missing or
+ * ended session redirects to the sign-in page as before. Without a backend
+ * the frame opens from the account's kept answer (see `loadShell`).
+ */
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<ShellData>> {
+  return loadShell(request.signal);
 }
 
 /** Renders the shared workspace navigation around authenticated child routes. */
@@ -92,8 +56,22 @@ export default function AuthenticatedRoute(): React.ReactElement {
     region,
     branding,
     isPicaEnabled,
-  } = useLoaderData<typeof loader>();
-  const isOffline = useAuthorizationRefresh(authorizationVersion);
+    localState: keptState,
+  } = useLoaderData<typeof clientLoader>();
+  // Kept route answers apply only to this account under these rights.
+  useEffect(() => {
+    rememberLocalStateAudience({ userId: user.id, authorizationVersion });
+  }, [user.id, authorizationVersion]);
+  // Another tab learned other rights of this account: load the shell and the page again.
+  const { revalidate } = useRevalidator();
+  useEffect(
+    () => onLocalStateAudienceChanged(() => void revalidate()),
+    [revalidate],
+  );
+  const isLive = useLiveChanges(authorizationVersion);
+  const isOffline =
+    useAuthorizationRefresh(authorizationVersion, isLive) ||
+    keptState?.state === "offline";
 
   return (
     <RegionProvider region={region}>

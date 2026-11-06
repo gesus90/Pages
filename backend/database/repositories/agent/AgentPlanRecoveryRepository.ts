@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
+
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanText } from "@/backend/agents/AgentPlanInput";
@@ -221,7 +223,12 @@ export class AgentPlanRecoveryRepository {
       run: readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json"))),
       revision,
       agentStepIds: snapshotAgentStepIds(
-        JSON.parse(readTextColumn(row, 2, "snapshot_json")),
+        JSON.parse(
+          await readStoredAgentPayload(
+            transaction,
+            readTextColumn(row, 2, "snapshot_json"),
+          ),
+        ),
       ),
     };
   }

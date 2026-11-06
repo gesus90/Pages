@@ -5,7 +5,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { requireUserManagement } from "@/app/lib/auth.server";
 import { handleUsersAction } from "@/app/lib/user-actions/user-actions.server";
-import UsersRoute, { action, loader, middleware } from "@/app/routes/users";
+import UsersRoute from "@/app/routes/users";
+import { action, loader, middleware } from "@/app/routes/users-server";
 
 import {
   ACTOR,
@@ -26,6 +27,16 @@ const services = vi.hoisted(() => ({
   wikiService: { listAllPlaceholders: vi.fn() },
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => services,
 }));
@@ -61,7 +72,11 @@ it("loads the directory together with the private wiki pages", async () => {
 
   await expect(
     loader(routeArguments(pagesRequest("/users"), { user: ACTOR })),
-  ).resolves.toEqual({ users: [], privateWikiPages: { "user-2": [] } });
+  ).resolves.toEqual({
+    users: [],
+    privateWikiPages: { "user-2": [] },
+    audience: AUDIENCE,
+  });
   expect(services.administrationService.pageData).toHaveBeenCalledWith(
     "user-1",
   );
@@ -104,7 +119,11 @@ it("hands the intent and the form to the user actions", async () => {
 
 it("renders the management workspace", () => {
   renderRoute(UsersRoute, {
-    loaderData: { users: [{ id: "user-2" }], privateWikiPages: {} },
+    loaderData: {
+      users: [{ id: "user-2" }],
+      privateWikiPages: {},
+      audience: AUDIENCE,
+    },
   });
 
   expect(screen.getByRole("status").textContent).toBe("1 {}");

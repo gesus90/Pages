@@ -12,7 +12,7 @@ import {
 import { createAgentPlanService } from "@/app/lib/agent-plan-services.server";
 import { createChatServices } from "@/app/lib/chat-services.server";
 import { Database } from "@/backend/database/Database";
-import { GitHubSyncScheduler } from "@/backend/github/GitHubSyncScheduler";
+import { GitHubJobWorker } from "@/backend/service/integrations/GitHubJobWorker";
 import {
   logCaughtError,
   logDiagnostic,
@@ -20,7 +20,8 @@ import {
 } from "@/backend/logging/Logger";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
-import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
+import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
+import { PagesEventRetention } from "@/backend/service/events/PagesEventRetention";
 import { WikiService } from "@/backend/service/WikiService";
 import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
@@ -38,6 +39,7 @@ function shutdownTask(index: 0 | 1 | 2): () => Promise<void> {
 beforeEach(() => {
   vi.resetAllMocks();
   world = servicesWorld();
+  vi.mocked(GitHubJobWorker.prototype.start).mockResolvedValue(undefined);
 });
 
 it("opens the configured database once and shares the services of the process", async () => {
@@ -46,8 +48,11 @@ it("opens the configured database once and shares the services of the process", 
 
   expect(second).toBe(first);
   await expect(first).resolves.toMatchObject(world.agents);
-  expect(Database.create).toHaveBeenCalledOnce();
-  expect(Database.create).toHaveBeenCalledWith(DATABASE_PATH);
+  expect(Database.connect).toHaveBeenCalledOnce();
+  expect(Database.connect).toHaveBeenCalledWith(
+    "postgresql://localhost/pages",
+    "/srv/pages/data",
+  );
   expect(vi.mocked(logEvent).mock.calls.map(([event]) => event.event)).toEqual([
     "services.initialization.started",
     "services.initialization.completed",
@@ -56,14 +61,14 @@ it("opens the configured database once and shares the services of the process", 
 
 it("forgets a failed start so a later request can try again", async () => {
   const failure = new Error("setup pending");
-  vi.mocked(Database.create).mockRejectedValueOnce(failure);
+  vi.mocked(Database.connect).mockRejectedValueOnce(failure);
 
   await expect(getApplicationServices()).rejects.toBe(failure);
 
   expect(logCaughtError).toHaveBeenCalledWith("services", failure);
   expect(globalThis.pagesServices).toBe(undefined);
   await expect(getApplicationServices()).resolves.toMatchObject(world.agents);
-  expect(Database.create).toHaveBeenCalledTimes(2);
+  expect(Database.connect).toHaveBeenCalledTimes(2);
 });
 
 it("shuts the agents down before the database closes", async () => {
@@ -163,13 +168,11 @@ it("registers the shutdown and the schedulers once per process", async () => {
   await activateApplicationServices(world.database, DATABASE_PATH);
 
   expect(registerShutdownTask).toHaveBeenCalledTimes(3);
-  expect(vi.mocked(GitHubSyncScheduler).mock.calls).toEqual([
-    [vi.mocked(GitHubSyncService).mock.instances[0]],
-  ]);
-  expect(GitHubSyncScheduler.prototype.start).toHaveBeenCalledOnce();
+  expect(GitHubJobWorker).toHaveBeenCalledTimes(2);
+  expect(GitHubJobWorker.prototype.start).toHaveBeenCalledOnce();
   expect(WikiMaintenanceScheduler.prototype.start).toHaveBeenCalledOnce();
   expect(globalThis.pagesShutdownHandlerRegistered).toBe(true);
-  expect(globalThis.pagesSyncSchedulerStarted).toBe(true);
+  expect(globalThis.pagesGitHubWorkerStarted).toBeDefined();
   expect(globalThis.pagesWikiMaintenanceStarted).toBe(true);
 });
 
@@ -177,15 +180,22 @@ it("stops the GitHub synchronization and the wiki maintenance on shutdown", asyn
   await activateApplicationServices(world.database, DATABASE_PATH);
 
   await shutdownTask(0)();
-  expect(GitHubSyncScheduler.prototype.stop).toHaveBeenCalledOnce();
+  expect(GitHubJobWorker.prototype.stop).toHaveBeenCalledOnce();
   await shutdownTask(2)();
   expect(WikiMaintenanceScheduler.prototype.stop).toHaveBeenCalledOnce();
   expect(world.shutdownSteps).toEqual([]);
 });
 
-it("cleans up the wiki and then the agent assets in each maintenance run", async () => {
+it("cleans up the wiki, then the agent assets, then consumed outbox events in each maintenance run", async () => {
   await activateApplicationServices(world.database, DATABASE_PATH);
-  vi.mocked(WikiService.prototype.runMaintenance).mockResolvedValue(undefined);
+  vi.mocked(WikiService.prototype.runMaintenance).mockResolvedValue([]);
+  // The maintenance runs as one announced call of the publisher.
+  vi.mocked(PagesEventPublisher.prototype.announce).mockImplementation(
+    async (work) => work(),
+  );
+  const retention = vi
+    .spyOn(PagesEventRetention.prototype, "runOnce")
+    .mockResolvedValue(JSON.parse("{}"));
 
   const [{ runMaintenance }] = vi.mocked(WikiMaintenanceScheduler).mock
     .calls[0];
@@ -197,6 +207,10 @@ it("cleans up the wiki and then the agent assets in each maintenance run", async
   expect(
     vi.mocked(WikiService.prototype.runMaintenance).mock.invocationCallOrder[0],
   ).toBeLessThan(assets.mock.invocationCallOrder[0]);
+  expect(retention).toHaveBeenCalledOnce();
+  expect(assets.mock.invocationCallOrder[0]).toBeLessThan(
+    retention.mock.invocationCallOrder[0],
+  );
 });
 
 it("starts even when stale ticket attachments cannot be swept", async () => {

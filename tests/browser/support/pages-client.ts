@@ -93,20 +93,6 @@ export class PagesClient {
   }
 
   /**
-   * Reads a page as text.
-   *
-   * @param path - Route to read.
-   * @returns The body of the answer.
-   */
-  public async getText(path: string): Promise<string> {
-    const response = await fetch(`${this.origin}${path}`, {
-      headers: { cookie: this.cookies },
-    });
-
-    return response.text();
-  }
-
-  /**
    * Sends a file as the plain body of a PUT request.
    *
    * @param path - Route with its query.

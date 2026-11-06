@@ -1,5 +1,6 @@
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 
 import type {
   McpServer,
@@ -56,6 +57,10 @@ export function pagesMcpServers(
         { name: "PAGES_URL", value: mcp.url },
         { name: "PAGES_TOKEN", value: mcp.token },
         { name: RUN_INSTANCE_VARIABLE, value: instanceId },
+        ...Object.entries(correlationEnvironment()).map(([name, value]) => ({
+          name,
+          value,
+        })),
       ],
     },
   ];

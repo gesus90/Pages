@@ -26,6 +26,8 @@ import {
 import type { NewProjectActivity } from "@/backend/database/repositories/ProjectRepository";
 import type { NewWorkItemHistory } from "@/backend/database/repositories/TaskRepository";
 import type { GitHubApiResponse } from "@/backend/github/GitHubApiClient";
+import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
+import type { GitHubChangeEvents } from "@/backend/service/github/GitHubLocalChange";
 import type { GitHubSyncSummary } from "@/definition/GitHub";
 import type { ProjectIntegration } from "@/definition/Project";
 import type {
@@ -168,6 +170,8 @@ export class GitHubSyncWorld {
   public readonly writes: GitHubWrite[] = [];
   public readonly history: NewWorkItemHistory[] = [];
   public readonly activity: NewProjectActivity[] = [];
+  /** Events the local changes announced, in the order they committed. */
+  public readonly events: PagesEvent[] = [];
   public readonly service: GitHubSyncService;
   public integration: ProjectIntegration = createIntegration();
   public canWrite = true;
@@ -198,6 +202,7 @@ export class GitHubSyncWorld {
       taskService: this.createTaskService(),
       tokenKey: TOKEN_KEY,
       userRepository,
+      events: this.createEvents(),
     });
   }
 
@@ -566,9 +571,26 @@ export class GitHubSyncWorld {
     vi.spyOn(repository, "archiveMany").mockImplementation(async (ids) =>
       this.setArchived(ids, "2026-10-14 12:30:00"),
     );
-    vi.spyOn(repository, "restoreMany").mockImplementation(async (ids) => {
-      this.setArchived(ids, null);
-    });
+    vi.spyOn(repository, "restoreMany").mockImplementation(async (ids) =>
+      this.setArchived(ids, null),
+    );
+  }
+
+  /**
+   * The publisher's contract without a database: a change that throws stores
+   * no event; the world's local writes always change a row.
+   */
+  private createEvents(): GitHubChangeEvents {
+    return {
+      announce: async <Result>(
+        work: () => Promise<Result>,
+        decide: (result: Result) => readonly PagesEvent[],
+      ): Promise<Result> => {
+        const result = await work();
+        this.events.push(...decide(result));
+        return result;
+      },
+    };
   }
 
   private setArchived(

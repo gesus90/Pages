@@ -1,9 +1,12 @@
+import { logCaughtError } from "@/backend/logging/Logger";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
-import { planTargetIssues } from "@/definition/AgentPlanTarget";
+import {
+  planTargetIssues,
+  withInheritedPlanTarget,
+} from "@/definition/AgentPlanTarget";
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
-import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import {
@@ -11,6 +14,9 @@ import {
   runnerExecutionSchema,
 } from "@/definition/RunnerExecution";
 
+import { AgentPlanRemoteSettlement } from "./AgentPlanRemoteSettlement";
+import { observeRemoteAttempt } from "./AgentPlanRemoteObservation";
+import { requireRemoteRunResources } from "./AgentPlanRemoteTargets";
 import {
   remoteTextInputs,
   remoteScriptCommand,
@@ -38,7 +44,6 @@ import {
 import {
   completedGatedRemote,
   remoteAssessmentTerms,
-  settleRemoteAcceptance,
   requiresRemoteAcceptance,
 } from "./AgentPlanRemoteAcceptance";
 
@@ -49,8 +54,8 @@ import type {
 import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
 import type { AgentPlanRemoteStatus } from "@/definition/AgentPlanTarget";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
-import type { AgentPlanInput } from "@/definition/AgentPlan";
 import type {
+  AgentPlanInput,
   AgentPlan,
   AgentPlanStep,
   AgentPlanRun,
@@ -68,7 +73,6 @@ import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
 import type { AgentPlanContract } from "@/definition/AgentPlanSession";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
-import type { AgentPlanStepReport } from "@/definition/AgentPlanStepReport";
 import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { RunnerService } from "@/backend/service/runner/RunnerService";
@@ -96,7 +100,7 @@ export interface RemotePlanStep {
 interface RemoteExecutionDependencies {
   readonly tasks?: Pick<AgentPlanTasks, "checklist">;
   readonly parameters?: AgentPlanRemoteParameters;
-  readonly pages?: RunnerPagesAccessService;
+  readonly pages?: Pick<RunnerPagesAccessService, "open" | "close">;
   readonly stepReports?: Pick<AgentPlanStepReportService, "open" | "close">;
   readonly targets: Pick<AgentPlanRemoteTargets, "list" | "choices">;
   readonly access: Pick<AgentPlanAccess, "require">;
@@ -124,9 +128,11 @@ interface RemoteExecutionDependencies {
 /** Authorizes runner catalogs and dispatches immutable claims; nothing executes on Pages. */
 export class AgentPlanRemoteExecution {
   private readonly dependencies: RemoteExecutionDependencies;
+  private readonly settlement: AgentPlanRemoteSettlement;
 
   public constructor(dependencies: RemoteExecutionDependencies) {
     this.dependencies = dependencies;
+    this.settlement = new AgentPlanRemoteSettlement(dependencies);
   }
 
   /** Offers only models and interpreter identities from an executing, authorized runner. */
@@ -338,26 +344,21 @@ export class AgentPlanRemoteExecution {
         execution.attemptId,
       );
     }
-    // Closeout changes persisted access metadata; continuation compares the exact durable view.
-    const current = await this.dependencies.runs.find(run.id);
-    const completed = completedGatedRemote(
-      remote,
-      current?.steps.find((step) => step.id === remote.step.id) ?? result,
-    );
-    const stepReport = await this.closeStepReport(
-      run,
-      remote,
-      execution.attemptId,
-    );
-    return settleRemoteAcceptance({
-      remote,
-      run,
-      result: completed,
-      tasks: this.dependencies.tasks,
-      projectId: async () =>
-        (await this.dependencies.access.require(run.userId, run.planId))
-          .projectId,
-      stepReport,
+    return this.settlement.settle(run, remote, result, execution.attemptId);
+  }
+
+  /** Reattaches the saved remote claim and retains its original completion and acceptance gates. */
+  public observe(
+    run: AgentPlanRun,
+    remote: RemotePlanStep,
+    signal: AbortSignal,
+  ): Promise<Partial<AgentPlanStepResult>> {
+    return observeRemoteAttempt(run, remote, {
+      runners: this.dependencies.runners,
+      pages: this.dependencies.pages,
+      wait: (job) => this.waitForJob(run, remote, job, signal),
+      settle: (result, attemptId) =>
+        this.settlement.settle(run, remote, result, attemptId),
     });
   }
 
@@ -366,17 +367,11 @@ export class AgentPlanRemoteExecution {
     userId: string,
     resources: AgentPlanRunResources,
   ): Promise<void> {
-    if (!resources.remoteWorkspaceIds?.length) return;
-    const targets = await this.dependencies.targets.list(
+    await requireRemoteRunResources(
+      this.dependencies.targets,
       userId,
-      resources.projectId,
+      resources,
     );
-    if (
-      resources.remoteWorkspaceIds.some(
-        (id) => !targets.some((target) => target.workspaceId === id),
-      )
-    )
-      throw new AgentError("plan_access_denied");
   }
 
   /** Replays an authorized owner's stop against every original remote attempt, even after reload or restart. */
@@ -472,21 +467,6 @@ export class AgentPlanRemoteExecution {
     });
   }
 
-  /** Ends the reporting of a finished job, so nothing can change what gets assessed. */
-  private async closeStepReport(
-    run: AgentPlanRun,
-    remote: RemotePlanStep,
-    attemptId: string,
-  ): Promise<AgentPlanStepReport | null> {
-    const { stepReports } = this.dependencies;
-    if (!stepReports) return null;
-    return stepReports.close({
-      runId: run.id,
-      sessionScopeId: remote.step.id,
-      attemptId,
-    });
-  }
-
   private canUsePages(
     step: AgentPlanStep | AgentPlanScript,
     target: AgentPlanRemoteTarget,
@@ -529,7 +509,10 @@ export class AgentPlanRemoteExecution {
           job.jobId,
         );
       const current = await this.dependencies.runs.find(run.id);
-      if (current?.status === "pausing") await this.pause(current);
+      if (current?.status === "pausing")
+        await this.pause(current).catch((error: unknown) =>
+          logCaughtError("AgentPlanRemoteExecution", error),
+        );
       const step = current?.steps.find((entry) => entry.id === remote.step.id);
       if (!step) throw new AgentError("plan_context_changed");
       if (

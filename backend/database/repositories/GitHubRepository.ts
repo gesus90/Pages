@@ -497,11 +497,19 @@ export class GitHubRepository {
     return row ? this.toPullRequest(row) : null;
   }
 
-  /** Inserts pull request metadata or refreshes it while keeping assignments. */
+  /**
+   * Inserts pull request metadata or refreshes it when a value changed, keeping assignments.
+   *
+   * @returns Whether a row was inserted or changed.
+   *
+   * @remarks
+   * The skipped update of an unchanged row still locks it, so only the
+   * returned row tells whether anything changed.
+   */
   public async upsertPullRequest(
     pullRequest: NewGitHubPullRequest,
-  ): Promise<void> {
-    await this.database.execute(
+  ): Promise<boolean> {
+    const rows = await this.database.query(
       `
         INSERT INTO github_pull_requests (
             id,
@@ -531,7 +539,21 @@ export class GitHubRepository {
             state = excluded.state,
             merged = excluded.merged,
             branch = excluded.branch,
-            synced_at = utc_now();
+            synced_at = utc_now()
+        WHERE (
+            github_pull_requests.title,
+            github_pull_requests.url,
+            github_pull_requests.state,
+            github_pull_requests.merged,
+            github_pull_requests.branch
+        ) IS DISTINCT FROM (
+            excluded.title,
+            excluded.url,
+            excluded.state,
+            excluded.merged,
+            excluded.branch
+        )
+        RETURNING id;
       `,
       {
         id: pullRequest.id,
@@ -544,6 +566,7 @@ export class GitHubRepository {
         branch: pullRequest.branch,
       },
     );
+    return rows.length > 0;
   }
 
   /** Assigns a pull request to a work item or clears its assignment. */

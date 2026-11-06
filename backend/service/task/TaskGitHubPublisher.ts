@@ -1,3 +1,4 @@
+import { keepForCallCommit } from "@/backend/database/CallTransaction";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { databaseFailureFacts } from "@/backend/logging/LogError";
 import { logEvent } from "@/backend/logging/Logger";
@@ -58,9 +59,18 @@ export class TaskGitHubPublisher {
    * shortens its database budget.
    */
   public publish(actor: User, item: WorkItemDetail): Promise<void> {
-    return withBackgroundDatabaseWork("github_publish", () =>
-      this.publishCommitted(actor, item),
-    );
+    const start = (): Promise<void> =>
+      withBackgroundDatabaseWork("github_publish", () =>
+        this.publishCommitted(actor, item),
+      );
+    // Inside an announced call the change is committed only when the call ends.
+    if (
+      keepForCallCommit(async () => {
+        void start();
+      })
+    )
+      return Promise.resolve();
+    return start();
   }
 
   private async publishCommitted(

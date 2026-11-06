@@ -1,3 +1,5 @@
+import { normalizePagePath } from "../service-worker/install-service-worker";
+
 /**
  * Content Security Policy of Pages.
  *
@@ -35,5 +37,38 @@ export function createSecurityHeaders(): Record<string, string> {
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
+  };
+}
+
+/**
+ * Page addresses whose address carries a one-time code, an authorization
+ * request or the result of a connection: pairing, MCP consent and the
+ * Discord result. Their documents are never stored and never name their
+ * address to anyone, as they did with server rendering (PAGE-235).
+ */
+export const SENSITIVE_DOCUMENT_PATHS: readonly string[] = [
+  "/pair",
+  "/mcp-login",
+  "/discord/result",
+];
+
+/**
+ * Builds the headers of the static app's document for one page address.
+ *
+ * @param pathname - The page address, decoded; compared as the router
+ * matches it, so `/Pair/` counts as `/pair`.
+ * @returns The security headers; `no-cache` so a new build arrives on the
+ * next visit, or `no-store` and `no-referrer` for a sensitive address.
+ */
+export function createDocumentHeaders(
+  pathname: string,
+): Record<string, string> {
+  if (!SENSITIVE_DOCUMENT_PATHS.includes(normalizePagePath(pathname)))
+    return { ...createSecurityHeaders(), "Cache-Control": "no-cache" };
+  return {
+    ...createSecurityHeaders(),
+    "Cache-Control": "no-store",
+    Pragma: "no-cache",
+    "Referrer-Policy": "no-referrer",
   };
 }

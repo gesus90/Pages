@@ -11,9 +11,9 @@ export interface StoredAgentOperation {
 
 /** Stores permanent owner-scoped operation keys for response-loss recovery. */
 export class AgentOperationKeyRepository {
-  private readonly database: DatabaseTransaction;
+  private readonly database: Pick<DatabaseTransaction, "execute" | "query">;
 
-  public constructor(database: DatabaseTransaction) {
+  public constructor(database: Pick<DatabaseTransaction, "execute" | "query">) {
     this.database = database;
   }
 
@@ -69,6 +69,29 @@ export class AgentOperationKeyRepository {
         result_json: operation.resultJson,
         created_at: Date.now(),
       },
+    );
+  }
+
+  /**
+   * Removes an account's results of one operation that are older than a point in time.
+   *
+   * @param userId - The account.
+   * @param operation - The kind of operation, such as `ui.wiki.save`.
+   * @param before - Milliseconds since the epoch; older results are removed.
+   */
+  public async removeOlder(
+    userId: string,
+    operation: string,
+    before: number,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+      DELETE FROM agent_operation_keys
+      WHERE user_id = $user_id
+          AND operation = $operation
+          AND created_at < $before;
+    `,
+      { user_id: userId, operation, before },
     );
   }
 }

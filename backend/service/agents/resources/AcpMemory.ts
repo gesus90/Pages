@@ -14,3 +14,18 @@ export async function readAcpAvailableMemory(): Promise<number | null> {
     return null;
   }
 }
+
+/** Narrows a scheduler memory probe and preserves the conservative result on failure. */
+export async function readScheduledAcpMemory(
+  read: () => Promise<number | null>,
+): Promise<number | null> {
+  try {
+    const available = await read();
+    return available !== null && Number.isFinite(available) && available >= 0
+      ? available
+      : null;
+  } catch (error: unknown) {
+    logCaughtError("AcpResourceScheduler", error);
+    return null;
+  }
+}

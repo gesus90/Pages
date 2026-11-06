@@ -10,15 +10,14 @@ import {
   authenticatedUserContext,
   requireAuthenticatedUser,
 } from "@/app/lib/auth.server";
-import AuthenticatedRoute, {
-  loader,
-  middleware,
-} from "@/app/routes/authenticated";
+import AuthenticatedRoute from "@/app/routes/authenticated";
+import { middleware } from "@/app/routes/authenticated-server";
+import { loader } from "@/app/routes/shell-data";
 
 import type { User } from "@/definition/User";
 
 const boundaries = vi.hoisted(() => ({
-  isOffline: vi.fn<(version: string) => boolean>(),
+  isOffline: vi.fn<(version: string, isLive: boolean) => boolean>(),
   services: {
     administrationService: { navigation: vi.fn() },
     settingsService: { getUserSettings: vi.fn() },
@@ -119,7 +118,9 @@ it("refuses to load without the user of the authentication middleware", async ()
 });
 
 it("loads the user, the navigation rights, the region and the branding", async () => {
-  await expect(loader(loaderArguments(USER))).resolves.toEqual({
+  const response = await loader(loaderArguments(USER));
+
+  await expect(response.json()).resolves.toEqual({
     isPicaEnabled: true,
     branding: BRANDING,
     canViewProjects: false,
@@ -166,7 +167,7 @@ it("shows the workspace navigation with Pica when Pica is enabled", async () => 
     "Ada Acme projects:true users:false offline:true",
   );
   expect(screen.getByRole("complementary").textContent).toBe("Pica");
-  expect(boundaries.isOffline).toHaveBeenCalledWith("v1:pica:1");
+  expect(boundaries.isOffline).toHaveBeenCalledWith("v1:pica:1", false);
 });
 
 it("leaves Pica out when it is disabled", async () => {

@@ -1,3 +1,8 @@
+import { AgentSessionEventRepository } from "@/backend/database/repositories/agent/AgentSessionEventRepository";
+import { LocalSessionRepository } from "@/backend/database/repositories/agent/LocalSessionRepository";
+import { PlanRunCommandRepository } from "@/backend/database/repositories/agent/PlanRunCommandRepository";
+import { PlanRunOwnerRepository } from "@/backend/database/repositories/agent/PlanRunOwnerRepository";
+import { RunApiCleanupRepository } from "@/backend/database/repositories/agent/RunApiCleanupRepository";
 import { AcpResourceRepository } from "@/backend/database/repositories/agent/AcpResourceRepository";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
 import { AgentCatalogRepository } from "@/backend/database/repositories/agent/AgentCatalogRepository";
@@ -13,6 +18,7 @@ import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/age
 import { AgentPlanRemoteAccessRepository } from "@/backend/database/repositories/agent/AgentPlanRemoteAccessRepository";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import { AgentPlanRunVisibilityRepository } from "@/backend/database/repositories/agent/AgentPlanRunVisibilityRepository";
 import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
@@ -32,6 +38,7 @@ import { AgentImportRepository } from "@/backend/database/repositories/agents/Ag
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { RemoteConnectionRepository } from "@/backend/database/repositories/remote/RemoteConnectionRepository";
 import { RemoteInstallFindingRepository } from "@/backend/database/repositories/remote/RemoteInstallFindingRepository";
+import { RemoteConsoleSessionRepository } from "@/backend/database/repositories/remote/RemoteConsoleSessionRepository";
 import { RemoteWorkspaceRepository } from "@/backend/database/repositories/remote/RemoteWorkspaceRepository";
 import { RunnerDeployKeyRepository } from "@/backend/database/repositories/runner/RunnerDeployKeyRepository";
 import { RunnerHistoryRecoveryRepository } from "@/backend/database/repositories/runner/RunnerHistoryRecoveryRepository";
@@ -81,11 +88,13 @@ import {
   PLAN_WORK_FLOW,
   REMOTE_ACCESS_FLOW,
   START_REJECTION_FLOW,
+  RUN_OWNERSHIP_FLOW,
   STEP_REPORT_FLOW,
 } from "./agent-run-record-flows";
 import { PAGE_AGENT_RUN_FLOW, AGENT_SESSION_FLOW } from "./agent-session-flows";
 import {
   REMOTE_CONNECTION_FLOW,
+  REMOTE_CONSOLE_SESSION_FLOW,
   REMOTE_FINDING_FLOW,
   REMOTE_WORKSPACE_FLOW,
 } from "./remote-flows";
@@ -138,16 +147,23 @@ export const AGENT_AREA_FLOWS: readonly RepositoryFlow[] = [
   RUNNER_SESSION_FLOW,
   RUNNER_HISTORY_FLOW,
   REMOTE_CONNECTION_FLOW,
+  REMOTE_CONSOLE_SESSION_FLOW,
   REMOTE_FINDING_FLOW,
   REMOTE_WORKSPACE_FLOW,
   AGENT_ORDER_FLOW,
   AGENT_NUL_FLOW,
+  RUN_OWNERSHIP_FLOW,
 ];
 
 /** The classes of these directories, whose methods are watched while the flows run. */
 export const AGENT_AREA_CLASSES: Readonly<
   Record<string, { readonly prototype: object }>
 > = {
+  AgentSessionEventRepository,
+  LocalSessionRepository,
+  PlanRunCommandRepository,
+  PlanRunOwnerRepository,
+  RunApiCleanupRepository,
   AcpResourceRepository,
   AgentAssignmentRepository,
   AgentCatalogRepository,
@@ -163,6 +179,7 @@ export const AGENT_AREA_CLASSES: Readonly<
   AgentPlanRemoteAccessRepository,
   AgentPlanRepository,
   AgentPlanRunRepository,
+  AgentPlanRunVisibilityRepository,
   AgentPlanStartRejectionRepository,
   AgentPlanStepReportRepository,
   AgentPlanTemplateRepository,
@@ -181,6 +198,7 @@ export const AGENT_AREA_CLASSES: Readonly<
   AgentImportRepository,
   AgentOperationKeyRepository,
   RemoteConnectionRepository,
+  RemoteConsoleSessionRepository,
   RemoteInstallFindingRepository,
   RemoteWorkspaceRepository,
   RunnerDeployKeyRepository,

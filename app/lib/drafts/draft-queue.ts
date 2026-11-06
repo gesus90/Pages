@@ -5,6 +5,29 @@ export type DraftAnswer<T> =
   | { readonly ok: true; readonly saved: T }
   | { readonly ok: false; readonly error: string; readonly current?: T };
 
+/** Failures after which the server may or may not have committed the write. */
+const UNCONFIRMED_ERRORS: ReadonlySet<string> = new Set([
+  "connection",
+  "backend",
+]);
+
+/** The longest wait before an unconfirmed write is sent again. */
+const MAX_RETRY_DELAY_MS = 30_000;
+
+/** One write, kept with its operation ID until the server confirmed or refused it. */
+export interface DraftOperation<T> {
+  readonly operationId: string;
+  readonly base: T;
+  readonly draft: T;
+}
+
+/** One attempt to send a write; a repeated attempt keeps the operation ID. */
+export interface DraftAttempt<T> extends DraftOperation<T> {
+  readonly id: string;
+  readonly streamId: string;
+  readonly sequence: number;
+}
+
 /** The state of one background edit, retained across route changes. */
 export interface DraftEntry<T> {
   readonly id: string;
@@ -19,8 +42,8 @@ export interface DraftEntry<T> {
   readonly isSaving: boolean;
   readonly hasChanges: boolean;
   readonly hasEdited: boolean;
-  /** A started write may have committed even when its response was lost. */
-  readonly hasUnconfirmedWrite: boolean;
+  /** A started write that may have committed even when its response was lost. */
+  readonly pending: DraftOperation<T> | null;
 }
 
 /** The domain-specific comparison, validation and persistence boundary. */
@@ -28,22 +51,57 @@ export interface DraftAdapter<T> {
   readonly delay: number | null;
   readonly equal: (left: T, right: T) => boolean;
   readonly validate: (draft: T) => string | null;
-  readonly save: (entry: DraftEntry<T>) => Promise<DraftAnswer<T>>;
+  readonly save: (attempt: DraftAttempt<T>) => Promise<DraftAnswer<T>>;
 }
 
-/** Serializes writes per object and keeps the latest desired edit on failure. */
+/** What survives a reload of an edit the server has not confirmed. */
+export interface KeptDraft<T> {
+  readonly href: string;
+  readonly label: string;
+  readonly base: T;
+  readonly draft: T;
+  readonly pending: DraftOperation<T> | null;
+}
+
+/** The browser storage of the account's unconfirmed edits. */
+export interface DraftJournal<T> {
+  readonly read: (id: string) => Promise<KeptDraft<T> | null>;
+  readonly keep: (id: string, kept: KeptDraft<T>) => void;
+  readonly drop: (id: string) => void;
+}
+
+/**
+ * Serializes writes per object and keeps the latest desired edit on failure.
+ *
+ * @remarks
+ * A write keeps its operation ID until the server confirmed or refused it.
+ * When the answer is lost, the same write is sent again with the same ID,
+ * automatically and before any later edit, so the server never applies it
+ * twice and never mistakes it for somebody else's change. With a journal,
+ * every edit the server has not confirmed is also kept in the browser.
+ */
 export class DraftQueue<T> {
   private readonly adapter: DraftAdapter<T>;
+  private readonly journal: DraftJournal<T> | null;
   private readonly entries = new Map<string, DraftEntry<T>>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly retryTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+  private readonly retryCounts = new Map<string, number>();
   private readonly requested = new Set<string>();
   private readonly listeners = new Set<() => void>();
   private version = 0;
   private isActive = true;
 
   /** Creates an isolated queue; no state is shared between SSR requests. */
-  public constructor(adapter: DraftAdapter<T>) {
+  public constructor(
+    adapter: DraftAdapter<T>,
+    journal: DraftJournal<T> | null = null,
+  ) {
     this.adapter = adapter;
+    this.journal = journal;
   }
 
   /** Subscribes React to immutable entry replacements. */
@@ -60,6 +118,7 @@ export class DraftQueue<T> {
     this.isActive = isActive;
     if (!isActive) {
       for (const id of this.timers.keys()) this.clearTimer(id);
+      for (const id of this.retryTimers.keys()) this.clearRetry(id);
       this.requested.clear();
     }
   }
@@ -82,11 +141,55 @@ export class DraftQueue<T> {
       error: null,
       hasChanges: false,
       hasEdited: false,
-      hasUnconfirmedWrite: false,
+      pending: null,
       isSaving: false,
     };
     this.entries.set(input.id, entry);
     return entry;
+  }
+
+  /**
+   * Takes over an edit the browser kept from an earlier document, such as before a reload.
+   *
+   * @param id - The opened object.
+   * @returns The kept draft when it was taken over, otherwise `null`.
+   *
+   * @remarks
+   * Nothing happens once the object was edited in this document. A kept
+   * unconfirmed write is sent again with its operation ID; a kept draft is
+   * saved like a new edit, against the revision it started from, so a newer
+   * saved version shows as a conflict instead of being overwritten.
+   */
+  public async recover(id: string): Promise<T | null> {
+    if (!this.journal) return null;
+    const kept = await this.journal.read(id);
+    const entry = this.entries.get(id);
+    if (!kept || !entry || entry.hasEdited || !this.isActive) return null;
+    if (!kept.pending && this.adapter.equal(entry.base, kept.draft)) {
+      this.journal.drop(id);
+      return null;
+    }
+    this.replace({
+      ...entry,
+      href: kept.href,
+      label: kept.label,
+      base: kept.base,
+      draft: kept.draft,
+      pending: kept.pending,
+      error: this.adapter.validate(kept.draft),
+      hasChanges: true,
+      hasEdited: true,
+    });
+    if (kept.pending || this.adapter.delay !== null) this.save(id);
+    return kept.draft;
+  }
+
+  /** Sends every unconfirmed write again now, for example when the browser is back online. */
+  public retryUnconfirmed(): void {
+    for (const entry of this.entries.values()) {
+      if (entry.pending && !entry.isSaving && !entry.current)
+        this.save(entry.id);
+    }
   }
 
   /** Returns every edited object for the global save indicator. */
@@ -102,7 +205,7 @@ export class DraftQueue<T> {
       draft,
       error: entry.current ? entry.error : this.adapter.validate(draft),
       hasChanges:
-        entry.hasUnconfirmedWrite || !this.adapter.equal(entry.base, draft),
+        entry.pending !== null || !this.adapter.equal(entry.base, draft),
       hasEdited: true,
     });
     this.clearTimer(id);
@@ -118,25 +221,31 @@ export class DraftQueue<T> {
   public save(id: string): void {
     if (!this.isActive) return;
     this.clearTimer(id);
+    this.clearRetry(id);
     const entry = this.require(id);
     if (entry.isSaving) {
       this.requested.add(id);
       return;
     }
     if (entry.current || !entry.hasChanges) return;
-    const error = this.adapter.validate(entry.draft);
-    if (error) {
-      this.replace({ ...entry, error });
-      return;
-    }
+    const operation = entry.pending ?? this.nextOperation(entry);
+    if (!operation) return;
+    // The earlier write is settled first; the latest edit follows it.
+    if (!this.adapter.equal(operation.draft, entry.draft))
+      this.requested.add(id);
     const sent = { ...entry, sequence: entry.sequence + 1 };
     this.replace({
       ...sent,
       error: null,
       isSaving: true,
-      hasUnconfirmedWrite: true,
+      pending: operation,
     });
-    void this.write(sent);
+    void this.write({
+      ...operation,
+      id,
+      streamId: sent.streamId,
+      sequence: sent.sequence,
+    });
   }
 
   /** Resolves a conflict explicitly, retaining or discarding the local edit. */
@@ -151,7 +260,7 @@ export class DraftQueue<T> {
       draft,
       error: null,
       hasChanges: !this.adapter.equal(entry.current, draft),
-      hasUnconfirmedWrite: false,
+      pending: null,
     });
     if (choice === "mine") this.save(id);
   }
@@ -159,33 +268,42 @@ export class DraftQueue<T> {
   /** Adopts confirmed loader data only while no local work is outstanding. */
   public adopt(id: string, saved: T): boolean {
     const entry = this.require(id);
-    if (entry.hasChanges || entry.isSaving || entry.current) return false;
+    if (entry.hasChanges || entry.isSaving || entry.current || entry.pending)
+      return false;
     this.replace({ ...entry, base: saved, draft: saved, error: null });
     return true;
   }
 
-  private async write(sent: DraftEntry<T>): Promise<void> {
+  private nextOperation(entry: DraftEntry<T>): DraftOperation<T> | null {
+    const error = this.adapter.validate(entry.draft);
+    if (error) {
+      this.replace({ ...entry, error });
+      return null;
+    }
+    return {
+      operationId: createRandomUuid(),
+      base: entry.base,
+      draft: entry.draft,
+    };
+  }
+
+  private async write(attempt: DraftAttempt<T>): Promise<void> {
     let answer: DraftAnswer<T>;
     try {
-      answer = await this.adapter.save(sent);
+      answer = await this.adapter.save(attempt);
     } catch (error: unknown) {
       console.warn("Pages could not confirm a background save.", error);
       answer = { error: "connection", ok: false };
     }
-    const latest = this.require(sent.id);
+    const latest = this.require(attempt.id);
     if (!this.isActive) return;
-    const shouldContinue = this.requested.delete(sent.id);
+    const shouldContinue = this.requested.delete(attempt.id);
     if (!answer.ok) {
-      this.clearTimer(sent.id);
-      this.replace({
-        ...latest,
-        current: answer.current,
-        error: answer.error,
-        isSaving: false,
-      });
+      this.settleFailure(latest, answer);
       return;
     }
-    const draft = this.adapter.equal(latest.draft, sent.draft)
+    this.retryCounts.delete(attempt.id);
+    const draft = this.adapter.equal(latest.draft, attempt.draft)
       ? answer.saved
       : latest.draft;
     const hasChanges = !this.adapter.equal(answer.saved, draft);
@@ -195,12 +313,38 @@ export class DraftQueue<T> {
       draft,
       error: this.adapter.validate(draft),
       hasChanges,
-      hasUnconfirmedWrite: false,
+      pending: null,
       isSaving: false,
     });
     if (hasChanges && (shouldContinue || this.adapter.delay !== null)) {
-      this.save(sent.id);
+      this.save(attempt.id);
     }
+  }
+
+  /** Keeps a write whose outcome is unknown and sends it again later. */
+  private settleFailure(
+    latest: DraftEntry<T>,
+    answer: { readonly error: string; readonly current?: T },
+  ): void {
+    this.clearTimer(latest.id);
+    const isUnconfirmed = UNCONFIRMED_ERRORS.has(answer.error);
+    this.replace({
+      ...latest,
+      current: answer.current,
+      error: answer.error,
+      isSaving: false,
+      pending: isUnconfirmed ? latest.pending : null,
+    });
+    if (!isUnconfirmed) return;
+    const count = (this.retryCounts.get(latest.id) ?? 0) + 1;
+    this.retryCounts.set(latest.id, count);
+    this.retryTimers.set(
+      latest.id,
+      setTimeout(
+        () => this.save(latest.id),
+        Math.min(MAX_RETRY_DELAY_MS, 1000 * 2 ** count),
+      ),
+    );
   }
 
   private require(id: string): DraftEntry<T> {
@@ -212,11 +356,33 @@ export class DraftQueue<T> {
   private replace(entry: DraftEntry<T>): void {
     this.entries.set(entry.id, entry);
     this.version += 1;
+    this.record(entry);
     for (const listener of this.listeners) listener();
+  }
+
+  /** Keeps what the server has not confirmed and forgets what it has. */
+  private record(entry: DraftEntry<T>): void {
+    if (!this.journal || !entry.hasEdited || !this.isActive) return;
+    if (entry.hasChanges || entry.pending || entry.current) {
+      this.journal.keep(entry.id, {
+        href: entry.href,
+        label: entry.label,
+        base: entry.base,
+        draft: entry.draft,
+        pending: entry.pending,
+      });
+    } else {
+      this.journal.drop(entry.id);
+    }
   }
 
   private clearTimer(id: string): void {
     clearTimeout(this.timers.get(id));
     this.timers.delete(id);
+  }
+
+  private clearRetry(id: string): void {
+    clearTimeout(this.retryTimers.get(id));
+    this.retryTimers.delete(id);
   }
 }

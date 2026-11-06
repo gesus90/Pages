@@ -7,71 +7,85 @@ import { ProjectsToolbar } from "@/app/components/projects/overview/projects-too
 import { ArchivedProjectsContent } from "@/app/components/projects/overview/archived-projects-content";
 import { SegmentedControl } from "@/app/components/ui/segmented-control";
 import { useProjectListView } from "@/app/components/projects/overview/use-project-list-view";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { handleProjectOverviewAction } from "@/app/lib/project-overview-actions.server";
-import { getApplicationServices } from "@/app/lib/services.server";
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
+import {
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 
-import type { ProjectActionResponse } from "@/app/lib/project-overview-actions.server";
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { Project } from "@/definition/Project";
 import type { ProjectTemplate } from "@/definition/Project";
 import type { ProjectDepartmentChoices } from "@/definition/Project";
 import type { Route } from "./+types/projects";
 
-interface ProjectsLoaderData {
+/** The overview as its endpoint answers it. */
+export interface ProjectsLoaderData {
   readonly templates: readonly ProjectTemplate[];
   readonly archivedProjects: readonly Project[];
   readonly canDeleteProjects: boolean;
   readonly canManageProjects: boolean;
   readonly projects: readonly Project[];
   readonly departmentChoices: ProjectDepartmentChoices;
+  readonly audience: LocalStateAudience;
 }
 
-/** Loads projects from the database for server-side rendering. */
-export async function loader({
-  context,
-}: Route.LoaderArgs): Promise<ProjectsLoaderData> {
-  const actor = context.get(authenticatedUserContext);
-
-  if (!actor) {
-    throw new Error("Authenticated middleware did not provide a user.");
-  }
-
-  const services = await getApplicationServices();
-  const projects = await services.projectService.findAll(actor);
-
-  return {
-    templates: await services.projectService.findTemplates(actor),
-    archivedProjects: await services.projectService.findArchived(actor),
-    canDeleteProjects: await services.projectService.canDeleteProjects(actor),
-    canManageProjects: await services.projectService.canCreateProjects(actor),
-    projects,
-    departmentChoices: await services.projectService.departmentChoices(actor),
-  };
+function isProjectsLoaderData(value: unknown): value is ProjectsLoaderData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "projects" in value &&
+    Array.isArray(value.projects) &&
+    "archivedProjects" in value &&
+    Array.isArray(value.archivedProjects) &&
+    "templates" in value &&
+    Array.isArray(value.templates) &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
+  );
 }
 
-/** Creates projects through the persistent service layer. */
-export async function action({
-  context,
+/** The project overview, kept per account, rights and address. */
+const PROJECTS_PAGE_STATE: LocalStateRouteKind<ProjectsLoaderData> = {
+  schemaVersion: 1,
+  isPayload: isProjectsLoaderData,
+  isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
+  ownerOf: (page) => page.audience.userId,
+  isRefused: () => false,
+};
+
+/**
+ * Opens the overview from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint runs the server loader with its permission checks.
+ */
+export async function clientLoader({
   request,
-}: Route.ActionArgs): Promise<ProjectActionResponse> {
-  if (request.method !== "POST") {
-    throw new Response("Method Not Allowed", {
-      headers: { Allow: "POST" },
-      status: 405,
-    });
-  }
+}: Route.ClientLoaderArgs): Promise<WithLocalState<ProjectsLoaderData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), PROJECTS_PAGE_STATE, () =>
+    readRouteData({
+      endpoint: `/projekte-api/list${url.search}`,
+      signal: request.signal,
+      isPayload: isProjectsLoaderData,
+    }),
+  );
+}
 
-  const actor = context.get(authenticatedUserContext);
-
-  if (!actor) {
-    throw new Response("Forbidden", { status: 403 });
-  }
-
-  const formData = await request.formData();
-  const intent = formData.get("intent");
-  const services = await getApplicationServices();
-
-  return handleProjectOverviewAction(intent, { actor, formData, services });
+/** Sends a change of the overview to the API, which runs the overview's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Renders the responsive, database-backed project overview. */
@@ -84,7 +98,10 @@ export default function ProjectsRoute(): React.ReactElement {
     archivedProjects,
     canDeleteProjects,
     templates,
-  } = useLoaderData<typeof loader>();
+  } = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    PROJECTS_PAGE_STATE,
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const isArchive = searchParams.get("archiv") === "1";
   const listView = useProjectListView(isArchive ? archivedProjects : projects);

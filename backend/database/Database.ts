@@ -1,38 +1,34 @@
-import { mkdir } from "node:fs/promises";
-import path from "node:path";
-
-import { shutdownProcess } from "@/backend/runtime/ProcessLifecycle";
 import {
   recordDatabaseTransaction,
   withDatabaseLogMetrics,
 } from "@/backend/logging/DatabaseLogMetrics";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { AgentPayloadFileStore } from "@/backend/storage/AgentPayloadFileStore";
 
-import { DatabaseExecutor } from "./executor/DatabaseExecutor";
 import { postgresErrorCode } from "./postgres/PostgresConnection";
 import { PostgresExecutor } from "./postgres/PostgresExecutor";
 import { requireByteOrderedDatabase } from "./postgres/PostgresLocale";
 import { DatabaseOutcomeUnknownError } from "./executor/DatabaseExecutorErrors";
 import { currentReadScope, readScopeKey, statementKind } from "./ReadScope";
+import { CallTransaction, currentCall, runInCall } from "./CallTransaction";
 import {
   createMigrationChecksum,
   MigrationChecksumError,
   UnknownMigrationError,
 } from "./Migration";
 import { readTextColumn } from "./RowValue";
-import { sqlForDialect } from "./DatabaseDialect";
 
 import type {
   DatabaseExecutorStatus,
   WriterSession,
-} from "./executor/DatabaseExecutor";
+} from "./DatabaseExecutorTypes";
 import type { DatabaseLogSummary } from "@/backend/logging/DatabaseLogMetrics";
-import type { DatabaseDialect, DialectSql } from "./DatabaseDialect";
 import type { DatabaseEngine } from "./DatabaseEngine";
 import type { Migration } from "./Migration";
+import type { CallTransactionHost } from "./CallTransaction";
 import type { ReadScope } from "./ReadScope";
 
-/** A single column value as returned by DuckDB. */
+/** A single column value returned by the database. */
 export type DatabaseValue = string | number | bigint | Buffer | null;
 
 /** Named values bound to a parameterized statement. */
@@ -49,14 +45,12 @@ export type SqlParameters = Readonly<
  * @returns Whether `error` is such a violation.
  *
  * @remarks
- * DuckDB reports the offending key as `Duplicate key "column: value"`, so the
- * message is the only place that names the column. PostgreSQL names it in the
+ * PostgreSQL names the rejected key in the
  * detail of the error, as `Key (column)=(value)`, or `Key (column, other)=…`
  * for a key of several columns.
  */
 export function isUniqueViolationOn(error: unknown, column: string): boolean {
   if (!(error instanceof Error)) return false;
-  if (error.message.includes(`Duplicate key "${column}: `)) return true;
   return (
     "code" in error &&
     error.code === POSTGRES_UNIQUE_VIOLATION &&
@@ -70,35 +64,20 @@ export function isUniqueViolationOn(error: unknown, column: string): boolean {
 /** SQLSTATE of a rejected duplicate in a UNIQUE or PRIMARY KEY constraint. */
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 
-/** Database path that opens a private in-memory database. */
-export const IN_MEMORY_DATABASE_PATH = ":memory:";
+const MIGRATIONS_TABLE = "postgres_schema_migrations";
 
-/** PostgreSQL keeps its own table, so a copied DuckDB table never counts as applied. */
-const MIGRATIONS_TABLE: Readonly<Record<DatabaseDialect, string>> = {
-  duckdb: "schema_migrations",
-  postgres: "postgres_schema_migrations",
-};
-
-/** PostgreSQL has no `utc_now()` yet when this runs: its first migration creates it. */
-const CREATE_MIGRATIONS_TABLE: DialectSql = {
-  duckdb: `
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-        name TEXT PRIMARY KEY,
-        checksum TEXT NOT NULL,
-        applied_at TEXT NOT NULL DEFAULT utc_now()
-    );
-  `,
-  postgres: `
+const CREATE_MIGRATIONS_TABLE = `
     CREATE TABLE IF NOT EXISTS postgres_schema_migrations (
         name TEXT PRIMARY KEY,
         checksum TEXT NOT NULL,
         applied_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
     );
-  `,
-};
+`;
 
 /** Statement access that is bound to one open transaction. */
 export interface DatabaseTransaction {
+  /** Private payload storage shared by every transaction of this instance. */
+  readonly agentFiles?: AgentPayloadFileStore;
   /** Schedules a file effect only after the outermost transaction committed. */
   readonly onCommit?: (effect: () => Promise<void>) => void;
   /** Restores prepared files when the outermost transaction rolls back. */
@@ -112,68 +91,57 @@ export interface DatabaseTransaction {
   ): Promise<readonly DatabaseValue[][]>;
 }
 
-/**
- * Provides the central server-side database access.
- *
- * @remarks
- * DuckDB allows one writing process per database file. A single worker
- * process owns the instance (see `executor/DatabaseWorker.ts` and
- * `docs/DatabaseExecutor.md`): changes and transactions queue for its one
- * writer connection, so a transaction keeps the writer until it finished and
- * no other request can join it. Reads run on reader connections of the same
- * instance and see the last committed state, so a long write never holds
- * them back. {@link Database.connect} opens PostgreSQL instead, behind the same
- * methods (see `postgres/PostgresExecutor.ts`); DuckDB stays the default until
- * the switch.
- */
+/** What a call hands to its finishing step, inside its still open transaction. */
+export interface CallCompletion<Result> {
+  readonly transaction: DatabaseTransaction;
+  readonly result: Result;
+  /** Whether the call runs inside another call, whose commit it waits for. */
+  readonly isNested: boolean;
+}
+
+/** When a call takes the writer. */
+export interface CallOptions {
+  /**
+   * Opens the transaction at the first write instead of at the start; reads
+   * before it, and work such as receiving an upload, do not hold the writer.
+   */
+  readonly opensAtFirstWrite?: boolean;
+}
+
+/** Provides central server-side access through the PostgreSQL pool. */
 export class Database {
+  /** Instance-owned file storage; no caller supplies a storage path. */
+  public readonly agentFiles?: AgentPayloadFileStore;
   private readonly executor: DatabaseEngine;
-  private readonly engineDialect: DatabaseDialect;
   /** Counts finished writes, so a read scope knows when its answers ended. */
   private writes = 0;
+  private canCollectPayloads = false;
+  /** Opens the writer transaction of a call without routing it into the call. */
+  private readonly callHost: CallTransactionHost = {
+    runTransaction: (work) => this.ownTransaction(work),
+  };
 
-  private constructor(executor: DatabaseEngine, dialect: DatabaseDialect) {
+  private constructor(executor: DatabaseEngine, directory?: string) {
     this.executor = executor;
-    this.engineDialect = dialect;
-  }
-
-  /**
-   * Opens a DuckDB database, creating its parent directory when needed.
-   *
-   * @param databasePath - File system path, or {@link IN_MEMORY_DATABASE_PATH}.
-   * @returns An open database.
-   */
-  public static async create(databasePath: string): Promise<Database> {
-    return withDatabaseLogMetrics(async (metrics) => {
-      if (databasePath !== IN_MEMORY_DATABASE_PATH) {
-        await mkdir(path.dirname(databasePath), { recursive: true });
-      }
-
-      const executor = await DatabaseExecutor.start(
-        databasePath,
-        requireUsableDatabase,
-      );
-      logEvent({
-        level: "info",
-        event: "database.opened",
-        component: "Database",
-        message: "DuckDB connection initialized",
-        metadata: { ...metrics.finish() },
-      });
-
-      return new Database(executor, "duckdb");
-    });
+    this.agentFiles =
+      directory === undefined
+        ? undefined
+        : new AgentPayloadFileStore(directory);
   }
 
   /**
    * Opens a PostgreSQL database through a connection pool.
    *
    * @param databaseUrl - The connection URL; it never reaches a log line.
+   * @param directory - Configured instance data directory, required for new agent payloads.
    * @returns An open database.
    * @throws The error of the driver or server when no connection opens.
    * @throws {PostgresLocaleError} When the database sorts text differently from DuckDB.
    */
-  public static async connect(databaseUrl: string): Promise<Database> {
+  public static async connect(
+    databaseUrl: string,
+    directory?: string,
+  ): Promise<Database> {
     return withDatabaseLogMetrics(async (metrics) => {
       const executor = await startPostgres(databaseUrl);
       logEvent({
@@ -184,35 +152,18 @@ export class Database {
         metadata: { ...metrics.finish() },
       });
 
-      return new Database(executor, "postgres");
+      return new Database(executor, directory);
     });
   }
 
-  /** The SQL dialect of this database, see `DatabaseDialect.ts`. */
-  public get dialect(): DatabaseDialect {
-    return this.engineDialect;
-  }
-
-  /**
-   * Checkpoints pending WAL changes with a live client before releasing the database.
-   *
-   * @remarks
-   * DuckDB 1.5.5 can otherwise persist stale secondary indexes in its implicit
-   * shutdown checkpoint. The worker checkpoints with its writer connection
-   * after every accepted change finished or, past the drain limit of the
-   * executor, was rolled back. A failed checkpoint is surfaced; it never implies
-   * cleanup.
-   */
+  /** Releases the connection pool after accepted work finishes. */
   public async close(): Promise<void> {
     await this.executor.close();
     logEvent({
       level: "info",
       event: "database.closed",
       component: "Database",
-      message:
-        this.engineDialect === "duckdb"
-          ? "DuckDB connection closed"
-          : "PostgreSQL connection pool closed",
+      message: "PostgreSQL connection pool closed",
     });
   }
 
@@ -224,17 +175,14 @@ export class Database {
   /**
    * Applies every migration that the database has not seen yet.
    *
-   * @param migrations - All known migrations of this dialect, see
-   * `migrationsFor`; they run in name order.
+   * @param migrations - All known PostgreSQL migrations; they run in name order.
    * @throws {MigrationChecksumError} When an applied migration was edited.
    * @throws {UnknownMigrationError} When the database is ahead of the code.
    * @throws When a migration fails; it is rolled back completely.
    */
   public async migrate(migrations: readonly Migration[]): Promise<void> {
     return withDatabaseLogMetrics(async (metrics) => {
-      await this.execute(
-        sqlForDialect(this.engineDialect, CREATE_MIGRATIONS_TABLE),
-      );
+      await this.execute(CREATE_MIGRATIONS_TABLE);
 
       const appliedChecksums = await this.readAppliedChecksums();
       const knownNames = new Set(migrations.map((migration) => migration.name));
@@ -262,12 +210,6 @@ export class Database {
         }
       }
 
-      // DuckDB cannot replay an ALTER TABLE on a table whose defaults call
-      // utc_now() from the write-ahead log; writing the schema change into the
-      // file right away keeps a later unclean stop from leaving such a log.
-      if (appliedCount > 0 && this.engineDialect === "duckdb") {
-        await this.execute("CHECKPOINT;");
-      }
       logEvent({
         level: "info",
         event: "database.migrations.completed",
@@ -275,6 +217,8 @@ export class Database {
         message: "Database migrations verified",
         metadata: { count: appliedCount, ...metrics.finish() },
       });
+      this.canCollectPayloads = knownNames.has("011_agent_payload_files.sql");
+      if (this.canCollectPayloads) await this.agentFiles?.collectGarbage(this);
     });
   }
 
@@ -289,7 +233,12 @@ export class Database {
     statement: string,
     parameters: SqlParameters = {},
   ): Promise<void> {
-    await this.write((writer) => writer.run(statement, parameters, "execute"));
+    const call = currentCall(this.callHost);
+    if (call) {
+      await (await call.open()).execute(statement, parameters);
+      return;
+    }
+    await this.writeStatement(statement, parameters, "execute");
   }
 
   /**
@@ -304,8 +253,11 @@ export class Database {
     parameters: SqlParameters = {},
   ): Promise<readonly DatabaseValue[][]> {
     const kind = statementKind(statement);
+    const call = currentCall(this.callHost);
+    if (call && (call.isOpen || kind === "write"))
+      return (await call.open()).query(statement, parameters);
     if (kind === "write")
-      return this.write((writer) => writer.run(statement, parameters, "rows"));
+      return this.writeStatement(statement, parameters, "rows");
     const scope = kind === "repeatable" ? currentReadScope() : undefined;
     const key = scope ? readScopeKey(statement, parameters) : null;
     if (!scope || key === null)
@@ -331,20 +283,66 @@ export class Database {
   public async transaction<Result>(
     work: (transaction: DatabaseTransaction) => Promise<Result>,
   ): Promise<Result> {
-    const scope = currentReadScope();
-    return this.executor.write(async (writer) => {
-      const progress: TransactionProgress = {
-        scope,
-        epoch: this.writes,
-        hasWritten: false,
-      };
-      try {
-        return await runInTransaction(writer, work, progress);
-      } finally {
-        // A transaction that only read leaves every remembered answer valid.
-        if (progress.hasWritten) this.writes += 1;
-      }
-    });
+    const call = currentCall(this.callHost);
+    if (call) return savepointTransaction(call, work);
+    return this.ownTransaction(work);
+  }
+
+  /**
+   * Runs a call as one transaction and finishes it before the commit.
+   *
+   * @param work - The call; its statements, nested transactions and reads
+   * after the opening join the transaction.
+   * @param finish - Runs in the open transaction after `work`, for example to
+   * store the events of what `work` changed; it does not run when the call
+   * never opened.
+   * @param options - When the call takes the writer.
+   * @returns Whatever `work` returns, once the call committed.
+   * @throws Whatever `work` or `finish` throws, after the call rolled back.
+   *
+   * @remarks
+   * A call inside another call joins it and commits with it. Effects kept
+   * with `afterCallCommit` run after the commit and are dropped on a
+   * rollback.
+   */
+  public async runCall<Result>(
+    work: () => Promise<Result>,
+    finish: (completion: CallCompletion<Result>) => Promise<void>,
+    options: CallOptions = {},
+  ): Promise<Result> {
+    const active = currentCall(this.callHost);
+    if (active) {
+      const result = await work();
+      if (active.isOpen)
+        await finish({
+          transaction: await active.open(),
+          result,
+          isNested: true,
+        });
+      return result;
+    }
+    const call = new CallTransaction(this.callHost);
+    let result: Result;
+    try {
+      result = await runInCall(call, async () => {
+        if (!options.opensAtFirstWrite) await call.open();
+        const value = await work();
+        if (call.isOpen)
+          await finish({
+            transaction: await call.open(),
+            result: value,
+            isNested: false,
+          });
+        return value;
+      });
+    } catch (error: unknown) {
+      await call.end(
+        error instanceof Error ? error : new Error("The call failed."),
+      );
+      throw error;
+    }
+    await call.end(null);
+    return result;
   }
 
   /**
@@ -364,10 +362,13 @@ export class Database {
   public async readTransaction<Result>(
     work: (transaction: DatabaseTransaction) => Promise<Result>,
   ): Promise<Result> {
+    const call = currentCall(this.callHost);
+    if (call?.isOpen) return work(readOnlyAccess(await call.open()));
     const scope = currentReadScope();
     return this.executor.readSession((session) => {
       const epoch = this.writes;
       return work({
+        agentFiles: this.agentFiles,
         execute: () =>
           Promise.reject(new Error("A read transaction cannot change data.")),
         query: async (statement, parameters = {}) => {
@@ -388,6 +389,41 @@ export class Database {
     });
   }
 
+  /** Runs one transaction as a writer job of its own. */
+  private async ownTransaction<Result>(
+    work: (transaction: DatabaseTransaction) => Promise<Result>,
+  ): Promise<Result> {
+    const result = await this.executor.write(async (writer) => {
+      const progress: TransactionProgress = {
+        scope: undefined,
+        epoch: this.writes,
+        hasWritten: false,
+      };
+      try {
+        return await runInTransaction(
+          writer,
+          (transaction) =>
+            work({ ...transaction, agentFiles: this.agentFiles }),
+          progress,
+        );
+      } finally {
+        // A transaction that only read leaves every remembered answer valid.
+        if (progress.hasWritten) this.writes += 1;
+      }
+    });
+    if (this.canCollectPayloads) await this.agentFiles?.collectGarbage(this);
+    return result;
+  }
+
+  /** Runs one changing statement as a writer job of its own. */
+  private async writeStatement(
+    statement: string,
+    parameters: SqlParameters,
+    mode: "execute" | "rows",
+  ): Promise<readonly DatabaseValue[][]> {
+    return this.write((writer) => writer.run(statement, parameters, mode));
+  }
+
   /** Runs a change as one writer job and counts it before the next job starts. */
   private write<Result>(
     work: (writer: WriterSession) => Promise<Result>,
@@ -403,7 +439,7 @@ export class Database {
 
   private async readAppliedChecksums(): Promise<ReadonlyMap<string, string>> {
     const rows = await this.query(
-      `SELECT name, checksum FROM ${MIGRATIONS_TABLE[this.engineDialect]} ORDER BY name;`,
+      `SELECT name, checksum FROM ${MIGRATIONS_TABLE} ORDER BY name;`,
     );
 
     return new Map(
@@ -426,7 +462,7 @@ export class Database {
         await transaction.execute(migration.sql);
         await transaction.execute(
           `
-            INSERT INTO ${MIGRATIONS_TABLE[this.engineDialect]} (
+            INSERT INTO ${MIGRATIONS_TABLE} (
                 name,
                 checksum
             )
@@ -599,6 +635,63 @@ async function runInTransaction<Result>(
   });
 }
 
+/**
+ * Runs a transaction of a call as a savepoint of the call's transaction.
+ *
+ * @remarks
+ * A failing nested transaction rolls back only its own statements and runs
+ * only its own rollback effects, as it did as a transaction of its own; its
+ * commit effects and the effects kept for the call's commit are dropped. A
+ * released one hands its commit and rollback effects to the call, so they
+ * wait for the call's commit or rollback.
+ */
+async function savepointTransaction<Result>(
+  call: CallTransaction,
+  work: (transaction: DatabaseTransaction) => Promise<Result>,
+): Promise<Result> {
+  const transaction = await call.open();
+  const name = call.nextSavepoint();
+  const commitEffects: (() => Promise<void>)[] = [];
+  const rollbackEffects: (() => Promise<void>)[] = [];
+  await transaction.execute(`SAVEPOINT ${name};`);
+  call.beginNested();
+  try {
+    const result = await work({
+      ...transaction,
+      onCommit: (effect) => {
+        commitEffects.push(effect);
+      },
+      onRollback: (effect) => {
+        rollbackEffects.push(effect);
+      },
+    });
+    await transaction.execute(`RELEASE SAVEPOINT ${name};`);
+    call.endNested(true);
+    for (const effect of commitEffects) transaction.onCommit?.(effect);
+    for (const effect of rollbackEffects) transaction.onRollback?.(effect);
+    return result;
+  } catch (error: unknown) {
+    call.endNested(false);
+    await transaction.execute(`ROLLBACK TO SAVEPOINT ${name};`);
+    await finishFileEffects(rollbackEffects.reverse());
+    throw error;
+  }
+}
+
+/** Read access of a call's transaction that refuses every change. */
+function readOnlyAccess(transaction: DatabaseTransaction): DatabaseTransaction {
+  const refusal = (): Promise<never> =>
+    Promise.reject(new Error("A read transaction cannot change data."));
+  return {
+    agentFiles: transaction.agentFiles,
+    execute: refusal,
+    query: async (statement, parameters = {}) => {
+      if (statementKind(statement) === "write") return refusal();
+      return transaction.query(statement, parameters);
+    },
+  };
+}
+
 async function finishFileEffects(
   effects: readonly (() => Promise<void>)[],
 ): Promise<void> {
@@ -649,17 +742,4 @@ async function rollBack(writer: WriterSession): Promise<void> {
   } catch (error: unknown) {
     logCaughtError("Database", error);
   }
-}
-
-/**
- * Ends the process when DuckDB invalidated the database.
- *
- * @remarks
- * DuckDB refuses every later statement and must be opened by a new process.
- * Staying alive would leave Pages answering without a usable database; the
- * explicit fatal exit lets the service manager start it again, and the
- * startup recovery records interrupted work as resumable.
- */
-function requireUsableDatabase(error: Error): void {
-  void shutdownProcess(1, "database_invalidated", error);
 }

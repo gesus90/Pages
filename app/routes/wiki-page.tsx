@@ -1,18 +1,25 @@
-import { redirect, useLoaderData, useRouteLoaderData } from "react-router";
+import { useLoaderData } from "react-router";
 import { useTranslation } from "react-i18next";
 
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
+import { useWikiShell } from "@/app/components/wiki/use-wiki-shell";
 import { WikiPageScreen } from "@/app/components/wiki/wiki-page-screen";
 import { WikiPrivatePlaceholderView } from "@/app/components/wiki/wiki-private-placeholder";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { readWikiRequest } from "@/app/lib/wiki-actions/wiki-action-support.server";
-import { handleWikiPageAction } from "@/app/lib/wiki-actions/wiki-page-actions.server";
-import { slugifyTitle, wikiPagePath } from "@/app/lib/wiki-tree";
-import { WikiPageNotFoundError } from "@/backend/error/WikiErrors";
-import { logCaughtError } from "@/backend/logging/Logger";
+import {
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { WikiAttachmentEntry } from "@/app/components/wiki/wiki-attachments-view";
-import type { WikiActionOutcome } from "@/app/lib/wiki-actions/wiki-action-support.server";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type {
   WikiAnchorChoices,
   WikiBacklinks,
@@ -20,10 +27,9 @@ import type {
   WikiPageView,
   WikiPrivatePlaceholder,
 } from "@/definition/Wiki";
-import type { loader as wikiLoader } from "./wiki";
 import type { Route } from "./+types/wiki-page";
 
-type WikiPageLoaderData =
+type WikiPageAnswer =
   | {
       readonly kind: "page";
       readonly view: WikiPageView;
@@ -45,77 +51,73 @@ type WikiPageLoaderData =
     }
   | { readonly kind: "notFound" };
 
-/**
- * Loads a page by its identifier.
- *
- * @remarks
- * A missing page and a page the account may not see answer alike. A slug in
- * the address that no longer fits the title is replaced by the current one.
- */
-export async function loader({
-  context,
-  params,
-}: Route.LoaderArgs): Promise<WikiPageLoaderData> {
-  const actor = context.get(authenticatedUserContext);
+/** A wiki page as its endpoint answers it. */
+export type WikiPageLoaderData = WikiPageAnswer & {
+  readonly audience: LocalStateAudience;
+};
 
-  if (!actor) {
-    throw new Error("Authenticated middleware did not provide a user.");
-  }
-
-  const { wikiService } = await getApplicationServices();
-
-  try {
-    const result = await wikiService.read(actor, params.pageId);
-
-    if (result.kind === "placeholder") {
-      return { kind: "placeholder", placeholder: result.placeholder };
-    }
-
-    const { page } = result.view;
-
-    if (params.slug !== undefined && params.slug !== slugifyTitle(page.title)) {
-      throw redirect(wikiPagePath(page.id, page.title));
-    }
-
-    const [versions, anchorChoices, backlinks, attachments, comments] =
-      await Promise.all([
-        wikiService.listVersions(actor, page.id),
-        wikiService.anchorChoices(actor, page.id),
-        wikiService.backlinks(actor, page.id),
-        wikiService.listAttachments(actor, page.id),
-        wikiService.listComments(actor, page.id),
-      ]);
-
-    return {
-      anchorChoices,
-      attachments: attachments.map((attachment) => ({
-        ...attachment,
-        canRemove:
-          attachment.uploadedBy === actor.id ||
-          result.view.permissions.canManage,
-      })),
-      backlinks,
-      comments,
-      kind: "page",
-      versions,
-      view: result.view,
-    };
-  } catch (error: unknown) {
-    logCaughtError("wiki_page", error);
-
-    if (error instanceof WikiPageNotFoundError) {
-      return { kind: "notFound" };
-    }
-
-    throw error;
-  }
+function isWikiPageAnswer(value: object): boolean {
+  if (!("kind" in value)) return false;
+  if (value.kind === "notFound") return true;
+  if (value.kind === "placeholder")
+    return "placeholder" in value && typeof value.placeholder === "object";
+  return (
+    value.kind === "page" &&
+    "view" in value &&
+    typeof value.view === "object" &&
+    "versions" in value &&
+    Array.isArray(value.versions) &&
+    "attachments" in value &&
+    Array.isArray(value.attachments) &&
+    "comments" in value &&
+    Array.isArray(value.comments)
+  );
 }
 
-/** Changes one page: save, versions, anchors, owner and the review date. */
-export async function action(
-  args: Route.ActionArgs,
-): Promise<WikiActionOutcome> {
-  return handleWikiPageAction(await readWikiRequest(args, args.params.pageId));
+function isWikiPageLoaderData(value: unknown): value is WikiPageLoaderData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    isWikiPageAnswer(value) &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
+  );
+}
+
+/** A wiki page, kept per account, rights and address; a page the account may not see is not kept. */
+const WIKI_PAGE_STATE: LocalStateRouteKind<WikiPageLoaderData> = {
+  schemaVersion: 1,
+  isPayload: isWikiPageLoaderData,
+  isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
+  ownerOf: (page) => page.audience.userId,
+  isRefused: (page) => page.kind === "notFound",
+};
+
+/**
+ * Opens a page from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint runs the server loader with its permission checks; the
+ * address's page, slug and query reach it unchanged.
+ */
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<WikiPageLoaderData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), WIKI_PAGE_STATE, () =>
+    readRouteData({
+      endpoint: `/wiki-api/pages${url.pathname.slice("/wiki".length)}${url.search}`,
+      signal: request.signal,
+      isPayload: isWikiPageLoaderData,
+    }),
+  );
+}
+
+/** Sends a change of the page to the API, which runs the page's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Keeps the editor's loader data while autosave runs. */
@@ -132,8 +134,11 @@ export function shouldRevalidate({
 /** Renders a page, the placeholder of a private page, or the neutral notice. */
 export default function WikiPageRoute(): React.ReactElement {
   const { t } = useTranslation();
-  const loaderData = useLoaderData<typeof loader>();
-  const shell = useRouteLoaderData<typeof wikiLoader>("routes/wiki");
+  const loaderData = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    WIKI_PAGE_STATE,
+  );
+  const shell = useWikiShell();
 
   if (loaderData.kind === "placeholder") {
     return <WikiPrivatePlaceholderView placeholder={loaderData.placeholder} />;

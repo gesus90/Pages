@@ -1,5 +1,11 @@
+import type { PlanRunCommandReceipt } from "./PagesRuns.js";
 import type { AgentPlanIssueProblem } from "./AgentPlanIssueProblems.js";
-import type { AgentPlanWriterWait } from "./AgentPlanExecution.js";
+import type {
+  AgentPlanWriterWait,
+  AgentPlanExecutionTarget,
+  AgentPlanRemoteTarget,
+  AgentPlanStepExecution,
+} from "./AgentPlanExecution.js";
 import type { AgentWorkspaceCleanup } from "./AgentWorkspaceCleanup.js";
 import type { AgentPlanCompletionGate } from "./AgentPlanWork.js";
 import type { AgentPlanDiagnostic } from "./AgentPlanDiagnostics.js";
@@ -16,17 +22,11 @@ import type {
   AgentPlanRetry,
   AgentPlanRetryAttempt,
 } from "./AgentPlanRetry.js";
-export type { AgentPlanRecoveryEntry } from "./AgentPlanRecoveryEntry.js";
 import type {
   AgentPlanStartRejection,
   AgentPlanStartRejectionPage,
 } from "./AgentPlanStartRejection.js";
 import type { AgentReadChunk } from "./AgentReadChunks.js";
-import type {
-  AgentPlanExecutionTarget,
-  AgentPlanRemoteTarget,
-  AgentPlanStepExecution,
-} from "./AgentPlanExecution.js";
 import type { AgentParameter, AgentParameterValue } from "./AgentParameters.js";
 import type { PageAgentSharingEntry } from "./PageAgentOperations.js";
 
@@ -761,6 +761,8 @@ export type AgentPlanRecoveryCommandResult = AgentPlanRecoveryCommandIdentity &
 
 /** Journaled command acknowledgement; run contents always require a fresh private read. */
 export interface AgentPlanCommandResult {
+  /** Committed request, separate from the asynchronously observed run status. */
+  readonly command?: PlanRunCommandReceipt;
   readonly planId: string;
   readonly revision: number;
   readonly runId?: string;

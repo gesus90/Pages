@@ -1,62 +1,21 @@
-import { sqlForDialect } from "@/backend/database/DatabaseDialect";
-
 import type { Database, DatabaseValue } from "@/backend/database/Database";
-import type { DialectSql } from "@/backend/database/DatabaseDialect";
-
-/** The PostgreSQL column type behind each DuckDB type, see `docs/PostgresMigration.md`. */
-export const POSTGRES_TYPE_OF_DUCKDB_TYPE: Readonly<Record<string, string>> = {
-  VARCHAR: "text",
-  BIGINT: "bigint",
-  BOOLEAN: "boolean",
-  INTEGER: "integer",
-  DOUBLE: "double precision",
-  BLOB: "bytea",
-};
 
 const TIME_COLUMN_DEFAULT = "utc_now()";
 
-const TABLES: DialectSql = {
-  duckdb: `
-    SELECT table_name
-    FROM duckdb_tables()
-    WHERE NOT internal;
-  `,
-  postgres: `
+const TABLES = `
     SELECT table_name
     FROM information_schema.tables
     WHERE table_schema = 'public'
         AND table_type = 'BASE TABLE';
-  `,
-};
+  `;
 
-const VIEWS: DialectSql = {
-  duckdb: `
-    SELECT view_name
-    FROM duckdb_views()
-    WHERE NOT internal;
-  `,
-  postgres: `
+const VIEWS = `
     SELECT table_name
     FROM information_schema.views
     WHERE table_schema = 'public';
-  `,
-};
+  `;
 
-const COLUMNS: DialectSql = {
-  duckdb: `
-    SELECT
-        table_name,
-        column_name,
-        data_type,
-        is_nullable,
-        column_default
-    FROM duckdb_columns()
-    WHERE NOT internal
-    ORDER BY
-        table_name,
-        column_index;
-  `,
-  postgres: `
+const COLUMNS = `
     SELECT
         table_name,
         column_name,
@@ -68,19 +27,9 @@ const COLUMNS: DialectSql = {
     ORDER BY
         table_name,
         ordinal_position;
-  `,
-};
+  `;
 
-const CONSTRAINTS: DialectSql = {
-  duckdb: `
-    SELECT
-        table_name,
-        CASE constraint_type WHEN 'CHECK' THEN 'check' ELSE 'key' END,
-        constraint_text
-    FROM duckdb_constraints()
-    WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE', 'FOREIGN KEY', 'CHECK');
-  `,
-  postgres: `
+const CONSTRAINTS = `
     SELECT
         classes.relname,
         CASE constraints.contype WHEN 'c' THEN 'check' ELSE 'key' END,
@@ -92,18 +41,10 @@ const CONSTRAINTS: DialectSql = {
         ON namespaces.oid = classes.relnamespace
     WHERE namespaces.nspname = 'public'
         AND constraints.contype IN ('p', 'u', 'f', 'c');
-  `,
-};
+  `;
 
 /** PostgreSQL backs a key with an index of its own, DuckDB does not list one. */
-const INDEXES: DialectSql = {
-  duckdb: `
-    SELECT
-        index_name,
-        sql
-    FROM duckdb_indexes();
-  `,
-  postgres: `
+const INDEXES = `
     SELECT
         classes.relname,
         pg_get_indexdef(indexes.indexrelid)
@@ -117,21 +58,9 @@ const INDEXES: DialectSql = {
         AND constraints.contype IN ('p', 'u')
     WHERE namespaces.nspname = 'public'
         AND constraints.oid IS NULL;
-  `,
-};
+  `;
 
-const SEQUENCES: DialectSql = {
-  duckdb: `
-    SELECT
-        sequence_name,
-        start_value,
-        increment_by,
-        min_value,
-        max_value,
-        cycle
-    FROM duckdb_sequences();
-  `,
-  postgres: `
+const SEQUENCES = `
     SELECT
         sequencename,
         start_value,
@@ -141,8 +70,7 @@ const SEQUENCES: DialectSql = {
         cycle
     FROM pg_sequences
     WHERE schemaname = 'public';
-  `,
-};
+  `;
 
 /** One column as both catalogs can describe it. */
 export interface ColumnShape {
@@ -201,7 +129,6 @@ function normalizeDefault(
 
 function columnsByTable(
   rows: readonly DatabaseValue[][],
-  dialect: Database["dialect"],
 ): ReadonlyMap<string, readonly ColumnShape[]> {
   const found = new Map<string, ColumnShape[]>();
   for (const row of rows) {
@@ -209,10 +136,7 @@ function columnsByTable(
     const type = cellText(row[2]);
     const column: ColumnShape = {
       name: cellText(row[1]),
-      type:
-        dialect === "duckdb"
-          ? (POSTGRES_TYPE_OF_DUCKDB_TYPE[type] ?? type)
-          : type,
+      type,
       isNullable: row[3] === 1,
       defaultValue: normalizeDefault(row[4]),
     };
@@ -249,17 +173,17 @@ async function readRows(
 
 async function readNames(
   database: Database,
-  statement: DialectSql,
+  statement: string,
 ): Promise<readonly string[]> {
-  const rows = await database.query(sqlForDialect(database.dialect, statement));
+  const rows = await database.query(statement);
   return rows.map((row) => cellText(row[0])).sort();
 }
 
 async function readDefinitions(
   database: Database,
-  statement: DialectSql,
+  statement: string,
 ): Promise<ReadonlyMap<string, string>> {
-  const rows = await database.query(sqlForDialect(database.dialect, statement));
+  const rows = await database.query(statement);
   return new Map(
     rows
       .map(
@@ -282,12 +206,8 @@ async function readDefinitions(
 export async function readSchemaShape(
   database: Database,
 ): Promise<SchemaShape> {
-  const { dialect } = database;
-  const columns = columnsByTable(
-    await database.query(sqlForDialect(dialect, COLUMNS)),
-    dialect,
-  );
-  const constraints = await database.query(sqlForDialect(dialect, CONSTRAINTS));
+  const columns = columnsByTable(await database.query(COLUMNS));
+  const constraints = await database.query(CONSTRAINTS);
   const tables = new Map<string, TableShape>();
   for (const table of await readNames(database, TABLES)) {
     const tableColumns = columns.get(table) ?? [];

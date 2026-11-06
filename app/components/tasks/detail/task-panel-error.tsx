@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useActionData } from "react-router";
 
-import type { action } from "@/app/routes/tasks";
+import type { action } from "@/app/routes/tasks-server";
 
 /** Reports a failed detail action without dismissing the ticket. */
 export function TaskPanelError(): React.ReactElement | null {

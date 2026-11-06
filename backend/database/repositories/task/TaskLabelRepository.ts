@@ -251,8 +251,8 @@ export class TaskLabelRepository {
   }
 
   /** Assigns a label to a work item. */
-  public async assign(workItemId: string, labelId: string): Promise<void> {
-    await this.database.execute(
+  public async assign(workItemId: string, labelId: string): Promise<boolean> {
+    const rows = await this.database.query(
       `
         INSERT INTO work_item_labels (
             work_item_id,
@@ -262,22 +262,26 @@ export class TaskLabelRepository {
             $work_item_id,
             $label_id
         )
-        ON CONFLICT (work_item_id, label_id) DO NOTHING;
+        ON CONFLICT (work_item_id, label_id) DO NOTHING
+        RETURNING label_id;
       `,
       { label_id: labelId, work_item_id: workItemId },
     );
+    return rows.length > 0;
   }
 
   /** Removes a label from a work item. */
-  public async unassign(workItemId: string, labelId: string): Promise<void> {
-    await this.database.execute(
+  public async unassign(workItemId: string, labelId: string): Promise<boolean> {
+    const rows = await this.database.query(
       `
         DELETE FROM work_item_labels
         WHERE work_item_id = $work_item_id
-            AND label_id = $label_id;
+            AND label_id = $label_id
+        RETURNING label_id;
       `,
       { label_id: labelId, work_item_id: workItemId },
     );
+    return rows.length > 0;
   }
 
   private async findOne(

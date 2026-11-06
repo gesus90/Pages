@@ -11,11 +11,11 @@ import type {
   DescriptionContent,
   WikiSaveContent,
 } from "@/definition/BackgroundSave";
-import type { DraftAdapter, DraftAnswer, DraftEntry } from "./draft-queue";
+import type { DraftAdapter, DraftAnswer, DraftAttempt } from "./draft-queue";
 
 async function postDraft<T>(
   url: string,
-  input: DraftEntry<T>,
+  input: DraftAttempt<T>,
   schema: z.ZodType<T>,
 ): Promise<DraftAnswer<T>> {
   const response = await fetch(url, {
@@ -24,6 +24,7 @@ async function postDraft<T>(
       draft: input.draft,
       streamId: input.streamId,
       sequence: input.sequence,
+      operationId: input.operationId,
     }),
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
@@ -65,8 +66,8 @@ export const wikiDraftAdapter: DraftAdapter<WikiSaveContent> = {
     }
     return null;
   },
-  save: (entry) =>
-    postDraft(`/wiki-api/drafts/${entry.id}`, entry, wikiSaveContentSchema),
+  save: (attempt) =>
+    postDraft(`/wiki-api/drafts/${attempt.id}`, attempt, wikiSaveContentSchema),
 };
 
 /** Keeps the ticket's explicit Save action and its compare-and-set text base. */
@@ -77,10 +78,10 @@ export const descriptionDraftAdapter: DraftAdapter<DescriptionContent> = {
     draft.description.trim().length > WORK_ITEM_LIMITS.descriptionLength
       ? "descriptionTooLong"
       : null,
-  save: (entry) =>
+  save: (attempt) =>
     postDraft(
-      `/ticket-api/drafts/${entry.id}`,
-      entry,
+      `/ticket-api/drafts/${attempt.id}`,
+      attempt,
       descriptionContentSchema,
     ),
 };

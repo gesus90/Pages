@@ -1,13 +1,6 @@
-import { mkdir } from "node:fs/promises";
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  Database,
-  IN_MEMORY_DATABASE_PATH,
-  isUniqueViolationOn,
-} from "@/backend/database/Database";
-import { DATABASE_EXECUTOR_LIMITS } from "@/backend/database/executor/DatabaseExecutorLimits";
+import { Database, isUniqueViolationOn } from "@/backend/database/Database";
 import { withReadScope } from "@/backend/database/ReadScope";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
@@ -16,9 +9,6 @@ import {
   createMigrationChecksum,
 } from "@/backend/database/Migration";
 
-import type * as WorkerClientModule from "@/backend/database/executor/DatabaseWorkerClient";
-import type { WorkerStatement } from "@/backend/database/executor/DatabaseWorkerClient";
-import type { WorkerConfiguration } from "@/backend/database/executor/DatabaseWorkerProtocol";
 import type { Migration } from "@/backend/database/Migration";
 import type * as LoggerModule from "@/backend/logging/Logger";
 
@@ -64,96 +54,90 @@ const engine = vi.hoisted((): EngineState => ({
   statusFailure: null,
 }));
 
-vi.mock("node:fs/promises", () => ({ mkdir: vi.fn() }));
 vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
   ...(await importOriginal<typeof LoggerModule>()),
   logCaughtError: vi.fn(),
   logEvent: vi.fn(),
 }));
-// The worker process owns DuckDB; its client is the boundary the server sees.
-vi.mock(
-  "@/backend/database/executor/DatabaseWorkerClient",
-  async (importOriginal) => {
-    const actual = await importOriginal<typeof WorkerClientModule>();
-    const timing = {
-      executionMs: 0,
-      waitMs: 0,
-      walBytesAfter: null,
-      walBytesBefore: null,
-    };
-
-    class FakeWorkerClient {
-      /** Opens nothing; records the path and fails like a worker that cannot open. */
-      public static async start(
-        configuration: WorkerConfiguration,
-      ): Promise<FakeWorkerClient> {
-        engine.openedPaths.push(configuration.databasePath);
-        engine.openedMemoryLimits.push(configuration.memoryLimit);
-
-        const failure = engine.openFailures.shift();
-
-        if (failure) {
-          throw failure;
-        }
-
-        return new FakeWorkerClient();
-      }
-
-      public get currentGeneration(): number {
-        return 1;
-      }
-
-      /** Records the statement and answers it from the engine state. */
-      public async run(request: WorkerStatement): Promise<object> {
-        engine.statements.push(request.statement);
-        engine.bindings.push(request.parameters);
-
-        if (
-          engine.failingFragment !== null &&
-          request.statement.includes(engine.failingFragment)
-        ) {
-          throw new actual.WorkerStatementError(
-            { message: "statement failed", name: "Error" },
-            timing,
-            false,
-          );
-        }
-
-        const rows = request.statement.includes("FROM schema_migrations")
-          ? engine.appliedRows
-          : engine.resultRows;
-
-        return {
-          roundTripMs: 0,
-          rows: request.mode === "rows" ? rows : null,
-          timing,
-        };
-      }
-
-      /** The executor reports these counters once more before the worker closes. */
-      public status(): WorkerClientModule.DatabaseWorkerStatus {
-        engine.closeSteps.push("status");
-        if (engine.statusFailure) throw engine.statusFailure;
-        return {
+// The existing database boundary is now the PostgreSQL pool.
+vi.mock("@/backend/database/postgres/PostgresExecutor", () => {
+  class FakePostgresExecutor {
+    /** Opens the mock pool. */
+    public static async start(url: string): Promise<FakePostgresExecutor> {
+      engine.openedPaths.push(url);
+      const failure = engine.openFailures.shift();
+      if (failure) throw failure;
+      return new FakePostgresExecutor();
+    }
+    /** Runs writer work. */
+    public async write<T>(
+      work: (writer: {
+        run: (statement: string, parameters: unknown) => Promise<unknown[][]>;
+      }) => Promise<T>,
+    ): Promise<T> {
+      return work({
+        run: (statement, parameters) => this.run(statement, parameters),
+      });
+    }
+    /** Runs a read. */
+    public async read(
+      statement: string,
+      parameters: unknown,
+    ): Promise<unknown[][]> {
+      return this.run(statement, parameters);
+    }
+    /** Runs reader work. */
+    public async readSession<T>(
+      work: (reader: {
+        query: (statement: string, parameters: unknown) => Promise<unknown[][]>;
+      }) => Promise<T>,
+    ): Promise<T> {
+      return work({
+        query: (statement, parameters) => this.run(statement, parameters),
+      });
+    }
+    /** Returns the mock pool status. */
+    public status(): object {
+      return {
+        worker: {
           state: "ready",
           generation: 1,
           restarts: 0,
           pendingStatements: 0,
           pid: null,
-        };
-      }
-
-      /** Stands in for the worker's closing checkpoint and exit. */
-      public async close(): Promise<void> {
-        engine.closeSteps.push("close");
-        engine.released.push("worker");
-        if (engine.closeFailure) throw engine.closeFailure;
-      }
+        },
+        writer: {},
+        readers: {},
+        readerConnections: 9,
+        reroutedReads: 0,
+      };
     }
-
-    return { ...actual, DatabaseWorkerClient: FakeWorkerClient };
-  },
-);
+    /** Closes the mock pool. */
+    public async close(): Promise<void> {
+      engine.closeSteps.push("close");
+      engine.released.push("pool");
+      if (engine.closeFailure) throw engine.closeFailure;
+    }
+    private async run(
+      statement: string,
+      parameters: unknown,
+    ): Promise<unknown[][]> {
+      if (statement.includes("pg_encoding_to_char"))
+        return [["UTF8", "c", "C.UTF-8", "C.UTF-8"]];
+      engine.statements.push(statement);
+      engine.bindings.push(parameters);
+      if (
+        engine.failingFragment !== null &&
+        statement.includes(engine.failingFragment)
+      )
+        throw new Error("statement failed");
+      return statement.includes("FROM postgres_schema_migrations")
+        ? engine.appliedRows
+        : engine.resultRows;
+    }
+  }
+  return { PostgresExecutor: FakePostgresExecutor };
+});
 
 const BASELINE: Migration = {
   name: "001_baseline.sql",
@@ -186,11 +170,11 @@ function labelOf(statement: string): string {
   if (text.startsWith("COMMIT")) return "commit";
   if (text.startsWith("ROLLBACK")) return "rollback";
   if (text.startsWith("CHECKPOINT")) return "checkpoint";
-  if (text.includes("CREATE TABLE IF NOT EXISTS schema_migrations")) {
+  if (text.includes("CREATE TABLE IF NOT EXISTS postgres_schema_migrations")) {
     return "create-migration-table";
   }
-  if (text.includes("FROM schema_migrations")) return "read-applied";
-  if (text.includes("INSERT INTO schema_migrations")) return "record";
+  if (text.includes("FROM postgres_schema_migrations")) return "read-applied";
+  if (text.includes("INSERT INTO postgres_schema_migrations")) return "record";
 
   return text;
 }
@@ -200,25 +184,8 @@ function trace(): string[] {
   return engine.statements.map(labelOf);
 }
 
-it("opens an in-memory database without creating a directory", async () => {
-  await Database.create(IN_MEMORY_DATABASE_PATH);
-
-  expect(mkdir).not.toHaveBeenCalled();
-  expect(engine.openedPaths).toEqual([IN_MEMORY_DATABASE_PATH]);
-});
-
-it("creates the directory of a database file before the worker opens it", async () => {
-  await Database.create("/srv/pages/data/pages.duckdb");
-
-  expect(mkdir).toHaveBeenCalledWith("/srv/pages/data", { recursive: true });
-  expect(engine.openedPaths).toEqual(["/srv/pages/data/pages.duckdb"]);
-  expect(engine.openedMemoryLimits).toEqual([
-    DATABASE_EXECUTOR_LIMITS.memoryLimit,
-  ]);
-});
-
 it("applies unseen migrations in name order, one transaction each, then checkpoints", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
 
   await database.migrate([NEXT, BASELINE]);
 
@@ -233,7 +200,6 @@ it("applies unseen migrations in name order, one transaction each, then checkpoi
     NEXT.sql,
     "record",
     "commit",
-    "checkpoint",
   ]);
   expect(engine.bindings[engine.statements.indexOf(BASELINE.sql) + 1]).toEqual({
     checksum: createMigrationChecksum(BASELINE.sql),
@@ -246,7 +212,7 @@ it("applies only what the database has not seen and skips the checkpoint when no
     [BASELINE.name, createMigrationChecksum(BASELINE.sql)],
     [NEXT.name, createMigrationChecksum(NEXT.sql)],
   ];
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
 
   await database.migrate([BASELINE, NEXT]);
 
@@ -255,7 +221,7 @@ it("applies only what the database has not seen and skips the checkpoint when no
 
 it("runs a newly added migration on a database that has the earlier ones", async () => {
   engine.appliedRows = [[BASELINE.name, createMigrationChecksum(BASELINE.sql)]];
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
 
   await database.migrate([BASELINE, NEXT]);
 
@@ -266,13 +232,12 @@ it("runs a newly added migration on a database that has the earlier ones", async
     NEXT.sql,
     "record",
     "commit",
-    "checkpoint",
   ]);
 });
 
 it("refuses an applied migration whose content changed", async () => {
   engine.appliedRows = [[BASELINE.name, createMigrationChecksum("OTHER;")]];
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
 
   await expect(database.migrate([BASELINE])).rejects.toBeInstanceOf(
     MigrationChecksumError,
@@ -284,7 +249,7 @@ it("refuses a database that is ahead of the code before it runs anything", async
   engine.appliedRows = [
     ["999_from_the_future.sql", createMigrationChecksum("X;")],
   ];
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
 
   await expect(database.migrate([BASELINE])).rejects.toBeInstanceOf(
     UnknownMigrationError,
@@ -294,7 +259,7 @@ it("refuses a database that is ahead of the code before it runs anything", async
 
 it("rolls a failing migration back and names it", async () => {
   engine.failingFragment = "BROKEN";
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
   const broken: Migration = { name: "002_broken.sql", sql: "BROKEN;" };
 
   const failure = await database
@@ -315,17 +280,17 @@ it("rethrows every other failure to open the file", async () => {
 
   engine.openFailures = [failure];
 
-  await expect(Database.create("/srv/pages/pages.duckdb")).rejects.toBe(
+  await expect(Database.connect("postgresql://localhost/pages")).rejects.toBe(
     failure,
   );
-  expect(engine.openedPaths).toEqual(["/srv/pages/pages.duckdb"]);
+  expect(engine.openedPaths).toEqual(["postgresql://localhost/pages"]);
 });
 
 it("returns blob columns as buffers", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
 
   // Blobs cross the process boundary as plain byte arrays.
-  engine.resultRows = [[new Uint8Array([9, 8])]];
+  engine.resultRows = [[Buffer.from([9, 8])]];
 
   const [[column]] = await database.query("SELECT 1;");
 
@@ -334,7 +299,7 @@ it("returns blob columns as buffers", async () => {
 });
 
 it("commits a transaction and returns what its work returns", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
 
   const effects: string[][] = [];
 
@@ -356,7 +321,7 @@ it("commits a transaction and returns what its work returns", async () => {
 });
 
 it("rolls a transaction back and rethrows when its work fails", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
   const failure = new Error("work failed");
   const effects: string[][] = [];
 
@@ -383,94 +348,21 @@ it("rolls a transaction back and rethrows when its work fails", async () => {
   ]);
 });
 
-it("lets the worker checkpoint and release the database when it closes", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
-
+it("closes the PostgreSQL pool", async () => {
+  const database = await Database.connect("postgresql://localhost/pages");
   await database.close();
-
-  // The worker runs the closing CHECKPOINT on its own writer connection.
-  expect(trace()).toEqual([]);
-  expect(engine.released).toEqual(["worker"]);
-});
-
-/** The events the close wrote, by name. */
-function loggedEvents(): string[] {
-  return vi.mocked(logEvent).mock.calls.map(([event]) => event.event);
-}
-
-it("reports the last counters before the worker closes", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
-  await database.execute("UPDATE t SET a = 1;");
-  vi.mocked(logEvent).mockClear();
-
-  await database.close();
-
-  expect(engine.closeSteps).toEqual(["status", "close"]);
-  expect(loggedEvents()).toEqual([
-    "database.executor.status",
-    "database.closed",
-  ]);
-  expect(logCaughtError).not.toHaveBeenCalled();
-});
-
-it("still closes the worker when the last counters cannot be read", async () => {
-  const failure = new Error("status failed");
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
-  engine.statusFailure = failure;
-
-  await expect(database.close()).resolves.toBeUndefined();
-
-  expect(engine.closeSteps).toEqual(["status", "close"]);
-  expect(engine.released).toEqual(["worker"]);
-  expect(logCaughtError).toHaveBeenCalledExactlyOnceWith(
-    "DatabaseExecutor",
-    failure,
-  );
-  expect(loggedEvents()).toContain("database.closed");
+  expect(engine.released).toEqual(["pool"]);
 });
 
 it("does not hide a failed close or claim the database closed", async () => {
-  const failure = new Error("checkpoint failed");
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
+  const failure = new Error("close failed");
   engine.closeFailure = failure;
-
+  vi.mocked(logEvent).mockClear();
   await expect(database.close()).rejects.toBe(failure);
-
-  expect(engine.closeSteps).toEqual(["status", "close"]);
-  expect(logCaughtError).not.toHaveBeenCalled();
-  expect(loggedEvents()).not.toContain("database.closed");
-});
-
-it("lets a failed close outrank a failed report, keeping both", async () => {
-  const statusFailure = new Error("status failed");
-  const closeFailure = new Error("checkpoint failed");
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
-  engine.statusFailure = statusFailure;
-  engine.closeFailure = closeFailure;
-
-  await expect(database.close()).rejects.toBe(closeFailure);
-
-  expect(engine.closeSteps).toEqual(["status", "close"]);
-  expect(logCaughtError).toHaveBeenCalledExactlyOnceWith(
-    "DatabaseExecutor",
-    statusFailure,
-  );
-  expect(loggedEvents()).not.toContain("database.closed");
-});
-
-it("still closes the worker when even the report of the failure fails", async () => {
-  const logFailure = new Error("logging failed");
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
-  engine.statusFailure = new Error("status failed");
-  vi.mocked(logCaughtError).mockImplementationOnce(() => {
-    throw logFailure;
-  });
-
-  // The close ran, but the stop cannot confirm it through a broken logger.
-  await expect(database.close()).rejects.toBe(logFailure);
-
-  expect(engine.released).toEqual(["worker"]);
-  expect(loggedEvents()).not.toContain("database.closed");
+  expect(
+    vi.mocked(logEvent).mock.calls.map(([event]) => event.event),
+  ).not.toContain("database.closed");
 });
 
 it("computes the same migration checksum for both line-ending styles", () => {
@@ -481,7 +373,7 @@ it("computes the same migration checksum for both line-ending styles", () => {
 });
 
 it("reads rows inside a transaction", async () => {
-  const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  const database = await Database.connect("postgresql://localhost/pages");
 
   engine.resultRows = [["a", 1]];
 
@@ -493,9 +385,10 @@ it("reads rows inside a transaction", async () => {
 });
 
 it("recognizes a duplicate key of the named column only", () => {
-  const duplicate = new Error(
-    'Constraint Error: Duplicate key "username: alice" violates unique constraint.',
-  );
+  const duplicate = Object.assign(new Error("duplicate"), {
+    code: "23505",
+    detail: "Key (username)=(alice) already exists.",
+  });
 
   expect(isUniqueViolationOn(duplicate, "username")).toBe(true);
   expect(isUniqueViolationOn(duplicate, "email")).toBe(false);
@@ -506,7 +399,7 @@ describe("reads that repeat inside one unit of work", () => {
   const READ = "SELECT id FROM projects WHERE id = $id;";
 
   it("asks the database once for the same read and hands out equal rows", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    const database = await Database.connect("postgresql://localhost/pages");
     engine.resultRows = [["a", 1]];
 
     const answers = await withReadScope(async () => [
@@ -520,7 +413,7 @@ describe("reads that repeat inside one unit of work", () => {
   });
 
   it("asks every time outside a unit of work", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    const database = await Database.connect("postgresql://localhost/pages");
 
     await database.query(READ, { id: "p1" });
     await database.query(READ, { id: "p1" });
@@ -529,7 +422,7 @@ describe("reads that repeat inside one unit of work", () => {
   });
 
   it("asks again for other values and in another unit of work", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    const database = await Database.connect("postgresql://localhost/pages");
 
     await withReadScope(async () => {
       await database.query(READ, { id: "p1" });
@@ -541,7 +434,7 @@ describe("reads that repeat inside one unit of work", () => {
   });
 
   it("asks again after any write, whoever made it", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    const database = await Database.connect("postgresql://localhost/pages");
 
     await withReadScope(async () => {
       await database.query(READ, { id: "p1" });
@@ -561,7 +454,7 @@ describe("reads that repeat inside one unit of work", () => {
   });
 
   it("sees the write of another unit of work that ran in between", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    const database = await Database.connect("postgresql://localhost/pages");
 
     await withReadScope(async () => {
       await database.query(READ, { id: "p1" });
@@ -577,7 +470,7 @@ describe("reads that repeat inside one unit of work", () => {
   });
 
   it("never repeats a read whose answer changes by itself or that takes a number", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    const database = await Database.connect("postgresql://localhost/pages");
 
     await withReadScope(async () => {
       await database.query("SELECT utc_now();");
@@ -593,8 +486,8 @@ describe("reads that repeat inside one unit of work", () => {
 describe("transactions inside one unit of work", () => {
   const READ = "SELECT id FROM projects WHERE id = $id;";
 
-  it("keeps a transaction that only reads off the database when the scope knows the answer", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  it("reads transaction state afresh even when the request scope knows an earlier answer", async () => {
+    const database = await Database.connect("postgresql://localhost/pages");
     engine.resultRows = [["a", 1]];
 
     const rows = await withReadScope(async () => {
@@ -605,11 +498,11 @@ describe("transactions inside one unit of work", () => {
     });
 
     expect(rows).toEqual([["a", 1]]);
-    expect(trace()).toEqual([READ]);
+    expect(trace()).toEqual([READ, "begin", READ, "commit"]);
   });
 
-  it("opens the transaction for the first read the scope cannot answer and at its first write", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+  it("does not reuse request-scope reads inside a write transaction", async () => {
+    const database = await Database.connect("postgresql://localhost/pages");
 
     await withReadScope(async () => {
       await database.query(READ, { id: "p1" });
@@ -625,6 +518,7 @@ describe("transactions inside one unit of work", () => {
       READ,
       "begin",
       READ,
+      READ,
       "UPDATE projects SET name = 'x';",
       READ,
       "commit",
@@ -632,7 +526,7 @@ describe("transactions inside one unit of work", () => {
   });
 
   it("asks again after a transaction that wrote, even one that was rolled back", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    const database = await Database.connect("postgresql://localhost/pages");
 
     await withReadScope(async () => {
       await database.query(READ, { id: "p1" });
@@ -655,7 +549,7 @@ describe("transactions inside one unit of work", () => {
   });
 
   it("does not forget the answers when a transaction only read", async () => {
-    const database = await Database.create(IN_MEMORY_DATABASE_PATH);
+    const database = await Database.connect("postgresql://localhost/pages");
 
     await withReadScope(async () => {
       await database.query(READ, { id: "p1" });

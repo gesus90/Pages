@@ -148,7 +148,11 @@ it("shows bounded history, older-load progress, retention and a streaming downlo
       />
     </I18nextProvider>,
   );
-  expect(screen.getAllByRole("listitem")).toHaveLength(150);
+  // Only the newest entries near the opened end are drawn; each names its place in all 200.
+  const entries = screen.getAllByRole("listitem");
+  expect(entries.length).toBeLessThan(200);
+  expect(entries.at(-1)?.getAttribute("aria-posinset")).toBe("200");
+  expect(entries.at(-1)?.getAttribute("aria-setsize")).toBe("200");
   expect(screen.getByText("Loading earlier history …")).toBeTruthy();
   expect(
     screen

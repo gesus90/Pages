@@ -1,10 +1,7 @@
-import { useRouteLoaderData } from "react-router";
-
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { WIKI_SEARCH_EVENT } from "@/app/components/wiki/wiki-shell";
 import { WikiNavigation } from "@/app/components/wiki/wiki-navigation";
-
-import type { loader as wikiLoader } from "@/app/routes/wiki";
+import { useWikiShell } from "@/app/components/wiki/use-wiki-shell";
 
 interface WikiSidebarSectionProps {
   /** Called when a link was followed, so the mobile menu can close. */
@@ -17,14 +14,14 @@ interface WikiSidebarSectionProps {
  * recent pages and the page trees with the open path expanded.
  *
  * @remarks
- * It reads the data the wiki route already loaded, so the sidebar needs no
- * request of its own. Which branches are open is stored per person and
- * comes back when the person returns to the wiki.
+ * It reads the data the wiki route already loaded or refreshed, so the
+ * sidebar needs no request of its own. Which branches are open is stored
+ * per person and comes back when the person returns to the wiki.
  */
 export function WikiSidebarSection({
   onNavigate,
 }: WikiSidebarSectionProps): React.ReactElement | null {
-  const shell = useRouteLoaderData<typeof wikiLoader>("routes/wiki");
+  const shell = useWikiShell();
 
   if (!shell) {
     return null;

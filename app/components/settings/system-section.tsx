@@ -9,6 +9,8 @@ import { InstanceCard } from "@/app/components/settings/system/instance-card";
 import { ServerCard } from "@/app/components/settings/system/server-card";
 import { LoggingCard } from "@/app/components/settings/system/logging-card";
 import { StatusCard } from "@/app/components/settings/system/status-card";
+import { ServiceMonitorCard } from "@/app/components/settings/system/service-monitor-card";
+import { ServiceStatusCard } from "@/app/components/settings/system/service-status-card";
 import { WikiSettingsCard } from "@/app/components/settings/system/wiki-settings-card";
 
 import { TicketAssetsCard } from "./system/ticket-assets-card";
@@ -69,6 +71,8 @@ export function SystemSection({
         </div>
         <div className="flex flex-col gap-4">
           <StatusCard status={status} />
+          <ServiceStatusCard />
+          <ServiceMonitorCard />
           <ServerCard port={port} />
           <LoggingCard
             retentionDays={logging.retentionDays}

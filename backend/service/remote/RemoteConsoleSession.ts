@@ -26,6 +26,8 @@ export interface RemoteConsoleTarget {
 }
 
 const MAXIMUM_HISTORY = 256 * 1024;
+/** A browser cursor above this is not followed; numbers stay exact integers. */
+const MAXIMUM_CURSOR = Number.MAX_SAFE_INTEGER / 2;
 const RETRY_DELAY = 3000;
 const DIRECTORY_TIMEOUT = 15_000;
 /** A shell that stays silent this long is treated as ready. */
@@ -40,6 +42,15 @@ const RETRY_MESSAGES = new Set([
   "remote.failure.unreachable_network",
   "remote.error.remote_reconnecting",
 ]);
+
+/**
+ * Where a console restored after an API restart continues (PAGE-239): after
+ * the last event number it stored, with the next shell attempt.
+ */
+export interface RestoredConsoleProgress {
+  readonly lastSequence: number;
+  readonly attempts: number;
+}
 
 /** The local terminal module or OpenSSH client could not start a terminal. */
 class TerminalUnavailableError extends Error {}
@@ -106,12 +117,27 @@ export class RemoteConsoleSession {
   // Opening a console is a person's request, just like a retry.
   private isManualRetry = true;
 
+  /**
+   * Starts the shell of a new or a restored console.
+   *
+   * @param target - Resolves, with fresh rights, where the shell starts.
+   * @param size - The terminal geometry.
+   * @param restored - Set for a console whose previous shell ended with the
+   * API process: it begins with a gap, because that shell's output is lost,
+   * and counts on from the stored event number and attempt.
+   */
   public constructor(
     target: RemoteConsoleSession["target"],
     size: RemoteConsoleSize,
+    restored?: RestoredConsoleProgress,
   ) {
     this.target = target;
     this.size = size;
+    if (restored) {
+      this.sequence = restored.lastSequence;
+      this.state = { ...this.state, attempts: restored.attempts };
+      this.emit({ kind: "gap", sequence: ++this.sequence });
+    }
     void this.connect();
   }
 
@@ -120,11 +146,31 @@ export class RemoteConsoleSession {
     return this.state;
   }
 
-  /** Replays only events after the cursor and then follows live output. */
+  /** The number of the last event and the geometry, as a restored console needs them. */
+  public progress(): {
+    readonly lastSequence: number;
+    readonly size: RemoteConsoleSize;
+  } {
+    return { lastSequence: this.sequence, size: this.size };
+  }
+
+  /**
+   * Replays only events after the cursor and then follows live output.
+   *
+   * @remarks
+   * A browser can only be ahead of the console after the console was
+   * restored from a stored number older than the last event it received.
+   * The console then continues after the browser's cursor with a gap, so the
+   * browser never drops new output as already seen.
+   */
   public follow(
     after: number,
     listener: (event: RemoteConsoleEvent) => void,
   ): () => void {
+    if (after > this.sequence && after <= MAXIMUM_CURSOR) {
+      this.sequence = after;
+      this.emit({ kind: "gap", sequence: ++this.sequence });
+    }
     this.replay(after, listener);
     listener({ kind: "state", sequence: this.sequence, state: this.state });
     this.listeners.add(listener);

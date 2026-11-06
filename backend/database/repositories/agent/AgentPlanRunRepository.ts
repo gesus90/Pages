@@ -1,20 +1,28 @@
-import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
-import type { AgentPlanWriterWait } from "@/definition/AgentPlanExecution";
+import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
+import { workspaceReferenceIds } from "@/backend/agents/AgentWorkspaceReferences";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
-import { readPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
+import { readPlanBranchState } from "@/backend/service/agents/branching/AgentPlanBranchPersistence";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+
+import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
 import {
   reservePlanResources,
   retireRestartSource,
   findPlanResourceBlocker,
 } from "./AgentPlanResourceReservation";
-
 import { AgentPlanContinuationRepository } from "./AgentPlanContinuationRepository";
 import { AgentPlanProgressRepository } from "./AgentPlanProgressRepository";
+import {
+  AgentPlanRunVisibilityRepository,
+  planRunResourcesOf,
+  readRunStatus,
+} from "./AgentPlanRunVisibilityRepository";
 
+import type { AgentPlanWriterWait } from "@/definition/AgentPlanExecution";
+import type { PlanBranchingState } from "@/backend/service/agents/branching/AgentPlanBranchState";
 import type { AgentPlanRunJournal } from "@/backend/service/agents/AgentPlanJournal";
 import type { PlanContinuationWrite } from "./AgentPlanContinuationRepository";
 import type {
@@ -26,6 +34,7 @@ import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanCheckpointInput } from "@/definition/AgentPlanRecovery";
 import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
+import type { AgentPlanRunVisibilityBasis } from "./AgentPlanRunVisibilityRepository";
 
 /** A run by its start and status, without its private snapshot or its results. */
 export interface AgentPlanRunEntry {
@@ -39,21 +48,6 @@ export interface AgentPlanLatestRunEntry extends AgentPlanRunEntry {
   readonly planId: string;
   /** Rises with every committed write of the run. */
   readonly revision: number;
-}
-
-function readRunStatus(input: string): AgentPlanRun["status"] {
-  if (
-    input !== "running" &&
-    input !== "pausing" &&
-    input !== "stopping" &&
-    input !== "succeeded" &&
-    input !== "failed" &&
-    input !== "cancelled" &&
-    input !== "paused" &&
-    input !== "work_done_closeout_open"
-  )
-    throw new AgentError("plan_invalid");
-  return input;
 }
 
 /** Who started a run and of which plan, without its view or snapshot. */
@@ -84,17 +78,53 @@ function readStoredRecord<Result>(read: () => Result): Result {
 export class AgentPlanRunRepository {
   private readonly database: Pick<
     Database,
-    "query" | "execute" | "transaction"
+    "query" | "execute" | "transaction" | "agentFiles"
   >;
   private readonly continuations: AgentPlanContinuationRepository;
   private readonly progress: AgentPlanProgressRepository;
+  private readonly visibility: AgentPlanRunVisibilityRepository;
+  private readonly prepared = new WeakMap<
+    AgentPlanSnapshot,
+    Map<string, string>
+  >();
 
   public constructor(
-    database: Pick<Database, "query" | "execute" | "transaction">,
+    database: Pick<
+      Database,
+      "query" | "execute" | "transaction" | "agentFiles"
+    >,
   ) {
     this.database = database;
     this.continuations = new AgentPlanContinuationRepository(database);
     this.progress = new AgentPlanProgressRepository(database);
+    this.visibility = new AgentPlanRunVisibilityRepository(database);
+  }
+
+  /** Synchronizes the immutable basis before a caller opens its recording transaction. */
+  public async prepareSnapshot(
+    runId: string,
+    snapshot: AgentPlanSnapshot,
+  ): Promise<void> {
+    const references = this.prepared.get(snapshot) ?? new Map<string, string>();
+    if (references.has(runId)) return;
+    const reference: unknown = JSON.parse(
+      await requireAgentFiles(this.database).write(
+        snapshot.plan.id,
+        JSON.stringify(snapshot),
+      ),
+    );
+    if (typeof reference !== "object" || reference === null)
+      throw new Error("Invalid prepared snapshot.");
+    references.set(
+      runId,
+      JSON.stringify({
+        ...reference,
+        workspaceReferences: [...workspaceReferenceIds(snapshot)].map(
+          (workspaceId) => ({ workspaceId }),
+        ),
+      }),
+    );
+    this.prepared.set(snapshot, references);
   }
 
   /** Rejects stale Play requests and reserves all writing directories before any starts. */
@@ -104,6 +134,7 @@ export class AgentPlanRunRepository {
     workspaceIds: readonly string[],
     journal?: AgentPlanRunJournal,
   ): Promise<void> {
+    await this.prepareSnapshot(run.id, snapshot);
     await this.database.transaction(async (transaction) => {
       await this.insert(transaction, run, snapshot, workspaceIds);
       await journal?.(transaction, run);
@@ -124,6 +155,9 @@ export class AgentPlanRunRepository {
     snapshot: AgentPlanSnapshot,
     workspaceIds: readonly string[],
   ): Promise<void> {
+    const reference = this.prepared.get(snapshot)?.get(run.id);
+    if (!reference)
+      throw new Error("Snapshot must be synchronized before its transaction.");
     const [plan] = await transaction.query(
       "SELECT revision FROM agent_plans WHERE id = $id;",
       { id: run.planId },
@@ -156,8 +190,9 @@ export class AgentPlanRunRepository {
           started_at,
           status,
           view_json,
-          snapshot_json
-      ) VALUES ($id, $plan_id, $user_id, $project_id, $workspace_id, $started_at, $status, $view_json, $snapshot_json);
+          snapshot_json,
+          snapshot_file
+      ) VALUES ($id, $plan_id, $user_id, $project_id, $workspace_id, $started_at, $status, $view_json, $snapshot_json, $snapshot_file);
     `,
       {
         id: run.id,
@@ -168,7 +203,8 @@ export class AgentPlanRunRepository {
         started_at: run.startedAt,
         status: run.status,
         view_json: JSON.stringify(run),
-        snapshot_json: JSON.stringify(snapshot),
+        snapshot_json: "{}",
+        snapshot_file: reference,
       },
     );
   }
@@ -276,45 +312,31 @@ export class AgentPlanRunRepository {
   /** Keeps private snapshot content off the read API while exposing references for live authorization. */
   public async resources(id: string): Promise<AgentPlanRunResources> {
     const texts = await this.continuations.snapshotTexts(id);
-    const references = readStoredRecord(() =>
-      texts.map((text) => {
-        const snapshot: unknown = JSON.parse(text);
-        return readPlanRunResources(snapshot);
-      }),
-    );
-    const first = references[0];
-    if (!first) throw new AgentError("plan_access_denied");
-    const remoteWorkspaceIds = [
-      ...new Set(references.flatMap((entry) => entry.remoteWorkspaceIds ?? [])),
-    ];
-    return {
-      ...(first.executionTarget?.kind === "remote"
-        ? { executionTarget: first.executionTarget }
-        : {}),
-      ...(remoteWorkspaceIds.length ? { remoteWorkspaceIds } : {}),
-      projectId: first.projectId,
-      stepTickets: Object.fromEntries(
-        [...references]
-          .reverse()
-          .flatMap((entry) => Object.entries(entry.stepTickets ?? {})),
-      ),
-      workspaceIds: [
-        ...new Set(references.flatMap((entry) => entry.workspaceIds)),
-      ],
-      agentIds: [...new Set(references.flatMap((entry) => entry.agentIds))],
-      connectionIds: [
-        ...new Set(references.flatMap((entry) => entry.connectionIds ?? [])),
-      ],
-      taskIds: [...new Set(references.flatMap((entry) => entry.taskIds))],
-      wikiIds: [...new Set(references.flatMap((entry) => entry.wikiIds))],
-      ticketIds: [...new Set(references.flatMap((entry) => entry.ticketIds))],
-      ticketAssets: references.flatMap((entry) => entry.ticketAssets ?? []),
-    };
+    if (texts.length === 0) throw new AgentError("plan_access_denied");
+    return readStoredRecord(() => planRunResourcesOf(texts));
   }
 
   /** Server-only current execution basis, used to restore an exact in-flight capability after restart. */
   public async snapshot(id: string): Promise<unknown> {
     return (await this.continuations.snapshots(id))[0] ?? null;
+  }
+
+  /** Reads only private engine bookkeeping; it is never part of a public run response. */
+  public async engineState(
+    id: string,
+  ): Promise<PlanBranchingState | undefined> {
+    const [row] = await this.database.query(
+      "SELECT engine_file FROM agent_plan_runs WHERE id = $id;",
+      { id },
+    );
+    if (!row || row[0] === null) return undefined;
+    return readPlanBranchState(
+      JSON.parse(
+        await requireAgentFiles(this.database).read(
+          readTextColumn(row, 0, "engine_file"),
+        ),
+      ),
+    );
   }
 
   /** Names the agent of one node from the private snapshot, without disclosing anything else. */
@@ -434,6 +456,20 @@ export class AgentPlanRunRepository {
         return [];
       }
     });
+  }
+
+  /**
+   * Lists every run one person started of a plan, newest first, with the references reading it needs.
+   *
+   * @param userId - The executor; runs of others are never part of it.
+   * @param planId - The plan.
+   * @returns No snapshot, view or result; the service decides visibility from the references.
+   */
+  public async visibilityBases(
+    userId: string,
+    planId: string,
+  ): Promise<readonly AgentPlanRunVisibilityBasis[]> {
+    return this.visibility.bases(userId, planId);
   }
 
   /**

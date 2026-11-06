@@ -38,7 +38,7 @@ running external services, network requests, listening sockets and subprocesses.
 
 ## Behavioral analysis and unit boundaries
 
-The server flow is request/loader/action → service → repository → DuckDB.
+The server flow is request/loader/action → service → repository → PostgreSQL executor.
 Tests choose a unit or a cohesive service/policy boundary and replace external
 collaborators before use. They assert results, refusals and observable writes,
 not successful application startup or real persistence. Existing focused
@@ -108,7 +108,7 @@ executable source modules have zero covered statements**. Notable remaining
 Backend gaps include `SetupService.ts`, `SetupDatabaseWriter.ts`,
 `SetupWizardService.ts`, `SettingsService.ts`, `TaskTemplateService.ts`,
 `HealthService.ts` and many SQL repository paths. `Database.ts` has only 3.80%
-statement coverage: actual DuckDB/migration execution is deliberately not claimed
+statement coverage in that historical run: actual database/migration execution is deliberately not claimed
 by mocked repository tests. `WikiFileStore.ts` has 7.54% statements; service tests
 replace file persistence and do not verify actual filesystem behavior.
 `WikiService.ts` has 52.45% statements and 39.58% functions; facade methods and

@@ -1,7 +1,8 @@
 import { screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import WikiTrashRoute, { loader } from "@/app/routes/wiki-trash";
+import WikiTrashRoute from "@/app/routes/wiki-trash";
+import { loader } from "@/app/routes/wiki-trash-server";
 
 import {
   ACTOR,
@@ -12,6 +13,14 @@ import {
 
 const wiki = vi.hoisted(() => ({ listTrash: vi.fn(), getSettings: vi.fn() }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "u-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({
     wikiService: wiki,
@@ -63,7 +72,10 @@ it("counts the days each deleted page has left", async () => {
 it("renders the trash with the loaded entries", () => {
   vi.useRealTimers();
   renderRoute(WikiTrashRoute, {
-    loaderData: { entries: [{ daysLeft: 3 }, { daysLeft: 0 }] },
+    loaderData: {
+      entries: [{ daysLeft: 3 }, { daysLeft: 0 }],
+      audience: AUDIENCE,
+    },
   });
 
   expect(screen.getByRole("status").textContent).toBe("3,0");

@@ -1,11 +1,5 @@
 import { useTranslation } from "react-i18next";
-import {
-  data,
-  redirect,
-  useActionData,
-  useLoaderData,
-  useNavigation,
-} from "react-router";
+import { useActionData, useLoaderData, useNavigation } from "react-router";
 
 import { AuthFooter } from "@/app/components/auth/auth-footer";
 import { AuthHeading } from "@/app/components/auth/auth-heading";
@@ -14,26 +8,18 @@ import { InstanceBrand } from "@/app/components/common/instance-brand";
 import { LanguageSwitcher } from "@/app/components/login/language-switcher";
 import { LoginForm } from "@/app/components/login/login-form";
 import { LoginSetupHint } from "@/app/components/login/login-setup-hint";
-import { getAuthenticatedUser, parseCredentials } from "@/app/lib/auth.server";
-import { getClientAddress } from "@/app/lib/client-address.server";
-import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
-import { resolveAnonymousLanguage } from "@/app/lib/language.server";
-import { sessionCookie } from "@/app/lib/session.server";
-import { loginDestination } from "@/app/lib/login-destination.server";
-import { databaseFailureHeaders } from "@/app/lib/database-failure.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { TooManyLoginAttemptsError } from "@/backend/auth/LoginThrottle";
-import { DatabaseExecutorError } from "@/backend/database/executor/DatabaseExecutorErrors";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { sendToBackend } from "@/app/lib/backend-request";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { isLanguage } from "@/language/Language";
 
 import type { LoginFormError } from "@/app/components/login/login-form";
-import type { LoginResult } from "@/backend/auth/AuthService";
 import type { InstanceBranding } from "@/definition/Instance";
 import type { Language } from "@/language/Language";
+import type { action } from "./login-server";
 import type { Route } from "./+types/login";
 
 /** Data the login page needs when it renders instead of redirecting. */
-interface LoginLoaderData {
+export interface LoginLoaderData {
   readonly language: Language;
   /** Company name and logo, shown to visitors without a session. */
   readonly branding: InstanceBranding;
@@ -41,115 +27,51 @@ interface LoginLoaderData {
   readonly loginPath: string;
 }
 
-interface LoginActionData {
+/** Why the sign-in failed, as the action answers it. */
+export interface LoginActionData {
   readonly error: LoginFormError;
 }
 
-type LoginActionResult = Response | ReturnType<typeof data<LoginActionData>>;
-
-/**
- * Redirects a visitor who already has an active Pages session.
- *
- * @remarks
- * Everyone else gets their previously selected or browser-derived language
- * so the page, including its language switcher, renders correctly.
- */
-export async function loader({
-  request,
-}: Route.LoaderArgs): Promise<Response | LoginLoaderData> {
-  const user = await getAuthenticatedUser(request);
-
-  if (user) {
-    return redirect(loginDestination(request));
-  }
-
-  const services = await getApplicationServices();
-  const destination = loginDestination(request);
-
-  return {
-    branding: await services.instanceSettingsService.getBranding(),
-    language: await resolveAnonymousLanguage(request),
-    loginPath:
-      destination === "/dashboard"
-        ? "/login"
-        : `/login?returnTo=${encodeURIComponent(destination)}`,
-  };
+function isLoginLoaderData(value: unknown): value is LoginLoaderData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "language" in value &&
+    isLanguage(value.language) &&
+    "branding" in value &&
+    typeof value.branding === "object" &&
+    value.branding !== null &&
+    "loginPath" in value &&
+    typeof value.loginPath === "string"
+  );
 }
 
-/** Validates credentials and creates a persistent browser session. */
-export async function action({
+/**
+ * Reads the sign-in page from the API, or follows its redirect when a
+ * session is active (PAGE-235).
+ */
+export async function clientLoader({
   request,
-}: Route.ActionArgs): Promise<LoginActionResult> {
-  if (request.method !== "POST") {
-    throw new Response("Method Not Allowed", {
-      headers: { Allow: "POST" },
-      status: 405,
-    });
-  }
-
-  const credentials = parseCredentials(await request.formData());
-
-  if (!credentials) {
-    return data<LoginActionData>(
-      { error: "invalidCredentials" },
-      { status: 400 },
-    );
-  }
-
-  let loginResult: LoginResult | null;
-
-  try {
-    const services = await getApplicationServices();
-    loginResult = await services.authService.login(
-      credentials.username,
-      credentials.password,
-      request.headers.get("user-agent"),
-      getClientAddress(request),
-    );
-  } catch (error: unknown) {
-    logCaughtError("login", error);
-
-    if (error instanceof TooManyLoginAttemptsError) {
-      return data<LoginActionData>(
-        { error: "tooManyAttempts" },
-        {
-          headers: { "Retry-After": String(error.retryAfterSeconds) },
-          status: 429,
-        },
-      );
-    }
-
-    // The database is busy or restarting (PAGE-197); the form asks to retry.
-    if (error instanceof DatabaseExecutorError) {
-      return data<LoginActionData>(
-        { error: "unavailable" },
-        { headers: databaseFailureHeaders(error), status: 503 },
-      );
-    }
-
-    throw error;
-  }
-
-  if (!loginResult) {
-    return data<LoginActionData>(
-      { error: "invalidCredentials" },
-      { status: 401 },
-    );
-  }
-
-  return redirect(loginDestination(request), {
-    headers: {
-      "Set-Cookie": await sessionCookie.serialize(loginResult.sessionToken, {
-        secure: resolveCookieSecure(request),
-      }),
-    },
+}: Route.ClientLoaderArgs): Promise<LoginLoaderData> {
+  return readRouteData({
+    endpoint: `/app-api/login${new URL(request.url).search}`,
+    signal: request.signal,
+    isPayload: isLoginLoaderData,
   });
+}
+
+/** Sends the credentials to the API, which runs the sign-in action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Renders the Pages sign-in form backed by the route action. */
 export default function LoginRoute(): React.ReactElement {
   const { t } = useTranslation();
-  const { branding, language, loginPath } = useLoaderData<typeof loader>();
+  const { branding, language, loginPath } =
+    useLoaderData<typeof clientLoader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";

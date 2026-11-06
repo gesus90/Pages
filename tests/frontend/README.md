@@ -88,7 +88,7 @@ No Backend, browser automation, E2E, smoke, integration or live-provider tests r
 jsdom simulates a DOM; these tests do not establish browser layout, responsive
 appearance, scrolling geometry, native focus behavior on every browser, SSR
 hydration or accessibility-tool compatibility. No real services, network,
-DuckDB, external filesystem, provider or subprocess chains are used.
+PostgreSQL, external filesystem, provider or subprocess chains are used.
 
 Pages-owned connection UI may be tested with public connection metadata and
 mocked server/submit boundaries. Executable modules of the independent `mcp/`

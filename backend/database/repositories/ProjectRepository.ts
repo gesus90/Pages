@@ -1,4 +1,5 @@
 import { ProjectActivityRepository } from "./project/ProjectActivityRepository";
+import { PagesEventOutboxRepository } from "./events/PagesEventOutboxRepository";
 import { ProjectCoreRepository } from "./project/ProjectCoreRepository";
 import { ProjectDeletionScopeRepository } from "./project/ProjectDeletionScopeRepository";
 import { ProjectDepartmentRepository } from "./project/ProjectDepartmentRepository";
@@ -17,6 +18,7 @@ import type {
   DatabaseTransaction,
 } from "@/backend/database/Database";
 import type { ProjectDeletionScope } from "@/definition/AgentProjectDeletion";
+import type { PagesEventRecord } from "./events/PagesEventOutboxRepository";
 import type { WorkItemVisibility } from "@/definition/Task";
 import type { WikiVisibilityScope } from "@/definition/Wiki";
 import type { Department } from "@/definition/Authorization";
@@ -287,9 +289,22 @@ export class ProjectRepository {
     await this.projects.updateDetails(id, project);
   }
 
-  /** Marks a project as archived without deleting persisted data. */
-  public async archive(id: string): Promise<void> {
-    await this.projects.archive(id);
+  /**
+   * Marks a project as archived without deleting persisted data.
+   *
+   * @returns Whether the project was active before.
+   */
+  public async archive(id: string): Promise<boolean> {
+    return this.projects.archive(id);
+  }
+
+  /**
+   * Stores a Pages event in the transaction this repository is bound to.
+   *
+   * @param event - Kind and project, never content.
+   */
+  public async appendEvent(event: PagesEventRecord): Promise<void> {
+    await new PagesEventOutboxRepository(this.database).append(event);
   }
 
   /**

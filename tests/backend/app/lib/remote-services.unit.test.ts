@@ -4,6 +4,7 @@ import { createRemoteServices } from "@/app/lib/remote-services.server";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { RemoteConnectionRepository } from "@/backend/database/repositories/remote/RemoteConnectionRepository";
+import { RemoteConsoleSessionRepository } from "@/backend/database/repositories/remote/RemoteConsoleSessionRepository";
 import { RemoteInstallFindingRepository } from "@/backend/database/repositories/remote/RemoteInstallFindingRepository";
 import { RemoteWorkspaceRepository } from "@/backend/database/repositories/remote/RemoteWorkspaceRepository";
 import { RemoteSession } from "@/backend/remote/RemoteSession";
@@ -30,6 +31,10 @@ vi.mock("@/backend/database/repositories/ProjectRepository", () =>
 vi.mock(
   "@/backend/database/repositories/remote/RemoteConnectionRepository",
   () => fakeClasses({ RemoteConnectionRepository: [] }),
+);
+vi.mock(
+  "@/backend/database/repositories/remote/RemoteConsoleSessionRepository",
+  () => fakeClasses({ RemoteConsoleSessionRepository: [] }),
 );
 vi.mock(
   "@/backend/database/repositories/remote/RemoteInstallFindingRepository",
@@ -101,6 +106,7 @@ it("shares one SSH client, connection repository and session registry", () => {
   });
   for (const repository of [
     RemoteConnectionRepository,
+    RemoteConsoleSessionRepository,
     AuthorizationRepository,
     RemoteInstallFindingRepository,
     RemoteWorkspaceRepository,
@@ -129,6 +135,7 @@ it("returns the services and a console over workspaces and connections", () => {
   expect(vi.mocked(RemoteConsoleService).mock.calls[0][0]).toEqual({
     workspaces,
     connections: connection,
+    store: vi.mocked(RemoteConsoleSessionRepository).mock.instances[0],
   });
 });
 

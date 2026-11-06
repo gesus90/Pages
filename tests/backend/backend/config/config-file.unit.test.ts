@@ -36,11 +36,12 @@ describe("reading", () => {
 
   it("reads a finished setup", async () => {
     seed(
-      'firstRun = false\nport = 4100\ndatabasePath = "/srv/pages/pages.duckdb"\n',
+      'firstRun = false\nport = 4100\ndatabasePath = "/srv/pages/pages.duckdb"\ndatabaseUrl = "postgresql://localhost/pages"\n',
     );
 
     await expect(new ConfigFile(CONFIG_PATH).read()).resolves.toEqual({
       databasePath: "/srv/pages/pages.duckdb",
+      databaseUrl: "postgresql://localhost/pages",
       firstRun: false,
       port: 4100,
     });
@@ -74,7 +75,7 @@ describe("reading", () => {
     ["port = 80.5", /port" must be a whole number/u],
     ['databasePath = "relative/pages.duckdb"', /absolute file path/u],
     ["databasePath = 5", /absolute file path/u],
-    ["firstRun = false", /"databasePath" is missing/u],
+    ["firstRun = false", /"databaseUrl" is required/u],
   ])("rejects %s", async (content, message) => {
     seed(content);
 
@@ -105,6 +106,7 @@ describe("writing", () => {
 
     await new ConfigFile(CONFIG_PATH).write({
       databasePath: "/srv/pages.duckdb",
+      databaseUrl: "postgresql://localhost/pages",
       firstRun: false,
       port: 4000,
     });

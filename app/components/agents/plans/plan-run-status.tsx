@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import { focusStatusNode } from "./plan-status-focus";
+import { PlanCommandNote } from "./plan-command-note";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
 import { PlanStatusOutlook } from "./plan-status-outlook";
@@ -142,6 +143,7 @@ function RunStatusContent({
         onSelect={choose}
         onToggle={onToggle}
       />
+      <PlanCommandNote command={run?.command} />
       {isOpen ? (
         <div id={contentId} className="flex min-h-0 flex-col">
           <StatusContent

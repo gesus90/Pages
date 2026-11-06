@@ -162,6 +162,7 @@ it("wires the runner service with plan events over the current plan access", () 
       profiles: PROFILES,
       targets: vi.mocked(AgentPlanRemoteTargets).mock.instances[0],
     },
+    { shouldRecoverHistory: false },
   ]);
   expect(vi.mocked(createPlanWorkspaceAccess).mock.calls[0]).toEqual([
     {

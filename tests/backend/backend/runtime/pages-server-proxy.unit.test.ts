@@ -10,7 +10,8 @@ import { createStaticExchange } from "./static-asset-exchange";
 
 import type { ServerBuild } from "react-router";
 
-vi.mock("@/backend/runtime/StaticAssets", () => ({
+vi.mock("@/backend/runtime/StaticAssets", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   serveStaticAsset: vi.fn(async () => false),
 }));
 // The executable plan catalog of the independent MCP package stays out of Pages tests.

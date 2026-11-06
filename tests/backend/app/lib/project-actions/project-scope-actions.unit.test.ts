@@ -27,6 +27,7 @@ const projectService = {
   getById: vi.fn(),
   setDepartments: vi.fn(),
 };
+const pagesEventPublisher = { publish: vi.fn() };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -37,7 +38,7 @@ function scopeContext(fields: FormFields = {}): ProjectScopeActionContext {
     actor: ACTOR,
     formData: formOf(fields),
     projectId: PROJECT_ID,
-    services: servicesOf({ projectService }),
+    services: servicesOf({ projectService, pagesEventPublisher }),
   };
 }
 

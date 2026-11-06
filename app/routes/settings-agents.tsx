@@ -1,24 +1,27 @@
 import { useTranslation } from "react-i18next";
 import { Bot } from "lucide-react";
-import { data as routeData, Link, useLoaderData } from "react-router";
+import { Link, useLoaderData } from "react-router";
 
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings-card";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
 import { RunnerConnectionsCard } from "@/app/components/settings/agents/runner-connections-card";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { picaCatalogRefresh } from "@/app/lib/pica-catalog.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
-import { readAgentAccount } from "@/app/lib/settings-actions/settings-agents-access.server";
-import { handleAgentsAction } from "@/app/lib/settings-actions/settings-agents-actions.server";
 import {
-  agentFailureResponse,
-  AGENT_NO_STORE,
-} from "@/app/lib/settings-actions/settings-agents-response.server";
-import { logCaughtError } from "@/backend/logging/Logger";
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { ModelCatalogRefresh } from "@/app/components/agents/model-picker/use-model-catalog-refresh";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
@@ -31,7 +34,8 @@ import type { PicaAdministration } from "@/definition/PicaSettings";
 import type { Route } from "./+types/settings-agents";
 import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
 
-type AgentsLoaderData =
+/** The agents area as the endpoint answers it, or the request for the admin mode. */
+export type AgentsLoaderData =
   | { readonly access: "adminModeRequired" }
   | {
       readonly access: "granted";
@@ -46,93 +50,80 @@ type AgentsLoaderData =
         readonly models: readonly PageAgentModel[];
       };
       readonly picaCatalogRefresh: ModelCatalogRefresh;
+      readonly audience: LocalStateAudience;
     };
 
-/**
- * Keeps the page, its data requests and every action answer out of caches.
- *
- * @remarks
- * React Router forwards only the cookies of loader and action headers, so the
- * route states `no-store` itself and keeps the security headers of its parents.
- */
-export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
-  const responseHeaders = new Headers(parentHeaders);
-  responseHeaders.set("Cache-Control", AGENT_NO_STORE["Cache-Control"]);
-  return responseHeaders;
-};
+/** The rights-checked endpoint of the agents area. */
+const SETTINGS_AGENTS_ENDPOINT = "/settings-api/agents";
 
-/** Loads secret-free metadata only for personal administrators in the active admin mode. */
-export async function loader({
-  context,
-}: Route.LoaderArgs): Promise<ReturnType<typeof routeData<AgentsLoaderData>>> {
-  try {
-    const services = await getApplicationServices();
-    const actor = await readAgentAccount(
-      services,
-      context.get(authenticatedUserContext),
-    );
-    if (actor.mode !== "admin")
-      return routeData<AgentsLoaderData>(
-        { access: "adminModeRequired" },
-        { headers: AGENT_NO_STORE },
-      );
-    const [
-      connections,
-      cliTools,
-      catalogs,
-      profileDirectory,
-      pica,
-      runners,
-      openCodeLinks,
-    ] = await Promise.all([
-      services.agentConnectionService.list(actor),
-      services.agentCliLoginService.tools(actor),
-      services.agentCatalogService.list(actor),
-      services.agentProfileService.directory(actor),
-      services.picaSettingsService.administration(actor.userId),
-      services.runnerService.overview(actor.userId),
-      services.openCodeProviderLinks.describe(),
-    ]);
-    return routeData<AgentsLoaderData>(
-      {
-        access: "granted",
-        connections: connections.map((connection) =>
-          connection.provider === "opencode"
-            ? { ...connection, openCodeLinks }
-            : connection,
-        ),
-        runners,
-        runnerGitHubMode: services.runnerGitHubMode,
-        cliTools,
-        catalogs,
-        profileDirectory,
-        pica,
-        picaCatalogRefresh: picaCatalogRefresh(pica),
-      },
-      { headers: AGENT_NO_STORE },
-    );
-  } catch (error: unknown) {
-    logCaughtError("settings_agents", error);
-
-    throw agentFailureResponse(error);
-  }
+function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
+  if (typeof value !== "object" || value === null || !("access" in value))
+    return false;
+  if (value.access === "adminModeRequired") return true;
+  return (
+    value.access === "granted" &&
+    "connections" in value &&
+    Array.isArray(value.connections) &&
+    "runners" in value &&
+    Array.isArray(value.runners) &&
+    "pica" in value &&
+    typeof value.pica === "object" &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
+  );
 }
 
-/** Keeps form secrets out of every success and failure response. */
-export async function action(args: Route.ActionArgs): Promise<Response> {
-  try {
-    return await handleAgentsAction(await readSettingsRequest(args));
-  } catch (error: unknown) {
-    logCaughtError("settings_agents", error);
+/**
+ * The agents area, kept per account and rights.
+ *
+ * @remarks
+ * The rights include the admin mode, so leaving it never shows the kept
+ * metadata; the request for the admin mode is not kept.
+ */
+const SETTINGS_AGENTS_STATE: LocalStateRouteKind<AgentsLoaderData> = {
+  schemaVersion: 1,
+  isPayload: isAgentsRouteData,
+  isCurrent: (agents) =>
+    agents.access === "granted" && isCurrentLocalStateAudience(agents.audience),
+  ownerOf: (agents) =>
+    agents.access === "granted" ? agents.audience.userId : "",
+  isRefused: (agents) => agents.access !== "granted",
+};
 
-    return agentFailureResponse(error);
-  }
+/**
+ * Opens the agents area from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint checks the administrator and the admin mode again, as the
+ * server loader does; a refusal shows the same error as before.
+ */
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<AgentsLoaderData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), SETTINGS_AGENTS_STATE, () =>
+    readRouteData({
+      endpoint: `${SETTINGS_AGENTS_ENDPOINT}${url.search}`,
+      signal: request.signal,
+      isPayload: isAgentsRouteData,
+    }),
+  );
+}
+
+/** Sends a change of the agents area to the API, which runs the page's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Renders the complete management UI, or the existing admin-mode switch. */
 export default function SettingsAgentsRoute(): React.ReactElement {
   const { t } = useTranslation();
-  const result = useLoaderData<typeof loader>();
+  const result = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    SETTINGS_AGENTS_STATE,
+  );
   return result.access === "granted" ? (
     <div className="space-y-4">
       <SettingsSectionHeader

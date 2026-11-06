@@ -1,5 +1,9 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
+import { captureLogContext, withLogContext } from "@/backend/logging/Logger";
+
+import { detachFromCall } from "../CallTransaction";
+
 /**
  * Who waits for a database job (PAGE-197).
  *
@@ -54,6 +58,7 @@ export function withDatabaseWork<Result>(
  * them: actor and rights stay what the caller passes on and rechecks, and the
  * log correlation of the request is kept. The queues stay bounded, and an
  * explicit stop still works through the abort controllers of the work itself.
+ * The detached work never joins the transaction of the call that started it.
  *
  * @param origin - Fixed label of the work, see {@link DatabaseWorkContext.origin}.
  * @param work - Code whose database jobs become background jobs.
@@ -63,7 +68,9 @@ export function withBackgroundDatabaseWork<Result>(
   origin: string,
   work: () => Promise<Result>,
 ): Promise<Result> {
-  return contexts.run({ ...BACKGROUND, origin }, work);
+  return withLogContext(captureLogContext(), () =>
+    contexts.run({ ...BACKGROUND, origin }, () => detachFromCall(work)),
+  );
 }
 
 /** The context of the current call; work outside any context is background. */

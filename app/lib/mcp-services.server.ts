@@ -454,7 +454,8 @@ export function createMcpServices(
     workspace,
     stepReports: workspace.stepReports,
   });
-  const pagesEventPublisher = workspace.events ?? new PagesEventPublisher();
+  const pagesEventPublisher =
+    workspace.events ?? new PagesEventPublisher(database);
   const creation = {
     database,
     staging,

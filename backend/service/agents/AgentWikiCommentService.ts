@@ -16,6 +16,7 @@ import { WikiCommentService } from "@/backend/service/wiki/WikiCommentService";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { recordPagesEvent } from "@/backend/service/events/PagesEventPublisher";
 
 import { requireAgentConfirmation } from "./AgentConfirmation";
 import { pageAgentEntries } from "./AgentCursor";
@@ -250,8 +251,17 @@ export class AgentWikiCommentService {
     const request = readAgentWikiCommentWrite(operation, parameters);
     let outcome: CommentOutcome;
     try {
-      outcome = await this.dependencies.database.transaction((transaction) =>
-        this.run(transaction, identity.userId, request),
+      outcome = await this.dependencies.database.transaction(
+        async (transaction) => {
+          const changed = await this.run(transaction, identity.userId, request);
+          // The outbox row commits with the comment; a repeated call stores none.
+          if (changed.changedPageId !== null)
+            await recordPagesEvent(transaction, {
+              type: "wiki.comments.changed",
+              id: changed.changedPageId,
+            });
+          return changed;
+        },
       );
     } catch (error: unknown) {
       logCaughtError("AgentWikiCommentService", error);

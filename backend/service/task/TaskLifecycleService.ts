@@ -170,16 +170,17 @@ export class TaskLifecycleService {
     const ids = await this.requireVisibleSubtree(actor, id);
 
     await this.assertParentActive(item);
-    await this.taskRepository.restoreMany(ids);
-    this.cache.invalidateWorkItems();
+    // Only the tickets that were archived change; the rest of the subtree stays as it was.
+    const restoredIds = await this.taskRepository.restoreMany(ids);
+    if (restoredIds.length > 0) this.cache.invalidateWorkItems();
 
-    for (const itemId of ids) {
+    for (const itemId of restoredIds) {
       await this.history.recordRestored(actor, itemId);
     }
     return {
-      changedCount: ids.length,
+      changedCount: restoredIds.length,
       parentId: item.parentId,
-      ticketIds: ids,
+      ticketIds: restoredIds,
     };
   }
 

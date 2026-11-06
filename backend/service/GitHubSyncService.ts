@@ -16,6 +16,9 @@ import { GitHubSyncAccessGuard } from "@/backend/service/github/GitHubSyncAccess
 import { GitHubSyncContextLoader } from "@/backend/service/github/GitHubSyncContextLoader";
 import { GitHubSyncRunner } from "@/backend/service/github/GitHubSyncRunner";
 
+import type { GitHubChangeEvents } from "@/backend/service/github/GitHubLocalChange";
+import type { GitHubCreationRepository } from "@/backend/database/repositories/integrations/GitHubCreationRepository";
+import type { GitHubJobClient } from "@/backend/service/integrations/GitHubJobClient";
 import type { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -39,6 +42,9 @@ export { parseGitHubRepository } from "@/backend/service/github/GitHubSyncContex
 
 /** Dependencies required by the GitHub synchronization service. */
 export interface GitHubSyncServiceOptions {
+  /** Present on producer facades; absent only on the elected consumer. */
+  readonly jobs?: GitHubJobClient;
+  readonly creations?: GitHubCreationRepository;
   readonly taskRepository: TaskRepository;
   readonly projectRepository: ProjectRepository;
   readonly gitHubRepository: GitHubRepository;
@@ -49,6 +55,8 @@ export interface GitHubSyncServiceOptions {
   readonly tokenKey: Buffer;
   readonly now?: () => string;
   readonly cache?: ServerCache;
+  /** Stores every local change GitHub causes together with its event. */
+  readonly events: GitHubChangeEvents;
 }
 
 /**
@@ -78,6 +86,7 @@ export function currentGitHubSyncTime(): string {
  * holds no synchronization logic of its own.
  */
 export class GitHubSyncService {
+  private readonly jobs: GitHubJobClient | undefined;
   private readonly projectService: ProjectService;
   private readonly taskService: TaskService;
   private readonly gitHubRepository: GitHubRepository;
@@ -96,6 +105,7 @@ export class GitHubSyncService {
    * @param options - Repository, service, and infrastructure dependencies.
    */
   public constructor(options: GitHubSyncServiceOptions) {
+    this.jobs = options.jobs;
     const now = options.now ?? currentGitHubSyncTime;
     const contextLoader = new GitHubSyncContextLoader(
       options.projectRepository,
@@ -110,8 +120,13 @@ export class GitHubSyncService {
       options.taskRepository,
       contextLoader,
       now,
+      { creations: options.creations, events: options.events },
     );
-    const puller = new GitHubIssuePuller(options.taskRepository, now);
+    const puller = new GitHubIssuePuller(
+      options.taskRepository,
+      now,
+      options.events,
+    );
     const conflictResolver = new GitHubConflictResolver({
       accessGuard,
       contextLoader,
@@ -119,11 +134,13 @@ export class GitHubSyncService {
       puller,
       pusher,
       taskRepository: options.taskRepository,
+      events: options.events,
     });
     const pullRequestService = new GitHubPullRequestService(
       options.gitHubRepository,
       accessGuard,
       options.taskService,
+      options.events,
     );
 
     this.projectService = options.projectService;
@@ -141,6 +158,7 @@ export class GitHubSyncService {
       now,
       taskRepository: options.taskRepository,
       taskService: options.taskService,
+      events: options.events,
     });
     this.connectionTester = new GitHubConnectionTester(
       options.projectRepository,
@@ -154,6 +172,7 @@ export class GitHubSyncService {
       externalIssueDetector: new GitHubExternalIssueDetector(
         options.taskRepository,
         options.gitHubRepository,
+        options.events,
       ),
       now,
       projectRepository: options.projectRepository,
@@ -177,6 +196,15 @@ export class GitHubSyncService {
   ): Promise<GitHubSyncSummary> {
     await this.accessGuard.requireWritableProject(actor, projectId);
 
+    const jobs = this.jobs;
+    if (jobs)
+      return this.mutate(() =>
+        jobs.summary({
+          operation: "project",
+          actorId: actor.id,
+          targetId: projectId,
+        }),
+      );
     return this.mutate(() => this.runner.runProject(actor, projectId));
   }
 
@@ -186,6 +214,8 @@ export class GitHubSyncService {
    * @returns Completed and failed run counters; failures never abort the batch.
    */
   public async runScheduledSyncs(): Promise<ScheduledSyncResult> {
+    const jobs = this.jobs;
+    if (jobs) return this.mutate(() => jobs.scheduled());
     return this.mutate(() => this.runner.runDue());
   }
 
@@ -200,6 +230,16 @@ export class GitHubSyncService {
     actor: User,
     workItemId: string,
   ): Promise<GitHubSyncSummary> {
+    await this.accessGuard.requireWritableTask(actor, workItemId);
+    const jobs = this.jobs;
+    if (jobs)
+      return this.mutate(() =>
+        jobs.summary({
+          operation: "single",
+          actorId: actor.id,
+          targetId: workItemId,
+        }),
+      );
     return this.mutate(() => this.runner.runSingleTask(actor, workItemId));
   }
 
@@ -214,6 +254,14 @@ export class GitHubSyncService {
     item: WorkItemDetail,
   ): Promise<void> {
     const current = await this.taskService.getById(actor, item.id);
+    if (this.jobs) {
+      await this.jobs.publish({
+        operation: "publish",
+        actorId: actor.id,
+        targetId: current.id,
+      });
+      return;
+    }
     return this.mutate(() => this.pusher.publishTaskUpdate(actor, current));
   }
 
@@ -230,6 +278,19 @@ export class GitHubSyncService {
     projectId: string,
     issueNumber: number,
   ): Promise<WorkItemDetail> {
+    await this.accessGuard.requireWritableProject(actor, projectId);
+    const jobs = this.jobs;
+    if (jobs) {
+      const id = await this.mutate(() =>
+        jobs.task({
+          operation: "import",
+          actorId: actor.id,
+          targetId: projectId,
+          issueNumber,
+        }),
+      );
+      return this.taskService.getById(actor, id);
+    }
     return this.mutate(() =>
       this.externalIssueTriage.importIssue(actor, projectId, issueNumber),
     );
@@ -247,6 +308,19 @@ export class GitHubSyncService {
     workItemId: string,
     externalId: string,
   ): Promise<WorkItemDetail> {
+    await this.accessGuard.requireWritableTask(actor, workItemId);
+    const jobs = this.jobs;
+    if (jobs) {
+      const id = await this.mutate(() =>
+        jobs.task({
+          operation: "link",
+          actorId: actor.id,
+          targetId: workItemId,
+          externalId,
+        }),
+      );
+      return this.taskService.getById(actor, id);
+    }
     return this.mutate(() =>
       this.externalIssueTriage.linkIssue(actor, workItemId, externalId),
     );
@@ -296,6 +370,19 @@ export class GitHubSyncService {
     workItemId: string,
     resolution: "pages" | "github",
   ): Promise<WorkItemDetail> {
+    await this.accessGuard.requireWritableTask(actor, workItemId);
+    const jobs = this.jobs;
+    if (jobs) {
+      const id = await this.mutate(() =>
+        jobs.task({
+          operation: "resolve",
+          actorId: actor.id,
+          targetId: workItemId,
+          resolution,
+        }),
+      );
+      return this.taskService.getById(actor, id);
+    }
     return this.mutate(() =>
       this.conflictResolver.resolve(actor, workItemId, resolution),
     );
@@ -424,6 +511,13 @@ export class GitHubSyncService {
     actor: User,
     projectId: string,
   ): Promise<boolean> {
+    await this.accessGuard.requireWritableProject(actor, projectId);
+    if (this.jobs)
+      return this.jobs.test({
+        operation: "test",
+        actorId: actor.id,
+        targetId: projectId,
+      });
     return this.connectionTester.testConnection(actor, projectId);
   }
   private async mutate<T>(operation: () => Promise<T>): Promise<T> {

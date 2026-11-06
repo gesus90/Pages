@@ -84,7 +84,7 @@ also reset their own mutable mocks and fake timers when used.
 ## Unit boundaries
 
 Mock external boundaries before importing or invoking code that can initialize
-them: DuckDB/repositories, filesystem access, network/providers, application
+them: PostgreSQL/repositories, filesystem access, network/providers, application
 service factories, timers/schedulers and subprocess adapters. Repository unit
 tests use a mocked database contract, not a real database. Do not start real
 services or compose database, network or subprocess chains.

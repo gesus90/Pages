@@ -103,6 +103,10 @@ export interface PlanSessionClosed {
 
 /** A running session: first its turn, then its closing. */
 export interface PlanSession {
+  /** Durable local owners detach from HTTP shutdown without cancelling their native work. */
+  readonly isDurable?: boolean;
+  readonly isDetached?: boolean;
+  detach?(): void;
   readonly turn: Promise<PlanSessionTurn>;
   /** Native process exit, used to clean up crashed idle ACP sessions. */
   readonly terminated?: Promise<void>;
@@ -122,6 +126,7 @@ export interface PlanSession {
 
 /** The CLI side of plan execution. */
 export interface PlanSessionRunner {
+  readonly hasDurableLocalSessions?: boolean;
   open(
     input: AgentPlanSessionInput,
     signal: AbortSignal,
@@ -135,6 +140,7 @@ export interface PlanSessionRunner {
 
 /** Runs plan nodes: requests to API connections and sessions of CLI runners. */
 export interface PlanExecution {
+  readonly hasDurableLocalSessions?: boolean;
   /** A request to an API connection; it uses no tools and no workspace. */
   run(input: AgentPlanExecutionInput, signal: AbortSignal): Promise<string>;
   /** A session of the CLI runner the connection of the node determines. */
@@ -173,6 +179,11 @@ export class AgentPlanExecution implements PlanExecution {
     this.cli = cli;
     this.operations = operations;
     this.authorizer = authorizer;
+  }
+
+  /** Whether native plan sessions use the independent local owner. */
+  public get hasDurableLocalSessions(): boolean {
+    return this.cli.hasDurableLocalSessions === true;
   }
 
   /** Releases private CLI transcripts only after the complete plan has settled. */
@@ -251,6 +262,12 @@ export class AgentPlanExecution implements PlanExecution {
     const steer = session.steer?.bind(session);
     return {
       turn: session.turn,
+      terminated: session.terminated,
+      isDurable: session.isDurable,
+      get isDetached(): boolean {
+        return session.isDetached === true;
+      },
+      ...(session.detach ? { detach: () => session.detach?.() } : {}),
       ...(steer ? { steer } : {}),
       ...(session.next
         ? {

@@ -3,7 +3,7 @@ import { useActionData } from "react-router";
 import { TaskFormDialog } from "@/app/components/tasks/task-form-dialog";
 
 import type { TasksDialog } from "@/app/components/tasks/board/use-tasks-dialog";
-import type { action, loader } from "@/app/routes/tasks";
+import type { action, loader } from "@/app/routes/tasks-server";
 
 interface TasksFormDialogProps {
   readonly loaderData: Awaited<ReturnType<typeof loader>>;

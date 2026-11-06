@@ -8,7 +8,18 @@ import { toolRuntimeWorld, toolSessionInput } from "./page69-runtime-world";
 import { TOOL_ADMIN, toolWorld } from "./page69-tool-world";
 
 import type { AgentCliRuntime } from "@/backend/agents/cli/AgentCliRuntime";
+import type * as OwnedNamespaceModule from "@/backend/agents/cli/CliOwnedNamespace";
 
+// This fixture spawns an in-memory adapter, so its synthetic PID has no /proc entry.
+vi.mock("@/backend/agents/cli/CliOwnedNamespace", async (importOriginal) => ({
+  ...(await importOriginal<typeof OwnedNamespaceModule>()),
+  captureOwnedNamespace: async (pid: number) => ({
+    pid,
+    uid: 1000,
+    start: 1,
+    boot: "synthetic-boot",
+  }),
+}));
 vi.mock("node:fs/promises", () => ({
   access: async (file: string) => {
     if (file.endsWith("config.toml")) throw new Error("ENOENT");

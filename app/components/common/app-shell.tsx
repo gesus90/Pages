@@ -33,11 +33,13 @@ import {
 import { InstanceBrand } from "@/app/components/common/instance-brand";
 import { NavigationContent } from "@/app/components/common/navigation-content";
 import { BackgroundSaveStatus } from "@/app/components/common/background-save-status";
+import { useUnconfirmedDraftCheck } from "@/app/components/common/draft-provider";
 import { UserAvatar } from "@/app/components/common/user-avatar";
 import { TicketSidebarSection } from "@/app/components/tasks/tree/ticket-sidebar-section";
 import { WikiSidebarSection } from "@/app/components/wiki/wiki-sidebar-section";
 import { AgentNavigation } from "@/app/components/settings/agents/agent-navigation";
 import { cn } from "@/app/lib/cn";
+import { localState } from "@/app/lib/local-state/local-state-store";
 
 import styles from "./app-shell/app-shell.module.css";
 import { SidebarResizeHandle } from "./app-shell/sidebar-resize-handle";
@@ -196,8 +198,13 @@ function AccountMenu({
 }): React.ReactElement {
   const { t } = useTranslation();
   const submit = useSubmit();
+  const hasUnconfirmedDrafts = useUnconfirmedDraftCheck();
 
   function handleSignOut(): void {
+    if (hasUnconfirmedDrafts() && !window.confirm(t("backgroundSave.signOut")))
+      return;
+    // The local answers and edits of the account go before the session does.
+    void localState.claim(null, { isSignOut: true });
     submit({}, { action: "/logout", method: "post" }).catch(
       (error: unknown) => {
         console.error("Pages could not end the session.", error);

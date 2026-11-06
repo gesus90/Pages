@@ -11,7 +11,7 @@ export interface SetupFormInput {
   readonly username: string;
   readonly password: string;
   readonly email: string | null;
-  readonly databasePath: string;
+  readonly databaseUrl: string;
 }
 
 /** The outcome of reading a submitted setup. */
@@ -27,7 +27,7 @@ export type SetupFormResult =
  *
  * @remarks
  * The whole form is checked, whichever step the wizard showed last. The
- * database path is checked separately against the file system.
+ * database connection is checked separately.
  */
 export function readSetupForm(formData: FormData): SetupFormResult {
   const values = {
@@ -45,7 +45,7 @@ export function readSetupForm(formData: FormData): SetupFormResult {
   return {
     input: {
       companyName: values.companyName.trim(),
-      databasePath: readText(formData, SETUP_FORM_FIELD.DATABASE_PATH) ?? "",
+      databaseUrl: readText(formData, SETUP_FORM_FIELD.DATABASE_URL) ?? "",
       email: values.email.trim() || null,
       password: values.password,
       username: values.username.trim(),

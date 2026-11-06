@@ -1,9 +1,15 @@
+import {
+  appendSessionHistoryChunks,
+  prepareSessionHistoryChunks,
+} from "@/backend/database/repositories/agent/AgentSessionHistoryChunks";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { readPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import { call } from "./world";
 
+import type { Database } from "@/backend/database/Database";
+import type { AgentSessionEvent } from "@/definition/AgentSessionJournal";
 import type { RepositoryStep } from "./world";
 import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import type {
@@ -329,4 +335,17 @@ export function callAtAnyTime(
   run: RepositoryStep["run"],
 ): RepositoryStep {
   return call(name, async (world) => withoutClock(await run(world)));
+}
+
+/** Synchronizes immutable history before entering the receipt transaction. */
+export async function appendPreparedHistory(
+  database: Database,
+  planId: string,
+  owner: { readonly attemptId: string; readonly launchId: string },
+  events: readonly AgentSessionEvent[],
+): Promise<void> {
+  const prepared = await prepareSessionHistoryChunks(database, planId, events);
+  await database.transaction((transaction) =>
+    appendSessionHistoryChunks(transaction, owner, events, prepared),
+  );
 }

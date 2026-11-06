@@ -20,6 +20,10 @@ Andere Benutzer sehen die Karte nicht. Der Server prüft die Berechtigung bei je
 
 Der Port steht in `~/.pages/config.toml` als `picaMobilePort`. Ohne den Schlüssel ist der Endpunkt aus und es wird kein zusätzlicher Port geöffnet. Beim Start lauscht Pages auf dem gespeicherten Port; ein Neustart behält die Einstellung. Der Schlüssel darf auch von Hand gesetzt werden; ein Wert außerhalb von 1 bis 65535 verhindert den Start mit einer Fehlermeldung zur Konfiguration, wie bei `port`. Der Endpunkt lauscht auf derselben Schnittstelle wie Pages (`listenAddress`, sonst auf allen).
 
+### Betrieb über pages-core (PAGE-239)
+
+Mit `picaMobileRelayPort` in der Konfiguration hält der Dienst `pages-core` den Port statt des API-Prozesses: Er lauscht auf `picaMobilePort` (gleiche Schnittstelle, gleicher Pfad, gleiche Datei-Endpunkte) und reicht jede Verbindung und jede Dateianfrage unverändert an den Endpunkt der API auf `127.0.0.1:<picaMobileRelayPort>` weiter. Anmeldung, Sitzungsprüfung und alle Nachrichten entscheidet weiter die API; die App merkt keinen Unterschied und braucht kein Update. Ein Neustart der API beendet die Verbindung mit Code 1001 wie ein Pages-Neustart, und die App verbindet sich wie unten beschrieben neu; solange die API nicht erreichbar ist, beantwortet `pages-core` den Handshake mit HTTP 502. Ein Portwechsel in den Einstellungen gilt erst, wenn `pages-core` den neuen Port bedient; sonst bleibt die bisherige Einstellung gespeichert, auch „kein Port“. Antwortet die API auf eine Dateianfrage nicht binnen 10 Sekunden nach der vollständigen Anfrage, antwortet `pages-core` mit HTTP 504. Einrichtung und Rückweg: [deploy/core/README.md](../deploy/core/README.md#websocket-relay-page-239).
+
 ### Portwechsel
 
 Ein Portwechsel läuft in dieser Reihenfolge: neuen Port binden, Konfiguration schreiben, erst dann den alten Listener samt seiner Verbindungen schließen (Close-Code 1001). Scheitert ein Schritt, bleibt der bisherige Listener mit seinen Verbindungen und der gespeicherten Konfiguration unverändert. Die Karte meldet den Grund:

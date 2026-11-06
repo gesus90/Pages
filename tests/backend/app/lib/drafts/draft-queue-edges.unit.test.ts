@@ -4,13 +4,17 @@ import { DraftQueue } from "@/app/lib/drafts/draft-queue";
 
 import { deferred } from "../../components/drafts/draft-fixture";
 
-import type { DraftAnswer, DraftEntry } from "@/app/lib/drafts/draft-queue";
+import type {
+  DraftAnswer,
+  DraftAttempt,
+  DraftEntry,
+} from "@/app/lib/drafts/draft-queue";
 
 interface Content {
   readonly text: string;
 }
 
-type Save = (entry: DraftEntry<Content>) => Promise<DraftAnswer<Content>>;
+type Save = (attempt: DraftAttempt<Content>) => Promise<DraftAnswer<Content>>;
 
 function queueWith(
   save: Save,
@@ -91,7 +95,7 @@ it("drops the answer of a save that finishes after the queue was deactivated", a
 
   expect(entryOf(queue)).toMatchObject({
     isSaving: true,
-    hasUnconfirmedWrite: true,
+    pending: { draft: { text: "edited" } },
   });
   queue.save("one");
   expect(entryOf(queue).sequence).toBe(1);

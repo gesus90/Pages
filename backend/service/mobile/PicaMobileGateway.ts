@@ -21,6 +21,7 @@ import type { PicaMobileDashboardProvider } from "./PicaMobileDashboardProvider"
 import type { PicaMobileChatProvider } from "./chat/PicaMobileChatProvider";
 import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
 import type { PicaMobilePlansProvider } from "./plans/PicaMobilePlansProvider";
+import type { PicaMobileRelay } from "./PicaMobileRelay";
 
 /** What the gateway needs from its surroundings. */
 export interface PicaMobileGatewayOptions {
@@ -40,6 +41,12 @@ export interface PicaMobileGatewayOptions {
   readonly serverVersion: string;
   /** Interface to listen on; every interface when missing. */
   readonly listenAddress?: string;
+  /**
+   * Set while `pages-core` holds the app's port (PAGE-239): the gateway
+   * listens on the loopback relay port instead and admits only what the
+   * core relays, with the app's address the core reports.
+   */
+  readonly relay?: PicaMobileRelay;
   /** Port of the Pages web server, which the endpoint can never share. */
   readonly reservedPort?: number;
   /** Creates the HTTP server of a listener; tests replace it. */
@@ -83,6 +90,8 @@ const COMPONENT = "PicaMobileGateway";
 const MAXIMUM_CONNECTIONS = 100;
 const MAXIMUM_USER_AGENT_LENGTH = 200;
 const SHUTDOWN_GRACE_MILLISECONDS = 3_000;
+/** The relay listener only answers loopback peers (PAGE-239). */
+const RELAY_LISTEN_ADDRESS = "127.0.0.1";
 
 function classifyListenError(error: unknown): PicaMobilePortError {
   const code =
@@ -209,6 +218,11 @@ export class PicaMobileGateway {
     return this.active?.connections.size ?? 0;
   }
 
+  /** The relay side while `pages-core` holds the app's port; otherwise `undefined`. */
+  public get relay(): PicaMobileRelay | undefined {
+    return this.options.relay;
+  }
+
   /** The last port that could not be bound; kept until a bind succeeds. */
   public get failure(): PicaMobileListenFailure | null {
     return this.lastFailure;
@@ -323,7 +337,13 @@ export class PicaMobileGateway {
     );
 
     try {
-      await listen(listener.server, port, this.options.listenAddress);
+      await listen(
+        listener.server,
+        port,
+        this.options.relay === undefined
+          ? this.options.listenAddress
+          : RELAY_LISTEN_ADDRESS,
+      );
     } catch (error: unknown) {
       logCaughtError(COMPONENT, error);
 
@@ -339,12 +359,47 @@ export class PicaMobileGateway {
     return listener;
   }
 
+  /**
+   * The app's address: the peer, or behind `pages-core` the address the core
+   * reports.
+   *
+   * @returns `undefined` for a request on the relay listener that does not
+   * come from the core; it is refused.
+   */
+  private readClientAddress(
+    request: IncomingMessage,
+  ): string | null | undefined {
+    const relay = this.options.relay;
+
+    if (relay === undefined) {
+      return request.socket.remoteAddress ?? null;
+    }
+
+    return relay.admit(request) ?? undefined;
+  }
+
   /** Answers the attachment endpoints of `chat.v1`; every other request learns to upgrade. */
   private handleRequest(
     request: IncomingMessage,
     response: ServerResponse,
   ): void {
-    if (this.files?.handle(request, response) === true) {
+    const clientAddress = this.readClientAddress(request);
+
+    if (clientAddress === undefined) {
+      response.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end("Forbidden");
+
+      return;
+    }
+
+    if (this.options.relay?.receiveProbe(request.url) === true) {
+      response.writeHead(204, { "Cache-Control": "no-store" });
+      response.end();
+
+      return;
+    }
+
+    if (this.files?.handle(request, response, clientAddress) === true) {
       return;
     }
 
@@ -368,6 +423,14 @@ export class PicaMobileGateway {
     // A peer that resets during the handshake must not raise an unhandled error.
     socket.on("error", () => socket.destroy());
 
+    const clientAddress = this.readClientAddress(request);
+
+    if (clientAddress === undefined) {
+      refuseUpgrade(socket, 403, "Forbidden");
+
+      return;
+    }
+
     if (!isEndpointPath(request.url)) {
       refuseUpgrade(socket, 404, "Not Found");
 
@@ -388,19 +451,23 @@ export class PicaMobileGateway {
     }
 
     listener.sockets.handleUpgrade(request, socket, head, (channel) =>
-      this.accept(listener, channel, request),
+      this.accept(listener, channel, { request, clientAddress }),
     );
   }
 
   private accept(
     listener: Listener,
     channel: WebSocket,
-    request: IncomingMessage,
+    handshake: {
+      readonly request: IncomingMessage;
+      readonly clientAddress: string | null;
+    },
   ): void {
+    const { request, clientAddress } = handshake;
     const connection = new PicaMobileConnection(channel, {
       connectionId: randomUUID(),
       origin: {
-        clientAddress: request.socket.remoteAddress ?? null,
+        clientAddress,
         userAgent: readUserAgent(request),
       },
       authenticator: this.options.authenticator,

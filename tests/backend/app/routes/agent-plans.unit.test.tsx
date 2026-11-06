@@ -11,7 +11,9 @@ import { usePlanSelectionPreference } from "@/app/components/agents/plans/use-pl
 import { planCatalogRefresh } from "@/app/lib/agent-plan-catalog.server";
 import { lastSelectedPlan } from "@/app/lib/agent-plan-selection.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import AgentPlansRoute, { headers, loader } from "@/app/routes/agent-plans";
+import AgentPlansRoute from "@/app/routes/agent-plans";
+import { loader as dataLoader } from "@/app/routes/agent-plans-data";
+import { loader } from "@/app/routes/agent-plans-server";
 import { readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 
@@ -44,6 +46,16 @@ vi.mock("@/app/lib/auth.server", async () => {
   const router = await import("react-router");
   return { authenticatedUserContext: router.createContext<User | null>(null) };
 });
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({
     agentPlanService: service,
@@ -151,18 +163,23 @@ async function thrown(
   throw new Error("Expected a thrown response.");
 }
 
-it("keeps graphs and results out of every cache", () => {
-  const result = new Headers(
-    headers({
-      parentHeaders: new Headers({ "X-Parent": "1" }),
-      loaderHeaders: new Headers(),
-      actionHeaders: new Headers(),
-      errorHeaders: undefined,
-    }),
+it("keeps graphs and results out of every cache", async () => {
+  serve([plan("alpha")]);
+  const request = new Request(
+    "http://pages.invalid/agents/plans-api?planId=alpha",
   );
+  const context = new RouterContextProvider();
+  context.set(authenticatedUserContext, USER);
 
-  expect(result.get("Cache-Control")).toBe("no-store");
-  expect(result.get("X-Parent")).toBe("1");
+  const response = await dataLoader({
+    request,
+    context,
+    params: {},
+    url: new URL(request.url),
+    pattern: "/agents/plans-api",
+  });
+
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
 });
 
 it("refuses a visitor without a signed-in user", async () => {

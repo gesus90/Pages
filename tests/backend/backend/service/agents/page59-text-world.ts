@@ -26,7 +26,10 @@ import {
 } from "./archive-records";
 import { mockTextWiki, textWikiPage } from "./page59-wiki-storage";
 
-import type { DatabaseTransaction } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  SqlParameters,
+} from "@/backend/database/Database";
 import type { NewWorkItemHistory } from "@/backend/database/repositories/TaskRepository";
 import type { StoredAgentOperation } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import type { NewProjectActivity } from "@/backend/database/repositories/project/ProjectActivityRepository";
@@ -39,6 +42,9 @@ import type { ArchivePersonOptions } from "./archive-records";
 /** The two public text targets, exercised through the production dispatcher. */
 export const TEXT_TARGETS = ["wiki", "ticket"] as const;
 export type TextTarget = (typeof TEXT_TARGETS)[number];
+
+/** The only statement this fixture lets through: the outbox row of a committed change. */
+const OUTBOX_INSERT = /^\s*INSERT INTO pages_event_outbox \(/;
 
 type AgentResult = Awaited<
   ReturnType<AgentOperationRouter["handle"]>
@@ -60,6 +66,8 @@ export class TextWorld {
   }[] = [];
   public readonly activity: NewProjectActivity[] = [];
   public readonly events: PagesEvent[] = [];
+  /** Parameters of every outbox insert, kept or rolled back with its transaction. */
+  public readonly outbox: SqlParameters[] = [];
   public readonly links: unknown[] = [];
   public readonly mentions: unknown[] = [];
   public readonly keys = new Map<string, StoredAgentOperation>();
@@ -83,8 +91,10 @@ export class TextWorld {
     vi.spyOn(database, "query").mockRejectedValue(
       new Error("Unexpected SQL query"),
     );
-    vi.spyOn(database, "execute").mockRejectedValue(
-      new Error("Unexpected SQL write"),
+    vi.spyOn(database, "execute").mockImplementation(
+      async (statement, parameters = {}) => {
+        this.appendOutbox(statement, parameters);
+      },
     );
     vi.spyOn(database, "transaction").mockImplementation(async (work) =>
       this.transaction(database, work),
@@ -236,6 +246,7 @@ export class TextWorld {
       versions: this.versions,
       activity: this.activity,
       events: this.events,
+      outbox: this.outbox,
       links: this.links,
       mentions: this.mentions,
       keys: [...this.keys],
@@ -255,6 +266,7 @@ export class TextWorld {
       this.history,
       this.versions,
       this.activity,
+      this.outbox,
       this.links,
       this.mentions,
     ];
@@ -274,6 +286,13 @@ export class TextWorld {
     } finally {
       this.isInTransaction = false;
     }
+  }
+
+  /** Accepts the outbox row of an open transaction and refuses every other write. */
+  private appendOutbox(statement: string, parameters: SqlParameters): void {
+    if (!this.isInTransaction || !OUTBOX_INSERT.test(statement))
+      throw new Error("Unexpected SQL write");
+    this.outbox.push(parameters);
   }
 
   private mockAccounts(): void {

@@ -278,6 +278,19 @@ const IDENTITY_STEPS: readonly RepositoryStep[] = [
       .find(OWNER, `operation-nul${NUL}`)
       .then((found) => found?.fingerprint ?? null),
   ),
+  // Removing the old results of another operation keeps this one's.
+  call("AgentOperationKeyRepository.removeOlder", ({ database }) =>
+    new AgentOperationKeyRepository(database).removeOlder(
+      OWNER,
+      "ui.wiki.save",
+      Date.now() + 60_000,
+    ),
+  ),
+  call("AgentOperationKeyRepository.find", ({ database }) =>
+    new AgentOperationKeyRepository(database)
+      .find(OWNER, "operation-nul")
+      .then((found) => found?.fingerprint ?? null),
+  ),
   keyRefusedOnPostgres("AgentImportRepository.insertSource", ({ database }) =>
     new AgentImportRepository(database).insertSource({
       projectId: PROJECT,

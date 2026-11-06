@@ -1,3 +1,4 @@
+import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
 import {
   expandedPlanWriteResources,
   planWriterResourcesCollide,
@@ -33,7 +34,7 @@ export async function reservePlanResources(
   const keys = await expandedPlanWriteResources(resourceKeys);
   const locks = await transaction.query(
     `
-    SELECT locks.workspace_id, runs.snapshot_json
+    SELECT locks.workspace_id, COALESCE(runs.snapshot_file, runs.snapshot_json)
     FROM agent_plan_workspace_locks AS locks
     LEFT JOIN agent_plan_runs AS runs ON runs.id = locks.run_id
     WHERE locks.run_id <> $run_id
@@ -44,6 +45,7 @@ export async function reservePlanResources(
   for (const lock of locks)
     if (
       await conflictingResource(
+        transaction,
         readTextColumn(lock, 0, "workspace_id"),
         lock[1],
         keys,
@@ -127,7 +129,7 @@ export async function findPlanResourceBlocker(
   const keys = await expandedPlanWriteResources(resourceKeys);
   const rows = await transaction.query(
     `
-    SELECT locks.workspace_id, runs.view_json, runs.snapshot_json
+    SELECT locks.workspace_id, runs.view_json, COALESCE(runs.snapshot_file, runs.snapshot_json)
     FROM agent_plan_workspace_locks AS locks
     LEFT JOIN agent_plan_runs AS runs ON runs.id = locks.run_id
     WHERE locks.run_id <> $run_id
@@ -137,7 +139,12 @@ export async function findPlanResourceBlocker(
   );
   for (const row of rows) {
     const stored = readTextColumn(row, 0, "workspace_id");
-    const resource = await conflictingResource(stored, row[2], keys);
+    const resource = await conflictingResource(
+      transaction,
+      stored,
+      row[2],
+      keys,
+    );
     if (!resource) continue;
     if (typeof row[1] !== "string")
       return {
@@ -162,6 +169,7 @@ export async function findPlanResourceBlocker(
 }
 
 async function conflictingResource(
+  transaction: DatabaseTransaction,
   stored: string,
   snapshot: unknown,
   keys: readonly string[],
@@ -171,7 +179,9 @@ async function conflictingResource(
   if (typeof snapshot !== "string")
     throw new Error("Legacy writer snapshot missing");
   const previous = await expandedPlanWriteResources(
-    snapshotResources(JSON.parse(snapshot)),
+    snapshotResources(
+      JSON.parse(await readStoredAgentPayload(transaction, snapshot)),
+    ),
   );
   return previous.find((held) =>
     keys.some((key) => planWriterResourcesCollide(held, key)),

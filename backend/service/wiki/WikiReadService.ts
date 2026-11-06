@@ -53,6 +53,23 @@ export class WikiReadService {
   }
 
   /**
+   * Whether the actor sees a page right now, without remembering a visit.
+   *
+   * @remarks
+   * A page in the trash counts with the same visibility rules, so moving it
+   * there or back reaches those who saw it. A purged page is gone and
+   * reaches nobody; its removal makes every open page read again.
+   */
+  public async canView(actor: User, id: string): Promise<boolean> {
+    const viewer = await this.access.resolve(actor);
+    const page = await this.repository.pages.findVisible(viewer.scope, id, {
+      includeDeleted: true,
+    });
+
+    return page !== null;
+  }
+
+  /**
    * Opens a page and remembers the visit.
    *
    * @param actor - The signed-in user.

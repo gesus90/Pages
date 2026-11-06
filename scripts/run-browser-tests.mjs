@@ -303,9 +303,10 @@ async function main() {
     env: environment,
     timeoutMilliseconds: limit,
   };
+  // The static app and the API are built in two passes (PAGE-235).
   const built = await runStep(
-    path.join(bin, "react-router"),
-    ["build"],
+    process.execPath,
+    [path.join(repositoryRoot, "scripts", "build.mjs")],
     options,
   );
   if (built !== 0) {

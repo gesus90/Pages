@@ -6,7 +6,7 @@ import { readAuthorizedPlanRun } from "./AgentPlanRunReader";
 import { readPlanSnapshot } from "./AgentPlanSnapshot";
 
 import type { AgentPlan, AgentPlanRun } from "@/definition/AgentPlan";
-import type { PlanDependencies } from "./AgentPlanService";
+import type { PlanRunReadDependencies } from "./AgentPlanRunReader";
 
 /** The flow of the plan revision a run executes, reduced to what notifications need. */
 export interface AgentPlanRunFlow {
@@ -96,14 +96,14 @@ function describeFlow(plan: AgentPlan): AgentPlanRunFlow {
  * model or any ticket or page the run used gets nothing, not even a name.
  */
 export class AgentPlanOwnerRunReader {
-  private readonly dependencies: PlanDependencies;
+  private readonly dependencies: PlanRunReadDependencies;
 
   /**
    * Creates the reader.
    *
    * @param dependencies - Run storage and the checks every read of a run needs.
    */
-  public constructor(dependencies: PlanDependencies) {
+  public constructor(dependencies: PlanRunReadDependencies) {
     this.dependencies = dependencies;
   }
 

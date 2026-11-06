@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { handleSetupAction } from "@/app/lib/setup/setup-actions.server";
 import { activateApplicationServices } from "@/app/lib/services.server";
 import { sessionCookie } from "@/app/lib/session.server";
-import { checkDatabaseLocation } from "@/backend/setup/DatabaseLocation";
+import { checkSetupConnection } from "@/backend/setup/SetupConnection";
 
 import type { SetupCompletionResult } from "@/backend/setup/SetupWizardService";
 import type { PagesRuntime } from "@/backend/runtime/PagesRuntime";
@@ -22,8 +22,8 @@ vi.mock("@/app/lib/language.server", () => ({
 vi.mock("@/app/lib/cookie-security.server", () => ({
   resolveCookieSecure: () => true,
 }));
-vi.mock("@/backend/setup/DatabaseLocation", () => ({
-  checkDatabaseLocation: vi.fn(),
+vi.mock("@/backend/setup/SetupConnection", () => ({
+  checkSetupConnection: vi.fn(),
 }));
 vi.mock("@/backend/auth/PasswordHasher", () => ({
   PasswordHasher: class {
@@ -55,7 +55,7 @@ const COMPLETE_FIELDS = {
   username: " admin ",
   password: "long secret",
   email: "",
-  databasePath: "/data/pages.duckdb",
+  databaseUrl: "postgresql://localhost/pages",
 };
 
 beforeEach(() => {
@@ -135,7 +135,7 @@ it("refuses every intent once the setup finished", async () => {
   expect(runtime.verifySetupToken).not.toHaveBeenCalled();
 });
 
-it("grants access with the suggested database path for a valid token", async () => {
+it("grants access with the empty connection suggestion for a valid token", async () => {
   expect(await submit({ intent: "verify-token", token: TOKEN })).toEqual({
     status: 200,
     headers: new Headers(),
@@ -143,7 +143,7 @@ it("grants access with the suggested database path for a valid token", async () 
       intent: "verify-token",
       access: {
         token: TOKEN,
-        suggestedDatabasePath: "/suggested/pages.duckdb",
+        suggestedDatabaseUrl: "",
       },
     },
   });
@@ -159,55 +159,54 @@ it.each([
   });
 });
 
-it("checks the entered database path", async () => {
-  vi.mocked(checkDatabaseLocation).mockResolvedValue({
-    status: "available",
-    databasePath: "/data/pages.duckdb",
-  });
+it("checks the entered connection", async () => {
+  vi.mocked(checkSetupConnection).mockResolvedValue("available");
 
   const outcome = await submit({
-    intent: "check-database-path",
+    intent: "check-database-connection",
     token: TOKEN,
-    databasePath: " /data/pages.duckdb",
+    databaseUrl: " postgresql://localhost/pages",
   });
 
-  expect(checkDatabaseLocation).toHaveBeenCalledWith(" /data/pages.duckdb");
+  expect(checkSetupConnection).toHaveBeenCalledWith(
+    " postgresql://localhost/pages",
+  );
   expect(outcome).toMatchObject({
     status: 200,
     body: {
-      intent: "check-database-path",
-      location: { input: " /data/pages.duckdb", status: "available" },
+      intent: "check-database-connection",
+      location: { input: "", status: "available" },
     },
   });
 });
 
-it("checks an empty path when the form carries none", async () => {
-  vi.mocked(checkDatabaseLocation).mockResolvedValue({
-    status: "empty",
-    databasePath: null,
+it("checks an empty connection when the form carries none", async () => {
+  vi.mocked(checkSetupConnection).mockResolvedValue("empty");
+
+  const outcome = await submit({
+    intent: "check-database-connection",
+    token: TOKEN,
   });
 
-  const outcome = await submit({ intent: "check-database-path", token: TOKEN });
-
-  expect(checkDatabaseLocation).toHaveBeenCalledWith("");
+  expect(checkSetupConnection).toHaveBeenCalledWith("");
   expect(outcome.body).toEqual({
-    intent: "check-database-path",
+    intent: "check-database-connection",
     location: { input: "", status: "empty" },
   });
 });
 
-it("checks no path without a valid token", async () => {
+it("checks no connection without a valid token", async () => {
   const outcome = await submit({
-    intent: "check-database-path",
+    intent: "check-database-connection",
     token: "wrong",
-    databasePath: "/data",
+    databaseUrl: "/data",
   });
 
   expect(outcome).toMatchObject({
     status: 401,
-    body: { intent: "check-database-path", error: "invalidToken" },
+    body: { intent: "check-database-connection", error: "invalidToken" },
   });
-  expect(checkDatabaseLocation).not.toHaveBeenCalled();
+  expect(checkSetupConnection).not.toHaveBeenCalled();
 });
 
 it("checks the token before the fields of the completion", async () => {
@@ -251,7 +250,7 @@ it("finishes the setup and signs the administrator in", async () => {
   expect(wizard.complete).toHaveBeenCalledExactlyOnceWith(
     {
       companyName: "Synthetic Ltd",
-      databasePath: "/data/pages.duckdb",
+      databaseUrl: "postgresql://localhost/pages",
       email: null,
       language: "en",
       password: "long secret",
@@ -277,7 +276,7 @@ it("reports a database location that became unusable", async () => {
     body: {
       intent: "complete",
       error: "databaseLocation",
-      location: { input: "/data/pages.duckdb", status: "notWritable" },
+      location: { input: "", status: "notWritable" },
     },
   });
 });

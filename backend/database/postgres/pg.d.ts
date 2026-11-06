@@ -43,6 +43,36 @@ declare module "pg" {
     readonly types: TypeParsers;
   }
 
+  /** A standalone connection used by setup and offline maintenance. */
+  export class Client {
+    public constructor(config: {
+      readonly connectionString: string;
+      readonly connectionTimeoutMillis: number;
+      readonly query_timeout?: number;
+      readonly keepAlive?: boolean;
+      readonly application_name?: string;
+    });
+    /** Opens the connection. */
+    public connect(): Promise<void>;
+    /** Reports a lost connection or its closure to the session owner. */
+    public on(event: "error" | "end", listener: () => void): void;
+    /** Delivers a `NOTIFY` of a channel this connection listens on. */
+    public on(
+      event: "notification",
+      listener: (message: {
+        readonly channel: string;
+        readonly payload?: string;
+      }) => void,
+    ): void;
+    /** Runs a statement using the driver's standard row format. */
+    public query<Row>(
+      statement: string,
+      values?: QueryConfig["values"],
+    ): Promise<{ readonly rows: Row[] }>;
+    /** Closes the connection. */
+    public end(): Promise<void>;
+  }
+
   /** The connection pool; it reports lost idle connections as `error` events. */
   export class Pool {
     /** Creates the pool; it opens connections when they are needed. */

@@ -60,7 +60,8 @@ vi.mock("react-router", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   createRequestHandler: vi.fn(),
 }));
-vi.mock("@/backend/runtime/StaticAssets", () => ({
+vi.mock("@/backend/runtime/StaticAssets", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   serveStaticAsset: vi.fn(),
 }));
 vi.mock("@/backend/runtime/PagesRuntime", async (importOriginal) => ({

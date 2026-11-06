@@ -31,6 +31,9 @@ import type { AgentPlanAcceptance } from "@/definition/AgentPlanSession";
  * no agent turn exists to send it back to.
  */
 const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
+  plan_local_owner_unverified: "harm",
+  plan_payload_missing: "harm",
+  plan_payload_corrupt: "harm",
   plan_runner_control_update_required: "open",
   plan_workspace_waiting: "infrastructure",
   plan_acceptance_failed: "open",

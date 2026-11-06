@@ -52,9 +52,11 @@ function post(body: string, headers: Record<string, string> = {}): Request {
 
 it("returns the validated order with actor and services", async () => {
   const streamId = randomUUID();
+  const operationId = randomUUID();
   const body = JSON.stringify({
     streamId,
     sequence: 3,
+    operationId,
     base: { text: "old" },
     draft: { text: "new" },
   });
@@ -64,6 +66,7 @@ it("returns the validated order with actor and services", async () => {
   ).resolves.toEqual({
     streamId,
     sequence: 3,
+    operationId,
     base: { text: "old" },
     draft: { text: "new" },
     actor: ACTOR,
@@ -93,6 +96,7 @@ it("refuses an order whose drafts do not match the schema", async () => {
   const body = JSON.stringify({
     streamId: randomUUID(),
     sequence: 1,
+    operationId: randomUUID(),
     base: { text: 1 },
     draft: { text: "new" },
   });

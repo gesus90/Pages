@@ -1,6 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
-
 import {
   planLoopMembers,
   planLoopMode,
@@ -144,15 +143,19 @@ export class AgentPlanLoopRunner {
     loop: AgentPlanLoop,
     host: LoopHost,
   ): Promise<Partial<AgentPlanStepResult>> {
-    await host.authorize();
+    if (!host.current(loop.id)?.count) await host.authorize();
     await this.begin(loop, host);
     for (;;) {
       const completion = completionOf(this.record(loop, host));
       if (completion)
         return this.end(loop, host, { status: "succeeded", completion });
-      if (host.signal.aborted)
+      const hasDispatchedMembers =
+        this.record(loop, host)
+          .iterations.at(-1)
+          ?.nodes.some((node) => node.status === "running") === true;
+      if (host.signal.aborted && !hasDispatchedMembers)
         return this.end(loop, host, { status: "cancelled" });
-      if (!host.canDispatch())
+      if (!host.canDispatch() && !hasDispatchedMembers)
         return host.isPausing()
           ? this.pause(loop, host)
           : this.end(loop, host, {

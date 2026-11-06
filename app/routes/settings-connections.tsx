@@ -2,124 +2,95 @@ import { useLoaderData, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Plug } from "lucide-react";
 
-import manifest from "@/mcp/package.json";
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { ConnectionsPanel } from "@/app/components/settings/connections/connections-panel";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
-import { getAuthenticatedUser } from "@/app/lib/auth.server";
-import { getApplicationServices } from "@/app/lib/services.server";
 import {
-  handleUpdatePicaMobilePort,
-  loadPicaMobileView,
-} from "@/app/lib/settings-actions/settings-pica-mobile-action.server";
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
 import {
-  authorizationFailure,
-  authorizationResponse,
-  requireAuthorizationOrigin,
-} from "@/app/lib/authorization-response.server";
-import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
-import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
-import { logCaughtError } from "@/backend/logging/Logger";
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { McpConnectionsView } from "@/definition/McpConnections";
-import type { ApplicationServices } from "@/app/lib/services.server";
-import type { User } from "@/definition/User";
 import type { Route } from "./+types/settings-connections";
 
-async function requireUser(request: Request): Promise<User> {
-  const user = await getAuthenticatedUser(request);
-  if (!user || user.mustChangePassword)
-    throw new McpAuthorizationError("access_denied", 401);
-  return user;
+/** The connection metadata together with the account and rights it was read for. */
+export interface ConnectionsData extends McpConnectionsView {
+  readonly audience: LocalStateAudience;
 }
 
-/** Personal connection metadata is never cacheable. */
-export function headers(): Headers {
-  return new Headers({ "Cache-Control": "no-store", Pragma: "no-cache" });
-}
+/** The rights-checked endpoint of the connections area. */
+const SETTINGS_CONNECTIONS_ENDPOINT = "/settings-api/connections";
 
-/** Lists only the requesting owner's safe connection metadata. */
-export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
-  try {
-    const user = await requireUser(request);
-    const owner = user.id;
-    const services = await getApplicationServices();
-    const [tokens, validityDays] = await Promise.all([
-      services.personalAgentTokenService.list(owner),
-      services.pairingService.validity(owner),
-    ]);
-    const httpOrigin = (await getPagesRuntime()).getConfig().mcpHttp?.publicUrl;
-    const picaMobile = await loadPicaMobileView(services, user, request);
-    const view: McpConnectionsView = {
-      ...(httpOrigin ? { httpEndpoint: `${httpOrigin}/mcp` } : {}),
-      ...(picaMobile ? { picaMobile } : {}),
-      origin: new URL(request.url).origin,
-      packageVersion: manifest.version,
-      tokens,
-      validityDays,
-    };
-    return authorizationResponse(view);
-  } catch (error: unknown) {
-    logCaughtError("settings_connections", error);
-
-    throw authorizationFailure(error);
-  }
-}
-
-async function updateToken(
-  services: ApplicationServices,
-  owner: string,
-  id: string,
-  intent: string,
-): Promise<void> {
-  const token = (await services.personalAgentTokenService.list(owner)).find(
-    (entry) => entry.id === id && entry.status === "active",
+function isConnectionsData(value: unknown): value is ConnectionsData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "origin" in value &&
+    typeof value.origin === "string" &&
+    "packageVersion" in value &&
+    typeof value.packageVersion === "string" &&
+    "validityDays" in value &&
+    typeof value.validityDays === "number" &&
+    "tokens" in value &&
+    Array.isArray(value.tokens) &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
   );
-  if (!token) throw new McpAuthorizationError("access_denied", 403);
-  if (intent === "revoke-token")
-    await services.personalAgentTokenService.revoke(owner, id);
-  else await services.personalAgentTokenService.requestRotation(owner, id);
 }
+
+/** The connection metadata, kept per account and rights; it never holds a token itself. */
+const SETTINGS_CONNECTIONS_STATE: LocalStateRouteKind<ConnectionsData> = {
+  schemaVersion: 1,
+  isPayload: isConnectionsData,
+  isCurrent: (view) => isCurrentLocalStateAudience(view.audience),
+  ownerOf: (view) => view.audience.userId,
+  isRefused: () => false,
+};
 
 /**
- * Persists owner-scoped preferences, revocation and client-side rotation
- * requests, and, for administrators, the Pica Mobile port.
+ * Opens the connections from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint runs the server loader; a failed load shows the same notice
+ * with its retry as before.
  */
-export async function action({ request }: Route.ActionArgs): Promise<Response> {
-  try {
-    if (request.method !== "POST")
-      throw new McpAuthorizationError("invalid_request", 405);
-    requireAuthorizationOrigin(request);
-    const user = await requireUser(request);
-    const owner = user.id;
-    const services = await getApplicationServices();
-    const form = await request.formData();
-    const intent = form.get("intent");
-    const id = form.get("id");
-    if (intent === "update-pica-mobile-port")
-      return await handleUpdatePicaMobilePort(services, user, form);
-    if (intent === "set-token-duration") {
-      const days = form.get("days");
-      if (typeof days !== "string" || !/^(0|[1-9]\d{0,2})$/.test(days))
-        throw new McpAuthorizationError("invalid_request");
-      await services.pairingService.setValidity(owner, Number(days));
-    } else if (
-      (intent === "revoke-token" || intent === "request-rotation") &&
-      typeof id === "string"
-    ) {
-      await updateToken(services, owner, id, intent);
-    } else throw new McpAuthorizationError("invalid_request");
-    return authorizationResponse({ updated: true });
-  } catch (error: unknown) {
-    logCaughtError("settings_connections", error);
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<ConnectionsData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), SETTINGS_CONNECTIONS_STATE, () =>
+    readRouteData({
+      endpoint: `${SETTINGS_CONNECTIONS_ENDPOINT}${url.search}`,
+      signal: request.signal,
+      isPayload: isConnectionsData,
+    }),
+  );
+}
 
-    return authorizationFailure(error);
-  }
+/** Sends a change of a connection preference to the API, which runs the page's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Renders personal stdio connections and their validity preference. */
 export default function SettingsConnectionsRoute(): React.ReactElement {
-  return <ConnectionsPanel view={useLoaderData<McpConnectionsView>()} />;
+  const view = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    SETTINGS_CONNECTIONS_STATE,
+  );
+  return <ConnectionsPanel view={view} />;
 }
 
 /** Presents a recoverable loading failure using the existing settings card style. */

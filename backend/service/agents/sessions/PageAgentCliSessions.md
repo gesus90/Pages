@@ -56,6 +56,10 @@ call and status, so a repeated update is stored once.
 
 - Order: appends of one attempt run one after another; sequences start at 1
   and only grow. The event ID is `attemptId:sequence`.
+- Payload storage: new event bodies and immutable history chunks are synchronized
+  in the private data directory before their reference transaction. Reads verify
+  size and SHA-256; missing/corrupt files fail explicitly. Legacy inline rows
+  remain readable without migration. See [AgentPayloadStorage.md](../AgentPayloadStorage.md).
 - Crash consistency: numbering, insert, sequence update and retention run in
   one database transaction.
 - Redaction: the project credential mask of the session, then

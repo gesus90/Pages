@@ -1,383 +1,148 @@
-import {
-  data as routeData,
-  redirect,
-  useLoaderData,
-  useLocation,
-} from "react-router";
+import { redirect, useLoaderData, useLocation } from "react-router";
 
 import { PlanRetiredNotice } from "@/app/components/agents/plans/plan-retired-notice";
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
 import { usePlanSelectionPreference } from "@/app/components/agents/plans/use-plan-selection-preference";
-import { defaultPlanId } from "@/app/lib/agent-plan-default";
-import { displayPlanRun } from "@/app/lib/agent-plan-display.server";
-import { planCatalogRefresh } from "@/app/lib/agent-plan-catalog.server";
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
+import { planSelectionCookie } from "@/app/lib/agent-plan-selection";
 import {
-  clonePlanAction,
-  createPlanAction,
-  deletePlanAction,
-} from "@/app/lib/agent-plan-management.server";
-import { lastSelectedPlan } from "@/app/lib/agent-plan-selection.server";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
 import {
-  agentFailureResponse,
-  AGENT_NO_STORE,
-} from "@/app/lib/settings-actions/settings-agents-response.server";
-import { readPlanInput, readPlanText } from "@/backend/agents/AgentPlanInput";
-import { AgentError } from "@/backend/error/AgentErrors";
-import { logCaughtError } from "@/backend/logging/Logger";
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { localState } from "@/app/lib/local-state/local-state-store";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
-import type {
-  PlanSelectionPreference,
-  PlanSelectionScope,
-} from "@/app/lib/agent-plan-selection";
+import type { PlanSelectionPreference } from "@/app/lib/agent-plan-selection";
 import type { PlanCatalogRefresh } from "@/app/components/agents/plans/use-plan-catalog-refresh";
-import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
-import type {
-  AgentPlanInput,
-  AgentPlanPage,
-  AgentPlanRun,
-} from "@/definition/AgentPlan";
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
+import type { AgentPlanPage } from "@/definition/AgentPlan";
 import type { Route } from "./+types/agent-plans";
 
 /** The plan page together with how the editor came to its plan. */
-interface AgentPlansView extends AgentPlanPage {
+export interface AgentPlansView extends AgentPlanPage {
   readonly opening: AgentPlanOpening;
   readonly catalogRefresh?: PlanCatalogRefresh;
   readonly selectionPreference: PlanSelectionPreference;
+  readonly audience: LocalStateAudience;
 }
 
-/** Graphs and execution results are always private, uncacheable responses. */
-export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
-  const response = new Headers(parentHeaders);
-  response.set("Cache-Control", "no-store");
-  return response;
+/**
+ * The rights-checked endpoint of the plan page.
+ *
+ * @remarks
+ * It lies below `/agents`, so the browser sends the plan choice it remembers
+ * there, as it does for the page.
+ */
+const PLAN_PAGE_ENDPOINT = "/agents/plans-api";
+
+function isPlanRouteData(value: unknown): value is AgentPlansView {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "userId" in value &&
+    typeof value.userId === "string" &&
+    "opening" in value &&
+    typeof value.opening === "string" &&
+    "plans" in value &&
+    Array.isArray(value.plans) &&
+    "selected" in value &&
+    typeof value.selected === "object" &&
+    "selectionPreference" in value &&
+    typeof value.selectionPreference === "object" &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
+  );
+}
+
+/** The plan page is the first route that opens from the browser's local state. */
+const PLAN_PAGE_STATE: LocalStateRouteKind<AgentPlansView> = {
+  // 2 names the account's rights; an answer kept without them is not shown.
+  schemaVersion: 2,
+  isPayload: isPlanRouteData,
+  isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
+  ownerOf: (page) => page.userId,
+  // The server reports a missing and a refused plan alike.
+  isRefused: (page) => page.opening === "requestedMissing",
 };
 
 /**
- * Workspace and project context are derived by the service, never trusted from query fields.
+ * The kept plan the server would open for the plain address, which names no plan.
  *
  * @remarks
- * Without explicit plan/workspace context the editor restores the account's
- * browser preference, then uses the provisional default if no preference exists.
+ * The server opens the plan this browser remembers for the account; the
+ * address then names it. Only a plan whose answer is kept opens this way.
  */
-export async function loader({
-  context,
-  request,
-}: Route.LoaderArgs): Promise<ReturnType<typeof routeData<AgentPlansView>>> {
-  try {
-    const user = context.get(authenticatedUserContext);
-    if (!user) throw new AgentError("plan_access_denied");
-    const query = new URL(request.url).searchParams;
-    const workspace = query.get("workspaceId");
-    const remembered = await lastSelectedPlan(request, user.id);
-    const requested = query.get("planId");
-    const services = await getApplicationServices();
-    const page = await openPlan(services.agentPlanService, user.id, {
-      planId: requested ?? (workspace === null ? remembered : null),
-      workspaceId: workspace === null ? null : readPlanText(workspace),
-      isRestoring:
-        requested === null && workspace === null && remembered !== null,
-    });
-    // Pin the opened plan in the address so another tab's preference cannot
-    // change this editor's selection during catalog/action revalidation.
-    if (page.selected && requested === null && workspace === null)
-      throw redirect(
-        `/agents/plans?planId=${encodeURIComponent(page.selected.id)}`,
-        {
-          headers: AGENT_NO_STORE,
-        },
-      );
-    return routeData(
-      {
-        ...page,
-        catalogRefresh: planCatalogRefresh(page, workspace),
-        selectionPreference: openingPreference(
-          { userId: user.id, origin: new URL(request.url).origin },
-          page,
-          { workspace, requested, remembered },
-        ),
-      },
-      { headers: AGENT_NO_STORE },
-    );
-  } catch (error: unknown) {
-    if (error instanceof Response) throw error;
-    logCaughtError("agent_plans", error);
-
-    throw agentFailureResponse(error);
-  }
-}
-
-/** Keeps a valid previous choice when an unrelated explicit link or workspace could not open. */
-function openingPreference(
-  scope: PlanSelectionScope,
-  page: AgentPlanPage,
-  selection: {
-    readonly workspace: string | null;
-    readonly requested: string | null;
-    readonly remembered: string | null;
-  },
-): PlanSelectionPreference {
-  const { workspace, requested, remembered } = selection;
-  return {
-    ...scope,
-    planId: page.selected?.id ?? null,
-    discardedPlanId:
-      workspace === null && (requested === null || requested === remembered)
-        ? remembered
-        : null,
-  };
+async function keptRememberedPlan(request: Request): Promise<string | null> {
+  const url = new URL(request.url);
+  // A document opened without server rendering names its account in the root loader.
+  await localState.whenClaimed();
+  const userId = localState.currentOwner();
+  if (url.search !== "" || !userId) return null;
+  const remembered: unknown = await planSelectionCookie({
+    userId,
+    origin: url.origin,
+  }).parse(document.cookie);
+  if (typeof remembered !== "string" || remembered.length === 0) return null;
+  const address = `/agents/plans?planId=${encodeURIComponent(remembered)}`;
+  return (await localState.read(address, PLAN_PAGE_STATE)) ? address : null;
 }
 
 /**
- * Save, Create, Clone, Delete, Play, Pause, Resume and Stop use the authenticated executor and live server permissions.
+ * Opens the plan from the account's kept answer at once and asks the endpoint behind it.
  *
  * @remarks
- * Play only starts the revision the request names. The route still accepts
- * the save-and-play form of earlier clients; the plan page never sends it.
+ * The endpoint's answer replaces the kept one when it arrives. An unreachable
+ * backend leaves the kept answer readable and marked. The endpoint runs the
+ * server loader with its permission checks and its redirect to the opened plan.
  */
-export async function action(args: Route.ActionArgs): Promise<Response> {
-  let intent = "";
-  try {
-    const { user, services, formData } = await readSettingsRequest(args);
-    intent = String(formData.get("intent") ?? "");
-    if (intent === "save-plan")
-      return await savePlan(user.id, services.agentPlanService, formData);
-    if (intent === "create-plan")
-      return await createPlanAction(user.id, services, formData);
-    if (intent === "clone-plan")
-      return await clonePlanAction(user.id, services, formData);
-    if (intent === "delete-plan")
-      return await deletePlanAction(user.id, services, {
-        request: args.request,
-        formData,
-      });
-    if (intent === "play-plan")
-      return await playPlan(user.id, services.agentPlanService, formData);
-    if (
-      intent === "stop-plan" ||
-      intent === "pause-plan" ||
-      intent === "resume-plan"
-    ) {
-      const operations = {
-        "stop-plan": services.agentPlanService.stop.bind(
-          services.agentPlanService,
-        ),
-        "pause-plan": services.agentPlanService.pause.bind(
-          services.agentPlanService,
-        ),
-        "resume-plan": services.agentPlanService.resume.bind(
-          services.agentPlanService,
-        ),
-      };
-      const runId = readPlanText(formData.get("runId"));
-      const run =
-        intent === "resume-plan"
-          ? await services.agentPlanService.resume(
-              user.id,
-              runId,
-              Number(formData.get("revision")),
-            )
-          : await operations[intent](user.id, runId);
-      return Response.json(
-        { ok: true, intent, run: displayPlanRun(run) },
-        { headers: AGENT_NO_STORE },
-      );
-    }
-    throw new AgentError("plan_invalid");
-  } catch (error: unknown) {
-    logCaughtError("agent_plans", error);
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<AgentPlansView>> {
+  const remembered = await keptRememberedPlan(request);
+  if (remembered) throw redirect(remembered);
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), PLAN_PAGE_STATE, () =>
+    readRouteData({
+      endpoint: `${PLAN_PAGE_ENDPOINT}${url.search}`,
+      signal: request.signal,
+      isPayload: isPlanRouteData,
+    }),
+  );
+}
 
-    return agentFailureResponse(
-      error instanceof SyntaxError ? new AgentError("plan_invalid") : error,
-      intent,
-    );
-  }
+/** Sends a change of a plan to the API, which runs the page's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** The page shows the plan in the React Flow graph editor and nothing beside it. */
 export default function AgentPlansRoute(): React.ReactElement {
-  const page = useLoaderData<typeof loader>();
+  const page = useLocalStateRoute<AgentPlansView>(
+    useLoaderData<typeof clientLoader>(),
+    PLAN_PAGE_STATE,
+  );
   const location = useLocation();
   usePlanSelectionPreference(page.selectionPreference);
   return (
     <>
       <PlanRetiredNotice />
       <PlanPage
-        key={`${page.userId}:${page.selected?.id ?? "new"}:${location.key}`}
+        key={`${page.userId}:${page.selected?.id ?? "new"}:${location.key}:${page.localState?.state ?? "server"}`}
         page={page}
         opening={page.opening}
         catalogRefresh={page.catalogRefresh}
+        localState={page.localState}
       />
     </>
-  );
-}
-
-/** A malformed plan identifier in the address names no plan; it is not an error page. */
-function readRequestedPlan(value: string): string | null {
-  try {
-    return readPlanText(value);
-  } catch (error: unknown) {
-    if (error instanceof AgentError) return null;
-    throw error;
-  }
-}
-
-/** The page with the plan, or `null` when the plan is missing or not readable. */
-async function readablePage(
-  service: AgentPlanService,
-  userId: string,
-  selection: { readonly planId: string; readonly workspaceId: string | null },
-): Promise<AgentPlanPage | null> {
-  try {
-    const page = await service.page(userId, selection);
-    if (
-      selection.workspaceId &&
-      page.selected?.workspaceId !== selection.workspaceId
-    )
-      return null;
-    return page;
-  } catch (error: unknown) {
-    if (error instanceof AgentError && error.code === "plan_access_denied")
-      return null;
-    throw error;
-  }
-}
-
-/**
- * Opens the explicit or remembered selection, using the default only without either.
- *
- * @remarks
- * A plan that is missing or not readable leaves the canvas empty and says so;
- * it never opens another plan instead.
- */
-async function openPlan(
-  service: AgentPlanService,
-  userId: string,
-  selection: {
-    readonly planId: string | null;
-    readonly workspaceId: string | null;
-    readonly isRestoring: boolean;
-  },
-): Promise<Omit<AgentPlansView, "selectionPreference">> {
-  const isDefault = selection.planId === null;
-  const planId =
-    selection.planId === null
-      ? defaultPlanId(
-          (await service.summaries(userId)).filter(
-            (plan) =>
-              selection.workspaceId === null ||
-              plan.workspaceId === selection.workspaceId,
-          ),
-          userId,
-        )
-      : readRequestedPlan(selection.planId);
-  const page =
-    planId === null
-      ? null
-      : await readablePage(service, userId, {
-          planId,
-          workspaceId: selection.workspaceId,
-        });
-  if (page && !(selection.isRestoring && page.selected?.isWorkspaceMissing))
-    return { ...page, opening: isDefault ? "default" : "requested" };
-  return {
-    ...(await emptyPage(service, userId, selection.workspaceId)),
-    opening: isDefault ? "defaultMissing" : "requestedMissing",
-  };
-}
-
-/** An invalid workspace leaves the regular empty editor rather than retrying the inaccessible context. */
-async function emptyPage(
-  service: AgentPlanService,
-  userId: string,
-  workspaceId: string | null,
-): Promise<AgentPlanPage> {
-  try {
-    return await service.page(userId, { planId: null, workspaceId });
-  } catch (error: unknown) {
-    if (
-      !(error instanceof AgentError) ||
-      error.code !== "plan_access_denied" ||
-      workspaceId === null
-    )
-      throw error;
-    return service.page(userId, { planId: null, workspaceId: null });
-  }
-}
-
-function readPlanContent(formData: FormData): AgentPlanInput {
-  const content = String(formData.get("plan") ?? "");
-  if (content.length > 2_000_000) throw new AgentError("plan_invalid");
-  return readPlanInput(JSON.parse(content) as unknown);
-}
-
-async function savePlan(
-  userId: string,
-  service: AgentPlanService,
-  formData: FormData,
-): Promise<Response> {
-  const planId = String(formData.get("planId") ?? "");
-  if (planId) readPlanText(planId);
-  const proposed = readPlanContent(formData);
-  let id: string;
-  try {
-    id = await service.save(userId, planId || null, proposed);
-  } catch (error: unknown) {
-    if (
-      !(error instanceof AgentError) ||
-      error.code !== "plan_conflict" ||
-      !planId
-    )
-      throw error;
-    const current = await service.view(userId, planId);
-    return Response.json(
-      {
-        ok: false,
-        intent: "save-plan",
-        error: "plan_conflict",
-        currentRevision: current.revision,
-      },
-      { status: 409, headers: AGENT_NO_STORE },
-    );
-  }
-  return Response.json(
-    {
-      ok: true,
-      intent: "save-plan",
-      planId: id,
-      revision: planId ? (proposed.revision ?? 0) + 1 : 1,
-    },
-    { headers: AGENT_NO_STORE },
-  );
-}
-
-/** Starts the saved revision, or saves the sent changes first and starts the revision that results. */
-async function playPlan(
-  userId: string,
-  service: AgentPlanService,
-  formData: FormData,
-): Promise<Response> {
-  const planId = readPlanText(formData.get("planId"));
-  let run: AgentPlanRun;
-  if (formData.has("plan"))
-    run = await service.saveAndPlay(userId, planId, readPlanContent(formData));
-  else {
-    const revision = Number(formData.get("revision"));
-    if (!Number.isSafeInteger(revision) || revision < 1)
-      throw new AgentError("plan_invalid");
-    run = await service.play(userId, planId, revision);
-  }
-  return Response.json(
-    {
-      ok: true,
-      intent: "play-plan",
-      planId,
-      revision: run.planRevision,
-      run: displayPlanRun(run),
-    },
-    { headers: AGENT_NO_STORE },
   );
 }

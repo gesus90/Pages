@@ -2,8 +2,40 @@ import { expect, it, vi } from "vitest";
 
 import { ProjectManagementDeniedError } from "@/backend/error/ProjectErrors";
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
+import { GitHubApiClient } from "@/backend/github/GitHubApiClient";
 
 import { GitHubSyncWorld, STATUSES } from "./github-sync-world";
+
+it("loads older issues after a full page containing pull requests", async () => {
+  const requestedPages: string[] = [];
+  const olderIssue = {
+    number: 101,
+    title: "Previously created issue",
+    body: "Stable creation marker",
+    state: "open",
+    updated_at: "2026-01-01T00:00:00Z",
+    html_url: "https://github.invalid/local/issues/101",
+  };
+  const client = new GitHubApiClient("synthetic", (url) => {
+    const page = new URL(url).searchParams.get("page") ?? "missing";
+    requestedPages.push(page);
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve(
+          page === "1"
+            ? Array.from({ length: 100 }, () => ({ pull_request: {} }))
+            : [olderIssue],
+        ),
+    });
+  });
+
+  await expect(client.listIssues("local", "dummy")).resolves.toMatchObject([
+    { number: 101, body: "Stable creation marker" },
+  ]);
+  expect(requestedPages).toEqual(["1", "2"]);
+});
 
 it("still pushes a changed title and description of an active task", async () => {
   const world = new GitHubSyncWorld();

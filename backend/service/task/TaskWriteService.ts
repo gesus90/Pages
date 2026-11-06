@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
+
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
+import {
+  recordInterfaceOperation,
+  replayInterfaceOperation,
+} from "@/backend/service/InterfaceOperationJournal";
 import {
   trimOrNull,
   validateDescription,
@@ -42,6 +48,7 @@ import type {
   WorkItemType,
   WorkItemVisibility,
 } from "@/definition/Task";
+import type { InterfaceOperation } from "@/backend/service/InterfaceOperationJournal";
 import type { User } from "@/definition/User";
 import type { TaskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
@@ -102,7 +109,15 @@ export interface DescriptionChange {
    * outside the range is altered.
    */
   readonly isVerbatim?: boolean;
+  /**
+   * Identifies this save across repetitions. A repetition with the same ID
+   * answers what the first save stored and changes nothing again.
+   */
+  readonly operationId?: string;
 }
+
+/** What a description save with an operation ID stores. */
+const savedDescriptionSchema = z.object({ description: z.string() });
 
 /** Collaborators of the write service. */
 export interface TaskWriteServiceDependencies {
@@ -136,6 +151,26 @@ function assertDescriptionCurrent(
   if (stored !== base && stored !== next) {
     throw new WorkItemValidationError("descriptionConflict");
   }
+}
+
+/** The journal entry of a description save that carries an operation ID. */
+function descriptionOperation(
+  actor: User,
+  id: string,
+  change: DescriptionChange,
+): InterfaceOperation | null {
+  if (change.operationId === undefined) return null;
+  return {
+    userId: actor.id,
+    operation: "ui.ticket.description.save",
+    operationId: change.operationId,
+    request: {
+      id,
+      description: change.description,
+      baseDescription: change.baseDescription,
+      isVerbatim: change.isVerbatim === true,
+    },
+  };
 }
 
 /** Refuses changes of an archived work item. */
@@ -388,9 +423,11 @@ export class TaskWriteService {
    * @param actor - The person saving; needs write access to the ticket.
    * @param id - Work item identifier.
    * @param change - The new text and the text it was written from.
-   * @returns The stored work item.
+   * @returns The stored work item. A repeated operation ID returns it with
+   * the description its first save stored.
    * @throws {WorkItemValidationError} When the ticket is archived, the text
    * is too long, or someone saved another description meanwhile.
+   * @throws {OperationReusedError} When the operation ID belongs to another save.
    */
   public async updateDescription(
     actor: User,
@@ -398,6 +435,15 @@ export class TaskWriteService {
     change: DescriptionChange,
   ): Promise<WorkItemDetail> {
     const existing = await this.access.requireWritableWorkItem(actor, id);
+    const operation = descriptionOperation(actor, id, change);
+    const replayed = operation
+      ? await replayInterfaceOperation(
+          this.taskRepository.operations,
+          operation,
+          savedDescriptionSchema,
+        )
+      : null;
+    if (replayed) return { ...existing, ...replayed };
     const proposed = change.isVerbatim
       ? change.description
       : change.description.trim();
@@ -416,8 +462,8 @@ export class TaskWriteService {
       proposed,
       async (repository, rewritten) => {
         const stored = await storedFormOfText(this.taskRepository, rewritten);
-        if (stored === existing.description) return rewritten;
         if (
+          stored !== existing.description &&
           !(await repository.updateDescription(
             id,
             rewritten,
@@ -425,6 +471,11 @@ export class TaskWriteService {
           ))
         )
           throw new WorkItemValidationError("descriptionConflict");
+        if (operation) {
+          await recordInterfaceOperation(repository.operations, operation, {
+            description: rewritten,
+          });
+        }
         return rewritten;
       },
     );
@@ -648,7 +699,7 @@ export class TaskWriteService {
     work: (
       repository: Pick<
         WorkItemWriteRepository,
-        "insert" | "update" | "updateDescription"
+        "insert" | "update" | "updateDescription" | "operations"
       >,
       rewritten: string,
     ) => Promise<Result>,

@@ -9,11 +9,10 @@ import {
   loadPicaMobileView,
 } from "@/app/lib/settings-actions/settings-pica-mobile-action.server";
 import SettingsConnectionsRoute, {
-  action,
   ErrorBoundary,
-  headers,
-  loader,
 } from "@/app/routes/settings-connections";
+import { loader as dataLoader } from "@/app/routes/settings-connections-data";
+import { action, loader } from "@/app/routes/settings-connections-server";
 
 import {
   ACTOR,
@@ -42,6 +41,16 @@ vi.mock("@/mcp/package.json", () => ({ default: { version: "9.9.9" } }));
 vi.mock("@/app/lib/auth.server", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getAuthenticatedUser: vi.fn(),
+}));
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
 }));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => services,
@@ -107,15 +116,20 @@ beforeEach(() => {
   vi.mocked(loadPicaMobileView).mockResolvedValue(undefined);
 });
 
-it("never caches personal connection metadata", () => {
-  expect(headers().get("Cache-Control")).toBe("no-store");
-  expect(headers().get("Pragma")).toBe("no-cache");
+it("never caches personal connection metadata", async () => {
+  const response = await dataLoader(
+    routeArguments(pagesRequest("/settings-api/connections")),
+  );
+
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(response.headers.get("Pragma")).toBe("no-cache");
 });
 
 it("lists the owner's connections without HTTP or mobile entries", async () => {
   const response = await loader(routeArguments(pagesRequest(PATH)));
 
   await expect(response.json()).resolves.toEqual({
+    audience: AUDIENCE,
     origin: "http://pages.invalid",
     packageVersion: "9.9.9",
     tokens: TOKENS,

@@ -16,11 +16,14 @@ import {
 } from "../AgentPlanRunState";
 import { markDetachedCloseoutBlocks } from "../AgentPlanDetachedBlocks";
 
+import type { PlanDependencies } from "../AgentPlanService";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSessionAccess } from "../AgentPlanSessionAccess";
 
 interface StartupRecoveryDependencies {
+  readonly adopt?: (run: AgentPlanRun) => Promise<boolean>;
+  readonly unverifiedLocal?: ReadonlySet<string>;
   readonly runs: Pick<
     AgentPlanRunRepository,
     "unfinished" | "interrupt" | "reserving" | "release"
@@ -92,7 +95,9 @@ export class AgentPlanStartupRecovery {
     retained: ReadonlySet<string> = new Set(),
   ): Promise<void> {
     const endSession = this.dependencies.endSession ?? endInterruptedSession;
-    const unfinished = await this.dependencies.runs.unfinished();
+    const unfinished: AgentPlanRun[] = [];
+    for (const run of await this.dependencies.runs.unfinished())
+      if (!(await this.dependencies.adopt?.(run))) unfinished.push(run);
     const counts: StartupRecoveryCounts = {
       interrupted: 0,
       completedRuns: 0,
@@ -169,7 +174,7 @@ export class AgentPlanStartupRecovery {
     ): Promise<AgentPlanStepResult> =>
       retainUnconfirmed(
         step,
-        await endSession(step, previous.startedAt),
+        await this.endUnadoptedSession(step, previous.startedAt, endSession),
         retained,
       );
     const steps = await Promise.all(previous.steps.map(endNode));
@@ -214,6 +219,24 @@ export class AgentPlanStartupRecovery {
     };
     await this.dependencies.runs.interrupt(run);
     return false;
+  }
+
+  private async endUnadoptedSession(
+    step: AgentPlanStepResult,
+    startedAt: string,
+    endSession: typeof endInterruptedSession,
+  ): Promise<AgentPlanStepResult> {
+    if (
+      step.session &&
+      this.dependencies.unverifiedLocal?.has(step.session.instanceId)
+    )
+      return {
+        ...step,
+        status: "failed",
+        error: "plan_local_owner_unverified",
+        session: { ...step.session, closeout: "failed" },
+      };
+    return endSession(step, startedAt);
   }
 
   /**
@@ -281,7 +304,7 @@ export class AgentPlanStartupRecovery {
           step.groupId ?? step.id,
         );
         return interruptedStep(
-          await endSession(step, run.startedAt),
+          await this.endUnadoptedSession(step, run.startedAt, endSession),
           run.stopRequested,
         );
       }),
@@ -314,4 +337,17 @@ function interruptionCode(step: AgentPlanStepResult): string {
 
 function requiresLocalRecovery(run: AgentPlanRun): boolean {
   return !run.steps.some((step) => step.execution?.target.kind === "remote");
+}
+
+/** Restores proven local owners before the legacy interruption and reservation cleanup paths. */
+export async function recoverPlanStartup(
+  dependencies: PlanDependencies,
+  retained: ReadonlySet<string>,
+): Promise<void> {
+  await new AgentPlanStartupRecovery({
+    ...dependencies,
+    adopt: (run) => dependencies.engine.adopt?.(run) ?? Promise.resolve(false),
+    unverifiedLocal:
+      dependencies.engine.unverifiedLocalSessions?.() ?? new Set(),
+  }).recover(retained);
 }

@@ -3,9 +3,13 @@ import { fileURLToPath } from "node:url";
 import * as build from "virtual:react-router/server-build";
 
 import { parseStartOptions } from "@/backend/config/StartOptions";
-import { resolveDefaultConfigPath } from "@/backend/config/PagesConfig";
+import {
+  MissingDatabaseUrlError,
+  resolveDefaultConfigPath,
+} from "@/backend/config/PagesConfig";
 import {
   logCaughtError,
+  logDiagnostic,
   initializeLogging,
   closeLogging,
   logEvent,
@@ -14,6 +18,16 @@ import {
 import { startPagesServer } from "./PagesServer";
 import { initializePagesRuntime } from "./PagesRuntime";
 import { installProcessLogging, shutdownProcess } from "./ProcessLifecycle";
+
+export { startRuns } from "./RunsEntry";
+
+export { startIntegrations } from "./IntegrationsEntry";
+
+export { observeServices } from "./ServiceMonitorEntry";
+
+export { startIngress } from "./IngressEntry";
+
+export { startLocalSessionOwner } from "@/backend/agents/local/LocalSessionOwner";
 
 /**
  * Starts the production server with the application build it is part of.
@@ -43,6 +57,12 @@ export async function startServer(
     if (result !== 0) await closeLogging();
     return result;
   } catch (error: unknown) {
+    if (error instanceof MissingDatabaseUrlError)
+      logDiagnostic(
+        "ServerEntry",
+        "error",
+        "[pages] A PostgreSQL databaseUrl is required for a completed setup.",
+      );
     logCaughtError("ServerEntry", error);
 
     logEvent({

@@ -9,7 +9,7 @@ import {
 import { WORK_ITEM_CHILD_TYPE, WORK_ITEM_TYPE } from "@/definition/Task";
 import { useTaskDetailNavigation } from "./use-task-detail-navigation";
 
-import type { action } from "@/app/routes/tasks";
+import type { action } from "@/app/routes/tasks-server";
 import type { WorkItemDetail, WorkItemType } from "@/definition/Task";
 
 /** What the create and edit dialog starts with, and which ticket is selected. */

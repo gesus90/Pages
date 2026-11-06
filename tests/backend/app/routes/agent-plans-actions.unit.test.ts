@@ -7,7 +7,7 @@ import {
   deletePlanAction,
 } from "@/app/lib/agent-plan-management.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { action } from "@/app/routes/agent-plans";
+import { action } from "@/app/routes/agent-plans-server";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 

@@ -4,12 +4,10 @@ import path from "node:path";
 import { interpreterProfilesSchema } from "@/definition/InterpreterProfile";
 import { isLogRetentionDays } from "@/definition/Logging";
 import { PICA_MOBILE_REPLAY_TTL_RANGE_SECONDS } from "@/definition/PicaMobileNotifications";
-
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { readAgentGitBridges } from "./AgentGitBridgeConfig";
 import { readMcpHttpConfig } from "./McpHttpConfig";
-
 import { readAcpResourceSettings } from "./AcpResourceSettings";
 import { parseTrustedProxyEntry } from "./TrustedProxies";
 
@@ -29,6 +27,8 @@ const DATABASE_FILE_NAME = "pages.duckdb";
 export const DEFAULT_PORT = 3000;
 
 const HIGHEST_PORT = 65_535;
+/** At least 256 bits when the secret holds random hex or base64. */
+const PAGES_CORE_SECRET_LENGTH = { minimum: 32, maximum: 512 } as const;
 
 /** Keys Pages reads from and writes to the configuration file. */
 export const CONFIG_KEY = {
@@ -40,11 +40,28 @@ export const CONFIG_KEY = {
 
 /** Settings that do not depend on the setup state. */
 interface BaseConfig extends Partial<AcpResourceOptions> {
+  /** Consumer location; absent keeps delivery inside the server. Restart to change. */
+  readonly integrationsMode?: "server" | "separate";
+  /** Scheduler location; both modes share exclusive database ownership. */
+  readonly runsMode?: "server" | "separate";
   readonly port: number;
   readonly listenAddress?: string;
   readonly mcpHttp?: McpHttpConfig;
   /** Port of the Pica Mobile WebSocket endpoint; missing: the endpoint is off. */
   readonly picaMobilePort?: number;
+  /**
+   * Shared secret `pages-core` is admitted with at the decisions of the live
+   * view (PAGE-237). A secret that never reaches a log line. Missing: the
+   * endpoint answers 404 and only the API's own `/live-changes` serves.
+   */
+  readonly pagesCoreSecret?: string;
+  /**
+   * Loopback port of the API's Pica Mobile relay listener (PAGE-239). Set:
+   * `pages-core` listens on `picaMobilePort` and relays every connection
+   * here; it needs `pagesCoreSecret`. Missing: the API listens on
+   * `picaMobilePort` itself. Restart the API to change it.
+   */
+  readonly picaMobileRelayPort?: number;
   /**
    * Absolute path of the Google service-account key file Pages uses to send
    * Pica Mobile push notifications through FCM; missing: no push is offered.
@@ -89,10 +106,7 @@ export interface CompletedSetupConfig extends BaseConfig {
    * token key, when {@link databaseUrl} selects PostgreSQL.
    */
   readonly databasePath: string;
-  /**
-   * Connection URL of the PostgreSQL database; missing: DuckDB at
-   * {@link databasePath}. A secret: it never reaches a log line or a client.
-   */
+  /** PostgreSQL connection URL. A secret that never reaches a log line. */
   readonly databaseUrl?: string;
 }
 
@@ -116,6 +130,16 @@ export class ConfigError extends Error {
   public constructor(message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = "ConfigError";
+  }
+}
+
+/** A completed setup has no PostgreSQL connection configured. */
+export class MissingDatabaseUrlError extends ConfigError {
+  public constructor(source: string) {
+    super(
+      `The configuration file "${source}" is invalid: "databaseUrl" is required for a completed setup. Configure a PostgreSQL connection.`,
+    );
+    this.name = "MissingDatabaseUrlError";
   }
 }
 
@@ -268,8 +292,7 @@ function readDatabaseUrl(
       source,
       `"${CONFIG_KEY.DATABASE_URL}" must be a postgres:// or postgresql:// URL.`,
     );
-  // The setup wizard only prepares a DuckDB file, so it would finish on a
-  // database the next start no longer opens.
+  // A URL belongs to the completed configuration, never to pending setup.
   if (firstRun)
     throw invalidConfig(
       source,
@@ -288,6 +311,8 @@ function readDatabaseUrl(
  * a finished setup does not name its database.
  */
 export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
+  const integrations = readIntegrationsConfig(table, source);
+  const runs = readRunsConfig(table, source);
   const acpResources = readAcpResourceSettings(table);
   const mcpHttp = readMcpHttpConfig(table);
   const firstRun = readFirstRun(table, source);
@@ -300,9 +325,12 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const picaBrowser = readPicaBrowserConfig(table, source);
   const picaMobile = readPicaMobileConfig(table, source);
   const gitBridges = readGitBridgeConfig(table, source);
+  const pagesCore = readPagesCoreConfig(table, source, port);
 
   if (firstRun) {
     return {
+      ...integrations,
+      ...runs,
       ...acpResources,
       ...gitBridges,
       ...mcpHttp,
@@ -311,10 +339,15 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
       ...interpreters,
       ...proxies,
       ...picaBrowser,
+      ...pagesCore,
       databasePath,
       firstRun,
       port,
     };
+  }
+
+  if (databaseUrl.databaseUrl === undefined) {
+    throw new MissingDatabaseUrlError(source);
   }
 
   if (databasePath === null) {
@@ -325,6 +358,8 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   }
 
   return {
+    ...integrations,
+    ...runs,
     ...acpResources,
     ...gitBridges,
     ...mcpHttp,
@@ -333,11 +368,79 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     ...interpreters,
     ...proxies,
     ...picaBrowser,
+    ...pagesCore,
     ...databaseUrl,
     databasePath,
     firstRun,
     port,
   };
+}
+
+/** The same rule as `is_valid_secret` of `pages-core`. */
+function isPagesCoreSecret(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= PAGES_CORE_SECRET_LENGTH.minimum &&
+    value.length <= PAGES_CORE_SECRET_LENGTH.maximum &&
+    /^[\x21-\x7e]+$/u.test(value)
+  );
+}
+
+function readPagesCoreConfig(
+  table: TomlTable,
+  source: string,
+  port: number,
+): Pick<BaseConfig, "pagesCoreSecret" | "picaMobileRelayPort"> {
+  const secret = table.pagesCoreSecret;
+  // The message never quotes the value: it is a secret.
+  if (secret !== undefined && !isPagesCoreSecret(secret))
+    throw invalidConfig(
+      source,
+      '"pagesCoreSecret" must hold 32 to 512 visible ASCII characters.',
+    );
+  const relayPort = table.picaMobileRelayPort;
+  if (relayPort === undefined)
+    return secret === undefined ? {} : { pagesCoreSecret: secret };
+  if (
+    !isValidPort(relayPort) ||
+    relayPort === port ||
+    relayPort === table.picaMobilePort
+  )
+    throw invalidConfig(
+      source,
+      `"picaMobileRelayPort" must be a whole number from 1 to ${HIGHEST_PORT}, other than "port" and "picaMobilePort".`,
+    );
+  if (secret === undefined)
+    throw invalidConfig(
+      source,
+      '"picaMobileRelayPort" needs "pagesCoreSecret": pages-core proves itself with it.',
+    );
+  return { pagesCoreSecret: secret, picaMobileRelayPort: relayPort };
+}
+
+function readRunsConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "runsMode"> {
+  const mode = table.runsMode;
+  if (mode === undefined) return {};
+  if (mode !== "server" && mode !== "separate")
+    throw invalidConfig(source, '"runsMode" must be "server" or "separate".');
+  return { runsMode: mode };
+}
+
+function readIntegrationsConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "integrationsMode"> {
+  const mode = table.integrationsMode;
+  if (mode === undefined) return {};
+  if (mode !== "server" && mode !== "separate")
+    throw invalidConfig(
+      source,
+      '"integrationsMode" must be "server" or "separate".',
+    );
+  return { integrationsMode: mode };
 }
 
 function readGitBridgeConfig(
@@ -501,16 +604,11 @@ export function writePagesConfig(
     [CONFIG_KEY.FIRST_RUN]: config.firstRun,
     [CONFIG_KEY.PORT]: config.port,
   };
+  writeServiceModes(document, config);
   if (config.listenAddress !== undefined)
     document.listenAddress = config.listenAddress;
   if (config.mcpHttp !== undefined) document.mcpHttp = { ...config.mcpHttp };
-  if (config.picaMobilePort !== undefined)
-    document.picaMobilePort = config.picaMobilePort;
-  if (config.picaMobileFcmServiceAccountFile !== undefined)
-    document.picaMobileFcmServiceAccountFile =
-      config.picaMobileFcmServiceAccountFile;
-  if (config.picaMobileReplayTtlSeconds !== undefined)
-    document.picaMobileReplayTtlSeconds = config.picaMobileReplayTtlSeconds;
+  writePicaMobileSettings(document, config);
   if (config.interpreterProfiles !== undefined)
     document.interpreterProfiles = config.interpreterProfiles.map(
       (profile) => ({ ...profile }),
@@ -521,6 +619,10 @@ export function writePagesConfig(
     document.trustedProxies = [...config.trustedProxies];
   if (config.picaBrowserLocalOrigins !== undefined)
     document.picaBrowserLocalOrigins = [...config.picaBrowserLocalOrigins];
+  if (config.pagesCoreSecret !== undefined)
+    document.pagesCoreSecret = config.pagesCoreSecret;
+  if (config.picaMobileRelayPort !== undefined)
+    document.picaMobileRelayPort = config.picaMobileRelayPort;
 
   const resourceKeys = [
     "maxConcurrentAcpSessions",
@@ -535,6 +637,7 @@ export function writePagesConfig(
 
   if (!config.firstRun && config.databaseUrl !== undefined)
     document[CONFIG_KEY.DATABASE_URL] = config.databaseUrl;
+  else delete document[CONFIG_KEY.DATABASE_URL];
 
   if (config.databasePath === null) {
     delete document[CONFIG_KEY.DATABASE_PATH];
@@ -543,4 +646,25 @@ export function writePagesConfig(
   }
 
   return document;
+}
+
+function writePicaMobileSettings(
+  document: TomlTable,
+  config: PagesConfig,
+): void {
+  // A removed port turns the endpoint off; a failed first port change restores that.
+  if (config.picaMobilePort !== undefined)
+    document.picaMobilePort = config.picaMobilePort;
+  else delete document.picaMobilePort;
+  if (config.picaMobileFcmServiceAccountFile !== undefined)
+    document.picaMobileFcmServiceAccountFile =
+      config.picaMobileFcmServiceAccountFile;
+  if (config.picaMobileReplayTtlSeconds !== undefined)
+    document.picaMobileReplayTtlSeconds = config.picaMobileReplayTtlSeconds;
+}
+
+function writeServiceModes(document: TomlTable, config: PagesConfig): void {
+  if (config.runsMode !== undefined) document.runsMode = config.runsMode;
+  if (config.integrationsMode !== undefined)
+    document.integrationsMode = config.integrationsMode;
 }

@@ -1,5 +1,7 @@
+import "./agent-plan-services-mocks";
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { AgentLocalSessionPreparation } from "@/backend/service/agents/AgentLocalSessionPreparation";
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { createAgentPlanService } from "@/app/lib/agent-plan-services.server";
 import { createPicaMobileNotificationServices } from "@/app/lib/pica-mobile-notification-services.server";
@@ -8,6 +10,7 @@ import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanCon
 import { shareLegacyPlans } from "@/backend/service/agents/AgentPlanLegacyShare";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import { AgentPlanRemoteParameters } from "@/backend/service/agents/AgentPlanRemoteParameters";
@@ -34,6 +37,7 @@ import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine"
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
 import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
+import { AgentPlanRunHistoryService } from "@/backend/service/agents/AgentPlanRunHistoryService";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
@@ -59,148 +63,8 @@ import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
 import type { PicaMobileNotificationService } from "@/backend/service/mobile/notifications/PicaMobileNotificationService";
 
-const { fakeClasses, opaque, partial, runRepositoryFake } = await vi.hoisted(
+const { opaque, partial } = await vi.hoisted(
   async () => import("./service-wiring-fakes"),
-);
-
-vi.mock("@/app/lib/plan-access-services.server", () => ({
-  createPlanWorkspaceAccess: vi.fn(),
-}));
-vi.mock("@/app/lib/pica-mobile-notification-services.server", () => ({
-  createPicaMobileNotificationServices: vi.fn(),
-}));
-vi.mock("@/backend/service/agents/AgentPlanOwnerRunReader", () =>
-  fakeClasses({ AgentPlanOwnerRunReader: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanConfigurationUpgrade", () => ({
-  upgradePlanConfigurations: vi.fn(),
-}));
-vi.mock("@/backend/service/agents/AgentPlanLegacyShare", () => ({
-  shareLegacyPlans: vi.fn(),
-}));
-vi.mock("@/backend/logging/Logger", () => ({
-  logCaughtError: vi.fn(),
-  logDiagnostic: vi.fn(),
-}));
-vi.mock("@/backend/runtime/PagesRuntime", () => ({ getPagesRuntime: vi.fn() }));
-vi.mock("@/backend/service/agents/AgentPlanWorkGate", () =>
-  fakeClasses({ AgentPlanWorkGate: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanRemoteExecution", () =>
-  fakeClasses({ AgentPlanRemoteExecution: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanRemoteParameters", () =>
-  fakeClasses({ AgentPlanRemoteParameters: [] }),
-);
-vi.mock("@/backend/service/runner/RunnerPagesAccessService", () =>
-  fakeClasses({ RunnerPagesAccessService: ["recover"] }),
-);
-vi.mock(
-  "@/backend/database/repositories/agent/AgentPlanRemoteAccessRepository",
-  () => fakeClasses({ AgentPlanRemoteAccessRepository: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanRemoteTargets", () =>
-  fakeClasses({ AgentPlanRemoteTargets: [] }),
-);
-vi.mock(
-  "@/backend/database/repositories/mcp/AgentRunCredentialRepository",
-  () => fakeClasses({ AgentRunCredentialRepository: [] }),
-);
-vi.mock("@/backend/database/repositories/AgentConnectionRepository", () =>
-  fakeClasses({ AgentConnectionRepository: [] }),
-);
-vi.mock("@/backend/database/repositories/agent/AgentPlanRepository", () =>
-  fakeClasses({ AgentPlanRepository: [] }),
-);
-vi.mock(
-  "@/backend/database/repositories/agent/AgentPlanTemplateRepository",
-  () => fakeClasses({ AgentPlanTemplateRepository: [] }),
-);
-vi.mock("@/backend/database/repositories/agent/AgentProfileRepository", () =>
-  fakeClasses({ AgentProfileRepository: ["list"] }),
-);
-vi.mock("@/backend/database/repositories/agent/AgentPlanRunRepository", () =>
-  runRepositoryFake(),
-);
-vi.mock(
-  "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository",
-  () => fakeClasses({ AgentPlanStartRejectionRepository: [] }),
-);
-vi.mock(
-  "@/backend/database/repositories/agent/AgentPlanCheckpointRepository",
-  () => fakeClasses({ AgentPlanCheckpointRepository: ["find"] }),
-);
-vi.mock(
-  "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository",
-  () => fakeClasses({ AgentPlanCleanupFailureRepository: [] }),
-);
-vi.mock(
-  "@/backend/database/repositories/agent/AgentPlanRecoveryRepository",
-  () => fakeClasses({ AgentPlanRecoveryRepository: [] }),
-);
-vi.mock(
-  "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository",
-  () => fakeClasses({ AgentPlanRecoveryExecutionRepository: [] }),
-);
-vi.mock("@/backend/service/agents/recovery/AgentPlanRecoveryService", () =>
-  fakeClasses({ AgentPlanRecoveryService: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanPreparation", () =>
-  fakeClasses({ AgentPlanPreparation: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanScripts", () =>
-  fakeClasses({ AgentPlanScripts: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanScriptPreparation", () =>
-  fakeClasses({ AgentPlanScriptPreparation: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanScriptRunner", () =>
-  fakeClasses({ AgentPlanScriptRunner: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanRunEngine", () =>
-  fakeClasses({ AgentPlanRunEngine: ["isActive"] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanService", () =>
-  fakeClasses({ AgentPlanService: ["run", "stop", "recoverInterruptedRuns"] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanManagement", () =>
-  fakeClasses({ AgentPlanManagement: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanTemplateService", () =>
-  fakeClasses({ AgentPlanTemplateService: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanSessionAccess", () =>
-  fakeClasses({ AgentPlanSessionAccess: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanStepRunner", () =>
-  fakeClasses({ AgentPlanStepRunner: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanStepStart", () =>
-  fakeClasses({ AgentPlanStepStart: [] }),
-);
-vi.mock("@/backend/service/mcp/AgentRunCredentialService", () =>
-  fakeClasses({ AgentRunCredentialService: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanPhases", () =>
-  fakeClasses({ AgentPlanPhases: [] }),
-);
-vi.mock("@/backend/service/agents/AgentPlanTasks", () =>
-  fakeClasses({ AgentPlanTasks: [] }),
-);
-vi.mock("@/backend/database/repositories/agent/AgentSessionRepository", () =>
-  fakeClasses({ AgentSessionRepository: [] }),
-);
-vi.mock("@/backend/service/agents/sessions/AgentSessionInbox", () =>
-  fakeClasses({ AgentSessionInbox: ["recover"] }),
-);
-vi.mock("@/backend/service/agents/sessions/AgentSessionJournal", () =>
-  fakeClasses({ AgentSessionJournal: [] }),
-);
-vi.mock("@/backend/service/agents/sessions/AgentSessionService", () =>
-  fakeClasses({ AgentSessionService: [] }),
-);
-vi.mock("@/backend/database/repositories/AuthorizationRepository", () =>
-  fakeClasses({ AuthorizationRepository: [] }),
 );
 
 type PlanInput = Parameters<typeof createAgentPlanService>[0];
@@ -281,6 +145,18 @@ function only<Instance>(fake: {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(PlanRunCommandWorker.prototype.start).mockResolvedValue(undefined);
+  vi.mocked(getPagesRuntime).mockResolvedValue(
+    partial<PagesRuntime>({
+      getConfig: () => ({
+        firstRun: false,
+        port: 3100,
+        runsMode: "server",
+        databasePath: "/synthetic/data/pages",
+      }),
+      getDatabasePath: () => "/synthetic/data/pages",
+    }),
+  );
   vi.mocked(createPlanWorkspaceAccess).mockReturnValue(
     partial({ access: ACCESS, workspaceCatalog: CATALOG }),
   );
@@ -323,9 +199,15 @@ it("returns the plan service with its management, templates, sessions and recove
   const service = only(vi.mocked(AgentPlanService));
   expect(services).toEqual({
     runnerPagesAccessService: only(vi.mocked(RunnerPagesAccessService)),
+    agentLocalSessionPreparation: expect.any(
+      AgentLocalSessionPreparation,
+    ) as unknown,
     agentPlanService: service,
     agentPlanActiveRunService: ANY_ACTIVE_RUN_SERVICE,
     agentPlanOverviewService: expect.any(AgentPlanOverviewService) as unknown,
+    agentPlanRunHistoryService: expect.any(
+      AgentPlanRunHistoryService,
+    ) as unknown,
     picaMobileNotifications: NOTIFICATIONS,
     agentPlanManagement: only(vi.mocked(AgentPlanManagement)),
     agentPlanTemplateService: only(vi.mocked(AgentPlanTemplateService)),
@@ -421,13 +303,22 @@ it("reads the interpreter profiles of script nodes when they are needed", async 
   const { agents } = agentFixture();
   const snapshot = vi.fn(async () => opaque("interpreters"));
   vi.mocked(getPagesRuntime).mockResolvedValue(
-    partial<PagesRuntime>({ interpreterProfiles: { snapshot } }),
+    partial<PagesRuntime>({
+      interpreterProfiles: { snapshot },
+      getDatabasePath: () => "/synthetic/data/pages",
+      getConfig: () => ({
+        firstRun: false,
+        port: 3100,
+        runsMode: "server",
+        databasePath: "/synthetic/data/pages",
+      }),
+    }),
   );
 
   await createAgentPlanService(planInput(agents));
 
   const [source] = vi.mocked(AgentPlanScripts).mock.calls[0];
-  expect(getPagesRuntime).not.toHaveBeenCalled();
+  expect(snapshot).not.toHaveBeenCalled();
   await expect(source?.snapshot()).resolves.toEqual(opaque("interpreters"));
   expect(snapshot).toHaveBeenCalledOnce();
 });
@@ -440,6 +331,8 @@ it("drives runs with the engine and reports engine activity to the runners", asy
   const sessions = only(vi.mocked(AgentPlanSessionAccess));
   const start = only(vi.mocked(AgentPlanStepStart));
   expect(vi.mocked(AgentPlanRunEngine).mock.calls[0][0]).toEqual({
+    deferScheduling: true,
+    localSessions: undefined,
     workGate: vi.mocked(AgentPlanWorkGate).mock.instances[0],
     remoteExecution: only(vi.mocked(AgentPlanRemoteExecution)),
     scripts: only(vi.mocked(AgentPlanScriptRunner)),
@@ -454,6 +347,7 @@ it("drives runs with the engine and reports engine activity to the runners", asy
     [only(vi.mocked(AgentPlanScriptPreparation)), expect.anything()],
   ]);
   expect(vi.mocked(AgentPlanStepRunner).mock.calls[0][0]).toEqual({
+    localSessions: undefined,
     start,
     execution: agents.agentPlanExecution,
     tasks: vi.mocked(AgentPlanTasks).mock.instances[0],
@@ -528,7 +422,9 @@ it("recovers interrupted session deliveries before the node sessions start", asy
   const journal = only(vi.mocked(AgentSessionJournal));
   const inbox = only(vi.mocked(AgentSessionInbox));
   expect(vi.mocked(AgentSessionRepository).mock.calls).toEqual([[DATABASE]]);
-  expect(vi.mocked(AgentSessionJournal).mock.calls).toEqual([[store]]);
+  expect(vi.mocked(AgentSessionJournal).mock.calls).toEqual([
+    [store, { followExternalWrites: false }],
+  ]);
   expect(vi.mocked(AgentSessionInbox).mock.calls).toEqual([[store, journal]]);
   expect(AgentSessionInbox.prototype.recover).toHaveBeenCalledOnce();
   expect(

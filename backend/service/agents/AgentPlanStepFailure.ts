@@ -1,9 +1,12 @@
-import { explicitPlanBlocker } from "./AgentPlanAcceptance";
 import { AgentAssetReferenceError } from "@/backend/error/AgentAssetReferenceError";
 import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
+import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
+
+import { explicitPlanBlocker } from "./AgentPlanAcceptance";
+import { hasPlanStepTimedOut } from "./AgentPlanSessionRecords";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { PlanSessionClosed } from "@/backend/agents/AgentPlanExecution";
@@ -12,6 +15,7 @@ import type {
   AgentPlanAcceptance,
 } from "@/definition/AgentPlanSession";
 import type { AgentPlanStepSnapshot } from "./AgentPlanSnapshot";
+import type { NodeRun } from "./AgentPlanStepContext";
 
 interface PlanFailureNode {
   readonly hasStarted: boolean;
@@ -143,4 +147,28 @@ export function apiBusinessResult(
 ): Partial<AgentPlanStepResult> {
   const error = explicitPlanBlocker(output) ? "plan_acceptance_failed" : null;
   return { status: error ? "failed" : "succeeded", output, error };
+}
+
+/** Reports the actual failure after cleanup, keeping an earlier attempt's record when no new start occurred. */
+export function planNodeFailureResult(
+  node: NodeRun,
+  error: unknown,
+): Partial<AgentPlanStepResult> {
+  const session = node.record ? { session: node.record } : {};
+  if (node.record?.closeout === "failed")
+    return { status: "failed", error: "plan_closeout_failed", ...session };
+  if (hasPlanStepTimedOut(node.control.signal))
+    return { status: "failed", error: "timeout", ...session };
+  if (error instanceof AgentPlanCancelledError)
+    return {
+      status: "cancelled",
+      cancellation: node.hasStarted ? "confirmed" : "not_started",
+      ...session,
+    };
+  return {
+    status: "failed",
+    error: errorCode(error),
+    ...session,
+    ...assetFailure(error),
+  };
 }

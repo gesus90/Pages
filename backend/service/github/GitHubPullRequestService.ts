@@ -2,11 +2,14 @@ import { randomUUID } from "node:crypto";
 
 import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 
+import { applyProjectChange } from "./GitHubLocalChange";
+
 import type { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import type { GitHubSyncAccessGuard } from "@/backend/service/github/GitHubSyncAccessGuard";
 import type { GitHubSyncContext } from "@/backend/service/github/GitHubSyncContextLoader";
 import type { GitHubSyncCounters } from "@/backend/service/github/GitHubSyncRun";
 import type { TaskService } from "@/backend/service/TaskService";
+import type { GitHubChangeEvents } from "./GitHubLocalChange";
 import type { WorkItemVisibility } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
@@ -15,6 +18,7 @@ export class GitHubPullRequestService {
   private readonly gitHubRepository: GitHubRepository;
   private readonly accessGuard: GitHubSyncAccessGuard;
   private readonly taskService: TaskService;
+  private readonly events: GitHubChangeEvents;
 
   /**
    * Creates a pull request service.
@@ -22,15 +26,18 @@ export class GitHubPullRequestService {
    * @param gitHubRepository - GitHub persistence boundary storing pull requests.
    * @param accessGuard - Verifier of write permission on the project.
    * @param taskService - Task business-logic boundary resolving tasks.
+   * @param events - Stores changed pull requests with their event.
    */
   public constructor(
     gitHubRepository: GitHubRepository,
     accessGuard: GitHubSyncAccessGuard,
     taskService: TaskService,
+    events: GitHubChangeEvents,
   ) {
     this.gitHubRepository = gitHubRepository;
     this.accessGuard = accessGuard;
     this.taskService = taskService;
+    this.events = events;
   }
 
   /**
@@ -53,18 +60,24 @@ export class GitHubPullRequestService {
       "all",
     );
 
-    for (const pullRequest of remotePullRequests) {
-      await this.gitHubRepository.upsertPullRequest({
-        branch: pullRequest.branch,
-        id: randomUUID(),
-        merged: pullRequest.merged,
-        number: pullRequest.number,
-        projectId,
-        state: pullRequest.state,
-        title: pullRequest.title,
-        url: pullRequest.url,
-      });
-    }
+    // The pull requests were read before; changed ones commit with one event.
+    await applyProjectChange(this.events, projectId, async () => {
+      let isChanged = false;
+      for (const pullRequest of remotePullRequests) {
+        const isStored = await this.gitHubRepository.upsertPullRequest({
+          branch: pullRequest.branch,
+          id: randomUUID(),
+          merged: pullRequest.merged,
+          number: pullRequest.number,
+          projectId,
+          state: pullRequest.state,
+          title: pullRequest.title,
+          url: pullRequest.url,
+        });
+        isChanged = isStored || isChanged;
+      }
+      return isChanged;
+    });
 
     const visibleNumbers = new Set(
       (

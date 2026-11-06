@@ -11,7 +11,10 @@ import {
   createEmptySyncCounters,
 } from "@/backend/service/github/GitHubSyncRun";
 
+import { applyTicketChange } from "@/backend/service/github/GitHubLocalChange";
+
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
+import type { GitHubChangeEvents } from "@/backend/service/github/GitHubLocalChange";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import type { GitHubIssuePuller } from "@/backend/service/github/GitHubIssuePuller";
 import type { GitHubIssuePusher } from "@/backend/service/github/GitHubIssuePusher";
@@ -29,6 +32,8 @@ export interface GitHubConflictResolverOptions {
   readonly contextLoader: GitHubSyncContextLoader;
   readonly pusher: GitHubIssuePusher;
   readonly puller: GitHubIssuePuller;
+  /** Stores each local change with its event. */
+  readonly events: GitHubChangeEvents;
 }
 
 /** The side whose values win a synchronization conflict. */
@@ -42,6 +47,7 @@ export class GitHubConflictResolver {
   private readonly contextLoader: GitHubSyncContextLoader;
   private readonly pusher: GitHubIssuePusher;
   private readonly puller: GitHubIssuePuller;
+  private readonly events: GitHubChangeEvents;
 
   /**
    * Creates a conflict resolver.
@@ -55,6 +61,7 @@ export class GitHubConflictResolver {
     this.contextLoader = options.contextLoader;
     this.pusher = options.pusher;
     this.puller = options.puller;
+    this.events = options.events;
   }
 
   /**
@@ -131,8 +138,10 @@ export class GitHubConflictResolver {
       sync,
     };
 
-    await this.applyResolution(run, resolution);
-    await this.taskRepository.setGitHubConflict(item.id, false);
+    // The cleared flag belongs to the resolving change and commits with it.
+    await this.applyResolution(run, resolution, () =>
+      this.taskRepository.setGitHubConflict(item.id, false),
+    );
 
     const resolved = await this.taskRepository.findById(
       item.id,
@@ -149,15 +158,17 @@ export class GitHubConflictResolver {
   private async flagConflict(run: LinkedIssueRun): Promise<void> {
     const { actor, item, summary } = run;
 
-    await this.taskRepository.setGitHubConflict(item.id, true);
-    await this.projectRepository.insertActivity({
-      action: "github_conflict",
-      category: "integrations",
-      id: randomUUID(),
-      message: `Task ${item.key} changed in Pages and on GitHub and needs a manual decision.`,
-      projectId: item.projectId,
-      userId: actor.id,
-      workItemId: item.id,
+    await applyTicketChange(this.events, item.id, async () => {
+      await this.taskRepository.setGitHubConflict(item.id, true);
+      await this.projectRepository.insertActivity({
+        action: "github_conflict",
+        category: "integrations",
+        id: randomUUID(),
+        message: `Task ${item.key} changed in Pages and on GitHub and needs a manual decision.`,
+        projectId: item.projectId,
+        userId: actor.id,
+        workItemId: item.id,
+      });
     });
     summary.conflicts += 1;
   }
@@ -165,9 +176,10 @@ export class GitHubConflictResolver {
   private async applyResolution(
     run: LinkedIssueRun,
     resolution: GitHubConflictResolution,
+    clearConflict: () => Promise<void>,
   ): Promise<void> {
     if (resolution === "pages") {
-      await this.pusher.pushLocalState(run);
+      await this.pusher.pushLocalState(run, clearConflict);
       return;
     }
 
@@ -176,6 +188,6 @@ export class GitHubConflictResolver {
         status.projectId === null || status.projectId === run.item.projectId,
     );
 
-    await this.puller.pullRemoteState(run, statuses);
+    await this.puller.pullRemoteState(run, statuses, clearConflict);
   }
 }

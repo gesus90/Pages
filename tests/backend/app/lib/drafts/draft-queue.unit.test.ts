@@ -4,7 +4,11 @@ import { DraftQueue } from "@/app/lib/drafts/draft-queue";
 
 import { deferred } from "../../components/drafts/draft-fixture";
 
-import type { DraftAnswer, DraftEntry } from "@/app/lib/drafts/draft-queue";
+import type {
+  DraftAnswer,
+  DraftAttempt,
+  DraftEntry,
+} from "@/app/lib/drafts/draft-queue";
 
 interface Content {
   readonly text: string;
@@ -23,11 +27,13 @@ function open(queue: DraftQueue<Content>, id = "one"): DraftEntry<Content> {
 function setup(): {
   queue: DraftQueue<Content>;
   save: ReturnType<
-    typeof vi.fn<(entry: DraftEntry<Content>) => Promise<DraftAnswer<Content>>>
+    typeof vi.fn<
+      (attempt: DraftAttempt<Content>) => Promise<DraftAnswer<Content>>
+    >
   >;
 } {
   const save =
-    vi.fn<(entry: DraftEntry<Content>) => Promise<DraftAnswer<Content>>>();
+    vi.fn<(attempt: DraftAttempt<Content>) => Promise<DraftAnswer<Content>>>();
   const queue = new DraftQueue<Content>({
     delay: 10,
     equal: (left, right) => left.text === right.text,
@@ -88,7 +94,7 @@ it("lets separate objects finish out of order without changing each other's draf
   expect(open(queue, "two").draft.text).toBe("two");
 });
 
-it("retains input after a connection abort and retries only on request", async () => {
+it("retains input after a connection abort and retries it automatically with the same operation", async () => {
   vi.useFakeTimers();
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
   const { queue, save } = setup();
@@ -100,17 +106,28 @@ it("retains input after a connection abort and retries only on request", async (
     error: "connection",
     hasChanges: true,
     isSaving: false,
+    pending: { draft: { text: "keep me" } },
   });
-  await vi.advanceTimersByTimeAsync(50_000);
-  expect(save).toHaveBeenCalledOnce();
   save.mockResolvedValueOnce({
     ok: true,
     saved: { text: "keep me", revision: 2 },
   });
-  queue.save("one");
-  await Promise.resolve();
-  expect(save.mock.calls[1]?.[0].base).toEqual({ text: "old", revision: 1 });
-  expect(open(queue).hasChanges).toBe(false);
+  await vi.advanceTimersByTimeAsync(1_999);
+  expect(save).toHaveBeenCalledOnce();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(save).toHaveBeenCalledTimes(2);
+  expect(save.mock.calls[1]?.[0]).toMatchObject({
+    operationId: save.mock.calls[0]?.[0].operationId,
+    base: { text: "old", revision: 1 },
+    draft: { text: "keep me" },
+  });
+  expect(open(queue)).toMatchObject({
+    hasChanges: false,
+    error: null,
+    pending: null,
+  });
+  await vi.advanceTimersByTimeAsync(50_000);
+  expect(save).toHaveBeenCalledTimes(2);
 });
 
 it("keeps both sides of a conflict until explicitly resolved, including further edits", async () => {
@@ -193,26 +210,33 @@ it("keeps a reverted draft unconfirmed after response loss and retries the desir
   await request.promise.catch(() => undefined);
   expect(open(queue)).toMatchObject({
     hasChanges: true,
-    hasUnconfirmedWrite: true,
+    pending: { draft: { text: "in flight" } },
     error: "connection",
   });
   queue.change("one", { text: "old", revision: 1 });
   expect(open(queue).hasChanges).toBe(true);
-  save.mockResolvedValueOnce({
-    ok: false,
-    error: "conflict",
-    current: { text: "in flight", revision: 2 },
-  });
+  save
+    .mockResolvedValueOnce({
+      ok: true,
+      saved: { text: "in flight", revision: 2 },
+    })
+    .mockResolvedValueOnce({ ok: true, saved: { text: "old", revision: 3 } });
   queue.save("one");
-  await Promise.resolve();
-  expect(save.mock.calls[1]?.[0].draft.text).toBe("old");
-  expect(open(queue).current?.text).toBe("in flight");
-  save.mockResolvedValueOnce({ ok: true, saved: { text: "old", revision: 3 } });
-  queue.resolve("one", "mine");
-  await Promise.resolve();
+  await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(3));
+  const [first, repeated, desired] = save.mock.calls.map(([call]) => call);
+  expect(repeated).toMatchObject({
+    operationId: first?.operationId,
+    draft: { text: "in flight" },
+  });
+  expect(desired).toMatchObject({
+    base: { text: "in flight", revision: 2 },
+    draft: { text: "old" },
+  });
+  expect(desired?.operationId).not.toBe(first?.operationId);
+  await vi.waitFor(() => expect(open(queue).isSaving).toBe(false));
   expect(open(queue)).toMatchObject({
     hasChanges: false,
-    hasUnconfirmedWrite: false,
+    pending: null,
     base: { text: "old", revision: 3 },
   });
 });

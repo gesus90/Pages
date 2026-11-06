@@ -48,6 +48,21 @@ export class ScheduledAcpSession implements PlanSession {
       });
   }
 
+  /** Independent native owners retain their lease when HTTP detaches. */
+  public get isDurable(): boolean {
+    return this.session.isDurable === true;
+  }
+
+  /** Whether HTTP has withdrawn its observer without closing the native session. */
+  public get isDetached(): boolean {
+    return this.session.isDetached === true;
+  }
+
+  /** Detaches the underlying local owner; it does not release its capacity reservation. */
+  public detach(): void {
+    this.session.detach?.();
+  }
+
   /** Reuses this process only while its original lease and native context remain open. */
   public async next(
     input: AgentPlanExecutionInput,

@@ -1,9 +1,15 @@
 import { Outlet } from "react-router";
 
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { getApplicationServices } from "@/app/lib/services.server";
+import { loadLocalFirst } from "@/app/lib/local-state/local-state-loader";
+import {
+  readTicketTree,
+  TICKET_TREE_ENDPOINT,
+  TICKET_TREE_STATE,
+} from "@/app/lib/ticket-tree-state";
 
 import type { ShouldRevalidateFunctionArgs } from "react-router";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { TicketTreeEntry } from "@/definition/Task";
 import type { Route } from "./+types/tasks-layout";
 
@@ -13,6 +19,7 @@ export interface TicketLayoutData {
   readonly entries: readonly TicketTreeEntry[];
   /** The branches the person opened. */
   readonly expandedKeys: readonly string[];
+  readonly audience: LocalStateAudience;
 }
 
 /** Changes that leave the tree as it is; everything else reloads it. */
@@ -30,22 +37,19 @@ const TREE_NEUTRAL_INTENTS: ReadonlySet<string> = new Set([
   "remove-attachment",
 ]);
 
-/** Loads the ticket tree for the sidebar of every ticket page (A8.2-E08). */
-export async function loader({
-  context,
-}: Route.LoaderArgs): Promise<TicketLayoutData> {
-  const actor = context.get(authenticatedUserContext);
-
-  if (!actor) {
-    throw new Error("Authenticated middleware did not provide a user.");
-  }
-
-  const { ticketTreeService } = await getApplicationServices();
-
-  return {
-    entries: await ticketTreeService.findEntries(actor),
-    expandedKeys: await ticketTreeService.findExpandedKeys(actor),
-  };
+/**
+ * Opens the tree from the account's kept answer at once; the sidebar asks the endpoint behind it.
+ *
+ * @remarks
+ * Without a kept answer the tree comes from its rights-checked endpoint,
+ * which runs the server loader's checks.
+ */
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<TicketLayoutData>> {
+  return loadLocalFirst(TICKET_TREE_ENDPOINT, TICKET_TREE_STATE, () =>
+    readTicketTree(request.signal),
+  );
 }
 
 /**

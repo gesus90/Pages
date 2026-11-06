@@ -12,10 +12,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { createI18n } from "@/app/lib/i18n";
 import { handleChangePassword } from "@/app/lib/settings-actions/settings-account-actions.server";
-import ChangePasswordRoute, {
-  action,
-  loader,
-} from "@/app/routes/change-password";
+import ChangePasswordRoute from "@/app/routes/change-password";
+import { action, loader } from "@/app/routes/change-password-server";
 
 import type { PasswordChangeActionData } from "@/app/lib/settings-actions/settings-account-actions.server";
 import type { User } from "@/definition/User";

@@ -205,6 +205,14 @@ describe("ticket.checklist.setItems applies a bulk change", () => {
     expect(world.events).toEqual([
       { type: "ticket.updated", id: CHECKLIST_TICKET_ID },
     ]);
+    expect(world.outbox).toEqual([
+      {
+        kind: "ticket.updated",
+        object_id: CHECKLIST_TICKET_ID,
+        audience_project_id: null,
+        audience_department_id: null,
+      },
+    ]);
   });
 
   it("writes nothing and keeps the revision when every entry already has its state", async () => {
@@ -222,6 +230,7 @@ describe("ticket.checklist.setItems applies a bulk change", () => {
     expect(world.criteria).toEqual(criteria);
     expect(world.writes).toEqual({ criteria: 0, descriptions: 0 });
     expect(world.events).toEqual([]);
+    expect(world.outbox).toEqual([]);
   });
 });
 

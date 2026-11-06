@@ -1,11 +1,38 @@
 import { withReadScope } from "@/backend/database/ReadScope";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { allRunAssetReferences } from "@/backend/agents/AgentPlanRunResources";
+
+import { withRunCommand } from "./runs/RunCommandView";
 import { withPlanProgress } from "./AgentPlanProgressView";
 import { requirePlanModelResources } from "./AgentPlanModel";
+
+import type { PlanRunEnginePort } from "./runs/PlanRunEnginePort";
 import type { PlanDependencies } from "./AgentPlanService";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
+import type { AgentTicketAsset } from "@/definition/AgentTicketParameter";
+
+/** Read-only dependencies also used by the isolated notification consumer. No execution engine is needed. */
+export type PlanRunReadDependencies = Pick<
+  PlanDependencies,
+  | "runs"
+  | "access"
+  | "profiles"
+  | "workspaces"
+  | "workspaceCatalog"
+  | "tasks"
+  | "parameters"
+  | "workGate"
+> & {
+  readonly engine?: Pick<PlanRunEnginePort, "commandReceipt">;
+  readonly remoteExecution?: Pick<
+    NonNullable<PlanDependencies["remoteExecution"]>,
+    "requireRead"
+  > &
+    Partial<
+      Pick<NonNullable<PlanDependencies["remoteExecution"]>, "withProgress">
+    >;
+};
 
 /**
  * Current content permissions are checked separately from ownership-only stop/reset permissions.
@@ -15,7 +42,7 @@ import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResourc
  * several checks ask for is answered once.
  */
 export async function readAuthorizedPlanRun(
-  dependencies: PlanDependencies,
+  dependencies: PlanRunReadDependencies,
   userId: string,
   id: string,
 ): Promise<AgentPlanRun> {
@@ -51,7 +78,7 @@ export async function findPlanRun(
 }
 
 async function loadAuthorizedPlanRun(
-  dependencies: PlanDependencies,
+  dependencies: PlanRunReadDependencies,
   userId: string,
   id: string,
 ): Promise<AgentPlanRun> {
@@ -59,6 +86,39 @@ async function loadAuthorizedPlanRun(
   if (!run || run.userId !== userId) throw new AgentError("plan_access_denied");
   await dependencies.access.require(userId, run.planId);
   const resources = await dependencies.runs.resources(id);
+  await requirePlanRunResourceAccess(dependencies, userId, {
+    resources,
+    ticketAssets: allRunAssetReferences(run, resources.ticketAssets),
+  });
+  const progress = await withPlanProgress(run, {
+    projectId: resources.projectId,
+    tasks: dependencies.tasks,
+    stepTickets: resources.stepTickets,
+  });
+  const scoped =
+    (await dependencies.workGate?.withProgress(progress)) ?? progress;
+  const progressView =
+    (await dependencies.remoteExecution?.withProgress?.(scoped)) ?? scoped;
+  return withRunCommand(dependencies.engine, progressView);
+}
+
+/**
+ * Requires the current access to everything a run used, as reading its content does.
+ *
+ * @param dependencies - The read dependencies of the plan service.
+ * @param userId - The person who reads.
+ * @param used - The resources of the run and every file or ticket asset it named.
+ * @throws {AgentError} The refusal of the first resource the person cannot use now.
+ */
+export async function requirePlanRunResourceAccess(
+  dependencies: PlanRunReadDependencies,
+  userId: string,
+  used: {
+    readonly resources: AgentPlanRunResources;
+    readonly ticketAssets: readonly AgentTicketAsset[];
+  },
+): Promise<void> {
+  const { resources, ticketAssets } = used;
   await requirePlanModelResources(dependencies.profiles, userId, resources);
   await requireRemoteRead(dependencies, userId, resources);
   // Access only: a run that started must stay readable and stoppable after its directory or link is gone.
@@ -74,21 +134,12 @@ async function loadAuthorizedPlanRun(
     await dependencies.tasks.requireReadable(userId, ticketId);
   for (const pageId of resources.wikiIds)
     await dependencies.parameters.requireWiki(userId, pageId);
-  const ticketAssets = allRunAssetReferences(run, resources.ticketAssets);
   if (ticketAssets.length)
     await dependencies.parameters.requireTicketAssets(userId, ticketAssets);
-  const progress = await withPlanProgress(run, {
-    projectId: resources.projectId,
-    tasks: dependencies.tasks,
-    stepTickets: resources.stepTickets,
-  });
-  const scoped =
-    (await dependencies.workGate?.withProgress(progress)) ?? progress;
-  return dependencies.remoteExecution?.withProgress(scoped) ?? scoped;
 }
 
 async function requireRemoteRead(
-  dependencies: PlanDependencies,
+  dependencies: PlanRunReadDependencies,
   userId: string,
   resources: AgentPlanRunResources,
 ): Promise<void> {

@@ -6,6 +6,7 @@ import {
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 
 import { withGroupResults } from "./AgentPlanGroupResults";
+import { bindPlanBranchState } from "./branching/AgentPlanBranchPersistence";
 import { hasPlanPath } from "./AgentPlanGraph";
 import { planReadiness } from "./branching/AgentPlanBranchEdges";
 
@@ -16,9 +17,12 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 import type { PlanBranchingState } from "./branching/AgentPlanBranchState";
+import type { LogContext } from "@/backend/logging/Logger";
 
 /** Live scheduler state; only the engine mutates it under its serial queue. */
 export interface ActivePlanRun {
+  /** Frozen trigger facts: another run's scheduler pump must not replace this trace. */
+  readonly logContext?: LogContext;
   groupCloseout: "open" | "closing" | "closed";
   hasPersistenceFailure: boolean;
   view: AgentPlanRun;
@@ -49,6 +53,7 @@ export function patchStep(
     },
     active.snapshot,
   );
+  bindPlanBranchState(active);
 }
 
 /** Stop irreversibly closes the dispatch gate before any abort signal. */

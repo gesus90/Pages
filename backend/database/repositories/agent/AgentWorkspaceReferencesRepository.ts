@@ -63,13 +63,13 @@ export class AgentWorkspaceReferencesRepository {
               workspace_id = $id
               OR EXISTS (
                   SELECT 1
-                  FROM json_tree(agent_plan_runs.snapshot_json) AS reference
+                  FROM json_tree(COALESCE(agent_plan_runs.snapshot_file, agent_plan_runs.snapshot_json)) AS reference
                   WHERE json_extract_string(reference.value, '$.workspaceId') = $id
               )
               OR EXISTS (
                   SELECT 1
                   FROM agent_plan_continuations AS continuation,
-                      json_tree(continuation.snapshot_json) AS reference
+                      json_tree(COALESCE(continuation.snapshot_file, continuation.snapshot_json)) AS reference
                   WHERE continuation.run_id = agent_plan_runs.id
                       AND json_extract_string(reference.value, '$.workspaceId') = $id
               )

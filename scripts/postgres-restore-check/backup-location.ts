@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, readdir, rm } from "node:fs/promises";
+import { access, readdir } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -94,9 +94,10 @@ export async function requireBackupMount(
 }
 
 /**
- * Deletes what a killed check left behind and refuses to run beside a live one.
+ * Preserves earlier work directories and refuses to run beside a live check.
  *
- * @param location - The location to clean.
+ * @param location - The backup location to inspect.
+ *
  * @throws {RestoreCheckFailure} When a process still uses such a directory.
  */
 export async function removeLeftovers(location: BackupLocation): Promise<void> {
@@ -109,7 +110,6 @@ export async function removeLeftovers(location: BackupLocation): Promise<void> {
         "leftover",
         `A process still uses ${directory}: another check is running or left a server behind.`,
       );
-    await rm(directory, { recursive: true, force: true });
   }
 }
 

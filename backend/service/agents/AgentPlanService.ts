@@ -1,9 +1,3 @@
-import {
-  authorizedPlanControl,
-  readPlanControlRun,
-} from "./AgentPlanControlAccess";
-import { findPlanRun, readAuthorizedPlanRun } from "./AgentPlanRunReader";
-import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { randomUUID } from "node:crypto";
 
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
@@ -18,13 +12,19 @@ import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
+import { withReadScope } from "@/backend/database/ReadScope";
 
+import { withRunCommand } from "./runs/RunCommandView";
+import {
+  authorizedPlanControl,
+  readPlanControlRun,
+} from "./AgentPlanControlAccess";
+import { findPlanRun, readAuthorizedPlanRun } from "./AgentPlanRunReader";
 import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { readPlanSources } from "./AgentPlanSources";
-import { withReadScope } from "@/backend/database/ReadScope";
 import { readPlanContext, readPlanPage } from "./AgentPlanPage";
 import { AgentPlanControlService } from "./AgentPlanControlService";
-import { AgentPlanStartupRecovery } from "./recovery/AgentPlanStartupRecovery";
+import { recoverPlanStartup } from "./recovery/AgentPlanStartupRecovery";
 import { AgentPlanStartActions } from "./AgentPlanStartActions";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
@@ -38,6 +38,7 @@ import { AgentPlanScripts } from "./AgentPlanScripts";
 import { AgentPlanCloning } from "./AgentPlanCloning";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 
+import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanCloneInput } from "./AgentPlanClone";
@@ -79,7 +80,7 @@ import type { AgentPlanPhases } from "./AgentPlanPhases";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanAccess, AgentPlanTeam } from "./AgentPlanAccess";
 import type { AgentPlanPreparation } from "./AgentPlanPreparation";
-import type { AgentPlanRunEngine } from "./AgentPlanRunEngine";
+import type { PlanRunEnginePort } from "./runs/PlanRunEnginePort";
 import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
@@ -101,7 +102,7 @@ export interface PlanDependencies {
   readonly phases: AgentPlanPhases;
   readonly access: AgentPlanAccess;
   readonly preparation: AgentPlanPreparation;
-  readonly engine: AgentPlanRunEngine;
+  readonly engine: PlanRunEnginePort;
   /** Ends the MCP access of interrupted sessions; absent without plan sessions. */
   readonly sessions?: AgentPlanSessionAccess;
   /** Serves the prompts nodes were sent. */
@@ -143,7 +144,7 @@ export class AgentPlanService {
   public async recoverInterruptedRuns(
     retained: ReadonlySet<string> = new Set(),
   ): Promise<void> {
-    await new AgentPlanStartupRecovery(this.dependencies).recover(retained);
+    await recoverPlanStartup(this.dependencies, retained);
   }
 
   /**
@@ -495,7 +496,7 @@ export class AgentPlanService {
       !(await this.dependencies.access.require(userId, run.planId)).canEdit
     )
       throw new AgentError("plan_access_denied");
-    return run;
+    return withRunCommand(this.dependencies.engine, run);
   }
 
   /** Other workspace users or plan owners cannot stop an executor's private run. */
@@ -505,10 +506,9 @@ export class AgentPlanService {
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     const run = await this.controlRun(userId, id);
-    if (!(await this.dependencies.access.require(userId, run.planId)).canEdit)
-      throw new AgentError("plan_access_denied");
     await this.dependencies.engine.stop(id, journal);
-    await this.dependencies.remoteExecution?.stop(run);
+    if (!this.dependencies.engine.commandReceipt)
+      await this.dependencies.remoteExecution?.stop(run);
     return (await readPlanControlRun(this, userId, run.planId, id)).run;
   }
 

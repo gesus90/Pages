@@ -17,10 +17,10 @@ const VALID = {
   username: " admin ",
   password: " long secret ",
   email: " admin@example.invalid ",
-  databasePath: " /data/pages.duckdb ",
+  databaseUrl: " postgresql://localhost/pages ",
 };
 
-it("trims the text fields and keeps password and path as entered", () => {
+it("trims the text fields and keeps password and connection as entered", () => {
   expect(readSetupForm(formOf(VALID))).toEqual({
     isValid: true,
     input: {
@@ -28,12 +28,12 @@ it("trims the text fields and keeps password and path as entered", () => {
       username: "admin",
       password: " long secret ",
       email: "admin@example.invalid",
-      databasePath: " /data/pages.duckdb ",
+      databaseUrl: " postgresql://localhost/pages ",
     },
   });
 });
 
-it("stores no email and an empty path when both are left out", () => {
+it("stores no email and an empty connection when both are left out", () => {
   const fields = {
     companyName: VALID.companyName,
     username: VALID.username,
@@ -43,14 +43,14 @@ it("stores no email and an empty path when both are left out", () => {
 
   expect(readSetupForm(formOf(fields))).toMatchObject({
     isValid: true,
-    input: { email: null, databasePath: "" },
+    input: { email: null, databaseUrl: "" },
   });
 });
 
 it("reports the error of every rejected field at once", () => {
   expect(
     readSetupForm(
-      formOf({ password: "short", email: "no-address", databasePath: "x" }),
+      formOf({ password: "short", email: "no-address", databaseUrl: "x" }),
     ),
   ).toEqual({
     isValid: false,

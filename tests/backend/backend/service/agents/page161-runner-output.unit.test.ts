@@ -75,6 +75,42 @@ function writePacket(
   );
 }
 
+it("collects a script result and diagnostics without a CLI route or terminal receipt", async () => {
+  const command: RunnerExecution = {
+    ...COMMAND,
+    timeoutSeconds: 30,
+    program: {
+      kind: "script",
+      interpreter: {
+        id: "python3",
+        name: "Synthetic interpreter",
+        path: "/synthetic/python3",
+        digest: "0".repeat(64),
+        version: "synthetic",
+      },
+      source: "synthetic",
+    },
+  };
+  const output = new JobOutput(command, "/script", BINDING, (text) => text);
+  await output.initialize("/script");
+  const contents = Buffer.from('{"result":"🙂"}\n');
+  await writePacket(output, contents.subarray(0, 13));
+  await writePacket(output, contents.subarray(13));
+  await writePacket(output, Buffer.from("script diagnostic\n"), "stderr");
+  await new Promise<void>((resolve, reject) => {
+    output.once("error", reject);
+    output.end(resolve);
+  });
+  expect(output.result()).toEqual({
+    output: contents.toString("utf8"),
+    stderr: "script diagnostic\n",
+  });
+  expect((await journalIndex("/script/history/raw", BINDING)).isClosed).toBe(
+    true,
+  );
+  expect(journalFiles.descriptors.size).toBe(0);
+});
+
 async function writeEvent(output: JobOutput, event: unknown): Promise<void> {
   const bytes = Buffer.from(`${JSON.stringify(event)}\n`);
   for (let start = 0; start < bytes.length; start += 65535)

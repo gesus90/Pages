@@ -14,13 +14,13 @@ import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
 import { quoteCliArgument } from "./CliEnvironment";
 import { openCliGitBridge, writeGitBridgeClient } from "./CliGitBridge";
 import { gitPublishScript } from "./CliGitPublishScript";
 import { endTaggedProcesses, readScopeSince } from "./CliProcessScan";
 import { settleOwnedNamespace } from "./CliOwnedNamespace";
-import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
 import type { TaggedProcessScope } from "./CliProcessScan";
 import type { GitHubWriteAccess } from "@/backend/github/GitHubGitAccess";
@@ -342,7 +342,10 @@ export class CliGitHubCredentials {
    * Legacy leftovers without a recorded namespace stay unconfirmed. Each
    * leftover is handled independently so one failure does not abort startup.
    */
-  public async recover(): Promise<readonly AcpCredentialLeftover[]> {
+  public async recover(
+    preserved: ReadonlySet<string> = new Set(),
+    unverified: ReadonlySet<string> = new Set(),
+  ): Promise<readonly AcpCredentialLeftover[]> {
     const root = await realpath(this.root);
     const unconfirmed: AcpCredentialLeftover[] = [];
     for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -353,6 +356,20 @@ export class CliGitHubCredentials {
         !INSTANCE_PATTERN.test(instanceId)
       )
         continue;
+      if (preserved.has(instanceId)) continue;
+      if (unverified.has(instanceId)) {
+        unconfirmed.push({
+          directory: entry.name,
+          instanceId,
+          reason: "processes",
+        });
+        logDiagnostic(
+          "CliGitHubCredentials",
+          "error",
+          "Local session owner is unverified; its credential residue is quarantined and no process is signalled.",
+        );
+        continue;
+      }
       const leftover = await this.recoverLeftover(root, entry.name, instanceId);
       if (leftover) unconfirmed.push(leftover);
     }

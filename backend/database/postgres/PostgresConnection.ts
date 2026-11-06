@@ -1,6 +1,7 @@
 import { logEvent } from "@/backend/logging/Logger";
+
 import { recordDatabaseQuery } from "../DatabaseStats";
-import { holdsTransaction } from "../executor/DatabaseExecutor";
+import { holdsTransaction } from "../TransactionState";
 import {
   DatabaseOutcomeUnknownError,
   DatabaseUnavailableError,
@@ -8,9 +9,9 @@ import {
 import { bindStatement } from "./PostgresStatement";
 
 import type { PoolClient, QueryResult } from "pg";
-
 import type { DatabaseValue, SqlParameters } from "../Database";
-import type { WorkerRunMode } from "../executor/DatabaseWorkerProtocol";
+
+type WorkerRunMode = "execute" | "rows";
 
 /** Which lane a connection serves. */
 export type PostgresConnectionRole = "writer" | "reader";
@@ -176,6 +177,11 @@ export class PostgresConnection {
     }
     refuseEchoedStandIn(rows, comparisonStandIns);
     return rows;
+  }
+
+  /** Prevents a session with uncertain lock cleanup from ever returning to the pool. */
+  public discard(): void {
+    this.isBroken = true;
   }
 
   /** Returns the connection; one that is broken or holds a transaction is closed. */

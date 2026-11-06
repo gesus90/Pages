@@ -4,6 +4,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { TEXT_TARGETS, TextWorld } from "./page59-text-world";
 
+/** The outbox row a committed text change stores; only deleted tickets carry an audience. */
+function outboxRow(kind: string, objectId: string): Record<string, unknown> {
+  return {
+    kind,
+    object_id: objectId,
+    audience_project_id: null,
+    audience_department_id: null,
+  };
+}
+
 let world: TextWorld;
 beforeEach(() => {
   world = new TextWorld();
@@ -72,6 +82,10 @@ describe("ticket history and synchronization", () => {
       { type: "ticket.updated", id: world.ticket.id },
       { type: "ticket.updated", id: world.ticket.id },
     ]);
+    expect(world.outbox).toEqual([
+      outboxRow("ticket.updated", world.ticket.id),
+      outboxRow("ticket.updated", world.ticket.id),
+    ]);
     expect(world.activity.map(({ action }) => action)).toEqual([
       "ticket.patchDescription",
       "ticket.setDescription",
@@ -124,6 +138,10 @@ describe("wiki versions and references", () => {
     expect(world.events).toEqual([
       { type: "wiki.page.updated", id: world.page.id },
       { type: "wiki.page.updated", id: world.page.id },
+    ]);
+    expect(world.outbox).toEqual([
+      outboxRow("wiki.page.updated", world.page.id),
+      outboxRow("wiki.page.updated", world.page.id),
     ]);
     expect(
       await world.call("wiki.page.read", world.target("wiki")),
@@ -183,9 +201,10 @@ describe.each(TEXT_TARGETS)("%s no-op patches", (target) => {
       world.versions,
       world.activity,
       world.events,
+      world.outbox,
       world.links,
       world.mentions,
-    ]).toEqual([[], [], [], [], [], []]);
+    ]).toEqual([[], [], [], [], [], [], []]);
     expect(world.publish).not.toHaveBeenCalled();
     expect(world.invalidate).not.toHaveBeenCalled();
     expect(world.keys.size).toBe(1);

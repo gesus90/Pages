@@ -5,8 +5,8 @@ import { TaskFormDialog } from "@/app/components/tasks/task-form-dialog";
 import { TaskMoveDialog } from "@/app/components/tasks/task-move-dialog";
 
 import type { TicketDialogs as TicketDialogState } from "@/app/components/tasks/ticket/use-ticket-dialogs";
-import type { action } from "@/app/routes/tasks";
-import type { loader } from "@/app/routes/task-detail";
+import type { action } from "@/app/routes/tasks-server";
+import type { loader } from "@/app/routes/task-detail-server";
 
 interface TicketDialogsProps {
   readonly loaderData: Awaited<ReturnType<typeof loader>>;

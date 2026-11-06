@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { appendFileSync, existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -27,7 +27,6 @@ export interface PagesInstanceOptions {
 }
 
 const START_TIMEOUT_MILLISECONDS = 60_000;
-const STOP_TIMEOUT_MILLISECONDS = 10_000;
 const SETUP_LINK = /\/setup\?token=([A-Za-z0-9_-]{43})/u;
 
 /** Environment variables the server may see; nothing of the caller's secrets. */
@@ -100,15 +99,9 @@ function waitForExit(child: ChildProcess): Promise<void> {
 }
 
 async function stopServer(child: ChildProcess): Promise<void> {
-  child.kill("SIGTERM");
-
-  const timer = setTimeout(
-    () => child.kill("SIGKILL"),
-    STOP_TIMEOUT_MILLISECONDS,
-  );
-
+  if (child.exitCode === null && child.signalCode === null)
+    child.kill("SIGTERM");
   await waitForExit(child);
-  clearTimeout(timer);
 }
 
 /**
@@ -152,10 +145,11 @@ export async function startPagesInstance(
   const configPath = path.join(directory, "config.toml");
   const logFile = path.join(directory, "server.log");
 
-  await mkdir(home, { recursive: true });
+  await mkdir(home, { recursive: true, mode: 0o700 });
   await writeFile(
     configPath,
     `firstRun = true\nport = ${options.port}\nlistenAddress = "127.0.0.1"\n`,
+    { mode: 0o600 },
   );
 
   const child = spawn(
@@ -174,7 +168,7 @@ export async function startPagesInstance(
     },
   );
   const capture = (chunk: Buffer): void => {
-    appendFileSync(logFile, chunk);
+    appendFileSync(logFile, chunk, { mode: 0o600 });
   };
 
   child.stdout?.on("data", capture);
@@ -197,8 +191,7 @@ export async function startPagesInstance(
     };
   } catch (error: unknown) {
     await stopServer(child);
-    console.error(await readFile(logFile, "utf8").catch(() => ""));
-    await rm(directory, { force: true, recursive: true });
+    console.error(`Pages did not start; see the retained log at ${logFile}.`);
     throw error;
   }
 }

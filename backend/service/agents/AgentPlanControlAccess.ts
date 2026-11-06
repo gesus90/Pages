@@ -23,6 +23,7 @@ function controlOnlyRun(run: AgentPlanRun): AgentPlanRun {
     startedAt: run.startedAt,
     status: run.status,
     stopRequested: run.stopRequested,
+    ...(run.command ? { command: run.command } : {}),
     steps: [],
   };
 }

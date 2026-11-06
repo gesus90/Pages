@@ -1,3 +1,4 @@
+import { AgentOperationKeyRepository } from "./agents/AgentOperationKeyRepository";
 import { ProjectActivityRepository } from "./project/ProjectActivityRepository";
 import { deleteWikiPages } from "./wiki/WikiPageDeletion";
 import { WikiAnchorRepository } from "./wiki/WikiAnchorRepository";
@@ -86,6 +87,8 @@ export class WikiRepository {
   public readonly state: WikiStateRepository;
   /** Project audit entries sharing the wiki mutation transaction. */
   public readonly activity: ProjectActivityRepository;
+  /** Results of saves by operation ID, so a repetition changes nothing twice. */
+  public readonly operations: AgentOperationKeyRepository;
   private readonly database: WikiDatabase;
   private readonly source: ProjectActivitySource;
 
@@ -100,6 +103,7 @@ export class WikiRepository {
   ) {
     this.source = source;
     this.activity = new ProjectActivityRepository(database, source);
+    this.operations = new AgentOperationKeyRepository(database);
     this.database = database;
     this.pages = new WikiPageRepository(database);
     this.writes = new WikiPageWriteRepository(database);

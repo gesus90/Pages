@@ -28,7 +28,19 @@ import type { CliProviderId } from "@/definition/AgentConnection";
 import type { FakeAdapterOptions } from "../acp/fake-acp-adapter";
 import type { FakeCliSpawn } from "./fake-cli-spawn";
 
+import type * as OwnedNamespaceModule from "@/backend/agents/cli/CliOwnedNamespace";
+
 const files = vi.hoisted(() => ({ existing: new Set<string>() }));
+// This fixture spawns an in-memory adapter, so its synthetic PID has no /proc entry.
+vi.mock("@/backend/agents/cli/CliOwnedNamespace", async (importOriginal) => ({
+  ...(await importOriginal<typeof OwnedNamespaceModule>()),
+  captureOwnedNamespace: async (pid: number) => ({
+    pid,
+    uid: 1000,
+    start: 1,
+    boot: "synthetic-boot",
+  }),
+}));
 vi.mock("node:fs/promises", () => ({
   access: async (file: string) => {
     if (!files.existing.has(file)) throw new Error(`ENOENT ${file}`);

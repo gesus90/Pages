@@ -3,7 +3,8 @@ import { cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { handleWikiLayoutAction } from "@/app/lib/wiki-actions/wiki-layout-actions.server";
-import WikiRoute, { action, loader } from "@/app/routes/wiki";
+import WikiRoute from "@/app/routes/wiki";
+import { action, loader } from "@/app/routes/wiki-server";
 
 import {
   ACTOR,
@@ -22,6 +23,14 @@ const wiki = vi.hoisted(() => ({
   ownerCandidates: vi.fn(),
 }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "u-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({
     wikiService: wiki,
@@ -66,6 +75,7 @@ it("loads tree, templates, people and the server's date", async () => {
     people: [{ id: "user-2" }],
     templates: [{ id: "t-1", title: "Note", icon: null }],
     today: "2026-10-28",
+    audience: AUDIENCE,
   });
 });
 
@@ -92,6 +102,7 @@ it("renders the wiki frame with the tree and the people", () => {
       people: [{ id: "user-2" }],
       templates: [],
       today: "2026-10-28",
+      audience: AUDIENCE,
     },
   });
 

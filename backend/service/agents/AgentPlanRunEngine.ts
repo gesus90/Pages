@@ -1,25 +1,25 @@
-import {
-  acquirePlanWriters,
-  retireActivePredecessor,
-  finalizeScheduledPlanRun,
-} from "./AgentPlanRunLifecycle";
-import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
+  captureLogContext,
   logCaughtError,
   logDiagnostic,
   logEvent,
   withLogContext,
 } from "@/backend/logging/Logger";
+
+import { planNodeOutcome } from "./AgentPlanNodeOutcome";
+import {
+  acquirePlanWriters,
+  retireActivePredecessor,
+  finalizeScheduledPlanRun,
+} from "./AgentPlanRunLifecycle";
+import { adoptLocalPlanRun } from "./AgentPlanEngineAdoption";
 import { planNodeStop } from "./AgentPlanBlockerRules";
-import { dispatchRemoteStepWithRetry } from "./AgentPlanRemoteRetry";
 import { savePlanSession } from "./AgentPlanSessionPersistence";
 import { capturePlanExecution } from "./AgentPlanExecutionSnapshot";
 import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
@@ -41,7 +41,6 @@ import {
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { settlePlanRun } from "./AgentPlanRunSettle";
 import {
-  eventStart,
   isStaleStart,
   settleEventPrompt,
   settlePlanBranching,
@@ -54,15 +53,9 @@ import {
 } from "./AgentPlanEngineShutdown";
 import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
-import {
-  dispatchPlanLocalNode,
-  dispatchPlanLoop,
-} from "./AgentPlanNodeDispatch";
-import {
-  guardPlanWorkDispatch,
-  settlePlanWorkResult,
-  completedPlanWorkCheckpoint,
-} from "./AgentPlanWorkDispatch";
+import { completedPlanWorkCheckpoint } from "./AgentPlanWorkDispatch";
+
+import type { dispatchPlanLoop } from "./AgentPlanNodeDispatch";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { RecoveredRunStart } from "./AgentPlanRunStart";
 import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
@@ -77,7 +70,6 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
-
 import type { EngineDependencies } from "./AgentPlanEngineDependencies";
 
 export type { EngineDependencies } from "./AgentPlanEngineDependencies";
@@ -106,9 +98,11 @@ export class AgentPlanRunEngine {
   private readonly writes = new SerialQueue();
   private readonly pending = new Set<Promise<void>>();
   private isClosing = false;
+  private isSchedulingEnabled: boolean;
 
   public constructor(dependencies: EngineDependencies) {
     this.dependencies = dependencies;
+    this.isSchedulingEnabled = !dependencies.deferScheduling;
     this.nodes = {
       writes: this.writes,
       dependencies,
@@ -204,6 +198,36 @@ export class AgentPlanRunEngine {
     return this.isClosing;
   }
 
+  /** Restores the same run around independently proven native owners, without a replacement prompt. */
+  public async adopt(run: AgentPlanRun): Promise<boolean> {
+    if (this.isClosing) return false;
+    const adopted = await adoptLocalPlanRun(run, {
+      dependencies: this.dependencies,
+      active: this.active,
+      writes: this.writes,
+      start: (active, node, controller) =>
+        this.track(
+          active,
+          this.execute(
+            active,
+            node,
+            controller,
+            active.view.steps.find((step) => step.id === node.id)?.activation,
+          ),
+        ),
+      track: (active, pending) => this.track(active, pending),
+      pump: () => this.pump(),
+      instruction: (active, work) => this.instruction(active, work),
+    });
+    if (adopted) this.schedulePump();
+    return adopted;
+  }
+
+  /** Unknown local owner identities retain reservations and never authorize cleanup. */
+  public unverifiedLocalSessions(): ReadonlySet<string> {
+    return this.dependencies.localSessions?.unverified() ?? new Set();
+  }
+
   /** Persists an explicit pause before releasing the execution gate. */
   public async pause(id: string, journal?: AgentPlanRunJournal): Promise<void> {
     await this.commands.pause(id, journal);
@@ -251,13 +275,37 @@ export class AgentPlanRunEngine {
   /** The shutdown hook drains execution before closing DuckDB or the shared CLI runner. */
   public async shutdown(): Promise<void> {
     this.isClosing = true;
+    this.dependencies.localSessions?.detachAll();
     if (this.resourceTimer) clearTimeout(this.resourceTimer);
+    for (const [id, active] of this.active) {
+      if (!this.dependencies.localSessions?.detachRun(id)) continue;
+      this.active.delete(id);
+      for (const pending of active.executions) this.pending.delete(pending);
+    }
     await shutdownPlanEngine({
       active: this.active,
       pending: this.pending,
       interrupt: (id) => this.commands.interrupt(id),
       pump: () => this.pump(),
     });
+  }
+
+  /** Releases dispatch after recovery and queued controls have been reconciled. */
+  public activateScheduling(): void {
+    this.isSchedulingEnabled = true;
+    this.schedulePump();
+  }
+
+  /** Applies reset/restart fences committed by the API without replaying their effects. */
+  public async reconcileRetiredRuns(): Promise<void> {
+    for (const id of this.active.keys()) {
+      const stored = await this.dependencies.runs.find(id);
+      if (
+        stored?.stopRequested &&
+        (stored.status === "cancelled" || stored.status === "failed")
+      )
+        await this.resetLogical(id, () => Promise.resolve(stored));
+    }
   }
 
   private schedulePump(): void {
@@ -285,7 +333,8 @@ export class AgentPlanRunEngine {
     const captured = capturePlanExecution(view, snapshot);
     view = captured.run;
     snapshot = captured.snapshot;
-    withLogContext({ runId: view.id }, () =>
+    const logContext = { ...captureLogContext(), runId: view.id };
+    withLogContext(logContext, () =>
       logEvent({
         level: "info",
         event: "agent.run.started",
@@ -294,6 +343,7 @@ export class AgentPlanRunEngine {
         metadata: { userId: view.userId, origin: view.origin?.kind ?? null },
       }),
     );
+    await this.dependencies.runs.prepareSnapshot?.(view.id, snapshot);
     const workspaceIds = planWritingWorkspaces(snapshot);
     const releaseDefinition = await this.dependencies.files?.hold(
       snapshot.steps.map((step) => step.step.agentId),
@@ -327,6 +377,7 @@ export class AgentPlanRunEngine {
         retireActivePredecessor(view, this.active, this.dependencies),
       );
       this.active.set(view.id, {
+        logContext,
         groupCloseout: "open",
         hasPersistenceFailure: false,
         view: view,
@@ -361,7 +412,9 @@ export class AgentPlanRunEngine {
    * stop acts through the controllers of the run, not through this context.
    */
   private pump(): Promise<void> {
-    return withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, () => this.advance());
+    return this.isSchedulingEnabled
+      ? withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, () => this.advance())
+      : Promise.resolve();
   }
 
   private async advance(): Promise<void> {
@@ -521,7 +574,7 @@ export class AgentPlanRunEngine {
     controller: AbortController,
     activation: number | undefined,
   ): Promise<void> {
-    return withLogContext({ runId: active.view.id }, () =>
+    return withLogContext({ ...active.logContext, runId: active.view.id }, () =>
       withDatabaseLogMetrics((metrics) =>
         this.executeNode(active, node, controller, { metrics, activation }),
       ),
@@ -611,79 +664,18 @@ export class AgentPlanRunEngine {
     }
   }
 
-  /** Agent nodes run through the step runner; starts and ends are checkpoints. */
-  private async outcome(
+  /** Dispatches a node through the current engine gates and native adoption boundary. */
+  private outcome(
     active: ActivePlanRun,
     node: AgentPlanNode,
     controller: AbortController,
   ): Promise<Partial<AgentPlanStepResult>> {
-    await guardPlanWorkDispatch(this.dependencies.workGate, active, node.id);
-    const isStopped = active.view.stopRequested || controller.signal.aborted;
-    // The gate belongs to each attempt: a failed gate is a repair in the same step, not its end.
-    const settle = (
-      result: Partial<AgentPlanStepResult>,
-    ): Promise<Partial<AgentPlanStepResult>> =>
-      settlePlanWorkResult(this.dependencies.workGate, active, node, result);
-    const remote = dispatchRemoteStepWithRetry(
-      this.dependencies.remoteExecution
-        ? {
-            service: this.dependencies.remoteExecution,
-            runs: this.dependencies.runs,
-            settle,
-          }
-        : undefined,
-      active,
-      node.id,
-      controller.signal,
-    );
-    if (remote) return remote;
-    const local = dispatchPlanLocalNode(active, node, controller, this.nodes);
-    if (local) return local;
-    const step = active.snapshot.steps.find(
-      (entry) => entry.step.id === node.id,
-    );
-    if (step) {
-      if (isStopped)
-        return { status: "cancelled", cancellation: "not_started" };
-      return this.dependencies.steps.run(active.view, active.snapshot, step, {
-        signal: controller.signal,
-        settle,
-        ...eventStart(active, node.id),
-        awaitDispatch: () => {
-          active.dispatched.delete(node.id);
-        },
-        claimStart: () => {
-          if (active.dispatched.has(node.id)) return;
-          if (active.view.status !== "running")
-            throw new AgentPlanPausedError();
-          active.dispatched.add(node.id);
-        },
-        runInstruction: (work) => this.instruction(active, work),
-        save: (session) => this.saveSession(active, node.id, session),
-      });
-    }
-    try {
-      if (isStopped) throw new AgentPlanCancelledError();
-      if (active.view.status !== "running") throw new AgentPlanPausedError();
-      active.dispatched.add(node.id);
-      if (node.type === "loop")
-        return await dispatchPlanLoop(active, node, controller, this.nodes);
-      await this.dependencies.start.control(active.view, active.snapshot, node);
-      return { status: "succeeded", output: null, error: null };
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanRunEngine", error);
-
-      if (error instanceof AgentPlanPausedError) return { status: "paused" };
-      if (error instanceof AgentPlanCancelledError)
-        return { status: "cancelled", cancellation: "not_started" };
-      return {
-        status: "failed",
-        error:
-          error instanceof AgentError || error instanceof AgentExecutionError
-            ? error.code
-            : "plan_step_failed",
-      };
-    }
+    return planNodeOutcome(active, node, controller, {
+      dependencies: this.dependencies,
+      nodes: this.nodes,
+      instruction: (work) => this.instruction(active, work),
+      saveSession: (session) => this.saveSession(active, node.id, session),
+    });
   }
 
   /** Stores the newest record of a running node; a failure is reported, never thrown. */

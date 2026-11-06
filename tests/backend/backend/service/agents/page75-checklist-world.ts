@@ -137,6 +137,8 @@ export class ChecklistWorld {
     criterion("crit-b", "Criterion B", true, 1),
   ];
   public readonly events: PagesEvent[] = [];
+  /** Parameters of the outbox rows the transactions appended, in commit order. */
+  public readonly outbox: SqlParameters[] = [];
   public readonly writes: StorageWrites = { criteria: 0, descriptions: 0 };
   /** Makes the next description write fail after the criteria were written. */
   public isDescriptionWriteFailing = false;
@@ -152,7 +154,7 @@ export class ChecklistWorld {
       this.queryRevisions(statement, parameters),
     ),
     execute: vi.fn(async (statement: string, parameters?: SqlParameters) =>
-      this.executeRevisions(statement, parameters),
+      this.executeWrite(statement, parameters),
     ),
   };
 
@@ -222,6 +224,7 @@ export class ChecklistWorld {
       writes: { ...this.writes },
       history: this.history.length,
       events: this.events.length,
+      outbox: this.outbox.length,
       keys: this.keys.size,
       revisions: [...this.revisions.entries()],
     };
@@ -238,6 +241,7 @@ export class ChecklistWorld {
         const keys = new Map(this.keys);
         const writes = { ...this.writes };
         const historyLength = this.history.length;
+        const outboxLength = this.outbox.length;
         try {
           return await work(this.connection);
         } catch (error: unknown) {
@@ -249,6 +253,7 @@ export class ChecklistWorld {
           keys.forEach((stored, id) => this.keys.set(id, stored));
           Object.assign(this.writes, writes);
           this.history.length = historyLength;
+          this.outbox.length = outboxLength;
           throw error;
         }
       },
@@ -265,10 +270,15 @@ export class ChecklistWorld {
     return stored ? [[String(stored.revision), stored.contentHash]] : [];
   }
 
-  private async executeRevisions(
+  private async executeWrite(
     statement: string,
     parameters: SqlParameters = {},
   ): Promise<void> {
+    // The outbox row of a change commits with it; every other write is a revision.
+    if (statement.includes("INSERT INTO pages_event_outbox")) {
+      this.outbox.push(parameters);
+      return;
+    }
     if (!statement.includes("work_item_checklist_revisions"))
       throw new Error("Unexpected database write");
     this.revisions.set(String(parameters.work_item_id), {

@@ -11,8 +11,9 @@ import {
   archiveProject,
   archiveUser,
 } from "../agents/archive-records";
+import { readOutboxInsert } from "./project-deletion-world";
 
-import type { Database } from "@/backend/database/Database";
+import type { Database, SqlParameters } from "@/backend/database/Database";
 import type {
   NewProject,
   NewProjectActivity,
@@ -32,6 +33,7 @@ import type {
 } from "@/definition/Project";
 import type { User } from "@/definition/User";
 import type { ArchivePersonOptions } from "../agents/archive-records";
+import type { RecordedOutboxEvent } from "./project-deletion-world";
 
 /** Everything the synthetic project persistence holds; copied for rollback. */
 export interface ProjectState {
@@ -51,6 +53,8 @@ export interface ProjectState {
   departmentWrites: Map<string, string[]>;
   inserted: NewProject[];
   activity: NewProjectActivity[];
+  /** Rows of the Pages event outbox, rolled back with the transaction. */
+  outbox: RecordedOutboxEvent[];
 }
 
 /** Fixed clock text of every synthetic record. */
@@ -77,19 +81,20 @@ function emptyState(): ProjectState {
     departmentWrites: new Map(),
     inserted: [],
     activity: [],
+    outbox: [],
   };
 }
 
-function unexpectedDatabase(): Pick<
-  Database,
-  "execute" | "query" | "transaction" | "readTransaction"
-> {
+/** Fails on every access except the outbox insert, which goes to `recordEvent`. */
+function unexpectedDatabase(
+  recordEvent: (event: RecordedOutboxEvent) => void,
+): Pick<Database, "execute" | "query" | "transaction" | "readTransaction"> {
   return {
     query: vi.fn(async () => {
       throw new Error("Unexpected database query");
     }),
-    execute: vi.fn(async () => {
-      throw new Error("Unexpected database write");
+    execute: vi.fn(async (statement: string, parameters?: SqlParameters) => {
+      recordEvent(readOutboxInsert(statement, parameters));
     }),
     transaction: vi.fn(async () => {
       throw new Error("Unexpected database transaction");
@@ -128,7 +133,11 @@ export class ProjectWorld {
 
   public constructor(options: ProjectWorldOptions = {}) {
     this.cache = options.cache ?? ServerCache.disabled();
-    this.repository = new ProjectRepository(unexpectedDatabase());
+    this.repository = new ProjectRepository(
+      unexpectedDatabase((event) => {
+        this.state.outbox.push(event);
+      }),
+    );
     this.permissions = new PermissionService(async (userId) => {
       const account = this.state.accounts.get(userId);
       if (!account) throw new Error(`Unknown synthetic account ${userId}`);
@@ -304,7 +313,9 @@ export class ProjectWorld {
     });
     vi.spyOn(proto, "archive").mockImplementation(async (id) => {
       this.record("archive");
+      if (!this.state.projects.has(id)) return false;
       this.archive(id);
+      return true;
     });
     vi.spyOn(proto, "upsertIcon").mockImplementation(async (id, icon) => {
       this.record("upsertIcon");

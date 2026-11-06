@@ -1,3 +1,8 @@
+import {
+  requireAgentFiles,
+  readStoredAgentPayload,
+} from "@/backend/storage/AgentPayloadFileStore";
+import { workspaceReferenceIds } from "@/backend/agents/AgentWorkspaceReferences";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -12,12 +17,12 @@ import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapsh
 
 /** Fixed SQL expression for the current execution basis, with legacy snapshot fallback. */
 export const CURRENT_PLAN_SNAPSHOT = `COALESCE((
-    SELECT continuation.snapshot_json
+    SELECT COALESCE(continuation.snapshot_file, continuation.snapshot_json)
     FROM agent_plan_continuations AS continuation
     WHERE continuation.run_id = agent_plan_runs.id
     ORDER BY continuation.version DESC
     LIMIT 1
-), snapshot_json)`;
+), COALESCE(snapshot_file, snapshot_json))`;
 
 /** The prepared continuation and the exact paused view it must replace atomically. */
 export interface PlanContinuationWrite {
@@ -29,9 +34,14 @@ export interface PlanContinuationWrite {
 
 /** Append-only continuation bases; adoption never overwrites a past snapshot or result. */
 export class AgentPlanContinuationRepository {
-  private readonly database: Pick<Database, "transaction" | "query">;
+  private readonly database: Pick<
+    Database,
+    "transaction" | "query" | "agentFiles"
+  >;
 
-  public constructor(database: Pick<Database, "transaction" | "query">) {
+  public constructor(
+    database: Pick<Database, "transaction" | "query" | "agentFiles">,
+  ) {
     this.database = database;
   }
 
@@ -40,6 +50,20 @@ export class AgentPlanContinuationRepository {
     input: PlanContinuationWrite,
     journal?: AgentPlanRunJournal,
   ): Promise<void> {
+    const reference: unknown = JSON.parse(
+      await requireAgentFiles(this.database).write(
+        input.run.planId,
+        JSON.stringify(input.snapshot),
+      ),
+    );
+    if (typeof reference !== "object" || reference === null)
+      throw new Error("Invalid prepared snapshot.");
+    const snapshotFile = JSON.stringify({
+      ...reference,
+      workspaceReferences: [...workspaceReferenceIds(input.snapshot)].map(
+        (workspaceId) => ({ workspaceId }),
+      ),
+    });
     await this.database.transaction(async (transaction) => {
       await this.requireCurrent(transaction, input);
       await this.reserve(transaction, input);
@@ -55,8 +79,9 @@ export class AgentPlanContinuationRepository {
             plan_revision,
             adopted_at,
             boundary_json,
-            snapshot_json
-        ) VALUES ($id, $version, $plan_revision, $adopted_at, $boundary, $snapshot);
+            snapshot_json,
+            snapshot_file
+        ) VALUES ($id, $version, $plan_revision, $adopted_at, $boundary, '{}', $snapshot);
       `,
         {
           id: run.id,
@@ -64,7 +89,7 @@ export class AgentPlanContinuationRepository {
           plan_revision: snapshot.plan.revision,
           adopted_at: continuation.adoptedAt,
           boundary: JSON.stringify(previous.pauseBoundary),
-          snapshot: JSON.stringify(snapshot),
+          snapshot: snapshotFile,
         },
       );
       await transaction.execute(
@@ -94,11 +119,11 @@ export class AgentPlanContinuationRepository {
       `
       SELECT snapshot_json
       FROM (
-          SELECT snapshot_json, version
+          SELECT COALESCE(snapshot_file, snapshot_json) AS snapshot_json, version
           FROM agent_plan_continuations
           WHERE run_id = $id
           UNION ALL
-          SELECT snapshot_json, 0 AS version
+          SELECT COALESCE(snapshot_file, snapshot_json) AS snapshot_json, 0 AS version
           FROM agent_plan_runs
           WHERE id = $id
       ) AS bases
@@ -106,7 +131,14 @@ export class AgentPlanContinuationRepository {
     `,
       { id },
     );
-    return rows.map((row) => readTextColumn(row, 0, "snapshot_json"));
+    return Promise.all(
+      rows.map((row) =>
+        readStoredAgentPayload(
+          this.database,
+          readTextColumn(row, 0, "snapshot_json"),
+        ),
+      ),
+    );
   }
 
   private async requireCurrent(

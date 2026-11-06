@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
-import { action, loader } from "@/app/routes/settings-connections";
+import { action, loader } from "@/app/routes/settings-connections-server";
 
 import { ACTOR } from "../actions/action-fixtures";
 import { routeArguments } from "../server-lib/route-arguments";
@@ -19,6 +19,8 @@ import type * as AuthServer from "@/app/lib/auth.server";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { PicaMobileGateway } from "@/backend/service/mobile/PicaMobileGateway";
 import type { GatewayWorld } from "../../backend/service/mobile/pica-mobile-gateway-fixture";
+
+import type * as LoggerModule from "@/backend/logging/Logger";
 
 const world = vi.hoisted(
   (): {
@@ -41,13 +43,24 @@ vi.mock("node:fs/promises", async () =>
   ).memoryConfigFiles.promisesModule(),
 );
 vi.mock("@/mcp/package.json", () => ({ default: { version: "9.9.9" } }));
-vi.mock("@/backend/logging/Logger", () => ({
+vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
+  ...(await importOriginal<typeof LoggerModule>()),
   logCaughtError: vi.fn(),
   logEvent: vi.fn(),
 }));
 vi.mock("@/app/lib/auth.server", async (importOriginal) => ({
   ...(await importOriginal<typeof AuthServer>()),
   getAuthenticatedUser: vi.fn(),
+}));
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
 }));
 vi.mock("@/app/lib/services.server", async () => {
   const { PermissionService: Permissions } =

@@ -2,15 +2,16 @@ import { ArrowLeft, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
-import { Select } from "@/app/components/ui/select";
 
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import { ConsoleRunPicker } from "./console-run-picker";
+
+import type { AgentPlanRun, AgentPlanRunSummary } from "@/definition/AgentPlan";
 import type { AgentSessionState } from "@/definition/AgentSessionJournal";
 
 interface ConsoleHeaderProps {
   readonly title: string;
   readonly nodeType: string;
-  readonly runs: readonly AgentPlanRun[];
+  readonly runs: readonly AgentPlanRunSummary[];
   readonly run: AgentPlanRun | null;
   readonly provider: string | null;
   readonly state: AgentSessionState | null;
@@ -75,16 +76,11 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
         </div>
       </div>
       {props.runs.length > 0 ? (
-        <Select
-          size="sm"
-          className="w-full sm:w-64"
+        <ConsoleRunPicker
           ariaLabel={t("plans.console.run")}
-          value={props.run?.id ?? ""}
-          onValueChange={props.onSelectRun}
-          options={props.runs.map((entry) => ({
-            value: entry.id,
-            label: `${entry.startedAt} · ${t(`plans.status.${entry.status}`)}`,
-          }))}
+          runs={props.runs}
+          selectedId={props.run?.id ?? ""}
+          onSelect={props.onSelectRun}
         />
       ) : null}
       <Button

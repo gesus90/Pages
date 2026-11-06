@@ -1,17 +1,24 @@
 import path from "node:path";
 
+import {
+  hasRunServiceOwnership,
+  isPagesRunsProcess,
+} from "@/backend/runtime/RunsMode";
+import { GitHubCreationRepository } from "@/backend/database/repositories/integrations/GitHubCreationRepository";
+import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { TicketAssetAuditService } from "@/backend/service/task/TicketAssetAuditService";
-import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { AuthService } from "@/backend/auth/AuthService";
 import { LoginThrottle } from "@/backend/auth/LoginThrottle";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import { PermissionService } from "@/backend/auth/PermissionService";
 import { SessionService } from "@/backend/auth/SessionService";
-import { ServerCache } from "@/backend/cache/ServerCache";
 import { Database } from "@/backend/database/Database";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
-import { migrationsFor } from "@/backend/database/Migrations";
-import { GitHubSyncScheduler } from "@/backend/github/GitHubSyncScheduler";
+import { retireMatchingSetupIntent } from "@/backend/setup/SetupIntent";
+import { GitHubJobRepository } from "@/backend/database/repositories/integrations/GitHubJobRepository";
+import { GitHubJobClient } from "@/backend/service/integrations/GitHubJobClient";
+import { GitHubJobWorker } from "@/backend/service/integrations/GitHubJobWorker";
+import { canProcessIntegrations } from "@/backend/service/integrations/IntegrationProcessing";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
@@ -36,6 +43,8 @@ import { AgentPlanStepReportRepository } from "@/backend/database/repositories/a
 import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
+import { PagesEventRetention } from "@/backend/service/events/PagesEventRetention";
+import { PagesEventOutboxReaderRepository } from "@/backend/database/repositories/events/PagesEventOutboxReaderRepository";
 import { TaskGitHubPublisher } from "@/backend/service/task/TaskGitHubPublisher";
 import { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder";
 import { TaskTemplateService } from "@/backend/service/TaskTemplateService";
@@ -43,30 +52,38 @@ import { TaskDescriptionAssetService } from "@/backend/service/task/TaskDescript
 import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import { TicketTreeService } from "@/backend/service/task/TicketTreeService";
 import { UserService } from "@/backend/service/UserService";
-import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
-import { WikiService } from "@/backend/service/WikiService";
+import { AnnouncingWikiService } from "@/backend/service/wiki/AnnouncingWikiService";
 import { TicketFileStore } from "@/backend/storage/TicketFileStore";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
 import { PICA_WORKSPACE_DIRECTORY_NAME } from "@/backend/service/chat/acp/PicaAcpWorkspace";
-import {
-  logCaughtError,
-  logDiagnostic,
-  logEvent,
-} from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { pagesMcpBundlePath } from "@/backend/agents/cli/PagesMcpBundle";
 
+import {
+  createServiceCache,
+  prepareServiceDatabase,
+  startGitHubWorker,
+  startWikiMaintenanceScheduler,
+  sweepTicketAttachments,
+} from "./services-background.server";
+import { prepareSessions } from "./session-services.server";
 import { startExecutionServices } from "./agent-execution-services.server";
 import { createChatServices } from "./chat-services.server";
 import { picaBrowserOptions } from "./pica-browser.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
 import { createMcpServices } from "./mcp-services.server";
 import { createDiscordServices } from "./discord-services.server";
+import { createLiveChangeServices } from "./live-change-services.server";
 import { createPreferenceServices } from "./preference-services.server";
 import { registerShutdownHandler } from "./services-shutdown.server";
 
-import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
+import type { WikiService } from "@/backend/service/WikiService";
+import type { ServerCache } from "@/backend/cache/ServerCache";
+import type { LiveChangeHub } from "@/backend/service/events/LiveChangeHub";
+import type { LiveChangeAudience } from "@/backend/service/events/LiveChangeAudience";
+import type { AgentLocalSessionPreparation } from "@/backend/service/agents/AgentLocalSessionPreparation";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { AgentApplicationServices } from "./agent-services.server";
 import type {
@@ -96,6 +113,7 @@ export interface ApplicationServices
     AgentPlanLoaderServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
+  readonly agentLocalSessionPreparation: AgentLocalSessionPreparation;
   /** The PageAgentCLI sessions of plan nodes: history, live events and instructions. */
   readonly agentSessionService: AgentSessionService;
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;
@@ -113,6 +131,10 @@ export interface ApplicationServices
   readonly ticketTreeService: TicketTreeService;
   readonly wikiService: WikiService;
   readonly gitHubSyncService: GitHubSyncService;
+  /** The live notices of open pages: kind and id of changed objects, per account. */
+  readonly liveChangeHub: LiveChangeHub;
+  /** Decides who may learn about which event, for the hub and `pages-core`. */
+  readonly liveChangeAudience: LiveChangeAudience;
   readonly permissionService: PermissionService;
   readonly passwordHasher: PasswordHasher;
 }
@@ -120,8 +142,8 @@ export interface ApplicationServices
 declare global {
   var pagesServices: Promise<ApplicationServices> | undefined;
   var pagesShutdownHandlerRegistered: boolean | undefined;
-  var pagesSyncSchedulerStarted: boolean | undefined;
   var pagesWikiMaintenanceStarted: boolean | undefined;
+  var pagesGitHubWorkerStarted: Promise<void> | undefined;
 }
 
 /**
@@ -129,26 +151,30 @@ declare global {
  *
  * @param database - Central database access.
  * @param databasePath - Path of the database; attachments live next to it.
- * @param projectService - Decides which projects an account reads.
- * @param permissionService - Decides the capabilities of an account.
+ * @param access - Decides project access and capabilities; the publisher
+ * receives the wiki's committed page changes.
  * @returns Health, instance settings and the wiki.
  */
 function createWorkspaceServices(
   database: Database,
   databasePath: string,
-  projectService: ProjectService,
-  permissionService: PermissionService,
+  access: {
+    readonly projectService: ProjectService;
+    readonly permissionService: PermissionService;
+    readonly events: PagesEventPublisher;
+  },
 ): Pick<
   ApplicationServices,
   "healthService" | "instanceSettingsService" | "wikiService"
 > {
-  const wikiService = new WikiService(
+  const { permissionService } = access;
+  const wikiService = new AnnouncingWikiService(
     new WikiRepository(database),
-    projectService,
-    permissionService,
+    access,
     new WikiFileStore(
       path.join(path.dirname(databasePath), "wiki-attachments"),
     ),
+    access.events,
   );
   return {
     healthService: new HealthService(database),
@@ -158,30 +184,6 @@ function createWorkspaceServices(
     ),
     wikiService,
   };
-}
-
-/**
- * Brings accounts and sessions up to date at startup.
- *
- * @param setupService - Upgrades a legacy bootstrap administrator.
- * @param sessionService - Removes the sessions that expired meanwhile.
- * @returns The session service, ready for requests.
- */
-async function prepareSessions(
-  setupService: SetupService,
-  sessionService: SessionService,
-): Promise<SessionService> {
-  if (await setupService.migrateLegacyBootstrapAdministrator()) {
-    logDiagnostic(
-      "services",
-      "info",
-      '[pages] Migrated the default administrator "admin" to the current password hashing algorithm.',
-    );
-  }
-
-  await sessionService.removeExpiredSessions();
-
-  return sessionService;
 }
 
 /**
@@ -223,10 +225,10 @@ async function initializeServices(
   database: Database,
   databasePath: string,
 ): Promise<ApplicationServices> {
-  await database.migrate(migrationsFor(database.dialect));
+  await prepareServiceDatabase(database);
 
   const passwordHasher = new PasswordHasher();
-  const serverCache = new ServerCache();
+  const serverCache = await createServiceCache();
   const {
     administrationService,
     groupAdministrationService,
@@ -248,13 +250,15 @@ async function initializeServices(
     tokenKey,
     serverCache,
   );
-  const workspaceServices = createWorkspaceServices(
-    database,
-    databasePath,
+  // One publisher for the whole process: tickets, wiki, agents, Discord and the live view.
+  const pagesEventPublisher = new PagesEventPublisher(database);
+  const workspaceServices = createWorkspaceServices(database, databasePath, {
     projectService,
     permissionService,
-  );
-  const taskServices = createTaskServices({
+    events: pagesEventPublisher,
+  });
+  const taskServices = await createTaskServices({
+    pagesEventPublisher,
     database,
     databasePath,
     permissionService,
@@ -445,7 +449,14 @@ async function startMcpWorkspace(context: {
     },
     events: context.tasks.pagesEventPublisher,
   });
-  startWikiMaintenanceScheduler(context.wiki, services.agentAssetService);
+  if (!isLocalSessionOwner() && !isPagesRunsProcess())
+    startWikiMaintenanceScheduler(
+      context.wiki,
+      services.agentAssetService,
+      new PagesEventRetention(
+        new PagesEventOutboxReaderRepository(context.database),
+      ),
+    );
   const runtime = await getPagesRuntime();
   return {
     ...services,
@@ -469,6 +480,7 @@ async function startMcpWorkspace(context: {
 /** What the task services are built from. */
 interface TaskServiceContext {
   readonly database: Database;
+  readonly pagesEventPublisher: PagesEventPublisher;
   readonly databasePath: string;
   readonly permissionService: PermissionService;
   readonly projectRepository: ProjectRepository;
@@ -488,23 +500,27 @@ interface TaskServiceContext {
  * @returns The ticket services, with GitHub and attachment files attached,
  * and the event publisher both the interface and the agents announce on.
  */
-function createTaskServices(
+async function createTaskServices(
   context: TaskServiceContext,
-): Pick<
-  ApplicationServices,
-  | "discordAuthorizationService"
-  | "discordConnectionService"
-  | "gitHubSyncService"
-  | "pagesEventPublisher"
-  | "taskAttachmentService"
-  | "ticketAssetAuditService"
-  | "taskService"
-  | "taskTemplateService"
-  | "ticketTreeService"
+): Promise<
+  Pick<
+    ApplicationServices,
+    | "discordAuthorizationService"
+    | "discordConnectionService"
+    | "gitHubSyncService"
+    | "liveChangeHub"
+    | "liveChangeAudience"
+    | "pagesEventPublisher"
+    | "taskAttachmentService"
+    | "ticketAssetAuditService"
+    | "taskService"
+    | "taskTemplateService"
+    | "ticketTreeService"
+  >
 > {
   const { database, permissionService, projectService } = context;
   const taskRepository = new TaskRepository(database);
-  const pagesEventPublisher = new PagesEventPublisher();
+  const { pagesEventPublisher } = context;
   const taskService = new AnnouncingTaskService(
     {
       cache: context.serverCache,
@@ -514,7 +530,8 @@ function createTaskServices(
     },
     pagesEventPublisher,
   );
-  const gitHubSyncService = new GitHubSyncService({
+  const githubOptions = {
+    creations: new GitHubCreationRepository(database),
     cache: context.serverCache,
     gitHubRepository: new GitHubRepository(database),
     projectRepository: context.projectRepository,
@@ -523,10 +540,27 @@ function createTaskServices(
     taskService,
     tokenKey: context.tokenKey,
     userRepository: context.userRepository,
+    events: pagesEventPublisher,
+  };
+  const jobs = new GitHubJobRepository(database);
+  const gitHubSyncService = new GitHubSyncService({
+    ...githubOptions,
+    jobs: new GitHubJobClient(jobs, {
+      waitForPublication:
+        (await getPagesRuntime()).getConfig().integrationsMode !== "separate",
+    }),
   });
-
   taskService.setGitHubSync(gitHubSyncService);
-  startGitHubSyncScheduler(gitHubSyncService);
+  const config = (await getPagesRuntime()).getConfig();
+  if (canProcessIntegrations()) {
+    const worker = new GitHubJobWorker({
+      jobs,
+      github: new GitHubSyncService(githubOptions),
+      users: context.userRepository,
+      tasks: taskService,
+    });
+    await startGitHubWorker(worker);
+  }
 
   return {
     ...createDiscordServices({
@@ -537,6 +571,17 @@ function createTaskServices(
       taskRepository,
     }),
     gitHubSyncService,
+    ...createLiveChangeServices({
+      database,
+      databaseUrl: config.firstRun ? undefined : config.databaseUrl,
+      events: pagesEventPublisher,
+      audience: {
+        tickets: taskService,
+        milestones: taskRepository,
+        projects: projectService,
+        wiki: context.wikiService,
+      },
+    }),
     pagesEventPublisher,
     ...createTicketServices(
       database,
@@ -598,86 +643,6 @@ function createTicketServices(
   };
 }
 
-/**
- * Removes ticket attachment files nothing refers to any more, such as those
- * of projects deleted for good, once when the server starts.
- *
- * @param service - The ticket attachment service.
- */
-async function sweepTicketAttachments(
-  service: TaskAttachmentService,
-): Promise<void> {
-  try {
-    await service.sweep();
-  } catch (error: unknown) {
-    logCaughtError("services", error);
-
-    logDiagnostic(
-      "services",
-      "warn",
-      "Pages could not sweep ticket attachment files.",
-      error,
-    );
-  }
-}
-
-/**
- * Starts the server-side GitHub synchronization scheduler exactly once.
- *
- * @param gitHubSyncService - Service executing the due project runs.
- *
- * @remarks
- * The scheduler lives in the server process, so configured intervals keep
- * running whether or not any browser currently has Pages open.
- */
-function startGitHubSyncScheduler(gitHubSyncService: GitHubSyncService): void {
-  if (globalThis.pagesSyncSchedulerStarted) {
-    return;
-  }
-
-  globalThis.pagesSyncSchedulerStarted = true;
-  const scheduler = new GitHubSyncScheduler(gitHubSyncService);
-  scheduler.start();
-  // Runs before the services shut down, so a running round can still
-  // finish its database work (bounded inside `stop()`).
-  registerShutdownTask(
-    async () => {
-      await scheduler.stop();
-    },
-    { step: "github_sync_scheduler" },
-  );
-}
-
-/**
- * Starts the wiki cleanup (expired trash, old versions, orphaned files)
- * exactly once, with a first run at the start.
- *
- * @param wikiService - Service that carries out the cleanup.
- */
-function startWikiMaintenanceScheduler(
-  wikiService: WikiService,
-  assets: AgentAssetService,
-): void {
-  if (globalThis.pagesWikiMaintenanceStarted) {
-    return;
-  }
-
-  globalThis.pagesWikiMaintenanceStarted = true;
-  const scheduler = new WikiMaintenanceScheduler({
-    runMaintenance: async () => {
-      await wikiService.runMaintenance();
-      await assets.runMaintenance();
-    },
-  });
-  scheduler.start();
-  registerShutdownTask(
-    async () => {
-      scheduler.stop();
-    },
-    { step: "wiki_maintenance_scheduler" },
-  );
-}
-
 async function openConfiguredServices(): Promise<ApplicationServices> {
   logEvent({
     level: "info",
@@ -689,12 +654,14 @@ async function openConfiguredServices(): Promise<ApplicationServices> {
   const databasePath = runtime.getDatabasePath();
   const databaseUrl = runtime.getDatabaseUrl();
 
+  if (databaseUrl === null)
+    throw new Error("A PostgreSQL databaseUrl is required to start Pages.");
+
   const services = await initializeServices(
-    databaseUrl === null
-      ? await Database.create(databasePath)
-      : await Database.connect(databaseUrl),
+    await Database.connect(databaseUrl, path.dirname(databasePath)),
     databasePath,
   );
+  await retireMatchingSetupIntent(runtime.configFile.path, databaseUrl);
   logEvent({
     level: "info",
     event: "services.initialization.completed",
@@ -718,7 +685,8 @@ export function getApplicationServices(): Promise<ApplicationServices> {
   ).catch((error: unknown) => {
     logCaughtError("services", error);
 
-    // Keep no failed start, so a later request can try again.
+    if (hasRunServiceOwnership()) process.exit(1);
+    // A reader-only failed start can be retried without creating a second scheduler.
     globalThis.pagesServices = undefined;
 
     throw error;

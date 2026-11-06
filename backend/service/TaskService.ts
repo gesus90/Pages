@@ -1,4 +1,5 @@
 import { ServerCache } from "@/backend/cache/ServerCache";
+import { afterCallCommit } from "@/backend/database/CallTransaction";
 import { TaskAssigneeGroupService } from "@/backend/service/task/TaskAssigneeGroupService";
 import { TaskAccessGuard } from "@/backend/service/task/TaskAccessGuard";
 import { TaskChecklistService } from "@/backend/service/task/TaskChecklistService";
@@ -551,7 +552,10 @@ export class TaskService {
       handling,
     );
 
-    await this.attachmentFiles?.removeFiles(storageNames);
+    // Inside an announced call the files go only once the deletion committed.
+    await afterCallCommit(async () => {
+      await this.attachmentFiles?.removeFiles(storageNames);
+    });
   }
 
   /** Reassigns a work item to a department, or clears it, apart from content edits. */

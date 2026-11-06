@@ -50,7 +50,7 @@ async function requestConfirmation(
     consent = await server.server.elicitInput(
       {
         mode: "form",
-        message: `Delete saved plan ${planId}, revision ${expectedRevision}? Only the saved plan is removed. Finished history remains stored but is no longer listed without the plan. Workspace files, templates and provider sessions remain untouched. Enter the existing confirmation word of your Pages language.`,
+        message: `Delete saved plan ${planId}, revision ${expectedRevision}? The saved plan and its private snapshot/session payload files are removed. Public finished run records remain stored but are no longer listed without the plan. Workspace files, templates and provider sessions remain untouched. Enter the existing confirmation word of your Pages language.`,
         requestedSchema: {
           type: "object",
           properties: {

@@ -9,13 +9,18 @@ import {
 import type { CliSessionRequest } from "@/backend/agents/cli/CliContracts";
 import type { CliWorkerCommand } from "@/backend/agents/cli/CliWorkerUnit";
 
+import type * as LoggerModule from "@/backend/logging/Logger";
+
 const logging = vi.hoisted(() => ({
   logCaughtError: vi.fn(),
   logDiagnostic: vi.fn(),
   logEvent: vi.fn(),
 }));
 
-vi.mock("@/backend/logging/Logger", () => logging);
+vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
+  ...(await importOriginal<typeof LoggerModule>()),
+  ...logging,
+}));
 vi.mock("node:fs/promises", () => ({
   mkdir: async () => undefined,
   writeFile: async () => undefined,

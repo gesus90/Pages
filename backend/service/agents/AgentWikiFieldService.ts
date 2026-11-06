@@ -20,6 +20,7 @@ import { WikiPageService } from "@/backend/service/wiki/WikiPageService";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { WIKI_SCOPE, formatWikiCover } from "@/definition/Wiki";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { recordPagesEvent } from "@/backend/service/events/PagesEventPublisher";
 
 import { agentTransactionScope } from "./AgentTransactionScope";
 import { applyTextPatch, indexText } from "./AgentTextRange";
@@ -152,8 +153,22 @@ export class AgentWikiFieldService {
     const request = readAgentWikiPageRequest(operation, parameters);
     let outcome: FieldOutcome;
     try {
-      outcome = await this.dependencies.database.transaction((transaction) =>
-        this.run(transaction, identity.userId, operation, request),
+      outcome = await this.dependencies.database.transaction(
+        async (transaction) => {
+          const changed = await this.run(
+            transaction,
+            identity.userId,
+            operation,
+            request,
+          );
+          // The outbox row commits with the page; a repeated call stores none.
+          if (changed.changedPageId !== null)
+            await recordPagesEvent(transaction, {
+              type: "wiki.page.updated",
+              id: changed.changedPageId,
+            });
+          return changed;
+        },
       );
     } catch (error: unknown) {
       logCaughtError("AgentWikiFieldService", error);

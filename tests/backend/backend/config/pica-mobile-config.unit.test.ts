@@ -24,6 +24,7 @@ describe("picaMobilePort", () => {
       readPagesConfig(
         {
           firstRun: false,
+          databaseUrl: "postgresql://localhost/pages",
           databasePath: "/srv/pages/pages.duckdb",
           picaMobilePort: 65_535,
         },

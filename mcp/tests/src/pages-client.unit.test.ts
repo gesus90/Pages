@@ -37,6 +37,7 @@ beforeEach(() => {
 
 describe("postAgentRequest success", () => {
   it("posts the JSON envelope with the Bearer credential and no redirects", async () => {
+    vi.stubEnv("PAGES_CORRELATION_ID", "worker-trigger");
     fetchMock.mockImplementation(async () =>
       jsonResponse({ apiVersion: "1", result: {} }),
     );
@@ -53,6 +54,7 @@ describe("postAgentRequest success", () => {
       Authorization: "Bearer secret",
       "Content-Type": "application/json",
       Accept: "application/json",
+      "X-Correlation-ID": "worker-trigger",
     });
     expect(timeout).toHaveBeenCalledWith(5_000);
     for (const operation of ["plans.control.read", "workspaces.read"]) {

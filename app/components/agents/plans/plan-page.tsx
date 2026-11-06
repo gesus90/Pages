@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ModelCatalogRefreshContext } from "@/app/components/agents/model-picker/use-model-catalog-refresh";
@@ -7,20 +7,21 @@ import { planTargetDeviations } from "@/definition/AgentPlanTarget";
 import { PlanRunPanel } from "./plan-run-panel";
 import { sequencedRun } from "./plan-run-status-model";
 import { usePlanControl } from "./use-plan-control";
-import { PlanAgentConsole } from "./plan-agent-console";
-import { PlanNodeDialog } from "./plan-node-dialog";
 import { PlanCanvas } from "./plan-canvas";
 import { PlanCanvasEmpty } from "./plan-canvas-empty";
 import { PlanLeaveGuard } from "./plan-leave-guard";
+import { PlanLocalStateNotice } from "./plan-local-state-notice";
 import { PlanRevisionConflict } from "./plan-revision-conflict";
 import { PlanSaveNotice } from "./plan-save-notice";
 import { usePlanEditor } from "./use-plan-editor";
 import { usePlanRun } from "./use-plan-run";
+import { usePlanRunSummaries } from "./use-plan-run-summaries";
 import { usePlanSave } from "./use-plan-save";
 import { usePlanCatalogRefresh } from "./use-plan-catalog-refresh";
 import type { PlanCatalogRefresh } from "./use-plan-catalog-refresh";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
+import type { LocalStateMark } from "@/app/lib/local-state/local-state-loader";
 import type {
   AgentPlanInput,
   AgentPlanPage,
@@ -28,6 +29,14 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
+
+// Opened only on request, so the page loads without their code.
+const PlanAgentConsole = lazy(async () => ({
+  default: (await import("./plan-agent-console")).PlanAgentConsole,
+}));
+const PlanNodeDialog = lazy(async () => ({
+  default: (await import("./plan-node-dialog")).PlanNodeDialog,
+}));
 
 interface PlanRunDisplay {
   readonly run: AgentPlanRun | null;
@@ -124,32 +133,87 @@ function focusConsoleNode(nodeId: string | null): void {
  * The canvas runs from the global header to the bottom of the window and
  * shows nodes, connections and the zoom bar beneath a floating run panel.
  * The node dialog and agent console appear only when requested; Ctrl+S or
- * Cmd+S saves. Run updates never remount the canvas.
+ * Cmd+S saves. Run updates never remount the canvas. A page from the
+ * browser's local state is read only until the server answers.
  */
 export function PlanPage({
   page,
   opening,
   catalogRefresh,
+  localState,
 }: {
   readonly page: AgentPlanPage;
   readonly opening: AgentPlanOpening;
   readonly catalogRefresh?: PlanCatalogRefresh;
+  readonly localState?: LocalStateMark;
 }): React.ReactElement {
   // Every model choice of the editor shares the page's refresh channel.
   const refresh = usePlanCatalogRefresh(catalogRefresh);
   return (
     <ModelCatalogRefreshContext value={refresh}>
-      <PlanEditorPage page={page} opening={opening} />
+      <PlanEditorPage page={page} opening={opening} localState={localState} />
     </ModelCatalogRefreshContext>
+  );
+}
+
+/** The node dialog and the console, each loaded when it opens. */
+function PlanOnDemandPanels(props: {
+  readonly editingNodeId: string | null;
+  readonly consoleNodeId: string | null;
+  readonly editor: ReturnType<typeof usePlanEditor>;
+  readonly run: AgentPlanRun | null;
+  readonly running: ReturnType<typeof usePlanRun>;
+  readonly onCloseEditing: () => void;
+  readonly onCloseConsole: () => void;
+}): React.ReactElement {
+  const { editor } = props;
+  return (
+    <Suspense fallback={null}>
+      {props.editingNodeId ? (
+        <PlanNodeDialog
+          nodeId={props.editingNodeId}
+          editor={editor}
+          run={props.run}
+          onClose={props.onCloseEditing}
+        />
+      ) : null}
+      {props.consoleNodeId ? (
+        <PlanAgentConsole
+          nodeId={props.consoleNodeId}
+          draft={editor.draft}
+          sources={editor.sources}
+          running={props.running}
+          onClose={props.onCloseConsole}
+        />
+      ) : null}
+    </Suspense>
+  );
+}
+
+/** The notices above the canvas: where the shown state comes from and how a save went. */
+function PlanStatusNotices(props: {
+  readonly saving: ReturnType<typeof usePlanSave>;
+  readonly localState?: LocalStateMark;
+}): React.ReactElement {
+  return (
+    <>
+      <PlanLocalStateNotice mark={props.localState} />
+      <PlanSaveNotice
+        feedback={props.saving.feedback}
+        onDismiss={props.saving.dismiss}
+      />
+    </>
   );
 }
 
 function PlanEditorPage({
   page,
   opening,
+  localState,
 }: {
   readonly page: AgentPlanPage;
   readonly opening: AgentPlanOpening;
+  readonly localState?: LocalStateMark;
 }): React.ReactElement {
   const { t } = useTranslation();
   const draftEditor = usePlanEditor(page);
@@ -162,15 +226,21 @@ function PlanEditorPage({
     ...draftEditor,
     canEdit:
       draftEditor.canEdit &&
+      !localState &&
       (!controls.error || controls.error === "plan_connection_unavailable") &&
       (controls.control?.canEdit ?? true),
   };
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [consoleNodeId, setConsoleNodeId] = useState<string | null>(null);
+  const summaries = usePlanRunSummaries(
+    page.selected?.id,
+    consoleNodeId !== null,
+  );
   const running = usePlanRun(page.runs, editor.command.data, {
     planId: page.selected?.id,
     control: controls.control,
     controlError: controls.error,
+    summaries,
   });
   const display = planRunDisplay(page, controls.control, running);
   const saving = usePlanSave(editor, page.selected !== null);
@@ -200,12 +270,7 @@ function PlanEditorPage({
         isReady={planReadiness(controls.control, editor.isDirty)}
         tickets={editor.tickets}
         workspaces={parameterWorkspaces(page, editor.draft)}
-        status={
-          <PlanSaveNotice
-            feedback={saving.feedback}
-            onDismiss={saving.dismiss}
-          />
-        }
+        status={<PlanStatusNotices saving={saving} localState={localState} />}
         panel={
           <PlanRunPanel
             page={page}
@@ -222,21 +287,15 @@ function PlanEditorPage({
         opening={opening}
         isEmptyPlan={editor.draft.nodes.length === 0}
       />
-      <PlanNodeDialog
-        nodeId={editingNodeId}
+      <PlanOnDemandPanels
+        editingNodeId={editingNodeId}
+        consoleNodeId={consoleNodeId}
         editor={editor}
         run={display.run}
-        onClose={() => setEditingNodeId(null)}
+        running={running}
+        onCloseEditing={() => setEditingNodeId(null)}
+        onCloseConsole={closeConsole}
       />
-      {consoleNodeId ? (
-        <PlanAgentConsole
-          nodeId={consoleNodeId}
-          draft={editor.draft}
-          sources={editor.sources}
-          running={running}
-          onClose={closeConsole}
-        />
-      ) : null}
       <PlanRevisionConflict editor={editor} run={display.run} />
       <PlanLeaveGuard isDirty={editor.isDirty} />
     </div>

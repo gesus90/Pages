@@ -1,3 +1,4 @@
+import { planRunCommandReceiptSchema } from "@/definition/PagesRuns";
 import { requirePlanRevision } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
@@ -17,6 +18,7 @@ import { requireAgentConfirmation } from "./AgentConfirmation";
 import { readPlanControlEntry } from "./AgentPlanControlViews";
 import { translatePlanError } from "./AgentPlanOperationErrors";
 
+import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type {
   Database,
   DatabaseTransaction,
@@ -150,6 +152,7 @@ export class AgentPlanCommandOperations {
   ): Promise<AgentPlanCommandResult> {
     if (request.operation === "plans.delete")
       return { ...result, action: request.operation, status: "deleted" };
+    if (result.command) return { ...result, action: request.operation };
     const control = await readPlanControlEntry(
       this.plans,
       userId,
@@ -226,17 +229,7 @@ export class AgentPlanCommandOperations {
       await this.saveTemplate(userId, { request, plan, recorder });
       return;
     }
-    const journal = async (
-      transaction: DatabaseTransaction,
-      run: { readonly id: string },
-    ): Promise<void> => {
-      await requirePlanRevision(
-        transaction,
-        request.planId,
-        request.expectedRevision,
-      );
-      await recorder.store(transaction, { ...base, runId: run.id });
-    };
+    const journal = this.journal(request, recorder);
     if (request.operation === "plans.play") {
       const rejected = new OperationRecorder<{
         readonly planId: string;
@@ -271,6 +264,25 @@ export class AgentPlanCommandOperations {
     else if (request.operation === "plans.pause")
       await this.plans.pause(userId, run.id, journal);
     else await this.plans.stop(userId, run.id, journal);
+  }
+
+  private journal(
+    request: AgentPlanCommandRequest,
+    recorder: OperationRecorder<AgentPlanCommandResult>,
+  ): AgentPlanRunJournal {
+    return async (transaction, run) => {
+      await requirePlanRevision(
+        transaction,
+        request.planId,
+        request.expectedRevision,
+      );
+      await recorder.store(transaction, {
+        planId: request.planId,
+        revision: request.expectedRevision,
+        runId: run.id,
+        ...(run.command ? { command: run.command } : {}),
+      });
+    };
   }
 
   private async commandRun(
@@ -376,6 +388,9 @@ function readCommandResult(json: string): AgentPlanCommandResult {
       ? { templateId: result.templateId }
       : {}),
     ...readCloneResult(result),
+    ...("command" in result
+      ? { command: planRunCommandReceiptSchema.parse(result.command) }
+      : {}),
   };
 }
 

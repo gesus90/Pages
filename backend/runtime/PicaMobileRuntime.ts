@@ -3,6 +3,7 @@ import { logDiagnostic } from "@/backend/logging/Logger";
 import { PagesPicaMobileAuthenticator } from "@/backend/service/mobile/PicaMobileAuthenticator";
 import { PagesPicaMobileDashboard } from "@/backend/service/mobile/PicaMobileDashboardService";
 import { PicaMobileGateway } from "@/backend/service/mobile/PicaMobileGateway";
+import { PicaMobileRelay } from "@/backend/service/mobile/PicaMobileRelay";
 import { PagesPicaMobileChat } from "@/backend/service/mobile/chat/PagesPicaMobileChat";
 import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
 import { PagesPicaMobilePlans } from "@/backend/service/mobile/plans/PagesPicaMobilePlans";
@@ -12,10 +13,23 @@ import { PAGES_VERSION } from "@/definition/Version";
 
 import { registerShutdownTask } from "./ProcessLifecycle";
 
+import type { PagesConfig } from "@/backend/config/PagesConfig";
 import type { PagesRuntime } from "./PagesRuntime";
 
 declare global {
   var pagesPicaMobileGateway: PicaMobileGateway | undefined;
+}
+
+/** The relay side while `pages-core` holds the app's port (PAGE-239). */
+function createRelay(config: PagesConfig): PicaMobileRelay | undefined {
+  const { pagesCoreSecret, picaMobileRelayPort } = config;
+
+  return pagesCoreSecret === undefined || picaMobileRelayPort === undefined
+    ? undefined
+    : new PicaMobileRelay({
+        secret: pagesCoreSecret,
+        port: picaMobileRelayPort,
+      });
 }
 
 /**
@@ -80,6 +94,7 @@ export function obtainPicaMobileGateway(
       }),
       serverVersion: PAGES_VERSION,
       listenAddress: runtime.getConfig().listenAddress,
+      relay: createRelay(runtime.getConfig()),
       reservedPort: webPort,
     });
 
@@ -108,14 +123,16 @@ export function obtainPicaMobileGateway(
  *
  * @remarks
  * A port that cannot be bound is logged and reported to the operator; the web
- * server keeps running, and an administrator can store another port.
+ * server keeps running, and an administrator can store another port. While
+ * `pages-core` holds the app's port, the endpoint listens on the loopback
+ * relay port instead (PAGE-239).
  */
 export async function startPicaMobile(
   runtime: PagesRuntime,
   webPort: number,
 ): Promise<void> {
   const gateway = obtainPicaMobileGateway(runtime, webPort);
-  const port = runtime.getConfig().picaMobilePort;
+  const port = gateway.relay?.port ?? runtime.getConfig().picaMobilePort;
 
   if (port === undefined) {
     return;

@@ -1,6 +1,7 @@
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { RemoteConnectionRepository } from "@/backend/database/repositories/remote/RemoteConnectionRepository";
+import { RemoteConsoleSessionRepository } from "@/backend/database/repositories/remote/RemoteConsoleSessionRepository";
 import { RemoteInstallFindingRepository } from "@/backend/database/repositories/remote/RemoteInstallFindingRepository";
 import { RemoteWorkspaceRepository } from "@/backend/database/repositories/remote/RemoteWorkspaceRepository";
 import { RemoteSession } from "@/backend/remote/RemoteSession";
@@ -78,6 +79,7 @@ export function createRemoteServices(input: {
     remoteConsoleService: new RemoteConsoleService({
       workspaces: remoteWorkspaceService,
       connections: remoteConnectionService,
+      store: new RemoteConsoleSessionRepository(database),
     }),
     remoteInstallService,
     remoteSessions,

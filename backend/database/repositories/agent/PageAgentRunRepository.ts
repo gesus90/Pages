@@ -1,3 +1,4 @@
+import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
 import {
   readNullableTextColumn,
   readTextColumn,
@@ -212,6 +213,11 @@ export class PageAgentRunRepository {
     );
   }
 
+  /** Resolves one archive basis independently, so a damaged file cannot hide other runs. */
+  public async snapshotText(text: string): Promise<string> {
+    return readStoredAgentPayload(this.database, text);
+  }
+
   /**
    * Ended plan runs of this version whose records may be missing after a crash or write failure.
    *
@@ -223,7 +229,7 @@ export class PageAgentRunRepository {
       SELECT
           runs.id,
           runs.view_json,
-          runs.snapshot_json
+          COALESCE(runs.snapshot_file, runs.snapshot_json) AS snapshot_json
       FROM agent_plan_runs AS runs
       WHERE runs.status NOT IN ('running', 'pausing', 'paused', 'stopping')
           AND NOT EXISTS (

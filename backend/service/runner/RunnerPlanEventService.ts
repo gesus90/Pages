@@ -1,13 +1,13 @@
-import {
-  isStaleTerminalRunnerEvent,
-  reconciledRunnerReply,
-} from "./RunnerProtocol";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logEvent } from "@/backend/logging/Logger";
 import { requirePlanModelResources } from "@/backend/service/agents/AgentPlanModel";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { requirePlanDispatchFence } from "@/backend/agents/AgentPlanDispatchFence";
 
+import {
+  isStaleTerminalRunnerEvent,
+  reconciledRunnerReply,
+} from "./RunnerProtocol";
 import { runnerStoppedRun } from "./RunnerStopState";
 import { RunnerHistoryRecovery } from "./RunnerHistoryRecovery";
 import { applyRunnerPlanEvent } from "./RunnerPlanEvents";
@@ -58,10 +58,13 @@ export class RunnerPlanEventService {
   public constructor(
     repository: RunnerPlanEventRepository,
     access: BindingAccess,
+    options: { readonly shouldRecoverHistory?: boolean } = {},
   ) {
     this.access = access;
     this.repository = repository;
-    this.historyRecovery = new RunnerHistoryRecovery(repository.history);
+    this.historyRecovery = new RunnerHistoryRecovery(repository.history, {
+      shouldRecover: options.shouldRecoverHistory,
+    });
     // Until the plan engine attaches, every run counts as owned and never settles here.
     this.isRunOwned = () => true;
   }
@@ -203,6 +206,12 @@ export class RunnerPlanEventService {
     return reply.type === "history-deferred"
       ? { ...reply, type: "ack" }
       : reply;
+  }
+
+  /** Prepares event custody without holding the runner checkpoint transaction. */
+  public async prepareHistory(message: RunnerMessage): Promise<void> {
+    if (message.type === "event")
+      await this.repository.history.prepare(message);
   }
 
   /** Shares one commit for the receipt, all affected run steps, and the runner state. */

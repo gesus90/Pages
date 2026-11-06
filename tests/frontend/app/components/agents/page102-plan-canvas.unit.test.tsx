@@ -345,7 +345,11 @@ it("opens the PageAgentCLI console of an agent only on a double click", async ()
   fireEvent.click(handle);
   expect(screen.queryByRole("dialog", { name })).toBeNull();
   fireEvent.doubleClick(handle);
-  expect(await screen.findByRole("dialog", { name })).toBeDefined();
+  // The console is a lazily loaded part; its first import may take longer
+  // than a second while the whole suite runs.
+  expect(
+    await screen.findByRole("dialog", { name }, { timeout: 4000 }),
+  ).toBeDefined();
 });
 
 it("leaves the canvas empty and says why when the default plan cannot be opened", async () => {

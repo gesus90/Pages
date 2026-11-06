@@ -6,6 +6,7 @@ import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { WikiPageService } from "@/backend/service/wiki/WikiPageService";
 import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
+import { recordPagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import { WIKI_SCOPE } from "@/definition/Wiki";
 
 import { AgentOperationKeyService } from "./AgentOperationKeyService";
@@ -14,12 +15,24 @@ import { createAgentWikiAccess } from "./AgentWikiAccess";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { StoredAgentAsset } from "@/backend/database/repositories/agents/AgentAssetRepository";
+import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type {
   AgentWikiCreateInput,
   AgentWikiCreated,
 } from "@/definition/PagesAgentWrites";
 import type { User } from "@/definition/User";
 import type { AgentWikiCreateDependencies } from "./AgentWikiCreateService";
+
+/** The page and every linked asset of one creation. */
+function createdEvents(created: AgentWikiCreated): PagesEvent[] {
+  return [
+    { type: "wiki.page.created", id: created.pageId },
+    ...created.assets.map((asset): PagesEvent => ({
+      type: "asset.linked",
+      id: asset.assetId,
+    })),
+  ];
+}
 
 /** Shares A9.6 creation with an outer import transaction and defers effects until its commit. */
 export class AgentWikiCreateTransaction {
@@ -87,6 +100,9 @@ export class AgentWikiCreateTransaction {
       }),
     };
     await operations.save(actor.id, input, created);
+    // The outbox rows commit with the page; a replay above stores none.
+    for (const event of createdEvents(created))
+      await recordPagesEvent(transaction, event);
     this.created = created;
     return created;
   }
@@ -94,15 +110,8 @@ export class AgentWikiCreateTransaction {
   /** Publishes only once the outermost transaction committed all associated records. */
   public publish(): void {
     if (!this.created) return;
-    this.dependencies.events.publish({
-      type: "wiki.page.created",
-      id: this.created.pageId,
-    });
-    for (const asset of this.created.assets)
-      this.dependencies.events.publish({
-        type: "asset.linked",
-        id: asset.assetId,
-      });
+    for (const event of createdEvents(this.created))
+      this.dependencies.events.publish(event);
   }
 
   /** Removes copied bytes after any outer rollback, preserving the original staged files. */

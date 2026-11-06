@@ -5,6 +5,7 @@ import { createRequestListener } from "@remix-run/node-fetch-server";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 
 import { clientSocketAddressContext } from "@/app/lib/client-address.server";
+import { checkHealth } from "@/app/lib/health.server";
 import {
   ConfigError,
   resolveDefaultConfigPath,
@@ -24,11 +25,19 @@ import { startAgentTools } from "./AgentToolsStartup";
 import { installRunnerChannel } from "./RunnerChannel";
 import { installRemoteConsoleChannel } from "./RemoteConsoleChannel";
 import { startPicaMobile } from "./PicaMobileRuntime";
-import { createForwardedHttpsCheck } from "./ForwardedProtocol";
+import { AppRoutes } from "./AppRoutes";
+import { requestTargetPath, serveAppDocument } from "./AppDocument";
+import { answerDataRedirect } from "./DataRedirect";
+import {
+  createForwardedHttpsCheck,
+  createTrustedPeerCheck,
+  forwardedClientAddress,
+} from "./ForwardedProtocol";
 import { initializePagesRuntime } from "./PagesRuntime";
-import { serveStaticAsset } from "./StaticAssets";
+import { refuseMissingAsset, serveStaticAsset } from "./StaticAssets";
 import { logRequest } from "./RequestLogging";
 import { withLoggedRoutes } from "./LoggedRoutes";
+import { startServiceWatchdog } from "./ServiceWatchdog";
 import {
   installProcessLogging,
   registerShutdownTask,
@@ -107,13 +116,17 @@ export function announceServer(
  * @param clientDirectory - Absolute path of the client build output.
  * @param trustedProxies - Addresses or ranges of reverse proxies whose
  * `X-Forwarded-Proto` is believed; empty by default.
- * @returns A listener that serves build files first and the application
- * otherwise. Request logs omit queries, headers, bodies and opaque path segments.
+ * @returns A listener that serves build files first, the static app's
+ * document for its page addresses, and the application otherwise. Request
+ * logs omit queries, headers, bodies and opaque path segments.
  *
  * @remarks
  * A request that a trusted proxy forwarded from HTTPS is given an `https:`
  * URL, so React Router compares the browser's `Origin` with the address the
- * browser used. The comparison itself stays on for every request.
+ * browser used. The comparison itself stays on for every request. Behind a
+ * loopback or trusted proxy, such as the static app's entrance, the client
+ * address is the one the proxy reports. Pages renders no document on the
+ * server (PAGE-235): this process also answers alone, without the entrance.
  */
 export function createPagesRequestListener(
   build: ServerBuild,
@@ -124,10 +137,21 @@ export function createPagesRequestListener(
     withLoggedRoutes(build),
     "production",
   );
-  const handleFetch: FetchHandler = (request, client) => {
+  const isTrustedPeer = createTrustedPeerCheck(trustedProxies, {
+    isLoopbackTrusted: true,
+  });
+  const appRoutes = new AppRoutes(clientDirectory);
+  const handleFetch: FetchHandler = async (request, client) => {
     const context = new RouterContextProvider();
-    context.set(clientSocketAddressContext, client.address);
-    return handleRequest(request, context);
+    context.set(
+      clientSocketAddressContext,
+      forwardedClientAddress(
+        client.address,
+        request.headers.get("x-forwarded-for"),
+        isTrustedPeer,
+      ),
+    );
+    return answerDataRedirect(request, await handleRequest(request, context));
   };
   const handleDirect = createRequestListener(handleFetch);
   const handleForwardedHttps = createRequestListener(handleFetch, {
@@ -139,12 +163,24 @@ export function createPagesRequestListener(
     logRequest(request, response, () => {
       void (async () => {
         try {
-          if (!(await serveStaticAsset(request, response, clientDirectory))) {
-            const handleApplication = isForwardedHttps(request)
-              ? handleForwardedHttps
-              : handleDirect;
-            await handleApplication(request, response);
-          }
+          if (
+            (await serveStaticAsset(request, response, clientDirectory)) ||
+            refuseMissingAsset(request, response)
+          )
+            return;
+          const page = {
+            method: request.method ?? "GET",
+            pathname: requestPathname(request.url),
+          };
+          if (
+            !(await appRoutes.isForwarded(page.method, page.pathname)) &&
+            (await serveAppDocument(page, response, clientDirectory))
+          )
+            return;
+          const handleApplication = isForwardedHttps(request)
+            ? handleForwardedHttps
+            : handleDirect;
+          await handleApplication(request, response);
         } catch (error: unknown) {
           logCaughtError("PagesServer", error);
 
@@ -163,6 +199,16 @@ export function createPagesRequestListener(
       })();
     });
   };
+}
+
+/** The decoded path of a request, or `/` when it cannot be read. */
+function requestPathname(requestUrl: string | undefined): string {
+  try {
+    return decodeURIComponent(requestTargetPath(requestUrl));
+  } catch (error: unknown) {
+    logCaughtError("PagesServer", error);
+    return "/";
+  }
 }
 
 function describeListenError(error: unknown, port: number): string | null {
@@ -325,6 +371,9 @@ export async function startPagesServer(
       ? [`http://${address.includes(":") ? `[${address}]` : address}:${port}`]
       : listServerOrigins(port);
   announceServer(runtime, origins);
+  startServiceWatchdog(
+    async () => server.listening && (await checkHealth()).status === "ok",
+  );
 
   return EXIT_SUCCESS;
 }

@@ -1,3 +1,5 @@
+import { strict as assert } from "node:assert";
+
 import { call, MISSING_TEXT, prepare, refused, stored } from "./world";
 
 import type { RepositoryFlow } from "./world";
@@ -114,9 +116,12 @@ export const USER_FLOW: RepositoryFlow = {
     call("UserRepository.findEmailsByUserIds", ({ users }) =>
       users.findEmailsByUserIds(["user-manager", "user-employee", "nobody"]),
     ),
-    call("UserRepository.findCredentialsByUsername", ({ users }) =>
-      users.findCredentialsByUsername("ANNA.MÜLLER"),
-    ),
+    call("UserRepository.findCredentialsByUsername", async ({ users }) => {
+      const credentials = await users.findCredentialsByUsername("ANNA.MÜLLER");
+      assert.equal(credentials?.user.id, "user-manager");
+      assert.equal(credentials?.passwordHash, "hash-1");
+      return credentials;
+    }),
     call("UserRepository.findCredentialsByUsername", ({ users }) =>
       users.findCredentialsByUsername("nobody"),
     ),
@@ -138,10 +143,18 @@ export const USER_FLOW: RepositoryFlow = {
         role: "employee",
       }),
     ),
-    stored("SELECT COUNT(*) FROM users;"),
-    stored(
-      "SELECT user_id FROM user_authorization WHERE user_id = 'user-taken';",
-    ),
+    call("stored", async ({ database }) => {
+      const rows = await database.query("SELECT COUNT(*) FROM users;");
+      assert.deepEqual(rows, [[5]]);
+      return rows;
+    }),
+    call("stored", async ({ database }) => {
+      const rows = await database.query(
+        "SELECT user_id FROM user_authorization WHERE user_id = 'user-taken';",
+      );
+      assert.deepEqual(rows, []);
+      return rows;
+    }),
     prepare(`
       INSERT INTO personal_agent_tokens (id, user_id, name, token_hash, created_at)
       VALUES ('token-1', 'user-employee', 'Laptop', 'token-hash-1', 1000);

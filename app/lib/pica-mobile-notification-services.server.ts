@@ -1,3 +1,4 @@
+import { canProcessIntegrations } from "@/backend/service/integrations/IntegrationProcessing";
 import { PicaMobileNotificationDeliveryRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationDeliveryRepository";
 import {
   createNotificationEventId,
@@ -19,6 +20,7 @@ import { PicaMobileNotificationService } from "@/backend/service/mobile/notifica
 import { readPicaMobileNotificationSettings } from "@/backend/service/mobile/notifications/PicaMobileNotificationSettings";
 import { PicaMobilePushRegistrations } from "@/backend/service/mobile/notifications/PicaMobilePushRegistrations";
 import { PicaMobilePushTokenVault } from "@/backend/service/mobile/notifications/PicaMobilePushTokenVault";
+import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
@@ -86,6 +88,7 @@ export async function createPicaMobileNotificationServices(
     return instanceId;
   };
   const dispatcher = new PicaMobileNotificationDispatcher({
+    canDispatch: canProcessIntegrations,
     deliveries: new PicaMobileNotificationDeliveryRepository(input.database),
     events: eventRepository,
     registrations: registrationRepository,
@@ -122,7 +125,7 @@ export async function createPicaMobileNotificationServices(
     detach: sharedAgentPlanRunObservers().add(recorder),
   });
 
-  service.start();
+  if (!isLocalSessionOwner() && canProcessIntegrations()) service.start();
   globalThis.pagesPicaMobileNotifications = service;
   registerShutdownTask(() => service.stop(), {
     step: "pica_mobile_notifications",

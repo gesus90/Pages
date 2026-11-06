@@ -21,7 +21,7 @@ it("does not reject the wizard for other errors or successful answers", () => {
   expect(
     readSetupRejection({
       intent: "verify-token",
-      access: { token: "token", suggestedDatabasePath: "/data/pages.db" },
+      access: { token: "token", suggestedDatabaseUrl: "" },
     }),
   ).toBeNull();
 });
@@ -34,6 +34,6 @@ it("names the form fields the wizard and the action share", () => {
     USERNAME: "username",
     PASSWORD: "password",
     EMAIL: "email",
-    DATABASE_PATH: "databasePath",
+    DATABASE_URL: "databaseUrl",
   });
 });

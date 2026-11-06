@@ -1,0 +1,24 @@
+[Unit]
+Description=Pages independent restart observation (%i)
+PartOf=pages.target
+
+[Service]
+Type=oneshot
+User=pages
+Group=pages
+WorkingDirectory=/opt/pages
+ExecStart=/usr/bin/env node --max-old-space-size=160 /opt/pages/pages-service-monitor.mjs --config /etc/pages/%i/config.toml --instance %i
+TimeoutStartSec=20
+# Auxiliary observer, outside the rev12 application budgets; never starts providers.
+# It loads the same server bundle as pages-integrations and gets its budget.
+MemoryMax=256M
+MemorySwapMax=0
+OOMScoreAdjust=-250
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pages/%i
+Environment=NODE_ENV=production
+EnvironmentFile=-/etc/pages/%i/runtime.env

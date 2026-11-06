@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { logEvent, withLogContext } from "./Logger";
+import { captureLogContext, logEvent, withLogContext } from "./Logger";
 import { withDatabaseLogMetrics } from "./DatabaseLogMetrics";
 
 import type { LogContext } from "./Logger";
@@ -12,7 +12,7 @@ export async function loggedOperation<Result>(
   work: () => Promise<Result>,
   facts: LogContext = {},
 ): Promise<Result> {
-  return withLogContext({ correlationId: randomUUID(), ...facts }, () =>
+  return withLogContext({ ...captureLogContext(), ...facts }, () =>
     withDatabaseLogMetrics(async (metrics) => {
       const started = performance.now();
       logEvent({

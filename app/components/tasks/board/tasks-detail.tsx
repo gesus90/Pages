@@ -1,7 +1,7 @@
 import { TaskDetailPanel } from "@/app/components/tasks/task-detail-panel";
 
 import type { TasksDialog } from "@/app/components/tasks/board/use-tasks-dialog";
-import type { loader } from "@/app/routes/tasks";
+import type { loader } from "@/app/routes/tasks-server";
 import type { TaskSelection } from "@/app/lib/task-selection.server";
 import type { Label, WorkItemDetail } from "@/definition/Task";
 

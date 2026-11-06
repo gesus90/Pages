@@ -1,0 +1,35 @@
+[Unit]
+Description=Pages API and UI (%i)
+After=network-online.target pages-postgres@%i.service
+Wants=network-online.target pages-postgres@%i.service
+PartOf=pages.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+NotifyAccess=all
+WatchdogSec=60
+TimeoutStartSec=180
+User=pages
+Group=pages
+WorkingDirectory=/opt/pages
+ExecStart=/usr/bin/env node --max-old-space-size=1024 /opt/pages/server.mjs --config /etc/pages/%i/config.toml
+Restart=always
+RestartSec=5
+# Zielarchitektur rev12: pages-api 1.5 GB starting budget (1536 MiB).
+MemoryMax=1536M
+MemorySwapMax=0
+OOMScoreAdjust=-250
+TimeoutStopSec=45
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pages/%i /etc/pages/%i
+Environment=NODE_ENV=production
+EnvironmentFile=-/etc/pages/%i/runtime.env
+
+[Install]
+WantedBy=pages.target

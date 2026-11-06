@@ -1,0 +1,52 @@
+[Unit]
+Description=Pages static app entrance (%i)
+# Deliberately no dependency on pages-api@%i: the entrance keeps serving the
+# static app while the API is stopped or restarting (PAGE-235).
+After=network-online.target
+Wants=network-online.target
+PartOf=pages.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=pages
+Group=pages
+WorkingDirectory=/opt/pages
+# Defaults; /etc/pages/%i/ingress.env overrides them. The API then listens on
+# the loopback port named by PAGES_INGRESS_BACKEND (its config `port` and
+# `listenAddress = "127.0.0.1"`), and only the entrance is reachable.
+Environment=PAGES_INGRESS_LISTEN=0.0.0.0:3000
+Environment=PAGES_INGRESS_BACKEND=http://127.0.0.1:3100
+# Empty: the API serves /live-changes. "--core http://127.0.0.1:3200": pages-core
+# serves it (PAGE-237). Unbraced, so an empty value adds no argument.
+Environment=PAGES_INGRESS_CORE_OPTION=
+# Empty: /service-status answers 404. "--service-status http://127.0.0.1:3200":
+# pages-core reports the services of pages.target, also while the API is
+# stopped (PAGE-238). A switch of its own, independent of the live stream.
+Environment=PAGES_INGRESS_STATUS_OPTION=
+# Empty: the API answers the WebSocket channels of runners and consoles.
+# "--core-runner http://127.0.0.1:3200" and "--core-console http://127.0.0.1:3200":
+# pages-core relays them and holds the connections while the API restarts
+# (PAGE-239). Two switches of their own; Pica Mobile is switched in config.toml.
+Environment=PAGES_INGRESS_RUNNER_OPTION=
+Environment=PAGES_INGRESS_CONSOLE_OPTION=
+EnvironmentFile=-/etc/pages/%i/ingress.env
+ExecStart=/usr/bin/env node --max-old-space-size=256 /opt/pages/pages-ingress.mjs --config /etc/pages/%i/config.toml --listen ${PAGES_INGRESS_LISTEN} --backend ${PAGES_INGRESS_BACKEND} $PAGES_INGRESS_CORE_OPTION $PAGES_INGRESS_STATUS_OPTION $PAGES_INGRESS_RUNNER_OPTION $PAGES_INGRESS_CONSOLE_OPTION
+Restart=always
+RestartSec=2
+MemoryMax=384M
+MemorySwapMax=0
+OOMScoreAdjust=-300
+TimeoutStopSec=15
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# Only its log files are written, in log/ingress/ below the API's logs.
+ReadWritePaths=/etc/pages/%i
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=pages.target

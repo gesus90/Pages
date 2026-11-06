@@ -1,4 +1,5 @@
 import { textWithoutNul } from "@/backend/database/postgres/PostgresText";
+import { AgentOperationKeyRepository } from "../agents/AgentOperationKeyRepository";
 
 import { storedTextForm } from "../StoredTextForm";
 import { snapshotParameters } from "./WorkItemSnapshotSql";
@@ -75,6 +76,8 @@ function savedForm(description: string): string {
 
 /** Owns the write access to work items. */
 export class WorkItemWriteRepository {
+  /** Results of saves by operation ID, in the same database scope. */
+  public readonly operations: AgentOperationKeyRepository;
   private readonly database: TaskDatabase;
 
   /**
@@ -84,6 +87,7 @@ export class WorkItemWriteRepository {
    */
   public constructor(database: TaskDatabase) {
     this.database = database;
+    this.operations = new AgentOperationKeyRepository(database);
   }
 
   /** Returns the text as this database would store it, see `storedTextForm`. */

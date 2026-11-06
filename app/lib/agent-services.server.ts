@@ -1,6 +1,8 @@
 import path from "node:path";
 import { homedir } from "node:os";
 
+import { ConfigFile } from "@/backend/config/ConfigFile";
+import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { createAgentToolManager } from "@/backend/service/agents/tools/AgentToolServices";
 import { AgentToolStartupService } from "@/backend/service/agents/tools/AgentToolStartupService";
 import { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
@@ -36,6 +38,12 @@ import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionA
 import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
 import { antigravityContextBinding } from "@/backend/agents/cli/AntigravityContextBinding";
 import { CliWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
+import { LocalSessions } from "@/backend/agents/local/LocalSessions";
+import { DurableCliSessions } from "@/backend/agents/local/DurableCliSessions";
+import {
+  isLocalSessionOwner,
+  localSessionOwnerDirectory,
+} from "@/backend/agents/local/LocalSessionMode";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
@@ -48,6 +56,7 @@ import { createAgentConfigurationServices } from "./agent-workspace-services.ser
 import { createRemoteServices } from "./remote-services.server";
 import { createRunnerServices } from "./runner-services.server";
 
+import type { AcpRecoveryScope } from "@/backend/service/agents/resources/AcpLeaseAdmission";
 import type { AgentGitBridgeSetting } from "@/backend/config/AgentGitBridgeConfig";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
@@ -82,6 +91,7 @@ export interface AgentApplicationServices
    */
   readonly chatRequests: ChatRequestRegistry;
   readonly agentPlanExecution: PlanExecution;
+  readonly localSessions?: LocalSessions | null;
   /** Server-only project credentials, resolved live for YOLO plan nodes. */
   readonly agentPlanGitHubCredentials: AgentPlanGitHubCredentials;
   /** Keeps OpenCode's providers in step with the API keys stored in Pages (PAGE-154). */
@@ -91,6 +101,7 @@ export interface AgentApplicationServices
 }
 
 interface ExecutionInput {
+  readonly localSessions: LocalSessions | null;
   readonly tools: AgentToolManagerService;
   readonly resources: AcpResourceScheduler;
   /** Instance folders a CLI agent process must not reach. */
@@ -135,6 +146,34 @@ function createExecutions(
     locator: input.locator,
     runner: input.runner,
   };
+  const direct = new CliSessionExecution({
+    ...cliAdapters,
+    tools: input.tools,
+    resources: isLocalSessionOwner() ? undefined : input.resources,
+    github: input.github,
+    units: new CliWorkerUnits(
+      localSessionOwnerDirectory()
+        ? path.join(
+            localSessionOwnerDirectory() ?? input.workerUnitDirectory,
+            "native-units",
+          )
+        : input.workerUnitDirectory,
+    ),
+    isolation: {
+      protectedDirectories: input.protectedDirectories,
+      isRequired: input.isIsolationRequired,
+      readOnlyDirectories: [
+        input.tools.directory,
+        path.dirname(process.execPath),
+        path.join(
+          path.dirname(path.dirname(process.execPath)),
+          "lib",
+          "node_modules",
+        ),
+      ],
+      hiddenDirectories: [homedir()],
+    },
+  });
   return {
     agentCheckService,
     openCodeProviderLinks: new OpenCodeProviderLinks({
@@ -144,27 +183,9 @@ function createExecutions(
     }),
     agentPlanExecution: new AgentPlanExecution(
       new ApiTextExecution(repository, cipher),
-      new CliSessionExecution({
-        ...cliAdapters,
-        tools: input.tools,
-        resources: input.resources,
-        github: input.github,
-        units: new CliWorkerUnits(input.workerUnitDirectory),
-        isolation: {
-          protectedDirectories: input.protectedDirectories,
-          isRequired: input.isIsolationRequired,
-          readOnlyDirectories: [
-            input.tools.directory,
-            path.dirname(process.execPath),
-            path.join(
-              path.dirname(path.dirname(process.execPath)),
-              "lib",
-              "node_modules",
-            ),
-          ],
-          hiddenDirectories: [homedir()],
-        },
-      }),
+      input.localSessions
+        ? new DurableCliSessions(input.localSessions, direct)
+        : direct,
       operations,
       input.access,
     ),
@@ -194,6 +215,8 @@ function createGitHubCredentials(input: {
 }
 
 interface AgentServiceResources {
+  readonly recoveryScope?: AcpRecoveryScope;
+  readonly configPath?: string;
   readonly acpOptions?: Partial<AcpResourceOptions>;
   /** Host Git routes an operator configured for single plan steps. */
   readonly gitBridges?: readonly AgentGitBridgeSetting[];
@@ -279,6 +302,8 @@ function createAcpResources(
 ): AcpResourceScheduler {
   return new AcpResourceScheduler({
     store: new AcpResourceRepository(database),
+    recoveryScope: resources.recoveryScope,
+    readOptions: resourceOptionsReader(resources),
     options: readAcpResourceOptions(resources.acpOptions),
     limitSource: readAcpResourceLimitSource(resources.acpOptions),
   });
@@ -296,6 +321,18 @@ export function createAgentServices(
   const cipher = new InstanceSecretCipher(tokenKey);
   const operations = new AgentOperationRegistry();
   const acpResourceScheduler = createAcpResources(database, resources);
+  const cliRuntime = createCliRuntime({
+    dataDirectory,
+    agentsDirectory,
+    cipher,
+    repository,
+  });
+  const { runtime, agentToolManagerService } = cliRuntime;
+  const localSessions = createLocalSessions(database, dataDirectory, tokenKey, {
+    resources,
+    acpResourceScheduler,
+    agentToolManagerService,
+  });
   const configuration = createAgentConfigurationServices({
     database,
     dataDirectory,
@@ -304,21 +341,10 @@ export function createAgentServices(
     operations,
     ticketAssets,
   });
-  const { store, locator, runner, runtime, agentToolManagerService } =
-    createCliRuntime({ dataDirectory, agentsDirectory, cipher, repository });
-  const refresh = new AgentCatalogRefresh({
-    repository,
-    cipher,
-    operations,
-    client: new CatalogProviderClient(),
-    cli: runtime,
-  });
+  const refresh = createCatalogRefresh(repository, cipher, operations, runtime);
   const agentCliLoginService = new AgentCliLoginService({
     repository,
-    store,
-    locator,
-    runner,
-    runtime,
+    ...cliRuntime,
     operations,
     catalog: refresh,
   });
@@ -345,6 +371,7 @@ export function createAgentServices(
       configuration,
     }),
     acpResourceScheduler,
+    localSessions,
     agentToolManagerService,
     agentToolStartupService: new AgentToolStartupService({
       manager: agentToolManagerService,
@@ -355,6 +382,7 @@ export function createAgentServices(
     agentConnectionAccess: access,
     ...createAssignments(database, repository),
     ...createExecutions({
+      localSessions,
       tools: agentToolManagerService,
       resources: acpResourceScheduler,
       protectedDirectories: [dataDirectory, agentsDirectory],
@@ -363,10 +391,7 @@ export function createAgentServices(
       repository,
       cipher,
       operations,
-      runtime,
-      store,
-      locator,
-      runner,
+      ...cliRuntime,
       access,
       github: github.agentCliGitHubCredentials,
       catalog: refresh,
@@ -383,5 +408,58 @@ export function createAgentServices(
       operations,
       cli: agentCliLoginService,
     }),
+  };
+}
+
+function createLocalSessions(
+  database: Database,
+  dataDirectory: string,
+  tokenKey: Buffer,
+  input: {
+    readonly resources: AgentServiceResources;
+    readonly acpResourceScheduler: AcpResourceScheduler;
+    readonly agentToolManagerService: AgentToolManagerService;
+  },
+): LocalSessions | null {
+  if (!input.resources.configPath || !canProcessRuns()) return null;
+  return new LocalSessions({
+    database,
+    configPath: input.resources.configPath,
+    dataDirectory,
+    tokenKey,
+    resources: input.acpResourceScheduler,
+    tools: input.agentToolManagerService,
+  });
+}
+
+function createCatalogRefresh(
+  repository: AgentConnectionRepository,
+  cipher: InstanceSecretCipher,
+  operations: AgentOperationRegistry,
+  runtime: AgentCliRuntime,
+): AgentCatalogRefresh {
+  return new AgentCatalogRefresh({
+    repository,
+    cipher,
+    operations,
+    client: new CatalogProviderClient(),
+    cli: runtime,
+  });
+}
+
+function resourceOptionsReader(
+  resources: AgentServiceResources,
+): (() => Promise<AcpResourceOptions>) | undefined {
+  if (
+    !resources.configPath ||
+    !resources.recoveryScope ||
+    resources.recoveryScope === "all"
+  )
+    return undefined;
+  const configFile = new ConfigFile(resources.configPath);
+  return async () => {
+    const config = await configFile.read();
+    if (!config) throw new Error("ACP configuration disappeared");
+    return readAcpResourceOptions(config);
   };
 }

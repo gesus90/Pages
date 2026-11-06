@@ -6,8 +6,12 @@ import { resolveSetupLanguage } from "@/app/lib/language.server";
 import { activateApplicationServices } from "@/app/lib/services.server";
 import { sessionCookie } from "@/app/lib/session.server";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
-import { checkDatabaseLocation } from "@/backend/setup/DatabaseLocation";
+import { Database } from "@/backend/database/Database";
+import { checkSetupConnection } from "@/backend/setup/SetupConnection";
+import { readSetupIntent } from "@/backend/setup/SetupIntent";
+import { hasCommittedSetup } from "@/backend/setup/SetupPostgresRepository";
 import { SetupWizardService } from "@/backend/setup/SetupWizardService";
+import { DATABASE_LOCATION_STATUS } from "@/definition/Setup";
 
 import { SETUP_FORM_FIELD } from "./setup-action-data";
 import { readSetupForm } from "./setup-form.server";
@@ -64,33 +68,56 @@ function verifyToken({
 
   return data<SetupActionData>({
     access: {
-      suggestedDatabasePath: runtime.getSuggestedDatabasePath(),
+      suggestedDatabaseUrl: "",
       token,
     },
     intent: "verify-token",
   });
 }
 
-async function checkDatabasePath({
+async function checkDatabaseUrl({
   runtime,
   formData,
 }: SetupActionContext): Promise<SetupActionResult> {
   if (!runtime.verifySetupToken(readToken(formData))) {
-    return reject("check-database-path", "invalidToken");
+    return reject("check-database-connection", "invalidToken");
   }
 
-  const input = readText(formData, SETUP_FORM_FIELD.DATABASE_PATH) ?? "";
-  const { status } = await checkDatabaseLocation(input);
+  const input = readText(formData, SETUP_FORM_FIELD.DATABASE_URL) ?? "";
+  let status = await checkSetupConnection(input);
+  if (
+    status === DATABASE_LOCATION_STATUS.FOREIGN &&
+    (await isRecoverable(runtime, input))
+  )
+    status = DATABASE_LOCATION_STATUS.AVAILABLE;
+  const requestId = readText(formData, "requestId") ?? "";
 
   return data<SetupActionData>({
-    intent: "check-database-path",
-    location: { input, status },
+    intent: "check-database-connection",
+    location: { input: /^\d{1,15}$/u.test(requestId) ? requestId : "", status },
   });
+}
+
+async function isRecoverable(
+  runtime: PagesRuntime,
+  input: string,
+): Promise<boolean> {
+  try {
+    const intent = await readSetupIntent(runtime.configFile.path);
+    if (!intent || intent.databaseUrl !== input) return false;
+    const database = await Database.connect(input);
+    try {
+      return await hasCommittedSetup(database, intent.sessionToken);
+    } finally {
+      await database.close();
+    }
+  } catch {
+    return false;
+  }
 }
 
 async function answerCompletion(
   result: SetupCompletionResult,
-  databasePathInput: string,
   request: Request,
 ): Promise<SetupActionResult> {
   switch (result.status) {
@@ -107,7 +134,7 @@ async function answerCompletion(
         {
           error: "databaseLocation",
           intent: "complete",
-          location: { input: databasePathInput, status: result.location },
+          location: { input: "", status: result.location },
         },
         { status: 409 },
       );
@@ -168,11 +195,11 @@ async function completeSetup({
     readToken(formData),
   );
 
-  return answerCompletion(result, form.input.databasePath, request);
+  return answerCompletion(result, request);
 }
 
 const SETUP_ACTION_HANDLERS = {
-  "check-database-path": checkDatabasePath,
+  "check-database-connection": checkDatabaseUrl,
   complete: completeSetup,
   "verify-token": verifyToken,
 } satisfies Record<

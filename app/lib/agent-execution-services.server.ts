@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
+import { isPagesRunsProcess, canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { interruptedAcpOwners } from "@/backend/service/agents/AgentPlanRecovery";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
@@ -10,6 +12,7 @@ import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
 import { createAgentServices } from "./agent-services.server";
 
+import type { AcpRecoveryScope } from "@/backend/service/agents/resources/AcpLeaseAdmission";
 import type { Database } from "@/backend/database/Database";
 import type { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import type { WikiService } from "@/backend/service/WikiService";
@@ -81,18 +84,31 @@ async function startAgents(
     tokenKey,
     {
       agentsDirectory: resolveAgentsDirectory(runtime.configFile.path),
+      configPath: runtime.configFile.path,
+      recoveryScope: agentRecoveryScope(runtime.getConfig().runsMode),
       ticketAssets,
       acpOptions: runtime.getConfig(),
       gitBridges: runtime.getConfig().agentGitBridges,
     },
   );
-  const leftovers = await services.agentCliGitHubCredentials.recover();
+  if (!canProcessRuns()) {
+    if (!isLocalSessionOwner()) await services.acpResourceScheduler.recover();
+    return services;
+  }
+  const discovered = await services.localSessions?.discover();
+  const leftovers = await services.agentCliGitHubCredentials.recover(
+    discovered?.adopted,
+    discovered?.uncertain,
+  );
   const runs = new AgentPlanRunRepository(database);
   const interrupted = await Promise.all([runs.unfinished(), runs.reserving()]);
   await services.acpResourceScheduler.recover(
-    interruptedAcpOwners(interrupted.flat()),
+    interruptedAcpOwners(interrupted.flat(), discovered?.adopted),
     new Set(leftovers.map((leftover) => leftover.instanceId)),
+    discovered?.adopted,
+    discovered?.uncertain,
   );
+  await services.localSessions?.settleFinished();
   void services.agentToolStartupService.start().catch(() => {
     console.warn(
       "[pages] Agent tool startup checks could not finish; other Pages functions remain available.",
@@ -100,4 +116,11 @@ async function startAgents(
   });
   services.agentCatalogScheduler.start();
   return services;
+}
+
+function agentRecoveryScope(
+  mode: "server" | "separate" | undefined,
+): AcpRecoveryScope {
+  if (mode !== "separate") return "all";
+  return isPagesRunsProcess() ? "plans" : "chat";
 }

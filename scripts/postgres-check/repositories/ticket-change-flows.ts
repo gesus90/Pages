@@ -386,7 +386,7 @@ const ATTACHMENT_STEPS: readonly RepositoryStep[] = [
           : Reflect.get(target, property),
     });
     await new TicketAssetMigrationRepository(counting).checkpoint();
-    return statements.length === (database.dialect === "duckdb" ? 1 : 0);
+    return statements.length === 0;
   }),
   refused("TicketAssetMigrationRepository.relocate", ({ database }) =>
     new TicketAssetMigrationRepository(database).relocate([

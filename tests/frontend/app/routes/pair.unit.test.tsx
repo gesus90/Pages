@@ -8,12 +8,8 @@ import {
   destroySessionCookie,
   getSessionToken,
 } from "@/app/lib/session.server";
-import PairRoute, {
-  action,
-  ErrorBoundary,
-  headers,
-  loader,
-} from "@/app/routes/pair";
+import PairRoute, { ErrorBoundary } from "@/app/routes/pair";
+import { action, loader } from "@/app/routes/pair-server";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { PairingRateError } from "@/backend/service/mcp/PairingThrottle";
@@ -105,9 +101,19 @@ beforeEach(() => {
   services.authService.logout.mockReset();
 });
 
-it("keeps every pairing state out of caches and referrers", () => {
-  expect(headers().get("Cache-Control")).toBe("no-store");
-  expect(headers().get("Referrer-Policy")).toBe("no-referrer");
+it("keeps every pairing state out of caches and referrers", async () => {
+  services.pairingService.view.mockResolvedValue({
+    status: "pending",
+    code: CODE,
+    account: ACCOUNT,
+  });
+
+  const response = await loader(
+    pairArguments(pagesRequest(`/pair?code=${CODE}`)),
+  );
+
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
 });
 
 it("loads the view with the address of this instance", async () => {

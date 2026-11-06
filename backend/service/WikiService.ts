@@ -1,3 +1,5 @@
+import { afterCallCommit } from "@/backend/database/CallTransaction";
+
 import { WikiAccess } from "./wiki/WikiAccess";
 import { WikiAttachmentService } from "./wiki/WikiAttachmentService";
 import { WikiCommentService } from "./wiki/WikiCommentService";
@@ -137,6 +139,11 @@ export class WikiService {
   /** Opens a page, or the placeholder an administrator gets for a private one. */
   public async read(actor: User, id: string): Promise<WikiReadResult> {
     return this.reads.read(actor, id);
+  }
+
+  /** Whether the actor sees a page right now, without remembering a visit. */
+  public async canView(actor: User, id: string): Promise<boolean> {
+    return this.reads.canView(actor, id);
   }
 
   /** Builds the data of the left navigation. */
@@ -313,7 +320,9 @@ export class WikiService {
 
   /** Removes a page from the trash for good, with its attached files. */
   public async purge(actor: User, id: string): Promise<void> {
-    await this.attachments.removeFiles(await this.trash.purge(actor, id));
+    const files = await this.trash.purge(actor, id);
+    // Inside an announced call the files go only once the purge committed.
+    await afterCallCommit(() => this.attachments.removeFiles(files));
   }
 
   /** Looks up the placeholder of a private page for an administrator. */
@@ -393,8 +402,12 @@ export class WikiService {
     return this.settings.update(actor, settings);
   }
 
-  /** Removes expired trash, old versions and files nobody refers to. */
-  public async runMaintenance(): Promise<void> {
+  /**
+   * Removes expired trash, old versions and files nobody refers to.
+   *
+   * @returns The trash roots that were removed for good.
+   */
+  public async runMaintenance(): Promise<readonly string[]> {
     return this.maintenance.run();
   }
 

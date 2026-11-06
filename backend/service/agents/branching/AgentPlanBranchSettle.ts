@@ -6,13 +6,13 @@ import {
   planEdgeKind,
   planRegion,
 } from "@/definition/AgentPlanBranching";
-
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logDiagnostic } from "@/backend/logging/Logger";
 
 import { patchStep } from "../AgentPlanRunState";
 import { planReadiness } from "./AgentPlanBranchEdges";
 import { newPlanBranchingState } from "./AgentPlanBranchState";
+import { bindPlanBranchState } from "./AgentPlanBranchPersistence";
 
 import type {
   AgentPlanActivationTrigger,
@@ -41,6 +41,7 @@ export function eventPrompt(output: string | null): string {
 
 function branchingOf(active: ActivePlanRun): PlanBranchingState {
   active.branching ??= newPlanBranchingState();
+  bindPlanBranchState(active);
   return active.branching;
 }
 

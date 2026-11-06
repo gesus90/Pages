@@ -48,9 +48,10 @@ export function checkConfiguration(): void {
   };
   const databaseUrl = `postgresql://pages:${secret}@127.0.0.1/pages`;
 
-  assert.equal(
-    "databaseUrl" in readPagesConfig(finished, "config.toml"),
-    false,
+  assert.throws(
+    () => readPagesConfig(finished, "config.toml"),
+    (error) =>
+      error instanceof ConfigError && error.message.includes("databaseUrl"),
   );
   assert.deepEqual(
     readPagesConfig({ ...finished, databaseUrl }, "config.toml"),

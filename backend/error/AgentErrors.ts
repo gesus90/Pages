@@ -2,6 +2,12 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  plan_local_owner_unverified:
+    "The local native session owner could not be proven. Its unit was not adopted or signalled; reservations remain held for reconciliation.",
+  plan_payload_missing:
+    "The stored agent payload file is missing. No content was substituted.",
+  plan_payload_corrupt:
+    "The stored agent payload file failed its size or SHA-256 integrity check.",
   plan_runner_control_update_required:
     "New plan jobs require Runner 1.15.0 and planControlVersion 1. Existing jobs remain reconcilable; update Pages and Runner together explicitly.",
   plan_workspace_waiting:

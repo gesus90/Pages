@@ -44,6 +44,8 @@ function request(
   return { sessionId: "session", toolCall, options: OPTIONS };
 }
 
+const correlationIdMatcher: unknown = expect.any(String);
+
 it("maps Nur Lesen to the default mode with the reading tools only, and keeps user and workspace settings and other MCP servers out", () => {
   const profile = claudeAcpProfile("read_only");
   expect(profile.sessionMode).toBe("default");
@@ -155,6 +157,7 @@ it("starts the adapter with the Claude CLI of the connection and keeps the MCP c
         { name: "PAGES_URL", value: "http://pages.invalid" },
         { name: "PAGES_TOKEN", value: "secret-run-token" },
         { name: "PAGES_RUN_INSTANCE", value: "instance" },
+        { name: "PAGES_CORRELATION_ID", value: correlationIdMatcher },
       ],
     },
   ]);

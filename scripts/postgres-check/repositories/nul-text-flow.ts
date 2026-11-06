@@ -30,7 +30,7 @@ function withoutNul(input: unknown): unknown {
   return input;
 }
 
-/** A step that shows the difference itself: DuckDB keeps the character, PostgreSQL does not. */
+/** Checks that a saved row exists and PostgreSQL removed the NUL character. */
 export function keptOnlyByDuckdb(statement: string): RepositoryStep {
   return call("stored", async ({ database }) => {
     const rows = await database.query(statement);
@@ -40,7 +40,7 @@ export function keptOnlyByDuckdb(statement: string): RepositoryStep {
     );
     return {
       rows: values.length,
-      isAsApproved: isStored === (database.dialect === "duckdb"),
+      isAsApproved: values.length > 0 && !isStored,
     };
   });
 }

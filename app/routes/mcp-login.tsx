@@ -1,26 +1,16 @@
 import { useTranslation } from "react-i18next";
-import { Form, redirect, useLoaderData, useNavigation } from "react-router";
+import { Form, useLoaderData, useNavigation } from "react-router";
 
 import { AuthHeading } from "@/app/components/auth/auth-heading";
 import { AuthLayout } from "@/app/components/auth/auth-layout";
 import { Button } from "@/app/components/ui/button";
-import { getAuthenticatedUser } from "@/app/lib/auth.server";
-import { getSessionToken } from "@/app/lib/session.server";
-import { clientSocketAddressContext } from "@/app/lib/client-address.server";
-import { requireAuthorizationOrigin } from "@/app/lib/authorization-response.server";
-import {
-  MCP_HTTP_HEADERS,
-  mcpHttpFailure,
-  requireMcpHttp,
-} from "@/app/lib/mcp-http.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
-import { normalizePairingCode } from "@/backend/service/mcp/PairingValidation";
+import { sendToBackend } from "@/app/lib/backend-request";
+import { readRouteData } from "@/app/lib/local-state/route-data";
 
-import type { PairingBrowserIdentity } from "@/definition/McpPairing";
 import type { Route } from "./+types/mcp-login";
 
-interface ConsentView {
+/** What the consent page shows, as the endpoint answers it. */
+export interface ConsentView {
   readonly id: string;
   readonly csrf: string;
   readonly clientName: string;
@@ -28,93 +18,36 @@ interface ConsentView {
   readonly account: string;
 }
 
-function requestId(request: Request): string {
-  const id = new URL(request.url).searchParams.get("request") ?? "";
-  if (!/^[A-Za-z0-9_-]{43}$/u.test(id))
-    throw new McpAuthorizationError("invalid_request");
-  return id;
+function isConsentView(value: unknown): value is ConsentView {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    "csrf" in value &&
+    typeof value.csrf === "string"
+  );
 }
 
-async function browserIdentity(
-  request: Request,
-): Promise<PairingBrowserIdentity> {
-  const user = await getAuthenticatedUser(request);
-  const session = await getSessionToken(request);
-  const destination = `/mcp-login?request=${requestId(request)}`;
-  if (!user || !session)
-    throw redirect(`/login?returnTo=${encodeURIComponent(destination)}`, {
-      headers: MCP_HTTP_HEADERS,
-    });
-  if (user.mustChangePassword)
-    throw redirect(
-      `/change-password?returnTo=${encodeURIComponent(destination)}`,
-      { headers: MCP_HTTP_HEADERS },
-    );
-  return { userId: user.id, session };
-}
-
-/** Prevents caching and referrer leakage for consent and error states. */
-export function headers(): Headers {
-  return new Headers(MCP_HTTP_HEADERS);
-}
-
-/** Authenticates through ordinary Pages login; opening this page never grants access. */
-export async function loader({
+/**
+ * Reads the consent view from the API; opening this page never grants
+ * access (PAGE-235).
+ */
+export async function clientLoader({
   request,
-  context,
-}: Route.LoaderArgs): Promise<Response> {
-  try {
-    await requireMcpHttp(request, context.get(clientSocketAddressContext));
-    if (!new URL(request.url).searchParams.has("request")) {
-      const code = normalizePairingCode(
-        new URL(request.url).searchParams.get("code"),
-      );
-      return redirect(code ? `/pair?code=${code}` : "/pair", {
-        headers: MCP_HTTP_HEADERS,
-      });
-    }
-    const browser = await browserIdentity(request);
-    const services = await getApplicationServices();
-    const user = await services.userService.getById(browser.userId);
-    const view: ConsentView = {
-      id: requestId(request),
-      ...(await services.oauthService.view(requestId(request), browser)),
-      account: `${user?.displayName ?? ""} (${user?.username ?? ""})`,
-    };
-    return Response.json(view, { headers: MCP_HTTP_HEADERS });
-  } catch (error: unknown) {
-    if (error instanceof Response) throw error;
-    throw mcpHttpFailure(error);
-  }
+}: Route.ClientLoaderArgs): Promise<ConsentView> {
+  return readRouteData({
+    endpoint: `/app-api/mcp-login${new URL(request.url).search}`,
+    signal: request.signal,
+    isPayload: isConsentView,
+  });
 }
 
-/** Explicit, CSRF-protected consent sends only a one-use code to the bound client redirect. */
-export async function action({
+/** Sends the consent decision to the API, which runs the page's action. */
+export async function clientAction({
   request,
-  context,
-}: Route.ActionArgs): Promise<Response> {
-  try {
-    await requireMcpHttp(request, context.get(clientSocketAddressContext));
-    requireAuthorizationOrigin(request);
-    if (request.method !== "POST")
-      throw new McpAuthorizationError("invalid_request", 405);
-    const browser = await browserIdentity(request);
-    const form = await request.formData();
-    const location = await (
-      await getApplicationServices()
-    ).oauthService.decide(
-      {
-        id: requestId(request),
-        csrf: form.get("csrf"),
-        decision: form.get("decision"),
-      },
-      browser,
-    );
-    return redirect(location, { headers: MCP_HTTP_HEADERS });
-  } catch (error: unknown) {
-    if (error instanceof Response) throw error;
-    throw mcpHttpFailure(error);
-  }
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Presents client, instance, account and lifetime before the deliberate browser decision. */

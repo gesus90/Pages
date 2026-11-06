@@ -6,8 +6,9 @@ import { planSessionReach } from "./AgentPlanSessionAccess";
 import { runnerLabel } from "./AgentPlanSessionRecords";
 import { planRecoveryTerms } from "./recovery/AgentPlanRecoveryPrompt";
 import { planTurnScope } from "./loop/AgentPlanLoopSession";
-import type { GroupSessionResume } from "./AgentPlanGroupSessions";
+import { sessionStart } from "./sessions/AgentSessionAttempts";
 
+import type { GroupSessionResume } from "./AgentPlanGroupSessions";
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanContract } from "@/definition/AgentPlanSession";
 import type { NodeRun } from "./AgentPlanStepContext";
@@ -98,6 +99,8 @@ export async function buildPlanSessionInput(
     directory,
     options: prepared.options,
     instanceId: terms.instanceId,
+    recording: sessionStart(node, terms.instanceId) ?? undefined,
+    acceptanceInstruction: prepared.instruction ?? node.step.step.instruction,
     mcp: terms.mcp,
     resumeSessionId,
     resourceContext: {

@@ -1,5 +1,5 @@
-import { strict as assert } from "node:assert";
 import path from "node:path";
+import { strict as assert } from "node:assert";
 
 import { Database } from "@/backend/database/Database";
 import { PostgresLocaleError } from "@/backend/database/postgres/PostgresLocale";
@@ -8,6 +8,7 @@ import { AgentConnectionRepository } from "@/backend/database/repositories/Agent
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import { InstanceSettingsRepository } from "@/backend/database/repositories/InstanceSettingsRepository";
+import { LiveChangeNotificationRepository } from "@/backend/database/repositories/LiveChangeNotificationRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -100,7 +101,7 @@ import { WIKI_PAGE_FLOW } from "./repositories/wiki-page-flows";
 import { WIKI_STATE_FLOW } from "./repositories/wiki-state-flows";
 import { createWorld } from "./repositories/world";
 import { runRepeatedSaveChecks } from "./repeated-save-checks";
-import { readMigrations } from "./schema-checks";
+import { readMigrations } from "../read-database-migrations";
 
 import type { PublicApi } from "./repositories/public-api";
 import type {
@@ -146,6 +147,7 @@ const AREA_CLASSES: Readonly<Record<string, { readonly prototype: object }>> = {
   AuthorizationRepository,
   GitHubRepository,
   InstanceSettingsRepository,
+  LiveChangeNotificationRepository,
   ProjectRepository,
   SessionRepository,
   TaskRepository,
@@ -292,33 +294,6 @@ async function runFlows(world: RepositoryWorld): Promise<StepOutcome[]> {
   return outcomes;
 }
 
-/**
- * Compares what the two databases did, step by step.
- *
- * @param duckdb - The steps on DuckDB.
- * @param postgres - The same steps on PostgreSQL.
- * @returns One text per step that failed or differs.
- */
-function findDifferences(
-  duckdb: readonly StepOutcome[],
-  postgres: readonly StepOutcome[],
-): readonly string[] {
-  const findings: string[] = [];
-  duckdb.forEach((expected, index) => {
-    const actual = postgres[index];
-    const { label } = expected;
-    if (!expected.isExpected)
-      findings.push(`${label}: DuckDB ${expected.text}`);
-    if (!actual?.isExpected)
-      findings.push(`${label}: PostgreSQL ${String(actual?.text)}`);
-    else if (actual.text !== expected.text)
-      findings.push(
-        `${label}:\n  DuckDB     ${expected.text}\n  PostgreSQL ${actual.text}`,
-      );
-  });
-  return findings;
-}
-
 /** Notes each call of a public method of the area, also behind a facade. */
 function watchCalls(api: PublicApi, called: Set<string>): void {
   assert.deepEqual(
@@ -360,40 +335,20 @@ function missingFromFlows(
   ];
 }
 
-/** A comparison that cannot fail proves nothing, so it has to find what is tampered with. */
-function checkComparisonFindsDifferences(
-  outcomes: readonly StepOutcome[],
-): void {
-  const [first] = outcomes;
-  assert.ok(first);
-  assert.equal(findDifferences([first], [first]).length, 0);
-  for (const tampered of [
-    { ...first, text: `${first.text} ` },
-    { ...first, isExpected: false },
-  ])
-    assert.equal(findDifferences([first], [tampered]).length, 1);
-  assert.equal(stableValue("2026-01-01 00:00:00"), "<time>");
-  assert.equal(stableValue("2026-01-01T00:00:00Z"), "2026-01-01T00:00:00Z");
-}
-
-async function withMigratedDatabases<Result>(
+async function withMigratedDatabase<Result>(
   instance: TemporaryPostgres,
   administration: Database,
-  work: (duckdb: Database, postgres: Database) => Promise<Result>,
+  work: (postgres: Database) => Promise<Result>,
 ): Promise<Result> {
   await administration.execute(`CREATE DATABASE ${REPOSITORY_DATABASE_NAME};`);
   const postgres = await Database.connect(
     instance.urlOfDatabase(REPOSITORY_DATABASE_NAME),
-  );
-  const duckdb = await Database.create(
-    path.join(instance.directory, "repository-check.duckdb"),
+    path.join(instance.directory, "repository-payloads"),
   );
   try {
     await postgres.migrate(await readMigrations("postgres/migrations"));
-    await duckdb.migrate(await readMigrations("migrations"));
-    return await work(duckdb, postgres);
+    return await work(postgres);
   } finally {
-    await duckdb.close();
     await postgres.close();
   }
 }
@@ -415,13 +370,16 @@ async function checkLocaleRefusal(
       Database.connect(instance.urlOfDatabase(name)),
       PostgresLocaleError,
     );
-    // Dropping only works when the refusal left no connection behind.
-    await administration.execute(`DROP DATABASE ${name};`);
+    const connections = await administration.query(
+      "SELECT count(*) FROM pg_stat_activity WHERE datname = $name;",
+      { name },
+    );
+    assert.deepEqual(connections, [[0]]);
   }
 }
 
 /**
- * Runs every public method of the area on PostgreSQL and on DuckDB and compares the results.
+ * Runs existing repository flows and their explicit PostgreSQL expectations.
  *
  * @param instance - The running server.
  * @param administration - An open connection to create the databases with.
@@ -438,25 +396,31 @@ export async function runRepositoryChecks(
   const api = await readPublicApi();
   const called = new Set<string>();
   watchCalls(api, called);
-  const { duckdb, postgres } = await withMigratedDatabases(
+  const outcomes = await withMigratedDatabase(
     instance,
     administration,
-    async (duckdbDatabase, postgresDatabase) => {
-      const duckdbOutcomes = await runFlows(createWorld(duckdbDatabase));
-      called.clear();
-      return {
-        duckdb: duckdbOutcomes,
-        postgres: await runFlows(createWorld(postgresDatabase)),
-      };
-    },
+    async (database) =>
+      runFlows(
+        createWorld(database, instance.urlOfDatabase(REPOSITORY_DATABASE_NAME)),
+      ),
   );
-  checkComparisonFindsDifferences(duckdb);
-  const differences = findDifferences(duckdb, postgres);
-  assert.equal(
-    differences.length,
-    0,
-    `The databases differ:\n${differences.join("\n")}`,
+  assert.deepEqual(
+    outcomes
+      .filter((outcome) => !outcome.isExpected)
+      .map((outcome) => `${outcome.label}: ${outcome.text}`),
+    [],
+    "Every repository step must have its expected outcome.",
   );
+  for (const outcome of outcomes) {
+    if (outcome.text.startsWith("refused:")) continue;
+    const value: unknown = JSON.parse(outcome.text);
+    if (typeof value === "object" && value !== null) {
+      if ("isAsApproved" in value)
+        assert.equal(value.isAsApproved, true, outcome.label);
+      if ("isAsKnown" in value)
+        assert.equal(value.isAsKnown, true, outcome.label);
+    }
+  }
   const missing = missingFromFlows(api, called);
   assert.deepEqual(missing, [], "No step reaches these public methods.");
   const methodCount = [...api.methods.values()].reduce(
@@ -467,6 +431,6 @@ export async function runRepositoryChecks(
     (step) => step.isRefusal,
   ).length;
   console.info(
-    `ok   repositories: ${String(api.files.length)} files, ${String(methodCount)} public methods and functions, ${String(duckdb.length)} steps with ${String(refusals)} refusals, same results in both databases`,
+    `ok   repositories: ${String(api.files.length)} files, ${String(methodCount)} public methods and functions, ${String(outcomes.length)} steps with ${String(refusals)} refusals and explicit PostgreSQL expectations`,
   );
 }

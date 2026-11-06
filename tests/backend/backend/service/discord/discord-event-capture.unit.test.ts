@@ -4,13 +4,18 @@ import { PermissionService } from "@/backend/auth/PermissionService";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import { AnnouncingTaskService } from "@/backend/service/AnnouncingTaskService";
 import { AgentTicketAnnouncer } from "@/backend/service/agents/AgentTicketAnnouncer";
+import { PagesEventIdentityError } from "@/backend/service/events/PagesEventPublisher";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { TaskService } from "@/backend/service/TaskService";
 import { taskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 
 import { DiscordWorld, ticketFacts } from "./discord-world";
 
-import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
+import type { TaskEventSink } from "@/backend/service/AnnouncingTaskService";
+import type {
+  AnnounceOptions,
+  PagesEvent,
+} from "@/backend/service/events/PagesEventPublisher";
 import type { WorkItemChecklistItem, WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
 
@@ -20,14 +25,47 @@ function createStub<Instance extends object>(type: {
   return Object.create(type.prototype);
 }
 
-function createService(events: PagesEvent[]): AnnouncingTaskService {
+/**
+ * The publisher's contract without a database: a call that threw or changed
+ * no row announces nothing, a call that changed rows needs its events.
+ */
+interface CapturingSink extends TaskEventSink {
+  /** Whether the next announced calls changed a row. */
+  hasChangedRows: boolean;
+}
+
+function createSink(deliver: (event: PagesEvent) => void): CapturingSink {
+  const sink: CapturingSink = {
+    hasChangedRows: true,
+    publish: deliver,
+    async announce<Result>(
+      work: () => Promise<Result>,
+      decide: (result: Result) => readonly PagesEvent[],
+      options: AnnounceOptions = {},
+    ): Promise<Result> {
+      const result = await work();
+      if (!sink.hasChangedRows) return result;
+      const announced = decide(result);
+      if (announced.length === 0 && !options.decidesChange)
+        throw new PagesEventIdentityError();
+      for (const event of announced) sink.publish(event);
+      return result;
+    },
+  };
+  return sink;
+}
+
+function createService(
+  events: PagesEvent[],
+  sink: CapturingSink = createSink((event) => events.push(event)),
+): AnnouncingTaskService {
   return new AnnouncingTaskService(
     {
       permissionService: createStub(PermissionService),
       projectService: createStub(ProjectService),
       taskRepository: createStub(TaskRepository),
     },
-    { publish: (event) => events.push(event) },
+    sink,
   );
 }
 
@@ -218,7 +256,8 @@ it("announces nothing for a change that was refused or rolled back", async () =>
 
 it("announces nothing for a change that wrote nothing", async () => {
   const events: PagesEvent[] = [];
-  const service = createService(events);
+  const sink = createSink((event) => events.push(event));
+  const service = createService(events, sink);
   const proto = TaskService.prototype;
 
   vi.spyOn(proto, "updateStatus").mockResolvedValue(detail("t1"));
@@ -231,23 +270,34 @@ it("announces nothing for a change that wrote nothing", async () => {
     detail("t1", "todo"),
   );
 
+  vi.spyOn(TaskRepository.prototype, "findChecklistItemById").mockResolvedValue(
+    null,
+  );
+
+  // The transaction of these calls changed no row.
+  sink.hasChangedRows = false;
   await service.updateStatus(ACTOR, "t1", {
     baseStatusId: "todo",
     statusId: "todo",
   });
   await service.updateMilestoneField(ACTOR, "m1", JSON.parse("{}"));
   await service.deleteChecklistItem(ACTOR, "c1");
-  // Moving a card inside its column changes no field a message states.
+  sink.hasChangedRows = true;
+  // Moving a card inside its column changes no field a message states; only
+  // the live view of open pages follows its `ticket.changed`.
   await service.updateStatusAndOrder(ACTOR, "t1", "todo", 3);
 
-  expect(events).toEqual([]);
+  expect(events).toEqual([{ id: "t1", type: "ticket.changed" }]);
 
   vi.spyOn(proto, "updateStatusAndOrder").mockResolvedValue(
     detail("t1", "done"),
   );
   await service.updateStatusAndOrder(ACTOR, "t1", "done", 0);
 
-  expect(events).toEqual([{ id: "t1", type: "ticket.updated" }]);
+  expect(events).toEqual([
+    { id: "t1", type: "ticket.changed" },
+    { id: "t1", type: "ticket.updated" },
+  ]);
 });
 
 it("turns a change made in the interface into a Discord message", async () => {
@@ -263,7 +313,7 @@ it("turns a change made in the interface into a Discord message", async () => {
       projectService: createStub(ProjectService),
       taskRepository: createStub(TaskRepository),
     },
-    world.publisher,
+    createSink((event) => world.publisher.publish(event)),
   );
 
   vi.spyOn(TaskService.prototype, "create").mockResolvedValue(detail("t1"));
@@ -340,12 +390,16 @@ it("announces the removal of a dependency for its source and the link of an init
 
 it("announces nothing when the removed dependency is unknown or the removal fails", async () => {
   const events: PagesEvent[] = [];
-  const service = createService(events);
+  const sink = createSink((event) => events.push(event));
+  const service = createService(events, sink);
   const proto = TaskService.prototype;
 
   vi.spyOn(proto, "findDependencies").mockResolvedValue([]);
   vi.spyOn(proto, "removeDependency").mockResolvedValueOnce();
+  // Removing an unknown dependency changes no row.
+  sink.hasChangedRows = false;
   await service.removeDependency(ACTOR, "alpha", "gone");
+  sink.hasChangedRows = true;
 
   vi.spyOn(proto, "findDependencies").mockRejectedValue(new Error("denied"));
   vi.spyOn(proto, "removeDependency").mockRejectedValue(new Error("denied"));

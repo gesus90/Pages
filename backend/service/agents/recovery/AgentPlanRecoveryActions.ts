@@ -1,7 +1,3 @@
-import {
-  recoveredAgentContext,
-  withRecoveredAgentContext,
-} from "./AgentPlanRecoveryContext";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -9,15 +5,18 @@ import {
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
 import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
-import { readPlanSnapshot } from "../AgentPlanSnapshot";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { logCaughtError } from "@/backend/logging/Logger";
-
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
 
+import {
+  recoveredAgentContext,
+  withRecoveredAgentContext,
+} from "./AgentPlanRecoveryContext";
+import { readPlanSnapshot } from "../AgentPlanSnapshot";
 import {
   checkSessionProcesses,
   needsNoSessionScan,
@@ -37,6 +36,7 @@ import {
   resumedLoopRuns,
 } from "./AgentPlanRecoveryPlanning";
 
+import type { PlanRunEnginePort } from "../runs/PlanRunEnginePort";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
   AgentPlanCheckpoint,
@@ -67,7 +67,7 @@ export interface RecoveryActionDependencies {
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly preparation: Pick<AgentPlanPreparation, "prepare">;
   readonly engine: Pick<AgentPlanRunEngine, "startRecovered"> &
-    Partial<Pick<AgentPlanRunEngine, "isActive">>;
+    Partial<Pick<PlanRunEnginePort, "isActive">>;
   readonly planRuns: Pick<
     AgentPlanRunRepository,
     "latest" | "hasReservation" | "release"
@@ -196,7 +196,8 @@ export class AgentPlanRecoveryActions {
       snapshot,
       facts: {
         run: source.run,
-        isEngineActive: this.dependencies.engine.isActive?.(runId) ?? true,
+        isEngineActive:
+          (await this.dependencies.engine.isActive?.(runId)) ?? true,
         plan,
         latest,
         isReserved,

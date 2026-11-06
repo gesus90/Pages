@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useActionData } from "react-router";
 import { BOARD_TICKET_UPDATE_INTENTS } from "@/app/lib/task-overlay-navigation";
 
-import type { action } from "@/app/routes/tasks";
+import type { action } from "@/app/routes/tasks-server";
 import type { ArchivedFilter } from "@/app/lib/tasks-view";
 import type { WorkItemDetail } from "@/definition/Task";
 import type { useTaskSelection } from "./use-task-selection";

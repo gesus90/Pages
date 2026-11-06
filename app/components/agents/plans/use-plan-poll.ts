@@ -34,6 +34,7 @@ function pollingHeaders(
 /** Whether an answer names an active run; a refusal or an answer without a run names none. */
 function namesActiveRun(result: AgentPlanActionResult): boolean {
   if (!result.ok) return false;
+  if (result.run?.command?.status === "accepted") return true;
   const status = result.run?.status ?? result.control?.status;
   return status !== undefined && isActivePlanRun(status);
 }

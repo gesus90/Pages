@@ -6,7 +6,7 @@ import {
   useSubmit,
 } from "react-router";
 
-import type { action } from "@/app/routes/tasks";
+import type { action } from "@/app/routes/tasks-server";
 import type { WorkItemDetail } from "@/definition/Task";
 
 function readFailure(answer: unknown): string | null {

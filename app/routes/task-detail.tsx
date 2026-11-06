@@ -10,18 +10,23 @@ import { TicketSidebar } from "@/app/components/tasks/ticket/ticket-sidebar";
 import { TicketTop } from "@/app/components/tasks/ticket/ticket-top";
 import { useTicketDialogs } from "@/app/components/tasks/ticket/use-ticket-dialogs";
 import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { PageContent } from "@/app/components/ui/card";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { publishesNewTasks } from "@/definition/Project";
+import {
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 import { WORK_ITEM_CHILD_TYPE } from "@/definition/Task";
-import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
-import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
-import { logCaughtError } from "@/backend/logging/Logger";
 
-import { action } from "./tasks";
-
-import type { ApplicationServices } from "@/app/lib/services.server";
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
@@ -42,24 +47,12 @@ import type { GroupSummary } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
 import type { Route } from "./+types/task-detail";
 
-export { action };
+/** The task view the visitor came from. */
+export type DetailViewMode =
+  "kanban" | "list" | "hierarchy" | "milestones" | "github";
 
-const DETAIL_VIEWS = [
-  "kanban",
-  "list",
-  "hierarchy",
-  "milestones",
-  "github",
-] as const;
-
-type DetailViewMode = (typeof DETAIL_VIEWS)[number];
-
-/** Reads the task view the visitor came from, falling back to the board. */
-export function parseDetailView(value: string | null): DetailViewMode {
-  return DETAIL_VIEWS.find((view) => view === value) ?? "kanban";
-}
-
-interface TaskDetailLoaderData {
+/** The ticket page as its endpoint answers it. */
+export interface TaskDetailLoaderData {
   readonly actor: User;
   readonly ticket: WorkItemDetail;
   readonly project: Project;
@@ -91,149 +84,60 @@ interface TaskDetailLoaderData {
   readonly publishesNewTasks: boolean;
   readonly departmentChoices: TicketDepartmentChoices;
   readonly templates: readonly WorkItemTemplateView[];
+  readonly audience: LocalStateAudience;
 }
 
-/** Loads the parent of a ticket; a parent the visitor may not open stays hidden. */
-async function loadParent(
-  services: ApplicationServices,
-  actor: User,
-  parentId: string | null,
-): Promise<WorkItemDetail | null> {
-  if (parentId === null) {
-    return null;
-  }
-
-  try {
-    return await services.taskService.getById(actor, parentId);
-  } catch (error: unknown) {
-    logCaughtError("task_detail", error);
-
-    // A parent from an inaccessible project stays hidden instead of
-    // failing the whole ticket view.
-    if (
-      error instanceof WorkItemNotFoundError ||
-      error instanceof ProjectAccessDeniedError
-    ) {
-      return null;
-    }
-
-    throw error;
-  }
+function isTaskDetailLoaderData(value: unknown): value is TaskDetailLoaderData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "ticket" in value &&
+    typeof value.ticket === "object" &&
+    value.ticket !== null &&
+    "project" in value &&
+    typeof value.project === "object" &&
+    "permissions" in value &&
+    typeof value.permissions === "object" &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
+  );
 }
 
-/** Loads one ticket with every relation from the database for instant display. */
-export async function loader({
-  context,
+/** The ticket page, kept per account, rights and address. */
+const TASK_DETAIL_STATE: LocalStateRouteKind<TaskDetailLoaderData> = {
+  schemaVersion: 1,
+  isPayload: isTaskDetailLoaderData,
+  isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
+  ownerOf: (page) => page.audience.userId,
+  isRefused: () => false,
+};
+
+/**
+ * Opens the ticket from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint runs the server loader with its permission checks; a missing
+ * or refused ticket shows the same error page as before.
+ */
+export async function clientLoader({
   params,
   request,
-}: Route.LoaderArgs): Promise<TaskDetailLoaderData> {
-  const actor = context.get(authenticatedUserContext);
-
-  if (!actor) {
-    throw new Error("Authenticated middleware did not provide a user.");
-  }
-
-  const ticketKey = params.ticketKey;
-
-  if (!ticketKey) {
-    throw new Response("Not Found", { status: 404 });
-  }
-
-  const services = await getApplicationServices();
-  let ticket: WorkItemDetail;
-
-  try {
-    ticket = await services.taskService.getByKey(actor, ticketKey);
-  } catch (error: unknown) {
-    logCaughtError("task_detail", error);
-
-    if (error instanceof WorkItemNotFoundError) {
-      throw new Response("Not Found", { status: 404 });
-    }
-
-    throw error;
-  }
-
-  const project = await services.projectService.getById(
-    actor,
-    ticket.projectId,
-  );
-  const projects = await services.projectService.findAll(actor);
-  const statuses = await services.taskService.findAllStatuses(actor);
-  const milestones = await services.taskService.findMilestones(actor, [
-    ticket.projectId,
-  ]);
-  const projectWorkItems = await services.taskService.findAll(actor, {
-    projectIds: [ticket.projectId],
-  });
-  const children = await services.taskService.findSubtasks(actor, ticket.id);
-  const history = await services.taskService.getHistory(actor, ticket.id);
-  const pullRequests = await services.gitHubSyncService.findPullRequestsForTask(
-    actor,
-    ticket.id,
-  );
-  const assignees = await services.taskService.findEligibleAssignees(
-    actor,
-    ticket.projectId,
-  );
-
-  const parent = await loadParent(services, actor, ticket.parentId);
-
-  const assigneesByProject: Record<string, readonly User[]> = {};
-
-  for (const candidate of projects) {
-    assigneesByProject[candidate.id] =
-      await services.taskService.findEligibleAssignees(actor, candidate.id);
-  }
-
-  const labels = await services.taskService.findLabels();
-  const taskLabels =
-    (await services.taskService.findLabelsForWorkItems([ticket.id])).get(
-      ticket.id,
-    ) ?? [];
-  const labelUsage = Object.fromEntries(
-    await services.taskService.countLabelUsage(actor),
-  );
+}: Route.ClientLoaderArgs): Promise<WithLocalState<TaskDetailLoaderData>> {
   const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), TASK_DETAIL_STATE, () =>
+    readRouteData({
+      endpoint: `/aufgaben-api/tickets/${encodeURIComponent(params.ticketKey)}${url.search}`,
+      signal: request.signal,
+      isPayload: isTaskDetailLoaderData,
+    }),
+  );
+}
 
-  return {
-    actor,
-    assigneeGroupIdsByProject:
-      await services.taskService.findAssigneeGroupIdsByProject(
-        actor,
-        assigneesByProject,
-      ),
-    assigneeGroups: await services.taskService.findAssigneeGroups(actor),
-    assignees,
-    assigneesByProject,
-    attachments: await services.taskAttachmentService.list(actor, ticket.id),
-    checklist: await services.taskService.findChecklistItems(actor, ticket.id),
-    children,
-    departmentChoices: await services.taskService.departmentChoices(actor),
-    fromView: parseDetailView(url.searchParams.get("from")),
-    history,
-    labelUsage,
-    descendants: await services.taskService.describeDescendants(
-      actor,
-      ticket.id,
-    ),
-    labels,
-    links: await services.taskService.findLinks(actor, ticket.id),
-    milestones,
-    parent,
-    permissions: await services.taskService.actionPermissions(actor),
-    project,
-    publishesNewTasks: publishesNewTasks(
-      await services.projectService.findIntegration(actor, ticket.projectId),
-    ),
-    projectWorkItems,
-    projects,
-    pullRequests,
-    statuses,
-    taskLabels,
-    templates: await services.taskTemplateService.findVisible(actor),
-    ticket,
-  };
+/** Sends a change of the ticket to the API, which runs the board's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Tells whether a form with one of the intents is being submitted. */
@@ -404,7 +308,10 @@ function TicketFooter({
 
 /** Provides the access hints of the loader to the ticket view. */
 export default function TaskDetailRoute(): React.ReactElement {
-  const loaderData = useLoaderData<typeof loader>();
+  const loaderData = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    TASK_DETAIL_STATE,
+  );
 
   return (
     <TicketAccessProvider

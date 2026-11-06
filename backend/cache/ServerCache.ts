@@ -1,5 +1,6 @@
 import { LRUCache } from "lru-cache";
 
+import { keepForCallCommit } from "@/backend/database/CallTransaction";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 /**
@@ -141,10 +142,11 @@ export class ServerCache {
       return;
     }
 
-    if (this.cache.delete(key)) {
-      this.invalidations += 1;
-      this.log("INVALIDATE", key);
-    }
+    this.removeExact(key);
+    // A read during an open call may cache the state before its commit again.
+    keepForCallCommit(async () => {
+      this.removeExact(key);
+    });
   }
 
   /**
@@ -161,13 +163,11 @@ export class ServerCache {
       return;
     }
 
-    for (const key of this.cache.keys()) {
-      if (prefixes.some((prefix) => key.startsWith(prefix))) {
-        this.cache.delete(key);
-        this.invalidations += 1;
-        this.log("INVALIDATE", key);
-      }
-    }
+    this.removePrefixes(prefixes);
+    // A read during an open call may cache the state before its commit again.
+    keepForCallCommit(async () => {
+      this.removePrefixes(prefixes);
+    });
   }
 
   /** Returns a snapshot of the cache counters. */
@@ -219,6 +219,23 @@ export class ServerCache {
   /** Removes cached GitHub states. */
   public invalidateGitHub(): void {
     this.invalidatePrefix("github:");
+  }
+
+  private removeExact(key: string): void {
+    if (this.cache.delete(key)) {
+      this.invalidations += 1;
+      this.log("INVALIDATE", key);
+    }
+  }
+
+  private removePrefixes(prefixes: readonly string[]): void {
+    for (const key of this.cache.keys()) {
+      if (prefixes.some((prefix) => key.startsWith(prefix))) {
+        this.cache.delete(key);
+        this.invalidations += 1;
+        this.log("INVALIDATE", key);
+      }
+    }
   }
 
   private log(event: "HIT" | "MISS" | "INVALIDATE", key: string): void {

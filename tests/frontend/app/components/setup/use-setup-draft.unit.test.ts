@@ -5,26 +5,34 @@ import { useSetupDraft } from "@/app/components/setup/use-setup-draft";
 
 import type { SetupDraft } from "@/app/components/setup/use-setup-draft";
 
-it("uses new server suggestions until the database path is edited", () => {
+it("uses new server suggestions until the database connection is edited", () => {
   const { result, rerender } = renderHook<SetupDraft, string | null>(
     useSetupDraft,
     {
       initialProps: null,
     },
   );
-  expect(result.current.values.databasePath).toBe("");
-  rerender("/suggested.duckdb");
-  expect(result.current.values.databasePath).toBe("/suggested.duckdb");
-  act(() => result.current.setField("databasePath", "/chosen.duckdb"));
-  rerender("/changed.duckdb");
-  expect(result.current.values.databasePath).toBe("/chosen.duckdb");
-  act(() => result.current.setField("databasePath", ""));
-  rerender("/another.duckdb");
-  expect(result.current.values.databasePath).toBe("");
+  expect(result.current.values.databaseUrl).toBe("");
+  rerender("postgresql://localhost/suggested");
+  expect(result.current.values.databaseUrl).toBe(
+    "postgresql://localhost/suggested",
+  );
+  act(() =>
+    result.current.setField("databaseUrl", "postgresql://localhost/chosen"),
+  );
+  rerender("postgresql://localhost/changed");
+  expect(result.current.values.databaseUrl).toBe(
+    "postgresql://localhost/chosen",
+  );
+  act(() => result.current.setField("databaseUrl", ""));
+  rerender("postgresql://localhost/another");
+  expect(result.current.values.databaseUrl).toBe("");
 });
 
 it("validates only the current step and preserves values when moving back", () => {
-  const { result } = renderHook(() => useSetupDraft("/pages.duckdb"));
+  const { result } = renderHook(() =>
+    useSetupDraft("postgresql://localhost/pages"),
+  );
   act(() => result.current.goBack());
   expect(result.current.stepIndex).toBe(0);
   act(() => result.current.goForward());
@@ -64,20 +72,22 @@ it("opens the first server-rejected step and clears only the edited error", () =
     result.current.showFieldErrors({
       companyName: "tooLong",
       username: "usernameTaken",
-      databasePath: "required",
+      databaseUrl: "required",
     }),
   );
   expect(result.current.step).toBe("company");
   act(() => result.current.setField("companyName", "Pages"));
   expect(result.current.fieldErrors).toEqual({
     username: "usernameTaken",
-    databasePath: "required",
+    databaseUrl: "required",
   });
   act(() => result.current.showFieldErrors({ email: "emailTaken" }));
   expect(result.current.step).toBe("administrator");
-  act(() => result.current.showFieldErrors({ databasePath: "required" }));
+  act(() => result.current.showFieldErrors({ databaseUrl: "required" }));
   expect(result.current.step).toBe("database");
-  act(() => result.current.setField("databasePath", "/chosen.duckdb"));
+  act(() =>
+    result.current.setField("databaseUrl", "postgresql://localhost/chosen"),
+  );
   expect(result.current.fieldErrors).toEqual({});
   act(() => result.current.showFieldErrors({}));
   expect(result.current.step).toBe("welcome");

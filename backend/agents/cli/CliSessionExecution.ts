@@ -13,7 +13,6 @@ import {
 import { providerToolIds } from "@/backend/service/agents/tools/AgentToolRegistry";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
-import { connectChild } from "./CliSessionChannel";
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -28,6 +27,7 @@ import {
 } from "@/definition/AgentConnection";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
+import { connectChild } from "./CliSessionChannel";
 import {
   assetSession,
   sessionAssetWorkspace,
@@ -507,13 +507,13 @@ export class CliSessionExecution implements PlanSessionRunner {
     isPidNamespace: boolean,
   ): Promise<AcpNamespaceOwner | undefined> {
     const resources = this.dependencies.resources;
-    if (!resources || !isPidNamespace) return undefined;
+    if (!isPidNamespace) return undefined;
     if (!child.processId) throw new AcpCleanupUnconfirmedError();
     const identity = await captureOwnedNamespace(child.processId);
     const namespace = limited.request.unit
       ? { ...identity, unit: limited.request.unit.name }
       : identity;
-    await resources.registerNamespace(input.instanceId, namespace);
+    await resources?.registerNamespace(input.instanceId, namespace);
     return namespace;
   }
 

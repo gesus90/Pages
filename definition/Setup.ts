@@ -1,21 +1,20 @@
 import { EMAIL_PATTERN, MINIMUM_PASSWORD_LENGTH } from "@/definition/User";
 
 /**
- * Results of checking the database path the setup wizard should use, in
- * the order the check runs.
+ * Results of checking the PostgreSQL connection used by the setup wizard.
  */
 export const DATABASE_LOCATION_STATUS = {
-  /** No path was entered. */
+  /** No connection was entered. */
   EMPTY: "empty",
-  /** The text is no absolute path of a `.duckdb` file. */
+  /** The text is not a PostgreSQL connection URL. */
   INVALID: "invalid",
-  /** The directory is missing or Pages cannot write there. */
+  /** The database cannot be reached or access was refused. */
   NOT_WRITABLE: "notWritable",
-  /** A Pages database is there; the setup opens it and keeps its data. */
+  /** Reserved for an existing database. */
   EXISTING: "existing",
-  /** Another file is there; Pages never overwrites it. */
+  /** The database contains objects and must not be overwritten. */
   FOREIGN: "foreign",
-  /** Nothing is there and Pages can create the database. */
+  /** The public schema is empty and reachable. */
   AVAILABLE: "available",
 } as const;
 
@@ -24,19 +23,15 @@ export type DatabaseLocationStatus =
   (typeof DATABASE_LOCATION_STATUS)[keyof typeof DATABASE_LOCATION_STATUS];
 
 /**
- * Tells whether the setup may continue with a checked database path.
+ * Tells whether setup may continue with a checked database connection.
  *
  * @param status - Outcome of the check.
- * @returns Whether a new database can be created or an existing Pages
- * database opened there.
+ * @returns Whether the chosen database is empty.
  */
 export function canUseDatabaseLocation(
   status: DatabaseLocationStatus,
 ): boolean {
-  return (
-    status === DATABASE_LOCATION_STATUS.AVAILABLE ||
-    status === DATABASE_LOCATION_STATUS.EXISTING
-  );
+  return status === DATABASE_LOCATION_STATUS.AVAILABLE;
 }
 
 /** Longest company name the setup accepts. */
@@ -51,12 +46,12 @@ export const MAXIMUM_PASSWORD_LENGTH = 1000;
 /** Longest email address the setup accepts, as in the user directory. */
 export const MAXIMUM_EMAIL_LENGTH = 320;
 
-/** Longest database path the setup accepts. */
-export const MAXIMUM_DATABASE_PATH_LENGTH = 4096;
+/** Longest database URL the setup accepts. */
+export const MAXIMUM_DATABASE_URL_LENGTH = 4096;
 
 /** Fields of the setup wizard that can be rejected. */
 export type SetupField =
-  "companyName" | "username" | "password" | "email" | "databasePath";
+  "companyName" | "username" | "password" | "email" | "databaseUrl";
 
 /** Why a setup field was rejected. */
 export type SetupFieldError =

@@ -60,7 +60,7 @@ export function parseMigrationSchema(
     .join("\n");
 
   const pattern =
-    /CREATE TABLE(?: IF NOT EXISTS)?\s+(\w+)\s*\(|ALTER TABLE\s+(\w+)\s+(ADD COLUMN\s+(\w+)|DROP COLUMN\s+(\w+)|RENAME TO\s+(\w+))|DROP TABLE(?: IF EXISTS)?\s+(\w+)/gi;
+    /CREATE TABLE(?: IF NOT EXISTS)?\s+(\w+)\s*\(|ALTER TABLE\s+(\w+)\s+(ADD COLUMN\s+"?(\w+)"?|DROP COLUMN\s+"?(\w+)"?|RENAME TO\s+(\w+))|DROP TABLE(?: IF EXISTS)?\s+(\w+)/gi;
   for (const match of statements.matchAll(pattern)) {
     const [, created, altered, , added, dropped, renamed, removed] = match;
     if (created) {

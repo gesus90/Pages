@@ -44,6 +44,9 @@ export function useTicketDescription(
   });
   const [isEditing, setIsEditing] = useState(false);
   useEffect(() => {
+    void descriptions.recover(ticket.id);
+  }, [descriptions, ticket.id]);
+  useEffect(() => {
     if (
       !isEditing &&
       Date.parse(ticket.updatedAt) > Date.parse(entry.base.updatedAt)
@@ -82,7 +85,7 @@ export function useTicketDescription(
       if (entry.current) descriptions.resolve(ticket.id, "theirs");
       else {
         descriptions.change(ticket.id, entry.base);
-        if (entry.hasUnconfirmedWrite) descriptions.save(ticket.id);
+        if (entry.pending) descriptions.save(ticket.id);
       }
       setIsEditing(false);
     },

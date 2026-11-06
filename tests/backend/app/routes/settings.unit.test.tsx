@@ -3,7 +3,8 @@ import { cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { listsAdminSettings } from "@/app/lib/settings-actions/settings-system-access.server";
-import SettingsLayoutRoute, { loader } from "@/app/routes/settings";
+import SettingsLayoutRoute from "@/app/routes/settings";
+import { loader } from "@/app/routes/settings-server";
 
 import {
   ACTOR,
@@ -18,6 +19,16 @@ afterEach(cleanup);
 
 const getContext = vi.hoisted(() => vi.fn());
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({
     administrationService: { getContext },
@@ -59,14 +70,14 @@ it("lists the admin areas for the visitor's account", async () => {
 
   await expect(
     loader(routeArguments(pagesRequest("/settings"), { user: ACTOR })),
-  ).resolves.toEqual({ canViewSystem: true });
+  ).resolves.toEqual({ canViewSystem: true, audience: AUDIENCE });
   expect(getContext).toHaveBeenCalledWith("user-1");
   expect(listsAdminSettings).toHaveBeenCalledWith(ACCOUNT);
 });
 
 it("renders the title, the navigation and the open area", () => {
   renderRoute(SettingsLayoutRoute, {
-    loaderData: { canViewSystem: false },
+    loaderData: { canViewSystem: false, audience: AUDIENCE },
     children: [
       { index: true, Component: (): React.ReactElement => <p>area</p> },
     ],

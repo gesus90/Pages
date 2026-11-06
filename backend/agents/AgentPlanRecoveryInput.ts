@@ -57,6 +57,7 @@ const acceptance = z.strictObject({
   decisions: z.array(z.string().max(2_000)).max(20),
   issues: z.array(z.string().max(500)).max(1_000),
   summary: z.string().max(2_000),
+  message: z.string().max(2_000).optional(),
 });
 const checkpoint = z.strictObject({
   schemaVersion: z.literal(1),
@@ -76,7 +77,7 @@ const checkpoint = z.strictObject({
     .array(
       z.strictObject({
         name: identifier,
-        kind: z.enum(["literal", "source", "result", "stack"]),
+        kind: z.enum(["literal", "source", "result", "previous", "stack"]),
         reference: identifier.nullable(),
         digest,
       }),

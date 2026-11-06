@@ -64,6 +64,8 @@ export class PagesRuntime {
     this.config = config;
     this.setupToken = config.firstRun ? SetupToken.create() : null;
     if (this.setupToken !== null) registerLogSecret(this.setupToken.value);
+    if (config.pagesCoreSecret !== undefined)
+      registerLogSecret(config.pagesCoreSecret);
   }
 
   /** Configuration file of the instance. */
@@ -78,7 +80,7 @@ export class PagesRuntime {
 
   /** Returns whether the setup wizard is available. */
   public isSetupPending(): boolean {
-    return this.config.firstRun;
+    return this.setupToken !== null;
   }
 
   /**
@@ -156,6 +158,11 @@ export class PagesRuntime {
   public finishSetup(config: CompletedSetupConfig): void {
     this.config = config;
     this.setupToken = null;
+  }
+
+  /** Stages or restores setup configuration without consuming the setup token. */
+  public stageSetup(config: PagesConfig): void {
+    this.config = config;
   }
 }
 

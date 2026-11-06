@@ -11,6 +11,8 @@ import { fakeChild } from "./fake-child-process";
 import type { CliHome } from "@/backend/agents/cli/CliContracts";
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 
+import type * as LoggerModule from "@/backend/logging/Logger";
+
 const boundary = vi.hoisted(() => ({
   hasToken: true,
   cleanupConfirmed: true,
@@ -37,7 +39,8 @@ vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
 vi.mock("@/backend/agents/cli/CliSessionCloseout", () => ({
   closeCliSession: boundary.close,
 }));
-vi.mock("@/backend/logging/Logger", () => ({
+vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
+  ...(await importOriginal<typeof LoggerModule>()),
   logEvent: vi.fn(),
   logCaughtError: vi.fn(),
 }));

@@ -8,13 +8,13 @@ import { hasNoSessionProcesses } from "./AgentPlanRecovery";
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentWorkspaceCleanup } from "@/definition/AgentWorkspaceCleanup";
-import type { AgentPlanRunEngine } from "./AgentPlanRunEngine";
+import type { PlanRunEnginePort } from "./runs/PlanRunEnginePort";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 
 interface CleanupDependencies {
   readonly obligations: AgentWorkspaceCleanupRepository;
   readonly runs: AgentPlanRunRepository;
-  readonly engine: AgentPlanRunEngine;
+  readonly engine: PlanRunEnginePort;
   readonly remote: AgentPlanRemoteExecution;
 }
 
@@ -77,7 +77,7 @@ export class AgentWorkspaceCleanupService {
     const current = await runs.find(run.id);
     if (!current) return;
     if (
-      !engine.isActive(run.id) &&
+      !(await engine.isActive(run.id)) &&
       !isActivePlanRun(current.status) &&
       (await hasNoSessionProcesses(current))
     ) {

@@ -3,6 +3,11 @@ import { AgentPlanProgressRepository } from "@/backend/database/repositories/age
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { retireRestartSource } from "@/backend/database/repositories/agent/AgentPlanResourceReservation";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import {
+  AgentPlanRunVisibilityRepository,
+  planRunResourcesOf,
+  readRunStatus,
+} from "@/backend/database/repositories/agent/AgentPlanRunVisibilityRepository";
 
 import {
   checkpointFixture,
@@ -103,6 +108,20 @@ export const PLAN_PROGRESS_FLOW: RepositoryFlow = {
       }),
     ),
     call("AgentPlanRunRepository.find", (world) => runs(world).find("run-a")),
+    call("AgentPlanRunVisibilityRepository.bases", ({ database }) =>
+      new AgentPlanRunVisibilityRepository(database).bases(RUN.userId, PLAN.id),
+    ),
+    call("AgentPlanRunRepository.visibilityBases", (world) =>
+      runs(world).visibilityBases(RUN.userId, PLAN.id),
+    ),
+    call("planRunResourcesOf", ({ database }) =>
+      new AgentPlanContinuationRepository(database)
+        .snapshotTexts("run-a")
+        .then((texts) => planRunResourcesOf(texts)),
+    ),
+    refused("planRunResourcesOf", async () => planRunResourcesOf([])),
+    call("readRunStatus", async () => readRunStatus("work_done_closeout_open")),
+    refused("readRunStatus", async () => readRunStatus("lost")),
     refused("AgentPlanProgressRepository.update", (world) =>
       progress(world).update({
         ...RUN,

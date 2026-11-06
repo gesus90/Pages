@@ -114,10 +114,28 @@ export class AgentPlanLoopIterationRunner {
     target: IterationTarget,
     running: Map<string, Promise<void>>,
   ): Promise<boolean> {
+    this.reattachRunning(target, running);
     if (!target.host.canDispatch() || this.hasEnded(target)) return false;
     if (await this.advance(target, running)) return true;
     await this.dispatch(target, running);
     return false;
+  }
+
+  private reattachRunning(
+    target: IterationTarget,
+    running: Map<string, Promise<void>>,
+  ): void {
+    for (const member of planLoopMembers(target.loop)) {
+      if (
+        nodeOf(this.iteration(target), member.id)?.status !== "running" ||
+        running.has(member.id)
+      )
+        continue;
+      const pending = this.execute(target, member).finally(() => {
+        running.delete(member.id);
+      });
+      running.set(member.id, pending);
+    }
   }
 
   private iteration(
@@ -166,7 +184,9 @@ export class AgentPlanLoopIterationRunner {
     running: ReadonlyMap<string, unknown>,
   ): readonly AgentPlanStepResult[] {
     return (this.iteration(target)?.nodes ?? []).filter(
-      (node) => node.status === "waiting" && !running.has(node.id),
+      (node) =>
+        (node.status === "waiting" || node.status === "running") &&
+        !running.has(node.id),
     );
   }
 

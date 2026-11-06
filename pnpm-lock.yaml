@@ -15,9 +15,6 @@ importers:
       '@agentclientprotocol/sdk':
         specifier: ^1.7.0
         version: 1.7.0(zod@4.6.5)
-      '@duckdb/node-api':
-        specifier: 1.5.5-r.5
-        version: 1.5.5-r.5
       '@floating-ui/dom':
         specifier: ^1.8.0
         version: 1.8.0
@@ -166,6 +163,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      '@duckdb/node-api':
+        specifier: 1.5.5-r.5
+        version: 1.5.5-r.5
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0

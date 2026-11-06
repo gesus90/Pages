@@ -68,8 +68,7 @@ export const REPEAT_SAVE_STEPS: readonly RepositoryStep[] = [
     ] as const satisfies readonly (readonly [string, RepositoryStep["run"]])[]
   ).map(([name, read]) =>
     call(name, async (world) => {
-      const expected =
-        world.database.dialect === "postgres" ? TEXT.replaceAll(NUL, "") : TEXT;
+      const expected = TEXT.replaceAll(NUL, "");
       assert.equal(await read(world), expected);
     }),
   ),
@@ -176,7 +175,7 @@ export const REPEAT_SAVE_STEPS: readonly RepositoryStep[] = [
     const isSaved = await new WorkItemWriteRepository(
       database,
     ).updateDescription("nul-repeat", TEXT, "Ziel");
-    return { isAsApproved: isSaved === (database.dialect === "postgres") };
+    return { isAsApproved: isSaved };
   }),
   // An archived ticket takes no save, repeated or not.
   prepare(

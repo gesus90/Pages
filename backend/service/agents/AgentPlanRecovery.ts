@@ -11,6 +11,7 @@ import {
 } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 
 import { endInterruptedScript } from "./AgentPlanScriptRecovery";
 import { cleanupScanFailure } from "./AgentPlanCleanupFailure";
@@ -113,6 +114,8 @@ async function settleSession(
   runStartedAt: string,
 ): Promise<{ readonly found: number; readonly remaining: number }> {
   try {
+    const managed = await settleManagedLocalOwner(session.instanceId);
+    if (managed !== null) return { found: 0, remaining: managed ? 0 : 1 };
     if (ownsNamespace(session)) {
       const hasEnded = await settleOwnedNamespace(
         session.namespace,
@@ -269,13 +272,16 @@ async function scanInstance(
 /** Adopts older interrupted sessions that predate the durable ACP capacity journal. */
 export function interruptedAcpOwners(
   runs: readonly AgentPlanRun[],
+  preserved: ReadonlySet<string> = new Set(),
 ): readonly AcpResourceOwner[] {
   return runs.flatMap((run) =>
     allPlanRunResults(run).flatMap((step) => {
       const session = step.session;
       if (
         !session ||
-        (session.closeout !== "pending" && session.closeout !== "failed") ||
+        (session.closeout !== "pending" &&
+          session.closeout !== "failed" &&
+          !preserved.has(session.instanceId)) ||
         session.runner === "api" ||
         !isAcpProvider(session.runner) ||
         session.mode !== "interactive"

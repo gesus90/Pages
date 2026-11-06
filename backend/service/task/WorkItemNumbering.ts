@@ -1,4 +1,5 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { beforeCallOpens } from "@/backend/database/CallTransaction";
 import { generateProjectKey } from "@/backend/service/task/ProjectKey";
 
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
@@ -49,17 +50,21 @@ export class WorkItemNumbering {
     work: (sequence: KeySequence) => Promise<Result>,
   ): Promise<Result> {
     return this.queue.run(async () => {
-      const defaultPrefix = generateProjectKey(project.name);
-      const projectKey = await this.taskRepository.findOrCreateProjectKey(
-        project.id,
-        defaultPrefix,
-      );
-      const firstNumber = await this.taskRepository.reserveNumbers(
-        project.id,
-        count,
-      );
+      // Reserved before the call writes, a number stays reserved even when the call rolls back.
+      const sequence = await beforeCallOpens(async () => {
+        const defaultPrefix = generateProjectKey(project.name);
+        const projectKey = await this.taskRepository.findOrCreateProjectKey(
+          project.id,
+          defaultPrefix,
+        );
+        const firstNumber = await this.taskRepository.reserveNumbers(
+          project.id,
+          count,
+        );
+        return { firstNumber, projectKey };
+      });
 
-      return work({ firstNumber, projectKey });
+      return work(sequence);
     });
   }
 }

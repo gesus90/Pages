@@ -2,12 +2,12 @@
 import { cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import { CHAT_NO_STORE } from "@/app/lib/chat-response.server";
-import PicaToolsRoute, { headers, loader } from "@/app/routes/pica-tools";
+import PicaToolsRoute from "@/app/routes/pica-tools";
+import { loader as dataLoader } from "@/app/routes/pica-tools-data";
+import { loader } from "@/app/routes/pica-tools-server";
 
 import {
   ACTOR,
-  headerArguments,
   i18n,
   pagesRequest,
   renderRoute,
@@ -19,6 +19,16 @@ afterEach(cleanup);
 
 const requireAdministrator = vi.hoisted(() => vi.fn());
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => ({
     picaAdminService: { requireAdministrator },
@@ -44,7 +54,7 @@ it("allows a current administrator", async () => {
 
   await expect(
     loader(routeArguments(pagesRequest("/pica-tools"), { user: ACTOR })),
-  ).resolves.toEqual({ isAllowed: true });
+  ).resolves.toEqual({ isAllowed: true, audience: AUDIENCE });
   expect(requireAdministrator).toHaveBeenCalledWith("user-1");
 });
 
@@ -56,12 +66,18 @@ it("refuses an account whose administrator right is gone", async () => {
   ).resolves.toEqual({ isAllowed: false });
 });
 
-it("keeps the page out of caches", () => {
-  expect(headers(headerArguments())).toBe(CHAT_NO_STORE);
+it("keeps the page out of caches", async () => {
+  const response = await dataLoader(
+    routeArguments(pagesRequest("/pica-tools-api/access"), { user: ACTOR }),
+  );
+
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
 });
 
 it("shows the panel to administrators", () => {
-  renderRoute(PicaToolsRoute, { loaderData: { isAllowed: true } });
+  renderRoute(PicaToolsRoute, {
+    loaderData: { isAllowed: true, audience: AUDIENCE },
+  });
 
   expect(screen.getByText("admin panel")).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();

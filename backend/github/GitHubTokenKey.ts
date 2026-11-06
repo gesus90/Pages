@@ -20,7 +20,10 @@ const TOKEN_KEY_BYTES = 32;
  * key is generated once beside the database with owner-only permissions.
  * The key never leaves the server process.
  */
-export function resolveGitHubTokenKey(databasePath: string): Buffer {
+export function resolveGitHubTokenKey(
+  databasePath: string,
+  options: { readonly allowCreate?: boolean } = {},
+): Buffer {
   const configuredKey = process.env[TOKEN_KEY_ENVIRONMENT_VARIABLE];
 
   if (configuredKey) {
@@ -60,6 +63,11 @@ export function resolveGitHubTokenKey(databasePath: string): Buffer {
 
     return Buffer.from(storedKey, "hex");
   }
+
+  if (options.allowCreate === false)
+    throw new Error(
+      "Integration service requires the existing instance token key.",
+    );
 
   const generatedKey = randomBytes(TOKEN_KEY_BYTES).toString("hex");
   mkdirSync(path.dirname(keyPath), { recursive: true });

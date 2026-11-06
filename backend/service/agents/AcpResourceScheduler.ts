@@ -1,20 +1,23 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
-import {
-  endTaggedProcesses,
-  readScopeSince,
-} from "@/backend/agents/cli/CliProcessScan";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
+import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
+import { endLeaseProcesses } from "./resources/AcpLeaseProcesses";
 import { AgentToolPreflightError } from "./tools/AgentToolReadinessError";
-import { readAcpAvailableMemory } from "./resources/AcpMemory";
+import {
+  readAcpAvailableMemory,
+  readScheduledAcpMemory,
+} from "./resources/AcpMemory";
 import { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
 
+import type { SchedulerDependencies } from "./resources/AcpSchedulerDependencies";
 import type {
   PlanSession,
   PlanSessionObserver,
@@ -31,27 +34,6 @@ import type {
 } from "@/definition/AcpResource";
 import type { AcpResourceStore } from "./resources/AcpResourceStore";
 
-interface SchedulerDependencies {
-  readonly store: AcpResourceStore;
-  readonly options?: Partial<AcpResourceOptions>;
-  readonly limitSource?: AcpResourceLimitSource;
-  readonly memory?: () => Promise<number | null>;
-  /** Ends the processes of a lease; `startedAt` is `null` when its start is unknown. */
-  readonly cleanup?: (
-    instanceId: string,
-    startedAt: string | null,
-  ) => Promise<{ readonly remaining: number }>;
-}
-
-/** A lease records its start before its runner exists, which bounds the start of its processes. */
-async function endLeaseProcesses(
-  instanceId: string,
-  startedAt: string | null,
-): Promise<{ readonly remaining: number }> {
-  const scope = startedAt === null ? null : await readScopeSince(startedAt);
-  return endTaggedProcesses(instanceId, scope);
-}
-
 /** Uncertain leases are checked again at most this often while they block admission. */
 const LEASE_RECHECK_MS = 60_000;
 
@@ -67,6 +49,8 @@ interface WaitingRequest {
 /** Shared FIFO admission for ACP processes, independent of DAG scheduling and provider. */
 export class AcpResourceScheduler {
   private readonly store: AcpResourceStore;
+  private readonly admission: AcpLeaseAdmission;
+  private optionsRevision = 0;
   private options: AcpResourceOptions;
   private limitSource: AcpResourceLimitSource;
   private readonly memory: () => Promise<number | null>;
@@ -78,6 +62,7 @@ export class AcpResourceScheduler {
   private readonly pausedRuns = new Set<string>();
   private readonly shutdownController = new AbortController();
   private readonly opening = new Set<Promise<PlanSession>>();
+  private unverifiedLocal: ReadonlySet<string> = new Set();
   private availableMemory: number | null = null;
   private problem: AcpResourceSnapshot["problem"] = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -89,6 +74,11 @@ export class AcpResourceScheduler {
 
   public constructor(dependencies: SchedulerDependencies) {
     this.store = dependencies.store;
+    this.admission = new AcpLeaseAdmission(
+      dependencies.store,
+      dependencies.recoveryScope ?? "all",
+      dependencies.readOptions,
+    );
     this.options = readAcpResourceOptions(dependencies.options, {});
     this.limitSource =
       dependencies.limitSource ??
@@ -109,10 +99,13 @@ export class AcpResourceScheduler {
   public async recover(
     legacyOwners: readonly AcpResourceOwner[] = [],
     retained: ReadonlySet<string> = new Set(),
+    preserved: ReadonlySet<string> = new Set(),
+    unverified: ReadonlySet<string> = new Set(),
   ): Promise<void> {
     if (this.isReady || this.isClosing)
       throw new Error("ACP scheduler already initialized");
-    const previous = await this.store.list();
+    const previous = await this.admission.recoverable();
+    this.unverifiedLocal = unverified;
     for (const record of previous) this.active.set(record.instanceId, record);
     // An adopted lease is dated now, after its processes started, so its start rules nothing out.
     const adopted = new Set<string>();
@@ -127,23 +120,8 @@ export class AcpResourceScheduler {
       adopted.add(record.instanceId);
       await this.persist(() => this.store.save(record));
     }
-    for (const record of this.active.values()) {
-      if (retained.has(record.instanceId)) {
-        await this.transition(record.instanceId, "cleanup_failed");
-        continue;
-      }
-      try {
-        const cleanup = await this.cleanupRecord(
-          record,
-          adopted.has(record.instanceId) ? null : record.since,
-        );
-        await this.finish(record.instanceId, cleanup.remaining === 0);
-      } catch (caughtError: unknown) {
-        logCaughtError("AcpResourceScheduler", caughtError);
-
-        await this.transition(record.instanceId, "cleanup_failed");
-      }
-    }
+    for (const record of this.active.values())
+      await this.recoverRecord(record, { preserved, retained, adopted });
     this.isReady = true;
     this.wake();
   }
@@ -171,12 +149,62 @@ export class AcpResourceScheduler {
   ): Promise<void> {
     await this.persist(async () => {
       const current = this.active.get(instanceId);
-      if (!current || current.state !== "starting")
+      if (
+        current?.namespace &&
+        JSON.stringify(current.namespace) === JSON.stringify(namespace)
+      )
+        return;
+      if (
+        !current ||
+        current.state === "closing" ||
+        current.state === "cleanup_failed"
+      )
         throw new Error("ACP reservation is not starting");
+      if (
+        current.namespace &&
+        JSON.stringify(current.namespace) !== JSON.stringify(namespace)
+      )
+        throw new Error("ACP namespace identity changed");
       const record = { ...current, namespace };
       await this.store.save(record);
       this.active.set(instanceId, record);
     });
+  }
+
+  /** Suspends queued requests of a paused run; existing sessions continue to own capacity. */
+  public async adoptSession(
+    instanceId: string,
+    session: PlanSession,
+    observer: PlanSessionObserver,
+  ): Promise<PlanSession> {
+    if (
+      !this.active.has(instanceId) ||
+      this.unverifiedLocal.has(instanceId) ||
+      session.isDurable !== true
+    )
+      throw new Error("ACP durable lease cannot be adopted");
+    const wrapped = new ScheduledAcpSession(
+      session,
+      {
+        transition: (state, stepId) =>
+          this.transition(instanceId, state, stepId),
+        finish: (isConfirmed) => this.finish(instanceId, isConfirmed),
+      },
+      observer,
+    );
+    this.sessions.set(instanceId, wrapped);
+    return wrapped;
+  }
+
+  /** Releases a recovered lease only after its trusted local owner proved native closeout. */
+  public async completeAdopted(
+    instanceId: string,
+    closed: { readonly isConfirmed: boolean },
+  ): Promise<void> {
+    if (this.unverifiedLocal.has(instanceId))
+      throw new Error("Unverified local lease");
+    if (this.active.has(instanceId))
+      await this.finish(instanceId, closed.isConfirmed);
   }
 
   /** Suspends queued requests of a paused run; existing sessions continue to own capacity. */
@@ -192,8 +220,12 @@ export class AcpResourceScheduler {
 
   /** Refreshes RAM for monitoring even while capacity is full or the queue is empty. */
   public async inspect(): Promise<AcpResourceSnapshot> {
+    await this.refreshOptions();
     await this.refreshMemory();
-    return this.snapshot();
+    return {
+      ...this.snapshot(),
+      active: await this.admission.records(this.pausedRuns),
+    };
   }
 
   /** Changes admission immediately and wakes FIFO waiters without interrupting occupied leases. */
@@ -203,6 +235,7 @@ export class AcpResourceScheduler {
     if (this.limitSource === "environment")
       throw new Error("ACP concurrency is controlled by the environment");
     this.options = { ...this.options, maxConcurrentAcpSessions: limit };
+    this.optionsRevision += 1;
     this.limitSource = "config";
     this.wake();
     return this.snapshot();
@@ -265,14 +298,52 @@ export class AcpResourceScheduler {
     this.shutdownController.abort();
     await Promise.allSettled([...this.opening]);
     await Promise.allSettled(
-      [...this.sessions.values()].map((session) => session.close()),
+      [...this.sessions.values()]
+        .filter((session) => !session.isDetached)
+        .map((session) => session.close()),
     );
+  }
+
+  private async recoverRecord(
+    record: AcpResourceRecord,
+    context: {
+      readonly preserved: ReadonlySet<string>;
+      readonly retained: ReadonlySet<string>;
+      readonly adopted: ReadonlySet<string>;
+    },
+  ): Promise<void> {
+    if (context.preserved.has(record.instanceId)) {
+      if (record.state === "closing" || record.state === "cleanup_failed")
+        await this.transition(record.instanceId, "running");
+      return;
+    }
+    if (context.retained.has(record.instanceId)) {
+      await this.transition(record.instanceId, "cleanup_failed");
+      return;
+    }
+    try {
+      const cleanup = await this.cleanupRecord(
+        record,
+        context.adopted.has(record.instanceId) ? null : record.since,
+      );
+      await this.finish(record.instanceId, cleanup.remaining === 0);
+    } catch (caughtError: unknown) {
+      logCaughtError("AcpResourceScheduler", caughtError);
+
+      await this.transition(record.instanceId, "cleanup_failed");
+    }
   }
 
   private async cleanupRecord(
     record: AcpResourceRecord,
     startedAt: string | null,
   ): Promise<{ readonly remaining: number }> {
+    if (this.unverifiedLocal.has(record.instanceId))
+      throw new Error(
+        "Local native owner is unverified; no cleanup is authorized",
+      );
+    const managed = await settleManagedLocalOwner(record.instanceId);
+    if (managed !== null) return { remaining: managed ? 0 : 1 };
     if (record.namespace)
       return {
         remaining: (await settleOwnedNamespace(
@@ -420,7 +491,14 @@ export class AcpResourceScheduler {
       });
   }
 
+  private async refreshOptions(): Promise<void> {
+    const revision = this.optionsRevision;
+    const options = await this.admission.options(this.options);
+    if (revision === this.optionsRevision) this.options = options;
+  }
+
   private async pump(): Promise<void> {
+    await this.refreshOptions();
     await this.recheckBlockingLeases();
     while (this.canAdmit()) {
       const request = this.waiting.find((entry) => !this.isPaused(entry));
@@ -449,7 +527,13 @@ export class AcpResourceScheduler {
       };
       this.active.set(record.instanceId, record);
       try {
-        await this.persist(() => this.store.save(record));
+        const reserved = await this.persist(() =>
+          this.admission.reserve(record, this.admissionCap()),
+        );
+        if (!reserved) {
+          this.deferRequest(request);
+          return;
+        }
         request.resolve();
       } catch (caughtError: unknown) {
         logCaughtError("AcpResourceScheduler", caughtError);
@@ -462,6 +546,16 @@ export class AcpResourceScheduler {
         request.reject(new Error("ACP reservation could not be persisted"));
       }
     }
+  }
+
+  private deferRequest(request: WaitingRequest): void {
+    this.active.delete(request.owner.instanceId);
+    if (request.signal.aborted) {
+      request.reject(new AgentPlanCancelledError());
+      return;
+    }
+    this.waiting.unshift(request);
+    request.signal.addEventListener("abort", request.abort, { once: true });
   }
 
   private async transition(
@@ -541,17 +635,7 @@ export class AcpResourceScheduler {
   }
 
   private async refreshMemory(): Promise<void> {
-    try {
-      const available = await this.memory();
-      this.availableMemory =
-        available !== null && Number.isFinite(available) && available >= 0
-          ? available
-          : null;
-    } catch (caughtError: unknown) {
-      logCaughtError("AcpResourceScheduler", caughtError);
-
-      this.availableMemory = null;
-    }
+    this.availableMemory = await readScheduledAcpMemory(this.memory);
   }
 
   private isPaused(request: WaitingRequest): boolean {

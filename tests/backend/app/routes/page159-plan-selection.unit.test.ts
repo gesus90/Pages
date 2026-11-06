@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { planSelectionCookie } from "@/app/lib/agent-plan-selection";
 import { lastSelectedPlan } from "@/app/lib/agent-plan-selection.server";
-import { loader } from "@/app/routes/agent-plans";
+import { loader } from "@/app/routes/agent-plans-server";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { TICKET_ACTOR } from "../../backend/service/agents/page55-ticket-fixture";
@@ -16,6 +16,16 @@ const service = vi.hoisted(() => ({
   play: vi.fn(),
   resume: vi.fn(),
   save: vi.fn(),
+}));
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
 }));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async () => ({ agentPlanService: service }),

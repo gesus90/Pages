@@ -8,6 +8,15 @@ import { useTicketDescription } from "@/app/components/tasks/description/use-tic
 
 import { wikiPage } from "./draft-fixture";
 
+/** The drafts of a page without a signed-in account, kept only in memory. */
+function AnonymousDrafts({
+  children,
+}: {
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  return <DraftProvider ownerId={null}>{children}</DraftProvider>;
+}
+
 // The backend scope has no global test setup that unmounts rendered components.
 afterEach(cleanup);
 
@@ -24,7 +33,7 @@ it("preserves wiki input through a lost connection and reports success only afte
     );
   vi.stubGlobal("fetch", fetcher);
   const { result } = renderHook(() => useWikiDraft(wikiPage()), {
-    wrapper: DraftProvider,
+    wrapper: AnonymousDrafts,
   });
   act(() =>
     result.current.setDraft({ ...result.current.draft, content: "Keep" }),
@@ -57,7 +66,7 @@ it("retains a rejected wiki edit and both versions of a conflict until a person 
     );
   vi.stubGlobal("fetch", fetcher);
   const { result, rerender } = renderHook(({ page }) => useWikiDraft(page), {
-    wrapper: DraftProvider,
+    wrapper: AnonymousDrafts,
     initialProps: { page: wikiPage() },
   });
   act(() =>
@@ -91,7 +100,7 @@ it("lets the person take the other wiki text and prevents a subsequent stale loa
       ),
   );
   const { result, rerender } = renderHook(({ page }) => useWikiDraft(page), {
-    wrapper: DraftProvider,
+    wrapper: AnonymousDrafts,
     initialProps: { page: wikiPage() },
   });
   act(() =>
@@ -129,7 +138,7 @@ it("keeps a ticket conflict across new loader data and only overwrites its expli
   };
   const { result, rerender } = renderHook(
     ({ loaded }) => useTicketDescription(loaded),
-    { wrapper: DraftProvider, initialProps: { loaded: ticket } },
+    { wrapper: AnonymousDrafts, initialProps: { loaded: ticket } },
   );
   act(() => result.current.change("Mine"));
   await act(async () => result.current.save());
@@ -161,7 +170,7 @@ it("keeps the editor's original base when another person saves before the first 
   };
   const { result, rerender } = renderHook(
     ({ ticket }) => useTicketDescription(ticket),
-    { wrapper: DraftProvider, initialProps: { ticket: original } },
+    { wrapper: AnonymousDrafts, initialProps: { ticket: original } },
   );
   act(() => result.current.startEditing());
   rerender({
@@ -200,7 +209,7 @@ it("cancels a ticket conflict by taking the confirmed remote text without anothe
         description: "Old",
         updatedAt: "2026-10-15 10:00:00",
       }),
-    { wrapper: DraftProvider },
+    { wrapper: AnonymousDrafts },
   );
   act(() => result.current.change("Mine"));
   await act(async () => result.current.save());

@@ -1,4 +1,4 @@
-import type { DatabaseWorkerState } from "@/backend/database/executor/DatabaseWorkerClient";
+import type { DatabaseWorkerState } from "@/backend/database/DatabaseExecutorTypes";
 import type { ApplicationServices } from "./services.server";
 
 /**

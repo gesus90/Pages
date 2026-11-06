@@ -52,7 +52,7 @@ it("preserves restore semantics for archived rows", async () => {
   vi.mocked(database.query).mockResolvedValue([["root"]]);
   await expect(
     new TaskRepository(database).restoreMany(["root"]),
-  ).resolves.toBeUndefined();
+  ).resolves.toEqual(["root"]);
   expect(database.query).toHaveBeenCalledWith(
     expect.stringContaining("AND archived_at IS NOT NULL"),
     { item_id_0: "root" },

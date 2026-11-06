@@ -4,7 +4,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { sessionCookie } from "@/app/lib/session.server";
-import LoginRoute, { action, loader } from "@/app/routes/login";
+import LoginRoute from "@/app/routes/login";
+import { action, loader } from "@/app/routes/login-server";
 import { TooManyLoginAttemptsError } from "@/backend/auth/LoginThrottle";
 import { logCaughtError } from "@/backend/logging/Logger";
 

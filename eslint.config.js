@@ -34,6 +34,7 @@ export default tseslint.config(
       ".react-router/**",
       "**/dist/**",
       "mobile/**",
+      "core/target/**",
     ],
   },
   {

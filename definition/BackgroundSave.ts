@@ -1,9 +1,17 @@
 import { z } from "zod";
 
-/** Orders attempts within the lifetime of one browser document and object. */
+/**
+ * Orders attempts within the lifetime of one browser document and object.
+ *
+ * @remarks
+ * `operationId` names the save itself. The browser keeps it, also across a
+ * reload, until the server confirmed or refused the save, and repeats an
+ * unconfirmed save with it, so a repetition never changes anything twice.
+ */
 export const draftOrderSchema = z.object({
   streamId: z.uuid(),
   sequence: z.number().int().positive(),
+  operationId: z.uuid(),
 });
 
 /** The revision-controlled fields of a wiki edit. */

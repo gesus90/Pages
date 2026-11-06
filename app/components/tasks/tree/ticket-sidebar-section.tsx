@@ -2,16 +2,34 @@ import { Columns3, ListTree } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useParams, useRouteLoaderData } from "react-router";
 
+import {
+  createLocalStateLayoutAnswers,
+  useLocalStateLayout,
+} from "@/app/components/common/use-local-state-layout";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 import { TICKET_LAYOUT_ROUTE_ID } from "@/app/lib/ticket-tree";
+import {
+  readTicketTree,
+  TICKET_TREE_ENDPOINT,
+  TICKET_TREE_STATE,
+} from "@/app/lib/ticket-tree-state";
 
 import { ProjectRow, TreeChildren } from "./ticket-tree-rows";
 import { useTicketTree } from "./use-ticket-tree";
 
-import type { loader as tasksLoader } from "@/app/routes/tasks";
+import type { LocalStateLayoutSource } from "@/app/components/common/use-local-state-layout";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
+import type { loader as tasksLoader } from "@/app/routes/tasks-server";
 import type { TicketLayoutData } from "@/app/routes/tasks-layout";
 import type { TreeRowContext } from "./ticket-tree-rows";
+
+/** The tree's kept answers do not depend on the address. */
+const TICKET_TREE_SOURCE: LocalStateLayoutSource<TicketLayoutData> = {
+  route: TICKET_TREE_ENDPOINT,
+  read: readTicketTree,
+  answers: createLocalStateLayoutAnswers(),
+};
 
 interface TicketSidebarSectionProps {
   /** Called when a link was followed, so the mobile menu can close. */
@@ -129,7 +147,13 @@ function TicketNavigation({
 export function TicketSidebarSection({
   onNavigate,
 }: TicketSidebarSectionProps): React.ReactElement | null {
-  const layout = useRouteLoaderData<TicketLayoutData>(TICKET_LAYOUT_ROUTE_ID);
+  const layout = useLocalStateLayout(
+    useRouteLoaderData<WithLocalState<TicketLayoutData>>(
+      TICKET_LAYOUT_ROUTE_ID,
+    ),
+    TICKET_TREE_STATE,
+    TICKET_TREE_SOURCE,
+  );
 
   if (!layout) {
     return null;

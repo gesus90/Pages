@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import { useDatabasePathCheck } from "@/app/components/setup/use-database-path-check";
+import { useDatabaseUrlCheck } from "@/app/components/setup/use-database-path-check";
 
 import type { SetupActionData } from "@/app/lib/setup/setup-action-data";
 
@@ -18,9 +18,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-it("does not check a blank path", () => {
+it("does not check a blank connection", () => {
   const { result } = renderHook(() =>
-    useDatabasePathCheck("test-token", "  ", vi.fn()),
+    useDatabaseUrlCheck("test-token", "  ", vi.fn()),
   );
   act(() => {
     vi.advanceTimersByTime(1000);
@@ -36,27 +36,33 @@ it("does not check a blank path", () => {
 it("debounces typing and cancels the check on unmount", () => {
   const rejected = vi.fn();
   const { result, rerender, unmount } = renderHook(
-    ({ path, token }) => useDatabasePathCheck(token, path, rejected),
-    { initialProps: { path: "/old.duckdb", token: "test-token" } },
+    ({ path, token }) => useDatabaseUrlCheck(token, path, rejected),
+    {
+      initialProps: { path: "postgresql://localhost/old", token: "test-token" },
+    },
   );
   expect(result.current.isChecking).toBe(true);
   act(() => {
     vi.advanceTimersByTime(399);
   });
   expect(fetcher.submit).not.toHaveBeenCalled();
-  rerender({ path: "/new.duckdb", token: "new-test-token" });
+  rerender({ path: "postgresql://localhost/new", token: "new-test-token" });
   act(() => {
     vi.advanceTimersByTime(400);
   });
   expect(fetcher.submit).toHaveBeenCalledExactlyOnceWith(
     {
-      databasePath: "/new.duckdb",
-      intent: "check-database-path",
+      databaseUrl: "postgresql://localhost/new",
+      requestId: "1",
+      intent: "check-database-connection",
       token: "new-test-token",
     },
     { action: "/setup", method: "post" },
   );
-  rerender({ path: "/cancelled.duckdb", token: "new-test-token" });
+  rerender({
+    path: "postgresql://localhost/cancelled",
+    token: "new-test-token",
+  });
   unmount();
   act(() => {
     vi.advanceTimersByTime(1000);
@@ -64,23 +70,26 @@ it("debounces typing and cancels the check on unmount", () => {
   expect(fetcher.submit).toHaveBeenCalledTimes(1);
 });
 
-it("never presents a stale answer as the status of the current path", () => {
+it("never presents a stale answer as the status of the current connection", () => {
   const { result, rerender } = renderHook(
-    (path) => useDatabasePathCheck("test-token", path, vi.fn()),
-    { initialProps: "/current.duckdb" },
+    (path) => useDatabaseUrlCheck("test-token", path, vi.fn()),
+    { initialProps: "postgresql://localhost/current" },
   );
+  act(() => {
+    vi.advanceTimersByTime(400);
+  });
   fetcher.data = {
-    intent: "check-database-path",
-    location: { input: "/old.duckdb", status: "available" },
+    intent: "check-database-connection",
+    location: { input: "0", status: "available" },
   };
-  rerender("/current.duckdb");
+  rerender("postgresql://localhost/current");
   expect(result.current.status).toBeNull();
   expect(result.current.isChecking).toBe(true);
   fetcher.data = {
-    intent: "check-database-path",
-    location: { input: "/current.duckdb", status: "foreign" },
+    intent: "check-database-connection",
+    location: { input: "1", status: "foreign" },
   };
-  rerender("/current.duckdb");
+  rerender("postgresql://localhost/current");
   expect(result.current).toEqual({
     status: "foreign",
     isChecking: false,
@@ -91,9 +100,9 @@ it("never presents a stale answer as the status of the current path", () => {
 it("reports a network failure and delivers each new rejection once", () => {
   const rejected = vi.fn();
   const { result, rerender } = renderHook(() =>
-    useDatabasePathCheck("test-token", "/pages.duckdb", rejected),
+    useDatabaseUrlCheck("test-token", "postgresql://localhost/pages", rejected),
   );
-  fetcher.data = { intent: "check-database-path", error: "network" };
+  fetcher.data = { intent: "check-database-connection", error: "network" };
   rerender();
   expect(result.current).toEqual({
     status: null,
@@ -101,11 +110,14 @@ it("reports a network failure and delivers each new rejection once", () => {
     isChecking: false,
   });
   expect(rejected).not.toHaveBeenCalled();
-  fetcher.data = { intent: "check-database-path", error: "invalidToken" };
+  fetcher.data = { intent: "check-database-connection", error: "invalidToken" };
   rerender();
   rerender();
   expect(rejected).toHaveBeenCalledExactlyOnceWith("invalidToken");
-  fetcher.data = { intent: "check-database-path", error: "alreadyCompleted" };
+  fetcher.data = {
+    intent: "check-database-connection",
+    error: "alreadyCompleted",
+  };
   rerender();
   expect(rejected).toHaveBeenLastCalledWith("alreadyCompleted");
 });

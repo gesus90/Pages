@@ -7,6 +7,7 @@ import {
   createCliTerminalCommand,
   quoteCliArgument,
 } from "@/backend/agents/cli/CliEnvironment";
+import { withLogContext } from "@/backend/logging/Logger";
 
 import type { CliHome } from "@/backend/agents/cli/CliContracts";
 
@@ -24,7 +25,9 @@ afterEach(() => {
 
 describe("createCliEnvironment", () => {
   it("builds the isolated base environment from the connection home", () => {
-    const environment = createCliEnvironment(HOME, "codex_cli", EXECUTABLE, {});
+    const environment = withLogContext({ correlationId: "cli-trigger" }, () =>
+      createCliEnvironment(HOME, "codex_cli", EXECUTABLE, {}),
+    );
     expect(environment).toMatchObject({
       HOME: HOME.home,
       XDG_CONFIG_HOME: path.join(HOME.home, "config"),
@@ -35,6 +38,7 @@ describe("createCliEnvironment", () => {
       TERM: "dumb",
       NO_COLOR: "1",
       CODEX_HOME: HOME.config,
+      PAGES_CORRELATION_ID: "cli-trigger",
     });
   });
 

@@ -36,3 +36,16 @@ export interface GitHubSyncSummary {
   readonly conflicts: number;
   readonly pullRequests: number;
 }
+
+/** Whether a synchronization run changed any ticket or link. */
+export function hasSyncChanges(summary: GitHubSyncSummary): boolean {
+  return (
+    summary.pushed +
+      summary.pulled +
+      summary.created +
+      summary.detected +
+      summary.conflicts +
+      summary.pullRequests >
+    0
+  );
+}

@@ -4,6 +4,11 @@ import path from "node:path";
 
 import pino from "pino";
 
+import {
+  CORRELATION_ENVIRONMENT_VARIABLE,
+  CORRELATION_ID_PATTERN,
+} from "@/definition/RequestCorrelation";
+
 import { DailyLogWriter } from "./DailyLogWriter";
 import { takeUnscopedDatabaseLogMetrics } from "./DatabaseLogMetrics";
 import { logDate, LOG_TIME_ZONE } from "./LogCalendar";
@@ -50,6 +55,11 @@ const selectedLogLevel = LOG_LEVELS.find(
 
 const instanceId = randomUUID();
 const context = new AsyncLocalStorage<LogContext>();
+const inheritedCorrelationId = process.env[CORRELATION_ENVIRONMENT_VARIABLE];
+const processLogContext: LogContext =
+  inheritedCorrelationId && CORRELATION_ID_PATTERN.test(inheritedCorrelationId)
+    ? { correlationId: inheritedCorrelationId }
+    : {};
 const writer = new DailyLogWriter(instanceId);
 const reportedErrors = new WeakMap<object, string>();
 let retention: LogRetention | null = null;
@@ -122,7 +132,7 @@ export function logEvent(event: ServerLogEvent): void {
         component: event.component
           .replace(/[^a-zA-Z0-9_.-]/gu, "_")
           .slice(0, 80),
-        ...safeLogMetadata({ ...context.getStore() }),
+        ...safeLogMetadata({ ...currentLogContext() }),
         metadata: safeLogMetadata(event.metadata),
         ...(errorId === null
           ? {}
@@ -229,12 +239,37 @@ export function withLogContext<Result>(
   facts: LogContext,
   work: () => Result,
 ): Result {
-  return context.run({ ...context.getStore(), ...facts }, work);
+  return context.run({ ...currentLogContext(), ...facts }, work);
 }
 
-/** Configures the directory before reading configuration, preserving queued bootstrap events. */
-export async function initializeLogging(configPath: string): Promise<void> {
-  const directory = path.join(path.dirname(configPath), "log");
+/** Returns tracing facts of this work, adopting a validated worker environment at startup. */
+export function currentLogContext(): LogContext {
+  return context.getStore() ?? processLogContext;
+}
+
+/** Captures the trigger's tracing facts, assigning an identifier to work without a trigger. */
+export function captureLogContext(): LogContext {
+  return {
+    ...currentLogContext(),
+    correlationId: currentLogContext().correlationId ?? randomUUID(),
+  };
+}
+
+/**
+ * Configures the directory before reading configuration, preserving queued bootstrap events.
+ *
+ * @param configPath - The instance's `config.toml`; the logs live next to it.
+ * @param subdirectory - Own directory below the instance logs for a process
+ * that must not take the single writer lock of the instance's files from the
+ * API, such as the static app's entrance (PAGE-235).
+ */
+export async function initializeLogging(
+  configPath: string,
+  subdirectory?: string,
+): Promise<void> {
+  const logs = path.join(path.dirname(configPath), "log");
+  const directory =
+    subdirectory === undefined ? logs : path.join(logs, subdirectory);
   await writer.start(directory);
   retention ??= new LogRetention(directory, writer, logEvent);
   databaseMetricsTimer ??= setInterval(flushUnscopedDatabaseMetrics, 5_000);

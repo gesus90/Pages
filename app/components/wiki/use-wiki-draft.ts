@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import { useDraftStores } from "@/app/components/common/draft-provider";
 import { wikiPagePath } from "@/app/lib/wiki-tree";
@@ -54,6 +54,11 @@ export interface WikiDraftState {
    * typed is unsaved.
    */
   readonly adopt: (page: WikiPage) => boolean;
+  /**
+   * Takes over the draft this browser kept for the page, such as before a
+   * reload, and resolves with its text; `null` when there is none to take.
+   */
+  readonly recover: () => Promise<string | null>;
 }
 
 /** Retains the wiki draft and its writes above route lifetimes. */
@@ -70,6 +75,12 @@ export function useWikiDraft(page: WikiPage): WikiDraftState {
     return { ...page, ...entry.base };
   }, [page, entry.base]);
   const current = entry.current ? { ...page, ...entry.current } : null;
+
+  const pageId = page.id;
+  const recover = useCallback(
+    async () => (await wiki.recover(pageId))?.content ?? null,
+    [wiki, pageId],
+  );
 
   useEffect(() => {
     if (page.revision > entry.base.revision) {
@@ -101,6 +112,7 @@ export function useWikiDraft(page: WikiPage): WikiDraftState {
           takeTheirs: () => wiki.resolve(page.id, "theirs"),
         }
       : null,
+    recover,
     adopt: (next) =>
       next.revision > entry.base.revision &&
       wiki.adopt(page.id, wikiSaveContentSchema.parse(next)),

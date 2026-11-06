@@ -20,8 +20,7 @@ export class TicketAssetMigrationRepository {
   public async checkpoint(): Promise<void> {
     // PostgreSQL has no write-ahead log of its own to flush for a file copy, and
     // CHECKPOINT needs rights the Pages role does not hold.
-    if (this.database.dialect === "postgres") return;
-    await this.database.execute("CHECKPOINT;");
+    return;
   }
 
   /** Changes all verified relative paths in one commit. */

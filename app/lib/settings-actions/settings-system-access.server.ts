@@ -38,6 +38,22 @@ export function listsAdminSettings(account: AccountAccess): boolean {
 }
 
 /**
+ * Tells whether an account may use the system settings right now, without a thrown answer.
+ *
+ * @param services - Services of the request.
+ * @param user - The signed-in user.
+ * @returns `true` exactly when {@link resolveSystemSettingsAccess} grants access.
+ */
+export async function isSystemSettingsGranted(
+  services: ApplicationServices,
+  user: User,
+): Promise<boolean> {
+  return listsAdminSettings(
+    await services.administrationService.getContext(user.id),
+  );
+}
+
+/**
  * Decides how an account may use the system settings.
  *
  * @param services - Services of the request.

@@ -18,6 +18,7 @@ import {
 import type {
   Database,
   DatabaseTransaction,
+  SqlParameters,
 } from "@/backend/database/Database";
 import type { ProjectDeletionDetails } from "@/backend/database/repositories/ProjectRepository";
 import type { StoredAgentOperation } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
@@ -38,6 +39,12 @@ export interface ProjectData {
   readonly files: ProjectDeletionFiles;
 }
 
+/** One row the deletion appended to the Pages event outbox. */
+export interface RecordedOutboxEvent {
+  readonly kind: string;
+  readonly objectId: string;
+}
+
 /** What outlives a deletion, counted so a test can see it unchanged. */
 export interface SharedObjects {
   people: number;
@@ -45,6 +52,26 @@ export interface SharedObjects {
   departments: number;
   agents: number;
   templates: number;
+}
+
+/**
+ * Reads the row of a Pages event outbox insert.
+ *
+ * @param statement - The statement a repository wrote.
+ * @param parameters - Its bound values.
+ * @returns Kind and object of the appended event.
+ * @throws {Error} For every other write, so an unplanned change stays visible.
+ */
+export function readOutboxInsert(
+  statement: string,
+  parameters: SqlParameters = {},
+): RecordedOutboxEvent {
+  if (!statement.includes("INSERT INTO pages_event_outbox"))
+    throw new Error("Unexpected database write");
+  const { kind, object_id: objectId } = parameters;
+  if (typeof kind !== "string" || typeof objectId !== "string")
+    throw new Error("Malformed outbox event");
+  return { kind, objectId };
 }
 
 function emptyCounts(): ProjectDeletionScope["counts"] {
@@ -85,6 +112,8 @@ export class ProjectDeletionWorld {
       this.steps.push("files");
     }),
   } satisfies ProjectDeletionEffects;
+  /** Rows of the Pages event outbox, rolled back with the transaction. */
+  public readonly events: RecordedOutboxEvent[] = [];
   /** When set, the deletion removes part of the data and then fails. */
   public failDeletionWith: Error | null = null;
   public readonly service: AgentProjectDeletionService;
@@ -92,8 +121,9 @@ export class ProjectDeletionWorld {
     query: vi.fn(async () => {
       throw new Error("Unexpected database query");
     }),
-    execute: vi.fn(async () => {
-      throw new Error("Unexpected database write");
+    // The outbox insert is the only write outside the mocked repositories.
+    execute: vi.fn(async (statement: string, parameters?: SqlParameters) => {
+      this.events.push(readOutboxInsert(statement, parameters));
     }),
   };
 
@@ -199,6 +229,7 @@ export class ProjectDeletionWorld {
       shared: { ...this.shared },
       keys: this.keys.size,
       audit: this.audit.length,
+      events: [...this.events],
       steps: [...this.steps],
     };
   }
@@ -213,6 +244,7 @@ export class ProjectDeletionWorld {
         const projectData = new Map(this.data);
         const keys = new Map(this.keys);
         const auditLength = this.audit.length;
+        const eventCount = this.events.length;
         try {
           return await work(this.connection);
         } catch (error: unknown) {
@@ -223,6 +255,7 @@ export class ProjectDeletionWorld {
           this.keys.clear();
           keys.forEach((stored, id) => this.keys.set(id, stored));
           this.audit.length = auditLength;
+          this.events.length = eventCount;
           throw error;
         }
       },

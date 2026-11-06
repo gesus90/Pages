@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { loader as callback } from "@/app/routes/discord-callback";
-import { loader as result } from "@/app/routes/discord-result";
+import { clientLoader as result } from "@/app/routes/discord-result";
 import { action, loader } from "@/app/routes/project-discord";
 import { APPLICATION } from "../../backend/service/discord/fake-discord";
 import {
@@ -218,6 +218,7 @@ it("accepts only known outcomes on the result page", () => {
     result({
       ...args(new Request(`${BASE_URL}/discord/result${query}`), null),
       params: {},
+      serverLoader: async () => undefined,
     }).outcome;
 
   expect(outcomeOf("?outcome=authorized")).toBe("authorized");

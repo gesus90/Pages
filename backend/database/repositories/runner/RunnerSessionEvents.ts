@@ -1,13 +1,64 @@
+import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
 
 import { persistRunnerSessionUsage } from "./RunnerSessionUsage";
-import { appendSessionHistoryChunks } from "../agent/AgentSessionHistoryChunks";
+import {
+  appendSessionHistoryChunks,
+  prepareSessionHistoryChunks,
+} from "../agent/AgentSessionHistoryChunks";
 
+import type { AgentSessionEvent } from "@/definition/AgentSessionJournal";
+import type { PreparedSessionChunk } from "../agent/AgentSessionHistoryChunks";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentSessionState } from "@/definition/AgentSessionEvents";
 import type { RunnerPlanBinding } from "@/definition/RunnerProtocol";
 import type { RunnerLiveEvent } from "@/definition/RunnerLiveHistory";
+
+/** Only server-prepared, synchronized files can enter a runner receipt transaction. */
+export interface PreparedRunnerSessionEvents {
+  readonly events: readonly AgentSessionEvent[];
+  readonly bodies: readonly string[];
+  readonly chunks: readonly PreparedSessionChunk[];
+}
+
+interface RunnerSessionAppend {
+  readonly binding: RunnerPlanBinding;
+  readonly jobId: string;
+  readonly launchId?: string;
+  readonly events: readonly RunnerLiveEvent[];
+  readonly prepared?: PreparedRunnerSessionEvents;
+}
+
+/** Prepares sanitized remote event bodies and full immutable chunks before opening the importer transaction. */
+export async function prepareRunnerSessionEvents(
+  access: DatabaseTransaction,
+  input: RunnerSessionAppend,
+): Promise<PreparedRunnerSessionEvents> {
+  const events = input.events.map((event) => ({
+    ...event,
+    id: `${input.binding.attemptId}:${event.sequence}`,
+    attemptId: input.binding.attemptId,
+    stepId: input.binding.stepId,
+    turn: 1,
+    text: sanitizePlanOutput(event.text),
+  }));
+  const bodies: string[] = [];
+  for (const event of events)
+    bodies.push(
+      await requireAgentFiles(access).write(
+        input.binding.planId,
+        event.text.slice(0, 4_000).replaceAll("\u0000", ""),
+      ),
+    );
+  return {
+    events,
+    bodies,
+    chunks: input.launchId
+      ? await prepareSessionHistoryChunks(access, input.binding.planId, events)
+      : [],
+  };
+}
 
 /** A queued pause ends its never-spawned attempt while retaining the plan's pause boundary. */
 export function runnerSessionState(
@@ -37,6 +88,7 @@ export async function persistRunnerSessionEvents(
   input: {
     readonly stepId: string;
     readonly events: readonly RunnerLiveEvent[];
+    readonly prepared?: PreparedRunnerSessionEvents;
   },
 ): Promise<void> {
   const step = run.steps.find((entry) => entry.id === input.stepId);
@@ -93,18 +145,24 @@ export async function persistRunnerSessionEvents(
       ? { launchId: step.remote.launchId }
       : {}),
     events: input.events,
+    prepared: input.prepared,
   });
+}
+
+function requirePreparedRunnerEvents(input: RunnerSessionAppend): void {
+  if (
+    input.events.length &&
+    (!input.prepared || input.prepared.bodies.length !== input.events.length)
+  )
+    throw new Error(
+      "Runner events must be synchronized before their transaction.",
+    );
 }
 
 /** Appends diagnostics to the already bound attempt without changing its terminal result or checkpoint. */
 export async function appendRunnerSessionEvents(
   transaction: DatabaseTransaction,
-  input: {
-    readonly binding: RunnerPlanBinding;
-    readonly jobId: string;
-    readonly launchId?: string;
-    readonly events: readonly RunnerLiveEvent[];
-  },
+  input: RunnerSessionAppend,
 ): Promise<void> {
   const [attempt] = await transaction.query(
     `
@@ -125,8 +183,11 @@ export async function appendRunnerSessionEvents(
     },
   );
   if (!attempt) throw new Error("Runner session binding mismatch");
-  for (const event of input.events) {
+  requirePreparedRunnerEvents(input);
+  for (const [index, event] of input.events.entries()) {
     const text = sanitizePlanOutput(event.text);
+    const bodyFile = input.prepared?.bodies[index];
+    if (!bodyFile) throw new Error("Prepared runner event body missing.");
     await transaction.execute(
       `
       INSERT INTO agent_session_events (
@@ -135,15 +196,17 @@ export async function appendRunnerSessionEvents(
           turn,
           kind,
           body,
+          body_file,
           is_truncated,
           created_at
-      ) VALUES ($attempt_id, $sequence, 1, $kind, $body, $is_truncated, $created_at);
+      ) VALUES ($attempt_id, $sequence, 1, $kind, $body, $body_file, $is_truncated, $created_at);
     `,
       {
         attempt_id: input.binding.attemptId,
         sequence: event.sequence,
         kind: event.kind,
-        body: text.slice(0, 4_000),
+        body: "",
+        body_file: bodyFile,
         is_truncated: event.isTruncated || text.length > 4_000,
         created_at: event.createdAt,
       },
@@ -156,14 +219,8 @@ export async function appendRunnerSessionEvents(
         attemptId: input.binding.attemptId,
         launchId: input.launchId,
       },
-      input.events.map((event) => ({
-        ...event,
-        id: `${input.binding.attemptId}:${event.sequence}`,
-        attemptId: input.binding.attemptId,
-        stepId: input.binding.stepId,
-        turn: 1,
-        text: sanitizePlanOutput(event.text),
-      })),
+      input.prepared?.events ?? [],
+      input.prepared?.chunks ?? [],
     );
   const next = (input.events.at(-1)?.sequence ?? 0) + 1;
   await transaction.execute(

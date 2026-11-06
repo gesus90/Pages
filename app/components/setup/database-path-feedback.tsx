@@ -13,7 +13,7 @@ import type { LucideIcon } from "lucide-react";
 import type { DatabaseLocationStatus } from "@/definition/Setup";
 
 /** Element id the database field refers to for its description. */
-export const DATABASE_PATH_FEEDBACK_ID = "databasePath-feedback";
+export const DATABASE_URL_FEEDBACK_ID = "databasePath-feedback";
 
 interface FeedbackAppearance {
   readonly icon: LucideIcon;
@@ -31,7 +31,7 @@ const APPEARANCE_BY_STATUS: Readonly<
   notWritable: { className: "text-destructive", icon: AlertCircle },
 };
 
-interface DatabasePathFeedbackProps {
+interface DatabaseUrlFeedbackProps {
   /** Result for the current value, or `null` while it is unknown. */
   readonly status: DatabaseLocationStatus | null;
   readonly hasFailed: boolean;
@@ -44,10 +44,10 @@ interface DatabasePathFeedbackProps {
  * Every outcome has an icon and a sentence, so the color is never the only
  * information. Changes are announced politely to assistive technology.
  */
-export function DatabasePathFeedback({
+export function DatabaseUrlFeedback({
   status,
   hasFailed,
-}: DatabasePathFeedbackProps): React.ReactElement {
+}: DatabaseUrlFeedbackProps): React.ReactElement {
   const { t } = useTranslation();
   let appearance: FeedbackAppearance = {
     className: "text-muted-foreground",
@@ -71,7 +71,7 @@ export function DatabasePathFeedback({
         "mt-2 flex items-start gap-2 text-sm",
         appearance.className,
       )}
-      id={DATABASE_PATH_FEEDBACK_ID}
+      id={DATABASE_URL_FEEDBACK_ID}
       aria-live="polite"
     >
       <Icon

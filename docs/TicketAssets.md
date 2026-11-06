@@ -81,43 +81,31 @@ reported and cannot be recovered.
 
 ## Offline migration of the legacy flat store
 
-This is a file-and-metadata migration; no schema change or numbered SQL migration
-is needed. It is explicit and is not run automatically by server startup.
-Existing flat-store attachments stay readable until the operator migrates them.
-Do not upload or run another Pages process during this operation.
+The flat-store migration remains available for PostgreSQL. Stop Pages and every
+other writer before using it, and prevent new connections for the whole window.
+The command checks for existing connections before opening its own; that check is
+not a lock and cannot prevent another client connecting later. An operator must
+keep the database and data directory quiescent throughout the operation.
 
-1. Stop Pages and confirm that no process holds the configured database.
-2. Choose a new backup directory **outside** the data directory, with enough
-   space for a complete copy. Use the installed dependencies from the checkout:
+Pass the absolute private configuration path and a new backup directory outside
+the data directory. The optional `--dry-run` validates and reports the proposed
+moves without creating a backup or changing metadata or files:
 
-   ```sh
-   pnpm exec tsx scripts/migrate-ticket-assets.ts /absolute/data/pages.duckdb /absolute/backups/ticket-assets-before
-   ```
+```sh
+pnpm exec tsx scripts/migrate-ticket-assets.ts /absolute/config.toml /absolute/backups/ticket-assets-before --dry-run
+pnpm exec tsx scripts/migrate-ticket-assets.ts /absolute/config.toml /absolute/backups/ticket-assets-before
+```
 
-3. The command opens the database exclusively, validates every attachment's size
-   and SHA-256, reports unregistered files in both old and new stores and aborts for missing files or
-   mismatches. It checkpoints the database and copies the **entire data
-   directory**, including DuckDB, into `ticket-assets-before/data/`. It verifies
-   the backed-up attachment bytes and records both paths in
-   `ticket-assets-manifest.json` before moving any originals.
-4. Destination files are copied without overwriting and verified in full. Only
-   then does one database transaction switch all paths/types. The command
-   checkpoints and verifies destinations again before removing verified old
-   copies. Unknown files and mismatching originals are never deleted.
-5. Retain the backup and JSON result. Run the same command again with the same
-   backup directory: it verifies all files and reports `movedCount: 0`. After an
-   interrupted copy, retry with that same backup. A mismatching destination is
-   reported and is never overwritten; investigate it before retrying.
-6. Start Pages, run the inventory, and open/download attachments in the affected
-   tickets. Keep the offline backup until that review is complete.
+Before moving files the command creates a private backup directory, writes a
+PostgreSQL custom-format dump and reads it through `pg_restore`, copies the whole
+data directory and verifies each source attachment in the copy. It then copies
+and verifies destinations, changes metadata in one transaction, verifies the
+result and only removes verified originals. Preserve both the dump and copied
+files. Interrupted or mismatched backups require investigation; do not replace an
+existing backup. PostgreSQL credentials come from the configuration and are not
+passed in command arguments.
 
-### Rollback
-
-Stop Pages. Preserve the current data directory under a different name, then
-copy the complete `ticket-assets-before/data/` back to the original data-directory
-path. The restored DuckDB and flat attachment files must come from the same
-backup; do not restore only the database or only the files. Start the code version
-used before migration (or this version, which retains legacy reads), then verify
-attachment count, checksums and downloads. Do not merge later uploads into an
-older database automatically: a full rollback restores the backup's point in
-time. Keep the displaced directory for any explicit reconciliation.
+Restoring a database dump and the matching data directory discards later changes.
+Preserve the current state and require an explicit data-loss decision before any
+restore. Older DuckDB files must be handled with the previous release before
+transfer; the PostgreSQL command does not open them.

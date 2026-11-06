@@ -67,7 +67,7 @@ it("retains a pending save even when the target loader replaces the route with a
   // Root Layout owns this provider in production, above route error boundaries.
   render(
     <I18nextProvider i18n={createI18n("en")}>
-      <DraftProvider>
+      <DraftProvider ownerId={null}>
         <RouterProvider router={router} />
       </DraftProvider>
     </I18nextProvider>,

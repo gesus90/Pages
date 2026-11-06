@@ -7,7 +7,7 @@ import { Button } from "@/app/components/ui/button";
 
 import type { TasksDialog } from "./use-tasks-dialog";
 import type { useTaskSelection } from "./use-task-selection";
-import type { loader } from "@/app/routes/tasks";
+import type { loader } from "@/app/routes/tasks-server";
 
 interface TasksDetailOverlayProps {
   readonly loaderData: Awaited<ReturnType<typeof loader>>;

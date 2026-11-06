@@ -46,6 +46,14 @@ it("archives active descendants recursively and counts only changed rows", async
   expect(await world.call("manager", "ticket.delete")).toEqual(first);
   expect(world.history).toHaveLength(5);
   expect(world.activity).toHaveLength(1);
+  expect(world.outbox).toEqual([
+    {
+      kind: "ticket.updated",
+      object_id: "root",
+      audience_project_id: null,
+      audience_department_id: null,
+    },
+  ]);
 });
 
 it("does not count an already archived root again with a fresh operationId", async () => {
@@ -65,6 +73,7 @@ it("does not count an already archived root again with a fresh operationId", asy
   expect(world.history).toHaveLength(1);
   expect(world.activity).toHaveLength(1);
   expect(world.events).toHaveLength(1);
+  expect(world.outbox).toHaveLength(1);
 });
 
 it("rejects a subtree with hidden descendants atomically", async () => {
@@ -131,6 +140,14 @@ it("archives only the milestone, removing incident dependencies while preserving
   expect(await world.call("manager", "milestone.delete")).toEqual(first);
   expect(world.writes.dependencies).toBe(1);
   expect(world.activity).toHaveLength(1);
+  expect(world.outbox).toEqual([
+    {
+      kind: "milestone.updated",
+      object_id: "milestone",
+      audience_project_id: null,
+      audience_department_id: null,
+    },
+  ]);
 });
 
 it("rolls back records and the operation key if the history boundary fails", async () => {

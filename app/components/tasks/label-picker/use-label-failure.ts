@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useActionData } from "react-router";
 
-import type { action } from "@/app/routes/tasks";
+import type { action } from "@/app/routes/tasks-server";
 import type { TaskActionErrorCode } from "@/app/lib/task-actions/task-action-support.server";
 
 /** The reason the last label action failed, and the way to stop showing it. */

@@ -297,6 +297,14 @@
     }
   },
   "settings": {
+    "serviceMonitor": {
+      "title": "Service restarts",
+      "description": "Independent systemd monitoring retains warnings across service outages.",
+      "loading": "Loading service status…",
+      "unavailable": "Restart monitoring is unavailable or its last observation is stale. Retained warnings are shown when readable.",
+      "healthy": "No frequent restarts have been detected.",
+      "warning": "{{unit}} restarted {{count}} times within ten minutes. Last detected: {{time}}. The warning is retained after recovery."
+    },
     "ticketAssets": {
       "title": "Check ticket attachments",
       "description": "Checks saved tickets and attachment files. Reports missing images, temporary uploads and storage inconsistencies. Does not change or repair any data.",
@@ -778,6 +786,8 @@
         "plan_runner_result_limit": "The final agent answer exceeds this node’s separate result limit.",
         "acp_result_limit": "The final ACP answer exceeds its separate 200,000-character limit.",
         "plan_history_unavailable": "History could not be read. Confirmed positions have been preserved.",
+        "plan_payload_missing": "The stored agent payload file is missing. No content was substituted.",
+        "plan_payload_corrupt": "The stored agent payload file failed its size or SHA-256 integrity check.",
         "plan_history_corrupt": "A history chunk is missing or failed its integrity check.",
         "plan_runner_failed": "The runner ended its turn with an error.",
         "plan_runner_incomplete": "The runner ended without completing its turn.",
@@ -1954,7 +1964,10 @@
       "parentArchived": "The selected parent is archived.",
       "subtasksStayWithTask": "Subtasks always stay with their Task.",
       "ticketArchived": "An archived ticket cannot be changed.",
-      "network": "The server cannot be reached."
+      "network": "The server cannot be reached.",
+      "connection": "Pages cannot be reached. The draft stays in this browser and is saved automatically as soon as Pages answers again.",
+      "backend": "Pages is not answering right now. The draft stays in this browser and is sent again automatically.",
+      "operationReused": "This save was already used for a different state. Please save again."
     },
     "hierarchy": {
       "expandAll": "Expand all",
@@ -2760,18 +2773,18 @@
       "emailPlaceholder": "name@example.com …"
     },
     "database": {
-      "title": "Database location",
-      "subtitle": "Pages keeps all data in this DuckDB file. The suggestion fits most installations.",
-      "label": "Database path",
-      "checking": "Checking path …",
-      "checkFailed": "The path could not be checked. Please check the connection.",
+      "title": "PostgreSQL connection",
+      "subtitle": "Enter the connection to an empty PostgreSQL database.",
+      "label": "Database connection",
+      "checking": "Checking connection …",
+      "checkFailed": "The connection could not be checked.",
       "status": {
-        "empty": "Please enter a path",
-        "invalid": "Not a valid path",
-        "notWritable": "No write permission at this path – please choose a writable directory",
-        "existing": "The existing database will be opened",
-        "foreign": "Another file is there – please choose another path",
-        "available": "Location available"
+        "empty": "Please enter a connection",
+        "invalid": "Not a valid PostgreSQL connection",
+        "notWritable": "The database is unreachable or access was refused",
+        "existing": "The database is not empty",
+        "foreign": "The database already contains objects. Choose an empty database",
+        "available": "Empty database reachable"
       },
       "finish": "Finish",
       "finishing": "Setting up …"
@@ -3185,7 +3198,10 @@
       "invalidInput": "The input is incomplete.",
       "notFound": "Not found or no access.",
       "network": "The server cannot be reached.",
-      "invalidCover": "The cover must be a prepared cover or an image of this page."
+      "invalidCover": "The cover must be a prepared cover or an image of this page.",
+      "connection": "Pages cannot be reached. The draft stays in this browser and is saved automatically as soon as Pages answers again.",
+      "backend": "Pages is not answering right now. The draft stays in this browser and is sent again automatically.",
+      "operationReused": "This save was already used for a different state. Please save again."
     },
     "search": {
       "title": "Search the wiki",
@@ -4026,6 +4042,20 @@
     }
   },
   "plans": {
+    "localState": {
+      "stale": "Last known state from {{time}}. It is being updated; until then the plan is read only.",
+      "offline": "Pages cannot be reached. Showing the last known state from {{time}}; changes are locked until the connection returns."
+    },
+    "command": {
+      "accepted": "{{action}}: command accepted. Execution status will update.",
+      "failed": "{{action}}: the command could not be applied.",
+      "action": {
+        "start": "Start",
+        "pause": "Pause",
+        "stop": "Stop",
+        "resume": "Resume"
+      }
+    },
     "retry": {
       "state": {
         "waiting": "Waiting for automatic retry",
@@ -5480,7 +5510,7 @@
       "cloneUnsaved": "Unsaved changes are neither copied nor saved; they stay in the editor.",
       "deleteTitle": "Delete plan?",
       "deleteQuestion": "Do you really want to delete “{{name}}”?",
-      "deleteContext": "{{context}}. Workspace files and run history remain.",
+      "deleteContext": "{{context}}. Private snapshot and session files are removed. Workspace files and public run records remain.",
       "deleteUnsaved": "Unsaved changes are lost.",
       "delete": "Delete",
       "namePlaceholder": "Enter a name",
@@ -5916,7 +5946,8 @@
     "unsaved": "Unsaved draft",
     "error": "Saving failed. Your input is retained.",
     "conflict": "Conflict – open the draft to compare versions.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "signOut": "Some changes have not been confirmed by the server yet. Signing out deletes them from this browser. Sign out anyway?"
   },
   "agentTools": {
     "title": "Agent tools & runtimes",
@@ -6071,5 +6102,37 @@
   },
   "reasoningChoice": {
     "unsupported": "{{model}} does not support this level."
+  },
+  "serviceStatus": {
+    "title": "Services",
+    "description": "State of the Pages services from the systemd manager, also while the API is down.",
+    "loading": "Loading service status…",
+    "unreachable": "The service status cannot be reached.",
+    "denied": "Only administrators in admin mode see details.",
+    "unconfirmed": "The sign-in cannot be checked right now, so only the light is visible. The details return as soon as the API answers.",
+    "neverStarted": "never started",
+    "light": {
+      "green": "All services are running",
+      "yellow": "A service is starting or stopping",
+      "red": "Fault: not all services are running",
+      "unknown": "Service status unknown"
+    },
+    "column": {
+      "name": "Service",
+      "state": "State",
+      "lastStart": "Last start",
+      "restarts": "Restarts"
+    },
+    "state": {
+      "active": "running",
+      "activating": "starting",
+      "deactivating": "stopping",
+      "reloading": "reloading",
+      "refreshing": "refreshing",
+      "inactive": "stopped",
+      "failed": "failed",
+      "maintenance": "maintenance",
+      "unknown": "unknown"
+    }
   }
 }

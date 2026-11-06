@@ -2,14 +2,13 @@ import type {
   DatabaseExecutorStatus,
   ReaderSession,
   WriterSession,
-} from "./executor/DatabaseExecutor";
+} from "./DatabaseExecutorTypes";
 import type { DatabaseValue, SqlParameters } from "./Database";
 
 /**
  * What the database facade needs from the way statements reach a database.
  *
  * @remarks
- * `executor/DatabaseExecutor.ts` runs DuckDB through its worker process and
  * `postgres/PostgresExecutor.ts` runs PostgreSQL through a connection pool.
  */
 export interface DatabaseEngine {

@@ -26,6 +26,7 @@ vi.mock("@/app/lib/services.server", () => ({
 }));
 
 const BASE = { description: "Text", updatedAt: "2026-10-15 10:00:00" };
+const OPERATION_ID = randomUUID();
 
 async function save(): Promise<[number, unknown]> {
   const response = await action(
@@ -37,6 +38,7 @@ async function save(): Promise<[number, unknown]> {
           draft: { ...BASE, description: "Edited" },
           streamId: randomUUID(),
           sequence: 1,
+          operationId: OPERATION_ID,
         }),
       }),
       EMPLOYEE,
@@ -63,6 +65,7 @@ it("saves the description and answers only the description fields", async () => 
   expect(fakes.updateDescription).toHaveBeenCalledWith(EMPLOYEE, "t1", {
     baseDescription: "Text",
     description: "Edited",
+    operationId: OPERATION_ID,
   });
 });
 

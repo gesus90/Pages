@@ -204,8 +204,8 @@ describe("removing for good", () => {
     await world.trashService().delete(world.actor("owner"), "team");
     world.state.expiredRoots = ["root", "team"];
     const before = world.state.transactions;
-    const files = await world.trashService().purgeExpired(30);
-    expect(files).toEqual(["file-1"]);
+    const purged = await world.trashService().purgeExpired(30);
+    expect(purged).toEqual({ rootIds: ["root", "team"], files: ["file-1"] });
     expect(world.state.transactions - before).toBe(1);
     expect(world.hasPage("root")).toBe(false);
     expect(world.hasPage("team")).toBe(false);

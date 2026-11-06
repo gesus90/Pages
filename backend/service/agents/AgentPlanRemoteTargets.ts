@@ -4,6 +4,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 
 import { planExecutionNodes } from "./AgentPlanExecutionTargets";
 
+import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import type { AgentPlanInput } from "@/definition/AgentPlan";
 import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
 import type { AgentPlanRemoteChoice } from "@/definition/AgentPlanTarget";
@@ -119,4 +120,20 @@ export class AgentPlanRemoteTargets {
       )
         throw new AgentError("plan_access_denied");
   }
+}
+
+/** Checks persisted remote resource grants without starting or contacting a runner. */
+export async function requireRemoteRunResources(
+  targets: Pick<AgentPlanRemoteTargets, "list">,
+  userId: string,
+  resources: AgentPlanRunResources,
+): Promise<void> {
+  if (!resources.remoteWorkspaceIds?.length) return;
+  const available = await targets.list(userId, resources.projectId);
+  if (
+    resources.remoteWorkspaceIds.some(
+      (id) => !available.some((target) => target.workspaceId === id),
+    )
+  )
+    throw new AgentError("plan_access_denied");
 }

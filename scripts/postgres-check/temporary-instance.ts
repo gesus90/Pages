@@ -1,27 +1,52 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
 import {
   access,
   mkdtemp,
   readdir,
   readFile,
-  rm,
   writeFile,
 } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
+
 /** Where the PostgreSQL 18 packages of this server keep their programs. */
 const POSTGRES_PROGRAMS = "/usr/lib/postgresql/18/bin";
-const REQUIRED_PROGRAMS = ["initdb", "pg_ctl"] as const;
+const REQUIRED_PROGRAMS = ["initdb", "postgres", "pg_isready"] as const;
 
 const USER_NAME = "pages_check";
 const DATABASE_NAME = "postgres";
-const START_TIMEOUT_SECONDS = "30";
-const STOP_POLLS = 50;
-const STOP_POLL_MS = 100;
+const START_TIMEOUT_MS = 30_000;
+
+// The supervisor owns the direct child and pins it with a pidfd before reporting
+// readiness. EOF on the private pipe also stops it if the caller disappears.
+const POSTGRES_SUPERVISOR = `
+import os, select, signal, subprocess, sys
+binary, logfile, *arguments = sys.argv[1:]
+os.umask(0o077)
+if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+    raise RuntimeError("pidfd process control is unavailable")
+with open(logfile, "ab", buffering=0) as log:
+    child = subprocess.Popen([binary, *arguments], stdin=subprocess.DEVNULL, stdout=log, stderr=log)
+    try:
+        descriptor = os.pidfd_open(child.pid, 0)
+    except BaseException:
+        child.terminate()
+        child.wait()
+        raise
+    try:
+        print("owned", flush=True)
+        select.select([sys.stdin.fileno(), descriptor], [], [])
+    finally:
+        if child.poll() is None:
+            signal.pidfd_send_signal(descriptor, signal.SIGINT)
+        result = child.wait()
+        os.close(descriptor)
+    sys.exit(0 if result == 0 else 1)
+`;
 
 /** Raised when the programs are missing; it needs a message, not a stack. */
 export class PostgresProgramsMissingError extends Error {
@@ -35,6 +60,26 @@ export class PostgresProgramsMissingError extends Error {
 
 function programPath(name: string): string {
   return path.join(POSTGRES_PROGRAMS, name);
+}
+
+/** Preserves explicit caller isolation while excluding ambient credentials and service configuration. */
+function postgresProgramEnvironment(): NodeJS.ProcessEnv {
+  return {
+    PATH: process.env.PATH,
+    LC_ALL: "C.UTF-8",
+    HOME: process.env.HOME,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+    XDG_CACHE_HOME: process.env.XDG_CACHE_HOME,
+    XDG_DATA_HOME: process.env.XDG_DATA_HOME,
+    XDG_STATE_HOME: process.env.XDG_STATE_HOME,
+    TMPDIR: process.env.TMPDIR,
+    PGHOST: process.env.PGHOST,
+    PGPORT: process.env.PGPORT,
+    PGDATABASE: process.env.PGDATABASE,
+    PGUSER: process.env.PGUSER,
+    PGPASSFILE: process.env.PGPASSFILE,
+    PGSERVICEFILE: process.env.PGSERVICEFILE,
+  };
 }
 
 /**
@@ -51,7 +96,7 @@ export function runProgram(
   return new Promise((resolve, reject) => {
     let output = "";
     const child = spawn(programPath(name), parameters, {
-      env: { PATH: process.env.PATH, LC_ALL: "C.UTF-8" },
+      env: postgresProgramEnvironment(),
       stdio: ["ignore", "pipe", "pipe"],
     });
     const collect = (chunk: Buffer): void => {
@@ -60,7 +105,6 @@ export function runProgram(
     child.stdout.on("data", collect);
     child.stderr.on("data", collect);
     child.on("error", reject);
-    // Not `close`: the server `pg_ctl` starts may hold the streams open.
     child.on("exit", (code) => {
       if (code === 0) resolve();
       else reject(new Error(`${name} failed:\n${output}`));
@@ -73,7 +117,13 @@ export function runProgram(
  *
  * @returns The port.
  */
-export function freeLoopbackPort(): Promise<number> {
+export async function freeLoopbackPort(): Promise<number> {
+  let port = 55432;
+  while (port === 55432) port = await findLoopbackPort();
+  return port;
+}
+
+function findLoopbackPort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer();
     server.on("error", reject);
@@ -86,44 +136,6 @@ export function freeLoopbackPort(): Promise<number> {
       });
     });
   });
-}
-
-/**
- * Tells whether a process is still running, excluding stopped zombies.
- *
- * @param pid - The process identifier.
- * @returns Whether it is running, or exists when its state cannot be read.
- */
-export function isProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-  } catch {
-    return false;
-  }
-  try {
-    const stat = readFileSync(`/proc/${String(pid)}/stat`, "utf8");
-    const nameEnd = stat.lastIndexOf(")");
-    if (nameEnd < 0) return true;
-    const state = stat.slice(nameEnd + 2, nameEnd + 3);
-    return state !== "Z" && state !== "X";
-  } catch {
-    return true;
-  }
-}
-
-/**
- * Ends a server that refused a regular stop; a second signal leaves it no choice.
- *
- * @param pid - The process identifier of the server.
- */
-export async function endProcess(pid: number): Promise<void> {
-  process.kill(pid, "SIGQUIT");
-  for (let attempt = 0; attempt < STOP_POLLS; attempt += 1) {
-    if (!isProcessAlive(pid)) return;
-    await new Promise((resolve) => setTimeout(resolve, STOP_POLL_MS));
-  }
-  process.kill(pid, "SIGKILL");
-  await new Promise((resolve) => setTimeout(resolve, STOP_POLL_MS));
 }
 
 async function pathExists(target: string): Promise<boolean> {
@@ -169,16 +181,90 @@ export async function requirePostgresPrograms(): Promise<void> {
   if (missing.length > 0) throw new PostgresProgramsMissingError(missing);
 }
 
+/** A PostgreSQL process tied to a private supervisor and its pidfd. */
+export interface OwnedPostgres {
+  /** Whether the supervisor still owns a running server. */
+  isRunning(): boolean;
+  /** Stops and waits for the exact child; never signals a PID from a file. */
+  stop(): Promise<void>;
+}
+
+/** Arguments for one directly owned PostgreSQL server. */
+export interface OwnedPostgresOptions {
+  readonly logFile: string;
+  readonly arguments: readonly string[];
+}
+
+/** Starts a PostgreSQL child and requires a pidfd before returning its owner. */
+export async function startOwnedPostgres(
+  options: OwnedPostgresOptions,
+): Promise<OwnedPostgres> {
+  const supervisor: ChildProcessWithoutNullStreams = spawn(
+    "python3",
+    [
+      "-u",
+      "-c",
+      POSTGRES_SUPERVISOR,
+      programPath("postgres"),
+      options.logFile,
+      ...options.arguments,
+    ],
+    {
+      env: postgresProgramEnvironment(),
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
+  supervisor.stdin.on("error", () => undefined);
+  let errors = "";
+  supervisor.stderr.on("data", (chunk: Buffer) => {
+    errors += chunk.toString("utf8");
+  });
+  const exit = new Promise<number | null>((resolve) => {
+    supervisor.once("error", () => resolve(null));
+    supervisor.once("exit", (code) => resolve(code));
+  });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      supervisor.stdout.once("data", (chunk: Buffer) => {
+        if (chunk.toString("utf8").trim() === "owned") resolve();
+        else reject(new Error("PostgreSQL ownership was not confirmed."));
+      });
+      supervisor.once("error", reject);
+      supervisor.once("exit", () =>
+        reject(new Error(`PostgreSQL supervisor failed: ${errors}`)),
+      );
+    });
+  } catch (error: unknown) {
+    supervisor.stdin.end();
+    await exit;
+    throw error;
+  }
+  let stopping: Promise<void> | null = null;
+  return {
+    isRunning: () =>
+      supervisor.exitCode === null && supervisor.signalCode === null,
+    stop: () => {
+      stopping ??= (async () => {
+        supervisor.stdin.end();
+        if ((await exit) !== 0)
+          throw new Error("The owned PostgreSQL server did not stop cleanly.");
+      })();
+      return stopping;
+    },
+  };
+}
+
 /**
  * A PostgreSQL server of its own in a temporary directory, on a free loopback
- * port, with password authentication; nothing of it outlives {@link remove}.
+ * port and password authentication. The private files remain after shutdown.
  */
 export class TemporaryPostgres {
   /** Temporary directory, also the home of the logs of the check. */
   public readonly directory: string;
   private readonly port: number;
   private readonly password: string;
-  private postmasterPid: number | null = null;
+  private owner: OwnedPostgres | null = null;
+  private removal: Promise<void> | null = null;
 
   private constructor(directory: string, port: number, password: string) {
     this.directory = directory;
@@ -192,9 +278,13 @@ export class TemporaryPostgres {
    * @returns The instance, which owes a {@link remove} from now on.
    */
   public static async prepare(): Promise<TemporaryPostgres> {
+    const directory = await mkdtemp(
+      path.join(tmpdir(), "pages-postgres-check-"),
+    );
+    const port = await freeLoopbackPort();
     return new TemporaryPostgres(
-      await mkdtemp(path.join(tmpdir(), "pages-postgres-check-")),
-      await freeLoopbackPort(),
+      directory,
+      port,
       randomBytes(24).toString("hex"),
     );
   }
@@ -237,17 +327,25 @@ export class TemporaryPostgres {
       "--encoding=UTF8",
       "--locale=C.UTF-8",
     ]);
-    await rm(passwordFile);
-    await runProgram("pg_ctl", [
-      "start",
-      "--wait",
-      `--timeout=${START_TIMEOUT_SECONDS}`,
-      `--pgdata=${data}`,
-      `--log=${this.serverLog}`,
-      `--options=-p ${String(this.port)} -c listen_addresses=127.0.0.1 -c unix_socket_directories=${this.directory}`,
-    ]);
-    const pidFile = await readFile(path.join(data, "postmaster.pid"), "utf8");
-    this.postmasterPid = Number(pidFile.split("\n")[0]);
+    try {
+      this.owner = await startOwnedPostgres({
+        logFile: this.serverLog,
+        arguments: [
+          "-D",
+          data,
+          "-p",
+          String(this.port),
+          "-c",
+          "listen_addresses=127.0.0.1",
+          "-c",
+          `unix_socket_directories=${this.directory}`,
+        ],
+      });
+      await this.waitUntilReady();
+    } catch (error: unknown) {
+      await this.stop();
+      throw error;
+    }
   }
 
   /** The log file of the server, which the check searches for the URL as well. */
@@ -255,23 +353,29 @@ export class TemporaryPostgres {
     return path.join(this.directory, "server.log");
   }
 
-  /**
-   * Stops the server and deletes the directory, and proves that both are gone.
-   *
-   * @throws When a process or the directory remains.
-   */
-  public async remove(): Promise<void> {
-    await this.stop();
-    await rm(this.directory, { recursive: true, force: true });
-    const remaining = await processesNaming(this.directory);
-    if (this.postmasterPid !== null && isProcessAlive(this.postmasterPid))
-      throw new Error("The PostgreSQL server of the check is still running.");
-    if (remaining.length > 0)
-      throw new Error(
-        `Processes of the check remain: ${remaining.join(", ")}.`,
-      );
-    if (await pathExists(this.directory))
-      throw new Error("The temporary directory of the check remains.");
+  /** Stops only the owned server and retains its private files and logs. */
+  public remove(): Promise<void> {
+    this.removal ??= this.stop();
+    return this.removal;
+  }
+
+  private async waitUntilReady(): Promise<void> {
+    const deadline = Date.now() + START_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if (!this.owner?.isRunning())
+        throw new Error("PostgreSQL exited during startup.");
+      try {
+        await runProgram("pg_isready", [
+          `--host=${this.directory}`,
+          `--port=${String(this.port)}`,
+          "--quiet",
+        ]);
+        return;
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+    throw new Error("PostgreSQL did not become ready.");
   }
 
   private dataDirectory(): string {
@@ -279,18 +383,8 @@ export class TemporaryPostgres {
   }
 
   private async stop(): Promise<void> {
-    if (this.postmasterPid === null) return;
-    try {
-      await runProgram("pg_ctl", [
-        "stop",
-        "--wait",
-        "--mode=fast",
-        `--pgdata=${this.dataDirectory()}`,
-      ]);
-    } catch (error: unknown) {
-      console.error("pg_ctl stop failed; ending the server directly.", error);
-      if (isProcessAlive(this.postmasterPid))
-        await endProcess(this.postmasterPid);
-    }
+    if (this.owner === null) return;
+    await this.owner.stop();
+    this.owner = null;
   }
 }

@@ -1,0 +1,12 @@
+[Unit]
+Description=Pages restart observation cadence (%i)
+PartOf=pages.target
+
+[Timer]
+OnActiveSec=1
+OnUnitInactiveSec=5
+AccuracySec=1
+Unit=pages-service-monitor@%i.service
+
+[Install]
+WantedBy=pages.target

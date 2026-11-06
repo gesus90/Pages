@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
 
-import type { action } from "@/app/routes/tasks";
+import type { action } from "@/app/routes/tasks-server";
 
 /** A template action started from a form of its own, with the failure it ended in. */
 interface TemplateFetcher {

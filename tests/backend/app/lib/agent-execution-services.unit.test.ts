@@ -26,6 +26,10 @@ const { fakeClasses, opaque, partial } = await vi.hoisted(
 vi.mock("@/app/lib/agent-services.server", () => ({
   createAgentServices: vi.fn(),
 }));
+vi.mock("@/backend/runtime/RunsMode", () => ({
+  canProcessRuns: () => true,
+  isPagesRunsProcess: () => false,
+}));
 vi.mock("@/backend/database/repositories/agent/AgentPlanRunRepository", () =>
   fakeClasses({ AgentPlanRunRepository: ["unfinished", "reserving"] }),
 );
@@ -163,13 +167,18 @@ it("recovers resources of interrupted runs and keeps unconfirmed credential left
   await start();
 
   expect(vi.mocked(AgentPlanRunRepository).mock.calls).toEqual([[DATABASE]]);
-  expect(interruptedAcpOwners).toHaveBeenCalledWith([
-    partial<AgentPlanRun>({ id: "run-1" }),
-    partial<AgentPlanRun>({ id: "run-2" }),
-  ]);
+  expect(interruptedAcpOwners).toHaveBeenCalledWith(
+    [
+      partial<AgentPlanRun>({ id: "run-1" }),
+      partial<AgentPlanRun>({ id: "run-2" }),
+    ],
+    undefined,
+  );
   expect(fixture.recoverResources).toHaveBeenCalledWith(
     OWNERS,
     new Set(["instance-1", "instance-2"]),
+    undefined,
+    undefined,
   );
   expect(fixture.recoverCredentials.mock.invocationCallOrder[0]).toBeLessThan(
     fixture.recoverResources.mock.invocationCallOrder[0],

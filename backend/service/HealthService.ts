@@ -1,7 +1,7 @@
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { Database } from "@/backend/database/Database";
-import type { DatabaseWorkerState } from "@/backend/database/executor/DatabaseWorkerClient";
+import type { DatabaseWorkerState } from "@/backend/database/DatabaseExecutorTypes";
 
 /** Tells whether the database answers, for the `/health` endpoint. */
 export class HealthService {

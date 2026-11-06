@@ -11,6 +11,7 @@ import SettingsConnectionsRoute, {
 } from "@/app/routes/settings-connections";
 
 import type * as ReactRouter from "react-router";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { McpConnectionsView } from "@/definition/McpConnections";
 
 const revalidate = vi.hoisted(() => vi.fn());
@@ -32,7 +33,8 @@ beforeEach(() => {
   revalidate.mockReset();
 });
 
-const view: McpConnectionsView = {
+const view: McpConnectionsView & { readonly audience: LocalStateAudience } = {
+  audience: { userId: "user-1", authorizationVersion: "account:pica:1" },
   origin: "https://pages.example",
   packageVersion: "1.2.3",
   tokens: [],

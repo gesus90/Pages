@@ -3,12 +3,8 @@ import { cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { handleTaskAction } from "@/app/lib/task-actions/task-actions.server";
-import TasksRoute, {
-  action,
-  loader,
-  parseArchivedFilter,
-  shouldRevalidate,
-} from "@/app/routes/tasks";
+import TasksRoute, { shouldRevalidate } from "@/app/routes/tasks";
+import { action, loader, parseArchivedFilter } from "@/app/routes/tasks-server";
 import { DEFAULT_BOARD_PREFERENCES } from "@/definition/BoardPreferences";
 import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
 import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
@@ -62,6 +58,14 @@ const services = vi.hoisted(() => ({
 }));
 const board = vi.hoisted(() => ({ view: "kanban" }));
 
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "u-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => services,
 }));
@@ -472,6 +476,7 @@ function boardData(selectedItem: unknown): Record<string, unknown> {
     board: DEFAULT_BOARD_PREFERENCES,
     githubStates: [],
     selectedItem,
+    audience: AUDIENCE,
   };
 }
 

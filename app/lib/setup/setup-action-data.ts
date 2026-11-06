@@ -4,17 +4,18 @@ import type {
 } from "@/definition/Setup";
 
 /** Requests the setup wizard sends to its route action. */
-export type SetupIntent = "verify-token" | "check-database-path" | "complete";
+export type SetupIntent =
+  "verify-token" | "check-database-connection" | "complete";
 
 /** Access to the wizard after the setup token was accepted. */
 export interface SetupAccess {
   readonly token: string;
-  readonly suggestedDatabasePath: string;
+  readonly suggestedDatabaseUrl: string;
 }
 
-/** The result of a database path check for exactly one entered value. */
+/** The result of a connection check, paired with its request identifier. */
 export interface CheckedDatabaseLocation {
-  /** The value the check ran for, as entered. */
+  /** Opaque request identifier; never the connection URL. */
   readonly input: string;
   readonly status: DatabaseLocationStatus;
 }
@@ -53,7 +54,7 @@ export function readSetupRejection(
 export type SetupActionData =
   | { readonly intent: "verify-token"; readonly access: SetupAccess }
   | {
-      readonly intent: "check-database-path";
+      readonly intent: "check-database-connection";
       readonly location: CheckedDatabaseLocation;
     }
   | { readonly intent: SetupIntent; readonly error: SetupRequestError }
@@ -87,5 +88,38 @@ export const SETUP_FORM_FIELD = {
   USERNAME: "username",
   PASSWORD: "password",
   EMAIL: "email",
-  DATABASE_PATH: "databasePath",
+  DATABASE_URL: "databaseUrl",
 } as const;
+
+/**
+ * Whether an answer of the API has the shape of {@link SetupLoaderData}.
+ *
+ * @param value - The answer of `/app-api/setup`.
+ */
+export function isSetupLoaderData(value: unknown): value is SetupLoaderData {
+  if (typeof value !== "object" || value === null || !("status" in value))
+    return false;
+  if (value.status === "completed") return true;
+  return (
+    value.status === "pending" &&
+    "access" in value &&
+    "hasRejectedToken" in value &&
+    typeof value.hasRejectedToken === "boolean"
+  );
+}
+
+/**
+ * Whether an answer of the API has the shape of {@link SetupActionData}.
+ *
+ * @param value - The answer of the setup action.
+ */
+export function isSetupActionData(value: unknown): value is SetupActionData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "intent" in value &&
+    (value.intent === "verify-token" ||
+      value.intent === "check-database-connection" ||
+      value.intent === "complete")
+  );
+}

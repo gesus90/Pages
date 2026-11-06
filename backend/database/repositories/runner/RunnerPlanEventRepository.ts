@@ -1,3 +1,4 @@
+import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
 import { AgentWorkspaceReferencesRepository } from "../agent/AgentWorkspaceReferencesRepository";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { requirePlanDispatchFence } from "@/backend/agents/AgentPlanDispatchFence";
@@ -73,14 +74,19 @@ export class RunnerPlanEventRepository {
     binding: RunnerPlanBinding,
   ): Promise<void> {
     const [row] = await transaction.query(
-      "SELECT view_json, snapshot_json FROM agent_plan_runs WHERE id = $run_id;",
+      "SELECT view_json, COALESCE(snapshot_file, snapshot_json) AS snapshot_json FROM agent_plan_runs WHERE id = $run_id;",
       { run_id: binding.runId },
     );
     const run = readPlanRun(
       JSON.parse(readTextColumn(row ?? [], 0, "view_json")),
     );
     await new AgentWorkspaceReferencesRepository(transaction).requireReferences(
-      JSON.parse(readTextColumn(row ?? [], 1, "snapshot_json")),
+      JSON.parse(
+        await readStoredAgentPayload(
+          transaction,
+          readTextColumn(row ?? [], 1, "snapshot_json"),
+        ),
+      ),
     );
     requirePlanDispatchFence(run, binding);
   }
@@ -183,7 +189,12 @@ export class RunnerPlanEventRepository {
     );
     const result = reduce(
       current,
-      JSON.parse(readTextColumn(row, 1, "snapshot_json")),
+      JSON.parse(
+        await readStoredAgentPayload(
+          transaction,
+          readTextColumn(row, 1, "snapshot_json"),
+        ),
+      ),
     );
     // An unchanged settled run keeps its recovery revision for concurrent recovery commands.
     if (result.run === current) return;

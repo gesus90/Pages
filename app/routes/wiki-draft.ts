@@ -10,7 +10,7 @@ import type { Route } from "./+types/wiki-draft";
 
 /** Saves revision-controlled wiki fields through the normal authorization service. */
 export async function action(args: Route.ActionArgs): Promise<Response> {
-  const { actor, services, base, draft, streamId, sequence } =
+  const { actor, services, base, draft, streamId, sequence, operationId } =
     await readDraftRequest(args, wikiSaveContentSchema);
   return runDraftWrite(
     {
@@ -29,6 +29,7 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
             content: draft.content,
             icon: draft.icon,
             expectedRevision: base.revision,
+            operationId,
           },
         );
         return Response.json({

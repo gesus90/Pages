@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 
-import { action, loader } from "@/app/routes/page-agents";
+import { action, loader } from "@/app/routes/page-agents-server";
 
 import { formPost, pagesRequest, routeArguments } from "./route-fixture";
 

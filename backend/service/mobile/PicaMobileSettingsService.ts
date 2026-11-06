@@ -17,6 +17,7 @@ import type {
 } from "@/definition/PicaMobile";
 import type { User } from "@/definition/User";
 import type { PicaMobileGateway } from "./PicaMobileGateway";
+import type { PicaMobileRelay } from "./PicaMobileRelay";
 
 /** Thrown when an actor may not see or change the Pica Mobile settings. */
 export class PicaMobileSettingsDeniedError extends Error {
@@ -41,7 +42,10 @@ export interface PicaMobileSettingsDependencies {
  * @remarks
  * The port is stored in the configuration file. A change binds the new port
  * first and stores it only when that worked, so the previous setting keeps
- * working after a failure. Only administrators may use it.
+ * working after a failure. While `pages-core` holds the port (PAGE-239), the
+ * core binds what the file names: the service checks that the port is free,
+ * stores it, waits until the core serves it and otherwise stores the
+ * previous port again. Only administrators may use it.
  */
 export class PicaMobileSettingsService {
   private readonly dependencies: PicaMobileSettingsDependencies;
@@ -83,8 +87,12 @@ export class PicaMobileSettingsService {
 
     const config = await this.dependencies.configFile.read();
     const port = config?.picaMobilePort ?? null;
+    const relay = this.dependencies.gateway.relay;
     const isListening =
-      port !== null && this.dependencies.gateway.port === port;
+      port !== null &&
+      (relay === undefined
+        ? this.dependencies.gateway.port === port
+        : await relay.confirm(config?.listenAddress, port));
 
     return {
       port,
@@ -119,6 +127,18 @@ export class PicaMobileSettingsService {
       return { ok: false, error: "invalidPort" };
     }
 
+    const relay = this.dependencies.gateway.relay;
+
+    if (relay !== undefined) {
+      const result = await this.moveRelayedPort(relay, port);
+
+      if (result.ok) {
+        this.notePortChanged(actor, port);
+      }
+
+      return result;
+    }
+
     try {
       await this.dependencies.gateway.switchTo(port, async () => {
         await this.dependencies.configFile.update((config) => ({
@@ -136,6 +156,12 @@ export class PicaMobileSettingsService {
       throw error;
     }
 
+    this.notePortChanged(actor, port);
+
+    return { ok: true, port };
+  }
+
+  private notePortChanged(actor: User, port: number): void {
     logEvent({
       level: "info",
       event: "pica_mobile.port.changed",
@@ -143,8 +169,56 @@ export class PicaMobileSettingsService {
       message: "Administrator changed the Pica Mobile port",
       metadata: { userId: actor.id, port },
     });
+  }
 
-    return { ok: true, port };
+  /**
+   * Moves the port `pages-core` holds: checked, stored, served by the core,
+   * or the previous setting stored again, including no port at all.
+   *
+   * @remarks
+   * Changes run one after another. Only `picaMobilePort` changes; every
+   * other setting is read and written anew by the configuration file.
+   */
+  private moveRelayedPort(
+    relay: PicaMobileRelay,
+    port: number,
+  ): Promise<PicaMobilePortResult> {
+    return relay.serialize(async () => {
+      const config = await this.dependencies.configFile.read();
+      const address = config?.listenAddress;
+      const previous = config?.picaMobilePort;
+
+      if (port === config?.port || port === relay.port) {
+        return { ok: false, error: "portOfPages" };
+      }
+
+      // A port the core already serves is taken by it; otherwise it must be free.
+      if (!(previous === port && (await relay.confirm(address, port)))) {
+        const reason = await relay.checkPort(address, port);
+
+        if (reason !== null) {
+          return { ok: false, error: reason };
+        }
+      }
+
+      await this.storePort(port);
+
+      if (await relay.awaitPort(address, port)) {
+        return { ok: true, port };
+      }
+
+      // The core did not take the port: the previous setting returns.
+      await this.storePort(previous);
+
+      return { ok: false, error: "listenFailed" };
+    });
+  }
+
+  private async storePort(port: number | undefined): Promise<void> {
+    await this.dependencies.configFile.update((config) => ({
+      ...config,
+      picaMobilePort: port,
+    }));
   }
 
   /** Names why the stored port is not bound; `null` while none is stored. */

@@ -1,4 +1,6 @@
+import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { DiscordAttemptRepository } from "@/backend/database/repositories/discord/DiscordAttemptRepository";
+import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { DiscordConnectionRepository } from "@/backend/database/repositories/discord/DiscordConnectionRepository";
 import { DiscordDeliveryRepository } from "@/backend/database/repositories/discord/DiscordDeliveryRepository";
 import { DiscordApiClient } from "@/backend/discord/DiscordApiClient";
@@ -67,7 +69,7 @@ export function createDiscordServices(
     runtime: application && client ? { application, client } : null,
   });
 
-  if (client) {
+  if (client && !isLocalSessionOwner() && !isPagesRunsProcess()) {
     startDelivery({ attempts, client, connections, context, deliveries });
   }
 

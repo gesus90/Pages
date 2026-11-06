@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
+
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { CliHome } from "./CliContracts";
 
@@ -80,7 +82,11 @@ export function createCliEnvironment(
   for (const name of PROXY_VARIABLES) {
     if (inherited[name] !== undefined) environment[name] = inherited[name];
   }
-  return { ...environment, ...providerEnvironment(home, provider) };
+  return {
+    ...environment,
+    ...providerEnvironment(home, provider),
+    ...correlationEnvironment(),
+  };
 }
 
 /** The arguments of the official sign-in command of each CLI. */

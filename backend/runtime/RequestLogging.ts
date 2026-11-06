@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import { withDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
+import { readCorrelationId } from "@/backend/logging/LogCorrelation";
+import { CORRELATION_HEADER } from "@/definition/RequestCorrelation";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import { withAccountAuthorizationLog } from "@/backend/logging/AccountAuthorizationLog";
 import { withRouteLogMetrics } from "@/backend/logging/RouteLogMetrics";
@@ -76,6 +78,10 @@ export function logRequest(
   handle: () => void,
 ): void {
   const requestId = randomUUID();
+  const correlationId =
+    readCorrelationId(request.headers[CORRELATION_HEADER.toLowerCase()]) ??
+    requestId;
+  response.setHeader(CORRELATION_HEADER, correlationId);
   const method = /^(?:GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$/u.test(
     request.method ?? "",
   )
@@ -84,7 +90,7 @@ export function logRequest(
   const url = request.url ?? "/";
   const isPolling = isPollingRequest(url, method);
   const route = safeRequestRoute(url);
-  withLogContext({ requestId, correlationId: requestId }, () =>
+  withLogContext({ requestId, correlationId }, () =>
     withPollingLogPolicy(isPolling, () =>
       withDatabaseLogMetrics((database) =>
         withRouteLogMetrics((routes) =>

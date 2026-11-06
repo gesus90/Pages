@@ -1,5 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
+
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
+import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 
 import { stopWorkerUnits } from "./CliWorkerUnit";
 
@@ -80,6 +82,8 @@ export async function settleOwnedNamespace(
   root = "/proc",
 ): Promise<boolean> {
   readOwnedNamespace(owner);
+  const managed = await settleManagedLocalOwner(instanceId);
+  if (managed !== null) return managed && hasEndedOwnedNamespace(owner, root);
   if (owner.unit && (await bootId(root)) === owner.boot) {
     const prefix = `pages-acp-${instanceId}-`;
     if (

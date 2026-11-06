@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
+import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 
 function runtimeDirectory(instanceId: string): string {
   if (!/^[a-f0-9-]{36}$/u.test(instanceId))
@@ -78,5 +79,6 @@ export function scriptEnvironment(input: {
     TERM: "dumb",
     NO_COLOR: "1",
     [RUN_INSTANCE_VARIABLE]: input.instanceId,
+    ...correlationEnvironment(),
   };
 }

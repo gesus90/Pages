@@ -66,6 +66,7 @@ test("the reader really has no write right, so the viewer needs none", async ({
     data: {
       base: { description: "", updatedAt },
       draft: { description: "changed by a reader", updatedAt },
+      operationId: "00000000-0000-4000-8000-000000000001",
       sequence: 1,
       streamId: "00000000-0000-4000-8000-000000000000",
     },

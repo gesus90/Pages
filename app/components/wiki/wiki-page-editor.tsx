@@ -149,6 +149,7 @@ export function WikiPageEditor({
   });
 
   useAdoptNewerVersion(state, page, handle);
+  useRecoverKeptDraft(state, handle);
   useReportSaved(state.saved, onSaved);
 
   useEffect(() => {
@@ -231,6 +232,21 @@ function useAdoptNewerVersion(
       handle.current?.replaceMarkdown(page.content);
     }
   }, [adopt, handle, page]);
+}
+
+/** Shows the draft this browser kept for the page, also in an editor that is already open. */
+function useRecoverKeptDraft(
+  state: WikiDraftState,
+  handle: React.RefObject<BlockEditorHandle | null>,
+): void {
+  const { recover } = state;
+
+  useEffect(() => {
+    // An editor that mounts later starts from the recovered draft anyway.
+    void recover().then((content) => {
+      if (content !== null) handle.current?.replaceMarkdown(content);
+    });
+  }, [recover, handle]);
 }
 
 /** Reports every successful save to the page screen. */

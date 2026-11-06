@@ -1,5 +1,7 @@
 # Plan-Snapshots und Runner-Ereignisse (PAGE-142)
 
+Lokale ACP-Planagenten verwenden ab PAGE-224 einen unabhängigen nativen Sitzungsbesitzer mit dauerhaftem Journal und Wiederanbindung desselben Runs/Versuchs. Normaler Pages-Shutdown trennt die Beobachtung; Nutzer-Stop bleibt wirksam. Eigentumsprüfung, Kompatibilität und Abnahmegrenzen stehen in [LocalAgentSessions.md](./LocalAgentSessions.md).
+
 > Current control contract: [PAGE-184 / PAGE-185](./PAGE-184-185.md) documents
 > Pages plan contract 13, Runner 1.15.0, business acceptance for every CLI,
 > upper control actions, actual writer queues and logical workspace removal.

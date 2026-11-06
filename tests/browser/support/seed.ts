@@ -110,6 +110,9 @@ const FILLER =
 const attachmentAnswer = z.object({
   attachment: z.object({ id: z.string() }),
 });
+const projectListAnswer = z.object({
+  projects: z.array(z.object({ id: z.string() })),
+});
 const panelAnswer = z.object({
   selection: z.object({
     selectedItem: z.object({
@@ -143,18 +146,18 @@ async function createLanguageCookie(origin: string): Promise<string> {
  *
  * @param origin - Address of the instance.
  * @param setupToken - One-time secret of the wizard.
- * @param databasePath - Absolute path of the new database.
+ * @param databaseUrl - Connection to the isolated empty database.
  * @returns A client with the administrator's session.
  */
 export async function completeSetup(
   origin: string,
   setupToken: string,
-  databasePath: string,
+  databaseUrl: string,
 ): Promise<PagesClient> {
   const admin = new PagesClient(origin, await createLanguageCookie(origin));
   const answer = await admin.postForm("/setup", {
     companyName: "Browser Test Company",
-    databasePath,
+    databaseUrl,
     intent: "complete",
     password: ADMIN_PASSWORD,
     token: setupToken,
@@ -232,14 +235,12 @@ async function createReader(
 }
 
 async function listProjectIds(admin: PagesClient): Promise<readonly string[]> {
-  const page = await admin.getText("/projekte");
+  const overview = await admin.getJson("/projekte-api/list", projectListAnswer);
 
-  return [...page.matchAll(/href="\/projekte\/([0-9a-f-]{36})"/gu)].map(
-    (match) => match[1] ?? "",
-  );
+  return overview.projects.map((project) => project.id);
 }
 
-/** Creates a project and returns its identifier, read from the project list. */
+/** Creates a project and returns its identifier, read from the project overview data. */
 async function createProject(
   admin: PagesClient,
   name: string,
@@ -332,6 +333,7 @@ async function saveDescription(
   const answer = await admin.postJson(`/ticket-api/drafts/${ticketId}`, {
     base,
     draft: { description, updatedAt: base.updatedAt },
+    operationId: randomUUID(),
     sequence: 1,
     streamId: randomUUID(),
   });

@@ -1,0 +1,36 @@
+[Unit]
+Description=Pages PostgreSQL (%i)
+Wants=pages-service-monitor@%i.service
+After=pages-service-monitor@%i.service
+PartOf=pages.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+NotifyAccess=all
+WatchdogSec=60
+TimeoutStartSec=180
+User=pages
+Group=pages
+Environment=PG_BIN=/usr/lib/postgresql/18/bin
+Environment=PGDATA=/var/lib/pages/%i/postgres
+Environment=PGHOST=/var/lib/pages/%i/postgres-socket
+Environment=PGPORT=5432
+ExecStart=/bin/bash /opt/pages/deploy/postgres/run-postgres.sh
+Restart=always
+RestartSec=5
+# Zielarchitektur rev12: PostgreSQL 3 GB starting budget.
+MemoryMax=3G
+MemorySwapMax=0
+OOMScoreAdjust=-250
+TimeoutStopSec=90
+KillSignal=SIGINT
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pages/%i
+
+[Install]
+WantedBy=pages.target

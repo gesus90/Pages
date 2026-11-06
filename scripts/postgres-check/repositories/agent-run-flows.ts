@@ -78,18 +78,16 @@ export const PLAN_RUN_FLOW: RepositoryFlow = {
     call("AgentPlanRunRepository.findWorkspaceReservation", (world) =>
       runs(world).findWorkspaceReservation([RESOURCE], "run-a"),
     ),
-    call("AgentPlanRunRepository.insert", ({ database }) =>
-      database.transaction((transaction) =>
-        new AgentPlanRunRepository(database).insert(
-          transaction,
-          runFixture("run-second", SECOND_PLAN.id, {
-            startedAt: "2026-03-01T07:00:00.000Z",
-          }),
-          SECOND_SNAPSHOT,
-          [],
-        ),
-      ),
-    ),
+    call("AgentPlanRunRepository.insert", async ({ database }) => {
+      const repository = new AgentPlanRunRepository(database);
+      const run = runFixture("run-second", SECOND_PLAN.id, {
+        startedAt: "2026-03-01T07:00:00.000Z",
+      });
+      await repository.prepareSnapshot(run.id, SECOND_SNAPSHOT);
+      return database.transaction((transaction) =>
+        repository.insert(transaction, run, SECOND_SNAPSHOT, []),
+      );
+    }),
     call("AgentPlanRunRepository.reserve", (world) =>
       runs(world).reserve("run-second", ["remote-workspace:second"]),
     ),

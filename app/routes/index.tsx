@@ -1,11 +1,15 @@
 import { redirect } from "react-router";
 
-import { getAuthenticatedUser } from "@/app/lib/auth.server";
-import type { Route } from "./+types/index";
+import { localState } from "@/app/lib/local-state/local-state-store";
 
-/** Directs visitors to their workspace or the login screen. */
-export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
-  const user = await getAuthenticatedUser(request);
-
-  return redirect(user ? "/dashboard" : "/login");
+/**
+ * Directs visitors to their workspace or the login screen.
+ *
+ * @remarks
+ * The root loader names the signed-in account from the server's answer, or
+ * the account the browser keeps while the backend is down (PAGE-235).
+ */
+export async function clientLoader(): Promise<Response> {
+  await localState.whenClaimed();
+  return redirect(localState.currentOwner() ? "/dashboard" : "/login");
 }

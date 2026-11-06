@@ -15,7 +15,7 @@ beforeEach(() => {
 
 const initialAccess = {
   token: "synthetic-link-token",
-  suggestedDatabasePath: "/pages.duckdb",
+  suggestedDatabaseUrl: "",
 };
 
 it.each([false, true])(

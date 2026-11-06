@@ -297,6 +297,14 @@
     }
   },
   "settings": {
+    "serviceMonitor": {
+      "title": "Dienstneustarts",
+      "description": "Die unabhängige systemd-Überwachung bewahrt Warnungen über Dienstausfälle hinweg auf.",
+      "loading": "Dienststatus wird geladen…",
+      "unavailable": "Die Neustartüberwachung ist nicht verfügbar oder ihre letzte Beobachtung ist veraltet. Lesbare gespeicherte Warnungen werden weiterhin angezeigt.",
+      "healthy": "Keine häufigen Neustarts festgestellt.",
+      "warning": "{{unit}} wurde innerhalb von zehn Minuten {{count}}-mal neu gestartet. Zuletzt festgestellt: {{time}}. Die Warnung bleibt nach der Erholung erhalten."
+    },
     "ticketAssets": {
       "title": "Ticket-Anhänge prüfen",
       "description": "Prüft gespeicherte Tickets und Anhangsdateien. Meldet fehlende Bilder, temporäre Uploads und Speicherabweichungen. Ändert und repariert keine Daten.",
@@ -778,6 +786,8 @@
         "plan_runner_result_limit": "Die finale Agent-Antwort überschreitet das separate Ergebnislimit dieses Knotens.",
         "acp_result_limit": "Die finale ACP-Antwort überschreitet das separate Limit von 200.000 Zeichen.",
         "plan_history_unavailable": "Der Verlauf konnte nicht gelesen werden. Bestätigte Positionen bleiben erhalten.",
+        "plan_payload_missing": "Die gespeicherte Agentendatei fehlt. Es wurden keine Ersatzinhalte geliefert.",
+        "plan_payload_corrupt": "Die Größen- oder SHA-256-Integritätsprüfung der gespeicherten Agentendatei ist fehlgeschlagen.",
         "plan_history_corrupt": "Ein Verlaufschunk fehlt oder seine Integritätsprüfung ist fehlgeschlagen.",
         "plan_runner_failed": "Der Runner hat seinen Turn mit einem Fehler beendet.",
         "plan_runner_incomplete": "Der Runner endete, ohne seinen Turn abzuschließen.",
@@ -1954,7 +1964,10 @@
       "parentArchived": "Der gewählte übergeordnete Eintrag ist archiviert.",
       "subtasksStayWithTask": "Subtasks bleiben immer bei ihrem Task.",
       "ticketArchived": "Ein archiviertes Ticket kann nicht geändert werden.",
-      "network": "Der Server ist nicht erreichbar."
+      "network": "Der Server ist nicht erreichbar.",
+      "connection": "Pages ist nicht erreichbar. Der Entwurf bleibt in diesem Browser und wird automatisch gespeichert, sobald Pages wieder antwortet.",
+      "backend": "Pages antwortet gerade nicht. Der Entwurf bleibt in diesem Browser und wird automatisch erneut gesendet.",
+      "operationReused": "Diese Speicherung wurde schon für einen anderen Stand verwendet. Bitte erneut speichern."
     },
     "hierarchy": {
       "expandAll": "Alle aufklappen",
@@ -2760,18 +2773,18 @@
       "emailPlaceholder": "name@beispiel.de …"
     },
     "database": {
-      "title": "Speicherort der Datenbank",
-      "subtitle": "Pages speichert alle Daten in dieser DuckDB-Datei. Der Vorschlag passt für die meisten Installationen.",
-      "label": "Datenbankpfad",
-      "checking": "Pfad wird geprüft …",
-      "checkFailed": "Der Pfad konnte nicht geprüft werden. Bitte Verbindung prüfen.",
+      "title": "PostgreSQL-Verbindung",
+      "subtitle": "Geben Sie die Verbindung zu einer leeren PostgreSQL-Datenbank ein.",
+      "label": "Datenbankverbindung",
+      "checking": "Verbindung wird geprüft …",
+      "checkFailed": "Die Verbindung konnte nicht geprüft werden.",
       "status": {
-        "empty": "Bitte Pfad angeben",
-        "invalid": "Kein gültiger Pfad",
-        "notWritable": "Keine Schreibrechte unter diesem Pfad – bitte ein beschreibbares Verzeichnis wählen",
-        "existing": "Bestehende Datenbank wird geöffnet",
-        "foreign": "Dort liegt eine andere Datei – bitte anderen Pfad wählen",
-        "available": "Speicherort verfügbar"
+        "empty": "Bitte Verbindung angeben",
+        "invalid": "Keine gültige PostgreSQL-Verbindung",
+        "notWritable": "Die Datenbank ist nicht erreichbar oder der Zugriff wurde verweigert",
+        "existing": "Datenbank ist nicht leer",
+        "foreign": "Die Datenbank enthält bereits Objekte. Bitte eine leere Datenbank wählen",
+        "available": "Leere Datenbank erreichbar"
       },
       "finish": "Fertig",
       "finishing": "Wird eingerichtet …"
@@ -3185,7 +3198,10 @@
       "invalidInput": "Die Eingabe ist unvollständig.",
       "notFound": "Nicht gefunden oder kein Zugriff.",
       "network": "Der Server ist nicht erreichbar.",
-      "invalidCover": "Das Cover muss ein vorbereitetes Cover oder ein Bild dieser Seite sein."
+      "invalidCover": "Das Cover muss ein vorbereitetes Cover oder ein Bild dieser Seite sein.",
+      "connection": "Pages ist nicht erreichbar. Der Entwurf bleibt in diesem Browser und wird automatisch gespeichert, sobald Pages wieder antwortet.",
+      "backend": "Pages antwortet gerade nicht. Der Entwurf bleibt in diesem Browser und wird automatisch erneut gesendet.",
+      "operationReused": "Diese Speicherung wurde schon für einen anderen Stand verwendet. Bitte erneut speichern."
     },
     "search": {
       "title": "Wiki durchsuchen",
@@ -4026,6 +4042,20 @@
     }
   },
   "plans": {
+    "localState": {
+      "stale": "Zuletzt bekannter Stand vom {{time}}. Er wird gerade aktualisiert; bis dahin ist der Plan schreibgeschützt.",
+      "offline": "Pages ist nicht erreichbar. Angezeigt wird der zuletzt bekannte Stand vom {{time}}; Änderungen sind gesperrt, bis die Verbindung zurück ist."
+    },
+    "command": {
+      "accepted": "{{action}}: Auftrag bestätigt. Die Ausführung wird aktualisiert.",
+      "failed": "{{action}}: Der Auftrag konnte nicht ausgeführt werden.",
+      "action": {
+        "start": "Start",
+        "pause": "Pause",
+        "stop": "Stop",
+        "resume": "Fortsetzen"
+      }
+    },
     "retry": {
       "state": {
         "waiting": "Wartet auf automatische Wiederholung",
@@ -5480,7 +5510,7 @@
       "cloneUnsaved": "Ungespeicherte Änderungen werden weder kopiert noch gespeichert; sie bleiben im Editor.",
       "deleteTitle": "Plan löschen?",
       "deleteQuestion": "Möchtest du „{{name}}“ wirklich löschen?",
-      "deleteContext": "{{context}}. Workspace-Dateien und Laufhistorie bleiben erhalten.",
+      "deleteContext": "{{context}}. Private Snapshot- und Sitzungsdateien werden entfernt. Workspace-Dateien und öffentliche Laufaufzeichnungen bleiben erhalten.",
       "deleteUnsaved": "Ungespeicherte Änderungen gehen verloren.",
       "delete": "Löschen",
       "namePlaceholder": "Name eingeben",
@@ -5916,7 +5946,8 @@
     "unsaved": "Ungespeicherter Entwurf",
     "error": "Speichern fehlgeschlagen. Deine Eingaben bleiben erhalten.",
     "conflict": "Konflikt – Entwurf öffnen und Versionen vergleichen.",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "signOut": "Einige Änderungen sind noch nicht vom Server bestätigt. Beim Abmelden werden sie aus diesem Browser gelöscht. Trotzdem abmelden?"
   },
   "agentTools": {
     "title": "Agent-Tools & Laufzeiten",
@@ -6071,5 +6102,37 @@
   },
   "reasoningChoice": {
     "unsupported": "{{model}} unterstützt diese Stufe nicht."
+  },
+  "serviceStatus": {
+    "title": "Dienste",
+    "description": "Zustand der Pages-Dienste aus dem systemd-Manager, auch wenn die API ausgefallen ist.",
+    "loading": "Dienststatus wird geladen…",
+    "unreachable": "Der Dienststatus ist nicht erreichbar.",
+    "denied": "Details sehen nur Administratoren im Adminmodus.",
+    "unconfirmed": "Die Anmeldung kann gerade nicht geprüft werden, deshalb ist nur die Ampel sichtbar. Die Details erscheinen wieder, sobald die API antwortet.",
+    "neverStarted": "nie gestartet",
+    "light": {
+      "green": "Alle Dienste laufen",
+      "yellow": "Ein Dienst startet oder stoppt",
+      "red": "Störung: nicht alle Dienste laufen",
+      "unknown": "Dienststatus unbekannt"
+    },
+    "column": {
+      "name": "Dienst",
+      "state": "Zustand",
+      "lastStart": "Letzter Start",
+      "restarts": "Neustarts"
+    },
+    "state": {
+      "active": "läuft",
+      "activating": "startet",
+      "deactivating": "stoppt",
+      "reloading": "lädt neu",
+      "refreshing": "aktualisiert",
+      "inactive": "gestoppt",
+      "failed": "fehlgeschlagen",
+      "maintenance": "Wartung",
+      "unknown": "unbekannt"
+    }
   }
 }

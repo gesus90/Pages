@@ -1,39 +1,36 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { getAuthenticatedUser } from "@/app/lib/auth.server";
-import { loader } from "@/app/routes/index";
+import { localState } from "@/app/lib/local-state/local-state-store";
+import { clientLoader } from "@/app/routes/index";
 
-import {
-  ACTOR,
-  pagesRequest,
-  responseOf,
-  routeArguments,
-} from "./route-fixture";
+import { responseOf } from "./route-fixture";
 
-vi.mock("@/app/lib/auth.server", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  getAuthenticatedUser: vi.fn(),
+vi.mock("@/app/lib/local-state/local-state-store", () => ({
+  localState: {
+    whenClaimed: vi.fn(async (): Promise<void> => undefined),
+    currentOwner: vi.fn(),
+  },
 }));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: vi.fn(),
 }));
 
 beforeEach(() => {
-  vi.mocked(getAuthenticatedUser).mockReset();
+  vi.mocked(localState.currentOwner).mockReset();
 });
 
 it("sends a signed-in visitor to the dashboard", async () => {
-  vi.mocked(getAuthenticatedUser).mockResolvedValue(ACTOR);
+  vi.mocked(localState.currentOwner).mockReturnValue("user-1");
 
-  const response = await responseOf(loader(routeArguments(pagesRequest("/"))));
+  const response = await responseOf(clientLoader());
 
   expect(response.headers.get("Location")).toBe("/dashboard");
 });
 
 it("sends an anonymous visitor to the login", async () => {
-  vi.mocked(getAuthenticatedUser).mockResolvedValue(null);
+  vi.mocked(localState.currentOwner).mockReturnValue(null);
 
-  const response = await responseOf(loader(routeArguments(pagesRequest("/"))));
+  const response = await responseOf(clientLoader());
 
   expect(response.headers.get("Location")).toBe("/login");
 });

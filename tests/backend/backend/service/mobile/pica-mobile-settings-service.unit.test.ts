@@ -24,10 +24,13 @@ vi.mock("node:fs/promises", async () =>
     await import("../../config/memory-config-files")
   ).memoryConfigFiles.promisesModule(),
 );
-vi.mock("@/backend/logging/Logger", () => ({
+vi.mock("@/backend/logging/Logger", async (importOriginal) => ({
+  ...(await importOriginal<typeof LoggerModule>()),
   logCaughtError: vi.fn(),
   logEvent: vi.fn(),
 }));
+
+import type * as LoggerModule from "@/backend/logging/Logger";
 
 const CONFIG_PATH = "/virtual/pica-mobile/config.toml";
 

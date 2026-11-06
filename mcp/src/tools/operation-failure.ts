@@ -54,6 +54,8 @@ const REJECTION_REASONS: Readonly<
   plan_running: true,
   plan_run_unavailable: true,
   plan_run_unreadable: true,
+  plan_payload_missing: true,
+  plan_payload_corrupt: true,
   plan_history_unavailable: true,
   plan_start_rejection_record_failed: true,
   plan_remote_unavailable: true,

@@ -1,26 +1,31 @@
 import { useLoaderData } from "react-router";
 
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
 import { SystemSection } from "@/app/components/settings/system-section";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
-import { resolveSystemSettingsAccess } from "@/app/lib/settings-actions/settings-system-access.server";
-import { AGENT_NO_STORE } from "@/app/lib/settings-actions/settings-agents-response.server";
 import {
-  createServerSettingsService,
-  handleSystemSettingsAction,
-} from "@/app/lib/settings-actions/settings-system-actions.server";
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { ServerStatus } from "@/backend/service/ServerSettingsService";
 import type { ChatAdministration } from "@/definition/Chat";
 import type { LoggingStatus } from "@/definition/Logging";
 import type { InstanceBranding } from "@/definition/Instance";
 import type { WikiSettings } from "@/definition/Wiki";
-import type { SettingsActionResult } from "@/app/lib/settings-actions/settings-action-support.server";
 import type { Route } from "./+types/settings-system";
 
-type SettingsSystemLoaderData =
+/** The system settings as the endpoint answers them, or the request for the admin mode. */
+export type SettingsSystemLoaderData =
   | {
       readonly access: "granted";
       /** Port stored for the next start. */
@@ -34,80 +39,80 @@ type SettingsSystemLoaderData =
       readonly wikiSettings: WikiSettings;
       /** Attachment limit and system instruction of the chat agent. */
       readonly chatSettings: ChatAdministration;
+      readonly audience: LocalStateAudience;
     }
   | { readonly access: "adminModeRequired" };
 
-/** Keeps administrator data and confirmed ACP snapshots out of document and data caches. */
-export const headers: Route.HeadersFunction = ({ parentHeaders }) => {
-  const responseHeaders = new Headers(parentHeaders);
-  responseHeaders.set("Cache-Control", AGENT_NO_STORE["Cache-Control"]);
-  return responseHeaders;
-};
+/** The rights-checked endpoint of the system settings. */
+const SETTINGS_SYSTEM_ENDPOINT = "/settings-api/system";
 
-/**
- * Loads the system settings for an administrator in the admin mode.
- *
- * @throws A `403` response for accounts without the admin permission.
- */
-export async function loader({
-  context,
-}: Route.LoaderArgs): Promise<SettingsSystemLoaderData> {
-  const user = context.get(authenticatedUserContext);
-
-  if (!user) {
-    throw new Error("Authenticated middleware did not provide a user.");
-  }
-
-  const services = await getApplicationServices();
-
-  if ((await resolveSystemSettingsAccess(services, user)) !== "granted") {
-    return { access: "adminModeRequired" };
-  }
-
-  const serverSettings = await createServerSettingsService({ services });
-
-  const [port, status, branding, wikiSettings, chatSettings, logging] =
-    await Promise.all([
-      serverSettings.readPort(),
-      serverSettings.readStatus(),
-      services.instanceSettingsService.getBranding(),
-      services.wikiService.getSettings(),
-      services.chatSettingsService.administration(user),
-      serverSettings.readLogging(user),
-    ]);
-
-  return {
-    access: "granted",
-    branding,
-    chatSettings,
-    logging,
-    port,
-    status,
-    wikiSettings,
-  };
+function isSettingsSystemLoaderData(
+  value: unknown,
+): value is SettingsSystemLoaderData {
+  if (typeof value !== "object" || value === null || !("access" in value))
+    return false;
+  if (value.access === "adminModeRequired") return true;
+  return (
+    value.access === "granted" &&
+    "status" in value &&
+    typeof value.status === "object" &&
+    "chatSettings" in value &&
+    typeof value.chatSettings === "object" &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
+  );
 }
 
 /**
- * Changes the system settings.
+ * The system settings, kept per account and rights.
  *
  * @remarks
- * Every handler checks the permission itself, so a submission from an account
- * without the admin permission or outside the admin mode is refused there.
+ * The rights include the admin mode, so leaving it never shows the kept
+ * administrator data; the request for the admin mode is not kept.
  */
-export async function action(
-  args: Route.ActionArgs,
-): Promise<SettingsActionResult> {
-  const settingsRequest = await readSettingsRequest(args);
+const SETTINGS_SYSTEM_STATE: LocalStateRouteKind<SettingsSystemLoaderData> = {
+  schemaVersion: 1,
+  isPayload: isSettingsSystemLoaderData,
+  isCurrent: (system) =>
+    system.access === "granted" && isCurrentLocalStateAudience(system.audience),
+  ownerOf: (system) =>
+    system.access === "granted" ? system.audience.userId : "",
+  isRefused: (system) => system.access !== "granted",
+};
 
-  return handleSystemSettingsAction(
-    settingsRequest.formData.get("intent"),
-    settingsRequest,
+/**
+ * Opens the system settings from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint checks the admin permission and the admin mode again, as the
+ * server loader does.
+ */
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<SettingsSystemLoaderData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), SETTINGS_SYSTEM_STATE, () =>
+    readRouteData({
+      endpoint: `${SETTINGS_SYSTEM_ENDPOINT}${url.search}`,
+      signal: request.signal,
+      isPayload: isSettingsSystemLoaderData,
+    }),
   );
+}
+
+/** Sends a change of the system settings to the API, which runs the page's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Renders the system settings, or asks for the admin mode first. */
 export default function SettingsSystemRoute(): React.ReactElement {
-  const loaderData = useLoaderData<typeof loader>();
+  const loaderData = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    SETTINGS_SYSTEM_STATE,
+  );
 
   return loaderData.access === "granted" ? (
     <SystemSection

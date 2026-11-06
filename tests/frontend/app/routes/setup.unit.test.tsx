@@ -1,13 +1,10 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { sendToBackend } from "@/app/lib/backend-request";
 import { handleSetupAction } from "@/app/lib/setup/setup-actions.server";
-import SetupRoute, {
-  action,
-  clientAction,
-  loader,
-  shouldRevalidate,
-} from "@/app/routes/setup";
+import SetupRoute, { clientAction, shouldRevalidate } from "@/app/routes/setup";
+import { action, loader } from "@/app/routes/setup-server";
 
 import {
   formPost,
@@ -31,6 +28,10 @@ vi.mock("@/app/lib/services.server", () => ({
 }));
 vi.mock("@/backend/runtime/PagesRuntime", () => ({
   getPagesRuntime: async (): Promise<unknown> => runtime,
+}));
+vi.mock("@/app/lib/backend-request", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  sendToBackend: vi.fn(),
 }));
 vi.mock("@/app/lib/setup/setup-actions.server", () => ({
   handleSetupAction: vi.fn(),
@@ -95,9 +96,10 @@ function clientArguments(
   intent: string,
   serverAction: () => Promise<never>,
 ): Parameters<typeof clientAction>[0] {
+  vi.mocked(sendToBackend).mockImplementation(serverAction);
   return {
     ...routeArguments(formPost("/setup", { intent })),
-    serverAction,
+    serverAction: async () => undefined,
   };
 }
 
@@ -109,11 +111,11 @@ it("offers only the way to sign in after the setup", async () => {
   ).resolves.toEqual({ status: "completed" });
 });
 
-it("reveals the database path only with a valid token", async () => {
+it("grants setup access only with a valid token", async () => {
   await expect(
     loader(routeArguments(pagesRequest("/setup?token=good"))),
   ).resolves.toEqual({
-    access: { suggestedDatabasePath: "/data/pages.duckdb", token: "good" },
+    access: { suggestedDatabaseUrl: "", token: "good" },
     hasRejectedToken: false,
     status: "pending",
   });
@@ -158,13 +160,15 @@ it("hands a post to the setup actions", async () => {
 it("returns the server's answer from the client action", async () => {
   const answer: SetupActionData = {
     intent: "verify-token",
-    access: { suggestedDatabasePath: "/data", token: "good" },
+    access: { suggestedDatabaseUrl: "", token: "good" },
   };
+
+  vi.mocked(sendToBackend).mockResolvedValue(answer);
 
   await expect(
     clientAction({
       ...routeArguments(formPost("/setup", { intent: "verify-token" })),
-      serverAction: async () => answer,
+      serverAction: async () => undefined,
     }),
   ).resolves.toBe(answer);
 });
@@ -198,16 +202,18 @@ it("passes server responses and unknown intents through", async () => {
   ).rejects.toThrow("Failed to fetch");
 });
 
-it("skips reloading after token and path checks", () => {
+it("skips reloading after token and connection checks", () => {
   expect(shouldRevalidate(revalidation("verify-token"))).toBe(false);
-  expect(shouldRevalidate(revalidation("check-database-path"))).toBe(false);
+  expect(shouldRevalidate(revalidation("check-database-connection"))).toBe(
+    false,
+  );
   expect(shouldRevalidate(revalidation("complete"))).toBe(true);
 });
 
 it("shows the wizard in the language of the root data", () => {
   renderRoute(SetupRoute, {
     loaderData: {
-      access: { suggestedDatabasePath: "/data", token: "good" },
+      access: { suggestedDatabaseUrl: "", token: "good" },
       hasRejectedToken: false,
       status: "pending",
     },

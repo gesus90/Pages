@@ -2,11 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { bootstrapConfig } from "@/backend/config/ConfigBootstrap";
 import { ConfigFile } from "@/backend/config/ConfigFile";
-import { inspectPagesDatabase } from "@/backend/database/PagesDatabaseInspector";
 
 import { memoryConfigFiles } from "./memory-config-files";
-
-import type { PagesDatabaseInspection } from "@/backend/database/PagesDatabaseInspector";
 
 vi.mock("node:fs/promises", async () =>
   (await import("./memory-config-files")).memoryConfigFiles.promisesModule(),
@@ -14,16 +11,6 @@ vi.mock("node:fs/promises", async () =>
 vi.mock("node:fs", async () =>
   (await import("./memory-config-files")).memoryConfigFiles.syncModule(),
 );
-vi.mock("@/backend/database/PagesDatabaseInspector", () => ({
-  inspectPagesDatabase: vi.fn(),
-}));
-
-function pagesInspection(
-  hasActiveAdministrator: boolean,
-): PagesDatabaseInspection {
-  return { kind: "pages", hasActiveAdministrator };
-}
-
 const CONFIG_PATH = "/srv/pages/config.toml";
 const DATABASE_PATH = "/srv/pages/data/pages.duckdb";
 
@@ -43,33 +30,15 @@ describe("first start without a configuration file", () => {
     });
     expect(memoryConfigFiles.files.has(CONFIG_PATH)).toBe(true);
     expect(memoryConfigFiles.directories.get("/srv/pages/data")).toBe(0o700);
-    expect(inspectPagesDatabase).not.toHaveBeenCalled();
     expect(memoryConfigFiles.files.has(DATABASE_PATH)).toBe(false);
   });
 
-  it("adopts an older database with an active administrator as finished setup", async () => {
+  it("refuses automatic adoption of a legacy database", async () => {
     memoryConfigFiles.files.set(DATABASE_PATH, "");
-    vi.mocked(inspectPagesDatabase).mockResolvedValue(pagesInspection(true));
-
-    const result = await bootstrapConfig(new ConfigFile(CONFIG_PATH));
-
-    expect(result).toEqual({
-      config: { databasePath: DATABASE_PATH, firstRun: false, port: 3000 },
-      isNewConfig: true,
-    });
-  });
-
-  it.each([
-    ["a Pages database without an administrator", pagesInspection(false)],
-    ["a foreign database", { kind: "foreign" } as const],
-    ["a locked database", { kind: "locked" } as const],
-  ])("runs the setup for %s", async (_, inspection) => {
-    memoryConfigFiles.files.set(DATABASE_PATH, "");
-    vi.mocked(inspectPagesDatabase).mockResolvedValue(inspection);
-
-    const result = await bootstrapConfig(new ConfigFile(CONFIG_PATH));
-
-    expect(result.config).toMatchObject({ firstRun: true });
+    await expect(bootstrapConfig(new ConfigFile(CONFIG_PATH))).rejects.toThrow(
+      /legacy database/u,
+    );
+    expect(memoryConfigFiles.files.has(DATABASE_PATH)).toBe(true);
   });
 });
 
@@ -90,23 +59,23 @@ describe("start with a configuration file", () => {
     memoryConfigFiles.files.set(DATABASE_PATH, "");
     memoryConfigFiles.files.set(
       CONFIG_PATH,
-      `firstRun = false\ndatabasePath = "${DATABASE_PATH}"\n`,
+      `firstRun = false\ndatabasePath = "${DATABASE_PATH}"\ndatabaseUrl = "postgresql://localhost/pages"\n`,
     );
 
     const result = await bootstrapConfig(new ConfigFile(CONFIG_PATH));
 
     expect(result.isNewConfig).toBe(false);
-    expect(memoryConfigFiles.directories.size).toBe(0);
+    expect(memoryConfigFiles.directories.get("/srv/pages/data")).toBe(0o700);
   });
 
-  it("refuses a finished setup whose database is missing", async () => {
+  it("refuses a finished setup without a PostgreSQL URL", async () => {
     memoryConfigFiles.files.set(
       CONFIG_PATH,
       `firstRun = false\ndatabasePath = "${DATABASE_PATH}"\n`,
     );
 
     await expect(bootstrapConfig(new ConfigFile(CONFIG_PATH))).rejects.toThrow(
-      /does not exist/u,
+      /databaseUrl/u,
     );
   });
 });

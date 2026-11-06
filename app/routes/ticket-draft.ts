@@ -15,7 +15,7 @@ import type { Route } from "./+types/ticket-draft";
 
 /** Saves only the description using the service's atomic text comparison. */
 export async function action(args: Route.ActionArgs): Promise<Response> {
-  const { actor, services, base, draft, streamId, sequence } =
+  const { actor, services, base, draft, streamId, sequence, operationId } =
     await readDraftRequest(args, descriptionContentSchema);
   return runDraftWrite(
     {
@@ -32,6 +32,7 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
           {
             baseDescription: base.description,
             description: draft.description,
+            operationId,
           },
         );
         return Response.json({

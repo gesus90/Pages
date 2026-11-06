@@ -47,7 +47,10 @@ export class JobOutput extends Writable {
       binding,
       { recordAligned: true },
     );
-    this.#terminal = new CliTerminalResult(command, redact);
+    this.#terminal =
+      command.program.kind === "cli"
+        ? new CliTerminalResult(command, redact)
+        : null;
     this.#history = createLiveHistory(command, redact, async (event) => {
       this.#eventSequence += 1;
       await this.#events.append(

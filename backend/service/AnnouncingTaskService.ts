@@ -1,10 +1,12 @@
 import { TaskService } from "@/backend/service/TaskService";
-import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { TaskRepository } from "@/backend/database/repositories/TaskRepository";
-import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
+import type {
+  PagesEvent,
+  PagesEventPublisher,
+} from "@/backend/service/events/PagesEventPublisher";
 import type { ProjectService } from "@/backend/service/ProjectService";
 import type { MilestoneInitiativeChange } from "@/backend/service/task/TaskMilestoneLinkService";
 import type {
@@ -25,6 +27,7 @@ import type {
   UpdateWorkItemInput,
 } from "@/backend/service/task/TaskWriteService";
 import type {
+  ChildHandling,
   Milestone,
   MilestoneDependency,
   WorkItemChecklistItem,
@@ -34,10 +37,32 @@ import type {
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
 import type { TaskMoveSnapshot } from "@/definition/TaskUpdateSnapshot";
+import type { TaskLifecycleImpact } from "@/backend/service/task/TaskLifecycleService";
+
+/**
+ * Calls whose event needs nothing read before the change: they take the writer
+ * at their first write, so their checks and reads do not hold it.
+ */
+const OPENS_AT_FIRST_WRITE = { opensAtFirstWrite: true } as const;
 
 /** Where the announcements of committed changes go. */
-export interface TaskEventSink {
-  publish(event: PagesEvent): void;
+export type TaskEventSink = Pick<PagesEventPublisher, "publish" | "announce">;
+
+/** A ticket change announced as `ticket.updated`. */
+function updatedTicket(id: string): PagesEvent[] {
+  return [{ id, type: "ticket.updated" }];
+}
+
+/** A milestone change announced as `milestone.updated`. */
+function updatedMilestone(id: string): PagesEvent[] {
+  return [{ id, type: "milestone.updated" }];
+}
+
+/** Every ticket of a lifecycle change and its parent, announced as `ticket.changed`. */
+function changedTickets(impact: TaskLifecycleImpact): PagesEvent[] {
+  const ids = new Set(impact.ticketIds);
+  if (impact.parentId) ids.add(impact.parentId);
+  return [...ids].map((id) => ({ id, type: "ticket.changed" }));
 }
 
 /**
@@ -45,21 +70,31 @@ export interface TaskEventSink {
  *
  * @remarks
  * Agents announce their own changes through the same publisher, so both ways
- * of changing a ticket or a milestone reach the Discord notifications. An
- * announcement follows the stored change; a call that throws announces
- * nothing. Several changes in a row, such as the labels and checklist items of
- * a template, are merged by the notification service into one message. Moving a card inside its column and deleting a checklist item
- * announce nothing: the first changes no field a message states, and the
- * second does not name its ticket.
+ * of changing a ticket or a milestone reach the Discord notifications. Several
+ * changes in a row, such as the labels and checklist items of a template, are
+ * merged by the notification service into one message. Moving a card inside
+ * its column, deleting a checklist item, archiving, restoring and deleting
+ * change no field a message states; they announce `ticket.changed`,
+ * `ticket.deleted` or `milestone.changed`, which only the live view of open
+ * pages follows.
+ *
+ * Each call runs as one transaction through the publisher (see
+ * `PagesEventPublisher.announce`): the ticket row, its history and milestone
+ * links commit together with the outbox row of the event, which names what
+ * the result of the call says changed. A call that changed no row, such as a
+ * conditional write that lost against a concurrent change, announces nothing.
+ * Calls whose event needs a value read before the change take the writer at
+ * their start, so that read belongs to the same transaction.
  */
 export class AnnouncingTaskService extends TaskService {
   private readonly events: TaskEventSink;
+  private readonly taskRepository: TaskRepository;
 
   /**
    * Creates the announcing task service.
    *
    * @param repositories - Task persistence and the services deciding access.
-   * @param events - Receiver of the announcements.
+   * @param events - Runs the announced calls and delivers their events.
    */
   public constructor(
     repositories: {
@@ -77,6 +112,7 @@ export class AnnouncingTaskService extends TaskService {
       repositories.cache,
     );
     this.events = events;
+    this.taskRepository = repositories.taskRepository;
   }
 
   /** Creates a work item and announces `ticket.created`. */
@@ -84,11 +120,11 @@ export class AnnouncingTaskService extends TaskService {
     actor: User,
     input: CreateWorkItemInput,
   ): Promise<WorkItemDetail> {
-    const created = await super.create(actor, input);
-
-    this.events.publish({ id: created.id, type: "ticket.created" });
-
-    return created;
+    return this.events.announce(
+      () => super.create(actor, input),
+      (created) => [{ id: created.id, type: "ticket.created" }],
+      OPENS_AT_FIRST_WRITE,
+    );
   }
 
   /** Updates a work item and announces `ticket.updated`. */
@@ -97,7 +133,7 @@ export class AnnouncingTaskService extends TaskService {
     id: string,
     input: UpdateWorkItemInput,
   ): Promise<WorkItemDetail> {
-    return this.announceTicket(id, await super.update(actor, id, input));
+    return this.announceTicket(id, () => super.update(actor, id, input));
   }
 
   /** Saves a description and announces `ticket.updated`. */
@@ -106,9 +142,8 @@ export class AnnouncingTaskService extends TaskService {
     id: string,
     change: DescriptionChange,
   ): Promise<WorkItemDetail> {
-    return this.announceTicket(
-      id,
-      await super.updateDescription(actor, id, change),
+    return this.announceTicket(id, () =>
+      super.updateDescription(actor, id, change),
     );
   }
 
@@ -118,9 +153,8 @@ export class AnnouncingTaskService extends TaskService {
     id: string,
     parentId: string | null,
   ): Promise<WorkItemDetail> {
-    return this.announceTicket(
-      id,
-      await super.changeParent(actor, id, parentId),
+    return this.announceTicket(id, () =>
+      super.changeParent(actor, id, parentId),
     );
   }
 
@@ -130,7 +164,7 @@ export class AnnouncingTaskService extends TaskService {
     id: string,
     change: TitleChange,
   ): Promise<WorkItemDetail> {
-    return this.announceTicket(id, await super.updateTitle(actor, id, change));
+    return this.announceTicket(id, () => super.updateTitle(actor, id, change));
   }
 
   /** Moves the ticket to another status and announces `ticket.updated`. */
@@ -139,11 +173,7 @@ export class AnnouncingTaskService extends TaskService {
     id: string,
     change: StatusChange,
   ): Promise<WorkItemDetail> {
-    const updated = await super.updateStatus(actor, id, change);
-
-    return change.statusId === change.baseStatusId
-      ? updated
-      : this.announceTicket(id, updated);
+    return this.announceTicket(id, () => super.updateStatus(actor, id, change));
   }
 
   /** Replaces the parent and announces `ticket.updated`. */
@@ -152,33 +182,44 @@ export class AnnouncingTaskService extends TaskService {
     id: string,
     change: ParentChange,
   ): Promise<WorkItemDetail> {
-    return this.announceTicket(id, await super.updateParent(actor, id, change));
+    return this.announceTicket(id, () => super.updateParent(actor, id, change));
   }
 
-  /** Moves a card; only a change of the status is announced. */
+  /**
+   * Moves a card; a change of the status announces `ticket.updated`, a move
+   * inside the column `ticket.changed`.
+   */
   public override async updateStatusAndOrder(
     actor: User,
     id: string,
     statusId: string,
     sortOrder: number,
   ): Promise<WorkItemDetail> {
-    // A failed read here is left to the write below, which reports it.
-    const before = await this.getById(actor, id).catch(
-      (caughtError: unknown) => {
-        logCaughtError("AnnouncingTaskService", caughtError);
-        return null;
+    const { updated } = await this.events.announce(
+      async () => {
+        const before = await this.getById(actor, id);
+        return {
+          before,
+          updated: await super.updateStatusAndOrder(
+            actor,
+            id,
+            statusId,
+            sortOrder,
+          ),
+        };
       },
-    );
-    const updated = await super.updateStatusAndOrder(
-      actor,
-      id,
-      statusId,
-      sortOrder,
+      (move): PagesEvent[] => [
+        {
+          id,
+          type:
+            move.before.statusId === move.updated.statusId
+              ? "ticket.changed"
+              : "ticket.updated",
+        },
+      ],
     );
 
-    return before?.statusId === updated.statusId
-      ? updated
-      : this.announceTicket(id, updated);
+    return updated;
   }
 
   /** Sets the department and announces `ticket.updated`. */
@@ -188,8 +229,9 @@ export class AnnouncingTaskService extends TaskService {
     departmentId: string | null,
     expected?: string | null,
   ): Promise<void> {
-    await super.setDepartment(actor, id, departmentId, expected);
-    this.announceTicket(id, null);
+    await this.announceTicket(id, () =>
+      super.setDepartment(actor, id, departmentId, expected),
+    );
   }
 
   /** Moves the ticket to another project and announces `ticket.updated`. */
@@ -199,30 +241,31 @@ export class AnnouncingTaskService extends TaskService {
     targetProjectId: string,
     expected?: TaskMoveSnapshot,
   ): Promise<WorkItemDetail> {
-    return this.announceTicket(
-      id,
-      await super.moveToProject(actor, id, targetProjectId, expected),
+    return this.announceTicket(id, () =>
+      super.moveToProject(actor, id, targetProjectId, expected),
     );
   }
 
-  /** Assigns a label and announces `ticket.updated`. */
+  /** Assigns a label and announces `ticket.updated` when it was not assigned yet. */
   public override async assignLabel(
     actor: User,
     workItemId: string,
     labelId: string,
   ): Promise<void> {
-    await super.assignLabel(actor, workItemId, labelId);
-    this.announceTicket(workItemId, null);
+    await this.announceTicket(workItemId, () =>
+      super.assignLabel(actor, workItemId, labelId),
+    );
   }
 
-  /** Removes a label and announces `ticket.updated`. */
+  /** Removes a label and announces `ticket.updated` when it was assigned. */
   public override async unassignLabel(
     actor: User,
     workItemId: string,
     labelId: string,
   ): Promise<void> {
-    await super.unassignLabel(actor, workItemId, labelId);
-    this.announceTicket(workItemId, null);
+    await this.announceTicket(workItemId, () =>
+      super.unassignLabel(actor, workItemId, labelId),
+    );
   }
 
   /** Adds a checklist item and announces `ticket.updated`. */
@@ -231,53 +274,47 @@ export class AnnouncingTaskService extends TaskService {
     workItemId: string,
     title: string,
   ): Promise<WorkItemChecklistItem> {
-    const item = await super.addChecklistItem(actor, workItemId, title);
-
-    return this.announceItem(item);
+    return this.announceTicket(workItemId, () =>
+      super.addChecklistItem(actor, workItemId, title),
+    );
   }
 
-  /** Ticks a checklist item and announces `ticket.updated`. */
+  /** Ticks a checklist item and announces `ticket.updated` for the ticket the result names. */
   public override async setChecklistItemDone(
     actor: User,
     checklistItemId: string,
     isDone: boolean,
     expected?: { readonly title: string; readonly isDone: boolean },
   ): Promise<WorkItemChecklistItem> {
-    const item = await super.setChecklistItemDone(
-      actor,
-      checklistItemId,
-      isDone,
-      expected,
+    return this.events.announce(
+      () =>
+        super.setChecklistItemDone(actor, checklistItemId, isDone, expected),
+      (item) => updatedTicket(item.workItemId),
+      OPENS_AT_FIRST_WRITE,
     );
-
-    return this.announceItem(item);
   }
 
-  /** Links two tickets and announces `ticket.updated`. */
+  /** Links two tickets and announces `ticket.updated` when the link is new. */
   public override async addLink(
     actor: User,
     workItemId: string,
     targetKey: string,
     linkType: WorkItemLinkType,
   ): Promise<WorkItemLink[]> {
-    const links = await super.addLink(actor, workItemId, targetKey, linkType);
-
-    this.announceTicket(workItemId, null);
-
-    return links;
+    return this.announceTicket(workItemId, () =>
+      super.addLink(actor, workItemId, targetKey, linkType),
+    );
   }
 
-  /** Removes a link and announces `ticket.updated`. */
+  /** Removes a link and announces `ticket.updated` when one went. */
   public override async removeLink(
     actor: User,
     workItemId: string,
     linkId: string,
   ): Promise<WorkItemLink[]> {
-    const links = await super.removeLink(actor, workItemId, linkId);
-
-    this.announceTicket(workItemId, null);
-
-    return links;
+    return this.announceTicket(workItemId, () =>
+      super.removeLink(actor, workItemId, linkId),
+    );
   }
 
   /** Creates a milestone and announces `milestone.created`. */
@@ -285,11 +322,11 @@ export class AnnouncingTaskService extends TaskService {
     actor: User,
     input: CreateMilestoneInput,
   ): Promise<Milestone> {
-    const created = await super.createMilestone(actor, input);
-
-    this.events.publish({ id: created.id, type: "milestone.created" });
-
-    return created;
+    return this.events.announce(
+      () => super.createMilestone(actor, input),
+      (created) => [{ id: created.id, type: "milestone.created" }],
+      OPENS_AT_FIRST_WRITE,
+    );
   }
 
   /** Updates a milestone and announces `milestone.updated`. */
@@ -298,11 +335,9 @@ export class AnnouncingTaskService extends TaskService {
     id: string,
     input: UpdateMilestoneInput,
   ): Promise<Milestone> {
-    const updated = await super.updateMilestone(actor, id, input);
-
-    this.events.publish({ id, type: "milestone.updated" });
-
-    return updated;
+    return this.announceMilestone(id, () =>
+      super.updateMilestone(actor, id, input),
+    );
   }
 
   /** Changes one milestone field; only a change that wrote something is announced. */
@@ -311,13 +346,9 @@ export class AnnouncingTaskService extends TaskService {
     id: string,
     change: MilestoneFieldInput,
   ): Promise<MilestoneFieldUpdate> {
-    const update = await super.updateMilestoneField(actor, id, change);
-
-    if (update.isChanged) {
-      this.events.publish({ id, type: "milestone.updated" });
-    }
-
-    return update;
+    return this.announceMilestone(id, () =>
+      super.updateMilestoneField(actor, id, change),
+    );
   }
 
   /** Links two milestones and announces `milestone.updated` for the source. */
@@ -325,11 +356,11 @@ export class AnnouncingTaskService extends TaskService {
     actor: User,
     input: AddMilestoneDependencyInput,
   ): Promise<MilestoneDependency> {
-    const dependency = await super.addDependency(actor, input);
-
-    this.events.publish({ id: dependency.sourceId, type: "milestone.updated" });
-
-    return dependency;
+    return this.events.announce(
+      () => super.addDependency(actor, input),
+      (dependency) => updatedMilestone(dependency.sourceId),
+      OPENS_AT_FIRST_WRITE,
+    );
   }
 
   /** Removes a dependency and announces `milestone.updated` for its source. */
@@ -338,26 +369,15 @@ export class AnnouncingTaskService extends TaskService {
     projectId: string,
     dependencyId: string,
   ): Promise<void> {
-    // The removal drops the link, so its source is read before. A failed read
-    // is left to the removal, which reports it.
-    const dependencies = await this.findDependencies(actor, [projectId]).catch(
-      (caughtError: unknown) => {
-        logCaughtError("AnnouncingTaskService", caughtError);
-        return [];
+    // The removal drops the link, so its source is read before, in the same transaction.
+    await this.events.announce(
+      async () => {
+        const dependencies = await this.findDependencies(actor, [projectId]);
+        await super.removeDependency(actor, projectId, dependencyId);
+        return dependencies.find((candidate) => candidate.id === dependencyId);
       },
+      (dependency) => (dependency ? updatedMilestone(dependency.sourceId) : []),
     );
-    const dependency = dependencies.find(
-      (candidate) => candidate.id === dependencyId,
-    );
-
-    await super.removeDependency(actor, projectId, dependencyId);
-
-    if (dependency) {
-      this.events.publish({
-        id: dependency.sourceId,
-        type: "milestone.updated",
-      });
-    }
   }
 
   /** Links an initiative with a milestone and announces `milestone.updated`. */
@@ -366,15 +386,9 @@ export class AnnouncingTaskService extends TaskService {
     milestoneId: string,
     initiativeId: string,
   ): Promise<MilestoneInitiativeChange> {
-    const change = await super.linkInitiativeToMilestone(
-      actor,
-      milestoneId,
-      initiativeId,
+    return this.announceMilestone(milestoneId, () =>
+      super.linkInitiativeToMilestone(actor, milestoneId, initiativeId),
     );
-
-    this.events.publish({ id: milestoneId, type: "milestone.updated" });
-
-    return change;
   }
 
   /** Unlinks an initiative from a milestone and announces `milestone.updated`. */
@@ -383,29 +397,145 @@ export class AnnouncingTaskService extends TaskService {
     milestoneId: string,
     initiativeId: string,
   ): Promise<MilestoneInitiativeChange> {
-    const change = await super.unlinkInitiativeFromMilestone(
-      actor,
-      milestoneId,
-      initiativeId,
+    return this.announceMilestone(milestoneId, () =>
+      super.unlinkInitiativeFromMilestone(actor, milestoneId, initiativeId),
     );
-
-    this.events.publish({ id: milestoneId, type: "milestone.updated" });
-
-    return change;
   }
 
-  private announceTicket<Result extends WorkItemDetail | null>(
+  /** Archives a subtree and announces `ticket.changed` for every changed ticket. */
+  public override async archive(
+    actor: User,
     id: string,
-    result: Result,
-  ): Result {
-    this.events.publish({ id, type: "ticket.updated" });
-
-    return result;
+    handling: ChildHandling = "include",
+  ): Promise<number> {
+    return (await this.archiveWithImpact(actor, id, handling)).changedCount;
   }
 
-  private announceItem(item: WorkItemChecklistItem): WorkItemChecklistItem {
-    this.events.publish({ id: item.workItemId, type: "ticket.updated" });
+  /** Archives a subtree and announces `ticket.changed` for every changed ticket. */
+  public override async archiveWithImpact(
+    actor: User,
+    id: string,
+    handling: ChildHandling = "include",
+  ): Promise<TaskLifecycleImpact> {
+    return this.events.announce(
+      () => super.archiveWithImpact(actor, id, handling),
+      changedTickets,
+      OPENS_AT_FIRST_WRITE,
+    );
+  }
 
-    return item;
+  /** Restores a subtree and announces `ticket.changed` for every changed ticket. */
+  public override async restore(actor: User, id: string): Promise<void> {
+    await this.restoreWithImpact(actor, id);
+  }
+
+  /** Restores a subtree and announces `ticket.changed` for every changed ticket. */
+  public override async restoreWithImpact(
+    actor: User,
+    id: string,
+  ): Promise<TaskLifecycleImpact> {
+    return this.events.announce(
+      () => super.restoreWithImpact(actor, id),
+      changedTickets,
+      OPENS_AT_FIRST_WRITE,
+    );
+  }
+
+  /**
+   * Deletes a subtree and announces `ticket.deleted` with where it was visible.
+   *
+   * @remarks
+   * The deleted row can no longer decide who saw it, so its project and
+   * department are read before, in the transaction of the deletion. Children
+   * kept without a parent announce `ticket.changed`.
+   */
+  public override async deletePermanently(
+    actor: User,
+    id: string,
+    handling: ChildHandling = "include",
+  ): Promise<void> {
+    await this.events.announce(
+      async () => {
+        const before = await this.getById(actor, id);
+        // Kept children lose their parent with the deletion; they are read in its transaction.
+        const released =
+          handling === "keep"
+            ? await this.taskRepository.findAll({
+                parentId: id,
+                archived: "all",
+              })
+            : [];
+        await super.deletePermanently(actor, id, handling);
+        return { before, released };
+      },
+      ({ before, released }): PagesEvent[] => [
+        {
+          id,
+          type: "ticket.deleted",
+          audience: {
+            projectId: before.projectId,
+            departmentId: before.departmentId,
+          },
+        },
+        ...released.map((child): PagesEvent => ({
+          id: child.id,
+          type: "ticket.changed",
+        })),
+      ],
+    );
+  }
+
+  /** Deletes a checklist item and announces `ticket.changed` for its ticket. */
+  public override async deleteChecklistItem(
+    actor: User,
+    checklistItemId: string,
+    expected?: { readonly title: string; readonly isDone: boolean },
+  ): Promise<void> {
+    await this.events.announce(
+      async () => {
+        const item =
+          await this.taskRepository.findChecklistItemById(checklistItemId);
+        await super.deleteChecklistItem(actor, checklistItemId, expected);
+        return item;
+      },
+      (item): PagesEvent[] =>
+        item ? [{ id: item.workItemId, type: "ticket.changed" }] : [],
+    );
+  }
+
+  /** Archives a milestone and announces `milestone.changed`. */
+  public override async archiveMilestone(
+    actor: User,
+    id: string,
+  ): Promise<void> {
+    await this.events.announce(
+      () => super.archiveMilestone(actor, id),
+      (): PagesEvent[] => [{ id, type: "milestone.changed" }],
+      OPENS_AT_FIRST_WRITE,
+    );
+  }
+
+  /** Runs a ticket change and announces `ticket.updated` when it changed a row. */
+  private async announceTicket<Result>(
+    id: string,
+    work: () => Promise<Result>,
+  ): Promise<Result> {
+    return this.events.announce(
+      work,
+      () => updatedTicket(id),
+      OPENS_AT_FIRST_WRITE,
+    );
+  }
+
+  /** Runs a milestone change and announces `milestone.updated` when it changed a row. */
+  private async announceMilestone<Result>(
+    id: string,
+    work: () => Promise<Result>,
+  ): Promise<Result> {
+    return this.events.announce(
+      work,
+      () => updatedMilestone(id),
+      OPENS_AT_FIRST_WRITE,
+    );
   }
 }

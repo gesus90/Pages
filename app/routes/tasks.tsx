@@ -11,29 +11,36 @@ import { TasksDetailOverlay } from "@/app/components/tasks/board/tasks-detail-ov
 import { useTaskSelection } from "@/app/components/tasks/board/use-task-selection";
 import { TasksFormDialog } from "@/app/components/tasks/board/tasks-form-dialog";
 import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { type TasksGitHubProjectState } from "@/app/components/tasks/tasks-github";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { cn } from "@/app/lib/cn";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { sanitizeBoardReferences } from "@/app/lib/board-references";
+import { sendToBackend } from "@/app/lib/backend-request";
+import { isLiveRevalidation } from "@/app/lib/live-changes/live-revalidation";
+import {
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
 import { filterWorkItems, toTaskFilters } from "@/app/lib/task-filters";
-import { handleTaskAction } from "@/app/lib/task-actions/task-actions.server";
 import {
   hasBoardQuery,
-  parseBoardQuery,
   withoutBoardQuery,
 } from "@/definition/BoardPreferences";
-import { loadSelection } from "@/app/lib/task-selection.server";
 import {
   BOARD_DETAIL_INTENTS,
   BOARD_TICKET_UPDATE_INTENTS,
 } from "@/app/lib/task-overlay-navigation";
 
 import type { ShouldRevalidateFunctionArgs } from "react-router";
-import type { ApplicationServices } from "@/app/lib/services.server";
-import type { TaskActionResponse } from "@/app/lib/task-actions/task-action-support.server";
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { TicketAccess } from "@/app/components/tasks/ticket-access";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { ArchivedFilter } from "@/app/lib/tasks-view";
-import type { BoardReferences } from "@/app/lib/board-references";
 import type { BoardPreferences } from "@/definition/BoardPreferences";
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
@@ -57,21 +64,8 @@ import type { Route } from "./+types/tasks";
 
 export type { ArchivedFilter } from "@/app/lib/tasks-view";
 
-/**
- * Reads the archived filter from the request URL.
- *
- * @param value - Raw query value.
- * @returns The selected filter, defaulting to active tickets.
- */
-export function parseArchivedFilter(value: string | null): ArchivedFilter {
-  if (value === "archived" || value === "all") {
-    return value;
-  }
-
-  return "active";
-}
-
-interface TasksLoaderData {
+/** The board as its endpoint answers it. */
+export interface TasksLoaderData {
   readonly actor: User;
   readonly projects: readonly Project[];
   readonly statuses: readonly WorkflowStatus[];
@@ -107,76 +101,34 @@ interface TasksLoaderData {
   readonly permissions: TaskActionPermissions;
   readonly departmentChoices: TicketDepartmentChoices;
   readonly templates: readonly WorkItemTemplateView[];
+  readonly audience: LocalStateAudience;
 }
 
-/** The assignee lists a project's tickets can use. */
-async function loadAssignees(
-  services: ApplicationServices,
-  projects: readonly Project[],
-): Promise<Pick<TasksLoaderData, "assignees" | "assigneesByProject">> {
-  const byProjects = await services.taskService.findAssigneesByProjects(
-    projects.map((project) => project.id),
+function isTasksLoaderData(value: unknown): value is TasksLoaderData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "workItems" in value &&
+    Array.isArray(value.workItems) &&
+    "projects" in value &&
+    Array.isArray(value.projects) &&
+    "board" in value &&
+    typeof value.board === "object" &&
+    "permissions" in value &&
+    typeof value.permissions === "object" &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
   );
-  const unique = new Map<string, User>();
-  const assigneesByProject: Record<string, readonly User[]> = {};
-
-  for (const project of projects) {
-    const projectAssignees = byProjects.get(project.id) ?? [];
-
-    assigneesByProject[project.id] = projectAssignees;
-
-    for (const assignee of projectAssignees) {
-      unique.set(assignee.id, assignee);
-    }
-  }
-
-  return {
-    assignees: Array.from(unique.values()).sort((first, second) =>
-      first.displayName.localeCompare(second.displayName),
-    ),
-    assigneesByProject,
-  };
 }
 
-/** The global label catalog and how often each label is used on visible tickets. */
-async function loadLabels(
-  services: ApplicationServices,
-  actor: User,
-): Promise<Pick<TasksLoaderData, "labels" | "labelUsage">> {
-  return {
-    labelUsage: Object.fromEntries(
-      await services.taskService.countLabelUsage(actor),
-    ),
-    labels: await services.taskService.findLabels(),
-  };
-}
-
-/** The identifiers the board filters of the visitor may point to. */
-function toBoardReferences(
-  loaded: Pick<
-    TasksLoaderData,
-    | "projects"
-    | "statuses"
-    | "milestones"
-    | "labels"
-    | "departmentChoices"
-    | "assignees"
-    | "assigneeGroups"
-  >,
-): BoardReferences {
-  const idsOf = (items: readonly { readonly id: string }[]): Set<string> =>
-    new Set(items.map((item) => item.id));
-
-  return {
-    assigneeIds: idsOf(loaded.assignees),
-    departmentIds: idsOf(loaded.departmentChoices.available),
-    groupIds: idsOf(loaded.assigneeGroups),
-    labelIds: idsOf(loaded.labels),
-    milestoneIds: idsOf(loaded.milestones),
-    projectIds: idsOf(loaded.projects),
-    statusIds: idsOf(loaded.statuses),
-  };
-}
+/** The board, kept per account, rights and address. */
+const TASKS_PAGE_STATE: LocalStateRouteKind<TasksLoaderData> = {
+  schemaVersion: 1,
+  isPayload: isTasksLoaderData,
+  isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
+  ownerOf: (page) => page.audience.userId,
+  isRefused: () => false,
+};
 
 /** A successful single-ticket edit supplies the replacement for the board. */
 function isLocalTicketUpdate(
@@ -217,15 +169,16 @@ function withoutItem(url: URL): string {
  * The loader sends every ticket and the board filters on the client, so a new
  * filter, sort order or grouping needs no new data; saving the preferences
  * changes no ticket either. An address without board parameters loads again,
- * because it asks for the saved preferences.
+ * because it asks for the saved preferences. A live notice about a change on
+ * another page always loads again.
  */
-export function shouldRevalidate({
-  currentUrl,
-  nextUrl,
-  formData,
-  defaultShouldRevalidate,
-  actionResult,
-}: ShouldRevalidateFunctionArgs): boolean {
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
+  const { currentUrl, nextUrl, formData, defaultShouldRevalidate } = args;
+  const actionResult: unknown = args.actionResult;
+  if (isLiveRevalidation(args)) {
+    return true;
+  }
+
   if (formData?.get("intent") === "save-board-preferences") {
     return false;
   }
@@ -251,150 +204,50 @@ export function shouldRevalidate({
   return strip(currentUrl) === strip(nextUrl) ? false : defaultShouldRevalidate;
 }
 
-/** Loads all accessible work items, projects, statuses, and milestones for SSR. */
-export async function loader({
-  context,
-  request,
-}: Route.LoaderArgs): Promise<TasksLoaderData> {
-  const actor = context.get(authenticatedUserContext);
-
-  if (!actor) {
-    throw new Error("Authenticated middleware did not provide a user.");
-  }
-
-  const services = await getApplicationServices();
-  const url = new URL(request.url);
-  const projects = await services.projectService.findAll(actor);
-  const projectIds = projects.map((project) => project.id);
-  // Archived tickets are for those who may archive; the service limits them
-  // to the projects of that right again, so the address cannot widen it.
-  const canFilterArchived = await services.taskService.canArchiveAny(
-    actor,
-    projectIds,
-  );
-  const archivedFilter = canFilterArchived
-    ? parseArchivedFilter(url.searchParams.get("archived"))
-    : "active";
-  const workItems = await services.taskService.findAll(actor, {
-    archived: archivedFilter,
-  });
-  const labelsByWorkItem: Record<string, readonly Label[]> = {};
-
-  if (workItems.length > 0) {
-    const assigned = await services.taskService.findLabelsForWorkItems(
-      workItems.map((item) => item.id),
-    );
-
-    for (const [workItemId, labels] of assigned) {
-      labelsByWorkItem[workItemId] = labels;
-    }
-  }
-
-  const assignees = await loadAssignees(services, projects);
-  const references = {
-    ...assignees,
-    ...(await loadLabels(services, actor)),
-    assigneeGroupIdsByProject:
-      await services.taskService.findAssigneeGroupIdsByProject(
-        actor,
-        assignees.assigneesByProject,
-      ),
-    assigneeGroups: await services.taskService.findAssigneeGroups(actor),
-    departmentChoices: await services.taskService.departmentChoices(actor),
-    milestones: await services.taskService.findMilestones(actor, projectIds),
-    projects,
-    statuses: await services.taskService.findAllStatuses(actor),
-  };
-  const board = sanitizeBoardReferences(
-    parseBoardQuery(
-      url.searchParams,
-      await services.boardPreferencesService.find(actor.id),
-    ),
-    toBoardReferences(references),
-  );
-
-  return {
-    actor,
-    archivedFilter,
-    board,
-    canFilterArchived,
-    ...references,
-    githubStates:
-      board.view === "github"
-        ? await findGitHubStates(services, projects, actor)
-        : [],
-    labelsByWorkItem,
-    memberGroupIds: await services.taskService.findMemberGroupIds(actor),
-    permissions: await services.taskService.actionPermissions(actor),
-    ...(await loadSelection(services, {
-      actor,
-      labelsByWorkItem,
-      selectedKey: url.searchParams.get("item"),
-      workItems,
-    })),
-    templates: await services.taskTemplateService.findVisible(actor),
-    workItems,
-  };
-}
-
 /**
- * Loads GitHub states for already access-checked projects with three queries.
+ * Opens the board from the account's kept answer at once and asks the endpoint behind it.
  *
- * @param services - Initialized server-side services.
- * @param projects - Projects the actor may access.
- * @param actor - Account whose ticket visibility restricts pull requests.
+ * @remarks
+ * The endpoint runs the server loader with its permission checks; the
+ * address's query reaches it unchanged.
  */
-async function findGitHubStates(
-  services: ApplicationServices,
-  projects: readonly Project[],
-  actor: User,
-): Promise<TasksGitHubProjectState[]> {
-  const projectIds = projects.map((project) => project.id);
-  const [integrations, externalIssuesByProject, pullRequestsByProject] =
-    await Promise.all([
-      services.projectService.findIntegrationsByProjects(projectIds),
-      services.gitHubSyncService.findExternalIssuesByProjects(projectIds),
-      services.gitHubSyncService.findPullRequestsByProjects(actor, projectIds),
-    ]);
-
-  return projects.map((project) => ({
-    externalIssues: externalIssuesByProject.get(project.id) ?? [],
-    integration: integrations.get(project.id) ?? null,
-    project,
-    pullRequests: pullRequestsByProject.get(project.id) ?? [],
-  }));
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<TasksLoaderData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), TASKS_PAGE_STATE, () =>
+    readRouteData({
+      endpoint: `/aufgaben-api/board${url.search}`,
+      signal: request.signal,
+      isPayload: isTasksLoaderData,
+    }),
+  );
 }
 
-/** Mutates tasks, column sort orders, and audit history. */
-export async function action({
-  context,
+/** Sends a change of tickets to the API, which runs the board's action. */
+export async function clientAction({
   request,
-}: Route.ActionArgs): Promise<TaskActionResponse> {
-  if (request.method !== "POST") {
-    throw new Response("Method Not Allowed", {
-      headers: { Allow: "POST" },
-      status: 405,
-    });
-  }
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
+}
 
-  const actor = context.get(authenticatedUserContext);
-
-  if (!actor) {
-    throw new Response("Forbidden", { status: 403 });
-  }
-
-  const formData = await request.formData();
-
-  return handleTaskAction(formData.get("intent"), {
-    actor,
-    formData,
-    services: await getApplicationServices(),
-  });
+/** What the ticket views of the board may do and choose from. */
+function ticketAccessOf(loaderData: TasksLoaderData): TicketAccess {
+  return {
+    ...loaderData.permissions,
+    assigneeGroupIdsByProject: loaderData.assigneeGroupIdsByProject,
+    assigneeGroups: loaderData.assigneeGroups,
+    departments: loaderData.departmentChoices.available,
+    projects: loaderData.projects,
+  };
 }
 
 /** Renders the responsive task views, filters, and floating ticket detail panel. */
 export default function TasksRoute(): React.ReactElement {
-  const loaderData = useLoaderData<typeof loader>();
+  const loaderData = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    TASKS_PAGE_STATE,
+  );
   const { projects, statuses, milestones, archivedFilter } = loaderData;
   const page = useTasksPage();
   const board = useBoardPreferences(loaderData.board);
@@ -408,15 +261,7 @@ export default function TasksRoute(): React.ReactElement {
   const dialog = useTasksDialog(details.selectedKey, board.preferences.project);
 
   return (
-    <TicketAccessProvider
-      value={{
-        ...loaderData.permissions,
-        assigneeGroupIdsByProject: loaderData.assigneeGroupIdsByProject,
-        assigneeGroups: loaderData.assigneeGroups,
-        departments: loaderData.departmentChoices.available,
-        projects,
-      }}
-    >
+    <TicketAccessProvider value={ticketAccessOf(loaderData)}>
       <section
         className={cn(
           "flex flex-col",

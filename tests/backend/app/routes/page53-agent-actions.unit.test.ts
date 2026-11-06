@@ -2,7 +2,7 @@ import { RouterContextProvider } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { action } from "@/app/routes/settings-agents";
+import { action } from "@/app/routes/settings-agents-server";
 
 import { TICKET_ACTOR } from "../../backend/service/agents/page55-ticket-fixture";
 

@@ -14,6 +14,8 @@ import type { ReceivedCall } from "./fake-acp-adapter";
 const scan = vi.hoisted(() => ({
   endTaggedProcesses: vi.fn(async () => ({ found: 0, remaining: 0 })),
 }));
+const correlationIdMatcher: unknown = expect.any(String);
+
 vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
   RUN_INSTANCE_VARIABLE: "PAGES_RUN_INSTANCE",
   readServerScope: async () => ({ earliestStart: 0 }),
@@ -95,6 +97,7 @@ it("starts the ACP session in the workspace, takes the stored mode, model and ef
           { name: "PAGES_URL", value: "http://pages.invalid" },
           { name: "PAGES_TOKEN", value: "synthetic-run-token" },
           { name: "PAGES_RUN_INSTANCE", value: INSTANCE_ID },
+          { name: "PAGES_CORRELATION_ID", value: correlationIdMatcher },
         ],
       },
     ],

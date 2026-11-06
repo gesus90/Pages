@@ -56,7 +56,7 @@ export function wikiPage(id = "one"): WikiPage {
 /** Workspace frame persists while its nested routes change. */
 export function DraftWorkspace(): React.ReactElement {
   return (
-    <DraftProvider>
+    <DraftProvider ownerId={null}>
       <nav>
         <Link to="/wiki/one">One</Link>
         <Link to="/wiki/two">Two</Link>

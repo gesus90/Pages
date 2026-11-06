@@ -14,7 +14,7 @@ import type { AgentSessionNode } from "./sessions/AgentSessionAttempts";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
 
 /** An instruction turn only the journal observes; the finished node's record stays as it is. */
-const JOURNAL_ONLY: PlanSessionObserver = {
+export const JOURNAL_ONLY: PlanSessionObserver = {
   started: () => undefined,
   identified: () => undefined,
 };
@@ -34,7 +34,8 @@ export interface GroupInstructionOffer {
   /** The run and group, as `runId/groupId`. */
   readonly key: string;
   /** The member's frozen input; only the prompt of an instruction turn differs. */
-  readonly input: AgentPlanSessionInput;
+  readonly input:
+    AgentPlanSessionInput | (() => Promise<AgentPlanSessionInput>);
 }
 
 /**
@@ -50,12 +51,14 @@ export interface GroupInstructionOffer {
  */
 export function offerGroupInstructions(offer: GroupInstructionOffer): void {
   const { sessions, groups, node, key, input } = offer;
-  const attemptId = node.record?.attemptId;
-  if (!attemptId) return;
+  const record = node.record;
+  const attemptId = record?.attemptId;
+  if (!record || !attemptId) return;
   sessions.offer(
-    { attemptId, instanceId: input.instanceId },
+    { attemptId, instanceId: record.instanceId },
     {
       instruct: async (text) => {
+        const prepared = typeof input === "function" ? await input() : input;
         if (node.control.signal.aborted)
           throw new AgentError("plan_session_unavailable");
         const instruct = (
@@ -64,11 +67,16 @@ export function offerGroupInstructions(offer: GroupInstructionOffer): void {
           groups.instruct({
             key,
             input: {
-              ...input,
+              ...prepared,
               prompt: text,
-              journal: sessions.listen(node, input.instanceId),
+              journal: prepared.journal
+                ? sessions.listen(node, prepared.instanceId)
+                : undefined,
+              resourceContext: prepared.resourceContext
+                ? { ...prepared.resourceContext, isLocalInstruction: true }
+                : undefined,
               beforeStart: async () => {
-                await input.beforeStart?.();
+                await prepared.beforeStart?.();
                 control.claimStart();
               },
             },

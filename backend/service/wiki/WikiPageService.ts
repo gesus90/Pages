@@ -1,11 +1,17 @@
 import { randomUUID } from "node:crypto";
 
+import { z } from "zod";
+
 import {
   WikiAccessDeniedError,
   WikiConflictError,
   WikiPageNotFoundError,
   WikiValidationError,
 } from "@/backend/error/WikiErrors";
+import {
+  recordInterfaceOperation,
+  replayInterfaceOperation,
+} from "@/backend/service/InterfaceOperationJournal";
 import { WIKI_SCOPE } from "@/definition/Wiki";
 
 import { recordWikiActivity } from "./WikiActivity";
@@ -24,12 +30,16 @@ import {
 
 import type { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import type { WikiPageRecord } from "@/backend/database/repositories/WikiRepository";
+import type { InterfaceOperation } from "@/backend/service/InterfaceOperationJournal";
 import type { User } from "@/definition/User";
 import type { WikiAnchor, WikiPage, WikiScope } from "@/definition/Wiki";
 import type { WikiAccess, WikiViewer } from "./WikiAccess";
 
 /** Minutes within which saves by one author refresh a single version. */
 const VERSION_COALESCE_MINUTES = 10;
+
+/** What a save with an operation ID stores; the fields themselves are the request's. */
+const savedRevisionSchema = z.object({ revision: z.number().int().positive() });
 
 /** Values of a page to create. */
 export interface CreateWikiPageInput {
@@ -60,6 +70,11 @@ export interface UpdateWikiPageInput {
    * version; the default is `true`.
    */
   readonly coalesceVersions?: boolean;
+  /**
+   * Identifies this save across repetitions. A repetition with the same ID
+   * answers what the first save stored and changes nothing again.
+   */
+  readonly operationId?: string;
 }
 
 /** How a page is copied. */
@@ -202,9 +217,11 @@ export class WikiPageService {
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @param input - New values and the revision they are based on.
-   * @returns The page as saved.
+   * @returns The page as saved. A repeated operation ID returns the page with
+   * the title, text, icon and revision its first save stored.
    * @throws {WikiConflictError} When somebody saved in the meantime.
    * @throws {WikiPageNotFoundError} When the page is missing or hidden.
+   * @throws {OperationReusedError} When the operation ID belongs to another save.
    */
   public async update(
     actor: User,
@@ -218,11 +235,30 @@ export class WikiPageService {
       icon: normalizeIcon(input.icon),
       title: normalizeTitle(input.title),
     };
+    const operation: InterfaceOperation | null =
+      input.operationId === undefined
+        ? null
+        : {
+            userId: viewer.user.id,
+            operation: "ui.wiki.save",
+            operationId: input.operationId,
+            request: { id, ...edit, expectedRevision: input.expectedRevision },
+          };
 
     return this.repository.transaction(async (repository) => {
       const reader = new WikiPageReader(repository);
       const current = await reader.require(viewer.scope, id);
+      const replayed = operation
+        ? await replayInterfaceOperation(
+            repository.operations,
+            operation,
+            savedRevisionSchema,
+          )
+        : null;
 
+      if (replayed) {
+        return { ...(await reader.assemble(current)), ...edit, ...replayed };
+      }
       if (
         current.revision !== input.expectedRevision &&
         !(await leavesPageAsStored(repository, current, edit))
@@ -230,11 +266,17 @@ export class WikiPageService {
         throw new WikiConflictError(await reader.assemble(current));
       }
 
-      return this.applyEdit(repository, viewer, current, {
+      const saved = await this.applyEdit(repository, viewer, current, {
         ...edit,
         coalesceMinutes:
           input.coalesceVersions === false ? 0 : VERSION_COALESCE_MINUTES,
       });
+      if (operation) {
+        await recordInterfaceOperation(repository.operations, operation, {
+          revision: saved.revision,
+        });
+      }
+      return saved;
     });
   }
 

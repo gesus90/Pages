@@ -14,14 +14,21 @@ import { SecurityCard } from "@/app/components/settings/security-card";
 import { TerminalCard } from "@/app/components/settings/terminal-card";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { useUserSettings } from "@/app/components/settings/use-user-settings";
-import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { getApplicationServices } from "@/app/lib/services.server";
-import { handleSettingsAction } from "@/app/lib/settings-actions/settings-actions.server";
-import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
-import { getSessionToken } from "@/app/lib/session.server";
-import { UserPolicyService } from "@/backend/auth/UserPolicyService";
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
+import {
+  isCurrentLocalStateAudience,
+  isLocalStateAudience,
+} from "@/app/lib/local-state/local-state-audience";
+import {
+  loadLocalFirst,
+  localStateRoute,
+} from "@/app/lib/local-state/local-state-loader";
+import { readRouteData } from "@/app/lib/local-state/route-data";
+import { sendToBackend } from "@/app/lib/backend-request";
 
-import type { SettingsActionResult } from "@/app/lib/settings-actions/settings-action-support.server";
+import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
+import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { DesignThemeSelection } from "@/definition/DesignTheme";
 import type { SessionSummary } from "@/definition/Session";
 import type {
@@ -32,7 +39,8 @@ import type { User } from "@/definition/User";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { Route } from "./+types/settings-profile";
 
-interface SettingsLoaderData {
+/** The personal settings as the endpoint answers them. */
+export interface SettingsLoaderData {
   readonly account: AccountAccess;
   readonly user: User;
   readonly email: string | null;
@@ -43,57 +51,64 @@ interface SettingsLoaderData {
   readonly designThemes: DesignThemeSelection;
   readonly sessions: readonly SessionSummary[];
   readonly canEditProfile: boolean;
+  readonly audience: LocalStateAudience;
 }
 
-/** Loads the personal settings and profile context of the authenticated visitor. */
-export async function loader({
-  context,
-  request,
-}: Route.LoaderArgs): Promise<SettingsLoaderData> {
-  const user = context.get(authenticatedUserContext);
+/** The rights-checked endpoint of the personal settings. */
+const SETTINGS_PROFILE_ENDPOINT = "/settings-api/profile";
 
-  if (!user) {
-    throw new Error("Authenticated middleware did not provide a user.");
-  }
-
-  const services = await getApplicationServices();
-  const [settings, terminalScreenReader, email, sessions] = await Promise.all([
-    services.settingsService.getUserSettings(user.id),
-    services.settingsService.getTerminalScreenReader(user.id),
-    services.userService.findProfileEmail(user.id),
-    services.sessionService.getSessionSummaries(
-      user.id,
-      await getSessionToken(request),
-    ),
-  ]);
-  const account = await services.administrationService.getContext(user.id);
-  const canEditProfile = new UserPolicyService().isAdministrator(account);
-  const designThemes = await services.designThemeService.getSelection(user.id, {
-    includeSkipped: account.isAdmin,
-  });
-
-  return {
-    account,
-    canEditProfile,
-    designThemes,
-    email,
-    sessions,
-    settings,
-    terminalScreenReader,
-    user,
-  };
-}
-
-/** Persists settings and manages sessions, profile edits, and passwords. */
-export async function action(
-  args: Route.ActionArgs,
-): Promise<SettingsActionResult> {
-  const settingsRequest = await readSettingsRequest(args);
-
-  return handleSettingsAction(
-    settingsRequest.formData.get("intent"),
-    settingsRequest,
+function isSettingsLoaderData(value: unknown): value is SettingsLoaderData {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "account" in value &&
+    typeof value.account === "object" &&
+    "user" in value &&
+    typeof value.user === "object" &&
+    "settings" in value &&
+    typeof value.settings === "object" &&
+    "sessions" in value &&
+    Array.isArray(value.sessions) &&
+    "designThemes" in value &&
+    typeof value.designThemes === "object" &&
+    "audience" in value &&
+    isLocalStateAudience(value.audience)
   );
+}
+
+/** The personal settings, kept per account and rights. */
+const SETTINGS_PROFILE_STATE: LocalStateRouteKind<SettingsLoaderData> = {
+  schemaVersion: 1,
+  isPayload: isSettingsLoaderData,
+  isCurrent: (profile) => isCurrentLocalStateAudience(profile.audience),
+  ownerOf: (profile) => profile.audience.userId,
+  isRefused: () => false,
+};
+
+/**
+ * Opens the personal settings from the account's kept answer at once and asks the endpoint behind it.
+ *
+ * @remarks
+ * The endpoint runs the server loader for the signed-in session.
+ */
+export async function clientLoader({
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<SettingsLoaderData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), SETTINGS_PROFILE_STATE, () =>
+    readRouteData({
+      endpoint: `${SETTINGS_PROFILE_ENDPOINT}${url.search}`,
+      signal: request.signal,
+      isPayload: isSettingsLoaderData,
+    }),
+  );
+}
+
+/** Sends a change of the personal settings to the API, which runs the page's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Renders the personal settings: profile, security, notifications, appearance, and region. */
@@ -108,7 +123,10 @@ export default function SettingsProfileRoute(): React.ReactElement {
     designThemes,
     sessions,
     canEditProfile,
-  } = useLoaderData<typeof loader>();
+  } = useLocalStateRoute(
+    useLoaderData<typeof clientLoader>(),
+    SETTINGS_PROFILE_STATE,
+  );
   const submit = useSubmit();
   const { settings, persistSettings, toggleNotification } =
     useUserSettings(loadedSettings);

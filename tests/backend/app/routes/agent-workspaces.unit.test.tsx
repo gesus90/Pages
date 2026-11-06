@@ -10,12 +10,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { loadRemoteOverview } from "@/app/lib/remote-actions.server";
 import AgentWorkspacesRoute, {
-  action,
   ErrorBoundary,
-  headers,
-  loader,
   shouldRevalidate,
 } from "@/app/routes/agent-workspaces";
+import { loader as dataLoader } from "@/app/routes/agent-workspaces-data";
+import { action, loader } from "@/app/routes/agent-workspaces-server";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -39,6 +38,16 @@ vi.mock("@/app/lib/auth.server", async () => {
   const router = await import("react-router");
   return { authenticatedUserContext: router.createContext<User | null>(null) };
 });
+const AUDIENCE = vi.hoisted(() => ({
+  userId: "user-1",
+  authorizationVersion: "account:pica:1",
+}));
+
+vi.mock("@/app/lib/local-state/local-state-audience.server", () => ({
+  readLocalStateAudience: async (): Promise<unknown> => AUDIENCE,
+  readAuthorizationVersion: async (): Promise<string> =>
+    AUDIENCE.authorizationVersion,
+}));
 vi.mock("@/app/lib/services.server", () => ({
   getApplicationServices: async (): Promise<unknown> => services,
 }));
@@ -128,19 +137,19 @@ async function thrownByLoader(user: User | null): Promise<Response> {
   throw new Error("Expected a thrown response.");
 }
 
-it("keeps the page out of browser and proxy caches", () => {
-  const parentHeaders = new Headers({ "X-Parent": "1" });
-  const result = new Headers(
-    headers({
-      parentHeaders,
-      loaderHeaders: new Headers(),
-      actionHeaders: new Headers(),
-      errorHeaders: undefined,
-    }),
+it("keeps the page out of browser and proxy caches", async () => {
+  services.agentWorkspaceService.page.mockResolvedValue({ title: "Local" });
+  vi.mocked(loadRemoteOverview).mockResolvedValue(REMOTE);
+  services.settingsService.getTerminalScreenReader.mockResolvedValue("off");
+
+  const response = await dataLoader(
+    routeArguments(
+      new Request("http://pages.invalid/agent-api/workspace-page"),
+      USER,
+    ),
   );
 
-  expect(result.get("Cache-Control")).toBe("no-store");
-  expect(result.get("X-Parent")).toBe("1");
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
 });
 
 it("loads the registrations, the remote overview and the console mode", async () => {
@@ -156,6 +165,7 @@ it("loads the registrations, the remote overview and the console mode", async ()
     page: { title: "Local" },
     remote: REMOTE,
     terminalScreenReader: "off",
+    audience: AUDIENCE,
   });
   expect(new Headers(result.init?.headers).get("Cache-Control")).toBe(
     "no-store",
@@ -326,6 +336,7 @@ it("shows the workspace page and a recoverable load failure", async () => {
         page: { title: "Local" },
         remote: { label: "Remote" },
         terminalScreenReader: "off",
+        audience: AUDIENCE,
       }),
       Component: AgentWorkspacesRoute,
     },
