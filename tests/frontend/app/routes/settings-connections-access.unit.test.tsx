@@ -23,7 +23,9 @@ import {
   routeArguments,
 } from "./route-fixture";
 
-const services = vi.hoisted(() => ({}));
+const services = vi.hoisted(() => ({
+  mcpDeviceService: { list: async (): Promise<readonly unknown[]> => [] },
+}));
 // The server render cannot click; the stub keeps the handler of the button.
 const button = vi.hoisted(() => ({ click: (): void => undefined }));
 
@@ -98,7 +100,10 @@ it("never caches personal connection metadata", async () => {
 it("lists the connections without a Pica Mobile entry", async () => {
   const response = await loader(routeArguments(pagesRequest(PATH)));
 
-  await expect(response.json()).resolves.toEqual({ audience: AUDIENCE });
+  await expect(response.json()).resolves.toEqual({
+    audience: AUDIENCE,
+    mcpDevices: [],
+  });
 });
 
 it("adds Pica Mobile when it is offered", async () => {

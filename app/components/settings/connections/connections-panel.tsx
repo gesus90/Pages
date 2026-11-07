@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { useManagementPending } from "@/app/components/users/use-management-pending";
+import { McpDevicesCard } from "./mcp-devices-card";
 import { PicaMobileCard } from "./pica-mobile-card";
 
 import type { ConnectionsView } from "@/definition/Connections";
@@ -33,6 +34,7 @@ export function ConnectionsPanel({
           {view.picaMobile ? (
             <PicaMobileCard settings={view.picaMobile} />
           ) : null}
+          <McpDevicesCard devices={view.mcpDevices ?? []} />
         </div>
       )}
     </div>

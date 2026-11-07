@@ -112,6 +112,18 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     resource("app-api/login", "routes/login-data.ts"),
     resource("app-api/change-password", "routes/change-password-data.ts"),
     resource("app-api/setup", "routes/setup-data.ts"),
+    ...page("koppeln", {
+      browser: "routes/mcp-pairing.tsx",
+      server: "routes/mcp-pairing-server.ts",
+    }),
+    resource("app-api/koppeln", "routes/mcp-pairing-data.ts"),
+    resource("api/mcp/v1/pairing", "routes/api-mcp-v1-pairing.ts"),
+    resource("api/mcp/v1/pairing/token", "routes/api-mcp-v1-pairing-token.ts"),
+    resource(
+      "api/mcp/v1/pairing/cancel",
+      "routes/api-mcp-v1-pairing-cancel.ts",
+    ),
+    resource("api/mcp/v1/device", "routes/api-mcp-v1-device.ts"),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),
     resource("favicon.ico", "routes/favicon.ts"),

@@ -48,7 +48,9 @@ import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 
 import { runnerAssetUpload } from "./agent-asset-return.server";
+import { createMcpDeviceServices } from "./mcp-device-services.server";
 
+import type { McpDeviceApplicationServices } from "./mcp-device-services.server";
 import type { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { ChatInstanceAdministrationDependencies } from "@/backend/service/agents/ChatInstanceAdministrationService";
@@ -67,7 +69,7 @@ import type { AdministrationService } from "@/backend/service/AdministrationServ
 import type { UserService } from "@/backend/service/UserService";
 
 /** The operation services behind the agent API, the plan bridge and the chat. */
-export interface McpApplicationServices {
+export interface McpApplicationServices extends McpDeviceApplicationServices {
   readonly agentAssetService: AgentAssetService;
   readonly agentTicketUploadService: AgentTicketUploadService;
   /** The same operation catalog for the chat agent: UI role mode, changes marked as AI actions. */
@@ -452,6 +454,7 @@ export function createMcpServices(
     creation,
   };
   return {
+    ...createMcpDeviceServices(database),
     agentAssetService,
     agentTicketUploadService,
     chatOperationRouter: createChatOperationRouter(

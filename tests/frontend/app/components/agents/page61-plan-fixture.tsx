@@ -27,6 +27,10 @@ import type { AgentParameter } from "@/definition/AgentParameters";
 
 export const i18n = createI18n("de");
 
+// The page loads its node dialog on first use; loading it here keeps the first
+// opening in a test independent of how long that import takes under load.
+await import("@/app/components/agents/plans/plan-node-dialog");
+
 const FLOW = { fromPort: "flow-out", toPort: "flow-in" } as const;
 
 function agent(

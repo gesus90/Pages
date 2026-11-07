@@ -41,11 +41,15 @@ export function createSecurityHeaders(): Record<string, string> {
 }
 
 /**
- * Page addresses whose address carries the result of a connection: the
- * Discord result. Their documents are never stored and never name their
+ * Page addresses whose address carries the result or the code of a
+ * connection: the Discord result and the pairing of a machine (PAGE-243).
+ * Their documents are never stored and never name their
  * address to anyone, as they did with server rendering (PAGE-235).
  */
-export const SENSITIVE_DOCUMENT_PATHS: readonly string[] = ["/discord/result"];
+export const SENSITIVE_DOCUMENT_PATHS: readonly string[] = [
+  "/discord/result",
+  "/koppeln",
+];
 
 /**
  * Builds the headers of the static app's document for one page address.

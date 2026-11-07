@@ -1,6 +1,7 @@
 import { getAuthenticatedUser } from "@/app/lib/auth.server";
 import { readLocalStateAudience } from "@/app/lib/local-state/local-state-audience.server";
 import { getApplicationServices } from "@/app/lib/services.server";
+import { handleRevokeMcpDevice } from "@/app/lib/settings-actions/settings-mcp-device-action.server";
 import {
   handleUpdatePicaMobilePort,
   loadPicaMobileView,
@@ -32,6 +33,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     const picaMobile = await loadPicaMobileView(services, user, request);
     const view: ConnectionsData = {
       ...(picaMobile ? { picaMobile } : {}),
+      mcpDevices: await services.mcpDeviceService.list(user.id),
       audience: await readLocalStateAudience(services, user),
     };
     return authorizationResponse(view);
@@ -42,7 +44,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   }
 }
 
-/** Persists, for administrators, the Pica Mobile port. */
+/** Persists, for administrators, the Pica Mobile port, and revokes a paired machine of the account. */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
   try {
     if (request.method !== "POST")
@@ -51,7 +53,10 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     const user = await requireUser(request);
     const services = await getApplicationServices();
     const form = await request.formData();
-    if (form.get("intent") !== "update-pica-mobile-port")
+    const intent = form.get("intent");
+    if (intent === "revoke-mcp-device")
+      return await handleRevokeMcpDevice(services, user, form);
+    if (intent !== "update-pica-mobile-port")
       throw new McpAuthorizationError("invalid_request");
     return await handleUpdatePicaMobilePort(services, user, form);
   } catch (error: unknown) {

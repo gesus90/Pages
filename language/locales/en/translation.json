@@ -129,6 +129,25 @@
       "tagline": "Simple. Organized. Productive."
     }
   },
+  "mcpPairing": {
+    "title": "Pair a machine",
+    "subtitle": "Does the code match the one in your terminal?",
+    "remaining": "{{time}} min left",
+    "device": "Machine",
+    "server": "Server",
+    "account": "Account",
+    "deny": "Reject",
+    "approve": "Pair",
+    "paired": {
+      "title": "Paired",
+      "text": "{{device}} is now connected to your account. You can close this window.",
+      "show": "Show connections"
+    },
+    "denied": "Pairing rejected.",
+    "expired": "Code expired. Please start again in the terminal.",
+    "invalid": "Code invalid. Please open the link from the terminal.",
+    "missing": "Open the link that `pages-mcp pair` shows in the terminal."
+  },
   "errorPage": {
     "forbidden": {
       "title": "Access denied",
@@ -1448,6 +1467,22 @@
           "listenFailed": "Pages cannot listen on port {{port}}. Choose another port.",
           "general": "The port could not be saved. Try again."
         }
+      },
+      "mcpDevices": {
+        "title": "Paired machines",
+        "description": "Machines that use Pages MCP with your account.",
+        "empty": "No machine is paired yet.",
+        "list": "Paired machines",
+        "version": "Version {{version}}",
+        "pairedAt": "Paired on {{date}}",
+        "lastUsed": "Last used {{date}}",
+        "neverUsed": "Not used yet",
+        "revoke": "Revoke",
+        "revokeTitle": "Revoke “{{name}}”?",
+        "revokeDescription": "The machine loses access to Pages at once and has to be paired again.",
+        "cancel": "Cancel",
+        "revoked": "Machine revoked.",
+        "error": "The machine could not be revoked. Please try again."
       },
       "error": {
         "load": "Connections could not be loaded.",

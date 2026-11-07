@@ -67,6 +67,7 @@ vi.mock("@/app/lib/services.server", async () => {
 
   return {
     getApplicationServices: async () => ({
+      mcpDeviceService: { list: async () => [] },
       administrationService: { getContext: async () => currentAccount() },
       permissionService: new Permissions(async () => currentAccount()),
     }),

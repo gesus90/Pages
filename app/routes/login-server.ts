@@ -18,6 +18,14 @@ import type { Route } from "./+types/login-server";
 
 type LoginActionResult = Response | ReturnType<typeof data<LoginActionData>>;
 
+/** The address the visitor wanted before the sign-in, if sign-in may return there. */
+function readReturnTo(request: Request): string | null {
+  const returnTo = new URL(request.url).searchParams.get("returnTo");
+  const destination = loginDestination(returnTo);
+
+  return destination === loginDestination() ? null : destination;
+}
+
 /**
  * Redirects a visitor who already has an active Pages session.
  *
@@ -31,8 +39,10 @@ export async function loader({
 }: Route.LoaderArgs): Promise<Response | LoginLoaderData> {
   const user = await getAuthenticatedUser(request);
 
+  const returnTo = readReturnTo(request);
+
   if (user) {
-    return redirect(loginDestination());
+    return redirect(loginDestination(returnTo));
   }
 
   const services = await getApplicationServices();
@@ -40,7 +50,10 @@ export async function loader({
   return {
     branding: await services.instanceSettingsService.getBranding(),
     language: await resolveAnonymousLanguage(request),
-    loginPath: "/login",
+    loginPath:
+      returnTo === null
+        ? "/login"
+        : `/login?returnTo=${encodeURIComponent(returnTo)}`,
   };
 }
 
@@ -105,7 +118,7 @@ export async function action({
     );
   }
 
-  return redirect(loginDestination(), {
+  return redirect(loginDestination(readReturnTo(request)), {
     headers: {
       "Set-Cookie": await sessionCookie.serialize(loginResult.sessionToken, {
         secure: resolveCookieSecure(request),

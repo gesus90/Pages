@@ -129,6 +129,25 @@
       "tagline": "Einfach. Organisiert. Produktiv."
     }
   },
+  "mcpPairing": {
+    "title": "Rechner koppeln",
+    "subtitle": "Stimmt der Code mit dem im Terminal überein?",
+    "remaining": "noch {{time}} min",
+    "device": "Rechner",
+    "server": "Server",
+    "account": "Konto",
+    "deny": "Ablehnen",
+    "approve": "Koppeln",
+    "paired": {
+      "title": "Gekoppelt",
+      "text": "{{device}} ist jetzt mit Ihrem Konto verbunden. Sie können dieses Fenster schließen.",
+      "show": "Verbindungen anzeigen"
+    },
+    "denied": "Kopplung abgelehnt.",
+    "expired": "Code abgelaufen. Bitte im Terminal neu starten.",
+    "invalid": "Code ungültig. Bitte den Link aus dem Terminal öffnen.",
+    "missing": "Öffnen Sie den Link, den `pages-mcp pair` im Terminal anzeigt."
+  },
   "errorPage": {
     "forbidden": {
       "title": "Zugriff verweigert",
@@ -1448,6 +1467,22 @@
           "listenFailed": "Auf Port {{port}} kann Pages nicht lauschen. Wähle einen anderen Port.",
           "general": "Der Port konnte nicht gespeichert werden. Versuche es erneut."
         }
+      },
+      "mcpDevices": {
+        "title": "Gekoppelte Rechner",
+        "description": "Rechner, die mit Pages MCP auf Ihr Konto zugreifen.",
+        "empty": "Noch kein Rechner gekoppelt.",
+        "list": "Gekoppelte Rechner",
+        "version": "Version {{version}}",
+        "pairedAt": "Gekoppelt am {{date}}",
+        "lastUsed": "Zuletzt genutzt {{date}}",
+        "neverUsed": "Noch nicht genutzt",
+        "revoke": "Widerrufen",
+        "revokeTitle": "„{{name}}“ widerrufen?",
+        "revokeDescription": "Der Rechner verliert sofort den Zugriff auf Pages und muss neu gekoppelt werden.",
+        "cancel": "Abbrechen",
+        "revoked": "Rechner widerrufen.",
+        "error": "Der Rechner konnte nicht widerrufen werden. Bitte erneut versuchen."
       },
       "error": {
         "load": "Verbindungen konnten nicht geladen werden.",
