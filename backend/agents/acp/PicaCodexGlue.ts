@@ -52,8 +52,12 @@ export interface PicaCodexGlue {
   readonly policyContext: () => Promise<string>;
   readonly bindThread: (threadId: string, context: string) => Promise<boolean>;
   readonly prepare: (threadId: string) => Promise<PicaCodexOperation>;
-  readonly ready: (input: Readonly<Record<string, unknown>>) => Promise<unknown>;
-  readonly revoke: (input: Readonly<Record<string, unknown>>) => Promise<unknown>;
+  readonly ready: (
+    input: Readonly<Record<string, unknown>>,
+  ) => Promise<unknown>;
+  readonly revoke: (
+    input: Readonly<Record<string, unknown>>,
+  ) => Promise<unknown>;
   readonly cancelPrepare: (threadId: string, nonce: string) => Promise<boolean>;
   readonly endTurn: (threadId: string, turnId: string) => Promise<void>;
   readonly closeThread: (threadId: string) => Promise<void>;

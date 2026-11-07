@@ -1,7 +1,32 @@
 import { PICA_CODEX_METHOD, PICA_CODEX_REQUEST } from "./PicaCodexProtocol";
+import { PicaCodexRequests } from "./PicaCodexRequests";
 
 import type { client as acpClient } from "@agentclientprotocol/sdk";
-import type { PicaCodexRequests } from "./PicaCodexRequests";
+import type { AcpSessionContext } from "./AcpSessionContracts";
+
+/**
+ * Creates the private native-tool requests of a Pica chat over Codex or OpenCode.
+ *
+ * @param context - The driver and the listener of the session.
+ * @param session - Reads the session the adapter opened.
+ * @param prompting - Tells whether a prompt of Pages is running.
+ * @returns The requests, or `null` for every other session.
+ */
+export function createPicaCodexRequests(
+  context: Pick<AcpSessionContext, "driver" | "listener">,
+  session: () => string | null,
+  prompting: () => boolean,
+): PicaCodexRequests | null {
+  const listener = context.listener?.picaCodex;
+  const { provider } = context.driver;
+  if (!listener || !["codex_cli", "opencode"].includes(provider)) return null;
+  return new PicaCodexRequests({
+    listener,
+    requirePolicy: provider === "codex_cli",
+    session,
+    prompting,
+  });
+}
 
 /** Adds the private native-tool methods only to a Pica Codex client. */
 export function registerPicaCodexRequests(
@@ -29,11 +54,21 @@ export function registerPicaCodexRequests(
       PICA_CODEX_REQUEST.thread,
       ({ params }) => native.prepareTurn(params.threadId),
     )
-    .onRequest(PICA_CODEX_METHOD.ready, PICA_CODEX_REQUEST.ready, ({ params }) =>
-      native.admitReady(params) ? { ...params, accepted: true } : { accepted: false },
+    .onRequest(
+      PICA_CODEX_METHOD.ready,
+      PICA_CODEX_REQUEST.ready,
+      ({ params }) =>
+        native.admitReady(params)
+          ? { ...params, accepted: true }
+          : { accepted: false },
     )
-    .onRequest(PICA_CODEX_METHOD.revoke, PICA_CODEX_REQUEST.ready, async ({ params }) =>
-      (await native.revokeOperation(params)) ? { ...params, accepted: true } : { accepted: false },
+    .onRequest(
+      PICA_CODEX_METHOD.revoke,
+      PICA_CODEX_REQUEST.ready,
+      async ({ params }) =>
+        (await native.revokeOperation(params))
+          ? { ...params, accepted: true }
+          : { accepted: false },
     )
     .onRequest(
       PICA_CODEX_METHOD.cancelPrepare,

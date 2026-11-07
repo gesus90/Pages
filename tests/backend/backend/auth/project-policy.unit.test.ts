@@ -145,15 +145,19 @@ describe("assignments, archiving and deletion", () => {
     expect(policy.canManageAssignments(projectManager, ["sales"])).toBe(true);
   });
 
-  it("archives with the archive capability and complete responsibility", () => {
+  it("archives only as administrator, like the permanent deletion", () => {
     const archivist = accountFixture({
       permissions: [CAPABILITY.ARCHIVE_PROJECTS],
       managedDepartments: ["sales"],
     });
 
-    expect(policy.canArchive(archivist, ["sales"])).toBe(true);
+    expect(policy.canArchive(administratorFixture(), ["legal"])).toBe(true);
+    expect(policy.canArchive(archivist, ["sales"])).toBe(false);
     expect(policy.canArchive(archivist, ["legal"])).toBe(false);
     expect(policy.canArchive(projectManager, ["sales"])).toBe(false);
+    expect(
+      policy.canArchive(administratorFixture({ isActive: false }), []),
+    ).toBe(false);
   });
 
   it("deletes only as administrator and never through a project role", () => {

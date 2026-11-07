@@ -16,6 +16,7 @@ import {
 import { readRemoteWorkspaceInput } from "./RemoteConnectionInput";
 import { checkRemoteDirectory } from "./RemoteDirectoryCheck";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type {
@@ -57,6 +58,8 @@ export interface RemoteWorkspaceDependencies {
     | "isProjectManager"
   >;
   readonly sessions: RemoteSessionRegistry;
+  /** Whose administrator reading applies; the interface when absent. */
+  readonly channel?: ActorChannel;
 }
 
 /** What a listing needs to describe every visible profile. */
@@ -139,10 +142,30 @@ function storesCheckFailure(error: RemoteError): boolean {
  */
 export class RemoteWorkspaceService {
   private readonly dependencies: RemoteWorkspaceDependencies;
-  private readonly writes = new SerialQueue();
+  private readonly writes: SerialQueue;
 
-  public constructor(dependencies: RemoteWorkspaceDependencies) {
+  public constructor(
+    dependencies: RemoteWorkspaceDependencies,
+    writes: SerialQueue = new SerialQueue(),
+  ) {
     this.dependencies = dependencies;
+    this.writes = writes;
+  }
+
+  /**
+   * Returns the service for another surface that shares storage, rules and write order.
+   *
+   * @remarks
+   * Only the administrator reading differs: MCP counts a personal administrator
+   * regardless of the role mode of the browser, the interface does not.
+   *
+   * @param channel - The surface the returned service acts for.
+   */
+  public forChannel(channel: ActorChannel): RemoteWorkspaceService {
+    return new RemoteWorkspaceService(
+      { ...this.dependencies, channel },
+      this.writes,
+    );
   }
 
   /** Lists the profiles of projects and connections the person may use. */
@@ -329,6 +352,7 @@ export class RemoteWorkspaceService {
     return requireRemoteAccount(
       await this.dependencies.authorization.snapshot(),
       userId,
+      this.dependencies.channel,
     );
   }
 

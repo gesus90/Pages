@@ -34,12 +34,13 @@ const REFUSED = {
   isDenied: true,
 };
 
-it("approves only calls of the Pica bridge in a Claude conversation", () => {
+it("refuses every unmanaged permission request in a Claude conversation", () => {
   const profile = claudeAcpProfile("yolo", "chat");
 
   expect(
     profile.decide(claudeRequest("mcp__pages__read_wiki", "pages")),
-  ).toEqual(APPROVED);
+  ).toEqual(REFUSED);
+  expect(profile.decide(claudeRequest("Bash", "none"))).toEqual(REFUSED);
   expect(profile.decide(claudeRequest("WebSearch", "pages"))).toEqual(REFUSED);
   expect(
     profile.decide(claudeRequest("mcp__pages__read_wiki", "other")),
@@ -90,7 +91,7 @@ it("confirms the read-only mode and stored model of a Codex conversation", () =>
   ]);
 });
 
-it("approves only MCP tool calls in a Codex conversation", () => {
+it("refuses every unmanaged permission request in a Codex conversation", () => {
   const profile = codexAcpProfile("read_only", "chat");
   const request: RequestPermissionRequest = {
     sessionId: "s-1",
@@ -100,7 +101,7 @@ it("approves only MCP tool calls in a Codex conversation", () => {
 
   expect(
     profile.decide({ ...request, _meta: { is_mcp_tool_approval: true } }),
-  ).toEqual(APPROVED);
+  ).toEqual(REFUSED);
   expect(profile.decide(request)).toEqual(REFUSED);
 });
 

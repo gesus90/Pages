@@ -6,30 +6,21 @@ import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import {
   logCaughtError,
-  logDiagnostic,
   logEvent,
   withLogContext,
 } from "@/backend/logging/Logger";
 
-import { createPicaTools } from "../PicaTools";
 import { picaSteerText, picaTurnPrompt } from "./PicaAcpContent";
 import { PicaAcpJournal } from "./PicaAcpJournal";
-import { picaHelperUsage } from "@/backend/agents/acp/PicaClaudeHelper";
-import { picaHelperScript } from "@/backend/agents/acp/PicaClaudeHelperScript";
-import { invokePicaNativeTool } from "./PicaToolClient";
-import { readPicaCodexCatalog } from "./PicaCodexCatalog";
-import {
-  picaHelperPath,
-  writePicaInvocationFile,
-  removePicaInvocationFile,
-} from "./PicaInvocationFile";
+import { PicaAcpCredential } from "./PicaAcpCredential";
+import { PicaAcpUsage } from "./PicaAcpUsage";
+import { attemptPicaCloseoutStep, savePicaAcpSession } from "./PicaAcpCloseout";
 import { PicaAcpAnswerOutput } from "./PicaAcpAnswerOutput";
 import { PicaAcpSelections } from "./PicaAcpSelections";
 import { PicaAcpSteering } from "./PicaAcpSteering";
 import { PicaAcpToolTurns } from "./PicaAcpToolTurns";
 import { PicaAcpThreadWatch } from "./PicaAcpThreadWatch";
 import {
-  sumJobUsage,
   picaAcpOutcome,
   readAnswer,
   requireCompleted,
@@ -40,8 +31,6 @@ import { PicaAcpUpdates } from "./PicaAcpUpdates";
 import type { PromptCapabilities } from "@agentclientprotocol/sdk";
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import type { AcpSteerOutcome } from "@/backend/agents/acp/AcpChat";
-import type { PicaCodexTurnBinding } from "@/backend/agents/acp/PicaCodexRequests";
-import type { PicaCodexTool } from "@/backend/agents/acp/PicaCodexGlue";
 import type {
   AgentPlanSessionInput,
   PlanSession,
@@ -54,16 +43,11 @@ import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlan
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type {
-  ChatContextUsage,
-  ChatCost,
   ChatJobCompactionEvent,
-  ChatJobUsage,
   ChatSteerStatus,
-  ChatTokenUsage,
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
-import type { PicaBridgeDescriptor, PicaBridgeLease } from "./PicaBridge";
-import type { PicaTurnBrief } from "./PicaAcpContent";
+import type { PicaMessageContent, PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
@@ -116,30 +100,18 @@ export class PicaAcpJob {
   private readonly updates: PicaAcpUpdates;
   private readonly steering: PicaAcpSteering;
   private readonly thread = new PicaAcpThreadWatch();
-  private readonly writes = new SerialQueue();
   private readonly deliveryQueue = new SerialQueue();
-  private readonly tokens = new Map<
-    number,
-    Omit<ChatTokenUsage, "isPartial"> | null
-  >();
+  private readonly usage: PicaAcpUsage;
+  private readonly credential: PicaAcpCredential;
   private readonly selections: PicaAcpSelections;
   private readonly answerOutput: PicaAcpAnswerOutput;
-  /** Opened when the job runs, so a job that never ran leaves no token behind. */
-  private bridge: PicaBridgeLease | null = null;
-  private descriptorFile: string | null = null;
-  private descriptorUrl: string | null = null;
   private isSteerBinding = false;
   private endedDuringSteer = false;
-  private bindingTurn: number | null = null;
   private hasAdapterTurn = false;
   private context: RuntimeExecutionContext | null = null;
   private session: PlanSession | null = null;
   private acpSessionId: string | null = null;
   private capabilities: PromptCapabilities | null | undefined;
-  private usage: Pick<ChatJobUsage, "context" | "cost"> = {
-    context: null,
-    cost: null,
-  };
   private turn = 0;
   private readonly toolTurns: PicaAcpToolTurns;
   private isTurnRunning = false;
@@ -155,6 +127,16 @@ export class PicaAcpJob {
     this.dependencies = dependencies;
     this.specification = specification;
     this.journal = new PicaAcpJournal(dependencies.jobs, specification.id);
+    this.usage = new PicaAcpUsage(
+      dependencies.jobs,
+      this.journal,
+      specification.id,
+      specification.run.runner.hasPartialTokenUsage === true,
+    );
+    this.credential = new PicaAcpCredential(
+      specification.directory,
+      specification.agent.connection.provider === "claude_code",
+    );
     this.answerOutput = new PicaAcpAnswerOutput(
       dependencies.answerFiles,
       specification,
@@ -170,16 +152,11 @@ export class PicaAcpJob {
     this.updates = new PicaAcpUpdates(
       {
         picaCodex: {
-          catalog: () => this.nativeCatalog(),
-          capture: () => this.captureNativeTurn(),
+          catalog: () => this.credential.catalog(this.requireContext().signal),
+          capture: () => this.credential.capture(this.requireContext()),
         },
-        ...(this.isClaude()
-          ? {
-              picaHelper: () =>
-                this.descriptorFile
-                  ? picaHelperPath(this.descriptorFile)
-                  : null,
-            }
+        ...(specification.agent.connection.provider === "claude_code"
+          ? { picaHelper: () => this.credential.helperPath() }
           : {}),
         steering: (canSteer, capabilities) => {
           this.capabilities = capabilities;
@@ -192,13 +169,13 @@ export class PicaAcpJob {
             });
         },
         text: (turn, isReset, delta) => this.journal.text(turn, isReset, delta),
-        context: (context, cost) => this.recordContext(context, cost),
+        context: (context, cost) => this.usage.recordContext(context, cost),
         compaction: (compaction) => this.recordCompaction(compaction),
         promptEnded: (turn, tokens) => {
           if (this.isSteerBinding && turn === this.turn)
             this.endedDuringSteer = true;
-          if (this.bindingTurn === turn) this.revokeTurn();
-          this.recordTokens(turn, tokens);
+          if (this.credential.boundTurn === turn) this.credential.revoke();
+          this.usage.recordTokens(turn, tokens);
         },
         threadStatus: (isActive) => this.thread.observe(isActive),
         content: (turn, block) => this.answerOutput.take(turn, block),
@@ -306,19 +283,13 @@ export class PicaAcpJob {
     });
     this.context =
       this.dependencies.adminTools?.bind(this.context) ?? this.context;
-    this.bridge = this.dependencies.bridge.open({
+    const lease = this.dependencies.bridge.open({
       jobId: this.id,
       userId: this.userId,
       sessionId: this.specification.sessionId,
       onImages: (turn, images, isCurrent) =>
         this.answerOutput.stageImages(turn, images, isCurrent),
-      catalog: createPicaTools({
-        tools: this.dependencies.tools,
-        sessions: this.dependencies.sessions,
-        authorize: () => Promise.resolve(),
-        answerFiles: this.dependencies.answerFiles,
-        adminTools: this.dependencies.adminTools,
-      }).describe({ includeAdministrator: await this.isAdministrator() }),
+      catalog: await this.toolTurns.catalog(this.userId),
       onTool: (event) => {
         void this.journal
           .record({ kind: "tool", ...event })
@@ -328,27 +299,8 @@ export class PicaAcpJob {
           });
       },
     });
+    this.credential.open(lease);
     await this.journal.record({ kind: "phase", phase: "starting" });
-  }
-
-  /**
-   * Tells whether the catalog of this job lists the administrator tools.
-   *
-   * @remarks
-   * Only the listing depends on it. Every call resolves the right afresh, so
-   * a person who is none cannot call a tool by guessing its name, and an
-   * unknown answer lists none.
-   */
-  private async isAdministrator(): Promise<boolean> {
-    const tools = this.dependencies.adminTools;
-    if (!tools) return false;
-    try {
-      return await tools.isAdministrator(this.specification.actor.id);
-    } catch (error: unknown) {
-      logCaughtError("PicaAcpJob", error);
-
-      return false;
-    }
   }
 
   private async execute(signal: AbortSignal): Promise<void> {
@@ -360,14 +312,14 @@ export class PicaAcpJob {
     if (isResumed && result.errorCode === "acp_session_resume_failed") {
       await this.closeSession();
       isResumed = false;
-      this.setDescriptor(
+      this.credential.write(
         this.toolTurns.rebind(
           this.requireContext(),
-          this.requireBridge(),
+          this.credential.requireLease(),
           this.specification.message,
         ),
       );
-      this.bindingTurn = this.turn;
+      this.credential.bind(this.turn);
       result = await this.openTurn(null, signal);
     }
     await this.journal.record({ kind: "session", isResumed });
@@ -417,10 +369,10 @@ export class PicaAcpJob {
     await this.journal.record(turnBeganEvent(this.turn, "followUp"));
     await this.thread.ended(signal);
     this.hasAdapterTurn = false;
-    if (this.bindingTurn === this.turn) this.revokeTurn();
+    if (this.credential.boundTurn === this.turn) this.credential.revoke();
     signal.throwIfAborted();
     // The adapter returns no usage for a turn it started itself.
-    this.recordTokens(this.turn, null);
+    this.usage.recordTokens(this.turn, null);
     const answer = this.updates.answer();
     this.updates.endAdapterTurn();
     this.thread.reset();
@@ -458,15 +410,15 @@ export class PicaAcpJob {
     message: PicaAcpMessage,
   ): Promise<void> {
     this.turn += 1;
-    this.setDescriptor(
+    this.credential.write(
       this.toolTurns.bind(
         this.turn,
         this.requireContext(),
-        this.requireBridge(),
+        this.credential.requireLease(),
         message,
       ),
     );
-    this.bindingTurn = this.turn;
+    this.credential.bind(this.turn);
     await this.journal.record(turnBeganEvent(this.turn, origin));
   }
 
@@ -479,7 +431,7 @@ export class PicaAcpJob {
     } finally {
       this.isTurnRunning = false;
       await this.steering.settle();
-      if (!this.hasAdapterTurn) this.revokeTurn();
+      if (!this.hasAdapterTurn) this.credential.revoke();
     }
   }
 
@@ -511,7 +463,7 @@ export class PicaAcpJob {
     return {
       prompt: [
         picaTurnPrompt(brief, message.text, message.attachments),
-        this.invocationDescriptor(),
+        this.credential.usage(),
       ].join("\n\n"),
       promptContent: async (capabilities) => {
         this.capabilities = capabilities;
@@ -529,64 +481,90 @@ export class PicaAcpJob {
   private async deliverMessage(
     message: PicaAcpMessage,
   ): Promise<AcpSteerOutcome> {
-    const session = this.session;
-    if (!session?.steer || !this.isTurnRunning) return "inactive";
+    const steer = this.session?.steer?.bind(this.session);
+    if (!steer || !this.isTurnRunning) return "inactive";
     const content = await this.selections.read(message, this.capabilities);
     if (!this.isTurnRunning) return "inactive";
+    const sent = await this.sendSteer(steer, message, content);
+    if (sent === null) return "inactive";
+    const outcome = this.activateSteer(message, sent);
+    // The snapshot tells what reached the agent. A steer the adapter did not
+    // take gets it with its own turn, or fails visibly with all its attachments.
+    if (outcome === "injected" || outcome === "startedNewTurn")
+      await this.selections.select(message.id, content.items);
+    return outcome;
+  }
+
+  /**
+   * Reserves the credential of a steer and sends it to the agent.
+   *
+   * @returns The adapter's outcome, or `null` when the turn ended before the
+   * steer was sent; its credential is revoked then.
+   */
+  private async sendSteer(
+    steer: NonNullable<PlanSession["steer"]>,
+    message: PicaAcpMessage,
+    content: PicaMessageContent,
+  ): Promise<AcpSteerOutcome | null> {
     this.isSteerBinding = true;
     this.endedDuringSteer = false;
-    let outcome: AcpSteerOutcome;
     try {
       this.thread.reset();
-      this.bindingTurn = null;
-      this.setDescriptor(
+      this.credential.bind(null);
+      this.credential.write(
         this.toolTurns.reserve(
           this.requireContext(),
-          this.requireBridge(),
+          this.credential.requireLease(),
           message,
         ),
       );
-      await this.requireBridge().settle();
+      await this.credential.requireLease().settle();
       if (!this.isTurnRunning) {
-        this.revokeTurn();
-        return "inactive";
+        this.credential.revoke();
+        return null;
       }
-      outcome = await session.steer([
+      return await steer([
         {
           type: "text",
-          text: [picaSteerText(message.text), this.invocationDescriptor()].join(
+          text: [picaSteerText(message.text), this.credential.usage()].join(
             "\n\n",
           ),
         },
         ...content.blocks,
       ]);
     } catch (error: unknown) {
-      this.revokeTurn();
+      this.credential.revoke();
       throw error;
     } finally {
       this.isSteerBinding = false;
     }
-    if (outcome === "injected" && this.endedDuringSteer) outcome = "failed";
-    if (outcome === "injected" || outcome === "startedNewTurn") {
-      const nextTurn = outcome === "startedNewTurn" ? this.turn + 1 : null;
-      const activated = this.toolTurns.activate(
+  }
+
+  /** Activates the reserved credential for a steer the adapter took; otherwise revokes it. */
+  private activateSteer(
+    message: PicaAcpMessage,
+    sent: AcpSteerOutcome,
+  ): AcpSteerOutcome {
+    const outcome =
+      sent === "injected" && this.endedDuringSteer ? "failed" : sent;
+    if (outcome !== "injected" && outcome !== "startedNewTurn") {
+      this.credential.revoke();
+      return outcome;
+    }
+    const nextTurn = outcome === "startedNewTurn" ? this.turn + 1 : null;
+    if (
+      !this.toolTurns.activate(
         this.requireContext(),
-        this.requireBridge(),
+        this.credential.requireLease(),
         message,
         nextTurn,
-      );
-      if (!activated) outcome = "failed";
-      else {
-        this.bindingTurn = nextTurn ?? this.turn;
-        this.hasAdapterTurn = nextTurn !== null;
-      }
+      )
+    ) {
+      this.credential.revoke();
+      return "failed";
     }
-    if (outcome !== "injected" && outcome !== "startedNewTurn")
-      this.revokeTurn();
-    // The snapshot tells what reached the agent. A steer the adapter did not
-    // take gets it with its own turn, or fails visibly with all its attachments.
-    if (outcome === "injected" || outcome === "startedNewTurn")
-      await this.selections.select(message.id, content.items);
+    this.credential.bind(nextTurn ?? this.turn);
+    this.hasAdapterTurn = nextTurn !== null;
     return outcome;
   }
 
@@ -595,7 +573,7 @@ export class PicaAcpJob {
     output: string,
     ending: Pick<NewChatMessage, "isStopped"> = {},
   ): Promise<string> {
-    await this.requireBridge().settle(this.turn);
+    await this.credential.requireLease().settle(this.turn);
     await this.answerOutput.settle(this.turn);
     const content = readAnswer(output);
     const message = await this.dependencies.messages.append(
@@ -633,70 +611,6 @@ export class PicaAcpJob {
       });
   }
 
-  private recordContext(
-    context: ChatContextUsage | null,
-    cost: ChatCost | null,
-  ): void {
-    // Context is replaced, never added up; a cost stays until the adapter reports another.
-    this.usage = { context, cost: cost ?? this.usage.cost };
-    const { usage } = this;
-    void this.writes
-      .run(async () => {
-        await this.dependencies.jobs.saveContext(this.id, context, usage.cost);
-        await this.journal.record({
-          kind: "usage",
-          usage: this.currentUsage(),
-        });
-      })
-      .catch((caughtError: unknown) => {
-        logCaughtError("PicaAcpJob", caughtError);
-
-        logDiagnostic(
-          "PicaAcpJob",
-          "error",
-          "[pages] The usage of a Pica job could not be stored.",
-        );
-      });
-  }
-
-  private recordTokens(
-    turn: number,
-    tokens: Omit<ChatTokenUsage, "isPartial"> | null,
-  ): void {
-    // One entry per turn: a repeated report replaces it instead of counting twice.
-    this.tokens.set(turn, tokens);
-    void this.writes
-      .run(async () => {
-        await this.dependencies.jobs.saveTurn(
-          this.id,
-          turn,
-          tokens,
-          this.specification.run.runner.hasPartialTokenUsage === true,
-        );
-        await this.journal.record({
-          kind: "usage",
-          usage: this.currentUsage(),
-        });
-      })
-      .catch((caughtError: unknown) => {
-        logCaughtError("PicaAcpJob", caughtError);
-
-        logDiagnostic(
-          "PicaAcpJob",
-          "error",
-          "[pages] The usage of a Pica job could not be stored.",
-        );
-      });
-  }
-
-  private currentUsage(): ChatJobUsage {
-    return sumJobUsage(
-      this.usage,
-      [...this.tokens.values()],
-      this.specification.run.runner.hasPartialTokenUsage === true,
-    );
-  }
-
   private observer(): PlanSessionObserver {
     return {
       started: () => undefined,
@@ -710,95 +624,6 @@ export class PicaAcpJob {
     return this.requireContext().authorize();
   }
 
-  private isClaude(): boolean {
-    return this.specification.agent.connection.provider === "claude_code";
-  }
-
-  private invocationDescriptor(): string {
-    if (!this.isClaude())
-      return "Use the available Pages tools to access the conversation's authorized data.";
-    if (!this.descriptorFile) throw new PicaAcpJobError("general");
-    return picaHelperUsage(picaHelperPath(this.descriptorFile));
-  }
-
-  private async nativeCatalog(): Promise<readonly PicaCodexTool[]> {
-    const file = this.descriptorFile;
-    const url = this.descriptorUrl;
-    const turn = this.bindingTurn;
-    if (!file || !url || turn === null) throw new PicaAcpJobError("general");
-    const result = await readPicaCodexCatalog(
-      { descriptorFile: file, expectedUrl: url },
-      this.requireContext().signal,
-    );
-    if (this.descriptorFile !== file || this.bindingTurn !== turn)
-      throw new PicaAcpJobError("general");
-    return result;
-  }
-
-  private captureNativeTurn(): PicaCodexTurnBinding {
-    const file = this.descriptorFile;
-    const url = this.descriptorUrl;
-    const turn = this.bindingTurn;
-    const context = this.requireContext();
-    if (!file || !url || turn === null) throw new PicaAcpJobError("general");
-    const isCurrent = (): boolean =>
-      this.descriptorFile === file &&
-      this.descriptorUrl === url &&
-      this.bindingTurn === turn &&
-      !context.signal.aborted;
-    return {
-      isCurrent,
-      invoke: async (call, signal) => {
-        if (!isCurrent()) throw new PicaAcpJobError("general");
-        const result = await invokePicaNativeTool(
-          { descriptorFile: file, expectedUrl: url },
-          { name: call.tool, arguments: call.arguments },
-          AbortSignal.any([signal, context.signal]),
-        );
-        if (!isCurrent()) throw new PicaAcpJobError("general");
-        return result;
-      },
-    };
-  }
-
-  private setDescriptor(descriptor: PicaBridgeDescriptor | null): void {
-    try {
-      if (this.descriptorFile)
-        removePicaInvocationFile(
-          this.specification.directory,
-          this.descriptorFile,
-        );
-      this.descriptorFile = null;
-      if (!descriptor) throw new PicaAcpJobError("general");
-      this.descriptorFile = writePicaInvocationFile(
-        this.specification.directory,
-        descriptor,
-        this.isClaude() ? picaHelperScript(process.execPath) : undefined,
-      );
-      this.descriptorUrl = descriptor.url;
-    } catch (error: unknown) {
-      this.bridge?.setTurn(null);
-      throw error;
-    }
-  }
-
-  private revokeTurn(): void {
-    this.bindingTurn = null;
-    this.bridge?.setTurn(null);
-    if (this.descriptorFile)
-      removePicaInvocationFile(
-        this.specification.directory,
-        this.descriptorFile,
-      );
-    this.descriptorFile = null;
-    this.descriptorUrl = null;
-  }
-
-  private requireBridge(): PicaBridgeLease {
-    if (this.bridge === null) throw new PicaAcpJobError("general");
-    return this.bridge;
-  }
-
   private requireContext(): RuntimeExecutionContext {
     if (this.context === null) throw new PicaAcpJobError("general");
     return this.context;
@@ -806,32 +631,36 @@ export class PicaAcpJob {
 
   private async finish(outcome: PicaAcpOutcome): Promise<void> {
     // Intake closes first, so a message sent now starts the next job instead of failing here.
-    await this.attempt("intake", () => this.steering.stopIntake());
-    this.revokeTurn();
-    await this.attempt("tool calls", async () => {
-      await this.bridge?.settle();
-    });
+    await attemptPicaCloseoutStep(() => this.steering.stopIntake());
+    this.credential.revoke();
+    await attemptPicaCloseoutStep(() => this.credential.settle());
     const context = this.context;
     if (context)
-      await this.attempt("adminTools", async () => {
+      await attemptPicaCloseoutStep(async () => {
         await this.dependencies.adminTools?.release(context);
       });
     if (outcome.state === "stopped")
-      await this.attempt("stopped answer", () => this.storeStoppedAnswer());
-    await this.attempt("phase", () =>
+      await attemptPicaCloseoutStep(() => this.storeStoppedAnswer());
+    await attemptPicaCloseoutStep(() =>
       this.journal.record({ kind: "phase", phase: "finishing" }),
     );
     await this.closeSession();
-    this.bridge?.close();
-    await this.attempt("answer files", () => this.answerOutput.discard());
-    await this.attempt("steers", () => this.steering.close());
-    await this.attempt("agent session", () => this.saveSession());
-    await this.attempt("end", async () => {
-      await this.writes.idle();
+    this.credential.close();
+    await attemptPicaCloseoutStep(() => this.answerOutput.discard());
+    await attemptPicaCloseoutStep(() => this.steering.close());
+    await attemptPicaCloseoutStep(() =>
+      savePicaAcpSession(
+        this.dependencies,
+        this.specification,
+        this.acpSessionId,
+      ),
+    );
+    await attemptPicaCloseoutStep(async () => {
+      await this.usage.idle();
       await this.journal.record({ kind: "end", ...outcome });
       await this.journal.drain();
     });
-    await this.attempt("state", () =>
+    await attemptPicaCloseoutStep(() =>
       this.dependencies.jobs.finish(this.id, outcome.state, outcome.errorCode),
     );
   }
@@ -851,43 +680,8 @@ export class PicaAcpJob {
     const session = this.session;
     this.session = null;
     if (session === null) return;
-    await this.attempt("closeout", async () => {
+    await attemptPicaCloseoutStep(async () => {
       await session.close();
     });
-  }
-
-  private async saveSession(): Promise<void> {
-    if (this.acpSessionId === null) return;
-    const { agent, sessionId } = this.specification;
-    const messages = await this.dependencies.messages.messages(sessionId);
-    await this.dependencies.acpSessions.save({
-      chatSessionId: sessionId,
-      userId: this.userId,
-      connectionId: agent.connection.id,
-      model: agent.model,
-      reasoningEffort: agent.reasoningEffort,
-      profile: this.specification.run.runner.profile,
-      acpSessionId: this.acpSessionId,
-      throughMessageId: messages.at(-1)?.id ?? null,
-    });
-  }
-
-  /** Runs one step of the closeout; a failure is logged without content and does not skip the others. */
-  private async attempt(
-    step: string,
-    task: () => Promise<void>,
-  ): Promise<void> {
-    try {
-      await task();
-    } catch (error: unknown) {
-      logCaughtError("PicaAcpJob", error);
-
-      logDiagnostic(
-        "PicaAcpJob",
-        "error",
-        "[pages] A Pica job closeout step failed.",
-        error,
-      );
-    }
   }
 }

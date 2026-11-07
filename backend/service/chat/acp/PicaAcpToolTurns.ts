@@ -1,6 +1,9 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { createPicaTools, createPicaToolState } from "../PicaTools";
 
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { RuntimeToolDescription } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import type { PicaToolsInput, PicaToolState } from "../PicaTools";
 import type {
   PicaBridgeDescriptor,
@@ -38,6 +41,29 @@ export class PicaAcpToolTurns {
   /** Aborts the job when an additional call would exceed its turn's budget. */
   public get signal(): AbortSignal {
     return this.controller.signal;
+  }
+
+  /**
+   * Lists the tools a job offers its agent session.
+   *
+   * @param userId - The person of the job.
+   * @returns The catalog; administrator tools only for an administrator.
+   *
+   * @remarks
+   * Only the listing depends on the right. Every call resolves it afresh, so
+   * a person who is none cannot call a tool by guessing its name, and an
+   * unknown answer lists none.
+   */
+  public async catalog(
+    userId: string,
+  ): Promise<readonly RuntimeToolDescription[]> {
+    return createPicaTools({
+      tools: this.dependencies.tools,
+      sessions: this.dependencies.sessions,
+      authorize: () => Promise.resolve(),
+      answerFiles: this.dependencies.answerFiles,
+      adminTools: this.dependencies.adminTools,
+    }).describe({ includeAdministrator: await this.isAdministrator(userId) });
   }
 
   /** Binds a new turn with a fresh budget and credential. */
@@ -98,6 +124,18 @@ export class PicaAcpToolTurns {
       this.state = state;
     }
     return true;
+  }
+
+  private async isAdministrator(userId: string): Promise<boolean> {
+    const tools = this.dependencies.adminTools;
+    if (!tools) return false;
+    try {
+      return await tools.isAdministrator(userId);
+    } catch (error: unknown) {
+      logCaughtError("PicaAcpJob", error);
+
+      return false;
+    }
   }
 
   private createTurn(

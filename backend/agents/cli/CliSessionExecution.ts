@@ -38,15 +38,21 @@ import { CliIsolationGate } from "./CliIsolationGate";
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { createCliEnvironment } from "./CliEnvironment";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
-import { cleanupAcpStart } from "./CliAcpStartCleanup";
+import { cleanupFailedAcpStart } from "./CliAcpStartCleanup";
+import {
+  acpMcpServers,
+  acpSessionRequest,
+  acpWorkerRequest,
+  isolationLabel,
+  picaCodexBundle,
+  picaNativeRunner,
+  planAcpLaunch,
+} from "./CliAcpLaunch";
 import { prepareClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import { captureOwnedNamespace } from "./CliOwnedNamespace";
 import { createAcpRedactor } from "./CliAcpRedaction";
 import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
-import {
-  preparePicaCodexBundle,
-  requirePicaCodexProfile,
-} from "./PicaCodexBundle";
+import { requirePicaCodexProfile } from "./PicaCodexBundle";
 import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
@@ -62,7 +68,6 @@ import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceS
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
-import type { AcpSessionRequest } from "@/backend/agents/acp/AcpSession";
 import type {
   AcpPermissionMode,
   NativeAcpProviderId,
@@ -86,10 +91,7 @@ import type { ClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import type { CliSessionProcess } from "./CliSessionProcess";
 import type { CliWorkerUnits } from "./CliWorkerUnit";
 import type { PicaCodexBundle } from "./PicaCodexBundle";
-import type {
-  PicaNativeArtifact,
-  PicaNativeRunner,
-} from "./PicaNativeArtifact";
+import type { PicaNativeArtifact } from "./PicaNativeArtifact";
 
 /** How CLI runs are kept away from the instance folders. */
 export interface CliIsolationOptions {
@@ -418,53 +420,23 @@ export class CliSessionExecution implements PlanSessionRunner {
     let picaBundle: PicaCodexBundle | null = null;
     try {
       const picaNative = this.selectPicaNative(driver, input, launch, profile);
-      if (picaNative?.runner === "codex")
-        picaBundle = preparePicaCodexBundle(
-          input.directory,
-          adapter,
-          picaNative.directory,
-        );
+      picaBundle = picaCodexBundle(picaNative, input.directory, adapter);
       const { request, isIsolated } = await this.gate.isolateSession(
-        {
-          file: picaBundle
-            ? process.execPath
-            : (picaNative?.executable ?? adapter),
+        acpWorkerRequest({
+          driver,
+          input,
+          mode,
+          launch,
+          adapter,
           provider: start.provider,
           home: start.home,
-          arguments: picaBundle
-            ? [picaBundle.entry, ...(driver.arguments ?? [])]
-            : (driver.arguments ?? []),
-          workingDirectory: input.directory,
-          isWorkingDirectoryReadOnly:
-            picaBundle !== null || mode === "read_only",
-          ...(picaBundle
-            ? {
-                readOnlyFiles: [
-                  picaBundle.directory,
-                  picaBundle.packageRoot,
-                  picaBundle.runnerRoot,
-                  process.execPath,
-                ],
-              }
-            : {}),
-          credentialDirectory: github?.directory,
-          environment: {
-            ...launch.environment,
-            ...(picaBundle && picaNative
-              ? { CODEX_PATH: picaNative.executable, PAGES_PICA_CODEX: "1" }
-              : {}),
-            ...(picaNative?.runner === "opencode"
-              ? { PAGES_PICA_OPENCODE: "1" }
-              : {}),
-            ...start.credentials?.environmentFor(
-              openCodeModelProvider(input.agent.model),
-            ),
-            ...github?.environment,
-          },
-          timeoutMs: input.options.timeoutMinutes * 60_000,
+          credentials: start.credentials,
+          github,
+          picaNative,
+          picaBundle,
           signal: control.signal,
           onLine: (line) => channel.receive(redact(line)),
-        },
+        }),
         scoped,
       );
       requireAcpIsolation(isIsolated, mode, input);
@@ -492,10 +464,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         profile,
         request: acpSessionRequest(input, {
           ...launch,
-          mcpServers:
-            start.browser && !picaNative
-              ? [...launch.mcpServers, start.browser]
-              : launch.mcpServers,
+          mcpServers: acpMcpServers(launch, start.browser, picaNative),
         }),
         observer: control.observer,
         signal: control.signal,
@@ -511,19 +480,11 @@ export class CliSessionExecution implements PlanSessionRunner {
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
 
-      try {
-        await cleanupAcpStart(child, {
-          instanceId: input.instanceId,
-          github,
-          limited,
-          isPidNamespace,
-        });
-      } catch (cleanupError: unknown) {
-        if (!(cleanupError instanceof AcpCleanupUnconfirmedError))
-          picaBundle?.cleanup();
-        throw cleanupError;
-      }
-      picaBundle?.cleanup();
+      await cleanupFailedAcpStart(
+        child,
+        { instanceId: input.instanceId, github, limited, isPidNamespace },
+        picaBundle?.cleanup,
+      );
       throw error;
     }
   }
@@ -674,74 +635,12 @@ async function recordGitHubNamespace(
   if (github && namespace) await github.recordNamespace(namespace);
 }
 
-function picaNativeRunner(
-  provider: AcpDriver["provider"],
-): PicaNativeRunner | null {
-  if (provider === "codex_cli") return "codex";
-  if (provider === "opencode") return "opencode";
-  return null;
-}
-
-function planAcpLaunch(
-  driver: AcpDriver,
-  input: AgentPlanSessionInput,
-  file: string,
-  profile: ReturnType<AcpDriver["profile"]>,
-): AcpLaunch {
-  return driver.plan({
-    instanceId: input.instanceId,
-    runnerFile: file,
-    profile,
-    mcp: input.mcp ?? null,
-    purpose: input.chat ? "chat" : "plan",
-    model: {
-      model: input.agent.model,
-      reasoningEffort: input.agent.reasoningEffort,
-    },
-  });
-}
-
 /** Every CLI plan runner and native Pica runner uses ACP, without a one-shot fallback. */
 function sessionAcpProvider(
   input: AgentPlanSessionInput,
 ): NativeAcpProviderId | null {
   const provider = input.agent.connection.provider;
   return isAcpProvider(provider) ? provider : null;
-}
-
-/** What the ACP session runs; a chat session brings its own MCP bridge and continuation. */
-function acpSessionRequest(
-  input: AgentPlanSessionInput,
-  launch: AcpLaunch,
-): AcpSessionRequest {
-  return {
-    directory: input.directory,
-    prompt: input.prompt,
-    ticketInputs: input.ticketInputs,
-    readTicketAssets: input.readTicketAssets,
-    model: input.agent.model,
-    modelSupportsImages: input.agent.supportsImages,
-    reasoningEffort: input.agent.reasoningEffort,
-    mcpServers: input.chat?.mcpServers ?? launch.mcpServers,
-    sessionMeta: launch.sessionMeta,
-    promptContent: input.promptContent,
-    resumeSessionId:
-      input.chat?.resumeSessionId ?? input.resumeSessionId ?? null,
-  };
-}
-
-function isolationLabel(
-  isIsolated: boolean,
-  mode: AcpPermissionMode,
-  driver: AcpDriver,
-): string {
-  if (!isIsolated)
-    return driver.provider === "codex_cli"
-      ? "none, the Codex sandbox only"
-      : "none, the permission handling of Pages only";
-  return mode === "read_only"
-    ? "bubblewrap, workspace read-only"
-    : "bubblewrap";
 }
 
 function validateSessionStatus(

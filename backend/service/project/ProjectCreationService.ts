@@ -18,6 +18,12 @@ import type {
 import type { ProjectDepartmentChoices } from "@/definition/Project";
 import type { User } from "@/definition/User";
 
+/** How a creation treats a project its creator could not read afterwards. */
+export interface ProjectCreationOptions {
+  /** Refuses such a project before anything is saved, instead of reporting it through the result. */
+  readonly requireReadable?: boolean;
+}
+
 /** Creates projects and their assignments under one current-facts transaction. */
 export class ProjectCreationService {
   private readonly repository: ProjectRepository;
@@ -55,8 +61,20 @@ export class ProjectCreationService {
     };
   }
 
-  /** Validates the full selection and saves the project, creator and assignments atomically; returns whether the actor can read the created project. */
-  public async create(actor: User, input: NewProject): Promise<boolean> {
+  /**
+   * Validates the full selection and saves the project, creator and assignments atomically.
+   *
+   * @param actor - The creating account.
+   * @param input - The new project.
+   * @param options - Whether a project the actor could not read is refused.
+   * @returns Whether the actor can read the created project.
+   * @throws {ProjectDepartmentError} `departmentOutOfScope` for a selection outside the actor's range, and with `requireReadable` for one the actor could not read.
+   */
+  public async create(
+    actor: User,
+    input: NewProject,
+    options: ProjectCreationOptions = {},
+  ): Promise<boolean> {
     const canAccess = await this.repository.transaction(async (repository) => {
       const snapshot = await repository.authorization().snapshot();
       const persisted = snapshot.accounts.find(
@@ -84,6 +102,9 @@ export class ProjectCreationService {
         throw new ProjectDepartmentError("invalidDepartment");
       if (!this.policy.canCreate(account, selection))
         throw new ProjectDepartmentError("departmentOutOfScope");
+      const isReadable = this.policy.canAccess(account, departmentIds);
+      if (options.requireReadable === true && !isReadable)
+        throw new ProjectDepartmentError("departmentOutOfScope");
       await repository.insert({
         ...input,
         name: input.name.trim(),
@@ -91,7 +112,7 @@ export class ProjectCreationService {
         ownerId: actor.id,
         departmentIds,
       });
-      return this.policy.canAccess(account, departmentIds);
+      return isReadable;
     });
     this.cache.invalidateProjectsList();
     return canAccess;

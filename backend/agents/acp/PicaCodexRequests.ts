@@ -174,26 +174,16 @@ export class PicaCodexRequests {
   public admitReady(input: PicaReadyRequest): boolean {
     const pending = this.preparedTurn;
     this.preparedTurn = null;
-    const expected = this.issuedCatalog?.map((tool) => ({
-      type: "function",
-      ...tool,
-    }));
     if (
       !this.requirePolicy ||
       !pending ||
       !this.isThread(input.threadId) ||
       this.turn ||
       !this.prompting() ||
-      !pending.binding.isCurrent() ||
-      pending.expires < Date.now() ||
-      pending.nonce !== input.nonce ||
-      pending.operationId !== input.operationId ||
-      pending.sequence !== input.sequence ||
-      this.boundContext !== input.context ||
+      !this.isPreparedTurn(pending, input) ||
       this.endedTurns.has(input.turnId) ||
       this.endedTurns.size >= 4096 ||
-      !expected ||
-      !isDeepStrictEqual(expected, input.catalog)
+      !this.isIssuedCatalog(input)
     )
       return false;
     this.turn = {
@@ -211,7 +201,10 @@ export class PicaCodexRequests {
   }
 
   /** Revokes a pending operation without admitting a native turn. */
-  public async cancelPrepare(threadId: string, nonce: string): Promise<boolean> {
+  public async cancelPrepare(
+    threadId: string,
+    nonce: string,
+  ): Promise<boolean> {
     if (!this.isThread(threadId)) return false;
     if (this.preparedTurn?.nonce === nonce) {
       this.preparedTurn = null;
@@ -225,17 +218,36 @@ export class PicaCodexRequests {
 
   /** Revokes only the operation identified by a private native control request. */
   public async revokeOperation(input: PicaReadyRequest): Promise<boolean> {
-    const expected = this.issuedCatalog?.map((tool) => ({ type: "function", ...tool }));
-    if (!this.isThread(input.threadId) || this.boundContext !== input.context ||
-        !expected || !isDeepStrictEqual(expected, input.catalog)) return false;
+    const expected = this.issuedCatalog?.map((tool) => ({
+      type: "function",
+      ...tool,
+    }));
+    if (
+      !this.isThread(input.threadId) ||
+      this.boundContext !== input.context ||
+      !expected ||
+      !isDeepStrictEqual(expected, input.catalog)
+    )
+      return false;
     const pending = this.preparedTurn;
-    if (pending && pending.operationId === input.operationId && pending.nonce === input.nonce && pending.sequence === input.sequence) {
+    if (
+      pending &&
+      pending.operationId === input.operationId &&
+      pending.nonce === input.nonce &&
+      pending.sequence === input.sequence
+    ) {
       this.preparedTurn = null;
       return true;
     }
     const turn = this.turn;
-    if (!turn || turn.id !== input.turnId || turn.operationId !== input.operationId ||
-        turn.operationNonce !== input.nonce || turn.operationSequence !== input.sequence) return false;
+    if (
+      !turn ||
+      turn.id !== input.turnId ||
+      turn.operationId !== input.operationId ||
+      turn.operationNonce !== input.nonce ||
+      turn.operationSequence !== input.sequence
+    )
+      return false;
     await this.endTurn(input.threadId, input.turnId);
     return true;
   }
@@ -271,15 +283,7 @@ export class PicaCodexRequests {
   ): Promise<unknown> {
     const turn = this.requireTurn(call.threadId, call.turnId);
     signal.throwIfAborted();
-    if (
-      turn.pending ||
-      turn.receipt ||
-      (this.requirePolicy && (call.operationId !== turn.operationId || call.nonce !== turn.operationNonce || call.sequence !== turn.operationSequence)) ||
-      !this.catalogNames?.has(call.tool) ||
-      turn.calls.has(call.callId) ||
-      turn.calls.size >= 4096 ||
-      Buffer.byteLength(JSON.stringify(call.arguments), "utf8") > 1024 * 1024
-    )
+    if (!this.isAdmissibleCall(turn, call))
       throw new Error("Pica call refused");
     turn.calls.add(call.callId);
     const pending = turn.binding.invoke(
@@ -291,25 +295,7 @@ export class PicaCodexRequests {
       const result = await pending;
       signal.throwIfAborted();
       this.requireSameTurn(turn, call.threadId, call.turnId);
-      const images = result.images ?? [];
-      if (
-        images.length > 4 ||
-        images.some((image) => !isValidPicaToolImage(image))
-      )
-        throw new Error("Pica image refused");
-      const receipt = images.length
-        ? this.receipt(turn, call.callId, images)
-        : null;
-      turn.receipt = receipt;
-      return {
-        success: result.ok,
-        text: result.ok ? (result.result ?? "") : (result.error ?? "FAILED"),
-        receipt: receipt?.id ?? null,
-        images: images.map(({ mimeType, data }) => ({
-          mimeType,
-          length: data.length,
-        })),
-      };
+      return this.answer(turn, call.callId, result);
     } catch {
       throw new Error("Pica call refused");
     } finally {
@@ -332,7 +318,7 @@ export class PicaCodexRequests {
     const turn = this.requireTurn(input.threadId, input.turnId);
     const receipt = turn.receipt;
     if (
-      (this.requirePolicy && (input.operationId !== turn.operationId || input.nonce !== turn.operationNonce || input.sequence !== turn.operationSequence)) ||
+      !this.matchesOperation(turn, input) ||
       !receipt ||
       receipt.expires < Date.now() ||
       receipt.id !== input.receipt ||
@@ -343,14 +329,17 @@ export class PicaCodexRequests {
       throw new Error("Pica receipt refused");
     const image = receipt.images[receipt.image];
     if (!image) throw new Error("Pica receipt refused");
-    const data = image.data.slice(receipt.offset, receipt.offset + CHUNK_SIZE);
-    const next = receipt.offset + data.length;
+    const portion = image.data.slice(
+      receipt.offset,
+      receipt.offset + CHUNK_SIZE,
+    );
+    const next = receipt.offset + portion.length;
     if (next === image.data.length) {
       receipt.image += 1;
       receipt.offset = 0;
     } else receipt.offset = next;
     if (receipt.image === receipt.images.length) this.clearReceipt(turn);
-    return { data, next };
+    return { data: portion, next };
   }
 
   /** Revokes a turn and waits for its admitted client operation to settle. */
@@ -445,6 +434,85 @@ export class PicaCodexRequests {
       expires: Date.now() + RECEIPT_LIFETIME_MS,
       image: 0,
       offset: 0,
+    };
+  }
+
+  /** Whether a ready request names the prepared operation, its live binding and the bound context. */
+  private isPreparedTurn(
+    pending: PendingTurn,
+    input: PicaReadyRequest,
+  ): boolean {
+    return (
+      pending.binding.isCurrent() &&
+      pending.expires >= Date.now() &&
+      pending.nonce === input.nonce &&
+      pending.operationId === input.operationId &&
+      pending.sequence === input.sequence &&
+      this.boundContext === input.context
+    );
+  }
+
+  /** Whether a reported registry is exactly the catalog Pages issued. */
+  private isIssuedCatalog(input: PicaReadyRequest): boolean {
+    const expected = this.issuedCatalog?.map((tool) => ({
+      type: "function",
+      ...tool,
+    }));
+    return expected !== undefined && isDeepStrictEqual(expected, input.catalog);
+  }
+
+  /** Under the policy build, whether a request names the operation of its admitted turn. */
+  private matchesOperation(
+    turn: ActiveTurn,
+    input: {
+      readonly operationId?: string;
+      readonly nonce?: string;
+      readonly sequence?: number;
+    },
+  ): boolean {
+    return (
+      !this.requirePolicy ||
+      (input.operationId === turn.operationId &&
+        input.nonce === turn.operationNonce &&
+        input.sequence === turn.operationSequence)
+    );
+  }
+
+  /** Whether a call may run: one at a time, from the catalog, unique and bounded. */
+  private isAdmissibleCall(turn: ActiveTurn, call: PicaCodexCall): boolean {
+    return (
+      !turn.pending &&
+      !turn.receipt &&
+      this.matchesOperation(turn, call) &&
+      this.catalogNames?.has(call.tool) === true &&
+      !turn.calls.has(call.callId) &&
+      turn.calls.size < 4096 &&
+      Buffer.byteLength(JSON.stringify(call.arguments), "utf8") <= 1024 * 1024
+    );
+  }
+
+  /** The adapter's answer to a call; image bytes stay behind a receipt. */
+  private answer(
+    turn: ActiveTurn,
+    callId: string,
+    result: PicaToolOutcome,
+  ): unknown {
+    const images = result.images ?? [];
+    if (
+      images.length > 4 ||
+      images.some((image) => !isValidPicaToolImage(image))
+    )
+      throw new Error("Pica image refused");
+    const receipt = images.length ? this.receipt(turn, callId, images) : null;
+    turn.receipt = receipt;
+    return {
+      success: result.ok,
+      text: result.ok ? (result.result ?? "") : (result.error ?? "FAILED"),
+      receipt: receipt?.id ?? null,
+      images: images.map((image) => ({
+        mimeType: image.mimeType,
+        length: image.data.length,
+      })),
     };
   }
 

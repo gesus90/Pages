@@ -139,6 +139,76 @@ function mcpTicketRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   ];
 }
 
+/** The project API of the stand-alone Pages MCP program, admitted by the device token (PAGE-244). */
+function mcpProjectRoutes(routes: RouteBuilder): RouteConfigEntry[] {
+  const { resource } = routes;
+  const projects = "api/mcp/v1/projects";
+  const project = `${projects}/:projectId`;
+  return [
+    resource(projects, "routes/api-mcp-v1-projects.ts"),
+    resource(project, "routes/api-mcp-v1-project.ts"),
+    resource(
+      `${project}/members/:username`,
+      "routes/api-mcp-v1-project-member.ts",
+    ),
+    resource(`${project}/goals`, "routes/api-mcp-v1-project-goals.ts"),
+    resource(`${project}/goals/:goalId`, "routes/api-mcp-v1-project-goal.ts"),
+    resource(`${project}/events`, "routes/api-mcp-v1-project-events.ts"),
+    resource(
+      `${project}/events/:eventId`,
+      "routes/api-mcp-v1-project-event.ts",
+    ),
+    resource(`${project}/template`, "routes/api-mcp-v1-project-template.ts"),
+    resource(`${project}/icon`, "routes/api-mcp-v1-project-icon.ts"),
+    resource(`${project}/github`, "routes/api-mcp-v1-project-github.ts"),
+    resource(
+      `${project}/github/test`,
+      "routes/api-mcp-v1-project-github-test.ts",
+    ),
+    resource(
+      `${project}/github/sync`,
+      "routes/api-mcp-v1-project-github-sync.ts",
+    ),
+    resource(`${project}/archive`, "routes/api-mcp-v1-project-archive.ts"),
+    resource(`${project}/delete`, "routes/api-mcp-v1-project-delete.ts"),
+  ];
+}
+
+/** The workspace and remote connection API of the stand-alone Pages MCP program, admitted by the device token (PAGE-245). */
+function mcpWorkspaceRoutes(routes: RouteBuilder): RouteConfigEntry[] {
+  const { resource } = routes;
+  const workspaces = "api/mcp/v1/workspaces";
+  const workspace = `${workspaces}/:id`;
+  const connections = "api/mcp/v1/remote-connections";
+  const connection = `${connections}/:id`;
+  return [
+    resource(workspaces, "routes/api-mcp-v1-workspaces.ts"),
+    resource(`${workspaces}/folders`, "routes/api-mcp-v1-workspace-folders.ts"),
+    resource(workspace, "routes/api-mcp-v1-workspace.ts"),
+    resource(`${workspace}/check`, "routes/api-mcp-v1-workspace-check.ts"),
+    resource(`${workspace}/usages`, "routes/api-mcp-v1-workspace-usages.ts"),
+    resource(`${workspace}/remove`, "routes/api-mcp-v1-workspace-remove.ts"),
+    resource(connections, "routes/api-mcp-v1-remote-connections.ts"),
+    resource(
+      `${connections}/test`,
+      "routes/api-mcp-v1-remote-connection-test.ts",
+    ),
+    resource(connection, "routes/api-mcp-v1-remote-connection.ts"),
+    resource(
+      `${connection}/check`,
+      "routes/api-mcp-v1-remote-connection-check.ts",
+    ),
+    resource(
+      `${connection}/reconnect`,
+      "routes/api-mcp-v1-remote-connection-reconnect.ts",
+    ),
+    resource(
+      `${connection}/remove`,
+      "routes/api-mcp-v1-remote-connection-remove.ts",
+    ),
+  ];
+}
+
 /** Sign-in, setup and the other routes without the workspace frame. */
 function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource, page, indexPage } = routes;
@@ -175,6 +245,8 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ),
     resource("api/mcp/v1/device", "routes/api-mcp-v1-device.ts"),
     ...mcpTicketRoutes(routes),
+    ...mcpProjectRoutes(routes),
+    ...mcpWorkspaceRoutes(routes),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),
     resource("favicon.ico", "routes/favicon.ts"),

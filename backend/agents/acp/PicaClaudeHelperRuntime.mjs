@@ -27,12 +27,17 @@ const record = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
 function fail(code) {
-  process.stdout.write(JSON.stringify({ ok: false, result: null, error: code }));
+  process.stdout.write(
+    JSON.stringify({ ok: false, result: null, error: code }),
+  );
   process.exit(1);
 }
 
 function request(text) {
-  if (typeof text !== "string" || Buffer.byteLength(text, "utf8") > MAXIMUM_REQUEST_BYTES)
+  if (
+    typeof text !== "string" ||
+    Buffer.byteLength(text, "utf8") > MAXIMUM_REQUEST_BYTES
+  )
     fail("INVALID_REQUEST");
   let input;
   try {
@@ -50,7 +55,11 @@ function request(text) {
     NAME.test(input.name) &&
     keys.every((key) => ["action", "name", "arguments"].includes(key))
   )
-    return { action: "native_call", name: input.name, arguments: input.arguments ?? {} };
+    return {
+      action: "native_call",
+      name: input.name,
+      arguments: input.arguments ?? {},
+    };
   return fail("INVALID_REQUEST");
 }
 
@@ -59,20 +68,37 @@ function descriptor() {
   const file = path.join(directory, "invocation.json");
   const owner = process.getuid?.();
   const directoryFacts = lstatSync(directory);
-  if (!directoryFacts.isDirectory() || directoryFacts.uid !== owner || (directoryFacts.mode & 0o777) !== 0o700)
+  if (
+    !directoryFacts.isDirectory() ||
+    directoryFacts.uid !== owner ||
+    (directoryFacts.mode & 0o777) !== 0o700
+  )
     fail("DESCRIPTOR_INVALID");
   const handle = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const facts = fstatSync(handle);
-    if (!facts.isFile() || facts.nlink !== 1 || facts.uid !== owner || (facts.mode & 0o777) !== 0o600 || facts.size > MAXIMUM_DESCRIPTOR_BYTES)
+    if (
+      !facts.isFile() ||
+      facts.nlink !== 1 ||
+      facts.uid !== owner ||
+      (facts.mode & 0o777) !== 0o600 ||
+      facts.size > MAXIMUM_DESCRIPTOR_BYTES
+    )
       fail("DESCRIPTOR_INVALID");
     const bytes = Buffer.alloc(facts.size);
-    if (readSync(handle, bytes, 0, bytes.length, 0) !== bytes.length) fail("DESCRIPTOR_INVALID");
+    if (readSync(handle, bytes, 0, bytes.length, 0) !== bytes.length)
+      fail("DESCRIPTOR_INVALID");
     const parsed = JSON.parse(bytes.toString("utf8"));
-    if (!record(parsed) || typeof parsed.url !== "string" || typeof parsed.authorization !== "string" || !/^Bearer [A-Za-z0-9_-]{43}$/u.test(parsed.authorization))
+    if (
+      !record(parsed) ||
+      typeof parsed.url !== "string" ||
+      typeof parsed.authorization !== "string" ||
+      !/^Bearer [A-Za-z0-9_-]{43}$/u.test(parsed.authorization)
+    )
       fail("DESCRIPTOR_INVALID");
     const url = new URL(parsed.url);
-    if (url.protocol !== "http:" && url.protocol !== "https:") fail("DESCRIPTOR_INVALID");
+    if (url.protocol !== "http:" && url.protocol !== "https:")
+      fail("DESCRIPTOR_INVALID");
     return { url: url.href, authorization: parsed.authorization };
   } finally {
     closeSync(handle);
@@ -104,7 +130,10 @@ async function send(target, body) {
     deadline.throwIfAborted();
     const response = await fetch(target.url, {
       method: "POST",
-      headers: { Authorization: target.authorization, "Content-Type": "application/json" },
+      headers: {
+        Authorization: target.authorization,
+        "Content-Type": "application/json",
+      },
       body,
       redirect: "error",
       signal: deadline,
@@ -120,21 +149,39 @@ async function send(target, body) {
     } catch {
       return fail("TOOL_HTTP_409");
     }
-    if (!record(pending) || pending.error !== "TURN_PENDING") fail("TOOL_HTTP_409");
+    if (!record(pending) || pending.error !== "TURN_PENDING")
+      fail("TOOL_HTTP_409");
     await delay(PENDING_DELAY_MS, undefined, { signal: deadline });
   }
 }
 
 function saveImage(image) {
-  if (!record(image) || typeof image.data !== "string" || !["image/png", "image/jpeg"].includes(image.mimeType))
+  if (
+    !record(image) ||
+    typeof image.data !== "string" ||
+    !["image/png", "image/jpeg"].includes(image.mimeType)
+  )
     fail("IMAGE_INVALID");
   const bytes = Buffer.from(image.data, "base64");
-  const isPng = bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-  const isJpeg = bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
-  if (bytes.length < 4 || bytes.length > 8000000 || (image.mimeType === "image/png" ? !isPng : !isJpeg))
+  const isPng =
+    bytes.length >= 8 &&
+    bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  const isJpeg =
+    bytes.length >= 3 &&
+    bytes[0] === 255 &&
+    bytes[1] === 216 &&
+    bytes[2] === 255;
+  if (
+    bytes.length < 4 ||
+    bytes.length > 8000000 ||
+    (image.mimeType === "image/png" ? !isPng : !isJpeg)
+  )
     fail("IMAGE_INVALID");
   mkdirSync(IMAGE_DIRECTORY, { recursive: true, mode: 0o700 });
-  const file = path.join(IMAGE_DIRECTORY, `${randomUUID()}.${image.mimeType === "image/png" ? "png" : "jpg"}`);
+  const file = path.join(
+    IMAGE_DIRECTORY,
+    `${randomUUID()}.${image.mimeType === "image/png" ? "png" : "jpg"}`,
+  );
   writeFileSync(file, bytes, { mode: 0o600, flag: "wx" });
   return { file, mimeType: image.mimeType };
 }
@@ -147,8 +194,15 @@ function present(text) {
     return fail("INVALID_RESPONSE");
   }
   if (!record(outcome)) return fail("INVALID_RESPONSE");
-  const { images, attachments, ...answer } = outcome;
-  if (!Array.isArray(images) || images.length === 0) return JSON.stringify(answer);
+  // Attachment metadata is for Pages alone; the model receives neither it nor the image bytes.
+  const answer = Object.fromEntries(
+    Object.entries(outcome).filter(
+      ([key]) => key !== "images" && key !== "attachments",
+    ),
+  );
+  const { images } = outcome;
+  if (!Array.isArray(images) || images.length === 0)
+    return JSON.stringify(answer);
   if (images.length > 4) fail("IMAGE_INVALID");
   return JSON.stringify({
     ...answer,

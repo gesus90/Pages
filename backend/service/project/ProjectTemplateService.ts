@@ -10,6 +10,7 @@ import {
 import { ProjectAccessService } from "./ProjectAccessService";
 import { ProjectCreationService } from "./ProjectCreationService";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type {
   NewProject,
   ProjectRepository,
@@ -17,17 +18,24 @@ import type {
 import type { AccountAccess } from "@/definition/Authorization";
 import type { ProjectTemplate } from "@/definition/Project";
 import type { User } from "@/definition/User";
+import type { ProjectCreationOptions } from "./ProjectCreationService";
 
 /** Saves and instantiates source-bound project templates without copying private aggregates. */
 export class ProjectTemplateService {
   private readonly repository: ProjectRepository;
   private readonly cache: ServerCache;
+  private readonly channel: ActorChannel;
   private readonly policy = new ProjectPolicyService();
 
   /** Shares source authorization and new-project persistence in one transaction. */
-  public constructor(repository: ProjectRepository, cache: ServerCache) {
+  public constructor(
+    repository: ProjectRepository,
+    cache: ServerCache,
+    channel: ActorChannel = "ui",
+  ) {
     this.repository = repository;
     this.cache = cache;
+    this.channel = channel;
   }
 
   /**
@@ -42,6 +50,7 @@ export class ProjectTemplateService {
       const account = await new ProjectAccessService(
         repository,
         this.cache,
+        this.channel,
       ).account(actor);
       const templates = await repository.findTemplates();
       const visible: ProjectTemplate[] = [];
@@ -56,7 +65,11 @@ export class ProjectTemplateService {
   /** Creates or refreshes the project's single snapshot using current shared ownership. */
   public async save(actor: User, projectId: string): Promise<void> {
     await this.repository.transaction(async (repository) => {
-      const access = new ProjectAccessService(repository, this.cache);
+      const access = new ProjectAccessService(
+        repository,
+        this.cache,
+        this.channel,
+      );
       const project = await access.getById(actor, projectId);
       if (!(await access.canWrite(actor, projectId)))
         throw new ProjectManagementDeniedError();
@@ -77,16 +90,26 @@ export class ProjectTemplateService {
     });
   }
 
-  /** Instantiates the saved general information with explicit new name and scoped assignments; returns the resulting read grant. */
+  /**
+   * Instantiates the saved general information with explicit new name and scoped assignments.
+   *
+   * @param actor - The creating account.
+   * @param templateId - The template to start from.
+   * @param input - The new project.
+   * @param options - Whether a project the actor could not read is refused.
+   * @returns Whether the actor can read the created project.
+   */
   public async create(
     actor: User,
     templateId: string,
     input: NewProject,
+    options: ProjectCreationOptions = {},
   ): Promise<boolean> {
     const canAccess = await this.repository.transaction(async (repository) => {
       const account = await new ProjectAccessService(
         repository,
         this.cache,
+        this.channel,
       ).account(actor);
       const template = (await repository.findTemplates()).find(
         (entry) => entry.id === templateId,
@@ -99,11 +122,16 @@ export class ProjectTemplateService {
       const canOpen = await new ProjectCreationService(
         repository,
         ServerCache.disabled(),
-      ).create(actor, {
-        ...input,
-        description: template.description,
-        status: template.status,
-      });
+        this.channel,
+      ).create(
+        actor,
+        {
+          ...input,
+          description: template.description,
+          status: template.status,
+        },
+        options,
+      );
       for (const [position, title] of template.goals.entries()) {
         await repository.insertGoal({
           id: randomUUID(),

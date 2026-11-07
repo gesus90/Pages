@@ -73,7 +73,9 @@ function comparable(
   field: keyof McpTicketExpected,
   value: ComparableValue,
 ): string {
-  if (Array.isArray(value)) return JSON.stringify([...value].sort());
+  // `Array.isArray` would widen the readonly list to `any[]`.
+  if (typeof value !== "string" && value !== null)
+    return JSON.stringify([...value].sort());
   if (
     typeof value === "string" &&
     (field === "assignee" || field === "reporter")

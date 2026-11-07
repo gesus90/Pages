@@ -8,7 +8,10 @@ import {
   ProjectDepartmentError,
   ProjectNotFoundError,
 } from "@/backend/error/ProjectErrors";
-import { isProjectStatus } from "@/definition/Project";
+import {
+  getProjectPlaceholderColor,
+  isProjectStatus,
+} from "@/definition/Project";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ApplicationServices } from "@/app/lib/services.server";
@@ -18,13 +21,6 @@ import type { User } from "@/definition/User";
 
 const MAXIMUM_DESCRIPTION_LENGTH = 10_000;
 const MAXIMUM_NAME_LENGTH = 200;
-const PLACEHOLDER_COLORS = [
-  "#FCE3D3",
-  "#DFEAFE",
-  "#DCF2E5",
-  "#EEE4F8",
-  "#E9EDF2",
-] as const;
 
 /** Why creating a project failed. */
 export type ProjectActionError =
@@ -62,15 +58,6 @@ interface ProjectInput {
   readonly description: string;
   readonly status: ProjectStatus;
   readonly departmentIds: readonly string[];
-}
-
-function getPlaceholderColor(projectId: string): string {
-  const characterSum = Array.from(projectId).reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0,
-  );
-
-  return PLACEHOLDER_COLORS[characterSum % PLACEHOLDER_COLORS.length];
 }
 
 function getProjectInput(formData: FormData): ProjectInput | null {
@@ -162,7 +149,7 @@ async function createProject({
       id,
       name: input.name,
       ownerId: actor.id,
-      placeholderColor: getPlaceholderColor(id),
+      placeholderColor: getProjectPlaceholderColor(id),
       status: input.status,
     };
     canOpen = input.templateId

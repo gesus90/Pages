@@ -24,39 +24,40 @@ function bridgeOf(world: ReturnType<typeof operatorWorld>): {
   const turn = world.turn("turn-1", "Hallo");
   const events: Omit<ChatJobToolEvent, "kind">[] = [];
   const lease = bridge.open({
-    jobId: "job",
+    jobId: turn.context.runId,
+    userId: turn.context.userId,
+    sessionId: turn.context.sessionId,
     catalog: turn.registry.describe({
       includeAdministrator: world.person.isAdmin,
     }),
     onTool: (event) => events.push(event),
+    onImages: async () => {
+      throw new Error("The test tools return no images");
+    },
   });
-  lease.setTurn({ tools: turn.registry, context: turn.context });
-  const { server } = lease;
-  if (!("headers" in server)) throw new Error("The bridge is an HTTP server");
-  const authorization = server.headers[0]?.value ?? null;
-  const send = async (method: string, params?: unknown): Promise<unknown> =>
+  const descriptor = lease.setTurn({
+    id: "turn-1",
+    answerTurn: 1,
+    tools: turn.registry,
+    context: turn.context,
+  });
+  if (!descriptor) throw new Error("The turn belongs to the job");
+  const send = async (request: unknown): Promise<unknown> =>
     (
       await bridge.handle({
         method: "POST",
-        authorization,
-        readBody: async () =>
-          JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        authorization: descriptor.authorization,
+        readBody: async () => JSON.stringify(request),
       })
     ).body;
   return {
     events,
     tools: async () => {
-      const body = await send("tools/list");
-      const tools = (body as { result: { tools: { name: string }[] } }).result
-        .tools;
-      return tools.map(({ name }) => name);
+      const body = await send({ action: "catalog" });
+      return (body as { tools: { id: string }[] }).tools.map(({ id }) => id);
     },
-    call: async (name, input) => {
-      const body = await send("tools/call", { name, arguments: input });
-      const text = (body as { result: { content: { text: string }[] } }).result
-        .content[0].text;
-      return JSON.parse(text);
-    },
+    call: async (name, input) =>
+      send({ action: "call", name, arguments: input }),
   };
 }
 

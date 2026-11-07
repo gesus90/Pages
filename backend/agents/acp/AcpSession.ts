@@ -9,17 +9,16 @@ import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { diagnosticProviderFailure } from "@/backend/agents/AgentProviderFailure";
 import { readContinuationCapabilities } from "@/backend/service/agents/sessions/AgentSessionContinuation";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { requireAcpMcpCapabilities } from "./AcpLaunch";
 import {
   abortFailure,
+  acpErrorFailure,
+  disconnectedAcpOutcome,
   stopFailure,
   finishAcpTurn,
-  classifiedAcpFailure,
-  disconnectedAcpFailure,
 } from "./AcpSessionOutcome";
 import {
   ACP_STEERING_METHOD,
@@ -31,7 +30,6 @@ import {
   createAcpSessionState,
   readAcpConfiguration,
   readAcpUpdate,
-  noteAcpStderr,
 } from "./AcpEvents";
 import { reportAcpPlanActivity } from "./AcpPlanActivity";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
@@ -39,13 +37,17 @@ import { closeAcpProtocol } from "./AcpProtocolClose";
 import { readAntigravityTurnFailure } from "./AntigravityTurnFailure";
 import { logAcpToolUpdate } from "./AcpSessionToolLogging";
 import {
+  describeAcpSession,
+  requireVerifiedAcpAdapter,
   hasAcpConfigurationChanged,
   confirmAcpConfiguration,
 } from "./AcpSessionConfiguration";
-import { openCodeAcpFailure, openCodeToolFailure } from "./OpenCodeAcpErrors";
-import { PicaCodexRequests } from "./PicaCodexRequests";
+import { openCodeToolFailure } from "./OpenCodeAcpErrors";
 import { decidePicaHelperPermission } from "./PicaClaudeHelper";
-import { registerPicaCodexRequests } from "./PicaCodexRegistration";
+import {
+  createPicaCodexRequests,
+  registerPicaCodexRequests,
+} from "./PicaCodexRegistration";
 
 import type {
   AcpSessionContext,
@@ -73,14 +75,13 @@ import type {
 import type { CliSessionProcess } from "@/backend/agents/cli/CliSessionProcess";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AcpSteerOutcome } from "./AcpChat";
+import type { PicaCodexRequests } from "./PicaCodexRequests";
 
 export type {
   AcpSessionContext,
   AcpSessionRequest,
 } from "./AcpSessionContracts";
 
-/** The JSON-RPC code of an agent that needs a sign-in first. */
-const AUTH_REQUIRED = -32000;
 /** Progress reaches the run record at most this often. */
 const PROGRESS_INTERVAL_MS = 5_000;
 /**
@@ -144,27 +145,14 @@ export class AcpSession implements PlanSession {
     this.process = process;
     this.terminated = process.exited.then(() => undefined);
     this.context = context;
-    this.picaCodex =
-      ["codex_cli", "opencode"].includes(context.driver.provider) &&
-      context.listener?.picaCodex
-        ? new PicaCodexRequests({
-            listener: context.listener.picaCodex,
-            requirePolicy: context.driver.provider === "codex_cli",
-            session: () => this.state.sessionId,
-            prompting: () => this.isPrompting,
-          })
-        : null;
+    this.picaCodex = createPicaCodexRequests(
+      context,
+      () => this.state.sessionId,
+      () => this.isPrompting,
+    );
     this.observer = context.observer;
     this.turnSignal = context.signal;
-    Object.assign(this.state.effective, context.profile.permissions, {
-      isolation: context.isolation,
-    });
-    if (context.driver.provider === "opencode") {
-      this.state.effective.workspace = context.request.directory;
-      this.state.effective.modelVerification =
-        "ACP model selector; provider response does not report a separate model identity";
-    }
-    if (context.github) this.state.effective.github = context.github;
+    describeAcpSession(this.state, context);
     const client = acpClient({ name: "pages" }).onRequest(
       methods.client.session.requestPermission,
       (request) => this.decide(request.params),
@@ -430,27 +418,16 @@ export class AcpSession implements PlanSession {
       this.promptCapabilities,
     );
     this.context.listener?.announced?.(response.agentCapabilities);
-    const { driver } = this.context;
-    const agent = response.agentInfo;
-    const adapter = agent ? `${agent.name} ${agent.version}` : "unknown";
-    this.state.effective.adapter = adapter;
-    this.state.effective.protocol = `ACP ${response.protocolVersion}`;
-    if (
-      response.protocolVersion === PROTOCOL_VERSION &&
-      driver.isSupportedAdapter(agent)
-    ) {
-      const continuation =
-        this.context.profile.keepsSession === false
-          ? { canResume: false, canLoad: false }
-          : readContinuationCapabilities(response.agentCapabilities);
-      this.observer.capabilities?.({ ...continuation, adapter });
-      return;
-    }
-    noteSessionEvent(
-      this.state.events,
-      `adapter ${adapter} is not supported, Pages verified ${driver.supportedVersions}`,
+    const adapter = requireVerifiedAcpAdapter(
+      this.state,
+      this.context.driver,
+      response,
     );
-    throw new AgentError(driver.errors.adapterUnsupported);
+    const continuation =
+      this.context.profile.keepsSession === false
+        ? { canResume: false, canLoad: false }
+        : readContinuationCapabilities(response.agentCapabilities);
+    this.observer.capabilities?.({ ...continuation, adapter });
   }
 
   private async openSession(): Promise<OpenedSession> {
@@ -534,9 +511,9 @@ export class AcpSession implements PlanSession {
   }
 
   private decide(request: RequestPermissionRequest): RequestPermissionResponse {
-    const helper = this.context.listener?.picaHelper;
-    const decision = helper
-      ? decidePicaHelperPermission(request, helper())
+    const helperPath = this.context.listener?.picaHelper;
+    const decision = helperPath
+      ? decidePicaHelperPermission(request, helperPath())
       : this.context.profile.decide(request);
     if (decision.isDenied) {
       logEvent({
@@ -643,50 +620,28 @@ export class AcpSession implements PlanSession {
         null,
       );
     }
-    if (error instanceof AgentError) return this.ended("failed", error.code);
-    const providerFailure =
-      diagnosticProviderFailure(error) ?? this.state.providerFailure;
-    if (providerFailure) {
-      this.state.providerFailure = providerFailure;
-      return this.ended("failed", providerFailure.code);
-    }
-    if (this.connection.signal.aborted) return this.disconnected();
-    if (this.context.driver.provider === "opencode") {
-      const code = openCodeAcpFailure(error);
-      noteSessionEvent(this.state.events, `OpenCode failure: ${code}`);
-      return this.ended("failed", code);
-    }
-    if (error instanceof RequestError && error.code === AUTH_REQUIRED)
-      return this.ended("failed", "cli_not_logged_in");
-    const diagnostic = error instanceof Error ? error.message : "unknown";
-    noteSessionEvent(this.state.events, `error ${diagnostic}`);
-    return this.ended(
-      "failed",
-      classifiedAcpFailure(this.context.driver, diagnostic),
+    const errorCode = acpErrorFailure(
+      error,
+      this.state,
+      this.context.driver,
+      this.connection.signal.aborted,
     );
+    return errorCode === null
+      ? this.disconnected()
+      : this.ended("failed", errorCode);
   }
 
   private async disconnected(): Promise<PlanSessionTurn> {
-    const exit = await this.process.exited;
-    // The deadline of the process itself can fire before the one of the node.
-    if (exit.errorCode === "check_timeout") return this.ended("timeout", null);
-    if (
-      exit.errorCode === "acp_worker_limit" ||
-      exit.errorCode === "acp_output_overflow"
-    )
-      return this.ended("failed", exit.errorCode);
-    if (
-      !this.picaCodex &&
-      !["opencode", "antigravity"].includes(this.context.driver.provider)
-    )
-      noteAcpStderr(this.state, exit.stderrTail, (line) => this.redact(line));
-    return this.ended(
-      "failed",
-      disconnectedAcpFailure(
-        this.context.driver,
-        this.picaCodex ? "" : exit.stderrTail,
-      ),
+    const outcome = disconnectedAcpOutcome(
+      await this.process.exited,
+      this.state,
+      this.context.driver,
+      {
+        isPicaNative: this.picaCodex !== null,
+        redact: (line) => this.redact(line),
+      },
     );
+    return this.ended(outcome.failure, outcome.errorCode);
   }
 
   private ended(

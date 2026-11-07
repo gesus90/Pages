@@ -23,7 +23,7 @@ import { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
 import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
-import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
+import { PicaIdentityService } from "@/backend/service/chat/PicaIdentityService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import type { Mock } from "vitest";
@@ -102,8 +102,8 @@ vi.mock("@/backend/service/chat/acp/PicaBridge", () =>
 vi.mock("@/backend/service/chat/PicaInstructionFiles", () => ({
   readPicaInstructions: vi.fn(),
 }));
-vi.mock("@/backend/service/mcp/AgentIdentityService", () =>
-  fakeClasses({ AgentIdentityService: [] }),
+vi.mock("@/backend/service/chat/PicaIdentityService", () =>
+  fakeClasses({ PicaIdentityService: [] }),
 );
 vi.mock("@/backend/storage/WikiFileStore", () =>
   fakeClasses({ WikiFileStore: [] }),
@@ -373,13 +373,13 @@ it("runs tools as the current identity over the shared operation router", () => 
   const input = chatInput();
   const services = createChatServices(input);
 
-  expect(vi.mocked(AgentIdentityService).mock.calls[0]).toEqual([
+  expect(vi.mocked(PicaIdentityService).mock.calls[0]).toEqual([
     ACCOUNTS.users,
     ACCOUNTS.administration,
   ]);
   expect(vi.mocked(ChatToolExecutor).mock.calls[0][0]).toEqual({
     router: input.router,
-    identities: vi.mocked(AgentIdentityService).mock.instances[0],
+    identities: vi.mocked(PicaIdentityService).mock.instances[0],
   });
   expect(vi.mocked(PicaAdminService).mock.calls).toEqual([
     [ACCOUNTS, undefined],

@@ -51,3 +51,25 @@ export async function cleanupAcpStart(
   }
   if (!isConfirmed) throw new AcpCleanupUnconfirmedError();
 }
+
+/**
+ * Cleans up an unsuccessful ACP start together with the Pica bundle it prepared.
+ *
+ * @remarks
+ * The bundle stays when the worker's end is unconfirmed, since the worker may
+ * still read it; every other failure removes it.
+ */
+export async function cleanupFailedAcpStart(
+  child: CliSessionProcess | null,
+  cleanup: StartCleanup,
+  cleanupBundle: (() => void) | undefined,
+): Promise<void> {
+  try {
+    await cleanupAcpStart(child, cleanup);
+  } catch (cleanupError: unknown) {
+    if (!(cleanupError instanceof AcpCleanupUnconfirmedError))
+      cleanupBundle?.();
+    throw cleanupError;
+  }
+  cleanupBundle?.();
+}

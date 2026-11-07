@@ -97,6 +97,51 @@ function openPrivateChild(workspace: number, name: string): number {
   }
 }
 
+/** Runs `use` with an open handle and closes it afterwards. */
+function withHandle<T>(handle: number, use: (handle: number) => T): T {
+  try {
+    return use(handle);
+  } finally {
+    closeSync(handle);
+  }
+}
+
+function writeAll(handle: number, contents: Buffer): void {
+  let offset = 0;
+  while (offset < contents.length) {
+    const written = writeSync(
+      handle,
+      contents,
+      offset,
+      contents.length - offset,
+    );
+    if (written === 0) throw new Error("Pica invocation write failed");
+    offset += written;
+  }
+}
+
+/** Writes the descriptor exclusively and confirms it landed at `expected`. */
+function writeDescriptor(
+  directory: number,
+  contents: Buffer,
+  expected: string,
+): void {
+  const handle = openSync(
+    child(directory, DESCRIPTOR_NAME),
+    constants.O_WRONLY |
+      constants.O_CREAT |
+      constants.O_EXCL |
+      constants.O_NOFOLLOW,
+    0o600,
+  );
+  withHandle(handle, () => {
+    requireFile(handle);
+    writeAll(handle, contents);
+    if (realpathSync(`/proc/self/fd/${handle}`) !== expected)
+      throw new Error("Pica invocation file changed");
+  });
+}
+
 function writePrivateFile(
   directory: number,
   name: string,
@@ -111,22 +156,68 @@ function writePrivateFile(
       constants.O_NOFOLLOW,
     mode,
   );
-  try {
-    let offset = 0;
-    while (offset < contents.length) {
-      const written = writeSync(
-        handle,
-        contents,
-        offset,
-        contents.length - offset,
-      );
-      if (written === 0) throw new Error("Pica invocation write failed");
-      offset += written;
-    }
+  withHandle(handle, () => {
+    writeAll(handle, contents);
     fchmodSync(handle, mode);
-  } finally {
-    closeSync(handle);
+  });
+}
+
+/** Removes one entry of the private directory; a missing entry is already removed. */
+function unlinkEntry(directory: number, name: string): void {
+  try {
+    unlinkSync(child(directory, name));
+  } catch (error: unknown) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT"))
+      throw error;
   }
+}
+
+/** Reads at most the descriptor limit; a longer file is refused. */
+function readBounded(handle: number): Buffer {
+  const buffer = Buffer.alloc(MAXIMUM_DESCRIPTOR_BYTES + 1);
+  let size = 0;
+  for (;;) {
+    const count = readSync(handle, buffer, size, buffer.length - size, null);
+    if (count === 0) return buffer.subarray(0, size);
+    size += count;
+    if (size > MAXIMUM_DESCRIPTOR_BYTES)
+      throw new Error("Invalid Pica invocation file");
+  }
+}
+
+/** Refuses a file that was replaced or changed while it was read. */
+function requireUnchanged(
+  before: ReturnType<typeof fstatSync>,
+  after: ReturnType<typeof fstatSync>,
+  size: number,
+): void {
+  if (
+    before.ino !== after.ino ||
+    before.dev !== after.dev ||
+    before.size !== after.size ||
+    size !== after.size ||
+    before.mtimeMs !== after.mtimeMs ||
+    before.ctimeMs !== after.ctimeMs
+  )
+    throw new Error("Pica invocation file changed");
+}
+
+function parseDescriptor(
+  contents: Buffer,
+  expectedUrl: string,
+): PicaBridgeDescriptor {
+  const parsed: unknown = JSON.parse(contents.toString("utf8"));
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("url" in parsed) ||
+    !("authorization" in parsed) ||
+    parsed.url !== expectedUrl ||
+    typeof parsed.authorization !== "string" ||
+    !/^Bearer [A-Za-z0-9_-]{43}$/u.test(parsed.authorization)
+  )
+    throw new Error("Invalid Pica invocation descriptor");
+  return { url: expectedUrl, authorization: parsed.authorization };
 }
 
 /**
@@ -134,65 +225,34 @@ function writePrivateFile(
  *
  * @param workspace - The verified workspace of the chat.
  * @param descriptor - The turn credential and the route that accepts it.
- * @param helper - The executable helper text a Claude Code turn runs next to the file.
+ * @param helperScript - The executable helper text a Claude Code turn runs next to the file.
  * @returns The path of the descriptor file.
  */
 export function writePicaInvocationFile(
   workspace: string,
   descriptor: PicaBridgeDescriptor,
-  helper?: string,
+  helperScript?: string,
 ): string {
   const contents = Buffer.from(JSON.stringify(descriptor), "utf8");
   if (contents.length > MAXIMUM_DESCRIPTOR_BYTES)
     throw new Error("Invalid Pica invocation descriptor");
   const parent = openDirectory(workspace);
   const name = `.pica-${randomUUID()}`;
+  const file = path.join(workspace, name, DESCRIPTOR_NAME);
   try {
     mkdirSync(child(parent, name), { mode: 0o700 });
-    const directory = openPrivateChild(parent, name);
-    try {
-      const handle = openSync(
-        child(directory, DESCRIPTOR_NAME),
-        constants.O_WRONLY |
-          constants.O_CREAT |
-          constants.O_EXCL |
-          constants.O_NOFOLLOW,
-        0o600,
-      );
-      try {
-        requireFile(handle);
-        let offset = 0;
-        while (offset < contents.length) {
-          const written = writeSync(
-            handle,
-            contents,
-            offset,
-            contents.length - offset,
-          );
-          if (written === 0) throw new Error("Pica invocation write failed");
-          offset += written;
-        }
-        if (
-          realpathSync(`/proc/self/fd/${handle}`) !==
-          path.join(workspace, name, DESCRIPTOR_NAME)
-        )
-          throw new Error("Pica invocation file changed");
-      } finally {
-        closeSync(handle);
-      }
-      if (helper !== undefined)
+    withHandle(openPrivateChild(parent, name), (directory) => {
+      writeDescriptor(directory, contents, file);
+      if (helperScript !== undefined)
         writePrivateFile(
           directory,
           HELPER_NAME,
-          Buffer.from(helper, "utf8"),
+          Buffer.from(helperScript, "utf8"),
           0o500,
         );
-    } finally {
-      closeSync(directory);
-    }
-    return path.join(workspace, name, DESCRIPTOR_NAME);
+    });
+    return file;
   } catch (error: unknown) {
-    const file = path.join(workspace, name, DESCRIPTOR_NAME);
     try {
       removePicaInvocationFile(workspace, file);
     } catch {
@@ -223,32 +283,16 @@ export function removePicaInvocationFile(
   const { workspace, name } = descriptorPaths(file);
   if (workspace !== expectedWorkspace)
     throw new Error("Invalid Pica invocation workspace");
-  const parent = openDirectory(workspace);
-  try {
-    const directory = openPrivateChild(parent, name);
-    try {
+  withHandle(openDirectory(workspace), (parent) =>
+    withHandle(openPrivateChild(parent, name), (directory) => {
       const entry = lstatSync(child(parent, name));
       const opened = fstatSync(directory);
       if (entry.dev !== opened.dev || entry.ino !== opened.ino)
         throw new Error("Pica invocation directory changed");
-      for (const entryName of [DESCRIPTOR_NAME, HELPER_NAME]) {
-        try {
-          unlinkSync(child(directory, entryName));
-        } catch (error: unknown) {
-          if (!(
-            error instanceof Error &&
-            "code" in error &&
-            error.code === "ENOENT"
-          ))
-            throw error;
-        }
-      }
-    } finally {
-      closeSync(directory);
-    }
-  } finally {
-    closeSync(parent);
-  }
+      for (const entryName of [DESCRIPTOR_NAME, HELPER_NAME])
+        unlinkEntry(directory, entryName);
+    }),
+  );
 }
 
 /** Reads a bounded descriptor only for its independently expected destination. */
@@ -257,66 +301,23 @@ export function readPicaInvocationFile(
   expectedUrl: string,
 ): PicaBridgeDescriptor {
   const { workspace, name } = descriptorPaths(file);
-  const parent = openDirectory(workspace);
-  try {
-    const directory = openPrivateChild(parent, name);
-    try {
+  return withHandle(openDirectory(workspace), (parent) =>
+    withHandle(openPrivateChild(parent, name), (directory) => {
       const handle = openSync(
         child(directory, DESCRIPTOR_NAME),
         constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
       );
-      try {
+      return withHandle(handle, () => {
         requireFile(handle);
         const before = fstatSync(handle);
-        const buffer = Buffer.alloc(MAXIMUM_DESCRIPTOR_BYTES + 1);
-        let size = 0;
-        for (;;) {
-          const count = readSync(
-            handle,
-            buffer,
-            size,
-            buffer.length - size,
-            null,
-          );
-          if (count === 0) break;
-          size += count;
-          if (size > MAXIMUM_DESCRIPTOR_BYTES)
-            throw new Error("Invalid Pica invocation file");
-        }
+        const contents = readBounded(handle);
         requireFile(handle);
         const after = fstatSync(handle);
         if (realpathSync(`/proc/self/fd/${handle}`) !== file)
           throw new Error("Pica invocation file changed");
-        if (
-          before.ino !== after.ino ||
-          before.dev !== after.dev ||
-          before.size !== after.size ||
-          size !== after.size ||
-          before.mtimeMs !== after.mtimeMs ||
-          before.ctimeMs !== after.ctimeMs
-        )
-          throw new Error("Pica invocation file changed");
-        const parsed: unknown = JSON.parse(
-          buffer.subarray(0, size).toString("utf8"),
-        );
-        if (
-          typeof parsed !== "object" ||
-          parsed === null ||
-          !("url" in parsed) ||
-          !("authorization" in parsed) ||
-          parsed.url !== expectedUrl ||
-          typeof parsed.authorization !== "string" ||
-          !/^Bearer [A-Za-z0-9_-]{43}$/u.test(parsed.authorization)
-        )
-          throw new Error("Invalid Pica invocation descriptor");
-        return { url: expectedUrl, authorization: parsed.authorization };
-      } finally {
-        closeSync(handle);
-      }
-    } finally {
-      closeSync(directory);
-    }
-  } finally {
-    closeSync(parent);
-  }
+        requireUnchanged(before, after, contents.length);
+        return parseDescriptor(contents, expectedUrl);
+      });
+    }),
+  );
 }

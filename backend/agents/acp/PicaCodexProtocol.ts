@@ -9,7 +9,10 @@ export const PICA_CODEX_REQUEST = {
   policyThread: z
     .object({
       threadId: identifier,
-      context: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+      context: z
+        .string()
+        .regex(/^[a-f0-9]{64}$/u)
+        .optional(),
     })
     .strict(),
   turn: z.object({ threadId: identifier, turnId: identifier }).strict(),
@@ -46,8 +49,16 @@ export const PICA_CODEX_REQUEST = {
   call: z
     .object({
       operationId: z.string().uuid().optional(),
-      nonce: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
-      sequence: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+      nonce: z
+        .string()
+        .regex(/^[a-f0-9]{64}$/u)
+        .optional(),
+      sequence: z
+        .number()
+        .int()
+        .positive()
+        .max(Number.MAX_SAFE_INTEGER)
+        .optional(),
       threadId: identifier,
       turnId: identifier,
       callId: identifier,
@@ -58,8 +69,16 @@ export const PICA_CODEX_REQUEST = {
   chunk: z
     .object({
       operationId: z.string().uuid().optional(),
-      nonce: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
-      sequence: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
+      nonce: z
+        .string()
+        .regex(/^[a-f0-9]{64}$/u)
+        .optional(),
+      sequence: z
+        .number()
+        .int()
+        .positive()
+        .max(Number.MAX_SAFE_INTEGER)
+        .optional(),
       threadId: identifier,
       turnId: identifier,
       callId: identifier,

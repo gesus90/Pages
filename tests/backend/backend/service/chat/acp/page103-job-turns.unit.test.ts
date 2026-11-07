@@ -64,14 +64,13 @@ it("starts a fresh budget for a queued follow-up and does not reset it twice at 
   expect(world.steers.answer).toHaveBeenCalledWith("steer", "message-1");
 });
 
-it("counts early adapter follow-up calls before dequeue and refuses its 257th call", async () => {
+it("refuses adapter follow-up calls before activation and gives the activated follow-up a fresh budget of 256", async () => {
   const world = new PicaJobWorld();
   world.steer = async () => {
     world.complete();
     world.thread(true);
-    // ACP can already use the next turn's tools while the steer response is in flight.
-    for (let call = 0; call < 256; call += 1)
-      expect((await world.call()).ok).toBe(true);
+    // The reserved credential admits no call while the steer response is in flight.
+    await expect(world.call()).rejects.toThrow("No active turn");
     return "startedNewTurn";
   };
   const { completion } = await world.start();
@@ -82,6 +81,8 @@ it("counts early adapter follow-up calls before dequeue and refuses its 257th ca
       expect.objectContaining({ kind: "turn", turn: 2, origin: "followUp" }),
     ),
   );
+  for (let call = 0; call < 256; call += 1)
+    expect((await world.call()).ok).toBe(true);
   expect((await world.call()).error).toBe("STEP_LIMIT");
   await completion;
   expect(world.tools).toHaveBeenCalledTimes(512);

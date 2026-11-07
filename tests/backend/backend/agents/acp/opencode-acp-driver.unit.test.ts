@@ -62,7 +62,7 @@ it("starts a read-only plan node with the Pages MCP server and default variants"
   expect(launch.sessionMeta).toEqual({});
 });
 
-it("starts Pica with only its bridge and no Pages MCP process", () => {
+it("starts Pica with only the native Pages tools and no Pages MCP process", () => {
   const launch = OPENCODE_ACP_DRIVER.plan({
     instanceId: "i-1",
     runnerFile: "/bin/opencode",
@@ -75,7 +75,15 @@ it("starts Pica with only its bridge and no Pages MCP process", () => {
 
   expect(content).toMatchObject({
     default_agent: "pages-pica",
-    permission: { "*": "deny", "pages_*": "allow" },
+    permission: {
+      "*": "allow",
+      bash: "deny",
+      edit: "deny",
+      write: "deny",
+      read: "deny",
+      webfetch: "deny",
+      task: "deny",
+    },
     agent: { "pages-pica": { variant: "high" } },
   });
   expect(content).not.toHaveProperty("agent.build");

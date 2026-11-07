@@ -70,6 +70,29 @@ export interface ProjectTemplate {
   readonly tags: readonly string[];
 }
 
+const PLACEHOLDER_COLORS = [
+  "#FCE3D3",
+  "#DFEAFE",
+  "#DCF2E5",
+  "#EEE4F8",
+  "#E9EDF2",
+] as const;
+
+/**
+ * Chooses the placeholder color of a new project from its id.
+ *
+ * @param projectId - The id of the new project.
+ * @returns One of the fixed placeholder colors; the same id always gets the same one.
+ */
+export function getProjectPlaceholderColor(projectId: string): string {
+  const characterSum = Array.from(projectId).reduce(
+    (total, character) => total + character.charCodeAt(0),
+    0,
+  );
+
+  return PLACEHOLDER_COLORS[characterSum % PLACEHOLDER_COLORS.length];
+}
+
 /** Narrows an unknown value to a supported project status. */
 export function isProjectStatus(value: unknown): value is ProjectStatus {
   return (
@@ -182,6 +205,22 @@ export interface ProjectIntegration {
   readonly updatedAt: string;
   /** Whether scheduled and manual synchronization runs; off keeps token and repository. */
   readonly syncEnabled: boolean;
+}
+
+/**
+ * An archived project with what its detail holds (PAGE-244).
+ *
+ * @remarks
+ * Read under the access rule of the archive, which keeps the contents of a
+ * project that left the active list.
+ */
+export interface ArchivedProjectContents {
+  readonly project: ArchivedProject;
+  readonly members: readonly ProjectMember[];
+  readonly goals: readonly ProjectGoal[];
+  readonly tags: readonly string[];
+  readonly events: readonly ProjectEvent[];
+  readonly integration: ProjectIntegration | null;
 }
 
 /**

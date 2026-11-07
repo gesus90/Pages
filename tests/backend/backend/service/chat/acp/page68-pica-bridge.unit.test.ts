@@ -14,8 +14,10 @@ import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeEx
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import type { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
 import type { PicaToolOutcome } from "@/backend/service/chat/PicaToolSchemas";
-import type { PicaBridgeLease } from "@/backend/service/chat/acp/PicaBridge";
-import type { PicaBridgeResponse } from "@/backend/service/chat/acp/PicaBridgeProtocol";
+import type {
+  PicaBridgeLease,
+  PicaBridgeResponse,
+} from "@/backend/service/chat/acp/PicaBridge";
 
 // Keep the independent MCP catalog outside Pages unit execution.
 vi.mock("@/backend/service/chat/PicaPlanTools", () => ({
@@ -127,41 +129,24 @@ const WRITES = [
   ],
 ] as const;
 
-const TOOL_ANSWER = z.object({
-  result: z.object({
-    content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
-    isError: z.boolean(),
-  }),
-});
-
 const TOOL_LIST = z.object({
-  result: z.object({
-    tools: z.array(
-      z.object({
-        name: z.string(),
-        description: z.string(),
-        inputSchema: z.object({ additionalProperties: z.literal(false) }),
-      }),
-    ),
-  }),
+  tools: z.array(
+    z.object({
+      id: z.string(),
+      description: z.string(),
+      access: z.string(),
+      inputSchema: z.object({ additionalProperties: z.literal(false) }),
+    }),
+  ),
 });
 
-function authorizationOf(lease: PicaBridgeLease): string {
-  const { server } = lease;
-  if (!("type" in server) || server.type !== "http")
-    throw new Error("The bridge offers an HTTP server.");
-  const header = server.headers.find(({ name }) => name === "Authorization");
-  if (!header) throw new Error("The bridge server carries its token.");
-  return header.value;
+async function refuseImages(): Promise<never> {
+  throw new Error("The bridge tools return no images");
 }
 
 function outcomeOf(answer: PicaBridgeResponse): PicaToolOutcome {
-  const { result } = TOOL_ANSWER.parse(answer.body);
-  const outcome = PICA_TOOL_OUTCOME.parse(
-    JSON.parse(result.content.at(0)?.text ?? "null"),
-  );
-  expect(result.isError).toBe(!outcome.ok);
-  return outcome;
+  expect(answer.status).toBe(200);
+  return PICA_TOOL_OUTCOME.parse(answer.body);
 }
 
 /** The bridge of one job with the real tools and executor; only the operation router is replaced. */
@@ -182,10 +167,11 @@ function bridgeWorld(): {
     typeof vi.fn<ChatSessionService["confirmationWord"]>
   >;
   readonly events: unknown[];
-  readonly turn: () => void;
+  readonly turn: (message?: string) => void;
+  readonly authorization: () => string | null;
   readonly send: (
     body: unknown,
-    authorization?: string,
+    authorization?: string | null,
   ) => Promise<PicaBridgeResponse>;
   readonly call: (name: string, input: unknown) => Promise<PicaToolOutcome>;
 } {
@@ -218,22 +204,31 @@ function bridgeWorld(): {
   const bridge = new PicaBridge(BRIDGE_URL);
   const opened = bridge.open({
     jobId: "job",
+    userId: OWNER.id,
+    sessionId: FIRST,
     catalog: createPicaTools({
       tools,
       sessions,
       authorize: () => Promise.resolve(),
     }).describe(),
     onTool: (event) => events.push(event),
+    onImages: refuseImages,
   });
-  const turn = (): void => {
-    opened.setTurn({
-      tools: createPicaTools({ tools, sessions, authorize }),
-      context,
-    });
+  let answerTurn = 0;
+  let current: string | null = null;
+  const turn = (message?: string): void => {
+    answerTurn += 1;
+    current =
+      opened.setTurn({
+        id: `message-${answerTurn}`,
+        answerTurn,
+        tools: createPicaTools({ tools, sessions, authorize, message }),
+        context,
+      })?.authorization ?? null;
   };
   const send = (
     body: unknown,
-    authorization = authorizationOf(opened),
+    authorization: string | null = current,
   ): Promise<PicaBridgeResponse> =>
     bridge.handle({
       method: "POST",
@@ -241,14 +236,7 @@ function bridgeWorld(): {
       readBody: async () => JSON.stringify(body),
     });
   const call = async (name: string, input: unknown): Promise<PicaToolOutcome> =>
-    outcomeOf(
-      await send({
-        jsonrpc: "2.0",
-        id: 7,
-        method: "tools/call",
-        params: { name, arguments: input },
-      }),
-    );
+    outcomeOf(await send({ action: "call", name, arguments: input }));
   return {
     lease: opened,
     router,
@@ -257,37 +245,24 @@ function bridgeWorld(): {
     confirmationWord,
     events,
     turn,
+    authorization: () => current,
     send,
     call,
   };
 }
 
-it("lets an MCP client initialize and list every native tool with strict schemas and no administration", async () => {
+it("lists every native tool of a turn with strict schemas and no administration", async () => {
   const world = bridgeWorld();
-  const initialized = await world.send({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "initialize",
-    params: { protocolVersion: "2025-06-18" },
-  });
-  expect(initialized.status).toBe(200);
-  expect(initialized.sessionId).toEqual(expect.any(String));
-  expect(
-    (
-      await world.send({
-        jsonrpc: "2.0",
-        method: "notifications/initialized",
-      })
-    ).status,
-  ).toBe(202);
+  world.turn();
   const listed = TOOL_LIST.parse(
-    (await world.send({ jsonrpc: "2.0", id: 2, method: "tools/list" })).body,
+    (await world.send({ action: "catalog" })).body,
   );
-  const names = listed.result.tools.map(({ name }) => name);
+  const names = listed.tools.map(({ id }) => id);
   expect(names).toEqual([...READ_TOOLS, ...WRITE_TOOLS]);
   expect(names.filter((name) => ADMINISTRATION.test(name))).toEqual([]);
-  for (const tool of listed.result.tools)
+  for (const tool of listed.tools)
     expect(tool.description).not.toMatch(/BESTÄTIGEN|CONFIRM|LÖSCHEN/u);
+  expect(world.router).not.toHaveBeenCalled();
 });
 
 it("reads projects, the person's own tickets and the wiki with fresh rights on every call", async () => {
@@ -422,9 +397,9 @@ it("recognizes a failed write regardless of key order and refuses it until the n
   expect(world.router).toHaveBeenCalledTimes(2);
 });
 
-it("deletes with the confirmation word Pages reads for the person, never with one of the model", async () => {
+it("deletes only with the person's confirmation word in the human message, never with one of the model", async () => {
   const world = bridgeWorld();
-  world.turn();
+  world.turn("Bitte PAGE-1 entfernen");
   expect(
     await world.call("tickets_delete", {
       ticketId: "PAGE-1",
@@ -437,15 +412,21 @@ it("deletes with the confirmation word Pages reads for the person, never with on
       result: null,
       error: "UNKNOWN_TOOL",
     });
+  expect(
+    await world.call("tickets_delete", { ticketId: "PAGE-1" }),
+  ).toMatchObject({ ok: false, error: "CONFIRMATION_REQUIRED" });
   expect(world.router).not.toHaveBeenCalled();
-  world.confirmationWord.mockResolvedValueOnce("DELETE");
+  world.confirmationWord.mockResolvedValue("DELETE");
+  world.turn("DELETE");
   expect(
     await world.call("tickets_delete", { ticketId: "PAGE-1" }),
   ).toMatchObject({ ok: true });
+  world.confirmationWord.mockResolvedValue("LÖSCHEN");
+  world.turn("Ja, LÖSCHEN");
   expect(
     await world.call("wiki_comment_delete", { commentId: "comment-1" }),
   ).toMatchObject({ ok: true });
-  expect(world.confirmationWord.mock.calls).toEqual([[OWNER.id], [OWNER.id]]);
+  expect(world.confirmationWord).toHaveBeenCalledWith(OWNER.id);
   expect(
     world.router.mock.calls.map(([identity, request]) => [
       identity.userId,
@@ -465,32 +446,29 @@ it("deletes with the confirmation word Pages reads for the person, never with on
   });
 });
 
-it("refuses calls between turns, with a foreign token and after revoked access", async () => {
+it("refuses calls between turns, with a foreign or rotated token and after revoked access", async () => {
   const world = bridgeWorld();
-  expect(await world.call("projects_list", {})).toMatchObject({
-    error: "TURN_INACTIVE",
-  });
+  expect(world.authorization()).toBeNull();
+  expect((await world.send({ action: "catalog" }, null)).status).toBe(401);
   world.turn();
+  const first = world.authorization();
   expect(
-    (
-      await world.send(
-        { jsonrpc: "2.0", id: 3, method: "tools/list" },
-        `Bearer ${"a".repeat(43)}`,
-      )
-    ).status,
+    (await world.send({ action: "catalog" }, `Bearer ${"a".repeat(43)}`))
+      .status,
   ).toBe(401);
+  world.turn();
+  expect(world.authorization()).not.toBe(first);
+  expect((await world.send({ action: "catalog" }, first)).status).toBe(401);
   world.authorize.mockRejectedValue(new AgentExecutionError("accessDenied"));
   expect(await world.call("projects_list", {})).toMatchObject({
     error: "FORBIDDEN",
   });
   world.lease.close();
-  expect(
-    (await world.send({ jsonrpc: "2.0", id: 4, method: "tools/list" })).status,
-  ).toBe(401);
+  expect((await world.send({ action: "catalog" })).status).toBe(401);
   expect(world.router).not.toHaveBeenCalled();
 });
 
-it("enforces 256 actual MCP executions across concurrent calls and renews only for a new turn", async () => {
+it("enforces 256 actual tool executions across concurrent calls and renews only for a new turn", async () => {
   const world = bridgeWorld();
   world.turn();
   // Malformed or unknown calls never dispatch a service or consume an execution.

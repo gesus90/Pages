@@ -21,11 +21,7 @@ export type OriginMismatchReason =
 
 /** What the browser says about the relation of the page to the request (`Sec-Fetch-Site`). */
 export type FetchSite =
-  | "same-origin"
-  | "same-site"
-  | "cross-site"
-  | "none"
-  | "absent";
+  "same-origin" | "same-site" | "cross-site" | "none" | "absent";
 
 /** Facts about a refused request that are safe to log and to show an operator. */
 export interface OriginRefusal {

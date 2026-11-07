@@ -114,6 +114,51 @@ function fields(input: unknown): Readonly<Record<string, unknown>> | null {
     : null;
 }
 
+/** A parsed bridge request: the catalog, or one tool call. */
+type BridgeAction =
+  | { readonly action: "catalog" }
+  | {
+      readonly action: "call" | "native_call";
+      readonly name: string;
+      readonly input: unknown;
+    };
+
+/** Reads the JSON body of a bridge request; `null` for anything malformed. */
+function readAction(body: string): BridgeAction | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  const input = fields(parsed);
+  if (input?.action === "catalog") return { action: "catalog" };
+  if (
+    (input?.action !== "call" && input?.action !== "native_call") ||
+    typeof input.name !== "string"
+  )
+    return null;
+  if (
+    input.action === "native_call" &&
+    (!/^[A-Za-z0-9_-]{1,100}$/u.test(input.name) ||
+      !Object.keys(input).every((key) =>
+        ["action", "name", "arguments"].includes(key),
+      ))
+  )
+    return null;
+  return {
+    action: input.action,
+    name: input.name,
+    input: input.arguments ?? {},
+  };
+}
+
+/** Reports the end of one call to the journal. */
+type CallReport = (
+  status: "completed" | "failed",
+  error: string | null,
+) => void;
+
 /** Provides the Pica catalog and validated tool calls to an active job turn. */
 export class PicaBridge {
   private readonly url: string;
@@ -188,30 +233,12 @@ export class PicaBridge {
     )
       return { status: 413, body: null };
     if (!this.isCurrent(binding)) return { status: 401, body: null };
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(body);
-    } catch {
-      return { status: 400, body: null };
-    }
-    const input = fields(parsed);
-    if (input?.action === "catalog")
+    const parsed = readAction(body);
+    if (parsed === null) return { status: 400, body: null };
+    if (parsed.action === "catalog")
       return { status: 200, body: { tools: binding.owner.catalog } };
-    if (
-      (input?.action !== "call" && input?.action !== "native_call") ||
-      typeof input.name !== "string"
-    )
-      return { status: 400, body: null };
-    if (
-      input.action === "native_call" &&
-      (!/^[A-Za-z0-9_-]{1,100}$/u.test(input.name) ||
-        !Object.keys(input).every((key) =>
-          ["action", "name", "arguments"].includes(key),
-        ))
-    )
-      return { status: 400, body: null };
-    const pending = this.call(binding, input.name, input.arguments ?? {}, {
-      includeImages: input.action === "native_call",
+    const pending = this.call(binding, parsed.name, parsed.input, {
+      includeImages: parsed.action === "native_call",
       signal: request.signal,
     });
     binding.calls.set(pending, binding.turn.answerTurn);
@@ -270,76 +297,59 @@ export class PicaBridge {
       error: null,
       ...privileged,
     });
+    const report: CallReport = (status, error) =>
+      owner.onTool({ callId, tool, status, error, ...privileged });
+    const fail = (error: string): PicaToolOutcome => {
+      report("failed", error);
+      return refused(error);
+    };
     const outcome = await this.invoke(binding, name, input, options.signal);
-    if (!isCurrent()) {
-      owner.onTool({
-        callId,
-        tool,
-        status: "failed",
-        error: "TURN_INACTIVE",
-        ...privileged,
-      });
-      return refused("TURN_INACTIVE");
-    }
+    if (!isCurrent()) return fail("TURN_INACTIVE");
     const { images, ...answer } = outcome;
     if (
       options.includeImages &&
       images?.some((image) => !isValidPicaToolImage(image))
-    ) {
-      owner.onTool({
-        callId,
-        tool,
-        status: "failed",
-        error: "IMAGE_INVALID",
-        ...privileged,
-      });
-      return refused("IMAGE_INVALID");
-    }
-    let staged: PicaStagedImages | null = null;
-    try {
-      if (images?.length)
-        staged = await owner.onImages(turn.answerTurn, images, isCurrent);
-    } catch {
-      const error = isCurrent() ? "IMAGE_STAGING_FAILED" : "TURN_INACTIVE";
-      owner.onTool({ callId, tool, status: "failed", error, ...privileged });
-      return refused(error);
-    }
-    if (!isCurrent()) {
-      if (staged) {
-        try {
-          await staged.rollback();
-        } catch {
-          owner.onTool({
-            callId,
-            tool,
-            status: "failed",
-            error: "IMAGE_ROLLBACK_FAILED",
-            ...privileged,
-          });
-          return refused("IMAGE_ROLLBACK_FAILED");
-        }
-      }
-      owner.onTool({
-        callId,
-        tool,
-        status: "failed",
-        error: "TURN_INACTIVE",
-        ...privileged,
-      });
-      return refused("TURN_INACTIVE");
-    }
-    owner.onTool({
-      callId,
-      tool,
-      status: answer.ok ? "completed" : "failed",
-      error: answer.ok ? null : answer.error,
-      ...privileged,
-    });
+    )
+      return fail("IMAGE_INVALID");
+    const staged = await this.stage(binding, images, isCurrent);
+    if (typeof staged === "string") return fail(staged);
+    report(answer.ok ? "completed" : "failed", answer.ok ? null : answer.error);
     return {
       ...answer,
       ...(staged ? { attachments: staged.attachments } : {}),
       ...(options.includeImages && images?.length ? { images } : {}),
     };
+  }
+
+  /**
+   * Stages the images of a result for the turn.
+   *
+   * @returns The staged images, `null` without images, or the error of a call
+   * that failed or whose turn ended meanwhile; staged images are rolled back then.
+   */
+  private async stage(
+    binding: Binding,
+    images: PicaToolOutcome["images"],
+    isCurrent: () => boolean,
+  ): Promise<PicaStagedImages | null | string> {
+    let staged: PicaStagedImages | null = null;
+    try {
+      if (images?.length)
+        staged = await binding.owner.onImages(
+          binding.turn.answerTurn,
+          images,
+          isCurrent,
+        );
+    } catch {
+      return isCurrent() ? "IMAGE_STAGING_FAILED" : "TURN_INACTIVE";
+    }
+    if (isCurrent()) return staged;
+    try {
+      await staged?.rollback();
+    } catch {
+      return "IMAGE_ROLLBACK_FAILED";
+    }
+    return "TURN_INACTIVE";
   }
 
   private async invoke(

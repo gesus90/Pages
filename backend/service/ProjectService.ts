@@ -12,16 +12,17 @@ import { isGitHubSyncInterval, isProjectRole } from "@/definition/Project";
 
 import { ProjectCreationService } from "./project/ProjectCreationService";
 import { ProjectAccessService } from "./project/ProjectAccessService";
+import { ProjectGoalService } from "./project/ProjectGoalService";
 import { ProjectManagementService } from "./project/ProjectManagementService";
 import { ProjectTemplateService } from "./project/ProjectTemplateService";
 import { WikiAccess } from "./wiki/WikiAccess";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type {
   NewProject,
   NewProjectActivity,
   NewProjectEvent,
-  NewProjectGoal,
   NewProjectIntegration,
   ProjectDetailsUpdate,
   ProjectEventUpdate,
@@ -29,9 +30,11 @@ import type {
   ProjectRepository,
   ProjectUpdate,
 } from "@/backend/database/repositories/ProjectRepository";
+import type { ProjectDeletionScope } from "@/definition/AgentProjectDeletion";
 import type {
   GitHubSyncInterval,
   ArchivedProject,
+  ArchivedProjectContents,
   AssignedProject,
   Project,
   ProjectActionPermissions,
@@ -45,6 +48,7 @@ import type {
   ProjectTemplate,
 } from "@/definition/Project";
 import type { AuthorizationFacts } from "./project/ProjectAccessService";
+import type { ProjectCreationOptions } from "./project/ProjectCreationService";
 import type { ProjectDeletionEffects } from "./project/ProjectDeletionService";
 import type { WorkItemVisibility } from "@/definition/Task";
 import type { User } from "@/definition/User";
@@ -55,10 +59,12 @@ export class ProjectService {
   private readonly permissionService: PermissionService;
   private readonly tokenKey: Buffer | null;
   private readonly cache: ServerCache;
-  private readonly creation: ProjectCreationService;
-  private readonly access: ProjectAccessService;
-  private readonly management: ProjectManagementService;
-  private readonly templates: ProjectTemplateService;
+  // Rebound only by forChannel, on the copy it returns.
+  private creation: ProjectCreationService;
+  private access: ProjectAccessService;
+  private management: ProjectManagementService;
+  private templates: ProjectTemplateService;
+  private goals: ProjectGoalService;
 
   /**
    * Creates a project service.
@@ -82,6 +88,35 @@ export class ProjectService {
     this.access = new ProjectAccessService(projectRepository, cache);
     this.management = new ProjectManagementService(projectRepository, cache);
     this.templates = new ProjectTemplateService(projectRepository, cache);
+    this.goals = new ProjectGoalService(projectRepository, cache);
+  }
+
+  /**
+   * Returns the service for another surface that shares storage, cache and deletion effects.
+   *
+   * @remarks
+   * Only the administrator reading differs: MCP counts a personal administrator
+   * regardless of the role mode of the browser, the interface does not. The
+   * server wiring alone chooses the channel. `canManageProjects`,
+   * `canCreateProjects` and `findActivity` keep the interface reading of the
+   * permission service.
+   *
+   * @param channel - The surface the returned service acts for.
+   */
+  public forChannel(channel: ActorChannel): ProjectService {
+    const { projectRepository: repository, cache } = this;
+    const service = new ProjectService(
+      repository,
+      this.permissionService,
+      this.tokenKey,
+      cache,
+    );
+    service.creation = new ProjectCreationService(repository, cache, channel);
+    service.access = new ProjectAccessService(repository, cache, channel);
+    service.management = this.management.forChannel(channel);
+    service.templates = new ProjectTemplateService(repository, cache, channel);
+    service.goals = new ProjectGoalService(repository, cache, channel);
+    return service;
   }
 
   /** Returns every non-archived project that the actor may access. */
@@ -99,9 +134,20 @@ export class ProjectService {
     return this.access.getById(actor, projectId);
   }
 
-  /** Creates a project owned by the authorized actor and returns its read grant. */
-  public async create(actor: User, project: NewProject): Promise<boolean> {
-    return this.creation.create(actor, project);
+  /**
+   * Creates a project owned by the authorized actor.
+   *
+   * @param actor - The creating account.
+   * @param project - The new project.
+   * @param options - Whether a project the actor could not read is refused.
+   * @returns Whether the actor can read the created project.
+   */
+  public async create(
+    actor: User,
+    project: NewProject,
+    options: ProjectCreationOptions = {},
+  ): Promise<boolean> {
+    return this.creation.create(actor, project, options);
   }
 
   /** Returns the department choices allowed by the current account's project scope. */
@@ -150,6 +196,14 @@ export class ProjectService {
     return this.management.findArchived(actor);
   }
 
+  /** Returns an archived project with its contents when the actor may see it. */
+  public async readArchived(
+    actor: User,
+    projectId: string,
+  ): Promise<ArchivedProjectContents> {
+    return this.management.readArchived(actor, projectId);
+  }
+
   /** Returns the current administrator-mode hint for archive deletion controls. */
   public async canDeleteProjects(actor: User): Promise<boolean> {
     return this.management.canDelete(actor);
@@ -165,13 +219,22 @@ export class ProjectService {
     await this.templates.save(actor, projectId);
   }
 
-  /** Creates from an accessible template with explicit assignments and returns its read grant. */
+  /**
+   * Creates from an accessible template with explicit assignments.
+   *
+   * @param actor - The creating account.
+   * @param templateId - The template to start from.
+   * @param input - The new project.
+   * @param options - Whether a project the actor could not read is refused.
+   * @returns Whether the actor can read the created project.
+   */
   public async createFromTemplate(
     actor: User,
     templateId: string,
     input: NewProject,
+    options: ProjectCreationOptions = {},
   ): Promise<boolean> {
-    return this.templates.create(actor, templateId, input);
+    return this.templates.create(actor, templateId, input, options);
   }
 
   /** Permanently removes the complete project aggregate in administrator mode. */
@@ -180,6 +243,14 @@ export class ProjectService {
     projectId: string,
   ): Promise<void> {
     await this.management.deletePermanently(actor, projectId);
+  }
+
+  /** Describes what a permanent deletion would remove, for administrators only. */
+  public async describeDeletion(
+    actor: User,
+    projectId: string,
+  ): Promise<ProjectDeletionScope> {
+    return this.management.describeDeletion(actor, projectId);
   }
 
   /** Attaches the plan runs and stored files that a permanent deletion has to reach. */
@@ -330,9 +401,7 @@ export class ProjectService {
     actor: User,
     projectId: string,
   ): Promise<ProjectGoal[]> {
-    await this.getById(actor, projectId);
-
-    return this.projectRepository.findGoals(projectId);
+    return this.goals.findAll(actor, projectId);
   }
 
   /** Creates a goal and records the change. */
@@ -341,29 +410,7 @@ export class ProjectService {
     projectId: string,
     title: string,
   ): Promise<void> {
-    await this.requireProjectWrite(actor, projectId);
-    await this.getById(actor, projectId);
-
-    const trimmed = title.trim();
-
-    if (!trimmed || trimmed.length > 200) {
-      throw new Error("Goal title must be between 1 and 200 characters.");
-    }
-
-    const existing = await this.projectRepository.findGoals(projectId);
-    const goal: NewProjectGoal = {
-      id: randomUUID(),
-      projectId,
-      title: trimmed,
-      position: existing.length,
-    };
-
-    await this.projectRepository.insertGoal(goal);
-    await this.recordActivity(actor, projectId, {
-      action: "goal_created",
-      category: "planning",
-      message: `Goal "${trimmed}" was created.`,
-    });
+    await this.goals.create(actor, projectId, title);
   }
 
   /** Updates a goal. */
@@ -373,19 +420,7 @@ export class ProjectService {
     goalId: string,
     changes: { readonly title: string; readonly isDone: boolean },
   ): Promise<void> {
-    const { title, isDone } = changes;
-
-    await this.requireProjectWrite(actor, projectId);
-    await this.getById(actor, projectId);
-    await this.requireGoal(projectId, goalId);
-
-    const trimmed = title.trim();
-
-    if (!trimmed || trimmed.length > 200) {
-      throw new Error("Goal title must be between 1 and 200 characters.");
-    }
-
-    await this.projectRepository.updateGoal(goalId, trimmed, isDone);
+    await this.goals.update(actor, projectId, goalId, changes);
   }
 
   /** Deletes a goal. */
@@ -394,10 +429,7 @@ export class ProjectService {
     projectId: string,
     goalId: string,
   ): Promise<void> {
-    await this.requireProjectWrite(actor, projectId);
-    await this.getById(actor, projectId);
-    await this.requireGoal(projectId, goalId);
-    await this.projectRepository.deleteGoal(goalId);
+    await this.goals.delete(actor, projectId, goalId);
   }
 
   /** Returns the tags assigned to the project. */
@@ -689,15 +721,6 @@ export class ProjectService {
         ).resolve(actor)
       ).scope,
     );
-  }
-
-  private async requireGoal(projectId: string, goalId: string): Promise<void> {
-    if (
-      !(await this.projectRepository.findGoals(projectId)).some(
-        (goal) => goal.id === goalId,
-      )
-    )
-      throw new ProjectManagementDeniedError();
   }
 
   private async requireEvent(

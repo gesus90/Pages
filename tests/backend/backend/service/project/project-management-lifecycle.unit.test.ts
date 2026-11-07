@@ -30,13 +30,13 @@ describe("action hints", () => {
     });
   });
 
-  it("grants editing, assignments and archiving to a co-owner but not deleting", async () => {
+  it("grants editing and assignments to a co-owner but neither archiving nor deleting", async () => {
     await expect(
       world.service.permissions(world.user("lead"), "alpha"),
     ).resolves.toEqual({
       canEditGeneral: true,
       canChangeDepartments: true,
-      canArchive: true,
+      canArchive: false,
       canDelete: false,
     });
   });
@@ -165,10 +165,10 @@ describe("department assignment", () => {
 });
 
 describe("archiving", () => {
-  it("moves the project to the archive and forgets caches", async () => {
+  it("moves the project to the archive as administrator and forgets caches", async () => {
     const invalidate = vi.spyOn(world.cache, "invalidateWorkItems");
 
-    await world.service.archive(world.user("lead"), "alpha");
+    await world.service.archive(world.user("admin"), "alpha");
 
     expect(world.state.projects.has("alpha")).toBe(false);
     expect(world.state.archived.has("alpha")).toBe(true);
@@ -186,6 +186,13 @@ describe("archiving", () => {
 
     await expect(
       world.service.archive(world.user("manager"), "alpha"),
+    ).rejects.toBeInstanceOf(ProjectManagementDeniedError);
+    expect(world.state.projects.has("alpha")).toBe(true);
+  });
+
+  it("refuses a co-owner with the archive capability and complete scope", async () => {
+    await expect(
+      world.service.archive(world.user("lead"), "alpha"),
     ).rejects.toBeInstanceOf(ProjectManagementDeniedError);
     expect(world.state.projects.has("alpha")).toBe(true);
   });

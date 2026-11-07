@@ -23,6 +23,7 @@ import {
   testRemoteConnection,
 } from "./RemoteConnectionTest";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type {
   RemoteConnectionRecord,
@@ -48,6 +49,8 @@ export interface RemoteConnectionDependencies {
   readonly cipher: RemoteSecretCipher;
   readonly client: Pick<SshClient, "probe" | "scanHostKey" | "authenticate">;
   readonly sessions: RemoteSessionRegistry;
+  /** Whose administrator reading applies; the interface when absent. */
+  readonly channel?: ActorChannel;
 }
 
 /** The connections a person may see, with the departments administrators can choose. */
@@ -82,17 +85,44 @@ function sameEndpoint(
  */
 export class RemoteConnectionService {
   private readonly dependencies: RemoteConnectionDependencies;
-  private readonly writes = new SerialQueue();
-  private readonly checking = new Set<string>();
+  private readonly writes: SerialQueue;
+  private readonly checking: Set<string>;
 
-  public constructor(dependencies: RemoteConnectionDependencies) {
+  public constructor(
+    dependencies: RemoteConnectionDependencies,
+    writes: SerialQueue = new SerialQueue(),
+    checking: Set<string> = new Set<string>(),
+  ) {
     this.dependencies = dependencies;
+    this.writes = writes;
+    this.checking = checking;
+  }
+
+  /**
+   * Returns the service for another surface that shares storage, rules, write order and running tests.
+   *
+   * @remarks
+   * Only the administrator reading differs: MCP counts a personal administrator
+   * regardless of the role mode of the browser, the interface does not.
+   *
+   * @param channel - The surface the returned service acts for.
+   */
+  public forChannel(channel: ActorChannel): RemoteConnectionService {
+    return new RemoteConnectionService(
+      { ...this.dependencies, channel },
+      this.writes,
+      this.checking,
+    );
   }
 
   /** Lists the connections the person may use; administrators see all of them. */
   public async scope(userId: string): Promise<RemoteConnectionScope> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = requireRemoteAccount(snapshot, userId);
+    const actor = requireRemoteAccount(
+      snapshot,
+      userId,
+      this.dependencies.channel,
+    );
     const canManage = canManageRemoteConnections(actor);
     const [records, counts] = await Promise.all([
       this.dependencies.connections.list(),
@@ -256,6 +286,16 @@ export class RemoteConnectionService {
   public async reconnect(userId: string, id: string): Promise<void> {
     await this.requireUsable(userId, id);
     this.dependencies.sessions.session(id).reconnect();
+  }
+
+  /**
+   * Rechecks that the person may configure connections.
+   *
+   * @param userId - The person who asks for a change.
+   * @throws {RemoteError} `remote_management_denied` without the administrator role.
+   */
+  public async requireManagement(userId: string): Promise<void> {
+    await this.requireManager(userId);
   }
 
   /**
@@ -472,6 +512,7 @@ export class RemoteConnectionService {
     return requireRemoteAccount(
       await this.dependencies.authorization.snapshot(),
       userId,
+      this.dependencies.channel,
     );
   }
 

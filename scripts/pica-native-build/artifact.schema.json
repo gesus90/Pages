@@ -11,10 +11,7 @@
       "const": "built-unverified"
     },
     "runner": {
-      "enum": [
-        "codex",
-        "opencode"
-      ]
+      "enum": ["codex", "opencode"]
     },
     "upstream": {
       "type": "object",
@@ -33,23 +30,14 @@
           "pattern": "^[0-9a-f]{40}$"
         },
         "license": {
-          "enum": [
-            "MIT",
-            "Apache-2.0"
-          ]
+          "enum": ["MIT", "Apache-2.0"]
         },
         "licenseSha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
         }
       },
-      "required": [
-        "repo",
-        "version",
-        "commit",
-        "license",
-        "licenseSha256"
-      ]
+      "required": ["repo", "version", "commit", "license", "licenseSha256"]
     },
     "sourceTree": {
       "type": "object",
@@ -63,10 +51,7 @@
           "pattern": "^[0-9a-f]{64}$"
         }
       },
-      "required": [
-        "method",
-        "sha256"
-      ]
+      "required": ["method", "sha256"]
     },
     "patches": {
       "type": "array",
@@ -85,10 +70,7 @@
             "pattern": "^[0-9a-f]{64}$"
           }
         },
-        "required": [
-          "path",
-          "sha256"
-        ]
+        "required": ["path", "sha256"]
       }
     },
     "recipeSha256": {
@@ -116,10 +98,7 @@
           "pattern": "^[0-9a-f]{64}$"
         }
       },
-      "required": [
-        "version",
-        "treeSha256"
-      ]
+      "required": ["version", "treeSha256"]
     },
     "inputHashes": {
       "type": "object",
@@ -151,20 +130,13 @@
           "const": "linux"
         },
         "arch": {
-          "enum": [
-            "x64",
-            "arm64"
-          ]
+          "enum": ["x64", "arm64"]
         },
         "abi": {
           "const": "glibc"
         }
       },
-      "required": [
-        "os",
-        "arch",
-        "abi"
-      ]
+      "required": ["os", "arch", "abi"]
     },
     "command": {
       "type": "array",
@@ -183,18 +155,13 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": {
-        "enum": [
-          "pica-tool-policy-candidate",
-          "pica-native-tools-candidate"
-        ]
+        "enum": ["pica-tool-policy-candidate", "pica-native-tools-candidate"]
       }
     },
     "files": {
       "type": "object",
       "minProperties": 2,
-      "required": [
-        "LICENSE"
-      ],
+      "required": ["LICENSE"],
       "propertyNames": {
         "pattern": "^(LICENSE|codex|opencode|runtime/(?!\\.{1,2}(?:/|$))[A-Za-z0-9_.+-]+(?:/(?!\\.{1,2}(?:/|$))[A-Za-z0-9_.+-]+)*)$",
         "maxLength": 1024
@@ -208,17 +175,10 @@
             "pattern": "^[0-9a-f]{64}$"
           },
           "mode": {
-            "enum": [
-              "0400",
-              "0500"
-            ]
+            "enum": ["0400", "0500"]
           },
           "format": {
-            "enum": [
-              "ELF",
-              "text",
-              "asset"
-            ]
+            "enum": ["ELF", "text", "asset"]
           },
           "bytes": {
             "type": "integer",
@@ -226,12 +186,7 @@
             "maximum": 536870912
           }
         },
-        "required": [
-          "sha256",
-          "mode",
-          "format",
-          "bytes"
-        ]
+        "required": ["sha256", "mode", "format", "bytes"]
       },
       "maxProperties": 4096
     },
@@ -243,10 +198,7 @@
       }
     },
     "workingDirectory": {
-      "enum": [
-        "/build/source",
-        "/build/source/codex-rs"
-      ]
+      "enum": ["/build/source", "/build/source/codex-rs"]
     },
     "runtimeClosure": {
       "const": "unverified"
@@ -293,29 +245,21 @@
             "const": "codex"
           }
         },
-        "required": [
-          "runner"
-        ]
+        "required": ["runner"]
       },
       "then": {
         "properties": {
           "files": {
-            "required": [
-              "codex"
-            ],
+            "required": ["codex"],
             "not": {
-              "required": [
-                "opencode"
-              ]
+              "required": ["opencode"]
             }
           },
           "modelsSnapshotSha256": {
             "type": "null"
           },
           "capabilities": {
-            "const": [
-              "pica-tool-policy-candidate"
-            ]
+            "const": ["pica-tool-policy-candidate"]
           },
           "workingDirectory": {
             "const": "/build/source/codex-rs"
@@ -342,20 +286,14 @@
             "const": "opencode"
           }
         },
-        "required": [
-          "runner"
-        ]
+        "required": ["runner"]
       },
       "then": {
         "properties": {
           "files": {
-            "required": [
-              "opencode"
-            ],
+            "required": ["opencode"],
             "not": {
-              "required": [
-                "codex"
-              ]
+              "required": ["codex"]
             }
           },
           "modelsSnapshotSha256": {
@@ -363,9 +301,7 @@
             "pattern": "^[0-9a-f]{64}$"
           },
           "capabilities": {
-            "const": [
-              "pica-native-tools-candidate"
-            ]
+            "const": ["pica-native-tools-candidate"]
           },
           "workingDirectory": {
             "const": "/build/source"

@@ -13,7 +13,10 @@ import type {
 } from "@/backend/agents/acp/AcpChat";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { RuntimeToolDescription } from "@/backend/agents/runtime/RuntimeToolRegistry";
-import type { PicaBridgeTurn } from "@/backend/service/chat/acp/PicaBridge";
+import type {
+  PicaBridgeLease,
+  PicaBridgeTurn,
+} from "@/backend/service/chat/acp/PicaBridge";
 import type { PicaAcpJobDependencies } from "@/backend/service/chat/acp/PicaAcpJob";
 import type { PicaAcpProvider } from "@/backend/service/chat/acp/PicaAcpRunners";
 import type { StoredChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
@@ -24,6 +27,18 @@ import type { PicaToolOutcome } from "@/backend/service/chat/PicaToolSchemas";
 vi.mock("@/backend/service/chat/PicaPlanTools", () => ({
   registerPicaPlanTools: vi.fn(),
 }));
+// The turn credential file is a filesystem boundary; the job only needs its path.
+vi.mock("@/backend/service/chat/acp/PicaInvocationFile", () => ({
+  writePicaInvocationFile: (workspace: string) =>
+    `${workspace}/.pica-synthetic/descriptor.json`,
+  removePicaInvocationFile: () => undefined,
+  picaHelperPath: (file: string) => file.replace(/[^/]+$/u, "pica-helper"),
+}));
+const DESCRIPTOR = {
+  url: "http://pages.test/bridge",
+  authorization: "Bearer synthetic",
+};
+
 /** A completed fake runner turn; no provider, transport or child process is used. */
 export function completedTurn(output = "Answer"): PlanSessionTurn {
   return {
@@ -88,6 +103,7 @@ export class PicaJobWorld {
   /** The tools the job offered its agent session. */
   public catalog: readonly RuntimeToolDescription[] = [];
   private binding: PicaBridgeTurn | null = null;
+  private reserved: PicaBridgeTurn | null = null;
   private readonly first = deferred<PlanSessionTurn>();
 
   public constructor(
@@ -131,25 +147,7 @@ export class PicaJobWorld {
           readText: async () => "",
           readBytes: async () => Buffer.from(""),
         },
-        bridge: {
-          open: (owner) => {
-            this.catalog = owner.catalog;
-            return {
-              server: {
-                type: "http",
-                name: "pages",
-                url: "http://pages.test/bridge",
-                headers: [],
-              },
-              setTurn: (turn) => {
-                this.binding = turn;
-              },
-              close: () => {
-                this.binding = null;
-              },
-            };
-          },
-        },
+        bridge: { open: (owner) => this.openBridge(owner.catalog) },
         tools: { run: this.tools },
         ...administration,
         access: {
@@ -184,6 +182,7 @@ export class PicaJobWorld {
   }
 
   public steer: () => Promise<AcpSteerOutcome> = async () => "injected";
+
   public next: () => Promise<PlanSessionTurn> = async () => {
     this.listener?.prompted(null);
     return completedTurn("Follow-up answer");
@@ -240,5 +239,35 @@ export class PicaJobWorld {
         codex: { threadStatus: { type: isActive ? "active" : "idle" } },
       },
     });
+  }
+
+  /** A lease that binds the job's turns directly; a reserved credential admits no call. */
+  private openBridge(
+    catalog: readonly RuntimeToolDescription[],
+  ): PicaBridgeLease {
+    this.catalog = catalog;
+    return {
+      setTurn: (turn) => {
+        this.binding = turn;
+        this.reserved = null;
+        return turn ? DESCRIPTOR : null;
+      },
+      reserveTurn: (turn) => {
+        this.binding = null;
+        this.reserved = turn;
+        return DESCRIPTOR;
+      },
+      activateTurn: (turn) => {
+        if (this.reserved?.id !== turn.id) return false;
+        this.binding = turn;
+        this.reserved = null;
+        return true;
+      },
+      settle: async () => undefined,
+      close: () => {
+        this.binding = null;
+        this.reserved = null;
+      },
+    };
   }
 }

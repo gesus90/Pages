@@ -1,12 +1,25 @@
+import { RequestError } from "@agentclientprotocol/sdk";
+
+import { diagnosticProviderFailure } from "@/backend/agents/AgentProviderFailure";
+import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { logEvent } from "@/backend/logging/Logger";
 
-import { classifyOpenCodeFailure } from "./OpenCodeAcpErrors";
+import { noteAcpStderr } from "./AcpEvents";
+import {
+  classifyOpenCodeFailure,
+  openCodeAcpFailure,
+} from "./OpenCodeAcpErrors";
 
+import type { CliSessionExit } from "@/backend/agents/cli/CliSessionProcess";
 import type { AcpDriver } from "./AcpDriver";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { StopReason } from "@agentclientprotocol/sdk";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { AcpSessionState } from "./AcpEvents";
+
+/** The JSON-RPC code with which an adapter asks for a sign-in. */
+const AUTH_REQUIRED = -32000;
 
 /** Maps a protocol stop reason to the existing run outcome. */
 export function stopFailure(reason: StopReason): PlanSessionTurn["failure"] {
@@ -108,4 +121,83 @@ export function disconnectedAcpFailure(
   stderr: string,
 ): AgentErrorCode {
   return classifiedAcpFailure(driver, stderr);
+}
+
+/**
+ * Classifies an error that ended a turn nobody stopped.
+ *
+ * @param error - The error of the turn.
+ * @param state - The session state; a provider failure is kept in it.
+ * @param driver - The driver of the session.
+ * @param isDisconnected - Whether the connection to the adapter ended.
+ * @returns The error code of the turn, or `null` when the connection ended
+ * and the exit of the process decides.
+ */
+export function acpErrorFailure(
+  error: unknown,
+  state: AcpSessionState,
+  driver: Pick<AcpDriver, "provider" | "errors">,
+  isDisconnected: boolean,
+): AgentErrorCode | null {
+  if (error instanceof AgentError) return error.code;
+  const providerFailure =
+    diagnosticProviderFailure(error) ?? state.providerFailure;
+  if (providerFailure) {
+    state.providerFailure = providerFailure;
+    return providerFailure.code;
+  }
+  if (isDisconnected) return null;
+  if (driver.provider === "opencode") {
+    const code = openCodeAcpFailure(error);
+    noteSessionEvent(state.events, `OpenCode failure: ${code}`);
+    return code;
+  }
+  if (error instanceof RequestError && error.code === AUTH_REQUIRED)
+    return "cli_not_logged_in";
+  const diagnostic = error instanceof Error ? error.message : "unknown";
+  noteSessionEvent(state.events, `error ${diagnostic}`);
+  return classifiedAcpFailure(driver, diagnostic);
+}
+
+/**
+ * Tells how a turn ended whose adapter process went away.
+ *
+ * @param exit - The exit of the process.
+ * @param state - The session state that receives the redacted error stream.
+ * @param driver - The driver of the session.
+ * @param options - Whether the native Pica build ran, whose error stream stays
+ * out of the record, and the redaction of the session.
+ */
+export function disconnectedAcpOutcome(
+  exit: CliSessionExit,
+  state: AcpSessionState,
+  driver: Pick<AcpDriver, "provider" | "errors">,
+  options: {
+    readonly isPicaNative: boolean;
+    readonly redact: (line: string) => string;
+  },
+): {
+  readonly failure: PlanSessionTurn["failure"];
+  readonly errorCode: AgentErrorCode | null;
+} {
+  // The deadline of the process itself can fire before the one of the node.
+  if (exit.errorCode === "check_timeout")
+    return { failure: "timeout", errorCode: null };
+  if (
+    exit.errorCode === "acp_worker_limit" ||
+    exit.errorCode === "acp_output_overflow"
+  )
+    return { failure: "failed", errorCode: exit.errorCode };
+  if (
+    !options.isPicaNative &&
+    !["opencode", "antigravity"].includes(driver.provider)
+  )
+    noteAcpStderr(state, exit.stderrTail, options.redact);
+  return {
+    failure: "failed",
+    errorCode: disconnectedAcpFailure(
+      driver,
+      options.isPicaNative ? "" : exit.stderrTail,
+    ),
+  };
 }

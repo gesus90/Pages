@@ -75,7 +75,7 @@ function isToolRequest(text: string): boolean {
 
 function isHelperCall(
   rawInput: Readonly<Record<string, unknown>>,
-  helper: string,
+  helperPath: string,
 ): boolean {
   if (
     !Object.keys(rawInput).every((key) =>
@@ -86,7 +86,9 @@ function isHelperCall(
     return false;
   const words = parseExactCommand(rawInput.command);
   return (
-    words?.length === 2 && words[0] === helper && isToolRequest(words[1] ?? "")
+    words?.length === 2 &&
+    words[0] === helperPath &&
+    isToolRequest(words[1] ?? "")
   );
 }
 
@@ -102,7 +104,7 @@ function isImageRead(rawInput: Readonly<Record<string, unknown>>): boolean {
  * Answers a permission request of a Pica chat with Claude Code.
  *
  * @param request - The permission request of the adapter.
- * @param helper - The absolute path of the helper this turn may run, or `null`
+ * @param helperPath - The absolute path of the helper this turn may run, or `null`
  * between turns, when nothing is approved.
  * @returns Approval only for the exact helper call of this turn or for opening
  * an image file the helper wrote; every other request is refused.
@@ -114,14 +116,14 @@ function isImageRead(rawInput: Readonly<Record<string, unknown>>): boolean {
  */
 export function decidePicaHelperPermission(
   request: RequestPermissionRequest,
-  helper: string | null,
+  helperPath: string | null,
 ): AcpPermissionDecision {
   const call = asRecord(request.toolCall);
   const rawInput = asRecord(call?.rawInput);
   const isAllowed =
-    helper !== null &&
+    helperPath !== null &&
     rawInput !== null &&
-    ((call?.name === "Bash" && isHelperCall(rawInput, helper)) ||
+    ((call?.name === "Bash" && isHelperCall(rawInput, helperPath)) ||
       (call?.name === "Read" && isImageRead(rawInput)));
   if (!isAllowed) return refusePermission(request);
   const outcome = selectPermissionOption(request, ["allow_once"]);
@@ -129,9 +131,9 @@ export function decidePicaHelperPermission(
 }
 
 /** The instruction a Claude Code turn receives for the helper of that turn. */
-export function picaHelperUsage(helper: string): string {
+export function picaHelperUsage(helperPath: string): string {
   return [
-    `Use the Bash tool with exactly this command shape, only from this message: '${helper}' '{"action":"catalog"}' lists the tools; '${helper}' '{"action":"call","name":"projects_list","arguments":{}}' calls one (replace the name and arguments; a single quote inside the JSON is written '\\'').`,
+    `Use the Bash tool with exactly this command shape, only from this message: '${helperPath}' '{"action":"catalog"}' lists the tools; '${helperPath}' '{"action":"call","name":"projects_list","arguments":{}}' calls one (replace the name and arguments; a single quote inside the JSON is written '\\'').`,
     "The result is JSON. If it lists image files, open each with the Read tool to see it.",
     "Run no other command and open no other file.",
   ].join(" ");

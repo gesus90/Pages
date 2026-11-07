@@ -114,15 +114,17 @@ export class ProjectPolicyService {
     );
   }
 
-  /** Archiving requires its own explicit capability and complete project responsibility. */
+  /**
+   * Archiving follows the administrator rule of the permanent deletion (PAGE-244).
+   *
+   * @remarks
+   * Neither the archive capability of a role nor project management suffices.
+   */
   public canArchive(
     actor: AccountAccess,
     departmentIds: readonly string[],
   ): boolean {
-    return (
-      this.users.has(actor, CAPABILITY.ARCHIVE_PROJECTS) &&
-      this.hasCompleteScope(actor, departmentIds)
-    );
+    return this.canDeleteProject(actor, departmentIds);
   }
 
   /** Only the active administrator mode may permanently delete a project. */

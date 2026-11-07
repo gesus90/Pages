@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { ProjectPolicyService } from "@/backend/auth/ProjectPolicyService";
 import {
+  ProjectAccessDeniedError,
   ProjectDepartmentError,
   ProjectManagementDeniedError,
   ProjectNotFoundError,
@@ -20,8 +21,10 @@ import type {
   ProjectRepository,
   ProjectUpdate,
 } from "@/backend/database/repositories/ProjectRepository";
+import type { ProjectDeletionScope } from "@/definition/AgentProjectDeletion";
 import type {
   ArchivedProject,
+  ArchivedProjectContents,
   Project,
   ProjectActionPermissions,
 } from "@/definition/Project";
@@ -45,6 +48,21 @@ export class ProjectManagementService {
     this.channel = channel;
     this.repository = repository;
     this.cache = cache;
+  }
+
+  /**
+   * Returns the service for another surface with the same storage, cache and deletion effects.
+   *
+   * @param channel - Whether the administrator is read from the interface mode or from MCP eligibility.
+   */
+  public forChannel(channel: ActorChannel): ProjectManagementService {
+    const service = new ProjectManagementService(
+      this.repository,
+      this.cache,
+      channel,
+    );
+    service.deletionEffects = this.deletionEffects;
+    return service;
   }
 
   /** Archive listings offer permanent deletion only in current administrator mode. */
@@ -247,7 +265,7 @@ export class ProjectManagementService {
     this.invalidateScope(projectId);
   }
 
-  /** Archives only with the explicit archive capability and complete current scope. */
+  /** Archives only as administrator, the rule of the permanent deletion (PAGE-244). */
   public async archive(actor: User, projectId: string): Promise<void> {
     await this.repository.transaction(async (repository) => {
       const access = new ProjectAccessService(
@@ -271,6 +289,54 @@ export class ProjectManagementService {
         });
     });
     this.invalidateScope(projectId);
+  }
+
+  /**
+   * Reads an archived project with its contents for an account that may see it.
+   *
+   * @param actor - The authenticated account.
+   * @param projectId - The archived project.
+   * @returns The project, its team, goals, tags, dates and GitHub settings.
+   * @throws {ProjectNotFoundError} When no archived project has the id.
+   * @throws {ProjectAccessDeniedError} When the account may not see it.
+   */
+  public async readArchived(
+    actor: User,
+    projectId: string,
+  ): Promise<ArchivedProjectContents> {
+    return this.repository.readTransaction(async (repository) => {
+      const account = await new ProjectAccessService(
+        repository,
+        this.cache,
+        this.channel,
+      ).account(actor);
+      const project = await repository.findArchivedById(projectId);
+      if (!project) throw new ProjectNotFoundError();
+      const ids = project.departments.map((department) => department.id);
+      if (!this.policy.canAccess(account, ids))
+        throw new ProjectAccessDeniedError();
+      return {
+        project,
+        members: await repository.findMembers(projectId),
+        goals: await repository.findGoals(projectId),
+        tags: await repository.findTags(projectId),
+        events: await repository.findEvents(projectId),
+        integration: await repository.findIntegration(projectId),
+      };
+    });
+  }
+
+  /** Describes what a permanent deletion would remove; administrators only, like the deletion. */
+  public async describeDeletion(
+    actor: User,
+    projectId: string,
+  ): Promise<ProjectDeletionScope> {
+    const details = await new ProjectDeletionService(
+      this.repository,
+      this.cache,
+      this.channel,
+    ).describe(actor, projectId);
+    return details.scope;
   }
 
   /** Permanently deletes active or archived projects only in current active administrator mode. */

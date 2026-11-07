@@ -90,7 +90,13 @@ export function createPicaCodexGlue(request) {
   return {
     async catalog() {
       const result = await request(method.catalog, {});
-      if (!keys(result, ["tools", "context"]) || !Array.isArray(result.tools) || typeof result.context !== "string" || !/^[a-f0-9]{64}$/.test(result.context)) refuse();
+      if (
+        !keys(result, ["tools", "context"]) ||
+        !Array.isArray(result.tools) ||
+        typeof result.context !== "string" ||
+        !/^[a-f0-9]{64}$/.test(result.context)
+      )
+        refuse();
       policyContext = result.context;
       return result.tools;
     },
@@ -99,9 +105,16 @@ export function createPicaCodexGlue(request) {
       return policyContext;
     },
     async bindThread(threadId, context) {
-      if (!id(threadId) || typeof context !== "string" || context !== policyContext || !/^[a-f0-9]{64}$/.test(context)) refuse();
+      if (
+        !id(threadId) ||
+        typeof context !== "string" ||
+        context !== policyContext ||
+        !/^[a-f0-9]{64}$/.test(context)
+      )
+        refuse();
       const result = await request(method.bindThread, { threadId, context });
-      if (!keys(result, ["accepted"]) || typeof result.accepted !== "boolean") refuse();
+      if (!keys(result, ["accepted"]) || typeof result.accepted !== "boolean")
+        refuse();
       const accepted = result.accepted;
       if (accepted) policyContext = null;
       return accepted;
@@ -109,9 +122,16 @@ export function createPicaCodexGlue(request) {
     async prepare(threadId) {
       if (!id(threadId)) refuse();
       const result = await request(method.prepare, { threadId });
-      if (!keys(result, ["nonce", "operationId", "sequence"]) || typeof result.nonce !== "string" || !/^[a-f0-9]{64}$/.test(result.nonce) ||
-          typeof result.operationId !== "string" || !/^[0-9a-f-]{36}$/.test(result.operationId) ||
-          !Number.isSafeInteger(result.sequence) || result.sequence < 1) refuse();
+      if (
+        !keys(result, ["nonce", "operationId", "sequence"]) ||
+        typeof result.nonce !== "string" ||
+        !/^[a-f0-9]{64}$/.test(result.nonce) ||
+        typeof result.operationId !== "string" ||
+        !/^[0-9a-f-]{36}$/.test(result.operationId) ||
+        !Number.isSafeInteger(result.sequence) ||
+        result.sequence < 1
+      )
+        refuse();
       generation += 1;
       return result;
     },
@@ -145,7 +165,16 @@ export function createPicaCodexGlue(request) {
     },
     async dispatch(call) {
       if (
-        !keys(call, ["threadId", "turnId", "callId", "tool", "arguments", "operationId", "nonce", "sequence"]) ||
+        !keys(call, [
+          "threadId",
+          "turnId",
+          "callId",
+          "tool",
+          "arguments",
+          "operationId",
+          "nonce",
+          "sequence",
+        ]) ||
         !id(call.threadId) ||
         !id(call.turnId) ||
         !id(call.callId) ||

@@ -5,8 +5,10 @@ import { PICA_BRIDGE_MAXIMUM_BODY } from "@/backend/service/chat/acp/PicaBridge"
 
 import { routeArguments } from "../server-lib/route-arguments";
 
-import type { PicaBridgeRequest } from "@/backend/service/chat/acp/PicaBridge";
-import type { PicaBridgeResponse } from "@/backend/service/chat/acp/PicaBridgeProtocol";
+import type {
+  PicaBridgeRequest,
+  PicaBridgeResponse,
+} from "@/backend/service/chat/acp/PicaBridge";
 
 const bridge = vi.hoisted(() => ({
   handle: vi.fn<(request: PicaBridgeRequest) => Promise<PicaBridgeResponse>>(),
@@ -38,10 +40,9 @@ it("answers 404 without a configured bridge", async () => {
   expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
 });
 
-it("passes method, token and a bounded body reader and returns the JSON answer with session id", async () => {
+it("passes method, token, signal and a bounded body reader and returns the JSON answer", async () => {
   bridge.handle.mockImplementation(async (request: PicaBridgeRequest) => ({
     status: 200,
-    sessionId: "session-1",
     body: { echoed: await request.readBody() },
   }));
   const response = await action(
@@ -56,12 +57,13 @@ it("passes method, token and a bounded body reader and returns the JSON answer w
     ),
   );
   expect(response.status).toBe(200);
-  expect(response.headers.get("Mcp-Session-Id")).toBe("session-1");
+  expect(response.headers.get("Mcp-Session-Id")).toBeNull();
   expect(response.headers.get("Allow")).toBeNull();
   expect(await response.json()).toEqual({ echoed: "payload" });
   expect(bridge.handle).toHaveBeenCalledWith(
     expect.objectContaining({ method: "POST", authorization: "Bearer job" }),
   );
+  expect(bridge.handle.mock.calls[0]?.[0].signal).toBeInstanceOf(AbortSignal);
 });
 
 it("refuses to read a body that declares more than the bridge limit", async () => {
@@ -95,7 +97,7 @@ it("answers the stream loader with 405 and the allowed methods", async () => {
   });
   const response = await loader(routeArguments(bridgeRequest(), null, {}));
   expect(response.status).toBe(405);
-  expect(response.headers.get("Allow")).toBe("POST, DELETE");
+  expect(response.headers.get("Allow")).toBe("POST");
   expect(bridge.handle).toHaveBeenCalledWith(
     expect.objectContaining({ method: "GET" }),
   );

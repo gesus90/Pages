@@ -1,7 +1,9 @@
+import { accountForChannel } from "@/backend/auth/McpActorContext";
 import { ProjectPolicyService } from "@/backend/auth/ProjectPolicyService";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { RemoteError } from "@/backend/error/RemoteErrors";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { AuthorizationSnapshot } from "@/backend/database/repositories/AuthorizationRepository";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { Project } from "@/definition/Project";
@@ -15,16 +17,18 @@ import type { Project } from "@/definition/Project";
  *
  * @param snapshot - The current authorization snapshot.
  * @param userId - The signed-in person.
- * @returns The active account.
+ * @param channel - Whose administrator reading applies; the interface by default.
+ * @returns The active account, read for the channel.
  * @throws {RemoteError} `remote_access_denied` for an unknown or inactive account.
  */
 export function requireRemoteAccount(
   snapshot: AuthorizationSnapshot,
   userId: string,
+  channel: ActorChannel = "ui",
 ): AccountAccess {
   const actor = snapshot.accounts.find((account) => account.userId === userId);
   if (!actor?.isActive) throw new RemoteError("remote_access_denied");
-  return actor;
+  return accountForChannel(actor, channel);
 }
 
 /** Only administrators configure connections and see which secrets are stored. */
