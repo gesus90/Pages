@@ -21,6 +21,7 @@ import type {
   AgentPlanCommandResult,
   AgentPlanRecoveryCommandResult,
   AgentPlanChanged,
+  AgentPlanTemplateCommandResult,
 } from "./AgentPlanOperations.js";
 import type { ChatAgentDeleted } from "./ChatAgentOperations.js";
 import type { PageAgentChanged } from "./PageAgentOperations.js";
@@ -171,6 +172,7 @@ export interface PagesAgentWriteResponse {
     | AgentWorkspaceChanged
     | AgentPlanChanged
     | AgentPlanCommandResult
+    | AgentPlanTemplateCommandResult
     | AgentPlanRecoveryCommandResult
     | PageAgentChanged
     | ChatAgentDeleted

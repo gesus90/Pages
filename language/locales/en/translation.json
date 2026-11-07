@@ -756,6 +756,7 @@
         "template_name_required": "Enter a name for the template.",
         "template_name_taken": "You already have a template with this name. Choose another name.",
         "template_not_found": "The template no longer exists.",
+        "template_owner_only": "Only the owner changes or deletes a template.",
         "template_invalid": "This node cannot be saved as a template.",
         "plan_access_denied": "This plan or run is not accessible.",
         "plan_conflict": "The plan changed. Reload before saving or starting.",

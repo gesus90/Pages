@@ -637,7 +637,7 @@ export type AgentPlanReadResult =
   | { readonly control: AgentPlanControlEntry };
 
 /** Additive contract revision, independently observable from a client's MCP bundle version. */
-export const AGENT_PLAN_CONTRACT_VERSION = 13;
+export const AGENT_PLAN_CONTRACT_VERSION = 14;
 
 /** An immutable, owner-authorized checkpoint projection encoded as JSON text. */
 export interface AgentPlanCheckpointEntry {
@@ -664,10 +664,12 @@ export interface AgentPlanCapabilities {
     readonly stdio: "client_form";
     readonly http: "unavailable";
     readonly pica: "target_bound_message";
+    /** A paired Pages MCP machine asks back and confirms with `confirmed: true`. */
+    readonly device: "confirmed_flag";
   };
 }
 
-/** Existing editor templates are append-only; update/delete are not product operations. */
+/** A node template; only its owner renames, replaces or deletes it. */
 export interface AgentPlanTemplateEntry {
   readonly id: string;
   readonly name: string;
@@ -722,9 +724,31 @@ export const AGENT_PLAN_COMMAND_OPERATIONS = [
   "plans.resume",
   "plans.stop",
   "plans.templates.save",
+  "plans.templates.update",
+  "plans.templates.delete",
 ] as const;
 export type AgentPlanCommandOperation =
   (typeof AGENT_PLAN_COMMAND_OPERATIONS)[number];
+
+/** The commands that change or delete a stored node template instead of a plan. */
+export type AgentPlanTemplateCommandOperation = Extract<
+  AgentPlanCommandOperation,
+  "plans.templates.update" | "plans.templates.delete"
+>;
+
+/**
+ * Acknowledges a change of a node template; a repeated call with the same operation ID returns it again.
+ *
+ * @remarks
+ * Copies already inserted into plans are independent nodes and stay as they are.
+ */
+export interface AgentPlanTemplateCommandResult {
+  readonly action: AgentPlanTemplateCommandOperation;
+  readonly templateId: string;
+  /** The template as stored after a change; absent after a deletion. */
+  readonly template?: AgentPlanTemplateEntry;
+  readonly deleted?: boolean;
+}
 
 /** Explicit recovery decisions use the existing recovery journal. */
 export const AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS = [

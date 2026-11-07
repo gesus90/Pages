@@ -46,6 +46,7 @@ import { ProjectRepository } from "@/backend/database/repositories/ProjectReposi
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
+import { agentConfirmationWord } from "@/backend/service/agents/AgentConfirmation";
 
 import { runnerAssetUpload } from "./agent-asset-return.server";
 import { createMcpDeviceServices } from "./mcp-device-services.server";
@@ -67,6 +68,7 @@ import type { WikiService } from "@/backend/service/WikiService";
 import type { Database } from "@/backend/database/Database";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
+import type { McpPlanServices } from "@/backend/service/mcp/plan/McpPlanApi";
 
 /** The operation services behind the agent API, the plan bridge and the chat. */
 export interface McpApplicationServices extends McpDeviceApplicationServices {
@@ -78,6 +80,10 @@ export interface McpApplicationServices extends McpDeviceApplicationServices {
   readonly agentAssetDownloadService: AgentAssetDownloadService;
   readonly pagesEventPublisher: PagesEventPublisher;
   readonly pagesAgentApiService: PagesAgentApiService;
+  /** The plan operations of the paired Pages MCP machines, on the `mcp` channel (PAGE-246). */
+  readonly mcpPlanServices: () => McpPlanServices;
+  /** The plan service of the paired Pages MCP machines, bound to the `mcp` channel (PAGE-246, PAGE-250). */
+  readonly mcpPlanService: () => AgentPlanService;
 }
 
 /** What the operations of one agent channel share. */
@@ -249,6 +255,65 @@ function createChatOperationRouter(
   });
 }
 
+/**
+ * Builds the plan operations of the paired Pages MCP machines (PAGE-246).
+ *
+ * @remarks
+ * The same operation layer as the agent tools and Pica, over the plan
+ * service of the plan page bound to the `mcp` channel; runs are no part of
+ * the interface, so their sessions and recovery are not wired.
+ */
+function createMcpPlanServices(
+  database: Database,
+  channelPlans: AgentPlanService,
+  identities: AgentIdentityService,
+): McpPlanServices {
+  return {
+    operations: new AgentPlanOperationService({
+      database,
+      plans: channelPlans,
+      resources: {
+        plans: channelPlans,
+        templates: new AgentPlanTemplateService({
+          plans: channelPlans,
+          templates: new AgentPlanTemplateRepository(database),
+        }),
+      },
+    }),
+    identities,
+    confirmationWord: (userId) => agentConfirmationWord(database, userId),
+  };
+}
+
+/**
+ * Builds the plan service of the paired Pages MCP machines on their first request (PAGE-246, PAGE-250).
+ *
+ * @remarks
+ * The plan service of the `mcp` channel is a second view of the shared plans;
+ * a process that no paired machine calls never builds it. The plan API and
+ * the plan notation API share this one view.
+ */
+function lazyMcpPlanService(plans: AgentPlanService): () => AgentPlanService {
+  let channelPlans: AgentPlanService | null = null;
+  return () => {
+    channelPlans ??= plans.forChannel("mcp");
+    return channelPlans;
+  };
+}
+
+/** Builds the plan operations of the paired Pages MCP machines on their first request (PAGE-246). */
+function lazyMcpPlanServices(
+  database: Database,
+  channelPlans: () => AgentPlanService,
+  identities: AgentIdentityService,
+): () => McpPlanServices {
+  let services: McpPlanServices | null = null;
+  return () => {
+    services ??= createMcpPlanServices(database, channelPlans(), identities);
+    return services;
+  };
+}
+
 /** Shares the normal own-session service with the MCP-specific confirmation adapter. */
 function createChatSessionOperations(input: {
   readonly database: Database;
@@ -398,6 +463,7 @@ export function createMcpServices(
   workspace: McpWorkspace,
 ): McpApplicationServices {
   const identities = new AgentIdentityService(users, administration);
+  const mcpPlanService = lazyMcpPlanService(workspace.plans);
   const {
     staging,
     agentAssetService,
@@ -471,5 +537,7 @@ export function createMcpServices(
         workspace.pageAgents,
       ),
     ),
+    mcpPlanServices: lazyMcpPlanServices(database, mcpPlanService, identities),
+    mcpPlanService,
   };
 }

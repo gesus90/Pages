@@ -14,6 +14,7 @@ import { emptyAgentPlan } from "@/definition/AgentPlan";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { withReadScope } from "@/backend/database/ReadScope";
 
+import { planDependenciesForChannel } from "./AgentPlanChannel";
 import { withRunCommand } from "./runs/RunCommandView";
 import {
   authorizedPlanControl,
@@ -38,24 +39,18 @@ import { AgentPlanScripts } from "./AgentPlanScripts";
 import { AgentPlanCloning } from "./AgentPlanCloning";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 
-import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
-import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
-import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
+import type { PlanDependencies } from "./AgentPlanDependencies";
 import type { AgentPlanCloneInput } from "./AgentPlanClone";
 import type {
   AgentPlanContext,
   PlanPageDependencies,
   PlanSelection,
 } from "./AgentPlanPage";
-import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { DatabaseTransaction } from "@/backend/database/Database";
-import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
-import type {
-  AgentPlanRunEntry,
-  AgentPlanRunRepository,
-} from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import type { AgentPlanRunEntry } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentRunRecordKey } from "@/backend/database/repositories/project/ProjectDeletionFiles";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
@@ -73,44 +68,10 @@ import type {
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentTaskAssignment } from "@/definition/AgentUsage";
-import type { AgentWorkspaceService } from "./AgentWorkspaceService";
-import type { AgentProfileService } from "./AgentProfileService";
-import type { AgentParameterService } from "./AgentParameterService";
-import type { AgentPlanPhases } from "./AgentPlanPhases";
-import type { AgentPlanTasks } from "./AgentPlanTasks";
-import type { AgentPlanAccess, AgentPlanTeam } from "./AgentPlanAccess";
-import type { AgentPlanPreparation } from "./AgentPlanPreparation";
-import type { PlanRunEnginePort } from "./runs/PlanRunEnginePort";
-import type { AgentPlanSessionGrants } from "./AgentPlanSessionAccess";
-import type { AgentRunArchive } from "./AgentRunArchive";
-import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
-import type { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
+import type { AgentPlanTeam } from "./AgentPlanAccess";
 import type { AgentPlanStartRejectionPage } from "@/definition/AgentPlanStartRejection";
 
-export interface PlanDependencies {
-  readonly workspaceCleanup?: AgentWorkspaceCleanupRepository;
-  readonly workGate?: AgentPlanWorkGate;
-  readonly workspaceCatalog?: AgentPlanWorkspaces;
-  readonly remoteExecution?: AgentPlanRemoteExecution;
-  readonly remoteTargets?: AgentPlanRemoteTargets;
-  readonly plans: AgentPlanRepository;
-  readonly runs: AgentPlanRunRepository;
-  readonly workspaces: AgentWorkspaceService;
-  readonly profiles: AgentProfileService;
-  readonly parameters: AgentParameterService;
-  readonly tasks: AgentPlanTasks;
-  readonly phases: AgentPlanPhases;
-  readonly access: AgentPlanAccess;
-  readonly preparation: AgentPlanPreparation;
-  readonly engine: PlanRunEnginePort;
-  /** Ends the MCP access of interrupted sessions; absent without plan sessions. */
-  readonly sessions?: AgentPlanSessionGrants;
-  /** Serves the prompts nodes were sent. */
-  readonly archive?: AgentRunArchive;
-  /** The interpreter profiles of script nodes; absent, no profile exists. */
-  readonly scripts?: AgentPlanScripts;
-  readonly startRejections?: AgentPlanStartRejectionRepository;
-}
+export type { PlanDependencies } from "./AgentPlanDependencies";
 
 /** Route-facing plan facade; graph, authorization and execution responsibilities stay in small services. */
 export class AgentPlanService {
@@ -127,6 +88,18 @@ export class AgentPlanService {
       ...dependencies,
       revise: (userId, id, input) => this.revise(userId, id, input),
     });
+  }
+
+  /**
+   * The same plans for another surface, over the same storage, runs and engine (PAGE-246).
+   *
+   * @param channel - The surface whose administrator reading decides workspace and plan access.
+   * @returns A plan service whose workspace access reads the administrator role for that surface.
+   */
+  public forChannel(channel: ActorChannel): AgentPlanService {
+    return new AgentPlanService(
+      planDependenciesForChannel(this.dependencies, channel),
+    );
   }
 
   /**

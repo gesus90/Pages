@@ -8,6 +8,7 @@ import {
   ungroupPlanGroup,
 } from "@/definition/AgentPlanGroupEdit";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
+import { emptyPlanDecision } from "@/definition/AgentPlanBranchingEdit";
 import {
   planFrameMoveNeedsRepair,
   planFrameUngroupNeedsRepair,
@@ -36,6 +37,7 @@ import {
   selectedPlanModel,
 } from "./AgentPlanConfigurationChanges";
 import { AGENT_PLAN_NODE_FIELDS } from "./AgentPlanOperationInput";
+import { applyPlanPortConnection } from "./AgentPlanPortConnections";
 
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { PageAgentModel } from "@/definition/PageAgent";
@@ -124,7 +126,10 @@ function defaultFormat(value: unknown): AgentPlanParameter["format"] {
 
 function newNodeFields(
   change: Extract<AgentPlanChange, { action: "addNode" }>,
+  position: { readonly x: number; readonly y: number },
 ): Readonly<Record<string, unknown>> {
+  // As on the palette: a decision without a condition until one is connected.
+  if (change.type === "decision") return { ...emptyPlanDecision("", position) };
   if (change.type === "loop")
     return { ...emptyPlanLoop("", "", { x: 0, y: 0 }) };
   if (change.type === "agent")
@@ -247,9 +252,10 @@ function addNode(
   )
     throw refused("element_exists");
   const { configuration, ...fields } = change.fields;
+  const position = nextPosition(plan);
   const node = readPlanNode({
-    ...nextPosition(plan),
-    ...newNodeFields(change),
+    ...position,
+    ...newNodeFields(change, position),
     ...(change.type === "agent" ? { agentId: id } : {}),
     ...(change.type === "agent" &&
     fields.agentId === undefined &&
@@ -339,9 +345,16 @@ function reassignedNode(
 function connect(
   plan: AgentPlanInput,
   change: Extract<AgentPlanChange, { action: "connect" | "disconnect" }>,
+  context: AgentPlanChangeContext,
 ): AgentPlanInput {
   findNode(plan, change.from);
   findNode(plan, change.to);
+  if (change.ports)
+    return applyPlanPortConnection(
+      plan,
+      { ...change, ports: change.ports },
+      context.agents,
+    );
   const edges = [
     ...plan.edges,
     ...plan.nodes.flatMap((node) => (node.type === "loop" ? node.edges : [])),
@@ -428,7 +441,7 @@ export function applyPlanChanges(
       findNode(current, change.nodeId);
       current = removePlanNode(current, change.nodeId);
     } else if (change.action === "connect" || change.action === "disconnect")
-      current = connect(current, change);
+      current = connect(current, change, context);
     else if (change.action === "bind" || change.action === "unbind")
       current = bindInput(current, change);
     else {

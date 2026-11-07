@@ -13,6 +13,7 @@ import {
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type {
+  AgentPlanTemplateJournal,
   AgentPlanTemplateRepository,
   AgentPlanTemplateScope,
 } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
@@ -59,6 +60,23 @@ export interface AgentPlanTemplateDraft {
   readonly node: AgentPlanTemplateNode;
 }
 
+/** A stored template, named with the workspace whose project decides which shared templates count. */
+export interface AgentPlanTemplateTarget {
+  readonly workspaceId: string;
+  readonly templateId: string;
+}
+
+/** A change of a template: a new name, the node of a plan that replaces its node, or both. */
+export interface AgentPlanTemplateRevision {
+  /** The new name, still unchecked; `null` keeps the name. */
+  readonly name: string | null;
+  /** The plan and its node that replace the stored node; `null` keeps the node. */
+  readonly source: {
+    readonly context: AgentPlanTemplateContext;
+    readonly node: AgentPlanTemplateNode;
+  } | null;
+}
+
 /**
  * Saves node configurations as templates and checks every insertion again.
  *
@@ -72,7 +90,8 @@ export interface AgentPlanTemplateDraft {
  * plan. An insertion checks agents, models and referenced values against the
  * target plan's project at that moment, for the person who inserts, and
  * refuses with the first unavailable reference: nothing falls back to
- * another agent, model or person.
+ * another agent, model or person. Only the owner renames, replaces or deletes
+ * a template; the team it was saved for stays.
  */
 export class AgentPlanTemplateService {
   private readonly dependencies: TemplateDependencies;
@@ -118,17 +137,7 @@ export class AgentPlanTemplateService {
     ) => Promise<void>,
   ): Promise<AgentPlanNodeTemplate> {
     const name = readPlanTemplateName(draft.name);
-    await this.requireEditable(userId, context);
-    // The template gets identifiers of its own, so it names no node of the source plan.
-    const node = await this.pinned(
-      userId,
-      context.workspaceId,
-      instantiatePlanTemplate(planTemplateNode(draft.node), randomUUID),
-    );
-    requireCredentialFreeText(JSON.stringify(node));
-    await this.dependencies.plans.checkNodes(userId, context.workspaceId, [
-      node,
-    ]);
+    const node = await this.prepared(userId, context, draft.node);
     const team = await this.dependencies.plans.team(
       userId,
       context.workspaceId,
@@ -183,6 +192,103 @@ export class AgentPlanTemplateService {
       copy,
     ]);
     return copy;
+  }
+
+  /**
+   * Renames a template of the person, replaces its node with a node of a plan, or both.
+   *
+   * @param userId - The signed-in person.
+   * @param target - The template and the workspace it is read in.
+   * @param revision - The new name, the replacing node, or both.
+   * @param journal - Runs in the commit of the change.
+   * @returns The template as stored after the change.
+   * @throws {AgentError} `template_not_found` for a template the person does
+   * not see, `template_owner_only` for one of someone else,
+   * `template_name_taken` for a name the person already uses,
+   * `plan_access_denied` without the right to edit the source plan, or the
+   * code of the first reference the replacing node cannot use.
+   *
+   * @remarks
+   * The replacing node takes the way of {@link save}: its outer connections
+   * stay behind, it gets identifiers of its own and is checked like a new
+   * template.
+   */
+  public async update(
+    userId: string,
+    target: AgentPlanTemplateTarget,
+    revision: AgentPlanTemplateRevision,
+    journal?: AgentPlanTemplateJournal,
+  ): Promise<AgentPlanNodeTemplate> {
+    await this.requireVisible(userId, target);
+    const name =
+      revision.name === null ? null : readPlanTemplateName(revision.name);
+    const node = revision.source
+      ? await this.prepared(
+          userId,
+          revision.source.context,
+          revision.source.node,
+        )
+      : null;
+    return this.dependencies.templates.update(
+      { id: target.templateId, ownerId: userId, name, node },
+      journal,
+    );
+  }
+
+  /**
+   * Deletes a template of the person.
+   *
+   * @param userId - The signed-in person.
+   * @param target - The template and the workspace it is read in.
+   * @param journal - Runs in the commit of the deletion.
+   * @throws {AgentError} `template_not_found` for a template the person does
+   * not see, `template_owner_only` for one of someone else.
+   *
+   * @remarks
+   * Copies inserted into plans are independent nodes and stay unchanged.
+   */
+  public async remove(
+    userId: string,
+    target: AgentPlanTemplateTarget,
+    journal?: AgentPlanTemplateJournal,
+  ): Promise<void> {
+    await this.requireVisible(userId, target);
+    await this.dependencies.templates.remove(
+      { id: target.templateId, ownerId: userId },
+      journal,
+    );
+  }
+
+  /** A template the person does not work with reads as missing, like one that does not exist. */
+  private async requireVisible(
+    userId: string,
+    target: AgentPlanTemplateTarget,
+  ): Promise<void> {
+    const team = await this.dependencies.plans.team(userId, target.workspaceId);
+    const template = await this.dependencies.templates.find(
+      readScope(userId, team),
+      target.templateId,
+    );
+    if (!template) throw new AgentError("template_not_found");
+  }
+
+  /** The node a template stores, with identifiers of its own so it names no node of the source plan. */
+  private async prepared(
+    userId: string,
+    context: AgentPlanTemplateContext,
+    source: AgentPlanTemplateNode,
+  ): Promise<AgentPlanTemplateNode> {
+    await this.requireEditable(userId, context);
+    const node = await this.pinned(
+      userId,
+      context.workspaceId,
+      instantiatePlanTemplate(planTemplateNode(source), randomUUID),
+    );
+    requireCredentialFreeText(JSON.stringify(node));
+    await this.dependencies.plans.checkNodes(userId, context.workspaceId, [
+      node,
+    ]);
+    return node;
   }
 
   private async requireEditable(

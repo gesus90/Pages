@@ -1,5 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import type {
@@ -75,6 +76,20 @@ export class AgentPlanAccess {
     this.workspaces = workspaces;
     this.sharing = sharing;
     this.catalog = catalog;
+  }
+
+  /**
+   * Returns the access rules for another surface, with the same plans and shares.
+   *
+   * @param channel - The surface whose administrator reading decides workspace access.
+   */
+  public forChannel(channel: ActorChannel): AgentPlanAccess {
+    return new AgentPlanAccess(
+      this.plans,
+      this.workspaces.forChannel(channel),
+      this.sharing,
+      this.catalog?.forChannel(channel),
+    );
   }
 
   /** Keeps orphaned plans repairable under their existing project and sharing rights. */

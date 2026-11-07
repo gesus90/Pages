@@ -209,6 +209,50 @@ function mcpWorkspaceRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   ];
 }
 
+/** The plan notation API of the stand-alone Pages MCP program, admitted by the device token (PAGE-250). */
+function mcpPlanNotationRoutes(routes: RouteBuilder): RouteConfigEntry[] {
+  const { resource } = routes;
+  const notation = "api/mcp/v1/plan-notation";
+  return [
+    resource(notation, "routes/api-mcp-v1-plan-notation.ts"),
+    resource(`${notation}/check`, "routes/api-mcp-v1-plan-notation-check.ts"),
+    resource(`${notation}/:planId`, "routes/api-mcp-v1-plan-notation-plan.ts"),
+    resource(
+      `${notation}/:planId/layout`,
+      "routes/api-mcp-v1-plan-notation-layout.ts",
+    ),
+  ];
+}
+
+/** The plan and node template API of the stand-alone Pages MCP program, admitted by the device token (PAGE-246). */
+function mcpPlanRoutes(routes: RouteBuilder): RouteConfigEntry[] {
+  const { resource } = routes;
+  const plans = "api/mcp/v1/plans";
+  const plan = `${plans}/:planId`;
+  const parameter = `${plan}/parameters/:parameterId`;
+  const templates = "api/mcp/v1/plan-templates";
+  const template = `${templates}/:templateId`;
+  return [
+    resource(`${plans}/capabilities`, "routes/api-mcp-v1-plan-capabilities.ts"),
+    resource(plans, "routes/api-mcp-v1-plans.ts"),
+    resource(`${plans}/sources`, "routes/api-mcp-v1-plan-sources.ts"),
+    resource(plan, "routes/api-mcp-v1-plan.ts"),
+    resource(`${plan}/clone`, "routes/api-mcp-v1-plan-clone.ts"),
+    resource(`${plan}/delete`, "routes/api-mcp-v1-plan-delete.ts"),
+    resource(`${plan}/parameters`, "routes/api-mcp-v1-plan-parameters.ts"),
+    resource(parameter, "routes/api-mcp-v1-plan-parameter.ts"),
+    resource(
+      `${parameter}/remove`,
+      "routes/api-mcp-v1-plan-parameter-remove.ts",
+    ),
+    resource(`${plan}/control`, "routes/api-mcp-v1-plan-control.ts"),
+    resource(`${plan}/templates`, "routes/api-mcp-v1-plan-template-save.ts"),
+    resource(templates, "routes/api-mcp-v1-plan-templates.ts"),
+    resource(template, "routes/api-mcp-v1-plan-template.ts"),
+    resource(`${template}/delete`, "routes/api-mcp-v1-plan-template-delete.ts"),
+  ];
+}
+
 /** Sign-in, setup and the other routes without the workspace frame. */
 function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource, page, indexPage } = routes;
@@ -247,6 +291,8 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ...mcpTicketRoutes(routes),
     ...mcpProjectRoutes(routes),
     ...mcpWorkspaceRoutes(routes),
+    ...mcpPlanRoutes(routes),
+    ...mcpPlanNotationRoutes(routes),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),
     resource("favicon.ico", "routes/favicon.ts"),

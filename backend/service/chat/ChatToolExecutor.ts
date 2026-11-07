@@ -38,6 +38,12 @@ const SERVER_KEYS: ReadonlySet<string> = new Set([
   "confirmation",
 ]);
 
+/** Plan deletions whose consent Pages binds to the exact target in a later human message. */
+const PLAN_DELETIONS: ReadonlySet<string> = new Set([
+  "plans.delete",
+  "plans.templates.delete",
+]);
+
 /** One action the agent requested. */
 export interface ChatActionRequest {
   readonly operation: string;
@@ -98,7 +104,7 @@ export class ChatToolExecutor {
     if (!isChatOperation(operation))
       return { ok: false, error: "UNKNOWN_OPERATION" };
     // The legacy action envelope has no server-owned conversation target binding.
-    if (operation === "plans.delete")
+    if (PLAN_DELETIONS.has(operation))
       return { ok: false, error: "CONFIRMATION_REQUIRED" };
     logEvent({
       level: "debug",
@@ -144,15 +150,15 @@ export class ChatToolExecutor {
       ),
     );
     const request = { operation: action.operation, parameters };
+    const isDeletion = PLAN_DELETIONS.has(action.operation);
     if (
-      action.operation === "plans.delete" &&
+      isDeletion &&
       !this.planConfirmation.hasApproval(request, context, turn)
     ) {
-      const prompt = await this.deletionPrompt(
-        context.userId,
-        parameters,
-        turn,
-      );
+      const prompt =
+        action.operation === "plans.delete"
+          ? await this.deletionPrompt(context.userId, parameters, turn)
+          : await this.templateDeletionPrompt(context.userId, parameters, turn);
       if (prompt.error !== "CONFIRMATION_REQUIRED") return prompt;
       if (!this.planConfirmation.consume(request, context, turn)) return prompt;
     }
@@ -161,9 +167,7 @@ export class ChatToolExecutor {
       ...(isChatWriteOperation(action.operation)
         ? { operationId: picaPlanOperationId(request, context, turn.id) }
         : {}),
-      ...(action.operation === "plans.delete"
-        ? { confirmation: turn.confirmation }
-        : {}),
+      ...(isDeletion ? { confirmation: turn.confirmation } : {}),
     });
   }
 
@@ -286,6 +290,37 @@ export class ChatToolExecutor {
         confirmation: turn.confirmation,
         scope:
           "Only this saved plan is removed; finished history stays stored, workspace files and templates stay untouched. Ask the person to reply with the existing confirmation word in a new message.",
+      },
+    };
+  }
+
+  /** Names the node template a deletion would remove, before the person confirms it (PAGE-246). */
+  private async templateDeletionPrompt(
+    userId: string,
+    parameters: Readonly<Record<string, unknown>>,
+    turn: PicaPlanTurn,
+  ): Promise<ChatActionOutcome> {
+    const response = await this.dispatch(userId, "plans.templates.read", {
+      workspaceId: parameters.workspaceId,
+      templateId: parameters.templateId,
+    });
+    if (!response.ok) return response;
+    const result = response.result;
+    if (
+      typeof result !== "object" ||
+      result === null ||
+      !("template" in result)
+    )
+      return { ok: false, error: "FAILED" };
+    return {
+      ok: false,
+      error: "CONFIRMATION_REQUIRED",
+      result: {
+        template: result.template,
+        workspaceId: parameters.workspaceId,
+        confirmation: turn.confirmation,
+        scope:
+          "Only this node template is removed; copies already inserted into plans stay unchanged. Only its owner may delete it. Ask the person to reply with the existing confirmation word in a new message.",
       },
     };
   }

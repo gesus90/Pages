@@ -116,6 +116,7 @@ export async function readPlanResources(
           stdio: "client_form",
           http: "unavailable",
           pica: "target_bound_message",
+          device: "confirmed_flag",
         },
       },
     };

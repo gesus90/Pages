@@ -53,4 +53,5 @@ export const PLAN_ADDABLE_TYPES = [
   "group",
   "loop",
   "stack",
+  "decision",
 ] as const;

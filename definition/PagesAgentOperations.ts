@@ -295,7 +295,9 @@ export interface AgentRevisionConflict {
  * The rest belong to agent plans: `graph_invalid` (the graph check refused
  * the plan), `parameter_value_invalid` (a value does not fit its format),
  * `workspace_unavailable` (the workspace cannot be used), `plan_name_taken`
- * (another plan of the same team and project has the name), `element_missing`
+ * (another plan of the same team and project has the name),
+ * `template_name_taken` (`CONFLICT`, a rename to a name the owner already
+ * uses for another node template), `element_missing`
  * (a change names a node, connection or input the plan does not have, or one
  * of another kind) and `element_exists` (a node identifier or parameter name
  * is taken). The last three belong to the bulk change of checklist entries,
@@ -334,6 +336,7 @@ export const AGENT_REJECTION_REASONS = [
   "plan_script_invalid",
   "plan_script_profile_missing",
   "plan_name_taken",
+  "template_name_taken",
   "plan_schema_unsupported",
   "plan_running",
   "plan_run_unavailable",

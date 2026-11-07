@@ -1,6 +1,7 @@
 import { ProjectPolicyService } from "@/backend/auth/ProjectPolicyService";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { AgentPlanWorkspaceRepository } from "@/backend/database/repositories/agent/AgentPlanWorkspaceRepository";
 import type { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import type { RemoteWorkspaceService } from "@/backend/service/remote/RemoteWorkspaceService";
@@ -31,6 +32,19 @@ export class AgentPlanWorkspaces {
 
   public constructor(dependencies: PlanWorkspaceDependencies) {
     this.dependencies = dependencies;
+  }
+
+  /**
+   * Returns the catalog for another surface over the same registrations.
+   *
+   * @param channel - The surface whose administrator reading decides workspace access.
+   */
+  public forChannel(channel: ActorChannel): AgentPlanWorkspaces {
+    return new AgentPlanWorkspaces({
+      ...this.dependencies,
+      local: this.dependencies.local.forChannel(channel),
+      remote: this.dependencies.remote.forChannel(channel),
+    });
   }
 
   /** Reads registrations afresh, independently of a runner's transient catalogs. */

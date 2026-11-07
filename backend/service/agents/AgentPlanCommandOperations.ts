@@ -17,6 +17,7 @@ import { readPlanCommand } from "./AgentPlanCommandInput";
 import { requireAgentConfirmation } from "./AgentConfirmation";
 import { readPlanControlEntry } from "./AgentPlanControlViews";
 import { translatePlanError } from "./AgentPlanOperationErrors";
+import { AgentPlanTemplateCommands } from "./AgentPlanTemplateCommands";
 
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type {
@@ -29,6 +30,8 @@ import type { AgentPlanStartRejection } from "@/definition/AgentPlanStartRejecti
 import type {
   AgentPlanCommandOperation,
   AgentPlanCommandResult,
+  AgentPlanTemplateCommandOperation,
+  AgentPlanTemplateCommandResult,
 } from "@/definition/AgentPlanOperations";
 import type { AgentPlanCommandRequest } from "./AgentPlanCommandInput";
 import type { AgentPlanService } from "./AgentPlanService";
@@ -39,6 +42,7 @@ export class AgentPlanCommandOperations {
   private readonly database: Pick<Database, "transaction">;
   private readonly plans: AgentPlanService;
   private readonly templates: AgentPlanTemplateService;
+  private readonly templateCommands: AgentPlanTemplateCommands;
   private readonly queue = new SerialQueue();
 
   public constructor(dependencies: {
@@ -49,6 +53,7 @@ export class AgentPlanCommandOperations {
     this.database = dependencies.database;
     this.plans = dependencies.plans;
     this.templates = dependencies.templates;
+    this.templateCommands = new AgentPlanTemplateCommands(dependencies);
   }
 
   /** Applies one command or returns its committed acknowledgement after fresh access checks. */
@@ -56,7 +61,11 @@ export class AgentPlanCommandOperations {
     userId: string,
     operation: AgentPlanCommandOperation,
     input: unknown,
-  ): Promise<AgentPlanCommandResult> {
+  ): Promise<AgentPlanCommandResult | AgentPlanTemplateCommandResult> {
+    if (isTemplateCommand(operation))
+      return this.queue.run(() =>
+        this.templateCommands.write(userId, operation, input),
+      );
     const request = readPlanCommand(operation, input);
     return this.queue.run(async () => {
       if (operation === "plans.delete")
@@ -337,6 +346,15 @@ export class AgentPlanCommandOperations {
       },
     );
   }
+}
+
+function isTemplateCommand(
+  operation: AgentPlanCommandOperation,
+): operation is AgentPlanTemplateCommandOperation {
+  return (
+    operation === "plans.templates.update" ||
+    operation === "plans.templates.delete"
+  );
 }
 
 function readCommandRejection(json: string): {

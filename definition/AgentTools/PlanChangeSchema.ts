@@ -368,6 +368,33 @@ function change(action: string, properties: ToolProperties): PropertySchema {
   };
 }
 
+/** The ports of a connection as the editor names them; none means a plain flow edge. */
+const PORT: PropertySchema = { type: "string", minLength: 1, maxLength: 100 };
+
+/**
+ * A connection between two nodes, optionally through named ports.
+ *
+ * @remarks
+ * `fromPort` and `toPort` come together, Pages refuses one alone: `true-out`/`false-out` of a decision,
+ * `passed-out` into `condition-in`, `value-out` into `event-in`, a ticket or
+ * value node with `value-out` into the `flow-in` of a stack, or `flow-out`
+ * into `flow-in`.
+ */
+function connection(action: "connect" | "disconnect"): PropertySchema {
+  return {
+    type: "object",
+    properties: {
+      action: { const: action },
+      from: PLAN_NODE_IDENTIFIER_SCHEMA,
+      to: PLAN_NODE_IDENTIFIER_SCHEMA,
+      fromPort: PORT,
+      toPort: PORT,
+    },
+    required: ["action", "from", "to"],
+    additionalProperties: false,
+  };
+}
+
 /** Ordered atomic plan edits accepted by Pages, without raw graph replacement. */
 export const CHANGES: PropertySchema = {
   type: "array",
@@ -437,14 +464,8 @@ export const CHANGES: PropertySchema = {
         y: COORDINATE_SCHEMA,
       }),
       change("removeNode", { nodeId: PLAN_NODE_IDENTIFIER_SCHEMA }),
-      change("connect", {
-        from: PLAN_NODE_IDENTIFIER_SCHEMA,
-        to: PLAN_NODE_IDENTIFIER_SCHEMA,
-      }),
-      change("disconnect", {
-        from: PLAN_NODE_IDENTIFIER_SCHEMA,
-        to: PLAN_NODE_IDENTIFIER_SCHEMA,
-      }),
+      connection("connect"),
+      connection("disconnect"),
       change("bind", {
         nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
         parameter: PARAMETER_NAME,

@@ -55,6 +55,7 @@ const REJECTION_REASONS: Readonly<
   plan_script_invalid: true,
   plan_script_profile_missing: true,
   plan_name_taken: true,
+  template_name_taken: true,
   plan_schema_unsupported: true,
   plan_running: true,
   plan_run_unavailable: true,

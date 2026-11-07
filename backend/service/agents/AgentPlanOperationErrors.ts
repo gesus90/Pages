@@ -94,7 +94,10 @@ function translateAgentError(error: AgentError): AgentOperationError {
     error.code === "template_not_found"
   )
     return new AgentOperationError("NOT_FOUND");
-  if (error.code === "plan_project_owner_only")
+  if (
+    error.code === "plan_project_owner_only" ||
+    error.code === "template_owner_only"
+  )
     return new AgentOperationError("FORBIDDEN");
   if (error.code === "plan_context_changed")
     return new AgentOperationError("CONFLICT", {

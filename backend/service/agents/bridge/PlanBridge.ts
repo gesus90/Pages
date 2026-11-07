@@ -202,7 +202,10 @@ export class PlanBridge {
   ): Promise<PlanBridgeToolResult> {
     try {
       // Consent for a deletion would have to come from a person at a client form; the bridge has none.
-      if (operation === "plans.delete")
+      if (
+        operation === "plans.delete" ||
+        operation === "plans.templates.delete"
+      )
         throw new PlanOperationFailure("CONFIRMATION_REQUIRED");
       this.requireEnvelopeBudget(operation, parameters);
       const response = await this.api.handle(token, { operation, parameters });

@@ -756,6 +756,7 @@
         "template_name_required": "Gib einen Namen für die Vorlage ein.",
         "template_name_taken": "Du hast bereits eine Vorlage mit diesem Namen. Wähle einen anderen Namen.",
         "template_not_found": "Die Vorlage existiert nicht mehr.",
+        "template_owner_only": "Nur der Eigentümer ändert oder löscht eine Vorlage.",
         "template_invalid": "Diese Node kann nicht als Vorlage gespeichert werden.",
         "plan_access_denied": "Dieser Plan oder Lauf ist nicht zugänglich.",
         "plan_conflict": "Der Plan wurde geändert. Vor Speichern oder Starten neu laden.",

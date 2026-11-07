@@ -34,6 +34,20 @@ export const AGENT_PLAN_NODE_FIELDS: Readonly<
 const ADDABLE_TYPES = PLAN_ADDABLE_TYPES;
 const POSITION_FIELDS = ["x", "y"];
 
+/** The output a connection leaves and the input it enters, as the editor names them. */
+export interface AgentPlanChangePorts {
+  readonly fromPort: string;
+  readonly toPort: string;
+}
+
+/** The nodes of a connection and, when the edge has them, its ports. */
+interface AgentPlanConnectionChange {
+  readonly from: string;
+  readonly to: string;
+  /** Both ports or neither; without them the change is a plain flow edge. */
+  readonly ports: AgentPlanChangePorts | null;
+}
+
 /** One change of the structure of a plan, applied in the order given. */
 export type AgentPlanChange =
   | {
@@ -72,12 +86,8 @@ export type AgentPlanChange =
       readonly y: number;
     }
   | { readonly action: "removeNode"; readonly nodeId: string }
-  | { readonly action: "connect"; readonly from: string; readonly to: string }
-  | {
-      readonly action: "disconnect";
-      readonly from: string;
-      readonly to: string;
-    }
+  | ({ readonly action: "connect" } & AgentPlanConnectionChange)
+  | ({ readonly action: "disconnect" } & AgentPlanConnectionChange)
   | {
       readonly action: "bind";
       readonly nodeId: string;
@@ -220,11 +230,24 @@ function readConnection(
   change: Readonly<Record<string, unknown>>,
   action: "connect" | "disconnect",
 ): AgentPlanChange {
-  requireParameterKeys(change, ["action", "from", "to"]);
+  requireParameterKeys(
+    change,
+    ["action", "from", "to"],
+    ["fromPort", "toPort"],
+  );
+  if ((change.fromPort === undefined) !== (change.toPort === undefined))
+    throw invalid();
   return {
     action,
     from: readIdentifier(change.from),
     to: readIdentifier(change.to),
+    ports:
+      change.fromPort === undefined
+        ? null
+        : {
+            fromPort: readIdentifier(change.fromPort),
+            toPort: readIdentifier(change.toPort),
+          },
   };
 }
 

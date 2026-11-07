@@ -1,5 +1,6 @@
 import { readPlanTemplateName } from "@/backend/agents/AgentPlanTemplateInput";
 import { readPlanText } from "@/backend/agents/AgentPlanInput";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 
 import {
   readIdentifier,
@@ -8,7 +9,10 @@ import {
 } from "./AgentParameterReader";
 import { readPageAgentRevision } from "./PageAgentOperationInput";
 
-import type { AgentPlanCommandOperation } from "@/definition/AgentPlanOperations";
+import type {
+  AgentPlanCommandOperation,
+  AgentPlanTemplateCommandOperation,
+} from "@/definition/AgentPlanOperations";
 
 /** Commands name the saved revision, never an executable client graph. */
 export interface AgentPlanCommandRequest {
@@ -74,4 +78,61 @@ function cloneName(
   isClone: boolean,
 ): string | null {
   return isClone ? readPlanText(parameters.name, 120) : null;
+}
+
+/** A change or deletion of a stored node template, named with the workspace it is read in. */
+export interface AgentPlanTemplateCommandRequest {
+  readonly operation: AgentPlanTemplateCommandOperation;
+  readonly operationId: string;
+  readonly workspaceId: string;
+  readonly templateId: string;
+  /** The new name of an update; `null` keeps it. */
+  readonly name: string | null;
+  /** The plan and node whose node replaces the stored one; both or neither. */
+  readonly source: {
+    readonly planId: string;
+    readonly nodeId: string;
+  } | null;
+  readonly confirmation: unknown;
+}
+
+/**
+ * Reads `plans.templates.update` and `plans.templates.delete` before any persistence.
+ *
+ * @param operation - The template command.
+ * @param input - The raw parameters.
+ * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or
+ * malformed parameter, for `planId` without `nodeId` or the reverse, and for
+ * an update that changes neither the name nor the node.
+ */
+export function readPlanTemplateCommand(
+  operation: AgentPlanTemplateCommandOperation,
+  input: unknown,
+): AgentPlanTemplateCommandRequest {
+  const parameters = readParameterRecord(input);
+  const isUpdate = operation === "plans.templates.update";
+  requireParameterKeys(
+    parameters,
+    ["operationId", "workspaceId", "templateId"],
+    isUpdate ? ["name", "planId", "nodeId"] : ["confirmation"],
+  );
+  const { name, planId, nodeId } = parameters;
+  if (
+    isUpdate &&
+    ((planId === undefined) !== (nodeId === undefined) ||
+      (planId === undefined && name === undefined))
+  )
+    throw new AgentOperationError("INVALID_REQUEST");
+  return {
+    operation,
+    operationId: readIdentifier(parameters.operationId),
+    workspaceId: readIdentifier(parameters.workspaceId),
+    templateId: readIdentifier(parameters.templateId),
+    name: isUpdate && name !== undefined ? readPlanTemplateName(name) : null,
+    source:
+      planId === undefined
+        ? null
+        : { planId: readIdentifier(planId), nodeId: readIdentifier(nodeId) },
+    confirmation: isUpdate ? null : (parameters.confirmation ?? null),
+  };
 }

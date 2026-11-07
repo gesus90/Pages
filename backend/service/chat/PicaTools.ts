@@ -406,13 +406,19 @@ async function dispatchPrivileged(
   );
 }
 
+/** Plan deletions that need the target-bound consent of the native plan path. */
+const PLAN_DELETIONS: ReadonlySet<string> = new Set([
+  "plans.delete",
+  "plans.templates.delete",
+]);
+
 async function dispatchAction(
   input: PicaToolsInput,
   binding: PicaToolBinding,
   parameters: ToolParameters,
   context: RuntimeExecutionContext,
 ): Promise<ChatActionOutcome> {
-  if (binding.operation === "plans.delete" && !input.tools.runPlan)
+  if (PLAN_DELETIONS.has(binding.operation) && !input.tools.runPlan)
     return { ok: false, error: "CONFIRMATION_REQUIRED" };
   if (binding.isPrivileged)
     return await dispatchPrivileged(input, binding, parameters, context);

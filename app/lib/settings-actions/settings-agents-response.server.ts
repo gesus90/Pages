@@ -83,6 +83,7 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   plan_context_changed: 409,
   template_name_taken: 409,
   template_not_found: 404,
+  template_owner_only: 403,
 };
 
 /**

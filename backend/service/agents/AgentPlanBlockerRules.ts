@@ -110,6 +110,7 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   template_name_required: "open",
   template_name_taken: "open",
   template_not_found: "open",
+  template_owner_only: "open",
   template_invalid: "open",
   plan_access_denied: "harm",
   plan_conflict: "open",
