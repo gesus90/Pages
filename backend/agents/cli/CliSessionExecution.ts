@@ -43,6 +43,11 @@ import { prepareClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import { captureOwnedNamespace } from "./CliOwnedNamespace";
 import { createAcpRedactor } from "./CliAcpRedaction";
 import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
+import {
+  preparePicaCodexBundle,
+  requirePicaCodexProfile,
+} from "./PicaCodexBundle";
+import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AgentToolId } from "@/definition/AgentTools";
@@ -80,6 +85,11 @@ import type {
 import type { ClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import type { CliSessionProcess } from "./CliSessionProcess";
 import type { CliWorkerUnits } from "./CliWorkerUnit";
+import type { PicaCodexBundle } from "./PicaCodexBundle";
+import type {
+  PicaNativeArtifact,
+  PicaNativeRunner,
+} from "./PicaNativeArtifact";
 
 /** How CLI runs are kept away from the instance folders. */
 export interface CliIsolationOptions {
@@ -391,7 +401,10 @@ export class CliSessionExecution implements PlanSessionRunner {
     const purpose = input.chat ? "chat" : "plan";
     const profile = driver.profile(mode, purpose);
     const launch = planAcpLaunch(driver, input, start.file, profile);
-    const channel = new AcpLineChannel();
+    const channel = new AcpLineChannel(
+      input.chat !== undefined &&
+        ["codex_cli", "opencode"].includes(driver.provider),
+    );
     channel.enableAcknowledgement();
     const github = await this.prepareGitHub(input, start, mode);
     const redact = createAcpRedactor({
@@ -402,18 +415,47 @@ export class CliSessionExecution implements PlanSessionRunner {
     let child: CliSessionProcess | null = null;
     let limited: LimitedRequest | null = null;
     let isPidNamespace = false;
+    let picaBundle: PicaCodexBundle | null = null;
     try {
+      const picaNative = this.selectPicaNative(driver, input, launch, profile);
+      if (picaNative?.runner === "codex")
+        picaBundle = preparePicaCodexBundle(
+          input.directory,
+          adapter,
+          picaNative.directory,
+        );
       const { request, isIsolated } = await this.gate.isolateSession(
         {
-          file: adapter,
+          file: picaBundle
+            ? process.execPath
+            : (picaNative?.executable ?? adapter),
           provider: start.provider,
           home: start.home,
-          arguments: driver.arguments ?? [],
+          arguments: picaBundle
+            ? [picaBundle.entry, ...(driver.arguments ?? [])]
+            : (driver.arguments ?? []),
           workingDirectory: input.directory,
-          isWorkingDirectoryReadOnly: mode === "read_only",
+          isWorkingDirectoryReadOnly:
+            picaBundle !== null || mode === "read_only",
+          ...(picaBundle
+            ? {
+                readOnlyFiles: [
+                  picaBundle.directory,
+                  picaBundle.packageRoot,
+                  picaBundle.runnerRoot,
+                  process.execPath,
+                ],
+              }
+            : {}),
           credentialDirectory: github?.directory,
           environment: {
             ...launch.environment,
+            ...(picaBundle && picaNative
+              ? { CODEX_PATH: picaNative.executable, PAGES_PICA_CODEX: "1" }
+              : {}),
+            ...(picaNative?.runner === "opencode"
+              ? { PAGES_PICA_OPENCODE: "1" }
+              : {}),
             ...start.credentials?.environmentFor(
               openCodeModelProvider(input.agent.model),
             ),
@@ -450,9 +492,10 @@ export class CliSessionExecution implements PlanSessionRunner {
         profile,
         request: acpSessionRequest(input, {
           ...launch,
-          mcpServers: start.browser
-            ? [...launch.mcpServers, start.browser]
-            : launch.mcpServers,
+          mcpServers:
+            start.browser && !picaNative
+              ? [...launch.mcpServers, start.browser]
+              : launch.mcpServers,
         }),
         observer: control.observer,
         signal: control.signal,
@@ -461,20 +504,53 @@ export class CliSessionExecution implements PlanSessionRunner {
         github: github?.status,
         redact,
         secure: () => this.secureAcp(input, start, github),
+        cleanupAdapter: picaBundle?.cleanup,
         listener: input.chat?.listener ?? input.journal,
         notificationHandled: () => channel.acknowledge(),
       });
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
 
-      await cleanupAcpStart(child, {
-        instanceId: input.instanceId,
-        github,
-        limited,
-        isPidNamespace,
-      });
+      try {
+        await cleanupAcpStart(child, {
+          instanceId: input.instanceId,
+          github,
+          limited,
+          isPidNamespace,
+        });
+      } catch (cleanupError: unknown) {
+        if (!(cleanupError instanceof AcpCleanupUnconfirmedError))
+          picaBundle?.cleanup();
+        throw cleanupError;
+      }
+      picaBundle?.cleanup();
       throw error;
     }
+  }
+
+  /**
+   * Selects the native build that gives a Pica chat its Pages-only tools.
+   *
+   * @remarks
+   * Codex and OpenCode offer no tool surface without MCP that Pages can use
+   * through the stock runner. Pica therefore starts only the verified native
+   * build, which refuses every built-in tool; without one the chat is refused.
+   */
+  private selectPicaNative(
+    driver: AcpDriver,
+    input: AgentPlanSessionInput,
+    launch: AcpLaunch,
+    profile: ReturnType<AcpDriver["profile"]>,
+  ): PicaNativeArtifact | null {
+    const runner = picaNativeRunner(driver.provider);
+    if (!input.chat || runner === null) return null;
+    if (!input.chat.listener.picaCodex || launch.mcpServers.length > 0)
+      throw new AgentError(driver.errors.adapterUnsupported);
+    if (runner === "codex") requirePicaCodexProfile(profile);
+    return requirePicaNativeArtifact(
+      this.dependencies.tools?.directory,
+      runner,
+    );
   }
 
   /** A Claude plan session keeps its transcripts in a home of its own, so a retry resumes it and no other run reads it. */
@@ -598,6 +674,14 @@ async function recordGitHubNamespace(
   if (github && namespace) await github.recordNamespace(namespace);
 }
 
+function picaNativeRunner(
+  provider: AcpDriver["provider"],
+): PicaNativeRunner | null {
+  if (provider === "codex_cli") return "codex";
+  if (provider === "opencode") return "opencode";
+  return null;
+}
+
 function planAcpLaunch(
   driver: AcpDriver,
   input: AgentPlanSessionInput,
@@ -608,7 +692,7 @@ function planAcpLaunch(
     instanceId: input.instanceId,
     runnerFile: file,
     profile,
-    mcp: input.mcp,
+    mcp: input.mcp ?? null,
     purpose: input.chat ? "chat" : "plan",
     model: {
       model: input.agent.model,

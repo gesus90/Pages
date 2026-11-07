@@ -24,7 +24,7 @@ interface PlanToolDispatch {
   ) => Promise<PicaToolOutcome>;
 }
 
-/** Registers native backend handlers from the shared static plan catalog; no MCP client or transport is started. */
+/** Registers native backend handlers from the shared static plan catalog. */
 export function registerPicaPlanTools(
   registry: RuntimeToolRegistry,
   dispatch: PlanToolDispatch,

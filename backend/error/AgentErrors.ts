@@ -187,6 +187,8 @@ export const AGENT_ERROR_MESSAGES = {
     "The Claude ACP adapter (claude-agent-acp) is not installed for the server account. Install it next to the Claude CLI with npm install -g @agentclientprotocol/claude-agent-acp@0.90.0 (see the README, ACP adapters) and start the node again.",
   plan_acp_adapter_unsupported:
     "The installed Codex ACP adapter is not a version Pages verified or does not offer what this run needs. Install a supported version of codex-acp (2.1.1 up to 3.0.0); the run record names the installed one.",
+  pica_native_artifact_unavailable:
+    "Pica needs the verified native Pages build of this runner, and none is installed or it no longer matches its recorded hashes. Nothing was started.",
   plan_claude_acp_adapter_unsupported:
     "The installed Claude ACP adapter is not a version Pages verified or does not offer what this run needs. Install a supported version of claude-agent-acp (0.90.x); the run record names the installed one.",
   plan_model_unavailable:

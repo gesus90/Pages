@@ -336,8 +336,8 @@ export const PICA_FILE_SCHEMA = z
  * One screenshot a tool hands to the model as image data (PAGE-181).
  *
  * @remarks
- * The bridge turns it into an MCP `image` content block next to the text of
- * the outcome. It is never logged, journaled or stored.
+ * The bridge hands it to the answer-file staging path without placing it in
+ * the text of a tool result or the job journal.
  */
 export const PICA_TOOL_IMAGE = z
   .object({

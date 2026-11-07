@@ -181,7 +181,7 @@ const CHAT_PROFILE: CodexAcpProfile = {
     },
   },
   unattended:
-    "ACP session mode read-only for Pica; Pages refuses every request except calls of the Pica tool bridge",
+    "ACP session mode read-only for Pica; Pages refuses unmanaged permission requests",
   permissions: {
     permissionMode: "read_only",
     approvalPolicy: "on-request, answered by Pages",
@@ -189,14 +189,14 @@ const CHAT_PROFILE: CodexAcpProfile = {
     files: "none",
     shell: "off",
     web: "off",
-    pagesMcp: "Pica tool bridge",
+    pagesTools: "native Pages tools of the verified Pages build",
   },
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: null,
   hasMcpStatusCommand: false,
   isContinuable: true,
   steps: (request) => codexSteps("read-only", request),
-  decide: (request) => decideCodexPermission("read_only", request),
+  decide: refusePermission,
 };
 
 /**

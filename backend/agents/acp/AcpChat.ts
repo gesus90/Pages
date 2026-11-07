@@ -6,6 +6,7 @@ import type {
   SessionUpdate,
   Usage,
 } from "@agentclientprotocol/sdk";
+import type { PicaCodexListener } from "./PicaCodexRequests";
 
 /**
  * The extension method that adds a prompt to the running turn; codex-acp and
@@ -33,6 +34,13 @@ export type AcpPromptContent = (
 
 /** Receives what the adapter reports while a chat session runs; it must not throw. */
 export interface AcpSessionListener {
+  /** Private native-tool callbacks for a Pica Codex session. */
+  readonly picaCodex?: PicaCodexListener;
+  /**
+   * The path of the Pages helper this turn of a Claude Code chat may run, or
+   * `null` between turns; its presence makes Pages decide every permission request.
+   */
+  readonly picaHelper?: () => string | null;
   /** The negotiated steering contract, before a model prompt is sent. */
   readonly initialized?: (
     canSteer: boolean,
@@ -54,7 +62,7 @@ export interface AcpSessionListener {
 /** What a chat session adds to a plan session: its MCP bridge, its continuation and its updates. */
 export interface AcpChatOptions {
   /** The only MCP servers of the session, in place of the Pages MCP process of a plan node. */
-  readonly mcpServers: readonly McpServer[];
+  readonly mcpServers?: readonly McpServer[];
   /** The protocol session to continue with `session/resume`; `null` starts a new one. */
   readonly resumeSessionId: string | null;
   readonly listener: AcpSessionListener;

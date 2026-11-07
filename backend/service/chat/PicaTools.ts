@@ -40,6 +40,8 @@ export interface PicaToolsInput {
   /** Raw current human message only; never a model prompt, history or attachment text. */
   readonly message?: string;
   readonly planTurnId?: string;
+  /** The answer-specific staging run, when an ACP job contains several turns. */
+  readonly answerRunId?: string;
   /** The word the deletions of the person's interface language take; Pages passes it, never the model. */
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
@@ -316,6 +318,22 @@ interface ToolBudget {
   calls: number;
 }
 
+/** The shared limits and retry history of one human turn. */
+export interface PicaToolState {
+  readonly budget: ToolBudget;
+  readonly failedWrites: Set<string>;
+  readonly results: ChatResultBudget;
+}
+
+/** Creates fresh limits for a new turn. */
+export function createPicaToolState(): PicaToolState {
+  return {
+    budget: { calls: 0 },
+    failedWrites: new Set<string>(),
+    results: new ChatResultBudget(),
+  };
+}
+
 /** Counts one call, or marks the limit when the budget is spent. */
 function spend(input: PicaToolsInput, budget: ToolBudget): boolean {
   if (budget.calls >= CHAT_MAXIMUM_ACTIONS) {
@@ -345,7 +363,7 @@ async function createAnswerFile(
       {
         userId: context.userId,
         sessionId: context.sessionId,
-        runId: context.runId,
+        runId: input.answerRunId ?? context.runId,
       },
       {
         fileName: parameters.fileName,
@@ -398,9 +416,13 @@ async function dispatchAction(
     return { ok: false, error: "CONFIRMATION_REQUIRED" };
   if (binding.isPrivileged)
     return await dispatchPrivileged(input, binding, parameters, context);
-  const confirmation = isChatDeleteOperation(binding.operation)
+  const word = isChatDeleteOperation(binding.operation)
     ? await input.sessions.confirmationWord(context.userId)
     : null;
+  const confirmation =
+    word !== null && containsConfirmation(input.message ?? "", word)
+      ? word
+      : null;
   const action = {
     operation: binding.operation,
     parameters: binding.parameters?.(parameters, context) ?? parameters,
@@ -411,7 +433,20 @@ async function dispatchAction(
         id: input.planTurnId,
         confirmation: await input.sessions.confirmationWord(context.userId),
       })
-    : await input.tools.run(context.userId, action, confirmation);
+    : await input.tools.run(
+        context.userId,
+        action,
+        confirmation,
+        containsConfirmation(input.message ?? "", "LÖSCHEN") ? "LÖSCHEN" : null,
+      );
+}
+
+function containsConfirmation(message: string, word: string): boolean {
+  const literalWord = word.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(
+    `(?:^|[^\\p{L}\\p{M}\\p{N}_])${literalWord}(?:$|[^\\p{L}\\p{M}\\p{N}_])`,
+    "u",
+  ).test(message);
 }
 
 type PicaExecute = (
@@ -464,16 +499,17 @@ function registerAdministratorTools(
  *
  * @remarks
  * Reads find and read projects, tickets, milestones and the wiki. Writes
- * create, change and delete them on user level when the person asks for it,
- * without a confirmation line: the services check the rights of the person on
- * every call. Pages adds the confirmation word a deletion needs itself. A
- * write that failed is not sent again unchanged in the same turn.
+ * create and change them on user level when the person asks for it. Deletion
+ * requires the confirmation word in the current human message. The services
+ * check the person's rights on every call. A write that failed is not sent
+ * again unchanged in the same turn.
  */
-export function createPicaTools(input: PicaToolsInput): RuntimeToolRegistry {
+export function createPicaTools(
+  input: PicaToolsInput,
+  state: PicaToolState = createPicaToolState(),
+): RuntimeToolRegistry {
   const registry = new RuntimeToolRegistry(input.adminTools?.gate());
-  const failedWrites = new Set<string>();
-  const budget: ToolBudget = { calls: 0 };
-  const results = new ChatResultBudget();
+  const { budget, failedWrites, results } = state;
   const execute: PicaExecute = async (binding, parameters, context) => {
     await input.authorize();
     context.signal.throwIfAborted();

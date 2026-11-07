@@ -22,28 +22,28 @@ async function handleRequest(request: Request): Promise<Response> {
   const answer = await bridge.handle({
     method: request.method,
     authorization: request.headers.get("Authorization"),
+    signal: request.signal,
     readBody: () => readBody(request),
   });
   const headers: Record<string, string> = { ...HEADERS };
-  if (answer.sessionId) headers["Mcp-Session-Id"] = answer.sessionId;
-  if (answer.status === 405) headers.Allow = "POST, DELETE";
+  if (answer.status === 405) headers.Allow = "POST";
   if (answer.body === null)
     return new Response(null, { status: answer.status, headers });
   return Response.json(answer.body, { status: answer.status, headers });
 }
 
 /**
- * The MCP endpoint of Pica's tools for Codex over ACP (PAGE-68).
+ * The endpoint of Pica's turn-bound tools.
  *
  * @remarks
- * Only a job token admits a request; browser cookies play no part. Bodies,
+ * Only an active turn token admits a request; browser cookies play no part. Bodies,
  * tool arguments and results are never logged.
  */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
   return handleRequest(request);
 }
 
-/** Answers the optional server stream of MCP with 405; the bridge has none. */
+/** Refuses requests other than the authenticated tool POST. */
 export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   return handleRequest(request);
 }

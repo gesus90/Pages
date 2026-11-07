@@ -1,0 +1,15 @@
+{
+  "upstream": "https://github.com/anomalyco/opencode",
+  "version": "1.18.34",
+  "commit": "aec0b9a6d8898f68f923aaf08b7306d931fd9d76",
+  "license": "MIT",
+  "licenseSha256": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b",
+  "sourceSha256": {
+    "packages/opencode/src/acp/service.ts": "238750d52e220080db7b7f4992432fbfc7fb7ec5a15a6175460f8f0832a2c8de",
+    "packages/opencode/src/session/tools.ts": "5ad3f44682fc8e2bacb2222157943de8ab7dd663a1e0ddf5e4a213539b1f67d7",
+    "packages/opencode/src/config/config.ts": "87a9071af1ddb04d65947dba49be3fb4c94ecf63e120f17ce46ee81ff25dd45a"
+  },
+  "patchSha256": "aeb4124998396098f19fd3b5016e59cfe7d85e9acf7b2d655e43bfa612a16f3d",
+  "binarySha256": null,
+  "status": "experimental-unbuilt"
+}

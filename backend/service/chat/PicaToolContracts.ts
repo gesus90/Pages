@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Tool } from "@modelcontextprotocol/server";
+import type { PicaToolContract } from "./PicaToolContract";
 
 /** Keys only Pages sets; the model can neither replay an operation nor confirm a change. */
 const SERVER_OWNED_KEYS: ReadonlySet<string> = new Set([
@@ -17,11 +17,11 @@ function isSchemaEntry(input: unknown): input is SchemaEntry {
 /**
  * Derives the strict native input schema of a static tool contract.
  *
- * @param tool - The transport-neutral contract that MCP clients list as well.
+ * @param tool - The shared transport-neutral operation contract.
  * @returns The same arguments without `operationId` and `confirmation`, which Pages supplies itself.
  * @throws {Error} For a contract whose properties are not JSON Schema objects.
  */
-export function nativeToolInputSchema(tool: Tool): z.ZodType {
+export function nativeToolInputSchema(tool: PicaToolContract): z.ZodType {
   const properties: Record<string, SchemaEntry> = {};
   for (const [key, entry] of Object.entries(
     tool.inputSchema.properties ?? {},

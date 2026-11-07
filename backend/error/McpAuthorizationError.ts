@@ -1,5 +1,7 @@
+import { AgentAuthorizationError } from "./AgentAuthorizationError";
+
 /** Fixed public failure that never includes submitted credentials or provider diagnostics. */
-export class McpAuthorizationError extends Error {
+export class McpAuthorizationError extends AgentAuthorizationError {
   public readonly code: string;
   public readonly status: number;
 

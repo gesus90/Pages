@@ -1,0 +1,322 @@
+--- a/packages/opencode/src/acp/service.ts
++++ b/packages/opencode/src/acp/service.ts
+@@ -29,6 +29,7 @@
+   type SetSessionModeRequest,
+   type SetSessionModeResponse,
+ } from "@agentclientprotocol/sdk"
++import { PagesPica } from "./pages-pica"
+ import { InstallationVersion } from "@opencode-ai/core/installation/version"
+ import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
+ import type { AssistantMessage, Message, OpencodeClient, Session, SessionMessageResponse } from "@opencode-ai/sdk/v2"
+@@ -50,7 +51,7 @@
+ 
+ export type Error = ACPError.Error
+ type ServiceConnection = Pick<AgentSideConnection, "sessionUpdate"> &
+-  Partial<Pick<AgentSideConnection, "requestPermission" | "writeTextFile">>
++  Partial<Pick<AgentSideConnection, "requestPermission" | "writeTextFile" | "extMethod">>
+ 
+ export type Interface = {
+   readonly initialize: (input: InitializeRequest) => Effect.Effect<InitializeResponse, Error>
+@@ -80,6 +81,10 @@
+   usage?: UsageService.Interface
+   eventSubscription?: (subscription: ACPEvent.Subscription) => void
+ }): Interface {
++  if (PagesPica.active) {
++    if (!input.connection?.extMethod) throw new Error("Pica ACP client unavailable")
++    PagesPica.attach({ extMethod: input.connection.extMethod.bind(input.connection) })
++  }
+   const session = input.session ?? makeSessionService()
+   const directoryService = input.directory ?? makeDirectoryService(input.sdk)
+   const registeredMcp = new Map<string, Set<string>>()
+@@ -162,6 +167,10 @@
+ 
+   const newSession = Effect.fn("ACP.newSession")(function* (params: NewSessionRequest) {
+     const started = performance.now()
++    if (PagesPica.active) {
++      if (params.mcpServers.length) throw new Error("Pica server refused")
++      yield* Effect.promise(() => PagesPica.load())
++    }
+     const snapshot = yield* directorySnapshot(params.cwd)
+     const selected = selectDefaultModel(snapshot)
+     const variant = selectVariant(snapshot, selected)
+@@ -192,6 +201,7 @@
+       modeId,
+     })
+     sessionSnapshots.set(state.id, snapshot)
++    if (PagesPica.active) yield* Effect.promise(() => PagesPica.bindThread(state.id))
+ 
+     yield* registerMcpServers(input.sdk, registeredMcp, params.cwd, state.id, params.mcpServers)
+     yield* sendAvailableCommands(input.connection, state.id, snapshot)
+@@ -209,6 +219,7 @@
+   })
+ 
+   const loadSession = Effect.fn("ACP.loadSession")(function* (params: LoadSessionRequest) {
++    if (PagesPica.active) throw new Error("Pica continuation unavailable")
+     const snapshot = yield* directorySnapshot(params.cwd)
+     const backing = yield* request(
+       () => input.sdk.session.get({ directory: params.cwd, sessionID: params.sessionId }, { throwOnError: true }),
+@@ -293,6 +304,7 @@
+   })
+ 
+   const resumeSession = Effect.fn("ACP.resumeSession")(function* (params: ResumeSessionRequest) {
++    if (PagesPica.active) throw new Error("Pica continuation unavailable")
+     const snapshot = yield* directorySnapshot(params.cwd)
+     const backing = yield* request(
+       () => input.sdk.session.get({ directory: params.cwd, sessionID: params.sessionId }, { throwOnError: true }),
+@@ -345,6 +357,7 @@
+   })
+ 
+   const closeSession = Effect.fn("ACP.closeSession")(function* (params: CloseSessionRequest) {
++    if (PagesPica.active) yield* Effect.promise(() => PagesPica.close(params.sessionId))
+     const removed = yield* session.remove(params.sessionId)
+     registeredMcp.delete(params.sessionId)
+     sessionSnapshots.delete(params.sessionId)
+@@ -355,11 +368,13 @@
+   })
+ 
+   const cancel = Effect.fn("ACP.cancel")(function* (params: CancelNotification) {
++    if (PagesPica.active) yield* Effect.promise(() => PagesPica.end(params.sessionId))
+     const current = yield* session.get(params.sessionId)
+     yield* abortBackingSession(current)
+   })
+ 
+   const forkSession = Effect.fn("ACP.forkSession")(function* (params: ForkSessionRequest) {
++    if (PagesPica.active) throw new Error("Pica continuation unavailable")
+     const snapshot = yield* directorySnapshot(params.cwd)
+     const forked = yield* request(
+       () =>
+@@ -517,6 +532,7 @@
+       const modeId = current.modeId ?? (snapshot.availableModes.length > 0 ? snapshot.defaultModeID : undefined)
+       const parts = promptContentToParts(params.prompt)
+       const command = detectSlashCommand(parts)
++      if (PagesPica.active && command) throw new Error("Pica command unavailable")
+ 
+       if (!command) {
+         const response = yield* request(
+@@ -538,7 +554,7 @@
+               ),
+             ),
+           "session",
+-        )
++        ).pipe(Effect.ensuring(Effect.promise(() => PagesPica.active ? PagesPica.end(current.id) : Promise.resolve())))
+         yield* sendUsageUpdate(input.usage, input.sdk, input.connection, current.id, current.cwd)
+         return yield* promptResponse(response.info, params.messageId)
+       }
+--- a/packages/opencode/src/session/tools.ts
++++ b/packages/opencode/src/session/tools.ts
+@@ -1,3 +1,4 @@
++import { PagesPica } from "@/acp/pages-pica"
+ import { Agent } from "@/agent/agent"
+ import { SessionV1 } from "@opencode-ai/core/v1/session"
+ import { Provider } from "@/provider/provider"
+@@ -47,6 +48,7 @@
+   messages: SessionV1.WithParts[]
+   promptOps: TaskPromptOps
+ }) {
++  if (PagesPica.active) return yield* Effect.promise(() => PagesPica.tools(input.session.id, input.processor.message.id))
+   const tools: Record<string, AITool> = {}
+   const run = yield* EffectBridge.make()
+   const plugin = yield* Plugin.Service
+--- a/packages/opencode/src/config/config.ts
++++ b/packages/opencode/src/config/config.ts
+@@ -1,3 +1,4 @@
++import { PagesPica } from "@/acp/pages-pica"
+ import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+ import { httpClient } from "@opencode-ai/core/effect/app-node-platform"
+ import { serviceUse } from "@opencode-ai/core/effect/service-use"
+@@ -367,7 +368,7 @@
+           return mergePluginOrigins(source, next.plugin, kind)
+         }
+ 
+-        for (const [key, value] of Object.entries(auth)) {
++        for (const [key, value] of PagesPica.active ? [] : Object.entries(auth)) {
+           if (value.type === "wellknown") {
+             const url = key.replace(/\/+$/, "")
+             authEnv[value.key] = value.token
+@@ -409,15 +410,15 @@
+           }
+         }
+ 
+-        const global = Object.keys(authEnv).length ? yield* loadGlobal(authEnv) : yield* getGlobal()
++        const global = PagesPica.active ? {} : Object.keys(authEnv).length ? yield* loadGlobal(authEnv) : yield* getGlobal()
+         yield* merge(Global.Path.config, global, "global")
+ 
+-        if (Flag.OPENCODE_CONFIG) {
++        if (!PagesPica.active && Flag.OPENCODE_CONFIG) {
+           yield* merge(Flag.OPENCODE_CONFIG, yield* loadFile(Flag.OPENCODE_CONFIG, authEnv))
+           yield* Effect.logDebug("loaded custom config", { path: Flag.OPENCODE_CONFIG })
+         }
+ 
+-        if (!Flag.OPENCODE_DISABLE_PROJECT_CONFIG) {
++        if (!PagesPica.active && !Flag.OPENCODE_DISABLE_PROJECT_CONFIG) {
+           for (const file of yield* ConfigPaths.files("opencode", ctx.directory, ctx.worktree).pipe(Effect.orDie)) {
+             yield* merge(file, yield* loadFile(file, authEnv), "local")
+           }
+@@ -427,7 +428,7 @@
+         result.mode = result.mode || {}
+         result.plugin = result.plugin || []
+ 
+-        const directories = yield* ConfigPaths.directories(ctx.directory, ctx.worktree)
++        const directories = PagesPica.active ? [] : yield* ConfigPaths.directories(ctx.directory, ctx.worktree)
+ 
+         if (Flag.OPENCODE_CONFIG_DIR) {
+           yield* Effect.logDebug("loading config from OPENCODE_CONFIG_DIR", { path: Flag.OPENCODE_CONFIG_DIR })
+@@ -492,7 +493,7 @@
+         const activeAccount = Option.getOrUndefined(
+           yield* accountSvc.active().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+         )
+-        if (activeAccount?.active_org_id) {
++        if (!PagesPica.active && activeAccount?.active_org_id) {
+           const accountID = activeAccount.id
+           const orgID = activeAccount.active_org_id
+           const url = activeAccount.url
+@@ -528,7 +529,7 @@
+         }
+ 
+         const managedDir = ConfigManaged.managedConfigDir()
+-        if (existsSync(managedDir)) {
++        if (!PagesPica.active && existsSync(managedDir)) {
+           for (const file of ["opencode.json", "opencode.jsonc"]) {
+             const source = path.join(managedDir, file)
+             yield* merge(source, yield* loadFile(source), "global")
+@@ -536,7 +537,7 @@
+         }
+ 
+         // macOS managed preferences (.mobileconfig deployed via MDM) override everything
+-        const managed = yield* Effect.promise(() => ConfigManaged.readManagedPreferences())
++        const managed = PagesPica.active ? undefined : yield* Effect.promise(() => ConfigManaged.readManagedPreferences())
+         if (managed) {
+           result = mergeConfigConcatArrays(
+             result,
+--- /dev/null
++++ b/packages/opencode/src/acp/pages-pica.ts
+@@ -0,0 +1,129 @@
++import { tool, jsonSchema, type Tool } from "ai"
++import type { JSONSchema7 } from "@ai-sdk/provider"
++import { PartID } from "@/session/schema"
++
++type Request = (method: string, params: Record<string, unknown>) => Promise<Record<string, unknown>>
++type Entry = { name: string; description: string; inputSchema: JSONSchema7 }
++type Thread = { turn: string | null; calls: Set<string> }
++const active = process.env.PAGES_PICA_OPENCODE === "1"
++let request: Request | undefined
++let catalog: Entry[] | undefined
++const threads = new Map<string, Thread>()
++let tail: Promise<void> = Promise.resolve()
++let queued = 0
++const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value)
++const identity = (value: string) => /^[A-Za-z0-9._:-]{1,256}$/.test(value)
++const refuse = (): never => { throw new Error("Pica operation refused") }
++
++async function rpc(method: string, params: Record<string, unknown>) {
++  if (!request) return refuse()
++  try { return await request("_pages/pica/" + method, params) } catch { return refuse() }
++}
++async function images(call: {threadId: string; turnId: string; callId: string}, receipt: string, metadata: unknown[]) {
++  const output: {type: "file"; mime: string; url: string; id: ReturnType<typeof PartID.ascending>; sessionID: string; messageID: string}[] = []
++  for (let i = 0; i < metadata.length; i++) {
++    const item = metadata[i]
++    if (!record(item) || Object.keys(item).some((key) => !["mimeType", "length"].includes(key)) ||
++      (item.mimeType !== "image/png" && item.mimeType !== "image/jpeg") || typeof item.length !== "number" ||
++      !Number.isSafeInteger(item.length) || item.length < 4 || item.length > 8_000_000 || item.length % 4 !== 0) return refuse()
++    let data = ""
++    while (data.length < item.length) {
++      const chunk = await rpc("chunk", { ...call, receipt, image: i, offset: data.length })
++      if (Object.keys(chunk).some((key) => !["data", "next"].includes(key)) || typeof chunk.data !== "string" ||
++        chunk.data.length < 1 || chunk.data.length > 524288 || chunk.next !== data.length + chunk.data.length || chunk.next > item.length) return refuse()
++      data += chunk.data
++    }
++    if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data)) return refuse()
++    const bytes = Buffer.from(data, "base64")
++    const png = bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
++    const jpeg = bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
++    if ((item.mimeType === "image/png" && !png) || (item.mimeType === "image/jpeg" && !jpeg)) return refuse()
++    output.push({ type: "file", mime: item.mimeType, url: "data:" + item.mimeType + ";base64," + data,
++      id: PartID.ascending(), sessionID: call.threadId, messageID: call.turnId })
++  }
++  return output
++}
++async function invoke(threadId: string, turnId: string, callId: string, name: string, args: unknown, signal?: AbortSignal) {
++  const thread = threads.get(threadId)
++  if (!thread || thread.turn !== turnId || !identity(callId) || thread.calls.has(callId) || !record(args) ||
++    Buffer.byteLength(JSON.stringify(args), "utf8") > 1048576 || !catalog?.some((entry) => entry.name === name) || signal?.aborted) return refuse()
++  if (thread.calls.size >= 4096 || queued >= 32) return refuse()
++  thread.calls.add(callId)
++  const deadline = Date.now() + 30_000
++  queued++
++  const task = tail.then(async () => {
++    if (Date.now() > deadline || threads.get(threadId) !== thread || thread.turn !== turnId || signal?.aborted) return refuse()
++    const call = { threadId, turnId, callId }
++    const result = await rpc("dispatch", { ...call, tool: name, arguments: args })
++    if (threads.get(threadId) !== thread || thread.turn !== turnId || signal?.aborted ||
++      Object.keys(result).some((key) => !["success", "text", "receipt", "images"].includes(key)) ||
++      typeof result.success !== "boolean" || typeof result.text !== "string" || Buffer.byteLength(result.text) > 1048576 ||
++      !Array.isArray(result.images) || result.images.length > 4) return refuse()
++    if ((result.images.length === 0 && result.receipt !== null) ||
++      (result.images.length > 0 && (typeof result.receipt !== "string" || !/^[0-9a-f-]{36}$/.test(result.receipt)))) return refuse()
++    const attachments = result.images.length ? await images(call, String(result.receipt), result.images) : []
++    if (threads.get(threadId) !== thread || thread.turn !== turnId || signal?.aborted) return refuse()
++    return { title: name, output: result.text, metadata: {}, attachments }
++  })
++  tail = task.then(() => undefined, () => undefined)
++  try { return await task } finally { queued-- }
++}
++
++/** Pica-only native runtime; Pages owns its ACP connection and human-turn binding. */
++export const PagesPica = {
++  active,
++  attach(connection: {extMethod(method: string, params: Record<string, unknown>): Promise<Record<string, unknown>>} | undefined) {
++    if (!connection || request) return refuse()
++    request = connection.extMethod.bind(connection)
++  },
++  async load() {
++    if (!active || catalog) return refuse()
++    const result = await rpc("catalog", {})
++    if (!Array.isArray(result.tools) || result.tools.length < 1 || result.tools.length > 512 || Buffer.byteLength(JSON.stringify(result)) > 1048576) return refuse()
++    const names = new Set<string>()
++    const entries: Entry[] = []
++    for (const item of result.tools) {
++      if (!record(item) || Object.keys(item).some((key) => !["name", "description", "inputSchema"].includes(key)) ||
++        typeof item.name !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(item.name) || names.has(item.name) ||
++        typeof item.description !== "string" || item.description.length < 1 || item.description.length > 10000 ||
++        !record(item.inputSchema) || item.inputSchema.type !== "object") return refuse()
++      names.add(item.name)
++      entries.push({ name: item.name, description: item.description, inputSchema: item.inputSchema as JSONSchema7 })
++    }
++    catalog = entries
++  },
++  async bindThread(threadId: string) {
++    if (!catalog || !identity(threadId) || threads.has(threadId)) return refuse()
++    if ((await rpc("bind_thread", { threadId })).accepted !== true) return refuse()
++    threads.set(threadId, { turn: null, calls: new Set() })
++  },
++  async tools(threadId: string, messageId: string): Promise<Record<string, Tool>> {
++    const thread = threads.get(threadId)
++    if (!thread || !catalog || !identity(messageId)) return refuse()
++    if (thread.turn !== messageId) {
++      if (thread.turn) await rpc("end_turn", { threadId, turnId: thread.turn })
++      thread.turn = null
++      if ((await rpc("bind_turn", { threadId, turnId: messageId })).accepted !== true) return refuse()
++      thread.turn = messageId
++    }
++    return Object.fromEntries(catalog.map((entry) => [entry.name, tool({
++      description: entry.description,
++      inputSchema: jsonSchema(entry.inputSchema),
++      execute: (args, options) => invoke(threadId, messageId, options.toolCallId, entry.name, args, options.abortSignal),
++    })]))
++  },
++  async end(threadId: string) {
++    const thread = threads.get(threadId)
++    if (!thread) return refuse()
++    if (!thread.turn) return
++    const turnId = thread.turn
++    thread.turn = null
++    await rpc("end_turn", { threadId, turnId })
++  },
++  async close(threadId: string) {
++    await this.end(threadId)
++    if (!threads.has(threadId)) return refuse()
++    threads.delete(threadId)
++    await rpc("close_thread", { threadId })
++  },
++}

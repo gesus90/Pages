@@ -10,6 +10,7 @@ import type {
   Usage,
 } from "@agentclientprotocol/sdk";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
+import type { PicaCodexListener } from "@/backend/agents/acp/PicaCodexRequests";
 import type {
   ChatContextUsage,
   ChatCost,
@@ -22,6 +23,8 @@ const CLAUDE_COMPACTION_TOOL = "compact";
 
 /** Where the updates of a Pica session go. */
 export interface PicaAcpUpdateSink {
+  readonly picaCodex?: PicaCodexListener;
+  readonly picaHelper?: () => string | null;
   /** Whether the adapter announced a supported way to inject messages into a running turn. */
   readonly steering?: (
     canSteer: boolean,
@@ -49,7 +52,7 @@ export interface PicaAcpUpdateSink {
   /** The Codex thread became active or stopped being active. */
   readonly threadStatus: (isActive: boolean) => void;
   /** An image or embedded file the agent returned in its message (PAGE-92). */
-  readonly content?: (block: ContentBlock) => void;
+  readonly content?: (turn: number, block: ContentBlock) => void;
   /** The connection to the adapter ended. */
   readonly closed: () => void;
 }
@@ -197,6 +200,9 @@ function readTokens(
  * as the adapter reports it, an estimated cost marked as such.
  */
 export class PicaAcpUpdates implements AcpSessionListener {
+  public readonly picaCodex: PicaCodexListener | undefined;
+  /** The helper path the current turn of a Claude Code chat may run; absent for other runners. */
+  public readonly picaHelper: (() => string | null) | undefined;
   private readonly sink: PicaAcpUpdateSink;
   private readonly options: PicaAcpUpdateOptions;
   private readonly state = createAcpSessionState();
@@ -206,6 +212,8 @@ export class PicaAcpUpdates implements AcpSessionListener {
   public constructor(sink: PicaAcpUpdateSink, options: PicaAcpUpdateOptions) {
     this.sink = sink;
     this.options = options;
+    this.picaCodex = sink.picaCodex;
+    this.picaHelper = sink.picaHelper;
   }
 
   /** Reports the negotiated contract independently of turn and queue state. */
@@ -233,7 +241,7 @@ export class PicaAcpUpdates implements AcpSessionListener {
       update.sessionUpdate === "agent_message_chunk" &&
       update.content.type !== "text"
     )
-      this.sink.content?.(update.content);
+      this.sink.content?.(this.turn, update.content);
     readAcpUpdate(this.state, update, {});
     this.show();
   };

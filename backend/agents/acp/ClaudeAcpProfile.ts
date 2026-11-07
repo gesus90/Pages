@@ -44,22 +44,20 @@ const READ_ONLY_DISALLOWED_TOOLS = [
 ];
 
 /**
- * Every built-in tool of Claude Code that could read or change a file, run a
- * command, reach the web, delegate, schedule or look up deferred tools. Pica's
- * conversation already starts with no built-in tool at all; naming them again
- * keeps them out should a release add one to that empty base set. Without
- * `ToolSearch` Claude Code loads the bridge tools directly instead of deferring them.
+ * Every built-in tool of Claude Code except the two Pica's helper needs:
+ * `Bash` runs only the exact helper call of the turn and `Read` opens only the
+ * image files the helper wrote, both decided by Pages per request. Naming the
+ * rest keeps them out should a release add one to the allowed set. Without
+ * `ToolSearch` Claude Code loads its tools directly instead of deferring them.
  */
 const CHAT_DISALLOWED_TOOLS = [
   "Agent",
   "Task",
-  "Bash",
   "PowerShell",
   "Monitor",
   "Edit",
   "Write",
   "NotebookEdit",
-  "Read",
   "Glob",
   "Grep",
   "LSP",
@@ -167,23 +165,6 @@ export function decideClaudePermission(
   return refusePermission(request);
 }
 
-/**
- * Answers a permission request of Pica's conversation; nobody is asked.
- *
- * @remarks
- * Only calls of the Pica bridge's tools are approved, and the bridge
- * authorizes each of them again for the person, the conversation and the
- * running turn. Everything else is refused, although the session offers no
- * other tool in the first place.
- */
-function decideClaudeChatPermission(
-  request: RequestPermissionRequest,
-): AcpPermissionDecision {
-  return isPagesMcpCall(requestedTool(request))
-    ? approvePermission(request)
-    : refusePermission(request);
-}
-
 // The context size of a model may be named with a suffix such as `[1m]`; it does not name another model.
 function withoutContextHint(model: string): string {
   return model.replace(/\[\d+m\]$/iu, "").toLowerCase();
@@ -287,8 +268,8 @@ const YOLO_PROFILE: ClaudeAcpProfile = {
 };
 
 /**
- * Pica's conversation (PAGE-90): no built-in tool, no settings file, only the
- * Pica bridge, whose calls Pages checks one by one. The session is kept on
+ * Pica's conversation (PAGE-90): no settings file and only the Pages helper,
+ * whose calls Pages checks one by one. The session is kept on
  * disk, in the connection's credential folder, so the next job of the
  * conversation continues it with `session/resume`. A plan node keeps its
  * session too, but in a private home of its own run (`ClaudePlanSessionHome`),
@@ -300,28 +281,28 @@ const CHAT_PROFILE: ClaudeAcpProfile = {
   options: {
     ...MANAGED_OPTIONS,
     persistSession: true,
-    tools: [],
+    tools: ["Bash", "Read"],
     disallowedTools: CHAT_DISALLOWED_TOOLS,
   },
   unattended:
-    "ACP session mode default for Pica without built-in tools; Pages refuses every request except calls of the Pica tool bridge",
+    "ACP session mode default for Pica; Pages approves only the exact helper call of the turn and the image files it wrote, and refuses every other request",
   permissions: {
     permissionMode: "read_only",
     sessionMode: "default, every request answered by Pages",
-    tools: "none of Claude Code",
+    tools: "Bash for the Pages helper only, Read for its image files only",
     files: "none",
-    shell: "off",
+    shell: "Pages helper only",
     web: "off",
-    pagesMcp: "Pica tool bridge",
+    pagesTools: "Pages helper, one exact call per request",
     settings: "none of the user or the workspace",
-    mcpServers: "Pica tool bridge only",
+    mcpServers: "none",
   },
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: claudeModelMatches,
-  hasMcpStatusCommand: true,
+  hasMcpStatusCommand: false,
   isContinuable: true,
   steps: (request) => claudeSteps("default", request),
-  decide: decideClaudeChatPermission,
+  decide: refusePermission,
 };
 
 /**

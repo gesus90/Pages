@@ -43,6 +43,9 @@ import {
   confirmAcpConfiguration,
 } from "./AcpSessionConfiguration";
 import { openCodeAcpFailure, openCodeToolFailure } from "./OpenCodeAcpErrors";
+import { PicaCodexRequests } from "./PicaCodexRequests";
+import { decidePicaHelperPermission } from "./PicaClaudeHelper";
+import { registerPicaCodexRequests } from "./PicaCodexRegistration";
 
 import type {
   AcpSessionContext,
@@ -123,6 +126,7 @@ export class AcpSession implements PlanSession {
   private expectedConfiguration: Readonly<Record<string, string>> | null = null;
   private configurationOptions: readonly SessionConfigOption[] = [];
   private readonly mcpReadiness: AcpMcpReadiness;
+  private readonly picaCodex: PicaCodexRequests | null;
   private closing: Promise<PlanSessionClosed> | null = null;
 
   /**
@@ -140,6 +144,16 @@ export class AcpSession implements PlanSession {
     this.process = process;
     this.terminated = process.exited.then(() => undefined);
     this.context = context;
+    this.picaCodex =
+      ["codex_cli", "opencode"].includes(context.driver.provider) &&
+      context.listener?.picaCodex
+        ? new PicaCodexRequests({
+            listener: context.listener.picaCodex,
+            requirePolicy: context.driver.provider === "codex_cli",
+            session: () => this.state.sessionId,
+            prompting: () => this.isPrompting,
+          })
+        : null;
     this.observer = context.observer;
     this.turnSignal = context.signal;
     Object.assign(this.state.effective, context.profile.permissions, {
@@ -151,10 +165,12 @@ export class AcpSession implements PlanSession {
         "ACP model selector; provider response does not report a separate model identity";
     }
     if (context.github) this.state.effective.github = context.github;
-    this.connection = acpClient({ name: "pages" })
-      .onRequest(methods.client.session.requestPermission, (request) =>
-        this.decide(request.params),
-      )
+    const client = acpClient({ name: "pages" }).onRequest(
+      methods.client.session.requestPermission,
+      (request) => this.decide(request.params),
+    );
+    if (this.picaCodex) registerPicaCodexRequests(client, this.picaCodex);
+    this.connection = client
       .onNotification(methods.client.session.update, async (notification) => {
         try {
           this.receive(notification.params);
@@ -173,6 +189,11 @@ export class AcpSession implements PlanSession {
         }
       })
       .connect(stream);
+    this.connection.signal.addEventListener(
+      "abort",
+      () => this.picaCodex?.close(),
+      { once: true },
+    );
     this.mcpReadiness = new AcpMcpReadiness(this.connection, this.state);
     if (context.driver.provider === "opencode") {
       context.signal.addEventListener("abort", this.abortRequests, {
@@ -345,8 +366,12 @@ export class AcpSession implements PlanSession {
     this.isPrompting = true;
     const response = await this.connection.agent
       .request(methods.agent.session.prompt, { sessionId, prompt })
-      .finally(() => {
-        this.isPrompting = false;
+      .finally(async () => {
+        try {
+          await this.picaCodex?.cancelTurn();
+        } finally {
+          this.isPrompting = false;
+        }
       });
     this.context.listener?.prompted(response.usage ?? null);
     await this.context.listener?.drained?.();
@@ -390,7 +415,6 @@ export class AcpSession implements PlanSession {
       methods.agent.initialize,
       {
         protocolVersion: PROTOCOL_VERSION,
-        // The runner works with its own tools; Pages lends it no file system or terminal.
         clientCapabilities: {},
       },
     );
@@ -399,7 +423,8 @@ export class AcpSession implements PlanSession {
       response.agentCapabilities?.mcpCapabilities,
     );
     this.promptCapabilities = response.agentCapabilities?.promptCapabilities;
-    this.isSteeringSupported = isAcpSteeringSupported(response._meta);
+    this.isSteeringSupported =
+      !this.picaCodex && isAcpSteeringSupported(response._meta);
     this.context.listener?.initialized?.(
       this.isSteeringSupported,
       this.promptCapabilities,
@@ -472,6 +497,7 @@ export class AcpSession implements PlanSession {
     sessionId: string,
     options: readonly SessionConfigOption[] | null | undefined,
   ): OpenedSession {
+    this.picaCodex?.confirmThread(sessionId);
     this.state.sessionId = sessionId;
     logEvent({
       level: "info",
@@ -508,7 +534,10 @@ export class AcpSession implements PlanSession {
   }
 
   private decide(request: RequestPermissionRequest): RequestPermissionResponse {
-    const decision = this.context.profile.decide(request);
+    const helper = this.context.listener?.picaHelper;
+    const decision = helper
+      ? decidePicaHelperPermission(request, helper())
+      : this.context.profile.decide(request);
     if (decision.isDenied) {
       logEvent({
         level: "warn",
@@ -646,11 +675,17 @@ export class AcpSession implements PlanSession {
       exit.errorCode === "acp_output_overflow"
     )
       return this.ended("failed", exit.errorCode);
-    if (!["opencode", "antigravity"].includes(this.context.driver.provider))
+    if (
+      !this.picaCodex &&
+      !["opencode", "antigravity"].includes(this.context.driver.provider)
+    )
       noteAcpStderr(this.state, exit.stderrTail, (line) => this.redact(line));
     return this.ended(
       "failed",
-      disconnectedAcpFailure(this.context.driver, exit.stderrTail),
+      disconnectedAcpFailure(
+        this.context.driver,
+        this.picaCodex ? "" : exit.stderrTail,
+      ),
     );
   }
 
@@ -675,15 +710,19 @@ export class AcpSession implements PlanSession {
 
   private async shutDown(): Promise<PlanSessionClosed> {
     try {
+      await this.picaCodex?.cancelTurn();
       await closeAcpProtocol(this.connection, this.state.sessionId);
       this.connection.close();
-      return await closeCliSession(
+      const closed = await closeCliSession(
         this.process,
         this.context.instanceId,
         undefined,
         this.context.isPidNamespace === true,
       );
+      if (closed.isConfirmed) this.context.cleanupAdapter?.();
+      return closed;
     } finally {
+      this.picaCodex?.close();
       this.context.signal.removeEventListener("abort", this.abortRequests);
       await this.context.secure();
     }

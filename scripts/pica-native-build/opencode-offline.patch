@@ -1,0 +1,21 @@
+--- a/packages/opencode/script/build.ts
++++ b/packages/opencode/script/build.ts
+@@ -15,6 +15,9 @@
+ 
+ import { Script } from "@opencode-ai/script"
+ import pkg from "../package.json"
++
++if (Script.release) throw new Error("Release uploads are forbidden in the Pages offline build")
++if (Script.version !== "1.18.34") throw new Error("Unexpected OpenCode build version")
+ 
+ const singleFlag = process.argv.includes("--single")
+ const baselineFlag = process.argv.includes("--baseline")
+@@ -208,7 +211,7 @@
+   }
+ 
+   // Smoke test: only run if binary is for current platform
+-  if (item.os === process.platform && item.arch === process.arch && !item.abi) {
++  if (!process.env.PAGES_OFFLINE_BUILD && item.os === process.platform && item.arch === process.arch && !item.abi) {
+     const binaryPath = `dist/${name}/bin/opencode`
+     console.log(`Running smoke test: ${binaryPath} --version`)
+     try {

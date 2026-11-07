@@ -188,7 +188,7 @@ export class LocalSessions {
     const launch = this.launch(
       input,
       input.instanceId,
-      input.mcp,
+      input.mcp ?? null,
       input.options.timeoutMinutes,
     );
     const recording = input.recording;

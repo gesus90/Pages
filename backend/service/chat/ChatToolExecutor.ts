@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 
+import { AgentAuthorizationError } from "@/backend/error/AgentAuthorizationError";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { ChatError } from "@/backend/error/ChatErrors";
-import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import {
   logCaughtError,
   logDiagnostic,
@@ -25,12 +25,11 @@ import {
 } from "./admin/PicaOperatorCatalog";
 
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
-import type { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import type { ChatConfirmationWord } from "@/definition/Chat";
-import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { ChatActionOutcome } from "./ChatPrompt";
 import type { ChatOperation } from "./ChatToolCatalog";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { PicaIdentity, PicaIdentityService } from "./PicaIdentityService";
 import type { PicaPlanTurn } from "./PicaPlanConfirmation";
 
 /** Keys only Pages sets; the agent can neither replay an operation nor confirm a deletion. */
@@ -55,7 +54,7 @@ interface AdminCall {
 export interface ChatToolDependencies {
   /** The operation catalog of the agent API, wired for the chat channel. */
   readonly router: Pick<AgentOperationRouter, "handle">;
-  readonly identities: Pick<AgentIdentityService, "verify">;
+  readonly identities: Pick<PicaIdentityService, "verify">;
 }
 
 /**
@@ -63,9 +62,8 @@ export interface ChatToolDependencies {
  * (T6.12.5, T6.12.7).
  *
  * @remarks
- * Every action goes through the same services and checks as the interface
- * and MCP; there is no other write path. Rights are resolved anew for every
- * action. Operations outside the catalog, such as files, the database or
+ * Every action goes through the same services and checks as the interface.
+ * Rights are resolved anew for every action. Operations outside the catalog, such as files, the database or
  * server files, do not exist for the agent. A deletion runs only when the
  * person typed the confirmation word in the current message.
  */
@@ -324,13 +322,13 @@ export class ChatToolExecutor {
     }
   }
 
-  private async verify(userId: string): Promise<AgentIdentity> {
+  private async verify(userId: string): Promise<PicaIdentity> {
     try {
       return await this.dependencies.identities.verify(userId);
     } catch (error: unknown) {
       logCaughtError("ChatToolExecutor", error);
 
-      if (error instanceof McpAuthorizationError)
+      if (error instanceof AgentAuthorizationError)
         throw new ChatError("accessDenied");
       throw error;
     }
@@ -342,7 +340,7 @@ function failure(operation: string, error: unknown): ChatActionOutcome {
     return error.details === undefined
       ? { ok: false, error: error.code }
       : { ok: false, error: error.code, details: error.details };
-  if (error instanceof McpAuthorizationError)
+  if (error instanceof AgentAuthorizationError)
     return { ok: false, error: "FORBIDDEN" };
   // Only the operation and the kind of error are logged, never parameters or content.
   logDiagnostic(

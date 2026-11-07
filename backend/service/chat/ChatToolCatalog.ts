@@ -36,10 +36,9 @@ import type { PagesAgentWriteOperation } from "@/definition/PagesAgentWrites";
 
 /**
  * Operations of the agent API that the chat never offers: imports and uploads
- * need files and a credential, the workspace registry and the permanent
- * deletion of whole projects belong to MCP clients, and range patches exist to
- * spare an MCP client the transfer of whole texts, which the chat reads and
- * writes in full anyway.
+ * need files and a credential; workspace registry and permanent project
+ * deletion are not offered in chat. Range patches are excluded because chat
+ * reads and writes whole texts.
  */
 type ExcludedOperation =
   | "wiki.import.plan"
@@ -52,7 +51,7 @@ type ExcludedOperation =
   | AgentWorkspaceWriteOperation
   | AgentProjectDeletionWriteOperation;
 
-/** A Pages operation the chat agent may request; the same operations MCP clients use (T6.12.5). */
+/** A Pages operation the chat agent may request (T6.12.5). */
 export type ChatOperation = Exclude<
   | PagesAgentReadOperation
   | PagesAgentTicketReadOperation

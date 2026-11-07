@@ -8,6 +8,7 @@ import { requireManagedOpenCodeConfiguration } from "./OpenCodeAcpConfiguration"
 import { pagesMcpServers } from "./AcpLaunch";
 import {
   OPENCODE_PICA_MODE,
+  OPENCODE_PICA_PERMISSIONS,
   openCodeAcpProfile,
   openCodePlanPermissions,
 } from "./OpenCodeAcpProfile";
@@ -40,7 +41,7 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
     const isChat = specification.purpose === "chat";
     const mode = specification.profile.permissions.sessionMode;
     const permission = isChat
-      ? { "*": "deny", "pages_*": "allow" }
+      ? OPENCODE_PICA_PERMISSIONS
       : openCodePlanPermissions(specification.profile.mode);
     return {
       environment: {

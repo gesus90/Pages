@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
-import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import { CHAT_LIMITS } from "@/definition/Chat";
@@ -10,7 +10,10 @@ import { ChatFileProbe } from "./ChatFileProbe";
 import { classifyChatFile } from "./ChatFileTypes";
 import { publicChatAttachment } from "./ChatSessionService";
 
-import type { ChatAttachmentRepository } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
+import type {
+  ChatAttachmentRepository,
+  StoredChatAttachment,
+} from "@/backend/database/repositories/chat/ChatAttachmentRepository";
 import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import type { ChatAttachment } from "@/definition/Chat";
 import type { ChatSettingsService } from "./ChatSettingsService";
@@ -44,7 +47,8 @@ export interface ChatAnswerFileDependencies {
     | "answerFiles"
     | "claimAnswerFiles"
     | "removeUnclaimedAnswerFiles"
-  >;
+  > &
+    Partial<Pick<ChatAttachmentRepository, "removeUnclaimedAnswerFile">>;
   readonly settings: Pick<ChatSettingsService, "read">;
   readonly files: Pick<WikiFileStore, "write" | "remove">;
   /** Tells whether SVG markup is free of scripts and external references. */
@@ -84,9 +88,9 @@ function extensionOf(fileName: string): string {
 export class ChatAnswerFileService {
   private readonly dependencies: ChatAnswerFileDependencies;
   private readonly queues = new Map<string, SerialQueue>();
+  private readonly queueUsers = new Map<string, number>();
   /** Runs of this process that stored a file; others have nothing to link or remove. */
   private readonly runs = new Set<string>();
-  private recovery: Promise<void> | null = null;
 
   public constructor(dependencies: ChatAnswerFileDependencies) {
     this.dependencies = dependencies;
@@ -101,10 +105,11 @@ export class ChatAnswerFileService {
     run: ChatAnswerRun,
     file: ChatAnswerFileInput,
   ): Promise<ChatAttachment> {
-    await this.ready();
-    const stored = await this.queue(run.runId).run(() => this.store(run, file));
-    this.runs.add(run.runId);
-    return stored;
+    return this.runQueued(run.runId, async () => {
+      const stored = await this.store(run, file);
+      this.runs.add(run.runId);
+      return stored;
+    });
   }
 
   /** Links every file of a run to its stored answer and returns them. */
@@ -112,25 +117,54 @@ export class ChatAnswerFileService {
     run: Omit<ChatAnswerRun, "userId">,
     messageId: string,
   ): Promise<readonly ChatAttachment[]> {
-    if (!this.runs.has(run.runId)) return [];
-    const claimed = await this.dependencies.attachments.claimAnswerFiles(
-      run.sessionId,
-      run.runId,
-      messageId,
-    );
-    return claimed.map(publicChatAttachment);
+    return this.runQueued(run.runId, async () => {
+      if (!this.runs.has(run.runId)) return [];
+      const claimed = await this.dependencies.attachments.claimAnswerFiles(
+        run.sessionId,
+        run.runId,
+        messageId,
+      );
+      return claimed.map(publicChatAttachment);
+    });
   }
 
-  /** Removes the files of a run that ended without an answer that holds them. */
+  /** Removes unclaimed files of a run the caller has established is no longer active. */
   public async discard(run: Omit<ChatAnswerRun, "userId">): Promise<void> {
-    this.queues.delete(run.runId);
-    if (!this.runs.delete(run.runId)) return;
-    const files =
-      await this.dependencies.attachments.removeUnclaimedAnswerFiles(
+    await this.runQueued(run.runId, async () => {
+      const files = await this.dependencies.attachments.answerFiles(
         run.sessionId,
         run.runId,
       );
-    await this.dependencies.files.remove(files);
+      for (const file of files) await this.removeStored(file);
+      this.runs.delete(run.runId);
+    });
+  }
+
+  /** Rolls back only the unclaimed files produced by a refused tool call. */
+  public async removeStaged(
+    run: Omit<ChatAnswerRun, "userId">,
+    ids: readonly string[],
+  ): Promise<void> {
+    await this.runQueued(run.runId, async () => {
+      const files = await this.dependencies.attachments.answerFiles(
+        run.sessionId,
+        run.runId,
+      );
+      for (const file of files)
+        if (ids.includes(file.id)) await this.removeStored(file);
+    });
+  }
+
+  private async removeStored(file: StoredChatAttachment): Promise<void> {
+    const removeFile = this.dependencies.attachments.removeUnclaimedAnswerFile;
+    if (!removeFile) throw new Error("Answer file rollback unavailable");
+    await removeFile.call(
+      this.dependencies.attachments,
+      file.sessionId,
+      file.runId ?? null,
+      file.id,
+      (storageName) => this.dependencies.files.remove([storageName]),
+    );
   }
 
   private async store(
@@ -216,29 +250,20 @@ export class ChatAnswerFileService {
     return queue;
   }
 
-  /** Removes the files a previous server process left without an answer, once. */
-  private ready(): Promise<void> {
-    this.recovery ??= this.removeAbandoned();
-    return this.recovery;
-  }
-
-  private async removeAbandoned(): Promise<void> {
+  private async runQueued<T>(
+    runId: string,
+    task: () => Promise<T>,
+  ): Promise<T> {
+    const queue = this.queue(runId);
+    this.queueUsers.set(runId, (this.queueUsers.get(runId) ?? 0) + 1);
     try {
-      const files =
-        await this.dependencies.attachments.removeUnclaimedAnswerFiles(
-          null,
-          null,
-        );
-      await this.dependencies.files.remove(files);
-    } catch (error: unknown) {
-      logCaughtError("ChatAnswerFileService", error);
-
-      logDiagnostic(
-        "ChatAnswerFileService",
-        "error",
-        "[pages] Abandoned answer files of Pica could not be removed.",
-        error,
-      );
+      return await queue.run(task);
+    } finally {
+      const remaining = (this.queueUsers.get(runId) ?? 1) - 1;
+      if (remaining === 0) {
+        this.queueUsers.delete(runId);
+        if (!this.runs.has(runId)) this.queues.delete(runId);
+      } else this.queueUsers.set(runId, remaining);
     }
   }
 }

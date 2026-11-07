@@ -22,7 +22,7 @@ import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
-import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
+import { PicaIdentityService } from "@/backend/service/chat/PicaIdentityService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import { isSafeSvg } from "./settings-actions/svg-safety.server";
@@ -53,7 +53,7 @@ export interface ChatApplicationServices {
   readonly chatSettingsService: ChatSettingsService;
   /** Pica's server-side jobs over Codex ACP and their journal (PAGE-68); `null` without the Codex path. */
   readonly picaAcpService: PicaAcpService | null;
-  /** The MCP endpoint through which Codex reaches Pica's tools; `null` without the Codex path. */
+  /** Pica's turn-bound tool endpoint; `null` without the ACP path. */
   readonly picaBridge: PicaBridge | null;
 }
 
@@ -223,7 +223,7 @@ export function createChatServices(
   if (input.protectedOrigin) adminTools.protectOrigin(input.protectedOrigin);
   const tools = new ChatToolExecutor({
     router: input.router,
-    identities: new AgentIdentityService(
+    identities: new PicaIdentityService(
       input.accounts.users,
       input.accounts.administration,
     ),

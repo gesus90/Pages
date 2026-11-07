@@ -10,6 +10,9 @@ import type { ClaudeAcpProfile } from "./ClaudeAcpProfile";
 /** The executable of the Claude ACP adapter, installed next to the Claude CLI. */
 export const CLAUDE_ACP_BINARY = "claude-agent-acp";
 
+/** The largest output Claude Code keeps of one command: 128 KiB, above one escaped read chunk. */
+const HELPER_OUTPUT_LIMIT = 131_072;
+
 /** The package the adapter names itself with when it initializes. */
 const CLAUDE_ACP_PACKAGE = "@agentclientprotocol/claude-agent-acp";
 
@@ -70,6 +73,10 @@ export function planClaudeAcpLaunch(
       CLAUDE_CODE_DISABLE_MODEL_ACCESS_FALLBACK: "1",
       CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP: "1",
       CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
+      // A helper result holds up to one read chunk of JSON; the default cut would hide its end.
+      ...(specification.purpose === "chat"
+        ? { BASH_MAX_OUTPUT_LENGTH: String(HELPER_OUTPUT_LIMIT) }
+        : {}),
     },
     mcpServers: pagesMcpServers(mcp),
     sessionMeta: {

@@ -4,13 +4,13 @@ import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
 import { requiresChatAdminConfirmation } from "../ChatAdministrationCatalog";
 import { isChatOperation } from "../ChatToolCatalog";
 
-import type { Tool } from "@modelcontextprotocol/server";
+import type { PicaToolContract } from "../PicaToolContract";
 import type { ChatOperation } from "../ChatToolCatalog";
 
 /** One operation of the administrator catalog with the contract the model sees. */
 export interface PicaOperatorEntry {
   readonly operation: ChatOperation;
-  readonly tool: Tool;
+  readonly tool: PicaToolContract;
   /** The operation changes something; it needs an operation ID and the retry guard. */
   readonly isWrite: boolean;
 }
@@ -63,7 +63,7 @@ export function isPicaCriticalOperation(operation: string): boolean {
  *
  * @remarks
  * Plan operations have their own native tools. The list is derived from the
- * static contracts that MCP clients use, so a new operation of the agent API
+ * shared static contracts, so a new operation of the agent API
  * reaches administrators without a second description.
  */
 export function picaOperatorEntries(

@@ -23,6 +23,7 @@ function isJsonRpcMessage(input: unknown): input is AnyMessage {
  */
 export class AcpLineChannel {
   public readonly stream: Stream;
+  private readonly isSensitive: boolean;
   private controller: ReadableStreamDefaultController<AnyMessage> | null = null;
   private writeLine: ((line: string) => boolean | Promise<boolean>) | null =
     null;
@@ -31,7 +32,8 @@ export class AcpLineChannel {
   private capacity: (() => void) | null = null;
   private pendingNotification: (() => void) | null = null;
 
-  public constructor() {
+  public constructor(isSensitive = false) {
+    this.isSensitive = isSensitive;
     const readable = new ReadableStream<AnyMessage>({
       start: (controller) => {
         this.controller = controller;
@@ -79,7 +81,7 @@ export class AcpLineChannel {
     try {
       message = JSON.parse(line);
     } catch (caughtError: unknown) {
-      logCaughtError("AcpLineChannel", caughtError);
+      if (!this.isSensitive) logCaughtError("AcpLineChannel", caughtError);
 
       return;
     }

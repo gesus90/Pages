@@ -20,12 +20,13 @@ async function requireOwnDirectory(directory: string): Promise<void> {
 }
 
 /**
- * The empty working directory of each Pica conversation.
+ * The private working directory of each Pica conversation.
  *
  * @remarks
  * An agent session continues only in the directory it started in, so every
- * conversation keeps one fixed directory. It stays empty: the session mounts
- * it read-only and has no tool that writes. It lies outside the instance
+ * conversation keeps one fixed directory. The session mounts it read-only.
+ * Empty private descriptor directories remain until the
+ * conversation is removed. It lies outside the instance
  * folders, which the isolation hides and refuses as a working directory.
  */
 export class PicaAcpWorkspace {

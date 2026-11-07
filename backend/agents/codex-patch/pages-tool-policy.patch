@@ -1,0 +1,4029 @@
+diff --git a/codex-rs/app-server/src/bespoke_event_handling.rs b/codex-rs/app-server/src/bespoke_event_handling.rs
+index d1b0ab8..4a16fef 100644
+--- a/codex-rs/app-server/src/bespoke_event_handling.rs
++++ b/codex-rs/app-server/src/bespoke_event_handling.rs
+@@ -970,6 +970,45 @@ pub(crate) async fn apply_bespoke_event_handling(
+                 on_request_permissions_response(pending_response, conversation, thread_state).await;
+             });
+         }
++        EventMsg::PicaRegistryRevoked(request) => {
++            if request.thread_id != conversation_id.to_string() || request.turn_id != event_turn_id { return; }
++            outgoing.cancel_pica_ready(&request.turn_id).await;
++            let (id, receiver) = outgoing.send_pica_request(ServerRequestPayload::PicaRegistryRevoked(request.clone())).await;
++            tokio::spawn(async move {
++                use codex_protocol::protocol::PicaRevocationOutcome;
++                let outcome = match tokio::time::timeout(std::time::Duration::from_secs(25), receiver).await {
++                    Ok(Ok(Ok(value))) => match serde_json::from_value::<codex_protocol::protocol::PicaRegistryReadyResponse>(value) {
++                        Ok(response) if response.accepted && response.request_id == request.request_id &&
++                            response.thread_id == request.thread_id && response.turn_id == request.turn_id &&
++                            response.operation_id == request.operation_id && response.nonce == request.nonce &&
++                            response.sequence == request.sequence && response.context == request.context &&
++                            response.catalog == request.catalog => PicaRevocationOutcome::Acknowledged,
++                        _ => PicaRevocationOutcome::Refused,
++                    },
++                    Ok(Ok(Err(_))) => PicaRevocationOutcome::Refused,
++                    _ => { outgoing.cancel_pica_request(&id).await; PicaRevocationOutcome::Unavailable }
++                };
++                let result = codex_protocol::protocol::PicaRegistryRevokedResult { request, outcome };
++                let _ = conversation.submit(codex_protocol::protocol::Op::PicaRegistryRevokedResponse { response: result }).await;
++            });
++        }
++        EventMsg::PicaRegistryReady(request) => {
++            if request.thread_id != conversation_id.to_string() || request.turn_id != event_turn_id {
++                return;
++            }
++            let (id, receiver) = outgoing.send_pica_request(ServerRequestPayload::PicaRegistryReady(request)).await;
++            tokio::spawn(async move {
++                if let Ok(Ok(Ok(value))) = tokio::time::timeout(std::time::Duration::from_secs(25), receiver).await {
++                    if let Ok(response) = serde_json::from_value::<codex_protocol::protocol::PicaRegistryReadyResponse>(value) {
++                        let _ = conversation.submit(codex_protocol::protocol::Op::PicaRegistryReadyResponse { response }).await;
++                    } else {
++                        outgoing.invalidate_pica_owner().await;
++                    }
++                } else {
++                    outgoing.cancel_pica_request(&id).await;
++                }
++            });
++        }
+         EventMsg::DynamicToolCallRequest(_)
+         | EventMsg::DynamicToolCallResponse(_)
+         | EventMsg::CollabAgentSpawnBegin(_)
+diff --git a/codex-rs/app-server/src/outgoing_message.rs b/codex-rs/app-server/src/outgoing_message.rs
+index 961eccc..d8b5aca 100644
+--- a/codex-rs/app-server/src/outgoing_message.rs
++++ b/codex-rs/app-server/src/outgoing_message.rs
+@@ -127,11 +127,12 @@ pub(crate) enum OutgoingEnvelope {
+ 
+ /// Sends messages to the client and manages request callbacks.
+ pub(crate) struct OutgoingMessageSender {
++    pica_ownership: Arc<Mutex<PicaOwnership>>,
+     verification_auth: OnceLock<Arc<codex_login::AuthManager>>,
+     verification_connections: Mutex<HashSet<ConnectionId>>,
+     next_server_request_id: AtomicI64,
+     sender: mpsc::Sender<OutgoingEnvelope>,
+-    request_id_to_callback: Mutex<HashMap<RequestId, PendingCallbackEntry>>,
++    request_id_to_callback: Arc<Mutex<HashMap<RequestId, PendingCallbackEntry>>>,
+     /// Incoming requests that are still waiting on a final response or error.
+     /// We keep them here because this is where responses, errors, and
+     /// disconnect cleanup all get handled.
+@@ -147,6 +148,7 @@ pub(crate) struct ThreadScopedOutgoingMessageSender {
+ }
+ 
+ struct PendingCallbackEntry {
++    pica_owner: Option<ConnectionId>,
+     verification_owner: Option<ConnectionId>,
+     verification_auth_revision: Option<u64>,
+     verification_identity: Option<user_verification_auth::Identity>,
+@@ -156,7 +158,44 @@ struct PendingCallbackEntry {
+     _diagnostics_guard: GaugeGuard,
+ }
+ 
++#[derive(Default)]
++struct PicaOwnership {
++    shutting_down: bool,
++    live: HashSet<ConnectionId>,
++    owners: HashMap<ThreadId, ConnectionId>,
++    lifetimes: HashMap<ThreadId, Arc<codex_extension_api::PicaOwnerLiveness>>,
++    contexts: HashMap<ThreadId, String>,
++    cleanup: HashMap<ThreadId, (ConnectionId, PicaCleanupOutcome)>,
++    closed_threads: HashMap<ConnectionId, Vec<ThreadId>>,
++}
++
++#[derive(Clone, Copy, PartialEq, Eq)]
++enum PicaCleanupOutcome { Pending, Acknowledged, Refused, Unavailable }
++
+ impl ThreadScopedOutgoingMessageSender {
++    pub(crate) async fn cancel_pica_ready(&self, turn_id: &str) {
++        self.outgoing.request_id_to_callback.lock().await.retain(|_, entry| {
++            !(entry.thread_id == Some(self.thread_id) && matches!(&entry.request,
++                ServerRequest::PicaRegistryReady { params, .. } if params.turn_id == turn_id))
++        });
++    }
++    pub(crate) async fn cancel_pica_request(&self, id: &RequestId) {
++        if let Some((_, entry)) = self.outgoing.take_request_callback(id).await
++            && entry.pica_owner.is_some()
++            && !matches!(&entry.request, ServerRequest::PicaThreadInvalidated { .. })
++        {
++            self.outgoing.revoke_pica_thread(self.thread_id, entry.pica_owner).await;
++        }
++    }
++    pub(crate) async fn invalidate_pica_owner(&self) {
++        self.outgoing.revoke_pica_thread(self.thread_id, None).await;
++    }
++    pub(crate) async fn send_pica_request(
++        &self,
++        request: ServerRequestPayload,
++    ) -> (RequestId, oneshot::Receiver<ClientRequestResult>) {
++        self.outgoing.send_pica_request(self.thread_id, request).await
++    }
+     pub(crate) fn new(
+         outgoing: Arc<OutgoingMessageSender>,
+         connection_ids: Vec<ConnectionId>,
+@@ -238,16 +277,147 @@ impl ThreadScopedOutgoingMessageSender {
+ }
+ 
+ impl OutgoingMessageSender {
++    pub(crate) async fn pica_connection_initialized(&self, connection_id: ConnectionId) {
++        let mut state = self.pica_ownership.lock().await;
++        if !state.shutting_down { state.live.insert(connection_id); }
++    }
++
++    pub(crate) async fn register_pica_owner(&self, thread_id: ThreadId, connection_id: ConnectionId, lifetime: Arc<codex_extension_api::PicaOwnerLiveness>, context: String) -> bool {
++        let mut state = self.pica_ownership.lock().await;
++        if state.shutting_down || !state.live.contains(&connection_id) || state.owners.contains_key(&thread_id) || state.cleanup.contains_key(&thread_id) {
++            return false;
++        }
++        state.owners.insert(thread_id, connection_id);
++        state.lifetimes.insert(thread_id, lifetime);
++        state.contexts.insert(thread_id, context);
++        true
++    }
++
++    pub(crate) async fn is_pica_owner(&self, thread_id: ThreadId, connection_id: ConnectionId) -> bool {
++        let state = self.pica_ownership.lock().await;
++        state.live.contains(&connection_id) && state.owners.get(&thread_id) == Some(&connection_id)
++    }
++
++    pub(crate) async fn revoke_pica_thread(&self, thread_id: ThreadId, owner: Option<ConnectionId>) {
++        let mut state = self.pica_ownership.lock().await;
++        let Some(original_owner) = state.owners.get(&thread_id).copied() else { return; };
++        if owner.is_some_and(|id| id != original_owner) { return; }
++        state.owners.remove(&thread_id);
++        if let Some(lifetime) = state.lifetimes.remove(&thread_id) { lifetime.revoke(); }
++        let context = state.contexts.remove(&thread_id);
++        let live = state.live.contains(&original_owner);
++        state.cleanup.insert(thread_id, (original_owner, if live && context.is_some() { PicaCleanupOutcome::Pending } else { PicaCleanupOutcome::Unavailable }));
++        self.request_id_to_callback.lock().await.retain(|_, entry| {
++            entry.thread_id != Some(thread_id) || entry.pica_owner.is_none()
++        });
++        drop(state);
++        let Some(context) = context.filter(|_| live) else { return; };
++        let id = self.next_request_id();
++        let params = codex_protocol::protocol::PicaThreadInvalidation {
++            request_id: thread_id.to_string(), thread_id: thread_id.to_string(), context,
++        };
++        let request = ServerRequestPayload::PicaThreadInvalidated(params.clone()).request_with_id(id.clone());
++        let sender = self.sender.clone();
++        let ownership = self.pica_ownership.clone();
++        let callbacks = self.request_id_to_callback.clone();
++        tokio::spawn(async move {
++            let operation = async {
++                let permit = sender.reserve().await.map_err(|_| ())?;
++                let state = ownership.lock().await;
++                if !state.live.contains(&original_owner) || state.cleanup.get(&thread_id) != Some(&(original_owner, PicaCleanupOutcome::Pending)) { return Err(()); }
++                let (callback, receiver) = oneshot::channel();
++                callbacks.lock().await.insert(id.clone(), PendingCallbackEntry {
++                    pica_owner: Some(original_owner), verification_owner: None,
++                    verification_auth_revision: None, verification_identity: None,
++                    callback, thread_id: Some(thread_id), request: request.clone(),
++                    _diagnostics_guard: PENDING_SERVER_REQUESTS.track(),
++                });
++                permit.send(OutgoingEnvelope::ToConnection {
++                    connection_id: original_owner, message: OutgoingMessage::Request(request), write_complete_tx: None,
++                });
++                drop(state);
++                match receiver.await {
++                    Ok(Ok(value)) => match serde_json::from_value::<codex_protocol::protocol::PicaThreadInvalidationResponse>(value) {
++                        Ok(reply) if reply.closed && reply.request_id == params.request_id && reply.thread_id == params.thread_id && reply.context == params.context => Ok(PicaCleanupOutcome::Acknowledged),
++                        _ => Ok(PicaCleanupOutcome::Refused),
++                    },
++                    Ok(Err(_)) => Ok(PicaCleanupOutcome::Refused),
++                    Err(_) => Err(()),
++                }
++            };
++            let outcome = match tokio::time::timeout(std::time::Duration::from_secs(25), operation).await {
++                Ok(Ok(outcome)) => outcome,
++                _ => PicaCleanupOutcome::Unavailable,
++            };
++            callbacks.lock().await.remove(&id);
++            let mut state = ownership.lock().await;
++            if let Some((owner, status)) = state.cleanup.get_mut(&thread_id) && *owner == original_owner && *status == PicaCleanupOutcome::Pending { *status = outcome; }
++        });
++    }
++
++    pub(crate) async fn revoke_pica_connection(&self, connection_id: ConnectionId) {
++        let mut state = self.pica_ownership.lock().await;
++        state.live.remove(&connection_id);
++        let removed = state.owners.iter().filter_map(|(thread, owner)| (*owner == connection_id).then_some(*thread)).collect::<Vec<_>>();
++        state.owners.retain(|_, owner| *owner != connection_id);
++        for thread in &removed {
++            state.contexts.remove(thread);
++            if let Some(lifetime) = state.lifetimes.remove(thread) { lifetime.revoke(); }
++            state.cleanup.entry(*thread).or_insert((connection_id, PicaCleanupOutcome::Unavailable));
++        }
++        for (owner, outcome) in state.cleanup.values_mut() {
++            if *owner == connection_id && *outcome == PicaCleanupOutcome::Pending { *outcome = PicaCleanupOutcome::Unavailable; }
++        }
++        if !removed.is_empty() { state.closed_threads.entry(connection_id).or_default().extend(removed); }
++        self.request_id_to_callback.lock().await.retain(|_, entry| entry.pica_owner != Some(connection_id));
++    }
++
++    pub(crate) async fn take_closed_pica_threads(&self, connection_id: ConnectionId) -> Vec<ThreadId> {
++        self.pica_ownership.lock().await.closed_threads.remove(&connection_id).unwrap_or_default()
++    }
++
++    async fn send_pica_request(&self, thread_id: ThreadId, payload: ServerRequestPayload) -> (RequestId, oneshot::Receiver<ClientRequestResult>) {
++        let id = self.next_request_id();
++        let (callback, receiver) = oneshot::channel();
++        let request = payload.request_with_id(id.clone());
++        if !matches!(&request, ServerRequest::PicaRegistryReady { .. } | ServerRequest::PicaRegistryRevoked { .. }) {
++            return (id, receiver);
++        }
++        // Reserve capacity before taking the owner lock. Sending while holding that
++        // lock serializes enqueue with unsubscribe and disconnect revocation.
++        let Ok(permit) = self.sender.reserve().await else { return (id, receiver); };
++        let state = self.pica_ownership.lock().await;
++        let Some(owner) = state.owners.get(&thread_id).copied() else { return (id, receiver); };
++        if !state.live.contains(&owner) { return (id, receiver); }
++        self.request_id_to_callback.lock().await.insert(id.clone(), PendingCallbackEntry {
++            pica_owner: Some(owner),
++            verification_owner: None,
++            verification_auth_revision: None,
++            verification_identity: None,
++            callback,
++            thread_id: Some(thread_id),
++            request: request.clone(),
++            _diagnostics_guard: PENDING_SERVER_REQUESTS.track(),
++        });
++        permit.send(OutgoingEnvelope::ToConnection {
++            connection_id: owner,
++            message: OutgoingMessage::Request(request),
++            write_complete_tx: None,
++        });
++        (id, receiver)
++    }
++
+     pub(crate) fn new(
+         sender: mpsc::Sender<OutgoingEnvelope>,
+         analytics_events_client: AnalyticsEventsClient,
+     ) -> Self {
+         Self {
++            pica_ownership: Arc::new(Mutex::new(PicaOwnership::default())),
+             verification_auth: OnceLock::new(),
+             verification_connections: Mutex::new(HashSet::new()),
+             next_server_request_id: AtomicI64::new(0),
+             sender,
+-            request_id_to_callback: Mutex::new(HashMap::new()),
++            request_id_to_callback: Arc::new(Mutex::new(HashMap::new())),
+             request_contexts: Mutex::new(HashMap::new()),
+             analytics_events_client,
+         }
+@@ -273,6 +443,7 @@ impl OutgoingMessageSender {
+     }
+ 
+     pub(crate) async fn connection_closed(&self, connection_id: ConnectionId) {
++        self.revoke_pica_connection(connection_id).await;
+         self.disconnect_user_verification_connection(connection_id)
+             .await;
+         let mut request_contexts = self.request_contexts.lock().await;
+@@ -355,6 +526,10 @@ impl OutgoingMessageSender {
+                     || verification_identity != self.verification_identity())
+         };
+         let (tx_approve, rx_approve) = oneshot::channel();
++        // Pica requests require the separate owner-bound send path.
++        if matches!(&request, ServerRequest::PicaRegistryReady { .. } | ServerRequest::PicaRegistryRevoked { .. } | ServerRequest::PicaThreadInvalidated { .. }) {
++            return (outgoing_message_id, rx_approve);
++        }
+         // One app owns this ceremony. Reconnect and other subscribers cannot answer it.
+         let verification_owner = if user_verification {
+             let eligible = self.verification_connections.lock().await;
+@@ -377,6 +552,7 @@ impl OutgoingMessageSender {
+             request_id_to_callback.insert(
+                 id,
+                 PendingCallbackEntry {
++                    pica_owner: None,
+                     verification_owner,
+                     verification_auth_revision,
+                     verification_identity: verification_identity.clone(),
+@@ -423,7 +599,7 @@ impl OutgoingMessageSender {
+                     {
+                         send_error = Some(err);
+                         break;
+-                    } else {
++                    } else if !matches!(&request, ServerRequest::PicaRegistryReady { .. } | ServerRequest::PicaRegistryRevoked { .. } | ServerRequest::PicaThreadInvalidated { .. }) {
+                         self.analytics_events_client
+                             .track_server_request(connection_id.0, request.clone());
+                     }
+@@ -476,6 +652,7 @@ impl OutgoingMessageSender {
+             Some((id, entry)) => {
+                 let completed_at_ms = now_unix_timestamp_ms();
+                 if entry.verification_owner.is_none()
++                    && !matches!(&entry.request, ServerRequest::PicaRegistryReady { .. } | ServerRequest::PicaRegistryRevoked { .. } | ServerRequest::PicaThreadInvalidated { .. })
+                     && let Ok(response) = entry.request.response_from_result(result.clone())
+                 {
+                     tracing::info!("<- response: {response:?}");
+@@ -506,6 +683,9 @@ impl OutgoingMessageSender {
+             Some((id, entry)) => {
+                 // Don't log error messages or data because they may contain credentials.
+                 warn!(code = error.code, "client responded with error for {id:?}");
++                if entry.pica_owner.is_some() && !matches!(&entry.request, ServerRequest::PicaThreadInvalidated { .. }) && let Some(thread_id) = entry.thread_id {
++                    self.revoke_pica_thread(thread_id, entry.pica_owner).await;
++                }
+                 self.analytics_events_client
+                     .track_server_request_aborted(now_unix_timestamp_ms(), id.clone());
+                 if entry.callback.send(Err(error)).is_err() {
+@@ -520,7 +700,10 @@ impl OutgoingMessageSender {
+ 
+     pub(crate) async fn cancel_request(&self, id: &RequestId) -> bool {
+         let entry = self.take_request_callback(id).await;
+-        if let Some((request_id, _entry)) = entry {
++        if let Some((request_id, entry)) = entry {
++            if entry.pica_owner.is_some() && !matches!(&entry.request, ServerRequest::PicaThreadInvalidated { .. }) && let Some(thread_id) = entry.thread_id {
++                self.revoke_pica_thread(thread_id, entry.pica_owner).await;
++            }
+             self.analytics_events_client
+                 .track_server_request_aborted(now_unix_timestamp_ms(), request_id);
+             true
+@@ -530,6 +713,22 @@ impl OutgoingMessageSender {
+     }
+ 
+     pub(crate) async fn cancel_all_requests(&self, error: Option<JSONRPCErrorError>) {
++        let mut pica = self.pica_ownership.lock().await;
++        pica.shutting_down = true;
++        // The in-process caller has already dropped its writer and response path.
++        // Revoke locally and retain an explicit unavailable result for each owner.
++        let owners = std::mem::take(&mut pica.owners);
++        for (thread, owner) in owners {
++            if let Some(lifetime) = pica.lifetimes.remove(&thread) { lifetime.revoke(); }
++            pica.contexts.remove(&thread);
++            pica.cleanup.entry(thread).or_insert((owner, PicaCleanupOutcome::Unavailable));
++        }
++        for lifetime in pica.lifetimes.drain().map(|(_, lifetime)| lifetime) { lifetime.revoke(); }
++        for (_, outcome) in pica.cleanup.values_mut() {
++            if *outcome == PicaCleanupOutcome::Pending { *outcome = PicaCleanupOutcome::Unavailable; }
++        }
++        pica.live.clear();
++        pica.closed_threads.clear();
+         let entries = {
+             let mut request_id_to_callback = self.request_id_to_callback.lock().await;
+             request_id_to_callback
+@@ -537,6 +736,7 @@ impl OutgoingMessageSender {
+                 .map(|(_, entry)| entry)
+                 .collect::<Vec<_>>()
+         };
++        drop(pica);
+ 
+         for entry in entries {
+             self.analytics_events_client
+@@ -563,8 +763,24 @@ impl OutgoingMessageSender {
+         connection_id: ConnectionId,
+         id: &RequestId,
+     ) -> Option<(RequestId, PendingCallbackEntry)> {
++        let pica = self.pica_ownership.lock().await;
+         let mut callbacks = self.request_id_to_callback.lock().await;
+         let entry = callbacks.get(id)?;
++        if entry.pica_owner.is_some_and(|owner| owner != connection_id) {
++            return None;
++        }
++        if let Some(owner) = entry.pica_owner
++            && (!pica.live.contains(&owner)
++                || entry.thread_id.is_none_or(|thread_id| {
++                    if matches!(&entry.request, ServerRequest::PicaThreadInvalidated { .. }) {
++                        pica.cleanup.get(&thread_id) != Some(&(owner, PicaCleanupOutcome::Pending))
++                    } else {
++                        pica.owners.get(&thread_id) != Some(&owner)
++                    }
++                }))
++        {
++            return None;
++        }
+         if let Some(owner) = entry.verification_owner {
+             if owner != connection_id {
+                 return None;
+@@ -587,7 +803,7 @@ impl OutgoingMessageSender {
+         let mut requests = request_id_to_callback
+             .values()
+             .filter_map(|entry| {
+-                (entry.thread_id == Some(thread_id) && entry.verification_owner.is_none())
++                (entry.thread_id == Some(thread_id) && entry.verification_owner.is_none() && entry.pica_owner.is_none())
+                     .then_some(entry.request.clone())
+             })
+             .collect::<Vec<_>>();
+@@ -605,7 +821,9 @@ impl OutgoingMessageSender {
+             let request_ids = request_id_to_callback
+                 .iter()
+                 .filter_map(|(request_id, entry)| {
+-                    (entry.thread_id == Some(thread_id)).then_some(request_id.clone())
++                    (entry.thread_id == Some(thread_id)
++                        && !matches!(&entry.request, ServerRequest::PicaThreadInvalidated { .. }))
++                        .then_some(request_id.clone())
+                 })
+                 .collect::<Vec<_>>();
+ 
+@@ -619,6 +837,9 @@ impl OutgoingMessageSender {
+         };
+ 
+         for entry in entries {
++            if entry.pica_owner.is_some() {
++                self.revoke_pica_thread(thread_id, entry.pica_owner).await;
++            }
+             self.analytics_events_client
+                 .track_server_request_aborted(now_unix_timestamp_ms(), entry.request.id().clone());
+             if let Some(error) = error.as_ref()
+diff --git a/codex-rs/app-server/src/request_processors/thread_lifecycle.rs b/codex-rs/app-server/src/request_processors/thread_lifecycle.rs
+index b0fa49b..cca3dd1 100644
+--- a/codex-rs/app-server/src/request_processors/thread_lifecycle.rs
++++ b/codex-rs/app-server/src/request_processors/thread_lifecycle.rs
+@@ -308,6 +308,17 @@ pub(super) async fn ensure_listener_task_running(
+                         }
+                     };
+ 
++                    if matches!(&event.msg, EventMsg::PicaRegistryReady(_) | EventMsg::PicaRegistryRevoked(_)) {
++                        let outgoing = ThreadScopedOutgoingMessageSender::new(
++                            outgoing_for_task.clone(), Vec::new(), conversation_id,
++                        );
++                        apply_bespoke_event_handling(
++                            event, conversation_id, conversation.clone(), thread_manager.clone(),
++                            outgoing, thread_state.clone(), thread_watch_manager.clone(),
++                        ).await;
++                        continue;
++                    }
++
+                     if let Some(worker) = &turn_cost_worker {
+                         worker.observe_event(
+                             conversation_id,
+@@ -426,6 +437,7 @@ pub(super) async fn unload_thread_without_subscribers(
+ 
+     // Any pending app-server -> client requests for this thread can no longer be
+     // answered; cancel their callbacks before shutdown/unload.
++    outgoing.revoke_pica_thread(thread_id, None).await;
+     outgoing
+         .cancel_requests_for_thread(thread_id, /*error*/ None)
+         .await;
+diff --git a/codex-rs/app-server/src/request_processors/thread_processor.rs b/codex-rs/app-server/src/request_processors/thread_processor.rs
+index 289cb63..93b82c0 100644
+--- a/codex-rs/app-server/src/request_processors/thread_processor.rs
++++ b/codex-rs/app-server/src/request_processors/thread_processor.rs
+@@ -25,6 +25,8 @@ use codex_app_server_protocol::ThreadSectionMoveParams;
+ use codex_app_server_protocol::ThreadSectionMoveResponse;
+ use codex_config::types::WindowsSandboxModeToml;
+ use codex_extension_api::ExtensionDataInit;
++use codex_extension_api::ToolName;
++use codex_extension_api::ToolPolicy;
+ use codex_extension_api::ThreadIdleCause;
+ use codex_protocol::SanitizedGitUrl;
+ use codex_protocol::config_types::MultiAgentMode;
+@@ -376,7 +378,9 @@ fn validate_dynamic_tools(tools: &[DynamicToolSpec]) -> Result<(), String> {
+             ));
+         }
+ 
+-        if let Err(err) = codex_tools::parse_tool_input_schema(&tool.input_schema) {
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            if !tool.input_schema.is_object() { return Err("Pica schema refused".to_string()); }
++        } else if let Err(err) = codex_tools::parse_tool_input_schema(&tool.input_schema) {
+             return Err(format!(
+                 "dynamic tool input schema is not supported for {name}: {err}"
+             ));
+@@ -562,6 +566,9 @@ impl ThreadRequestProcessor {
+         app_server_client_version: Option<String>,
+         client_mcp_extensions: ClientMcpExtensions,
+     ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            return Err(invalid_request("Pica resume unavailable"));
++        }
+         let mut prepared_config = None;
+         // Keep the resume future off the request handler's stack.
+         while Box::pin(self.thread_resume_inner(
+@@ -586,6 +593,9 @@ impl ThreadRequestProcessor {
+         app_server_client_version: Option<String>,
+         client_mcp_extensions: ClientMcpExtensions,
+     ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            return Err(invalid_request("Pica fork unavailable"));
++        }
+         // Keep the large fork future out of the shared request dispatcher's stack frame.
+         Box::pin(self.thread_fork_inner(
+             request_id,
+@@ -605,6 +615,9 @@ impl ThreadRequestProcessor {
+         app_server_client_name: Option<String>,
+         app_server_client_version: Option<String>,
+     ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            return Err(invalid_request("Pica revert unavailable"));
++        }
+         let (response, thread_id) = self
+             .thread_revert_response(
+                 &request_id,
+@@ -1006,6 +1019,7 @@ impl ThreadRequestProcessor {
+ 
+     async fn finalize_thread_teardown(&self, thread_id: ThreadId) {
+         self.pending_thread_unloads.lock().await.remove(&thread_id);
++        self.outgoing.revoke_pica_thread(thread_id, None).await;
+         self.outgoing
+             .cancel_requests_for_thread(thread_id, /*error*/ None)
+             .await;
+@@ -1032,10 +1046,17 @@ impl ThreadRequestProcessor {
+             });
+         };
+ 
++        let pica_owner = self.outgoing.is_pica_owner(thread_id, connection_id).await;
++        self.outgoing.revoke_pica_thread(thread_id, Some(connection_id)).await;
++        if pica_owner && let Ok(thread) = self.thread_manager.get_thread(thread_id).await {
++            let _ = thread.submit(codex_protocol::protocol::Op::Interrupt).await;
++        }
+         let was_subscribed = self
+             .thread_state_manager
+             .unsubscribe_connection_from_thread(thread_id, connection_id)
+             .await;
++        // A startup registration can race the subscription removal above.
++        self.outgoing.revoke_pica_thread(thread_id, Some(connection_id)).await;
+ 
+         let status = if was_subscribed {
+             ThreadUnsubscribeStatus::Unsubscribed
+@@ -1149,6 +1170,7 @@ impl ThreadRequestProcessor {
+             base_instructions,
+             developer_instructions,
+             dynamic_tools,
++            pica_policy,
+             selected_capability_roots,
+             mock_experimental_field: _mock_experimental_field,
+             experimental_raw_events,
+@@ -1241,6 +1263,7 @@ impl ThreadRequestProcessor {
+                 config,
+                 typesafe_overrides,
+                 dynamic_tools,
++                pica_policy,
+                 selected_capability_roots.unwrap_or_default(),
+                 history_mode.map(Into::into),
+                 session_start_source,
+@@ -1323,6 +1346,7 @@ impl ThreadRequestProcessor {
+         config_overrides: Option<HashMap<String, serde_json::Value>>,
+         typesafe_overrides: ConfigOverrides,
+         dynamic_tools: Option<Vec<DynamicToolSpec>>,
++        pica_policy: Option<codex_app_server_protocol::PicaPolicyBinding>,
+         selected_capability_roots: Vec<SelectedCapabilityRoot>,
+         history_mode: Option<ThreadHistoryMode>,
+         session_start_source: Option<codex_app_server_protocol::ThreadStartSource>,
+@@ -1442,6 +1466,9 @@ impl ThreadRequestProcessor {
+             }
+         }
+ 
++        let has_explicit_environments = environment_selections
++            .as_ref()
++            .is_some_and(|items| !items.is_empty());
+         let environments = environment_selections.unwrap_or_else(|| {
+             listener_task_context
+                 .thread_manager
+@@ -1464,6 +1491,54 @@ impl ThreadRequestProcessor {
+                 .then_some(ThreadHistoryMode::Paginated)
+         });
+         let mut thread_extension_init = ExtensionDataInit::new();
++        let pica_active = std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1"));
++        let pica_owner = std::sync::Arc::new(codex_extension_api::PicaOwnerLiveness::default());
++        if !pica_active && pica_policy.is_some() {
++            return Err(invalid_request("Pica policy unavailable"));
++        }
++        if pica_active {
++            if session_start_source == Some(codex_app_server_protocol::ThreadStartSource::Clear)
++                || !selected_capability_roots.is_empty()
++                || has_explicit_environments {
++                return Err(invalid_request("Pica alternate context refused"));
++            }
++            let policy = pica_policy.as_ref().ok_or_else(|| invalid_request("Pica policy required"))?;
++            if policy.version != 1 || policy.context.len() != 64 || !policy.context.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()) || policy.catalog != dynamic_tools || serde_json::to_vec(&policy.catalog).map_err(|_| invalid_request("Pica catalog refused"))?.len() > 1_048_576 {
++                return Err(invalid_request("Pica policy refused"));
++            }
++            static CONTEXTS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> = std::sync::OnceLock::new();
++            let mut contexts = CONTEXTS.get_or_init(Default::default).lock().map_err(|_| invalid_request("Pica policy refused"))?;
++            if contexts.len() >= 4096 || !contexts.insert(policy.context.clone()) {
++                return Err(invalid_request("Pica context refused"));
++            }
++            if dynamic_tools.is_empty() || dynamic_tools.len() > 512 {
++                return Err(invalid_request("Pica catalog unavailable"));
++            }
++            let mut allowed_tools = Vec::with_capacity(dynamic_tools.len());
++            for tool in &dynamic_tools {
++                match tool {
++                    DynamicToolSpec::Function(function) => {
++                        allowed_tools.push(ToolName::plain(function.name.clone()));
++                    }
++                    DynamicToolSpec::Namespace(_) => {
++                        return Err(invalid_request("Pica namespace refused"));
++                    }
++                }
++            }
++            thread_extension_init.insert(codex_extension_api::PicaPolicyContext {
++                context: policy.context.clone(),
++                catalog: policy.catalog.clone(),
++                operations: Default::default(),
++                owner: pica_owner.clone(),
++                settlements: Default::default(),
++            });
++            thread_extension_init.insert(ToolPolicy {
++                allowed_tools: Some(allowed_tools),
++                require_managed_sandbox: false,
++                require_unified_exec: false,
++                expose_additional_permissions: false,
++            });
++        }
+         if !selected_capability_roots.is_empty() {
+             thread_extension_init.insert(selected_capability_roots);
+         }
+@@ -1488,10 +1563,25 @@ impl ThreadRequestProcessor {
+         start_options.reserved_thread_id = Some(thread_id);
+         // Startup can prewarm the Responses socket before start_thread returns.
+         // Register the creating client first so that handshake can request attestation.
+-        listener_task_context
++        let added = listener_task_context
+             .thread_state_manager
+             .try_add_connection_to_thread(thread_id, request_id.connection_id)
+             .await;
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1"))
++            && (!added || !listener_task_context.outgoing.register_pica_owner(thread_id, request_id.connection_id, pica_owner.clone(), pica_policy.as_ref().expect("validated Pica policy").context.clone()).await)
++        {
++            listener_task_context.thread_state_manager.remove_thread_state(thread_id).await;
++            remove_pending_thread_metadata(thread_store.as_ref(), reserved_thread_id).await;
++            return Err(invalid_request("Pica owner unavailable"));
++        }
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1"))
++            && !listener_task_context.thread_state_manager.subscribed_connection_ids(thread_id).await.contains(&request_id.connection_id)
++        {
++            listener_task_context.outgoing.revoke_pica_thread(thread_id, None).await;
++            listener_task_context.thread_state_manager.remove_thread_state(thread_id).await;
++            remove_pending_thread_metadata(thread_store.as_ref(), reserved_thread_id).await;
++            return Err(invalid_request("Pica owner unavailable"));
++        }
+         let create_thread_started_at = std::time::Instant::now();
+         let new_thread = listener_task_context
+             .thread_manager
+@@ -1527,6 +1617,7 @@ impl ThreadRequestProcessor {
+         } = match new_thread {
+             Ok(new_thread) => new_thread,
+             Err(err) => {
++                listener_task_context.outgoing.revoke_pica_thread(thread_id, None).await;
+                 listener_task_context
+                     .thread_state_manager
+                     .remove_thread_state(thread_id)
+@@ -1548,12 +1639,15 @@ impl ThreadRequestProcessor {
+             Some("ready"),
+         );
+ 
+-        Self::set_app_server_client_info(
++        if let Err(error) = Self::set_app_server_client_info(
+             thread.as_ref(),
+             app_server_client_name,
+             app_server_client_version,
+         )
+-        .await?;
++        .await {
++            listener_task_context.outgoing.revoke_pica_thread(thread_id, None).await;
++            return Err(error);
++        }
+ 
+         let instruction_sources = thread.legacy_instruction_sources().await;
+         let config_snapshot = thread
+@@ -1574,8 +1668,7 @@ impl ThreadRequestProcessor {
+         thread.daybreak_enabled = daybreak_enabled;
+ 
+         // Auto-attach a thread listener when starting a thread.
+-        log_listener_attach_result(
+-            super::thread_lifecycle::ensure_conversation_listener(
++        let listener_result = super::thread_lifecycle::ensure_conversation_listener(
+                 listener_task_context.clone(),
+                 thread_id,
+                 request_id.connection_id,
+@@ -1586,7 +1679,15 @@ impl ThreadRequestProcessor {
+                 otel.name = "app_server.thread_start.attach_listener",
+                 thread_start.experimental_raw_events = experimental_raw_events,
+             ))
+-            .await,
++            .await;
++        if !matches!(&listener_result, Ok(super::thread_lifecycle::EnsureConversationListenerResult::Attached)) {
++            listener_task_context.outgoing.revoke_pica_thread(thread_id, None).await;
++            if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++                return Err(invalid_request("Pica owner unavailable"));
++            }
++        }
++        log_listener_attach_result(
++            listener_result,
+             thread_id,
+             request_id.connection_id,
+             "thread",
+@@ -1620,6 +1721,12 @@ impl ThreadRequestProcessor {
+         let thread_originator = config_snapshot.originator.clone();
+ 
+         let response = ThreadStartResponse {
++            pica_policy_ack: pica_policy.map(|policy| codex_app_server_protocol::PicaPolicyAck {
++                version: policy.version,
++                context: policy.context,
++                catalog: policy.catalog,
++                thread_id: thread.id.to_string(),
++            }),
+             thread: thread.clone(),
+             disabled_plugin_ids: config_snapshot.disabled_plugin_ids,
+             model: config_snapshot.model,
+@@ -3580,12 +3687,19 @@ impl ThreadRequestProcessor {
+         connection_id: ConnectionId,
+         capabilities: ConnectionCapabilities,
+     ) {
++        self.outgoing.pica_connection_initialized(connection_id).await;
+         self.thread_state_manager
+             .connection_initialized(connection_id, capabilities)
+             .await;
+     }
+ 
+     pub(crate) async fn connection_closed(&self, connection_id: ConnectionId) {
++        self.outgoing.revoke_pica_connection(connection_id).await;
++        for thread_id in self.outgoing.take_closed_pica_threads(connection_id).await {
++            if let Ok(thread) = self.thread_manager.get_thread(thread_id).await {
++                let _ = thread.submit(codex_protocol::protocol::Op::Interrupt).await;
++            }
++        }
+         let thread_ids = self
+             .thread_state_manager
+             .remove_connection(connection_id)
+diff --git a/codex-rs/app-server/src/request_processors/turn_processor.rs b/codex-rs/app-server/src/request_processors/turn_processor.rs
+index e42e53d..f7d4764 100644
+--- a/codex-rs/app-server/src/request_processors/turn_processor.rs
++++ b/codex-rs/app-server/src/request_processors/turn_processor.rs
+@@ -194,6 +194,9 @@ impl TurnRequestProcessor {
+         request_id: &ConnectionRequestId,
+         params: ThreadInjectItemsParams,
+     ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            return Err(invalid_request("Pica item injection unavailable"));
++        }
+         self.thread_inject_items_response_inner(request_id, params)
+             .await
+             .map(|response| Some(response.into()))
+@@ -257,6 +260,9 @@ impl TurnRequestProcessor {
+         request_id: &ConnectionRequestId,
+         params: TurnSteerParams,
+     ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            return Err(invalid_request("Pica steering unavailable"));
++        }
+         validate_user_input_image_urls(&params.input)?;
+         self.turn_steer_inner(request_id, params)
+             .await
+@@ -532,6 +538,33 @@ impl TurnRequestProcessor {
+                 .inspect_err(|error| {
+                     self.track_error_response(&request_id, error, /*error_type*/ None);
+                 })?;
++        let pica_active = std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1"));
++        let operation = params.pica_operation.clone();
++        let pica_policy = if pica_active {
++            if !self.outgoing.is_pica_owner(thread_id, request_id.connection_id).await {
++                return Err(invalid_request("Pica owner refused"));
++            }
++            let operation = operation.as_ref().ok_or_else(|| invalid_request("Pica operation required"))?;
++            let policy = thread.thread_extension_data().get::<codex_extension_api::PicaPolicyContext>()
++                .ok_or_else(|| invalid_request("Pica policy unavailable"))?;
++            if !policy.owner.live() || !policy.settlements.lock().map_err(|_| invalid_request("Pica settlement refused"))?.values().all(|settlement| settlement.acknowledged()) {
++                return Err(invalid_request("Pica settlement unavailable"));
++            }
++            let uuid = operation.operation_id.as_bytes();
++            let uuid_valid = uuid.len() == 36 && uuid.iter().enumerate().all(|(index, byte)| {
++                if [8, 13, 18, 23].contains(&index) { *byte == b'-' } else { byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase() }
++            });
++            let nonce_valid = operation.nonce.len() == 64 && operation.nonce.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase());
++            if !uuid_valid || !nonce_valid || operation.sequence == 0 || operation.sequence > 9_007_199_254_740_991 ||
++                operation.context != policy.context || operation.catalog != policy.catalog ||
++                serde_json::to_vec(&operation.catalog).map_err(|_| invalid_request("Pica operation refused"))?.len() > 1_048_576 {
++                return Err(invalid_request("Pica operation refused"));
++            }
++            Some(policy)
++        } else {
++            if operation.is_some() { return Err(invalid_request("Pica operation unavailable")); }
++            None
++        };
+         self.ensure_direct_input_allowed(&request_id, thread.as_ref())
+             .await?;
+         self.config_manager
+@@ -648,22 +681,45 @@ impl TurnRequestProcessor {
+             )
+             .await?;
+ 
+-        let submission = thread
+-            .start_or_steer_turn(
+-                TurnInputRequest::new(input)
+-                    .with_thread_settings(thread_settings)
+-                    .on_start(TurnStartOptions {
+-                        turn_trigger: params.turn_trigger,
+-                        final_output_json_schema: params.output_schema,
+-                        service_tier: params.service_tier_for_turn,
+-                        cyber_access_program: params.cyber_access_program.map(Into::into),
+-                        ..Default::default()
+-                    })
+-                    .with_additional_context(additional_context)
+-                    .with_responses_metadata(params.responsesapi_client_metadata)
+-                    .with_trace(self.request_trace_context(&request_id).await),
+-            )
+-            .await
++        let turn_request = TurnInputRequest::new(input)
++            .with_thread_settings(thread_settings)
++            .on_start(TurnStartOptions {
++                pica_operation: operation.clone(),
++                turn_trigger: params.turn_trigger,
++                final_output_json_schema: params.output_schema,
++                service_tier: params.service_tier_for_turn,
++                cyber_access_program: params.cyber_access_program.map(Into::into),
++                ..Default::default()
++            })
++            .with_additional_context(additional_context)
++            .with_responses_metadata(params.responsesapi_client_metadata)
++            .with_trace(self.request_trace_context(&request_id).await);
++        if let Some(policy) = &pica_policy {
++            if !self.outgoing.is_pica_owner(thread_id, request_id.connection_id).await {
++                return Err(invalid_request("Pica owner refused"));
++            }
++            let operation = operation.as_ref().ok_or_else(|| invalid_request("Pica operation required"))?;
++            let mut issued = policy.operations.lock().map_err(|_| invalid_request("Pica operation refused"))?;
++            if issued.ids.len() >= 4096 || operation.sequence <= issued.last_sequence ||
++                issued.ids.contains(&operation.operation_id) || issued.nonces.contains(&operation.nonce) {
++                return Err(invalid_request("Pica operation refused"));
++            }
++            issued.last_sequence = operation.sequence;
++            issued.ids.insert(operation.operation_id.clone());
++            issued.nonces.insert(operation.nonce.clone());
++        }
++        let submission = if std::env::var_os("PAGES_PICA_CODEX").as_deref()
++            == Some(std::ffi::OsStr::new("1"))
++        {
++            thread.start_turn_if_idle(turn_request).await.map(|result| match result {
++                codex_core::StartIfIdleSubmission::Started { turn_id } =>
++                    TurnInputSubmission::Started { turn_id },
++                codex_core::StartIfIdleSubmission::NotSubmitted { reason } =>
++                    TurnInputSubmission::NotSubmitted { reason },
++            })
++        } else {
++            thread.start_or_steer_turn(turn_request).await
++        }
+             .map_err(|err| {
+                 let error = internal_error(format!("failed to submit turn input: {err}"));
+                 self.track_error_response(&request_id, &error, /*error_type*/ None);
+diff --git a/codex-rs/app-server-protocol/src/protocol/common.rs b/codex-rs/app-server-protocol/src/protocol/common.rs
+index c37c495..fc36935 100644
+--- a/codex-rs/app-server-protocol/src/protocol/common.rs
++++ b/codex-rs/app-server-protocol/src/protocol/common.rs
+@@ -1792,6 +1792,23 @@ server_request_definitions! {
+         response: v2::PermissionsRequestApprovalResponse,
+     },
+ 
++    /// Private Pages registry readiness control request.
++    PicaRegistryReady => "pages/pica/registryReady" {
++        params: codex_protocol::protocol::PicaRegistryReadyRequest,
++        response: codex_protocol::protocol::PicaRegistryReadyResponse,
++    },
++
++    PicaRegistryRevoked => "pages/pica/registryRevoked" {
++        params: codex_protocol::protocol::PicaRegistryReadyRequest,
++        response: codex_protocol::protocol::PicaRegistryReadyResponse,
++    },
++
++    /// Cleanup-only invalidation for a former Pages thread owner.
++    PicaThreadInvalidated => "pages/pica/threadInvalidated" {
++        params: codex_protocol::protocol::PicaThreadInvalidation,
++        response: codex_protocol::protocol::PicaThreadInvalidationResponse,
++    },
++
+     /// Execute a dynamic tool call on the client.
+     DynamicToolCall => "item/tool/call" {
+         params: v2::DynamicToolCallParams,
+diff --git a/codex-rs/app-server-protocol/src/protocol/v2/thread.rs b/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
+index 2e166d5..1c88b37 100644
+--- a/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
++++ b/codex-rs/app-server-protocol/src/protocol/v2/thread.rs
+@@ -54,12 +54,31 @@ pub enum ThreadStartSource {
+ 
+ // === Threads, Turns, and Items ===
+ // Thread APIs
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub struct PicaPolicyBinding {
++    pub version: u8,
++    pub context: String,
++    pub catalog: Vec<DynamicToolSpec>,
++}
++
++#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub struct PicaPolicyAck {
++    pub version: u8,
++    pub context: String,
++    pub catalog: Vec<DynamicToolSpec>,
++    pub thread_id: String,
++}
+ #[derive(
+     Serialize, Deserialize, Debug, Clone, PartialEq, Default, JsonSchema, TS, ExperimentalApi,
+ )]
+ #[serde(rename_all = "camelCase")]
+ #[ts(export_to = "v2/")]
+ pub struct ThreadStartParams {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    #[ts(optional = nullable)]
++    pub pica_policy: Option<PicaPolicyBinding>,
+     #[ts(optional = nullable)]
+     pub model: Option<String>,
+     #[ts(optional = nullable)]
+@@ -186,6 +205,9 @@ pub struct MockExperimentalMethodResponse {
+ #[serde(rename_all = "camelCase")]
+ #[ts(export_to = "v2/")]
+ pub struct ThreadStartResponse {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    #[ts(optional = nullable)]
++    pub pica_policy_ack: Option<PicaPolicyAck>,
+     pub thread: Thread,
+     pub model: String,
+     pub model_provider: String,
+diff --git a/codex-rs/app-server-protocol/src/protocol/v2/turn.rs b/codex-rs/app-server-protocol/src/protocol/v2/turn.rs
+index f938d17..2811c54 100644
+--- a/codex-rs/app-server-protocol/src/protocol/v2/turn.rs
++++ b/codex-rs/app-server-protocol/src/protocol/v2/turn.rs
+@@ -165,6 +165,9 @@ pub struct TurnToolOutput {
+ #[serde(rename_all = "camelCase")]
+ #[ts(export_to = "v2/")]
+ pub struct TurnStartParams {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    #[ts(optional = nullable)]
++    pub pica_operation: Option<codex_protocol::protocol::PicaOperation>,
+     pub thread_id: String,
+     /// Replace this thread's disabled plugin IDs.
+     /// Omitted/null preserves the list; [] clears it.
+diff --git a/codex-rs/core/src/compact.rs b/codex-rs/core/src/compact.rs
+index a937b39..da26d08 100644
+--- a/codex-rs/core/src/compact.rs
++++ b/codex-rs/core/src/compact.rs
+@@ -752,27 +752,36 @@ async fn drain_to_completed(
+     prompt: &Prompt,
+     phase: CompactionPhase,
+ ) -> CodexResult<CompactionResponse> {
+-    let mut stream = client_session
++    let effort = sess.reasoning_effort_for_request(
++        &turn_context.initial_settings, RequestEffortUsage::Compaction,
++    ).await;
++    let pica_permit = crate::session::turn::pica_request_permit(sess, turn_context).await?.unwrap_or_default();
++    let trace_context = InferenceTraceContext::disabled();
++    let mut stream = tokio::select! {
++        biased;
++        _ = pica_permit.cancelled() => return Err(CodexErr::TurnAborted),
++        result = client_session
+         .stream(
+             prompt,
+             turn_context.model_info(),
+             &turn_context.session_telemetry,
+-            sess.reasoning_effort_for_request(
+-                &turn_context.initial_settings,
+-                RequestEffortUsage::Compaction,
+-            )
+-            .await,
++            effort,
+             turn_context.reasoning_summary(),
+             turn_context.config.service_tier.clone(),
+             responses_metadata,
+             // Rollout tracing currently models remote compaction only; local compaction streams
+             // are left untraced until the reducer has a first-class local compaction lifecycle.
+-            &InferenceTraceContext::disabled(),
++            &trace_context,
+-        )
+-        .await?;
++        ) => result?,
++    };
+     let mut output = Vec::new();
+     loop {
+-        let maybe_event = stream.next().await;
++        let maybe_event = tokio::select! {
++            biased;
++            _ = pica_permit.cancelled() => return Err(CodexErr::TurnAborted),
++            event = stream.next() => event,
++        };
++        crate::session::turn::ensure_pica_turn(sess, turn_context).await?;
+         let Some(event) = maybe_event else {
+             return Err(CodexErr::Stream(
+                 "stream closed before response.completed".into(),
+diff --git a/codex-rs/core/src/compact_remote_v2.rs b/codex-rs/core/src/compact_remote_v2.rs
+index 013a4fa..5fc7f9e 100644
+--- a/codex-rs/core/src/compact_remote_v2.rs
++++ b/codex-rs/core/src/compact_remote_v2.rs
+@@ -398,31 +398,43 @@ async fn run_remote_compaction_request_v2(
+         .min(MAX_REMOTE_COMPACTION_V2_STREAM_RETRIES);
+     let mut retry_state = ResponsesStreamRetryState::default();
+     loop {
+-        let result = match client_session
++        let effort = sess.reasoning_effort_for_request(
++            &turn_context.initial_settings, RequestEffortUsage::Compaction,
++        ).await;
++        let pica_permit = crate::session::turn::pica_request_permit(sess, turn_context.as_ref()).await?.unwrap_or_default();
++        let trace_context = InferenceTraceContext::disabled();
++        let stream_result = tokio::select! {
++            biased;
++            _ = pica_permit.cancelled() => return Err(CodexErr::TurnAborted),
++            result = client_session
+             .stream(
+                 prompt,
+                 turn_context.model_info(),
+                 &turn_context.session_telemetry,
+-                sess.reasoning_effort_for_request(
+-                    &turn_context.initial_settings,
+-                    RequestEffortUsage::Compaction,
+-                )
+-                .await,
++                effort,
+                 turn_context.reasoning_summary(),
+                 step_context.settings.service_tier.clone(),
+                 responses_metadata,
+-                &InferenceTraceContext::disabled(),
++                &trace_context,
+-            )
+-            .await
+-        {
+-            Ok(stream) => collect_compaction_output(sess, turn_context, stream).await,
++            ) => result,
++        };
++        let result = match stream_result {
++            Ok(stream) => tokio::select! {
++                biased;
++                _ = pica_permit.cancelled() => return Err(CodexErr::TurnAborted),
++                result = collect_compaction_output(sess, turn_context, stream) => result,
++            },
+             Err(err) => Err(err),
+         };
++        crate::session::turn::ensure_pica_turn(sess, turn_context.as_ref()).await?;
+ 
+         match result {
+             Ok(compaction_output) => return Ok(compaction_output),
+             Err(err) => {
+-                handle_response_stream_error(
++                tokio::select! {
++                    biased;
++                    _ = pica_permit.cancelled() => return Err(CodexErr::TurnAborted),
++                    retry = handle_response_stream_error(
+                     &mut retry_state,
+                     max_retries,
+                     err,
+@@ -430,8 +441,8 @@ async fn run_remote_compaction_request_v2(
+                     sess,
+                     step_context,
+                     ResponsesStreamRequest::RemoteCompactionV2,
+-                )
+-                .await?;
++                    ) => retry?,
++                }
+             }
+         }
+     }
+diff --git a/codex-rs/core/src/session/handlers.rs b/codex-rs/core/src/session/handlers.rs
+index 94c4702..acf5640 100644
+--- a/codex-rs/core/src/session/handlers.rs
++++ b/codex-rs/core/src/session/handlers.rs
+@@ -285,6 +285,7 @@ pub async fn set_thread_memory_mode(sess: &Arc<Session>, sub_id: String, mode: T
+ }
+ 
+ pub(super) async fn shutdown_session_runtime(sess: &Arc<Session>) {
++    sess.pica_retirements().close_start_admission();
+     let startup_prewarm = {
+         let mut state = sess.state.lock().await;
+         // Stop admission and take the current warmup together so resume cannot replace it.
+@@ -296,6 +297,7 @@ pub(super) async fn shutdown_session_runtime(sess: &Arc<Session>) {
+     }
+     let _ = sess.conversation.shutdown().await;
+     sess.abort_all_tasks(TurnAbortReason::Interrupted).await;
++    sess.pica_retirements().shutdown().await;
+     let shell_snapshot_prewarm = sess.state.lock().await.shell_snapshot_prewarm.take();
+     if let Some(shell_snapshot_prewarm) = shell_snapshot_prewarm {
+         shell_snapshot_prewarm.abort();
+@@ -424,7 +426,15 @@ pub(super) async fn submission_loop(
+ ) {
+     // To break out of this loop, send Op::Shutdown.
+     let mut shutdown_received = false;
+-    while let Ok(sub) = rx_sub.recv().await {
++    let mut retirement_tick = tokio::time::interval(std::time::Duration::from_secs(1));
++    loop {
++        let sub = tokio::select! {
++            received = rx_sub.recv() => match received { Ok(sub) => sub, Err(_) => break },
++            _ = retirement_tick.tick(), if sess.pica_retirements().has_entries() => {
++                sess.pica_retirements().reap_ready();
++                continue;
++            }
++        };
+         if matches!(sub.op, Op::ResolveElicitation { .. }) {
+             debug!(submission_id = %sub.id, operation = sub.op.kind(), "Submission");
+         } else {
+@@ -588,6 +598,14 @@ pub(super) async fn submission_loop(
+                     request_permissions_response(&sess, id, response).await;
+                     false
+                 }
++                Op::PicaRegistryReadyResponse { response } => {
++                    sess.notify_pica_registry_ready(response).await;
++                    false
++                }
++                Op::PicaRegistryRevokedResponse { response } => {
++                    sess.notify_pica_registry_revoked(response);
++                    false
++                }
+                 Op::DynamicToolResponse { id, response } => {
+                     dynamic_tool_response(&sess, id, response).await;
+                     false
+diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
+index e08a0fa..8f9e3a7 100644
+--- a/codex-rs/core/src/session/mod.rs
++++ b/codex-rs/core/src/session/mod.rs
+@@ -254,6 +254,8 @@ mod rollout_budget;
+ mod rollout_reconstruction;
+ #[allow(clippy::module_inception)]
+ pub(crate) mod session;
++pub(crate) mod pica_dynamic_events;
++pub(crate) mod pica_retirement;
+ pub(crate) mod startup_prewarm;
+ mod step_activation;
+ pub(crate) mod step_context;
+@@ -2327,7 +2329,21 @@ impl Session {
+ 
+     /// Persist the event to rollout and send it to clients.
+     pub(crate) async fn send_event(&self, turn_context: &TurnContext, msg: EventMsg) {
+-        let legacy_source = msg.clone();
++        let event = Event { id: turn_context.sub_id.clone(), msg };
++        if Self::is_pica_dynamic_started(&event) { return; }
++        self.send_event_effects(turn_context, event, false).await;
++    }
++
++    /// Apply canonical event effects to an event already handed to the client.
++    pub(crate) async fn send_pica_owned_event(&self, turn_context: &TurnContext, event: Event, already_visible: bool) -> bool {
++        if self.live_thread().is_none() { return false; }
++        let succeeded = self.send_event_effects(turn_context, event, already_visible).await;
++        let flushed = self.flush_rollout().await.is_ok();
++        succeeded && flushed
++    }
++
++    async fn send_event_effects(&self, turn_context: &TurnContext, event: Event, already_visible: bool) -> bool {
++        let legacy_source = event.msg.clone();
+         if let EventMsg::Error(error) = &legacy_source
+             && error
+                 .codex_error_info
+@@ -2346,10 +2362,6 @@ impl Session {
+         self.services
+             .rollout_thread_trace
+             .record_tool_call_event(turn_context.sub_id.clone(), &legacy_source);
+-        let event = Event {
+-            id: turn_context.sub_id.clone(),
+-            msg,
+-        };
+         // Private reviewers have no app-server listener; publicly resumed Guardian threads do.
+         if matches!(
+             &turn_context.session_source,
+@@ -2368,7 +2380,12 @@ impl Session {
+                 .analytics_events_client
+                 .track_guardian_session_event(self.thread_id, &event);
+         }
+-        self.send_event_raw(event).await;
++        let persisted = if already_visible {
++            self.send_event_raw_with_persistence(event, true, true).await
++        } else {
++            self.send_event_raw(event).await;
++            true
++        };
+         self.maybe_notify_parent_of_terminal_turn(turn_context, &legacy_source)
+             .await;
+         self.maybe_mirror_event_text_to_realtime(&legacy_source)
+@@ -2387,6 +2404,7 @@ impl Session {
+             };
+             self.send_event_raw(legacy_event).await;
+         }
++        persisted
+     }
+ 
+     /// Forwards terminal turn events from spawned MultiAgentV2 children to their direct parent.
+@@ -2508,8 +2526,8 @@ impl Session {
+     }
+ 
+     pub(crate) async fn send_event_raw(&self, event: Event) {
+-        self.send_event_raw_with_persistence(event, /*persist*/ true)
+-            .await;
++        if Self::is_pica_dynamic_started(&event) { return; }
++        self.send_event_raw_with_persistence(event, /*persist*/ true, /*already_delivered*/ false).await;
+     }
+ 
+     /// Delivers an event without creating a local rollout for a thread that has not materialized.
+@@ -2522,10 +2540,12 @@ impl Session {
+                 true
+             }
+         };
+-        self.send_event_raw_with_persistence(event, persist).await;
++        if Self::is_pica_dynamic_started(&event) { return; }
++        self.send_event_raw_with_persistence(event, persist, /*already_delivered*/ false).await;
+     }
+ 
+-    async fn send_event_raw_with_persistence(&self, event: Event, persist: bool) {
++    pub(crate) async fn send_event_raw_with_persistence(&self, event: Event, persist: bool, already_delivered: bool) -> bool {
++        let mut succeeded = true;
+         let flush_guardian_completion = persist
+             && matches!(event.msg, EventMsg::TurnComplete(_))
+             && self.is_private_guardian_reviewer().await;
+@@ -2554,11 +2574,12 @@ impl Session {
+             && let Err(error) = self.send_realtime_history_effects(&event.id, effects).await
+         {
+             warn!("failed to persist realtime history: {error}");
++            succeeded = false;
+         }
+         // Persist the event into rollout storage; the store applies its persistence policy.
+         if persist {
+             let rollout_items = vec![RolloutItem::EventMsg(event.msg.clone())];
+-            self.persist_rollout_items(&rollout_items).await;
++            succeeded &= self.persist_rollout_items(&rollout_items).await;
+         }
+         self.services
+             .rollout_thread_trace
+@@ -2567,16 +2588,71 @@ impl Session {
+             && let Err(error) = self.send_realtime_history_effects(&event.id, effects).await
+         {
+             warn!("failed to persist realtime history: {error}");
++            succeeded = false;
+         }
+         // Save the completed review and its terminal event together before the parent sees
+         // the decision. Turn completion skips its separate before/after barriers for this case.
+         if flush_guardian_completion && let Err(err) = self.flush_rollout().await {
+             warn!("failed to flush completed Guardian review: {err}");
++            succeeded = false;
++        }
++        if !already_delivered { self.deliver_event_raw(event).await; }
++        succeeded
++    }
++
++    /// Session-scoped root shared by task and actor lifecycle callers.
++    pub(crate) fn pica_retirements(&self) -> Arc<pica_retirement::PicaRetirements> {
++        self.services.session_extension_data.get_or_init(pica_retirement::PicaRetirements::default)
++    }
++
++    /// Returns the owner only for the current admitted Pica task.
++    pub(crate) async fn pica_dynamic_event_owner(&self, turn: &TurnContext) -> Option<Arc<pica_dynamic_events::PicaDynamicEventOwner>> {
++        let active = self.active_turn.lock().await;
++        let active = active.as_ref()?;
++        let task = active.task.as_ref()?;
++        if !turn::pica_same_turn(task.turn_context.as_ref(), turn) || task.cancellation_token.is_cancelled()
++            || !turn.extension_data.get::<turn_context::PicaTurnLease>().is_some_and(|lease| lease.admitted()) { return None; }
++        let owner = active.turn_state.lock().await.pica_event_owner.clone();
++        owner
++    }
++
++    fn is_pica_dynamic_started(event: &Event) -> bool {
++        std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1"))
++            && matches!(&event.msg, EventMsg::ItemStarted(started) if matches!(&started.item, TurnItem::DynamicToolCall(_)))
++    }
++
++    /// Handoff the reserved start only while its exact task and waiter remain current.
++    pub(crate) async fn admit_pica_dynamic_started(
++        &self,
++        turn_context: &TurnContext,
++        call_id: &str,
++        generation: u64,
++        waiter: &crate::state::PicaDynamicWaiterGuard,
++        owner: &Arc<pica_dynamic_events::PicaDynamicEventOwner>,
++        ticket: &mut pica_dynamic_events::PicaDynamicEventTicket,
++    ) -> pica_dynamic_events::PicaEventAdmission {
++        use pica_dynamic_events::PicaEventAdmission;
++        let active = self.active_turn.lock().await;
++        let Some(active) = active.as_ref() else { return PicaEventAdmission::NotAdmitted; };
++        let Some(task) = active.task.as_ref() else { return PicaEventAdmission::NotAdmitted; };
++        if !turn::pica_same_turn(task.turn_context.as_ref(), turn_context) || task.cancellation_token.is_cancelled() {
++            return PicaEventAdmission::NotAdmitted;
++        }
++        let Some(lease) = task.turn_context.extension_data.get::<turn_context::PicaTurnLease>() else { return PicaEventAdmission::NotAdmitted; };
++        let state = active.turn_state.lock().await;
++        if !state.pica_event_owner.as_ref().is_some_and(|current| Arc::ptr_eq(current, owner))
++            || !state.has_matching_pica_dynamic_tool(call_id, waiter)
++            || !ticket.matches(&turn_context.sub_id, call_id, generation) {
++            return PicaEventAdmission::NotAdmitted;
+         }
+-        self.deliver_event_raw(event).await;
++        lease.handoff(|| ticket.admit(|event| self.tx_event.try_send(event.clone()).is_ok()))
++            .unwrap_or(PicaEventAdmission::NotAdmitted)
+     }
+ 
+     async fn deliver_event_raw(&self, event: Event) {
++        if Self::is_pica_dynamic_started(&event) {
++            return;
++        }
+         // Record the last known agent status.
+         if let Some(status) = agent_status_from_event(&event.msg) {
+             self.agent_status.send_replace(status);
+@@ -2603,11 +2679,12 @@ impl Session {
+         .await;
+     }
+ 
+-    pub(crate) async fn emit_turn_item_completed(
+-        &self,
+-        turn_context: &TurnContext,
+-        item: TurnItem,
+-    ) {
++    pub(crate) async fn emit_turn_item_completed(&self, turn_context: &TurnContext, item: TurnItem) {
++        let msg = self.prepare_turn_item_completed(turn_context, item).await;
++        self.send_event(turn_context, msg).await;
++    }
++
++    pub(crate) async fn prepare_turn_item_completed(&self, turn_context: &TurnContext, item: TurnItem) -> EventMsg {
+         record_turn_ttfm_metric(turn_context, &item).await;
+         for contributor in self.services.extensions.turn_lifecycle_contributors() {
+             contributor
+@@ -2633,17 +2710,13 @@ impl Session {
+                 );
+                 completed_at_ms
+             });
+-        self.send_event(
+-            turn_context,
+-            EventMsg::ItemCompleted(ItemCompletedEvent {
+-                thread_id: self.thread_id,
+-                turn_id: turn_context.sub_id.clone(),
+-                item,
+-                started_at_ms: Some(started_at_ms),
+-                completed_at_ms,
+-            }),
+-        )
+-        .await;
++        EventMsg::ItemCompleted(ItemCompletedEvent {
++            thread_id: self.thread_id,
++            turn_id: turn_context.sub_id.clone(),
++            item,
++            started_at_ms: Some(started_at_ms),
++            completed_at_ms,
++        })
+     }
+ 
+     /// Adds an execpolicy amendment to both the in-memory and on-disk policies so future
+@@ -3348,6 +3421,26 @@ impl Session {
+         state.granted_permissions(environment_id)
+     }
+ 
++    pub fn notify_pica_registry_revoked(&self, response: codex_protocol::protocol::PicaRegistryRevokedResult) {
++        if let Some(policy) = self.services.thread_extension_data.get::<codex_extension_api::PicaPolicyContext>()
++            && let Ok(settlements) = policy.settlements.lock()
++            && let Some(settlement) = settlements.get(&response.request.request_id)
++            && settlement.request == response.request {
++            settlement.finish(response.outcome);
++        }
++    }
++
++    pub async fn notify_pica_registry_ready(&self, response: codex_protocol::protocol::PicaRegistryReadyResponse) {
++        let entry = {
++            let mut active = self.active_turn.lock().await;
++            match active.as_mut() {
++                Some(at) => at.turn_state.lock().await.remove_pending_pica_ready(&response.request_id),
++                None => None,
++            }
++        };
++        if let Some(sender) = entry { let _ = sender.send(response); }
++    }
++
+     #[expect(
+         clippy::await_holding_invalid_type,
+         reason = "active turn checks and turn state updates must remain atomic"
+diff --git a/codex-rs/core/src/session/pica_dynamic_events.rs b/codex-rs/core/src/session/pica_dynamic_events.rs
+new file mode 100644
+index 0000000..fe2d41c
+--- /dev/null
++++ b/codex-rs/core/src/session/pica_dynamic_events.rs
+@@ -0,0 +1,496 @@
++//! Retained event settlement for admitted Pica dynamic calls.
++//!
++//! This registry is not attached to a turn until its callers explicitly wire it.
++
++use std::collections::{HashMap, HashSet};
++use std::sync::{Arc, Mutex, Weak};
++use std::sync::atomic::{AtomicU64, Ordering};
++use std::time::Duration;
++
++use codex_protocol::dynamic_tools::DynamicToolResponse;
++use futures::FutureExt;
++use codex_protocol::items::{DynamicToolCallStatus, TurnItem};
++use codex_protocol::protocol::{Event, EventMsg};
++use tokio::sync::{oneshot, watch};
++use tokio::task::JoinHandle;
++use tokio::time::{timeout, timeout_at, Instant};
++
++use super::session::Session;
++use super::turn_context::TurnContext;
++use crate::turn_timing::now_unix_timestamp_ms;
++
++const MAX_ACTIVE: usize = 64;
++const MAX_GENERATIONS: usize = 4096;
++const MAX_START_BYTES: usize = 1024 * 1024;
++const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
++const WAIT_LIMIT: Duration = Duration::from_secs(30);
++const PERSIST_LIMIT: Duration = Duration::from_secs(10);
++const JOIN_LIMIT: Duration = Duration::from_secs(55);
++
++#[derive(Clone, Hash, PartialEq, Eq)]
++struct CallKey { turn: String, call: String, generation: u64 }
++
++/// Terminal result for a caller and the turn teardown owner.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) enum PicaEventSettlement {
++    NotAdmitted,
++    Completed,
++    Failed,
++    Cancelled,
++    Unavailable,
++    JoinUnobserved,
++}
++
++/// Terminal outcome for the exact turn, call and registry generation.
++#[derive(Clone)]
++pub(crate) struct PicaEventResult {
++    pub(crate) turn: String,
++    pub(crate) call: String,
++    pub(crate) generation: u64,
++    pub(crate) outcome: PicaEventSettlement,
++    pub(crate) stages: PicaEventStages,
++}
++
++/// Local observations only; no callback or storage durability is implied.
++#[derive(Clone, Copy, Debug, Default)]
++pub(crate) struct PicaEventStages {
++    pub(crate) start_effects_started: bool,
++    pub(crate) start_effects_finished: bool,
++    pub(crate) start_persisted: Option<bool>,
++    pub(crate) completion_preparation_started: bool,
++    pub(crate) completion_preparation_finished: bool,
++    pub(crate) terminal_enqueue_attempted: bool,
++    pub(crate) terminal_enqueue_succeeded: bool,
++    pub(crate) terminal_effects_started: bool,
++    pub(crate) terminal_effects_finished: bool,
++    pub(crate) terminal_persisted: Option<bool>,
++    pub(crate) fallback_outcome: Option<PicaEventSettlement>,
++}
++
++#[derive(Clone)]
++enum Terminal { Response(DynamicToolResponse), Cancelled }
++
++struct Control {
++    admission: Option<oneshot::Sender<Option<(Event, Instant)>>>,
++    terminal: Option<oneshot::Sender<Terminal>>,
++    admitted: bool,
++    closed: bool,
++    admitted_start: Option<(Event, Instant)>,
++    disposition: Option<Terminal>,
++    terminal_claimed: bool,
++    start_effects_started: bool,
++    start_effects_finished: bool,
++    start_persisted: Option<bool>,
++    completion_preparation_started: bool,
++    completion_preparation_finished: bool,
++    terminal_enqueue_attempted: bool,
++    terminal_enqueue_succeeded: bool,
++    terminal_effects_started: bool,
++    terminal_effects_finished: bool,
++    terminal_persisted: Option<bool>,
++    fallback_outcome: Option<PicaEventSettlement>,
++}
++
++struct Entry {
++    control: Arc<Mutex<Control>>,
++    worker: JoinHandle<PicaEventSettlement>,
++}
++
++/// Per-turn owner of bounded dynamic event workers and their join results.
++pub(crate) struct PicaDynamicEventRegistry {
++    session: Weak<Session>,
++    turn: Weak<TurnContext>,
++    active: HashMap<CallKey, Entry>,
++    records: HashMap<CallKey, Arc<Mutex<Control>>>,
++    used: HashSet<CallKey>,
++    results: Vec<PicaEventResult>,
++    closed: bool,
++}
++
++/// Result of the synchronous visible-event handoff.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) enum PicaEventAdmission {
++    NotAdmitted,
++    Committed,
++    CommittedUnavailable,
++}
++
++/// Request-side handle; dropping it signals cancellation without owning the worker.
++pub(crate) struct PicaDynamicEventTicket {
++    key: CallKey,
++    event: Event,
++    control: Arc<Mutex<Control>>,
++}
++
++impl PicaDynamicEventRegistry {
++    pub(crate) fn new(session: &Arc<Session>, turn: &Arc<TurnContext>) -> Self {
++        Self { session: Arc::downgrade(session), turn: Arc::downgrade(turn), active: HashMap::new(), records: HashMap::new(), used: HashSet::new(), results: Vec::new(), closed: false }
++    }
++
++    /// Reserve before lease admission; no visible or persisted event is produced here.
++    pub(crate) fn reserve(&mut self, turn: &TurnContext, event: Event, generation: u64) -> Option<PicaDynamicEventTicket> {
++        self.reap_finished();
++        let bound_turn = self.turn.upgrade()?;
++        let session = self.session.upgrade()?;
++        if !super::turn::pica_same_turn(bound_turn.as_ref(), turn) { return None; }
++        let EventMsg::ItemStarted(start) = &event.msg else { return None; };
++        let TurnItem::DynamicToolCall(item) = &start.item else { return None; };
++        if event.id != bound_turn.sub_id || start.turn_id != bound_turn.sub_id || start.thread_id != session.thread_id || generation == 0
++            || item.status != DynamicToolCallStatus::InProgress || item.success.is_some() || item.content_items.is_some() || item.error.is_some()
++            || serde_json::to_vec(&event).map_or(true, |bytes| bytes.len() > MAX_START_BYTES) { return None; }
++        let key = CallKey { turn: start.turn_id.clone(), call: item.id.clone(), generation };
++        let unresolved = self.records.values().filter(|control| {
++            control.lock().unwrap_or_else(|error| error.into_inner()).admitted_start.is_some()
++        }).count();
++        if self.closed || self.active.len() >= MAX_ACTIVE || unresolved >= MAX_ACTIVE || self.used.len() >= MAX_GENERATIONS || self.used.contains(&key)
++            || self.active.keys().any(|active| active.turn == key.turn && active.call == key.call) { return None; }
++        let (admission_tx, admission_rx) = oneshot::channel();
++        let (terminal_tx, terminal_rx) = oneshot::channel();
++        let control = Arc::new(Mutex::new(Control { admission: Some(admission_tx), terminal: Some(terminal_tx), admitted: false, closed: false,
++            admitted_start: None, disposition: None, terminal_claimed: false, start_effects_started: false, start_effects_finished: false, start_persisted: None,
++            completion_preparation_started: false, completion_preparation_finished: false, terminal_enqueue_attempted: false,
++            terminal_enqueue_succeeded: false, terminal_effects_started: false, terminal_effects_finished: false, terminal_persisted: None, fallback_outcome: None }));
++        let worker = tokio::spawn(run_worker(self.session.clone(), self.turn.clone(), control.clone(), admission_rx, terminal_rx));
++        self.used.insert(key.clone());
++        self.records.insert(key.clone(), control.clone());
++        self.active.insert(key.clone(), Entry { control: control.clone(), worker });
++        Some(PicaDynamicEventTicket { key, event, control })
++    }
++
++    /// Stop new reservations and wake every unadmitted or unsettled worker.
++    pub(crate) fn close(&mut self) {
++        self.closed = true;
++        for entry in self.active.values() { cancel(&entry.control); }
++    }
++
++    fn record(&mut self, key: CallKey, outcome: PicaEventSettlement) {
++        let stages = self.records.get(&key).map(|control| stages(control)).unwrap_or_default();
++        self.results.push(PicaEventResult { turn: key.turn, call: key.call, generation: key.generation, outcome, stages });
++    }
++
++    fn reap_finished(&mut self) {
++        let finished: Vec<_> = self.active.iter().filter_map(|(key, entry)| entry.worker.is_finished().then_some(key.clone())).collect();
++        for key in finished {
++            let result = self.active.get_mut(&key).and_then(|entry| (&mut entry.worker).now_or_never());
++            if let Some(result) = result {
++                self.active.remove(&key);
++                self.record(key, result.unwrap_or(PicaEventSettlement::Unavailable));
++            }
++        }
++    }
++
++    /// Use one deadline for the entire drain and retain handles that have not resolved.
++    pub(crate) async fn close_and_join(&mut self) -> Vec<PicaEventResult> {
++        self.close();
++        let deadline = Instant::now() + JOIN_LIMIT;
++        while let Some(key) = self.active.keys().next().cloned() {
++            let result = match self.active.get_mut(&key) {
++                Some(entry) => timeout_at(deadline, &mut entry.worker).await.ok(),
++                None => continue,
++            };
++            match result {
++                Some(result) => {
++                    self.active.remove(&key);
++                    self.record(key, result.unwrap_or(PicaEventSettlement::Unavailable));
++                }
++                None => break,
++            }
++        }
++        for entry in self.active.values_mut() { entry.worker.abort(); }
++        let abort_deadline = Instant::now() + Duration::from_secs(2);
++        let keys: Vec<_> = self.active.keys().cloned().collect();
++        for key in keys {
++            let result = match self.active.get_mut(&key) {
++                Some(entry) => timeout_at(abort_deadline, &mut entry.worker).await.ok(),
++                None => continue,
++            };
++            if let Some(joined) = result {
++                self.active.remove(&key);
++                self.record(key, joined.unwrap_or(PicaEventSettlement::Unavailable));
++            }
++        }
++        // A retained record can claim a cancellation terminal if its worker never did.
++        // The same shared deadline applies to all fallback effects.
++        for control in self.records.values() {
++            if Instant::now() >= abort_deadline { break; }
++            let (Some(session), Some(turn)) = (self.session.upgrade(), self.turn.upgrade()) else { continue; };
++            let claim = {
++                let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++                if !state.admitted || state.terminal_claimed
++                    || (state.start_effects_started && !state.start_effects_finished) {
++                    None
++                } else if let Some((start, instant)) = state.admitted_start.clone() {
++                    let start_needed = !state.start_effects_started;
++                    state.start_effects_started = true;
++                    state.terminal_claimed = true;
++                    state.completion_preparation_started = true;
++                    Some((start, instant, state.disposition.take().unwrap_or(Terminal::Cancelled), start_needed))
++                } else { None }
++            };
++            if let Some((start, instant, outcome, start_needed)) = claim {
++                let work = async {
++                    if start_needed {
++                        if let EventMsg::ItemStarted(started) = &start.msg {
++                            turn.turn_timing_state.record_item_started(started.item.id(), started.started_at_ms).await;
++                        }
++                        let persisted = session.send_pica_owned_event(&turn, start.clone(), true).await;
++                        let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++                        state.start_effects_finished = true;
++                        state.start_persisted = Some(persisted);
++                    }
++                    complete_terminal(&session, &turn, start, instant, outcome, false, control.clone()).await
++                };
++                let outcome = timeout_at(abort_deadline, work).await.unwrap_or(PicaEventSettlement::Unavailable);
++                let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++                state.fallback_outcome = Some(outcome);
++            }
++        }
++        let mut results = self.results.clone();
++        for result in &mut results {
++            let key = CallKey { turn: result.turn.clone(), call: result.call.clone(), generation: result.generation };
++            if let Some(control) = self.records.get(&key) { result.stages = stages(control); }
++        }
++        results.extend(self.active.keys().map(|key| PicaEventResult {
++            turn: key.turn.clone(), call: key.call.clone(), generation: key.generation,
++            outcome: PicaEventSettlement::JoinUnobserved,
++            stages: self.records.get(key).map(|control| stages(control)).unwrap_or_default(),
++        }));
++        results
++    }
++
++}
++
++struct DrainSupervisor {
++    handle: Option<JoinHandle<()>>,
++    joined_ok: Option<bool>,
++}
++
++/// Shared lifetime owner for the exact task; drain is supervised independently of its callers.
++pub(crate) struct PicaDynamicEventOwner {
++    registry: tokio::sync::Mutex<PicaDynamicEventRegistry>,
++    next_generation: AtomicU64,
++    drain: Mutex<Option<(watch::Receiver<Option<Arc<Vec<PicaEventResult>>>>, Arc<tokio::sync::Mutex<DrainSupervisor>>)>>,
++}
++
++impl PicaDynamicEventOwner {
++    pub(crate) fn new(session: &Arc<Session>, turn: &Arc<TurnContext>) -> Arc<Self> {
++        Arc::new(Self { registry: tokio::sync::Mutex::new(PicaDynamicEventRegistry::new(session, turn)), next_generation: AtomicU64::new(1), drain: Mutex::new(None) })
++    }
++
++    /// Allocate a non-reused generation for this turn owner.
++    pub(crate) fn next_generation(&self) -> Option<u64> {
++        self.next_generation.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| value.checked_add(1)).ok()
++    }
++
++    /// Reserve for the bound turn; this does not admit a tool call.
++    pub(crate) async fn reserve(&self, turn: &TurnContext, event: Event, generation: u64) -> Option<PicaDynamicEventTicket> {
++        if self.drain.lock().ok()?.is_some() { return None; }
++        self.registry.lock().await.reserve(turn, event, generation)
++    }
++
++    /// Share a retained drain result among normal finish and abort callers.
++    pub(crate) async fn drain(self: &Arc<Self>) -> Option<Arc<Vec<PicaEventResult>>> {
++        let (mut receiver, handle) = {
++            let mut state = self.drain.lock().ok()?;
++            if let Some((receiver, handle)) = state.as_ref() {
++                (receiver.clone(), handle.clone())
++            } else {
++                let (sender, receiver) = watch::channel(None);
++                let owner = self.clone();
++                let handle = tokio::spawn(async move {
++                    let results = owner.registry.lock().await.close_and_join().await;
++                    let _ = sender.send(Some(Arc::new(results)));
++                });
++                let handle = Arc::new(tokio::sync::Mutex::new(DrainSupervisor { handle: Some(handle), joined_ok: None }));
++                *state = Some((receiver.clone(), handle.clone()));
++                (receiver, handle)
++            }
++        };
++        let result = timeout(Duration::from_secs(65), async {
++            loop {
++                if let Some(results) = receiver.borrow().clone() { return Some(results); }
++                if receiver.changed().await.is_err() { return None; }
++            }
++        }).await;
++        let result = result.ok().flatten();
++        // Poll the retained supervisor by reference: cancellation of this observer
++        // cannot detach its handle. Other observers share the recorded result.
++        let Ok(mut slot) = timeout(Duration::from_secs(2), handle.lock()).await else { return None; };
++        if slot.joined_ok.is_none() {
++            if let Some(task) = slot.handle.as_mut() {
++                let Ok(joined) = timeout(Duration::from_secs(2), task).await else { return None; };
++                slot.joined_ok = Some(joined.is_ok());
++                slot.handle = None;
++            } else { return None; }
++        }
++        if slot.joined_ok != Some(true) { return None; }
++        result
++    }
++}
++
++impl PicaDynamicEventTicket {
++    /// Invoke inside the existing lease handoff; enqueue must be synchronous and nonblocking.
++    pub(crate) fn admit(&mut self, enqueue: impl FnOnce(&Event) -> bool) -> PicaEventAdmission {
++        let Ok(mut control) = self.control.lock() else { return PicaEventAdmission::NotAdmitted; };
++        if control.closed || control.admitted || control.admission.is_none() { return PicaEventAdmission::NotAdmitted; }
++        let EventMsg::ItemStarted(start) = &mut self.event.msg else { return PicaEventAdmission::NotAdmitted; };
++        start.started_at_ms = now_unix_timestamp_ms();
++        let admitted_at = Instant::now();
++        if !enqueue(&self.event) {
++            control.closed = true;
++            if let Some(sender) = control.admission.take() { let _ = sender.send(None); }
++            return PicaEventAdmission::NotAdmitted;
++        }
++        control.admitted = true;
++        control.admitted_start = Some((self.event.clone(), admitted_at));
++        if control.admission.take().is_some_and(|sender| sender.send(Some((self.event.clone(), admitted_at))).is_ok()) {
++            PicaEventAdmission::Committed
++        } else {
++            PicaEventAdmission::CommittedUnavailable
++        }
++    }
++
++    /// Bind one terminal result to this exact ticket; subsequent attempts fail.
++    pub(crate) fn respond(&self, response: DynamicToolResponse) -> bool {
++        if serde_json::to_vec(&response).map_or(true, |bytes| bytes.len() > MAX_RESPONSE_BYTES) { return false; }
++        let Ok(mut control) = self.control.lock() else { return false; };
++        if !control.admitted || control.closed || control.terminal_claimed { return false; }
++        control.closed = true;
++        control.disposition = Some(Terminal::Response(response.clone()));
++        if let Some(sender) = control.terminal.take() { let _ = sender.send(Terminal::Response(response)); }
++        true
++    }
++
++    pub(crate) fn matches(&self, turn: &str, call: &str, generation: u64) -> bool {
++        self.key.turn == turn && self.key.call == call && self.key.generation == generation
++    }
++}
++
++impl Drop for PicaDynamicEventTicket {
++    fn drop(&mut self) { cancel(&self.control); }
++}
++
++fn cancel(control: &Mutex<Control>) {
++    let mut control = control.lock().unwrap_or_else(|error| error.into_inner());
++    if control.closed { return; }
++    control.closed = true;
++    if control.admitted && control.disposition.is_none() { control.disposition = Some(Terminal::Cancelled); }
++    if let Some(sender) = control.admission.take() { let _ = sender.send(None); }
++    if let Some(sender) = control.terminal.take() { let _ = sender.send(Terminal::Cancelled); }
++}
++
++fn stages(control: &Mutex<Control>) -> PicaEventStages {
++    let state = control.lock().unwrap_or_else(|error| error.into_inner());
++    PicaEventStages {
++        start_effects_started: state.start_effects_started,
++        start_effects_finished: state.start_effects_finished,
++        start_persisted: state.start_persisted,
++        completion_preparation_started: state.completion_preparation_started,
++        completion_preparation_finished: state.completion_preparation_finished,
++        terminal_enqueue_attempted: state.terminal_enqueue_attempted,
++        terminal_enqueue_succeeded: state.terminal_enqueue_succeeded,
++        terminal_effects_started: state.terminal_effects_started,
++        terminal_effects_finished: state.terminal_effects_finished,
++        terminal_persisted: state.terminal_persisted,
++        fallback_outcome: state.fallback_outcome,
++    }
++}
++
++async fn run_worker(
++    session: Weak<Session>, turn: Weak<TurnContext>, control: Arc<Mutex<Control>>,
++    mut admission: oneshot::Receiver<Option<(Event, Instant)>>, terminal: oneshot::Receiver<Terminal>,
++) -> PicaEventSettlement {
++    let admitted = match timeout(WAIT_LIMIT, &mut admission).await {
++        Ok(result) => result.ok().flatten(),
++        Err(_) => {
++            // Keep the receiver alive until the synchronous admission lock decides.
++            let admitted = {
++                let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++                if !state.admitted { state.closed = true; state.admission.take(); }
++                state.admitted
++            };
++            if admitted { admission.await.ok().flatten() } else { None }
++        }
++    };
++    let Some((start, admitted_at)) = admitted else { return PicaEventSettlement::NotAdmitted; };
++    let (Some(session), Some(turn)) = (session.upgrade(), turn.upgrade()) else { return PicaEventSettlement::Unavailable; };
++    let EventMsg::ItemStarted(started) = &start.msg else { return PicaEventSettlement::Unavailable; };
++    {
++        let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++        if state.terminal_claimed { return PicaEventSettlement::Unavailable; }
++        state.start_effects_started = true;
++    }
++    turn.turn_timing_state.record_item_started(started.item.id(), started.started_at_ms).await;
++    let start_persisted = matches!(timeout(PERSIST_LIMIT, session.send_pica_owned_event(&turn, start.clone(), true)).await, Ok(true));
++    {
++        let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++        state.start_effects_finished = true;
++        state.start_persisted = Some(start_persisted);
++    }
++    // The active invocation ends through its actual response or cancellation,
++    // not an unrelated thirty-second terminal wait deadline.
++    let notified = terminal.await.ok();
++    let (outcome, terminal_available) = {
++        let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++        if state.terminal_claimed { return PicaEventSettlement::Unavailable; }
++        state.terminal_claimed = true;
++        state.completion_preparation_started = true;
++        match state.disposition.take().or(notified) {
++            Some(outcome) => (outcome, true),
++            None => (Terminal::Cancelled, false),
++        }
++    };
++    complete_terminal(&session, &turn, start, admitted_at, outcome, start_persisted && terminal_available, control).await
++}
++
++async fn complete_terminal(
++    session: &Session, turn: &TurnContext, start: Event, admitted_at: Instant,
++    outcome: Terminal, previous_effects_observed: bool, control: Arc<Mutex<Control>>,
++) -> PicaEventSettlement {
++    let EventMsg::ItemStarted(started) = &start.msg else { return PicaEventSettlement::Unavailable; };
++    let TurnItem::DynamicToolCall(mut item) = started.item.clone() else { return PicaEventSettlement::Unavailable; };
++    let terminal_result = match &outcome {
++        Terminal::Response(response) if response.success => PicaEventSettlement::Completed,
++        Terminal::Response(_) => PicaEventSettlement::Failed,
++        Terminal::Cancelled => PicaEventSettlement::Cancelled,
++    };
++    match outcome {
++        Terminal::Response(response) => {
++            item.status = if response.success { DynamicToolCallStatus::Completed } else { DynamicToolCallStatus::Failed };
++            item.content_items = Some(response.content_items);
++            item.success = Some(response.success);
++            item.error = None;
++        }
++        Terminal::Cancelled => {
++            item.status = DynamicToolCallStatus::Failed;
++            item.content_items = Some(Vec::new());
++            item.success = Some(false);
++            item.error = Some("dynamic tool call was cancelled before receiving a response".to_string());
++        }
++    }
++    item.duration = Some(admitted_at.elapsed());
++    let completion = session.prepare_turn_item_completed(&turn, TurnItem::DynamicToolCall(item)).await;
++    let completed = Event { id: start.id.clone(), msg: completion };
++    {
++        let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++        state.completion_preparation_finished = true;
++    }
++    {
++        let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++        state.terminal_enqueue_attempted = true;
++    }
++    let delivered = session.get_tx_event().try_send(completed.clone()).is_ok();
++    {
++        let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++        state.terminal_enqueue_succeeded = delivered;
++        state.terminal_effects_started = true;
++    }
++    let persisted = matches!(timeout(PERSIST_LIMIT, session.send_pica_owned_event(&turn, completed, true)).await, Ok(true));
++    {
++        let mut state = control.lock().unwrap_or_else(|error| error.into_inner());
++        state.terminal_effects_finished = true;
++        state.terminal_persisted = Some(persisted);
++        state.admitted_start = None;
++    }
++    if previous_effects_observed && delivered && persisted { terminal_result } else { PicaEventSettlement::Unavailable }
++}
+diff --git a/codex-rs/core/src/session/pica_retirement.rs b/codex-rs/core/src/session/pica_retirement.rs
+new file mode 100644
+index 0000000..d2b3ff2
+--- /dev/null
++++ b/codex-rs/core/src/session/pica_retirement.rs
+@@ -0,0 +1,316 @@
++//! Session-owned, bounded consumers for Pica turn event retirement.
++use std::collections::{HashMap, VecDeque};
++use std::sync::{Arc, Mutex, Weak};
++use std::sync::atomic::{AtomicBool, Ordering};
++use std::time::Duration;
++use std::future::Future;
++
++use futures::FutureExt;
++use tokio::task::JoinHandle;
++use tokio::time::{Instant, sleep};
++use tokio_util::sync::CancellationToken;
++use tracing::warn;
++use codex_protocol::turn_input::{TurnInputMode, TurnInputRequest};
++
++use super::pica_dynamic_events::{PicaDynamicEventOwner, PicaEventResult, PicaEventSettlement};
++use super::turn_context::TurnContext;
++
++const MAX_RETIREMENTS: usize = 64;
++const SHUTDOWN_LIMIT: Duration = Duration::from_secs(70);
++
++struct Retirement {
++    close: CancellationToken,
++    handle: JoinHandle<Option<Arc<Vec<PicaEventResult>>>>,
++}
++
++enum RetirementOutcome {
++    Finished(Arc<Vec<PicaEventResult>>),
++    Unavailable,
++    JoinUnobserved,
++    JoinError { cancelled: bool, panic: bool },
++}
++
++pub(crate) struct PicaAttachmentFence<'a> {
++    _guard: std::sync::MutexGuard<'a, HashMap<String, Startup>>,
++}
++
++struct Startup {
++    cancellation: CancellationToken,
++    handle: JoinHandle<PicaStartupStatus>,
++}
++
++#[derive(Clone, Copy, Debug)]
++pub(crate) enum PicaStartupStatus { Started, Rejected, Failed }
++
++/// Whole input stays owned by the root when startup admission is refused.
++pub(crate) struct PicaStartupPayload {
++    pub(crate) request: TurnInputRequest,
++    pub(crate) mode: TurnInputMode,
++    pub(crate) submission_id: String,
++}
++
++#[derive(Clone, Copy, Debug)]
++pub(crate) enum PicaStartupRefusal { ShuttingDown, Duplicate, Capacity, Unavailable }
++
++pub(crate) struct PicaRefusedStartup {
++    pub(crate) payload: PicaStartupPayload,
++    pub(crate) reason: PicaStartupRefusal,
++}
++
++/// Retains reaper handles independently of task and abort observers.
++#[derive(Default)]
++pub(crate) struct PicaRetirements {
++    entries: Mutex<HashMap<String, Retirement>>,
++    completed: Mutex<VecDeque<(String, RetirementOutcome)>>,
++    reservations: Mutex<HashMap<String, Arc<()>>>,
++    shutting_down: AtomicBool,
++    startups: Mutex<HashMap<String, Startup>>,
++    startup_results: Mutex<VecDeque<(String, Option<PicaStartupStatus>)>>,
++    refused_startups: Mutex<Vec<Arc<PicaRefusedStartup>>>,
++}
++
++/// A capacity claim that removes only its own uncommitted reservation.
++pub(crate) struct PicaRetirementReservation {
++    manager: Weak<PicaRetirements>,
++    id: String,
++    identity: Arc<()>,
++    committed: bool,
++}
++
++impl Drop for PicaRetirementReservation {
++    fn drop(&mut self) {
++        if self.committed { return; }
++        if let Some(manager) = self.manager.upgrade() {
++            let mut reservations = manager.reservations.lock().unwrap_or_else(|error| error.into_inner());
++            if reservations.get(&self.id).is_some_and(|value| Arc::ptr_eq(value, &self.identity)) {
++                reservations.remove(&self.id);
++            }
++        }
++    }
++}
++
++impl PicaRetirements {
++    /// Reserve capacity before changing an existing turn or consuming input.
++    pub(crate) fn reserve(self: &Arc<Self>, id: String) -> Option<PicaRetirementReservation> {
++        let entries = self.entries.lock().ok()?;
++        let mut reservations = self.reservations.lock().ok()?;
++        if self.shutting_down.load(Ordering::Acquire) || entries.len() + reservations.len() >= MAX_RETIREMENTS
++            || entries.contains_key(&id) || reservations.contains_key(&id) { return None; }
++        let identity = Arc::new(());
++        reservations.insert(id.clone(), identity.clone());
++        Some(PicaRetirementReservation { manager: Arc::downgrade(self), id, identity, committed: false })
++    }
++
++    /// Consume a previously reserved slot before the task is made visible.
++    pub(crate) fn register(self: &Arc<Self>, turn: Arc<TurnContext>, owner: Arc<PicaDynamicEventOwner>, lease: CancellationToken, mut reservation: PicaRetirementReservation) -> bool {
++        if reservation.id != turn.sub_id || !reservation.manager.upgrade().is_some_and(|manager| Arc::ptr_eq(&manager, self)) { return false; }
++        let Ok(mut entries) = self.entries.lock() else { return false; };
++        let Ok(mut reservations) = self.reservations.lock() else { return false; };
++        if self.shutting_down.load(Ordering::Acquire) || entries.contains_key(&reservation.id)
++            || !reservations.get(&reservation.id).is_some_and(|value| Arc::ptr_eq(value, &reservation.identity)) { return false; }
++        let id = reservation.id.clone();
++        let close = CancellationToken::new();
++        let signal = close.clone();
++        let handle = tokio::spawn(async move {
++            tokio::select! { _ = signal.cancelled() => {}, _ = lease.cancelled() => {} }
++            let _turn = turn;
++            owner.drain().await
++        });
++        entries.insert(id.clone(), Retirement { close, handle });
++        reservations.remove(&id);
++        reservation.committed = true;
++        true
++    }
++
++    /// Atomically reserve and install the gated startup before consuming input.
++    pub(crate) fn admit_startup<A, F, Make>(self: &Arc<Self>, id: String, cancellation: CancellationToken, payload: A, make: Make) -> Result<(), (A, PicaStartupRefusal)>
++    where
++        A: Send + 'static,
++        F: Future<Output = PicaStartupStatus> + Send + 'static,
++        Make: FnOnce(A, PicaRetirementReservation) -> F + Send + 'static,
++    {
++        let runtime = match tokio::runtime::Handle::try_current() {
++            Ok(runtime) => runtime,
++            Err(_) => return Err((payload, PicaStartupRefusal::Unavailable)),
++        };
++        let Ok(mut startups) = self.startups.lock() else { return Err((payload, PicaStartupRefusal::Unavailable)); };
++        let Ok(entries) = self.entries.lock() else { return Err((payload, PicaStartupRefusal::Unavailable)); };
++        let Ok(mut reservations) = self.reservations.lock() else { return Err((payload, PicaStartupRefusal::Unavailable)); };
++        if self.shutting_down.load(Ordering::Acquire) { return Err((payload, PicaStartupRefusal::ShuttingDown)); }
++        if startups.contains_key(&id) || entries.contains_key(&id) || reservations.contains_key(&id) {
++            return Err((payload, PicaStartupRefusal::Duplicate));
++        }
++        if entries.len() + reservations.len() >= MAX_RETIREMENTS || startups.len() >= MAX_RETIREMENTS {
++            return Err((payload, PicaStartupRefusal::Capacity));
++        }
++        let identity = Arc::new(());
++        reservations.insert(id.clone(), Arc::clone(&identity));
++        let reservation = PicaRetirementReservation { manager: Arc::downgrade(self), id: id.clone(), identity, committed: false };
++        let (ready, wait) = tokio::sync::oneshot::channel::<(A, PicaRetirementReservation, Make)>();
++        let handle = runtime.spawn(async move {
++            match wait.await {
++                Ok((payload, reservation, make)) => make(payload, reservation).await,
++                Err(_) => PicaStartupStatus::Failed,
++            }
++        });
++        startups.insert(id, Startup { cancellation, handle });
++        drop(reservations);
++        drop(entries);
++        drop(startups);
++        match ready.send((payload, reservation, make)) {
++            Ok(()) => Ok(()),
++            Err((payload, reservation, _make)) => {
++                drop(reservation);
++                Err((payload, PicaStartupRefusal::Unavailable))
++            }
++        }
++    }
++
++    /// Keep refused input owned by this Session rather than dropping it at the RPC boundary.
++    pub(crate) fn retain_refused_startup(&self, payload: PicaStartupPayload, reason: PicaStartupRefusal) -> Arc<PicaRefusedStartup> {
++        let refused = Arc::new(PicaRefusedStartup { payload, reason });
++        self.refused_startups.lock().unwrap_or_else(|error| error.into_inner()).push(Arc::clone(&refused));
++        refused
++    }
++
++    /// Query the exact retained refusal by identity, including its untouched payload.
++    pub(crate) fn refused_startup(&self, target: &Arc<PicaRefusedStartup>) -> Option<Arc<PicaRefusedStartup>> {
++        self.refused_startups.lock().unwrap_or_else(|error| error.into_inner()).iter().find(|entry| Arc::ptr_eq(entry, target)).cloned()
++    }
++
++    /// Reject future grants before shutdown begins operating on tasks.
++    pub(crate) fn close_start_admission(&self) {
++        if let Ok(startups) = self.startups.lock() {
++            self.shutting_down.store(true, Ordering::Release);
++            for startup in startups.values() { startup.cancellation.cancel(); }
++        } else {
++            self.shutting_down.store(true, Ordering::Release);
++        }
++    }
++
++    /// Serialize final synchronous task attachment with shutdown admission.
++    pub(crate) fn attachment_fence(&self) -> Option<PicaAttachmentFence<'_>> {
++        let guard = self.startups.lock().ok()?;
++        if self.shutting_down.load(Ordering::Acquire) { return None; }
++        Some(PicaAttachmentFence { _guard: guard })
++    }
++
++    pub(crate) fn is_closing(&self) -> bool {
++        self.shutting_down.load(Ordering::Acquire)
++    }
++
++    pub(crate) fn request_close(&self, turn_id: &str) {
++        if let Ok(entries) = self.entries.lock() {
++            if let Some(entry) = entries.get(turn_id) { entry.close.cancel(); }
++        }
++    }
++
++    pub(crate) fn has_entries(&self) -> bool {
++        self.entries.lock().map_or(true, |entries| !entries.is_empty())
++            || self.startups.lock().map_or(true, |startups| !startups.is_empty())
++    }
++
++    fn has_reservations(&self) -> bool {
++        self.reservations.lock().map_or(true, |reservations| !reservations.is_empty())
++    }
++
++    /// Poll borrowed handles; a pending join is never removed.
++    pub(crate) fn reap_ready(&self) {
++        if let Ok(mut startups) = self.startups.lock() {
++            let ids: Vec<_> = startups.iter().filter_map(|(id, startup)| startup.handle.is_finished().then_some(id.clone())).collect();
++            for id in ids {
++                let joined = startups.get_mut(&id).and_then(|startup| (&mut startup.handle).now_or_never());
++                if let Some(joined) = joined {
++                    let status = match joined {
++                        Ok(status) => Some(status),
++                        Err(error) => {
++                            warn!(turn = %id, cancelled = error.is_cancelled(), panic = error.is_panic(), "Pica startup task failed");
++                            None
++                        }
++                    };
++                    let mut results = self.startup_results.lock().unwrap_or_else(|error| error.into_inner());
++                    if results.len() == MAX_RETIREMENTS { results.pop_front(); }
++                    results.push_back((id.clone(), status));
++                    startups.remove(&id);
++                }
++            }
++        }
++        let Ok(mut entries) = self.entries.lock() else { return; };
++        let ids: Vec<_> = entries.iter().filter_map(|(id, entry)| entry.handle.is_finished().then_some(id.clone())).collect();
++        for id in ids {
++            let Ok(mut completed) = self.completed.lock() else { return; };
++            let joined = entries.get_mut(&id).and_then(|entry| (&mut entry.handle).now_or_never());
++            let Some(joined) = joined else { continue; };
++            let outcome = match joined {
++                Ok(Some(results)) => RetirementOutcome::Finished(results),
++                Ok(None) => RetirementOutcome::Unavailable,
++                Err(error) => RetirementOutcome::JoinError { cancelled: error.is_cancelled(), panic: error.is_panic() },
++            };
++            // Cache the observed result before removing its ready handle.
++            match &outcome {
++                RetirementOutcome::Finished(results) => for result in results.iter() {
++                    if matches!(result.outcome, PicaEventSettlement::Unavailable | PicaEventSettlement::JoinUnobserved) {
++                        warn!(turn = %result.turn, call = %result.call, generation = result.generation, outcome = ?result.outcome, stages = ?result.stages, "Pica retirement unavailable");
++                    }
++                },
++                RetirementOutcome::Unavailable => warn!(turn = %id, "Pica retirement outcome unavailable"),
++                RetirementOutcome::JoinUnobserved => warn!(turn = %id, "Pica retirement join unobserved"),
++                RetirementOutcome::JoinError { cancelled, panic } => warn!(turn = %id, cancelled, panic, "Pica retirement reaper failed"),
++            }
++            if completed.len() == MAX_RETIREMENTS { completed.pop_front(); }
++            completed.push_back((id.clone(), outcome));
++            entries.remove(&id);
++        }
++    }
++
++    /// Signal every remaining owner and observe ready joins under one shared deadline.
++    pub(crate) async fn shutdown(&self) {
++        self.close_start_admission();
++        if let Ok(entries) = self.entries.lock() {
++            for entry in entries.values() { entry.close.cancel(); }
++        }
++        let deadline = Instant::now() + SHUTDOWN_LIMIT;
++        loop {
++            self.reap_ready();
++            if !self.has_entries() && !self.has_reservations() { return; }
++            if Instant::now() >= deadline {
++                if let Ok(startups) = self.startups.lock() {
++                    for id in startups.keys() { warn!(turn = %id, "Pica startup join unobserved at shutdown"); }
++                }
++                if let Ok(reservations) = self.reservations.lock() {
++                    for id in reservations.keys() {
++                        warn!(turn = %id, "Pica startup reservation unresolved at shutdown");
++                    }
++                }
++                if let (Ok(entries), Ok(mut completed)) = (self.entries.lock(), self.completed.lock()) {
++                    for id in entries.keys() {
++                        warn!(turn = %id, "Pica retirement deadline elapsed; join unobserved");
++                        if completed.len() == MAX_RETIREMENTS { completed.pop_front(); }
++                        completed.push_back((id.clone(), RetirementOutcome::JoinUnobserved));
++                    }
++                }
++                return;
++            }
++            sleep(Duration::from_millis(50)).await;
++        }
++    }
++}
++
++impl Drop for PicaRetirements {
++    fn drop(&mut self) {
++        if let Ok(startups) = self.startups.get_mut() {
++            for (id, startup) in startups.iter_mut() {
++                warn!(turn = %id, "Pica startup owner dropped before join was observed");
++                startup.cancellation.cancel();
++                startup.handle.abort();
++            }
++        }
++        if let Ok(entries) = self.entries.get_mut() {
++            for (turn_id, entry) in entries.iter_mut() {
++                warn!(turn = %turn_id, "Pica retirement owner dropped before join was observed");
++                entry.close.cancel();
++                entry.handle.abort();
++            }
++        }
++    }
++}
+diff --git a/codex-rs/core/src/session/turn.rs b/codex-rs/core/src/session/turn.rs
+index 5b335c2..db58605 100644
+--- a/codex-rs/core/src/session/turn.rs
++++ b/codex-rs/core/src/session/turn.rs
+@@ -176,6 +176,20 @@ pub(crate) async fn run_turn(
+ 
+     let mut client_session =
+         prewarmed_client_session.unwrap_or_else(|| sess.services.model_client.new_session());
++    if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++        // Construct and validate the effective router before any pre-turn compaction.
++        if let Err(err) = sess.capture_step_context(Arc::clone(&turn_context), &cancellation_token).await {
++            // Match pre-compaction failure: preserve the prompt before returning the error.
++            run_hooks_and_record_inputs(
++                &sess,
++                &turn_context,
++                &turn_context.capture_current_model_info(),
++                &input,
++                PersistContext::Standard,
++            ).await;
++            return Err(err);
++        }
++    }
+     // TODO(ccunningham): Pre-turn compaction runs before context updates and the
+     // new user message are recorded. Estimate pending incoming items (context
+     // diffs/full reinjection + user input) and trigger compaction preemptively
+@@ -276,6 +290,17 @@ pub(crate) async fn run_turn(
+             .await;
+             return Err(err);
+         }
++        Err(err) if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) => {
++            run_hooks_and_record_inputs(
++                &sess,
++                &turn_context,
++                &turn_context.capture_current_model_info(),
++                &input,
++                PersistContext::Standard,
++            )
++            .await;
++            return Err(err);
++        }
+         Err(err) => return Err(err),
+     };
+     // Keep the exact model-visible state used by this turn and its inline compactions.
+@@ -1478,6 +1503,7 @@ async fn run_auto_compact(
+     phase: CompactionPhase,
+ ) -> CodexResult<()> {
+     let turn_context = &step_context.turn;
++    ensure_pica_turn(sess, turn_context.as_ref()).await?;
+     let _profile_guard = turn_context.turn_timing_state.begin_compaction();
+     if turn_context.config.features.enabled(Feature::TokenBudget) {
+         // Compaction is the reset request, so force a new context window
+@@ -1658,6 +1684,7 @@ async fn run_sampling_request(
+         sess.services
+             .executed_tool_calls
+             .attach_to_prompt(&mut prompt_input, &mut executed_tool_calls_by_output);
++        ensure_pica_turn(&sess, turn_context.as_ref()).await?;
+         let mut prompt = build_prompt(
+             prompt_input,
+             step_context.as_ref(),
+@@ -1709,7 +1736,12 @@ async fn run_sampling_request(
+ 
+         let original_input = original_input.get_or_insert(prompt.input);
+ 
+-        let retry = handle_response_stream_error(
++        let pica_cancel = turn_context.extension_data.get::<super::turn_context::PicaTurnLease>()
++            .map(|lease| lease.cancellation.clone()).unwrap_or_default();
++        let retry = tokio::select! {
++            biased;
++            _ = pica_cancel.cancelled() => return Err(CodexErr::TurnAborted),
++            retry = handle_response_stream_error(
+             &mut retry_state,
+             max_retries,
+             err,
+@@ -1719,8 +1751,8 @@ async fn run_sampling_request(
+             ResponsesStreamRequest::Sampling,
+         )
+         .or_cancel(&preempt)
+-        .or_cancel(&cancellation_token)
+-        .await?;
++        .or_cancel(&cancellation_token) => retry?,
++        };
+         if cancellation_token.is_cancelled() {
+             return Err(CodexErr::TurnAborted);
+         }
+@@ -1860,7 +1892,7 @@ pub(crate) async fn built_tools(
+             .instrument(trace_span!("built_tools.load_discoverable_tools"))
+             .await
+         };
+-    Ok(Arc::new(build_tool_router(
++    let router = Arc::new(build_tool_router(
+         sess,
+         turn_context,
+         model_info,
+@@ -1869,7 +1901,150 @@ pub(crate) async fn built_tools(
+         apps_enabled,
+         step_store,
+         tool_suggest_candidates.as_ref(),
+-    )?))
++    )?);
++    if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++        admit_pica_router(sess, turn_context).await?;
++    }
++    Ok(router)
++}
++
++async fn admit_pica_router(sess: &Session, turn: &TurnContext) -> CodexResult<()> {
++    let refused = || CodexErrorDetails::InvalidRequest("Pica readiness refused".to_string());
++    let policy = sess.services.thread_extension_data
++        .get::<codex_extension_api::PicaPolicyContext>().ok_or_else(refused)?;
++    let operation = turn.extension_data.get::<codex_protocol::protocol::PicaOperation>().ok_or_else(refused)?;
++    let lease = turn.extension_data.get::<super::turn_context::PicaTurnLease>().ok_or_else(refused)?;
++    if policy.catalog != turn.dynamic_tools || operation.catalog != policy.catalog || operation.context != policy.context { return Err(refused().into()); }
++    {
++        let active = sess.active_turn.lock().await;
++        let task = active.as_ref().and_then(|active| active.task.as_ref()).ok_or_else(refused)?;
++        if !pica_same_turn(task.turn_context.as_ref(), turn) || task.cancellation_token.is_cancelled() {
++            return Err(refused().into());
++        }
++        if lease.admitted() { return Ok(()); }
++        if !lease.begin() { return Err(refused().into()); }
++    }
++    let request = codex_protocol::protocol::PicaRegistryReadyRequest {
++        request_id: format!("pica-ready-{}", turn.sub_id),
++        thread_id: sess.thread_id.to_string(),
++        turn_id: turn.sub_id.clone(),
++        operation_id: operation.operation_id.clone(),
++        nonce: operation.nonce.clone(),
++        sequence: operation.sequence,
++        context: policy.context.clone(),
++        catalog: policy.catalog.clone(),
++    };
++    let (sender, receiver) = tokio::sync::oneshot::channel();
++    let _ready_guard = {
++        let mut active = sess.active_turn.lock().await;
++        let active = active.as_mut().ok_or_else(refused)?;
++        let task = active.task.as_ref().ok_or_else(refused)?;
++        if !pica_same_turn(task.turn_context.as_ref(), turn) || task.cancellation_token.is_cancelled() {
++            return Err(refused().into());
++        }
++        let mut state = active.turn_state.lock().await;
++        state.insert_pending_pica_ready(request.request_id.clone(), sender).ok_or_else(refused)?
++    };
++    // This private control event bypasses rollout, tracing and turn-item handling.
++    let sent = sess.get_tx_event().send(codex_protocol::protocol::Event {
++        id: turn.sub_id.clone(),
++        msg: EventMsg::PicaRegistryReady(request.clone()),
++    }).await.is_ok();
++    let response = if sent {
++        tokio::select! {
++            _ = lease.cancellation.cancelled() => None,
++            result = tokio::time::timeout(std::time::Duration::from_secs(25), receiver) => result.ok().and_then(Result::ok),
++        }
++    } else { None };
++    let Some(response) = response else { lease.revoke(); let _ = notify_pica_revoked(sess, turn); return Err(refused().into()); };
++    if !response.accepted || response.request_id != request.request_id ||
++        response.thread_id != request.thread_id || response.turn_id != request.turn_id ||
++        response.context != request.context || response.operation_id != request.operation_id ||
++        response.nonce != request.nonce || response.sequence != request.sequence || response.catalog != request.catalog { lease.revoke(); let _ = notify_pica_revoked(sess, turn); return Err(refused().into()); }
++    let active = sess.active_turn.lock().await;
++    let task = active.as_ref().and_then(|active| active.task.as_ref()).ok_or_else(refused)?;
++    if !pica_same_turn(task.turn_context.as_ref(), turn) || task.cancellation_token.is_cancelled() {
++        return Err(refused().into());
++    }
++    if !lease.admit() { return Err(refused().into()); }
++    Ok(())
++}
++
++pub(crate) fn pica_same_turn(current: &TurnContext, candidate: &TurnContext) -> bool {
++    current.sub_id == candidate.sub_id && Arc::ptr_eq(&current.extension_data, &candidate.extension_data)
++}
++
++pub(crate) async fn ensure_pica_turn(sess: &Session, turn: &TurnContext) -> CodexResult<()> {
++    if std::env::var_os("PAGES_PICA_CODEX").as_deref() != Some(std::ffi::OsStr::new("1")) { return Ok(()); }
++    let refused = || CodexErrorDetails::InvalidRequest("Pica admission refused".to_string());
++    let lease = turn.extension_data.get::<super::turn_context::PicaTurnLease>().ok_or_else(refused)?;
++    let active = sess.active_turn.lock().await;
++    let task = active.as_ref().and_then(|active| active.task.as_ref()).ok_or_else(refused)?;
++    if !pica_same_turn(task.turn_context.as_ref(), turn) || task.cancellation_token.is_cancelled() || !lease.admitted() {
++        return Err(refused().into());
++    }
++    Ok(())
++}
++
++/// Admit a request against the live task and return its revocation signal.
++pub(crate) async fn pica_request_permit(sess: &Session, turn: &TurnContext) -> CodexResult<Option<CancellationToken>> {
++    if std::env::var_os("PAGES_PICA_CODEX").as_deref() != Some(std::ffi::OsStr::new("1")) { return Ok(None); }
++    let refused = || CodexErrorDetails::InvalidRequest("Pica admission refused".to_string());
++    let lease = turn.extension_data.get::<super::turn_context::PicaTurnLease>().ok_or_else(refused)?;
++    let active = sess.active_turn.lock().await;
++    let task = active.as_ref().and_then(|active| active.task.as_ref()).ok_or_else(refused)?;
++    if !pica_same_turn(task.turn_context.as_ref(), turn) || task.cancellation_token.is_cancelled() {
++        return Err(refused().into());
++    }
++    Ok(Some(lease.permit().ok_or_else(refused)?))
++}
++
++pub(crate) fn notify_pica_revoked(sess: &Session, turn: &TurnContext) -> Option<Arc<codex_extension_api::PicaRevocationSettlement>> {
++    let operation = turn.extension_data.get::<codex_protocol::protocol::PicaOperation>()?;
++    let policy = sess.services.thread_extension_data.get::<codex_extension_api::PicaPolicyContext>()?;
++    let request = codex_protocol::protocol::PicaRegistryReadyRequest {
++        request_id: format!("pica-revoke-{}", turn.sub_id),
++        thread_id: sess.thread_id.to_string(),
++        turn_id: turn.sub_id.clone(),
++        operation_id: operation.operation_id.clone(),
++        nonce: operation.nonce.clone(),
++        sequence: operation.sequence,
++        context: operation.context.clone(),
++        catalog: operation.catalog.clone(),
++    };
++    let settlement = {
++        let Ok(mut settlements) = policy.settlements.lock() else { policy.owner.revoke(); return None; };
++        if let Some(existing) = settlements.get(&request.request_id) { return Some(Arc::clone(existing)); }
++        if settlements.len() >= 4096 { policy.owner.revoke(); return None; }
++        let settlement = Arc::new(codex_extension_api::PicaRevocationSettlement::new(request.clone()));
++        settlements.insert(request.request_id.clone(), Arc::clone(&settlement));
++        settlement
++    };
++    let tx = sess.get_tx_event();
++    let turn_id = turn.sub_id.clone();
++    let owner = Arc::clone(&policy.owner);
++    let result = Arc::clone(&settlement);
++    let on_loss = Arc::downgrade(&settlement);
++    owner.register(Box::new(move || {
++        if let Some(settlement) = on_loss.upgrade() {
++            settlement.finish(codex_protocol::protocol::PicaRevocationOutcome::Unavailable);
++        }
++    }));
++    tokio::spawn(async move {
++        use codex_protocol::protocol::PicaRevocationOutcome;
++        let receiver = settlement.subscribe();
++        if !owner.live() || !matches!(tokio::time::timeout(std::time::Duration::from_secs(5), tx.send(codex_protocol::protocol::Event {
++            id: turn_id, msg: EventMsg::PicaRegistryRevoked(request),
++        })).await, Ok(Ok(()))) {
++            settlement.finish(PicaRevocationOutcome::Unavailable);
++        }
++        let outcome = match tokio::time::timeout(std::time::Duration::from_secs(26), receiver).await {
++            Ok(Ok(outcome)) => outcome,
++            _ => { settlement.finish(PicaRevocationOutcome::Unavailable); PicaRevocationOutcome::Unavailable }
++        };
++        if outcome != PicaRevocationOutcome::Acknowledged { owner.revoke(); }
++    });
++    Some(result)
+ }
+ 
+ #[derive(Debug)]
+@@ -2147,6 +2322,8 @@ pub(super) fn realtime_text_for_event(msg: &EventMsg) -> Option<RealtimeEventTex
+         | EventMsg::ImageGenerationBegin(_)
+         | EventMsg::ImageGenerationEnd(_)
+         | EventMsg::ViewImageToolCall(_)
++        | EventMsg::PicaRegistryReady(_)
++        | EventMsg::PicaRegistryRevoked(_)
+         | EventMsg::DynamicToolCallRequest(_)
+         | EventMsg::DynamicToolCallResponse(_)
+         | EventMsg::GuardianAssessment(_)
+@@ -2556,7 +2733,11 @@ async fn try_run_sampling_request(
+     let effort = sess
+         .reasoning_effort_for_request(&step_context.settings, super::RequestEffortUsage::Sampling)
+         .await;
+-    let mut stream = client_session
++    let pica_permit = pica_request_permit(&sess, turn_context.as_ref()).await?.unwrap_or_default();
++    let mut stream = tokio::select! {
++        biased;
++        _ = pica_permit.cancelled() => return Err(CodexErr::TurnAborted),
++        result = client_session
+         .stream(
+             prompt,
+             &step_context.settings.model_info,
+@@ -2568,9 +2749,9 @@ async fn try_run_sampling_request(
+             &inference_trace,
+         )
+         .instrument(trace_span!("stream_request"))
+-        .or_cancel(&cancellation_token)
+-        .await??;
+-    if cancellation_token.is_cancelled() {
++        .or_cancel(&cancellation_token) => result??,
++    };
++    if cancellation_token.is_cancelled() || pica_permit.is_cancelled() {
+         return Err(CodexErr::TurnAborted);
+     }
+     let mut in_flight: FuturesOrdered<InFlightFuture<'static>> = FuturesOrdered::new();
+@@ -2618,13 +2799,16 @@ async fn try_run_sampling_request(
+             codex.usage.total_tokens = field::Empty,
+         );
+ 
+-        let event = stream
++        let event = tokio::select! {
++            biased;
++            _ = pica_permit.cancelled() => break Err(CodexErr::TurnAborted),
++            result = stream
+             .next()
+             .instrument(trace_span!(parent: &handle_responses, "receiving"))
+             .or_cancel(&preempt)
+-            .or_cancel(&cancellation_token)
+-            .await;
+-        if cancellation_token.is_cancelled() {
++            .or_cancel(&cancellation_token) => result,
++        };
++        if cancellation_token.is_cancelled() || pica_permit.is_cancelled() {
+             break Err(CodexErr::TurnAborted);
+         }
+         let event = match event {
+@@ -3153,9 +3337,10 @@ async fn try_run_sampling_request(
+         sess.send_token_count_event(&turn_context).await;
+     }
+ 
+-    if cancellation_token.is_cancelled() {
++    if cancellation_token.is_cancelled() || pica_permit.is_cancelled() {
+         return Err(CodexErr::TurnAborted);
+     }
++    ensure_pica_turn(&sess, turn_context.as_ref()).await?;
+ 
+     if should_emit_turn_diff {
+         let unified_diff = {
+diff --git a/codex-rs/core/src/session/turn_context.rs b/codex-rs/core/src/session/turn_context.rs
+index 0d7b59d..2ca965c 100644
+--- a/codex-rs/core/src/session/turn_context.rs
++++ b/codex-rs/core/src/session/turn_context.rs
+@@ -300,6 +300,49 @@ pub(crate) struct NewTurnContextOptions {
+     pub(crate) cyber_access_program: Option<CyberAccessProgram>,
+ }
+ 
++/// Private authority for one allocated Pica turn, revoked monotonically.
++pub(crate) struct PicaTurnLease {
++    state: std::sync::Mutex<PicaLeaseState>,
++    pub(crate) cancellation: tokio_util::sync::CancellationToken,
++}
++
++#[derive(Clone, Copy, PartialEq, Eq)]
++enum PicaLeaseState { Pending, Preparing, Admitted, Revoked }
++
++impl PicaTurnLease {
++    pub(crate) fn new() -> Self {
++        Self { state: std::sync::Mutex::new(PicaLeaseState::Pending), cancellation: tokio_util::sync::CancellationToken::new() }
++    }
++    pub(crate) fn admitted(&self) -> bool {
++        self.state.lock().is_ok_and(|state| *state == PicaLeaseState::Admitted)
++    }
++    /// Orders a synchronous handoff against revocation; no I/O is awaited here.
++    pub(crate) fn handoff<T>(&self, action: impl FnOnce() -> T) -> Option<T> {
++        let state = self.state.lock().ok()?;
++        if *state != PicaLeaseState::Admitted || self.cancellation.is_cancelled() { return None; }
++        Some(action())
++    }
++    pub(crate) fn permit(&self) -> Option<tokio_util::sync::CancellationToken> {
++        self.handoff(|| self.cancellation.child_token())
++    }
++    pub(crate) fn begin(&self) -> bool {
++        let Ok(mut state) = self.state.lock() else { return false; };
++        if *state != PicaLeaseState::Pending { return false; }
++        *state = PicaLeaseState::Preparing;
++        true
++    }
++    pub(crate) fn admit(&self) -> bool {
++        let Ok(mut state) = self.state.lock() else { return false; };
++        if *state != PicaLeaseState::Preparing { return false; }
++        *state = PicaLeaseState::Admitted;
++        true
++    }
++    pub(crate) fn revoke(&self) {
++        if let Ok(mut state) = self.state.lock() { *state = PicaLeaseState::Revoked; }
++        self.cancellation.cancel();
++    }
++}
++
+ /// The context needed for a single turn of the thread.
+ #[derive(Debug)]
+ pub struct TurnContext {
+diff --git a/codex-rs/core/src/session/turn_input.rs b/codex-rs/core/src/session/turn_input.rs
+index d9a5c6a..277f6fd 100644
+--- a/codex-rs/core/src/session/turn_input.rs
++++ b/codex-rs/core/src/session/turn_input.rs
+@@ -129,6 +129,7 @@ impl PreparedTurnInputSettings {
+         kind: TurnStartKind,
+     ) -> CodexResult<Option<Arc<TurnContext>>> {
+         let TurnStartOptions {
++            pica_operation,
+             turn_trigger,
+             final_output_json_schema,
+             service_tier,
+@@ -169,6 +170,15 @@ impl PreparedTurnInputSettings {
+         let Some((turn_context, settings_snapshot)) = turn_context else {
+             return Ok(None);
+         };
++        if let Some(operation) = pica_operation {
++            turn_context.extension_data.insert(operation);
++            turn_context.extension_data.insert(super::turn_context::PicaTurnLease::new());
++            if let Some(policy) = session.services.thread_extension_data.get::<codex_extension_api::PicaPolicyContext>()
++                && let Some(lease) = turn_context.extension_data.get::<super::turn_context::PicaTurnLease>() {
++                let weak = Arc::downgrade(&lease);
++                policy.owner.register(Box::new(move || { if let Some(lease) = weak.upgrade() { lease.revoke(); } }));
++            }
++        }
+         if let Some(turn_trigger) = turn_trigger {
+             turn_context
+                 .turn_metadata_state
+@@ -207,6 +217,46 @@ pub(super) async fn handle(
+     request: TurnInputRequest,
+     mode: TurnInputMode,
+     submission_id: String,
++) -> CodexResult<TurnInputSubmission> {
++    if request.start.pica_operation.is_none() {
++        return handle_inner(session, request, mode, submission_id, None, None).await;
++    }
++    if !matches!(&mode, TurnInputMode::StartIfIdle | TurnInputMode::ContinueIfIdle { .. }) {
++        return Err(CodexErr::InvalidRequest("Pica requires an idle-only turn start".to_string()));
++    }
++    let root = session.pica_retirements();
++    let (sender, receiver) = tokio::sync::oneshot::channel();
++    let owned_session = Arc::clone(session);
++    let cancellation = tokio_util::sync::CancellationToken::new();
++    let startup_cancellation = cancellation.clone();
++    let payload = super::pica_retirement::PicaStartupPayload { request, mode, submission_id: submission_id.clone() };
++    let admission_id = submission_id.clone();
++    let admission = root.admit_startup(submission_id, cancellation, payload, move |payload, reservation| async move {
++        let result = handle_inner(&owned_session, payload.request, payload.mode, payload.submission_id, Some(reservation), Some(startup_cancellation)).await;
++        let status = match &result {
++            Ok(TurnInputSubmission::Started { .. }) => super::pica_retirement::PicaStartupStatus::Started,
++            Ok(_) => super::pica_retirement::PicaStartupStatus::Rejected,
++            Err(_) => super::pica_retirement::PicaStartupStatus::Failed,
++        };
++        let _ = sender.send(result);
++        status
++    });
++    if let Err((payload, reason)) = admission {
++        let retained = root.retain_refused_startup(payload, reason);
++        let reason = root.refused_startup(&retained).filter(|entry| entry.payload.submission_id == admission_id).map_or(reason, |entry| entry.reason);
++        return Err(CodexErr::InvalidRequest(format!("Pica startup admission refused: {reason:?}")));
++    }
++    receiver.await.map_err(|_| CodexErr::InvalidRequest("Pica startup outcome unavailable".to_string()))?
++
++}
++
++async fn handle_inner(
++    session: &Arc<Session>,
++    request: TurnInputRequest,
++    mode: TurnInputMode,
++    submission_id: String,
++    pica_reservation: Option<super::pica_retirement::PicaRetirementReservation>,
++    startup_cancellation: Option<tokio_util::sync::CancellationToken>,
+ ) -> CodexResult<TurnInputSubmission> {
+     match mode {
+         TurnInputMode::StartOrSteer => start_or_steer(session, request, submission_id).await,
+@@ -225,6 +275,8 @@ pub(super) async fn handle(
+                 submission_id,
+                 kind,
+                 /*expected_previous_turn_id*/ None,
++                pica_reservation,
++                startup_cancellation,
+             )
+             .await
+         }
+@@ -242,6 +294,8 @@ pub(super) async fn handle(
+                 submission_id,
+                 TurnStartKind::Recovery,
+                 Some(expected_previous_turn_id),
++                pica_reservation,
++                startup_cancellation,
+             )
+             .await
+         }
+@@ -257,6 +311,9 @@ pub(super) async fn handle_recovery(
+     start_options: TurnStartOptions,
+     submission_id: String,
+ ) -> CodexResult<TurnInputSubmission> {
++    if start_options.pica_operation.is_some() {
++        return Err(CodexErr::InvalidRequest("Pica recovery is unavailable".to_string()));
++    }
+     let request = TurnInputRequest::user_input(Vec::new())
+         .with_thread_settings(thread_settings)
+         .on_start(TurnStartOptions {
+@@ -269,6 +326,8 @@ pub(super) async fn handle_recovery(
+         submission_id,
+         TurnStartKind::Recovery,
+         /*expected_previous_turn_id*/ None,
++        None,
++        None,
+     )
+     .await
+ }
+@@ -286,6 +345,9 @@ async fn start_or_steer(
+         responsesapi_client_metadata,
+         ..
+     } = request;
++    if start.pica_operation.is_some() {
++        return Err(CodexErr::InvalidRequest("Pica requires an idle-only turn start".to_string()));
++    }
+     let origin = UserInputOrigin::from_turn_trigger(start.turn_trigger.as_deref());
+     let has_explicit_input = match &input {
+         SubmittedTurnInput::UserInput { content, .. } => !content.is_empty(),
+@@ -382,6 +444,8 @@ async fn start_if_idle(
+     submission_id: String,
+     kind: TurnStartKind,
+     expected_previous_turn_id: Option<String>,
++    pica_reservation: Option<super::pica_retirement::PicaRetirementReservation>,
++    startup_cancellation: Option<tokio_util::sync::CancellationToken>,
+ ) -> CodexResult<TurnInputSubmission> {
+     let TurnInputRequest {
+         input,
+@@ -391,6 +455,12 @@ async fn start_if_idle(
+         responsesapi_client_metadata,
+         ..
+     } = request;
++    if start.pica_operation.is_some() != pica_reservation.is_some() {
++        return Err(CodexErr::InvalidRequest("Pica startup reservation mismatch".to_string()));
++    }
++    if startup_cancellation.as_ref().is_some_and(|token| token.is_cancelled()) || (pica_reservation.is_some() && session.pica_retirements().is_closing()) {
++        return Err(CodexErr::InvalidRequest("Pica startup cancelled by shutdown".to_string()));
++    }
+     let origin = UserInputOrigin::from_turn_trigger(start.turn_trigger.as_deref());
+     if session.input_queue.has_trigger_turn_mailbox_items().await {
+         return Ok(TurnInputSubmission::NotSubmitted {
+@@ -461,6 +531,10 @@ async fn start_if_idle(
+             return Err(error);
+         }
+     };
++    if startup_cancellation.as_ref().is_some_and(|token| token.is_cancelled()) || (pica_reservation.is_some() && session.pica_retirements().is_closing()) {
++        session.clear_reserved_idle_turn(&turn_state).await;
++        return Err(CodexErr::InvalidRequest("Pica startup cancelled by shutdown".to_string()));
++    }
+     let turn_context = match settings
+         .apply_started(session, submission_id.clone(), kind)
+         .await
+@@ -510,9 +584,18 @@ async fn start_if_idle(
+             }
+         }
+     }
+-    session
+-        .start_task(turn_context, task_input, RegularTask::new())
+-        .await;
++    if startup_cancellation.as_ref().is_some_and(|token| token.is_cancelled()) {
++        if let Some(lease) = turn_context.extension_data.get::<super::turn_context::PicaTurnLease>() { lease.revoke(); }
++        session.clear_reserved_idle_turn(&turn_state).await;
++        return Err(CodexErr::InvalidRequest("Pica startup cancelled by shutdown after input preparation".to_string()));
++    }
++    if !session
++        .start_task_reserved(turn_context, task_input, RegularTask::new(), pica_reservation)
++        .await
++    {
++        session.clear_reserved_idle_turn(&turn_state).await;
++        return Err(CodexErr::InvalidRequest("Pica retirement admission failed".to_string()));
++    }
+     Ok(TurnInputSubmission::Started {
+         turn_id: submission_id,
+     })
+diff --git a/codex-rs/core/src/state/mod.rs b/codex-rs/core/src/state/mod.rs
+index 07ce5c3..51202b5 100644
+--- a/codex-rs/core/src/state/mod.rs
++++ b/codex-rs/core/src/state/mod.rs
+@@ -17,6 +17,7 @@ pub(crate) use turn::ActiveTurn;
+ pub(crate) use turn::MailboxDeliveryPhase;
+ pub(crate) use turn::PendingRequestPermissions;
+ pub(crate) use turn::RunningTask;
++pub(crate) use turn::PicaDynamicWaiterGuard;
+ pub(crate) use turn::TaskKind;
+ pub(crate) use turn::TurnState;
+ pub(crate) use turn_token_usage::TurnTokenUsage;
+diff --git a/codex-rs/core/src/state/turn.rs b/codex-rs/core/src/state/turn.rs
+index 3343720..64a9f4a 100644
+--- a/codex-rs/core/src/state/turn.rs
++++ b/codex-rs/core/src/state/turn.rs
+@@ -87,11 +87,14 @@ pub(crate) struct RunningTask {
+ /// Mutable state for a single turn.
+ #[derive(Default)]
+ pub(crate) struct TurnState {
++    pub(crate) pica_event_owner: Option<Arc<crate::session::pica_dynamic_events::PicaDynamicEventOwner>>,
+     pending_approvals: HashMap<String, oneshot::Sender<ReviewDecision>>,
+     pending_request_permissions: HashMap<String, PendingRequestPermissions>,
+     pending_user_input: HashMap<String, oneshot::Sender<AcceptedUserInputResponse>>,
+     pending_elicitations: HashMap<(String, RequestId), oneshot::Sender<ElicitationResponse>>,
+     pending_dynamic_tools: HashMap<String, oneshot::Sender<DynamicToolResponse>>,
++    pica_dynamic_tools: Arc<std::sync::Mutex<HashMap<String, (Arc<()>, oneshot::Sender<DynamicToolResponse>)>>>,
++    pending_pica_ready: Arc<std::sync::Mutex<HashMap<String, (Arc<()>, oneshot::Sender<codex_protocol::protocol::PicaRegistryReadyResponse>)>>>,
+     pub(crate) pending_input: TurnInputQueue,
+     mailbox_delivery_phase: MailboxDeliveryPhase,
+     granted_permissions_by_environment_id: HashMap<String, AdditionalPermissionProfile>,
+@@ -105,6 +108,38 @@ pub(crate) struct TurnState {
+     pub(crate) last_known_step_context: Option<Arc<StepContext>>,
+ }
+ 
++/// Removes only this invocation's waiter when its future is dropped.
++pub(crate) struct PicaDynamicWaiterGuard {
++    waiters: Arc<std::sync::Mutex<HashMap<String, (Arc<()>, oneshot::Sender<DynamicToolResponse>)>>>,
++    key: String,
++    identity: Arc<()>,
++}
++
++impl Drop for PicaDynamicWaiterGuard {
++    fn drop(&mut self) {
++        let mut waiters = self.waiters.lock().unwrap_or_else(|error| error.into_inner());
++        if waiters.get(&self.key).is_some_and(|(identity, _)| Arc::ptr_eq(identity, &self.identity)) {
++            waiters.remove(&self.key);
++        }
++    }
++}
++
++/// Removes only the corresponding private readiness waiter on drop.
++pub(crate) struct PicaReadyWaiterGuard {
++    waiters: Arc<std::sync::Mutex<HashMap<String, (Arc<()>, oneshot::Sender<codex_protocol::protocol::PicaRegistryReadyResponse>)>>>,
++    key: String,
++    identity: Arc<()>,
++}
++
++impl Drop for PicaReadyWaiterGuard {
++    fn drop(&mut self) {
++        let mut waiters = self.waiters.lock().unwrap_or_else(|error| error.into_inner());
++        if waiters.get(&self.key).is_some_and(|(identity, _)| Arc::ptr_eq(identity, &self.identity)) {
++            waiters.remove(&self.key);
++        }
++    }
++}
++
+ /// Host receipt metadata follows the response through the asynchronous tool waiter.
+ pub(crate) struct AcceptedUserInputResponse {
+     pub(crate) response: RequestUserInputResponse,
+@@ -140,6 +175,8 @@ impl TurnState {
+         self.pending_user_input.clear();
+         self.pending_elicitations.clear();
+         self.pending_dynamic_tools.clear();
++        self.pica_dynamic_tools.lock().unwrap_or_else(|error| error.into_inner()).clear();
++        self.pending_pica_ready.lock().unwrap_or_else(|error| error.into_inner()).clear();
+     }
+ 
+     pub(crate) fn insert_pending_request_permissions(
+@@ -192,6 +229,22 @@ impl TurnState {
+             .remove(&(server_name.to_string(), request_id.clone()))
+     }
+ 
++    pub(crate) fn insert_pending_pica_ready(
++        &mut self, key: String, tx: oneshot::Sender<codex_protocol::protocol::PicaRegistryReadyResponse>,
++    ) -> Option<PicaReadyWaiterGuard> {
++        let mut waiters = self.pending_pica_ready.lock().unwrap_or_else(|error| error.into_inner());
++        if waiters.contains_key(&key) { return None; }
++        let identity = Arc::new(());
++        waiters.insert(key.clone(), (identity.clone(), tx));
++        Some(PicaReadyWaiterGuard { waiters: self.pending_pica_ready.clone(), key, identity })
++    }
++
++    pub(crate) fn remove_pending_pica_ready(
++        &mut self, key: &str,
++    ) -> Option<oneshot::Sender<codex_protocol::protocol::PicaRegistryReadyResponse>> {
++        self.pending_pica_ready.lock().unwrap_or_else(|error| error.into_inner()).remove(key).map(|(_, sender)| sender)
++    }
++
+     pub(crate) fn insert_pending_dynamic_tool(
+         &mut self,
+         key: String,
+@@ -200,11 +253,32 @@ impl TurnState {
+         self.pending_dynamic_tools.insert(key, tx)
+     }
+ 
++    pub(crate) fn try_insert_pica_dynamic_tool(&mut self, key: String, tx: oneshot::Sender<DynamicToolResponse>) -> Option<PicaDynamicWaiterGuard> {
++        if self.pending_dynamic_tools.contains_key(&key) { return None; }
++        let mut waiters = self.pica_dynamic_tools.lock().unwrap_or_else(|error| error.into_inner());
++        if waiters.contains_key(&key) { return None; }
++        let identity = Arc::new(());
++        waiters.insert(key.clone(), (identity.clone(), tx));
++        Some(PicaDynamicWaiterGuard { waiters: self.pica_dynamic_tools.clone(), key, identity })
++    }
++
++    /// Match both the waiter map and the invocation generation.
++    pub(crate) fn has_matching_pica_dynamic_tool(&self, key: &str, guard: &PicaDynamicWaiterGuard) -> bool {
++        if key != guard.key || !Arc::ptr_eq(&self.pica_dynamic_tools, &guard.waiters) { return false; }
++        let waiters = self.pica_dynamic_tools.lock().unwrap_or_else(|error| error.into_inner());
++        waiters.get(key).is_some_and(|(identity, _)| Arc::ptr_eq(identity, &guard.identity))
++    }
++
++    pub(crate) fn has_pending_dynamic_tool(&self, key: &str) -> bool {
++        self.pending_dynamic_tools.contains_key(key) || self.pica_dynamic_tools.lock().unwrap_or_else(|error| error.into_inner()).contains_key(key)
++    }
++
+     pub(crate) fn remove_pending_dynamic_tool(
+         &mut self,
+         key: &str,
+     ) -> Option<oneshot::Sender<DynamicToolResponse>> {
+-        self.pending_dynamic_tools.remove(key)
++        let pica = self.pica_dynamic_tools.lock().unwrap_or_else(|error| error.into_inner()).remove(key);
++        pica.map(|(_, sender)| sender).or_else(|| self.pending_dynamic_tools.remove(key))
+     }
+ 
+     pub(crate) fn accept_mailbox_delivery_for_current_turn(&mut self) {
+diff --git a/codex-rs/core/src/tasks/mod.rs b/codex-rs/core/src/tasks/mod.rs
+index 28a3b54..8f024d0 100644
+--- a/codex-rs/core/src/tasks/mod.rs
++++ b/codex-rs/core/src/tasks/mod.rs
+@@ -73,6 +73,34 @@ static ACTIVE_TURNS: Gauge = Gauge::new("core.turns.active");
+ 
+ pub(crate) type SessionTaskResult = CodexResult<Option<String>>;
+ 
++/// Revoke an installed but not yet running Pica turn if startup is dropped.
++struct PendingPicaStart(Option<Arc<crate::session::turn_context::PicaTurnLease>>);
++
++impl Drop for PendingPicaStart {
++    fn drop(&mut self) {
++        if let Some(lease) = self.0.take() { lease.revoke(); }
++    }
++}
++
++struct PreparedPicaStart {
++    owner: Option<Arc<crate::session::pica_dynamic_events::PicaDynamicEventOwner>>,
++    pending: PendingPicaStart,
++}
++
++async fn observe_pica_event_settlement(owner: Option<&Arc<crate::session::pica_dynamic_events::PicaDynamicEventOwner>>) {
++    let Some(owner) = owner else { return; };
++    match owner.drain().await {
++        Some(results) => {
++            for result in results.iter() {
++                if matches!(result.outcome, crate::session::pica_dynamic_events::PicaEventSettlement::Unavailable | crate::session::pica_dynamic_events::PicaEventSettlement::JoinUnobserved) {
++                    warn!(turn = %result.turn, call = %result.call, generation = result.generation, outcome = ?result.outcome, stages = ?result.stages, "Pica event settlement unavailable");
++                }
++            }
++        }
++        None => warn!("Pica event settlement unavailable"),
++    }
++}
++
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+ pub(crate) enum InterruptedTurnHistoryMarker {
+     Disabled,
+@@ -268,27 +296,82 @@ where
+ }
+ 
+ impl Session {
++    fn prepare_pica_start(
++        self: &Arc<Self>,
++        turn_context: &Arc<TurnContext>,
++        reservation: Option<crate::session::pica_retirement::PicaRetirementReservation>,
++    ) -> Option<PreparedPicaStart> {
++        if let Some(lease) = turn_context.extension_data.get::<crate::session::turn_context::PicaTurnLease>() {
++            let Some(reservation) = reservation else { lease.revoke(); return None; };
++            let owner = crate::session::pica_dynamic_events::PicaDynamicEventOwner::new(self, turn_context);
++            if !self.pica_retirements().register(turn_context.clone(), owner.clone(), lease.cancellation.clone(), reservation) {
++                lease.revoke();
++                return None;
++            }
++            Some(PreparedPicaStart { owner: Some(owner), pending: PendingPicaStart(Some(lease)) })
++        } else if reservation.is_none() {
++            Some(PreparedPicaStart { owner: None, pending: PendingPicaStart(None) })
++        } else { None }
++    }
++
+     pub async fn spawn_task<T: SessionTask>(
+         self: &Arc<Self>,
+         turn_context: Arc<TurnContext>,
+         input: Vec<TurnInput>,
+         task: T,
+-    ) {
++    ) -> bool {
++        let reservation = if let Some(lease) = turn_context.extension_data.get::<crate::session::turn_context::PicaTurnLease>() {
++            match self.pica_retirements().reserve(turn_context.sub_id.clone()) {
++                Some(reservation) => Some(reservation),
++                None => { lease.revoke(); return false; }
++            }
++        } else { None };
++        // Promote before replacing the old task, so a failed promotion cannot abort it.
++        let Some(prepared) = self.prepare_pica_start(&turn_context, reservation) else { return false; };
+         self.abort_all_tasks(TurnAbortReason::Replaced).await;
+         self.clear_connector_selection().await;
+-        self.start_task(turn_context, input, task).await;
++        self.start_task_prepared(turn_context, input, task, prepared).await
++    }
++
++    pub(crate) async fn start_task<T: SessionTask>(
++        self: &Arc<Self>,
++        turn_context: Arc<TurnContext>,
++        input: Vec<TurnInput>,
++        task: T,
++    ) -> bool {
++        let reservation = if let Some(lease) = turn_context.extension_data.get::<crate::session::turn_context::PicaTurnLease>() {
++            match self.pica_retirements().reserve(turn_context.sub_id.clone()) {
++                Some(reservation) => Some(reservation),
++                None => { lease.revoke(); return false; }
++            }
++        } else { None };
++        self.start_task_reserved(turn_context, input, task, reservation).await
++    }
++
++    pub(crate) async fn start_task_reserved<T: SessionTask>(
++        self: &Arc<Self>,
++        turn_context: Arc<TurnContext>,
++        input: Vec<TurnInput>,
++        task: T,
++        reservation: Option<crate::session::pica_retirement::PicaRetirementReservation>,
++    ) -> bool {
++        let Some(prepared) = self.prepare_pica_start(&turn_context, reservation) else { return false; };
++        self.start_task_prepared(turn_context, input, task, prepared).await
+     }
+ 
+     #[expect(
+         clippy::await_holding_invalid_type,
+         reason = "record the started turn atomically with its active reservation"
+     )]
+-    pub(crate) async fn start_task<T: SessionTask>(
++    async fn start_task_prepared<T: SessionTask>(
+         self: &Arc<Self>,
+         turn_context: Arc<TurnContext>,
+         input: Vec<TurnInput>,
+         task: T,
+-    ) {
++        prepared: PreparedPicaStart,
++    ) -> bool {
++        let PreparedPicaStart { owner: pica_event_owner, pending: mut pending_pica_start } = prepared;
++        if pending_pica_start.0.as_ref().is_some_and(|lease| lease.cancellation.is_cancelled()) { return false; }
+         self.activate_plugin_selection(&turn_context).await;
+         // Inherited or recovered roots are applied before task start. Otherwise this
+         // task owns its turn, including background work. Later mail cannot change it.
+@@ -319,7 +402,11 @@ impl Session {
+             debug_assert!(turn.task.is_none());
+             Arc::clone(&turn.turn_state)
+         };
+-        turn_state.lock().await.token_usage_at_turn_start = token_usage_at_turn_start.clone();
++        {
++            let mut state = turn_state.lock().await;
++            state.token_usage_at_turn_start = token_usage_at_turn_start.clone();
++            state.pica_event_owner = pica_event_owner.clone();
++        }
+         self.input_queue
+             .extend_pending_input_for_turn_state(turn_state.as_ref(), pending_items)
+             .await;
+@@ -343,6 +430,7 @@ impl Session {
+         let task_for_run = Arc::clone(&task);
+         let task_input = input;
+         let task_cancellation_token = cancellation_token.child_token();
++        let pica_event_owner_for_finish = pica_event_owner.clone();
+         // Task-owned turn spans keep a core-owned span open for the
+         // full task lifecycle after the submission dispatch span ends.
+         let reasoning_effort = turn_context.effective_reasoning_effort_for_tracing();
+@@ -361,6 +449,14 @@ impl Session {
+             codex.turn.token_usage.reasoning_output_tokens = field::Empty,
+             codex.turn.token_usage.total_tokens = field::Empty,
+         );
++        // No await occurs while this fence is held: shutdown either closes
++        // admission first or observes the synchronously attached running task.
++        let retirement_root = pica_event_owner.as_ref().map(|_| self.pica_retirements());
++        let _attachment_fence = if let Some(root) = retirement_root.as_ref() {
++            let Some(fence) = root.attachment_fence() else { return false; };
++            if pending_pica_start.0.as_ref().is_some_and(|lease| lease.cancellation.is_cancelled()) { return false; }
++            Some(fence)
++        } else { None };
+         let handle = tokio::spawn(
+             async move {
+                 let ctx_for_finish = Arc::clone(&ctx);
+@@ -373,6 +469,18 @@ impl Session {
+                     )
+                     .instrument(trace_span!("session_task.run"))
+                     .await;
++                if let Some(lease) = ctx_for_finish.extension_data.get::<crate::session::turn_context::PicaTurnLease>() {
++                    lease.revoke();
++                    if let Some(settlement) = crate::session::turn::notify_pica_revoked(&session, ctx_for_finish.as_ref()) {
++                        let outcome = tokio::time::timeout(Duration::from_secs(32), settlement.subscribe()).await;
++                        if !matches!(outcome, Ok(Ok(codex_protocol::protocol::PicaRevocationOutcome::Acknowledged)))
++                            && let Some(policy) = session.services.thread_extension_data.get::<codex_extension_api::PicaPolicyContext>() {
++                            policy.owner.revoke();
++                        }
++                    }
++                }
++                session.pica_retirements().request_close(&ctx_for_finish.sub_id);
++                observe_pica_event_settlement(pica_event_owner_for_finish.as_ref()).await;
+                 let sess = Arc::clone(&session);
+                 // Private reviewers save their transcript together with the terminal event.
+                 // Errors and cancellation retain their existing save path.
+@@ -417,6 +525,8 @@ impl Session {
+             _timer: timer,
+         };
+         turn.task = Some(running_task);
++        pending_pica_start.0 = None;
++        true
+     }
+ 
+     /// Returns whether an extension has marked this thread as durably asleep.
+@@ -542,6 +652,7 @@ impl Session {
+             aborted_turn = task.is_some();
+             turn_context = task.as_ref().map(|task| Arc::clone(&task.turn_context));
+             if let Some(task) = task {
++                let _ = crate::session::turn::notify_pica_revoked(self, task.turn_context.as_ref());
+                 self.handle_task_abort(
+                     task,
+                     reason.clone(),
+@@ -582,6 +693,11 @@ impl Session {
+                 .and_then(|active_turn| active_turn.task.as_ref())
+                 .is_some_and(|task| task.turn_context.sub_id == turn_id)
+             {
++                if let Some(task) = active.as_ref().and_then(|turn| turn.task.as_ref())
++                    && let Some(lease) = task.turn_context.extension_data.get::<crate::session::turn_context::PicaTurnLease>() {
++                    lease.revoke();
++                    let _ = crate::session::turn::notify_pica_revoked(self, task.turn_context.as_ref());
++                }
+                 if matches!(
+                     reason,
+                     TurnAbortReason::Interrupted | TurnAbortReason::BudgetLimited
+@@ -610,6 +726,7 @@ impl Session {
+         let task = active_turn.task.take();
+         let turn_context = task.as_ref().map(|task| Arc::clone(&task.turn_context));
+         if let Some(task) = task {
++            let _ = crate::session::turn::notify_pica_revoked(self, task.turn_context.as_ref());
+             self.handle_task_abort(task, reason.clone(), &active_turn.turn_state, error)
+                 .await;
+         }
+@@ -888,6 +1005,11 @@ impl Session {
+ 
+     async fn take_active_turn(&self, reason: &TurnAbortReason) -> Option<ActiveTurn> {
+         let mut active = self.active_turn.lock().await;
++        if let Some(task) = active.as_ref().and_then(|turn| turn.task.as_ref())
++            && let Some(lease) = task.turn_context.extension_data.get::<crate::session::turn_context::PicaTurnLease>() {
++            lease.revoke();
++            let _ = crate::session::turn::notify_pica_revoked(self, task.turn_context.as_ref());
++        }
+         if matches!(
+             reason,
+             TurnAbortReason::Interrupted | TurnAbortReason::BudgetLimited
+@@ -926,7 +1048,10 @@ impl Session {
+         error: Option<ErrorEvent>,
+     ) {
+         let sub_id = task.turn_context.sub_id.clone();
++        self.pica_retirements().request_close(&sub_id);
++        let pica_event_owner = turn_state.lock().await.pica_event_owner.clone();
+         if task.cancellation_token.is_cancelled() {
++            observe_pica_event_settlement(pica_event_owner.as_ref()).await;
+             return;
+         }
+ 
+@@ -958,6 +1083,7 @@ impl Session {
+         }
+ 
+         task.handle.abort();
++        observe_pica_event_settlement(pica_event_owner.as_ref()).await;
+ 
+         session_task
+             .abort(Arc::clone(self), Arc::clone(&task.turn_context))
+diff --git a/codex-rs/core/src/tools/handlers/dynamic.rs b/codex-rs/core/src/tools/handlers/dynamic.rs
+index f2b7860..ba79bf2 100644
+--- a/codex-rs/core/src/tools/handlers/dynamic.rs
++++ b/codex-rs/core/src/tools/handlers/dynamic.rs
+@@ -15,6 +15,8 @@ use codex_protocol::dynamic_tools::DynamicToolResponse;
+ use codex_protocol::items::DynamicToolCallItem;
+ use codex_protocol::items::DynamicToolCallStatus;
+ use codex_protocol::items::TurnItem;
++use codex_protocol::protocol::{Event, EventMsg, ItemStartedEvent};
++use crate::session::pica_dynamic_events::PicaEventAdmission;
+ use codex_protocol::models::FunctionCallOutputContentItem;
+ use codex_tools::ResponsesApiNamespace;
+ use codex_tools::ResponsesApiNamespaceTool;
+@@ -33,6 +35,7 @@ pub struct DynamicToolHandler {
+     tool_name: ToolName,
+     spec: ToolSpec,
+     exposure: ToolExposure,
++    pub(crate) raw_tool: DynamicToolFunctionSpec,
+ }
+ 
+ impl DynamicToolHandler {
+@@ -55,7 +58,23 @@ impl DynamicToolHandler {
+             namespace.map(|namespace| namespace.name.clone()),
+             tool.name.clone(),
+         );
+-        let mut output_tool = dynamic_tool_to_responses_api_tool(tool).ok()?;
++        let mut output_tool = if std::env::var_os("PAGES_PICA_CODEX").as_deref()
++            == Some(std::ffi::OsStr::new("1"))
++        {
++            codex_tools::ResponsesApiTool {
++                name: tool.name.clone(),
++                description: tool.description.clone(),
++                strict: false,
++                defer_loading: None,
++                parameters: codex_tools::JsonSchema {
++                    pica_raw_schema: Some(tool.input_schema.clone()),
++                    ..Default::default()
++                },
++                output_schema: None,
++            }
++        } else {
++            dynamic_tool_to_responses_api_tool(tool).ok()?
++        };
+         // Exposure controls deferral; tool search restores this marker for deferred results.
+         output_tool.defer_loading = None;
+         let spec = match namespace {
+@@ -73,6 +92,7 @@ impl DynamicToolHandler {
+         Some(Self {
+             tool_name,
+             spec,
++            raw_tool: tool.clone(),
+             exposure: if tool.defer_loading {
+                 ToolExposure::Deferred
+             } else {
+@@ -126,6 +146,24 @@ impl DynamicToolHandler {
+             ..
+         } = invocation;
+ 
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            let policy = session.services.thread_extension_data
++                .get::<codex_extension_api::PicaPolicyContext>()
++                .ok_or_else(|| FunctionCallError::RespondToModel("Pica admission refused".to_string()))?;
++            let active = session.active_turn.lock().await;
++            let task = active.as_ref().and_then(|active| active.task.as_ref())
++                .ok_or_else(|| FunctionCallError::RespondToModel("Pica admission refused".to_string()))?;
++            if !crate::session::turn::pica_same_turn(task.turn_context.as_ref(), turn.as_ref()) || task.cancellation_token.is_cancelled() {
++                return Err(FunctionCallError::RespondToModel("Pica admission refused".to_string()));
++            }
++            let admitted = turn.extension_data.get::<crate::session::turn_context::PicaTurnLease>()
++                .is_some_and(|lease| lease.admitted());
++            if !admitted || !policy.catalog.iter().any(|tool| matches!(tool,
++                codex_protocol::dynamic_tools::DynamicToolSpec::Function(function) if function == &self.raw_tool)) {
++                return Err(FunctionCallError::RespondToModel("Pica admission refused".to_string()));
++            }
++        }
++
+         let arguments = match payload {
+             ToolPayload::Function { arguments } => arguments,
+             _ => {
+@@ -182,13 +220,27 @@ async fn request_dynamic_tool(
+     let tool = tool_name.name;
+     let (tx_response, rx_response) = oneshot::channel();
+     let event_id = call_id.clone();
++    let pica = std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1"));
++    let mut pica_waiter_guard = None;
+     let prev_entry = {
+         let mut active = session.active_turn.lock().await;
+         match active.as_mut() {
+             Some(at) => {
++                if pica && !at.task.as_ref().is_some_and(|task|
++                    crate::session::turn::pica_same_turn(task.turn_context.as_ref(), turn_context) && !task.cancellation_token.is_cancelled() &&
++                    task.turn_context.extension_data.get::<crate::session::turn_context::PicaTurnLease>().is_some_and(|lease| lease.admitted())) {
++                    return None;
++                }
+                 let mut ts = at.turn_state.lock().await;
++                if pica {
++                    pica_waiter_guard = ts.try_insert_pica_dynamic_tool(call_id.clone(), tx_response);
++                    if pica_waiter_guard.is_none() { return None; }
++                    None
++                } else {
+                 ts.insert_pending_dynamic_tool(call_id.clone(), tx_response)
++                }
+             }
++            None if pica => return None,
+             None => None,
+         }
+     };
+@@ -196,24 +248,67 @@ async fn request_dynamic_tool(
+         warn!("Overwriting existing pending dynamic tool call for call_id: {event_id}");
+     }
+ 
++    // The waiter and ticket remain owned by this future through response or cancellation.
+     let started_at = Instant::now();
+-    session
+-        .emit_turn_item_started(
+-            turn_context,
+-            &TurnItem::DynamicToolCall(DynamicToolCallItem {
+-                id: call_id.clone(),
+-                namespace: namespace.clone(),
+-                tool: tool.clone(),
+-                arguments: arguments.clone(),
+-                status: DynamicToolCallStatus::InProgress,
+-                content_items: None,
+-                success: None,
+-                error: None,
+-                duration: None,
++    if crate::session::turn::ensure_pica_turn(session, turn_context).await.is_err() {
++        return None;
++    }
++    let started_item = TurnItem::DynamicToolCall(DynamicToolCallItem {
++        id: call_id.clone(),
++        namespace: namespace.clone(),
++        tool: tool.clone(),
++        arguments: arguments.clone(),
++        status: DynamicToolCallStatus::InProgress,
++        content_items: None,
++        success: None,
++        error: None,
++        duration: None,
++    });
++    let pica_ticket = if pica {
++        let waiter = pica_waiter_guard.as_ref()?;
++        let owner = session.pica_dynamic_event_owner(turn_context).await?;
++        let generation = owner.next_generation()?;
++        // The ticket stamps the actual visible handoff under the lease.
++        let started_at_ms = 0;
++        let event = Event {
++            id: turn_context.sub_id.clone(),
++            msg: EventMsg::ItemStarted(ItemStartedEvent {
++                thread_id: session.thread_id,
++                turn_id: turn_context.sub_id.clone(),
++                item: started_item.clone(),
++                started_at_ms,
+             }),
+-        )
+-        .await;
+-    let response = rx_response.await.ok();
++        };
++        let mut ticket = owner.reserve(turn_context, event, generation).await?;
++        match session.admit_pica_dynamic_started(
++            turn_context, &call_id, generation, waiter, &owner, &mut ticket,
++        ).await {
++            PicaEventAdmission::Committed => Some(ticket),
++            // A committed enqueue cannot be retried or treated as invisible.
++            PicaEventAdmission::CommittedUnavailable | PicaEventAdmission::NotAdmitted => return None,
++        }
++    } else {
++        session.emit_turn_item_started(turn_context, &started_item).await;
++        None
++    };
++    let response = if let Some(lease) = turn_context.extension_data.get::<crate::session::turn_context::PicaTurnLease>() {
++        tokio::select! {
++            _ = lease.cancellation.cancelled() => None,
++            result = rx_response => result.ok(),
++        }
++    } else { rx_response.await.ok() };
++    if pica {
++        if crate::session::turn::ensure_pica_turn(session, turn_context).await.is_err() {
++            return None;
++        }
++        let response = response?;
++        let ticket = pica_ticket.as_ref()?;
++        if !ticket.respond(DynamicToolResponse {
++            content_items: response.content_items.clone(),
++            success: response.success,
++        }) { return None; }
++        return Some(response);
++    }
+ 
+     let item = match &response {
+         Some(response) => DynamicToolCallItem {
+diff --git a/codex-rs/core/src/tools/registry.rs b/codex-rs/core/src/tools/registry.rs
+index 7d88650..420e68e 100644
+--- a/codex-rs/core/src/tools/registry.rs
++++ b/codex-rs/core/src/tools/registry.rs
+@@ -1,3 +1,4 @@
++use crate::tools::handlers::DynamicToolHandler;
+ use std::collections::BTreeMap;
+ use std::sync::Arc;
+ use std::sync::atomic::Ordering;
+@@ -289,12 +290,14 @@ pub(crate) struct PostToolUsePayload {
+ pub(crate) struct RegisteredTool {
+     pub(crate) runtime: Arc<dyn CoreToolRuntime>,
+     pub(crate) exposure: ToolExposure,
++    pub(crate) pica_dynamic: Option<codex_protocol::dynamic_tools::DynamicToolFunctionSpec>,
+ }
+ 
+ #[derive(Default)]
+ pub struct ToolRegistry {
+     tools: IndexMap<ToolName, RegisteredTool>,
+     first_collision: Option<ToolName>,
++    pica_blocked: std::collections::HashSet<ToolName>,
+     pub(crate) tool_policy: Arc<ToolPolicy>,
+ }
+ 
+@@ -341,13 +344,17 @@ impl ToolRegistry {
+         runtime: Arc<dyn CoreToolRuntime>,
+         exposure: ToolExposure,
+     ) {
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            self.pica_blocked.insert(runtime.tool_name().with_default_namespace());
++            return;
++        }
+         let tool_name = runtime.tool_name().with_default_namespace();
+         if !self.tool_policy.allows(&tool_name) {
+             return;
+         }
+         match self.tools.entry(tool_name) {
+             Entry::Vacant(entry) => {
+-                entry.insert(RegisteredTool { runtime, exposure });
++                entry.insert(RegisteredTool { runtime, exposure, pica_dynamic: None });
+             }
+             Entry::Occupied(entry) => {
+                 let tool_name = entry.key();
+@@ -357,6 +364,10 @@ impl ToolRegistry {
+     }
+ 
+     pub(crate) fn prepend_trusted(&mut self, runtime: Arc<dyn CoreToolRuntime>) {
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            self.pica_blocked.insert(runtime.tool_name().with_default_namespace());
++            return;
++        }
+         let tool_name = runtime.tool_name().with_default_namespace();
+         if !self.tool_policy.allows(&tool_name) {
+             return;
+@@ -368,7 +379,7 @@ impl ToolRegistry {
+ 
+         let exposure = runtime.exposure();
+         self.tools
+-            .shift_insert(0, tool_name, RegisteredTool { runtime, exposure });
++            .shift_insert(0, tool_name, RegisteredTool { runtime, exposure, pica_dynamic: None });
+     }
+ 
+     pub(crate) fn register_external(&mut self, runtime: Arc<dyn CoreToolRuntime>) -> bool {
+@@ -381,6 +392,10 @@ impl ToolRegistry {
+         runtime: Arc<dyn CoreToolRuntime>,
+         exposure: ToolExposure,
+     ) -> bool {
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++            self.pica_blocked.insert(runtime.tool_name().with_default_namespace());
++            return false;
++        }
+         let tool_name = runtime.tool_name().with_default_namespace();
+         if !self.tool_policy.allows(&tool_name) {
+             return false;
+@@ -397,7 +412,7 @@ impl ToolRegistry {
+ 
+         match self.tools.entry(tool_name) {
+             Entry::Vacant(entry) => {
+-                entry.insert(RegisteredTool { runtime, exposure });
++                entry.insert(RegisteredTool { runtime, exposure, pica_dynamic: None });
+                 true
+             }
+             Entry::Occupied(entry) => {
+@@ -412,6 +427,22 @@ impl ToolRegistry {
+         }
+     }
+ 
++    pub(crate) fn register_dynamic(&mut self, handler: DynamicToolHandler) -> bool {
++        let raw_tool = handler.raw_tool.clone();
++        let runtime = Arc::new(handler);
++        if std::env::var_os("PAGES_PICA_CODEX").as_deref() != Some(std::ffi::OsStr::new("1")) {
++            return self.register_external(runtime);
++        }
++        let tool_name = runtime.tool_name().with_default_namespace();
++        if self.tool_policy.allowed_tools.is_none() || !self.tool_policy.allows(&tool_name) || self.pica_blocked.contains(&tool_name) || self.tools.contains_key(&tool_name) {
++            self.record_collision(tool_name);
++            return false;
++        }
++        let exposure = runtime.exposure();
++        self.tools.insert(tool_name, RegisteredTool { runtime, exposure, pica_dynamic: Some(raw_tool) });
++        true
++    }
++
+     pub(crate) fn record_collision(&mut self, tool_name: ToolName) {
+         self.first_collision.get_or_insert(tool_name);
+     }
+diff --git a/codex-rs/core/src/tools/router.rs b/codex-rs/core/src/tools/router.rs
+index d9f1f63..258a6af 100644
+--- a/codex-rs/core/src/tools/router.rs
++++ b/codex-rs/core/src/tools/router.rs
+@@ -64,6 +64,9 @@ pub(crate) fn tool_log_payload<'a>(
+     payload: &'a ToolPayload,
+     source: &ToolCallSource,
+ ) -> Cow<'a, str> {
++    if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++        return Cow::Borrowed("[Pica tool arguments]");
++    }
+     if matches!(source, ToolCallSource::DirectPlaintextMessage) {
+         return Cow::Borrowed("[plaintext arguments]");
+     }
+diff --git a/codex-rs/core/src/tools/spec_plan.rs b/codex-rs/core/src/tools/spec_plan.rs
+index bb1474f..03f8fd2 100644
+--- a/codex-rs/core/src/tools/spec_plan.rs
++++ b/codex-rs/core/src/tools/spec_plan.rs
+@@ -187,6 +187,53 @@ pub(crate) fn build_tool_router(
+     )
+ }
+ 
++// Check the actual model surface and registered runtimes before the prompt is built.
++fn validate_pica_effective_registry(
++    registry: &ToolRegistry,
++    model_visible_specs: &[ToolSpec],
++    catalog: &[DynamicToolSpec],
++) -> CodexResult<()> {
++    let refused = || CodexErrorDetails::InvalidRequest("Pica effective registry refused".to_string());
++    if registry.first_collision().is_some()
++        || registry.entries().count() != catalog.len()
++        || model_visible_specs.len() != catalog.len()
++        || registry.entries().any(|entry| entry.exposure != ToolExposure::Direct)
++    {
++        return Err(refused().into());
++    }
++    let mut names = HashSet::new();
++    for tool in catalog {
++        let DynamicToolSpec::Function(function) = tool else {
++            return Err(refused().into());
++        };
++        if function.defer_loading || !names.insert(&function.name) {
++            return Err(refused().into());
++        }
++        let actual = codex_tools::ResponsesApiTool {
++            name: function.name.clone(),
++            description: function.description.clone(),
++            strict: false,
++            defer_loading: None,
++            parameters: codex_tools::JsonSchema {
++                pica_raw_schema: Some(function.input_schema.clone()),
++                ..Default::default()
++            },
++            output_schema: None,
++        };
++        if serde_json::to_value(&actual.parameters).map_err(|_| refused())? != function.input_schema {
++            return Err(refused().into());
++        }
++        let expected = ToolSpec::Function(actual);
++        if model_visible_specs.iter().filter(|spec| **spec == expected).count() != 1
++            || registry.entries().filter(|entry| entry.runtime.spec() == expected
++                && entry.pica_dynamic.as_ref() == Some(function)).count() != 1
++        {
++            return Err(refused().into());
++        }
++    }
++    Ok(())
++}
++
+ fn apply_mcp_tool_exposure_policy(
+     turn_context: &TurnContext,
+     model_info: &ModelInfo,
+@@ -353,9 +400,18 @@ pub(crate) fn finalize_tool_router(
+     mut hosted_specs: Vec<ToolSpec>,
+     tool_search_handler_cache: &ToolSearchHandlerCache,
+ ) -> CodexResult<ToolRouter> {
+-    hosted_specs.retain(|spec| registry.tool_policy.allows(&ToolName::plain(spec.name())));
++    let pica_active = std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1"));
++    if pica_active {
++        if registry.first_collision().is_some()
++            || hosted_specs.iter().any(|spec| registry.tool(&ToolName::plain(spec.name())).is_some()) {
++            return Err(CodexErrorDetails::InvalidRequest("Pica tool identity collision".to_string()).into());
++        }
++        hosted_specs.clear();
++    } else {
++        hosted_specs.retain(|spec| registry.tool_policy.allows(&ToolName::plain(spec.name())));
++    }
+     apply_direct_model_only_namespace_overrides(turn_context, &mut registry);
+-    let tool_mode = effective_tool_mode(turn_context, model_info);
++    let tool_mode = if pica_active { ToolMode::Direct } else { effective_tool_mode(turn_context, model_info) };
+     let code_mode_enabled = matches!(tool_mode, ToolMode::CodeMode | ToolMode::CodeModeOnly);
+     if code_mode_enabled {
+         for tool_name in [
+@@ -481,6 +537,9 @@ pub(crate) fn finalize_tool_router(
+         &code_mode_tool_names,
+         hosted_specs,
+     );
++    if pica_active {
++        validate_pica_effective_registry(&registry, &model_visible_specs, &turn_context.dynamic_tools)?;
++    }
+     let tool_namespaces_info = include_tool_namespaces_info
+         .then(|| {
+             collect_tool_namespaces_info(&registry, &code_mode_tool_names, &model_visible_specs)
+@@ -1434,7 +1493,7 @@ fn append_dynamic_tool_runtimes(dynamic_tools: &[DynamicToolSpec], registry: &mu
+                     );
+                     continue;
+                 };
+-                registry.register_external(Arc::new(handler));
++                registry.register_dynamic(handler);
+             }
+             DynamicToolSpec::Namespace(namespace) => {
+                 for tool in &namespace.tools {
+@@ -1448,7 +1507,7 @@ fn append_dynamic_tool_runtimes(dynamic_tools: &[DynamicToolSpec], registry: &mu
+                         );
+                         continue;
+                     };
+-                    registry.register_external(Arc::new(handler));
++                    registry.register_dynamic(handler);
+                 }
+             }
+         }
+diff --git a/codex-rs/core/src/tools/tool_dispatch_trace.rs b/codex-rs/core/src/tools/tool_dispatch_trace.rs
+index deb5fa0..d6a3de5 100644
+--- a/codex-rs/core/src/tools/tool_dispatch_trace.rs
++++ b/codex-rs/core/src/tools/tool_dispatch_trace.rs
+@@ -60,6 +60,9 @@ impl ToolDispatchTrace {
+ }
+ 
+ fn tool_dispatch_invocation(invocation: &ToolInvocation) -> Option<ToolDispatchInvocation> {
++    if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++        return None;
++    }
+     let requester = match &invocation.source {
+         ToolCallSource::Direct | ToolCallSource::DirectPlaintextMessage => {
+             ToolDispatchRequester::Model {
+diff --git a/codex-rs/exec/src/lib.rs b/codex-rs/exec/src/lib.rs
+index 0bfa07b..f1bf6a2 100644
+--- a/codex-rs/exec/src/lib.rs
++++ b/codex-rs/exec/src/lib.rs
+@@ -1152,6 +1152,7 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
+                 ClientRequest::TurnStart {
+                     request_id: request_ids.next(),
+                     params: TurnStartParams {
++                        pica_operation: None,
+                         disabled_plugin_ids: None,
+                         thread_id: primary_thread_id_for_span.clone(),
+                         turn_trigger: Some("exec".to_string()),
+@@ -2047,6 +2048,9 @@ async fn handle_server_request(
+             )
+             .await
+         }
++        ServerRequest::PicaRegistryReady { request_id, .. } | ServerRequest::PicaRegistryRevoked { request_id, .. } | ServerRequest::PicaThreadInvalidated { request_id, .. } => {
++            reject_server_request(client, request_id, &method, "Pages readiness is unavailable in exec mode".to_string()).await
++        }
+         ServerRequest::DynamicToolCall { request_id, params } => {
+             reject_server_request(
+                 client,
+diff --git a/codex-rs/ext/extension-api/src/lib.rs b/codex-rs/ext/extension-api/src/lib.rs
+index c8436c8..37bd73c 100644
+--- a/codex-rs/ext/extension-api/src/lib.rs
++++ b/codex-rs/ext/extension-api/src/lib.rs
+@@ -10,6 +10,9 @@ mod user_instructions;
+ pub use session_isolation::IsolatedSessionExtensions;
+ pub use session_isolation::SessionIsolation;
+ pub use tool_policy::ToolPolicy;
++pub use tool_policy::PicaPolicyContext;
++pub use tool_policy::PicaOwnerLiveness;
++pub use tool_policy::PicaRevocationSettlement;
+ 
+ pub use capabilities::ConversationHistorySnapshot;
+ pub use capabilities::ExtensionEventSink;
+diff --git a/codex-rs/ext/extension-api/src/tool_policy.rs b/codex-rs/ext/extension-api/src/tool_policy.rs
+index 71824bd..f18c78a 100644
+--- a/codex-rs/ext/extension-api/src/tool_policy.rs
++++ b/codex-rs/ext/extension-api/src/tool_policy.rs
+@@ -42,3 +42,81 @@ impl ToolPolicy {
+         })
+     }
+ }
++
++/// Immutable Pages-issued policy bound to one native thread.
++#[derive(Debug)]
++pub struct PicaPolicyContext {
++    pub context: String,
++    pub catalog: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
++    pub operations: std::sync::Mutex<PicaOperations>,
++    pub owner: std::sync::Arc<PicaOwnerLiveness>,
++    pub settlements: std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<PicaRevocationSettlement>>>,
++}
++
++/// A single, shareable terminal result for a private revoke request.
++pub struct PicaRevocationSettlement {
++    pub request: codex_protocol::protocol::PicaRegistryReadyRequest,
++    state: std::sync::Mutex<(Option<codex_protocol::protocol::PicaRevocationOutcome>, Vec<futures::channel::oneshot::Sender<codex_protocol::protocol::PicaRevocationOutcome>>)>,
++}
++
++impl std::fmt::Debug for PicaRevocationSettlement {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str("PicaRevocationSettlement([redacted])") }
++}
++
++impl PicaRevocationSettlement {
++    pub fn new(request: codex_protocol::protocol::PicaRegistryReadyRequest) -> Self {
++        Self { request, state: std::sync::Mutex::new((None, Vec::new())) }
++    }
++    pub fn subscribe(&self) -> futures::channel::oneshot::Receiver<codex_protocol::protocol::PicaRevocationOutcome> {
++        let (sender, receiver) = futures::channel::oneshot::channel();
++        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++        if let Some(outcome) = state.0 { let _ = sender.send(outcome); }
++        else if state.1.len() >= 32 { let _ = sender.send(codex_protocol::protocol::PicaRevocationOutcome::Unavailable); }
++        else { state.1.push(sender); }
++        receiver
++    }
++    pub fn acknowledged(&self) -> bool {
++        self.state.lock().is_ok_and(|state| state.0 == Some(codex_protocol::protocol::PicaRevocationOutcome::Acknowledged))
++    }
++    pub fn finish(&self, outcome: codex_protocol::protocol::PicaRevocationOutcome) {
++        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++        if state.0.is_some() { return; }
++        state.0 = Some(outcome);
++        let waiters = std::mem::take(&mut state.1);
++        drop(state);
++        for waiter in waiters { let _ = waiter.send(outcome); }
++    }
++}
++
++/// Shared, one-way owner-loss signal; callbacks must not block or await.
++#[derive(Default)]
++pub struct PicaOwnerLiveness {
++    state: std::sync::Mutex<(bool, Vec<Box<dyn FnOnce() + Send>>)>,
++}
++
++impl std::fmt::Debug for PicaOwnerLiveness {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str("PicaOwnerLiveness") }
++}
++
++impl PicaOwnerLiveness {
++    pub fn register(&self, callback: Box<dyn FnOnce() + Send>) {
++        let Ok(mut state) = self.state.lock() else { callback(); return; };
++        if state.0 { drop(state); callback(); } else { state.1.push(callback); }
++    }
++    pub fn revoke(&self) {
++        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++        state.0 = true;
++        let callbacks = std::mem::take(&mut state.1);
++        drop(state);
++        for callback in callbacks { callback(); }
++    }
++    pub fn live(&self) -> bool { self.state.lock().is_ok_and(|state| !state.0) }
++}
++
++/// One-use operation identities received for a Pica thread.
++#[derive(Debug, Default)]
++pub struct PicaOperations {
++    pub last_sequence: u64,
++    pub ids: std::collections::HashSet<String>,
++    pub nonces: std::collections::HashSet<String>,
++}
+diff --git a/codex-rs/protocol/src/protocol.rs b/codex-rs/protocol/src/protocol.rs
+index abc4e90..2aa8f54 100644
+--- a/codex-rs/protocol/src/protocol.rs
++++ b/codex-rs/protocol/src/protocol.rs
+@@ -715,6 +715,11 @@ pub enum Op {
+         response: RequestPermissionsResponse,
+     },
+ 
++    /// Resolve a Pages registry readiness control request.
++    PicaRegistryReadyResponse { response: PicaRegistryReadyResponse },
++    /// Resolve the private Pages revocation settlement.
++    PicaRegistryRevokedResponse { response: PicaRegistryRevokedResult },
++
+     /// Resolve a dynamic tool call request.
+     DynamicToolResponse {
+         /// Call id for the in-flight request.
+@@ -952,6 +957,8 @@ impl Op {
+             Self::ResolveElicitation { .. } => "resolve_elicitation",
+             Self::UserInputAnswer { .. } => "user_input_answer",
+             Self::RequestPermissionsResponse { .. } => "request_permissions_response",
++            Self::PicaRegistryReadyResponse { .. } => "pica_registry_ready_response",
++            Self::PicaRegistryRevokedResponse { .. } => "pica_registry_revoked_response",
+             Self::DynamicToolResponse { .. } => "dynamic_tool_response",
+             Self::RefreshMcpServers => "refresh_mcp_servers",
+             Self::ReloadUserConfig => "reload_user_config",
+@@ -1489,6 +1496,11 @@ pub enum EventMsg {
+ 
+     RequestUserInput(RequestUserInputEvent),
+ 
++    /// Transient Pages registry readiness control request.
++    PicaRegistryReady(PicaRegistryReadyRequest),
++    /// Transient Pages turn revocation control request.
++    PicaRegistryRevoked(PicaRegistryReadyRequest),
++
+     DynamicToolCallRequest(DynamicToolCallRequest),
+ 
+     DynamicToolCallResponse(DynamicToolCallResponseEvent),
+@@ -2026,6 +2038,103 @@ pub struct ExitedReviewModeEvent {
+     pub review_output: Option<ReviewOutputEvent>,
+ }
+ 
++/// Private registry readiness request sent to the owning Pages adapter.
++#[derive(Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub struct PicaOperation {
++    pub operation_id: String,
++    pub nonce: String,
++    pub sequence: u64,
++    pub context: String,
++    pub catalog: Vec<DynamicToolSpec>,
++}
++
++impl std::fmt::Debug for PicaOperation {
++    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        formatter.write_str("PicaOperation([redacted])")
++    }
++}
++
++#[derive(Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub struct PicaRegistryReadyRequest {
++    pub request_id: String,
++    pub thread_id: String,
++    pub turn_id: String,
++    pub operation_id: String,
++    pub nonce: String,
++    pub sequence: u64,
++    pub context: String,
++    pub catalog: Vec<DynamicToolSpec>,
++}
++
++/// Cleanup-only request for a revoked Pages thread owner.
++#[derive(Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub struct PicaThreadInvalidation {
++    pub request_id: String,
++    pub thread_id: String,
++    pub context: String,
++}
++
++#[derive(Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub struct PicaThreadInvalidationResponse {
++    pub request_id: String,
++    pub thread_id: String,
++    pub context: String,
++    pub closed: bool,
++}
++
++impl std::fmt::Debug for PicaThreadInvalidation {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str("PicaThreadInvalidation([redacted])") }
++}
++impl std::fmt::Debug for PicaThreadInvalidationResponse {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str("PicaThreadInvalidationResponse([redacted])") }
++}
++
++/// Strict reply to a Pages registry readiness request.
++#[derive(Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub struct PicaRegistryReadyResponse {
++    pub request_id: String,
++    pub thread_id: String,
++    pub turn_id: String,
++    pub operation_id: String,
++    pub nonce: String,
++    pub sequence: u64,
++    pub context: String,
++    pub catalog: Vec<DynamicToolSpec>,
++    pub accepted: bool,
++}
++
++#[derive(Clone, Copy, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase")]
++pub enum PicaRevocationOutcome { Acknowledged, Refused, Unavailable }
++
++#[derive(Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
++#[serde(rename_all = "camelCase", deny_unknown_fields)]
++pub struct PicaRegistryRevokedResult {
++    pub request: PicaRegistryReadyRequest,
++    pub outcome: PicaRevocationOutcome,
++}
++
++impl std::fmt::Debug for PicaRegistryRevokedResult {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str("PicaRegistryRevokedResult([redacted])") }
++}
++
++impl std::fmt::Debug for PicaRegistryReadyRequest {
++    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        formatter.write_str("PicaRegistryReadyRequest([redacted])")
++    }
++}
++
++impl std::fmt::Debug for PicaRegistryReadyResponse {
++    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        formatter.write_str("PicaRegistryReadyResponse([redacted])")
++    }
++}
++
+ // Individual event payload types matching each `EventMsg` variant.
+ 
+ /// Public, customer-facing details supplied by the Responses API for a misalignment block.
+diff --git a/codex-rs/protocol/src/turn_input.rs b/codex-rs/protocol/src/turn_input.rs
+index e7c17ea..f563818 100644
+--- a/codex-rs/protocol/src/turn_input.rs
++++ b/codex-rs/protocol/src/turn_input.rs
+@@ -161,6 +161,8 @@ pub enum CyberAccessProgram {
+ /// child input, Core also compares root lineage to detect ambiguity.
+ #[derive(Clone, Debug, Default)]
+ pub struct TurnStartOptions {
++    /// Private operation bound by the Pages adapter for a Pica turn.
++    pub pica_operation: Option<crate::protocol::PicaOperation>,
+     /// Source classification for this request. Recorded on new turns and captured
+     /// as input provenance when steering, without changing the active turn's trigger.
+     pub turn_trigger: Option<String>,
+diff --git a/codex-rs/rollout/src/policy.rs b/codex-rs/rollout/src/policy.rs
+index c82b5ce..9cdd370 100644
+--- a/codex-rs/rollout/src/policy.rs
++++ b/codex-rs/rollout/src/policy.rs
+@@ -149,6 +149,8 @@ pub fn should_persist_event_msg(ev: &EventMsg, history_mode: ThreadHistoryMode)
+         | EventMsg::CollabWaitingEnd(_)
+         | EventMsg::CollabCloseEnd(_)
+         | EventMsg::CollabResumeEnd(_)
++        | EventMsg::PicaRegistryReady(_)
++        | EventMsg::PicaRegistryRevoked(_)
+         | EventMsg::DynamicToolCallRequest(_)
+         | EventMsg::DynamicToolCallResponse(_)
+         | EventMsg::Warning(_)
+diff --git a/codex-rs/rollout-trace/src/protocol_event.rs b/codex-rs/rollout-trace/src/protocol_event.rs
+index dadc4bb..0370711 100644
+--- a/codex-rs/rollout-trace/src/protocol_event.rs
++++ b/codex-rs/rollout-trace/src/protocol_event.rs
+@@ -404,6 +404,8 @@ pub(crate) fn tool_runtime_trace_event(event: &EventMsg) -> Option<ToolRuntimeTr
+         | EventMsg::ExecApprovalRequest(_)
+         | EventMsg::RequestPermissions(_)
+         | EventMsg::RequestUserInput(_)
++        | EventMsg::PicaRegistryReady(_)
++        | EventMsg::PicaRegistryRevoked(_)
+         | EventMsg::DynamicToolCallRequest(_)
+         | EventMsg::DynamicToolCallResponse(_)
+         | EventMsg::ElicitationRequest(_)
+@@ -483,6 +485,8 @@ pub(crate) fn wrapped_protocol_event_type(event: &EventMsg) -> Option<&'static s
+         | EventMsg::ExecApprovalRequest(_)
+         | EventMsg::RequestPermissions(_)
+         | EventMsg::RequestUserInput(_)
++        | EventMsg::PicaRegistryReady(_)
++        | EventMsg::PicaRegistryRevoked(_)
+         | EventMsg::DynamicToolCallRequest(_)
+         | EventMsg::DynamicToolCallResponse(_)
+         | EventMsg::ElicitationRequest(_)
+diff --git a/codex-rs/tools/src/json_schema/types.rs b/codex-rs/tools/src/json_schema/types.rs
+index 0792816..df8665d 100644
+--- a/codex-rs/tools/src/json_schema/types.rs
++++ b/codex-rs/tools/src/json_schema/types.rs
+@@ -33,8 +33,11 @@ pub enum JsonSchemaType {
+ }
+ 
+ /// Generic JSON-Schema subset needed for our tool definitions.
+-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
++#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
+ pub struct JsonSchema {
++    /// Preserves the Pages-owned dynamic input schema for serialization.
++    #[serde(skip)]
++    pub pica_raw_schema: Option<JsonValue>,
+     /// Explicit ordinary MCP server input schema limit; never sent as JSON Schema.
+     #[serde(skip)]
+     pub mcp_input_schema_max_bytes: Option<usize>,
+@@ -74,6 +77,40 @@ pub struct JsonSchema {
+     pub definitions: Option<BTreeMap<String, JsonSchema>>,
+ }
+ 
++impl serde::Serialize for JsonSchema {
++    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
++    where
++        S: serde::Serializer,
++    {
++        if let Some(raw) = &self.pica_raw_schema {
++            return raw.serialize(serializer);
++        }
++        use serde::ser::SerializeMap;
++        let mut map = serializer.serialize_map(None)?;
++        macro_rules! field {
++            ($key:literal, $value:expr) => {
++                if let Some(value) = $value { map.serialize_entry($key, value)?; }
++            };
++        }
++        field!("$ref", &self.schema_ref);
++        field!("type", &self.schema_type);
++        field!("description", &self.description);
++        field!("encrypted", &self.encrypted);
++        field!("enum", &self.enum_values);
++        field!("items", &self.items);
++        field!("minItems", &self.min_items);
++        field!("properties", &self.properties);
++        field!("required", &self.required);
++        field!("additionalProperties", &self.additional_properties);
++        field!("anyOf", &self.any_of);
++        field!("oneOf", &self.one_of);
++        field!("allOf", &self.all_of);
++        field!("$defs", &self.defs);
++        field!("definitions", &self.definitions);
++        map.end()
++    }
++}
++
+ impl JsonSchema {
+     /// Construct a scalar/object/array schema with a single JSON Schema type.
+     fn typed(schema_type: JsonSchemaPrimitiveType, description: Option<String>) -> Self {
+diff --git a/codex-rs/tui/src/app/app_server_event_targets.rs b/codex-rs/tui/src/app/app_server_event_targets.rs
+index eb5ffa6..8e6877b 100644
+--- a/codex-rs/tui/src/app/app_server_event_targets.rs
++++ b/codex-rs/tui/src/app/app_server_event_targets.rs
+@@ -21,6 +21,12 @@ pub(super) fn server_request_thread_id(request: &ServerRequest) -> Option<Thread
+         ServerRequest::PermissionsRequestApproval { params, .. } => {
+             ThreadId::from_string(&params.thread_id).ok()
+         }
++        ServerRequest::PicaRegistryReady { params, .. } | ServerRequest::PicaRegistryRevoked { params, .. } => {
++            ThreadId::from_string(&params.thread_id).ok()
++        }
++        ServerRequest::PicaThreadInvalidated { params, .. } => {
++            ThreadId::from_string(&params.thread_id).ok()
++        }
+         ServerRequest::DynamicToolCall { params, .. } => {
+             ThreadId::from_string(&params.thread_id).ok()
+         }
+diff --git a/codex-rs/tui/src/app/app_server_events.rs b/codex-rs/tui/src/app/app_server_events.rs
+index 81e00f8..02cb52e 100644
+--- a/codex-rs/tui/src/app/app_server_events.rs
++++ b/codex-rs/tui/src/app/app_server_events.rs
+@@ -655,7 +655,7 @@ impl App {
+         }
+         let unsupported_request = matches!(
+             &request,
+-            ServerRequest::DynamicToolCall { .. }
++            ServerRequest::PicaRegistryReady { .. } | ServerRequest::PicaRegistryRevoked { .. } | ServerRequest::PicaThreadInvalidated { .. } | ServerRequest::DynamicToolCall { .. }
+                 | ServerRequest::AttestationGenerate { .. }
+                 | ServerRequest::CurrentTimeRead { .. }
+                 | ServerRequest::ApplyPatchApproval { .. }
+diff --git a/codex-rs/tui/src/app/app_server_requests.rs b/codex-rs/tui/src/app/app_server_requests.rs
+index 1c6a9b0..129ae3c 100644
+--- a/codex-rs/tui/src/app/app_server_requests.rs
++++ b/codex-rs/tui/src/app/app_server_requests.rs
+@@ -174,6 +174,10 @@ impl PendingAppServerRequests {
+                 );
+                 None
+             }
++            ServerRequest::PicaRegistryReady { request_id, .. } | ServerRequest::PicaRegistryRevoked { request_id, .. } | ServerRequest::PicaThreadInvalidated { request_id, .. } => Some(UnsupportedAppServerRequest {
++                request_id: request_id.clone(),
++                message: "Pages readiness is unavailable in TUI.".to_string(),
++            }),
+             ServerRequest::DynamicToolCall { .. } => None,
+             ServerRequest::ChatgptAuthTokensRefresh { .. } => None,
+             ServerRequest::AttestationGenerate { request_id, .. } => {
+@@ -430,7 +434,8 @@ impl PendingAppServerRequests {
+                 .values()
+                 .any(|pending_request_id| pending_request_id == request_id),
+             ServerRequest::ChatgptAuthTokensRefresh { .. } => true,
+-            ServerRequest::DynamicToolCall { .. }
++            ServerRequest::PicaRegistryReady { .. } | ServerRequest::PicaRegistryRevoked { .. } | ServerRequest::PicaThreadInvalidated { .. }
++            | ServerRequest::DynamicToolCall { .. }
+             | ServerRequest::AttestationGenerate { .. }
+             | ServerRequest::CurrentTimeRead { .. }
+             | ServerRequest::ApplyPatchApproval { .. }
+diff --git a/codex-rs/tui/src/app/side.rs b/codex-rs/tui/src/app/side.rs
+index f4006ba..5979482 100644
+--- a/codex-rs/tui/src/app/side.rs
++++ b/codex-rs/tui/src/app/side.rs
+@@ -99,7 +99,7 @@ impl SideParentStatus {
+             | ServerRequest::PermissionsRequestApproval { .. }
+             | ServerRequest::ApplyPatchApproval { .. }
+             | ServerRequest::ExecCommandApproval { .. } => Some(SideParentStatus::NeedsApproval),
+-            ServerRequest::DynamicToolCall { .. }
++            ServerRequest::PicaRegistryReady { .. } | ServerRequest::PicaRegistryRevoked { .. } | ServerRequest::PicaThreadInvalidated { .. } | ServerRequest::DynamicToolCall { .. }
+             | ServerRequest::AttestationGenerate { .. }
+             | ServerRequest::CurrentTimeRead { .. }
+             | ServerRequest::ChatgptAuthTokensRefresh { .. } => None,
+diff --git a/codex-rs/tui/src/app_server_session.rs b/codex-rs/tui/src/app_server_session.rs
+index f45e2b1..c415694 100644
+--- a/codex-rs/tui/src/app_server_session.rs
++++ b/codex-rs/tui/src/app_server_session.rs
+@@ -1310,6 +1310,7 @@ impl AppServerSession {
+             .request_typed(ClientRequest::TurnStart {
+                 request_id,
+                 params: TurnStartParams {
++                    pica_operation: None,
+                     disabled_plugin_ids: None,
+                     thread_id: thread_id.to_string(),
+                     turn_trigger: Some("user".to_string()),
+diff --git a/codex-rs/tui/src/chatwidget/protocol_requests.rs b/codex-rs/tui/src/chatwidget/protocol_requests.rs
+index e76b50b..e17c656 100644
+--- a/codex-rs/tui/src/chatwidget/protocol_requests.rs
++++ b/codex-rs/tui/src/chatwidget/protocol_requests.rs
+@@ -48,7 +48,7 @@ impl ChatWidget {
+             ServerRequest::ToolRequestUserInput { params, .. } => {
+                 self.on_request_user_input(params);
+             }
+-            ServerRequest::DynamicToolCall { .. }
++            ServerRequest::PicaRegistryReady { .. } | ServerRequest::PicaRegistryRevoked { .. } | ServerRequest::PicaThreadInvalidated { .. } | ServerRequest::DynamicToolCall { .. }
+             | ServerRequest::AttestationGenerate { .. }
+             | ServerRequest::CurrentTimeRead { .. }
+             | ServerRequest::ChatgptAuthTokensRefresh { .. }
+diff --git a/codex-rs/core/src/tools/mod.rs b/codex-rs/core/src/tools/mod.rs
+--- a/codex-rs/core/src/tools/mod.rs
++++ b/codex-rs/core/src/tools/mod.rs
+@@ -85,6 +85,10 @@
+ }
+ 
+ pub(crate) fn effective_tool_mode(turn_context: &TurnContext, model_info: &ModelInfo) -> ToolMode {
++    // A Pica thread offers only its dynamic tools directly, whatever the model prefers.
++    if std::env::var_os("PAGES_PICA_CODEX").as_deref() == Some(std::ffi::OsStr::new("1")) {
++        return ToolMode::Direct;
++    }
+     let requested_tool_mode = requested_tool_mode(turn_context, model_info);
+     if !turn_context.code_mode_available
+         && requested_tool_mode == ToolMode::CodeMode

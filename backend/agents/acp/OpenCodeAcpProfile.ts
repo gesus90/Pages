@@ -14,6 +14,36 @@ export const OPENCODE_PLAN_MODES = {
   yolo: "pages-yolo",
 } as const;
 
+// The names of OpenCode's own tools. The native Pages build offers none of them; naming them keeps them denied should it ever list one.
+const OPENCODE_BUILT_IN_TOOLS = [
+  "bash",
+  "edit",
+  "write",
+  "patch",
+  "read",
+  "glob",
+  "grep",
+  "list",
+  "webfetch",
+  "websearch",
+  "codesearch",
+  "task",
+  "todowrite",
+  "todoread",
+  "skill",
+  "lsp",
+] as const;
+
+/**
+ * Rules of Pica's OpenCode session: the native Pages tools carry the names of
+ * the Pica catalog, so they are allowed by default and every tool of OpenCode
+ * itself is denied.
+ */
+export const OPENCODE_PICA_PERMISSIONS: Readonly<Record<string, string>> = {
+  "*": "allow",
+  ...Object.fromEntries(OPENCODE_BUILT_IN_TOOLS.map((name) => [name, "deny"])),
+};
+
 /** Native rules, including explicit secret-file denials that full tool access does not override. */
 export function openCodePlanPermissions(
   mode: AcpPermissionMode,
@@ -93,23 +123,23 @@ export function openCodeAcpProfile(
 }
 
 /**
- * Pica's native OpenCode profile: no shell, files, delegation or unmanaged MCP.
- * The process configuration denies every tool except `pages_*`, which the
- * bridge checks per call. Unexpected permission requests are refused.
+ * Pica's OpenCode profile. It runs only the verified native Pages build, whose
+ * tool registry offers nothing but the Pages catalog; each call is authorized
+ * again by Pages for the person, the conversation and the running turn.
  */
 export const OPENCODE_PICA_PROFILE: AcpSessionProfile = {
   mode: "read_only",
   unattended:
-    "Native OpenCode ACP with only the authorized Pica tool bridge; every other tool is denied",
+    "Native Pages build of OpenCode with only the authorized Pica tools; every other tool is denied",
   permissions: {
     permissionMode: "read_only",
     sessionMode: OPENCODE_PICA_MODE,
-    tools: "Pica tool bridge only",
+    tools: "Pages catalog only, through the native Pages build",
     files: "none",
     shell: "off",
     web: "off",
     settings: "Pages managed only",
-    mcpServers: "Pica tool bridge only",
+    mcpServers: "none",
   },
   reportedOptions: {
     sessionMode: "mode",

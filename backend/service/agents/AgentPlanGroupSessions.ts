@@ -344,7 +344,7 @@ export class AgentPlanGroupSessions {
       }
       const entry: GroupSession = {
         session,
-        mcp: input.mcp,
+        mcp: input.mcp ?? null,
         controller,
         started,
         instanceId: input.instanceId,

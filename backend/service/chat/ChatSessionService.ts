@@ -78,7 +78,7 @@ export function readChatSessionId(input: unknown): string {
   return input;
 }
 
-/** The word that confirms a deletion in the interface language, as for MCP (T6.4.46). */
+/** The word that confirms a deletion in the interface language (T6.4.46). */
 export function chatConfirmationWord(
   language: string | undefined,
 ): ChatConfirmationWord {
@@ -215,7 +215,6 @@ export class ChatSessionService {
   /**
    * Deletes the explicit UI selection after its button confirmation.
    * This entry point is wired only to the authenticated, same-origin chat route.
-   * MCP must validate its own typed confirmation before calling this method.
    */
   public async removeSelected(
     actor: User,

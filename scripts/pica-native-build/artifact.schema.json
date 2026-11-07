@@ -1,0 +1,391 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pages.invalid/schema/pica-native-artifact-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "const": "built-unverified"
+    },
+    "runner": {
+      "enum": [
+        "codex",
+        "opencode"
+      ]
+    },
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "type": "string",
+          "format": "uri"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "license": {
+          "enum": [
+            "MIT",
+            "Apache-2.0"
+          ]
+        },
+        "licenseSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "repo",
+        "version",
+        "commit",
+        "license",
+        "licenseSha256"
+      ]
+    },
+    "sourceTree": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "const": "pages-tree-sha256-v2"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "method",
+        "sha256"
+      ]
+    },
+    "patches": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ]
+      }
+    },
+    "recipeSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "lockSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "buildLockSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "treeSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "version",
+        "treeSha256"
+      ]
+    },
+    "inputHashes": {
+      "type": "object",
+      "minProperties": 5,
+      "propertyNames": {
+        "enum": [
+          "source",
+          "toolchain",
+          "build_tools",
+          "cache",
+          "git",
+          "bwrap",
+          "dependencies",
+          "models_snapshot",
+          "runtime_assets",
+          "sysroot"
+        ]
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "os": {
+          "const": "linux"
+        },
+        "arch": {
+          "enum": [
+            "x64",
+            "arm64"
+          ]
+        },
+        "abi": {
+          "const": "glibc"
+        }
+      },
+      "required": [
+        "os",
+        "arch",
+        "abi"
+      ]
+    },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "expectedVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "pica-tool-policy-candidate",
+          "pica-native-tools-candidate"
+        ]
+      }
+    },
+    "files": {
+      "type": "object",
+      "minProperties": 2,
+      "required": [
+        "LICENSE"
+      ],
+      "propertyNames": {
+        "pattern": "^(LICENSE|codex|opencode|runtime/(?!\\.{1,2}(?:/|$))[A-Za-z0-9_.+-]+(?:/(?!\\.{1,2}(?:/|$))[A-Za-z0-9_.+-]+)*)$",
+        "maxLength": 1024
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "mode": {
+            "enum": [
+              "0400",
+              "0500"
+            ]
+          },
+          "format": {
+            "enum": [
+              "ELF",
+              "text",
+              "asset"
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 536870912
+          }
+        },
+        "required": [
+          "sha256",
+          "mode",
+          "format",
+          "bytes"
+        ]
+      },
+      "maxProperties": 4096
+    },
+    "environment": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "workingDirectory": {
+      "enum": [
+        "/build/source",
+        "/build/source/codex-rs"
+      ]
+    },
+    "runtimeClosure": {
+      "const": "unverified"
+    },
+    "modelsSnapshotSha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "status",
+    "runner",
+    "upstream",
+    "sourceTree",
+    "patches",
+    "recipeSha256",
+    "lockSha256",
+    "buildLockSha256",
+    "toolchain",
+    "inputHashes",
+    "target",
+    "command",
+    "expectedVersion",
+    "capabilities",
+    "files",
+    "environment",
+    "workingDirectory",
+    "runtimeClosure",
+    "modelsSnapshotSha256"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "runner": {
+            "const": "codex"
+          }
+        },
+        "required": [
+          "runner"
+        ]
+      },
+      "then": {
+        "properties": {
+          "files": {
+            "required": [
+              "codex"
+            ],
+            "not": {
+              "required": [
+                "opencode"
+              ]
+            }
+          },
+          "modelsSnapshotSha256": {
+            "type": "null"
+          },
+          "capabilities": {
+            "const": [
+              "pica-tool-policy-candidate"
+            ]
+          },
+          "workingDirectory": {
+            "const": "/build/source/codex-rs"
+          },
+          "inputHashes": {
+            "required": [
+              "source",
+              "toolchain",
+              "build_tools",
+              "cache",
+              "git",
+              "bwrap",
+              "runtime_assets",
+              "sysroot"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "runner": {
+            "const": "opencode"
+          }
+        },
+        "required": [
+          "runner"
+        ]
+      },
+      "then": {
+        "properties": {
+          "files": {
+            "required": [
+              "opencode"
+            ],
+            "not": {
+              "required": [
+                "codex"
+              ]
+            }
+          },
+          "modelsSnapshotSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "capabilities": {
+            "const": [
+              "pica-native-tools-candidate"
+            ]
+          },
+          "workingDirectory": {
+            "const": "/build/source"
+          },
+          "inputHashes": {
+            "required": [
+              "source",
+              "toolchain",
+              "build_tools",
+              "cache",
+              "git",
+              "bwrap",
+              "runtime_assets",
+              "sysroot",
+              "dependencies",
+              "models_snapshot"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

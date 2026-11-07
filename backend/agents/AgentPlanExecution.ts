@@ -34,7 +34,7 @@ export interface AgentPlanSessionInput extends AgentPlanExecutionInput {
   /** Tags every process of the session. */
   readonly instanceId: string;
   /** The local MCP process, when the node is bound to tickets. */
-  readonly mcp: CliSessionMcp | null;
+  readonly mcp?: CliSessionMcp | null;
   /** Makes the session a Pica chat session: its own profile, MCP bridge, resume and updates. */
   readonly chat?: AcpChatOptions;
   /** The native session a resumed plan node continues through the adapter's own resume. */

@@ -272,6 +272,44 @@ export class ChatAttachmentRepository {
       .map((row) => readTextColumn(row, 0, "storage_name"));
   }
 
+  /** Locks one unclaimed file while its stored bytes and row are removed. */
+  public async removeUnclaimedAnswerFile(
+    sessionId: string,
+    runId: string | null,
+    id: string,
+    remove: (storageName: string) => Promise<void>,
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      const parameters = { id, session_id: sessionId, pica_run_id: runId };
+      const rows = await transaction.query(
+        `
+        SELECT storage_name
+        FROM chat_attachments
+        WHERE id = $id
+            AND session_id = $session_id
+            AND pica_run_id IS NOT DISTINCT FROM $pica_run_id
+            AND origin = 'assistant'
+            AND message_id IS NULL
+        FOR UPDATE;
+      `,
+        parameters,
+      );
+      if (rows.length === 0) return;
+      await remove(readTextColumn(rows[0], 0, "storage_name"));
+      await transaction.execute(
+        `
+        DELETE FROM chat_attachments
+        WHERE id = $id
+            AND session_id = $session_id
+            AND pica_run_id IS NOT DISTINCT FROM $pica_run_id
+            AND origin = 'assistant'
+            AND message_id IS NULL;
+      `,
+        parameters,
+      );
+    });
+  }
+
   /** Returns an attachment of an own session; foreign and unknown IDs yield `null` alike. */
   public async find(
     userId: string,

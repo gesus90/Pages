@@ -1,5 +1,10 @@
+import { randomUUID } from "node:crypto";
+
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { ChatAttachment } from "@/definition/Chat";
+import type { PicaToolOutcome } from "../PicaToolSchemas";
+import type { PicaStagedImages } from "./PicaBridge";
 import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type {
   ChatAnswerFileService,
@@ -36,7 +41,8 @@ const RESOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
 export type PicaAnswerFiles = Pick<
   ChatAnswerFileService,
   "stage" | "claim" | "discard"
->;
+> &
+  Partial<Pick<ChatAnswerFileService, "removeStaged">>;
 
 /** The job the files belong to: its person, conversation and ID. */
 interface PicaAnswerJob {
@@ -102,53 +108,150 @@ function resourceFile(
  * one is logged by its code only.
  */
 export class PicaAcpAnswerOutput {
-  private readonly files:
-    Pick<ChatAnswerFileService, "stage" | "claim" | "discard"> | undefined;
-  private readonly run: ChatAnswerRun;
-  private readonly pending = new Set<Promise<void>>();
+  private readonly files: PicaAnswerFiles | undefined;
+  private readonly job: PicaAnswerJob;
+  private readonly runs = new Map<number, ChatAnswerRun>();
+  private readonly pending = new Map<number, Set<Promise<void>>>();
+  private readonly failures = new Map<number, Error>();
+  private closedThrough = 0;
   private count = 0;
 
   public constructor(files: PicaAnswerFiles | undefined, job: PicaAnswerJob) {
     this.files = files;
-    this.run = {
-      userId: job.actor.id,
-      sessionId: job.sessionId,
-      runId: job.id,
-    };
+    this.job = job;
   }
 
-  /** Receives a block of the agent's message that is not text. */
-  public take(block: ContentBlock): void {
-    if (!this.files) return;
+  /** Returns a stable private staging run for the answer turn. */
+  public runId(turn: number): string {
+    return this.run(turn).runId;
+  }
+
+  /** Receives a non-text block associated with the reported answer turn. */
+  public take(turn: number, block: ContentBlock): void {
+    if (turn <= this.closedThrough) throw new Error("ANSWER_TURN_CLOSED");
     this.count += 1;
     const file = this.read(block);
-    if (file === null) return;
+    if (file === null) {
+      if (block.type === "image")
+        this.failures.set(turn, new Error("IMAGE_INVALID"));
+      return;
+    }
+    if (!this.files) {
+      this.failures.set(turn, new Error("ANSWER_FILES_UNAVAILABLE"));
+      return;
+    }
     const files = this.files;
-    const stored = files
-      .stage(this.run, file)
-      .then(() => undefined)
-      .catch((caughtError: unknown) => {
-        logCaughtError("PicaAcpAnswerOutput", caughtError);
-      });
-    this.pending.add(stored);
-    void stored.finally(() => this.pending.delete(stored));
+    const pending = files.stage(this.run(turn), file).then(
+      () => undefined,
+      (error: unknown) => {
+        logCaughtError("PicaAcpAnswerOutput", error);
+        this.failures.set(turn, new Error("ANSWER_FILE_FAILED"));
+      },
+    );
+    let tasks = this.pending.get(turn);
+    if (!tasks) {
+      tasks = new Set();
+      this.pending.set(turn, tasks);
+    }
+    tasks.add(pending);
+    const turnTasks = tasks;
+    void pending.finally(() => {
+      turnTasks.delete(pending);
+      if (turnTasks.size === 0) this.pending.delete(turn);
+    });
   }
 
-  /** Resolves once every file taken so far is stored or refused. */
-  public async settle(): Promise<void> {
-    while (this.pending.size > 0) await Promise.allSettled([...this.pending]);
+  /** Stages tool images for one answer and rolls back on refusal or revocation. */
+  public async stageImages(
+    turn: number,
+    images: NonNullable<PicaToolOutcome["images"]>,
+    isCurrent: () => boolean,
+  ): Promise<PicaStagedImages> {
+    if (!this.files?.removeStaged) throw new Error("ANSWER_FILES_UNAVAILABLE");
+    const files = this.files;
+    const removeStaged = this.files.removeStaged.bind(this.files);
+    const run = this.run(turn);
+    const staged: ChatAttachment[] = [];
+    try {
+      for (const image of images) {
+        if (!isCurrent()) throw new Error("TURN_INACTIVE");
+        this.count += 1;
+        const file = imageFile({ type: "image", ...image }, this.count);
+        if (!file) throw new Error("IMAGE_INVALID");
+        staged.push(await files.stage(run, file));
+        if (!isCurrent()) throw new Error("TURN_INACTIVE");
+      }
+      return {
+        attachments: staged,
+        rollback: async () => {
+          try {
+            await removeStaged(
+              run,
+              staged.map((entry) => entry.id),
+            );
+          } catch (error: unknown) {
+            this.failures.set(turn, new Error("IMAGE_ROLLBACK_FAILED"));
+            throw error;
+          }
+        },
+      };
+    } catch (error: unknown) {
+      try {
+        await removeStaged(
+          run,
+          staged.map((entry) => entry.id),
+        );
+      } catch (rollbackError: unknown) {
+        this.failures.set(turn, new Error("IMAGE_ROLLBACK_FAILED"));
+        throw rollbackError;
+      }
+      throw error;
+    }
   }
 
-  /** Links every file of the job so far, from the tool and from blocks, to a stored answer. */
-  public async claim(messageId: string): Promise<void> {
-    await this.settle();
-    await this.files?.claim(this.run, messageId);
+  /** Resolves after the answer's blocks are stored or reports their refusal. */
+  public async settle(turn: number): Promise<void> {
+    const tasks = this.pending.get(turn);
+    while (tasks && tasks.size > 0) await Promise.allSettled([...tasks]);
+    const failure = this.failures.get(turn);
+    if (failure) throw failure;
   }
 
-  /** Removes the files of the job that no stored answer holds. */
+  /** Links only this turn's files before its answer event is sent. */
+  public async claim(turn: number, messageId: string): Promise<void> {
+    await this.settle(turn);
+    const run = this.runs.get(turn);
+    if (run) {
+      await this.files?.claim(run, messageId);
+      await this.files?.discard(run);
+    }
+    this.closedThrough = Math.max(this.closedThrough, turn);
+    this.runs.delete(turn);
+    this.pending.delete(turn);
+    this.failures.delete(turn);
+  }
+
+  /** Removes unclaimed files from every answer turn of this job. */
   public async discard(): Promise<void> {
-    await this.settle();
-    await this.files?.discard(this.run);
+    for (const [turn, run] of this.runs) {
+      const tasks = this.pending.get(turn);
+      if (tasks) await Promise.allSettled([...tasks]);
+      await this.files?.discard(run);
+    }
+  }
+
+  private run(turn: number): ChatAnswerRun {
+    if (turn <= this.closedThrough) throw new Error("ANSWER_TURN_CLOSED");
+    let run = this.runs.get(turn);
+    if (!run) {
+      run = {
+        userId: this.job.actor.id,
+        sessionId: this.job.sessionId,
+        runId: randomUUID(),
+      };
+      this.runs.set(turn, run);
+    }
+    return run;
   }
 
   private read(block: ContentBlock): ReturnedFile | null {

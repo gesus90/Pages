@@ -131,6 +131,7 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   plan_acp_adapter_missing: "open",
   plan_claude_acp_adapter_missing: "open",
   plan_acp_adapter_unsupported: "open",
+  pica_native_artifact_unavailable: "open",
   plan_claude_acp_adapter_unsupported: "open",
   plan_model_unavailable: "open",
   plan_reasoning_unsupported: "open",

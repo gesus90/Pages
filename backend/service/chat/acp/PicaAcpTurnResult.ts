@@ -33,16 +33,10 @@ export function turnBeganEvent(
 /**
  * Requires a turn the runner completed.
  *
- * @throws {PicaAcpJobError} With the code of the runner, `bridgeUnavailable`,
- * `timeout` or `providerFailed`.
+ * @throws {PicaAcpJobError} With the code of the runner, `timeout` or `providerFailed`.
  */
 export function requireCompleted(result: PlanSessionTurn): void {
-  if (result.errorCode !== null)
-    throw new PicaAcpJobError(
-      result.errorCode === "plan_mcp_unavailable"
-        ? "bridgeUnavailable"
-        : result.errorCode,
-    );
+  if (result.errorCode !== null) throw new PicaAcpJobError(result.errorCode);
   if (result.failure === null) return;
   throw new PicaAcpJobError(
     result.failure === "timeout" ? "timeout" : "providerFailed",
