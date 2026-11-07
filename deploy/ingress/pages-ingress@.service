@@ -15,6 +15,9 @@ WorkingDirectory=/opt/pages
 # Defaults; /etc/pages/%i/ingress.env overrides them. The API then listens on
 # the loopback port named by PAGES_INGRESS_BACKEND (its config `port` and
 # `listenAddress = "127.0.0.1"`), and only the entrance is reachable.
+# The proxies whose X-Forwarded-* headers the entrance believes (loopback and
+# `trustedProxies`) come from /etc/pages/%i/config.toml, the file the API reads
+# as well; restart both after changing it (deploy/proxy/README.md).
 Environment=PAGES_INGRESS_LISTEN=0.0.0.0:3000
 Environment=PAGES_INGRESS_BACKEND=http://127.0.0.1:3100
 # Empty: the API serves /live-changes. "--core http://127.0.0.1:3200": pages-core

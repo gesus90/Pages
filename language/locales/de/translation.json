@@ -3323,6 +3323,8 @@
     "error": {
       "invalidInput": "Bitte die Eingabe prüfen.",
       "accessDenied": "Dafür fehlen dir die Rechte.",
+      "authenticationRequired": "Deine Anmeldung ist abgelaufen. Melde dich neu an; was du geschrieben hast, bleibt hier erhalten.",
+      "originRejected": "Die Anfrage wurde aus Sicherheitsgründen abgelehnt, weil die Webadresse nicht zur Einrichtung des Servers passt (Proxy). Das ist kein fehlendes Recht. Bitte einen Admin informieren; im Protokoll steht der Eintrag request.origin.rejected.",
       "sessionMissing": "Diese Session gibt es nicht mehr. Mit /new startest du eine neue.",
       "attachmentMissing": "Der Anhang ist nicht mehr vorhanden.",
       "confirmationRequired": "Das Bestätigungswort stimmt nicht. Es wurde nichts gelöscht.",
@@ -3367,6 +3369,7 @@
       "antigravityToolsUnverified": "Antigravity ist für Pica gesperrt: Die vollständige restriktive Werkzeuggrenze ist noch nicht mit einem echten Modell nachgewiesen."
     },
     "recover": "Neue Session starten",
+    "signIn": "Neu anmelden",
     "context": {
       "title": "Sessionkontext",
       "label": "Gesprächskontext: {{amount}}",

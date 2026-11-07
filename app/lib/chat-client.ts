@@ -29,6 +29,9 @@ import type {
 /** HTTP statuses with which a gateway reports that the answer took too long. */
 const GATEWAY_TIMEOUT_STATUSES: readonly number[] = [408, 504];
 
+/** The pages the workspace frame redirects a visitor without a valid session to. */
+const SIGN_IN_PATHS: readonly string[] = ["/login", "/change-password"];
+
 /** A failed chat request with the stable code the server sent. */
 export class ChatClientError extends Error {
   public readonly code: string;
@@ -237,9 +240,26 @@ export function chatErrorCode(error: unknown): string {
   return "general";
 }
 
+/**
+ * Tells whether the request ended on the sign-in page.
+ *
+ * @remarks
+ * A session that expired is not answered with JSON: the workspace frame
+ * redirects to the login page, and the browser follows. The person then has
+ * to sign in again, which is neither a missing right nor a failed server.
+ */
+function isSignInRedirect(response: Response): boolean {
+  return (
+    response.redirected &&
+    SIGN_IN_PATHS.includes(new URL(response.url).pathname)
+  );
+}
+
 async function readResult(
   response: Response,
 ): Promise<Record<string, unknown>> {
+  if (isSignInRedirect(response))
+    throw new ChatClientError("authenticationRequired");
   let parsed: unknown = null;
   try {
     parsed = await response.json();

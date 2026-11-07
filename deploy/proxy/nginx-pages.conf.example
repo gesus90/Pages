@@ -1,0 +1,106 @@
+# Pages behind nginx (PAGE-249). Nothing here is applied by Pages: copy ONE of
+# the two server blocks, adapt names, certificates and addresses, and test with
+# `nginx -t`. The contract is explained in deploy/proxy/README.md.
+#
+# Three rules decide whether the Pica chat (and every other change the browser
+# sends) works behind a proxy:
+#   1. `Host` is the browser's own, with its port: `$http_host`, never `$host`
+#      or the upstream's address.
+#   2. `X-Forwarded-Proto` names the protocol the BROWSER used. The hop that
+#      ends TLS sets it from its own connection; a hop behind it that only
+#      speaks HTTP keeps the value of that hop, and only from an address it
+#      trusts. A blanket `$scheme` there turns the browser's `https` into `http`.
+#   3. Nothing a client sent in a forwarding header is believed.
+
+# Shared by both variants: WebSocket upgrades of runners and consoles.
+map $http_upgrade $pages_connection_upgrade {
+    default upgrade;
+    ""      close;
+}
+
+# ---------------------------------------------------------------------------
+# Variant A: this nginx ends TLS itself.
+# `$scheme` is the browser's protocol here, so it is the right value.
+# ---------------------------------------------------------------------------
+server {
+    listen 443 ssl;
+    server_name pages.example.org;
+
+    ssl_certificate     /etc/ssl/pages/fullchain.pem;
+    ssl_certificate_key /etc/ssl/pages/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # The first hop: nothing before nginx is believed, so no client-supplied
+        # list is extended.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        # Pages reads none of these; they must not be passed on from a client.
+        proxy_set_header Forwarded "";
+        proxy_set_header X-Forwarded-Host "";
+        proxy_set_header X-Forwarded-Port "";
+        proxy_set_header X-Real-IP "";
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $pages_connection_upgrade;
+
+        # Live stream (/live-changes) and channels stay open for a long time.
+        proxy_buffering off;
+        proxy_read_timeout 1h;
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Variant B: TLS is ended in front of this nginx, which listens on plain HTTP
+# (for example `listen 8080;` behind a router, a load balancer or a container
+# host that holds the certificate). `$scheme` is `http` here for every request,
+# so it must NOT be sent. The value of the TLS entry is kept instead, but only
+# when the request comes from the address of that entry.
+# ---------------------------------------------------------------------------
+
+# The address(es) the TLS entry connects from, as nginx sees them in
+# $remote_addr. A TLS entry on this host connects from 127.0.0.1.
+geo $pages_trusted_tls_entry {
+    default     0;
+    192.0.2.10  1;
+}
+
+# Trusted TLS entry that said https: keep it. Anything else: this connection's.
+map "$pages_trusted_tls_entry:$http_x_forwarded_proto" $pages_forwarded_proto {
+    default    $scheme;
+    "1:https"  https;
+}
+
+# Trusted TLS entry: extend its list with the address it connected from.
+# Anyone else: only the address that connected.
+map $pages_trusted_tls_entry $pages_forwarded_for {
+    default  $remote_addr;
+    1        $proxy_add_x_forwarded_for;
+}
+
+server {
+    listen 8080;
+    server_name pages.example.org;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto $pages_forwarded_proto;
+        proxy_set_header X-Forwarded-For $pages_forwarded_for;
+        proxy_set_header Forwarded "";
+        proxy_set_header X-Forwarded-Host "";
+        proxy_set_header X-Forwarded-Port "";
+        proxy_set_header X-Real-IP "";
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $pages_connection_upgrade;
+
+        proxy_buffering off;
+        proxy_read_timeout 1h;
+    }
+}

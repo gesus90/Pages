@@ -3,6 +3,29 @@ import { BlockList, isIP } from "node:net";
 import { parseTrustedProxyEntry } from "@/backend/config/TrustedProxies";
 
 import type { IncomingMessage } from "node:http";
+import type { ReportedProtocol, RequestEntry } from "@/definition/RequestEntry";
+
+/** Tells whether the TCP peer of a request is a hop whose forwarding headers are believed. */
+export type PeerCheck = (address: string | undefined) => boolean;
+
+/**
+ * Headers of other forwarding conventions.
+ *
+ * @remarks
+ * Pages reads only `X-Forwarded-Proto`, `X-Forwarded-For` and `Host`. No
+ * entrance passes one of these on, so a value a client wrote cannot reach a
+ * later reader that might believe it.
+ */
+export const UNSUPPORTED_FORWARDING_HEADERS: readonly string[] = [
+  "forwarded",
+  "x-forwarded-host",
+  "x-forwarded-port",
+  "x-forwarded-server",
+  "x-forwarded-ssl",
+  "x-real-ip",
+  "front-end-https",
+  "x-url-scheme",
+];
 
 /**
  * Builds the check that tells whether a TCP peer is a trusted proxy.
@@ -18,7 +41,7 @@ import type { IncomingMessage } from "node:http";
 export function createTrustedPeerCheck(
   trustedProxies: readonly string[],
   options: { readonly isLoopbackTrusted?: boolean } = {},
-): (address: string | undefined) => boolean {
+): PeerCheck {
   const proxies = new BlockList();
 
   for (const entry of trustedProxies) {
@@ -65,8 +88,12 @@ export function createTrustedPeerCheck(
  * Router refuses such an action as a possible forgery. The peer address comes
  * from the socket and cannot be set by a client; without a match the header
  * is ignored, so a direct client gains nothing by sending it. The proxy must
- * overwrite the header, which is what Caddy and nginx (`$scheme`) do.
- * Anything but `http` or `https` in the header counts as not forwarded.
+ * overwrite the header with the protocol of the connection it received, which
+ * is what Caddy and an nginx that ends TLS itself (`$scheme`) do. A proxy
+ * that only passes on a request another hop received over TLS keeps the
+ * header of that hop instead, but only from an address it trusts itself
+ * (`deploy/proxy/README.md`). Anything but `http` or `https` in the header
+ * counts as not forwarded.
  */
 export function createForwardedHttpsCheck(
   trustedProxies: readonly string[],
@@ -106,13 +133,75 @@ export function forwardedClientAddress(
 /**
  * Reads the protocol the first proxy of a chain saw.
  *
+ * @param header - The `X-Forwarded-Proto` value; a list reads as its first entry.
  * @returns `http`, `https`, or `null` for anything else.
  */
-function readForwardedProtocol(
+export function readForwardedProtocol(
   header: string | string[] | undefined,
 ): "http" | "https" | null {
   const value = Array.isArray(header) ? header[0] : header;
   const protocol = value?.split(",")[0]?.trim().toLowerCase();
 
   return protocol === "http" || protocol === "https" ? protocol : null;
+}
+
+function reportedProtocolOf(header: string | null): ReportedProtocol {
+  if (header === null || header.trim() === "") return "absent";
+
+  return readForwardedProtocol(header) ?? "invalid";
+}
+
+/** Which peers the entrance of the API believes, and for what. */
+export interface PeerTrust {
+  /** A proxy listed in `trustedProxies`: its `X-Forwarded-Proto` is believed. */
+  readonly isTrustedProxy: PeerCheck;
+  /** A listed proxy or a loopback peer: its `X-Forwarded-For` is believed. */
+  readonly isTrustedClientPeer: PeerCheck;
+}
+
+/** The connection and the protocol the entrance of the API built a request with. */
+export interface AdmittedRequest {
+  /** The TCP peer of the request. */
+  readonly peer: string;
+  /** The protocol of the request URL: `https` only for a trusted proxy that said so. */
+  readonly protocol: "http" | "https";
+}
+
+/**
+ * Admits the forwarding headers of a request at the entrance of the API.
+ *
+ * @param headers - Headers of the request; changed in place.
+ * @param request - Peer and protocol the request was built with.
+ * @param trust - Which peers are believed.
+ * @returns How the request arrived, for the origin guards and their log.
+ *
+ * @remarks
+ * A hop is believed only for what it is trusted with: `X-Forwarded-Proto`
+ * from a listed proxy, `X-Forwarded-For` from a listed or loopback peer.
+ * Afterwards `X-Forwarded-Proto` names the protocol the request URL has,
+ * `X-Forwarded-For` holds the peer when the peer is not believed, and the
+ * headers of other conventions are gone, so nothing behind the entrance has
+ * to decide again whether a client may have written them.
+ */
+export function admitForwardedHeaders(
+  headers: Headers,
+  request: AdmittedRequest,
+  trust: PeerTrust,
+): RequestEntry {
+  const reportedProtocol = reportedProtocolOf(headers.get("x-forwarded-proto"));
+  const isTrustedClientPeer = trust.isTrustedClientPeer(request.peer);
+  const entry: RequestEntry = {
+    reportedProtocol,
+    isTrustedProxy: trust.isTrustedProxy(request.peer),
+    isForwarded:
+      isTrustedClientPeer ||
+      reportedProtocol !== "absent" ||
+      headers.has("x-forwarded-for"),
+  };
+
+  for (const name of UNSUPPORTED_FORWARDING_HEADERS) headers.delete(name);
+  if (!isTrustedClientPeer) headers.set("x-forwarded-for", request.peer);
+  headers.set("x-forwarded-proto", request.protocol);
+
+  return entry;
 }

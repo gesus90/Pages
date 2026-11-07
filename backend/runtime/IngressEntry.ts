@@ -17,6 +17,8 @@ import {
   shutdownProcess,
 } from "./ProcessLifecycle";
 
+import type { PagesConfig } from "@/backend/config/PagesConfig";
+
 const USAGE =
   "Usage: node pages-ingress.mjs --config /absolute/config.toml --listen <address>:<port> --backend http://127.0.0.1:<port> [--core http://127.0.0.1:<port>] [--service-status http://127.0.0.1:<port>] [--core-runner http://127.0.0.1:<port>] [--core-console http://127.0.0.1:<port>]";
 
@@ -84,20 +86,37 @@ function readSwitches(
  * Starts the entrance's own logs with the instance's retention.
  *
  * @param configPath - The instance's `config.toml`.
+ * @returns The configuration the retention was read from, or `null` when the
+ * file does not exist.
  *
  * @remarks
  * The entrance writes to `log/ingress/` with a lock of its own. Sharing the
  * API's directory would let it take the API's single writer lock while the
  * API restarts, and the API would stay without its files. A changed retention
- * applies to the entrance after its next start.
+ * applies to the entrance after its next start. An invalid configuration ends
+ * the start, as it does for the API.
  */
-async function startIngressLogging(configPath: string): Promise<void> {
+async function startIngressLogging(
+  configPath: string,
+): Promise<PagesConfig | null> {
   await initializeLogging(configPath, "ingress");
   const config = await new ConfigFile(configPath).read();
   await updateLogRetention(
     config?.logRetentionDays ?? DEFAULT_LOG_RETENTION_DAYS,
     "startup",
   );
+  return config;
+}
+
+/** Records which proxies the entrance believes, so a misconfiguration shows at the start. */
+function announceForwarding(trustedProxies: readonly string[]): void {
+  logEvent({
+    level: "info",
+    event: "ingress.forwarding.configured",
+    component: "IngressEntry",
+    message: `X-Forwarded-* headers are believed from loopback peers and ${trustedProxies.length} proxy entries of trustedProxies`,
+    metadata: { count: trustedProxies.length },
+  });
 }
 
 function parseIngressArguments(
@@ -139,7 +158,9 @@ function parseIngressArguments(
  * @remarks
  * Part of the same versioned bundle as the API, like `pages-runs`, but it
  * opens no database and starts no service: stopping or restarting the API
- * leaves the entrance and the static app available.
+ * leaves the entrance and the static app available. It reads the
+ * `trustedProxies` of the instance's configuration, the setting the API reads,
+ * so both decide on the same proxies.
  */
 export async function startIngress(
   argumentList: readonly string[],
@@ -147,9 +168,11 @@ export async function startIngress(
   installProcessLogging();
   try {
     const options = parseIngressArguments(argumentList);
-    await startIngressLogging(options.configPath);
+    const config = await startIngressLogging(options.configPath);
+    const trustedProxies = config?.trustedProxies ?? [];
     const server = createIngressServer({
       backend: options.backend,
+      trustedProxies,
       core: options.core,
       serviceStatus: options.serviceStatus,
       coreRunner: options.coreRunner,
@@ -184,6 +207,7 @@ export async function startIngress(
         console: options.coreConsole?.origin ?? null,
       },
     });
+    announceForwarding(trustedProxies);
   } catch (error: unknown) {
     await shutdownProcess(1, "ingress_startup", error);
   }

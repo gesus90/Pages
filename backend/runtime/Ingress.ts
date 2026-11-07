@@ -9,7 +9,11 @@ import {
 import { AppRoutes } from "./AppRoutes";
 import { requestTargetPath, serveAppDocument } from "./AppDocument";
 import { isRemoteConsoleChannel, isRunnerChannel } from "./ChannelPaths";
-import { createTrustedPeerCheck } from "./ForwardedProtocol";
+import {
+  createTrustedPeerCheck,
+  readForwardedProtocol,
+  UNSUPPORTED_FORWARDING_HEADERS,
+} from "./ForwardedProtocol";
 import { refuseMissingAsset, serveStaticAsset } from "./StaticAssets";
 
 import type {
@@ -20,6 +24,7 @@ import type {
   ServerResponse,
 } from "node:http";
 import type { Duplex } from "node:stream";
+import type { PeerCheck } from "./ForwardedProtocol";
 
 /** Where the entrance finds the static app and the API. */
 export interface IngressOptions {
@@ -48,6 +53,19 @@ export interface IngressOptions {
    * Set: their WebSocket upgrades go to the core. Missing: to the API.
    */
   readonly coreConsole?: URL;
+  /**
+   * Addresses or ranges of the proxies in front of the entrance whose
+   * `X-Forwarded-*` headers are believed: the `trustedProxies` setting of the
+   * instance, the one the API reads as well. Loopback peers are always
+   * believed. Missing: loopback only.
+   */
+  readonly trustedProxies?: readonly string[];
+}
+
+/** Where a request goes, and which peers the entrance believes on the way. */
+interface Forwarding {
+  readonly backend: URL;
+  readonly isTrustedPeer: PeerCheck;
 }
 
 /** The live stream of the pages; the switch decides who serves it. */
@@ -86,9 +104,6 @@ const BACKEND_UNAVAILABLE = {
 
 /** Connections to the API are reused; a live stream holds one of its own. */
 const BACKEND_AGENT = new Agent({ keepAlive: true });
-
-/** Loopback peers, such as a TLS proxy on the same host, may report the client. */
-const isTrustedPeer = createTrustedPeerCheck([], { isLoopbackTrusted: true });
 
 function requestPathname(requestUrl: string | undefined): string | null {
   try {
@@ -132,21 +147,29 @@ function headerText(value: string | string[] | undefined): string | null {
  *
  * @remarks
  * `Host` stays, so the API compares a change's `Origin` with the address the
- * browser used. A client's own `X-Forwarded-*` headers are replaced, unless
- * a loopback proxy in front of the entrance sent them.
+ * browser used. `X-Forwarded-For` and `X-Forwarded-Proto` are the entrance's
+ * own: a client's values are replaced, and only a trusted peer, a loopback
+ * proxy or an address of `trustedProxies`, is believed. `https` is passed on
+ * only from such a peer, everything else as `http`. Headers of other
+ * forwarding conventions are dropped.
  */
 function backendHeaders(
   request: IncomingMessage,
   isUpgrade: boolean,
+  isTrustedPeer: PeerCheck,
 ): OutgoingHttpHeaders {
   const headers = endToEndHeaders(request.headers);
   const peer = request.socket.remoteAddress ?? "";
   const isProxied = isTrustedPeer(peer);
   const forwardedFor = headerText(request.headers["x-forwarded-for"]);
+  for (const name of UNSUPPORTED_FORWARDING_HEADERS) delete headers[name];
   headers["x-forwarded-for"] =
     isProxied && forwardedFor ? `${forwardedFor}, ${peer}` : peer;
-  if (!isProxied || request.headers["x-forwarded-proto"] === undefined)
-    headers["x-forwarded-proto"] = "http";
+  const reportedProtocol = readForwardedProtocol(
+    request.headers["x-forwarded-proto"],
+  );
+  headers["x-forwarded-proto"] =
+    isProxied && reportedProtocol === "https" ? "https" : "http";
   if (isUpgrade) {
     headers.connection = "Upgrade";
     headers.upgrade = request.headers.upgrade ?? "";
@@ -174,12 +197,13 @@ function answerUnavailable(response: ServerResponse): void {
 function forwardRequest(
   request: IncomingMessage,
   response: ServerResponse,
-  backend: URL,
+  forwarding: Forwarding,
 ): void {
+  const { backend, isTrustedPeer } = forwarding;
   const upstream = httpRequest(
     {
       agent: BACKEND_AGENT,
-      headers: backendHeaders(request, false),
+      headers: backendHeaders(request, false, isTrustedPeer),
       host: backend.hostname,
       method: request.method,
       path: request.url,
@@ -276,10 +300,11 @@ function forwardUpgrade(
   request: IncomingMessage,
   socket: Duplex,
   head: Buffer,
-  backend: URL,
+  forwarding: Forwarding,
 ): void {
+  const { backend, isTrustedPeer } = forwarding;
   const upstream = httpRequest({
-    headers: backendHeaders(request, true),
+    headers: backendHeaders(request, true, isTrustedPeer),
     host: backend.hostname,
     method: request.method,
     path: request.url,
@@ -319,9 +344,17 @@ function forwardUpgrade(
 async function answerRequest(
   request: IncomingMessage,
   response: ServerResponse,
-  options: IngressOptions & { readonly routes: AppRoutes },
+  options: IngressOptions & {
+    readonly routes: AppRoutes;
+    readonly isTrustedPeer: PeerCheck;
+  },
 ): Promise<void> {
   const method = request.method ?? "GET";
+  const forward = (backend: URL): void =>
+    forwardRequest(request, response, {
+      backend,
+      isTrustedPeer: options.isTrustedPeer,
+    });
   const pathname = requestPathname(request.url);
   if (pathname === null) {
     response.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
@@ -330,7 +363,7 @@ async function answerRequest(
   }
   const isServiceStatus = SERVICE_STATUS_PATHS.has(pathname);
   if (isServiceStatus && options.serviceStatus) {
-    forwardRequest(request, response, options.serviceStatus);
+    forward(options.serviceStatus);
     return;
   }
   if (pathname.startsWith(CORE_API_PREFIX) || isServiceStatus) {
@@ -342,7 +375,7 @@ async function answerRequest(
     return;
   }
   if (options.core && pathname === LIVE_CHANGES_PATH) {
-    forwardRequest(request, response, options.core);
+    forward(options.core);
     return;
   }
   if (
@@ -359,7 +392,7 @@ async function answerRequest(
     ))
   )
     return;
-  forwardRequest(request, response, options.backend);
+  forward(options.backend);
 }
 
 /**
@@ -380,15 +413,24 @@ async function answerRequest(
  * console channels go to `pages-core`, each on its own switch; the core
  * relays them to the API, which still admits every one, and holds the
  * client's connection while the API restarts. `/api/core/` is never passed on, not even
- * as an upgrade. It holds no session, no database and no
+ * as an upgrade. The entrance is the first hop that decides what a
+ * forwarding header is worth: it believes loopback peers and the
+ * `trustedProxies` of the instance, replaces the client's `X-Forwarded-*`
+ * headers for every other peer and drops the headers of other conventions
+ * (`deploy/proxy/README.md`). It holds no session, no database and no
  * application state, so the app still loads while the API is stopped; the
  * app then shows what the browser keeps. The entrance reads the build from
  * disk on every request, so a new build is served without a restart.
  */
 export function createIngressServer(options: IngressOptions): Server {
   const routes = new AppRoutes(options.clientDirectory);
+  // Loopback peers, such as a TLS proxy on the same host, may report the client.
+  const isTrustedPeer = createTrustedPeerCheck(options.trustedProxies ?? [], {
+    isLoopbackTrusted: true,
+  });
+  const answerOptions = { ...options, routes, isTrustedPeer };
   const server = createServer((request, response) => {
-    void answerRequest(request, response, { ...options, routes }).catch(
+    void answerRequest(request, response, answerOptions).catch(
       (error: unknown) => {
         logCaughtError("Ingress", error);
         if (!response.headersSent) {
@@ -403,7 +445,11 @@ export function createIngressServer(options: IngressOptions): Server {
   server.on("upgrade", (request: IncomingMessage, socket: Duplex, head) => {
     const target = upgradeTarget(request, options);
     if (target === null) refuseUpgrade(socket);
-    else forwardUpgrade(request, socket, head, target);
+    else
+      forwardUpgrade(request, socket, head, {
+        backend: target,
+        isTrustedPeer,
+      });
   });
   // A live stream stays open for hours; only an idle request head times out.
   server.requestTimeout = 0;

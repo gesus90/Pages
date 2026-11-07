@@ -161,6 +161,50 @@ Dateien nicht während einer laufenden Beobachtung bearbeiten.
 5. Beobachter und Timer auf das neue Release umstellen, Statusdatei erhalten.
    Gesundheitsstatus, ausstehende Arbeit und Warnungen prüfen. Alte Artefakte
    erst nach Ende aller alten Prozesse und der Rückwegfrist entfernen.
+6. Die Pica-Freigabeprüfung der öffentlichen Adresse durchführen (nächster
+   Abschnitt). Ohne sie gilt Pica nicht als einsatzbereit; der sichere
+   Wiederanlauf der übrigen Dienste hängt davon nicht ab.
+
+## Pica-Freigabeprüfung
+
+Ein grüner Gesundheitsstatus, eine Anmeldeseite mit `200` oder laufende
+Dienste sind **keine** Pica-Abnahme: Pica spricht `POST /chat-api` an, und
+dieser Aufruf scheitert an einer falsch weitergereichten Adresse, obwohl alles
+andere antwortet (PAGE-249). Verbindlich nach jedem Update, jeder Umstellung
+von Proxy, Ingress oder `trustedProxies` und jedem Neustart der Dienste:
+
+1. In einem Browser mit berechtigter Anmeldung die **tatsächlich verwendete
+   öffentliche HTTPS-Adresse** samt Port öffnen, nicht `127.0.0.1` oder die
+   interne Adresse. Das Pica-Panel öffnen.
+2. In den Entwicklerwerkzeugen (Netzwerk) den Aufruf `POST /chat-api` mit dem
+   Inhalt `{"intent":"open"}` ablesen. Freigabe nur bei Status `200`, dem
+   Inhaltstyp `application/json` und einem Inhalt `{"ok":true,"overview":…}`.
+   HTML (Anmelde- oder Startseite), `502` oder `{"ok":false,…}` ist ein
+   Fehler, auch wenn alles andere der Seite funktioniert. Cookies und Inhalte
+   gehören nicht in Berichte; es genügt, Status, Inhaltstyp und `ok` zu nennen.
+3. Das Ergebnis deuten:
+
+| Antwort                                 | Bedeutung                                        | Maßnahme                                                                               |
+| --------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `200`, `ok: true`                       | Adresse, Proxy und Anmeldung stimmen             | weiter mit Schritt 4                                                                   |
+| `403`, `originRejected`                 | die Adresse des Browsers passt nicht zur Anfrage | Protokolleintrag `request.origin.rejected` lesen, `reason` nach deploy/proxy/README.md |
+| `403`, `accessDenied`                   | wirklich fehlendes Recht oder fremde Origin      | Rechte der Person prüfen; nicht über die Proxy-Einrichtung „lösen“                     |
+| Anmeldeseite statt JSON (Weiterleitung) | Sitzung abgelaufen oder nicht angemeldet         | neu anmelden und wiederholen                                                           |
+| `502`, `504` oder HTML eines Proxys     | Pages oder ein Hop davor antwortet nicht         | Dienststatus und Proxy prüfen                                                          |
+
+4. Bei einer ausdrücklich autorisierten Liveabnahme eine normale Nachricht
+   senden und die Antwort abwarten. Sie läuft über die vorhandene
+   Anbieteranbindung; die tatsächlich ausgeführten Anbieteraufrufe separat
+   ausweisen. Nach einem kontrollierten Neustart denselben Weg erneut prüfen.
+5. Negativprobe, nur im Rahmen einer ausdrücklich autorisierten Liveabnahme
+   und mit einer eigenen Testanmeldung (Cookies nicht protokollieren): Derselbe
+   Aufruf mit einer fremden `Origin` muss mit `403` abgewiesen werden, und ohne
+   Anmeldung führt er zur Anmeldeseite.
+
+Die Prüfung ändert weder Rollen noch Rechte, Sitzungen oder Tokens. Fehlt
+der Nachweis, lautet die Aussage „Pica ist nicht freigegeben“, nicht „Pica
+läuft“. Die Zuordnung eines Fehlers zu Proxy-Einstellungen steht in
+[../deploy/proxy/README.md](../deploy/proxy/README.md).
 
 ## Rückweg
 

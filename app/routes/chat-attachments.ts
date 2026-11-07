@@ -4,6 +4,7 @@ import {
   chatFailure,
   requireChatRequest,
 } from "@/app/lib/chat-response.server";
+import { requestEntryContext } from "@/app/lib/request-origin.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { toUploadedFile } from "@/app/lib/wiki-actions/wiki-upload.server";
 import { ChatError } from "@/backend/error/ChatErrors";
@@ -24,7 +25,7 @@ export async function action({
   request,
 }: Route.ActionArgs): Promise<Response> {
   try {
-    requireChatRequest(request, "PUT");
+    requireChatRequest(request, "PUT", context.get(requestEntryContext));
     const actor = context.get(authenticatedUserContext);
     if (!actor) throw new ChatError("accessDenied");
     const { chatAttachmentService } = await getApplicationServices();

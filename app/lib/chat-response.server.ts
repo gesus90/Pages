@@ -3,8 +3,12 @@ import { ChatError } from "@/backend/error/ChatErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
+import { assessRequestOrigin, logOriginRefusal } from "./request-origin.server";
+
 import type { ChatErrorCode } from "@/backend/error/ChatErrors";
 import type { AgentExecutionErrorCode } from "@/backend/error/AgentExecutionErrors";
+import type { RequestEntry } from "@/definition/RequestEntry";
+import type { OriginRefusal } from "./request-origin.server";
 
 /** Chat answers never land in a cache. */
 export const CHAT_NO_STORE = { "Cache-Control": "no-store" } as const;
@@ -17,6 +21,7 @@ const STATUSES: Readonly<
 > = {
   disabled: 409,
   accessDenied: 403,
+  originRejected: 403,
   sessionMissing: 404,
   attachmentMissing: 404,
   fileTooLarge: 413,
@@ -28,16 +33,56 @@ const STATUSES: Readonly<
   nativeContextManaged: 400,
 };
 
+/** Routes of the chat that guard their origin, as the labels the log may carry. */
+const GUARDED_ROUTES: ReadonlySet<string> = new Set([
+  "/chat-api",
+  "/chat-api/attachments",
+]);
+
+/** A refused origin, with the facts of the refusal for the log of {@link chatFailure}. */
+class OriginRefusedError extends ChatError {
+  public readonly refusal: OriginRefusal;
+  public readonly route: string;
+
+  public constructor(refusal: OriginRefusal, route: string) {
+    super(refusal.code);
+    this.refusal = refusal;
+    this.route = route;
+  }
+}
+
 /**
  * Accepts only the expected method from the own origin.
  *
- * @throws {ChatError} `invalidInput` for another method, `accessDenied` for a foreign origin.
+ * @param request - The request as the entrance of the server built it.
+ * @param method - The only method the route accepts.
+ * @param entry - How the request arrived (`requestEntryContext`); without it
+ * a refused origin cannot be told from a forwarding problem.
+ * @throws {ChatError} `invalidInput` for another method. For an origin that is
+ * not the public origin of the request: `originRejected` when a hop in front
+ * of Pages may be the cause, `accessDenied` for an origin that is foreign
+ * with no hop to blame.
+ *
+ * @remarks
+ * The public origin is the one the request URL has: the `Host` header and the
+ * protocol of the connection, `https` only when a trusted proxy forwarded it
+ * from HTTPS. The browser's `Origin` is compared with it and never taken as
+ * it. A refusal is written to the log by {@link chatFailure}, with the route,
+ * its category and the normalized scheme, host and port of both origins.
  */
-export function requireChatRequest(request: Request, method: string): void {
+export function requireChatRequest(
+  request: Request,
+  method: string,
+  entry: RequestEntry | null = null,
+): void {
   if (request.method !== method) throw new ChatError("invalidInput");
-  const origin = request.headers.get("Origin");
-  if (origin !== null && origin !== new URL(request.url).origin)
-    throw new ChatError("accessDenied");
+  const refusal = assessRequestOrigin(request, entry);
+  if (refusal === null) return;
+  const { pathname } = new URL(request.url);
+  throw new OriginRefusedError(
+    refusal,
+    GUARDED_ROUTES.has(pathname) ? pathname : "/chat-api/:other",
+  );
 }
 
 /** Reads the bounded JSON body of a chat request. */
@@ -69,6 +114,8 @@ function failureResponse(code: string, status: number): Response {
  * reach the answer or the log.
  */
 export function chatFailure(error: unknown): Response {
+  if (error instanceof OriginRefusedError)
+    logOriginRefusal(error.refusal, error.route);
   if (error instanceof ChatError || error instanceof AgentExecutionError)
     return failureResponse(error.code, STATUSES[error.code] ?? 400);
   logDiagnostic(

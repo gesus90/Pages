@@ -30,7 +30,11 @@ The entrance
   refused with `404`;
 - keeps `Host`, cookies, status codes, redirects and content types, sets
   `X-Forwarded-For` to the client it saw and `X-Forwarded-Proto` to `http`
-  unless a proxy on the same host sent them;
+  unless a trusted proxy sent them: a proxy on the same host (loopback) or an
+  address of `trustedProxies` in the instance's `config.toml`, the key the API
+  reads as well. It replaces a stranger's `X-Forwarded-*` and drops `Forwarded`
+  and the other forwarding headers Pages does not read
+  ([deploy/proxy/README.md](../proxy/README.md));
 - holds no session and opens no database. While the API is stopped it still
   serves the app, which then shows what the browser keeps; requests for the
   API answer `502`.
@@ -48,10 +52,20 @@ the repository change. The template `pages-ingress@.service` expects:
    `/etc/pages/<instance>/config.toml`, matching `PAGES_INGRESS_BACKEND`.
 2. The public address in `PAGES_INGRESS_LISTEN` (default `0.0.0.0:3000`),
    optionally in `/etc/pages/<instance>/ingress.env`.
-3. With TLS in front of the entrance: the entrance's address `127.0.0.1` in
-   the API's `trustedProxies`, so the API believes the forwarded `https`. The
-   entrance passes `X-Forwarded-*` on only from a proxy on the same host.
+3. With TLS in front of the entrance: the entrance's address `127.0.0.1` (and
+   `::1`) in the API's `trustedProxies`, so the API believes the forwarded
+   `https`. The entrance passes `X-Forwarded-*` on only from a proxy on the
+   same host or from an address of the same `trustedProxies` list, so a TLS
+   proxy on another host or in a container is listed there as well. An nginx
+   between the TLS entry and the entrance keeps the entry's
+   `X-Forwarded-Proto` instead of sending its own `$scheme`
+   ([deploy/proxy/nginx-pages.conf.example](../proxy/nginx-pages.conf.example)).
+   The entrance and the API log how many entries they read at their start.
 4. `systemctl enable --now pages-ingress@<instance>`; add it to
    `pages.target` once the switch is made.
+5. Before the switch counts as done, run the Pica approval of the public
+   address ([docs/PlatformServices.md](../../docs/PlatformServices.md),
+   "Pica-Freigabeprüfung"). The service worker answering, `/health` and the
+   login page are no proof that Pica works behind that address.
 
 The service worker needs a secure context: HTTPS, or `localhost`.

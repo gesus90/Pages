@@ -2307,11 +2307,11 @@ or service environment, or start the production server with
 ### Behind a reverse proxy
 
 A reverse proxy that ends TLS (Caddy, nginx, Traefik) hands requests to Pages
-over plain HTTP. The browser still sends `Origin: https://…` with every form
-post, and Pages refuses a post whose `Origin` is not the address of the
-request, so signing in through the proxy fails with HTTP 400 until Pages
-knows which proxy to believe. List the proxy in `config.toml` (a manual edit
-that applies after a restart):
+over plain HTTP. The browser still sends `Origin: https://…` with every change
+(a form post, the Pica chat), and Pages refuses a change whose `Origin` is not
+the address of the request, so signing in or using Pica through the proxy
+fails until Pages knows which proxy to believe. List the proxy in `config.toml`
+(a manual edit that applies after a restart):
 
 ```toml
 trustedProxies = ["127.0.0.1", "::1"] # addresses or ranges such as "172.18.0.0/16"
@@ -2321,19 +2321,36 @@ trustedProxies = ["127.0.0.1", "::1"] # addresses or ranges such as "172.18.0.0/
   of the people who use Pages. For a proxy in a container that is the address
   of the container or of its network. Host names and the range `/0` are
   refused: an invalid entry makes the server exit with code 1 at the start,
-  like any other invalid key of `config.toml`.
+  like any other invalid key of `config.toml`. The static app's entrance
+  (`pages-ingress.mjs`) reads the same key from the same file, so both
+  decide on the same proxies; it believes loopback peers in addition.
 - Only a connection from a listed address may say that the request was HTTPS,
   through `X-Forwarded-Proto: https`. Pages then compares `Origin` with the
   `https://` address; the comparison stays on for everyone. From any other
-  address, and for any value but `http` or `https`, the header is ignored.
+  address, and for any value but `http` or `https`, the header is ignored, and
+  Pages replaces a client's `X-Forwarded-For` and `X-Forwarded-Proto` and drops
+  `Forwarded`, `X-Forwarded-Host`, `X-Forwarded-Port` and similar headers.
 - The proxy has to set `X-Forwarded-Proto` itself to the protocol the browser
   used, replacing any value the browser sent, and has to pass the `Host` of
   the browser on. Caddy's `reverse_proxy` does both
   by default; nginx needs `proxy_set_header Host $http_host;` (it keeps a
   port such as `:1080`, which `$host` drops) and
-  `proxy_set_header X-Forwarded-Proto $scheme;`.
+  `proxy_set_header X-Forwarded-Proto $scheme;` **when it ends TLS itself**.
+  An nginx that only listens on HTTP behind another TLS hop must not send
+  `$scheme`, which is `http` there for every request: it keeps the value of
+  the TLS entry, and only from that entry's address. Both variants are in
+  [deploy/proxy/nginx-pages.conf.example](./deploy/proxy/nginx-pages.conf.example).
 - Without `trustedProxies`, no proxy is trusted and nothing changes for an
-  installation that is reached directly or without TLS in front.
+  installation that is reached directly or without TLS.
+- A refused change answers HTTP 403. The Pica chat then says that the web
+  address does not match the setup of the server, never that rights are
+  missing, and the log holds the event `request.origin.rejected` with the
+  correlation ID, the route, the reason and the normalized scheme, host and
+  port of both origins (no cookie, token, header dump or chat text).
+  [deploy/proxy/README.md](./deploy/proxy/README.md) lists the reasons and the
+  fix for each, and the Pica approval check of a public address is in
+  [docs/PlatformServices.md](./docs/PlatformServices.md). A green `/health`
+  or a login page that answers is no proof that Pica works.
 
 ### Local services for Pica's operator browser
 

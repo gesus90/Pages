@@ -6,7 +6,7 @@ import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { cn } from "@/app/lib/cn";
 
 import { ChatAttachmentList } from "./chat-attachment-list";
-import { chatErrorText } from "./chat-error";
+import { ChatErrorNotice } from "./chat-error-notice";
 import { ChatJobStatus } from "./chat-job-status";
 import { ChatLiveStatus } from "./chat-live-status";
 import { ChatMessageMeta, chatMessageFacts } from "./chat-message-meta";
@@ -165,14 +165,7 @@ export function ChatMessageList({
           {t(`chat.notice.${chat.commands.notice}`)}
         </p>
       ) : null}
-      {chat.error ? (
-        <p
-          className="rounded-xl bg-destructive-subtle px-3 py-2 text-sm font-medium text-destructive"
-          role="alert"
-        >
-          {chatErrorText(t, chat.error)}
-        </p>
-      ) : null}
+      {chat.error ? <ChatErrorNotice code={chat.error} /> : null}
       <div ref={end} />
     </ScrollViewport>
   );

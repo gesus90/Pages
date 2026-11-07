@@ -5,6 +5,7 @@ import {
   readChatJson,
   requireChatRequest,
 } from "@/app/lib/chat-response.server";
+import { requestEntryContext } from "@/app/lib/request-origin.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -97,15 +98,22 @@ async function handleIntent(
  * for Codex agents also reading a job after a cursor and stopping it (PAGE-68).
  *
  * @remarks
- * Only POST requests of the own origin are accepted. Answers are never cached
- * and carry stable error codes instead of messages.
+ * Only POST requests of the own origin are accepted: the `Origin` of the
+ * browser must be the public address of the request, which the entrance of
+ * the server builds from `Host` and the protocol of a trusted proxy. A refused
+ * origin answers `originRejected` (or `accessDenied` for a foreign one) and is
+ * logged with a correlation ID; it is never `accessDenied` for a forwarding
+ * problem. A missing or expired sign-in never gets here: the workspace
+ * frame answers it with the redirect to the login page, which the client
+ * reports as `authenticationRequired`. Answers are never cached and carry
+ * stable error codes instead of messages.
  */
 export async function action({
   request,
   context,
 }: Route.ActionArgs): Promise<Response> {
   try {
-    requireChatRequest(request, "POST");
+    requireChatRequest(request, "POST", context.get(requestEntryContext));
     const actor = context.get(authenticatedUserContext);
     if (!actor) throw new ChatError("accessDenied");
     const services = await getApplicationServices();

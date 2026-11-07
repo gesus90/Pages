@@ -109,6 +109,7 @@ export class TaskTemplateService {
    * @param actor - User with write permission who may see the ticket.
    * @param ticketId - Ticket whose content becomes the template.
    * @param input - Name and audience of the template.
+   * @returns The id of the new template.
    * @throws {WorkItemAccessDeniedError} When the actor may not write or share that way.
    * @throws {WorkItemValidationError} When the name or the audience is invalid.
    */
@@ -116,7 +117,7 @@ export class TaskTemplateService {
     actor: User,
     ticketId: string,
     input: TemplateDetailsInput,
-  ): Promise<void> {
+  ): Promise<string> {
     await this.requireWrite(actor);
 
     const ticket = await this.taskService.getById(actor, ticketId);
@@ -139,6 +140,8 @@ export class TaskTemplateService {
     };
 
     await this.repository.save(template);
+
+    return template.id;
   }
 
   /**

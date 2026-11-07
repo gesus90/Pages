@@ -3323,6 +3323,8 @@
     "error": {
       "invalidInput": "Please check the input.",
       "accessDenied": "You lack the rights for this.",
+      "authenticationRequired": "Your sign-in has expired. Sign in again; what you wrote stays here.",
+      "originRejected": "The request was refused for security reasons because the web address does not match the setup of the server (proxy). This is not a missing permission. Please tell an admin; the log holds the entry request.origin.rejected.",
       "sessionMissing": "This session no longer exists. Start a new one with /new.",
       "attachmentMissing": "The attachment no longer exists.",
       "confirmationRequired": "The confirmation word does not match. Nothing was deleted.",
@@ -3367,6 +3369,7 @@
       "antigravityToolsUnverified": "Antigravity is blocked for Pica: the complete restrictive tool boundary has not been verified with a real model."
     },
     "recover": "Start a new session",
+    "signIn": "Sign in again",
     "context": {
       "title": "Session context",
       "label": "Conversation context: {{amount}}",

@@ -6,6 +6,7 @@ import { createRequestHandler, RouterContextProvider } from "react-router";
 
 import { clientSocketAddressContext } from "@/app/lib/client-address.server";
 import { checkHealth } from "@/app/lib/health.server";
+import { requestEntryContext } from "@/app/lib/request-origin.server";
 import {
   ConfigError,
   resolveDefaultConfigPath,
@@ -29,6 +30,7 @@ import { AppRoutes } from "./AppRoutes";
 import { requestTargetPath, serveAppDocument } from "./AppDocument";
 import { answerDataRedirect } from "./DataRedirect";
 import {
+  admitForwardedHeaders,
   createForwardedHttpsCheck,
   createTrustedPeerCheck,
   forwardedClientAddress,
@@ -121,12 +123,16 @@ export function announceServer(
  * logs omit queries, headers, bodies and opaque path segments.
  *
  * @remarks
- * A request that a trusted proxy forwarded from HTTPS is given an `https:`
- * URL, so React Router compares the browser's `Origin` with the address the
- * browser used. The comparison itself stays on for every request. Behind a
- * loopback or trusted proxy, such as the static app's entrance, the client
- * address is the one the proxy reports. Pages renders no document on the
- * server (PAGE-235): this process also answers alone, without the entrance.
+ * The public origin of a request is its `Host` header and the protocol of
+ * the connection. A request that a trusted proxy forwarded from HTTPS is
+ * given an `https:` URL, so React Router and the origin guards of the
+ * routes compare the browser's `Origin` with the address the browser used,
+ * never with the `Origin` itself. The comparison stays on for every request.
+ * Behind a loopback or trusted proxy, such as the static app's entrance, the
+ * client address is the one the proxy reports. Forwarding headers of any
+ * other peer are replaced or dropped before a route reads them
+ * ({@link admitForwardedHeaders}). Pages renders no document on the server
+ * (PAGE-235): this process also answers alone, without the entrance.
  */
 export function createPagesRequestListener(
   build: ServerBuild,
@@ -137,18 +143,32 @@ export function createPagesRequestListener(
     withLoggedRoutes(build),
     "production",
   );
+  const isTrustedProxy = createTrustedPeerCheck(trustedProxies);
   const isTrustedPeer = createTrustedPeerCheck(trustedProxies, {
     isLoopbackTrusted: true,
   });
   const appRoutes = new AppRoutes(clientDirectory);
   const handleFetch: FetchHandler = async (request, client) => {
     const context = new RouterContextProvider();
+    // Read before the entrance replaces the header of a peer that is not believed.
     context.set(
       clientSocketAddressContext,
       forwardedClientAddress(
         client.address,
         request.headers.get("x-forwarded-for"),
         isTrustedPeer,
+      ),
+    );
+    context.set(
+      requestEntryContext,
+      admitForwardedHeaders(
+        request.headers,
+        {
+          peer: client.address,
+          protocol:
+            new URL(request.url).protocol === "https:" ? "https" : "http",
+        },
+        { isTrustedProxy, isTrustedClientPeer: isTrustedPeer },
       ),
     );
     return answerDataRedirect(request, await handleRequest(request, context));
@@ -199,6 +219,20 @@ export function createPagesRequestListener(
       })();
     });
   };
+}
+
+/** Records which proxies this process believes, so a misconfiguration shows at the start. */
+function announceForwarding(trustedProxies: readonly string[]): void {
+  logEvent({
+    level: "info",
+    event: "server.forwarding.configured",
+    component: "PagesServer",
+    message:
+      trustedProxies.length === 0
+        ? "No proxy is listed in trustedProxies; X-Forwarded-Proto is ignored and requests keep the protocol of their connection"
+        : `X-Forwarded-Proto is believed from ${trustedProxies.length} proxy entries of trustedProxies`,
+    metadata: { count: trustedProxies.length },
+  });
 }
 
 /** The decoded path of a request, or `/` when it cannot be read. */
@@ -363,6 +397,7 @@ export async function startPagesServer(
     await persistPort(runtime, port);
   }
 
+  announceForwarding(runtime.getConfig().trustedProxies ?? []);
   void startAgentTools(runtime);
   void startPicaMobile(runtime, port);
   const address = runtime.getConfig().listenAddress;

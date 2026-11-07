@@ -3,9 +3,11 @@
  *
  * @remarks
  * A reverse proxy that ends TLS reports the original protocol in
- * `X-Forwarded-Proto`. The header only decides the `Secure` attribute of
- * the cookies sent back to the same client, so a forged value cannot grant
- * anything.
+ * `X-Forwarded-Proto`. The entrance of the server (`admitForwardedHeaders`)
+ * keeps that value only from a trusted proxy and otherwise names the protocol
+ * of the connection, so the header agrees with the request URL. It only
+ * decides the `Secure` attribute of the cookies sent back to the same client,
+ * so a forged value could not grant anything either.
  */
 function isHttpsRequest(request: Request): boolean {
   const forwardedProtocol = request.headers

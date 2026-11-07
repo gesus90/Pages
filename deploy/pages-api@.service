@@ -6,6 +6,9 @@ PartOf=pages.target
 StartLimitIntervalSec=0
 
 [Service]
+# Behind a TLS proxy or pages-ingress@%i, `trustedProxies` in
+# /etc/pages/%i/config.toml has to list the address Pages sees them connect from
+# ("127.0.0.1", "::1" for the entrance); see deploy/proxy/README.md.
 Type=notify
 NotifyAccess=all
 WatchdogSec=60

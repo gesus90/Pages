@@ -3,6 +3,8 @@ export type ChatErrorCode =
   | "nativeContextManaged"
   | "invalidInput"
   | "accessDenied"
+  /** The request's origin is not the address Pages believes it has; a proxy or setup problem, no missing right. */
+  | "originRejected"
   | "sessionMissing"
   | "attachmentMissing"
   | "confirmationRequired"
