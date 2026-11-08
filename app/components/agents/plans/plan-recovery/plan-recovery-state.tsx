@@ -55,13 +55,14 @@ export function PlanRecoveryState({
           : t("plans.recovery.checkpointNone")}
       </dd>
       <dt className="font-medium text-foreground">
-        {t("plans.recovery.revisions")}
+        {t("plans.recovery.planState")}
       </dt>
       <dd>
-        {t("plans.recovery.revisionValue", {
-          run: view.planRevision,
-          current: view.currentPlanRevision,
-        })}
+        {t(
+          view.planRevision === view.currentPlanRevision
+            ? "plans.recovery.planUnchanged"
+            : "plans.recovery.planChanged",
+        )}
       </dd>
       {view.cleanupResources.length > 0 ? (
         <>

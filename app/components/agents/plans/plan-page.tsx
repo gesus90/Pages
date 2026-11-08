@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { isPlanEditLocked } from "@/definition/AgentPlanRunState";
 import { planTargetDeviations } from "@/definition/AgentPlanTarget";
 
 import { PlanRunPanel } from "./plan-run-panel";
@@ -114,6 +115,21 @@ function canEditCanvas(editor: ReturnType<typeof usePlanEditor>): boolean {
   );
 }
 
+/** The right to edit is not enough: while a run executes steps, the server refuses every change. */
+function canEditPlan(
+  canEdit: boolean,
+  controls: ReturnType<typeof usePlanControl>,
+  localState: LocalStateMark | undefined,
+): boolean {
+  return (
+    canEdit &&
+    !localState &&
+    (!controls.error || controls.error === "plan_connection_unavailable") &&
+    (controls.control?.canEdit ?? true) &&
+    !isPlanEditLocked(controls.control?.status ?? "idle")
+  );
+}
+
 /** Restores keyboard focus to the console's node without panning the canvas. */
 function focusConsoleNode(nodeId: string | null): void {
   // Focus returns to the node that opened the console, without moving the canvas.
@@ -216,11 +232,7 @@ function PlanEditorPage({
   );
   const editor = {
     ...draftEditor,
-    canEdit:
-      draftEditor.canEdit &&
-      !localState &&
-      (!controls.error || controls.error === "plan_connection_unavailable") &&
-      (controls.control?.canEdit ?? true),
+    canEdit: canEditPlan(draftEditor.canEdit, controls, localState),
   };
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [consoleNodeId, setConsoleNodeId] = useState<string | null>(null);
@@ -288,7 +300,7 @@ function PlanEditorPage({
         onCloseEditing={() => setEditingNodeId(null)}
         onCloseConsole={closeConsole}
       />
-      <PlanRevisionConflict editor={editor} run={display.run} />
+      <PlanRevisionConflict editor={editor} />
       <PlanLeaveGuard isDirty={editor.isDirty} />
     </div>
   );

@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import { isPlanEditLocked } from "@/definition/AgentPlanRunState";
 
 import { Button } from "@/app/components/ui/button";
 
@@ -42,13 +42,6 @@ function planContextLine(
     });
   }
   return [workspace?.projectName, workspace?.name].filter(Boolean).join(" · ");
-}
-
-/** Whether a run is active; its snapshot then stays pinned whatever is saved. */
-function isActiveControl(control: AgentPlanControl | undefined): boolean {
-  return Boolean(
-    control && control.status !== "idle" && isActivePlanRun(control.status),
-  );
 }
 
 interface PlanPanelHeadingProps {
@@ -156,7 +149,7 @@ export function PlanPanelHeading(
           </div>
         </div>
       </div>
-      <PlanRevisionStatus editor={editor} control={control} />
+      <PlanSaveStatus editor={editor} control={control} />
       <PlanControlNotes {...props} />
     </>
   );
@@ -219,48 +212,25 @@ function saveStateLabel(
   );
 }
 
-/** Distinguishes the editable revision from a currently active execution basis. */
-function PlanRevisionStatus({
+/** Says whether the draft is stored, and that a run which executes steps locks the plan. */
+function PlanSaveStatus({
   editor,
   control,
 }: Pick<PlanPanelHeadingProps, "editor" | "control">): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <p className="px-4 pt-3 text-xs text-muted-foreground">
-      {t("plans.execution.editRevision", {
-        revision: editor.draft.revision ?? 0,
-      })}
-      {` · ${saveStateLabel(editor, t)}`}
-      {isActiveControl(control) && control?.runId
-        ? ` · ${t("plans.execution.activeSnapshot", { revision: control.planRevision })}`
-        : null}
-    </p>
-  );
-}
-
-/** Says that a saved revision waits for the next run while the active run keeps its snapshot. */
-export function PlanNextRunNote({
-  editor,
-  control,
-}: Pick<
-  PlanPanelHeadingProps,
-  "editor" | "control"
->): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (
-    !isActiveControl(control) ||
-    !control?.runId ||
-    control.planRevision === editor.draft.revision
-  )
-    return null;
-  return (
-    <div className="text-xs">
-      <p className="font-semibold">{t("plans.execution.nextRunTitle")}</p>
-      <p className="mt-1 text-muted-foreground">
-        {t("plans.execution.nextRunHint", {
-          revision: control.planRevision,
-        })}
+    <>
+      <p className="px-4 pt-3 text-xs text-muted-foreground">
+        {saveStateLabel(editor, t)}
       </p>
-    </div>
+      {control && isPlanEditLocked(control.status) ? (
+        <p
+          role="status"
+          className="px-4 pt-1 text-xs wrap-anywhere text-muted-foreground"
+        >
+          {t("plans.execution.editLocked")}
+        </p>
+      ) : null}
+    </>
   );
 }

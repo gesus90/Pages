@@ -696,6 +696,7 @@ export interface AgentPlanControlEntry {
   readonly lastStartRejection?: AgentPlanStartRejection;
   /** Requested separately so routine status polling does not traverse history. */
   readonly startRejectionHistory?: AgentPlanStartRejectionPage;
+  /** Whether the reader may change the plan now; never while a run executes steps. */
   readonly canEdit: boolean;
   readonly canDelete: boolean;
   readonly canPlay: boolean;

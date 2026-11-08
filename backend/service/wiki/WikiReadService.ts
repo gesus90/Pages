@@ -15,7 +15,7 @@ import type {
   WikiPrivatePlaceholder,
   WikiTreeNode,
 } from "@/definition/Wiki";
-import type { WikiAccess } from "./WikiAccess";
+import type { WikiAccess, WikiViewer } from "./WikiAccess";
 import type { WikiTrashService } from "./WikiTrashService";
 
 /** What opening a page address shows. */
@@ -81,7 +81,6 @@ export class WikiReadService {
    */
   public async read(actor: User, id: string): Promise<WikiReadResult> {
     const viewer = await this.access.resolve(actor);
-    const reader = new WikiPageReader(this.repository);
     const record = await this.repository.pages.findVisible(viewer.scope, id);
 
     if (!record) {
@@ -96,21 +95,26 @@ export class WikiReadService {
 
     await this.repository.state.recordVisit(actor.id, id);
 
-    const [page, children, favoriteIds] = await Promise.all([
-      reader.assemble(record),
-      this.repository.pages.listChildren(viewer.scope, id),
-      this.repository.state.listFavoriteIds(actor.id),
-    ]);
+    return { kind: "page", view: await this.assembleView(viewer, record) };
+  }
 
-    return {
-      kind: "page",
-      view: {
-        children,
-        isFavorite: favoriteIds.includes(id),
-        page,
-        permissions: describePermissions(viewer, record),
-      },
-    };
+  /**
+   * Reads a page with the rights of the actor, without remembering a visit.
+   *
+   * @param actor - The account that reads, such as a paired machine.
+   * @param id - Page identifier.
+   * @returns The page as the page view shows it.
+   * @throws {WikiPageNotFoundError} For a missing page and for a page the
+   * actor may not see alike; an administrator gets no placeholder here.
+   */
+  public async view(actor: User, id: string): Promise<WikiPageView> {
+    const viewer = await this.access.resolve(actor);
+    const record = await new WikiPageReader(this.repository).require(
+      viewer.scope,
+      id,
+    );
+
+    return this.assembleView(viewer, record);
   }
 
   /** Reads a visible record without visits or private placeholders, for agent queries and previews. */
@@ -235,5 +239,24 @@ export class WikiReadService {
 
     await new WikiPageReader(this.repository).require(viewer.scope, id);
     await this.repository.state.setExpanded(actor.id, id, isExpanded);
+  }
+
+  private async assembleView(
+    viewer: WikiViewer,
+    record: WikiPageRecord,
+  ): Promise<WikiPageView> {
+    const reader = new WikiPageReader(this.repository);
+    const [page, children, favoriteIds] = await Promise.all([
+      reader.assemble(record),
+      this.repository.pages.listChildren(viewer.scope, record.id),
+      this.repository.state.listFavoriteIds(viewer.user.id),
+    ]);
+
+    return {
+      children,
+      isFavorite: favoriteIds.includes(record.id),
+      page,
+      permissions: describePermissions(viewer, record),
+    };
   }
 }

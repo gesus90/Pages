@@ -15,6 +15,7 @@ import {
 } from "./AgentPlanResourceReservation";
 import { AgentPlanContinuationRepository } from "./AgentPlanContinuationRepository";
 import { AgentPlanProgressRepository } from "./AgentPlanProgressRepository";
+import { queueEarlierRunPurge } from "./AgentPlanRunPurge";
 import {
   AgentPlanRunVisibilityRepository,
   planRunResourcesOf,
@@ -147,7 +148,8 @@ export class AgentPlanRunRepository {
    * @remarks
    * The revision check reads the plan within the same transaction, so a plan
    * revision written before it in that transaction is the one the run must
-   * name.
+   * name. A genuinely new run, one without an origin, also records that the
+   * earlier runs of its plan go; a recovery keeps them.
    */
   public async insert(
     transaction: DatabaseTransaction,
@@ -207,6 +209,7 @@ export class AgentPlanRunRepository {
         snapshot_file: reference,
       },
     );
+    if (!run.origin) await queueEarlierRunPurge(transaction, run.id);
   }
 
   /** Acquires actual writer resources together, or leaves this run visibly queued. */

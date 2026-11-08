@@ -11,27 +11,13 @@ import {
 } from "./plan-panel-fixture";
 
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
-
-const RUN: AgentPlanRun = {
-  id: "run-1",
-  planId: "plan",
-  planName: "Synthetic plan",
-  planRevision: 2,
-  userId: "owner",
-  startedAt: "2026-10-15T10:00:00.000Z",
-  status: "running",
-  stopRequested: false,
-  steps: [],
-};
 
 function renderConflict(
   answer: AgentPlanActionResult,
-  run: AgentPlanRun | null = null,
 ): ReturnType<typeof actionScene> {
   const scene = actionScene(answer);
   renderWithEditor(planPage(), scene, (editor) => (
-    <PlanRevisionConflict editor={editor} run={run} />
+    <PlanRevisionConflict editor={editor} />
   ));
   return scene;
 }
@@ -46,31 +32,23 @@ function dialog(): Promise<HTMLElement> {
   });
 }
 
-it("compares the kept draft with the newer stored revision and names the pinned run", async () => {
-  renderConflict(
-    {
-      ok: false,
-      intent: "save-plan",
-      error: "plan_conflict",
-      currentRevision: 5,
-    },
-    RUN,
-  );
+it("compares the kept draft with the stored plan without naming any revision", async () => {
+  renderConflict({
+    ok: false,
+    intent: "save-plan",
+    error: "plan_conflict",
+    currentRevision: 5,
+  });
   expect(screen.queryByRole("dialog")).toBeNull();
 
   save();
   const shown = await dialog();
 
-  expect(shown.textContent).toContain(
-    i18n.t("plans.execution.draftRevision", { revision: 3 }),
-  );
+  expect(shown.textContent).toContain(i18n.t("plans.execution.draftChange"));
   expect(shown.textContent).toContain("Synthetic plan");
-  expect(shown.textContent).toContain(
-    i18n.t("plans.execution.savedRevision", { revision: 5 }),
-  );
-  expect(shown.textContent).toContain(
-    i18n.t("plans.execution.nextRunHint", { revision: 2 }),
-  );
+  expect(shown.textContent).toContain(i18n.t("plans.execution.savedPlan"));
+  expect(shown.textContent).not.toMatch(/revision/iu);
+  expect(shown.textContent).not.toContain("5");
 });
 
 it("loads the stored plan again at the current address", async () => {
@@ -80,7 +58,7 @@ it("loads the stored plan again at the current address", async () => {
     error: "plan_conflict",
   });
   const { router } = renderWithEditor(planPage(), scene, (editor) => (
-    <PlanRevisionConflict editor={editor} run={null} />
+    <PlanRevisionConflict editor={editor} />
   ));
   save();
   await dialog();
@@ -104,12 +82,7 @@ it("closes with Cancel and opens again on the next refusal", async () => {
   });
   save();
   const shown = await dialog();
-  expect(shown.textContent).toContain(
-    i18n.t("plans.execution.savedRevision", { revision: "—" }),
-  );
-  expect(shown.textContent).not.toContain(
-    i18n.t("plans.execution.nextRunHint", { revision: 2 }),
-  );
+  expect(shown.textContent).toContain(i18n.t("plans.execution.savedPlan"));
 
   fireEvent.click(
     screen.getByRole("button", { name: i18n.t("settings.agents.cancel") }),

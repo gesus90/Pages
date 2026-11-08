@@ -84,6 +84,7 @@ import {
   PLAN_PROGRESS_FLOW,
 } from "./agent-progress-flows";
 import { PLAN_RUN_FLOW } from "./agent-run-flows";
+import { PLAN_RUN_PURGE_FLOW } from "./agent-run-purge-flow";
 import {
   PLAN_WORK_FLOW,
   REMOTE_ACCESS_FLOW,
@@ -123,6 +124,7 @@ export const AGENT_AREA_FLOWS: readonly RepositoryFlow[] = [
   PLAN_WORKSPACE_FLOW,
   PLAN_RUN_FLOW,
   PLAN_PROGRESS_FLOW,
+  PLAN_RUN_PURGE_FLOW,
   PLAN_CONTINUATION_FLOW,
   CHECKPOINT_FLOW,
   CLEANUP_FAILURE_FLOW,

@@ -20,7 +20,6 @@ export function PlanCleanupHistory({
         <p>
           {t("plans.recovery.cleanupHistoryTime", {
             time: new Date(failure.createdAt).toLocaleString(),
-            revision: failure.planRevision,
           })}
         </p>
         <p>

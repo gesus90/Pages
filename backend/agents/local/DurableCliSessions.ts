@@ -28,12 +28,13 @@ export class DurableCliSessions implements PlanSessionRunner {
       : this.local.open(input, signal, observer);
   }
 
-  /** Releases the owner only after all native processes and public results have settled. */
-  public async finishPlanRun(
-    runId: string,
-    status: "succeeded" | "failed" | "cancelled",
-  ): Promise<void> {
+  /**
+   * Releases the owner only after all native processes and public results have settled.
+   *
+   * @remarks
+   * The transcripts of the run stay; they go when the plan starts a new run.
+   */
+  public async finishPlanRun(runId: string): Promise<void> {
     await this.local.finishRun(runId);
-    await this.direct.finishPlanRun?.(runId, status);
   }
 }

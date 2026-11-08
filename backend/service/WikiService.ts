@@ -38,6 +38,7 @@ import type {
   WikiHome,
   WikiNavigation,
   WikiPage,
+  WikiPageView,
   WikiPrivatePlaceholder,
   WikiReference,
   WikiSearchResponse,
@@ -51,8 +52,12 @@ import type {
   UpdateWikiPageInput,
 } from "./wiki/WikiPageService";
 import type { WikiReadResult } from "./wiki/WikiReadService";
-import type { CommentInput } from "./wiki/WikiCommentService";
+import type { CommentInput, WikiCommentEntry } from "./wiki/WikiCommentService";
 import type { WikiSearchInput } from "./wiki/WikiSearchService";
+import type {
+  WikiDeletionScope,
+  WikiPurgeScope,
+} from "./wiki/WikiTrashService";
 import type {
   OpenedAttachment,
   UploadedFile,
@@ -65,8 +70,12 @@ export type {
   UpdateWikiPageInput,
 } from "./wiki/WikiPageService";
 export type { WikiReadResult } from "./wiki/WikiReadService";
-export type { CommentInput } from "./wiki/WikiCommentService";
+export type { CommentInput, WikiCommentEntry } from "./wiki/WikiCommentService";
 export type { WikiSearchInput } from "./wiki/WikiSearchService";
+export type {
+  WikiDeletionScope,
+  WikiPurgeScope,
+} from "./wiki/WikiTrashService";
 export type {
   OpenedAttachment,
   UploadedFile,
@@ -139,6 +148,11 @@ export class WikiService {
   /** Opens a page, or the placeholder an administrator gets for a private one. */
   public async read(actor: User, id: string): Promise<WikiReadResult> {
     return this.reads.read(actor, id);
+  }
+
+  /** Reads a page with the rights of the actor, without remembering a visit or a placeholder. */
+  public async view(actor: User, id: string): Promise<WikiPageView> {
+    return this.reads.view(actor, id);
   }
 
   /** Whether the actor sees a page right now, without remembering a visit. */
@@ -308,6 +322,19 @@ export class WikiService {
     return this.trash.delete(actor, id);
   }
 
+  /** Tells which pages moving a page into the trash would affect. */
+  public async previewDelete(
+    actor: User,
+    id: string,
+  ): Promise<WikiDeletionScope> {
+    return this.trash.previewDelete(actor, id);
+  }
+
+  /** Tells which pages and attachments a purge would remove. */
+  public async previewPurge(actor: User, id: string): Promise<WikiPurgeScope> {
+    return this.trash.previewPurge(actor, id);
+  }
+
   /** Lists the deleted pages the actor may restore. */
   public async listTrash(actor: User): Promise<WikiTrashEntry[]> {
     return this.trash.list(actor);
@@ -417,6 +444,11 @@ export class WikiService {
     pageId: string,
   ): Promise<WikiCommentThread[]> {
     return this.comments.list(actor, pageId);
+  }
+
+  /** Reads one comment with the first comment it answers. */
+  public async getComment(actor: User, id: string): Promise<WikiCommentEntry> {
+    return this.comments.get(actor, id);
   }
 
   /** Adds a comment or a reply. */

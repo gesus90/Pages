@@ -23,12 +23,13 @@ beforeEach(() => memoryFiles.reset());
 async function saveDuringRun(
   previous: AgentPlan,
   plan: AgentPlan,
+  status: "running" | "paused",
 ): Promise<AgentPlan | null> {
   const database = new PlanDatabase();
   database.insert(previous);
   for (const node of plan.nodes)
     if (node.type === "agent") database.agents.add(node.agentId);
-  database.runs.push({ planId: plan.id, status: "running" });
+  database.runs.push({ planId: plan.id, status });
   const repository = new AgentPlanRepository(database.asDatabase());
   await repository.save(plan, false);
   return repository.find(plan.id);
@@ -126,7 +127,8 @@ it("runs the practical X/M/R → Y/other model example with an active invocation
     ...saved,
     nodes: saved.nodes.map((node) => (node.id === changed.id ? changed : node)),
   };
-  const storedLater = await saveDuringRun(saved, laterPlan);
+  // Once the run is paused the edit is stored and the invocation keeps its snapshot.
+  const storedLater = await saveDuringRun(saved, laterPlan, "paused");
   expect(storedLater?.nodes).not.toEqual(snapshot.plan.nodes);
   expect(JSON.stringify(snapshot)).toBe(persisted);
   expect(snapshot.steps[0]).toMatchObject({
@@ -177,4 +179,11 @@ it("rechecks revoked model access immediately before the provider request", asyn
   await expect(prepared.input.beforeStart?.()).rejects.toMatchObject({
     code: "agent_usage_denied",
   });
+});
+
+it("refuses to save a plan while its run executes steps", async () => {
+  const { plan } = await templateFixture();
+  await expect(
+    saveDuringRun(plan, { ...plan, name: "Changed during run" }, "running"),
+  ).rejects.toMatchObject({ code: "plan_pause_required" });
 });

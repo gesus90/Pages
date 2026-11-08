@@ -116,6 +116,7 @@ it("saves an explicitly repaired plan without dropping its nodes, edges or bindi
       if (statement.includes("FROM agent_workspaces")) return [["project"]];
       if (statement.includes("FROM agent_execution_profiles"))
         return [["replacement"]];
+      if (statement.includes("FROM agent_plan_runs")) return [];
       throw new Error("Unexpected query");
     },
   };

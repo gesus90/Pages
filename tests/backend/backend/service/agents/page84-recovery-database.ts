@@ -62,6 +62,8 @@ interface RecoveryRows {
   readonly attempts: AttemptRow[];
   readonly executions: AttemptRow[];
   readonly locks: Map<string, string>;
+  /** Deletion intents, such as the purge a genuinely new run asks for. */
+  readonly garbage: string[];
 }
 
 function requiredText(parameters: SqlParameters, name: string): string {
@@ -91,6 +93,7 @@ export class RecoveryDatabase {
     attempts: [],
     executions: [],
     locks: new Map(),
+    garbage: [],
   };
   private fault: "checkpoint" | "progress" | "attempt" | null = null;
 
@@ -390,6 +393,10 @@ export class RecoveryDatabase {
     }
     if (statement.includes("agent_plan_workspace_locks")) {
       this.writeLock(statement, parameters);
+      return;
+    }
+    if (statement.includes("INSERT INTO agent_payload_garbage")) {
+      this.rows.garbage.push(requiredText(parameters, "storage_name"));
       return;
     }
     throw new Error(`Unexpected synthetic statement ${statement}`);

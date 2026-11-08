@@ -88,14 +88,19 @@ export class PlanDatabase {
     statement: string,
     parameters: SqlParameters,
   ): DatabaseValue[][] {
-    if (statement.includes("FROM agent_plan_runs"))
+    if (statement.includes("FROM agent_plan_runs")) {
+      // Each check names the run states it counts; the delete check counts a pause, the edit lock does not.
+      const statuses = [...statement.matchAll(/'(\w+)'/gu)].map(
+        (match) => match[1],
+      );
       return this.runs
         .filter(
           (run) =>
             run.planId === parameter(parameters, "plan_id") &&
-            (run.status === "running" || run.status === "paused"),
+            statuses.includes(run.status),
         )
         .map((run) => [run.planId]);
+    }
     if (statement.includes("FROM agent_workspaces")) {
       const project = this.workspaces.get(parameter(parameters, "id"));
       return project === undefined ? [] : [[project]];

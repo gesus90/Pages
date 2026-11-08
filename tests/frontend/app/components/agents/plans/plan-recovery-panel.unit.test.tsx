@@ -91,7 +91,7 @@ it("shows the recovery state and refusal and requires confirmation before restar
     i18n.t("plans.panel.error"),
   );
   const restart = screen.getByRole("button", {
-    name: i18n.t("plans.recovery.restartAction", { revision: 3 }),
+    name: i18n.t("plans.recovery.restartAction"),
   });
   expect(restart.hasAttribute("disabled")).toBe(true);
   fireEvent.click(
@@ -125,7 +125,7 @@ it("disables restart and closing while a decision is pending", () => {
   expect(
     screen
       .getByRole("button", {
-        name: i18n.t("plans.recovery.restartAction", { revision: 3 }),
+        name: i18n.t("plans.recovery.restartAction"),
       })
       .hasAttribute("disabled"),
   ).toBe(true);

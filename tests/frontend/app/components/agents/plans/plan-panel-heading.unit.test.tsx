@@ -1,10 +1,7 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
-import {
-  PlanNextRunNote,
-  PlanPanelHeading,
-} from "@/app/components/agents/plans/plan-panel-heading";
+import { PlanPanelHeading } from "@/app/components/agents/plans/plan-panel-heading";
 
 import {
   actionScene,
@@ -66,8 +63,11 @@ function contextLine(): string | null | undefined {
   return screen.getByRole("heading").nextElementSibling?.textContent;
 }
 
-function revisionLine(): string | null | undefined {
-  return screen.getByText(/^Revision \d/u).textContent;
+function saveLine(): string | null {
+  const labels = ["savedShort", "unsavedShort", "savingShort"].map((key) =>
+    i18n.t(`plans.panel.${key}`),
+  );
+  return screen.getByText((content) => labels.includes(content)).textContent;
 }
 
 it("names the plan in its workspace and saves only an edited draft", async () => {
@@ -79,14 +79,10 @@ it("names the plan in its workspace and saves only an edited draft", async () =>
       .getAttribute("title"),
   ).toBe("Synthetic plan");
   expect(screen.getByText("Project · Workspace")).toBeDefined();
-  expect(revisionLine()).toBe(
-    `Revision 3 · ${i18n.t("plans.panel.savedShort")}`,
-  );
+  expect(saveLine()).toBe(i18n.t("plans.panel.savedShort"));
   expect(saveButton().hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Edit draft" }));
-  expect(revisionLine()).toBe(
-    `Revision 3 · ${i18n.t("plans.panel.unsavedShort")}`,
-  );
+  expect(saveLine()).toBe(i18n.t("plans.panel.unsavedShort"));
   fireEvent.click(saveButton());
 
   await waitFor(() => expect(scene.submissions).toHaveLength(1));
@@ -105,17 +101,13 @@ it("shows the save as running until the server has answered and only then as sto
   fireEvent.click(saveButton());
 
   await waitFor(() =>
-    expect(revisionLine()).toBe(
-      `Revision 3 · ${i18n.t("plans.panel.savingShort")}`,
-    ),
+    expect(saveLine()).toBe(i18n.t("plans.panel.savingShort")),
   );
   expect(saveButton().getAttribute("aria-busy")).toBe("true");
   act(() => release());
 
   await waitFor(() =>
-    expect(revisionLine()).toBe(
-      `Revision 4 · ${i18n.t("plans.panel.savedShort")}`,
-    ),
+    expect(saveLine()).toBe(i18n.t("plans.panel.savedShort")),
   );
   expect(saveButton().getAttribute("aria-busy")).not.toBe("true");
 });
@@ -161,9 +153,7 @@ it("leaves the context empty and saving closed for a new plan without a workspac
   fireEvent.click(screen.getByRole("button", { name: "Edit draft" }));
 
   expect(saveButton().hasAttribute("disabled")).toBe(true);
-  expect(revisionLine()).toBe(
-    `Revision 0 · ${i18n.t("plans.panel.unsavedShort")}`,
-  );
+  expect(saveLine()).toBe(i18n.t("plans.panel.unsavedShort"));
 });
 
 const REMOTE = {
@@ -276,68 +266,30 @@ it("labels the open details as collapsible", () => {
   ).toBe("true");
 });
 
-it("names the snapshot an active run keeps", () => {
-  renderHeading(planPage(), {
-    control: planControl({ status: "running", runId: "run", planRevision: 2 }),
-  });
+it.each(["running", "pausing", "stopping"] as const)(
+  "says that a %s run locks the plan and never shows a revision",
+  (status) => {
+    renderHeading(planPage(), {
+      control: planControl({ status, runId: "run", planRevision: 2 }),
+    });
 
-  expect(revisionLine()).toBe(
-    `Revision 3 · ${i18n.t("plans.panel.savedShort")} · ${i18n.t("plans.execution.activeSnapshot", { revision: 2 })}`,
-  );
-});
+    expect(saveLine()).toBe(i18n.t("plans.panel.savedShort"));
+    expect(screen.getByRole("status").textContent).toBe(
+      i18n.t("plans.execution.editLocked"),
+    );
+    expect(screen.queryByText(/revision/iu)).toBeNull();
+  },
+);
 
-it("names no snapshot for an ended run or one without an identifier", () => {
-  const view = renderHeading(planPage(), {
-    control: planControl({ status: "running", planRevision: 2 }),
-  });
-  expect(revisionLine()).toBe(
-    `Revision 3 · ${i18n.t("plans.panel.savedShort")}`,
-  );
-  view.unmount();
+it.each(["paused", "failed", "cancelled", "succeeded"] as const)(
+  "keeps a plan with a %s run editable without a lock note",
+  (status) => {
+    renderHeading(planPage(), {
+      control: planControl({ status, runId: "run", planRevision: 2 }),
+    });
 
-  renderHeading(planPage(), {
-    control: planControl({
-      status: "succeeded",
-      runId: "run",
-      planRevision: 2,
-    }),
-  });
-
-  expect(revisionLine()).toBe(
-    `Revision 3 · ${i18n.t("plans.panel.savedShort")}`,
-  );
-});
-
-function renderNote(control: AgentPlanControl | undefined): void {
-  renderWithEditor(planPage(), actionScene(), (editor) => (
-    <PlanNextRunNote editor={editor} control={control} />
-  ));
-}
-
-it("says that a saved revision waits for the next run", () => {
-  renderNote(planControl({ status: "running", runId: "run", planRevision: 2 }));
-
-  expect(
-    screen.getByText(i18n.t("plans.execution.nextRunTitle")),
-  ).toBeDefined();
-  expect(
-    screen.getByText(i18n.t("plans.execution.nextRunHint", { revision: 2 })),
-  ).toBeDefined();
-});
-
-it.each([
-  ["no control", undefined],
-  ["an idle plan", planControl({ runId: "run", planRevision: 2 })],
-  [
-    "a run without identifier",
-    planControl({ status: "running", planRevision: 2 }),
-  ],
-  [
-    "a run of the saved revision",
-    planControl({ status: "running", runId: "run", planRevision: 3 }),
-  ],
-])("says nothing about the next run for %s", (name, control) => {
-  renderNote(control);
-
-  expect(screen.queryByText(i18n.t("plans.execution.nextRunTitle"))).toBeNull();
-});
+    expect(saveLine()).toBe(i18n.t("plans.panel.savedShort"));
+    expect(screen.queryByText(i18n.t("plans.execution.editLocked"))).toBeNull();
+    expect(screen.queryByText(/revision/iu)).toBeNull();
+  },
+);

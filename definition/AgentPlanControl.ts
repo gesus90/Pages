@@ -17,7 +17,13 @@ export interface AgentPlanControl {
   readonly canPause: boolean;
   readonly canResume: boolean;
   readonly canStop: boolean;
-  /** Saving a new revision is independent of the active run, whose snapshot stays pinned. */
+  /**
+   * Whether the reader holds the right to change the plan.
+   *
+   * @remarks
+   * While a run executes steps the server refuses every change anyway; the
+   * editor reads that from {@link AgentPlanControl.status}.
+   */
   readonly canEdit: boolean;
   readonly issue: string | null;
   readonly issues?: readonly AgentPlanIssue[];

@@ -24,7 +24,7 @@ function renderRestart(
 
 function restartButton(): HTMLElement {
   return screen.getByRole("button", {
-    name: i18n.t("plans.recovery.restartAction", { revision: 3 }),
+    name: i18n.t("plans.recovery.restartAction"),
   });
 }
 
@@ -39,9 +39,7 @@ it("starts the saved revision again only after the repeat was confirmed", () => 
     recoveryView({ restart: { available: true, reason: null } }),
   );
 
-  expect(
-    screen.getByText(i18n.t("plans.recovery.restartHint", { revision: 3 })),
-  ).toBeDefined();
+  expect(screen.getByText(i18n.t("plans.recovery.restartHint"))).toBeDefined();
   expect(restartButton().hasAttribute("disabled")).toBe(true);
   fireEvent.click(confirmation());
   fireEvent.click(restartButton());

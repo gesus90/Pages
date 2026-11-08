@@ -214,7 +214,8 @@ export class AgentPlanRepository {
    * of the system, which keeps the recorded editor.
    * @throws {AgentError} `plan_conflict` for a stale revision, another owner
    * or department, `plan_name_taken` when another plan of the same project
-   * and department already has the name.
+   * and department already has the name, `plan_pause_required` while a run of
+   * the plan executes steps.
    */
   public async save(
     plan: AgentPlan,
@@ -395,6 +396,7 @@ async function writePlan(
         (previous.departmentId ?? null) !== (plan.departmentId ?? null)))
   )
     throw new AgentError("plan_conflict");
+  if (!isNew) await requireEditablePlan(transaction, plan.id);
   await requirePlanWorkspace(transaction, plan);
   await requirePlanAgents(transaction, plan);
   await new AgentWorkspaceReferencesRepository(transaction).requireReferences(
@@ -402,6 +404,24 @@ async function writePlan(
   );
   await storePlan(transaction, write);
   await write.journal?.(transaction);
+}
+
+/** UI, Pica, MCP and agent sessions all store through here, so one check covers every editor. */
+async function requireEditablePlan(
+  transaction: DatabaseTransaction,
+  planId: string,
+): Promise<void> {
+  const [executing] = await transaction.query(
+    `
+    SELECT id
+    FROM agent_plan_runs
+    WHERE plan_id = $plan_id
+        AND status IN ('running', 'pausing', 'stopping')
+    LIMIT 1;
+  `,
+    { plan_id: planId },
+  );
+  if (executing) throw new AgentError("plan_pause_required");
 }
 
 async function requirePlanWorkspace(

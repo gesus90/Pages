@@ -1,3 +1,4 @@
+import { isPlanEditLocked } from "@/definition/AgentPlanRunState";
 import { isAgentErrorCode } from "@/backend/error/AgentErrors";
 import {
   controlOnlyPlanControl,
@@ -50,7 +51,7 @@ export async function readPlanControlEntry(
     planId,
     revision: plan.revision,
     status: control.status,
-    canEdit: plan.canEdit,
+    canEdit: plan.canEdit && !isPlanEditLocked(control.status),
     canDelete,
     canPlay: control.canPlay,
     canRestart: control.canRestart === true && run !== null,

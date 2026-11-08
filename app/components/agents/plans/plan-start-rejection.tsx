@@ -61,7 +61,6 @@ export function PlanStartRejection({
             : "plans.panel.lastStartRejection",
           {
             time: new Date(rejection.createdAt).toLocaleString(),
-            revision: rejection.planRevision,
           },
         )}
       </p>

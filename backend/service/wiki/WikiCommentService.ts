@@ -30,6 +30,13 @@ export interface CommentInput {
   readonly quoteSuffix: string | null;
 }
 
+/** One comment together with the first comment it answers. */
+export interface WikiCommentEntry {
+  readonly comment: WikiComment;
+  /** The first comment this one answers; `null` for a first comment. */
+  readonly parentId: string | null;
+}
+
 /** Longest quoted passage and longest piece of its surroundings. */
 export const COMMENT_QUOTE_LENGTH = 500;
 const CONTEXT_LENGTH = 40;
@@ -144,6 +151,25 @@ export class WikiCommentService {
           .filter((reply) => reply.parentId === root.view.id)
           .map((reply) => reply.view),
       }));
+  }
+
+  /**
+   * Reads one comment of a page the person sees.
+   *
+   * @param actor - The signed-in user.
+   * @param id - Comment identifier.
+   * @returns The comment and the first comment it answers.
+   * @throws {WikiPageNotFoundError} When the comment is missing or its page
+   * is hidden; both look the same.
+   */
+  public async get(actor: User, id: string): Promise<WikiCommentEntry> {
+    const viewer = await this.access.resolve(actor);
+    const { comment, page } = await this.load(this.repository, viewer, id);
+
+    return {
+      comment: toComment(viewer, page, comment, toPlainText(page.content)),
+      parentId: comment.parentId,
+    };
   }
 
   /**

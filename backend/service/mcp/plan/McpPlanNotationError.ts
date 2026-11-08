@@ -6,6 +6,7 @@ export type McpPlanNotationErrorCode =
   | "forbidden"
   | "not_found"
   | "conflict"
+  | "plan_running"
   | "too_large"
   | "notation_invalid"
   | "invalid_request";
@@ -15,6 +16,7 @@ const STATUS_OF_CODE: Readonly<Record<McpPlanNotationErrorCode, number>> = {
   forbidden: 403,
   not_found: 404,
   conflict: 409,
+  plan_running: 409,
   too_large: 413,
   notation_invalid: 422,
   invalid_request: 400,

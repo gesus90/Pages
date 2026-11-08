@@ -45,6 +45,7 @@ import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import { agentConfirmationWord } from "@/backend/service/agents/AgentConfirmation";
+import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 
 import { runnerAssetUpload } from "./agent-asset-return.server";
 import { createMcpDeviceServices } from "./mcp-device-services.server";
@@ -82,6 +83,8 @@ export interface McpApplicationServices extends McpDeviceApplicationServices {
   readonly mcpPlanServices: () => McpPlanServices;
   /** The plan service of the paired Pages MCP machines, bound to the `mcp` channel (PAGE-246, PAGE-250). */
   readonly mcpPlanService: () => AgentPlanService;
+  /** The saves of the wiki API of the paired Pages MCP machines by operation ID (PAGE-257). */
+  readonly mcpWikiOperations: AgentOperationKeyRepository;
 }
 
 /** What the operations of one agent channel share. */
@@ -531,5 +534,6 @@ export function createMcpServices(
     ),
     mcpPlanServices: lazyMcpPlanServices(database, mcpPlanService, identities),
     mcpPlanService,
+    mcpWikiOperations: new AgentOperationKeyRepository(database),
   };
 }

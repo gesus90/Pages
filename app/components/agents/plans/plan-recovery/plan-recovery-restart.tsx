@@ -38,11 +38,7 @@ export function PlanRecoveryRestart({
       <legend className="font-medium text-foreground">
         {t("plans.recovery.restart")}
       </legend>
-      <p>
-        {t("plans.recovery.restartHint", {
-          revision: view.currentPlanRevision,
-        })}
-      </p>
+      <p>{t("plans.recovery.restartHint")}</p>
       <label className="flex items-start gap-2 [@media(pointer:coarse)]:min-h-11">
         <input
           type="checkbox"
@@ -88,9 +84,7 @@ export function PlanRecoveryRestart({
           onClick={handleRestart}
           className="[@media(pointer:coarse)]:h-11"
         >
-          {t("plans.recovery.restartAction", {
-            revision: view.currentPlanRevision,
-          })}
+          {t("plans.recovery.restartAction")}
         </Button>
       </div>
     </fieldset>

@@ -186,7 +186,7 @@ export class AgentPlanExecution implements PlanExecution {
     return this.cli.hasDurableLocalSessions === true;
   }
 
-  /** Releases private CLI transcripts only after the complete plan has settled. */
+  /** Releases the local session owners only after the complete plan has settled. */
   public async finishPlanRun(
     runId: string,
     status: "succeeded" | "failed" | "cancelled",

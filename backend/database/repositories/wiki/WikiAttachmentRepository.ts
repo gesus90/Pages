@@ -186,6 +186,28 @@ export class WikiAttachmentRepository {
   }
 
   /**
+   * Counts the attachments of the pages one deletion moved into the trash.
+   *
+   * @param rootId - The page that was deleted as such.
+   * @returns The number of attachments a purge of that page removes.
+   */
+  public async countByDeletionGroup(rootId: string): Promise<number> {
+    const rows = await this.database.query(
+      `
+        SELECT COUNT(attachment.id)
+        FROM wiki_attachments AS attachment
+        INNER JOIN wiki_pages AS page
+            ON page.id = attachment.page_id
+        WHERE page.deleted_root_id = $root_id;
+      `,
+      { root_id: rootId },
+    );
+    const [row] = rows;
+
+    return row ? readCount(row, 0, "count") : 0;
+  }
+
+  /**
    * Lists the names of every file the database refers to.
    *
    * @returns Storage names.

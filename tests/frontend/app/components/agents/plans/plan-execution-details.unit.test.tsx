@@ -90,7 +90,6 @@ it("shows the frozen local context of an agent node", () => {
   );
 
   expect(snapshot).toEqual([
-    row("revision", "7"),
     row("target", i18n.t("plans.execution.local")),
     row("workspace", "/srv/pages"),
     row("modelAccess", "OpenRouter main · openrouter"),
@@ -175,7 +174,6 @@ it("shows the remote target and the process attempt of a script without model ro
   );
 
   expect(snapshot).toEqual([
-    row("revision", "7"),
     row("target", "homeNAS"),
     row("workspace", "pageNAS · /volume1/pages"),
     row("modelAccess", notApplicable()),

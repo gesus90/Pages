@@ -187,6 +187,18 @@ export function withReadScope<Result>(
     : work();
 }
 
+/**
+ * Runs work outside of any read scope, for work detached from the unit that started it.
+ *
+ * @param work - Work whose reads must see the current state, not remembered answers.
+ * @returns What `work` returns.
+ */
+export function withoutReadScope<Result>(
+  work: () => Promise<Result>,
+): Promise<Result> {
+  return scopes.exit(work);
+}
+
 /** Returns the scope of the running unit of work, or `undefined` outside one. */
 export function currentReadScope(): ReadScope | undefined {
   return scopes.getStore();

@@ -59,7 +59,6 @@ it("pages explicitly, retries a failed page at the same cursor and marks complet
   await screen.findByText(
     i18n.t("plans.panel.historicalStartRejection", {
       time: new Date(REJECTION.createdAt).toLocaleString(),
-      revision: 2,
     }),
   );
   await waitFor(() =>

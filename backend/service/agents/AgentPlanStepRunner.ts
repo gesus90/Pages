@@ -210,7 +210,7 @@ export class AgentPlanStepRunner {
     await this.closeSessionGroups(runId, groupId);
   }
 
-  /** Releases plan transcript storage after all native sessions have closed. */
+  /** Releases the local session owners after all native sessions have closed; transcripts stay. */
   public async finishPlanRun(
     runId: string,
     status: "succeeded" | "failed" | "cancelled",

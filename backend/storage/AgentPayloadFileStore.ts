@@ -9,7 +9,9 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import type { DatabaseTransaction } from "@/backend/database/Database";
+import { AgentDeferredGarbage } from "./AgentDeferredGarbage";
+
+import type { GarbageDatabase } from "./AgentDeferredGarbage";
 
 const PLAN_DIRECTORY = /^agent-payloads\/[a-f0-9]{64}\/$/u;
 const FILE_PATH = /^agent-payloads\/[a-f0-9]{64}\/[a-f0-9-]{36}\.payload$/u;
@@ -75,9 +77,24 @@ export async function readStoredAgentPayload(
 export class AgentPayloadFileStore {
   private readonly directory: string;
   private readonly garbage = new SerialQueue();
+  private readonly deferred: AgentDeferredGarbage;
 
-  public constructor(directory: string) {
+  /**
+   * Creates the store of one instance data directory.
+   *
+   * @param directory - The configured data directory.
+   * @param options - How long a deferred deletion that left work behind waits before it is tried again.
+   */
+  public constructor(
+    directory: string,
+    options: { readonly deferredRetryMs?: number } = {},
+  ) {
     this.directory = path.resolve(directory);
+    this.deferred = new AgentDeferredGarbage({
+      directory: this.directory,
+      removePayload: (reference) => this.removeReference(reference),
+      retryDelayMs: options.deferredRetryMs,
+    });
   }
 
   /** Writes and fsyncs bytes, then atomically publishes and fsyncs their directory. */
@@ -144,8 +161,16 @@ export class AgentPayloadFileStore {
     }
   }
 
-  /** Retries committed deletion intents; a failure retains the intent for the next transaction/startup. */
-  public async collectGarbage(database: DatabaseTransaction): Promise<void> {
+  /**
+   * Retries committed deletion intents; a failure retains the intent for the next transaction/startup.
+   *
+   * @remarks
+   * Payload files go before this resolves. The purge of earlier plan runs,
+   * transcript homes and local session journals take longer and continue in
+   * the background, so a commit, such as the start of a new run, never waits
+   * for them.
+   */
+  public async collectGarbage(database: GarbageDatabase): Promise<void> {
     await this.garbage.run(async () => {
       try {
         let hasMore = true;
@@ -154,11 +179,28 @@ export class AgentPayloadFileStore {
         logCaughtError("AgentPayloadFileStore", error);
       }
     });
+    this.deferred.schedule(database);
   }
 
-  private async removeBatch(database: DatabaseTransaction): Promise<boolean> {
+  /** Resolves once the background deletions that are scheduled now have finished. */
+  public async settleGarbage(): Promise<void> {
+    await this.deferred.idle();
+  }
+
+  /** Stops background deletions; the one in progress finishes first, the rest waits for the next start. */
+  public async close(): Promise<void> {
+    await this.deferred.close();
+  }
+
+  private async removeBatch(database: GarbageDatabase): Promise<boolean> {
     const rows = await database.query(
-      "SELECT storage_name FROM agent_payload_garbage ORDER BY storage_name LIMIT 256;",
+      `
+      SELECT storage_name
+      FROM agent_payload_garbage
+      WHERE storage_name LIKE 'agent-payloads/%'
+      ORDER BY storage_name
+      LIMIT 256;
+    `,
     );
     for (const row of rows) {
       const storageName = row[0];
@@ -171,6 +213,19 @@ export class AgentPayloadFileStore {
       );
     }
     return rows.length === 256;
+  }
+
+  /** Removes the file a payload reference names; anything that is no reference is left alone. */
+  private async removeReference(serialized: string): Promise<void> {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(serialized);
+    } catch (error: unknown) {
+      if (error instanceof SyntaxError) return;
+      throw error;
+    }
+    const reference = referenceSchema.safeParse(parsed);
+    if (reference.success) await this.remove(reference.data.path);
   }
 
   private async prepareDirectory(parent: string): Promise<void> {

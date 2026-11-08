@@ -143,7 +143,7 @@ it.each([
   expect(screen.getByText(i18n.t(key))).toBeDefined();
 });
 
-it("names the adopted revision of a continuation and the snapshot an active run keeps", () => {
+it("names no plan revision or snapshot for a continued active run", () => {
   renderDetails({
     control: planControl({
       status: "running",
@@ -153,14 +153,7 @@ it("names the adopted revision of a continuation and the snapshot an active run 
     }),
   });
 
-  expect(
-    screen.getByText(
-      i18n.t("plans.panel.revision", { version: 4, revision: 2 }),
-    ),
-  ).toBeDefined();
-  expect(
-    screen.getByText(i18n.t("plans.execution.nextRunTitle")),
-  ).toBeDefined();
+  expect(screen.queryByText(/revision|snapshot/iu)).toBeNull();
 });
 
 it("shows why a recoverable run cannot be read", () => {

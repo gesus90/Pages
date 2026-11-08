@@ -16,7 +16,6 @@ export function PlanExecutionDetails({
   if (!execution) return null;
   const target = execution.target;
   const rows: readonly (readonly [string, string])[] = [
-    ["revision", String(execution.planRevision)],
     [
       "target",
       target.kind === "remote"

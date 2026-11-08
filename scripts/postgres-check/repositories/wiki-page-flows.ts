@@ -1,3 +1,4 @@
+import { WikiAttachmentRepository } from "@/backend/database/repositories/wiki/WikiAttachmentRepository";
 import { WikiPageRepository } from "@/backend/database/repositories/wiki/WikiPageRepository";
 import {
   readCount,
@@ -335,7 +336,13 @@ const TRASH_STEPS: readonly RepositoryStep[] = [
     UPDATE wiki_pages SET deleted_at = '2026-01-01 00:00:00' WHERE id IN ('page-y', 'page-x', 'page-z');
     UPDATE wiki_pages SET deleted_by = 'user-admin' WHERE id = 'page-z';
   `),
+  call("WikiAttachmentRepository.countByDeletionGroup", ({ database }) =>
+    new WikiAttachmentRepository(database).countByDeletionGroup("page-y"),
+  ),
   ...SCOPES.flatMap((scope) => [
+    call("WikiPageRepository.listDeletionGroup", ({ database }) =>
+      new WikiPageRepository(database).listDeletionGroup(scope, "page-y"),
+    ),
     call("WikiPageRepository.listTrash", ({ database }) =>
       new WikiPageRepository(database).listTrash(scope, false),
     ),

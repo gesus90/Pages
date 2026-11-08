@@ -44,6 +44,7 @@ export interface WikiNodeRecord {
 /** A deleted page that can be restored. */
 export interface WikiTrashEntry extends WikiPageLink {
   readonly scope: WikiScope;
+  readonly projectId: string | null;
   readonly projectName: string | null;
   readonly ownerId: string;
   readonly ownerName: string;
@@ -466,7 +467,8 @@ export class WikiPageRepository {
             owner.display_name,
             page.deleted_at,
             remover.display_name,
-            parent.title
+            parent.title,
+            page.project_id
         FROM wiki_pages AS page
         INNER JOIN visible_pages
             ON visible_pages.id = page.id
@@ -490,10 +492,45 @@ export class WikiPageRepository {
       ownerId: readTextColumn(row, 5, "owner_id"),
       ownerName: readNullableTextColumn(row, 6, "owner_name") ?? "",
       parentTitle: readNullableTextColumn(row, 9, "parent_title"),
+      projectId: readNullableTextColumn(row, 10, "project_id"),
       projectName: readNullableTextColumn(row, 4, "project_name"),
       scope: readScope(row, 3),
       title: readTextColumn(row, 1, "title"),
     }));
+  }
+
+  /**
+   * Lists the pages that one deletion moved into the trash.
+   *
+   * @param scope - What the viewer may see, ignoring the trash.
+   * @param rootId - The page that was deleted as such.
+   * @returns The visible pages of the deletion, the deleted page first.
+   */
+  public async listDeletionGroup(
+    scope: WikiVisibilityScope,
+    rootId: string,
+  ): Promise<WikiPageLink[]> {
+    const visible = createVisiblePagesQuery(scope, { includeDeleted: true });
+    const rows = await this.database.query(
+      `
+        ${visible.sql}
+        SELECT
+            page.id,
+            page.title,
+            page.icon
+        FROM wiki_pages AS page
+        INNER JOIN visible_pages
+            ON visible_pages.id = page.id
+        WHERE page.deleted_root_id = $root_id
+        ORDER BY
+            CASE WHEN page.id = $root_id THEN 0 ELSE 1 END,
+            page.title,
+            page.id;
+      `,
+      { ...visible.parameters, root_id: rootId },
+    );
+
+    return rows.map(readLink);
   }
 
   /**

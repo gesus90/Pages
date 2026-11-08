@@ -158,6 +158,7 @@ export class Database {
 
   /** Releases the connection pool after accepted work finishes. */
   public async close(): Promise<void> {
+    await this.agentFiles?.close();
     await this.executor.close();
     logEvent({
       level: "info",

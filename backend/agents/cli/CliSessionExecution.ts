@@ -111,8 +111,7 @@ interface SessionDependencies {
   readonly tools?: AgentToolManagerService;
   readonly resources?: AcpResourceScheduler;
   readonly runtime: Pick<AgentCliRuntime, "adapter">;
-  readonly store: Pick<AgentCredentialStore, "prepare" | "secure"> &
-    Partial<Pick<AgentCredentialStore, "finishPlanRun">>;
+  readonly store: Pick<AgentCredentialStore, "prepare" | "secure">;
   readonly locator: Pick<CliLocator, "find" | "locate">;
   readonly runner: Pick<CliProcessRunner, "startSession">;
   /** Absent disables the isolation. */
@@ -183,14 +182,6 @@ export class CliSessionExecution implements PlanSessionRunner {
         : null,
       dependencies.tools !== undefined || isolation?.isRequired === true,
     );
-  }
-
-  /** Applies the plan transcript retention boundary after the run is terminal. */
-  public async finishPlanRun(
-    runId: string,
-    status: "succeeded" | "failed" | "cancelled",
-  ): Promise<void> {
-    await this.dependencies.store.finishPlanRun?.(runId, status);
   }
 
   /**

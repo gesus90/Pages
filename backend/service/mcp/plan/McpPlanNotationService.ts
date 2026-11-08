@@ -297,6 +297,8 @@ export class McpPlanNotationService {
       });
     if (error instanceof AgentError && error.code === "plan_access_denied")
       return new McpPlanNotationError("forbidden");
+    if (error instanceof AgentError && error.code === "plan_pause_required")
+      return new McpPlanNotationError("plan_running");
     const locations =
       input.prepared?.locations ?? new Map<string, PlanNotationLocation>();
     if (error instanceof AgentPlanValidationError)

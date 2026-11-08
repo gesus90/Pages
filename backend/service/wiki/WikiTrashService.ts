@@ -18,6 +18,29 @@ import type { User } from "@/definition/User";
 import type { WikiPrivatePlaceholder } from "@/definition/Wiki";
 import type { WikiAccess, WikiViewer } from "./WikiAccess";
 
+/** A page named by its identifier and title. */
+interface WikiPageName {
+  readonly id: string;
+  readonly title: string;
+}
+
+/** What moving a page into the trash or removing it for good would affect. */
+export interface WikiDeletionScope {
+  readonly page: WikiPageName;
+  /** The page itself and every visible page below it that goes with it. */
+  readonly affected: readonly WikiPageName[];
+}
+
+/** What removing a page from the trash for good would affect. */
+export interface WikiPurgeScope extends WikiDeletionScope {
+  /** Attachments of every page of the deletion; their files go too. */
+  readonly attachmentCount: number;
+}
+
+function toName(page: WikiPageName): WikiPageName {
+  return { id: page.id, title: page.title };
+}
+
 /** Deletes pages into the trash, restores them and removes them for good. */
 export class WikiTrashService {
   private readonly repository: WikiRepository;
@@ -57,6 +80,70 @@ export class WikiTrashService {
       await repository.writes.markDeleted(id, actor.id);
       await recordWikiActivity(repository, page, actor.id, "wiki_page_deleted");
     });
+  }
+
+  /**
+   * Tells what moving a page into the trash would affect, without moving it.
+   *
+   * @param actor - The signed-in user.
+   * @param id - Page identifier.
+   * @returns The page and the pages that would go into the trash with it.
+   * @throws {WikiAccessDeniedError} When the actor does not manage the page.
+   * @throws {WikiPageNotFoundError} When the page is missing or hidden.
+   */
+  public async previewDelete(
+    actor: User,
+    id: string,
+  ): Promise<WikiDeletionScope> {
+    const viewer = await this.access.resolve(actor);
+    const page = await new WikiPageReader(this.repository).require(
+      viewer.scope,
+      id,
+    );
+
+    if (!canManagePage(viewer, page)) {
+      throw new WikiAccessDeniedError();
+    }
+
+    const subtree = await this.repository.pages.findSubtreeIds(id);
+    const titles = new Map(
+      (await this.repository.pages.findTitles(viewer.scope, subtree)).map(
+        (entry) => [entry.id, entry.title],
+      ),
+    );
+
+    return {
+      affected: subtree.flatMap((pageId) => {
+        const title = titles.get(pageId);
+
+        return title === undefined ? [] : [{ id: pageId, title }];
+      }),
+      page: toName(page),
+    };
+  }
+
+  /**
+   * Tells what removing a page from the trash for good would affect.
+   *
+   * @param actor - The signed-in user.
+   * @param id - Page that was deleted as such.
+   * @returns The page, the pages deleted with it and their attachments.
+   * @throws {WikiAccessDeniedError} When the actor does not manage the page.
+   * @throws {WikiValidationError} When the page is not in the trash.
+   */
+  public async previewPurge(actor: User, id: string): Promise<WikiPurgeScope> {
+    const viewer = await this.access.resolve(actor);
+    const page = await this.requireTrashed(this.repository, viewer, id);
+    const [group, attachmentCount] = await Promise.all([
+      this.repository.pages.listDeletionGroup(viewer.scope, id),
+      this.repository.attachments.countByDeletionGroup(id),
+    ]);
+
+    return {
+      affected: group.map(toName),
+      attachmentCount,
+      page: toName(page),
+    };
   }
 
   /**

@@ -170,6 +170,7 @@ function installTrashReads(state: WikiState): void {
           ownerName: row.page.ownerName,
           parentTitle:
             state.data.pages.get(row.page.parentId ?? "")?.page.title ?? null,
+          projectId: row.page.projectId,
           projectName: row.page.projectName,
           scope: row.page.scope,
         })),

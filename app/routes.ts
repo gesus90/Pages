@@ -6,6 +6,8 @@ import {
   type RouteConfigEntry,
 } from "@react-router/dev/routes";
 
+import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
+
 /**
  * Which route table a build reads (PAGE-235).
  *
@@ -293,6 +295,7 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ...mcpWorkspaceRoutes(routes),
     ...mcpPlanRoutes(routes),
     ...mcpPlanNotationRoutes(routes),
+    ...mcpWikiRoutes(routes.resource),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),
     resource("favicon.ico", "routes/favicon.ts"),

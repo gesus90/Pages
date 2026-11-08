@@ -112,13 +112,14 @@ first session of a node moves that node's transcripts from the failed source
 run, so the history has exactly one owner and the source run offers no second
 recovery.
 
-Retention and resume lifetime belong together: every session start renews a
-seven-day lease (`retained-until`) on the run's transcripts. A succeeded or
-stopped run deletes them as soon as its closeout is confirmed; a failed run
-keeps them for seven days so the explicitly reviewed recovery can still
-resume. Expired leases are pruned when the connection is next prepared. After
-that a resume reports `resume_unavailable` instead of a silent new session. A
-connection's removal deletes its transcripts with it.
+Retention and resume lifetime belong together (PAGE-255): a run keeps its
+transcripts, whether it succeeded, stopped, failed or paused, until its plan
+starts a genuinely new run. Stopping, pausing, resuming, recovering and
+repairing delete nothing. The new run's start removes the earlier runs of the
+same plan in the background (`AgentPlanRunPurge`), and their transcript
+folders go with their run records. A resume after that reports
+`resume_unavailable` instead of a silent new session. A connection's removal
+deletes its transcripts with it.
 
 On a host without bubblewrap nothing separates folders at all, so such a
 session keeps the connection's own home, which holds the login; Claude Code's

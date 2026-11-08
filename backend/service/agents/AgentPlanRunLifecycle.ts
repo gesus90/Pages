@@ -105,7 +105,7 @@ export async function finalizeScheduledPlanRun(
   if (!hasUnconfirmedCloseout(active)) await active.releaseDefinition?.();
   if (!hasUnconfirmedCloseout(active) && isEndedStatus(status))
     await dependencies.steps
-      // An open closeout keeps its transcripts like a failure: its resume may continue the session.
+      // An open closeout keeps its owners like a failure: its resume may continue the session.
       .finishPlanRun?.(
         active.view.id,
         status === "work_done_closeout_open" ? "failed" : status,

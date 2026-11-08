@@ -8,7 +8,9 @@ Instanz `default`: API/UI (`server.mjs`), Planläufe (`pages-runs.mjs`), GitHub/
 Der Rust-Dienst `pages-core` (PAGE-237, `deploy/core/pages-core@.service`, 256M)
 hält auf Wunsch die Live-Streams; er kommt erst mit der Umstellung einer Instanz
 hinzu ([deploy/core/README.md](../deploy/core/README.md)). Backup- und Restore-Check-Timer unter `deploy/postgres/`
-bleiben eigenständige Betriebsaufgaben.
+bleiben eigenständige Betriebsaufgaben. Von den Deploy-Backups unter
+`/mnt/Data/PagesBackups` behält `deploy/backups/rotate-deploy-backups.sh` nach
+einem geprüften neuen Backup nur dieses ([deploy/backups/README.md](../deploy/backups/README.md)).
 
 Die Vorlagen richten keine Installation ein. Eine produktive Installation und
 Aktivierung ist ein eigener Betriebsauftrag. Dafür vorgesehen sind:

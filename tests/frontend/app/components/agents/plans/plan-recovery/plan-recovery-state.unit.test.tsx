@@ -89,7 +89,7 @@ function value(label: string): string | null | undefined {
   return screen.getByText(i18n.t(label)).nextElementSibling?.textContent;
 }
 
-it("names the state, no failure point, no checkpoint and both revisions", () => {
+it("names the state, no failure point, no checkpoint and that the plan changed", () => {
   renderTranslated(<PlanRecoveryState view={recoveryView()} />);
 
   expect(value("plans.recovery.stateLabel")).toBe(
@@ -101,8 +101,8 @@ it("names the state, no failure point, no checkpoint and both revisions", () => 
   expect(value("plans.recovery.checkpoint")).toBe(
     i18n.t("plans.recovery.checkpointNone"),
   );
-  expect(value("plans.recovery.revisions")).toBe(
-    i18n.t("plans.recovery.revisionValue", { run: 2, current: 3 }),
+  expect(value("plans.recovery.planState")).toBe(
+    i18n.t("plans.recovery.planChanged"),
   );
   expect(screen.queryByText(i18n.t("plans.recovery.originLabel"))).toBeNull();
 });

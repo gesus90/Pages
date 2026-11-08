@@ -37,7 +37,6 @@ it("labels a past refusal separately and names the affected own target", () => {
     screen.getByText(
       i18n.t("plans.panel.lastStartRejection", {
         time: new Date(REJECTION.createdAt).toLocaleString(),
-        revision: 2,
       }),
     ),
   ).toBeDefined();

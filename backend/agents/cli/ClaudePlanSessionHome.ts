@@ -1,27 +1,20 @@
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
-import {
-  access,
-  lstat,
-  mkdir,
-  open,
-  rename,
-  writeFile,
-} from "node:fs/promises";
+import { access, lstat, mkdir, open, rename } from "node:fs/promises";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { CliHome } from "./CliContracts";
 
-/** Folder of a connection that holds the transcript homes of its plan runs. */
+/**
+ * Folder of a connection that holds the transcript homes of its plan runs.
+ *
+ * @remarks
+ * A run's folder stays until its plan starts a new run; the deletion follows
+ * the removal of the run record (`agent_payload_garbage`).
+ */
 export const PLAN_SESSIONS_DIRECTORY = "plan-sessions";
-
-/** Run-level file whose content is the epoch millisecond after which the run's transcripts may be deleted. */
-export const PLAN_RETENTION_FILE = "retained-until";
-
-/** How long transcripts outlive the last session start or a failed run, so an explicit recovery can still resume them. */
-export const PLAN_RETENTION_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 
 /** A plan-owned Claude home and the single credential file mounted into it. */
 export interface ClaudePlanSessionHome {
@@ -87,9 +80,9 @@ async function adoptSourceScope(
  * The source credential is never copied. Bubblewrap exposes only this home
  * and binds the one credential file into it, writable so a refreshed token
  * reaches the connection; other connection settings, the history of other
- * runs and the chats of Pica stay hidden. The run's retention lease starts
- * over with every session, so transcripts of a crashed run still expire. A
- * missing or linked credential fails closed.
+ * runs and the chats of Pica stay hidden. The transcripts stay until the
+ * plan starts a new run, so a stopped, failed or paused run can still be
+ * resumed. A missing or linked credential fails closed.
  */
 export async function prepareClaudePlanSessionHome(
   connection: CliHome,
@@ -129,10 +122,5 @@ export async function prepareClaudePlanSessionHome(
   } else if (!existing.isFile() || existing.isSymbolicLink()) {
     throw new AgentError("cli_isolation_unavailable");
   }
-  await writeFile(
-    path.join(sessions, runId, PLAN_RETENTION_FILE),
-    String(Date.now() + PLAN_RETENTION_MILLISECONDS),
-    { mode: 0o600 },
-  );
   return { home, credential: { source, target } };
 }

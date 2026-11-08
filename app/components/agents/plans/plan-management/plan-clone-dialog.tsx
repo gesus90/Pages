@@ -57,10 +57,7 @@ export function PlanCloneDialog({
   return (
     <PlanDialogFrame
       title={t("plans.manage.cloneTitle")}
-      description={t("plans.manage.cloneSource", {
-        name: source.name,
-        revision: source.revision,
-      })}
+      description={t("plans.manage.cloneSource", { name: source.name })}
       submitLabel={t("plans.manage.clone")}
       isPending={management.isPending}
       isSubmitDisabled={request === null || isTaken}

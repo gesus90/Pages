@@ -117,7 +117,7 @@ it("labels every step with its number, name and status and selects it on click",
   const onSelect = vi.fn();
   render(sequence({ selectedId: "one", onSelect }));
   expect(
-    screen.getByRole("group", { name: "Steps of the executed run revision" }),
+    screen.getByRole("group", { name: "Steps of the executed run" }),
   ).toBeTruthy();
   const blocked = screen.getByRole("button", {
     name: "3 · Two · Waiting · blocked by predecessor",

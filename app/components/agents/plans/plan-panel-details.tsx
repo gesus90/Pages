@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 
-import { PlanNextRunNote } from "./plan-panel-heading";
 import { PlanPanelContext } from "./plan-panel-context";
 import { PlanPanelIssueList } from "./plan-panel-issues";
 import { PlanReloadButton } from "./plan-reload-button";
@@ -26,12 +25,6 @@ function PlanPanelNotes({
     control?.status === "pausing" ? t("plans.panel.pausingHint") : null,
     control?.status === "paused" ? t("plans.panel.pausedHint") : null,
     control?.status === "stopping" ? t("plans.panel.stoppingHint") : null,
-    control?.continuationVersion
-      ? t("plans.panel.revision", {
-          version: control.continuationVersion,
-          revision: control.planRevision,
-        })
-      : null,
   ].filter((note) => note !== null);
   if (notes.length === 0) return null;
   return (
@@ -98,7 +91,6 @@ export function PlanPanelDetails(props: {
         </p>
       ) : null}
       <PlanPanelNotes control={props.control} />
-      <PlanNextRunNote editor={props.editor} control={props.control} />
       <PlanPanelContext page={page} />
     </div>
   );

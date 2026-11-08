@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { rm } from "node:fs/promises";
+import { lstat, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
@@ -17,6 +17,7 @@ import {
 import { sanitizeArtifactText } from "./AgentPlanOutput";
 import { renderAgentRunRecord } from "./AgentRunMarkdown";
 
+import type { Dirent } from "node:fs";
 import type { PageAgentRunRepository } from "@/backend/database/repositories/agent/PageAgentRunRepository";
 import type { AgentRunRecordKey } from "@/backend/database/repositories/project/ProjectDeletionFiles";
 import type { ArchiveAgentStep } from "@/backend/agents/PageAgentRecordInput";
@@ -28,6 +29,9 @@ import type {
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
 const CANCELLED_RESULT = "The run was stopped before it finished.";
+/** The file of a record: the SHA-256 of its plan run and step, see {@link runIdentifier}. */
+const RECORD_FILE = /^([a-f0-9]{64})\.md$/u;
+const ARTIFACT_ID = /^[a-zA-Z0-9-]{1,100}$/u;
 
 type ArchiveRepository = Pick<
   PageAgentRunRepository,
@@ -63,6 +67,22 @@ function settledStatus(result: AgentPlanStepResult): PageAgentRunStatus | null {
 
 function runIdentifier(planRunId: string, stepId: string): string {
   return createHash("sha256").update(`${planRunId}\n${stepId}`).digest("hex");
+}
+
+/** The entries of a real directory; a missing or linked one has none. */
+async function realEntries(directory: string): Promise<Dirent[]> {
+  const entry = await lstat(directory).catch((error: unknown) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    )
+      return null;
+    throw error;
+  });
+  if (!entry?.isDirectory()) return [];
+  return readdir(directory, { withFileTypes: true });
 }
 
 /**
@@ -158,10 +178,14 @@ export class AgentRunArchive {
               ),
             ),
         );
-      for (const { agentId, runId } of await this.repository.keys())
+      const keys = await this.repository.keys();
+      for (const { agentId, runId } of keys)
         await this.report(`write the run record file ${runId}`, () =>
           this.restoreFile(agentId, runId),
         );
+      await this.report("remove run record files without a record", () =>
+        this.removeOrphanedFiles(keys),
+      );
     });
   }
 
@@ -256,6 +280,37 @@ export class AgentRunArchive {
     requireArtifactId(runId);
     if (await artifactExists(this.recordPath(agentId, runId))) return;
     await this.materialize(await this.repository.get(agentId, runId));
+  }
+
+  /**
+   * Removes the record files whose record is gone.
+   *
+   * @remarks
+   * A new run of a plan deletes the records of its earlier runs in the
+   * database (PAGE-255); their files lie outside the data directory and go
+   * here. Only files named like a record below `<agent>/runs` are touched.
+   */
+  private async removeOrphanedFiles(
+    keys: readonly AgentRunRecordKey[],
+  ): Promise<void> {
+    const known = new Set(keys.map((key) => `${key.agentId}/${key.runId}`));
+    for (const agent of await realEntries(this.directory)) {
+      if (!agent.isDirectory() || !ARTIFACT_ID.test(agent.name)) continue;
+      await this.removeOrphanedAgentFiles(agent.name, known);
+    }
+  }
+
+  private async removeOrphanedAgentFiles(
+    agentId: string,
+    known: ReadonlySet<string>,
+  ): Promise<void> {
+    const runs = path.join(this.directory, agentId, "runs");
+    for (const entry of await realEntries(runs)) {
+      const runId = RECORD_FILE.exec(entry.name)?.[1];
+      if (!entry.isFile() || !runId || known.has(`${agentId}/${runId}`))
+        continue;
+      await rm(path.join(runs, entry.name), { force: true });
+    }
   }
 
   private recordPath(agentId: string, runId: string): string {
