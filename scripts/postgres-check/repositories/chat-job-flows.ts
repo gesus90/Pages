@@ -433,26 +433,13 @@ export const CHAT_SETTINGS_FLOW: RepositoryFlow = {
   steps: [
     call("ChatSettingsRepository.read", (world) => chatSettings(world).read()),
     call("ChatSettingsRepository.save", (world) =>
-      chatSettings(world).save({
-        attachmentLimitBytes: 536_870_912,
-        systemInstruction: "Antworte kurz.",
-      }),
-    ),
-    call("ChatSettingsRepository.read", (world) => chatSettings(world).read()),
-    refused("ChatSettingsRepository.save", (world) =>
-      chatSettings(world).save({
-        attachmentLimitBytes: 1,
-        systemInstruction: null,
-      }),
+      chatSettings(world).save({ systemInstruction: "Antworte kurz." }),
     ),
     call("ChatSettingsRepository.read", (world) => chatSettings(world).read()),
     prepare("DELETE FROM chat_settings;"),
     call("ChatSettingsRepository.read", (world) => chatSettings(world).read()),
     call("ChatSettingsRepository.save", (world) =>
-      chatSettings(world).save({
-        attachmentLimitBytes: 16_777_216,
-        systemInstruction: null,
-      }),
+      chatSettings(world).save({ systemInstruction: null }),
     ),
     call("ChatSettingsRepository.read", (world) => chatSettings(world).read()),
     call("PicaSettingsRepository.read", (world) => picaSettings(world).read()),

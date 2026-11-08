@@ -10,10 +10,8 @@ import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemp
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentChatSessionOperationService } from "@/backend/service/agents/AgentChatSessionOperationService";
 import { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
-import { ChatSettingsService } from "@/backend/service/chat/ChatSettingsService";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { ChatAttachmentRepository } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
-import { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
 import { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
@@ -83,17 +81,11 @@ vi.mock("@/backend/service/agents/AgentChatSessionOperationService", () =>
 vi.mock("@/backend/service/chat/ChatSessionService", () =>
   fakeClasses({ ChatSessionService: [] }),
 );
-vi.mock("@/backend/service/chat/ChatSettingsService", () =>
-  fakeClasses({ ChatSettingsService: [] }),
-);
 vi.mock("@/backend/database/repositories/chat/ChatSessionRepository", () =>
   fakeClasses({ ChatSessionRepository: [] }),
 );
 vi.mock("@/backend/database/repositories/chat/ChatAttachmentRepository", () =>
   fakeClasses({ ChatAttachmentRepository: [] }),
-);
-vi.mock("@/backend/database/repositories/chat/ChatSettingsRepository", () =>
-  fakeClasses({ ChatSettingsRepository: [] }),
 );
 vi.mock("@/backend/database/repositories/UserSettingsRepository", () =>
   fakeClasses({ UserSettingsRepository: [] }),
@@ -416,14 +408,9 @@ it("lets MCP clients manage their own chat sessions with confirmation", () => {
     vi.mocked(WikiFileStore),
     "/srv/pages/data/chat-attachments",
   );
-  expect(vi.mocked(ChatSettingsService).mock.calls[0]).toEqual([
-    vi.mocked(ChatSettingsRepository).mock.instances[0],
-    ADMINISTRATION,
-  ]);
   expect(vi.mocked(ChatSessionService).mock.calls[0][0]).toEqual({
     sessions: vi.mocked(ChatSessionRepository).mock.instances[0],
     attachments: vi.mocked(ChatAttachmentRepository).mock.instances[0],
-    settings: vi.mocked(ChatSettingsService).mock.instances[0],
     languages: vi.mocked(UserSettingsRepository).mock.instances[0],
     files: chatFiles,
   });

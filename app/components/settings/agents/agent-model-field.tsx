@@ -1,37 +1,18 @@
 import { useTranslation } from "react-i18next";
 
-import { SearchableSelect } from "@/app/components/ui/searchable-select";
+import { ModelPicker } from "@/app/components/agents/model-picker";
 
-import type { SearchableSelectOption } from "@/app/components/ui/searchable-select/use-searchable-select";
-import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 import type { AssignmentChoices } from "./use-agent-assignment";
 
-// Tags of the model panel's prefilters.
-const LEVELS_TAG = "levels";
-const FREE_TAG = "free";
-
-function modelOption(
-  model: AgentCatalogModel,
-  freeLabel: string,
-): SearchableSelectOption {
-  return {
-    value: model.id,
-    label: `${model.name} (${model.id})${model.isFree ? ` · ${freeLabel}` : ""}`,
-    tags: [
-      ...(model.reasoningEfforts.length > 0 ? [LEVELS_TAG] : []),
-      ...(model.isFree ? [FREE_TAG] : []),
-    ],
-  };
-}
-
 /**
- * Chooses a named connection and a model of exactly that connection's catalog.
+ * Chooses the model of an agent profile in the shared model choice of Pages.
  *
  * @remarks
- * Both dropdowns search inside their open panel. The model panel adds
- * prefilters for listed reasoning levels and, when the catalog states
- * prices, for free models. Searching and filtering never change the
- * assignment; a saved value outside the catalog stays visible as unavailable.
+ * Connection and model are one choice: every connection's catalog lists its
+ * models under their tool, and choosing one keeps the model's own
+ * connection. Models of a connection that is off or not verified stay listed
+ * as disabled rows with the reason. A saved value outside the catalogs stays
+ * visible as unavailable and is never replaced on its own.
  */
 export function AgentModelField({
   selection,
@@ -41,63 +22,37 @@ export function AgentModelField({
   readonly isPending: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const freeLabel = t("settings.agents.catalog.free");
-  const hasPrices = selection.models.some(
-    (model) => model.promptPrice !== null && model.completionPrice !== null,
-  );
-  const unavailable = t("settings.agents.modelSelection.unavailable");
   return (
-    <section className="min-w-0 space-y-3">
-      <SearchableSelect
-        id="assignment-connection"
-        label={t("settings.agents.modelSelection.connection")}
-        value={selection.connectionId}
-        options={selection.connectionOptions}
-        onValueChange={selection.chooseConnection}
-        disabled={isPending}
-        texts={{
-          placeholder: t("settings.agents.assignments.chooseConnection"),
-          unavailable,
-          search: t("settings.agents.assignments.searchConnections"),
-          empty: t("settings.agents.assignments.noConnections"),
-          count: (count, total) =>
-            t("settings.agents.assignments.connectionCount", { count, total }),
-        }}
-      />
-      <SearchableSelect
-        id="assignment-model"
-        label={t("settings.agents.modelSelection.model")}
-        value={selection.modelId}
-        options={selection.models.map((model) => modelOption(model, freeLabel))}
-        onValueChange={selection.chooseModel}
-        disabled={isPending || !selection.connectionId}
-        filters={[
-          {
-            tag: LEVELS_TAG,
-            label: t("settings.agents.assignments.filters.withLevels"),
-          },
-          ...(hasPrices ? [{ tag: FREE_TAG, label: freeLabel }] : []),
-        ]}
-        texts={{
-          placeholder: t("settings.agents.modelSelection.chooseModel"),
-          unavailable,
-          search: t("settings.agents.catalog.search"),
-          empty: t("settings.agents.assignments.filters.empty"),
-          count: (count, total) =>
-            t("settings.agents.catalog.count", { count, total }),
-        }}
-      />
-      {selection.savedAlias ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          {t("settings.agents.modelSelection.aliasResolved", {
-            alias: selection.savedAlias,
-            model: selection.models.find(
-              (entry) => entry.id === selection.modelId,
-            )?.name,
-            id: selection.modelId,
-          })}
-        </p>
-      ) : null}
-    </section>
+    <ModelPicker
+      value={selection.modelKey}
+      models={selection.choices}
+      savedModel={selection.modelId || undefined}
+      disabled={isPending}
+      label={t("settings.agents.modelSelection.model")}
+      placeholder={t("settings.agents.modelSelection.chooseModel")}
+      refusalOf={selection.refusalOf}
+      isCatalogFailed={selection.isCatalogFailed}
+      onChange={selection.chooseModel}
+    />
+  );
+}
+
+/** Names the family alias a saved model was stored under and the version it resolved to. */
+export function AgentModelAliasNotice({
+  selection,
+}: {
+  readonly selection: AssignmentChoices;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!selection.savedAlias) return null;
+  return (
+    <p role="status" className="text-sm text-muted-foreground">
+      {t("settings.agents.modelSelection.aliasResolved", {
+        alias: selection.savedAlias,
+        model: selection.models.find((entry) => entry.id === selection.modelId)
+          ?.name,
+        id: selection.modelId,
+      })}
+    </p>
   );
 }

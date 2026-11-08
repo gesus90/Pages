@@ -46,7 +46,6 @@ interface FieldOptions {
   readonly isModelWithdrawn?: boolean;
   readonly savedModel?: string;
   readonly savedAlias?: string | null;
-  readonly layout?: "columns" | "stacked";
 }
 
 function draft(
@@ -80,7 +79,6 @@ function ModelDraft(props: {
       isModelWithdrawn={props.options.isModelWithdrawn ?? false}
       savedModel={props.options.savedModel}
       savedAlias={props.options.savedAlias}
-      layout={props.options.layout}
       onChange={change}
     />
   );
@@ -109,16 +107,6 @@ function modelPicker(): HTMLElement {
 function reasoningPicker(): HTMLElement {
   return screen.getByRole("combobox", { name: i18n.t("pageAgents.reasoning") });
 }
-
-it("lays the fields out in columns unless they are stacked", () => {
-  const { container } = renderFields(draft(MODEL.id));
-  const { container: stacked } = renderFields(draft(MODEL.id), {
-    layout: "stacked",
-  });
-
-  expect(container.querySelector(".sm\\:grid-cols-2")).not.toBeNull();
-  expect(stacked.querySelector(".sm\\:grid-cols-2")).toBeNull();
-});
 
 it("describes every released model by its short name and free badge", async () => {
   renderFields(draft(MODEL.id));

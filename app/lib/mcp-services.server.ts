@@ -8,10 +8,8 @@ import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemp
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentChatSessionOperationService } from "@/backend/service/agents/AgentChatSessionOperationService";
 import { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
-import { ChatSettingsService } from "@/backend/service/chat/ChatSettingsService";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { ChatAttachmentRepository } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
-import { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
 import { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
@@ -318,19 +316,14 @@ function lazyMcpPlanServices(
 function createChatSessionOperations(input: {
   readonly database: Database;
   readonly users: Pick<UserService, "getById">;
-  readonly administration: Pick<AdministrationService, "getContext">;
   readonly directory: string;
 }): AgentChatSessionOperationService {
-  const { database, users, administration, directory } = input;
+  const { database, users, directory } = input;
   return new AgentChatSessionOperationService({
     users,
     sessions: new ChatSessionService({
       sessions: new ChatSessionRepository(database),
       attachments: new ChatAttachmentRepository(database),
-      settings: new ChatSettingsService(
-        new ChatSettingsRepository(database),
-        administration,
-      ),
       languages: new UserSettingsRepository(database),
       files: new WikiFileStore(path.join(directory, "chat-attachments")),
     }),
@@ -502,7 +495,6 @@ export function createMcpServices(
     chatSessions: createChatSessionOperations({
       database,
       users,
-      administration,
       directory: workspace.directory,
     }),
     projectDeletion: new AgentProjectDeletionService({

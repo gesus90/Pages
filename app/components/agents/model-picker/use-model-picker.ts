@@ -80,8 +80,8 @@ export interface ModelPickerState {
   readonly handleBlur: (event: FocusEvent<HTMLElement>) => void;
 }
 
-/** Room of the search field and footer around the list. */
-const PANEL_CHROME = 104;
+/** Room of the search field and the panel's padding around the list. */
+const PANEL_CHROME = 64;
 // Below the minimum a surrounding dialog scrolls to show the whole panel;
 // the floor is the least a list keeps where no side has the minimum.
 const LIST_HEIGHT = { floor: 160, min: 320, max: 480 } as const;
@@ -143,7 +143,7 @@ function visibleRight(element: HTMLElement): number {
   return right;
 }
 
-// The search field and footer grow with the page's font size.
+// The search field grows with the page's font size.
 function panelChrome(): number {
   const fontSize = parseFloat(
     getComputedStyle(document.documentElement).fontSize,
@@ -302,8 +302,6 @@ export interface ModelPickerInput {
   readonly onChange: (id: string) => void;
   readonly disabled: boolean;
   readonly mode: ModelPickerMode;
-  /** Runs whenever the panel opens, such as a check for a newer catalog. */
-  readonly onOpen?: () => void;
 }
 
 /**
@@ -360,7 +358,6 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerState {
     setActiveKey(selected ? modelRowKey(input.value) : null);
     setLayout(measureLayout(trigger.current, input.mode));
     setIsOpen(true);
-    input.onOpen?.();
   }
 
   function toggleGroup(groupKey: string): void {

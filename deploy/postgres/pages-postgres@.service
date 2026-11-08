@@ -1,7 +1,5 @@
 [Unit]
 Description=Pages PostgreSQL (%i)
-Wants=pages-service-monitor@%i.service
-After=pages-service-monitor@%i.service
 PartOf=pages.target
 StartLimitIntervalSec=0
 

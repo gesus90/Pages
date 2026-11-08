@@ -37,7 +37,7 @@ export type SettingsSystemLoaderData =
       readonly branding: InstanceBranding;
       readonly status: ServerStatus;
       readonly wikiSettings: WikiSettings;
-      /** Attachment limit and system instruction of the chat agent. */
+      /** Supplementary instruction of the chat agent. */
       readonly chatSettings: ChatAdministration;
       readonly audience: LocalStateAudience;
     }

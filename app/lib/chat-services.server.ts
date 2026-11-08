@@ -190,7 +190,6 @@ export function createChatServices(
   const chatSessionService = new ChatSessionService({
     sessions,
     attachments,
-    settings: chatSettingsService,
     languages,
     files,
     activity,
@@ -202,12 +201,7 @@ export function createChatServices(
         ? input.agents.picaSettingsService.admit(work)
         : work(),
   });
-  const fileParts = {
-    attachments,
-    settings: chatSettingsService,
-    files,
-    isSafeSvg,
-  };
+  const fileParts = { attachments, files, isSafeSvg };
   const chatAttachmentService = new ChatAttachmentService({
     sessions,
     ...fileParts,

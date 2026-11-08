@@ -46,6 +46,12 @@ function serializeModels(models: readonly AgentCatalogModel[]): string {
       ...(model.isToolCapable === undefined
         ? {}
         : { tool_call: model.isToolCapable }),
+      ...(model.inputModalities === undefined
+        ? {}
+        : { input_modalities: model.inputModalities }),
+      ...(model.outputModalities === undefined
+        ? {}
+        : { output_modalities: model.outputModalities }),
     })),
   );
 }

@@ -117,7 +117,7 @@ export default function SettingsLayoutRoute(): React.ReactElement {
 
       <VerticalScrollArea
         className="mt-6 min-h-0 flex-1"
-        contentClassName="pr-4 sm:pr-6 md:pr-8 xl:pr-12 pb-12"
+        contentClassName="pt-1 pl-2 pr-4 sm:pr-6 md:pr-8 xl:pr-12 pb-12"
         fadeClassName="z-20"
       >
         <Outlet />

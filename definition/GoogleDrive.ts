@@ -1,0 +1,72 @@
+/**
+ * Where the Google Drive connection of the instance stands, as the last real
+ * Drive request showed it.
+ *
+ * - `not_configured`: the OAuth client of the instance is missing.
+ * - `disconnected`: no Google account was ever connected.
+ * - `connected`: a read-only Drive request just succeeded.
+ * - `reauthorization_required`: Google refused the stored access; only a new
+ *   sign-in helps.
+ * - `unavailable`: Drive could not confirm the connection for a reason a new
+ *   sign-in does not fix, for example a disabled Drive API.
+ */
+export type GoogleDriveConnectionState =
+  | "not_configured"
+  | "disconnected"
+  | "connected"
+  | "reauthorization_required"
+  | "unavailable";
+
+/** Why Drive did not confirm the connection; never contains Google's raw answer. */
+export type GoogleDriveProblem =
+  | "access_revoked"
+  | "scope_missing"
+  | "client_invalid"
+  | "drive_api_disabled"
+  | "google_unreachable"
+  | "account_changed"
+  | "secret_unavailable";
+
+/** The Google Drive connection as the system settings show it to an administrator. */
+export interface GoogleDriveStatus {
+  readonly state: GoogleDriveConnectionState;
+  readonly problem: GoogleDriveProblem | null;
+  /** The address of the connected Google account, when Drive names it. */
+  readonly accountEmail: string | null;
+  /** Names, never values, of the server settings that are missing. */
+  readonly missingSettings: readonly string[];
+  /** The address Google has to allow as redirect URI of the OAuth client. */
+  readonly redirectUri: string;
+}
+
+/** What happened when Google sent the browser back to Pages. */
+export type GoogleDriveCallbackOutcome =
+  | "connected"
+  | "denied"
+  | "invalid"
+  | "expired"
+  | "scope_missing"
+  | "failed"
+  | "forbidden"
+  | "not_configured";
+
+/** Every callback outcome, for reading it back from the settings address. */
+export const GOOGLE_DRIVE_CALLBACK_OUTCOMES: readonly GoogleDriveCallbackOutcome[] =
+  [
+    "connected",
+    "denied",
+    "invalid",
+    "expired",
+    "scope_missing",
+    "failed",
+    "forbidden",
+    "not_configured",
+  ];
+
+/** The answer of the Google Drive endpoint of the system settings. */
+export type GoogleDriveActionResult =
+  | { readonly ok: true; readonly authorizeUrl: string }
+  | {
+      readonly ok: false;
+      readonly error: "forbidden" | "not_configured" | "failed";
+    };

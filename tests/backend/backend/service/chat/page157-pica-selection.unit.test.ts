@@ -147,7 +147,8 @@ function selectionWorld(): {
 it("proposes an exact linked API model and effort without mutating settings or silently executing", async () => {
   const world = selectionWorld();
   const view = await world.service.administration("owner");
-  expect(view.models.every(isPicaModel)).toBe(true);
+  // PAGE-248: the form lists every usable model; Pica's own rule refuses rows there.
+  expect(view.models.some(isPicaModel)).toBe(true);
   expect(view.settings.selection).toEqual(SELECTION);
   expect(view.settings.adoption).toMatchObject({
     connectionId: CLI.id,
@@ -244,9 +245,12 @@ it("refuses a saved or newly submitted free Zen choice server-side without repla
   const view = await world.service.administration("owner");
   expect(view.settings.selection).toEqual(world.stored.selection);
   expect(view.settings.error).toBe("picaZenUnsupported");
-  expect(view.models.some((entry) => entry.model === "opencode/free")).toBe(
-    false,
-  );
+  // PAGE-248: the Zen model stays listed, refused for Pica, never chosen silently.
+  expect(
+    view.models.some(
+      (entry) => entry.model === "opencode/free" && !isPicaModel(entry),
+    ),
+  ).toBe(true);
   await expect(
     world.service.save("owner", {
       isEnabled: true,

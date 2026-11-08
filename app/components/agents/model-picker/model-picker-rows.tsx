@@ -9,32 +9,25 @@ import { groupRowKey, modelRowKey } from "./use-model-picker";
 import type { ModelChoice, ModelGroup, ModelSource } from "./model-catalog";
 import type { ModelPickerState } from "./use-model-picker";
 
-// Model rows start in the text column of the headers: padding, mark and gap.
-const TEXT_COLUMN = "pl-[2.625rem]";
+// Every row is 36 px high with 14 px text; on a touch screen only the row
+// grows, never the text.
+const ROW_CLASS =
+  "flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-sm pointer-coarse:min-h-11";
+
+// Model rows start in the text column of the headers: padding, icon and gap.
+const TEXT_COLUMN = "pl-10";
 
 // Scrolls the highlighted row into view inside the list.
 function revealRow(element: HTMLElement | null): void {
   element?.scrollIntoView({ block: "nearest" });
 }
 
-/** The small green mark of a model the catalog states as free for exactly this access. */
+/** The green pill of a model the catalog states as free for exactly this access. */
 export function FreeBadge(): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <span className="inline-flex h-4 shrink-0 items-center rounded bg-success-subtle px-1.5 text-[0.6875rem] leading-none font-semibold text-success ring-1 ring-success/25">
+    <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-success/40 bg-success-subtle px-2 text-[11px] leading-none font-bold text-success">
       {t("plans.modelPicker.free")}
-    </span>
-  );
-}
-
-function SourceBadge({
-  source,
-}: {
-  readonly source: string;
-}): React.ReactElement {
-  return (
-    <span className="hidden h-4 max-w-32 min-w-0 shrink truncate rounded bg-surface px-1.5 @[21rem]:inline-block text-[0.6875rem] leading-4 font-medium text-plan-muted-foreground ring-1 ring-border">
-      {source}
     </span>
   );
 }
@@ -71,20 +64,20 @@ function ModelRow({
       aria-disabled={isRefused || undefined}
       aria-label={name}
       className={cn(
-        "flex min-h-8 cursor-pointer items-center gap-2 rounded-lg py-1.5 pr-2.5 text-sm text-foreground",
+        ROW_CLASS,
         TEXT_COLUMN,
-        isSelected && "bg-primary-subtle font-medium",
+        "text-foreground",
+        isSelected && "bg-primary-subtle",
         isActive && "bg-muted",
-        isRefused && "cursor-not-allowed text-muted-foreground",
+        isRefused && "cursor-not-allowed py-1 text-muted-foreground",
       )}
       onClick={() => state.choose(choice)}
       onMouseEnter={() => state.highlight(key)}
     >
-      <span className="flex min-w-0 flex-1 basis-3/5 flex-wrap items-center gap-x-2">
+      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5">
         <span className="min-w-0 truncate">{choice.label}</span>
-        {choice.isFree ? <FreeBadge /> : null}
         {choice.detail === null ? null : (
-          <span className="min-w-0 truncate text-xs text-plan-muted-foreground">
+          <span className="min-w-0 truncate text-xs text-muted-foreground">
             {choice.detail}
           </span>
         )}
@@ -94,10 +87,10 @@ function ModelRow({
           </span>
         ) : null}
       </span>
-      {choice.source === null ? null : <SourceBadge source={choice.source} />}
+      {choice.isFree ? <FreeBadge /> : null}
       <Check
         className={cn(
-          "size-3.5 shrink-0 text-primary",
+          "size-4 shrink-0 text-primary",
           !isSelected && "invisible",
         )}
         aria-hidden="true"
@@ -121,7 +114,7 @@ function SourceRows({
         <li
           role="presentation"
           className={cn(
-            "flex items-center gap-2 pt-2 pr-2.5 pb-1 text-[0.6875rem] font-semibold tracking-wide text-plan-muted-foreground uppercase",
+            "flex items-center gap-2.5 pt-2 pr-2.5 pb-1 text-xs font-semibold text-muted-foreground",
             TEXT_COLUMN,
           )}
         >
@@ -147,6 +140,8 @@ function SourceRows({
  * @remarks
  * The whole header is the switch. Its chevron and `aria-expanded` follow the
  * same state, and its accessible name gives tool, access and model count.
+ * Header and model rows share the columns icon, name, extra and arrow or
+ * check.
  */
 export function ModelGroupRows({
   group,
@@ -172,23 +167,18 @@ export function ModelGroupRows({
         context: group.context,
         count: group.count,
       })}
-      className="border-b border-border last:border-b-0"
     >
       <div
         ref={isActive ? revealRow : undefined}
-        className={cn(
-          "my-0.5 flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-sm",
-          isExpanded && "bg-surface-hover",
-          isActive && "bg-muted",
-        )}
+        className={cn(ROW_CLASS, isActive && "bg-muted")}
         onClick={() => state.toggleGroup(group.key)}
         onMouseEnter={() => state.highlight(key)}
       >
         <ToolMark mark={group.mark} />
-        <span className="max-w-[60%] min-w-0 shrink-0 truncate font-semibold text-foreground">
+        <span className="max-w-[60%] min-w-0 shrink-0 truncate font-bold text-foreground">
           {group.label}
         </span>
-        <span className="min-w-0 flex-1 truncate text-right text-xs text-plan-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">
           {group.context} · {group.count}
         </span>
         <ChevronRight
@@ -200,7 +190,7 @@ export function ModelGroupRows({
         />
       </div>
       {isExpanded ? (
-        <ul role="group" className="pb-1">
+        <ul role="group">
           {group.sources.map((source) => (
             <SourceRows
               key={source.key}

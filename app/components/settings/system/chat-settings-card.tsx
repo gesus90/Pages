@@ -2,13 +2,9 @@ import { useTranslation } from "react-i18next";
 import { Form, Link, useNavigation } from "react-router";
 
 import { PicaMascot } from "@/app/components/chat/pica-mascot";
-import {
-  ControlRow,
-  SettingsCard,
-} from "@/app/components/settings/settings-layout";
+import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { useActionOutcome } from "@/app/components/settings/use-action-outcome";
 import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
@@ -19,8 +15,8 @@ interface ChatSettingsCardProps {
 }
 
 /**
- * Attachment limit and supplementary instruction of the chat agent Pica
- * (T6.12.4, T6.12.8); access and model are chosen in the agents panel
+ * Supplementary instruction of the chat agent Pica (T6.12.8); the attachment
+ * limit is fixed (PAGE-251). Access and model are chosen in the agents panel
  * (T6.12.14). Pica's protected `SOUL.md` and `AGENTS.md` cannot be edited
  * here or anywhere else in Pages (PAGE-51).
  */
@@ -41,18 +37,6 @@ export function ChatSettingsCard({
     >
       <Form className="space-y-3" method="post" noValidate>
         <input name="intent" type="hidden" value="update-chat-settings" />
-        <ControlRow label={t("settings.system.chat.attachmentLimit")}>
-          <Input
-            key={settings.attachmentLimitMegabytes}
-            aria-label={t("settings.system.chat.attachmentLimit")}
-            defaultValue={settings.attachmentLimitMegabytes}
-            inputMode="numeric"
-            name="attachmentLimitMegabytes"
-          />
-        </ControlRow>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {t("settings.system.chat.attachmentHint")}
-        </p>
         <label className="block space-y-1.5">
           <span className="text-sm text-muted-foreground">
             {t("settings.system.chat.instruction")}

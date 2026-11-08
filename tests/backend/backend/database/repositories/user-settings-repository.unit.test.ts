@@ -32,20 +32,18 @@ it("reads a stored language, null without a row, and refuses an unknown language
   );
 });
 
-it("upserts the language, design theme and terminal reader mode with bound values", async () => {
+it("upserts the language and design theme with bound values", async () => {
   const scripted = scriptedDatabase();
   const repository = new UserSettingsRepository(scripted.database);
 
   await repository.upsertLanguage("user-1", "de");
   await repository.upsertDesignTheme("user-1", "arctic");
-  await repository.upsertTerminalScreenReader("user-1", "on");
 
   expect(scripted.statements.map((entry) => entry.parameters)).toEqual([
     { user_id: "user-1", language: "de" },
     { user_id: "user-1", design_theme: "arctic" },
-    { user_id: "user-1", terminal_screen_reader: "on" },
   ]);
-  expect(scripted.ofKind("execute")).toHaveLength(3);
+  expect(scripted.ofKind("execute")).toHaveLength(2);
 });
 
 it("reads the design theme as stored text, stored null or null without a row", async () => {
@@ -56,19 +54,6 @@ it("reads the design theme as stored text, stored null or null without a row", a
   await expect(repository.findDesignThemeId("user-1")).resolves.toBe("arctic");
   await expect(repository.findDesignThemeId("user-2")).resolves.toBeNull();
   await expect(repository.findDesignThemeId("user-3")).resolves.toBeNull();
-});
-
-it("reads the terminal screen reader mode or null without a row", async () => {
-  const scripted = scriptedDatabase();
-  scripted.answer([["auto"]], []);
-  const repository = new UserSettingsRepository(scripted.database);
-
-  await expect(repository.findTerminalScreenReader("user-1")).resolves.toBe(
-    "auto",
-  );
-  await expect(
-    repository.findTerminalScreenReader("user-2"),
-  ).resolves.toBeNull();
 });
 
 it("maps the complete stored settings of a user", async () => {

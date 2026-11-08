@@ -23,8 +23,6 @@ export { startRuns } from "./RunsEntry";
 
 export { startIntegrations } from "./IntegrationsEntry";
 
-export { observeServices } from "./ServiceMonitorEntry";
-
 export { startIngress } from "./IngressEntry";
 
 export { startLocalSessionOwner } from "@/backend/agents/local/LocalSessionOwner";

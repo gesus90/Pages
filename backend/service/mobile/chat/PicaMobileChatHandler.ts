@@ -14,11 +14,12 @@ import type { PicaMobileChatProvider } from "./PicaMobileChatProvider";
 const COMPONENT = "PicaMobileChatHandler";
 
 /**
- * Answers the requests of `chat.v1` for one connection.
+ * Answers the requests of `chat.v1` and `chat.delete` for one connection.
  *
  * @remarks
- * Without a provider the eight requests are unknown. They need an
- * authenticated connection; the provider checks the session again for every
+ * Without a provider every chat request is unknown, and `chat_delete` also
+ * with a provider that does not answer it. They need an authenticated
+ * connection; the provider checks the session again for every
  * request and ends the connection when it no longer holds. Pages sends
  * nothing of the chat on its own, every frame answers one request.
  */
@@ -45,7 +46,7 @@ export class PicaMobileChatHandler {
   }
 
   /**
-   * Handles one request of `chat.v1`.
+   * Handles one chat request.
    *
    * @param message - A request that passed every check of its payload.
    */
@@ -57,7 +58,10 @@ export class PicaMobileChatHandler {
       return;
     }
 
-    if (provider === undefined) {
+    if (
+      provider === undefined ||
+      (message.type === "chat_delete" && !provider.canDelete)
+    ) {
       host.reject({
         code: PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
         message: "The message type is not known.",

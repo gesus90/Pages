@@ -11,7 +11,8 @@ This is a **separate operator path** next to the restricted
 agent architecture: the tools sit in the same `RuntimeToolRegistry`, run through
 the same ACP/MCP bridge and the same `PicaAdminService.runPrivileged` scope of
 the job (fresh administrator check before and after each call, revocation
-aborts the job, audit without parameters).
+aborts the job, audit without parameters). There is no separate page for the
+tools; they run only through Pica in the chat (PAGE-251).
 
 ## Tools (administrator only)
 
@@ -102,7 +103,7 @@ chat.
 - Every browser is its own Chromium in the mandatory unprivileged PID/mount/user/network namespace of `PicaBrowserSandbox` (`bwrap`, no host home, no fallback). Profile and cookies are ephemeral and per browser. A browser belongs to one administrator and one job (`adminScope`); another job, another administrator or another browser never reaches it. At most 4 browsers (2 per person) run; they close with the job, after 15 idle minutes, after 2 hours, on stop, on loss of the administrator right and at shutdown.
 - The browser has **no network**. All its requests (documents, scripts, forms, fetch/XHR, redirects) are answered by Pages: `PicaBrowserProxy` checks every request against `PicaBrowserTargets`, adds only the cookies of that browser, sends it to the pinned address and returns the answer. Redirects are returned to the browser and therefore checked again.
 - Reachable targets: public HTTPS on port 443 with public IPv4 DNS answers (private, loopback, link-local, reserved and Pages host addresses denied, no IP literals, no URL credentials), **this Pages instance** (`http://127.0.0.1:<port>`, `http://localhost:<port>`, `publicUrl`), and **released local services** from `picaBrowserLocalOrigins` in `config.toml` (exact origins, e.g. `["http://127.0.0.1:8080"]`). The address a request arrived under never widens the list.
-- Controlled test of the own Pages UI: Pica's control surfaces (`/chat-api`, `/chat/`, `/api/v1/pica-bridge`, `/api/v1/plan-bridge`, `/pica-tools-api`) are unreachable from the browser. Requests that change something (not GET/HEAD/OPTIONS) to Pages or a released local service are refused (`LOCAL_WRITE_NOT_APPROVED`) until the administrator ticks "Allow Pica to make changes" for that browser; requests during a takeover are the administrator's own. Sign in with a suitable account yourself via takeover (and save the session if wanted).
+- Controlled test of the own Pages UI: Pica's control surfaces (`/chat-api`, `/chat/`, `/api/v1/pica-bridge`, `/api/v1/plan-bridge`) are unreachable from the browser. Requests that change something (not GET/HEAD/OPTIONS) to Pages or a released local service are refused (`LOCAL_WRITE_NOT_APPROVED`) until the administrator ticks "Allow Pica to make changes" for that browser; requests during a takeover are the administrator's own. Sign in with a suitable account yourself via takeover (and save the session if wanted).
 - Not offered: WebSockets (closed), service workers (blocked), permissions (none), arbitrary JavaScript, reading cookies or storage, access to the host file system. Downloads (attachments and non-renderable documents) are captured on the server (max 25 MB each, 100 MB per browser, 20 files) and offered to the administrator; blob/data-URL downloads are not captured. Uploads read only the handover folder rules of [PicaAdminTools](PicaAdminTools.md).
 - Network use per browser is bounded: 4000 requests, 400 MB, 25 MB per response, 25 s per request.
 - Page, element and file contents are untrusted data and carry that note in every result.

@@ -11,7 +11,6 @@ import { AppearanceCard } from "@/app/components/settings/appearance-card";
 import { RegionCard } from "@/app/components/settings/region-card";
 import { RevokeOtherSessionsDialog } from "@/app/components/settings/revoke-other-sessions-dialog";
 import { SecurityCard } from "@/app/components/settings/security-card";
-import { TerminalCard } from "@/app/components/settings/terminal-card";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { useUserSettings } from "@/app/components/settings/use-user-settings";
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
@@ -31,10 +30,7 @@ import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audie
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { DesignThemeSelection } from "@/definition/DesignTheme";
 import type { SessionSummary } from "@/definition/Session";
-import type {
-  TerminalScreenReaderMode,
-  UserSettings,
-} from "@/definition/Settings";
+import type { UserSettings } from "@/definition/Settings";
 import type { User } from "@/definition/User";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { Route } from "./+types/settings-profile";
@@ -45,8 +41,6 @@ export interface SettingsLoaderData {
   readonly user: User;
   readonly email: string | null;
   readonly settings: UserSettings;
-  /** How the remote console offers its screen to a screen reader. */
-  readonly terminalScreenReader: TerminalScreenReaderMode;
   /** The installed design themes, read from the theme directory on every load. */
   readonly designThemes: DesignThemeSelection;
   readonly sessions: readonly SessionSummary[];
@@ -119,7 +113,6 @@ export default function SettingsProfileRoute(): React.ReactElement {
     user,
     email,
     settings: loadedSettings,
-    terminalScreenReader,
     designThemes,
     sessions,
     canEditProfile,
@@ -177,7 +170,6 @@ export default function SettingsProfileRoute(): React.ReactElement {
               onChange={persistSettings}
             />
             <RegionCard settings={settings} onChange={persistSettings} />
-            <TerminalCard screenReader={terminalScreenReader} />
           </div>
         </div>
       </div>

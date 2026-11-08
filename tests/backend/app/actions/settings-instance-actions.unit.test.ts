@@ -301,12 +301,11 @@ describe("handleUpdateChatSettings", () => {
     systemInstruction: "Be brief.",
   };
 
-  it("stores the limit and the instruction", async () => {
+  it("stores the instruction and ignores a submitted limit", async () => {
     const outcome = await run(handleUpdateChatSettings, fields);
 
     expect(outcome.body).toEqual({ intent: "update-chat-settings", ok: true });
     expect(services.chatSettingsService.update).toHaveBeenCalledWith(ACTOR, {
-      attachmentLimitMegabytes: 8,
       systemInstruction: "Be brief.",
     });
   });
@@ -318,27 +317,14 @@ describe("handleUpdateChatSettings", () => {
     });
 
     expect(callArgument(services.chatSettingsService.update, 0, 1)).toEqual({
-      attachmentLimitMegabytes: 8,
       systemInstruction: null,
     });
   });
 
-  it("hands an unreadable limit over as not a number", async () => {
-    await run(handleUpdateChatSettings, {
-      ...fields,
-      attachmentLimitMegabytes: "8 MB",
-    });
-
-    expect(
-      callArgument(services.chatSettingsService.update, 0, 1),
-    ).toHaveProperty("attachmentLimitMegabytes", Number.NaN);
-  });
-
-  it("hands absent fields over as an unreadable limit and an empty supplement", async () => {
+  it("hands absent fields over as an empty supplement", async () => {
     await run(handleUpdateChatSettings, {});
 
     expect(callArgument(services.chatSettingsService.update, 0, 1)).toEqual({
-      attachmentLimitMegabytes: Number.NaN,
       systemInstruction: "",
     });
   });

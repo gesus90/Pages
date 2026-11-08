@@ -40,13 +40,24 @@ export interface AgentCatalogModel {
    */
   readonly aliases?: readonly string[];
   /**
-   * Whether the model calls tools, as OpenCode states it.
+   * Whether the model calls tools, as OpenCode or OpenRouter states it.
    *
    * @remarks
-   * Absent where the catalog does not say, which is every API and every other
-   * CLI catalog. Agents leave out only a model that states `false`.
+   * Absent where the catalog does not say, which is every other API and CLI
+   * catalog. Agents leave out only a model that states `false`.
    */
   readonly isToolCapable?: boolean;
+  /**
+   * The input modalities the source states, such as `text` and `image`.
+   *
+   * @remarks
+   * Kept by catalog refreshes since PAGE-248 from OpenRouter's
+   * `architecture.input_modalities` and OpenCode's `capabilities.input`;
+   * absent in older snapshots and in catalogs that state none.
+   */
+  readonly inputModalities?: readonly string[];
+  /** The output modalities the source states, like {@link AgentCatalogModel.inputModalities}. */
+  readonly outputModalities?: readonly string[];
 }
 
 export interface AgentModelCatalog {
@@ -94,4 +105,20 @@ export function emptyModelCatalog(): AgentModelCatalog {
     refreshedAt: null,
     errorCode: null,
   };
+}
+
+/**
+ * Whether the last refresh of any catalog failed.
+ *
+ * @remarks
+ * The server keeps the catalogs current; a model choice shows the models it
+ * loaded with the page and warns only after a failed refresh.
+ *
+ * @param catalogs - The catalogs of the page, by connection.
+ * @returns `true` when a catalog keeps an error of its last refresh.
+ */
+export function hasFailedCatalog(
+  catalogs: Readonly<Record<string, AgentModelCatalog>>,
+): boolean {
+  return Object.values(catalogs).some((catalog) => catalog.errorCode !== null);
 }

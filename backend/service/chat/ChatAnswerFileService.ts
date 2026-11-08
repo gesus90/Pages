@@ -4,7 +4,7 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
-import { CHAT_LIMITS } from "@/definition/Chat";
+import { CHAT_ATTACHMENT_LIMIT_BYTES, CHAT_LIMITS } from "@/definition/Chat";
 
 import { ChatFileProbe } from "./ChatFileProbe";
 import { classifyChatFile } from "./ChatFileTypes";
@@ -16,7 +16,6 @@ import type {
 } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
 import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import type { ChatAttachment } from "@/definition/Chat";
-import type { ChatSettingsService } from "./ChatSettingsService";
 
 /** Why Pica could not attach a file; the codes reach the model as tool errors. */
 export type ChatAnswerFileErrorCode =
@@ -49,7 +48,6 @@ export interface ChatAnswerFileDependencies {
     | "removeUnclaimedAnswerFiles"
   > &
     Partial<Pick<ChatAttachmentRepository, "removeUnclaimedAnswerFile">>;
-  readonly settings: Pick<ChatSettingsService, "read">;
   readonly files: Pick<WikiFileStore, "write" | "remove">;
   /** Tells whether SVG markup is free of scripts and external references. */
   readonly isSafeSvg: (markup: Buffer) => boolean;
@@ -189,11 +187,9 @@ export class ChatAnswerFileService {
       throw new ChatAnswerFileError("FILE_LIMIT");
     if (staged.some((entry) => entry.fileName === fileName))
       throw new ChatAnswerFileError("FILE_EXISTS");
-    const limit = (await this.dependencies.settings.read())
-      .attachmentLimitBytes;
-    if (file.bytes.length > limit)
+    if (file.bytes.length > CHAT_ATTACHMENT_LIMIT_BYTES)
       throw new ChatAnswerFileError("FILE_TOO_LARGE");
-    return this.write(run, fileName, file.bytes, limit);
+    return this.write(run, fileName, file.bytes, CHAT_ATTACHMENT_LIMIT_BYTES);
   }
 
   private async write(

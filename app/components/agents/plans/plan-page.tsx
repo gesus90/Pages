@@ -1,7 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ModelCatalogRefreshContext } from "@/app/components/agents/model-picker/use-model-catalog-refresh";
 import { planTargetDeviations } from "@/definition/AgentPlanTarget";
 
 import { PlanRunPanel } from "./plan-run-panel";
@@ -17,8 +16,6 @@ import { usePlanEditor } from "./use-plan-editor";
 import { usePlanRun } from "./use-plan-run";
 import { usePlanRunSummaries } from "./use-plan-run-summaries";
 import { usePlanSave } from "./use-plan-save";
-import { usePlanCatalogRefresh } from "./use-plan-catalog-refresh";
-import type { PlanCatalogRefresh } from "./use-plan-catalog-refresh";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 import type { LocalStateMark } from "@/app/lib/local-state/local-state-loader";
@@ -139,20 +136,15 @@ function focusConsoleNode(nodeId: string | null): void {
 export function PlanPage({
   page,
   opening,
-  catalogRefresh,
   localState,
 }: {
   readonly page: AgentPlanPage;
   readonly opening: AgentPlanOpening;
-  readonly catalogRefresh?: PlanCatalogRefresh;
   readonly localState?: LocalStateMark;
 }): React.ReactElement {
-  // Every model choice of the editor shares the page's refresh channel.
-  const refresh = usePlanCatalogRefresh(catalogRefresh);
+  // The models come complete with the page; using a model choice reloads nothing.
   return (
-    <ModelCatalogRefreshContext value={refresh}>
-      <PlanEditorPage page={page} opening={opening} localState={localState} />
-    </ModelCatalogRefreshContext>
+    <PlanEditorPage page={page} opening={opening} localState={localState} />
   );
 }
 

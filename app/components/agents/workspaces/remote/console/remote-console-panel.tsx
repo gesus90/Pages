@@ -13,7 +13,6 @@ import { ConsoleBanner } from "./console-status";
 import { SetupProgressPanel } from "./setup-progress";
 import { ACTIVE_CONSOLE_VIEWS, consoleViewOf } from "./console-view";
 import { useRemoteConsole } from "./use-remote-console";
-import { useTerminalScreenReaderMode } from "./use-terminal-screen-reader-mode";
 
 import type { RefObject } from "react";
 import type { RemoteConsoleTarget } from "./console-target";
@@ -80,7 +79,6 @@ function usePanelConsole(
   const closeRequest = useRef<() => void>(() => undefined);
   const shell = useRemoteConsole({
     endpoint,
-    screenReader: useTerminalScreenReaderMode(),
     onCloseRequest: () => closeRequest.current(),
   });
   const view = consoleViewOf(shell.state, shell.hasConnected);

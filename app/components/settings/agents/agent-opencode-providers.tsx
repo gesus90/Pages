@@ -21,7 +21,7 @@ function ProviderRow({
   const { t } = useTranslation();
   return (
     <li className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5">
-      <ProviderIcon provider={link.provider} className="size-5" />
+      <ProviderIcon provider={link.provider} />
       <span className="text-sm font-medium">
         {t(`settings.agents.provider.${link.provider}`)}
       </span>
@@ -59,7 +59,7 @@ export function AgentOpenCodeProviders({
       </p>
       <ul className="divide-y divide-border">
         <li className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 py-1.5">
-          <ProviderIcon provider="opencode" className="size-5" />
+          <ProviderIcon provider="opencode" />
           <span className="text-sm font-medium">
             {t("settings.agents.openCodeFreeGroup")}
           </span>

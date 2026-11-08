@@ -3,15 +3,14 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
-import { Input } from "@/app/components/ui/input";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 import { focusOnMount } from "@/app/lib/focus-on-mount";
 
+import { MODEL_FIELD_CLASS } from "./model-field";
 import { ModelGroupRows } from "./model-picker-rows";
 
 import type { MouseEvent } from "react";
-import type { ModelCatalogStatus } from "./use-model-catalog-refresh";
 import type { ModelPickerState } from "./use-model-picker";
 
 // Clicks inside the panel leave the focus in the search field, so the panel
@@ -20,13 +19,8 @@ function keepSearchFocus(event: MouseEvent<HTMLDivElement>): void {
   if (!(event.target instanceof HTMLInputElement)) event.preventDefault();
 }
 
-function CatalogStatusLine({
-  status,
-}: {
-  readonly status: ModelCatalogStatus;
-}): React.ReactElement | null {
+function CatalogWarning(): React.ReactElement {
   const { t } = useTranslation();
-  if (status !== "failed") return null;
   return (
     <p
       role="alert"
@@ -34,38 +28,6 @@ function CatalogStatusLine({
     >
       {t("plans.modelPicker.catalog.failed")}
     </p>
-  );
-}
-
-function PickerFooter({
-  state,
-  status,
-}: {
-  readonly state: ModelPickerState;
-  readonly status: ModelCatalogStatus;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const count = state.groups.reduce((sum, group) => sum + group.count, 0);
-  const models = state.isSearching
-    ? t("plans.modelPicker.matchCount", { count })
-    : t("plans.modelPicker.modelCount", { count });
-  const hints = [
-    t("plans.modelPicker.hintMove"),
-    state.isSearching ? null : t("plans.modelPicker.hintGroup"),
-    t("plans.modelPicker.hintChoose"),
-    t("plans.modelPicker.hintClose"),
-  ].filter((hint) => hint !== null);
-  return (
-    <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border px-3 py-2 text-xs text-muted-foreground">
-      <p role="status">
-        {models} ·{" "}
-        {t("plans.modelPicker.toolCount", { count: state.groups.length })}
-        {status === "refreshing"
-          ? ` · ${t("plans.modelPicker.catalog.refreshing")}`
-          : null}
-      </p>
-      <p aria-hidden="true">{hints.join(" · ")}</p>
-    </footer>
   );
 }
 
@@ -94,13 +56,12 @@ function SearchField({
   return (
     <div className="relative border-b border-border p-2">
       <Search
-        className="pointer-events-none absolute top-1/2 left-4.5 size-4 -translate-y-1/2 text-muted-foreground"
+        className="pointer-events-none absolute top-1/2 left-5 size-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden="true"
       />
-      <Input
+      <input
         ref={focusOnMount}
         type="search"
-        size="sm"
         role="combobox"
         aria-expanded={true}
         aria-autocomplete="list"
@@ -111,7 +72,10 @@ function SearchField({
         value={state.query}
         maxLength={200}
         autoComplete="off"
-        className="h-9 pl-8 text-sm shadow-none xl:pl-8 xl:text-sm"
+        className={cn(
+          MODEL_FIELD_CLASS,
+          "pl-9 placeholder:text-muted-foreground",
+        )}
         onChange={(event) => state.search(event.currentTarget.value)}
         onKeyDown={state.handleSearchKeyDown}
       />
@@ -120,29 +84,31 @@ function SearchField({
 }
 
 /**
- * The open model choice: search field, tools as a tree of collapsible groups, and a count with the key hints.
+ * The open model choice: search field and tools as a tree of collapsible groups.
  *
  * @remarks
  * The search covers every model, also those of closed tools, and opens
  * each tool with a match while it holds text. The list scrolls within the
  * height that fits the visible part of the page or dialog. A floating panel
- * lies above the page, so a canvas neither clips nor zooms it.
+ * lies above the page, so a canvas neither clips nor zooms it. The keys
+ * work as before without a footer naming them; a warning appears only after
+ * a failed catalog refresh.
  */
 export function ModelPickerPanel({
   state,
   value,
-  status,
+  isCatalogFailed,
 }: {
   readonly state: ModelPickerState;
   readonly value: string;
-  readonly status: ModelCatalogStatus;
+  readonly isCatalogFailed: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { panel, layout } = state;
   const rowCount = state.items.length;
   const isFloating = layout.anchor !== null;
   // The panel grows with a search or an opened tool; a scrolling dialog
-  // follows, so the search field and footer stay in view.
+  // follows, so the search field stays in view.
   useEffect(() => {
     if (!isFloating) panel.current?.scrollIntoView({ block: "nearest" });
   }, [rowCount, isFloating, panel]);
@@ -163,8 +129,7 @@ export function ModelPickerPanel({
             { minWidth: layout.minWidth ?? undefined }
       }
       className={cn(
-        // A narrow panel leaves out the source badge; the source heading above names it.
-        "@container z-50 overflow-hidden rounded-xl border border-border bg-surface text-left font-normal shadow-panel",
+        "z-50 overflow-hidden rounded-xl border border-border bg-surface text-left font-normal shadow-panel",
         isFloating ? "fixed" : "absolute inset-x-0",
         !isFloating &&
           (layout.placement === "above" ? "bottom-full mb-1" : "top-full mt-1"),
@@ -172,7 +137,7 @@ export function ModelPickerPanel({
       onMouseDown={keepSearchFocus}
     >
       <SearchField state={state} />
-      <CatalogStatusLine status={status} />
+      {isCatalogFailed ? <CatalogWarning /> : null}
       <ScrollViewport
         ref={state.list}
         axis="vertical"
@@ -195,7 +160,6 @@ export function ModelPickerPanel({
         </ul>
         {state.groups.length === 0 ? <EmptyState state={state} /> : null}
       </ScrollViewport>
-      <PickerFooter state={state} status={status} />
     </div>
   );
   return isFloating ? createPortal(content, document.body) : content;

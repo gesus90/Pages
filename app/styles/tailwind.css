@@ -207,6 +207,17 @@
   --color-avatar-lilac: #f1eef4;
   --color-avatar-lilac-foreground: #5a3f6a;
 
+  /* Virtual chat participants (PAGE-254): the name color and the light tint
+     behind the initial of the avatar. Pica uses the primary color. */
+  --color-participant-indigo: #4f46e5;
+  --color-participant-indigo-subtle: #eef0fd;
+  --color-participant-pink: #db2777;
+  --color-participant-pink-subtle: #fdf2f8;
+  --color-participant-teal: #0d9488;
+  --color-participant-teal-subtle: #e8f6f3;
+  --color-participant-lime: #4d9a0f;
+  --color-participant-lime-subtle: #f0f8e6;
+
   /* Auth-Bereich (Login, Setup-Wizard), DESIGN.md §14.1 */
   --color-auth-glow-warm: #ffe8d6;
   --color-auth-glow-cool: #dbe7ff;
@@ -491,6 +502,15 @@
     --color-avatar-sage-foreground: #a5c9ae;
     --color-avatar-lilac: #2a2233;
     --color-avatar-lilac-foreground: #cfb6e2;
+
+    --color-participant-indigo: #a5b4fc;
+    --color-participant-indigo-subtle: #1b1d3a;
+    --color-participant-pink: #f472b6;
+    --color-participant-pink-subtle: #2b1825;
+    --color-participant-teal: #55d8c9;
+    --color-participant-teal-subtle: #112a29;
+    --color-participant-lime: #a3e05a;
+    --color-participant-lime-subtle: #1c2a12;
 
     --color-auth-glow-warm: #3a2312;
     --color-auth-glow-cool: #16233f;

@@ -63,3 +63,78 @@ export function isChatModel(traits: AgentModelTraits): boolean {
 export function isAgentModel(traits: AgentModelTraits): boolean {
   return isChatModel(traits) && traits.toolCall !== false;
 }
+
+/**
+ * The classification and moderation models PAGE-248 names, by their vendor ID.
+ *
+ * @remarks
+ * No catalog Pages reads states what a model is for: OpenRouter's
+ * `/api/v1/models` has no task or purpose field, and OpenCode's capabilities
+ * have none either. `openai/gpt-oss-safeguard-20b` states text input and
+ * output and the `tools` parameter there (public catalog, 08.11.2026), just
+ * like a chat model, so only this exact list keeps it out of the model
+ * choice. `meta-llama/llama-guard-4-12b` states no `tools` and is already
+ * left out by its facts; it is named as well because the ticket names it.
+ * The list holds exact IDs only; Pages guesses no purpose from parts of a
+ * name, and the model's stated facts stay as the source states them.
+ */
+const NAMED_NON_CHAT_MODELS: ReadonlySet<string> = new Set([
+  "openai/gpt-oss-safeguard-20b",
+  "meta-llama/llama-guard-4-12b",
+]);
+
+/**
+ * Whether a model ID is one of the classification or moderation models
+ * PAGE-248 names, also under the provider prefix of OpenCode.
+ *
+ * @param modelId - The model ID as the catalog lists it, such as
+ * `openai/gpt-oss-safeguard-20b` or `openrouter/openai/gpt-oss-safeguard-20b`.
+ * @returns `true` when the ID, or the ID after whole leading provider
+ * segments, is exactly a named model.
+ */
+export function isNamedNonChatModel(modelId: string): boolean {
+  const segments = modelId.split("/");
+  return segments.some((_, index) =>
+    NAMED_NON_CHAT_MODELS.has(segments.slice(index).join("/")),
+  );
+}
+
+/** What a stored catalog states about a model's modalities and tool calls. */
+export interface AgentChatCapabilityFacts {
+  /** The model ID as the catalog lists it. */
+  readonly id: string;
+  /** The input modalities the source states, such as `text` and `image`; absent where it states none. */
+  readonly inputModalities?: readonly string[];
+  /** The output modalities the source states; absent where it states none. */
+  readonly outputModalities?: readonly string[];
+  readonly isToolCapable?: boolean;
+}
+
+/**
+ * Whether a model can chat as an agent or for Pica: it reads and answers in
+ * text, generates no image, video or audio, and calls tools.
+ *
+ * @remarks
+ * The facts come from the source and are stored with the catalog: OpenRouter's
+ * `architecture` modalities and `supported_parameters`, OpenCode's
+ * capabilities. A fact the catalog does not state hides no model, so the
+ * models of Claude Code, Codex and Antigravity, whose catalogs state none,
+ * always count as chat models. The classification and moderation models the
+ * ticket names never count, whatever their facts state
+ * ({@link isNamedNonChatModel}).
+ *
+ * @param model - The stored facts of one catalog model.
+ * @returns `false` only when a stated fact rules the model out.
+ */
+export function isChatCapableModel(model: AgentChatCapabilityFacts): boolean {
+  const { inputModalities, outputModalities } = model;
+  if (isNamedNonChatModel(model.id)) return false;
+  if (inputModalities && !inputModalities.includes("text")) return false;
+  if (outputModalities && !outputModalities.includes("text")) return false;
+  if (
+    outputModalities &&
+    GENERATED_MEDIA.some((modality) => outputModalities.includes(modality))
+  )
+    return false;
+  return model.isToolCapable !== false;
+}

@@ -8,7 +8,6 @@ import {
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { usePlanSelectionPreference } from "@/app/components/agents/plans/use-plan-selection-preference";
-import { planCatalogRefresh } from "@/app/lib/agent-plan-catalog.server";
 import { lastSelectedPlan } from "@/app/lib/agent-plan-selection.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import AgentPlansRoute from "@/app/routes/agent-plans";
@@ -64,9 +63,6 @@ vi.mock("@/app/lib/services.server", () => ({
 vi.mock("@/app/lib/agent-plan-selection.server", () => ({
   lastSelectedPlan: vi.fn(),
 }));
-vi.mock("@/app/lib/agent-plan-catalog.server", () => ({
-  planCatalogRefresh: vi.fn(),
-}));
 vi.mock("@/backend/logging/Logger", () => ({ logCaughtError: vi.fn() }));
 vi.mock(
   "@/backend/agents/AgentPlanInput",
@@ -85,11 +81,8 @@ vi.mock("@/app/components/agents/plans/plan-page", () => ({
   PlanPage: (props: {
     readonly page: { readonly selected: { readonly id: string } | null };
     readonly opening: string;
-    readonly catalogRefresh: { readonly url: string } | undefined;
   }): React.ReactElement => (
-    <main>
-      {`${props.page.selected?.id ?? "none"} ${props.opening} ${props.catalogRefresh?.url ?? ""}`}
-    </main>
+    <main>{`${props.page.selected?.id ?? "none"} ${props.opening}`}</main>
   ),
 }));
 
@@ -101,7 +94,6 @@ const USER: User = {
   isActive: true,
   mustChangePassword: false,
 };
-const REFRESH = { url: "/agent-api/plan-sources?refresh=1", etag: "tag" };
 
 /** A plan owned by the person in the given workspace. */
 function plan(
@@ -129,7 +121,6 @@ beforeEach(() => {
   service.summaries.mockReset();
   service.page.mockReset();
   vi.mocked(lastSelectedPlan).mockReset().mockResolvedValue(null);
-  vi.mocked(planCatalogRefresh).mockReset().mockReturnValue(REFRESH);
 });
 
 /** Runs the loader for an address of the plan editor. */
@@ -220,7 +211,6 @@ it("opens a requested plan and remembers it without discarding another choice", 
   expect(result.data).toMatchObject({
     opening: "requested",
     selected: { id: "alpha" },
-    catalogRefresh: REFRESH,
     selectionPreference: {
       userId: "user-1",
       origin: "http://pages.invalid",
@@ -230,10 +220,6 @@ it("opens a requested plan and remembers it without discarding another choice", 
   });
   expect(new Headers(result.init?.headers).get("Cache-Control")).toBe(
     "no-store",
-  );
-  expect(planCatalogRefresh).toHaveBeenCalledWith(
-    expect.objectContaining({ userId: "user-1" }),
-    null,
   );
 });
 
@@ -283,10 +269,6 @@ it("opens the default plan of a requested workspace without pinning it", async (
     selected: { id: "here" },
     selectionPreference: { planId: "here", discardedPlanId: null },
   });
-  expect(planCatalogRefresh).toHaveBeenCalledWith(
-    expect.anything(),
-    "workspace",
-  );
 });
 
 it("does not open a plan of another workspace than the requested one", async () => {
@@ -408,7 +390,6 @@ async function renderRoute(
         runs: [],
         workspaces: [],
         opening: selected ? "requested" : "defaultMissing",
-        catalogRefresh: REFRESH,
         selectionPreference: preference,
       }),
       Component: AgentPlansRoute,
@@ -423,15 +404,11 @@ it("shows the retired notice and the editor of the opened plan", async () => {
   await renderRoute({ id: "alpha" });
 
   expect(screen.getByRole("complementary").textContent).toBe("Retired");
-  expect(screen.getByRole("main").textContent).toBe(
-    `alpha requested ${REFRESH.url}`,
-  );
+  expect(screen.getByRole("main").textContent).toBe("alpha requested");
 });
 
 it("shows the empty editor when no plan opened", async () => {
   await renderRoute(null);
 
-  expect(screen.getByRole("main").textContent).toBe(
-    `none defaultMissing ${REFRESH.url}`,
-  );
+  expect(screen.getByRole("main").textContent).toBe("none defaultMissing");
 });

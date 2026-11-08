@@ -26,7 +26,6 @@ afterEach(cleanup);
 const services = vi.hoisted(() => ({
   settingsService: {
     getUserSettings: vi.fn(),
-    getTerminalScreenReader: vi.fn(),
   },
   userService: { findProfileEmail: vi.fn() },
   sessionService: { getSessionSummaries: vi.fn() },
@@ -99,11 +98,6 @@ vi.mock("@/app/components/settings/appearance-card", () => ({
 vi.mock("@/app/components/settings/region-card", () => ({
   RegionCard: (): React.ReactElement => <p>region</p>,
 }));
-vi.mock("@/app/components/settings/terminal-card", () => ({
-  TerminalCard: (props: {
-    readonly screenReader: string;
-  }): React.ReactElement => <p>{`terminal ${props.screenReader}`}</p>,
-}));
 vi.mock("@/app/components/settings/change-password-dialog", () => ({
   ChangePasswordDialog: (props: {
     readonly open: boolean;
@@ -132,7 +126,6 @@ function loaded(
     user: ACTOR,
     email: null,
     settings: SETTINGS,
-    terminalScreenReader: "off",
     designThemes: { themes: [] },
     sessions: [],
     canEditProfile,
@@ -144,7 +137,6 @@ beforeEach(() => {
   vi.mocked(getSessionToken).mockResolvedValue("session-1");
   vi.mocked(handleSettingsAction).mockReset();
   services.settingsService.getUserSettings.mockResolvedValue(SETTINGS);
-  services.settingsService.getTerminalScreenReader.mockResolvedValue("off");
   services.userService.findProfileEmail.mockResolvedValue("ada@example.com");
   services.sessionService.getSessionSummaries.mockResolvedValue([]);
   services.designThemeService.getSelection.mockResolvedValue({ themes: [] });
@@ -170,7 +162,6 @@ it("lets an administrator in the admin mode edit the profile", async () => {
     email: "ada@example.com",
     sessions: [],
     settings: SETTINGS,
-    terminalScreenReader: "off",
     user: ACTOR,
   });
   expect(services.sessionService.getSessionSummaries).toHaveBeenCalledWith(
@@ -222,7 +213,6 @@ it("asks an administrator outside the admin mode to switch it on", () => {
     i18n.t("settings.personal.title"),
   );
   expect(screen.getByText("profile no role no email false true")).toBeTruthy();
-  expect(screen.getByText("terminal off")).toBeTruthy();
 });
 
 it("opens the dialogs and revokes a single session", async () => {

@@ -46,6 +46,8 @@ describe("parseCatalogPage for OpenRouter", () => {
           reasoning: "none",
           reasoningEfforts: [],
           defaultReasoningEffort: null,
+          inputModalities: ["text"],
+          outputModalities: ["text"],
         },
       ],
       nextCursor: null,

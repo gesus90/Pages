@@ -156,7 +156,6 @@ it("marks the pending row and every answer of Pica with the mascot, never an own
 
 it("shows the mascot on the settings card, which edits only a supplement", () => {
   const card = renderSettingsCard({
-    attachmentLimitMegabytes: 16,
     systemInstruction: "",
     isDefaultInstruction: true,
   });

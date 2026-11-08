@@ -291,6 +291,77 @@ variables, add the redirect in the portal and then:
 6. Switch an event off, disconnect, and check nothing is posted afterwards while
    the bot is still on the server.
 
+## Google Drive sign-in (PAGE-170)
+
+Under **Settings → System** the **Storage** card connects one Google Drive account
+to the instance. It offers only the sign-in, a truthful status and the errors
+that belong to it. There is no file area, no start folder and no file access
+beyond the read-only proof described below.
+
+### Set up the Google OAuth client (once per instance)
+
+A Google account password is not an OAuth client and is never entered in Pages.
+An administrator of the Google Cloud project creates the client:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/) choose or
+   create the project of the instance and enable the **Google Drive API**
+   (APIs & Services → Library).
+2. **OAuth consent screen / Google Auth Platform:** user type *External* (or
+   *Internal* for a Workspace organization), app name, support address. Add the
+   scope `https://www.googleapis.com/auth/drive.file`, nothing else.
+3. **Clients:** create an OAuth client of the type *Web application* with the
+   authorized redirect URI `<public address of Pages>/settings-api/google-drive/callback`,
+   for example `https://pages.example.com/settings-api/google-drive/callback`.
+   It has to match exactly; the card shows the address Pages uses while the
+   client is missing.
+4. Set these environment variables on the Pages server (for a systemd instance
+   in `/etc/pages/<instance>/runtime.env`) and restart Pages:
+
+| Variable                           | Value                                      |
+| ---------------------------------- | ------------------------------------------ |
+| `PAGES_GOOGLE_DRIVE_CLIENT_ID`     | Client ID (`….apps.googleusercontent.com`) |
+| `PAGES_GOOGLE_DRIVE_CLIENT_SECRET` | Client secret                              |
+
+The redirect URI is built on `publicUrl` of `config.toml`, else on
+`PAGES_PUBLIC_URL`, else on the address of the request.
+
+### Sign-in, storage and account binding
+
+- Only an administrator in the admin mode sees the card and may sign in. The
+  sign-in uses Google's authorization code flow with PKCE, `access_type=offline`
+  and `prompt=consent`. Its one-time `state` lives 15 minutes, is stored only as
+  a hash and is bound to the administrator who started it; the callback needs
+  a Pages session of that administrator in the admin mode.
+- The instance holds one connection. The refresh token is stored encrypted with
+  the instance key (the key of the agent connection secrets) and bound to its
+  row; access tokens stay in process memory. Nothing exposes the connection or
+  a token to other accounts, the browser, a log or an address.
+- The connected account is identified by its Drive `permissionId`, which Drive
+  itself reports after the sign-in. A renewal that reports another account marks
+  the connection for a new sign-in. A new sign-in replaces the connection.
+
+### Proof, renewal and limits
+
+- Every visit of the card asks the server, which runs `about.get` with the
+  fields `user(permissionId,emailAddress)`: read-only, no file, no content.
+  **Connected** appears only when that request succeeded just now.
+- An expired access token is renewed with the stored refresh token, without a
+  Google sign-in, also after a reload, a new Pages sign-in or a restart. Each
+  renewal writes the log event `google_drive.access_token_renewed` and
+  `last_refreshed_at` in `google_drive_connection`; each confirmed request
+  writes `last_verified_at`.
+- Google can end the access at any time: the account owner revokes it, the
+  token is unused for six months, or the account exceeds the refresh token
+  limit per client. **While the OAuth app is in the publishing status
+  *Testing* with user type *External*, Google lets refresh tokens expire after
+  7 days.** A lasting connection needs
+  the status *In production* (or an *Internal* Workspace app); `drive.file` is a
+  non-sensitive scope and needs no Google security assessment for that.
+- When Google refuses the stored access (`invalid_grant`, a `401` after a
+  renewal, a missing scope), the card shows **Sign in again** with the reason.
+  A rejected client, a disabled Drive API or an unreachable Google shows a
+  concrete error and never **Connected**.
+
 ## Pica native tools (PAGE-157)
 
 The production Pica chat runs Codex CLI, Claude Code and opencode through ACP.
@@ -1070,19 +1141,33 @@ and resource rights at save and insertion. A withdrawn selection remains visible
 and is refused at save and Play without a fallback. Inside an ACP group, models
 of another runner stay listed but disabled; detach the node to select them.
 In the node editor (PAGE-176) the execution target stands once above the
-model choice. Its panel starts with a search field and lists the target's
-models under collapsible tools (Antigravity, Claude Code, Codex, OpenCode,
-API connections), each header naming the access and model count. Rows show the
-short catalog name; OpenCode models are split by the source OpenCode runs them
-with (OpenCode itself, OpenRouter, other linked keys) with a source badge. A
-green Free badge marks only a model whose catalog states a prompt and completion
-price of exactly zero for that very variant; a missing price is never free. The
-search covers name, model ID, tool, access and source of every model, also in
-closed tools, opens the tools with matches and restores the previous collapsed
-state when cleared. Arrow keys move, Enter chooses or folds, Left/Right fold
-while the search is empty, Escape closes the panel. The selection stores the
-listed model's full connection, route, model and provider; the list follows
-the global chat filter, which also leaves out models stating no text input.
+model choice. Pica, agent profiles, plan nodes, the palette, node cards and
+page agents use this one choice with the same fixed measures (PAGE-248): 40 px
+fields, 36 px rows and 20 × 20 provider tiles, with model and reasoning side by
+side. Its panel starts with a search field and lists the target's models under
+collapsible tools in a fixed order (Claude Code, Codex, Antigravity, OpenCode,
+OpenRouter, Z.AI, then other API connections), each header naming the access
+and model count. OpenRouter and Z.AI are tools of their own, visible with their
+stored API key and still run through OpenCode; a model reachable through both
+OpenCode and the direct API connection is listed once. Without an OpenCode key
+OpenCode offers only its free models. Rows show the short catalog name without
+a trailing "Free". A green Free badge marks only a model whose catalog states a
+prompt and completion price of exactly zero for that very variant; a missing
+price is never free. Only chat models are listed: text in, text out, no image,
+video or audio output, and tool calls, as the stored catalog states them. No
+catalog states a model's purpose, so the classification and moderation models
+the ticket names (`openai/gpt-oss-safeguard-20b`, `meta-llama/llama-guard-4-12b`,
+also under an OpenCode provider prefix) are left out by their exact ID; the
+safeguard model states text in and out and tool calls like a chat model. A
+saved assignment to a hidden model stays and shows as unavailable. The search
+covers name, model ID, tool, access and source of every model, also in closed
+tools, opens the tools with matches and restores the previous collapsed state
+when cleared. Arrow keys move, Enter chooses or folds, Left/Right fold while
+the search is empty, Escape closes the panel. The models come complete with
+the page; the server keeps the catalogs current, a change appears with the
+next page load, and the panel warns only after a failed catalog refresh. The
+selection stores the listed model's full connection, route, model and
+provider.
 Double-clicking an
 agent node opens its PageAgentCLI console instead: the fixed ticket panel over
 the dimmed plan with the node's session history, workspace and Git state,

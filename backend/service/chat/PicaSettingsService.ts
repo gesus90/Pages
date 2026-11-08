@@ -109,7 +109,15 @@ export class PicaSettingsService {
       throw new ChatError("contextChanged");
   }
 
-  /** Supplies the protected form with the saved choice and its current usable models. */
+  /**
+   * Supplies the protected form with the saved choice and the models of every tool.
+   *
+   * @remarks
+   * The form lists every model the administrator may use, so every set-up
+   * tool appears; a model Pica cannot run stays listed there as a disabled
+   * row with the reason of `modelConsumerRefusal`. Saving still checks
+   * the choice here.
+   */
   public async administration(userId: string): Promise<{
     readonly settings: PicaAdministration;
     readonly models: readonly PageAgentModel[];
@@ -117,14 +125,14 @@ export class PicaSettingsService {
     const viewer = await this.viewer(userId);
     requireAgentAdministrator(viewer.actor);
     const settings = await this.read();
-    const models = consumerModels(
-      "pica",
-      await connectionModels(this.dependencies.connections, viewer),
+    const models = await connectionModels(
+      this.dependencies.connections,
+      viewer,
     );
     const adoption = await picaSelectionAdoption(
       this.dependencies.connections,
       settings.selection,
-      models,
+      consumerModels("pica", models),
     );
     let error: PicaAdministration["error"] = null;
     try {

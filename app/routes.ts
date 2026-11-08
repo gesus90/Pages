@@ -313,7 +313,7 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   ];
 }
 
-/** Resources of the workspace frame: its data, live changes, Pica. */
+/** Resources of the workspace frame: its data, live changes, Pica and the chat page. */
 function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource, page } = routes;
   return [
@@ -321,19 +321,12 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     resource("dashboard-api/page", "routes/dashboard-data.ts"),
     resource("settings-api/ticket-assets", "routes/settings-ticket-assets.ts"),
     resource("settings-api/interpreters", "routes/settings-interpreters.ts"),
-    resource("settings-api/pica-models", "routes/settings-pica-models.ts"),
     resource("account-version", "routes/account-version.ts"),
     resource("live-changes", "routes/live-changes.ts"),
     resource(
       "design-themes/:designThemeId/preview",
       "routes/design-theme-preview.ts",
     ),
-    ...page("pica-tools", {
-      browser: "routes/pica-tools.tsx",
-      server: "routes/pica-tools-server.ts",
-    }),
-    resource("pica-tools-api", "routes/pica-tools-api.ts"),
-    resource("pica-tools-api/access", "routes/pica-tools-data.ts"),
     resource("chat-api", "routes/chat-api.ts"),
     resource("chat-api/attachments", "routes/chat-attachments.ts"),
     resource("chat-browser-api", "routes/chat-browser-api.ts"),
@@ -351,6 +344,10 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "chat/attachments/:attachmentId/content",
       "routes/chat-attachment-content.ts",
     ),
+    ...page("chat", {
+      browser: "routes/chat-page.tsx",
+      server: "routes/chat-page-server.ts",
+    }),
   ];
 }
 
@@ -490,7 +487,11 @@ function settingsRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     resource("settings-api/system", "routes/settings-system-data.ts"),
     resource("settings-api/agents", "routes/settings-agents-data.ts"),
     resource("settings-api/agent-tools", "routes/settings-agent-tools-data.ts"),
-    resource("settings-api/services", "routes/settings-services.ts"),
+    resource("settings-api/google-drive", "routes/settings-google-drive.ts"),
+    resource(
+      "settings-api/google-drive/callback",
+      "routes/settings-google-drive-callback.ts",
+    ),
   ];
 }
 

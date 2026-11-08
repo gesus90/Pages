@@ -8,7 +8,7 @@ import { routeArguments } from "../server-lib/route-arguments";
 import type { User } from "@/definition/User";
 
 const services = vi.hoisted(() => ({
-  agentPlanService: { agents: vi.fn(), context: vi.fn(), sources: vi.fn() },
+  agentPlanService: { agents: vi.fn(), sources: vi.fn() },
 }));
 
 vi.mock("@/app/lib/services.server", () => ({
@@ -16,17 +16,6 @@ vi.mock("@/app/lib/services.server", () => ({
 }));
 
 const plans = services.agentPlanService;
-
-const PAGE = {
-  userId: EMPLOYEE.id,
-  teamDepartmentId: null,
-  plans: [],
-  workspaces: [{ id: "w1" }],
-  remoteWorkspaces: [],
-  selected: null,
-  sources: [],
-  directory: null,
-};
 
 const AGENT = {
   id: "agent-1",
@@ -113,34 +102,6 @@ it.each([
 
   expect(response.status).toBe(403);
   expect(await response.json()).toMatchObject({ error: "agent_usage_denied" });
-});
-
-it("tells a refresh what changed in the page of a plan", async () => {
-  plans.context.mockResolvedValue(PAGE);
-
-  const response = await read("?refresh=1&planId=plan-1&workspaceId=w1");
-
-  expect(plans.context).toHaveBeenCalledWith(EMPLOYEE.id, {
-    planId: "plan-1",
-    workspaceId: "w1",
-  });
-  expect(response.headers.get("ETag")).toMatch(/^W\/"/u);
-  expect(await response.json()).toEqual({ changed: true });
-});
-
-it("answers an unchanged page of no plan with 304", async () => {
-  plans.context.mockResolvedValue(PAGE);
-  const first = await read("?refresh=1");
-
-  const second = await read("?refresh=1", {
-    "If-None-Match": first.headers.get("ETag") ?? "",
-  });
-
-  expect(plans.context).toHaveBeenCalledWith(EMPLOYEE.id, {
-    planId: null,
-    workspaceId: null,
-  });
-  expect(second.status).toBe(304);
 });
 
 it("refuses a request without workspace", async () => {

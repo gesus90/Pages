@@ -1,6 +1,5 @@
 import { useLoaderData } from "react-router";
 
-import { TerminalScreenReaderModeContext } from "@/app/components/agents/workspaces/remote/console/use-terminal-screen-reader-mode";
 import { WorkspaceLoadError } from "@/app/components/agents/workspaces/workspace-load-error";
 import { WorkspacePage } from "@/app/components/agents/workspaces/workspace-page";
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
@@ -21,7 +20,6 @@ import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audie
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { AgentWorkspacePage } from "@/definition/AgentWorkspace";
 import type { RemoteOverview } from "@/definition/RemoteConnection";
-import type { TerminalScreenReaderMode } from "@/definition/Settings";
 import type { Route } from "./+types/agent-workspaces";
 
 const REMOTE_ACTION = "/agents/workspaces/remote";
@@ -30,8 +28,6 @@ const REMOTE_ACTION = "/agents/workspaces/remote";
 export interface WorkspaceOverview {
   readonly page: AgentWorkspacePage;
   readonly remote: RemoteOverview;
-  /** The person's screen reader mode of the remote console. */
-  readonly terminalScreenReader: TerminalScreenReaderMode;
   readonly audience: LocalStateAudience;
 }
 
@@ -48,8 +44,6 @@ function isWorkspaceOverview(value: unknown): value is WorkspaceOverview {
     "remote" in value &&
     typeof value.remote === "object" &&
     value.remote !== null &&
-    "terminalScreenReader" in value &&
-    typeof value.terminalScreenReader === "string" &&
     "audience" in value &&
     isLocalStateAudience(value.audience)
   );
@@ -108,15 +102,11 @@ export function shouldRevalidate({
 
 /** Shares the existing Pages cards and dialogs with the central agent administration. */
 export default function AgentWorkspacesRoute(): React.ReactElement {
-  const { page, remote, terminalScreenReader } = useLocalStateRoute(
+  const { page, remote } = useLocalStateRoute(
     useLoaderData<typeof clientLoader>(),
     WORKSPACE_PAGE_STATE,
   );
-  return (
-    <TerminalScreenReaderModeContext value={terminalScreenReader}>
-      <WorkspacePage page={page} remote={remote} />
-    </TerminalScreenReaderModeContext>
-  );
+  return <WorkspacePage page={page} remote={remote} />;
 }
 
 /** A failed load keeps the page chrome and offers a retry. */

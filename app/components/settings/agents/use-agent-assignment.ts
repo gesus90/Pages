@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { reasoningOptions } from "@/app/lib/reasoning-options";
-import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
+import { catalogModelChoice } from "@/definition/AgentModelChoice";
+import { hasFailedCatalog } from "@/definition/AgentModelCatalog";
 import { resolveClaudeModelAlias } from "@/definition/AgentModelVersion";
+import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { hasLevelPicker } from "@/definition/AgentReasoningChoice";
 
 import type { AgentModelSelection } from "@/definition/AgentModelSelection";
@@ -15,8 +17,8 @@ import type {
   AgentCatalogModel,
   AgentModelCatalog,
 } from "@/definition/AgentModelCatalog";
-import type { SearchableSelectOption } from "@/app/components/ui/searchable-select/use-searchable-select";
 import type { ReasoningSelectOptions } from "@/app/lib/reasoning-options";
+import type { PageAgentModel } from "@/definition/PageAgent";
 
 /** Input choices come from the selected connection, never from a provider-wide union. */
 export interface AssignmentChoices {
@@ -24,7 +26,14 @@ export interface AssignmentChoices {
   /** The provider of the chosen connection; it decides which run options apply. */
   readonly provider: AgentProviderId | null;
   readonly modelId: string;
+  /** The catalog of the chosen connection. */
   readonly models: readonly AgentCatalogModel[];
+  /** The models of every connection's catalog as entries of the shared model choice. */
+  readonly choices: readonly PageAgentModel[];
+  /** The selection key of connection and model; empty while none is chosen. */
+  readonly modelKey: string;
+  /** Whether the last refresh of a catalog failed; the model choice then warns. */
+  readonly isCatalogFailed: boolean;
   readonly effort: string;
   /** The family alias the saved model was stored under and this choice resolved to a version. */
   readonly savedAlias: string | null;
@@ -34,11 +43,11 @@ export interface AssignmentChoices {
     | "modelUnavailable"
     | "reasoningUnsupported"
     | null;
-  /** Every connection as "Name (Provider)", also found by the provider's full name. */
-  readonly connectionOptions: readonly SearchableSelectOption[];
   readonly effortOptions: ReasoningSelectOptions;
-  readonly chooseConnection: (id: string) => void;
-  readonly chooseModel: (id: string) => void;
+  /** Why a listed model cannot be chosen, such as one of an inactive connection. */
+  readonly refusalOf: (model: PageAgentModel) => string | null;
+  /** Chooses connection and model together by the selection key of a listed model. */
+  readonly chooseModel: (key: string) => void;
   readonly chooseEffort: (effort: string) => void;
 }
 
@@ -71,6 +80,33 @@ function startingModel(
     : { modelId: resolved, alias: stored };
 }
 
+function selectionKey(connectionId: string, modelId: string): string {
+  return connectionId && modelId ? agentModelKey(connectionId, modelId) : "";
+}
+
+// Every connection with a catalog offers its models in the one model choice.
+// An API connection without a stored key is left out (PAGE-248), unless the
+// saved assignment uses it: a saved assignment stays visible under its provider.
+function assignmentChoices(
+  connections: readonly AgentConnectionSummary[],
+  catalogs: Readonly<Record<string, AgentModelCatalog>>,
+  assignment: AgentModelSelection | null,
+): PageAgentModel[] {
+  const savedConnectionId = assignment?.connectionId;
+  return connections
+    .filter(
+      (connection) =>
+        connection.accessKind !== "api_key" ||
+        connection.hasApiKey ||
+        connection.id === savedConnectionId,
+    )
+    .flatMap((connection) =>
+      (catalogs[connection.id]?.models ?? []).map((model) =>
+        catalogModelChoice(connection, model),
+      ),
+    );
+}
+
 /** Preserves invalid saved values and clears dependent choices only on an explicit change. */
 export function useAgentAssignment(input: {
   readonly assignment: AgentModelSelection | null;
@@ -100,19 +136,30 @@ export function useAgentAssignment(input: {
     modelExists: Boolean(model),
     hasEffort: hasSupportedEffort(model, effort),
   });
+  const choices = assignmentChoices(
+    input.connections,
+    input.catalogs,
+    input.assignment,
+  );
   return {
     connectionId,
     provider: connection?.provider ?? null,
     modelId,
     models,
+    choices,
+    modelKey: selectionKey(connectionId, modelId),
+    isCatalogFailed: hasFailedCatalog(input.catalogs),
     effort,
     savedAlias,
     error,
-    connectionOptions: input.connections.map((entry) => ({
-      value: entry.id,
-      label: `${entry.name} (${t(`settings.agents.providerShort.${entry.provider}`)})`,
-      keywords: [t(AGENT_PROVIDERS[entry.provider].labelKey)],
-    })),
+    refusalOf: (choice) => {
+      const refusal = connectionRefusal(
+        input.connections.find((entry) => entry.id === choice.connectionId),
+      );
+      return refusal === null
+        ? null
+        : t(`settings.agents.modelSelection.refusal.${refusal}`);
+    },
     effortOptions: reasoningOptions({
       model,
       modelName: model?.name ?? modelId,
@@ -125,14 +172,11 @@ export function useAgentAssignment(input: {
       ),
       translate: t,
     }),
-    chooseConnection: (id) => {
-      setConnectionId(id);
-      setModelId("");
-      setSavedAlias(null);
-      setEffort("");
-    },
-    chooseModel: (id) => {
-      setModelId(id);
+    chooseModel: (key) => {
+      const choice = choices.find((entry) => entry.id === key);
+      if (!choice?.connectionId) return;
+      setConnectionId(choice.connectionId);
+      setModelId(choice.model);
       setSavedAlias(null);
       setEffort("");
     },
@@ -154,6 +198,15 @@ function hasSupportedEffort(
 ): boolean {
   if (effort === "") return (model?.reasoningEfforts.length ?? 0) === 0;
   return Boolean(model?.reasoningEfforts.includes(effort));
+}
+
+// A connection that is off or whose access is not verified offers its
+// models only as disabled rows; saving checks the same on the server.
+function connectionRefusal(
+  connection: AgentConnectionSummary | undefined,
+): "connectionUnavailable" | "accessUnverified" | null {
+  if (!connection?.isActive) return "connectionUnavailable";
+  return hasVerifiedAccess(connection) ? null : "accessUnverified";
 }
 
 function choiceError(input: {

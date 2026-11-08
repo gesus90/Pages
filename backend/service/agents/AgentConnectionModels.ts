@@ -1,10 +1,7 @@
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
-import {
-  AGENT_PROVIDERS,
-  openCodeModelProvider,
-} from "@/definition/AgentConnection";
+import { openCodeModelProvider } from "@/definition/AgentConnection";
+import { catalogModelChoice } from "@/definition/AgentModelChoice";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
-import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
@@ -41,7 +38,10 @@ export async function connectionModels(
     // Check those once per request, rather than repeating database reads for every model.
     if (!(await isAvailable({ connections, viewer, connection, models })))
       continue;
-    for (const model of models) choices.push(modelChoice(connection, model));
+    // A failed last refresh keeps the stored models; the choice warns about them.
+    const failure = catalog.errorCode ? { isCatalogFailed: true } : {};
+    for (const model of models)
+      choices.push({ ...catalogModelChoice(connection, model), ...failure });
   }
   return choices;
 }
@@ -124,32 +124,4 @@ async function isAvailable(input: {
     if (!(error instanceof AgentExecutionError)) throw error;
     return false;
   }
-}
-
-function modelChoice(
-  connection: AgentConnectionRecord,
-  model: AgentCatalogModel,
-): PageAgentModel {
-  return {
-    id: agentModelKey(connection.id, model.id),
-    connectionId: connection.id,
-    name: `${model.name} · ${connection.name}`,
-    modelName: model.name,
-    connectionName: connection.name,
-    location: AGENT_PROVIDERS[connection.provider].location,
-    model: model.id,
-    provider: connection.provider,
-    reasoning: model.reasoning,
-    reasoningEfforts: model.reasoningEfforts,
-    catalogDefaultReasoningEffort: model.defaultReasoningEffort,
-    reasoningEffort: null,
-    isManual: !supportsModelCatalog(connection.provider),
-    ...(model.aliases ? { aliases: model.aliases } : {}),
-    ...(model.promptPrice === null && model.completionPrice === null
-      ? {}
-      : { isFree: model.isFree }),
-    ...(model.isToolCapable === undefined
-      ? {}
-      : { isToolCapable: model.isToolCapable }),
-  };
 }

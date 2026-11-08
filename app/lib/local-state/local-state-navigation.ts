@@ -3,7 +3,7 @@ import type { ShouldRevalidateFunctionArgs } from "react-router";
 /** Routes that open from the browser's local state and refresh themselves. */
 const LOCAL_STATE_PATHS: readonly RegExp[] = [
   /^\/agents\/(?:plans|workspaces|agents)$/,
-  /^\/(?:dashboard|pica-tools|users)$/,
+  /^\/(?:dashboard|users)$/,
   /^\/settings(?:\/[^/]+){0,2}$/,
   /^\/(?:aufgaben|tasks)(?:\/[^/]+)?$/,
   /^\/projekte(?:\/[^/]+)?$/,

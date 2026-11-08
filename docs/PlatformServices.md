@@ -7,9 +7,7 @@ Instanz `default`: API/UI (`server.mjs`), Planläufe (`pages-runs.mjs`), GitHub/
 (`pages-integrations.mjs`) und PostgreSQL. Es gibt keine zusätzliche SSR-Unit.
 Der Rust-Dienst `pages-core` (PAGE-237, `deploy/core/pages-core@.service`, 256M)
 hält auf Wunsch die Live-Streams; er kommt erst mit der Umstellung einer Instanz
-hinzu ([deploy/core/README.md](../deploy/core/README.md)). Der unabhängige Beobachter ist ein kurzer Hilfsprozess mit
-Timer; er benötigt weder eine erreichbare Datenbank noch einen laufenden
-Anwendungsdienst. Backup- und Restore-Check-Timer unter `deploy/postgres/`
+hinzu ([deploy/core/README.md](../deploy/core/README.md)). Backup- und Restore-Check-Timer unter `deploy/postgres/`
 bleiben eigenständige Betriebsaufgaben.
 
 Die Vorlagen richten keine Installation ein. Eine produktive Installation und
@@ -21,7 +19,7 @@ Aktivierung ist ein eigener Betriebsauftrag. Dafür vorgesehen sind:
    `runsMode = "separate"` und `integrationsMode = "separate"`. API und Worker
    verwenden dieselbe Konfiguration und denselben Datenordner. `databasePath`
    bezeichnet weiterhin den historischen Datenpfad; seine Eltern enthalten
-   Payloads, Schlüssel, Sockets und `service-monitor/status.json`.
+   Payloads, Schlüssel und Sockets.
 2. Den versionierten, zentral geprüften Build samt Abhängigkeiten und allen
    Einstiegsskripten unter `/opt/pages` bereitstellen. Die Units starten Node
    über `/usr/bin/env node`: Node >= 22.22 muss im Dienst-PATH liegen. Bei einer
@@ -42,13 +40,13 @@ Aktivierung ist ein eigener Betriebsauftrag. Dafür vorgesehen sind:
    kein Cluster automatisch erzeugt und keine Anmeldung abgeschwächt. WAL- und
    Sicherungseinstellungen aus [PostgresMigration.md](PostgresMigration.md)
    und den bestehenden Backup-Vorlagen bleiben erhalten.
-4. `deploy/pages.target`, die API- und Beobachtervorlagen sowie die bestehenden
+4. `deploy/pages.target`, die API-Vorlage sowie die bestehenden
    Vorlagen aus `deploy/runs/`, `deploy/integrations/` und die gewählte
    PostgreSQL-Unit in den passenden systemd-Unitpfad übernehmen. Alle Units mit
    `systemd-analyze verify` prüfen, den Manager neu laden und erst im getrennt
    freigegebenen Betriebsschritt `pages.target` aktivieren. Das Target startet
    PostgreSQL vor API/Migrationen und API vor den beiden Workern. `PartOf`
-   überträgt Stop/Restart des Targets auf die Dienste und den Beobachter.
+   überträgt Stop/Restart des Targets auf die Dienste.
 5. Die bestehenden Voraussetzungen für native Agent-User-Units und ihren
    privaten User-Bus beibehalten. [AgentWorkerMemory.md](AgentWorkerMemory.md)
    bleibt maßgeblich: `pages-acp.slice` und Agent-Units werden nicht verändert.
@@ -58,8 +56,7 @@ ersetzen. Für einen isolierten Versuch im User-Manager werden ausschließlich
 eigene Unitnamen und private Pfade verwendet: `User`/`Group` entfernen, die
 Root-Sandboxoptionen an die User-Manager-Fähigkeiten anpassen und
 `OOMScoreAdjust=0` setzen. Negative OOM-Werte benötigen die Rechte einer
-System-Unit. Der Beobachter unterstützt dazu `--user` und eine explizite
-`--units unit.service,...`-Liste. Kein Beispiel erfordert Änderungen an einem
+System-Unit. Kein Beispiel erfordert Änderungen an einem
 laufenden fremden Dienst.
 
 ## Budgets und wirkliche Bereitschaft
@@ -73,9 +70,6 @@ Die festen Startbudgets stammen aus Zielarchitektur Revision 12 (22-GB-Server):
 | pages-integrations | 256M           | 160 MB   | -250           |
 | PostgreSQL         | 3G             | entfällt | -250           |
 
-Die kurze unabhängige Beobachtung hat zusätzlich 256M und einen 160-MB-V8-Heap.
-Sie lädt dasselbe Server-Bundle wie `pages-integrations` und bekommt dessen
-Budget; mit 64 MB und 128M brach sie mit V8- und danach cgroup-OOM ab.
 Agenten behalten ihre bestehende höhere OOM-Priorität (+500). Alle vier
 dauerhaften Dienste haben `Restart=always`, fünf Sekunden Neustartabstand,
 `WatchdogSec=60` und begrenzte Start-/Stopzeiten. Die Startbegrenzung ist
@@ -101,19 +95,7 @@ weiterhin durch vorhandene Zustände und Retries bearbeitet; ein nicht
 konfigurierter FCM-Sender ist kein Grund für eine Neustartschleife. Eine
 Provideranfrage oder ein Modellaufruf ist keine Voraussetzung dieser Probes.
 
-## Warnung bei häufigen Neustarts
-
-`pages-service-monitor@default.timer` liest ungefähr alle fünf Sekunden die
-managerseitigen `NRestarts` aller vier Dienste. Die erste Beobachtung wird vor
-PostgreSQL angefordert und setzt einen Ausgangszähler. Mehr als drei seitdem
-beobachtete Neustarts in zehn Minuten hinterlassen eine Warnung im privaten
-Statusspeicher. Sinkende Zähler nach einem Reset werden berücksichtigt. Zeiten
-werden konservativ dem Beginn des jeweiligen Beobachtungsintervalls
-zugeordnet; die Überwachung behauptet keine sekundengenaue Journalhistorie.
-Bei einer erstmaligen Installation oder einer Beobachtungslücke über zehn
-Minuten werden alte kumulative Zähler nicht als neue Ausfallserie ausgegeben.
-Ein vollständiger Zählerreset zwischen zwei Beobachtungen kann Neustarts
-verbergen; der Detektor ist eine laufende Überwachung, kein Journalarchiv.
+## Zustand der Dienste
 
 Den aktuellen Zustand der Dienste unter `pages.target` liest `pages-core`
 (PAGE-238) direkt aus dem systemd-Manager, unabhängig von der API
@@ -124,22 +106,20 @@ Start und Neustarts je Dienst stehen unter **Einstellungen → System → Dienst
 und nur für Administratoren im Adminmodus; kann die API die Anmeldung nicht
 bestätigen, bleibt dort nur die Ampel.
 
-Unter **Einstellungen → System → Dienstneustarts** erscheinen die gespeicherten
-Warnungen automatisch; die Anzeige fragt alle 15 Sekunden die geschützte API
-`GET /settings-api/services` ab. Sie verlangt eine aktive Administratorrolle
-im Adminmodus und setzt `Cache-Control: private, no-store`. Fällt die API selbst
-aus, sammelt der Beobachter weiter; die Warnung erscheint nach ihrer Rückkehr.
-Bei einem DB-Ausfall bleibt die Statusdatei erhalten. Ein fehlender, defekter
-oder mehr als 30 Sekunden alter Beobachterstatus wird sichtbar als nicht
-verfügbar/veraltet ausgewiesen. Warnungen bleiben auch nach der Erholung
-erhalten. Nach Untersuchung kann der Betrieb den Beobachter-Timer stoppen,
-seinen gerade laufenden Hilfsprozess auslaufen lassen und die Statusdatei
-archivieren/entfernen; nach erneutem Start entsteht ein frischer Ausgangszähler.
-Dateien nicht während einer laufenden Beobachtung bearbeiten.
+Bestehende Installationen mit dem früheren Neustartbeobachter (bis PAGE-251)
+schalten ihn einmalig ab; Pages führt diese Befehle nicht selbst aus:
+
+```sh
+systemctl disable --now pages-service-monitor@<instanz>.timer pages-service-monitor@<instanz>.service
+rm /etc/systemd/system/pages-service-monitor@.service /etc/systemd/system/pages-service-monitor@.timer
+systemctl daemon-reload
+```
+
+Danach den Ordner `service-monitor/` im Datenordner löschen.
 
 ## Update-Reihenfolge und Migrations-Koexistenz
 
-1. Zustand, Warnungen, Konfiguration, Daten/Payloads und einen verifizierten
+1. Zustand, Konfiguration, Daten/Payloads und einen verifizierten
    PostgreSQL-Sicherungspunkt aufbewahren. Alte Release-Artefakte behalten.
 2. Den neuen zentral geprüften Release in einem neuen Verzeichnis bereitstellen.
    PostgreSQL bleibt auf seiner kompatiblen Version; dessen Major-Upgrade ist
@@ -158,8 +138,7 @@ Dateien nicht während einer laufenden Beobachtung bearbeiten.
    ebenso ersetzen. Eigentümerschaftsschlösser dürfen keinen zweiten aktiven
    Verbraucher erlauben. Zeitweilig fehlende API-Bridges lassen persistierte
    Befehle stehen, statt eine zweite Ausführung zu starten.
-5. Beobachter und Timer auf das neue Release umstellen, Statusdatei erhalten.
-   Gesundheitsstatus, ausstehende Arbeit und Warnungen prüfen. Alte Artefakte
+5. Gesundheitsstatus und ausstehende Arbeit prüfen. Alte Artefakte
    erst nach Ende aller alten Prozesse und der Rückwegfrist entfernen.
 6. Die Pica-Freigabeprüfung der öffentlichen Adresse durchführen (nächster
    Abschnitt). Ohne sie gilt Pica nicht als einsatzbereit; der sichere

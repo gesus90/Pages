@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessagesSquare,
   PanelLeftClose,
   Settings,
   SquareCheck,
@@ -88,6 +89,30 @@ function getLinkClassName(isActive: boolean): string {
   );
 }
 
+/** The chat page (PAGE-254), open to every signed-in account. */
+function ChatNavigationLink({
+  onNavigate,
+}: {
+  readonly onNavigate?: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <NavLink
+      className={({ isActive }) => getLinkClassName(isActive)}
+      to="/chat"
+      prefetch="intent"
+      onClick={onNavigate}
+    >
+      <MessagesSquare
+        className="size-6 text-primary xl:size-5"
+        aria-hidden="true"
+      />
+      {t("navigation.chat")}
+    </NavLink>
+  );
+}
+
 function NavigationLinks({
   canViewProjects,
   canViewUsers,
@@ -142,6 +167,7 @@ function NavigationLinks({
           <TicketSidebarSection onNavigate={onNavigate} />
         </>
       ) : null}
+      <ChatNavigationLink onNavigate={onNavigate} />
       <AgentNavigation canManage={canManageAgents} onNavigate={onNavigate} />
       <NavLink
         className={({ isActive }) => getLinkClassName(isActive)}

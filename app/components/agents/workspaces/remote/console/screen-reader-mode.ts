@@ -1,5 +1,3 @@
-import type { TerminalScreenReaderMode } from "@/definition/Settings";
-
 let lastInteraction: "pointer" | "keyboard" | null = null;
 
 // The console opens from a menu, so the interaction before it tells how.
@@ -23,13 +21,9 @@ if (typeof document !== "undefined") {
 /**
  * Whether a new terminal keeps an accessible copy of its screen.
  *
- * @param mode - The person's setting.
- * @returns For `auto`, `true` unless the console was opened with a pointer:
- * keyboard use and the clicks of a screen reader come without one.
+ * @returns `true` unless the console was opened with a pointer: keyboard use
+ * and the clicks of a screen reader come without one.
  */
-export function resolveScreenReaderMode(
-  mode: TerminalScreenReaderMode,
-): boolean {
-  if (mode !== "auto") return mode === "on";
+export function resolveScreenReaderMode(): boolean {
   return lastInteraction !== "pointer";
 }

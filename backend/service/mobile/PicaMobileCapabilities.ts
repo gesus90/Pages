@@ -32,6 +32,10 @@ export async function readPicaMobileCapabilities(
     capabilities.push(PICA_MOBILE_CAPABILITY.CHAT_V1);
   }
 
+  if (chat?.canDelete === true) {
+    capabilities.push(PICA_MOBILE_CAPABILITY.CHAT_DELETE);
+  }
+
   if (notifications === undefined) {
     return capabilities;
   }

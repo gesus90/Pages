@@ -41,6 +41,10 @@ startet für Administratoren den Test der gespeicherten Verbindung, bei einem
 Arbeitsbereich dessen Prüfung. Die Terminalfläche bleibt in beiden
 Pages-Themes dunkel, mit eigenen semantischen Farb-Tokens.
 
+Den Screenreader-Modus wählt die Konsole bei jedem Öffnen automatisch:
+geöffnet per Tastatur ist er an, geöffnet mit Maus oder Touch aus. Eine
+Einstellung dafür gibt es nicht (PAGE-251).
+
 ## Transport und Zugriffsprüfung
 
 Die Konsole öffnet einen eigenen Shell-Kanal über den bestehenden

@@ -12,17 +12,12 @@ import type {
   SettingsActionHandler,
 } from "./settings-action-support.server";
 
-function readMegabytes(formData: FormData): number {
-  const value = (readText(formData, "attachmentLimitMegabytes") ?? "").trim();
-
-  return /^\d+$/u.test(value) ? Number(value) : Number.NaN;
-}
-
 /**
- * Changes the attachment limit and the supplementary instruction of the chat
- * (T6.12.4, T6.12.8); administrators in the admin mode only.
+ * Changes the supplementary instruction of the chat (T6.12.8);
+ * administrators in the admin mode only.
  *
  * @remarks
+ * The attachment limit is fixed and any submitted value is ignored (PAGE-251).
  * `resetInstruction` removes the supplement; Pica's protected `SOUL.md` and
  * `AGENTS.md` are not part of the form (PAGE-51). Neither the supplement nor
  * any other content of the form is logged.
@@ -36,7 +31,6 @@ export const handleUpdateChatSettings: SettingsActionHandler = async ({
 
   try {
     await services.chatSettingsService.update(user, {
-      attachmentLimitMegabytes: readMegabytes(formData),
       systemInstruction: isReset
         ? null
         : (readText(formData, "systemInstruction") ?? ""),

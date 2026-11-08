@@ -120,7 +120,6 @@ export const NUL_TEXT_FLOW: RepositoryFlow = {
     ),
     call("ChatSettingsRepository.save", ({ database }) =>
       new ChatSettingsRepository(database).save({
-        attachmentLimitBytes: 16_777_216,
         systemInstruction: TEXT,
       }),
     ),
@@ -130,7 +129,6 @@ export const NUL_TEXT_FLOW: RepositoryFlow = {
     keptOnlyByDuckdb("SELECT system_instruction FROM chat_settings;"),
     call("ChatSettingsRepository.save", ({ database }) =>
       new ChatSettingsRepository(database).save({
-        attachmentLimitBytes: 16_777_216,
         systemInstruction: null,
       }),
     ),

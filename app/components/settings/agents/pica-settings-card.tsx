@@ -1,12 +1,12 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
 import { ModelPicker } from "@/app/components/agents/model-picker";
 import {
-  ModelCatalogRefreshContext,
-  useModelCatalogRefresh,
-} from "@/app/components/agents/model-picker/use-model-catalog-refresh";
+  ModelFieldRow,
+  ReasoningField,
+} from "@/app/components/agents/model-picker/model-field";
 import { PicaMascot } from "@/app/components/chat/pica-mascot";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
@@ -16,10 +16,10 @@ import {
   findSavedModel,
   isClaudeModelAlias,
 } from "@/definition/AgentModelVersion";
+import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
-import type { ModelCatalogRefresh } from "@/app/components/agents/model-picker/use-model-catalog-refresh";
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { PicaAdministration } from "@/definition/PicaSettings";
@@ -28,42 +28,39 @@ import type { FetcherWithComponents } from "react-router";
 interface PicaSettingsCardProps {
   readonly settings: PicaAdministration;
   readonly models: readonly PageAgentModel[];
+  /** Whether the last server refresh of a catalog failed; the model choice then warns. */
+  readonly isCatalogFailed?: boolean;
 }
 
 /**
  * The fixed chat identity alongside the independently managed agent connections.
  *
  * @remarks
- * The model choice is the shared one of Pages, fed with the models of the
- * shared catalog that Pica can run. The page's refresh channel checks for a
- * changed catalog on focus, on opening the choice and while the page is
- * visible; a refresh never changes the saved choice or the draft.
+ * The model choice is the shared one of Pages, fed with the models of
+ * every tool the administrator may use; models Pica cannot run stay listed
+ * as disabled rows with the reason. The models come with the page and stay
+ * as loaded while the choice is used.
  */
 export function PicaSettingsCard({
   settings,
   models,
-  catalogRefresh,
-}: PicaSettingsCardProps & {
-  /** The marker of Pica's model projection; without it the models stay as loaded. */
-  readonly catalogRefresh?: ModelCatalogRefresh;
-}): React.ReactElement {
+  isCatalogFailed,
+}: PicaSettingsCardProps): React.ReactElement {
   const { t } = useTranslation();
   const fetcher = useFetcher<AgentActionResult>({ key: "pica-settings" });
-  const refresh = useModelCatalogRefresh(catalogRefresh);
   return (
     <SettingsCard
       icon={<PicaMascot className="size-7" />}
       title={t("picaSettings.title")}
       description={t("picaSettings.description")}
     >
-      <ModelCatalogRefreshContext value={refresh}>
-        <PicaSettingsForm
-          key={settings.revision}
-          settings={settings}
-          models={models}
-          fetcher={fetcher}
-        />
-      </ModelCatalogRefreshContext>
+      <PicaSettingsForm
+        key={settings.revision}
+        settings={settings}
+        models={models}
+        isCatalogFailed={isCatalogFailed}
+        fetcher={fetcher}
+      />
     </SettingsCard>
   );
 }
@@ -71,6 +68,7 @@ export function PicaSettingsCard({
 function PicaSettingsForm({
   settings,
   models,
+  isCatalogFailed,
   fetcher,
 }: PicaSettingsCardProps & {
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
@@ -122,6 +120,7 @@ function PicaSettingsForm({
         modelKey={modelKey}
         effort={effort}
         savedModel={settings.selection?.model ?? ""}
+        isCatalogFailed={isCatalogFailed === true}
         disabled={!isEnabled || isPending}
         onModel={selectModel}
         onEffort={setEffort}
@@ -131,9 +130,6 @@ function PicaSettingsForm({
         hasResetEffort={hasResetEffort}
         aliasNotice={aliasNotice}
       />
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        {t("picaSettings.stopHint")}
-      </p>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" size="sm" disabled={isPending}>
           {t("settings.agents.save")}
@@ -162,6 +158,7 @@ interface PicaModelFieldsProps {
   readonly modelKey: string;
   readonly savedModel: string;
   readonly effort: string;
+  readonly isCatalogFailed: boolean;
   readonly disabled: boolean;
   readonly onModel: (key: string) => void;
   readonly onEffort: (effort: string) => void;
@@ -180,7 +177,6 @@ function PicaTarget(): React.ReactElement {
 
 function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
   const { t } = useTranslation();
-  const id = useId();
   const model = props.models.find((entry) => entry.id === props.modelKey);
   const efforts = model?.reasoningEfforts ?? [];
   const effortOptions = reasoningOptions({
@@ -191,36 +187,35 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
     defaultLabel: t("pageAgents.defaultReasoning"),
     translate: t,
   });
+  // Pica's own rule refuses a model; the row stays listed with the reason.
+  function refusalOf(entry: PageAgentModel): string | null {
+    const refusal = modelConsumerRefusal("pica", entry);
+    return refusal === null ? null : t(`picaSettings.refusal.${refusal}`);
+  }
   return (
-    <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+    <ModelFieldRow>
       <ModelPicker
         value={props.modelKey}
         models={props.models}
         savedModel={props.savedModel}
         disabled={props.disabled}
         placeholder={t("picaSettings.chooseModel")}
+        refusalOf={refusalOf}
+        isCatalogFailed={props.isCatalogFailed}
         onChange={props.onModel}
       />
-      <div className="min-w-0 space-y-2">
-        <label htmlFor={`${id}-reasoning`} className="text-sm font-medium">
-          {t("pageAgents.reasoning")}
-        </label>
-        <Select
-          id={`${id}-reasoning`}
-          ariaLabel={t("pageAgents.reasoning")}
-          value={props.effort}
-          onValueChange={props.onEffort}
-          disabled={props.disabled || effortOptions.length === 1}
-          options={effortOptions}
-          className="w-full border border-border [&>span]:truncate"
-        />
-        {model && efforts.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            {t("settings.agents.assignments.noEffort")}
-          </p>
-        ) : null}
-      </div>
-    </div>
+      <ReasoningField
+        value={props.effort}
+        options={effortOptions}
+        disabled={props.disabled}
+        note={
+          model && efforts.length === 0
+            ? t("settings.agents.assignments.noEffort")
+            : null
+        }
+        onChange={props.onEffort}
+      />
+    </ModelFieldRow>
   );
 }
 

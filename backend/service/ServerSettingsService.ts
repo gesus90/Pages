@@ -1,6 +1,5 @@
 import { DEFAULT_PORT, isValidPort } from "@/backend/config/PagesConfig";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
-import { ServiceMonitorService } from "@/backend/service/ServiceMonitorService";
 import { isAcpSessionLimit } from "@/definition/AcpResource";
 import { PERMISSION } from "@/definition/Role";
 import { PAGES_VERSION } from "@/definition/Version";
@@ -20,7 +19,6 @@ import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceS
 import type { AcpResourceUpdateResult } from "@/definition/AcpResource";
 import type { User } from "@/definition/User";
 import type { LoggingStatus } from "@/definition/Logging";
-import type { ServiceMonitorStatus } from "@/definition/ServiceMonitor";
 
 /** Thrown when an actor may not change settings of the whole instance. */
 export class ServerSettingsDeniedError extends Error {
@@ -80,12 +78,6 @@ export class ServerSettingsService {
   /** Returns the port stored for the next start. */
   public async readPort(): Promise<number> {
     return (await this.configFile.read())?.port ?? DEFAULT_PORT;
-  }
-
-  /** Reads independently retained restart warnings only for current application administrators. */
-  public async readServiceMonitor(actor: User): Promise<ServiceMonitorStatus> {
-    if (!(await this.canManage(actor))) throw new ServerSettingsDeniedError();
-    return new ServiceMonitorService(this.configFile).readStatus();
   }
 
   /** Returns version, database file and start time of the running process. */

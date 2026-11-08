@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/app/components/agents/model-picker";
-import { Select } from "@/app/components/ui/select";
+import { ReasoningField } from "@/app/components/agents/model-picker/model-field";
 import { cn } from "@/app/lib/cn";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
@@ -21,7 +21,6 @@ import {
 import { usePlanFlowContext } from "../plan-flow-context";
 import { planStepWithModel } from "../plan-node-configuration-fields";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
-import { PLAN_FIELD_CLASS } from "./plan-value-input";
 
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
@@ -32,7 +31,8 @@ const FOOTER_CLASS =
   "grid h-12 shrink-0 grid-cols-2 items-center gap-2 border-t border-border px-3";
 
 /**
- * Model and reasoning of an agent node, compact at the bottom of its card.
+ * Model and reasoning of an agent node at the bottom of its card, in the
+ * shared fields with the same measures as everywhere else.
  *
  * @remarks
  * The list offers known models of connections currently shared with the person.
@@ -210,18 +210,15 @@ function ModelChoice(props: {
         disabled={false}
         isLabelHidden
         mode="floating"
-        size="compact"
         refusalOf={refusalOf}
-        triggerClassName={PLAN_FIELD_CLASS}
         onChange={selectModel}
       />
-      <Select
-        ariaLabel={t("pageAgents.reasoning")}
+      <ReasoningField
         value={configuration.reasoningEffort ?? ""}
-        disabled={effortOptions.length === 1}
-        className={`${PLAN_FIELD_CLASS} [&>span]:min-w-0 [&>span]:truncate`}
         options={effortOptions}
-        onValueChange={selectEffort}
+        disabled={false}
+        isLabelHidden
+        onChange={selectEffort}
       />
     </footer>
   );

@@ -1,6 +1,7 @@
 import {
   AGENT_PROVIDERS,
   OPENCODE_FREE_PROVIDER,
+  linkedApiProviderOf,
   openCodeModelProvider,
 } from "@/definition/AgentConnection";
 
@@ -13,16 +14,42 @@ const NAME_ORDER = new Intl.Collator(undefined, {
   sensitivity: "base",
 });
 
-/** OpenCode's own models first, then those it reaches through OpenRouter. */
-const OPENCODE_SOURCE_ORDER = [OPENCODE_FREE_PROVIDER, "openrouter"];
+/** The tools every model choice lists first, in this order; others follow by name. */
+const TOOL_ORDER: readonly AgentProviderId[] = [
+  "claude_code",
+  "codex_cli",
+  "antigravity",
+  "opencode",
+  "openrouter",
+  "zai",
+];
+
+/**
+ * Tools whose models form one list, whichever access reaches them: OpenCode
+ * with a linked key or the direct API connection. Each model appears once.
+ */
+const MERGED_TOOLS: ReadonlySet<AgentProviderId> = new Set([
+  "openrouter",
+  "zai",
+]);
+
+/** OpenCode's own models first, then those of other linked providers. */
+const OPENCODE_SOURCE_ORDER = [OPENCODE_FREE_PROVIDER];
 
 /** The execution target of models on this host. */
 const LOCAL_TARGET = "local";
 
+/** The one source of a merged tool. */
+const MERGED_SOURCE = "models";
+
+// A trailing "Free", such as in "GLM-5.3-Flash Free" or "Model (free)"; the
+// badge says it instead.
+const TRAILING_FREE = /(?:[\s:_-]+\(?|\()free\)?$/iu;
+
 /** One model a consumer can choose, named for the choice. */
 export interface ModelChoice {
   readonly model: PageAgentModel;
-  /** The model's short catalog name, without host or connection. */
+  /** The model's short catalog name, without host, connection or a trailing "Free". */
   readonly label: string;
   /** The technical model ID, only where another model of the same source has the same name. */
   readonly detail: string | null;
@@ -32,7 +59,7 @@ export interface ModelChoice {
   readonly isFree: boolean;
   /** Why this place cannot use the model; the row stays listed but cannot be chosen. */
   readonly refusal: string | null;
-  /** Lower-case words the search matches: name, ID, tool, access, source and target. */
+  /** Lower-case words the search matches: name, ID, tool, access, source, target and "free". */
   readonly searchText: string;
 }
 
@@ -44,13 +71,13 @@ export interface ModelSource {
   readonly choices: readonly ModelChoice[];
 }
 
-/** One tool, such as Claude Code or OpenCode, on one execution target, with its sources and models. */
+/** One tool, such as Claude Code or OpenRouter, on one execution target, with its sources and models. */
 export interface ModelGroup {
   readonly key: string;
   readonly label: string;
-  /** The short access context of the header, such as "Claude-Abo" or "OpenCode + OpenRouter". */
+  /** The short access context of the header, such as "Claude-Abo" or "API-Key". */
   readonly context: string;
-  /** The brand mark key registered for the tool's provider. */
+  /** The mark key registered for the tool. */
   readonly mark: string;
   readonly sources: readonly ModelSource[];
   readonly count: number;
@@ -61,6 +88,8 @@ export interface ModelGroupOptions {
   readonly translate: TFunction;
   /** The reason a listed model cannot be chosen here, such as a group of another runner. */
   readonly refusalOf?: (model: PageAgentModel) => string | null;
+  /** The chosen model, which stays the listed entry where one model has several accesses. */
+  readonly selectedId?: string;
 }
 
 interface SourceDraft {
@@ -71,18 +100,67 @@ interface SourceDraft {
 
 interface GroupDraft {
   readonly key: string;
-  readonly provider: AgentProviderId;
+  readonly tool: AgentProviderId;
   /** The remote target's name; `null` on this host. */
   readonly targetName: string | null;
   readonly models: PageAgentModel[];
 }
 
-function shortName(model: PageAgentModel): string {
+function catalogName(model: PageAgentModel): string {
   return model.modelName ?? model.name;
+}
+
+function shortName(model: PageAgentModel): string {
+  const name = catalogName(model);
+  const shortened = name.replace(TRAILING_FREE, "").trim();
+  return shortened === "" ? name : shortened;
 }
 
 function targetKey(model: PageAgentModel): string {
   return model.runnerRoute?.workspaceId ?? LOCAL_TARGET;
+}
+
+/**
+ * The tool a model is listed under.
+ *
+ * @remarks
+ * OpenCode runs the models of OpenRouter and Z.AI with their linked keys;
+ * the choice lists them under OpenRouter and Z.AI, beside the models of the
+ * direct API connections. Execution stays as the model's entry says.
+ */
+function toolOf(model: PageAgentModel): AgentProviderId {
+  if (model.provider !== "opencode") return model.provider;
+  const linked = linkedApiProviderOf(openCodeModelProvider(model.model));
+  return linked !== null && MERGED_TOOLS.has(linked) ? linked : "opencode";
+}
+
+// The model behind an entry, without the OpenCode provider in front, so the
+// same model of OpenCode and of the direct API connection is recognised.
+function sameModelKey(model: PageAgentModel): string {
+  if (model.provider !== "opencode") return model.model;
+  return model.model.slice(model.model.indexOf("/") + 1);
+}
+
+// The chosen entry stays; otherwise one the place can use, preferably run by
+// OpenCode, which executes these tools' models.
+function entryRank(model: PageAgentModel, options: ModelGroupOptions): number {
+  if (model.id === options.selectedId) return 0;
+  if ((options.refusalOf?.(model) ?? null) !== null) return 3;
+  return model.provider === "opencode" ? 1 : 2;
+}
+
+function withoutDuplicates(
+  models: readonly PageAgentModel[],
+  options: ModelGroupOptions,
+): PageAgentModel[] {
+  const kept = new Map<string, PageAgentModel>();
+  for (const model of models) {
+    const key = sameModelKey(model);
+    const current = kept.get(key);
+    if (!current || entryRank(model, options) < entryRank(current, options))
+      kept.set(key, model);
+  }
+  return [...kept.values()];
 }
 
 /**
@@ -104,12 +182,16 @@ export function modelToolLabel(
   });
 }
 
-// An OpenCode model belongs to the provider OpenCode runs it with; any other
-// model to its connection, so two accounts of one tool stay apart.
+// An OpenCode model belongs to the provider OpenCode runs it with; a merged
+// tool holds one list; any other model belongs to its connection, so two
+// accounts of one tool stay apart.
 function sourceOf(
   model: PageAgentModel,
+  tool: AgentProviderId,
   translate: TFunction,
 ): Omit<SourceDraft, "models"> {
+  if (MERGED_TOOLS.has(tool))
+    return { key: MERGED_SOURCE, name: modelToolLabel(tool, translate) };
   if (model.provider === "opencode") {
     const provider = openCodeModelProvider(model.model);
     return {
@@ -124,9 +206,9 @@ function sourceOf(
 }
 
 function compareSources(
-  provider: AgentProviderId,
+  tool: AgentProviderId,
 ): (first: SourceDraft, second: SourceDraft) => number {
-  if (provider !== "opencode")
+  if (tool !== "opencode")
     return (first, second) => NAME_ORDER.compare(first.name, second.name);
   const rank = (source: SourceDraft): number => {
     const index = OPENCODE_SOURCE_ORDER.indexOf(source.key);
@@ -143,20 +225,34 @@ function compareModels(first: PageAgentModel, second: PageAgentModel): number {
   );
 }
 
+function groupAccess(
+  draft: GroupDraft,
+  sources: readonly SourceDraft[],
+  translate: TFunction,
+): string {
+  if (MERGED_TOOLS.has(draft.tool))
+    return translate(`plans.modelPicker.access.${draft.tool}`);
+  if (draft.tool === "opencode") {
+    // Without an OpenCode key the catalog holds only OpenCode's free models.
+    if (draft.models.every((model) => model.isFree === true))
+      return translate("plans.modelPicker.access.opencodeFree");
+    return sources.length > 1
+      ? sources.map((source) => source.name).join(" + ")
+      : translate("plans.modelPicker.access.opencode");
+  }
+  if (sources.length === 1)
+    return translate(`plans.modelPicker.access.${draft.tool}`, {
+      defaultValue: sources[0].name,
+    });
+  return translate("plans.modelPicker.accessCount", { count: sources.length });
+}
+
 function groupContext(
   draft: GroupDraft,
   sources: readonly SourceDraft[],
   translate: TFunction,
 ): string {
-  let access = translate("plans.modelPicker.accessCount", {
-    count: sources.length,
-  });
-  if (draft.provider === "opencode")
-    access = sources.map((source) => source.name).join(" + ");
-  else if (sources.length === 1)
-    access = translate(`plans.modelPicker.access.${draft.provider}`, {
-      defaultValue: sources[0].name,
-    });
+  const access = groupAccess(draft, sources, translate);
   // A remote target names its host once in the header, never in each row.
   return draft.targetName === null ? access : `${draft.targetName} · ${access}`;
 }
@@ -182,7 +278,7 @@ function choicesOf(
     isFree: model.isFree === true,
     refusal: refusalOf?.(model) ?? null,
     searchText: [
-      shortName(model),
+      catalogName(model),
       model.model,
       input.group,
       input.context,
@@ -190,6 +286,9 @@ function choicesOf(
       model.connectionName ?? "",
       model.targetName ?? "",
       translate(AGENT_PROVIDERS[model.provider].labelKey),
+      model.isFree === true
+        ? `free ${translate("plans.modelPicker.free")}`
+        : "",
     ]
       .join(" ")
       .toLowerCase(),
@@ -198,31 +297,33 @@ function choicesOf(
 
 function buildGroup(draft: GroupDraft, options: ModelGroupOptions): ModelGroup {
   const { translate } = options;
+  const models = MERGED_TOOLS.has(draft.tool)
+    ? withoutDuplicates(draft.models, options)
+    : draft.models;
   const drafts = new Map<string, SourceDraft>();
-  for (const model of draft.models) {
-    const source = sourceOf(model, translate);
+  for (const model of models) {
+    const source = sourceOf(model, draft.tool, translate);
     const sourceDraft = drafts.get(source.key) ?? { ...source, models: [] };
     sourceDraft.models.push(model);
     drafts.set(source.key, sourceDraft);
   }
-  const ordered = [...drafts.values()].toSorted(compareSources(draft.provider));
-  const label = modelToolLabel(draft.provider, translate);
+  const ordered = [...drafts.values()].toSorted(compareSources(draft.tool));
+  const label = modelToolLabel(draft.tool, translate);
   const context = groupContext(draft, ordered, translate);
   const hasSeveral = ordered.length > 1;
   return {
     key: draft.key,
     label,
     context,
-    mark: AGENT_PROVIDERS[draft.provider].mark,
-    count: draft.models.length,
+    mark: AGENT_PROVIDERS[draft.tool].mark,
+    count: models.length,
     sources: ordered.map((source) => ({
       key: source.key,
       label: hasSeveral ? source.name : null,
       choices: choicesOf(source, {
         group: label,
         // OpenCode's context names all its sources; each model matches only its own.
-        context:
-          draft.provider === "opencode" ? (draft.targetName ?? "") : context,
+        context: draft.tool === "opencode" ? (draft.targetName ?? "") : context,
         badge: hasSeveral ? source.name : null,
         options,
       }),
@@ -230,7 +331,13 @@ function buildGroup(draft: GroupDraft, options: ModelGroupOptions): ModelGroup {
   };
 }
 
-// This host's tools come first, then each remote target's, each by tool name.
+function toolRank(tool: AgentProviderId): number {
+  const index = TOOL_ORDER.indexOf(tool);
+  return index === -1 ? TOOL_ORDER.length : index;
+}
+
+// This host's tools come first, then each remote target's, each in the fixed
+// tool order and then by tool name.
 function compareGroups(
   first: GroupDraft & { readonly label: string },
   second: GroupDraft & { readonly label: string },
@@ -240,6 +347,7 @@ function compareGroups(
   if (isFirstRemote !== isSecondRemote) return isFirstRemote ? 1 : -1;
   return (
     NAME_ORDER.compare(first.targetName ?? "", second.targetName ?? "") ||
+    toolRank(first.tool) - toolRank(second.tool) ||
     NAME_ORDER.compare(first.label, second.label)
   );
 }
@@ -249,31 +357,37 @@ function compareGroups(
  *
  * @remarks
  * This is the one projection every model choice of Pages uses, so the same
- * models of the same context look, group and search the same everywhere.
- * Groups come from the providers the catalog lists, never from a fixed list,
- * and take their names and marks from the provider registry. Models keep
- * their technical identity: a model reached through two sources or
- * connections is offered once per source, and only an entry with the very
- * same selection key is offered once. Models of a remote target never share
- * a group with this host's.
+ * models look, group and search the same everywhere. Groups come from the
+ * tools the catalog lists, never from a fixed list, and take their names and
+ * marks from the provider registry: Claude Code, Codex, Antigravity,
+ * OpenCode, OpenRouter and Z.AI first, in this order. OpenRouter and Z.AI
+ * are tools of their own; their models appear there once, also where both
+ * OpenCode and the direct API connection reach them. Models whose catalog
+ * rules out chatting are left out; a saved assignment to one is then shown
+ * as unavailable. Models of a remote target never share a group with this
+ * host's.
  *
  * @param models - The models the place may offer.
- * @param options - Translation and the place's reason a model cannot be chosen.
+ * @param options - Translation, the place's reason a model cannot be chosen and the chosen model.
  * @returns One group per target and tool that offers at least one model.
  */
 export function modelGroups(
   models: readonly PageAgentModel[],
   options: ModelGroupOptions,
 ): readonly ModelGroup[] {
-  const unique = new Map(models.map((model) => [model.id, model]));
+  const unique = new Map(
+    models
+      .filter((model) => model.isChatCapable !== false)
+      .map((model) => [model.id, model]),
+  );
   const drafts = new Map<string, GroupDraft>();
   for (const model of unique.values()) {
     const target = targetKey(model);
-    const key =
-      target === LOCAL_TARGET ? model.provider : `${target}:${model.provider}`;
+    const tool = toolOf(model);
+    const key = target === LOCAL_TARGET ? tool : `${target}:${tool}`;
     const draft = drafts.get(key) ?? {
       key,
-      provider: model.provider,
+      tool,
       targetName: target === LOCAL_TARGET ? null : (model.targetName ?? target),
       models: [],
     };
@@ -283,7 +397,7 @@ export function modelGroups(
   return [...drafts.values()]
     .map((draft) => ({
       ...draft,
-      label: modelToolLabel(draft.provider, options.translate),
+      label: modelToolLabel(draft.tool, options.translate),
     }))
     .toSorted(compareGroups)
     .map((draft) => buildGroup(draft, options));

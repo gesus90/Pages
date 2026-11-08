@@ -2,10 +2,12 @@ import { agentProfilePriority } from "@/backend/auth/AgentProfilePolicy";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { isChatCapableModel } from "@/definition/AgentModelFilter";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
+import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { ProfileDependencies } from "./AgentProfileService";
@@ -119,6 +121,20 @@ export function defaultReasoningEffort(
     : null;
 }
 
+// The free mark and the chat filter of the shared model choice read the
+// profile's catalog entry, like every other model of the choice.
+function catalogFacts(
+  listed: AgentCatalogModel | undefined,
+): Pick<PageAgentModel, "isFree" | "isChatCapable"> {
+  if (!listed) return {};
+  return {
+    ...(listed.promptPrice === null && listed.completionPrice === null
+      ? {}
+      : { isFree: listed.isFree }),
+    ...(isChatCapableModel(listed) ? {} : { isChatCapable: false }),
+  };
+}
+
 /** Enumerates exact administrative models after assignment, scope and capability checks. */
 export async function pageAgentModels(
   dependencies: ProfileDependencies,
@@ -149,6 +165,7 @@ export async function pageAgentModels(
         catalogDefaultReasoningEffort: listed?.defaultReasoningEffort ?? null,
         reasoningEffort: source.reasoningEffort,
         provider: connection.provider,
+        ...catalogFacts(listed),
       });
     } catch (error: unknown) {
       logCaughtError("PageAgentModels", error);

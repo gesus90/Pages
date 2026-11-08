@@ -63,6 +63,12 @@ export interface PicaMobileChatUpload {
  * checks the session first and acts only on own sessions of its account.
  */
 export interface PicaMobileChatProvider {
+  /**
+   * Whether {@link PicaMobileChatProvider.answer} answers `chat_delete`. Only
+   * then the connection announces `chat.delete`; otherwise the request is
+   * unknown.
+   */
+  readonly canDelete: boolean;
   /** Answers one chat request; rejects only when Pages cannot decide right now. */
   answer(
     context: PicaMobileChatContext,

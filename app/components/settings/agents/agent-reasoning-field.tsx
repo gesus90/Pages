@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { AssignmentSelect } from "./agent-model-field/assignment-select";
+import { ReasoningField } from "@/app/components/agents/model-picker/model-field";
 
 import type { AssignmentChoices } from "./use-agent-assignment";
 
@@ -18,19 +18,14 @@ export function AgentReasoningField({
   );
   const hasLevels = Boolean(model?.reasoningEfforts.length);
   return (
-    <div className="space-y-2">
-      <AssignmentSelect
-        field="reasoning"
-        value={selection.effort}
-        options={selection.effortOptions}
-        onValueChange={selection.chooseEffort}
-        disabled={isPending || selection.effortOptions.length === 1}
-      />
-      {model && !hasLevels ? (
-        <p className="text-sm text-muted-foreground">
-          {t("settings.agents.assignments.noEffort")}
-        </p>
-      ) : null}
-    </div>
+    <ReasoningField
+      value={selection.effort}
+      options={selection.effortOptions}
+      disabled={isPending}
+      note={
+        model && !hasLevels ? t("settings.agents.assignments.noEffort") : null
+      }
+      onChange={selection.chooseEffort}
+    />
   );
 }

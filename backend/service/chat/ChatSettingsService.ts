@@ -2,20 +2,15 @@ import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { InstanceSettingsDeniedError } from "@/backend/service/InstanceSettingsService";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
-import {
-  CHAT_ATTACHMENT_LIMITS,
-  CHAT_LIMITS,
-  CHAT_MEBIBYTE,
-} from "@/definition/Chat";
+import { CHAT_LIMITS } from "@/definition/Chat";
 
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
-import type { ChatAdministration, ChatSettings } from "@/definition/Chat";
+import type { ChatAdministration } from "@/definition/Chat";
 import type { User } from "@/definition/User";
 
 /** What an administrator changes in the system settings. */
 export interface ChatSettingsUpdate {
-  readonly attachmentLimitMegabytes: number;
   /** The new supplement; `null` or an empty text removes it. */
   readonly systemInstruction: string | null;
 }
@@ -33,8 +28,8 @@ function readInstruction(input: string | null): string | null {
 }
 
 /**
- * Administrator settings of the chat: attachment limit and the supplement to
- * Pica's instructions (T6.12.4, T6.12.8).
+ * Administrator settings of the chat: the supplement to Pica's instructions
+ * (T6.12.8). The attachment limit is fixed (PAGE-251).
  *
  * @remarks
  * Pica's protected `SOUL.md` and `AGENTS.md` are no setting (PAGE-51): no
@@ -53,11 +48,6 @@ export class ChatSettingsService {
     this.accounts = accounts;
   }
 
-  /** Returns the stored settings that apply to every chat. */
-  public async read(): Promise<ChatSettings> {
-    return this.repository.read();
-  }
-
   /** Returns the supplement a chat turn adds below Pica's protected files, or `null`. */
   public async instruction(): Promise<string | null> {
     return (await this.repository.read()).systemInstruction;
@@ -72,9 +62,6 @@ export class ChatSettingsService {
     await this.requireAdministrator(actor);
     const settings = await this.repository.read();
     return {
-      attachmentLimitMegabytes: Math.round(
-        settings.attachmentLimitBytes / CHAT_MEBIBYTE,
-      ),
       systemInstruction: settings.systemInstruction ?? "",
       isDefaultInstruction: settings.systemInstruction === null,
     };
@@ -84,20 +71,12 @@ export class ChatSettingsService {
    * Replaces the settings.
    *
    * @throws {InstanceSettingsDeniedError} When the actor is no administrator in the admin mode.
-   * @throws {ChatError} `invalidSetting` for a limit outside 1 to 512 MB or a
-   * too long supplement, `credentialsInText` for a supplement with credentials.
+   * @throws {ChatError} `invalidSetting` for a too long supplement,
+   * `credentialsInText` for a supplement with credentials.
    */
   public async update(actor: User, update: ChatSettingsUpdate): Promise<void> {
     await this.requireAdministrator(actor);
-    const megabytes = update.attachmentLimitMegabytes;
-    if (
-      !Number.isInteger(megabytes) ||
-      megabytes < CHAT_ATTACHMENT_LIMITS.minimumMegabytes ||
-      megabytes > CHAT_ATTACHMENT_LIMITS.maximumMegabytes
-    )
-      throw new ChatError("invalidSetting");
     await this.repository.save({
-      attachmentLimitBytes: megabytes * CHAT_MEBIBYTE,
       systemInstruction: readInstruction(update.systemInstruction),
     });
   }

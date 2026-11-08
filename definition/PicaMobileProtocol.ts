@@ -69,6 +69,7 @@ export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   CHAT_SEND: "chat_send",
   CHAT_JOB_GET: "chat_job_get",
   CHAT_STOP: "chat_stop",
+  CHAT_DELETE: "chat_delete",
 } as const;
 
 /** Types of the messages the server sends. */
@@ -89,6 +90,7 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
   CHAT_SENT: "chat_sent",
   CHAT_JOB: "chat_job",
   CHAT_STOPPED: "chat_stopped",
+  CHAT_DELETED: "chat_deleted",
   CHAT_FAILED: "chat_failed",
 } as const;
 
@@ -107,11 +109,14 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * for the `plans` messages the server sends on its own. `chat.v1` stands for
  * the eight `chat_*` requests with their answers and for the attachment
  * endpoints on the same port; the server sends nothing of the chat on its own.
+ * `chat.delete` stands for the one request `chat_delete` with its answer
+ * `chat_deleted`; a server names it only together with `chat.v1`.
  */
 export const PICA_MOBILE_CAPABILITY = {
   DASHBOARD_V1: "dashboard.v1",
   PLANS_V1: "plans.v1",
   CHAT_V1: "chat.v1",
+  CHAT_DELETE: "chat.delete",
   NOTIFICATIONS_V1: "notifications.v1",
   NOTIFICATIONS_PUSH_FCM: "notifications.push.fcm",
 } as const;
@@ -201,7 +206,8 @@ const picaMobileChatSessionIdSchema = z
 const picaMobileChatItemIdSchema = z.string().regex(/^[a-zA-Z0-9-]{1,100}$/u);
 
 /**
- * The eight requests of `chat.v1`, each with its payload.
+ * The eight requests of `chat.v1` and `chat_delete` of `chat.delete`, each
+ * with its payload.
  *
  * @remarks
  * `text` is bounded here by UTF-16 code units only; the chat counts its
@@ -244,12 +250,16 @@ export const picaMobileChatRequestSchema = z.discriminatedUnion("type", [
     type: z.literal("chat_stop"),
     payload: z.object({ sessionId: picaMobileChatSessionIdSchema }),
   }),
+  z.object({
+    type: z.literal("chat_delete"),
+    payload: z.strictObject({ sessionId: picaMobileChatSessionIdSchema }),
+  }),
 ]);
 
-/** A request of `chat.v1` with its checked payload, without the envelope. */
+/** A chat request with its checked payload, without the envelope. */
 export type PicaMobileChatRequest = z.infer<typeof picaMobileChatRequestSchema>;
 
-/** The type of a request of `chat.v1`. */
+/** The type of a chat request. */
 export type PicaMobileChatRequestType = PicaMobileChatRequest["type"];
 
 /** A message of the Pica Mobile protocol, sent in either direction as JSON text. */
@@ -652,7 +662,7 @@ export type PicaMobileChatJobPayload =
   | { readonly jobId: null };
 
 /**
- * An answer of `chat.v1` without its envelope.
+ * An answer of `chat.v1` or `chat.delete` without its envelope.
  *
  * @remarks
  * `chat_failed` carries a code of the chat, such as `sessionMissing` or
@@ -672,6 +682,10 @@ export type PicaMobileChatAnswer =
   | { readonly type: "chat_job"; readonly payload: PicaMobileChatJobPayload }
   | {
       readonly type: "chat_stopped";
+      readonly payload: { readonly sessionId: string };
+    }
+  | {
+      readonly type: "chat_deleted";
       readonly payload: { readonly sessionId: string };
     }
   | {

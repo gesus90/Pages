@@ -1,4 +1,7 @@
-import { isAgentModel } from "@/definition/AgentModelFilter";
+import {
+  isAgentModel,
+  isNamedNonChatModel,
+} from "@/definition/AgentModelFilter";
 import { describeClaudeModel } from "@/definition/AgentModelVersion";
 import { RUNNER_TOOL_PROVIDERS } from "@/definition/RunnerExecution";
 import { MODEL_MODALITIES } from "@/definition/RemoteSetup";
@@ -38,6 +41,8 @@ export function remoteOpenRouterModels(
     catalogDefaultReasoningEffort: null,
     reasoningEffort: null,
     isFree: true,
+    // The shared model choice hides the named moderation models (PAGE-248).
+    ...(isNamedNonChatModel(model.id) ? { isChatCapable: false } : {}),
   }));
 }
 
@@ -98,6 +103,7 @@ function remoteOpenCodeModels(
     reasoningEffort: null,
     ...(model.isFree === undefined ? {} : { isFree: model.isFree }),
     ...(model.toolCall === undefined ? {} : { isToolCapable: model.toolCall }),
+    ...(isNamedNonChatModel(model.id) ? { isChatCapable: false } : {}),
   }));
 }
 

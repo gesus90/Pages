@@ -1,7 +1,7 @@
 import { ChatError } from "@/backend/error/ChatErrors";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
-import { CHAT_LIMITS } from "@/definition/Chat";
+import { CHAT_ATTACHMENT_LIMIT_BYTES, CHAT_LIMITS } from "@/definition/Chat";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { chatPreviewKind } from "@/definition/ChatPreview";
@@ -26,7 +26,6 @@ import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import type { ChatAttachment } from "@/definition/Chat";
 import type { ChatAttachmentPreview } from "@/definition/ChatPreview";
 import type { User } from "@/definition/User";
-import type { ChatSettingsService } from "./ChatSettingsService";
 
 const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 
@@ -34,7 +33,6 @@ const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 export interface ChatAttachmentDependencies {
   readonly sessions: Pick<ChatSessionRepository, "find">;
   readonly attachments: ChatAttachmentRepository;
-  readonly settings: Pick<ChatSettingsService, "read">;
   readonly files: Pick<WikiFileStore, "write" | "open" | "remove">;
   /** Tells whether SVG markup is free of scripts and external references. */
   readonly isSafeSvg: (markup: Buffer) => boolean;
@@ -62,7 +60,7 @@ function isUpload(attachment: StoredChatAttachment): boolean {
  * Stores attachments at a session (T6.12.4, T6.12.11).
  *
  * @remarks
- * The size follows the administrator limit and is enforced while the file
+ * The size follows the fixed limit of 16 MB and is enforced while the file
  * streams to the disk. The type is decided from the content; programs and
  * archives with executable content are refused. A refused file leaves nothing
  * behind. Attachments are deleted with their session.
@@ -277,12 +275,16 @@ export class ChatAttachmentService {
     fileName: string,
     file: UploadedFile,
   ): Promise<ChatAttachment> {
-    const limit = (await this.dependencies.settings.read())
-      .attachmentLimitBytes;
-    if (file.contentLength !== null && file.contentLength > limit)
+    if (
+      file.contentLength !== null &&
+      file.contentLength > CHAT_ATTACHMENT_LIMIT_BYTES
+    )
       throw new ChatError("fileTooLarge");
     const probe = new ChatFileProbe();
-    const stored = await this.store(probe.observe(file.body), limit);
+    const stored = await this.store(
+      probe.observe(file.body),
+      CHAT_ATTACHMENT_LIMIT_BYTES,
+    );
     try {
       if (stored.size === 0) throw new ChatError("fileEmpty");
       const type = classifyChatFile(

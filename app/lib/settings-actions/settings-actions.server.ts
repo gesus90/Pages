@@ -7,7 +7,6 @@ import {
 import { runSettingsAction } from "./settings-action-support.server";
 import { handleUpdateDesignTheme } from "./settings-design-theme-action.server";
 import { handleSetMode } from "./settings-mode-action.server";
-import { handleUpdateTerminalScreenReader } from "./settings-terminal-action.server";
 import {
   handleUpdateAvatar,
   handleUpdateProfile,
@@ -28,7 +27,6 @@ const SETTINGS_ACTION_HANDLERS = {
   "update-design-theme": handleUpdateDesignTheme,
   "update-profile": handleUpdateProfile,
   "update-settings": handleUpdateSettings,
-  "update-terminal-screen-reader": handleUpdateTerminalScreenReader,
 } satisfies Record<string, SettingsActionHandler>;
 
 /**

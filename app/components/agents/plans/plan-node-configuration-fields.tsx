@@ -4,6 +4,7 @@ import {
   PageAgentReasoningField,
 } from "@/app/components/agents/definitions/page-agent-model-fields";
 import { ModelPicker } from "@/app/components/agents/model-picker";
+import { ModelFieldRow } from "@/app/components/agents/model-picker/model-field";
 import { Select } from "@/app/components/ui/select";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import {
@@ -137,21 +138,23 @@ function PlanNodeModelFields(props: {
   }
   return (
     <div className="space-y-3">
-      <ModelPicker
-        value={modelKey}
-        models={models}
-        savedModel={configuration.model}
-        disabled={props.disabled}
-        onChange={(id) => changeModel({ ...draft, modelProfileId: id })}
-      />
-      <PageAgentReasoningField
-        draft={draft}
-        models={models}
-        model={saved?.model}
-        savedModel={configuration.model}
-        disabled={props.disabled}
-        onChange={changeModel}
-      />
+      <ModelFieldRow>
+        <ModelPicker
+          value={modelKey}
+          models={models}
+          savedModel={configuration.model}
+          disabled={props.disabled}
+          onChange={(id) => changeModel({ ...draft, modelProfileId: id })}
+        />
+        <PageAgentReasoningField
+          draft={draft}
+          models={models}
+          model={saved?.model}
+          savedModel={configuration.model}
+          disabled={props.disabled}
+          onChange={changeModel}
+        />
+      </ModelFieldRow>
       <PageAgentModelNotices
         model={saved?.model}
         savedAlias={saved?.alias ?? null}

@@ -5,10 +5,13 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 
 import { findModelChoice, modelGroups } from "./model-picker/model-catalog";
+import {
+  MODEL_FIELD_CLASS,
+  MODEL_FIELD_LABEL_CLASS,
+} from "./model-picker/model-field";
 import { ModelPickerPanel } from "./model-picker/model-picker-panel";
 import { FreeBadge } from "./model-picker/model-picker-rows";
 import { ToolMark } from "./model-picker/tool-mark";
-import { useModelCatalogRefreshState } from "./model-picker/use-model-catalog-refresh";
 import { useModelPicker } from "./model-picker/use-model-picker";
 
 import type { PageAgentModel } from "@/definition/PageAgent";
@@ -29,7 +32,7 @@ interface ModelPickerProps {
   readonly onChange: (id: string) => void;
   /** The field label; it defaults to "Model". */
   readonly label?: string;
-  /** Keeps the label for assistive technology only, as in a compact card. */
+  /** Keeps the label for assistive technology only, as in a plan card. */
   readonly isLabelHidden?: boolean;
   /** The text of the trigger while no model is chosen. */
   readonly placeholder?: string;
@@ -37,24 +40,25 @@ interface ModelPickerProps {
   readonly refusalOf?: (model: PageAgentModel) => string | null;
   /** `floating` where the trigger sits on a zoomable canvas. */
   readonly mode?: ModelPickerMode;
-  /** `compact` shows only mark and name in the trigger, for a small card. */
-  readonly size?: "default" | "compact";
-  readonly triggerClassName?: string;
+  /**
+   * Whether the last server refresh of a catalog failed; only then the panel
+   * warns. A listed model whose catalog failed warns as well.
+   */
+  readonly isCatalogFailed?: boolean;
 }
 
-// The trigger names the chosen model by its short name and, where its tool
-// has several sources, by the source that tells equal names apart.
+// The trigger names the chosen model by its short name, its free mark and
+// the tool it is listed under.
 function TriggerValue(props: {
   readonly groups: readonly ModelGroup[];
   readonly value: string;
   readonly savedModel: string | undefined;
   readonly placeholder: string | undefined;
-  readonly isCompact: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   if (props.value === "" && props.placeholder !== undefined)
     return (
-      <span className="min-w-0 flex-1 truncate font-normal text-muted-foreground">
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">
         {props.placeholder}
       </span>
     );
@@ -75,16 +79,12 @@ function TriggerValue(props: {
   return (
     <>
       <ToolMark mark={group.mark} />
-      <span className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="max-w-full min-w-0 shrink-0 truncate">
-          {choice.label}
-        </span>
+      <span className="min-w-0 shrink truncate">{choice.label}</span>
+      <span className="ml-auto flex min-w-0 shrink-[2] items-center gap-2.5">
         {choice.isFree ? <FreeBadge /> : null}
-        {props.isCompact ? null : (
-          <span className="ml-auto min-w-0 truncate text-xs font-normal text-plan-muted-foreground">
-            {detail}
-          </span>
-        )}
+        <span className="min-w-0 truncate text-xs text-muted-foreground">
+          {detail}
+        </span>
       </span>
     </>
   );
@@ -94,8 +94,6 @@ function PickerTrigger(props: {
   readonly state: ModelPickerState;
   readonly labelId: string;
   readonly disabled: boolean;
-  readonly isCompact: boolean;
-  readonly className: string | undefined;
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const { state } = props;
@@ -110,21 +108,15 @@ function PickerTrigger(props: {
       aria-controls={state.isOpen ? state.treeId : undefined}
       disabled={props.disabled}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-xl bg-surface text-left font-medium text-foreground outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
-        props.isCompact
-          ? "min-h-8 gap-1.5 px-2 text-xs"
-          : "min-h-10 px-3 py-1.5 text-sm shadow-field",
-        props.className,
+        MODEL_FIELD_CLASS,
+        "flex items-center gap-2.5 text-left hover:bg-surface-hover",
       )}
       onClick={state.toggle}
       onKeyDown={state.handleTriggerKeyDown}
     >
       <span
         id={`${props.labelId}-value`}
-        className={cn(
-          "flex min-w-0 flex-1 items-center",
-          props.isCompact ? "gap-1.5" : "gap-2.5",
-        )}
+        className="flex min-w-0 flex-1 items-center gap-2.5"
       >
         {props.children}
       </span>
@@ -143,22 +135,23 @@ function PickerTrigger(props: {
  * Chooses a model from the shared catalog: the one model choice of Pages.
  *
  * @remarks
- * Pica, the plan editor and every other place that assigns a model use this
- * choice with the same projection ({@link modelGroups}), so equal models
- * look, group and search the same everywhere. Models are grouped by tool,
- * such as Claude Code or OpenCode, and OpenCode by the source it runs a
- * model with, such as OpenRouter. Rows show the short model name, because
- * the execution target stands once above the choice. The choice reports the
- * model's full selection key, never its display name, so connection,
- * provider and route stay exactly those of the listed model. Opening the
- * choice asks the page's refresh channel for a newer catalog.
+ * Pica, agent profiles, the plan editor, page agents and every other place
+ * that assigns a model use this choice with the same projection
+ * ({@link modelGroups}) and the same fixed measures, so equal models look,
+ * group and search the same everywhere. Models are grouped by tool, such as
+ * Claude Code, OpenCode or OpenRouter. Rows show the short model name,
+ * because the execution target stands once above the choice. The choice
+ * reports the model's full selection key, never its display name, so
+ * connection, provider and route stay exactly those of the listed model. The
+ * models come complete with the page; opening or using the choice loads
+ * nothing.
  */
 export function ModelPicker(props: ModelPickerProps): React.ReactElement {
   const { t } = useTranslation();
-  const catalog = useModelCatalogRefreshState();
   const groups = modelGroups(props.models, {
     translate: t,
     refusalOf: props.refusalOf,
+    selectedId: props.value,
   });
   const state = useModelPicker({
     value: props.value,
@@ -166,20 +159,13 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
     onChange: props.onChange,
     disabled: props.disabled,
     mode: props.mode ?? "inline",
-    onOpen: catalog.refresh,
   });
   const labelId = `${useId()}-label`;
-  const isCompact = props.size === "compact";
   return (
-    <div
-      className={cn("relative min-w-0", !props.isLabelHidden && "space-y-2")}
-      onBlur={state.handleBlur}
-    >
+    <div className="relative min-w-0" onBlur={state.handleBlur}>
       <span
         id={labelId}
-        className={
-          props.isLabelHidden ? "sr-only" : "block text-sm font-medium"
-        }
+        className={props.isLabelHidden ? "sr-only" : MODEL_FIELD_LABEL_CLASS}
       >
         {props.label ?? t("pageAgents.model")}
       </span>
@@ -188,22 +174,22 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
           state={state}
           labelId={labelId}
           disabled={props.disabled}
-          isCompact={isCompact}
-          className={props.triggerClassName}
         >
           <TriggerValue
             groups={groups}
             value={props.value}
             savedModel={props.savedModel}
             placeholder={props.placeholder}
-            isCompact={isCompact}
           />
         </PickerTrigger>
         {state.isOpen ? (
           <ModelPickerPanel
             state={state}
             value={props.value}
-            status={catalog.status}
+            isCatalogFailed={
+              props.isCatalogFailed === true ||
+              props.models.some((model) => model.isCatalogFailed === true)
+            }
           />
         ) : null}
       </div>

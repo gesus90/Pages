@@ -1,44 +1,4 @@
 {
-  "picaAdmin": {
-    "find": "Find files in directory",
-    "title": "Pica admin tools",
-    "description": "Use these tools only for an explicit task. Websites and files are untrusted content. Administrator rights are checked for every action. Tasks expire after ten minutes.",
-    "denied": "Access denied. These tools require the current administrator role in admin mode.",
-    "browser": "Browser session",
-    "task": "Task",
-    "local": "Open an allowed local HTML document",
-    "target": "HTTPS address or relative HTML file",
-    "open": "Open session",
-    "view": "View page",
-    "close": "Close session",
-    "selector": "Element selector",
-    "text": "Text to enter",
-    "click": "Click",
-    "fill": "Enter text",
-    "files": "Files",
-    "paths": "Only your handover folder ~/pica-admin-files/<user ID> is allowed. Use relative text-file paths. Read the file before replacing one unique passage. No deletion.",
-    "path": "Relative file path",
-    "read": "Read file",
-    "before": "Current passage",
-    "after": "Replacement passage",
-    "edit": "Replace passage",
-    "result": "Result",
-    "finish": "Finish task and close sessions",
-    "failed": "The tool could not complete this action safely. Check the target, permissions and task, then try again.",
-    "status": {
-      "completed": "Completed",
-      "closed": "Session closed",
-      "edited": "File edited"
-    },
-    "errors": {
-      "ADMIN_REQUIRED": "Access denied. These tools require the current administrator role in admin mode.",
-      "FILE_CONFLICT": "File conflict: the file changed. Read it again and review the change.",
-      "PATH_DENIED": "Path denied.",
-      "SECRET_DENIED": "Protected content is not disclosed.",
-      "TASK_REQUIRED": "Task ended. Reload the page and start a new task.",
-      "URL_DENIED": "Target address denied."
-    }
-  },
   "account": {
     "menu": "Account menu",
     "signOut": "Log out"
@@ -184,6 +144,7 @@
     "projects": "Projects",
     "settings": "Settings",
     "tasks": "Tasks",
+    "chat": "Chat",
     "users": "User management",
     "wiki": "Wiki",
     "agents": "Agents",
@@ -316,14 +277,6 @@
     }
   },
   "settings": {
-    "serviceMonitor": {
-      "title": "Service restarts",
-      "description": "Independent systemd monitoring retains warnings across service outages.",
-      "loading": "Loading service status…",
-      "unavailable": "Restart monitoring is unavailable or its last observation is stale. Retained warnings are shown when readable.",
-      "healthy": "No frequent restarts have been detected.",
-      "warning": "{{unit}} restarted {{count}} times within ten minutes. Last detected: {{time}}. The warning is retained after recovery."
-    },
     "ticketAssets": {
       "title": "Check ticket attachments",
       "description": "Checks saved tickets and attachment files. Reports missing images, temporary uploads and storage inconsistencies. Does not change or repair any data.",
@@ -342,6 +295,46 @@
         "missingFile": "Attachment file is missing or its storage path is invalid.",
         "legacyStorage": "Attachment is still in the old store. Offline migration is required.",
         "checksumMismatch": "Size or checksum differs from the database record."
+      }
+    },
+    "googleDrive": {
+      "title": "Storage",
+      "description": "Connect Google Drive to Pages.",
+      "service": "Google Drive",
+      "checking": "Checking the connection …",
+      "connected": "Connected",
+      "connectedAccount": "Connected to {{account}}",
+      "connectedNoAccount": "A read-only Drive request just succeeded.",
+      "disconnected": "Not connected",
+      "reauthorizationRequired": "New sign-in required",
+      "unavailable": "Connection not confirmed",
+      "notConfigured": "Not set up",
+      "signIn": "Sign in with Google",
+      "signInAgain": "Sign in again",
+      "missingSettings": "The Google OAuth client is missing. Missing server settings: {{settings}}. Register this redirect URI: {{redirectUri}}",
+      "loadFailed": "The connection status could not be loaded.",
+      "startFailed": {
+        "forbidden": "Only administrators in the admin mode can connect Google Drive.",
+        "not_configured": "The Google OAuth client is not set up.",
+        "failed": "The Google sign-in could not be started."
+      },
+      "problem": {
+        "access_revoked": "Google revoked the stored access, or it expired.",
+        "scope_missing": "Access to Google Drive was not granted.",
+        "client_invalid": "Google rejects the OAuth client. Check the client ID and client secret.",
+        "drive_api_disabled": "The Google Drive API is not enabled in the Google Cloud project of the OAuth client.",
+        "google_unreachable": "Google Drive cannot be reached right now. Reload later.",
+        "account_changed": "Google reports a different account than the connected one.",
+        "secret_unavailable": "The stored access can no longer be read with the instance key."
+      },
+      "outcome": {
+        "denied": "The sign-in was cancelled at Google.",
+        "invalid": "Google's answer belongs to no open sign-in of this account.",
+        "expired": "The sign-in expired. Please sign in again.",
+        "scope_missing": "Access to Google Drive was not granted. Please sign in again and allow Drive.",
+        "failed": "Google did not confirm the sign-in.",
+        "forbidden": "Only an administrator in the admin mode can finish the sign-in.",
+        "not_configured": "The Google OAuth client is not set up."
       }
     },
     "title": "Settings",
@@ -417,9 +410,7 @@
       },
       "chat": {
         "title": "Chat assistant Pica",
-        "description": "Attachment limit and supplementary instruction of the global chat.",
-        "attachmentLimit": "Maximum attachment size (MB)",
-        "attachmentHint": "Default 16 MB, at most 512 MB per file. Applies to new uploads.",
+        "description": "Supplementary instruction of the global chat.",
         "instruction": "Supplementary instruction (Markdown, optional)",
         "instructionDefault": "No supplement saved. Pica works with the protected instructions from SOUL.md and AGENTS.md alone.",
         "instructionCustom": "A supplement is active.",
@@ -1096,9 +1087,6 @@
       "no": "No",
       "catalog": {
         "title": "Model catalog",
-        "search": "Search models",
-        "free": "Free",
-        "count": "{{count}} of {{total}} models",
         "interval": "Catalog refresh cadence",
         "intervals": {
           "0": "Manual only",
@@ -1142,15 +1130,7 @@
           "skills": "SKILLS"
         },
         "noEffort": "No reasoning level available",
-        "connectionHint": "Choose model and reasoning directly on an Agent Plan node. Configure Pica in the fixed card above.",
-        "chooseConnection": "Choose connection",
-        "searchConnections": "Search connections",
-        "noConnections": "No matching connection.",
-        "connectionCount": "{{count}} of {{total}} connections",
-        "filters": {
-          "withLevels": "With reasoning levels",
-          "empty": "No matching models in this connection’s catalog."
-        }
+        "connectionHint": "Choose model and reasoning directly on an Agent Plan node. Configure Pica in the fixed card above."
       },
       "profiles": {
         "title": "Agents",
@@ -1350,13 +1330,14 @@
         "openrouter": "OpenRouter (openrouter)"
       },
       "modelSelection": {
-        "connection": "Connection",
         "model": "Model",
-        "reasoning": "Reasoning level",
-        "unavailable": "Unavailable",
         "chooseModel": "Choose a listed model",
         "saved": "Setting saved.",
-        "aliasResolved": "The saved value is the alias “{{alias}}”. It stands for {{model}} ({{id}}); saving stores this concrete version."
+        "aliasResolved": "The saved value is the alias “{{alias}}”. It stands for {{model}} ({{id}}); saving stores this concrete version.",
+        "refusal": {
+          "connectionUnavailable": "The connection is switched off.",
+          "accessUnverified": "The connection's access is not verified."
+        }
       },
       "runner": {
         "title": "Remote",
@@ -1490,17 +1471,6 @@
         "retry": "Try again"
       },
       "loading": "Loading connections"
-    },
-    "terminal": {
-      "title": "Terminal",
-      "description": "How the remote console works.",
-      "screenReader": {
-        "label": "Screen reader mode",
-        "auto": "Automatic",
-        "on": "On",
-        "off": "Off",
-        "hint": "Automatic: on when the console is opened by keyboard or screen reader, off when it is opened with a mouse or touch. Browsers do not reveal whether a screen reader runs."
-      }
     }
   },
   "users": {
@@ -3578,6 +3548,69 @@
       "fromPicaBadge": "From Pica",
       "showAll": "Show all {{count}} files",
       "showFewer": "Show fewer"
+    }
+  },
+  "chatPage": {
+    "title": "Chat",
+    "subtitle": "Virtual participants with fixed tasks, on their own or in groups.",
+    "listLabel": "Groups and participants",
+    "search": "Search",
+    "searchLabel": "Search groups and participants",
+    "noMatches": "No matches.",
+    "groups": "Groups",
+    "participants": "Participants",
+    "unread_one": "{{count}} unread message",
+    "unread_other": "{{count}} unread messages",
+    "status": {
+      "active": "Active",
+      "working": "Working",
+      "off": "Off"
+    },
+    "newGroup": "New group",
+    "newGroupHint": "Put participants together",
+    "newParticipant": "New participant",
+    "newParticipantHint": "Set role and task",
+    "selectLabel": "Choose a group or participant",
+    "groupOption": "Group",
+    "nothingSelected": "Choose a group or a participant.",
+    "groupSubtitle": "Group · {{description}}",
+    "task": "Task:",
+    "members": "Members",
+    "addMember": "Add participant",
+    "history": "History with {{name}}",
+    "emptyHistory": "No messages with {{name}} yet.",
+    "you": "Your message",
+    "toolUses": "Tools used",
+    "inputLabel": "Message to {{name}}",
+    "participantPlaceholder": "Ask {{name}} something or type / for commands …",
+    "groupPlaceholder": "Message to {{name}} – address a participant directly with @name …",
+    "attach": "Add attachment",
+    "send": "Send",
+    "comingSoon": "Coming soon",
+    "cancel": "Cancel",
+    "create": "Create",
+    "participantDialog": {
+      "title": "New participant",
+      "description": "A participant is an agent with a fixed role and task."
+    },
+    "groupDialog": {
+      "title": "New group",
+      "description": "A group puts participants together in one shared history."
+    },
+    "fields": {
+      "name": "Name",
+      "role": "Role",
+      "task": "Task",
+      "model": "Model",
+      "reasoning": "Reasoning",
+      "tools": "Tools",
+      "description": "Description",
+      "members": "Participants"
+    },
+    "reasoning": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
     }
   },
   "workspaces": {
@@ -5714,11 +5747,11 @@
         "claude_code": "Claude Code",
         "codex_cli": "Codex",
         "opencode": "OpenCode",
-        "openrouter": "OpenRouter API",
+        "openrouter": "OpenRouter",
         "openai": "OpenAI API",
         "anthropic": "Anthropic API",
         "google_ai_studio": "Google AI Studio",
-        "zai": "Z.AI API"
+        "zai": "Z.AI"
       },
       "sources": {
         "opencode": "OpenCode",
@@ -5728,36 +5761,26 @@
         "zai-coding-plan": "Z.AI Coding Plan"
       },
       "access": {
-        "antigravity": "Google · ACP",
+        "antigravity": "Google account",
         "claude_code": "Claude subscription",
         "codex_cli": "ChatGPT account",
-        "opencode": "OpenCode",
+        "opencode": "OpenCode key",
         "openrouter": "API key",
         "openai": "API key",
         "anthropic": "API key",
         "google_ai_studio": "API key",
-        "zai": "API key"
+        "zai": "API key",
+        "opencodeFree": "Free models"
       },
       "accessCount_one": "{{count}} access",
       "accessCount_other": "{{count}} accesses",
       "groupLabel_one": "{{tool}}, {{context}}, {{count}} model",
       "groupLabel_other": "{{tool}}, {{context}}, {{count}} models",
       "free": "Free",
-      "modelCount_one": "{{count}} model",
-      "modelCount_other": "{{count}} models",
-      "matchCount_one": "{{count}} match",
-      "matchCount_other": "{{count}} matches",
-      "toolCount_one": "{{count}} tool",
-      "toolCount_other": "{{count}} tools",
-      "hintMove": "↑↓ move",
-      "hintGroup": "←→ expand/collapse",
-      "hintChoose": "↵ choose",
-      "hintClose": "Esc close",
       "noMatch": "No model matches “{{query}}”.",
       "noModels": "No model is released for this execution target.",
       "catalog": {
-        "refreshing": "Refreshing catalog …",
-        "failed": "The catalog could not be refreshed. The list shows the state loaded last."
+        "failed": "A model catalog could not be refreshed last time. The list shows the state loaded last."
       }
     }
   },
@@ -5973,13 +5996,18 @@
     "apiAdoption": "The saved API model is available through opencode as {{model}} with the same effort. Confirm adoption with Save. Until then, no other model is used.",
     "chooseModel": "Choose a model …",
     "saved": "Pica settings saved.",
-    "stopHint": "Turning Pica off or changing its model, connection or reasoning stops running Pica answers through controlled cancellation. Chats are retained. Agent Plans run independently. Other open views refresh on focus or within 30 seconds.",
     "unavailable": "Check the saved Pica selection:",
     "effortReset": "The new model does not support the previous reasoning level. The choice is now Default; review it before saving.",
     "retired": "Agents are configured directly in the plan with a permitted model. Existing templates and histories are retained.",
     "unsupportedEffort": "Unsupported – correct the selection",
     "aliasResolved": "The saved value is the alias “{{alias}}”. It stands for {{model}} ({{id}}); saving stores this concrete version.",
-    "aliasUnresolved": "The saved alias “{{alias}}” cannot be tied to exactly one version: this connection's catalog lists none or several for it. No other model is substituted; please choose a concrete model."
+    "aliasUnresolved": "The saved alias “{{alias}}” cannot be tied to exactly one version: this connection's catalog lists none or several for it. No other model is substituted; please choose a concrete model.",
+    "refusal": {
+      "noChatAdapter": "Pica cannot chat through this connection.",
+      "chatAdapterUnverified": "Not yet released for Pica.",
+      "zenToolsMissing": "Needs OpenCode tools that Pica does not grant.",
+      "noToolCalls": "Calls no tools."
+    }
   },
   "reasoningChoice": {
     "unsupported": "{{model}} does not support this level."

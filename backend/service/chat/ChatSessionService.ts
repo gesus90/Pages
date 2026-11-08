@@ -1,5 +1,8 @@
 import { ChatError } from "@/backend/error/ChatErrors";
-import { isChatSessionId } from "@/definition/Chat";
+import {
+  CHAT_ATTACHMENT_LIMIT_BYTES,
+  isChatSessionId,
+} from "@/definition/Chat";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { createChatSessionId } from "./ChatSessionWords";
@@ -23,7 +26,6 @@ import type {
   ChatSessionState,
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
-import type { ChatSettingsService } from "./ChatSettingsService";
 
 /** Attempts to draw an unused ID before the service gives up. */
 const ID_ATTEMPTS = 5;
@@ -35,7 +37,6 @@ export interface ChatSessionDependencies {
     "list" | "find" | "exists" | "create" | "remove" | "messages"
   >;
   readonly attachments: Pick<ChatAttachmentRepository, "list">;
-  readonly settings: Pick<ChatSettingsService, "read">;
   readonly languages: Pick<UserSettingsRepository, "findByUserId">;
   readonly files: Pick<WikiFileStore, "remove">;
   /** Draws a session ID; five random words by default. */
@@ -274,14 +275,13 @@ export class ChatSessionService {
   private async openSession(actor: User): Promise<ChatOverview> {
     const [latest] = await this.dependencies.sessions.list(actor.id, 1);
     const session = latest ?? (await this.createSession(actor.id));
-    const [view, settings, confirmationWord] = await Promise.all([
+    const [view, confirmationWord] = await Promise.all([
       this.viewOf(session, actor.id),
-      this.dependencies.settings.read(),
       this.confirmationWord(actor.id),
     ]);
     return {
       ...view,
-      attachmentLimitBytes: settings.attachmentLimitBytes,
+      attachmentLimitBytes: CHAT_ATTACHMENT_LIMIT_BYTES,
       confirmationWord,
     };
   }

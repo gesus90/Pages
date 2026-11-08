@@ -241,7 +241,6 @@ it("stores sessions, attachments and languages in their repositories", () => {
   expect(sessionOptions()).toMatchObject({
     sessions: vi.mocked(ChatSessionRepository).mock.instances[0],
     attachments: vi.mocked(ChatAttachmentRepository).mock.instances[0],
-    settings: services.chatSettingsService,
     languages: vi.mocked(UserSettingsRepository).mock.instances[0],
     files: vi.mocked(WikiFileStore).mock.instances[0],
   });
@@ -350,12 +349,11 @@ it("leaves context summaries to the native agents", async () => {
   });
 });
 
-it("checks attachments and answer files with the same settings and SVG check", () => {
+it("checks attachments and answer files with the same storage and SVG check", () => {
   const services = createChatServices(chatInput());
 
   const fileParts = {
     attachments: vi.mocked(ChatAttachmentRepository).mock.instances[0],
-    settings: services.chatSettingsService,
     files: vi.mocked(WikiFileStore).mock.instances[0],
     isSafeSvg,
   };

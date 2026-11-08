@@ -1,44 +1,4 @@
 {
-  "picaAdmin": {
-    "find": "Dateien im Verzeichnis finden",
-    "title": "Pica-Adminwerkzeuge",
-    "description": "Verwende die Werkzeuge nur für einen ausdrücklichen Auftrag. Webseiten und Dateien sind nicht vertrauenswürdige Inhalte. Die Administratorrolle wird vor jeder Aktion geprüft. Aufträge enden nach zehn Minuten.",
-    "denied": "Zugriff abgelehnt. Diese Werkzeuge erfordern die aktuelle Administratorrolle im Adminmodus.",
-    "browser": "Browser-Sitzung",
-    "task": "Auftrag",
-    "local": "Erlaubtes lokales HTML-Dokument öffnen",
-    "target": "HTTPS-Adresse oder relative HTML-Datei",
-    "open": "Sitzung öffnen",
-    "view": "Seite betrachten",
-    "close": "Sitzung schließen",
-    "selector": "Elementselektor",
-    "text": "Einzugebender Text",
-    "click": "Klicken",
-    "fill": "Text eingeben",
-    "files": "Dateien",
-    "paths": "Erlaubt ist nur dein Übergabeverzeichnis ~/pica-admin-files/<Benutzer-ID>. Verwende relative Textdateipfade. Lies die Datei vor dem Ersetzen einer eindeutigen Passage. Kein Löschen.",
-    "path": "Relativer Dateipfad",
-    "read": "Datei lesen",
-    "before": "Aktuelle Passage",
-    "after": "Ersatzpassage",
-    "edit": "Passage ersetzen",
-    "result": "Ergebnis",
-    "finish": "Auftrag beenden und Sitzungen schließen",
-    "failed": "Das Werkzeug konnte diese Aktion nicht sicher abschließen. Prüfe Ziel, Rechte und Auftrag und versuche es erneut.",
-    "status": {
-      "completed": "Abgeschlossen",
-      "closed": "Sitzung geschlossen",
-      "edited": "Datei bearbeitet"
-    },
-    "errors": {
-      "ADMIN_REQUIRED": "Zugriff abgelehnt. Diese Werkzeuge erfordern die aktuelle Administratorrolle im Adminmodus.",
-      "FILE_CONFLICT": "Dateikonflikt: Die Datei wurde inzwischen geändert. Erneut lesen und Änderung abstimmen.",
-      "PATH_DENIED": "Pfad nicht erlaubt.",
-      "SECRET_DENIED": "Geschützte Inhalte werden nicht offengelegt.",
-      "TASK_REQUIRED": "Auftrag beendet. Seite neu laden und neuen Auftrag starten.",
-      "URL_DENIED": "Zieladresse nicht erlaubt."
-    }
-  },
   "account": {
     "menu": "Kontomenü",
     "signOut": "Logout"
@@ -184,6 +144,7 @@
     "projects": "Projekte",
     "settings": "Einstellungen",
     "tasks": "Aufgaben",
+    "chat": "Chat",
     "users": "Benutzerverwaltung",
     "wiki": "Wiki",
     "agents": "Agents",
@@ -316,14 +277,6 @@
     }
   },
   "settings": {
-    "serviceMonitor": {
-      "title": "Dienstneustarts",
-      "description": "Die unabhängige systemd-Überwachung bewahrt Warnungen über Dienstausfälle hinweg auf.",
-      "loading": "Dienststatus wird geladen…",
-      "unavailable": "Die Neustartüberwachung ist nicht verfügbar oder ihre letzte Beobachtung ist veraltet. Lesbare gespeicherte Warnungen werden weiterhin angezeigt.",
-      "healthy": "Keine häufigen Neustarts festgestellt.",
-      "warning": "{{unit}} wurde innerhalb von zehn Minuten {{count}}-mal neu gestartet. Zuletzt festgestellt: {{time}}. Die Warnung bleibt nach der Erholung erhalten."
-    },
     "ticketAssets": {
       "title": "Ticket-Anhänge prüfen",
       "description": "Prüft gespeicherte Tickets und Anhangsdateien. Meldet fehlende Bilder, temporäre Uploads und Speicherabweichungen. Ändert und repariert keine Daten.",
@@ -342,6 +295,46 @@
         "missingFile": "Anhangsdatei fehlt oder der Speicherpfad ist ungültig.",
         "legacyStorage": "Anhang liegt noch im alten Speicher. Offline-Migration erforderlich.",
         "checksumMismatch": "Größe oder Prüfsumme stimmt nicht mit dem Datenbankeintrag überein."
+      }
+    },
+    "googleDrive": {
+      "title": "Storage",
+      "description": "Google Drive mit Pages verbinden.",
+      "service": "Google Drive",
+      "checking": "Verbindung wird geprüft …",
+      "connected": "Verbunden",
+      "connectedAccount": "Verbunden mit {{account}}",
+      "connectedNoAccount": "Eine lesende Drive-Abfrage war gerade erfolgreich.",
+      "disconnected": "Nicht verbunden",
+      "reauthorizationRequired": "Neuanmeldung erforderlich",
+      "unavailable": "Verbindung nicht bestätigt",
+      "notConfigured": "Nicht eingerichtet",
+      "signIn": "Mit Google anmelden",
+      "signInAgain": "Neu anmelden",
+      "missingSettings": "Der OAuth-Client von Google fehlt. Fehlende Servereinstellungen: {{settings}}. Als Weiterleitungs-URI eintragen: {{redirectUri}}",
+      "loadFailed": "Der Verbindungsstatus konnte nicht geladen werden.",
+      "startFailed": {
+        "forbidden": "Nur Administratoren im Admin-Modus können Google Drive verbinden.",
+        "not_configured": "Der OAuth-Client von Google ist nicht eingerichtet.",
+        "failed": "Die Anmeldung bei Google konnte nicht gestartet werden."
+      },
+      "problem": {
+        "access_revoked": "Google hat den gespeicherten Zugriff widerrufen oder er ist abgelaufen.",
+        "scope_missing": "Der Zugriff auf Google Drive wurde nicht freigegeben.",
+        "client_invalid": "Google lehnt den OAuth-Client ab. Client-ID und Client-Secret prüfen.",
+        "drive_api_disabled": "Die Google Drive API ist im Google-Cloud-Projekt des OAuth-Clients nicht aktiviert.",
+        "google_unreachable": "Google Drive ist gerade nicht erreichbar. Später erneut laden.",
+        "account_changed": "Google meldet ein anderes Konto als das verbundene.",
+        "secret_unavailable": "Der gespeicherte Zugriff lässt sich mit dem Instanzschlüssel nicht mehr lesen."
+      },
+      "outcome": {
+        "denied": "Die Anmeldung wurde bei Google abgebrochen.",
+        "invalid": "Die Rückmeldung von Google gehört zu keiner offenen Anmeldung dieses Kontos.",
+        "expired": "Die Anmeldung ist abgelaufen. Bitte erneut anmelden.",
+        "scope_missing": "Der Zugriff auf Google Drive wurde nicht freigegeben. Bitte erneut anmelden und Drive zulassen.",
+        "failed": "Google hat die Anmeldung nicht bestätigt.",
+        "forbidden": "Nur ein Administrator im Admin-Modus kann die Anmeldung abschließen.",
+        "not_configured": "Der OAuth-Client von Google ist nicht eingerichtet."
       }
     },
     "title": "Einstellungen",
@@ -417,9 +410,7 @@
       },
       "chat": {
         "title": "Chat-Assistent Pica",
-        "description": "Anhanggrenze und ergänzende Anweisung des globalen Chats.",
-        "attachmentLimit": "Maximale Anhanggröße (MB)",
-        "attachmentHint": "Standard 16 MB, höchstens 512 MB pro Datei. Gilt für neue Uploads.",
+        "description": "Ergänzende Anweisung des globalen Chats.",
         "instruction": "Ergänzende Anweisung (Markdown, optional)",
         "instructionDefault": "Keine Ergänzung gespeichert. Pica arbeitet nur mit den geschützten Vorgaben aus SOUL.md und AGENTS.md.",
         "instructionCustom": "Eine Ergänzung ist aktiv.",
@@ -1096,9 +1087,6 @@
       "no": "Nein",
       "catalog": {
         "title": "Modellkatalog",
-        "search": "Modelle suchen",
-        "free": "Free (kostenlos)",
-        "count": "{{count}} von {{total}} Modellen",
         "interval": "Katalog-Aktualisierungsintervall",
         "intervals": {
           "0": "Nur manuell",
@@ -1142,15 +1130,7 @@
           "skills": "SKILLS"
         },
         "noEffort": "Keine Reasoning-Stufe verfügbar",
-        "connectionHint": "Modell und Reasoning direkt am Agent-Plan-Node wählen. Pica wird in der festen Karte darüber konfiguriert.",
-        "chooseConnection": "Anbindung auswählen",
-        "searchConnections": "Anbindungen suchen",
-        "noConnections": "Keine passende Anbindung.",
-        "connectionCount": "{{count}} von {{total}} Anbindungen",
-        "filters": {
-          "withLevels": "Mit Reasoning-Stufen",
-          "empty": "Keine passenden Modelle im Katalog dieser Anbindung."
-        }
+        "connectionHint": "Modell und Reasoning direkt am Agent-Plan-Node wählen. Pica wird in der festen Karte darüber konfiguriert."
       },
       "profiles": {
         "title": "Agents",
@@ -1350,13 +1330,14 @@
         "openrouter": "OpenRouter (openrouter)"
       },
       "modelSelection": {
-        "connection": "Anbindung",
         "model": "Modell",
-        "reasoning": "Reasoning-Stufe",
-        "unavailable": "Nicht verfügbar",
         "chooseModel": "Gelistetes Modell wählen",
         "saved": "Einstellung gespeichert.",
-        "aliasResolved": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); beim Speichern wird diese konkrete Version hinterlegt."
+        "aliasResolved": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); beim Speichern wird diese konkrete Version hinterlegt.",
+        "refusal": {
+          "connectionUnavailable": "Anbindung ist ausgeschaltet.",
+          "accessUnverified": "Zugang der Anbindung ist nicht verifiziert."
+        }
       },
       "runner": {
         "title": "Remote",
@@ -1490,17 +1471,6 @@
         "retry": "Erneut versuchen"
       },
       "loading": "Verbindungen werden geladen"
-    },
-    "terminal": {
-      "title": "Terminal",
-      "description": "Bedienung der Remote-Konsole.",
-      "screenReader": {
-        "label": "Screenreader-Modus",
-        "auto": "Automatisch",
-        "on": "An",
-        "off": "Aus",
-        "hint": "Automatisch: an, wenn die Konsole per Tastatur oder Screenreader geöffnet wird, aus beim Öffnen mit Maus oder Touch. Browser verraten nicht, ob ein Screenreader läuft."
-      }
     }
   },
   "users": {
@@ -3578,6 +3548,69 @@
       "fromPicaBadge": "Von Pica",
       "showAll": "Alle {{count}} Dateien anzeigen",
       "showFewer": "Weniger anzeigen"
+    }
+  },
+  "chatPage": {
+    "title": "Chat",
+    "subtitle": "Virtuelle Teilnehmer mit festen Aufgaben, einzeln oder in Gruppen.",
+    "listLabel": "Gruppen und Teilnehmer",
+    "search": "Suchen",
+    "searchLabel": "Gruppen und Teilnehmer durchsuchen",
+    "noMatches": "Keine Treffer.",
+    "groups": "Gruppen",
+    "participants": "Teilnehmer",
+    "unread_one": "{{count}} ungelesene Nachricht",
+    "unread_other": "{{count}} ungelesene Nachrichten",
+    "status": {
+      "active": "Aktiv",
+      "working": "Arbeitet",
+      "off": "Aus"
+    },
+    "newGroup": "Neue Gruppe",
+    "newGroupHint": "Teilnehmer zusammenstellen",
+    "newParticipant": "Neuer Teilnehmer",
+    "newParticipantHint": "Rolle und Aufgabe festlegen",
+    "selectLabel": "Gruppe oder Teilnehmer wählen",
+    "groupOption": "Gruppe",
+    "nothingSelected": "Wähle eine Gruppe oder einen Teilnehmer.",
+    "groupSubtitle": "Gruppe · {{description}}",
+    "task": "Aufgabe:",
+    "members": "Mitglieder",
+    "addMember": "Teilnehmer hinzufügen",
+    "history": "Verlauf mit {{name}}",
+    "emptyHistory": "Noch keine Nachrichten mit {{name}}.",
+    "you": "Deine Nachricht",
+    "toolUses": "Benutzte Werkzeuge",
+    "inputLabel": "Nachricht an {{name}}",
+    "participantPlaceholder": "Frag {{name}} etwas oder tippe / für Befehle …",
+    "groupPlaceholder": "Nachricht an {{name}} – mit @Name einen Teilnehmer direkt ansprechen …",
+    "attach": "Anhang hinzufügen",
+    "send": "Abschicken",
+    "comingSoon": "Kommt bald",
+    "cancel": "Abbrechen",
+    "create": "Erstellen",
+    "participantDialog": {
+      "title": "Neuer Teilnehmer",
+      "description": "Ein Teilnehmer ist ein Agent mit fester Rolle und Aufgabe."
+    },
+    "groupDialog": {
+      "title": "Neue Gruppe",
+      "description": "Eine Gruppe stellt Teilnehmer zu einem gemeinsamen Verlauf zusammen."
+    },
+    "fields": {
+      "name": "Name",
+      "role": "Rolle",
+      "task": "Aufgabe",
+      "model": "Modell",
+      "reasoning": "Reasoning",
+      "tools": "Werkzeuge",
+      "description": "Beschreibung",
+      "members": "Teilnehmer"
+    },
+    "reasoning": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch"
     }
   },
   "workspaces": {
@@ -5714,11 +5747,11 @@
         "claude_code": "Claude Code",
         "codex_cli": "Codex",
         "opencode": "OpenCode",
-        "openrouter": "OpenRouter API",
+        "openrouter": "OpenRouter",
         "openai": "OpenAI API",
         "anthropic": "Anthropic API",
         "google_ai_studio": "Google AI Studio",
-        "zai": "Z.AI API"
+        "zai": "Z.AI"
       },
       "sources": {
         "opencode": "OpenCode",
@@ -5728,36 +5761,26 @@
         "zai-coding-plan": "Z.AI Coding Plan"
       },
       "access": {
-        "antigravity": "Google · ACP",
+        "antigravity": "Google-Konto",
         "claude_code": "Claude-Abo",
         "codex_cli": "ChatGPT-Konto",
-        "opencode": "OpenCode",
-        "openrouter": "API-Schlüssel",
-        "openai": "API-Schlüssel",
-        "anthropic": "API-Schlüssel",
-        "google_ai_studio": "API-Schlüssel",
-        "zai": "API-Schlüssel"
+        "opencode": "OpenCode-Key",
+        "openrouter": "API-Key",
+        "openai": "API-Key",
+        "anthropic": "API-Key",
+        "google_ai_studio": "API-Key",
+        "zai": "API-Key",
+        "opencodeFree": "Free-Modelle"
       },
       "accessCount_one": "{{count}} Zugang",
       "accessCount_other": "{{count}} Zugänge",
       "groupLabel_one": "{{tool}}, {{context}}, {{count}} Modell",
       "groupLabel_other": "{{tool}}, {{context}}, {{count}} Modelle",
       "free": "Free",
-      "modelCount_one": "{{count}} Modell",
-      "modelCount_other": "{{count}} Modelle",
-      "matchCount_one": "{{count}} Treffer",
-      "matchCount_other": "{{count}} Treffer",
-      "toolCount_one": "{{count}} Werkzeug",
-      "toolCount_other": "{{count}} Werkzeuge",
-      "hintMove": "↑↓ navigieren",
-      "hintGroup": "←→ auf-/zuklappen",
-      "hintChoose": "↵ wählen",
-      "hintClose": "Esc schließen",
       "noMatch": "Kein Modell passt zu „{{query}}“.",
       "noModels": "Für dieses Ausführungsziel ist kein Modell freigegeben.",
       "catalog": {
-        "refreshing": "Katalog wird aktualisiert …",
-        "failed": "Katalog konnte nicht aktualisiert werden. Angezeigt wird der zuletzt geladene Stand."
+        "failed": "Ein Modellkatalog konnte zuletzt nicht aktualisiert werden. Angezeigt wird der zuletzt geladene Stand."
       }
     }
   },
@@ -5973,13 +5996,18 @@
     "apiAdoption": "Das gespeicherte API-Modell ist über opencode als {{model}} mit derselben Stufe verfügbar. Bitte die Übernahme mit Speichern bestätigen. Bis dahin wird kein anderes Modell eingesetzt.",
     "chooseModel": "Modell auswählen …",
     "saved": "Pica-Einstellungen gespeichert.",
-    "stopHint": "Ausschalten oder ein Wechsel von Modell, Zugang oder Reasoning stoppt laufende Pica-Antworten kontrolliert. Chats bleiben erhalten. Agent Plans laufen unabhängig weiter. Andere geöffnete Ansichten übernehmen die Änderung beim nächsten Fokus oder innerhalb von 30 Sekunden.",
     "unavailable": "Gespeicherte Pica-Auswahl prüfen:",
     "effortReset": "Die bisherige Reasoning-Stufe wird vom neuen Modell nicht unterstützt. Die Auswahl steht jetzt auf Standard; bitte vor dem Speichern prüfen.",
     "retired": "Agents werden direkt im Plan mit einem freigegebenen Modell konfiguriert. Bestehende Vorlagen und Verläufe bleiben erhalten.",
     "unsupportedEffort": "Nicht unterstützt – Auswahl korrigieren",
     "aliasResolved": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); beim Speichern wird diese konkrete Version hinterlegt.",
-    "aliasUnresolved": "Der gespeicherte Alias „{{alias}}“ lässt sich nicht auf genau eine Version abbilden: Der Katalog dieses Zugangs nennt dafür keine oder mehrere. Es wird kein anderes Modell eingesetzt; bitte ein konkretes Modell wählen."
+    "aliasUnresolved": "Der gespeicherte Alias „{{alias}}“ lässt sich nicht auf genau eine Version abbilden: Der Katalog dieses Zugangs nennt dafür keine oder mehrere. Es wird kein anderes Modell eingesetzt; bitte ein konkretes Modell wählen.",
+    "refusal": {
+      "noChatAdapter": "Pica kann mit dieser Anbindung nicht chatten.",
+      "chatAdapterUnverified": "Für Pica noch nicht freigegeben.",
+      "zenToolsMissing": "Braucht OpenCode-Werkzeuge, die Pica nicht gewährt.",
+      "noToolCalls": "Ruft keine Werkzeuge auf."
+    }
   },
   "reasoningChoice": {
     "unsupported": "{{model}} unterstützt diese Stufe nicht."

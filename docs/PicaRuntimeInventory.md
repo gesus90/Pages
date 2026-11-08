@@ -48,7 +48,9 @@ Die produktiven Nutzer der zu erhaltenden Kontext-/Werkzeuggrenze sind:
 - `backend/service/chat/admin/PicaAdminService.ts`
 - `backend/service/chat/admin/PicaAdminFiles.ts`
 - `backend/service/chat/admin/PicaAdminBrowser.ts`
-- `app/routes/pica-tools-api.ts`
+
+Eine eigene Seite für die Adminwerkzeuge gibt es seit PAGE-251 nicht mehr; sie
+laufen nur über Pica im Chat.
 
 `PicaAcpRunners.ts` unterstützt bereits `codex_cli`, `claude_code` und
 `opencode`. `PicaAcpJob` verwendet den bestehenden Planexecutor, Scheduler,

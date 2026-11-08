@@ -7,7 +7,6 @@ import { createTerminalSurface } from "./terminal-surface";
 
 import type { Terminal } from "@xterm/xterm";
 import type { RemoteConsoleState } from "@/definition/RemoteConsole";
-import type { TerminalScreenReaderMode } from "@/definition/Settings";
 
 /** The live console of a panel: terminal element, server state and controls. */
 export interface RemoteConsoleControls {
@@ -26,7 +25,6 @@ export interface RemoteConsoleControls {
 export interface RemoteConsoleOptions {
   /** Same-origin route of the workspace or connection console. */
   readonly endpoint: string;
-  readonly screenReader: TerminalScreenReaderMode;
   /** Strg+Umschalt+X in the terminal; Escape stays with the shell. */
   readonly onCloseRequest: () => void;
 }
@@ -39,13 +37,13 @@ export interface RemoteConsoleOptions {
  * it is inert while the connection is being established. The screen reader
  * mode is decided once per terminal.
  *
- * @param options - Route, screen reader setting and close request.
+ * @param options - Route and close request.
  * @returns Element callback, state and controls.
  */
 export function useRemoteConsole(
   options: RemoteConsoleOptions,
 ): RemoteConsoleControls {
-  const { endpoint, screenReader } = options;
+  const { endpoint } = options;
   const { t } = useTranslation();
   const [sessionNumber, setSessionNumber] = useState(0);
   const [hasConnected, setHasConnected] = useState(false);
@@ -72,7 +70,7 @@ export function useRemoteConsole(
     async function start(target: HTMLDivElement): Promise<void> {
       try {
         const surface = await createTerminalSurface(target, {
-          isScreenReaderMode: resolveScreenReaderMode(screenReader),
+          isScreenReaderMode: resolveScreenReaderMode(),
           onCloseRequest: () => closeRequest.current(),
         });
         if (isDisposed) {
@@ -120,7 +118,7 @@ export function useRemoteConsole(
       client.current = null;
       terminal.current = null;
     };
-  }, [element, endpoint, sessionNumber, screenReader]);
+  }, [element, endpoint, sessionNumber]);
   return {
     container: setElement,
     state,

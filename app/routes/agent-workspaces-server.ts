@@ -26,16 +26,12 @@ export async function loader({
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("workspace_access_denied");
     const services = await getApplicationServices();
-    const [page, remote, terminalScreenReader, audience] = await Promise.all([
+    const [page, remote, audience] = await Promise.all([
       services.agentWorkspaceService.page(user.id),
       loadRemoteOverview(services, user.id),
-      services.settingsService.getTerminalScreenReader(user.id),
       readLocalStateAudience(services, user),
     ]);
-    return routeData(
-      { page, remote, terminalScreenReader, audience },
-      { headers: AGENT_NO_STORE },
-    );
+    return routeData({ page, remote, audience }, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
     logCaughtError("agent_workspaces", error);
 

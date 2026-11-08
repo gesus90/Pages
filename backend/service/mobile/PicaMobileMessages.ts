@@ -51,7 +51,7 @@ export type PicaMobileClientMessage =
   | PicaMobilePlansClientMessage
   | PicaMobileChatClientMessage;
 
-/** A message of `chat.v1` that passed every check of its payload. */
+/** A chat request of `chat.v1` or `chat.delete` that passed every check of its payload. */
 export type PicaMobileChatClientMessage = PicaMobileChatRequest & {
   readonly requestId: string;
 };
@@ -96,6 +96,7 @@ const CHAT_REQUEST_TYPES: ReadonlySet<string> =
     PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_SEND,
     PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_JOB_GET,
     PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_STOP,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_DELETE,
   ]);
 
 function reject(
@@ -223,7 +224,7 @@ function parsePlanGetPayload(
       );
 }
 
-/** Reads a request of `chat.v1`; `null` when the type belongs to no chat request. */
+/** Reads a chat request; `null` when the type belongs to no chat request. */
 function parseChatPayload(
   type: string,
   requestId: string,
@@ -518,7 +519,7 @@ export function encodePicaMobilePlan(
 }
 
 /**
- * Builds the text frame of an answer of `chat.v1`.
+ * Builds the text frame of an answer of `chat.v1` or `chat.delete`.
  *
  * @param requestId - Identifier of the chat request that is answered.
  * @param answer - Type and payload of the answer.

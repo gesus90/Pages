@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/app/components/agents/model-picker";
-import { Select } from "@/app/components/ui/select";
+import {
+  ModelFieldRow,
+  ReasoningField,
+} from "@/app/components/agents/model-picker/model-field";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
@@ -17,7 +20,6 @@ export function PageAgentModelFields(props: {
   readonly savedModel?: string;
   /** The family alias the saved model was stored under; its version is chosen once the model or level changes. */
   readonly savedAlias?: string | null;
-  readonly layout?: "columns" | "stacked";
   readonly onChange: (draft: PageAgentInput) => void;
 }): React.ReactElement {
   const model = props.models.find(
@@ -32,13 +34,7 @@ export function PageAgentModelFields(props: {
   }
   return (
     <div className="space-y-3">
-      <div
-        className={
-          props.layout === "stacked"
-            ? "grid min-w-0 gap-4"
-            : "grid min-w-0 gap-4 sm:grid-cols-2"
-        }
-      >
+      <ModelFieldRow>
         <ModelPicker
           value={props.draft.modelProfileId}
           models={props.models}
@@ -54,7 +50,7 @@ export function PageAgentModelFields(props: {
           disabled={props.disabled}
           onChange={props.onChange}
         />
-      </div>
+      </ModelFieldRow>
       <PageAgentModelNotices
         model={model}
         savedAlias={props.savedAlias ?? null}
@@ -84,24 +80,20 @@ export function PageAgentReasoningField(props: {
     defaultLabel: t("pageAgents.defaultReasoning"),
     translate: t,
   });
+  // Only a listed level is a choice; the fixed default reports as empty.
+  function selectEffort(effort: string): void {
+    props.onChange({
+      ...draft,
+      reasoningEffort: efforts.includes(effort) ? effort : null,
+    });
+  }
   return (
-    <label className="block min-w-0 space-y-2 text-sm font-medium">
-      <span>{t("pageAgents.reasoning")}</span>
-      <Select
-        value={draft.reasoningEffort ?? ""}
-        className="w-full [&>span]:min-w-0 [&>span]:truncate"
-        disabled={props.disabled || options.length === 1}
-        // Only a listed level is a choice; the fixed default reports as empty.
-        onValueChange={(effort) =>
-          props.onChange({
-            ...draft,
-            reasoningEffort: efforts.includes(effort) ? effort : null,
-          })
-        }
-        ariaLabel={t("pageAgents.reasoning")}
-        options={options}
-      />
-    </label>
+    <ReasoningField
+      value={draft.reasoningEffort ?? ""}
+      options={options}
+      disabled={props.disabled}
+      onChange={selectEffort}
+    />
   );
 }
 

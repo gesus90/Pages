@@ -420,23 +420,14 @@ export const SETTINGS_FLOW: RepositoryFlow = {
     call("UserSettingsRepository.findDesignThemeId", ({ settings }) =>
       settings.findDesignThemeId("user-admin"),
     ),
-    call("UserSettingsRepository.findTerminalScreenReader", ({ settings }) =>
-      settings.findTerminalScreenReader("user-admin"),
-    ),
     call("UserSettingsRepository.upsertDesignTheme", ({ settings }) =>
       settings.upsertDesignTheme("user-admin", "arctic"),
-    ),
-    call("UserSettingsRepository.upsertTerminalScreenReader", ({ settings }) =>
-      settings.upsertTerminalScreenReader("user-admin", "on"),
     ),
     call("UserSettingsRepository.findByUserId", ({ settings }) =>
       settings.findByUserId("user-admin"),
     ),
     call("UserSettingsRepository.findDesignThemeId", ({ settings }) =>
       settings.findDesignThemeId("user-admin"),
-    ),
-    call("UserSettingsRepository.findTerminalScreenReader", ({ settings }) =>
-      settings.findTerminalScreenReader("user-admin"),
     ),
     call("UserSettingsRepository.upsertLanguage", ({ settings }) =>
       settings.upsertLanguage("user-admin", "en"),

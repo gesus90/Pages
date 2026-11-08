@@ -204,6 +204,31 @@ function readPerTokenPrice(value: unknown): string | null {
   return String(Number((value / 1_000_000).toPrecision(6)));
 }
 
+// OpenCode states each modality as a flag, such as `{ "text": true, "image": false }`.
+function readStatedModalities(value: unknown): readonly string[] | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return undefined;
+  const modalities = Object.entries(value)
+    .filter(
+      ([modality, isStated]) =>
+        isStated === true && /^[a-z_-]{1,32}$/u.test(modality),
+    )
+    .map(([modality]) => modality)
+    .slice(0, 16);
+  return modalities.length > 0 ? modalities : undefined;
+}
+
+function readOpenCodeChatFacts(
+  capabilities: Record<string, unknown>,
+): Pick<AgentCatalogModel, "inputModalities" | "outputModalities"> {
+  const inputModalities = readStatedModalities(capabilities.input);
+  const outputModalities = readStatedModalities(capabilities.output);
+  return {
+    ...(inputModalities ? { inputModalities } : {}),
+    ...(outputModalities ? { outputModalities } : {}),
+  };
+}
+
 function readOpenCodeModel(
   id: string,
   entry: Record<string, unknown>,
@@ -242,6 +267,7 @@ function readOpenCodeModel(
     ...(typeof capabilities.toolcall === "boolean"
       ? { isToolCapable: capabilities.toolcall }
       : {}),
+    ...readOpenCodeChatFacts(capabilities),
   };
 }
 

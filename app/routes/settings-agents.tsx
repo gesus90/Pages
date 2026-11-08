@@ -18,11 +18,11 @@ import {
 } from "@/app/lib/local-state/local-state-loader";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 import { sendToBackend } from "@/app/lib/backend-request";
+import { hasFailedCatalog } from "@/definition/AgentModelCatalog";
 
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
-import type { ModelCatalogRefresh } from "@/app/components/agents/model-picker/use-model-catalog-refresh";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
 import type {
@@ -49,7 +49,6 @@ export type AgentsLoaderData =
         readonly settings: PicaAdministration;
         readonly models: readonly PageAgentModel[];
       };
-      readonly picaCatalogRefresh: ModelCatalogRefresh;
       readonly audience: LocalStateAudience;
     };
 
@@ -143,7 +142,7 @@ export default function SettingsAgentsRoute(): React.ReactElement {
       <PicaSettingsCard
         settings={result.pica.settings}
         models={result.pica.models}
-        catalogRefresh={result.picaCatalogRefresh}
+        isCatalogFailed={hasFailedCatalog(result.catalogs)}
       />
       <Link
         className="inline-flex rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-primary-text hover:bg-surface-hover"

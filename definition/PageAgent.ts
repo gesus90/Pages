@@ -64,6 +64,22 @@ export interface PageAgentModel {
   readonly isFree?: boolean;
   /** Whether the model calls tools; absent where the catalog does not say. */
   readonly isToolCapable?: boolean;
+  /**
+   * `false` when the catalog's stated modalities or tool calls rule out chatting.
+   *
+   * @remarks
+   * The model choice hides such a model; a saved assignment to it stays and
+   * is shown as unavailable. Absent where the catalog states nothing.
+   */
+  readonly isChatCapable?: boolean;
+  /**
+   * `true` when the last server refresh of the model's catalog failed.
+   *
+   * @remarks
+   * The model choice then warns that the list may be outdated (PAGE-248);
+   * absent while the catalog is current.
+   */
+  readonly isCatalogFailed?: boolean;
   /** For a remote OpenCode model: the connection and workspace it runs on, such as "homeNAS / pageNAS". */
   readonly targetName?: string;
 }

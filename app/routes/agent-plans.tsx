@@ -19,7 +19,6 @@ import { sendToBackend } from "@/app/lib/backend-request";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 import type { PlanSelectionPreference } from "@/app/lib/agent-plan-selection";
-import type { PlanCatalogRefresh } from "@/app/components/agents/plans/use-plan-catalog-refresh";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
@@ -29,7 +28,6 @@ import type { Route } from "./+types/agent-plans";
 /** The plan page together with how the editor came to its plan. */
 export interface AgentPlansView extends AgentPlanPage {
   readonly opening: AgentPlanOpening;
-  readonly catalogRefresh?: PlanCatalogRefresh;
   readonly selectionPreference: PlanSelectionPreference;
   readonly audience: LocalStateAudience;
 }
@@ -140,7 +138,6 @@ export default function AgentPlansRoute(): React.ReactElement {
         key={`${page.userId}:${page.selected?.id ?? "new"}:${location.key}:${page.localState?.state ?? "server"}`}
         page={page}
         opening={page.opening}
-        catalogRefresh={page.catalogRefresh}
         localState={page.localState}
       />
     </>

@@ -90,12 +90,6 @@ export function deletionFixture(): {
       remove,
     },
     attachments: { list: async () => [] },
-    settings: {
-      read: async () => ({
-        attachmentLimitBytes: 1024,
-        systemInstruction: null,
-      }),
-    },
     languages: { findByUserId: async () => null },
     files: { remove: files },
   });

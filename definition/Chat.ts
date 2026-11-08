@@ -8,15 +8,11 @@ export type {
   ChatDeletionResult,
 } from "./ChatSessionOperations.js";
 
-/** One mebibyte; attachment limits are configured in whole mebibytes. */
+/** One mebibyte. */
 export const CHAT_MEBIBYTE = 1024 * 1024;
 
-/** Default and allowed range of the size of one chat attachment (T6.12.4). */
-export const CHAT_ATTACHMENT_LIMITS = {
-  defaultMegabytes: 16,
-  minimumMegabytes: 1,
-  maximumMegabytes: 512,
-} as const;
+/** The fixed size limit of one chat attachment, uploaded or answered (PAGE-251). */
+export const CHAT_ATTACHMENT_LIMIT_BYTES = 16 * CHAT_MEBIBYTE;
 
 /** Fixed bounds of chat input, output and the administrator instruction. */
 export const CHAT_LIMITS = {
@@ -94,7 +90,6 @@ export interface ChatMessage {
 
 /** Administrator settings of the chat; access and model belong to the agents panel. */
 export interface ChatSettings {
-  readonly attachmentLimitBytes: number;
   /**
    * Markdown supplement of the administrator, added below Pica's protected
    * `SOUL.md` and `AGENTS.md`; `null` when none is saved.
@@ -104,7 +99,6 @@ export interface ChatSettings {
 
 /** The settings of the chat as the system settings page shows them. */
 export interface ChatAdministration {
-  readonly attachmentLimitMegabytes: number;
   /** The saved supplement; empty when none is saved. */
   readonly systemInstruction: string;
   /** Whether Pica works with its protected instructions alone, without a supplement. */

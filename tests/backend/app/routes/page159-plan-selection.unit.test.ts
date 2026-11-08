@@ -207,9 +207,6 @@ it("respects explicit workspace context instead of reopening a plan from another
     const result = await open({ cookie, search });
     expect(result.data.selected).toBeNull();
     expect(result.data.selectionPreference.discardedPlanId).toBeNull();
-    expect(result.data.catalogRefresh?.url).toBe(
-      "/agent-api/plan-sources?refresh=1",
-    );
   }
   expect(service.page).toHaveBeenLastCalledWith("owner", {
     planId: null,

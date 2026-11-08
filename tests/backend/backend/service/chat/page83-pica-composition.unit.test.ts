@@ -57,7 +57,6 @@ function composition(cli = false): {
   vi.spyOn(ChatAttachmentRepository.prototype, "list").mockResolvedValue([]);
   vi.spyOn(ChatSettingsRepository.prototype, "read").mockResolvedValue({
     systemInstruction: null,
-    attachmentLimitBytes: 1024,
   });
   vi.spyOn(UserSettingsRepository.prototype, "findByUserId").mockResolvedValue(
     null,

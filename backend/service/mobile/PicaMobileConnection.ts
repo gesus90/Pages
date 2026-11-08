@@ -75,8 +75,8 @@ export interface PicaMobileConnectionOptions {
    */
   readonly plans?: PicaMobilePlansProvider;
   /**
-   * Answers the `chat_*` requests; without it the connection does not
-   * announce `chat.v1` and treats the requests as unknown.
+   * Answers the `chat_*` requests; without it the connection announces
+   * neither `chat.v1` nor `chat.delete` and treats the requests as unknown.
    */
   readonly chat?: PicaMobileChatProvider;
   /**
@@ -106,7 +106,7 @@ type DashboardMessage = Extract<
   { readonly type: "dashboard_get" | "avatar_get" }
 >;
 
-/** Whether a message belongs to `chat.v1`, whose requests all start with `chat_`. */
+/** Whether a message belongs to `chat.v1` or `chat.delete`, whose requests all start with `chat_`. */
 function isChatMessage(
   message: PicaMobileClientMessage,
 ): message is PicaMobileChatClientMessage {

@@ -2,7 +2,6 @@ import { data as routeData, redirect } from "react-router";
 
 import { defaultPlanId } from "@/app/lib/agent-plan-default";
 import { displayPlanRun } from "@/app/lib/agent-plan-display.server";
-import { planCatalogRefresh } from "@/app/lib/agent-plan-catalog.server";
 import {
   clonePlanAction,
   createPlanAction,
@@ -259,7 +258,6 @@ export async function loader({
     return routeData(
       {
         ...page,
-        catalogRefresh: planCatalogRefresh(page, workspace),
         selectionPreference: openingPreference(
           { userId: user.id, origin: new URL(request.url).origin },
           page,

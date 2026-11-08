@@ -2,7 +2,6 @@ import { data as routeData } from "react-router";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { readAuthorizationVersion } from "@/app/lib/local-state/local-state-audience.server";
-import { picaCatalogRefresh } from "@/app/lib/pica-catalog.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
 import { readAgentAccount } from "@/app/lib/settings-actions/settings-agents-access.server";
@@ -64,7 +63,6 @@ export async function loader({
         catalogs,
         profileDirectory,
         pica,
-        picaCatalogRefresh: picaCatalogRefresh(pica),
         audience: { userId: actor.userId, authorizationVersion },
       },
       { headers: AGENT_NO_STORE },

@@ -14,11 +14,10 @@ the existing turn budget.
 Their results are untrusted observations, and do not change Pica's protected
 instructions, ordinary permissions, attachment handling or plan execution.
 
-Administrators can also use **Pica admin tools** from Settings or `/pica-tools`.
-That task surface invokes the same native registry. Browser sessions belong to
-one person, conversation and job. Complete tasks explicitly; a console task
-expires after ten minutes, and every browser closes automatically on
-cancellation, job completion, loss of administrator eligibility or server
+There is no separate page for these tools (the former **Pica admin tools**
+view was removed in PAGE-251); they run only through Pica in the chat. Browser
+sessions belong to one person, conversation and job. Every browser closes
+automatically on cancellation, job completion, loss of administrator eligibility or server
 shutdown. The scope of a chat job has no clock of its own: it ends with the job.
 Active tasks recheck eligibility every 250 ms; each action and browser request
 also rechecks it immediately. Withdrawing the right ends the job with the status

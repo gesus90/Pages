@@ -33,7 +33,7 @@ export interface PicaMobileChatServices {
   readonly authService: Pick<AuthService, "getAuthenticatedUser">;
   readonly chatSessionService: Pick<
     ChatSessionService,
-    "open" | "create" | "list" | "view" | "state" | "require"
+    "open" | "create" | "list" | "view" | "state" | "require" | "removeSelected"
   >;
   readonly chatService: Pick<ChatService, "submit">;
   /** `null` while the ACP path of Pica is off; there is no job to read or stop then. */
@@ -95,9 +95,13 @@ function toSent(sent: ChatSendResult): PicaMobileChatOutcome {
  * same services as the web chat, so rights, limits, the ACP path and the
  * repetition of a message with the same `clientMessageId` behave alike. A
  * {@link ChatError} becomes `chat_failed` with its code; one-time receipts
- * such as temporary passwords are never transferred.
+ * such as temporary passwords are never transferred. `chat_delete` of
+ * `chat.delete` uses the deletion of the web chat.
  */
 export class PagesPicaMobileChat implements PicaMobileChatProvider {
+  /** Answers `chat_delete` with the deletion of the web chat. */
+  public readonly canDelete = true;
+
   private readonly resolveServices: () => Promise<PicaMobileChatServices>;
 
   /**
@@ -239,6 +243,8 @@ export class PagesPicaMobileChat implements PicaMobileChatProvider {
         return this.readJob(services, user, request);
       case "chat_stop":
         return this.stop(services, user, request);
+      case "chat_delete":
+        return this.remove(services, user, request);
     }
   }
 
@@ -303,5 +309,37 @@ export class PagesPicaMobileChat implements PicaMobileChatProvider {
       : services.picaAcpService.stop(user, sessionId));
 
     return answer({ type: "chat_stopped", payload: { sessionId } });
+  }
+
+  /**
+   * Deletes one own session with the deletion of the web chat.
+   *
+   * @remarks
+   * `removeSelected` checks the session, stops a running answer, removes the
+   * rows and files and logs as it does for the web. A session in `deleted`
+   * no longer exists, even when only its file cleanup failed.
+   */
+  private async remove(
+    services: PicaMobileChatServices,
+    user: User,
+    request: ChatRequestOf<"chat_delete">,
+  ): Promise<PicaMobileChatOutcome> {
+    const { sessionId } = request.payload;
+    const deletion = await services.chatSessionService.removeSelected(user, [
+      sessionId,
+    ]);
+    const failure = deletion.failed.find(
+      (entry) => entry.sessionId === sessionId,
+    );
+
+    if (failure !== undefined) {
+      return answer({ type: "chat_failed", payload: { code: failure.error } });
+    }
+
+    if (!deletion.deleted.includes(sessionId)) {
+      return { kind: "unavailable" };
+    }
+
+    return answer({ type: "chat_deleted", payload: { sessionId } });
   }
 }

@@ -32,7 +32,6 @@ const services = vi.hoisted(() => ({
     save: vi.fn(),
     remove: vi.fn(),
   },
-  settingsService: { getTerminalScreenReader: vi.fn() },
 }));
 vi.mock("@/app/lib/auth.server", async () => {
   const router = await import("react-router");
@@ -87,7 +86,6 @@ const USER: User = {
 beforeEach(() => {
   for (const method of Object.values(services.agentWorkspaceService))
     method.mockReset();
-  services.settingsService.getTerminalScreenReader.mockReset();
   vi.mocked(loadRemoteOverview).mockReset();
   vi.mocked(logCaughtError).mockReset();
 });
@@ -140,7 +138,6 @@ async function thrownByLoader(user: User | null): Promise<Response> {
 it("keeps the page out of browser and proxy caches", async () => {
   services.agentWorkspaceService.page.mockResolvedValue({ title: "Local" });
   vi.mocked(loadRemoteOverview).mockResolvedValue(REMOTE);
-  services.settingsService.getTerminalScreenReader.mockResolvedValue("off");
 
   const response = await dataLoader(
     routeArguments(
@@ -152,10 +149,9 @@ it("keeps the page out of browser and proxy caches", async () => {
   expect(response.headers.get("Cache-Control")).toBe("no-store");
 });
 
-it("loads the registrations, the remote overview and the console mode", async () => {
+it("loads the registrations and the remote overview", async () => {
   services.agentWorkspaceService.page.mockResolvedValue({ title: "Local" });
   vi.mocked(loadRemoteOverview).mockResolvedValue(REMOTE);
-  services.settingsService.getTerminalScreenReader.mockResolvedValue("off");
 
   const result = await loader(
     routeArguments(new Request("http://pages.invalid/agents/workspaces"), USER),
@@ -164,7 +160,6 @@ it("loads the registrations, the remote overview and the console mode", async ()
   expect(result.data).toEqual({
     page: { title: "Local" },
     remote: REMOTE,
-    terminalScreenReader: "off",
     audience: AUDIENCE,
   });
   expect(new Headers(result.init?.headers).get("Cache-Control")).toBe(
@@ -335,7 +330,6 @@ it("shows the workspace page and a recoverable load failure", async () => {
       loader: () => ({
         page: { title: "Local" },
         remote: { label: "Remote" },
-        terminalScreenReader: "off",
         audience: AUDIENCE,
       }),
       Component: AgentWorkspacesRoute,

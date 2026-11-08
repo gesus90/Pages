@@ -216,6 +216,36 @@ function readImageCapability(entry: unknown): {
     : {};
 }
 
+function readModalityList(value: unknown): readonly string[] | undefined {
+  if (!Array.isArray(value) || value.length > 16) return undefined;
+  const modalities = value.filter(
+    (item): item is string =>
+      typeof item === "string" && /^[a-z_-]{1,32}$/u.test(item),
+  );
+  return modalities.length === value.length ? modalities : undefined;
+}
+
+// OpenRouter states the modalities in `architecture` and tool calls as the
+// `tools` parameter; the chat filter of the model choice decides by them.
+function readOpenRouterChatFacts(
+  entry: unknown,
+): Pick<
+  AgentCatalogModel,
+  "inputModalities" | "outputModalities" | "isToolCapable"
+> {
+  const model = readAgentObject(entry);
+  const architecture = readAgentObject(model.architecture);
+  const inputModalities = readModalityList(architecture.input_modalities);
+  const outputModalities = readModalityList(architecture.output_modalities);
+  return {
+    ...(inputModalities ? { inputModalities } : {}),
+    ...(outputModalities ? { outputModalities } : {}),
+    ...(Array.isArray(model.supported_parameters)
+      ? { isToolCapable: model.supported_parameters.includes("tools") }
+      : {}),
+  };
+}
+
 function readModel(entry: unknown, provider: ApiProviderId): AgentCatalogModel {
   const model = readAgentObject(entry);
   const id = provider === "google_ai_studio" ? model.name : model.id;
@@ -245,6 +275,7 @@ function readModel(entry: unknown, provider: ApiProviderId): AgentCatalogModel {
     completionPrice,
     isFree: isZeroPrice(promptPrice) && isZeroPrice(completionPrice),
     ...readReasoning(model, provider, id),
+    ...(provider === "openrouter" ? readOpenRouterChatFacts(entry) : {}),
   };
 }
 
@@ -361,6 +392,19 @@ function readStoredToolCall(entry: unknown): {
   return typeof toolCall === "boolean" ? { isToolCapable: toolCall } : {};
 }
 
+// Snapshots saved before PAGE-248 state no modalities, which hides no model.
+function readStoredModalities(
+  entry: unknown,
+): Pick<AgentCatalogModel, "inputModalities" | "outputModalities"> {
+  const stored = readAgentObject(entry);
+  const inputModalities = readModalityList(stored.input_modalities);
+  const outputModalities = readModalityList(stored.output_modalities);
+  return {
+    ...(inputModalities ? { inputModalities } : {}),
+    ...(outputModalities ? { outputModalities } : {}),
+  };
+}
+
 /**
  * Reads a persisted snapshot; snapshots from before A7 §21.3 have no reasoning data.
  *
@@ -377,6 +421,7 @@ export function parseStoredCatalog(
       ...readStoredReasoning(entry),
       ...readStoredAliases(entry),
       ...readStoredToolCall(entry),
+      ...readStoredModalities(entry),
     };
     // Snapshots of the Claude CLI picker from before the version was part of the name keep their stored name.
     return { ...model, name: describeClaudeModel(model.id, model.name) };

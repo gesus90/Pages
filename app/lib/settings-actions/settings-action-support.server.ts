@@ -40,7 +40,6 @@ export type SettingsActionData =
     }
   | { readonly intent: "set-mode"; readonly ok: boolean }
   | { readonly intent: "update-design-theme"; readonly ok: true }
-  | { readonly intent: "update-terminal-screen-reader"; readonly ok: true }
   | {
       readonly intent: "update-design-theme";
       readonly ok: false;

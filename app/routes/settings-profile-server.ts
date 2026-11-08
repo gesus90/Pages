@@ -22,9 +22,8 @@ export async function loader({
   }
 
   const services = await getApplicationServices();
-  const [settings, terminalScreenReader, email, sessions] = await Promise.all([
+  const [settings, email, sessions] = await Promise.all([
     services.settingsService.getUserSettings(user.id),
-    services.settingsService.getTerminalScreenReader(user.id),
     services.userService.findProfileEmail(user.id),
     services.sessionService.getSessionSummaries(
       user.id,
@@ -45,7 +44,6 @@ export async function loader({
     email,
     sessions,
     settings,
-    terminalScreenReader,
     user,
   };
 }

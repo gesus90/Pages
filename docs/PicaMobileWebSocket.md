@@ -2,7 +2,7 @@
 
 Pages stellt für die App Pica Mobile einen WebSocket-Endpunkt bereit. Dieses Dokument ist der Vertrag zwischen Pages und der App: Es beschreibt, wie ein Administrator den Endpunkt einrichtet, wie eine Verbindung aufgebaut wird und welche Nachrichten in Version 1 des Formats gelten.
 
-Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)), `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)) und `chat.v1` (Chat mit Pica in denselben Unterhaltungen wie im Web, samt Dateianhängen über HTTP am selben Port; siehe [Erweiterung chat.v1](#erweiterung-chatv1)).
+Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)), `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)) `chat.v1` (Chat mit Pica in denselben Unterhaltungen wie im Web, samt Dateianhängen über HTTP am selben Port; siehe [Erweiterung chat.v1](#erweiterung-chatv1)) und `chat.delete` (Löschen einer Unterhaltung; siehe [Erweiterung chat.delete](#erweiterung-chatdelete)).
 
 ## Einrichtung durch einen Administrator
 
@@ -131,7 +131,7 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 
 `sessionToken` ist bei `method: "password"` das neu ausgestellte Sitzungstoken und sonst `null`. Die App speichert das Token im sicheren Speicher des Geräts und meldet sich danach mit `method: "session"` an; das Passwort behält sie nicht.
 
-`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1` und `notifications.push.fcm` folgen eigenen Regeln (siehe [Capabilities](#capabilities)), `plans.v1` nennt Pages nur, wenn es `plans_sync` und `plan_get` beantwortet (siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `chat.v1` nur, wenn es die acht Chat-Anfragen und die Datei-Endpunkte beantwortet (siehe [Erweiterung chat.v1](#erweiterung-chatv1)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
+`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1` und `notifications.push.fcm` folgen eigenen Regeln (siehe [Capabilities](#capabilities)), `plans.v1` nennt Pages nur, wenn es `plans_sync` und `plan_get` beantwortet (siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `chat.v1` nur, wenn es die acht Chat-Anfragen und die Datei-Endpunkte beantwortet (siehe [Erweiterung chat.v1](#erweiterung-chatv1)), `chat.delete` nur zusammen mit `chat.v1` und nur, wenn es `chat_delete` beantwortet (siehe [Erweiterung chat.delete](#erweiterung-chatdelete)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
 
 **`pong`** antwortet auf `ping`:
 
@@ -162,18 +162,18 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 
 ### Fehlercodes
 
-| `code`                     | Wann                                                                                                                                                                                                                                                                                                                | Folge                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `invalid_message`          | kein JSON-Objekt, Pflichtfeld fehlt oder ungültig, Payload ungültig, Binärframe; `avatar_get` mit einer Version, die nicht (mehr) die aktuelle des Kontos ist; `notification_register` mit einer anderen Plattform als `android`, einem anderen Provider als `fcm` oder ungültigem Token, `preview` oder `deviceId` | Verbindung bleibt                                                                    |
-| `unsupported_version`      | `version` nicht unterstützt (`supportedVersions` nennt die erlaubten)                                                                                                                                                                                                                                               | Verbindung bleibt                                                                    |
-| `unknown_type`             | `type` unbekannt, auch `dashboard_get` und `avatar_get` bei einem Pages ohne `dashboard.v1`, die drei `notification_*`-Anfragen bei einem Pages ohne `notifications.v1` und `plans_sync` und `plan_get` bei einem Pages ohne `plans.v1`, die acht `chat_*`-Anfragen bei einem Pages ohne `chat.v1`                  | Verbindung bleibt                                                                    |
-| `authentication_required`  | andere Nachricht als `auth` vor erfolgreicher Authentifizierung                                                                                                                                                                                                                                                     | Verbindung bleibt                                                                    |
-| `authentication_failed`    | Zugangsdaten oder Sitzungstoken ungültig, Konto deaktiviert; auch bei später beendeter Sitzung, auch als Antwort auf ein `dashboard_get` oder `avatar_get`                                                                                                                                                          | nach 3 Fehlversuchen getrennt; ist die Sitzung beendet, wird die Verbindung getrennt |
-| `password_change_required` | das Konto muss in Pages zuerst sein Passwort ändern                                                                                                                                                                                                                                                                 | wie `authentication_failed`                                                          |
-| `too_many_attempts`        | die Anmeldesperre von Pages greift (`retryAfterSeconds`)                                                                                                                                                                                                                                                            | wie `authentication_failed`                                                          |
-| `already_authenticated`    | zweites `auth` auf einer authentifizierten Verbindung                                                                                                                                                                                                                                                               | Verbindung bleibt                                                                    |
-| `rate_limited`             | mehr als 30 Nachrichten in 10 Sekunden                                                                                                                                                                                                                                                                              | Verbindung wird getrennt                                                             |
-| `server_unavailable`       | Pages kann die Nachricht gerade nicht entscheiden (zum Beispiel vor Abschluss des Setups); `notification_register`, solange Pages keinen verwendbaren FCM-Sender hat                                                                                                                                                | Verbindung bleibt                                                                    |
+| `code`                     | Wann                                                                                                                                                                                                                                                                                                                                                 | Folge                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `invalid_message`          | kein JSON-Objekt, Pflichtfeld fehlt oder ungültig, Payload ungültig, Binärframe; `avatar_get` mit einer Version, die nicht (mehr) die aktuelle des Kontos ist; `notification_register` mit einer anderen Plattform als `android`, einem anderen Provider als `fcm` oder ungültigem Token, `preview` oder `deviceId`                                  | Verbindung bleibt                                                                    |
+| `unsupported_version`      | `version` nicht unterstützt (`supportedVersions` nennt die erlaubten)                                                                                                                                                                                                                                                                                | Verbindung bleibt                                                                    |
+| `unknown_type`             | `type` unbekannt, auch `dashboard_get` und `avatar_get` bei einem Pages ohne `dashboard.v1`, die drei `notification_*`-Anfragen bei einem Pages ohne `notifications.v1` und `plans_sync` und `plan_get` bei einem Pages ohne `plans.v1`, die acht `chat_*`-Anfragen bei einem Pages ohne `chat.v1`, `chat_delete` bei einem Pages ohne `chat.delete` | Verbindung bleibt                                                                    |
+| `authentication_required`  | andere Nachricht als `auth` vor erfolgreicher Authentifizierung                                                                                                                                                                                                                                                                                      | Verbindung bleibt                                                                    |
+| `authentication_failed`    | Zugangsdaten oder Sitzungstoken ungültig, Konto deaktiviert; auch bei später beendeter Sitzung, auch als Antwort auf ein `dashboard_get` oder `avatar_get`                                                                                                                                                                                           | nach 3 Fehlversuchen getrennt; ist die Sitzung beendet, wird die Verbindung getrennt |
+| `password_change_required` | das Konto muss in Pages zuerst sein Passwort ändern                                                                                                                                                                                                                                                                                                  | wie `authentication_failed`                                                          |
+| `too_many_attempts`        | die Anmeldesperre von Pages greift (`retryAfterSeconds`)                                                                                                                                                                                                                                                                                             | wie `authentication_failed`                                                          |
+| `already_authenticated`    | zweites `auth` auf einer authentifizierten Verbindung                                                                                                                                                                                                                                                                                                | Verbindung bleibt                                                                    |
+| `rate_limited`             | mehr als 30 Nachrichten in 10 Sekunden                                                                                                                                                                                                                                                                                                               | Verbindung wird getrennt                                                             |
+| `server_unavailable`       | Pages kann die Nachricht gerade nicht entscheiden (zum Beispiel vor Abschluss des Setups); `notification_register`, solange Pages keinen verwendbaren FCM-Sender hat                                                                                                                                                                                 | Verbindung bleibt                                                                    |
 
 Fünf abgelehnte Nachrichten in Folge trennen die Verbindung (Code 1008, „Too many rejected messages“); eine gültige Nachricht setzt den Zähler zurück.
 
@@ -484,7 +484,7 @@ Innerhalb jeder Klasse gilt `at` absteigend und danach `name`; Zeilen ohne `at` 
 
 ## Erweiterung chat.v1
 
-Die Erweiterung lässt die App mit Pica chatten, und zwar in **denselben Unterhaltungen** wie den Web-Chat. Sie folgt dem Ticket PAGE-201; der Vertrag gilt für Pages und Pica Mobile wortgleich. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; `dashboard_get`, `avatar_get` und die übrigen Erweiterungen bleiben unverändert. Antworten laufen wie im Web über den ACP-Pfad von Pica und laufen ohne die App auf dem Server weiter; Löschen, Kompaktieren und Chat-Befehle bleiben dem Web vorbehalten. Pages sendet für den Chat nichts von sich aus, jede Antwort trägt die `requestId` ihrer Anfrage.
+Die Erweiterung lässt die App mit Pica chatten, und zwar in **denselben Unterhaltungen** wie den Web-Chat. Sie folgt dem Ticket PAGE-201; der Vertrag gilt für Pages und Pica Mobile wortgleich. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; `dashboard_get`, `avatar_get` und die übrigen Erweiterungen bleiben unverändert. Antworten laufen wie im Web über den ACP-Pfad von Pica und laufen ohne die App auf dem Server weiter; Kompaktieren und Chat-Befehle bleiben dem Web vorbehalten; das Löschen einer Unterhaltung ergänzt die Erweiterung [chat.delete](#erweiterung-chatdelete). Pages sendet für den Chat nichts von sich aus, jede Antwort trägt die `requestId` ihrer Anfrage.
 
 **Synchron mit dem Web.** Die App fragt im offenen Chat alle 3 Sekunden `chat_state` ab und lädt die Unterhaltung nur bei einer Abweichung neu. Der Web-Chat tut dasselbe mit dem Intent `sessionState` der Route `/chat-api`, solange das Panel offen, die Seite sichtbar und keine eigene Sendung unterwegs ist; Eingabetext und noch nicht gesendete Anhänge bleiben dabei stehen, und eine nicht mehr vorhandene Unterhaltung weicht der zuletzt benutzten.
 
@@ -558,6 +558,49 @@ Fehler sind `{ ok: false, error: <ChatErrorCode> }`: Status 404 für `sessionMis
 - Jede Anfrage prüft zuerst die Sitzung. Ist sie beendet oder das Konto deaktiviert, antwortet Pages mit `authentication_failed` und trennt mit Code 1008 („Session ended“), wie bei `dashboard_get`.
 - Die App sieht nur die eigenen Unterhaltungen des angemeldeten Kontos; eine neue Berechtigung, eine Push-Nachricht für Chat-Antworten oder eine neue Datenbankspalte führt die Erweiterung nicht ein.
 - **Klartext.** Chat-Inhalte, Dateien und das Sitzungstoken laufen über `ws://` und `http://` im Klartext durch das Netz (siehe [Sicherheit](#sicherheit)). Betreibe den Endpunkt nur in einem vertrauenswürdigen Netz.
+
+## Erweiterung chat.delete
+
+Erweiterung `chat.delete` von Version 1 des Pica-Mobile-Protokolls. Sie ergänzt `chat.v1` um das Löschen einer Unterhaltung. Hülle, Größengrenzen und `requestId` gelten wie bei den übrigen `chat_*`-Nachrichten.
+
+### Capability
+
+- Pages nennt `chat.delete` in `connected.server.capabilities` nur zusammen mit `chat.v1` und nur, wenn es `chat_delete` beantwortet.
+- Ein Pages ohne `chat.delete` antwortet auf `chat_delete` mit `error` und dem Code `unknown_type`. Die Verbindung bleibt bestehen.
+
+### Anfrage `chat_delete`
+
+```json
+{
+  "version": 1,
+  "type": "chat_delete",
+  "requestId": "<ID>",
+  "payload": { "sessionId": "<ID>" }
+}
+```
+
+`sessionId` hat dieselbe Form wie in `chat_session_get`. Weitere Felder im `payload` sind ungültig (`invalid_message`).
+
+### Antwort `chat_deleted`
+
+```json
+{
+  "version": 1,
+  "type": "chat_deleted",
+  "requestId": "<ID>",
+  "payload": { "sessionId": "<ID>" }
+}
+```
+
+- Die Unterhaltung des angemeldeten Kontos ist gelöscht, mit allen Nachrichten und Anhängen. Läuft gerade eine Antwort von Pica, stoppt Pages sie vorher. Das ist dieselbe Löschung wie in der Weboberfläche.
+- Scheitert danach nur das Aufräumen von Dateien, antwortet Pages trotzdem mit `chat_deleted`, weil die Unterhaltung nicht mehr existiert.
+- Pages legt keine neue Unterhaltung an und sendet nichts von sich aus. Andere Geräte sehen die Löschung beim nächsten `chat_sessions`.
+
+### Fehler
+
+- `chat_failed` mit `{ "code": "sessionMissing" }`: Die Unterhaltung existiert nicht oder gehört einem anderen Konto.
+- `chat_failed` mit einem anderen Code des Chats: Die Löschung ist gescheitert, und die Unterhaltung besteht weiter.
+- Ein Bestätigungswort gibt es nicht. Pica Mobile fragt vor dem Senden selbst nach.
 
 ## Erweiterung notifications.v1 (Android, FCM)
 
@@ -815,7 +858,7 @@ Pica Mobile führt keinen eigenen Zugang ein, sondern nutzt die Pages-Konten:
 - `method: "session"` weist eine solche Sitzung vor. Sie ist 14 Tage gültig, wie im Browser.
 - Konten, die ihr Passwort erst ändern müssen, können sich nicht verbinden (`password_change_required`), ebenso wenig wie sie Pages im Browser nutzen können.
 
-Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`, `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1` , `plans_sync` und `plan_get` der Erweiterung `plans.v1` sowie die acht `chat_*`-Anfragen und die Datei-Endpunkte der Erweiterung `chat.v1`.
+Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`, `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1` , `plans_sync` und `plan_get` der Erweiterung `plans.v1` sowie die acht `chat_*`-Anfragen und die Datei-Endpunkte der Erweiterung `chat.v1` und `chat_delete` der Erweiterung `chat.delete`.
 
 Pages prüft die Sitzung einer Verbindung etwa jede Minute neu. Wurde sie beendet oder das Konto deaktiviert, sendet Pages `authentication_failed` und trennt mit Code 1008 („Session ended“). Schlägt nur die Prüfung selbst fehl (zum Beispiel wegen einer Störung der Datenbank), bleibt die Verbindung bestehen.
 

@@ -57,7 +57,6 @@ import { TicketFileStore } from "@/backend/storage/TicketFileStore";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
-import { PICA_WORKSPACE_DIRECTORY_NAME } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import {
@@ -70,10 +69,12 @@ import {
 import { prepareSessions } from "./session-services.server";
 import { startExecutionServices } from "./agent-execution-services.server";
 import { createChatServices } from "./chat-services.server";
+import { picaAcpSettings, planMcpSettings } from "./bridge-settings.server";
 import { picaBrowserOptions } from "./pica-browser.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
 import { createMcpServices } from "./mcp-services.server";
 import { createDiscordServices } from "./discord-services.server";
+import { createGoogleDriveServices } from "./google-drive-services.server";
 import { createLiveChangeServices } from "./live-change-services.server";
 import { createPreferenceServices } from "./preference-services.server";
 import { registerShutdownHandler } from "./services-shutdown.server";
@@ -85,10 +86,7 @@ import type { LiveChangeAudience } from "@/backend/service/events/LiveChangeAudi
 import type { AgentLocalSessionPreparation } from "@/backend/service/agents/AgentLocalSessionPreparation";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { AgentApplicationServices } from "./agent-services.server";
-import type {
-  ChatApplicationServices,
-  PicaAcpSettings,
-} from "./chat-services.server";
+import type { ChatApplicationServices } from "./chat-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
@@ -96,9 +94,9 @@ import type {
   AgentPlanLoaderServices,
   AgentPlanServices,
 } from "./agent-plan-services.server";
-import type { AgentPlanMcpSettings } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { McpApplicationServices } from "./mcp-services.server";
 import type { DiscordApplicationServices } from "./discord-services.server";
+import type { GoogleDriveApplicationServices } from "./google-drive-services.server";
 import type { PreferenceApplicationServices } from "./preference-services.server";
 
 /** Server-only service instances shared by React Router loaders and actions. */
@@ -108,6 +106,7 @@ export interface ApplicationServices
     ChatApplicationServices,
     McpApplicationServices,
     DiscordApplicationServices,
+    GoogleDriveApplicationServices,
     PreferenceApplicationServices,
     AgentPlanLoaderServices {
   readonly administrationService: AdministrationService;
@@ -324,45 +323,6 @@ async function initializeServices(
   };
 }
 
-/**
- * Where plan sessions reach the plan bridge of this instance.
- *
- * @remarks
- * `PAGES_AGENT_API_URL` overrides the loopback address of the configured
- * port, for example behind a reverse proxy.
- */
-function planMcpSettings(port: number): AgentPlanMcpSettings {
-  return {
-    url: configuredValue("PAGES_AGENT_API_URL") ?? `http://127.0.0.1:${port}`,
-  };
-}
-
-/**
- * Where Pica's Codex sessions reach the tool bridge and keep their working directories.
- *
- * @remarks
- * The bridge uses the same local address as the plan bridge of plan nodes.
- * The working directories lie next to the agent folders, outside the folders
- * the isolation hides.
- */
-async function picaAcpSettings(): Promise<PicaAcpSettings> {
-  const runtime = await getPagesRuntime();
-  const { url } = planMcpSettings(runtime.getConfig().port);
-  return {
-    bridgeUrl: `${url.replace(/\/$/u, "")}/api/v1/pica-bridge`,
-    workspaceRoot: path.join(
-      path.dirname(runtime.configFile.path),
-      PICA_WORKSPACE_DIRECTORY_NAME,
-    ),
-  };
-}
-
-/** An environment variable with content; empty counts as unset. */
-function configuredValue(name: string): string | null {
-  const value = process.env[name]?.trim();
-  return value === undefined || value === "" ? null : value;
-}
-
 async function preparePlanService(
   database: Database,
   input: {
@@ -488,8 +448,9 @@ interface TaskServiceContext {
 
 /**
  * Creates the services of tickets: the tickets themselves, templates, GitHub
- * synchronization, ticket attachments, the ticket tree (A8.2) and the
- * Discord notifications that follow ticket and milestone changes.
+ * synchronization, ticket attachments, the ticket tree (A8.2), the
+ * Discord notifications that follow ticket and milestone changes and the
+ * Google Drive connection of the instance (PAGE-170).
  *
  * @param context - The repositories and services the ticket services use.
  * @returns The ticket services, with GitHub and attachment files attached,
@@ -503,6 +464,7 @@ async function createTaskServices(
     | "discordAuthorizationService"
     | "discordConnectionService"
     | "gitHubSyncService"
+    | "googleDriveConnectionService"
     | "liveChangeHub"
     | "liveChangeAudience"
     | "pagesEventPublisher"
@@ -566,6 +528,7 @@ async function createTaskServices(
       taskRepository,
     }),
     gitHubSyncService,
+    ...createGoogleDriveServices(database, context.tokenKey),
     ...createLiveChangeServices({
       database,
       databaseUrl: config.firstRun ? undefined : config.databaseUrl,

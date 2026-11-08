@@ -33,7 +33,6 @@ const PICA_CONTROL_PATHS = [
   "/chat/",
   "/api/v1/pica-bridge",
   "/api/v1/plan-bridge",
-  "/pica-tools-api",
 ] as const;
 
 const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);

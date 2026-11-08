@@ -4,12 +4,12 @@ import { useTranslation } from "react-i18next";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { AcpResourcesCard } from "@/app/components/settings/agents/acp-resources-card";
 import { ChatSettingsCard } from "@/app/components/settings/system/chat-settings-card";
+import { GoogleDriveCard } from "@/app/components/settings/system/google-drive-card";
 import { InterpreterCard } from "@/app/components/settings/system/interpreter-card";
 import { InstanceCard } from "@/app/components/settings/system/instance-card";
 import { ServerCard } from "@/app/components/settings/system/server-card";
 import { LoggingCard } from "@/app/components/settings/system/logging-card";
 import { StatusCard } from "@/app/components/settings/system/status-card";
-import { ServiceMonitorCard } from "@/app/components/settings/system/service-monitor-card";
 import { ServiceStatusCard } from "@/app/components/settings/system/service-status-card";
 import { WikiSettingsCard } from "@/app/components/settings/system/wiki-settings-card";
 
@@ -32,7 +32,7 @@ interface SystemSectionProps {
   readonly status: ServerStatus;
   /** Retention times and upload limits of the wiki. */
   readonly wikiSettings: WikiSettings;
-  /** Attachment limit and system instruction of the chat agent. */
+  /** Supplementary instruction of the chat agent. */
   readonly chatSettings: ChatAdministration;
 }
 
@@ -63,6 +63,7 @@ export function SystemSection({
       />
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <div className="flex min-w-0 flex-col gap-4">
+          <GoogleDriveCard />
           <InterpreterCard />
           <InstanceCard branding={branding} />
           <WikiSettingsCard settings={wikiSettings} />
@@ -72,7 +73,6 @@ export function SystemSection({
         <div className="flex flex-col gap-4">
           <StatusCard status={status} />
           <ServiceStatusCard />
-          <ServiceMonitorCard />
           <ServerCard port={port} />
           <LoggingCard
             retentionDays={logging.retentionDays}
