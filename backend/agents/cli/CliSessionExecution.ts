@@ -50,7 +50,7 @@ import {
 } from "./CliAcpLaunch";
 import { prepareClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import { captureOwnedNamespace } from "./CliOwnedNamespace";
-import { createAcpRedactor } from "./CliAcpRedaction";
+import { acpSessionSecrets, createAcpRedactor } from "./CliAcpRedaction";
 import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
 import { requirePicaCodexProfile } from "./PicaCodexBundle";
 import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
@@ -403,7 +403,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     const redact = createAcpRedactor({
       credentials: start.credentials,
       github,
-      tokens: [input.mcp?.token, launch.environment.OPENCODE_SERVER_PASSWORD],
+      tokens: acpSessionSecrets(input, launch),
     });
     let child: CliSessionProcess | null = null;
     let limited: LimitedRequest | null = null;

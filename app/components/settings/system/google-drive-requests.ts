@@ -31,6 +31,7 @@ const statusSchema = z.object({
   missingSettings: z.array(z.string()),
   redirectUris: z.array(z.string()),
   canSignIn: z.boolean(),
+  needsFolderAccess: z.boolean(),
 });
 
 const actionSchema = z.union([

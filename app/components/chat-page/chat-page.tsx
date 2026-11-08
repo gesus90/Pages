@@ -69,7 +69,8 @@ function ChatPageConversation({
  * Two columns 32 px apart down to the foot of the page: the list card of 340
  * px with its own scroll area, and the chat without card or background.
  * Below `lg` the list stands above the chat; below `md` a selection replaces
- * it. PAGE-254 only shows the interface; sent messages stay local.
+ * it. The page only shows the interface: without stored data the directory
+ * is empty, and sent messages stay local.
  */
 export function ChatPage({
   directory,

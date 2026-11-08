@@ -495,6 +495,8 @@ function settingsRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       "settings-api/google-drive/callback",
       "routes/settings-google-drive-callback.ts",
     ),
+    ...page("storage", { browser: "routes/storage.tsx" }),
+    resource("storage-api", "routes/storage-api.ts"),
   ];
 }
 

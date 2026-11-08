@@ -1,11 +1,18 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 
-import { pagesMcpServers } from "./AcpLaunch";
+import { PAGES_MCP_SERVER, pagesMcpServers } from "./AcpLaunch";
 import { approvePermission, refusePermission } from "./AcpPermissions";
 import { requireManagedAntigravityConfiguration } from "./AntigravityConfiguration";
 
-import type { AcpDriver, AcpSessionProfile } from "./AcpDriver";
+import type { RequestPermissionRequest } from "@agentclientprotocol/sdk";
+import type {
+  AcpConfigStep,
+  AcpDriver,
+  AcpModelRequest,
+  AcpPermissionDecision,
+  AcpSessionProfile,
+} from "./AcpDriver";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 
 /** Registry release reviewed together with its bundled localharness runtime. */
@@ -21,6 +28,98 @@ export const ANTIGRAVITY_READ_TOOLS = [
   "read_url_content",
 ] as const;
 
+/** Tool kinds of native tools Pica's session has none of: files, commands, the web and modes. */
+const CHAT_REFUSED_KINDS: ReadonlySet<string> = new Set([
+  "edit",
+  "delete",
+  "move",
+  "execute",
+  "fetch",
+  "switch_mode",
+]);
+
+const REPORTED_OPTIONS = {
+  sessionMode: "mode",
+  model: "model",
+  reasoningEffort: "thinking_level",
+} as const;
+
+// Model and thinking level are selected explicitly, so a remapped value is refused.
+function modelSteps(request: AcpModelRequest): AcpConfigStep[] {
+  return [
+    {
+      id: "model",
+      value: request.model,
+      refusal: "plan_model_unavailable",
+      isExplicit: true,
+    },
+    ...(request.reasoningEffort === null
+      ? []
+      : [
+          {
+            id: "thinking_level",
+            value: request.reasoningEffort,
+            refusal: "plan_reasoning_unsupported" as const,
+            isExplicit: true,
+          },
+        ]),
+  ];
+}
+
+/**
+ * Answers a permission request of Pica's session.
+ *
+ * @remarks
+ * The session has no native tool and no MCP server but Pica's turn-bound
+ * bridge, so a request can only stand for a call of a Pica tool, which Pages
+ * authorizes again for the person, the conversation and the running turn.
+ * The adapter takes the tool's name from the model's own call, so the name is
+ * no proof; a request whose kind belongs to a native tool, such as a file
+ * change, a command, a web fetch or a mode switch, is refused whatever it
+ * names.
+ */
+function decideChatPermission(
+  request: RequestPermissionRequest,
+): AcpPermissionDecision {
+  const kind = request.toolCall.kind ?? null;
+  return kind !== null && CHAT_REFUSED_KINDS.has(kind)
+    ? refusePermission(request)
+    : approvePermission(request);
+}
+
+/**
+ * Pica's Antigravity profile: no native tool, only the tools of the Pica
+ * bridge, reached as the session's one MCP server.
+ */
+const CHAT_PROFILE: AcpSessionProfile = {
+  mode: "read_only",
+  unattended:
+    "Official Antigravity ACP; no native tools, only Pica's turn-bound Pages tools, automatic permission decisions",
+  permissions: {
+    permissionMode: "read_only",
+    sessionMode: "default",
+    tools: "Pica catalog only, through the turn-bound Pica bridge",
+    files: "none",
+    shell: "off",
+    web: "off",
+    mcpServers: "Pica bridge only",
+    settings: "Pages isolated context",
+  },
+  reportedOptions: REPORTED_OPTIONS,
+  matchesReportedModel: null,
+  hasMcpStatusCommand: false,
+  isContinuable: true,
+  steps: (request) => [
+    ...modelSteps(request),
+    {
+      id: "mode",
+      value: "default",
+      refusal: "plan_permission_mode_unenforceable",
+    },
+  ],
+  decide: decideChatPermission,
+};
+
 function profile(mode: AcpPermissionMode): AcpSessionProfile {
   return {
     mode,
@@ -34,31 +133,12 @@ function profile(mode: AcpPermissionMode): AcpSessionProfile {
       mcpServers: "Pages supplied only",
       settings: "Pages isolated context",
     },
-    reportedOptions: {
-      sessionMode: "mode",
-      model: "model",
-      reasoningEffort: "thinking_level",
-    },
+    reportedOptions: REPORTED_OPTIONS,
     matchesReportedModel: null,
     hasMcpStatusCommand: false,
     isContinuable: true,
     steps: (request) => [
-      {
-        id: "model",
-        value: request.model,
-        refusal: "plan_model_unavailable",
-        isExplicit: true,
-      },
-      ...(request.reasoningEffort === null
-        ? []
-        : [
-            {
-              id: "thinking_level",
-              value: request.reasoningEffort,
-              refusal: "plan_reasoning_unsupported" as const,
-              isExplicit: true,
-            },
-          ]),
+      ...modelSteps(request),
       {
         id: "mode",
         value: mode === "yolo" ? "yolo" : "default",
@@ -86,23 +166,40 @@ export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
     agent?.name === "antigravity-acp" &&
     agent.version === ANTIGRAVITY_ACP_VERSION,
   profile: (mode, purpose) => {
-    if (purpose === "chat") throw new AgentError("antigravity_pica_unverified");
-    return profile(mode);
+    if (purpose !== "chat") return profile(mode);
+    if (mode !== "read_only")
+      throw new AgentError("plan_permission_mode_unenforceable");
+    return CHAT_PROFILE;
   },
-  plan: (specification) => ({
-    environment: {
+  plan: (specification) => {
+    const environment = {
       [RUN_INSTANCE_VARIABLE]: specification.instanceId,
       BROWSER: "/bin/true",
-    },
-    mcpServers: pagesMcpServers(specification.mcp),
-    sessionMeta: {
-      antigravity: {
-        ...(specification.profile.mode === "read_only"
-          ? { enabledTools: ANTIGRAVITY_READ_TOOLS }
-          : {}),
-        eagerMcpServers: ["pages"],
+    };
+    // Pica's bridge comes with the chat session itself; no native tool is enabled.
+    if (specification.purpose === "chat")
+      return {
+        environment,
+        mcpServers: [],
+        sessionMeta: {
+          antigravity: {
+            enabledTools: [],
+            eagerMcpServers: [PAGES_MCP_SERVER],
+          },
+        },
+      };
+    return {
+      environment,
+      mcpServers: pagesMcpServers(specification.mcp),
+      sessionMeta: {
+        antigravity: {
+          ...(specification.profile.mode === "read_only"
+            ? { enabledTools: ANTIGRAVITY_READ_TOOLS }
+            : {}),
+          eagerMcpServers: [PAGES_MCP_SERVER],
+        },
       },
-    },
-  }),
+    };
+  },
   requireManagedConfiguration: requireManagedAntigravityConfiguration,
 };

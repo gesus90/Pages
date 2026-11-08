@@ -11,15 +11,42 @@ export const GOOGLE_DRIVE_SETTING_NAMES = {
 } as const;
 
 /**
- * The one scope Pages asks for.
+ * The scope every connection needs.
  *
  * @remarks
  * `drive.file` is the narrowest Drive scope Google lists as non-sensitive. It
  * reads no file the person did not open with or create through Pages, yet it
- * allows `about.get`, the read-only request that proves the connection. A
- * broader scope would need Google's security assessment and is not needed.
+ * allows `about.get`, the read-only request that proves the connection.
  */
 export const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+
+/**
+ * The read scope the Storage area needs to browse the existing folder tree (PAGE-188).
+ *
+ * @remarks
+ * `drive.file` alone shows only files Pages created or opened, so a folder
+ * tree that existed before stays invisible. `drive.readonly` reads every
+ * folder and file the Google account itself may open and changes nothing.
+ * Google counts it as a restricted scope: an unverified OAuth client of an
+ * instance shows Google's warning and its user limit during the consent. With
+ * Google's granular consent the person may decline it; the connection then
+ * keeps working with `drive.file`, and Storage says that it shows only the
+ * files of Pages.
+ */
+export const GOOGLE_DRIVE_READ_SCOPE =
+  "https://www.googleapis.com/auth/drive.readonly";
+
+/** The scopes the sign-in asks for, see {@link GOOGLE_DRIVE_SCOPE} and {@link GOOGLE_DRIVE_READ_SCOPE}. */
+export const GOOGLE_DRIVE_REQUESTED_SCOPES: readonly string[] = [
+  GOOGLE_DRIVE_SCOPE,
+  GOOGLE_DRIVE_READ_SCOPE,
+];
+
+/** Granted scopes that let Storage read the whole folder tree of the account. */
+export const GOOGLE_DRIVE_TREE_SCOPES: readonly string[] = [
+  GOOGLE_DRIVE_READ_SCOPE,
+  "https://www.googleapis.com/auth/drive",
+];
 
 const CLIENT_ID_PATTERN = /^[A-Za-z0-9._-]+\.apps\.googleusercontent\.com$/;
 

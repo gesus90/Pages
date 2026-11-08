@@ -254,6 +254,15 @@ export async function startOwnedPostgres(
   };
 }
 
+function temporaryPostgresRoot(): string {
+  const candidate = tmpdir();
+  const prefix = path.join(candidate, "pages-postgres-check-");
+  if (prefix.length + 21 > 107) {
+    return "/tmp";
+  }
+  return candidate;
+}
+
 /**
  * A PostgreSQL server of its own in a temporary directory, on a free loopback
  * port and password authentication. The private files remain after shutdown.
@@ -279,7 +288,7 @@ export class TemporaryPostgres {
    */
   public static async prepare(): Promise<TemporaryPostgres> {
     const directory = await mkdtemp(
-      path.join(tmpdir(), "pages-postgres-check-"),
+      path.join(temporaryPostgresRoot(), "pages-postgres-check-"),
     );
     const port = await freeLoopbackPort();
     return new TemporaryPostgres(

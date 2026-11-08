@@ -1,7 +1,7 @@
 import { useLoaderData } from "react-router";
 
 import { ChatPage } from "@/app/components/chat-page/chat-page";
-import { CHAT_PAGE_SAMPLE } from "@/app/components/chat-page/chat-page-sample";
+import { EMPTY_CHAT_DIRECTORY } from "@/app/components/chat-page/chat-page-directory";
 
 import type { VirtualChatDirectory } from "@/definition/VirtualChat";
 
@@ -9,11 +9,11 @@ import type { VirtualChatDirectory } from "@/definition/VirtualChat";
  * Reads the participants, groups and histories of the chat page.
  *
  * @remarks
- * PAGE-254 answers them from the fixed sample source in the browser; there is
- * no data endpoint yet. A later ticket replaces only this source.
+ * Answers the empty directory in the browser; there is no data endpoint yet.
+ * A later ticket replaces only this source with stored data.
  */
 export function clientLoader(): VirtualChatDirectory {
-  return CHAT_PAGE_SAMPLE;
+  return EMPTY_CHAT_DIRECTORY;
 }
 
 /** Renders the chat page with virtual participants and groups. */

@@ -104,6 +104,22 @@ async function stopServer(child: ChildProcess): Promise<void> {
   await waitForExit(child);
 }
 
+function pagesInstanceRoot(): string {
+  const candidate = os.tmpdir();
+  const sample = path.join(
+    candidate,
+    "pages-browser-123456",
+    "home",
+    "data",
+    "runs-control",
+    "engine.sock",
+  );
+  if (sample.length > 107) {
+    return "/tmp";
+  }
+  return candidate;
+}
+
 /**
  * Starts an isolated Pages server from the production build.
  *
@@ -140,7 +156,9 @@ export async function startPagesInstance(
     );
   }
 
-  const directory = await mkdtemp(path.join(os.tmpdir(), "pages-browser-"));
+  const directory = await mkdtemp(
+    path.join(pagesInstanceRoot(), "pages-browser-"),
+  );
   const home = path.join(directory, "home");
   const configPath = path.join(directory, "config.toml");
   const logFile = path.join(directory, "server.log");

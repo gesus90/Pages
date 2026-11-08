@@ -1,4 +1,4 @@
-import { CHAT_PAGE_SAMPLE } from "@/app/components/chat-page/chat-page-sample";
+import { EMPTY_CHAT_DIRECTORY } from "@/app/components/chat-page/chat-page-directory";
 
 import type { VirtualChatDirectory } from "@/definition/VirtualChat";
 
@@ -7,8 +7,9 @@ import type { VirtualChatDirectory } from "@/definition/VirtualChat";
  * applies the authentication.
  *
  * @remarks
- * PAGE-254 answers the fixed sample source; storage follows in a later ticket.
+ * Answers an empty directory until a later ticket stores participants,
+ * groups and histories.
  */
 export function loader(): VirtualChatDirectory {
-  return CHAT_PAGE_SAMPLE;
+  return EMPTY_CHAT_DIRECTORY;
 }

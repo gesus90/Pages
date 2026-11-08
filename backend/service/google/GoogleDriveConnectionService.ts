@@ -1,7 +1,10 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { buildGoogleAuthorizationUrl } from "@/backend/google/GoogleDriveApiClient";
-import { GOOGLE_DRIVE_SCOPE } from "@/backend/google/GoogleDriveConfig";
+import {
+  GOOGLE_DRIVE_SCOPE,
+  GOOGLE_DRIVE_TREE_SCOPES,
+} from "@/backend/google/GoogleDriveConfig";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import type {
@@ -19,6 +22,7 @@ import type {
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import type {
   GoogleDriveCallbackOutcome,
+  GoogleDriveConnectionState,
   GoogleDriveProblem,
   GoogleDriveStatus,
 } from "@/definition/GoogleDrive";
@@ -79,6 +83,29 @@ export interface GoogleDriveConnectionDependencies {
   readonly now?: () => number;
 }
 
+/**
+ * A usable connection for one server-side Drive request, or why there is none.
+ *
+ * @remarks
+ * The access token is a secret: it stays in the server process, goes only
+ * into the `Authorization` header of a Drive request and never into an
+ * answer, an address or a log.
+ */
+export type GoogleDriveAccess =
+  | {
+      readonly ok: true;
+      readonly accessToken: string;
+      /** The bound Google account; data saved for another account is not used. */
+      readonly permissionId: string;
+      readonly accountEmail: string | null;
+      readonly grantedScopes: readonly string[];
+    }
+  | {
+      readonly ok: false;
+      readonly state: Exclude<GoogleDriveConnectionState, "connected">;
+      readonly problem: GoogleDriveProblem | null;
+    };
+
 /** An access token in process memory, valid for one stored connection. */
 interface CachedAccessToken {
   readonly connectedAt: number;
@@ -109,6 +136,14 @@ function refreshBinding(connectedAt: number): string {
 
 function attemptBinding(attemptId: string): string {
   return `google-drive:attempt:${attemptId}`;
+}
+
+function grantsFolderTree(grantedScope: string): boolean {
+  const grantedScopes = grantedScope.split(" ");
+
+  return GOOGLE_DRIVE_TREE_SCOPES.some((scope) =>
+    grantedScopes.includes(scope),
+  );
 }
 
 /**
@@ -254,6 +289,7 @@ export class GoogleDriveConnectionService {
       accountEmail: null,
       canSignIn: origins.current !== null,
       missingSettings: this.missingSettings,
+      needsFolderAccess: false,
       problem: null,
       redirectUris: origins.allowed.map(
         (origin) => `${origin}${GOOGLE_DRIVE_CALLBACK_PATH}`,
@@ -282,6 +318,7 @@ export class GoogleDriveConnectionService {
       return {
         ...base,
         accountEmail: result.value.emailAddress,
+        needsFolderAccess: !grantsFolderTree(connection.grantedScope),
         state: "connected",
       };
     }
@@ -292,6 +329,61 @@ export class GoogleDriveConnectionService {
       state: isReauthorizationProblem(result.problem)
         ? "reauthorization_required"
         : "unavailable",
+    };
+  }
+
+  /**
+   * Provides the stored connection for a read-only Drive request of the server.
+   *
+   * @returns A current access token after Drive confirmed the bound account
+   * just now, or why the connection is not usable.
+   *
+   * @remarks
+   * Every call proves the binding with `about.get`, renews the access token
+   * with the stored refresh token when needed and marks the connection for a
+   * new sign-in when Google refuses it, exactly like {@link getStatus}. No
+   * other way to a token exists, so no foreign or stale token is ever used.
+   */
+  public async access(): Promise<GoogleDriveAccess> {
+    if (!this.runtime) {
+      return { ok: false, problem: null, state: "not_configured" };
+    }
+
+    const connection = await this.repository.findConnection();
+
+    if (!connection) {
+      return { ok: false, problem: null, state: "disconnected" };
+    }
+
+    if (connection.reauthorizationReason !== null) {
+      return {
+        ok: false,
+        problem: connection.reauthorizationReason,
+        state: "reauthorization_required",
+      };
+    }
+
+    const result = await this.verify(this.runtime, connection);
+    const token = this.currentToken(connection);
+
+    if (!result.ok || !token) {
+      const problem = result.ok ? "google_unreachable" : result.problem;
+
+      return {
+        ok: false,
+        problem,
+        state: isReauthorizationProblem(problem)
+          ? "reauthorization_required"
+          : "unavailable",
+      };
+    }
+
+    return {
+      accessToken: token.accessToken,
+      accountEmail: result.value.emailAddress,
+      grantedScopes: connection.grantedScope.split(" ").filter(Boolean),
+      ok: true,
+      permissionId: connection.googlePermissionId,
     };
   }
 

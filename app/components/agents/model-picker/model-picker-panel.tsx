@@ -33,15 +33,17 @@ function CatalogWarning(): React.ReactElement {
 
 function EmptyState({
   state,
+  emptyLabel,
 }: {
   readonly state: ModelPickerState;
+  readonly emptyLabel: string | undefined;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
     <p className="px-3 py-6 text-center text-sm text-muted-foreground">
       {state.isSearching
         ? t("plans.modelPicker.noMatch", { query: state.query.trim() })
-        : t("plans.modelPicker.noModels")}
+        : (emptyLabel ?? t("plans.modelPicker.noModels"))}
     </p>
   );
 }
@@ -98,10 +100,13 @@ export function ModelPickerPanel({
   state,
   value,
   isCatalogFailed,
+  emptyLabel,
 }: {
   readonly state: ModelPickerState;
   readonly value: string;
   readonly isCatalogFailed: boolean;
+  /** The place's own note for an empty catalog; a search without match keeps its own. */
+  readonly emptyLabel?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { panel, layout } = state;
@@ -158,7 +163,9 @@ export function ModelPickerPanel({
             />
           ))}
         </ul>
-        {state.groups.length === 0 ? <EmptyState state={state} /> : null}
+        {state.groups.length === 0 ? (
+          <EmptyState state={state} emptyLabel={emptyLabel} />
+        ) : null}
       </ScrollViewport>
     </div>
   );

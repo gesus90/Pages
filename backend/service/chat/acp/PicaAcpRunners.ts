@@ -11,7 +11,8 @@ import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { ChatAdapterProviderId } from "@/definition/AgentModelConsumers";
 
 /**
- * The CLI runners Pica answers with over ACP, including native OpenCode (PAGE-91).
+ * The CLI runners Pica answers with over ACP, including native OpenCode (PAGE-91)
+ * and Antigravity.
  *
  * @remarks
  * A provider registers its chat adapter once in `AGENT_PROVIDERS`; the runner
@@ -30,6 +31,11 @@ export interface PicaAcpRunner {
   readonly hasPartialTokenUsage?: boolean;
   /** Whether the adapter's cost includes the whole native session, across jobs. */
   readonly isCostSessionTotal?: boolean;
+  /**
+   * Whether the session reaches Pica's tools as its one MCP server, with a
+   * credential of the job that admits calls only during a running turn.
+   */
+  readonly hasBridgeMcp?: boolean;
   /**
    * The run options of a job, taken from the assignment.
    *
@@ -84,18 +90,29 @@ const OPENCODE_RUNNER: PicaAcpRunner = {
   },
 };
 
+/**
+ * Antigravity runs without any native tool; Pica's tools reach it as the one
+ * MCP server of the session. Like Claude Code and OpenCode it answers only in
+ * "Nur Lesen", and an agent stored with YOLO is refused, never narrowed.
+ */
+const ANTIGRAVITY_RUNNER: PicaAcpRunner = {
+  provider: "antigravity",
+  profile: "pica-antigravity-chat-1",
+  isCostEstimated: false,
+  hasBridgeMcp: true,
+  runOptions: (agent) => {
+    const run = agentRunOptionsFor(agent.connection.provider, agent.run);
+    if (run.access !== "read_only")
+      throw new ChatError("acpPermissionModeUnsupported");
+    return run;
+  },
+};
+
 const RUNNERS: Readonly<Record<PicaAcpProvider, PicaAcpRunner>> = {
   codex_cli: CODEX_RUNNER,
   claude_code: CLAUDE_RUNNER,
   opencode: OPENCODE_RUNNER,
-  antigravity: {
-    provider: "antigravity",
-    profile: "pica-antigravity-unverified",
-    isCostEstimated: false,
-    runOptions: () => {
-      throw new ChatError("antigravityToolsUnverified");
-    },
-  },
+  antigravity: ANTIGRAVITY_RUNNER,
 };
 
 /** Whether Pica answers with an agent of this provider over ACP. */

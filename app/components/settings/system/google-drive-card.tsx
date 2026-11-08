@@ -31,7 +31,8 @@ const STATE_LABELS: Readonly<Record<GoogleDriveConnectionState, string>> = {
 function awaitsSignIn(status: GoogleDriveStatus): boolean {
   return (
     status.state === "disconnected" ||
-    status.state === "reauthorization_required"
+    status.state === "reauthorization_required" ||
+    status.needsFolderAccess
   );
 }
 
@@ -60,12 +61,8 @@ function GoogleDriveAction({
 
   const { state } = reading.status;
 
-  if (state === "connected") {
-    return <ConnectedBadge />;
-  }
-
   if (!reading.status.canSignIn || !awaitsSignIn(reading.status)) {
-    return null;
+    return state === "connected" ? <ConnectedBadge /> : null;
   }
 
   return (
@@ -112,6 +109,8 @@ function statusProblem(status: GoogleDriveStatus, t: TFunction): string | null {
         .map((redirectUri) => new URL(redirectUri).origin)
         .join(", "),
     });
+  if (status.needsFolderAccess)
+    return t("settings.googleDrive.folderAccessMissing");
   return status.problem === null
     ? null
     : t(`settings.googleDrive.problem.${status.problem}`);

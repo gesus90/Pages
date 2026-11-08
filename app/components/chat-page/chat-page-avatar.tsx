@@ -1,9 +1,10 @@
 import { PicaMascot } from "@/app/components/chat/pica-mascot";
 import { cn } from "@/app/lib/cn";
 
+import { participantColors } from "./chat-page-colors";
+
 import type {
   VirtualParticipant,
-  VirtualParticipantColor,
   VirtualParticipantStatus,
 } from "@/definition/VirtualChat";
 
@@ -16,25 +17,6 @@ const AVATAR_SIZES: Record<AvatarSize, string> = {
   32: "size-8 text-sm",
   40: "size-10 text-base",
 };
-
-/** Avatar tint behind the initial, by participant color. */
-const AVATAR_TINTS: Record<VirtualParticipantColor, string> = {
-  primary: "bg-primary-subtle text-primary",
-  indigo: "bg-participant-indigo-subtle text-participant-indigo",
-  pink: "bg-participant-pink-subtle text-participant-pink",
-  teal: "bg-participant-teal-subtle text-participant-teal",
-  lime: "bg-participant-lime-subtle text-participant-lime",
-};
-
-/** Name color of a participant's answers. */
-export const PARTICIPANT_TEXT_COLORS: Record<VirtualParticipantColor, string> =
-  {
-    primary: "text-primary",
-    indigo: "text-participant-indigo",
-    pink: "text-participant-pink",
-    teal: "text-participant-teal",
-    lime: "text-participant-lime",
-  };
 
 const STATUS_COLORS: Record<VirtualParticipantStatus, string> = {
   active: "bg-success",
@@ -63,6 +45,7 @@ export function ParticipantAvatar({
   hasRing = false,
   className,
 }: ParticipantAvatarProps): React.ReactElement {
+  const colors = participantColors(participant.color);
   return (
     <span
       aria-hidden="true"
@@ -71,7 +54,7 @@ export function ParticipantAvatar({
         AVATAR_SIZES[size],
         participant.avatar === "pica"
           ? "bg-transparent"
-          : AVATAR_TINTS[participant.color],
+          : [colors.surface, colors.text],
         hasRing && "ring-2 ring-surface",
         className,
       )}

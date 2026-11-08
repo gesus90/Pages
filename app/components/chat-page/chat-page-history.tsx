@@ -6,7 +6,8 @@ import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { cn } from "@/app/lib/cn";
 
-import { PARTICIPANT_TEXT_COLORS, ParticipantAvatar } from "./chat-page-avatar";
+import { ParticipantAvatar } from "./chat-page-avatar";
+import { participantColors } from "./chat-page-colors";
 
 import type {
   VirtualChatMessage,
@@ -18,20 +19,49 @@ function hideImages(): boolean {
   return false;
 }
 
-function OwnMessage({
-  message,
+/** Consecutive messages of one author: `null` for the person's own messages. */
+interface MessageRun {
+  readonly authorId: string | null;
+  readonly messages: readonly VirtualChatMessage[];
+}
+
+function groupRuns(messages: readonly VirtualChatMessage[]): MessageRun[] {
+  const runs: MessageRun[] = [];
+  for (const message of messages) {
+    const last = runs.at(-1);
+    if (last && last.authorId === message.authorId)
+      runs[runs.length - 1] = {
+        authorId: last.authorId,
+        messages: [...last.messages, message],
+      };
+    else runs.push({ authorId: message.authorId, messages: [message] });
+  }
+  return runs;
+}
+
+/** The person's own messages at the right, in primary bubbles. */
+function OwnRun({
+  messages,
 }: {
-  readonly message: VirtualChatMessage;
+  readonly messages: readonly VirtualChatMessage[];
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <article aria-label={t("chatPage.you")} className="flex justify-end">
-      <WikiMarkdown
-        className="max-w-[85%] rounded-xl rounded-br-[4px] bg-primary px-4 py-2.5 text-[15px] text-primary-foreground"
-        isDisplayableImage={hideImages}
-        source={message.content}
-      />
-    </article>
+    <div className="flex flex-col items-end gap-2">
+      {messages.map((message) => (
+        <article
+          key={message.id}
+          aria-label={t("chatPage.you")}
+          className="flex max-w-[62%] justify-end"
+        >
+          <WikiMarkdown
+            className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-[15px] text-primary-foreground"
+            isDisplayableImage={hideImages}
+            source={message.content}
+          />
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -48,49 +78,86 @@ function ToolChip({
   );
 }
 
-interface AnswerProps {
+interface AnswerBubbleProps {
   readonly message: VirtualChatMessage;
+  readonly author: VirtualParticipant;
+  /** Shows name and role as first line, for the first answer of a run in a group. */
+  readonly hasName: boolean;
+}
+
+/** One answer in a bubble in the author's color, with the used tools at its foot. */
+function AnswerBubble({
+  message,
+  author,
+  hasName,
+}: AnswerBubbleProps): React.ReactElement {
+  const { t } = useTranslation();
+  const colors = participantColors(author.color);
+  return (
+    <article
+      aria-label={author.name}
+      className={cn(
+        "flex max-w-full min-w-0 flex-col gap-1 rounded-[14px] rounded-bl-[4px] border px-4 py-2.5",
+        colors.surface,
+        colors.border,
+      )}
+    >
+      {hasName ? (
+        <p className="text-[13px]">
+          <span className={cn("font-semibold", colors.text)}>
+            {author.name}
+          </span>
+          <span className="text-muted-foreground"> · {author.role}</span>
+        </p>
+      ) : null}
+      <WikiMarkdown
+        className="text-[15px] text-foreground"
+        isDisplayableImage={hideImages}
+        source={message.content}
+      />
+      {message.toolUses.length > 0 ? (
+        <ul
+          aria-label={t("chatPage.toolUses")}
+          className="mt-1 flex flex-wrap gap-2"
+        >
+          {message.toolUses.map((use) => (
+            <ToolChip key={`${use.name}:${use.detail}`} use={use} />
+          ))}
+        </ul>
+      ) : null}
+    </article>
+  );
+}
+
+interface AnswerRunProps {
+  readonly messages: readonly VirtualChatMessage[];
   readonly author: VirtualParticipant;
   readonly isGroup: boolean;
 }
 
-/** An answer without bubble: avatar, the name in the participant's color, text and used tools. */
-function Answer({ message, author, isGroup }: AnswerProps): React.ReactElement {
-  const { t } = useTranslation();
+/**
+ * Consecutive answers of one participant at the left: the avatar once at the
+ * top, the bubbles 8 px apart on the same indent.
+ */
+function AnswerRun({
+  messages,
+  author,
+  isGroup,
+}: AnswerRunProps): React.ReactElement {
   return (
-    <article aria-label={author.name} className="flex gap-3">
-      <ParticipantAvatar participant={author} size={32} className="mt-0.5" />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="text-[13px]">
-          <span
-            className={cn(
-              "font-semibold",
-              PARTICIPANT_TEXT_COLORS[author.color],
-            )}
-          >
-            {author.name}
-          </span>
-          {isGroup ? (
-            <span className="text-muted-foreground"> · {author.role}</span>
-          ) : null}
-        </p>
-        <WikiMarkdown
-          className="max-w-3xl text-[15px] text-foreground"
-          isDisplayableImage={hideImages}
-          source={message.content}
-        />
-        {message.toolUses.length > 0 ? (
-          <ul
-            aria-label={t("chatPage.toolUses")}
-            className="mt-1 flex flex-wrap gap-2"
-          >
-            {message.toolUses.map((use) => (
-              <ToolChip key={`${use.name}:${use.detail}`} use={use} />
-            ))}
-          </ul>
-        ) : null}
+    <div className="flex items-start gap-3">
+      <ParticipantAvatar participant={author} size={32} />
+      <div className="flex max-w-[62%] min-w-0 flex-col items-start gap-2">
+        {messages.map((message, index) => (
+          <AnswerBubble
+            key={message.id}
+            message={message}
+            author={author}
+            hasName={isGroup && index === 0}
+          />
+        ))}
       </div>
-    </article>
+    </div>
   );
 }
 
@@ -103,7 +170,7 @@ interface ChatPageHistoryProps {
 
 /**
  * The scrollable history of the opened group or participant: own messages
- * at the right, answers at the left without bubble.
+ * at the right, answers at the left in bubbles in the participant's color.
  */
 export function ChatPageHistory({
   messages,
@@ -132,17 +199,19 @@ export function ChatPageHistory({
       ref={viewport}
       aria-label={t("chatPage.history", { name })}
       containerClassName="min-h-40 flex-1"
-      className="flex flex-col gap-6 py-6 pr-1"
+      className="flex flex-col gap-4 py-6 pr-1"
       role="log"
     >
-      {messages.map((message) => {
-        if (message.authorId === null)
-          return <OwnMessage key={message.id} message={message} />;
-        const author = findParticipant(message.authorId);
+      {groupRuns(messages).map((run) => {
+        const [first] = run.messages;
+        if (!first) return null;
+        if (run.authorId === null)
+          return <OwnRun key={first.id} messages={run.messages} />;
+        const author = findParticipant(run.authorId);
         return author ? (
-          <Answer
-            key={message.id}
-            message={message}
+          <AnswerRun
+            key={first.id}
+            messages={run.messages}
             author={author}
             isGroup={isGroup}
           />

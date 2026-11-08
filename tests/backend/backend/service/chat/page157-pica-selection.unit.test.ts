@@ -245,12 +245,11 @@ it("refuses a saved or newly submitted free Zen choice server-side without repla
   const view = await world.service.administration("owner");
   expect(view.settings.selection).toEqual(world.stored.selection);
   expect(view.settings.error).toBe("picaZenUnsupported");
-  // PAGE-248: the Zen model stays listed, refused for Pica, never chosen silently.
-  expect(
-    view.models.some(
-      (entry) => entry.model === "opencode/free" && !isPicaModel(entry),
-    ),
-  ).toBe(true);
+  // PAGE-261: the saved Zen choice keeps its value, but Pica's list leaves it out.
+  expect(view.models.every((entry) => isPicaModel(entry))).toBe(true);
+  expect(view.models.some((entry) => entry.model === "opencode/free")).toBe(
+    false,
+  );
   await expect(
     world.service.save("owner", {
       isEnabled: true,

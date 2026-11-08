@@ -1,6 +1,7 @@
 import {
   BookOpen,
   FolderKanban,
+  HardDrive,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -113,6 +114,50 @@ function ChatNavigationLink({
   );
 }
 
+/** The wiki, open to every signed-in account. */
+function WikiNavigationLink({
+  onNavigate,
+}: {
+  readonly onNavigate?: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <NavLink
+      className={({ isActive }) => getLinkClassName(isActive)}
+      to="/wiki"
+      prefetch="intent"
+      onClick={onNavigate}
+    >
+      <BookOpen className="size-6 text-primary xl:size-5" aria-hidden="true" />
+      {t("navigation.wiki")}
+    </NavLink>
+  );
+}
+
+/**
+ * The Storage area (PAGE-188); it uses the Google Drive connection of the
+ * instance, so it follows the admin right of the system settings.
+ */
+function StorageNavigationLink({
+  onNavigate,
+}: {
+  readonly onNavigate?: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <NavLink
+      className={({ isActive }) => getLinkClassName(isActive)}
+      to="/storage"
+      onClick={onNavigate}
+    >
+      <HardDrive className="size-6 text-primary xl:size-5" aria-hidden="true" />
+      {t("navigation.storage")}
+    </NavLink>
+  );
+}
+
 function NavigationLinks({
   canViewProjects,
   canViewUsers,
@@ -169,19 +214,11 @@ function NavigationLinks({
       ) : null}
       <ChatNavigationLink onNavigate={onNavigate} />
       <AgentNavigation canManage={canManageAgents} onNavigate={onNavigate} />
-      <NavLink
-        className={({ isActive }) => getLinkClassName(isActive)}
-        to="/wiki"
-        prefetch="intent"
-        onClick={onNavigate}
-      >
-        <BookOpen
-          className="size-6 text-primary xl:size-5"
-          aria-hidden="true"
-        />
-        {t("navigation.wiki")}
-      </NavLink>
+      <WikiNavigationLink onNavigate={onNavigate} />
       <WikiSidebarSection onNavigate={onNavigate} />
+      {canManageAgents ? (
+        <StorageNavigationLink onNavigate={onNavigate} />
+      ) : null}
 
       <div className="mt-auto flex flex-col gap-1 pt-2">
         {canViewUsers ? (

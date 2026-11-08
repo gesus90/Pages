@@ -21,17 +21,17 @@ export type AgentModelConsumer = "pica" | "plan";
  *
  * - `noChatAdapter`: Pica answers only over an ACP session, and the provider
  *   registers no adapter for it, such as a direct API.
- * - `chatAdapterUnverified`: the provider's ACP adapter exists, but its tools
- *   are not yet verified for Pica.
+ * - `noChat`: the catalog states that the model does not chat in text or
+ *   calls no tools, so Pica could neither answer nor reach its tools with it.
  * - `zenToolsMissing`: a free OpenCode Zen model needs OpenCode's own tools,
  *   which Pica's read-only session does not grant.
  * - `noToolCalls`: the catalog states that the model calls no tools, which an
  *   agent of a plan needs.
  */
 export type ModelConsumerRefusal =
-  "noChatAdapter" | "chatAdapterUnverified" | "zenToolsMissing" | "noToolCalls";
+  "noChatAdapter" | "noChat" | "zenToolsMissing" | "noToolCalls";
 
-/** The providers Pica has an ACP adapter for, verified or not, as registered in {@link AGENT_PROVIDERS}. */
+/** The providers Pica has an ACP adapter for, as registered in {@link AGENT_PROVIDERS}. */
 export type ChatAdapterProviderId = {
   [
     Id in AgentProviderId
@@ -40,11 +40,11 @@ export type ChatAdapterProviderId = {
 
 type ConsumerModel = Pick<
   PageAgentModel,
-  "provider" | "model" | "isFree" | "isToolCapable"
+  "provider" | "model" | "isFree" | "isToolCapable" | "isChatCapable"
 >;
 
 /**
- * Whether Pica has an ACP adapter for the provider, verified or not.
+ * Whether Pica has an ACP adapter for the provider.
  *
  * @param provider - The provider of a connection.
  * @returns `true` when the provider registers a chat adapter.
@@ -71,10 +71,10 @@ export function isZenToolModel(
   );
 }
 
+// A model whose catalog states nothing, or whose catalog failed to refresh, stays listed.
 function picaRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
-  const adapter = AGENT_PROVIDERS[model.provider].chatAdapter;
-  if (adapter === null) return "noChatAdapter";
-  if (adapter === "unverified") return "chatAdapterUnverified";
+  if (!hasChatAdapter(model.provider)) return "noChatAdapter";
+  if (model.isChatCapable === false) return "noChat";
   return isZenToolModel(model) ? "zenToolsMissing" : null;
 }
 
@@ -98,10 +98,11 @@ const CONSUMER_RULES: Readonly<
  *
  * @remarks
  * These rules are the only place where Pica and plans differ in their
- * models. A provider that registers a verified chat adapter in
+ * models. A provider that registers a chat adapter in
  * {@link AGENT_PROVIDERS} releases its models for Pica without any change to
  * a model choice. The server applies the same rules before it lists, saves
- * or runs a model; a listed model is no grant of use.
+ * or runs a model, and a model choice lists only the models without a
+ * refusal; a listed model is no grant of use.
  *
  * @param consumer - The place that chooses the model.
  * @param model - Provider, model ID and catalog traits of the model.

@@ -21,7 +21,8 @@ interface ChatPageComposerProps {
  * @remarks
  * The editor reads its placeholder once, so the page mounts one composer per
  * conversation. Sending appends the message to the local history only; "+"
- * gets its function with attachments in a later ticket.
+ * gets its function with attachments in a later ticket. The field ends 88 px
+ * before the right edge of the chat, so Pica's launcher never covers it.
  */
 export function ChatPageComposer({
   placeholder,
@@ -44,7 +45,7 @@ export function ChatPageComposer({
   }
 
   return (
-    <footer className="shrink-0 rounded-[14px] border-[1.5px] border-primary bg-surface p-3 shadow-card">
+    <footer className="mr-22 shrink-0 rounded-[14px] border-[1.5px] border-primary bg-surface p-3 shadow-card">
       <div className={cn("pages-editor-scroll-surface", styles.input)}>
         <EditorContent editor={input.editor} />
       </div>

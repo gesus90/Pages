@@ -13,3 +13,17 @@ Source: Vecteezy, listed there as "free png". The terms of that free licence
 notice keeps the source. Google Drive and its logo are trademarks of Google LLC
 and are used only to name the Google Drive connection. No permission from
 Google or Vecteezy beyond the above is claimed.
+
+google-drive-product-logo.png
+
+The multicolored Google Drive product logo beside the "Google Drive" path of
+the Storage area (PAGE-188). It is Google's own logo file, kept byte-identical
+(96 x 96 px, SHA-256
+72ea8d2de5e0568158cf48029cb9121564ab20c275465a65453776baf1160ebd) and only
+scaled in the browser:
+
+  https://ssl.gstatic.com/images/branding/product/2x/drive_2020q4_48dp.png
+
+Google Drive and its logo are trademarks of Google LLC and are used only to
+name the connected Google Drive, unchanged, as Google's branding guidelines
+ask. No further permission from Google is claimed.

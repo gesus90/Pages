@@ -120,9 +120,9 @@ export type AgentConnectionLocation =
  * Every model choice reads a provider's appearance and abilities here, so a
  * runner is registered once: `mark` names its brand mark in the model choice
  * (a key without a drawn mark shows the neutral fallback), and `chatAdapter`
- * says how Pica answers with it: `acp` over a verified ACP session,
- * `unverified` for an ACP adapter whose tools are not yet verified, and `null`
- * for a provider Pica has no adapter for, such as a direct API.
+ * says how Pica answers with it: `acp` over an ACP session that reaches only
+ * Pica's tools, and `null` for a provider Pica has no adapter for, such as a
+ * direct API.
  */
 export const AGENT_PROVIDERS = {
   openrouter: {
@@ -192,7 +192,7 @@ export const AGENT_PROVIDERS = {
     location: "local",
     vendor: "google_ai_studio",
     mark: "antigravity",
-    chatAdapter: "unverified",
+    chatAdapter: "acp",
   },
   opencode: {
     accessKind: "cli_account",

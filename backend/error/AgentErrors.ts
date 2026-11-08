@@ -30,8 +30,6 @@ export const AGENT_ERROR_MESSAGES = {
     "The Antigravity ACP session failed. Check the adapter, authentication and quota at its execution location.",
   antigravity_configuration_unmanaged:
     "Antigravity configuration, hooks or additional MCP servers could widen this session. Use the isolated Pages connection context.",
-  antigravity_pica_unverified:
-    "Antigravity is blocked for Pica until its complete restrictive tool profile has been verified with a real model. Plan access does not prove Pica isolation.",
   plan_work_gate_failed:
     "The required ticket work confirmation is missing or stale. Read current relevant TODOs and prove every required check before completion or a successor can start.",
   plan_work_gate_unavailable:

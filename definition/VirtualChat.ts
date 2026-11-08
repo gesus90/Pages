@@ -2,9 +2,9 @@
  * Contracts of the chat page with virtual participants and groups (PAGE-254).
  *
  * @remarks
- * The page reads one {@link VirtualChatDirectory}. In PAGE-254 a fixed sample
- * source answers it; later tickets replace only that source with stored
- * participants, groups and histories.
+ * The page reads one {@link VirtualChatDirectory}. Until participants, groups
+ * and histories are stored, an empty directory answers it; later tickets
+ * replace only that source with stored data.
  */
 
 /** Whether a participant is available, busy with a task, or switched off. */

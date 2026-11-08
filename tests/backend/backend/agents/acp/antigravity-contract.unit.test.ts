@@ -88,10 +88,18 @@ describe("official Antigravity registration", () => {
     ).toBe("yolo");
   });
 
-  it("blocks the Pica profile before starting a model until real restrictions are verified", () => {
+  it("runs Pica read-only without any native tool and refuses YOLO", () => {
     expect(isPicaAcpProvider("antigravity")).toBe(true);
-    expect(() => ANTIGRAVITY_ACP_DRIVER.profile("read_only", "chat")).toThrow(
-      expect.objectContaining({ code: "antigravity_pica_unverified" }),
+    const profile = ANTIGRAVITY_ACP_DRIVER.profile("read_only", "chat");
+    const launch = ANTIGRAVITY_ACP_DRIVER.plan({
+      ...{ instanceId: "synthetic-run", runnerFile: "/adapter/agy" },
+      ...{ profile, mcp: null, purpose: "chat" },
+    });
+    expect(launch.sessionMeta.antigravity).toEqual({
+      ...{ enabledTools: [], eagerMcpServers: ["pages"] },
+    });
+    expect(() => ANTIGRAVITY_ACP_DRIVER.profile("yolo", "chat")).toThrow(
+      expect.objectContaining({ code: "plan_permission_mode_unenforceable" }),
     );
   });
 

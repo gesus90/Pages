@@ -39,6 +39,8 @@ export interface GoogleDriveStatus {
   readonly redirectUris: readonly string[];
   /** Whether this request came in on an allowed origin, so a sign-in may start here. */
   readonly canSignIn: boolean;
+  /** Whether the working connection lacks the read access that Storage needs for the folder tree. */
+  readonly needsFolderAccess: boolean;
 }
 
 /** What happened when Google sent the browser back to Pages. */

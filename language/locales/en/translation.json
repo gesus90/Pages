@@ -153,7 +153,8 @@
     "executionPlan": "Agent Plan",
     "workspace": "Workspace",
     "agentList": "Agents list",
-    "loading": "Loading view …"
+    "loading": "Loading view …",
+    "storage": "Storage"
   },
   "role": {
     "admin": "Administrator",
@@ -311,6 +312,7 @@
       "notConfigured": "Not set up",
       "signIn": "Sign in with Google",
       "signInAgain": "Sign in again",
+      "folderAccessMissing": "The access does not cover the folder view in Storage. Sign in again and allow read access to Google Drive.",
       "missingSettings": "The Google OAuth client is missing. Missing server settings: {{settings}}. Register these redirect URIs: {{redirectUris}}",
       "originNotAllowed": "Google Drive can only be connected from a registered address. Open Pages at: {{origins}}",
       "loadFailed": "The connection status could not be loaded.",
@@ -897,7 +899,6 @@
         "antigravity_acp_unsupported": "Antigravity requires the official ACP adapter 1.4.4. No model was called.",
         "antigravity_acp_session_failed": "The Antigravity ACP session failed. Check the adapter, login and quota at the execution host.",
         "antigravity_configuration_unmanaged": "Additional Antigravity configuration could widen session permissions. Use the isolated Pages context.",
-        "antigravity_pica_unverified": "Antigravity is blocked for Pica: the complete restrictive tool boundary has not been verified with a real model.",
         "antigravity_runner_update_required": "Antigravity requires Runner 1.14.0 or later at the selected execution host. Update this runner explicitly; no local fallback is used.",
         "plan_workspace_waiting": "This run is queued for a concrete writing resource. Its owner and remaining cleanup are shown by the upper controls.",
         "plan_acceptance_unavailable": "Business acceptance could not be verified. Check current ticket access and continue the incomplete step.",
@@ -1419,7 +1420,7 @@
         "missing": "no key in Pages – add one under “API keys”"
       },
       "openCodeLinkedHint": "also usable through opencode",
-      "antigravityHint": "Google sign-in through the official ACP adapter in this connection's isolated Pages context. Google then redirects to the adapter's loopback callback (127.0.0.1) on the Pages server: a browser on the server completes sign-in directly; from another device, paste the browser's address here. Pica stays blocked until its complete tool restrictions are verified.",
+      "antigravityHint": "Google sign-in through the official ACP adapter in this connection's isolated Pages context. Google then redirects to the adapter's loopback callback (127.0.0.1) on the Pages server: a browser on the server completes sign-in directly; from another device, paste the browser's address here. Pica can use this connection; it gets only Pica’s authorized Pages tools there, no built-in Antigravity tools.",
       "antigravityLoginHint": "Open the sign-in page, choose the Google account and give consent yourself. If this browser runs on the Pages server, sign-in then completes automatically.",
       "antigravityRedirectLabel": "Address after Google's consent",
       "antigravityRedirectHint": "On another device, such as a smartphone, Google then redirects to an address with “127.0.0.1” that does not load there. Copy that complete address from the address bar and paste it here. It is valid only for this sign-in and only once.",
@@ -3330,17 +3331,17 @@
       "contextChanged": "The context changed meanwhile. Nothing was overwritten; please try /compact again.",
       "compactionFailed": "The context could not be compacted. Your existing conversation history is preserved.",
       "nativeContextManaged": "Codex, Claude Code and opencode manage their native session context themselves; /compact is unavailable for them.",
-      "picaModelSelectionRequired": "Pica uses only Codex CLI, Claude Code or opencode over ACP. The saved API selection is retained. Confirm its adoption through opencode in Pica settings or choose a new model. Pica no longer uses OpenAI or Anthropic API keys.",
+      "picaModelSelectionRequired": "Pica uses only Codex CLI, Claude Code, OpenCode or Antigravity over ACP. The saved API selection is retained. Confirm its adoption through opencode in Pica settings or choose a new model. Pica no longer uses OpenAI or Anthropic API keys.",
       "picaZenUnsupported": "This free opencode Zen model requires opencode’s own tools and cannot run in Pica. Choose another model. It remains available in agent plans.",
+      "picaModelUnsupported": "According to its catalog, this model cannot answer in chat or call tools, so Pica cannot use it. The saved selection is retained; nothing was sent and no other model was substituted. Choose another model under Settings › Agents.",
       "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator.",
-      "acpProviderUnsupported": "Pica supports API connections and Codex CLI, Claude Code and OpenCode over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
-      "acpPermissionModeUnsupported": "Pica requires “Read only” workspace access for Claude Code and OpenCode. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
+      "acpProviderUnsupported": "Pica supports Codex CLI, Claude Code, OpenCode and Antigravity over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
+      "acpPermissionModeUnsupported": "Pica requires “Read only” workspace access for Claude Code, OpenCode and Antigravity. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
       "bridgeUnavailable": "The chat agent could not connect Pica's Pages tools. Nothing was changed. Please try again or contact an admin.",
       "interrupted": "The server stopped during the answer. The answer is not repeated automatically.",
       "disabled": "Pica is turned off. An administrator can enable Pica under Settings › Agents.",
       "plan_model_unavailable": "The CLI does not (or no longer) offer the model chosen for Pica, for example after an update. Nothing was sent and no other model was used. Please choose an available model under Settings → Agents.",
-      "plan_reasoning_unsupported": "The model chosen for Pica does not support the configured reasoning level. Nothing was sent. Please choose a supported level under Settings → Agents.",
-      "antigravityToolsUnverified": "Antigravity is blocked for Pica: the complete restrictive tool boundary has not been verified with a real model."
+      "plan_reasoning_unsupported": "The model chosen for Pica does not support the configured reasoning level. Nothing was sent. Please choose a supported level under Settings → Agents."
     },
     "recover": "Start a new session",
     "signIn": "Sign in again",
@@ -6000,12 +6001,8 @@
     "unsupportedEffort": "Unsupported – correct the selection",
     "aliasResolved": "The saved value is the alias “{{alias}}”. It stands for {{model}} ({{id}}); saving stores this concrete version.",
     "aliasUnresolved": "The saved alias “{{alias}}” cannot be tied to exactly one version: this connection's catalog lists none or several for it. No other model is substituted; please choose a concrete model.",
-    "refusal": {
-      "noChatAdapter": "Pica cannot chat through this connection.",
-      "chatAdapterUnverified": "Not yet released for Pica.",
-      "zenToolsMissing": "Needs OpenCode tools that Pica does not grant.",
-      "noToolCalls": "Calls no tools."
-    }
+    "noModels": "No connection that is set up offers a model Pica can chat with. Set up a connection with Claude Code, Codex, Antigravity or OpenCode under Agents, or refresh its model catalog.",
+    "unlisted": "The saved model “{{model}}” is not among the models Pica can use. It stays saved, but it is neither run nor saved again. Choose a model from the list and save."
   },
   "reasoningChoice": {
     "unsupported": "{{model}} does not support this level."
@@ -6040,6 +6037,115 @@
       "failed": "failed",
       "maintenance": "maintenance",
       "unknown": "unknown"
+    }
+  },
+  "storage": {
+    "title": "Storage",
+    "googleDrive": "Google Drive",
+    "connected": "Connected",
+    "myDrive": "My Drive",
+    "sharedDrives": "Shared drives",
+    "untitled": "(untitled)",
+    "loading": "Loading the folder from Google Drive …",
+    "failed": "Storage could not be loaded.",
+    "retry": "Try again",
+    "openStart": "Go to start folder",
+    "path": {
+      "label": "Path in Google Drive",
+      "detached": "Parent folders are not visible to the connected account."
+    },
+    "forbidden": {
+      "title": "No access to Storage",
+      "text": "Storage uses the Google Drive connection of the instance and is reserved for administrators in the admin mode."
+    },
+    "connection": {
+      "not_configured": "Google Drive is not set up for this instance.",
+      "disconnected": "No Google Drive account is connected.",
+      "reauthorization_required": "The Google Drive connection has expired or was revoked.",
+      "unavailable": "Google Drive did not confirm the connection just now.",
+      "where": "The connection is signed in only under Settings → System → Storage.",
+      "openSettings": "Open Settings → System"
+    },
+    "reach": {
+      "title": "Only files created or opened by Pages are visible",
+      "text": "The connection only has the \"drive.file\" access. With it, Google shows no existing folders and files. To browse folders, sign in again under Settings → System and allow read access to Google Drive."
+    },
+    "folderProblem": {
+      "title": "This folder cannot be shown.",
+      "not_found": "Google Drive cannot find the folder. It was deleted or is not visible to the connected account.",
+      "trashed": "The folder is in the Google Drive trash.",
+      "not_folder": "The target is a file, not a folder.",
+      "forbidden": "The connected Google account has no access to this folder.",
+      "scope_insufficient": "The access granted to the connection does not reach this folder.",
+      "unreachable": "Google Drive cannot be reached right now. Reload later."
+    },
+    "startFolder": {
+      "label": "Start folder: {{path}}",
+      "none": "No start folder set – Storage opens \"My Drive\".",
+      "choose": "Set start folder",
+      "chooseNew": "Choose a new start folder",
+      "clear": "Remove start folder",
+      "problemTitle": "The saved start folder cannot be opened.",
+      "savedName": "Saved was: \"{{name}}\".",
+      "renamed": "The start folder \"{{from}}\" is now called \"{{to}}\" in Google Drive. It stays the start folder.",
+      "problem": {
+        "other_account": "It was saved for another Google account than the one connected now.",
+        "not_found": "Google Drive no longer finds it. It was deleted or is no longer visible to the connected account.",
+        "trashed": "It is in the Google Drive trash.",
+        "not_folder": "The saved target is no longer a folder.",
+        "forbidden": "The connected Google account no longer has access to it.",
+        "scope_insufficient": "The access granted to the connection does not reach this folder.",
+        "unreachable": "Google Drive cannot be reached right now. Reload later."
+      }
+    },
+    "picker": {
+      "title": "Set start folder",
+      "description": "Storage will open in this folder. The start folder is only a navigation default and changes no sharing.",
+      "current": "Current: {{path}}",
+      "none": "No start folder set yet.",
+      "noSubfolders": "No subfolders.",
+      "unavailable": "This folder cannot be shown.",
+      "confirm": "Save this folder",
+      "saveError": {
+        "invalid": "This entry cannot be a start folder.",
+        "connection": "The Google Drive connection is not usable.",
+        "failed": "The start folder could not be saved.",
+        "not_found": "Google Drive no longer finds the folder.",
+        "trashed": "The folder is in the trash.",
+        "not_folder": "This is not a folder.",
+        "forbidden": "No access to this folder.",
+        "scope_insufficient": "The access of the connection is not sufficient.",
+        "unreachable": "Google Drive cannot be reached right now."
+      }
+    },
+    "list": {
+      "name": "Name",
+      "modified": "Modified",
+      "size": "Size",
+      "folder": "Folder",
+      "openInDrive": "Open in Google Drive",
+      "empty": "This folder is empty.",
+      "emptyAppFiles": "There are no files here that Pages created or opened.",
+      "count_one": "{{count}} item",
+      "count_other": "{{count}} items",
+      "countMore_one": "{{count}} item loaded, more available",
+      "countMore_other": "{{count}} items loaded, more available",
+      "loadMore": "Load more",
+      "loadMoreFailed": "More items could not be loaded."
+    },
+    "quota": {
+      "title": "Storage quota",
+      "loading": "Loading storage quota …",
+      "unavailable": "Storage quota not available.",
+      "accountLabel": "Google account storage (all Google services)",
+      "poolLabel": "Google storage – limit may be a Workspace pool",
+      "usedOfLimit": "{{used}} of {{limit}} used",
+      "unlimited": "{{used}} used · no limit reported",
+      "percentFree": "{{percent}} % used · {{free}} free",
+      "percentOver": "{{percent}} % used · {{over}} over the limit",
+      "noShare": "Google reports no limit; percentage and free storage are omitted.",
+      "poolHint": "With Google Workspace the limit may be a storage pool shared by the organization, so percentage and free storage are not calculated.",
+      "barLabel": "Used share of the Google account storage"
     }
   }
 }

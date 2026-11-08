@@ -257,6 +257,7 @@ export class PicaJobWorld {
         this.reserved = turn;
         return DESCRIPTOR;
       },
+      openMcp: () => DESCRIPTOR,
       activateTurn: (turn) => {
         if (this.reserved?.id !== turn.id) return false;
         this.binding = turn;

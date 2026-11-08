@@ -465,6 +465,7 @@ async function createTaskServices(
     | "discordConnectionService"
     | "gitHubSyncService"
     | "googleDriveConnectionService"
+    | "googleDriveStorageService"
     | "liveChangeHub"
     | "liveChangeAudience"
     | "pagesEventPublisher"

@@ -91,8 +91,9 @@ function openConversation(
  * Selection, search and the local history of the chat page.
  *
  * @remarks
- * The first group opens at first. Sent messages live only in this state until
- * a later ticket stores histories.
+ * The first group opens at first, else the first participant; an empty
+ * directory opens nothing. Sent messages live only in this state until a
+ * later ticket stores histories.
  */
 export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
   const [query, setQuery] = useState("");
