@@ -81,7 +81,7 @@ export interface PicaAcpJobSpecification {
 
 /**
  * One Pica answer over ACP that runs on the server with the assigned CLI
- * runner: Codex, Claude Code or OpenCode.
+ * runner: Codex, Claude Code, OpenCode or Antigravity.
  *
  * @remarks
  * The job pins the agent that was assigned when the message was sent. It
@@ -440,15 +440,18 @@ export class PicaAcpJob {
     brief: PicaTurnBrief,
     resumeSessionId: string | null,
   ): AgentPlanSessionInput {
-    const { agent, directory } = this.specification;
+    const { agent, directory, run } = this.specification;
     return {
       ...this.turnInput(message, brief),
       agent,
       userId: this.userId,
       directory,
-      options: this.specification.run.options,
+      options: run.options,
       instanceId: randomUUID(),
       chat: {
+        ...(run.runner.hasBridgeMcp
+          ? { mcpServers: this.credential.mcpServers() }
+          : {}),
         resumeSessionId,
         listener: this.updates,
       },

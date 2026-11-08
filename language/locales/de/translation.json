@@ -897,7 +897,6 @@
         "antigravity_acp_unsupported": "Antigravity benötigt den offiziellen ACP-Adapter 1.4.4. Es wurde kein Modell aufgerufen.",
         "antigravity_acp_session_failed": "Die Antigravity-ACP-Sitzung ist fehlgeschlagen. Adapter, Anmeldung und Kontingent am Ausführungsort prüfen.",
         "antigravity_configuration_unmanaged": "Zusätzliche Antigravity-Konfiguration könnte die Sitzungsrechte erweitern. Den isolierten Pages-Kontext verwenden.",
-        "antigravity_pica_unverified": "Antigravity ist für Pica gesperrt: Die vollständige restriktive Werkzeuggrenze ist noch nicht mit einem echten Modell nachgewiesen.",
         "antigravity_runner_update_required": "Antigravity benötigt Runner 1.14.0 oder neuer am ausgewählten Ausführungsort. Den Runner ausdrücklich aktualisieren; es gibt keinen lokalen Ersatz.",
         "plan_workspace_waiting": "Dieser Lauf wartet auf eine konkrete Schreibressource. Besitzer und ausstehende Bereinigung stehen an der oberen Steuerung.",
         "plan_acceptance_unavailable": "Fachlicher Abschluss nicht prüfbar. Aktuellen Ticketzugriff prüfen und am unvollständigen Schritt fortsetzen.",
@@ -1419,7 +1418,7 @@
         "missing": "kein Schlüssel in Pages – unter „API-Schlüssel“ hinzufügen"
       },
       "openCodeLinkedHint": "auch über opencode nutzbar",
-      "antigravityHint": "Google-Anmeldung über den offiziellen ACP-Adapter im isolierten Pages-Kontext dieser Anbindung. Google leitet danach auf den Loopback-Callback des Adapters (127.0.0.1) am Pages-Server weiter: Ein Browser auf dem Server schließt die Anmeldung direkt ab, von einem anderen Gerät wird die Adresse aus dem Browser hier eingefügt. Pica bleibt bis zum vollständigen Nachweis der Werkzeuggrenzen gesperrt.",
+      "antigravityHint": "Google-Anmeldung über den offiziellen ACP-Adapter im isolierten Pages-Kontext dieser Anbindung. Google leitet danach auf den Loopback-Callback des Adapters (127.0.0.1) am Pages-Server weiter: Ein Browser auf dem Server schließt die Anmeldung direkt ab, von einem anderen Gerät wird die Adresse aus dem Browser hier eingefügt. Pica kann diese Anbindung nutzen; dort stehen nur Picas autorisierte Pages-Werkzeuge zur Verfügung, keine eingebauten Antigravity-Werkzeuge.",
       "antigravityLoginHint": "Anmeldeseite öffnen, Google-Konto wählen und selbst zustimmen. Läuft dieser Browser auf dem Pages-Server, schließt die Anmeldung danach automatisch ab.",
       "antigravityRedirectLabel": "Adresse nach der Google-Zustimmung",
       "antigravityRedirectHint": "Auf einem anderen Gerät, etwa einem Smartphone, leitet Google danach auf eine Adresse mit „127.0.0.1“ weiter, die dort nicht lädt. Diese vollständige Adresse aus der Adresszeile kopieren und hier einfügen. Sie gilt nur für diese Anmeldung und nur einmal.",
@@ -3330,17 +3329,17 @@
       "contextChanged": "Der Kontext wurde inzwischen geändert. Es wurde nichts überschrieben; bitte /compact erneut aufrufen.",
       "compactionFailed": "Der Kontext konnte nicht komprimiert werden. Der vorhandene Gesprächsverlauf bleibt erhalten.",
       "nativeContextManaged": "Codex, Claude Code und opencode verwalten den Kontext ihrer nativen Sitzung selbst; /compact ist dort nicht verfügbar.",
-      "picaModelSelectionRequired": "Pica verwendet nur Codex CLI, Claude Code oder opencode über ACP. Die gespeicherte API-Auswahl bleibt erhalten. Bitte in den Pica-Einstellungen die Übernahme über opencode bestätigen oder ein neues Modell wählen. OpenAI- und Anthropic-API-Schlüssel werden von Pica nicht mehr verwendet.",
+      "picaModelSelectionRequired": "Pica verwendet nur Codex CLI, Claude Code, OpenCode oder Antigravity über ACP. Die gespeicherte API-Auswahl bleibt erhalten. Bitte in den Pica-Einstellungen die Übernahme über opencode bestätigen oder ein neues Modell wählen. OpenAI- und Anthropic-API-Schlüssel werden von Pica nicht mehr verwendet.",
       "picaZenUnsupported": "Dieses kostenlose opencode-Zen-Modell benötigt die eigenen Werkzeuge von opencode und kann in Pica nicht ausgeführt werden. Bitte ein anderes Modell wählen. In Agent-Plänen bleibt es verfügbar.",
+      "picaModelUnsupported": "Laut Katalog kann dieses Modell nicht im Chat antworten oder keine Werkzeuge aufrufen und ist für Pica nicht nutzbar. Die gespeicherte Auswahl bleibt erhalten; es wurde nichts gesendet und kein anderes Modell eingesetzt. Bitte unter Einstellungen › Agents ein anderes Modell wählen.",
       "instructionsUnavailable": "Pica kann gerade nicht antworten: Die geschützten Vorgaben von Pica fehlen auf dem Server oder sind nicht lesbar. Deine Nachricht wurde nicht gesendet. Bitte wende dich an einen Admin.",
-      "acpProviderUnsupported": "Pica unterstützt API-Verbindungen sowie Codex CLI, Claude Code und OpenCode über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
-      "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code und OpenCode nur mit Workspace-Zugriff „Nur Lesen“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
+      "acpProviderUnsupported": "Pica unterstützt Codex CLI, Claude Code, OpenCode und Antigravity über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
+      "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code, OpenCode und Antigravity nur mit Workspace-Zugriff „Nur Lesen“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
       "bridgeUnavailable": "Der Chat-Agent konnte die Pages-Werkzeuge von Pica nicht verbinden. Es wurde nichts geändert. Bitte versuch es noch einmal oder wende dich an einen Admin.",
       "interrupted": "Der Server wurde während der Antwort beendet. Die Antwort wird nicht automatisch wiederholt.",
       "disabled": "Pica ist ausgeschaltet. Die Administration kann Pica unter Einstellungen › Agents aktivieren.",
       "plan_model_unavailable": "Die CLI bietet das für Pica gewählte Modell nicht (mehr) an, zum Beispiel nach einem Update. Es wurde nichts gesendet und kein anderes Modell eingesetzt. Bitte unter Einstellungen → Agents ein verfügbares Modell wählen.",
-      "plan_reasoning_unsupported": "Das für Pica gewählte Modell unterstützt die eingestellte Reasoning-Stufe nicht. Es wurde nichts gesendet. Bitte unter Einstellungen → Agents eine unterstützte Stufe wählen.",
-      "antigravityToolsUnverified": "Antigravity ist für Pica gesperrt: Die vollständige restriktive Werkzeuggrenze ist noch nicht mit einem echten Modell nachgewiesen."
+      "plan_reasoning_unsupported": "Das für Pica gewählte Modell unterstützt die eingestellte Reasoning-Stufe nicht. Es wurde nichts gesendet. Bitte unter Einstellungen → Agents eine unterstützte Stufe wählen."
     },
     "recover": "Neue Session starten",
     "signIn": "Neu anmelden",
@@ -6000,12 +5999,8 @@
     "unsupportedEffort": "Nicht unterstützt – Auswahl korrigieren",
     "aliasResolved": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); beim Speichern wird diese konkrete Version hinterlegt.",
     "aliasUnresolved": "Der gespeicherte Alias „{{alias}}“ lässt sich nicht auf genau eine Version abbilden: Der Katalog dieses Zugangs nennt dafür keine oder mehrere. Es wird kein anderes Modell eingesetzt; bitte ein konkretes Modell wählen.",
-    "refusal": {
-      "noChatAdapter": "Pica kann mit dieser Anbindung nicht chatten.",
-      "chatAdapterUnverified": "Für Pica noch nicht freigegeben.",
-      "zenToolsMissing": "Braucht OpenCode-Werkzeuge, die Pica nicht gewährt.",
-      "noToolCalls": "Ruft keine Werkzeuge auf."
-    }
+    "noModels": "Keine eingerichtete Anbindung bietet ein Modell, mit dem Pica chatten kann. Unter Agents eine Anbindung mit Claude Code, Codex, Antigravity oder OpenCode einrichten oder ihren Modellkatalog aktualisieren.",
+    "unlisted": "Das gespeicherte Modell „{{model}}“ steht nicht unter den Modellen, die Pica nutzen kann. Es bleibt gespeichert, wird aber weder ausgeführt noch erneut übernommen. Bitte ein Modell aus der Liste wählen und speichern."
   },
   "reasoningChoice": {
     "unsupported": "{{model}} unterstützt diese Stufe nicht."

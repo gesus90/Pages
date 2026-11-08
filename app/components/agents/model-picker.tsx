@@ -38,6 +38,8 @@ interface ModelPickerProps {
   readonly placeholder?: string;
   /** Why a listed model cannot be chosen here; such a model stays listed, disabled, with the reason. */
   readonly refusalOf?: (model: PageAgentModel) => string | null;
+  /** What the open panel says when the place offers no model; a general note by default. */
+  readonly emptyLabel?: string;
   /** `floating` where the trigger sits on a zoomable canvas. */
   readonly mode?: ModelPickerMode;
   /**
@@ -186,6 +188,7 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
           <ModelPickerPanel
             state={state}
             value={props.value}
+            emptyLabel={props.emptyLabel}
             isCatalogFailed={
               props.isCatalogFailed === true ||
               props.models.some((model) => model.isCatalogFailed === true)

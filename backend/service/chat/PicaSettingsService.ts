@@ -4,8 +4,11 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { defaultAgentRunOptions } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
-import { consumerModels } from "@/definition/AgentModelConsumers";
-import { isPicaZenModel } from "@/definition/PicaModelSelection";
+import {
+  consumerModels,
+  modelConsumerRefusal,
+} from "@/definition/AgentModelConsumers";
+import { isChatCapableModel } from "@/definition/AgentModelFilter";
 
 import {
   resolveAgentAssignment,
@@ -13,7 +16,7 @@ import {
 } from "../agents/AgentAssignmentResolution";
 import { connectionModels } from "../agents/AgentConnectionModels";
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
-import { isPicaAcpProvider, picaAcpRunner } from "./acp/PicaAcpRunners";
+import { picaAcpRunner } from "./acp/PicaAcpRunners";
 import { picaSelectionAdoption } from "./PicaSelectionAdoption";
 
 import type { AgentProfile } from "@/definition/AgentProfile";
@@ -28,6 +31,18 @@ import type {
 import type { AgentModelSelection } from "@/definition/AgentModelSelection";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
+import type { AgentExecutionErrorCode } from "@/backend/error/AgentExecutionErrors";
+import type { ModelConsumerRefusal } from "@/definition/AgentModelConsumers";
+
+/** How saving or starting reports a refusal of Pica's central model rule. */
+const REFUSAL_ERRORS: Readonly<
+  Record<ModelConsumerRefusal, AgentExecutionErrorCode>
+> = {
+  noChatAdapter: "picaModelSelectionRequired",
+  noChat: "picaModelUnsupported",
+  zenToolsMissing: "picaZenUnsupported",
+  noToolCalls: "picaModelUnsupported",
+};
 
 interface PicaDependencies extends Pick<
   ProfileDependencies,
@@ -110,13 +125,14 @@ export class PicaSettingsService {
   }
 
   /**
-   * Supplies the protected form with the saved choice and the models of every tool.
+   * Supplies the protected form with the saved choice and the models Pica can run.
    *
    * @remarks
-   * The form lists every model the administrator may use, so every set-up
-   * tool appears; a model Pica cannot run stays listed there as a disabled
-   * row with the reason of `modelConsumerRefusal`. Saving still checks
-   * the choice here.
+   * The form lists only the models of the administrator's connections that
+   * pass Pica's central rule (`modelConsumerRefusal`); a model Pica cannot
+   * run is not listed at all. A saved choice outside that list keeps its
+   * value and is reported through `error`; saving and starting check the
+   * choice here again, whatever a client sends.
    */
   public async administration(userId: string): Promise<{
     readonly settings: PicaAdministration;
@@ -129,10 +145,11 @@ export class PicaSettingsService {
       this.dependencies.connections,
       viewer,
     );
+    const picaModels = consumerModels("pica", models);
     const adoption = await picaSelectionAdoption(
       this.dependencies.connections,
       settings.selection,
-      consumerModels("pica", models),
+      picaModels,
     );
     let error: PicaAdministration["error"] = null;
     try {
@@ -155,7 +172,7 @@ export class PicaSettingsService {
     }
     return {
       settings: { ...settings, error, ...(adoption ? { adoption } : {}) },
-      models,
+      models: picaModels,
     };
   }
 
@@ -289,23 +306,29 @@ export class PicaSettingsService {
     );
   }
 
+  /**
+   * Applies Pica's central model rule and the run options of its runner.
+   *
+   * @remarks
+   * The rule reads the stored catalog only, so no provider is called. A
+   * model the catalog does not name is not refused here; resolving the
+   * assignment already decides whether it is available.
+   */
   private async requireRunner(
     assignment: ResolvedAgentAssignment,
   ): Promise<void> {
-    if (!isPicaAcpProvider(assignment.connection.provider))
-      throw new AgentExecutionError("picaModelSelectionRequired");
     const catalog = await this.dependencies.connections
       .catalogs()
       .find(assignment.connection.id);
     const model = catalog.models.find((entry) => entry.id === assignment.model);
-    if (
-      isPicaZenModel({
-        provider: assignment.connection.provider,
-        model: assignment.model,
-        isFree: model?.isFree,
-      })
-    )
-      throw new AgentExecutionError("picaZenUnsupported");
+    const refusal = modelConsumerRefusal("pica", {
+      provider: assignment.connection.provider,
+      model: assignment.model,
+      isFree: model?.isFree,
+      ...(model && !isChatCapableModel(model) ? { isChatCapable: false } : {}),
+    });
+    if (refusal !== null)
+      throw new AgentExecutionError(REFUSAL_ERRORS[refusal]);
     try {
       picaAcpRunner(assignment).runOptions(assignment);
     } catch (error: unknown) {

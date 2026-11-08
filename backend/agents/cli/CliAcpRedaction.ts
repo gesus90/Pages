@@ -1,3 +1,5 @@
+import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
+import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
 import type { CliCredentialAccess } from "./CliContracts";
 import type { CliGitHubAccess } from "./CliGitHubCredentials";
 
@@ -15,4 +17,26 @@ export function createAcpRedactor(input: {
     }
     return masked;
   };
+}
+
+/**
+ * The tokens one ACP session carries: the step credential of its Pages MCP
+ * server, the OpenCode server password and the header values of the MCP
+ * servers a chat session brings, such as the credential of Pica's bridge.
+ *
+ * @param input - The session input.
+ * @param launch - The planned launch of the adapter.
+ * @returns The values to mask; absent ones stay `undefined`.
+ */
+export function acpSessionSecrets(
+  input: AgentPlanSessionInput,
+  launch: AcpLaunch,
+): readonly (string | undefined)[] {
+  return [
+    input.mcp?.token,
+    launch.environment.OPENCODE_SERVER_PASSWORD,
+    ...(input.chat?.mcpServers ?? []).flatMap((server) =>
+      "headers" in server ? server.headers.map((header) => header.value) : [],
+    ),
+  ];
 }

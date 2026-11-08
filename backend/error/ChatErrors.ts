@@ -24,7 +24,6 @@ export type ChatErrorCode =
   | "contextChanged"
   | "compactionFailed"
   | "instructionsUnavailable"
-  | "antigravityToolsUnverified"
   | "acpProviderUnsupported"
   | "acpPermissionModeUnsupported";
 

@@ -51,7 +51,9 @@ export function sessionRunOptionError(
   const provider = input.agent.connection.provider;
   if (isApiProvider(provider)) return "provider_invalid";
   if (input.chat && provider === "antigravity")
-    return "antigravity_pica_unverified";
+    return input.options.access === "read_only"
+      ? null
+      : "plan_permission_mode_unenforceable";
   if (input.chat && provider === "opencode")
     return input.options.access === "read_only"
       ? null

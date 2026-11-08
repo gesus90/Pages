@@ -45,7 +45,7 @@ function actions(): AgentActions {
 }
 
 it.each(["de", "en"] as const)(
-  "uses the existing login UI in %s and explains the execution-host callback and Pica block",
+  "uses the existing login UI in %s and explains the execution-host callback",
   (language) => {
     const onCommand = vi.fn();
     render(
@@ -121,7 +121,7 @@ it.each(["failed", "expired", "cancelled"] as const)(
   },
 );
 
-it("retains logout for the isolated signed-in account and excludes unverified Pica choices", () => {
+it("retains logout for the isolated signed-in account and releases its models for Pica", () => {
   const onCommand = vi.fn();
   const connection: AgentConnectionSummary = {
     ...CONNECTION,
@@ -147,7 +147,7 @@ it("retains logout for the isolated signed-in account and excludes unverified Pi
   expect(onCommand).toHaveBeenCalledWith(connection, "logout");
   expect(
     isPicaModel({ provider: "antigravity", model: "confirmed-flash" }),
-  ).toBe(false);
+  ).toBe(true);
 });
 
 it("allows a status check without offering login or logout for an operator-bound account", () => {

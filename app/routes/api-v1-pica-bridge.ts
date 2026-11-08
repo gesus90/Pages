@@ -26,6 +26,7 @@ async function handleRequest(request: Request): Promise<Response> {
     readBody: () => readBody(request),
   });
   const headers: Record<string, string> = { ...HEADERS };
+  if (answer.sessionId) headers["Mcp-Session-Id"] = answer.sessionId;
   if (answer.status === 405) headers.Allow = "POST";
   if (answer.body === null)
     return new Response(null, { status: answer.status, headers });
@@ -36,8 +37,9 @@ async function handleRequest(request: Request): Promise<Response> {
  * The endpoint of Pica's turn-bound tools.
  *
  * @remarks
- * Only an active turn token admits a request; browser cookies play no part. Bodies,
- * tool arguments and results are never logged.
+ * Only an active turn token admits a request, or the MCP credential of a
+ * running job, whose calls need the job's running turn as well; browser
+ * cookies play no part. Bodies, tool arguments and results are never logged.
  */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
   return handleRequest(request);

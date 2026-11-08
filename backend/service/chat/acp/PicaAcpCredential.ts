@@ -1,3 +1,4 @@
+import { PAGES_MCP_SERVER } from "@/backend/agents/acp/AcpLaunch";
 import { picaHelperUsage } from "@/backend/agents/acp/PicaClaudeHelper";
 import { picaHelperScript } from "@/backend/agents/acp/PicaClaudeHelperScript";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
@@ -10,6 +11,7 @@ import {
 } from "./PicaInvocationFile";
 import { invokePicaNativeTool } from "./PicaToolClient";
 
+import type { McpServer } from "@agentclientprotocol/sdk";
 import type { PicaCodexTool } from "@/backend/agents/acp/PicaCodexGlue";
 import type { PicaCodexTurnBinding } from "@/backend/agents/acp/PicaCodexRequests";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
@@ -56,6 +58,26 @@ export class PicaAcpCredential {
   /** Binds the written credential to a turn, or to none while a steer is decided. */
   public bind(turn: number | null): void {
     this.turn = turn;
+  }
+
+  /**
+   * The MCP server of a session that reaches Pica's tools over MCP.
+   *
+   * @remarks
+   * Each call issues a new credential of the job and revokes the earlier one,
+   * so only the session opened last reaches the bridge. The credential
+   * admits calls only during a running turn of this job and ends with it.
+   */
+  public mcpServers(): readonly McpServer[] {
+    const descriptor = this.requireLease().openMcp();
+    return [
+      {
+        type: "http",
+        name: PAGES_MCP_SERVER,
+        url: descriptor.url,
+        headers: [{ name: "Authorization", value: descriptor.authorization }],
+      },
+    ];
   }
 
   /** The helper a Claude Code turn may run; `null` between turns. */

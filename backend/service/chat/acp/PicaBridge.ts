@@ -4,11 +4,14 @@ import { RuntimeToolDeniedError } from "@/backend/agents/runtime/RuntimeToolRegi
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { logDiagnostic } from "@/backend/logging/Logger";
+import { answerPlanBridgeMessage } from "@/backend/service/agents/bridge/PlanBridgeProtocol";
 
 import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
 import { isValidPicaToolImage } from "../PicaToolImageValidation";
 
+import type { Tool } from "@modelcontextprotocol/server";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { PlanBridgeToolResult } from "@/backend/service/agents/bridge/PlanBridgeProtocol";
 import type {
   RuntimeToolDescription,
   RuntimeToolRegistry,
@@ -75,6 +78,12 @@ export interface PicaBridgeLease {
   readonly activateTurn: (turn: PicaBridgeTurn) => boolean;
   /** Waits for calls admitted before a credential was revoked. */
   readonly settle: (turn?: number) => Promise<void>;
+  /**
+   * Issues the credential of an MCP client for the whole job, replacing an
+   * earlier one; it lists the catalog and calls a tool only through the
+   * binding of the running turn, so it admits no call between turns.
+   */
+  readonly openMcp: () => PicaBridgeDescriptor;
   readonly close: () => void;
 }
 
@@ -90,6 +99,8 @@ export interface PicaBridgeRequest {
 export interface PicaBridgeResponse {
   readonly status: number;
   readonly body: unknown;
+  /** The MCP session of an `initialize`; the credential alone binds later requests. */
+  readonly sessionId?: string;
 }
 
 interface Binding {
@@ -100,12 +111,32 @@ interface Binding {
   readonly calls: Map<Promise<PicaBridgeNativeOutcome>, number>;
 }
 
+/** The MCP access of one job: its catalog and the binding of its running turn. */
+interface McpAccess {
+  readonly owner: PicaBridgeOwner;
+  readonly binding: () => Binding | null;
+}
+
 function digest(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
 function refused(error: string): PicaToolOutcome {
   return { ok: false, result: null, error };
+}
+
+function mcpTool(tool: RuntimeToolDescription): Tool {
+  return {
+    name: tool.id,
+    description: tool.description,
+    inputSchema: { ...tool.inputSchema, type: "object" },
+  };
+}
+
+// The outcome travels as the text result; staged images are named by their attachments.
+function mcpResult(outcome: PicaBridgeOutcome): PlanBridgeToolResult {
+  const content = [{ type: "text", text: JSON.stringify(outcome) }] as const;
+  return outcome.ok ? { content } : { content, isError: true };
 }
 
 function fields(input: unknown): Readonly<Record<string, unknown>> | null {
@@ -163,6 +194,7 @@ type CallReport = (
 export class PicaBridge {
   private readonly url: string;
   private readonly bindings = new Map<string, Binding>();
+  private readonly mcpAccesses = new Map<string, McpAccess>();
 
   public constructor(url: string) {
     this.url = url;
@@ -171,10 +203,15 @@ export class PicaBridge {
   /** Opens a lease with no active credential. */
   public open(owner: PicaBridgeOwner): PicaBridgeLease {
     let current: Binding | null = null;
+    let mcpKey: string | null = null;
     const calls = new Map<Promise<PicaBridgeNativeOutcome>, number>();
     const revoke = (): void => {
       if (current) this.bindings.delete(current.key);
       current = null;
+    };
+    const revokeMcp = (): void => {
+      if (mcpKey) this.mcpAccesses.delete(mcpKey);
+      mcpKey = null;
     };
     const issue = (
       turn: PicaBridgeTurn | null,
@@ -214,14 +251,29 @@ export class PicaBridge {
           await Promise.allSettled(selected);
         }
       },
-      close: revoke,
+      openMcp: () => {
+        revokeMcp();
+        const token = randomBytes(32).toString("base64url");
+        mcpKey = digest(token);
+        this.mcpAccesses.set(mcpKey, { owner, binding: () => current });
+        return { url: this.url, authorization: `Bearer ${token}` };
+      },
+      close: () => {
+        revoke();
+        revokeMcp();
+      },
     };
   }
 
   /** Authenticates before reading input and handles one catalog or call request. */
   public async handle(request: PicaBridgeRequest): Promise<PicaBridgeResponse> {
     const binding = this.authenticate(request.authorization);
-    if (!binding) return { status: 401, body: null };
+    if (!binding) {
+      const access = this.authenticateMcp(request.authorization);
+      return access
+        ? this.handleMcp(access, request)
+        : { status: 401, body: null };
+    }
     if (binding.turn.context.signal.aborted) return { status: 401, body: null };
     if (binding.isPending)
       return { status: 409, body: { error: "TURN_PENDING" } };
@@ -252,6 +304,63 @@ export class PicaBridge {
   private authenticate(authorization: string | null): Binding | null {
     const match = /^Bearer ([A-Za-z0-9_-]{43})$/u.exec(authorization ?? "");
     return match ? (this.bindings.get(digest(match[1])) ?? null) : null;
+  }
+
+  private authenticateMcp(authorization: string | null): McpAccess | null {
+    const match = /^Bearer ([A-Za-z0-9_-]{43})$/u.exec(authorization ?? "");
+    return match ? (this.mcpAccesses.get(digest(match[1])) ?? null) : null;
+  }
+
+  /**
+   * Answers one MCP message of a job's client (Streamable HTTP, JSON only).
+   *
+   * @remarks
+   * Listing needs no running turn, because the catalog belongs to the job.
+   * A call runs through the binding of the running turn exactly like a call
+   * of the native route, with the same authorization, journal and image
+   * staging; between turns it is refused.
+   */
+  private async handleMcp(
+    access: McpAccess,
+    request: PicaBridgeRequest,
+  ): Promise<PicaBridgeResponse> {
+    if (request.method === "DELETE") return { status: 200, body: null };
+    if (request.method !== "POST") return { status: 405, body: null };
+    const body = await request.readBody();
+    if (
+      body === null ||
+      Buffer.byteLength(body, "utf8") > PICA_BRIDGE_MAXIMUM_BODY
+    )
+      return { status: 413, body: null };
+    return answerPlanBridgeMessage(body, {
+      serverName: "pages-pica",
+      list: () => Promise.resolve(access.owner.catalog.map(mcpTool)),
+      call: (name, input) =>
+        this.callMcp(access, { name, input, signal: request.signal }),
+    });
+  }
+
+  private async callMcp(
+    access: McpAccess,
+    request: {
+      readonly name: string;
+      readonly input: unknown;
+      readonly signal?: AbortSignal;
+    },
+  ): Promise<PlanBridgeToolResult> {
+    const binding = access.binding();
+    if (!binding || !this.isCurrent(binding))
+      return mcpResult(refused("TURN_INACTIVE"));
+    const pending = this.call(binding, request.name, request.input, {
+      includeImages: false,
+      signal: request.signal,
+    });
+    binding.calls.set(pending, binding.turn.answerTurn);
+    try {
+      return mcpResult(await pending);
+    } finally {
+      binding.calls.delete(pending);
+    }
   }
 
   private isCurrent(binding: Binding): boolean {

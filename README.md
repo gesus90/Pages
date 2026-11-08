@@ -377,7 +377,9 @@ example through an SSH port forward.
 
 ## Pica native tools (PAGE-157)
 
-The production Pica chat runs Codex CLI, Claude Code and opencode through ACP.
+The production Pica chat runs Codex CLI, Claude Code, opencode and Antigravity
+through ACP; Antigravity reaches the catalog as the one MCP server of its
+session, without native tools.
 Its native catalog has fixed tools, each on an existing Pages operation with
 the current account rights:
 

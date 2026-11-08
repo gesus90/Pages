@@ -23,6 +23,8 @@ export interface PlanBridgeToolResult {
 
 /** The tools of the step a token belongs to and how one call runs. */
 export interface PlanBridgeHandlers {
+  /** The server name `initialize` reports; the plan bridge's by default. */
+  readonly serverName?: string;
   readonly list: () => Promise<readonly Tool[]>;
   readonly call: (
     name: string,
@@ -67,7 +69,11 @@ function readId(value: unknown): JsonRpcId | null {
   return typeof value === "string" || typeof value === "number" ? value : null;
 }
 
-function initialize(id: JsonRpcId, params: unknown): PlanBridgeResponse {
+function initialize(
+  id: JsonRpcId,
+  params: unknown,
+  serverName: string,
+): PlanBridgeResponse {
   const requested = readFields(params)?.protocolVersion;
   const version =
     PROTOCOL_VERSIONS.find((entry) => entry === requested) ??
@@ -76,7 +82,7 @@ function initialize(id: JsonRpcId, params: unknown): PlanBridgeResponse {
     ...reply(id, {
       protocolVersion: version,
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: "pages-plan", version: "1.0.0" },
+      serverInfo: { name: serverName, version: "1.0.0" },
     }),
     sessionId: randomUUID(),
   };
@@ -104,7 +110,11 @@ async function answerRequest(
 ): Promise<PlanBridgeResponse> {
   switch (method) {
     case "initialize":
-      return initialize(id, message.params);
+      return initialize(
+        id,
+        message.params,
+        handlers.serverName ?? "pages-plan",
+      );
     case "ping":
       return reply(id, {});
     case "tools/list":

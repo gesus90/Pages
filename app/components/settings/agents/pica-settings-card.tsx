@@ -16,7 +16,7 @@ import {
   findSavedModel,
   isClaudeModelAlias,
 } from "@/definition/AgentModelVersion";
-import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
+import { consumerModels } from "@/definition/AgentModelConsumers";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
@@ -36,10 +36,11 @@ interface PicaSettingsCardProps {
  * The fixed chat identity alongside the independently managed agent connections.
  *
  * @remarks
- * The model choice is the shared one of Pages, fed with the models of
- * every tool the administrator may use; models Pica cannot run stay listed
- * as disabled rows with the reason. The models come with the page and stay
- * as loaded while the choice is used.
+ * The model choice is the shared one of Pages, fed only with the models of
+ * the administrator's tools that Pica can run, by the central rule of
+ * `modelConsumerRefusal`; a model Pica cannot run is not listed. A saved
+ * choice outside that list keeps its value and is named with a note. The
+ * models come with the page and stay as loaded while the choice is used.
  */
 export function PicaSettingsCard({
   settings,
@@ -74,6 +75,8 @@ function PicaSettingsForm({
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
 }): React.ReactElement {
   const { t } = useTranslation();
+  // The server lists only these models; a page state kept from before is limited the same way.
+  const picaModels = consumerModels("pica", models);
   const {
     isEnabled,
     setEnabled,
@@ -84,7 +87,8 @@ function PicaSettingsForm({
     selection,
     hasResetEffort,
     aliasNotice,
-  } = usePicaDraft(settings, models);
+    unlistedModel,
+  } = usePicaDraft(settings, picaModels);
   const isPending = fetcher.state !== "idle";
   const error = fetcher.data?.ok === false ? fetcher.data.error : null;
   return (
@@ -116,7 +120,7 @@ function PicaSettingsForm({
       </div>
       <PicaTarget />
       <PicaModelFields
-        models={models}
+        models={picaModels}
         modelKey={modelKey}
         effort={effort}
         savedModel={settings.selection?.model ?? ""}
@@ -127,6 +131,7 @@ function PicaSettingsForm({
       />
       <PicaSelectionNotice
         settings={settings}
+        unlistedModel={unlistedModel}
         hasResetEffort={hasResetEffort}
         aliasNotice={aliasNotice}
       />
@@ -187,11 +192,6 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
     defaultLabel: t("pageAgents.defaultReasoning"),
     translate: t,
   });
-  // Pica's own rule refuses a model; the row stays listed with the reason.
-  function refusalOf(entry: PageAgentModel): string | null {
-    const refusal = modelConsumerRefusal("pica", entry);
-    return refusal === null ? null : t(`picaSettings.refusal.${refusal}`);
-  }
   return (
     <ModelFieldRow>
       <ModelPicker
@@ -200,7 +200,7 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
         savedModel={props.savedModel}
         disabled={props.disabled}
         placeholder={t("picaSettings.chooseModel")}
-        refusalOf={refusalOf}
+        emptyLabel={t("picaSettings.noModels")}
         isCatalogFailed={props.isCatalogFailed}
         onChange={props.onModel}
       />
@@ -271,6 +271,8 @@ interface PicaDraft {
   readonly hasResetEffort: boolean;
   /** The alias note, only while the choice still is the saved one. */
   readonly aliasNotice: AliasNotice | null;
+  /** The saved model while it is chosen but not among the models Pica can run. */
+  readonly unlistedModel: string | null;
 }
 
 function usePicaDraft(
@@ -305,21 +307,31 @@ function usePicaDraft(
     selection,
     hasResetEffort,
     aliasNotice: modelKey === saved.key ? saved.notice : null,
+    unlistedModel:
+      modelKey !== "" && !model ? (settings.selection?.model ?? null) : null,
   };
 }
 
 function PicaSelectionNotice({
   settings,
+  unlistedModel,
   hasResetEffort,
   aliasNotice,
 }: {
   readonly settings: PicaAdministration;
+  /** The saved model while it is chosen but not among the models Pica can run. */
+  readonly unlistedModel: string | null;
   readonly hasResetEffort: boolean;
   readonly aliasNotice: AliasNotice | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
     <>
+      {unlistedModel === null ? null : (
+        <p role="status" className="text-sm text-warning">
+          {t("picaSettings.unlisted", { model: unlistedModel })}
+        </p>
+      )}
       {settings.adoption ? (
         <p role="status" className="text-sm text-muted-foreground">
           {t("picaSettings.apiAdoption", { model: settings.adoption.model })}

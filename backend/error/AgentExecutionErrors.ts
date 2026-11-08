@@ -8,6 +8,7 @@ export type AgentExecutionErrorCode =
   | "modelUnavailable"
   | "picaModelSelectionRequired"
   | "picaZenUnsupported"
+  | "picaModelUnsupported"
   | "reasoningUnsupported"
   | "requestBusy"
   | "cancelled"

@@ -107,15 +107,28 @@ fixed wording cannot be told from model text; it is covered by the model-free
 auth check and by the model, effort and mode that are selected and confirmed
 before every first and every later prompt.
 
-**Pica remains unavailable for this provider** until the complete restrictive
-tool boundary is verified with a real model. The catalog and chat execution both
-refuse this path, with an explicit reason. Plan availability is insufficient to
-enable Pica. In adapter 1.4.4, the lazy MCP dispatcher's server and tool
-metadata come from the tool-call argument envelope. That metadata and the
-display title are therefore not an independent proof that a permission request
-belongs to Pages. Read-only plans deny such requests; they cannot currently use
-Pages MCP tools through this permission path. An ACP transport capability alone
-does not establish that authorization boundary.
+## Pica
+
+Pica may use this provider (product release of 08.11.2026). A Pica session
+runs in the shared ACP engine with the same model, `thinking_level` and `mode`
+confirmation as a plan, inside the namespace isolation, and only in "Nur
+Lesen"; an agent stored with YOLO is refused, never narrowed. No native tool
+is enabled (`enabledTools: []`). The session's one MCP server is Pica's bridge
+(`/api/v1/pica-bridge`), which answers MCP with a credential of the job. That
+credential lists the Pica catalog and calls a tool only through the binding of
+the running turn, so between turns every call is refused, and each call is
+authorized again by Pages for the person, the conversation and the turn, like
+the calls of the other Pica runners. The credential travels in the
+`session/new` input, is masked in recorded output and ends with the job.
+
+In adapter 1.4.4 the lazy MCP dispatcher's server and tool metadata come from
+the tool-call argument envelope, so neither that metadata nor the display
+title proves that a permission request belongs to Pages. Pica's profile
+therefore approves a request only because nothing but the bridge is reachable,
+and still refuses every request whose kind belongs to a native tool (`edit`,
+`delete`, `move`, `execute`, `fetch`, `switch_mode`). Read-only plans keep
+denying such requests. A live check with a real model and an existing sign-in
+is part of the acceptance and is not claimed by this description.
 
 ## Remote execution
 
