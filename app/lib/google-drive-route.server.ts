@@ -1,5 +1,8 @@
-import { resolvePublicBaseUrl } from "@/backend/discord/DiscordConfig";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+import {
+  listGoogleDriveOrigins,
+  pickGoogleDriveOrigin,
+} from "@/backend/google/GoogleDriveOrigins";
 
 /** Headers of every Google Drive answer: never stored, never named to a third party. */
 export const GOOGLE_DRIVE_NO_STORE_HEADERS = {
@@ -8,23 +11,34 @@ export const GOOGLE_DRIVE_NO_STORE_HEADERS = {
   "Referrer-Policy": "no-referrer",
 };
 
+/** The origins Google Drive may be connected from, and the one of this request. */
+export interface GoogleDriveRequestOrigins {
+  /** Every allowed origin: the loopback one and the configured HTTPS one. */
+  readonly allowed: readonly string[];
+  /** The origin this request came in on, or `null` when it is not an allowed one. */
+  readonly current: string | null;
+}
+
 /**
- * Resolves the public address the Google redirect URI is built on.
+ * Resolves the origin the Google redirect URI of this request is built on.
  *
  * @param request - The request of the administrator.
- * @returns The configured `publicUrl`, else `PAGES_PUBLIC_URL`, else the
- * request origin; never a trailing slash.
+ * @returns The allowed origins and the request's own when it is one of them.
  *
  * @remarks
- * Google accepts only a redirect URI registered exactly at the OAuth client,
- * so a configured public address keeps it stable behind a proxy.
+ * Google accepts only a redirect URI registered exactly at the OAuth client.
+ * Both the local and the remote address work with one instance, so the request
+ * decides between them, but only among the origins the configuration names
+ * (`http://127.0.0.1:<port>` and the HTTPS `publicUrl`); a sign-in started on
+ * one origin therefore never returns to the other and keeps its Pages session.
  */
-export async function resolveGoogleDriveBaseUrl(
+export async function resolveGoogleDriveOrigins(
   request: Request,
-): Promise<string> {
-  const configured = (await getPagesRuntime()).getConfig().publicUrl;
+): Promise<GoogleDriveRequestOrigins> {
+  const allowed = listGoogleDriveOrigins((await getPagesRuntime()).getConfig());
 
-  return configured
-    ? new URL(configured).origin
-    : resolvePublicBaseUrl(new URL(request.url).origin);
+  return {
+    allowed,
+    current: pickGoogleDriveOrigin(new URL(request.url).origin, allowed),
+  };
 }

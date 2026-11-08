@@ -1,7 +1,10 @@
 import { redirect } from "react-router";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { GOOGLE_DRIVE_NO_STORE_HEADERS } from "@/app/lib/google-drive-route.server";
+import {
+  GOOGLE_DRIVE_NO_STORE_HEADERS,
+  resolveGoogleDriveOrigins,
+} from "@/app/lib/google-drive-route.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { isSystemSettingsGranted } from "@/app/lib/settings-actions/settings-system-access.server";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -18,6 +21,7 @@ async function completeSignIn(
 
   try {
     return await services.googleDriveConnectionService.complete(userId, {
+      baseUrl: (await resolveGoogleDriveOrigins(request)).current,
       code: parameters.get("code"),
       error: parameters.get("error"),
       state: parameters.get("state"),
@@ -36,7 +40,8 @@ async function completeSignIn(
  * Unlike the Discord callback it needs a Pages session of the administrator
  * who started the sign-in, in the admin mode: the `state` alone does not bind
  * a Google account to the instance. The answer only redirects to the system
- * settings, without code and state in the address.
+ * settings of the origin it came in on, without code and state in the address;
+ * a callback on another origin than the sign-in started on is refused.
  */
 export async function loader({
   context,

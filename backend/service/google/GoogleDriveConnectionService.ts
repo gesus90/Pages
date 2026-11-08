@@ -46,9 +46,17 @@ const REAUTHORIZATION_PROBLEMS: readonly GoogleDriveReauthorizationReason[] = [
 
 /** The query parameters of the callback; every one comes from an untrusted browser. */
 export interface GoogleDriveCallbackInput {
+  /** The allowed origin the callback came in on, `null` for any other one. */
+  readonly baseUrl: string | null;
   readonly state: string | null;
   readonly code: string | null;
   readonly error: string | null;
+}
+
+/** The allowed origins of the instance and the one a request came in on. */
+export interface GoogleDriveOrigins {
+  readonly allowed: readonly string[];
+  readonly current: string | null;
 }
 
 /** The OAuth client of the instance and a client that speaks for it. */
@@ -196,7 +204,11 @@ export class GoogleDriveConnectionService {
       return "not_configured";
     }
 
-    if (!input.state || input.state.length > MAXIMUM_STATE_LENGTH) {
+    if (
+      input.baseUrl === null ||
+      !input.state ||
+      input.state.length > MAXIMUM_STATE_LENGTH
+    ) {
       return "invalid";
     }
 
@@ -209,6 +221,13 @@ export class GoogleDriveConnectionService {
 
     if (!attempt) {
       return this.explainRefusedState(stateHash);
+    }
+
+    // The attempt is spent either way. Only the origin it started on may finish it.
+    if (
+      attempt.redirectUri !== `${input.baseUrl}${GOOGLE_DRIVE_CALLBACK_PATH}`
+    ) {
+      return "invalid";
     }
 
     if (input.error !== null) {
@@ -225,15 +244,20 @@ export class GoogleDriveConnectionService {
   /**
    * Tells where the connection stands, with a real Drive request when one is stored.
    *
-   * @param baseUrl - The public address of the instance, for the redirect URI.
+   * @param origins - The allowed origins and the one of the request.
    * @returns The status; `connected` only after Drive answered just now.
    */
-  public async getStatus(baseUrl: string): Promise<GoogleDriveStatus> {
+  public async getStatus(
+    origins: GoogleDriveOrigins,
+  ): Promise<GoogleDriveStatus> {
     const base = {
       accountEmail: null,
+      canSignIn: origins.current !== null,
       missingSettings: this.missingSettings,
       problem: null,
-      redirectUri: `${baseUrl}${GOOGLE_DRIVE_CALLBACK_PATH}`,
+      redirectUris: origins.allowed.map(
+        (origin) => `${origin}${GOOGLE_DRIVE_CALLBACK_PATH}`,
+      ),
     };
 
     if (!this.runtime) {

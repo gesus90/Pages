@@ -35,8 +35,10 @@ export interface GoogleDriveStatus {
   readonly accountEmail: string | null;
   /** Names, never values, of the server settings that are missing. */
   readonly missingSettings: readonly string[];
-  /** The address Google has to allow as redirect URI of the OAuth client. */
-  readonly redirectUri: string;
+  /** The redirect URIs Google has to allow at the OAuth client: one per allowed origin. */
+  readonly redirectUris: readonly string[];
+  /** Whether this request came in on an allowed origin, so a sign-in may start here. */
+  readonly canSignIn: boolean;
 }
 
 /** What happened when Google sent the browser back to Pages. */
@@ -68,5 +70,6 @@ export type GoogleDriveActionResult =
   | { readonly ok: true; readonly authorizeUrl: string }
   | {
       readonly ok: false;
-      readonly error: "forbidden" | "not_configured" | "failed";
+      readonly error:
+        "forbidden" | "not_configured" | "origin_not_allowed" | "failed";
     };

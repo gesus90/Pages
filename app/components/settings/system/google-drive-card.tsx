@@ -1,6 +1,7 @@
 import { Database } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import googleDriveIconUrl from "@/assets/google-drive/page256-google-drive-icon.png?no-inline";
 import { Button } from "@/app/components/ui/button";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 
@@ -25,6 +26,14 @@ const STATE_LABELS: Readonly<Record<GoogleDriveConnectionState, string>> = {
   reauthorization_required: "settings.googleDrive.reauthorizationRequired",
   unavailable: "settings.googleDrive.unavailable",
 };
+
+/** Whether only a new Google sign-in moves the connection forward. */
+function awaitsSignIn(status: GoogleDriveStatus): boolean {
+  return (
+    status.state === "disconnected" ||
+    status.state === "reauthorization_required"
+  );
+}
 
 function ConnectedBadge(): React.ReactElement {
   const { t } = useTranslation();
@@ -55,7 +64,7 @@ function GoogleDriveAction({
     return <ConnectedBadge />;
   }
 
-  if (state !== "disconnected" && state !== "reauthorization_required") {
+  if (!reading.status.canSignIn || !awaitsSignIn(reading.status)) {
     return null;
   }
 
@@ -94,8 +103,14 @@ function describeReading(reading: GoogleDriveReading, t: TFunction): string {
 function statusProblem(status: GoogleDriveStatus, t: TFunction): string | null {
   if (status.state === "not_configured")
     return t("settings.googleDrive.missingSettings", {
-      redirectUri: status.redirectUri,
+      redirectUris: status.redirectUris.join(", "),
       settings: status.missingSettings.join(", "),
+    });
+  if (!status.canSignIn && awaitsSignIn(status))
+    return t("settings.googleDrive.originNotAllowed", {
+      origins: status.redirectUris
+        .map((redirectUri) => new URL(redirectUri).origin)
+        .join(", "),
     });
   return status.problem === null
     ? null
@@ -140,16 +155,26 @@ export function GoogleDriveCard(): React.ReactElement {
       title={t("settings.googleDrive.title")}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">
-            {t("settings.googleDrive.service")}
-          </p>
-          <p
-            aria-live="polite"
-            className="mt-0.5 text-xs break-words text-muted-foreground"
-          >
-            {describeReading(model.reading, t)}
-          </p>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <img
+            alt=""
+            className="h-5 w-auto shrink-0"
+            draggable={false}
+            height={20}
+            src={googleDriveIconUrl}
+            width={22}
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">
+              {t("settings.googleDrive.service")}
+            </p>
+            <p
+              aria-live="polite"
+              className="mt-0.5 text-xs break-words text-muted-foreground"
+            >
+              {describeReading(model.reading, t)}
+            </p>
+          </div>
         </div>
         <div className="shrink-0">
           <GoogleDriveAction model={model} />

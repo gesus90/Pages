@@ -311,11 +311,13 @@
       "notConfigured": "Nicht eingerichtet",
       "signIn": "Mit Google anmelden",
       "signInAgain": "Neu anmelden",
-      "missingSettings": "Der OAuth-Client von Google fehlt. Fehlende Servereinstellungen: {{settings}}. Als Weiterleitungs-URI eintragen: {{redirectUri}}",
+      "missingSettings": "Der OAuth-Client von Google fehlt. Fehlende Servereinstellungen: {{settings}}. Als Weiterleitungs-URIs eintragen: {{redirectUris}}",
+      "originNotAllowed": "Google Drive lässt sich nur von einer registrierten Adresse aus verbinden. Pages öffnen unter: {{origins}}",
       "loadFailed": "Der Verbindungsstatus konnte nicht geladen werden.",
       "startFailed": {
         "forbidden": "Nur Administratoren im Admin-Modus können Google Drive verbinden.",
         "not_configured": "Der OAuth-Client von Google ist nicht eingerichtet.",
+        "origin_not_allowed": "Die Anmeldung bei Google startet nur von einer registrierten Adresse von Pages aus.",
         "failed": "Die Anmeldung bei Google konnte nicht gestartet werden."
       },
       "problem": {

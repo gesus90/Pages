@@ -1,7 +1,7 @@
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import {
   GOOGLE_DRIVE_NO_STORE_HEADERS,
-  resolveGoogleDriveBaseUrl,
+  resolveGoogleDriveOrigins,
 } from "@/app/lib/google-drive-route.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { isSystemSettingsGranted } from "@/app/lib/settings-actions/settings-system-access.server";
@@ -51,7 +51,7 @@ export async function loader({
 
   return respond(
     await services.googleDriveConnectionService.getStatus(
-      await resolveGoogleDriveBaseUrl(request),
+      await resolveGoogleDriveOrigins(request),
     ),
   );
 }
@@ -61,7 +61,8 @@ export async function loader({
  *
  * @remarks
  * The answer carries the official Google link; the browser opens it itself,
- * so no password of Google ever passes through Pages.
+ * so no password of Google ever passes through Pages. Only an allowed origin
+ * starts a sign-in, and the link returns to exactly that origin.
  */
 export async function action({
   context,
@@ -84,9 +85,21 @@ export async function action({
     );
   }
 
+  const { current } = await resolveGoogleDriveOrigins(request);
+
+  if (current === null) {
+    return respond(
+      {
+        error: "origin_not_allowed",
+        ok: false,
+      } satisfies GoogleDriveActionResult,
+      403,
+    );
+  }
+
   try {
     const authorizeUrl = await services.googleDriveConnectionService.start({
-      baseUrl: await resolveGoogleDriveBaseUrl(request),
+      baseUrl: current,
       userId: user.id,
     });
 

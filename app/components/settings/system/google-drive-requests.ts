@@ -29,14 +29,20 @@ const statusSchema = z.object({
     .nullable(),
   accountEmail: z.string().nullable(),
   missingSettings: z.array(z.string()),
-  redirectUri: z.string(),
+  redirectUris: z.array(z.string()),
+  canSignIn: z.boolean(),
 });
 
 const actionSchema = z.union([
   z.object({ ok: z.literal(true), authorizeUrl: z.url() }),
   z.object({
     ok: z.literal(false),
-    error: z.enum(["forbidden", "not_configured", "failed"]),
+    error: z.enum([
+      "forbidden",
+      "not_configured",
+      "origin_not_allowed",
+      "failed",
+    ]),
   }),
 ]);
 

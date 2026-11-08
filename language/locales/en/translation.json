@@ -311,11 +311,13 @@
       "notConfigured": "Not set up",
       "signIn": "Sign in with Google",
       "signInAgain": "Sign in again",
-      "missingSettings": "The Google OAuth client is missing. Missing server settings: {{settings}}. Register this redirect URI: {{redirectUri}}",
+      "missingSettings": "The Google OAuth client is missing. Missing server settings: {{settings}}. Register these redirect URIs: {{redirectUris}}",
+      "originNotAllowed": "Google Drive can only be connected from a registered address. Open Pages at: {{origins}}",
       "loadFailed": "The connection status could not be loaded.",
       "startFailed": {
         "forbidden": "Only administrators in the admin mode can connect Google Drive.",
         "not_configured": "The Google OAuth client is not set up.",
+        "origin_not_allowed": "The Google sign-in only starts from a registered address of Pages.",
         "failed": "The Google sign-in could not be started."
       },
       "problem": {

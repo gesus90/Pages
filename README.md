@@ -310,10 +310,12 @@ An administrator of the Google Cloud project creates the client:
    *Internal* for a Workspace organization), app name, support address. Add the
    scope `https://www.googleapis.com/auth/drive.file`, nothing else.
 3. **Clients:** create an OAuth client of the type *Web application* with the
-   authorized redirect URI `<public address of Pages>/settings-api/google-drive/callback`,
-   for example `https://pages.example.com/settings-api/google-drive/callback`.
-   It has to match exactly; the card shows the address Pages uses while the
-   client is missing.
+   authorized redirect URIs of every address Pages is reached at, exactly and
+   without wildcards:
+   `https://<public address>/settings-api/google-drive/callback` (the HTTPS
+   `publicUrl`) and `http://127.0.0.1:<port>/settings-api/google-drive/callback`
+   (the `port` of Pages, `3000` by default). `localhost` is no substitute for
+   `127.0.0.1`. The card lists both addresses while the client is missing.
 4. Set these environment variables on the Pages server (for a systemd instance
    in `/etc/pages/<instance>/runtime.env`) and restart Pages:
 
@@ -322,8 +324,19 @@ An administrator of the Google Cloud project creates the client:
 | `PAGES_GOOGLE_DRIVE_CLIENT_ID`     | Client ID (`….apps.googleusercontent.com`) |
 | `PAGES_GOOGLE_DRIVE_CLIENT_SECRET` | Client secret                              |
 
-The redirect URI is built on `publicUrl` of `config.toml`, else on
-`PAGES_PUBLIC_URL`, else on the address of the request.
+Allowed origins are fixed by the configuration: `http://127.0.0.1:<port>` and
+the HTTPS origin of `publicUrl` of `config.toml` (else `PAGES_PUBLIC_URL`). The
+sign-in uses the origin the administrator is on, so the local and the remote
+address work with one instance and one client, without switching a setting. A
+request on any other origin (another host name, `localhost`, plain HTTP on a
+public name) cannot start or finish a sign-in. `Host` and `X-Forwarded-*` never
+add an origin. Behind a reverse proxy the proxy has to pass the public `Host`
+and be listed in `trustedProxies` so that its `X-Forwarded-Proto: https` is
+believed; otherwise the request reads as `http://<public host>` and is refused.
+The attempt keeps the redirect URI it started with until the code exchange, and
+only a callback on that same origin finishes it. A loopback address means the
+machine of the browser, so the local way needs Pages reachable there, for
+example through an SSH port forward.
 
 ### Sign-in, storage and account binding
 
