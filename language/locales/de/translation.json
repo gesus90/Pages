@@ -760,6 +760,7 @@
         "plan_context_changed": "Arbeitsbereich-, Projekt- oder Modellkontext geändert. Den Plan vor einem neuen Lauf prüfen.",
         "plan_directory_required": "CLI-Schritte benötigen einen ausdrücklich gebundenen Verzeichnisparameter eines Arbeitsbereichs.",
         "plan_step_failed": "Der Schritt ist fehlgeschlagen. Anbieterdiagnosen bleiben verborgen.",
+        "plan_local_launch_invalid": "Pages hat den Start der lokalen Agent-Sitzung abgelehnt, weil die Startdaten ungültig sind. Es wurde kein Agent gestartet.",
         "plan_dependency_failed": "Ein Vorgänger ist fehlgeschlagen oder abgebrochen; der Schritt ist blockiert.",
         "plan_interrupted": "Der Server hat diesen Lauf unterbrochen. Pages setzt ihn bis zu dreimal selbst fort, wo das sicher ist; sonst wartet er auf eine Entscheidung.",
         "plan_json_invalid": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",

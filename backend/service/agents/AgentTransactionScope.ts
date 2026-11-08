@@ -9,6 +9,7 @@ export function agentTransactionScope(
     work: (connection: DatabaseTransaction) => Promise<Result>,
   ): Promise<Result> => work(transaction);
   return {
+    agentFiles: transaction.agentFiles,
     onCommit: transaction.onCommit,
     onRollback: transaction.onRollback,
     execute: transaction.execute.bind(transaction),

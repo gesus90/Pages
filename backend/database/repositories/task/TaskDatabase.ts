@@ -12,6 +12,6 @@ import type {
  */
 export type TaskDatabase = Pick<
   Database,
-  "execute" | "query" | "transaction" | "readTransaction"
+  "execute" | "query" | "transaction" | "readTransaction" | "agentFiles"
 > &
   Pick<DatabaseTransaction, "onCommit" | "onRollback">;

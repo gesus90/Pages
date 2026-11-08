@@ -6,6 +6,8 @@ import { readOwnedNamespace } from "@/definition/AcpNamespace";
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 
 const identifier = z.uuid();
+/** The id of a plan node; plans written as notation name their nodes freely. */
+const stepIdentifier = z.string().min(1).max(200);
 const text = z.string().max(200_000);
 const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const reported = z.object({
@@ -23,7 +25,7 @@ const reported = z.object({
  */
 export const localLaunchSchema = z.object({
   runId: identifier,
-  stepId: identifier,
+  stepId: stepIdentifier,
   sessionScopeId: z.string().max(200),
   attemptId: identifier,
   turnId: identifier,
@@ -58,7 +60,7 @@ export const localOwnerProofSchema = z.object({
   instanceKey: z.string(),
   instanceId: identifier,
   runId: identifier,
-  stepId: identifier,
+  stepId: stepIdentifier,
   attemptId: identifier,
   unit: z.string(),
   invocationId: z.string().regex(/^[a-f0-9]{32}$/u),
@@ -74,7 +76,7 @@ const attempt = z.object({
   key: z.object({
     planId: identifier,
     runId: identifier,
-    stepId: identifier,
+    stepId: stepIdentifier,
     attemptId: identifier,
   }),
   userId: identifier,

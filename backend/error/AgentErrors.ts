@@ -4,6 +4,8 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 export const AGENT_ERROR_MESSAGES = {
   plan_local_owner_unverified:
     "The local native session owner could not be proven. Its unit was not adopted or signalled; reservations remain held for reconciliation.",
+  plan_local_launch_invalid:
+    "Pages refused to start the local agent session because its launch request was invalid. No agent was started.",
   plan_payload_missing:
     "The stored agent payload file is missing. No content was substituted.",
   plan_payload_corrupt:
