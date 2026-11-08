@@ -133,20 +133,7 @@
   --color-status-active: #b94b08;
   --color-status-active-subtle: #fff1e6;
 
-  /* The ticket choice of a plan's ticket card: a neutral panel apart from the
-     yellow card, with its own outline, fields, lines and hover; the active
-     phase filter is orange. Phase badges follow the board's workflow. */
-  --color-ticket-picker: #ffffff;
-  --color-ticket-picker-foreground: #171717;
-  --color-ticket-picker-muted: #5d6574;
-  --color-ticket-picker-outline: #c4c9d2;
-  --color-ticket-picker-field: #d3d8e0;
-  --color-ticket-picker-line: #e6e9ee;
-  --color-ticket-picker-hover: #f1f3f6;
-  --color-ticket-picker-chip: #f7f8fa;
-  --color-ticket-picker-active: #fff1e6;
-  --color-ticket-picker-active-edge: #ea580c;
-  --color-ticket-picker-active-foreground: #9a3c0a;
+  /* Phase badges of the plan's ticket choice follow the board's workflow. */
   --color-phase-neutral: #64748b;
   --color-phase-neutral-subtle: #f1f5f9;
   --color-phase-progress: #2563eb;
@@ -445,17 +432,6 @@
     --color-status-active: #fb923c;
     --color-status-active-subtle: #2a1b11;
 
-    --color-ticket-picker: #1a1f24;
-    --color-ticket-picker-foreground: #f8f9fb;
-    --color-ticket-picker-muted: #c2cbda;
-    --color-ticket-picker-outline: #808792;
-    --color-ticket-picker-field: #626a76;
-    --color-ticket-picker-line: #393f48;
-    --color-ticket-picker-hover: #262c35;
-    --color-ticket-picker-chip: #2a2e38;
-    --color-ticket-picker-active: #8f4706;
-    --color-ticket-picker-active-edge: #f59e0b;
-    --color-ticket-picker-active-foreground: #ffffff;
     --color-phase-neutral: #6f7b90;
     --color-phase-neutral-subtle: #2f3747;
     --color-phase-progress: #6f97cc;
