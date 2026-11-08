@@ -1,4 +1,11 @@
-import type { PicaMobileNotificationEventPayload } from "@/definition/PicaMobileNotifications";
+import type {
+  NotificationPreferenceRecord,
+  PicaMobileNotificationPreferenceRepository,
+} from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
+import type {
+  PicaMobileNotificationEventPayload,
+  PicaMobileNotificationSettingsPayload,
+} from "@/definition/PicaMobileNotifications";
 import type { PicaMobileNotificationDispatcher } from "./PicaMobileNotificationDispatcher";
 import type { PicaMobileNotificationEventReader } from "./PicaMobileNotificationEventReader";
 import type { PicaMobileNotificationRecorder } from "./PicaMobileNotificationRecorder";
@@ -14,11 +21,35 @@ export interface PicaMobileNotificationParts {
   readonly events: PicaMobileNotificationEventReader;
   readonly recorder: PicaMobileNotificationRecorder;
   readonly dispatcher: PicaMobileNotificationDispatcher;
+  readonly preferences: Pick<
+    PicaMobileNotificationPreferenceRepository,
+    "find" | "setTeamRuns"
+  >;
   /** Whether a usable push sender is configured. */
   readonly isPushAvailable: boolean;
   /** Stops listening to run transitions. */
   readonly detach: () => void;
+  readonly now?: () => Date;
 }
+
+/** What an account asks to change; an absent choice stays as it is. */
+export interface PicaMobileSettingsChange {
+  readonly teamRuns?: boolean;
+}
+
+/**
+ * The outcome of a change of the choices.
+ *
+ * @remarks
+ * `pushUnavailable`: the account asked to switch something on that this Pages
+ * cannot deliver without a push sender; nothing was stored.
+ */
+export type PicaMobileSettingsResult =
+  | {
+      readonly kind: "ready";
+      readonly payload: PicaMobileNotificationSettingsPayload;
+    }
+  | { readonly kind: "pushUnavailable" };
 
 /**
  * The notification backend of Pica Mobile for plan runs.
@@ -66,6 +97,52 @@ export class PicaMobileNotificationService {
     return this.parts.events.read(accountId, eventId);
   }
 
+  /**
+   * Reads the choices of an account as Pages delivers them now.
+   *
+   * @param accountId - The authenticated account; never taken from a message.
+   */
+  public async readSettings(
+    accountId: string,
+  ): Promise<PicaMobileNotificationSettingsPayload> {
+    return this.toSettings(await this.parts.preferences.find(accountId));
+  }
+
+  /**
+   * Changes the choices of an account.
+   *
+   * @param accountId - The authenticated account; never taken from a message.
+   * @param change - The choices to change.
+   * @returns The choices as Pages delivers them now, or why nothing changed.
+   *
+   * @remarks
+   * Switching a choice off is always possible. Switching it on is refused
+   * while this Pages has no push sender, so it is never reported as on
+   * without being delivered.
+   */
+  public async changeSettings(
+    accountId: string,
+    change: PicaMobileSettingsChange,
+  ): Promise<PicaMobileSettingsResult> {
+    const { preferences, isPushAvailable } = this.parts;
+
+    if (change.teamRuns === undefined) {
+      return { kind: "ready", payload: await this.readSettings(accountId) };
+    }
+
+    if (change.teamRuns && !isPushAvailable) {
+      return { kind: "pushUnavailable" };
+    }
+
+    const stored = await preferences.setTeamRuns(
+      accountId,
+      change.teamRuns,
+      (this.parts.now?.() ?? new Date()).toISOString(),
+    );
+
+    return { kind: "ready", payload: this.toSettings(stored) };
+  }
+
   /** Starts sending what is pending, including pushes left from before a restart. */
   public start(): void {
     this.parts.dispatcher.start();
@@ -76,5 +153,19 @@ export class PicaMobileNotificationService {
     this.parts.detach();
     await this.parts.recorder.stop();
     await this.parts.dispatcher.stop();
+  }
+
+  private toSettings(
+    preference: NotificationPreferenceRecord,
+  ): PicaMobileNotificationSettingsPayload {
+    const isAvailable = this.parts.isPushAvailable;
+
+    return {
+      accountId: preference.accountId,
+      teamRuns: {
+        isAvailable,
+        isEnabled: isAvailable && preference.teamRuns,
+      },
+    };
   }
 }

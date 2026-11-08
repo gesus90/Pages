@@ -123,6 +123,7 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   plan_context_changed: "harm",
   plan_directory_required: "open",
   plan_step_failed: "open",
+  plan_local_launch_invalid: "open",
   plan_dependency_failed: "open",
   plan_interrupted: "infrastructure",
   plan_run_option_unsupported: "harm",

@@ -4,6 +4,7 @@ import {
   createNotificationEventId,
   PicaMobileNotificationEventRepository,
 } from "@/backend/database/repositories/mobile/PicaMobileNotificationEventRepository";
+import { PicaMobileNotificationPreferenceRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
 import { PicaMobilePushRegistrationRepository } from "@/backend/database/repositories/mobile/PicaMobilePushRegistrationRepository";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
@@ -13,6 +14,7 @@ import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
 import { createFcmPicaMobilePushSender } from "@/backend/service/mobile/notifications/FcmPicaMobilePushSender";
 import { PagesPicaMobileAccountChecks } from "@/backend/service/mobile/notifications/PicaMobileAccountChecks";
+import { PicaMobileNotificationAccess } from "@/backend/service/mobile/notifications/PicaMobileNotificationAccess";
 import { PicaMobileNotificationDispatcher } from "@/backend/service/mobile/notifications/PicaMobileNotificationDispatcher";
 import { PicaMobileNotificationEventReader } from "@/backend/service/mobile/notifications/PicaMobileNotificationEventReader";
 import { PicaMobileNotificationRecorder } from "@/backend/service/mobile/notifications/PicaMobileNotificationRecorder";
@@ -34,7 +36,7 @@ declare global {
 export interface PicaMobileNotificationInput {
   readonly database: Database;
   readonly users: UserService;
-  /** Proves plan ownership and the rights on a concrete run. */
+  /** Proves the relation to a run, starter or team member, and the rights on it. */
   readonly ownerRuns: AgentPlanOwnerRunReader;
 }
 
@@ -71,6 +73,13 @@ export async function createPicaMobileNotificationServices(
   const eventRepository = new PicaMobileNotificationEventRepository(
     input.database,
   );
+  const preferences = new PicaMobileNotificationPreferenceRepository(
+    input.database,
+  );
+  const runAccess = new PicaMobileNotificationAccess(
+    input.ownerRuns,
+    preferences,
+  );
   const vault = new PicaMobilePushTokenVault(
     resolveGitHubTokenKey(runtime.getDatabasePath()),
   );
@@ -92,7 +101,7 @@ export async function createPicaMobileNotificationServices(
     deliveries: new PicaMobileNotificationDeliveryRepository(input.database),
     events: eventRepository,
     registrations: registrationRepository,
-    runs: input.ownerRuns,
+    runs: runAccess,
     accounts: new PagesPicaMobileAccountChecks(
       new SessionRepository(input.database),
       input.users,
@@ -104,7 +113,8 @@ export async function createPicaMobileNotificationServices(
   const recorder = new PicaMobileNotificationRecorder({
     registrations: registrationRepository,
     events: eventRepository,
-    runs: input.ownerRuns,
+    preferences,
+    runs: runAccess,
     replayTtlSeconds: settings.replayTtlSeconds,
     onRecorded: () => dispatcher.kick(),
   });
@@ -115,12 +125,10 @@ export async function createPicaMobileNotificationServices(
       instanceId: readInstanceId,
       replayTtlSeconds: settings.replayTtlSeconds,
     }),
-    events: new PicaMobileNotificationEventReader(
-      eventRepository,
-      input.ownerRuns,
-    ),
+    events: new PicaMobileNotificationEventReader(eventRepository, runAccess),
     recorder,
     dispatcher,
+    preferences,
     isPushAvailable: sender !== null,
     detach: sharedAgentPlanRunObservers().add(recorder),
   });

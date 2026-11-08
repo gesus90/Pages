@@ -115,12 +115,21 @@ export async function planStackStepInput(
     if (entry.type === "task" && !taskIds.includes(entry.taskId))
       taskIds.push(entry.taskId);
   }
+  // The preparation saw only the first entry; the files of this entry are read when the node starts.
+  const boundNames = new Set(bound.map(([name]) => name));
+  const assetInputs = step.prepared.parameters.assetInputs?.filter(
+    (input) => !boundNames.has(input.parameter),
+  );
   return {
     ...step,
     taskIds,
     prepared: {
       ...step.prepared,
-      parameters: { ...step.prepared.parameters, values },
+      parameters: {
+        ...step.prepared.parameters,
+        values,
+        ...(assetInputs ? { assetInputs } : {}),
+      },
     },
   };
 }

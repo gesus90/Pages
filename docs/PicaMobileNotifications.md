@@ -1,6 +1,6 @@
 # Pica Mobile: Benachrichtigungen für Plan-Läufe (PAGE-193)
 
-Pages benachrichtigt die Android-App Pica Mobile, wenn in einem eigenen Agent-Plan ein Folgeschritt wirklich startet oder ein Lauf bestätigt abgebrochen wird, fehlschlägt oder erfolgreich endet. Der Nachrichtenvertrag (`notifications.v1`) steht in [PicaMobileWebSocket.md](./PicaMobileWebSocket.md#erweiterung-notificationsv1-android-fcm). Dieses Dokument beschreibt den Betrieb, die Datenhaltung, die Grenzen und die Übergabe an die echte Prüfung mit Firebase und einem Gerät.
+Pages benachrichtigt die Android-App Pica Mobile, wenn in einem selbst gestarteten Lauf oder, auf Wunsch des Kontos, in einem Lauf eines Team-Plans (PAGE-263) ein Folgeschritt wirklich startet oder ein Lauf bestätigt abgebrochen wird, fehlschlägt oder erfolgreich endet. Der Nachrichtenvertrag (`notifications.v1`) steht in [PicaMobileWebSocket.md](./PicaMobileWebSocket.md#erweiterung-notificationsv1-android-fcm). Dieses Dokument beschreibt den Betrieb, die Datenhaltung, die Grenzen und die Übergabe an die echte Prüfung mit Firebase und einem Gerät.
 
 **Stand.** Das Backend ist umgesetzt, mit den statischen Gates (`pnpm run check`, `pnpm run lint`) geprüft und statisch mit dem Mobile-Vertrag und den Parsern der App abgeglichen (siehe [Abgleich](./PicaMobileWebSocket.md#abgleich-mit-dem-mobile-vertrag-pm-14-1)). Eine Zustellung über das echte FCM, das Verhalten auf einem Gerät und die gemeinsame Prüfung mit der laufenden App sind **nicht** erfolgt; sie sind Aufgabe von Igor (siehe [Übergabe](#übergabe-an-die-echte-prüfung)). Bis dahin ist die Ende-zu-Ende-Funktion unbestätigt.
 
@@ -8,18 +8,19 @@ Pages benachrichtigt die Android-App Pica Mobile, wenn in einem eigenen Agent-Pl
 
 ```text
 Lauf wird geschrieben ──(nach dem Commit)──> Beobachter ──> Recorder
-                                                              │ prüft Besitz und Laufrechte, Bündelung 1 s
+                                                              │ ermittelt Empfänger (Starter, Team mit Schalter), prüft Rechte, Bündelung 1 s
                                                               ▼
                               Ereignis + Sequenznummer + Zustellungen  (eine Transaktion, DuckDB)
                                                               │
                                     Dispatcher (eigener Takt, nie im Weg des Laufs)
-                                      prüft vor jedem Versuch Registrierung, Sitzung, Konto, Besitz, Rechte, Rest-TTL
+                                      prüft vor jedem Versuch Registrierung, Sitzung, Konto, Starter/Team, Schalter, Rechte, Rest-TTL
                                                               ▼
                                            FCM HTTP v1  ──>  Android-Gerät
 ```
 
 - **Quelle** sind die bestätigten Schreibvorgänge eines Laufs. Der Beobachter wird erst nach dem Commit gerufen, liest nur die beiden Fassungen des Laufs und stellt Arbeit in eine Warteschlange. Er kann den Lauf weder ändern noch aufhalten, und ein Fehler darin wird protokolliert und verschluckt.
-- **Registrierungen, Ereignisse, Sequenznummern, Zustellungen** liegen in den Tabellen `pica_mobile_push_registrations`, `pica_mobile_notification_events`, `pica_mobile_notification_sequences`, `pica_mobile_notification_occurrences` und `pica_mobile_notification_deliveries` (Migration `086`). Die Instanzkennung steht in `pica_mobile_notification_instance`.
+- **Registrierungen, Ereignisse, Sequenznummern, Zustellungen** liegen in den Tabellen `pica_mobile_push_registrations`, `pica_mobile_notification_events`, `pica_mobile_notification_sequences`, `pica_mobile_notification_occurrences` und `pica_mobile_notification_deliveries` (Migration `086`). Die Instanzkennung steht in `pica_mobile_notification_instance`. Der Team-Schalter je Konto steht in `pica_mobile_notification_preferences`; seit PostgreSQL-Migration `019` (PAGE-263) merkt sich `pica_mobile_notification_occurrences` je Empfängerkonto, was schon gemeldet wurde, sodass Starter und Teammitglieder dieselbe Tatsache je einmal bekommen.
+- **Empfänger** (PAGE-263): der Starter des Laufs, auch wenn der Plan jemand anderem gehört, und die aktuellen Mitglieder und Leitungen der Plan-Abteilung, die den Team-Schalter über `notifications.team.v1` eingeschaltet haben und ein aktiv registriertes Gerät besitzen. Für jeden prüft Pages die eigenen Rechte an Plan und Lauf; die Teamzugehörigkeit erweitert keine Leserechte. Ein Konto mit mehreren Gründen bekommt je Tatsache ein Ereignis und je Gerät eine Zustellung.
 - **Ohne registriertes Gerät** legt Pages kein Ereignis an. Das Einschalten der Benachrichtigungen spielt daher nie Vergangenes nach.
 - **Reihenfolge der Dienste.** Der Dispatcher und der Recorder stoppen beim Beenden von Pages, bevor die Datenbank schließt; jeder wartet dabei höchstens fünf Sekunden.
 
@@ -64,7 +65,7 @@ Was Pages mit der Datei tut und nicht tut:
 
 ## Wann Pages sendet, wiederholt und aufhört
 
-- **Rechte.** Beim Anlegen eines Ereignisses, unmittelbar vor jedem Zustellversuch und bei jedem Abruf prüft Pages, dass das Konto den Plan besitzt und den Lauf lesen darf. Unmittelbar vor jedem Zustellversuch (und etwa alle fünf Minuten für alle Registrierungen) prüft es außerdem, dass die Registrierung noch besteht, ihre Sitzung gilt, das Konto aktiv ist und kein Passwortwechsel aussteht. Fällt eine Prüfung negativ aus, wird die wartende Nachricht verworfen; eine Registrierung, deren Sitzung oder Konto nicht mehr gilt, entfernt Pages dabei gleich mit. Die Zugangsdaten für FCM holt Pages vor diesen Prüfungen, damit zwischen Prüfung und Übergabe an FCM nur noch die Anfrage selbst liegt.
+- **Rechte.** Beim Anlegen eines Ereignisses, unmittelbar vor jedem Zustellversuch und bei jedem Abruf prüft Pages, dass das Konto den Lauf gestartet hat oder als Mitglied des Plan-Teams mit eingeschaltetem Team-Schalter folgt (eingeschaltet schon zum Zeitpunkt des Ereignisses) und dass es Plan und Lauf lesen darf. Unmittelbar vor jedem Zustellversuch (und etwa alle fünf Minuten für alle Registrierungen) prüft es außerdem, dass die Registrierung noch besteht, ihre Sitzung gilt, das Konto aktiv ist und kein Passwortwechsel aussteht. Fällt eine Prüfung negativ aus, wird die wartende Nachricht verworfen; eine Registrierung, deren Sitzung oder Konto nicht mehr gilt, entfernt Pages dabei gleich mit. Die Zugangsdaten für FCM holt Pages vor diesen Prüfungen, damit zwischen Prüfung und Übergabe an FCM nur noch die Anfrage selbst liegt.
 - **Rest-TTL.** Pages sendet nur, solange die Gültigkeit des Ereignisses (`picaMobileReplayTtlSeconds`, Standard 15 Minuten) nicht abgelaufen ist, und gibt FCM die verbleibende Zeit.
 - **Wiederholung.** Bei vorübergehenden Fehlern (FCM nicht erreichbar, Zeitüberschreitung, Quota, `500`/`503`/`429`) versucht Pages höchstens sechsmal (der erste Versuch und fünf Wiederholungen) mit wachsendem Abstand (etwa 5 s, 15 s, 45 s, 2 min, 5 min; `Retry-After` wird beachtet) und nie über die Gültigkeit hinaus. Ist das Dienstkonto selbst nicht nutzbar (`401`/`403`), wartet Pages mindestens eine Minute zwischen den Versuchen. Kann Pages gar keine Zugangsdaten bei Google holen, fasst es keine Zustellung an und versucht es alle 30 Sekunden neu; wartende Nachrichten verfallen dann mit ihrer Gültigkeit, ohne dass ein Versuch verbraucht wird.
 - **Ungültiger Token.** Nur wenn FCM den Token selbst für ungültig erklärt, entfernt Pages genau diese Registrierung. Alles, was die Nutzlast oder die Projektkonfiguration betrifft, lässt Registrierungen unberührt.
@@ -119,7 +120,8 @@ Jeweils mit einem Plan, den das Konto besitzt, und mit `preview: "hidden"`, dana
 
 ### Rechte und Konto
 
-- Das Konto verliert den Besitz oder das Leserecht am Lauf, ein zweites Konto teilt sich einen Plan: _Erwartet:_ das zweite Konto bekommt nichts; `notification_event_get` liefert `forbidden` ohne Namen; wartende Nachrichten entfallen.
+- Das Konto verliert das Leserecht am Lauf, ein zweites Konto teilt sich einen Plan ohne Teamzugehörigkeit: _Erwartet:_ das zweite Konto bekommt nichts; `notification_event_get` liefert `forbidden` ohne Namen; wartende Nachrichten entfallen.
+- Team-Benachrichtigungen (PAGE-263): Konto B ist Mitglied der Plan-Abteilung, Konto A (nicht Eigentümer) startet den Lauf. _Erwartet:_ A bekommt seine Meldungen; B nur nach `notification_settings_set` mit `teamRuns: true`, dann mit `scope: "team"` im Abruf; ohne Schalter, nach Austritt aus der Abteilung oder bei fehlendem Recht an einem benutzten Ticket nichts, wartende Team-Meldungen werden verworfen und der Abruf ist `forbidden`. Ist A selbst Teammitglied mit Schalter, bekommt A je Ereignis genau eine Meldung. Ohne FCM meldet `notification_settings` `isAvailable: false`, `isEnabled: false`.
 - Sitzung in Einstellungen → Persönlich → Sicherheit beenden, Konto deaktivieren, Passwortwechsel erzwingen: _Erwartet:_ keine weiteren Meldungen, die Registrierung verschwindet spätestens nach etwa fünf Minuten oder beim nächsten Zustellversuch.
 - Token-Rotation (App neu installieren oder Firebase-Token erneuern) und mehrere Geräte: _Erwartet:_ der alte Token wird ersetzt, jedes Gerät bleibt getrennt.
 - `notification_unregister`: _Erwartet:_ kein neuer Versand an das Gerät.
@@ -167,6 +169,10 @@ Pages hat keine neuen Tests für diese Umsetzung bekommen (Vorgabe des Tickets).
 
 - `tests/backend/app/lib/agent-plan-services.unit.test.ts`: `createAgentPlanService` baut jetzt den Dienst für Benachrichtigungen; der Test ersetzt dessen Fabrik durch eine Aufzeichnung und erwartet `picaMobileNotifications` in der Rückgabe;
 - `tests/backend/backend/runtime/pica-mobile-runtime.unit.test.ts`: das Gateway erhält zusätzlich `notifications`.
+
+## Nachweisstand PAGE-263 (Team-Push)
+
+Stand: 8. November 2026. Keine neuen automatisierten Tests (Vorgabe des Tickets); die postgres-check-Abläufe wurden um den Team-Schalter ergänzt, und der Einfügefall der Meldungsdatensätze nennt das Empfängerkonto. Ein einmaliges Prüfskript außerhalb des Repositorys (nicht eingecheckt) lief gegen eine eigene temporäre PostgreSQL-Instanz mit allen Migrationen, den echten Repositories, Recorder, Dispatcher, Ereignisleser, Handler und Parser; nur Planrechte und der FCM-Sender waren nachgebildet. Es belegte: Migration `019` übernimmt das Konto bestehender Meldungsdatensätze; Starter ohne Planbesitz und Teammitglied mit Schalter bekommen je Tatsache genau ein Ereignis, Eigentümer ohne Team, Teammitglied ohne Schalter, Konto außerhalb des Teams und Teammitglied ohne Ticketrecht keines; je Ereignis und Gerät höchstens eine Zustellung; nach Austritt aus dem Team wird die wartende Team-Meldung mit `rights_revoked` verworfen und der Abruf ist `forbidden`; Ausschalten macht den Abruf `forbidden`, erneutes Einschalten holt nichts nach; die Einstellung ist je Konto getrennt, übersteht eine erneute Registrierung, ignoriert ein fremdes `accountId` im Payload und erscheint ohne FCM nie als eingeschaltet. Echte Zustellung über FCM und das Verhalten auf einem Gerät sind nicht geprüft und bleiben der Abnahme vorbehalten.
 
 ## Nachweisstand dieser Umsetzung
 

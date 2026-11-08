@@ -762,6 +762,7 @@
         "plan_context_changed": "The workspace, project or model context changed. Review the plan before starting again.",
         "plan_directory_required": "CLI steps require an explicitly bound workspace directory parameter.",
         "plan_step_failed": "The step failed. Provider diagnostics remain private.",
+        "plan_local_launch_invalid": "Pages refused to start the local agent session because its launch data is invalid. No agent was started.",
         "plan_dependency_failed": "A predecessor failed or was cancelled; the step is blocked.",
         "plan_interrupted": "The server interrupted this run. Pages continues it on its own up to three times where that is safe; otherwise it waits for a decision.",
         "plan_json_invalid": "Enter exactly one valid JSON value. Numbers must be finite.",

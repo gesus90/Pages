@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
+import { Input } from "@/app/components/ui/input";
 import { focusOnMount } from "@/app/lib/focus-on-mount";
 
 import {
@@ -91,10 +92,10 @@ function SearchField({ state }: Pick<PanelProps, "state">): React.ReactElement {
   return (
     <div className="relative">
       <Search
-        className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ticket-picker-muted"
+        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden="true"
       />
-      <input
+      <Input
         ref={focusOnMount}
         type="search"
         role="combobox"
@@ -109,7 +110,7 @@ function SearchField({ state }: Pick<PanelProps, "state">): React.ReactElement {
         autoComplete="off"
         maxLength={200}
         value={state.query.text}
-        className="h-8 w-full rounded-[0.3125rem] border border-ticket-picker-field bg-ticket-picker pr-3 pl-[2.375rem] text-[12px] text-ticket-picker-foreground outline-none placeholder:text-ticket-picker-muted focus:border-ticket-picker-outline focus:shadow-[inset_0_0_0_1px_var(--color-ticket-picker-outline)] [&::-webkit-search-cancel-button]:hidden"
+        className="rounded-lg border border-field-border pr-3 pl-10 shadow-none hover:border-field-border-hover xl:pr-3 xl:pl-10 [&::-webkit-search-cancel-button]:hidden"
         onChange={(event) => state.search(event.currentTarget.value)}
         onKeyDown={state.handleSearchKeyDown}
       />
@@ -161,7 +162,7 @@ export function TicketPickerPanel(props: PanelProps): React.ReactElement {
       role="dialog"
       aria-label={t("plans.ticketPicker.dialog")}
       style={style}
-      className="@container z-50 flex w-[40.625rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-[0.5625rem] border border-ticket-picker-outline bg-ticket-picker text-ticket-picker-foreground shadow-panel select-none"
+      className="@container z-50 flex w-[40.625rem] max-w-[calc(100vw-1rem)] flex-col overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl bg-surface p-4 text-sm text-foreground shadow-panel select-none"
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
       onPointerDown={keepInPanel}
@@ -169,7 +170,7 @@ export function TicketPickerPanel(props: PanelProps): React.ReactElement {
       onDoubleClick={keepInPanel}
       onWheel={keepInPanel}
     >
-      <div className="shrink-0 px-4 pt-[0.9375rem]">
+      <div className="flex shrink-0 flex-col gap-2 pb-2">
         <SearchField state={state} />
         <TicketPickerFilters state={state} phases={props.phases} />
         <TicketPickerChips state={state} phases={props.phases} />

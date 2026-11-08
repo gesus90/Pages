@@ -4,13 +4,17 @@ import { PICA_MOBILE_ERROR_CODE } from "@/definition/PicaMobileProtocol";
 import {
   encodePicaMobileNotificationEvent,
   encodePicaMobileNotificationRegistered,
+  encodePicaMobileNotificationSettings,
   encodePicaMobileNotificationUnregistered,
 } from "./PicaMobileNotificationMessages";
 
 import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 import type { PicaMobileRejection } from "../PicaMobileMessages";
 import type { PicaMobileNotificationClientMessage } from "./PicaMobileNotificationMessages";
-import type { PicaMobileNotificationProvider } from "./PicaMobileNotificationProvider";
+import type {
+  PicaMobileNotificationProvider,
+  PicaMobileSettingsOutcome,
+} from "./PicaMobileNotificationProvider";
 
 /** What the handler needs from the connection it works for. */
 export interface PicaMobileNotificationHost {
@@ -34,7 +38,7 @@ const COMPONENT = "PicaMobileNotificationHandler";
  * Answers the messages of `notifications.v1` for one connection.
  *
  * @remarks
- * Without a provider the three messages are unknown. They need an
+ * Without a provider the notification messages are unknown. They need an
  * authenticated connection, and every answer is derived from the account the
  * session belongs to right now, never from the message.
  */
@@ -103,7 +107,17 @@ export class PicaMobileNotificationHandler {
     session: PicaMobileSessionIdentity,
     message: PicaMobileNotificationClientMessage,
   ): Promise<void> {
-    if (message.type === "notification_register") {
+    if (
+      message.type === "notification_settings_get" ||
+      message.type === "notification_settings_set"
+    ) {
+      this.answerSettings(
+        message.requestId,
+        message.type === "notification_settings_get"
+          ? await provider.readSettings(session)
+          : await provider.changeSettings(session, message.payload),
+      );
+    } else if (message.type === "notification_register") {
       await this.answerRegister(provider, session, message);
     } else if (message.type === "notification_unregister") {
       const outcome = await provider.unregister(
@@ -193,6 +207,36 @@ export class PicaMobileNotificationHandler {
     ) {
       await this.activate(outcome.activate);
     }
+  }
+
+  private answerSettings(
+    requestId: string,
+    outcome: PicaMobileSettingsOutcome,
+  ): void {
+    if (!this.host.isOpen()) {
+      return;
+    }
+
+    if (outcome.kind === "sessionEnded") {
+      this.host.endSession(requestId);
+
+      return;
+    }
+
+    if (outcome.kind === "pushUnavailable") {
+      this.host.reject({
+        code: PICA_MOBILE_ERROR_CODE.SERVER_UNAVAILABLE,
+        message: "This server has no push service configured.",
+        requestId,
+      });
+
+      return;
+    }
+
+    this.host.acknowledge();
+    this.host.send(
+      encodePicaMobileNotificationSettings(requestId, outcome.payload),
+    );
   }
 
   /** The answer is out; a failure to start delivery is retried by the next registration. */

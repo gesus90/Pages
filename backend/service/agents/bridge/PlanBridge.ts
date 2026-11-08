@@ -1,6 +1,6 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
 import { READ_ANNOTATIONS } from "@/definition/AgentTools/ToolDefinition";
 import {
@@ -241,6 +241,12 @@ export class PlanBridge {
       if (failure) return failureResult(failure);
     }
     logCaughtError("PlanBridge", caughtError);
+    logDiagnostic(
+      "PlanBridge",
+      "error",
+      "A plan bridge operation failed unexpectedly.",
+      caughtError,
+    );
 
     throw authorizationFailed();
   }

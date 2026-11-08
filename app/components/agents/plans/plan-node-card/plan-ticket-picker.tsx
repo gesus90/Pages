@@ -39,7 +39,7 @@ function FieldText(props: {
   if (props.taskId)
     return (
       <span className="flex min-w-0 flex-1 items-center gap-1.5 text-destructive">
-        <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+        <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
         <span className="truncate">{t("plans.ticketUnavailable")}</span>
       </span>
     );
@@ -101,7 +101,7 @@ export function PlanTicketPicker(
         title={props.taskId ? title : undefined}
         disabled={props.disabled}
         className={cn(
-          "nodrag nopan nokey flex h-8 w-full min-w-0 items-center gap-2 rounded-[0.3125rem] border border-ticket-picker-outline bg-ticket-picker pr-2.5 pl-2.5 text-left text-xs leading-4.5 text-ticket-picker-foreground outline-none hover:bg-ticket-picker-hover focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-70",
+          "nodrag nopan nokey flex h-8 w-full min-w-0 items-center gap-2 rounded-lg border border-field-border bg-surface px-2.5 text-left text-xs leading-4.5 text-foreground outline-none transition-colors hover:border-field-border-hover hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-default disabled:opacity-70",
           Boolean(props.taskId) && !task && "border-destructive",
         )}
         onPointerDown={keepOnField}
@@ -113,7 +113,10 @@ export function PlanTicketPicker(
         onKeyDown={handleFieldKeys}
       >
         <FieldText taskId={props.taskId} task={task} />
-        <Chevron className="size-4 shrink-0" aria-hidden="true" />
+        <Chevron
+          className="size-4 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
       </button>
       {state.isOpen ? (
         <TicketPickerPanel

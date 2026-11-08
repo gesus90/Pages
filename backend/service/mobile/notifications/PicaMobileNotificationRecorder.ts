@@ -11,14 +11,12 @@ import type {
   EventCandidate,
   PicaMobileNotificationEventRepository,
 } from "@/backend/database/repositories/mobile/PicaMobileNotificationEventRepository";
+import type { PicaMobileNotificationPreferenceRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
 import type {
   PicaMobilePushRegistrationRepository,
   PushRegistrationRecord,
 } from "@/backend/database/repositories/mobile/PicaMobilePushRegistrationRepository";
-import type {
-  AgentPlanOwnerRunReader,
-  AgentPlanRunFlow,
-} from "@/backend/service/agents/AgentPlanOwnerRunReader";
+import type { AgentPlanRunFlow } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import type { AgentPlanRunObserver } from "@/backend/service/agents/AgentPlanRunObservers";
 import type {
   AgentPlanRunEnding,
@@ -26,6 +24,7 @@ import type {
 } from "@/backend/service/agents/AgentPlanRunTransitions";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { PicaMobileNotificationEventType } from "@/definition/PicaMobileNotifications";
+import type { PicaMobileNotificationAccess } from "./PicaMobileNotificationAccess";
 
 /** What the recorder is created with. */
 export interface PicaMobileNotificationRecorderOptions {
@@ -34,7 +33,12 @@ export interface PicaMobileNotificationRecorderOptions {
     "listActivated"
   >;
   readonly events: Pick<PicaMobileNotificationEventRepository, "record">;
-  readonly runs: Pick<AgentPlanOwnerRunReader, "read">;
+  /** The accounts that want to hear about the runs of their teams. */
+  readonly preferences: Pick<
+    PicaMobileNotificationPreferenceRepository,
+    "listTeamRecipients"
+  >;
+  readonly runs: Pick<PicaMobileNotificationAccess, "read">;
   /** Seconds a notification stays worth delivering. */
   readonly replayTtlSeconds: number;
   /** Tells the dispatcher that new pushes are waiting. */
@@ -48,6 +52,7 @@ export interface PicaMobileNotificationRecorderOptions {
 
 interface RunIdentity {
   readonly runId: string;
+  /** The account that started the run. */
   readonly accountId: string;
   readonly planId: string;
 }
@@ -58,10 +63,16 @@ interface PendingStarts extends RunIdentity {
   timer: NodeJS.Timeout | null;
 }
 
-/** The devices of an account and the flow of a run it may read. */
+/** An account that may be told about the run, with its devices. */
+interface Recipient {
+  readonly accountId: string;
+  readonly registrations: readonly PushRegistrationRecord[];
+}
+
+/** The flow of a run and every account that may be told about it, each once. */
 interface Authorized {
   readonly flow: AgentPlanRunFlow;
-  readonly registrations: readonly PushRegistrationRecord[];
+  readonly recipients: readonly Recipient[];
 }
 
 interface StoreRequest extends RunIdentity {
@@ -185,9 +196,11 @@ function toCandidates(
  * and the completion of a single step produce nothing, and neither does a run
  * that Pages itself interrupted by stopping or restarting. Starts that happen
  * together are collected for a moment into one event. Before anything is
- * stored the plan ownership and the rights on the concrete run are checked
- * again, and nothing is stored while no device is registered, so enabling
- * notifications never replays history. A failure here is logged and never
+ * stored the relation to the run and the rights on the concrete run are checked
+ * again, for the starter and for every team member who switched team runs
+ * on, and nothing is stored while no device is registered or before the team
+ * choice was made, so enabling notifications never replays history. Each
+ * recipient gets one event per fact. A failure here is logged and never
  * reaches the run.
  */
 export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
@@ -348,7 +361,7 @@ export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
   }
 
   private async recordStarts(pending: PendingStarts): Promise<void> {
-    const access = await this.authorize(pending);
+    const access = await this.authorize(pending, pending.observedAt);
 
     if (access === null) {
       return;
@@ -359,16 +372,18 @@ export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
     );
 
     for (const group of groupByTransition(announceable)) {
-      await this.store({
-        runId: pending.runId,
-        accountId: pending.accountId,
-        planId: pending.planId,
-        type: PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED,
-        observedAt: pending.observedAt,
-        candidates: toCandidates(group, access.flow),
-        reason: null,
-        registrations: access.registrations,
-      });
+      for (const recipient of access.recipients) {
+        await this.store({
+          runId: pending.runId,
+          accountId: recipient.accountId,
+          planId: pending.planId,
+          type: PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED,
+          observedAt: pending.observedAt,
+          candidates: toCandidates(group, access.flow),
+          reason: null,
+          registrations: recipient.registrations,
+        });
+      }
     }
   }
 
@@ -380,26 +395,38 @@ export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
     },
     observedAt: Date,
   ): Promise<void> {
-    const access = await this.authorize(identity);
+    const access = await this.authorize(identity, observedAt);
 
     if (access === null) {
       return;
     }
 
-    await this.store({
-      runId: identity.runId,
-      accountId: identity.accountId,
-      planId: identity.planId,
-      type: ENDING_EVENT[outcome.ending],
-      observedAt,
-      candidates: [{ key: "ended", steps: [] }],
-      reason: outcome.reason,
-      registrations: access.registrations,
-    });
+    for (const recipient of access.recipients) {
+      await this.store({
+        runId: identity.runId,
+        accountId: recipient.accountId,
+        planId: identity.planId,
+        type: ENDING_EVENT[outcome.ending],
+        observedAt,
+        candidates: [{ key: "ended", steps: [] }],
+        reason: outcome.reason,
+        registrations: recipient.registrations,
+      });
+    }
   }
 
-  /** Finds the devices of the run's account and proves plan ownership and run rights. */
-  private async authorize(identity: RunIdentity): Promise<Authorized | null> {
+  /**
+   * Finds every account that may be told about the run, with its devices.
+   *
+   * @remarks
+   * The starter comes first, then the accounts that want team runs and have an
+   * active device. Each account is asked once and appears once, whatever
+   * number of reasons it has, so an event reaches every device at most once.
+   */
+  private async authorize(
+    identity: RunIdentity,
+    observedAt: Date,
+  ): Promise<Authorized | null> {
     if (
       ![identity.accountId, identity.planId, identity.runId].every(
         isSafeIdentifier,
@@ -408,22 +435,39 @@ export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
       return null;
     }
 
-    const registrations = await this.options.registrations.listActivated(
-      identity.accountId,
-    );
+    const occurredAt = observedAt.toISOString();
+    const candidates = new Set([identity.accountId]);
 
-    if (registrations.length === 0) {
-      return null;
+    for (const preference of await this.options.preferences.listTeamRecipients()) {
+      if (isSafeIdentifier(preference.accountId)) {
+        candidates.add(preference.accountId);
+      }
     }
 
-    const access = await this.options.runs.read(
-      identity.accountId,
-      identity.runId,
-    );
+    let flow: AgentPlanRunFlow | null = null;
+    const recipients: Recipient[] = [];
 
-    return access.status === "granted"
-      ? { flow: access.flow, registrations }
-      : null;
+    for (const accountId of candidates) {
+      const registrations =
+        await this.options.registrations.listActivated(accountId);
+
+      if (registrations.length === 0) {
+        continue;
+      }
+
+      const access = await this.options.runs.read(
+        accountId,
+        identity.runId,
+        occurredAt,
+      );
+
+      if (access.status === "granted") {
+        flow ??= access.flow;
+        recipients.push({ accountId, registrations });
+      }
+    }
+
+    return flow === null ? null : { flow, recipients };
   }
 
   private isAnnounceable(

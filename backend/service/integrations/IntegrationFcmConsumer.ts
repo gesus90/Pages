@@ -4,9 +4,11 @@ import {
   createNotificationEventId,
   PicaMobileNotificationEventRepository,
 } from "@/backend/database/repositories/mobile/PicaMobileNotificationEventRepository";
+import { PicaMobileNotificationPreferenceRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
 import { PicaMobilePushRegistrationRepository } from "@/backend/database/repositories/mobile/PicaMobilePushRegistrationRepository";
 import { createFcmPicaMobilePushSender } from "@/backend/service/mobile/notifications/FcmPicaMobilePushSender";
 import { PagesPicaMobileAccountChecks } from "@/backend/service/mobile/notifications/PicaMobileAccountChecks";
+import { PicaMobileNotificationAccess } from "@/backend/service/mobile/notifications/PicaMobileNotificationAccess";
 import { PicaMobileNotificationDispatcher } from "@/backend/service/mobile/notifications/PicaMobileNotificationDispatcher";
 import { readPicaMobileNotificationSettings } from "@/backend/service/mobile/notifications/PicaMobileNotificationSettings";
 import { PicaMobilePushTokenVault } from "@/backend/service/mobile/notifications/PicaMobilePushTokenVault";
@@ -34,7 +36,10 @@ export function createIntegrationFcmConsumer(input: {
     deliveries: new PicaMobileNotificationDeliveryRepository(database),
     events,
     registrations: new PicaMobilePushRegistrationRepository(database),
-    runs: input.runs,
+    runs: new PicaMobileNotificationAccess(
+      input.runs,
+      new PicaMobileNotificationPreferenceRepository(database),
+    ),
     accounts: new PagesPicaMobileAccountChecks(
       new SessionRepository(database),
       input.users,

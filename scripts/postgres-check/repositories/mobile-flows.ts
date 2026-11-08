@@ -262,10 +262,10 @@ export const MOBILE_EVENT_FLOW: RepositoryFlow = {
           ('tie-x', '${OTHER_ACCOUNT}', 'plan', 'run-tie-b', 1, 'run_failed', '${T5}', 'keep-b');
     `),
     prepare(`
-      INSERT INTO pica_mobile_notification_occurrences (run_id, occurrence_key, event_id, created_at)
+      INSERT INTO pica_mobile_notification_occurrences (run_id, account_id, occurrence_key, event_id, created_at)
       VALUES
-          ('run-tie-a', 'old', 'tie-z', '${T1}'),
-          ('run-tie-a', 'new', 'tie-z', '${T5}');
+          ('run-tie-a', '${OTHER_ACCOUNT}', 'old', 'tie-z', '${T1}'),
+          ('run-tie-a', '${OTHER_ACCOUNT}', 'new', 'tie-z', '${T5}');
     `),
     prepare(`
       INSERT INTO pica_mobile_notification_sequences (run_id, last_seq)

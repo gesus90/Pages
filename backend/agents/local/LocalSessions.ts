@@ -461,7 +461,7 @@ export class LocalSessions {
     if (!recording || recording.instanceId !== instanceId)
       throw new AgentError("plan_context_changed");
     const isInstruction = input.resourceContext?.isLocalInstruction === true;
-    return localLaunchSchema.parse({
+    const launch = localLaunchSchema.safeParse({
       runId: recording.key.runId,
       stepId: recording.key.stepId,
       sessionScopeId:
@@ -480,6 +480,8 @@ export class LocalSessions {
       resumeSessionId:
         "resumeSessionId" in input ? input.resumeSessionId : null,
     });
+    if (!launch.success) throw new AgentError("plan_local_launch_invalid");
+    return launch.data;
   }
 
   private requireEntry(instanceId: string): LocalSessionEntry {

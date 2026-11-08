@@ -10,8 +10,11 @@ import { DiscordAttemptRepository } from "@/backend/database/repositories/discor
 import { DiscordConnectionRepository } from "@/backend/database/repositories/discord/DiscordConnectionRepository";
 import { DiscordDeliveryRepository } from "@/backend/database/repositories/discord/DiscordDeliveryRepository";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
+import { McpDevicePairingRepository } from "@/backend/database/repositories/mcp/McpDevicePairingRepository";
+import { McpDeviceRepository } from "@/backend/database/repositories/mcp/McpDeviceRepository";
 import { PicaMobileNotificationDeliveryRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationDeliveryRepository";
 import { PicaMobileNotificationEventRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationEventRepository";
+import { PicaMobileNotificationPreferenceRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
 import { PicaMobilePushRegistrationRepository } from "@/backend/database/repositories/mobile/PicaMobilePushRegistrationRepository";
 
 import {
@@ -30,9 +33,10 @@ import {
   DISCORD_CONNECTION_FLOW,
   DISCORD_DELIVERY_FLOW,
 } from "./discord-flows";
-import { RUN_CREDENTIAL_FLOW } from "./mcp-flows";
+import { MCP_DEVICE_FLOW, RUN_CREDENTIAL_FLOW } from "./mcp-flows";
 import { MOBILE_DELIVERY_FLOW, MOBILE_EVENT_FLOW } from "./mobile-flows";
 import { MESSAGING_ORDER_FLOW } from "./messaging-order-flow";
+import { MOBILE_PREFERENCE_FLOW } from "./mobile-preference-flow";
 import { MOBILE_REGISTRATION_FLOW } from "./mobile-registration-flows";
 import { NUL_TEXT_FLOW } from "./nul-text-flow";
 
@@ -51,7 +55,9 @@ export const MESSAGING_AREA_FLOWS: readonly RepositoryFlow[] = [
   DISCORD_CONNECTION_FLOW,
   DISCORD_DELIVERY_FLOW,
   RUN_CREDENTIAL_FLOW,
+  MCP_DEVICE_FLOW,
   MOBILE_REGISTRATION_FLOW,
+  MOBILE_PREFERENCE_FLOW,
   MOBILE_EVENT_FLOW,
   MOBILE_DELIVERY_FLOW,
   NUL_TEXT_FLOW,
@@ -74,7 +80,10 @@ export const MESSAGING_AREA_CLASSES: Readonly<
   DiscordConnectionRepository,
   DiscordDeliveryRepository,
   AgentRunCredentialRepository,
+  McpDevicePairingRepository,
+  McpDeviceRepository,
   PicaMobileNotificationDeliveryRepository,
   PicaMobileNotificationEventRepository,
+  PicaMobileNotificationPreferenceRepository,
   PicaMobilePushRegistrationRepository,
 };

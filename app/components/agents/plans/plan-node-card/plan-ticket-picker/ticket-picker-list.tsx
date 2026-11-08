@@ -1,6 +1,7 @@
 import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/app/components/ui/button";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
@@ -47,7 +48,7 @@ function PhaseBadge(props: {
   return (
     <span
       className={cn(
-        "relative mr-1 flex h-[1.4375rem] w-[4.125rem] shrink-0 items-center justify-center rounded-[0.375rem] border px-1.5 text-[11px] text-ticket-picker-foreground",
+        "flex h-6 max-w-28 min-w-16 shrink-0 items-center justify-center rounded-md border px-2 text-xs text-foreground",
         TONES[phaseTone(phase)],
       )}
     >
@@ -73,44 +74,37 @@ function TicketRow(props: {
       role="option"
       aria-selected={isSelected}
       title={`${task.key}: ${task.title}\n${time.exact}`}
-      className="relative flex h-12 cursor-pointer items-center gap-5 border-b border-ticket-picker-line last:border-b-0"
+      className={cn(
+        "flex min-h-13 cursor-pointer items-center gap-3 rounded-lg px-2 py-2",
+        isActive && "bg-muted",
+      )}
       onMouseDown={(event) => event.preventDefault()}
       onMouseMove={() => {
         if (!isActive) list.state.highlight(task);
       }}
       onClick={() => list.state.choose(task)}
     >
-      {isActive ? (
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-0 -inset-x-2.5 rounded-[0.375rem] border border-ticket-picker-line bg-ticket-picker-hover shadow-xs"
-        />
-      ) : null}
       <PlanTicketIcon
         className={cn(
-          "relative ml-1 size-6 shrink-0",
-          isSelected ? "text-primary" : "text-ticket-picker-muted",
+          "size-4.5 shrink-0",
+          isSelected ? "text-primary" : "text-muted-foreground",
         )}
       />
-      <span className="relative min-w-0 flex-1">
-        <span className="flex min-w-0 items-baseline gap-3 text-[14px] leading-5 tracking-tight">
-          <span
-            className={cn("shrink-0 font-bold", isSelected && "text-primary")}
-          >
-            {task.key}
-          </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-baseline gap-2 text-sm leading-5">
+          <span className="shrink-0 font-semibold">{task.key}</span>
           <span className="truncate">{task.title}</span>
         </span>
         <time
           dateTime={time.dateTime}
-          className="block truncate text-[11px] leading-4 text-ticket-picker-muted"
+          className="block truncate text-xs leading-4 text-muted-foreground"
         >
           {time.text}
         </time>
       </span>
       {isSelected ? (
         <Check
-          className="relative size-4 shrink-0 text-primary"
+          className="size-4 shrink-0 text-primary"
           aria-label={t("plans.ticketPicker.selected")}
         />
       ) : null}
@@ -139,19 +133,15 @@ function ListNotice(props: ListProps): React.ReactElement | null {
   }
   if (message === null) return null;
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-[13px] text-ticket-picker-muted">
+    <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm text-muted-foreground">
       {status === "loading" ? (
         <Loader2 className="size-5 animate-spin" aria-hidden="true" />
       ) : null}
       <p role="status">{message}</p>
       {action ? (
-        <button
-          type="button"
-          className="h-8 rounded-[0.3125rem] border border-ticket-picker-field px-3 text-[13px] text-ticket-picker-foreground hover:bg-ticket-picker-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          onClick={action.run}
-        >
+        <Button variant="outline" size="sm" onClick={action.run}>
           {action.label}
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -169,10 +159,11 @@ export function TicketPickerList(props: ListProps): React.ReactElement {
   const describe = useTicketTime();
   const { state } = props;
   return (
-    <div className="mx-4 h-[15.125rem] min-h-0 shrink border-t border-ticket-picker-line">
+    <div className="h-69 min-h-30 shrink border-t border-border">
       <ListNotice {...props} />
       {/* The list reaches into the panel's padding, so a highlighted row
-          stands out over the column edge without being clipped. */}
+          stands out over the column edge while its content stays aligned
+          with the fields above. */}
       <ScrollViewport
         as="ul"
         axis="vertical"
@@ -183,7 +174,7 @@ export function TicketPickerList(props: ListProps): React.ReactElement {
           "h-full",
           state.results.length === 0 && "hidden",
         )}
-        className="-mx-2.5 overscroll-contain px-2.5"
+        className="-mx-2 overscroll-contain py-2"
       >
         {state.results.map((task, index) => (
           <TicketRow
@@ -210,7 +201,7 @@ export function TicketPickerFooter(props: ListProps): React.ReactElement {
       })
     : t("plans.ticketPicker.count", { count: tasks.length });
   return (
-    <footer className="mx-4 flex h-[2.3125rem] shrink-0 items-center justify-between gap-4 border-t border-ticket-picker-line text-[11px] text-ticket-picker-muted">
+    <footer className="flex shrink-0 items-center justify-between gap-4 border-t border-border pt-3 text-xs leading-4 text-muted-foreground">
       <p role="status" className="flex min-w-0 items-center gap-2">
         <span className="truncate">{count}</span>
         {status === "loading" && tasks.length > 0 ? (

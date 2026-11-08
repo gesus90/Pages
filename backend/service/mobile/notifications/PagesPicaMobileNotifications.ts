@@ -8,6 +8,7 @@ import type {
   PicaMobileNotificationProvider,
   PicaMobileRegisterOutcome,
   PicaMobileRegistrationInput,
+  PicaMobileSettingsOutcome,
   PicaMobileUnregisterOutcome,
 } from "./PicaMobileNotificationProvider";
 import type { PicaMobileNotificationService } from "./PicaMobileNotificationService";
@@ -18,7 +19,12 @@ export interface PicaMobileNotificationServices {
   readonly sessionService: Pick<SessionService, "findSessionId">;
   readonly picaMobileNotifications: Pick<
     PicaMobileNotificationService,
-    "isPushAvailable" | "register" | "unregister" | "readEvent"
+    | "isPushAvailable"
+    | "register"
+    | "unregister"
+    | "readEvent"
+    | "readSettings"
+    | "changeSettings"
   >;
 }
 
@@ -127,5 +133,37 @@ export class PagesPicaMobileNotifications implements PicaMobileNotificationProvi
         eventId,
       ),
     };
+  }
+
+  /** Reads the notification choices of the account of the session. */
+  public async readSettings(
+    session: PicaMobileSessionIdentity,
+  ): Promise<PicaMobileSettingsOutcome> {
+    const services = await this.resolveServices();
+    const user = await readCurrentSessionUser(services.authService, session);
+
+    if (user === null) {
+      return { kind: "sessionEnded" };
+    }
+
+    return {
+      kind: "ready",
+      payload: await services.picaMobileNotifications.readSettings(user.id),
+    };
+  }
+
+  /** Changes the notification choices of the account of the session. */
+  public async changeSettings(
+    session: PicaMobileSessionIdentity,
+    change: { readonly teamRuns?: boolean },
+  ): Promise<PicaMobileSettingsOutcome> {
+    const services = await this.resolveServices();
+    const user = await readCurrentSessionUser(services.authService, session);
+
+    if (user === null) {
+      return { kind: "sessionEnded" };
+    }
+
+    return services.picaMobileNotifications.changeSettings(user.id, change);
   }
 }

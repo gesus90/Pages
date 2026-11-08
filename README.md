@@ -1875,9 +1875,8 @@ OpenCode **1.18.34**, Codex ACP **2.2.2** (adoption also accepts **2.1.1**), and
 Playwright MCP **0.0.83**. Playwright MCP itself pins
 `playwright@1.64.0-alpha-1790635538000`; its browser revision is used for Chromium
 and optional Firefox. The selected versions were checked against the actual
-npm registry; see [registry evidence](./evidence/registry.json). The existing
-protocol-driver ranges remain available to standalone consumers. There are no
-new Pages library dependencies.
+npm registry. The existing protocol-driver ranges remain available to standalone
+consumers. There are no new Pages library dependencies.
 
 Tools, npm cache, probe home, enablement and release pointers live in
 `<directory containing config.toml>/tools/`. Saved connection credentials remain

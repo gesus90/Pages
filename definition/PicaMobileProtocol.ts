@@ -3,6 +3,7 @@ import { z } from "zod";
 import type {
   PicaMobileNotificationEventPayload,
   PicaMobileNotificationRegisteredPayload,
+  PicaMobileNotificationSettingsPayload,
   PicaMobileNotificationUnregisteredPayload,
 } from "./PicaMobileNotifications";
 
@@ -59,6 +60,8 @@ export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   NOTIFICATION_REGISTER: "notification_register",
   NOTIFICATION_UNREGISTER: "notification_unregister",
   NOTIFICATION_EVENT_GET: "notification_event_get",
+  NOTIFICATION_SETTINGS_GET: "notification_settings_get",
+  NOTIFICATION_SETTINGS_SET: "notification_settings_set",
   PLANS_SYNC: "plans_sync",
   PLAN_GET: "plan_get",
   CHAT_OPEN: "chat_open",
@@ -82,6 +85,7 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
   NOTIFICATION_REGISTERED: "notification_registered",
   NOTIFICATION_UNREGISTERED: "notification_unregistered",
   NOTIFICATION_EVENT: "notification_event",
+  NOTIFICATION_SETTINGS: "notification_settings",
   PLANS: "plans",
   PLAN: "plan",
   CHAT_VIEW: "chat_view",
@@ -105,6 +109,10 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * `notification_event_get` with their answers. `notifications.push.fcm` is
  * named only while the server has a usable FCM sender; without it a
  * registration is refused. There is no `notifications.push.apns`.
+ * `notifications.team.v1` stands for `notification_settings_get` and
+ * `notification_settings_set` with their answer `notification_settings` and
+ * for the pushes about runs of the account's teams; a server names it only
+ * together with `notifications.v1`.
  * `plans.v1` stands for `plans_sync` and `plan_get` with their answers and
  * for the `plans` messages the server sends on its own. `chat.v1` stands for
  * the eight `chat_*` requests with their answers and for the attachment
@@ -119,6 +127,7 @@ export const PICA_MOBILE_CAPABILITY = {
   CHAT_DELETE: "chat.delete",
   NOTIFICATIONS_V1: "notifications.v1",
   NOTIFICATIONS_PUSH_FCM: "notifications.push.fcm",
+  NOTIFICATIONS_TEAM_V1: "notifications.team.v1",
 } as const;
 
 /** One extension of {@link PICA_MOBILE_CAPABILITY}. */
@@ -709,6 +718,10 @@ export type PicaMobileServerMessage =
       PicaMobileNotificationUnregisteredPayload
     >
   | PicaMobileEnvelope<"notification_event", PicaMobileNotificationEventPayload>
+  | PicaMobileEnvelope<
+      "notification_settings",
+      PicaMobileNotificationSettingsPayload
+    >
   | PicaMobileEnvelope<"plans", PicaMobilePlansPayload>
   | PicaMobileEnvelope<"plan", PicaMobilePlanPayload>
   | (PicaMobileChatAnswer & {
