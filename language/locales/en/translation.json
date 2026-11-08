@@ -153,7 +153,8 @@
     "executionPlan": "Agent Plan",
     "workspace": "Workspace",
     "agentList": "Agents list",
-    "loading": "Loading view …"
+    "loading": "Loading view …",
+    "storage": "Storage"
   },
   "role": {
     "admin": "Administrator",
@@ -6035,6 +6036,115 @@
       "failed": "failed",
       "maintenance": "maintenance",
       "unknown": "unknown"
+    }
+  },
+  "storage": {
+    "title": "Storage",
+    "googleDrive": "Google Drive",
+    "connected": "Connected",
+    "myDrive": "My Drive",
+    "sharedDrives": "Shared drives",
+    "untitled": "(untitled)",
+    "loading": "Loading the folder from Google Drive …",
+    "failed": "Storage could not be loaded.",
+    "retry": "Try again",
+    "openStart": "Go to start folder",
+    "path": {
+      "label": "Path in Google Drive",
+      "detached": "Parent folders are not visible to the connected account."
+    },
+    "forbidden": {
+      "title": "No access to Storage",
+      "text": "Storage uses the Google Drive connection of the instance and is reserved for administrators in the admin mode."
+    },
+    "connection": {
+      "not_configured": "Google Drive is not set up for this instance.",
+      "disconnected": "No Google Drive account is connected.",
+      "reauthorization_required": "The Google Drive connection has expired or was revoked.",
+      "unavailable": "Google Drive did not confirm the connection just now.",
+      "where": "The connection is signed in only under Settings → System → Storage.",
+      "openSettings": "Open Settings → System"
+    },
+    "reach": {
+      "title": "Only files created or opened by Pages are visible",
+      "text": "The connection only has the \"drive.file\" access. With it, Google shows no existing folders and files. To browse folders, sign in again under Settings → System and allow read access to Google Drive."
+    },
+    "folderProblem": {
+      "title": "This folder cannot be shown.",
+      "not_found": "Google Drive cannot find the folder. It was deleted or is not visible to the connected account.",
+      "trashed": "The folder is in the Google Drive trash.",
+      "not_folder": "The target is a file, not a folder.",
+      "forbidden": "The connected Google account has no access to this folder.",
+      "scope_insufficient": "The access granted to the connection does not reach this folder.",
+      "unreachable": "Google Drive cannot be reached right now. Reload later."
+    },
+    "startFolder": {
+      "label": "Start folder: {{path}}",
+      "none": "No start folder set – Storage opens \"My Drive\".",
+      "choose": "Set start folder",
+      "chooseNew": "Choose a new start folder",
+      "clear": "Remove start folder",
+      "problemTitle": "The saved start folder cannot be opened.",
+      "savedName": "Saved was: \"{{name}}\".",
+      "renamed": "The start folder \"{{from}}\" is now called \"{{to}}\" in Google Drive. It stays the start folder.",
+      "problem": {
+        "other_account": "It was saved for another Google account than the one connected now.",
+        "not_found": "Google Drive no longer finds it. It was deleted or is no longer visible to the connected account.",
+        "trashed": "It is in the Google Drive trash.",
+        "not_folder": "The saved target is no longer a folder.",
+        "forbidden": "The connected Google account no longer has access to it.",
+        "scope_insufficient": "The access granted to the connection does not reach this folder.",
+        "unreachable": "Google Drive cannot be reached right now. Reload later."
+      }
+    },
+    "picker": {
+      "title": "Set start folder",
+      "description": "Storage will open in this folder. The start folder is only a navigation default and changes no sharing.",
+      "current": "Current: {{path}}",
+      "none": "No start folder set yet.",
+      "noSubfolders": "No subfolders.",
+      "unavailable": "This folder cannot be shown.",
+      "confirm": "Save this folder",
+      "saveError": {
+        "invalid": "This entry cannot be a start folder.",
+        "connection": "The Google Drive connection is not usable.",
+        "failed": "The start folder could not be saved.",
+        "not_found": "Google Drive no longer finds the folder.",
+        "trashed": "The folder is in the trash.",
+        "not_folder": "This is not a folder.",
+        "forbidden": "No access to this folder.",
+        "scope_insufficient": "The access of the connection is not sufficient.",
+        "unreachable": "Google Drive cannot be reached right now."
+      }
+    },
+    "list": {
+      "name": "Name",
+      "modified": "Modified",
+      "size": "Size",
+      "folder": "Folder",
+      "openInDrive": "Open in Google Drive",
+      "empty": "This folder is empty.",
+      "emptyAppFiles": "There are no files here that Pages created or opened.",
+      "count_one": "{{count}} item",
+      "count_other": "{{count}} items",
+      "countMore_one": "{{count}} item loaded, more available",
+      "countMore_other": "{{count}} items loaded, more available",
+      "loadMore": "Load more",
+      "loadMoreFailed": "More items could not be loaded."
+    },
+    "quota": {
+      "title": "Storage quota",
+      "loading": "Loading storage quota …",
+      "unavailable": "Storage quota not available.",
+      "accountLabel": "Google account storage (all Google services)",
+      "poolLabel": "Google storage – limit may be a Workspace pool",
+      "usedOfLimit": "{{used}} of {{limit}} used",
+      "unlimited": "{{used}} used · no limit reported",
+      "percentFree": "{{percent}} % used · {{free}} free",
+      "percentOver": "{{percent}} % used · {{over}} over the limit",
+      "noShare": "Google reports no limit; percentage and free storage are omitted.",
+      "poolHint": "With Google Workspace the limit may be a storage pool shared by the organization, so percentage and free storage are not calculated.",
+      "barLabel": "Used share of the Google account storage"
     }
   }
 }

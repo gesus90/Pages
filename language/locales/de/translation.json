@@ -153,7 +153,8 @@
     "executionPlan": "Agent Plan",
     "workspace": "Arbeitsverzeichnis",
     "agentList": "Agents Liste",
-    "loading": "Ansicht wird geladen …"
+    "loading": "Ansicht wird geladen …",
+    "storage": "Storage"
   },
   "role": {
     "admin": "Administrator",
@@ -6035,6 +6036,115 @@
       "failed": "fehlgeschlagen",
       "maintenance": "Wartung",
       "unknown": "unbekannt"
+    }
+  },
+  "storage": {
+    "title": "Storage",
+    "googleDrive": "Google Drive",
+    "connected": "Verbunden",
+    "myDrive": "Meine Ablage",
+    "sharedDrives": "Geteilte Ablagen",
+    "untitled": "(ohne Namen)",
+    "loading": "Ordner wird aus Google Drive geladen …",
+    "failed": "Storage konnte nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "openStart": "Zum Startordner",
+    "path": {
+      "label": "Pfad in Google Drive",
+      "detached": "Übergeordnete Ordner sind für das verbundene Konto nicht sichtbar."
+    },
+    "forbidden": {
+      "title": "Kein Zugriff auf Storage",
+      "text": "Storage nutzt die Google-Drive-Verbindung der Instanz und ist Administratoren im Admin-Modus vorbehalten."
+    },
+    "connection": {
+      "not_configured": "Google Drive ist für diese Instanz nicht eingerichtet.",
+      "disconnected": "Es ist kein Google-Drive-Konto verbunden.",
+      "reauthorization_required": "Die Google-Drive-Verbindung ist abgelaufen oder wurde widerrufen.",
+      "unavailable": "Google Drive hat die Verbindung gerade nicht bestätigt.",
+      "where": "Die Verbindung wird ausschließlich unter Einstellungen → System → Storage angemeldet.",
+      "openSettings": "Einstellungen → System öffnen"
+    },
+    "reach": {
+      "title": "Nur von Pages angelegte oder geöffnete Dateien sichtbar",
+      "text": "Die Verbindung hat nur den Zugriff „drive.file“. Damit zeigt Google keine bestehenden Ordner und Dateien. Für die Ordnernavigation unter Einstellungen → System neu anmelden und dabei den Lesezugriff auf Google Drive erlauben."
+    },
+    "folderProblem": {
+      "title": "Dieser Ordner kann nicht angezeigt werden.",
+      "not_found": "Google Drive findet den Ordner nicht. Er wurde gelöscht oder ist für das verbundene Konto nicht sichtbar.",
+      "trashed": "Der Ordner liegt im Papierkorb von Google Drive.",
+      "not_folder": "Das Ziel ist eine Datei, kein Ordner.",
+      "forbidden": "Das verbundene Google-Konto hat keinen Zugriff auf diesen Ordner.",
+      "scope_insufficient": "Die erteilte Berechtigung der Verbindung reicht für diesen Ordner nicht aus.",
+      "unreachable": "Google Drive ist gerade nicht erreichbar. Später erneut laden."
+    },
+    "startFolder": {
+      "label": "Startordner: {{path}}",
+      "none": "Kein Startordner festgelegt – Storage öffnet „Meine Ablage“.",
+      "choose": "Startordner festlegen",
+      "chooseNew": "Neuen Startordner wählen",
+      "clear": "Startordner entfernen",
+      "problemTitle": "Der gespeicherte Startordner kann nicht geöffnet werden.",
+      "savedName": "Gespeichert war: „{{name}}“.",
+      "renamed": "Der Startordner „{{from}}“ heißt in Google Drive jetzt „{{to}}“. Er bleibt Startordner.",
+      "problem": {
+        "other_account": "Er wurde für ein anderes Google-Konto gespeichert als das jetzt verbundene.",
+        "not_found": "Google Drive findet ihn nicht mehr. Er wurde gelöscht oder ist für das verbundene Konto nicht mehr sichtbar.",
+        "trashed": "Er liegt im Papierkorb von Google Drive.",
+        "not_folder": "Das gespeicherte Ziel ist kein Ordner mehr.",
+        "forbidden": "Das verbundene Google-Konto hat keinen Zugriff mehr darauf.",
+        "scope_insufficient": "Die erteilte Berechtigung der Verbindung reicht für diesen Ordner nicht aus.",
+        "unreachable": "Google Drive ist gerade nicht erreichbar. Später erneut laden."
+      }
+    },
+    "picker": {
+      "title": "Startordner festlegen",
+      "description": "Storage öffnet künftig in diesem Ordner. Der Startordner ist nur eine Navigationsvorgabe und ändert keine Freigaben.",
+      "current": "Aktuell: {{path}}",
+      "none": "Noch kein Startordner festgelegt.",
+      "noSubfolders": "Keine Unterordner.",
+      "unavailable": "Dieser Ordner kann nicht angezeigt werden.",
+      "confirm": "Diesen Ordner speichern",
+      "saveError": {
+        "invalid": "Dieser Eintrag kann kein Startordner sein.",
+        "connection": "Die Google-Drive-Verbindung ist nicht nutzbar.",
+        "failed": "Der Startordner konnte nicht gespeichert werden.",
+        "not_found": "Google Drive findet den Ordner nicht mehr.",
+        "trashed": "Der Ordner liegt im Papierkorb.",
+        "not_folder": "Das ist kein Ordner.",
+        "forbidden": "Kein Zugriff auf diesen Ordner.",
+        "scope_insufficient": "Die Berechtigung der Verbindung reicht nicht aus.",
+        "unreachable": "Google Drive ist gerade nicht erreichbar."
+      }
+    },
+    "list": {
+      "name": "Name",
+      "modified": "Geändert",
+      "size": "Größe",
+      "folder": "Ordner",
+      "openInDrive": "In Google Drive öffnen",
+      "empty": "Dieser Ordner ist leer.",
+      "emptyAppFiles": "Hier liegen keine Dateien, die Pages angelegt oder geöffnet hat.",
+      "count_one": "{{count}} Eintrag",
+      "count_other": "{{count}} Einträge",
+      "countMore_one": "{{count}} Eintrag geladen, weitere vorhanden",
+      "countMore_other": "{{count}} Einträge geladen, weitere vorhanden",
+      "loadMore": "Weitere laden",
+      "loadMoreFailed": "Weitere Einträge konnten nicht geladen werden."
+    },
+    "quota": {
+      "title": "Speicherquote",
+      "loading": "Speicherquote wird geladen …",
+      "unavailable": "Speicherquote nicht verfügbar.",
+      "accountLabel": "Google-Kontospeicher (alle Google-Dienste)",
+      "poolLabel": "Google-Speicher – Limit ggf. Workspace-Pool",
+      "usedOfLimit": "{{used}} von {{limit}} belegt",
+      "unlimited": "{{used}} belegt · kein Limit gemeldet",
+      "percentFree": "{{percent}} % belegt · {{free}} frei",
+      "percentOver": "{{percent}} % belegt · {{over}} über dem Limit",
+      "noShare": "Google meldet kein Limit; Prozent und freier Speicher entfallen.",
+      "poolHint": "Bei Google Workspace kann das Limit ein gemeinsamer Speicherpool der Organisation sein; Prozent und freier Speicher werden daher nicht berechnet.",
+      "barLabel": "Belegter Anteil des Google-Kontospeichers"
     }
   }
 }

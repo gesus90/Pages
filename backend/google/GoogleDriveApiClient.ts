@@ -1,14 +1,20 @@
-import { GOOGLE_DRIVE_SCOPE } from "@/backend/google/GoogleDriveConfig";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { GOOGLE_DRIVE_REQUESTED_SCOPES } from "@/backend/google/GoogleDriveConfig";
+import {
+  driveProblem,
+  isRecord,
+  readJson,
+  readString,
+  sendGoogleRequest,
+} from "@/backend/google/GoogleDriveResponses";
 
 import type { GoogleOAuthApplication } from "@/backend/google/GoogleDriveConfig";
+import type { GoogleFetch } from "@/backend/google/GoogleDriveResponses";
 import type { GoogleDriveProblem } from "@/definition/GoogleDrive";
 
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const ABOUT_URL =
   "https://www.googleapis.com/drive/v3/about?fields=user(permissionId,emailAddress)";
-const REQUEST_TIMEOUT_MS = 10_000;
 
 /** The outcome of one call to Google: the value or the problem, never a thrown HTTP error. */
 export type GoogleCallResult<Value> =
@@ -30,29 +36,6 @@ export interface GoogleDriveAccount {
   /** Stable identifier of the account in Drive; the binding relies on it. */
   readonly permissionId: string;
   readonly emailAddress: string | null;
-}
-
-/** The part of `fetch` the client uses. */
-export type GoogleFetch = (url: string, init: RequestInit) => Promise<Response>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readString(record: Record<string, unknown>, key: string): string {
-  const entry = record[key];
-
-  return typeof entry === "string" ? entry : "";
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (caughtError: unknown) {
-    logCaughtError("GoogleDriveApiClient", caughtError);
-
-    return null;
-  }
 }
 
 /**
@@ -77,50 +60,6 @@ function tokenProblem(status: number, body: unknown): GoogleDriveProblem {
   return status >= 500 || status === 429
     ? "google_unreachable"
     : "client_invalid";
-}
-
-function readErrorReasons(body: unknown): string[] {
-  if (!isRecord(body) || !isRecord(body["error"])) {
-    return [];
-  }
-
-  const errors = body["error"]["errors"];
-
-  if (!Array.isArray(errors)) {
-    return [];
-  }
-
-  return errors.map((entry) =>
-    isRecord(entry) ? readString(entry, "reason") : "",
-  );
-}
-
-/**
- * Translates a refused Drive request.
- *
- * @remarks
- * A `403` names a disabled Drive API as `accessNotConfigured`, a missing scope
- * as `insufficientPermissions`; rate limits and quota are temporary.
- */
-function driveProblem(status: number, body: unknown): GoogleDriveProblem {
-  if (status === 401) {
-    return "access_revoked";
-  }
-
-  const reasons = readErrorReasons(body);
-
-  if (reasons.includes("accessNotConfigured")) {
-    return "drive_api_disabled";
-  }
-
-  if (
-    reasons.includes("insufficientPermissions") ||
-    reasons.includes("insufficientScopes")
-  ) {
-    return "scope_missing";
-  }
-
-  return "google_unreachable";
 }
 
 function readGrant(body: unknown, now: number): GoogleTokenGrant | null {
@@ -167,7 +106,7 @@ export function buildGoogleAuthorizationUrl(input: {
   url.searchParams.set("client_id", input.clientId);
   url.searchParams.set("redirect_uri", input.redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", GOOGLE_DRIVE_SCOPE);
+  url.searchParams.set("scope", GOOGLE_DRIVE_REQUESTED_SCOPES.join(" "));
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
   url.searchParams.set("include_granted_scopes", "false");
@@ -319,16 +258,6 @@ export class GoogleDriveApiClient {
   }
 
   private async send(url: string, init: RequestInit): Promise<Response | null> {
-    try {
-      return await this.fetcher(url, {
-        ...init,
-        redirect: "error",
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (caughtError: unknown) {
-      logCaughtError("GoogleDriveApiClient", caughtError);
-
-      return null;
-    }
+    return sendGoogleRequest(this.fetcher, url, init);
   }
 }

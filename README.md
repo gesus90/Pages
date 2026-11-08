@@ -295,8 +295,8 @@ variables, add the redirect in the portal and then:
 
 Under **Settings → System** the **Storage** card connects one Google Drive account
 to the instance. It offers only the sign-in, a truthful status and the errors
-that belong to it. There is no file area, no start folder and no file access
-beyond the read-only proof described below.
+that belong to it. The file area that uses this connection is the **Storage**
+navigation entry (PAGE-188, see below).
 
 ### Set up the Google OAuth client (once per instance)
 
@@ -308,7 +308,9 @@ An administrator of the Google Cloud project creates the client:
    (APIs & Services → Library).
 2. **OAuth consent screen / Google Auth Platform:** user type *External* (or
    *Internal* for a Workspace organization), app name, support address. Add the
-   scope `https://www.googleapis.com/auth/drive.file`, nothing else.
+   scopes `https://www.googleapis.com/auth/drive.file` and, for the folder
+   navigation of Storage, `https://www.googleapis.com/auth/drive.readonly`
+   (PAGE-188), nothing else.
 3. **Clients:** create an OAuth client of the type *Web application* with the
    authorized redirect URIs of every address Pages is reached at, exactly and
    without wildcards:
@@ -370,10 +372,63 @@ example through an SSH port forward.
   7 days.** A lasting connection needs
   the status *In production* (or an *Internal* Workspace app); `drive.file` is a
   non-sensitive scope and needs no Google security assessment for that.
+  `drive.readonly` is a restricted scope: an unverified client in production
+  shows Google's warning and its user limit during the consent, which is enough
+  for the one administrator account of an instance.
 - When Google refuses the stored access (`invalid_grant`, a `401` after a
   renewal, a missing scope), the card shows **Sign in again** with the reason.
   A rejected client, a disabled Drive API or an unreachable Google shows a
   concrete error and never **Connected**.
+
+## Storage: Google Drive file area (PAGE-188)
+
+The **Storage** entry of the global navigation opens the Google Drive of the
+existing connection above. It adds no sign-in, no token storage and no settings
+card of its own; a missing, expired or unconfirmed connection is explained in
+one sentence with a link to **Settings → System**.
+
+- **Pages rights:** the connection is the one Google account an administrator
+  signed in for the instance, so Storage follows the right of the system
+  settings: the entry and `/storage-api` are available to administrators in the
+  active admin mode only. Everyone else gets `403` on every request.
+- **Google rights:** every request takes a freshly confirmed access of the
+  connection (`about.get` proves the bound `permissionId`, the access token is
+  renewed with the stored refresh token when needed) and asks the official Drive
+  API v3 (`files.get`, `files.list`, `drives.list`, `drives.get`, `about.get`)
+  read-only. Google decides with the rights of the bound account what it shows.
+  The access token goes only into the `Authorization` header; answers, addresses
+  and logs carry no token. Files open on Google's own page.
+- **Scopes:** with `drive.file` alone Google shows only files Pages created or
+  opened, never the existing folder tree. The sign-in therefore also asks for
+  `drive.readonly`; Storage reads the granted scopes of the stored connection
+  and, without a read scope, says so and points to a new sign-in under
+  **Settings → System**. A connection made before PAGE-188 needs that new
+  sign-in for the folder navigation. Shared drives are offered only with a read
+  scope.
+- **Navigation:** path from My Drive or a shared drive down to the folder, each
+  step clickable; folders first, then files, 200 per page with "Load more".
+  `/storage?folder=<id>` is an explicit target and is never redirected; plain
+  `/storage` opens the start folder, else My Drive.
+- **Start folder:** chosen in a compact folder dialog and saved per account in
+  `storage_start_folder` with the Drive identifier, the shared drive, the
+  readable name and path and the `permissionId` of the connection. It is a
+  navigation preference only, no share, limit or upload target. It is opened by
+  identifier: a rename keeps it and is reported; a deleted, trashed or no longer
+  accessible folder, or one saved for another Google account, is explained with
+  a new choice instead of opening another folder.
+- **Quota:** `about.get` `storageQuota.usage` and `limit` of the Google account,
+  the use across all Google services, not the size of a folder. Without a limit
+  Storage says "no limit reported"; an exceeded limit stays in the text while
+  the bar stops at 100 %. For addresses outside `gmail.com`/`googlemail.com`
+  the limit may be a Workspace pool of the organization, so share and free
+  storage are not calculated there. A failed request shows "not available",
+  never zero.
+- **Layout:** the card fills the space beside the navigation and keeps about
+  85 px above the Pica launcher (tablet and desktop), also while the list
+  scrolls. The multicolored Drive logo beside the path is Google's own product
+  logo, see `assets/google-drive/NOTICE.txt`.
+- **Not included:** upload, rename, move, delete, sharing, background sync,
+  other providers and moving existing ticket or wiki attachments.
 
 ## Pica native tools (PAGE-157)
 
