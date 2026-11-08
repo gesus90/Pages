@@ -3,6 +3,7 @@ import type {
   PicaMobileNotificationLocale,
   PicaMobileNotificationPreview,
   PicaMobileNotificationRegisteredPayload,
+  PicaMobileNotificationSettingsPayload,
 } from "@/definition/PicaMobileNotifications";
 import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 
@@ -44,13 +45,29 @@ export type PicaMobileEventOutcome =
   | { readonly kind: "sessionEnded" };
 
 /**
+ * The answer to a read or a change of the notification choices.
+ *
+ * @remarks
+ * `pushUnavailable` means a choice was to be switched on that Pages cannot
+ * deliver without a usable FCM sender; nothing was stored.
+ */
+export type PicaMobileSettingsOutcome =
+  | {
+      readonly kind: "ready";
+      readonly payload: PicaMobileNotificationSettingsPayload;
+    }
+  | { readonly kind: "pushUnavailable" }
+  | { readonly kind: "sessionEnded" };
+
+/**
  * The business answers of an authenticated Pica Mobile connection for
  * `notifications.v1`.
  *
  * @remarks
- * A connection without a provider announces neither `notifications.v1` nor
- * `notifications.push.fcm` and answers the three messages as unknown. Every
- * call decides from the account behind the session as it is now.
+ * A connection without a provider announces neither `notifications.v1`,
+ * `notifications.push.fcm` nor `notifications.team.v1` and answers the
+ * notification messages as unknown. Every call decides from the account
+ * behind the session as it is now.
  */
 export interface PicaMobileNotificationProvider {
   /** Tells whether a usable FCM sender exists; rejects only when Pages cannot decide. */
@@ -70,4 +87,13 @@ export interface PicaMobileNotificationProvider {
     session: PicaMobileSessionIdentity,
     eventId: string,
   ): Promise<PicaMobileEventOutcome>;
+  /** Reads the notification choices of the session's account. */
+  readSettings(
+    session: PicaMobileSessionIdentity,
+  ): Promise<PicaMobileSettingsOutcome>;
+  /** Changes the notification choices of the session's account, never of another. */
+  changeSettings(
+    session: PicaMobileSessionIdentity,
+    change: { readonly teamRuns?: boolean },
+  ): Promise<PicaMobileSettingsOutcome>;
 }

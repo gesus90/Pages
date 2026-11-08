@@ -10,6 +10,7 @@ import {
   picaMobileNotificationEventGetPayloadSchema,
   picaMobileNotificationIdSchema,
   picaMobileNotificationPreviewSchema,
+  picaMobileNotificationSettingsSetPayloadSchema,
   picaMobileNotificationUnregisterPayloadSchema,
   picaMobilePushTokenSchema,
 } from "@/definition/PicaMobileNotifications";
@@ -19,6 +20,7 @@ import type {
   PicaMobileNotificationLocale,
   PicaMobileNotificationPreview,
   PicaMobileNotificationRegisteredPayload,
+  PicaMobileNotificationSettingsPayload,
   PicaMobileNotificationUnregisteredPayload,
 } from "@/definition/PicaMobileNotifications";
 import type { PicaMobileRejection } from "../PicaMobileMessages";
@@ -44,6 +46,16 @@ export type PicaMobileNotificationClientMessage =
       readonly type: "notification_event_get";
       readonly requestId: string;
       readonly payload: { readonly eventId: string };
+    }
+  | {
+      readonly type: "notification_settings_get";
+      readonly requestId: string;
+      readonly payload: Readonly<Record<string, never>>;
+    }
+  | {
+      readonly type: "notification_settings_set";
+      readonly requestId: string;
+      readonly payload: { readonly teamRuns?: boolean };
     };
 
 /** The outcome of reading the payload of a notification message. */
@@ -133,6 +145,31 @@ function readRegisterFields(
   };
 }
 
+function readSettingsSet(
+  requestId: string,
+  payload: JsonRecord,
+): PicaMobileNotificationParseResult {
+  const parsed =
+    picaMobileNotificationSettingsSetPayloadSchema.safeParse(payload);
+
+  return parsed.success
+    ? {
+        ok: true,
+        message: {
+          type: "notification_settings_set",
+          requestId,
+          payload:
+            parsed.data.teamRuns === undefined
+              ? {}
+              : { teamRuns: parsed.data.teamRuns },
+        },
+      }
+    : invalid(
+        requestId,
+        'The "teamRuns" of "notification_settings_set" must be true or false.',
+      );
+}
+
 /**
  * Reads the payload of a notification message.
  *
@@ -186,6 +223,14 @@ export function parsePicaMobileNotificationPayload(
             'The payload of "notification_event_get" needs an "eventId" of 16 to 64 letters, digits, "_" or "-".',
           );
     }
+    case PICA_MOBILE_CLIENT_MESSAGE_TYPE.NOTIFICATION_SETTINGS_GET:
+      // Unknown fields of a payload are ignored, as everywhere in version 1.
+      return {
+        ok: true,
+        message: { type: "notification_settings_get", requestId, payload: {} },
+      };
+    case PICA_MOBILE_CLIENT_MESSAGE_TYPE.NOTIFICATION_SETTINGS_SET:
+      return readSettingsSet(requestId, payload);
     default:
       return null;
   }
@@ -243,6 +288,26 @@ export function encodePicaMobileNotificationEvent(
   return JSON.stringify({
     version: PICA_MOBILE_PROTOCOL_VERSION,
     type: PICA_MOBILE_SERVER_MESSAGE_TYPE.NOTIFICATION_EVENT,
+    requestId,
+    payload,
+  });
+}
+
+/**
+ * Builds the text frame that answers `notification_settings_get` and
+ * `notification_settings_set`.
+ *
+ * @param requestId - Identifier of the message that is answered.
+ * @param payload - The account and its choices as Pages delivers them now.
+ * @returns The frame content.
+ */
+export function encodePicaMobileNotificationSettings(
+  requestId: string,
+  payload: PicaMobileNotificationSettingsPayload,
+): string {
+  return JSON.stringify({
+    version: PICA_MOBILE_PROTOCOL_VERSION,
+    type: PICA_MOBILE_SERVER_MESSAGE_TYPE.NOTIFICATION_SETTINGS,
     requestId,
     payload,
   });

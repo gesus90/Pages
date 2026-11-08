@@ -40,7 +40,10 @@ export async function readPicaMobileCapabilities(
     return capabilities;
   }
 
-  capabilities.push(PICA_MOBILE_CAPABILITY.NOTIFICATIONS_V1);
+  capabilities.push(
+    PICA_MOBILE_CAPABILITY.NOTIFICATIONS_V1,
+    PICA_MOBILE_CAPABILITY.NOTIFICATIONS_TEAM_V1,
+  );
 
   try {
     if (await notifications.isPushAvailable()) {

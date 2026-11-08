@@ -92,6 +92,32 @@ export const picaMobileNotificationUnregisterPayloadSchema = z.object({
   deviceId: picaMobileNotificationIdSchema,
 });
 
+/** A `notification_settings_set` message names the choices it changes; absent ones stay. */
+export const picaMobileNotificationSettingsSetPayloadSchema = z.object({
+  teamRuns: z.boolean().optional(),
+});
+
+/**
+ * One choice of `notifications.team.v1` as Pages reports it.
+ *
+ * @remarks
+ * `isAvailable` is `false` while this Pages cannot deliver it, for example
+ * without a push sender; `isEnabled` is then `false` as well, whatever the
+ * account chose, so an unavailable choice never shows as on.
+ */
+export interface PicaMobileNotificationSetting {
+  readonly isAvailable: boolean;
+  readonly isEnabled: boolean;
+}
+
+/** The answer to `notification_settings_get` and `notification_settings_set`. */
+export interface PicaMobileNotificationSettingsPayload {
+  /** Always the identifier of the account the connection authenticated. */
+  readonly accountId: string;
+  /** Pushes for runs other people start in plans of the account's teams. */
+  readonly teamRuns: PicaMobileNotificationSetting;
+}
+
 /** A `notification_event_get` message names the event a push notification announced. */
 export const picaMobileNotificationEventGetPayloadSchema = z.object({
   eventId: picaMobileNotificationIdSchema,
@@ -153,6 +179,11 @@ export interface PicaMobileNotificationEvent {
   readonly stepCount?: number;
   /** Only for `run_failed`: a cleaned reason or `null`. */
   readonly reason?: string | null;
+  /**
+   * `team` when the account follows the run as a member of the plan's team;
+   * absent for a run the account started itself.
+   */
+  readonly scope?: "team";
 }
 
 /**

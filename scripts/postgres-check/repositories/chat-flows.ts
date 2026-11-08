@@ -487,6 +487,43 @@ export const CHAT_ATTACHMENT_FLOW: RepositoryFlow = {
         runId: "run-4",
       }),
     ),
+    call(
+      "ChatAttachmentRepository.removeUnclaimedAnswerFile",
+      async (world) => {
+        const removed: string[] = [];
+        const id = await attachmentId(world, "unclaimed-f");
+        const remove = (storageName: string): Promise<void> => {
+          removed.push(storageName);
+          return Promise.resolve();
+        };
+        await attachments(world).removeUnclaimedAnswerFile(
+          "chat-files",
+          "run-other",
+          id,
+          remove,
+        );
+        await attachments(world).removeUnclaimedAnswerFile(
+          "chat-files",
+          "run-4",
+          id,
+          remove,
+        );
+        await attachments(world).removeUnclaimedAnswerFile(
+          "chat-files",
+          "run-4",
+          id,
+          remove,
+        );
+        return removed;
+      },
+    ),
+    call("ChatAttachmentRepository.insertAnswerFile", (world) =>
+      attachments(world).insertAnswerFile(OWNER, {
+        ...UPLOAD,
+        storageName: "unclaimed-g",
+        runId: "run-4",
+      }),
+    ),
     call("ChatAttachmentRepository.removeUnclaimedAnswerFiles", (world) =>
       attachments(world).removeUnclaimedAnswerFiles("chat-files", "run-2"),
     ),

@@ -42,7 +42,7 @@ export interface StoredNotificationEvent {
 
 /** A fact of a run that may become an event, once. */
 export interface EventCandidate {
-  /** Unique per run; a key that was announced before is not announced again. */
+  /** Unique per run and account; a key announced to the account before is not announced to it again. */
   readonly key: string;
   /** The step instances this fact announces; none for the end of a run. */
   readonly steps: readonly StoredEventStep[];
@@ -150,9 +150,10 @@ async function readFreshCandidates(
     `
       SELECT occurrence_key
       FROM pica_mobile_notification_occurrences
-      WHERE run_id = $run_id;
+      WHERE run_id = $run_id
+          AND account_id = $account_id;
     `,
-    { run_id: event.runId },
+    { run_id: event.runId, account_id: event.accountId },
   );
   const announced = new Set(
     rows.map((row) => readTextColumn(row, 0, "occurrence_key")),
@@ -249,13 +250,15 @@ async function insertOccurrences(
       `
         INSERT INTO pica_mobile_notification_occurrences (
             run_id,
+            account_id,
             occurrence_key,
             event_id,
             created_at
-        ) VALUES ($run_id, $occurrence_key, $event_id, $created_at);
+        ) VALUES ($run_id, $account_id, $occurrence_key, $event_id, $created_at);
       `,
       {
         run_id: stored.runId,
+        account_id: stored.accountId,
         occurrence_key: candidate.key,
         event_id: stored.eventId,
         created_at: now,
@@ -426,8 +429,10 @@ export class PicaMobileNotificationEventRepository {
    * @returns The stored event, or `null` when nothing in it was new.
    *
    * @remarks
-   * Only facts not announced before enter the event, so a repeated callback
-   * creates no second event and no second push.
+   * Only facts not announced to the account before enter the event, so a
+   * repeated callback creates no second event and no second push. Each
+   * recipient account has its own record, so the starter and a team member
+   * of the same run each get the fact once.
    */
   public async record(
     event: NewNotificationEvent,

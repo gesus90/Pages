@@ -553,6 +553,65 @@ export const PLAN_TEMPLATE_FLOW: RepositoryFlow = {
         team: null,
       }),
     ),
+    refused("AgentPlanTemplateRepository.update", (world) =>
+      templates(world).update({
+        id: "template-b",
+        ownerId: OTHER_USER,
+        name: "Fremd",
+        node: null,
+      }),
+    ),
+    refused("AgentPlanTemplateRepository.update", (world) =>
+      templates(world).update({
+        id: "template-b",
+        ownerId: OWNER,
+        name: " alpha ",
+        node: null,
+      }),
+    ),
+    refused("AgentPlanTemplateRepository.update", (world) =>
+      templates(world).update({
+        id: "template-b",
+        ownerId: OWNER,
+        name: null,
+        node: {
+          ...PARAMETER_NODE,
+          value: { type: "workspace", workspaceId: "workspace-missing" },
+        },
+      }),
+    ),
+    call("AgentPlanTemplateRepository.update", (world) =>
+      templates(world).update(
+        { id: "template-b", ownerId: OWNER, name: "Beta zwei", node: null },
+        () => Promise.resolve(),
+      ),
+    ),
+    call("AgentPlanTemplateRepository.update", (world) =>
+      templates(world).update({
+        id: "template-c",
+        ownerId: OWNER,
+        name: null,
+        node: PARAMETER_NODE,
+      }),
+    ),
+    refused("AgentPlanTemplateRepository.remove", (world) =>
+      templates(world).remove({ id: "template-b", ownerId: OTHER_USER }),
+    ),
+    call("AgentPlanTemplateRepository.remove", (world) =>
+      templates(world).remove({ id: "template-b", ownerId: OWNER }, () =>
+        Promise.resolve(),
+      ),
+    ),
+    refused("AgentPlanTemplateRepository.remove", (world) =>
+      templates(world).remove({ id: "template-b", ownerId: OWNER }),
+    ),
+    call("AgentPlanTemplateRepository.list", (world) =>
+      templates(world).list({
+        ownerId: OWNER,
+        projectId: PROJECT,
+        departmentIds: ["department-b"],
+      }),
+    ),
     prepare(
       "UPDATE agent_plan_templates SET node_type = 'future' WHERE id = 'template-c';",
     ),

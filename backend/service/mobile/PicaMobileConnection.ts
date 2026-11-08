@@ -65,7 +65,7 @@ export interface PicaMobileConnectionOptions {
   readonly dashboard?: PicaMobileDashboardProvider;
   /**
    * Answers the notification messages; without it the connection announces
-   * neither `notifications.v1` nor `notifications.push.fcm` and treats the
+   * neither `notifications.v1`, `notifications.push.fcm` nor `notifications.team.v1` and treats the
    * messages as unknown.
    */
   readonly notifications?: PicaMobileNotificationProvider;
@@ -394,6 +394,8 @@ export class PicaMobileConnection {
       case "notification_register":
       case "notification_unregister":
       case "notification_event_get":
+      case "notification_settings_get":
+      case "notification_settings_set":
         await this.notifications.handle(message);
 
         return;

@@ -19,15 +19,13 @@ import type {
   PicaMobileNotificationEventRepository,
   StoredNotificationEvent,
 } from "@/backend/database/repositories/mobile/PicaMobileNotificationEventRepository";
-import type {
-  AgentPlanOwnerRunAccess,
-  AgentPlanOwnerRunReader,
-} from "@/backend/service/agents/AgentPlanOwnerRunReader";
+import type { AgentPlanOwnerRunAccess } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import type {
   PicaMobileNotificationEvent,
   PicaMobileNotificationEventPayload,
   PicaMobileNotificationStep,
 } from "@/definition/PicaMobileNotifications";
+import type { PicaMobileNotificationAccess } from "./PicaMobileNotificationAccess";
 
 type GrantedAccess = Extract<AgentPlanOwnerRunAccess, { status: "granted" }>;
 
@@ -97,6 +95,8 @@ function toEvent(
       id: event.runId,
       status: toPicaMobileNotificationRunStatus(access.run.status),
     },
+    // Events of the account's own runs keep the shape older apps know.
+    ...(access.relation === "team" ? { scope: "team" as const } : {}),
   };
 
   if (event.type === PICA_MOBILE_NOTIFICATION_EVENT_TYPE.STEP_STARTED) {
@@ -191,25 +191,25 @@ function fitFrame(payload: OkPayload): PicaMobileNotificationEventPayload {
  *
  * @remarks
  * The answer is `gone` for an event that does not exist, has expired or
- * belongs to another account, and `forbidden` when the account no longer owns
- * the plan or may no longer read the run. Both carry nothing but the
+ * belongs to another account, and `forbidden` when the account no longer may
+ * read the plan or the run, left the plan's team or switched team runs off. Both carry nothing but the
  * identifier. Names and the run status come from the current authorized view
  * of the run; nothing stored earlier is shown. Pages names no link, because
  * its web interface has no address that opens one run without a query part.
  */
 export class PicaMobileNotificationEventReader {
   private readonly events: Pick<PicaMobileNotificationEventRepository, "find">;
-  private readonly runs: Pick<AgentPlanOwnerRunReader, "read">;
+  private readonly runs: Pick<PicaMobileNotificationAccess, "read">;
 
   /**
    * Creates the reader.
    *
    * @param events - The stored events.
-   * @param runs - The rights check for plan ownership and run access.
+   * @param runs - The check of the relation, the team choice and the run access.
    */
   public constructor(
     events: Pick<PicaMobileNotificationEventRepository, "find">,
-    runs: Pick<AgentPlanOwnerRunReader, "read">,
+    runs: Pick<PicaMobileNotificationAccess, "read">,
   ) {
     this.events = events;
     this.runs = runs;
@@ -234,7 +234,11 @@ export class PicaMobileNotificationEventReader {
       return { eventId, access: "gone" };
     }
 
-    const access = await this.runs.read(accountId, stored.runId);
+    const access = await this.runs.read(
+      accountId,
+      stored.runId,
+      stored.occurredAt,
+    );
 
     if (access.status !== "granted") {
       return {

@@ -17,8 +17,8 @@ import type {
   PushRegistrationRecord,
 } from "@/backend/database/repositories/mobile/PicaMobilePushRegistrationRepository";
 import type { AgentPlanOwnerRunAccess } from "@/backend/service/agents/AgentPlanOwnerRunReader";
-import type { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import type { PicaMobileAccountChecks } from "./PicaMobileAccountChecks";
+import type { PicaMobileNotificationAccess } from "./PicaMobileNotificationAccess";
 import type { PicaMobilePushDetails } from "./PicaMobilePushMessage";
 import type {
   PicaMobilePushOutcome,
@@ -39,7 +39,8 @@ export interface PicaMobileNotificationDispatcherOptions {
     PicaMobilePushRegistrationRepository,
     "find" | "listAll" | "removeBinding"
   >;
-  readonly runs: Pick<AgentPlanOwnerRunReader, "read">;
+  /** The relation to the run, the team choice and the rights on the run. */
+  readonly runs: Pick<PicaMobileNotificationAccess, "read">;
   readonly accounts: PicaMobileAccountChecks;
   readonly vault: Pick<PicaMobilePushTokenVault, "decrypt">;
   /** `null` while no sender is configured: pending pushes then only wait out their validity. */
@@ -144,7 +145,8 @@ function toDetails(
  * or unconfigured push service changes no run, starts no job and blocks
  * nothing. Immediately before every attempt it checks again that the
  * registration still holds, that its session and account are in good standing
- * and that the account still owns the plan and may read the run. Attempts stop
+ * and that the account still started the run, or still belongs to the plan's
+ * team with team runs switched on, and may read the plan and the run. Attempts stop
  * when the validity of the push is over. A transient failure is retried a few
  * times with growing waits; a token the push service refuses ends only its own
  * registration. A step push is held back so a run sends at most one every ten
@@ -414,7 +416,11 @@ export class PicaMobileNotificationDispatcher {
       return { kind: "drop", outcome: "session_ended", remove: registration };
     }
 
-    const access = await runs.read(delivery.accountId, delivery.runId);
+    const access = await runs.read(
+      delivery.accountId,
+      delivery.runId,
+      event.occurredAt,
+    );
 
     if (access.status !== "granted") {
       return { kind: "drop", outcome: "rights_revoked" };
