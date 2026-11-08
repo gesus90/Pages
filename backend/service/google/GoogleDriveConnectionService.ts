@@ -1,7 +1,10 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { buildGoogleAuthorizationUrl } from "@/backend/google/GoogleDriveApiClient";
-import { GOOGLE_DRIVE_SCOPE } from "@/backend/google/GoogleDriveConfig";
+import {
+  GOOGLE_DRIVE_SCOPE,
+  GOOGLE_DRIVE_TREE_SCOPES,
+} from "@/backend/google/GoogleDriveConfig";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import type {
@@ -133,6 +136,14 @@ function refreshBinding(connectedAt: number): string {
 
 function attemptBinding(attemptId: string): string {
   return `google-drive:attempt:${attemptId}`;
+}
+
+function grantsFolderTree(grantedScope: string): boolean {
+  const grantedScopes = grantedScope.split(" ");
+
+  return GOOGLE_DRIVE_TREE_SCOPES.some((scope) =>
+    grantedScopes.includes(scope),
+  );
 }
 
 /**
@@ -278,6 +289,7 @@ export class GoogleDriveConnectionService {
       accountEmail: null,
       canSignIn: origins.current !== null,
       missingSettings: this.missingSettings,
+      needsFolderAccess: false,
       problem: null,
       redirectUris: origins.allowed.map(
         (origin) => `${origin}${GOOGLE_DRIVE_CALLBACK_PATH}`,
@@ -306,6 +318,7 @@ export class GoogleDriveConnectionService {
       return {
         ...base,
         accountEmail: result.value.emailAddress,
+        needsFolderAccess: !grantsFolderTree(connection.grantedScope),
         state: "connected",
       };
     }

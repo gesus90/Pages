@@ -312,6 +312,7 @@
       "notConfigured": "Not set up",
       "signIn": "Sign in with Google",
       "signInAgain": "Sign in again",
+      "folderAccessMissing": "The access does not cover the folder view in Storage. Sign in again and allow read access to Google Drive.",
       "missingSettings": "The Google OAuth client is missing. Missing server settings: {{settings}}. Register these redirect URIs: {{redirectUris}}",
       "originNotAllowed": "Google Drive can only be connected from a registered address. Open Pages at: {{origins}}",
       "loadFailed": "The connection status could not be loaded.",
