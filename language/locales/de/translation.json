@@ -5566,17 +5566,7 @@
         "native_resume": "Frühere Agent-Sitzung fortsetzen",
         "new_session": "Neuer Versuch"
       },
-      "modeHint": {
-        "native_resume": "der Adapter setzt die gespeicherte Sitzung mit ihrem Verlauf fort.",
-        "new_session": "offene Schritte starten als neuer Versuch. Agents erhalten eine neue Sitzung mit Auftrag, übernommenen Ergebnissen und Wiederherstellungshinweis."
-      },
-      "modeUnavailable": "hier nicht möglich: der Adapter kann die Sitzung nicht fortsetzen oder sie ist unbekannt.",
-      "resume": "Ab letztem sicheren Stand fortsetzen",
-      "resumeHint_one": "Unverändert übernommen: {{reused}}. Nur offene, fehlgeschlagene oder unterbrochene Arbeit läuft erneut, als neuer Versuch mit dem gespeicherten Plan.",
-      "resumeHint_other": "Unverändert übernommen ({{count}}): {{reused}}. Nur offene, fehlgeschlagene oder unterbrochene Arbeit läuft erneut, als neuer Versuch mit dem gespeicherten Plan.",
-      "resumeHint_zero": "Kein bestätigtes Ergebnis zum Übernehmen. Nur offene, fehlgeschlagene oder unterbrochene Arbeit läuft erneut, als neuer Versuch mit dem gespeicherten Plan.",
-      "review": "Ich habe mögliche Auswirkungen von „{{step}}“ (Dateien, Branches, Tickets) geprüft und will den Schritt erneut ausführen.",
-      "resumeAction": "Lauf fortsetzen",
+      "resumeAction": "Fortsetzen",
       "restart": "Von vorne starten",
       "restartHint": "Startet einen neuen Lauf mit dem gespeicherten Plan. Der frühere Lauf, seine Ergebnisse und sein Journal bleiben erhalten; vorhandene Dateien und Branches werden nicht zurückgesetzt.",
       "confirmRepeat": "Alle Knoten laufen erneut, auch Aktionen, die bereits gewirkt haben können.",
@@ -5642,8 +5632,7 @@
         "plan_conflict": "Der Plan wurde inzwischen gespeichert. Lade den Plan neu und starte den Stand, den du siehst.",
         "diagnostic_unavailable": "Der Bereinigungsbefund konnte nicht gespeichert oder gelesen werden. Die Freigabe ist nicht bestätigt. Erneut prüfen."
       },
-      "resumeTitle": "Lauf fortsetzen",
-      "resumeDescription": "Setzt am letzten sicheren Stand fort: Erfolgreiche Schritte werden übernommen und nicht wiederholt; offene Arbeit läuft als neuer Versuch.",
+      "resumeTitle": "Plan fortsetzen",
       "cleanupHistory": "Letzter gespeicherter Bereinigungsfehler",
       "cleanupHistoryTime": "{{time}}",
       "cleanupHistoryHint": "Historischer Befund. Die aktuelle Freigabe und Prozesslage stehen bei den verfügbaren Aktionen.",
@@ -5666,7 +5655,9 @@
       },
       "planState": "Plan",
       "planChanged": "Seit diesem Lauf erneut gespeichert",
-      "planUnchanged": "Seit diesem Lauf unverändert"
+      "planUnchanged": "Seit diesem Lauf unverändert",
+      "resumeConfirm": "Den Plan an der fehlgeschlagenen Stelle fortsetzen? Erfolgreiche Schritte und Loop-Durchläufe bleiben erhalten und laufen nicht erneut.",
+      "resumePending": "Wird fortgesetzt …"
     },
     "nodeInstruction": "Zusätzliche Node-Anweisung",
     "execution": {

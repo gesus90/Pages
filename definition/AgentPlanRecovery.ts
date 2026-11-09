@@ -152,11 +152,21 @@ export type AgentPlanRecoveryCommand = RecoveryCommandIdentity &
     | { readonly action: "cancel" }
     | {
         readonly action: "resume";
-        readonly mode: AgentPlanRecoveryMode;
+        /** An explicit session decision; absent, the server chooses from the session capabilities. */
+        readonly mode?: AgentPlanRecoveryMode;
         /** The saved plan revision deliberately selected for the continuation. */
         readonly revision?: number;
         /** Started nodes whose possible side effects the executor reviewed; each runs again. */
-        readonly reviewedStepIds: readonly string[];
+        readonly reviewedStepIds?: readonly string[];
+        /**
+         * The executor confirmed continuing the run at its failure point in one decision.
+         *
+         * @remarks
+         * It stands for every started node the resume runs again, in place of
+         * single reviews: each of them gets the recovery notice to inspect its
+         * earlier effects before it repeats anything.
+         */
+        readonly confirmContinue?: true;
       }
     | {
         readonly action: "restart";

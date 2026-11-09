@@ -1,5 +1,22 @@
 # Recoverable plan runs (PAGE-84, executing since PAGE-127)
 
+## PAGE-269: one confirmation, and loops continue at their failed member
+
+The resume dialog asks one question. Its command carries `confirmContinue: true`
+instead of a mode and single reviews; it stands for every started node the
+resume runs again, and each of them still gets the recovery notice to inspect
+its earlier effects. Without `mode` the server chooses: `native_resume` only
+when every retried agent node has a session its adapter announced it can
+resume, `new_session` otherwise (`resumeSessionMode`). An explicit mode and
+`reviewedStepIds` keep working for the agent tools and the automatic
+continuation. Every other check of a resume stays.
+
+A continuation run now takes over the stack deliveries of the earlier run.
+Before, it started without them: a loop member bound to a stack's content
+failed again at once with `plan_stack_content_missing`, and the next iteration
+would have handed over the first entry again. Now the resumed member reads the
+entry its iteration was handed, and the next iteration takes the following one.
+
 ## PAGE-209: work done, closeout open
 
 A plan can mark an agent or script node of its flow with `role: "closeout"`. When

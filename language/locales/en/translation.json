@@ -5566,17 +5566,7 @@
         "native_resume": "Continue the earlier agent session",
         "new_session": "New attempt"
       },
-      "modeHint": {
-        "native_resume": "the adapter resumes the stored session with its history.",
-        "new_session": "unfinished steps start as a new attempt. Agents get a new session with their assignment, reused results and recovery notice."
-      },
-      "modeUnavailable": "not possible here: the adapter cannot resume the session, or the session is unknown.",
-      "resume": "Continue from the last safe state",
-      "resumeHint_one": "Taken over unchanged: {{reused}}. Only open, failed or interrupted work runs again, as a new attempt with the saved plan.",
-      "resumeHint_other": "Taken over unchanged ({{count}}): {{reused}}. Only open, failed or interrupted work runs again, as a new attempt with the saved plan.",
-      "resumeHint_zero": "No verified result to take over. Only open, failed or interrupted work runs again, as a new attempt with the saved plan.",
-      "review": "I checked the possible effects of “{{step}}” (files, branches, tickets) and want it to run again.",
-      "resumeAction": "Continue run",
+      "resumeAction": "Continue",
       "restart": "Start from the start",
       "restartHint": "Starts a new run with the saved plan. The earlier run, its results and its journal stay as they are; existing files and branches are not reset.",
       "confirmRepeat": "Every node runs again, including actions that may already have taken effect.",
@@ -5642,8 +5632,7 @@
         "plan_conflict": "The plan was saved meanwhile. Reload the plan and start the version you see.",
         "diagnostic_unavailable": "The cleanup finding could not be stored or read. Release is not confirmed. Check again."
       },
-      "resumeTitle": "Resume run",
-      "resumeDescription": "Continues from the last safe state: successful steps are taken over and not repeated; open work runs as a new attempt.",
+      "resumeTitle": "Continue plan",
       "cleanupHistory": "Last recorded cleanup failure",
       "cleanupHistoryTime": "{{time}}",
       "cleanupHistoryHint": "Historical finding. See available actions for the current release and process state.",
@@ -5666,7 +5655,9 @@
       },
       "planState": "Plan",
       "planChanged": "Saved again since this run",
-      "planUnchanged": "Unchanged since this run"
+      "planUnchanged": "Unchanged since this run",
+      "resumeConfirm": "Continue the plan at the point where it failed? Successful steps and loop iterations are kept and do not run again.",
+      "resumePending": "Continuing …"
     },
     "nodeInstruction": "Additional node instruction",
     "execution": {

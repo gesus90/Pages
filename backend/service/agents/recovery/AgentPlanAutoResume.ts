@@ -52,7 +52,7 @@ interface AutoResumeDependencies {
 function resumeMode(
   facts: RecoveryFacts,
   plan: ResumePlan,
-): ResumeCommand["mode"] | string {
+): NonNullable<ResumeCommand["mode"]> | string {
   const retried = facts.run.steps.filter((step) =>
     plan.retriedStepIds.includes(step.id),
   );

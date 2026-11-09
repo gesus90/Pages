@@ -1,4 +1,5 @@
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
+import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
@@ -13,6 +14,7 @@ import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
 import type {
   AgentPlanCheckpoint,
   AgentPlanRecoveryExecution,
+  AgentPlanRecoveryMode,
   AgentPlanRecoveryOption,
   AgentPlanRecoveryView,
 } from "@/definition/AgentPlanRecovery";
@@ -212,6 +214,51 @@ export function planResume(
     canResumeNatively:
       agents.length > 0 && agents.every((step) => nativeSession(step) !== null),
   };
+}
+
+/**
+ * The session decision of a resume: the one the executor named, else the one the sessions allow.
+ *
+ * @param plan - What the resume runs again.
+ * @param requested - An explicit decision; absent for the confirmation of a person.
+ * @returns `native_resume` only when every retried agent node has a session
+ * its adapter announced it can resume, `new_session` otherwise.
+ * @throws {AgentPlanRecoveryError} `action_unavailable` for `live`, which an
+ * ended run never has, and `native_resume_unavailable` for a named native
+ * resume the sessions do not allow.
+ */
+export function resumeSessionMode(
+  plan: Pick<ResumePlan, "canResumeNatively">,
+  requested: AgentPlanRecoveryMode | undefined,
+): Exclude<AgentPlanRecoveryMode, "live"> {
+  if (requested === "live")
+    throw new AgentPlanRecoveryError("action_unavailable");
+  if (requested === "native_resume" && !plan.canResumeNatively)
+    throw new AgentPlanRecoveryError("native_resume_unavailable");
+  if (requested) return requested;
+  return plan.canResumeNatively ? "native_resume" : "new_session";
+}
+
+/**
+ * The started nodes the decision of the executor covers.
+ *
+ * @param plan - What the resume runs again.
+ * @param decision - Single reviews, or the one confirmation of the whole continuation.
+ * @returns The retried nodes, which the origin of the new run names as reviewed.
+ * @throws {AgentPlanRecoveryError} `review_required` while a retried node is covered by neither.
+ */
+export function reviewedRetries(
+  plan: Pick<ResumePlan, "retriedStepIds">,
+  decision: {
+    readonly reviewedStepIds?: readonly string[];
+    readonly confirmContinue?: true;
+  },
+): readonly string[] {
+  if (decision.confirmContinue === true) return plan.retriedStepIds;
+  const reviewed = decision.reviewedStepIds ?? [];
+  if (plan.retriedStepIds.some((id) => !reviewed.includes(id)))
+    throw new AgentPlanRecoveryError("review_required");
+  return reviewed;
 }
 
 /** The native session of a started agent node that its adapter can resume. */

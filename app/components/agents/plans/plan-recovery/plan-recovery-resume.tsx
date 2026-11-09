@@ -1,113 +1,100 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
+
+import { recoveryErrorText } from "../plan-recovery-panel";
 
 import type { AgentPlanRecoveryView } from "@/definition/AgentPlanRecovery";
-import type { PlanRecoveryRequest } from "../use-plan-recovery";
-
-type ResumeMode = "native_resume" | "new_session";
+import type { usePlanRecovery } from "../use-plan-recovery";
 
 /**
- * Continues the run from its last safe state.
+ * Asks once whether the run continues at its failure point, and continues it.
  *
  * @remarks
- * The executor sees which results are taken over unchanged, chooses whether
- * an earlier agent session is continued or a new one starts, and confirms
- * for each started node that its possible effects were reviewed. Nothing
- * is preselected.
+ * The one confirmation stands for the whole continuation: the server chooses
+ * whether an earlier agent session continues or a new one starts, takes over
+ * the verified results, runs only the open work again and checks rights,
+ * revision, checkpoints and leftover processes first. Cancelling or closing
+ * starts nothing. The dialog closes once the new run started; a refusal stays
+ * visible and the button can be used again.
  */
 export function PlanRecoveryResume({
   view,
-  isPending,
-  onSubmit,
+  recovery,
+  onClose,
 }: {
   readonly view: AgentPlanRecoveryView;
-  readonly isPending: boolean;
-  readonly onSubmit: (request: PlanRecoveryRequest) => void;
+  readonly recovery: ReturnType<typeof usePlanRecovery>;
+  readonly onClose: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<ResumeMode | null>(null);
-  const [reviewed, setReviewed] = useState<readonly string[]>([]);
   const { resume } = view;
-  const isReviewed = resume.reviewStepIds.every((id) => reviewed.includes(id));
-  const canSubmit =
-    resume.available && mode !== null && isReviewed && !isPending;
-  function toggle(id: string, isChecked: boolean): void {
-    setReviewed(
-      isChecked ? [...reviewed, id] : reviewed.filter((entry) => entry !== id),
-    );
-  }
-  function handleResume(): void {
-    if (mode === null) return;
-    onSubmit({
+  const { isPending } = recovery;
+  async function handleResume(): Promise<void> {
+    const answer = await recovery.submit({
       action: "resume",
-      mode,
       revision: view.currentPlanRevision,
-      reviewedStepIds: reviewed,
+      confirmContinue: true,
     });
+    if (answer?.runId) onClose();
+  }
+  function handleOpenChange(isOpen: boolean): void {
+    if (!isOpen && !isPending) onClose();
   }
   return (
-    <fieldset className="space-y-1.5" disabled={!resume.available || isPending}>
-      <legend className="font-medium text-foreground">
-        {t("plans.recovery.resume")}
-      </legend>
-      <p>
-        {t("plans.recovery.resumeHint", {
-          reused: resume.reusedStepIds
-            .map((id) => view.stepNames[id] ?? id)
-            .join(", "),
-          count: resume.reusedStepIds.length,
-        })}
-      </p>
-      {resume.modes.map((option) => (
-        <label
-          key={option.mode}
-          className="flex items-start gap-2 [@media(pointer:coarse)]:min-h-11"
-        >
-          <input
-            type="radio"
-            name={`plan-recovery-mode-${view.runId}`}
-            value={option.mode}
-            checked={mode === option.mode}
-            disabled={!option.available}
-            onChange={() => setMode(option.mode)}
-          />
-          <span>
-            {t(`plans.recovery.mode.${option.mode}`)}
-            {" – "}
-            {t(
-              option.available
-                ? `plans.recovery.modeHint.${option.mode}`
-                : "plans.recovery.modeUnavailable",
+    <Dialog open onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogTitle className="text-lg font-semibold">
+          {t("plans.recovery.resumeTitle")}
+        </DialogTitle>
+        <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {t("plans.recovery.resumeConfirm")}
+        </DialogDescription>
+        {!resume.available && resume.reason ? (
+          <p role="status" className="mt-3 text-sm text-warning">
+            {t(`plans.recovery.blocker.${resume.reason}`)}
+          </p>
+        ) : null}
+        {isPending ? (
+          <p role="status" className="mt-3 text-sm text-muted-foreground">
+            {t("plans.recovery.resumePending")}
+          </p>
+        ) : null}
+        {recovery.error ? (
+          <p role="alert" className="mt-3 text-sm text-destructive">
+            {recoveryErrorText(
+              t,
+              recovery.error,
+              recovery.cleanupFailure,
+              view.stepNames,
             )}
-          </span>
-        </label>
-      ))}
-      {resume.reviewStepIds.map((id) => (
-        <label
-          key={id}
-          className="flex items-start gap-2 [@media(pointer:coarse)]:min-h-11"
-        >
-          <input
-            type="checkbox"
-            checked={reviewed.includes(id)}
-            onChange={(event) => toggle(id, event.target.checked)}
-          />
-          <span>
-            {t("plans.recovery.review", { step: view.stepNames[id] ?? id })}
-          </span>
-        </label>
-      ))}
-      <Button
-        size="xs"
-        variant="outline"
-        disabled={!canSubmit}
-        onClick={handleResume}
-        className="[@media(pointer:coarse)]:h-11"
-      >
-        {t("plans.recovery.resumeAction")}
-      </Button>
-    </fieldset>
+          </p>
+        ) : null}
+        <footer className="mt-6 flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPending}
+            onClick={onClose}
+          >
+            {t("settings.agents.cancel")}
+          </Button>
+          <Button
+            type="button"
+            isPending={isPending}
+            disabled={!resume.available}
+            onClick={() => void handleResume()}
+          >
+            {t("plans.recovery.resumeAction")}
+          </Button>
+        </footer>
+      </DialogContent>
+    </Dialog>
   );
 }

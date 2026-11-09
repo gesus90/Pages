@@ -141,7 +141,7 @@ const command = z.discriminatedUnion("action", [
   z.strictObject({
     ...commandIdentity,
     action: z.literal("resume"),
-    mode: z.enum(["live", "native_resume", "new_session"]),
+    mode: z.enum(["live", "native_resume", "new_session"]).optional(),
     revision: z
       .number()
       .int()
@@ -149,6 +149,7 @@ const command = z.discriminatedUnion("action", [
       .max(Number.MAX_SAFE_INTEGER)
       .optional(),
     reviewedStepIds: z.array(identifier).max(100).default([]),
+    confirmContinue: z.literal(true).optional(),
   }),
   z.strictObject({
     ...commandIdentity,
