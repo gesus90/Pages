@@ -226,6 +226,11 @@ export interface AgentPlanSessionRecord {
   readonly retry?: AgentPlanRetry;
   readonly runner: AgentPlanRunner;
   readonly mode: AgentPlanSessionMode;
+  /**
+   * The CLI runs in a terminal a viewer can open (PAGE-265); absent for an
+   * ACP session, whose events are its history.
+   */
+  readonly surface?: "terminal";
   /** Pages' identifier of this process instance; it tags every process of the session. */
   readonly instanceId: string;
   /**

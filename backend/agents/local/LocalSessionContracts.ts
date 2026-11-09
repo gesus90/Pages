@@ -234,6 +234,7 @@ export const localMutationSchema = z.discriminatedUnion("kind", [
       arguments: z.array(z.string()),
       unattended: z.string(),
       namespace: z.unknown().transform(readOwnedNamespace).optional(),
+      surface: z.literal("terminal").optional(),
     }),
   }),
   z.object({ kind: z.literal("identified"), sessionId: z.string() }),

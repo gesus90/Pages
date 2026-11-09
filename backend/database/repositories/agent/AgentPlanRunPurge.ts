@@ -100,6 +100,12 @@ const SESSION_TABLES = [
   "agent_session_messages",
 ] as const;
 
+/** The terminal logs of one run (PAGE-265): segments and inputs under the terminal of each process. */
+const TERMINAL_TABLES = [
+  "agent_plan_terminal_segments",
+  "agent_plan_terminal_inputs",
+] as const;
+
 async function deleteRun(
   transaction: DatabaseTransaction,
   runId: string,
@@ -137,6 +143,22 @@ async function deleteRun(
     );
   await transaction.execute(
     "DELETE FROM agent_session_attempts WHERE run_id = $run_id;",
+    parameters,
+  );
+  for (const table of TERMINAL_TABLES)
+    await transaction.execute(
+      `
+        DELETE FROM ${table}
+        WHERE instance_id IN (
+            SELECT instance_id
+            FROM agent_plan_terminals
+            WHERE run_id = $run_id
+        );
+      `,
+      parameters,
+    );
+  await transaction.execute(
+    "DELETE FROM agent_plan_terminals WHERE run_id = $run_id;",
     parameters,
   );
   // The triggers of the run row queue its payload files, its transcript homes

@@ -13,7 +13,12 @@ import type {
 interface ConsoleMetadataProps {
   readonly view: AgentSessionView;
   readonly record: AgentPlanSessionRecord;
+  /** Readable local time of the last activity; `null` when unknown. */
   readonly lastActivity: string | null;
+  /** Translated status of the session or its terminal. */
+  readonly status?: string;
+  /** Readable duration since the session started; `null` before it started. */
+  readonly runtime?: string | null;
 }
 
 /** A long value keeps its end visible; the whole value is in the tooltip and can be copied. */
@@ -84,12 +89,16 @@ export function ConsoleMetadata({
   view,
   record,
   lastActivity,
+  status,
+  runtime,
 }: ConsoleMetadataProps): React.ReactElement {
   const { t } = useTranslation();
   const unknown = (
     <span className="text-muted-foreground">{t("plans.console.unknown")}</span>
   );
   const rows: readonly [string, React.ReactNode][] = [
+    ["status", status ?? t(`plans.console.state.${view.state}`)],
+    ["provider", t(`settings.agents.provider.${view.provider}`)],
     [
       "directory",
       view.workspace ? <LongValue value={view.workspace.directory} /> : unknown,
@@ -109,6 +118,7 @@ export function ConsoleMetadata({
       "sessionId",
       record.sessionId ? <LongValue value={record.sessionId} /> : unknown,
     ],
+    ["runtime", runtime ?? unknown],
     ["lastActivity", lastActivity ?? unknown],
   ];
   return (

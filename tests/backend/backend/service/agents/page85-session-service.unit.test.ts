@@ -415,3 +415,41 @@ it("ends a failed start clearly: the turn mark clears and a waiting instruction 
     2,
   );
 });
+
+it("records the command and output of a tool call and never its internal ID (PAGE-265)", async () => {
+  const run = { current: groupRun() };
+  const world = sessionWorld(run);
+  const listener = world.listen("member-a");
+  listener.update({
+    sessionUpdate: "tool_call",
+    toolCallId: "toolu_01ABC",
+    title: "",
+    kind: "execute",
+    rawInput: { command: "pnpm test" },
+  });
+  listener.update({
+    sessionUpdate: "tool_call_update",
+    toolCallId: "toolu_01ABC",
+    status: "completed",
+    content: [
+      { type: "content", content: { type: "text", text: "12 passed" } },
+    ],
+  });
+  listener.prompted(null);
+  await world.service.settle(run.current.steps[0]?.session ?? null, {
+    failure: null,
+    errorCode: null,
+  });
+  const history = await world.service.history("executor", KEY_A, {
+    after: 0,
+    limit: 50,
+  });
+  const tools = history.events.filter((event) =>
+    event.kind.startsWith("tool_"),
+  );
+  expect(tools.map((event) => event.text)).toEqual([
+    "execute\n$ pnpm test",
+    "execute\n$ pnpm test\n12 passed",
+  ]);
+  expect(tools.some((event) => event.text.includes("toolu_01ABC"))).toBe(false);
+});

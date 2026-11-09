@@ -79,6 +79,7 @@ import { createLiveChangeServices } from "./live-change-services.server";
 import { createPreferenceServices } from "./preference-services.server";
 import { registerShutdownHandler } from "./services-shutdown.server";
 
+import type { AgentTerminalService } from "@/backend/service/agents/terminal/AgentTerminalService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { LiveChangeHub } from "@/backend/service/events/LiveChangeHub";
@@ -114,6 +115,8 @@ export interface ApplicationServices
   readonly agentLocalSessionPreparation: AgentLocalSessionPreparation;
   /** The PageAgentCLI sessions of plan nodes: history, live events and instructions. */
   readonly agentSessionService: AgentSessionService;
+  /** The terminals of plan nodes: screen, segments and checked input (PAGE-265). */
+  readonly agentTerminalService: AgentTerminalService;
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;
   readonly groupAdministrationService: GroupAdministrationService;
   readonly authService: AuthService;

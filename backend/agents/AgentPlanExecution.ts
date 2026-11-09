@@ -53,6 +53,8 @@ export interface PlanSessionObserver {
     readonly unattended: string;
     /** Durable supervisor identity, when this runner owns a PID namespace. */
     readonly namespace?: AcpNamespaceOwner;
+    /** The CLI runs in a terminal a viewer can open (PAGE-265); absent for ACP. */
+    readonly surface?: "terminal";
   }) => void;
   readonly identified: (sessionId: string) => void;
   /** Announced by a supported adapter; never inferred from a provider name. */

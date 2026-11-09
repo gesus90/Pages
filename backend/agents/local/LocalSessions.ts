@@ -28,13 +28,17 @@ import {
 } from "./LocalSessionFiles";
 import { sendLocalCommand } from "./LocalSessionTransport";
 import { startLocalSessionUnit } from "./LocalSessionUnit";
-import { registerLocalOwnerSettlement } from "./LocalOwnerControl";
+import {
+  registerLocalOwnerInspection,
+  registerLocalOwnerSettlement,
+} from "./LocalOwnerControl";
 import { pinLocalSessionTools } from "./LocalSessionTools";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { LocalSessionEntry } from "@/backend/database/repositories/agent/LocalSessionRepository";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
+import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type {
   AgentPlanSessionInput,
@@ -88,6 +92,11 @@ export class LocalSessions {
     registerLocalOwnerSettlement((instanceId) =>
       this.settleManaged(instanceId),
     );
+    registerLocalOwnerInspection((instanceId) => {
+      const entry = this.entries.get(instanceId);
+      if (!entry) return null;
+      return entry.releasedAt ? "released" : "owned";
+    });
   }
 
   /** Proves surviving units before any credential, lease or plan cleanup is permitted. */
@@ -206,7 +215,15 @@ export class LocalSessions {
           provider: recording.provider,
         },
         signal,
-        (admitted) => this.startOwner(input, launch, admitted, observer),
+        (admitted, lifecycle) => {
+          lifecycle.trackSpawn();
+          return this.startOwner(
+            input,
+            launch,
+            { signal: admitted, lifecycle },
+            observer,
+          );
+        },
         observer,
       )
       .then((session) => {
@@ -337,7 +354,10 @@ export class LocalSessions {
   private async startOwner(
     input: AgentPlanSessionInput,
     launch: LocalSessionLaunch,
-    admitted: AbortSignal,
+    admission: {
+      readonly signal: AbortSignal;
+      readonly lifecycle: AcpStartLifecycle;
+    },
     observer: PlanSessionObserver,
   ): Promise<LocalAttachedSession> {
     if (!input.recording) throw new AgentError("plan_context_changed");
@@ -376,6 +396,7 @@ export class LocalSessions {
       browser: input.options.browser === true,
     });
     try {
+      await admission.lifecycle.beforeSpawn();
       await startLocalSessionUnit(manifest);
       await this.waitForReady(directory);
       const owned = await proveLocalOwner(entry, directory);
@@ -383,7 +404,7 @@ export class LocalSessions {
       this.entries.set(entry.instanceId, { ...entry, proof: owned.proof });
       this.proven.add(entry.instanceId);
       this.launching.delete(entry.instanceId);
-      const raw = await this.bind(entry, launch, admitted, observer);
+      const raw = await this.bind(entry, launch, admission.signal, observer);
       // The bearer travels only through the private socket into the owner's memory.
       if (input.mcp)
         await this.control(entry, { kind: "bearer", token: input.mcp.token });

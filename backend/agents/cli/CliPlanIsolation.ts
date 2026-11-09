@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
-import { access, realpath } from "node:fs/promises";
+import { access, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -17,6 +17,25 @@ const TRUE_BINARY = "/usr/bin/true";
 /** A failed probe is repeated after this long, so installing bubblewrap needs no restart. */
 const RETRY_FAILED_PROBE_MS = 60_000;
 const execFileAsync = promisify(execFile);
+/** `0` when the kernel refuses `TIOCSTI`, the injection of input into a terminal (Linux 6.2 and later). */
+const LEGACY_TIOCSTI = "/proc/sys/dev/tty/legacy_tiocsti";
+
+/**
+ * Whether a terminal session keeps its terminal as controlling terminal.
+ *
+ * @remarks
+ * `--new-session` keeps a sandboxed process from pushing input into the
+ * terminal of Pages with `TIOCSTI`. A terminal CLI without a controlling
+ * terminal receives no resize signal, so the session stays only where the
+ * kernel refuses that injection anyway; anywhere else it is a new session.
+ */
+async function keepsTerminalSession(
+  request: CliSessionRequest,
+): Promise<boolean> {
+  if (request.isTerminal !== true) return false;
+  const setting = await readFile(LEGACY_TIOCSTI, "utf8").catch(() => "1");
+  return setting.trim() === "0";
+}
 
 /**
  * Proves that bubblewrap starts a namespace for this account on this host.
@@ -149,7 +168,7 @@ export class CliPlanIsolation {
       arguments: [
         "--die-with-parent",
         "--unshare-pid",
-        "--new-session",
+        ...((await keepsTerminalSession(request)) ? [] : ["--new-session"]),
         "--ro-bind",
         "/",
         "/",

@@ -32,6 +32,14 @@ function ContextMeter({
 }): React.ReactElement {
   const { t } = useTranslation();
   const share = contextShare(context);
+  if (share === null && (context.contextUsed ?? 0) > 0)
+    return (
+      <p className="text-xs text-muted-foreground">
+        {t("plans.console.contextUsedOnly", {
+          used: count(context.contextUsed),
+        })}
+      </p>
+    );
   if (share === null)
     return (
       <p className="text-xs text-muted-foreground">

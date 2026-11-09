@@ -8,6 +8,9 @@ import type { CliGitHubAccess } from "./CliGitHubCredentials";
 import type { CliSessionRequest } from "./CliContracts";
 import type { CliSessionProcess } from "./CliSessionProcess";
 
+/** The process of a session start: an ACP worker or a terminal CLI. */
+type StartedProcess = Pick<CliSessionProcess, "cancel" | "endInput" | "exited">;
+
 /** A partially started session and its resources. */
 interface StartCleanup {
   readonly instanceId: string;
@@ -17,7 +20,7 @@ interface StartCleanup {
 }
 
 async function closeFailedAcp(
-  child: CliSessionProcess,
+  child: StartedProcess,
   cleanup: StartCleanup,
 ): Promise<boolean> {
   try {
@@ -38,7 +41,7 @@ async function closeFailedAcp(
 
 /** Cleans up only resources belonging to an unsuccessful ACP start. */
 export async function cleanupAcpStart(
-  child: CliSessionProcess | null,
+  child: StartedProcess | null,
   cleanup: StartCleanup,
 ): Promise<void> {
   if (child === null) await cleanup.limited?.request.unit?.settle();

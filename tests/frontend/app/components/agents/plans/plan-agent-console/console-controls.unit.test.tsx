@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import { ConsoleControls } from "@/app/components/agents/plans/plan-agent-console/console-controls";
@@ -77,30 +77,15 @@ it("cancels the running turn through the command boundary", () => {
   expect(cancel).toHaveBeenCalledWith("turn");
 });
 
-it("stops the run only after a second confirming click and resets the confirmation on blur", async () => {
-  const cancel = vi.fn<SessionCommands["cancel"]>(async () => undefined);
+it("leaves the stop of the run to the header", () => {
   renderConsole(
     <ConsoleControls
       view={sessionView({ actions: ALL_ACTIONS })}
       isReadOnly={false}
-      commands={sessionCommands({ cancel })}
+      commands={sessionCommands()}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Stop run" }));
-  expect(cancel).not.toHaveBeenCalled();
-  fireEvent.blur(
-    screen.getByRole("button", { name: "Really stop the whole run?" }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Stop run" }));
-  await act(async () => {
-    fireEvent.click(
-      screen.getByRole("button", { name: "Really stop the whole run?" }),
-    );
-    await Promise.resolve();
-  });
-  expect(cancel).toHaveBeenCalledOnce();
-  expect(cancel).toHaveBeenCalledWith("run");
-  expect(screen.getByRole("button", { name: "Stop run" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Stop run" })).toBeNull();
 });
 
 it("disables the stops while a command is pending and hides them in a read-only history", () => {

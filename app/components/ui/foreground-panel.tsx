@@ -9,6 +9,8 @@ interface ForegroundPanelProps extends HTMLAttributes<HTMLElement> {
   readonly children: ReactNode;
   /** Pixels an on-screen keyboard covers; the panel ends above it. */
   readonly keyboardInset?: number;
+  /** Fills the main area beside the navigation instead of a reading width, as a terminal needs. */
+  readonly isWide?: boolean;
 }
 
 /**
@@ -24,6 +26,7 @@ export function ForegroundPanel({
   children,
   className,
   keyboardInset = 0,
+  isWide = false,
   ...properties
 }: ForegroundPanelProps): React.ReactElement {
   return (
@@ -43,6 +46,7 @@ export function ForegroundPanel({
           {...properties}
           className={cn(
             styles.panel,
+            isWide && styles.wide,
             "pointer-events-auto h-full max-h-none w-full overflow-hidden p-0",
             className,
           )}

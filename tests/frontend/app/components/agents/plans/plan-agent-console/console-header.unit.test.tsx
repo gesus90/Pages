@@ -1,5 +1,5 @@
 import { createRef } from "react";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import { ConsoleHeader } from "@/app/components/agents/plans/plan-agent-console/console-header";
@@ -28,14 +28,14 @@ it("shows node, provider, translated state, read-only mark, run choice and the w
       onBack={onBack}
     />,
   );
-  expect(screen.getByText("Group · PageAgentCLI")).toBeTruthy();
+  expect(screen.getByText("Group · Agent session")).toBeTruthy();
   expect(headingRef.current?.textContent).toBe("Review group · Writer");
   expect(screen.getByRole("status").textContent).toBe(
     "Codex CLI (ChatGPT account)Waiting for inputHistory · read only",
   );
   expect(
     screen.getByRole("combobox", { name: "Run of this node" }).textContent,
-  ).toContain("2026-10-15T10:00:00.000Z · Running");
+  ).toMatch(/2026.* · Running$/u);
   fireEvent.click(
     screen.getByRole("button", { name: "Back to the group members" }),
   );
@@ -82,4 +82,32 @@ it("offers the runs without a selection while no run is chosen", () => {
   expect(
     screen.getByRole("combobox", { name: "Run of this node" }).textContent,
   ).not.toContain("Running");
+});
+
+it("stops the run from the header only after the question was confirmed", async () => {
+  const onStopRun = vi.fn(async () => undefined);
+  renderConsole(
+    <ConsoleHeader
+      title="Writer"
+      nodeType="Agent"
+      runs={[]}
+      run={{ ...syntheticRun(), manualInputAt: "2026-10-15T10:05:00.000Z" }}
+      provider="claude_code"
+      state="running"
+      isReadOnly={false}
+      headingRef={createRef<HTMLHeadingElement>()}
+      onSelectRun={vi.fn()}
+      onClose={vi.fn()}
+      onStopRun={onStopRun}
+    />,
+  );
+  expect(screen.getByText("Manually intervened")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Stop run" }));
+  expect(onStopRun).not.toHaveBeenCalled();
+  expect(screen.getByRole("dialog", { name: "Stop run?" })).toBeTruthy();
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Yes, stop run" }));
+    await Promise.resolve();
+  });
+  expect(onStopRun).toHaveBeenCalledOnce();
 });

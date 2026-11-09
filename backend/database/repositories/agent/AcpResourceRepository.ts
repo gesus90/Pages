@@ -4,18 +4,54 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
+import {
+  ACP_RELEASE_REASONS,
+  ACP_RETAIN_REASONS,
+} from "@/definition/AcpResource";
 
 import type { Database } from "@/backend/database/Database";
 import type { AcpResourceStore } from "@/backend/service/agents/resources/AcpResourceStore";
 import type {
+  AcpLeaseCheck,
+  AcpLeaseCheckReason,
+  AcpLeaseLifecycle,
   AcpNamespaceOwner,
   AcpResourceRecord,
+  AcpResourceRunReference,
   AcpResourceState,
 } from "@/definition/AcpResource";
+import type { AcpLeaseRelease } from "@/backend/service/agents/resources/AcpResourceStore";
+
+const LIFECYCLES: readonly AcpLeaseLifecycle[] = [
+  "reserved",
+  "spawning",
+  "not_spawned",
+  "process",
+];
+const CHECK_REASONS: readonly AcpLeaseCheckReason[] = [
+  ...ACP_RELEASE_REASONS,
+  ...ACP_RETAIN_REASONS,
+];
 
 function namespaceIdentity(value: string | null): AcpNamespaceOwner | null {
   if (value === null) return null;
   return readOwnedNamespace(JSON.parse(value));
+}
+
+function lifecycle(input: string | null): AcpLeaseLifecycle | null {
+  if (input === null) return null;
+  const known = LIFECYCLES.find((entry) => entry === input);
+  if (!known) throw new Error("Invalid ACP lease lifecycle");
+  return known;
+}
+
+/** An unknown stored reason is shown as a failed check instead of hiding the lease. */
+function check(reason: string | null, at: string | null): AcpLeaseCheck | null {
+  if (reason === null || at === null) return null;
+  return {
+    reason: CHECK_REASONS.find((entry) => entry === reason) ?? "check_failed",
+    at,
+  };
 }
 
 function state(input: string): AcpResourceState {
@@ -53,7 +89,10 @@ export class AcpResourceRepository implements AcpResourceStore {
           step_id,
           state,
           since,
-          namespace_identity
+          namespace_identity,
+          lifecycle,
+          check_reason,
+          checked_at
       FROM acp_resource_leases
       ORDER BY since, instance_id;
     `);
@@ -76,6 +115,11 @@ export class AcpResourceRepository implements AcpResourceStore {
         since: readTextColumn(row, 6, "since"),
         namespace: namespaceIdentity(
           readNullableTextColumn(row, 7, "namespace_identity"),
+        ),
+        lifecycle: lifecycle(readNullableTextColumn(row, 8, "lifecycle")),
+        check: check(
+          readNullableTextColumn(row, 9, "check_reason"),
+          readNullableTextColumn(row, 10, "checked_at"),
         ),
       };
     });
@@ -116,6 +160,84 @@ export class AcpResourceRepository implements AcpResourceStore {
       { instance_id: instanceId },
     );
   }
+
+  /**
+   * Releases an unconfirmed lease only while it is still unconfirmed.
+   *
+   * @returns `released`, `absent` when it was already gone, or `changed` when
+   * its state changed meanwhile and the lease stays.
+   */
+  public async releaseUncertain(instanceId: string): Promise<AcpLeaseRelease> {
+    const deleted = await this.database.query(
+      `
+      DELETE FROM acp_resource_leases
+      WHERE instance_id = $instance_id
+        AND state = 'cleanup_failed'
+      RETURNING instance_id;
+    `,
+      { instance_id: instanceId },
+    );
+    if (deleted.length > 0) return "released";
+    const [remaining] = await this.database.query(
+      "SELECT instance_id FROM acp_resource_leases WHERE instance_id = $instance_id;",
+      { instance_id: instanceId },
+    );
+    return remaining ? "changed" : "absent";
+  }
+
+  /** Stores the result of a periodic check on a lease that is still unconfirmed. */
+  public async recordCheck(
+    instanceId: string,
+    result: AcpLeaseCheck,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+      UPDATE acp_resource_leases
+      SET
+          check_reason = $check_reason,
+          checked_at = $checked_at
+      WHERE instance_id = $instance_id
+        AND state = 'cleanup_failed';
+    `,
+      {
+        instance_id: instanceId,
+        check_reason: result.reason,
+        checked_at: result.at,
+      },
+    );
+  }
+
+  /** Plan names of the runs that hold leases, for the administrative resource view. */
+  public async runReferences(
+    runIds: readonly string[],
+  ): Promise<readonly AcpResourceRunReference[]> {
+    if (runIds.length === 0) return [];
+    const placeholders = runIds.map((_, index) => `$run_id_${index}`);
+    const rows = await this.database.query(
+      `
+      SELECT
+          plan_run.id,
+          plan_run.plan_id,
+          plan.name,
+          plan_run.started_at,
+          plan_run.status
+      FROM agent_plan_runs AS plan_run
+      JOIN agent_plans AS plan
+          ON plan.id = plan_run.plan_id
+      WHERE plan_run.id IN (${placeholders.join(", ")});
+    `,
+      Object.fromEntries(
+        runIds.map((runId, index) => [`run_id_${index}`, runId]),
+      ),
+    );
+    return rows.map((row) => ({
+      runId: readTextColumn(row, 0, "id"),
+      planId: readTextColumn(row, 1, "plan_id"),
+      planName: readTextColumn(row, 2, "name"),
+      startedAt: readTextColumn(row, 3, "started_at"),
+      status: readTextColumn(row, 4, "status"),
+    }));
+  }
   private async writeRecord(
     executor: Pick<Database, "execute">,
     record: AcpResourceRecord,
@@ -130,13 +252,15 @@ export class AcpResourceRepository implements AcpResourceStore {
           step_id,
           state,
           since,
-          namespace_identity
+          namespace_identity,
+          lifecycle
       )
-      VALUES ($instance_id, $user_id, $provider, $run_id, $step_id, $state, $since, $namespace_identity)
+      VALUES ($instance_id, $user_id, $provider, $run_id, $step_id, $state, $since, $namespace_identity, $lifecycle)
       ON CONFLICT (instance_id) DO UPDATE SET
           state = excluded.state,
           step_id = excluded.step_id,
-          namespace_identity = excluded.namespace_identity;
+          namespace_identity = excluded.namespace_identity,
+          lifecycle = COALESCE(excluded.lifecycle, acp_resource_leases.lifecycle);
     `,
       {
         instance_id: record.instanceId,
@@ -149,6 +273,7 @@ export class AcpResourceRepository implements AcpResourceStore {
         namespace_identity: record.namespace
           ? JSON.stringify(record.namespace)
           : null,
+        lifecycle: record.lifecycle ?? null,
       },
     );
   }

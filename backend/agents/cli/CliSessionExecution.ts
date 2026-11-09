@@ -17,14 +17,8 @@ import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import {
-  isAcpPermissionMode,
-  isAcpProvider,
-} from "@/definition/AgentConfiguration";
-import {
-  isApiProvider,
-  openCodeModelProvider,
-} from "@/definition/AgentConnection";
+import { isAcpPermissionMode } from "@/definition/AgentConfiguration";
+import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { connectChild } from "./CliSessionChannel";
@@ -54,6 +48,14 @@ import { acpSessionSecrets, createAcpRedactor } from "./CliAcpRedaction";
 import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
 import { requirePicaCodexProfile } from "./PicaCodexBundle";
 import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
+import {
+  isTerminalSession,
+  recordGitHubNamespace,
+  sessionAcpProvider,
+  validateSessionStatus,
+} from "./CliSessionChecks";
+import { startTerminalSession } from "@/backend/agents/terminal/TerminalStart";
+import { isTerminalProvider } from "@/definition/AgentTerminal";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AgentToolId } from "@/definition/AgentTools";
@@ -68,10 +70,7 @@ import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceS
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
-import type {
-  AcpPermissionMode,
-  NativeAcpProviderId,
-} from "@/definition/AgentConfiguration";
+import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
@@ -89,9 +88,11 @@ import type {
 } from "./CliGitHubCredentials";
 import type { ClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import type { CliSessionProcess } from "./CliSessionProcess";
+import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
 import type { CliWorkerUnits } from "./CliWorkerUnit";
 import type { PicaCodexBundle } from "./PicaCodexBundle";
 import type { PicaNativeArtifact } from "./PicaNativeArtifact";
+import type { TerminalServices } from "@/backend/agents/terminal/TerminalStart";
 
 /** How CLI runs are kept away from the instance folders. */
 export interface CliIsolationOptions {
@@ -121,6 +122,11 @@ interface SessionDependencies {
   readonly github?: Pick<CliGitHubCredentials, "prepare">;
   /** Prepares the private transcript home of a Claude plan session; defaults to the real folders. */
   readonly claudeHome?: typeof prepareClaudePlanSessionHome;
+  /**
+   * Where plan nodes of Claude Code, Codex and OpenCode run their CLI in a
+   * terminal (PAGE-265); absent keeps them on ACP.
+   */
+  readonly terminals?: TerminalServices;
 }
 
 /** What a session start has verified about its connection. */
@@ -144,6 +150,7 @@ function requireAdapter(adapter: string | null, driver: AcpDriver): string {
 interface SessionControl {
   readonly signal: AbortSignal;
   readonly observer: PlanSessionObserver;
+  readonly lifecycle?: AcpStartLifecycle;
 }
 
 /** A session request, wrapped in its limited unit where the service manager provides one. */
@@ -211,7 +218,10 @@ export class CliSessionExecution implements PlanSessionRunner {
           stepId: input.resourceContext?.stepId ?? null,
         },
         signal,
-        (admitted) => this.openAdmitted(input, admitted, observer),
+        (admitted, lifecycle) => {
+          lifecycle.trackSpawn();
+          return this.openAdmitted(input, admitted, observer, lifecycle);
+        },
         observer,
       );
     return this.openAdmitted(input, signal, observer);
@@ -221,6 +231,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     input: AgentPlanSessionInput,
     signal: AbortSignal,
     observer: PlanSessionObserver,
+    lifecycle?: AcpStartLifecycle,
   ): Promise<PlanSession> {
     const { tools } = this.dependencies;
     const locations = tools
@@ -246,6 +257,7 @@ export class CliSessionExecution implements PlanSessionRunner {
       const session = await this.spawn(input, start, {
         signal,
         observer: watched,
+        lifecycle,
       });
       return tools
         ? superviseAgentToolSession(
@@ -302,6 +314,10 @@ export class CliSessionExecution implements PlanSessionRunner {
           ? await this.verifyAcp(acpDriverFor(acpProvider), input, {
               home,
               locations,
+              // A terminal runs the CLI itself; its ACP adapter is not needed.
+              isTerminal:
+                this.dependencies.terminals !== undefined &&
+                isTerminalSession(input),
             })
           : null;
       await input.beforeStart?.();
@@ -348,9 +364,14 @@ export class CliSessionExecution implements PlanSessionRunner {
     verified: {
       readonly home: CliHome;
       readonly locations?: ReadonlyMap<AgentToolId, AgentToolLocation>;
+      readonly isTerminal?: boolean;
     },
-  ): Promise<string> {
+  ): Promise<string | null> {
     const { home, locations } = verified;
+    if (verified.isTerminal === true) {
+      await driver.requireManagedConfiguration(home, input.directory);
+      return null;
+    }
     const adapterId = providerToolIds(driver.provider).at(-1);
     const pinned = adapterId ? locations?.get(adapterId) : null;
     const location = pinned
@@ -368,7 +389,60 @@ export class CliSessionExecution implements PlanSessionRunner {
   ): Promise<PlanSession> {
     const acpProvider = sessionAcpProvider(input);
     if (acpProvider === null) throw new AgentError("provider_invalid");
-    return this.spawnAcp(acpDriverFor(acpProvider), input, start, control);
+    const driver = acpDriverFor(acpProvider);
+    if (this.dependencies.terminals && isTerminalSession(input))
+      return this.spawnTerminal(driver, input, start, control);
+    return this.spawnAcp(driver, input, start, control);
+  }
+
+  /**
+   * Starts the CLI of a plan node in a terminal a viewer can open (PAGE-265).
+   *
+   * @remarks
+   * Claude Code, Codex and OpenCode run as their own interactive CLI;
+   * Antigravity and Pica's conversations stay on ACP.
+   */
+  private async spawnTerminal(
+    driver: AcpDriver,
+    input: AgentPlanSessionInput,
+    start: VerifiedStart,
+    control: SessionControl,
+  ): Promise<PlanSession> {
+    const mode = input.options.access;
+    const provider = driver.provider;
+    const terminals = this.dependencies.terminals;
+    if (
+      !isAcpPermissionMode(mode) ||
+      !isTerminalProvider(provider) ||
+      !terminals
+    )
+      throw new AgentError(driver.errors.modeRequired);
+    const scoped = await this.scopedHome(driver, input, start);
+    const github = await this.prepareGitHub(input, start, mode);
+    return startTerminalSession(
+      {
+        driver,
+        provider,
+        input,
+        mode,
+        cliFile: start.file,
+        home: start.home,
+        scoped,
+        credentials: start.credentials,
+        github,
+        signal: control.signal,
+        observer: control.observer,
+        lifecycle: control.lifecycle,
+        terminals,
+      },
+      {
+        isolate: (request, home) => this.gate.isolateSession(request, home),
+        limit: (request) => this.limit(request, input),
+        registerNamespace: (processId, request, isPidNamespace) =>
+          this.registerNamespace(input, processId, request, isPidNamespace),
+        secure: () => this.secureAcp(input, start, github),
+      },
+    );
   }
 
   /**
@@ -434,11 +508,12 @@ export class CliSessionExecution implements PlanSessionRunner {
       isPidNamespace = isIsolated;
       limited = await this.limit(request, input);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
+      await control.lifecycle?.beforeSpawn();
       child = this.dependencies.runner.startSession(limited.request);
       const namespace = await this.registerNamespace(
         input,
-        child,
-        limited,
+        child.processId,
+        limited.request,
         isPidNamespace,
       );
       await recordGitHubNamespace(github, namespace);
@@ -523,18 +598,20 @@ export class CliSessionExecution implements PlanSessionRunner {
 
   private async registerNamespace(
     input: AgentPlanSessionInput,
-    child: CliSessionProcess,
-    limited: LimitedRequest,
+    processId: number | null,
+    request: CliSessionRequest,
     isPidNamespace: boolean,
   ): Promise<AcpNamespaceOwner | undefined> {
-    const resources = this.dependencies.resources;
     if (!isPidNamespace) return undefined;
-    if (!child.processId) throw new AcpCleanupUnconfirmedError();
-    const identity = await captureOwnedNamespace(child.processId);
-    const namespace = limited.request.unit
-      ? { ...identity, unit: limited.request.unit.name }
+    if (!processId) throw new AcpCleanupUnconfirmedError();
+    const identity = await captureOwnedNamespace(processId);
+    const namespace = request.unit
+      ? { ...identity, unit: request.unit.name }
       : identity;
-    await resources?.registerNamespace(input.instanceId, namespace);
+    await this.dependencies.resources?.registerNamespace(
+      input.instanceId,
+      namespace,
+    );
     return namespace;
   }
 
@@ -617,42 +694,4 @@ export class CliSessionExecution implements PlanSessionRunner {
     }
     return { request, label: "no limited unit" };
   }
-}
-
-async function recordGitHubNamespace(
-  github: CliGitHubAccess | null,
-  namespace: AcpNamespaceOwner | undefined,
-): Promise<void> {
-  if (github && namespace) await github.recordNamespace(namespace);
-}
-
-/** Every CLI plan runner and native Pica runner uses ACP, without a one-shot fallback. */
-function sessionAcpProvider(
-  input: AgentPlanSessionInput,
-): NativeAcpProviderId | null {
-  const provider = input.agent.connection.provider;
-  return isAcpProvider(provider) ? provider : null;
-}
-
-function validateSessionStatus(
-  input: AgentPlanSessionInput,
-  status: CliStatusOutcome,
-  signal: AbortSignal,
-): void {
-  const provider = input.agent.connection.provider;
-  if (signal.aborted) throw new AgentPlanCancelledError();
-  if (!status.outcome.ok)
-    throw new AgentError(
-      provider === "opencode" ||
-        status.outcome.errorCode === "cli_not_logged_in"
-        ? status.outcome.errorCode
-        : "plan_step_failed",
-    );
-  if (
-    provider === "opencode" &&
-    !status.credentials?.modelProviders.includes(
-      openCodeModelProvider(input.agent.model),
-    )
-  )
-    throw new AgentError("plan_model_unavailable");
 }

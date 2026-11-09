@@ -95,6 +95,13 @@ export interface TerminalSurfaceOptions {
   readonly isScreenReaderMode: boolean;
   /** The panel's own way to close, since Escape belongs to the shell. */
   readonly onCloseRequest: () => void;
+  /**
+   * Fits columns and rows to the container; `false` keeps the geometry the
+   * caller sets, such as that of a terminal another viewer sized.
+   */
+  readonly fitsContainer?: boolean;
+  /** Lines kept above the screen; 3000 when absent. */
+  readonly scrollback?: number;
 }
 
 /** Loads xterm only in the browser and follows container size and the Pages theme. */
@@ -114,7 +121,7 @@ export async function createTerminalSurface(
       "monospace",
     fontSize: 15,
     lineHeight: 1.52,
-    scrollback: 3000,
+    scrollback: options.scrollback ?? 3000,
     screenReaderMode: options.isScreenReaderMode,
     allowProposedApi: false,
     theme: terminalTheme(container),
@@ -128,11 +135,12 @@ export async function createTerminalSurface(
   await loadWebglRenderer(terminal, container);
   // Size changes are measured once per frame; xterm reports only a changed grid.
   let fitFrame = 0;
+  const fitsContainer = options.fitsContainer !== false;
   const resize = new ResizeObserver(() => {
     cancelAnimationFrame(fitFrame);
     fitFrame = requestAnimationFrame(() => fit.fit());
   });
-  resize.observe(container);
+  if (fitsContainer) resize.observe(container);
   const updateTheme = (): void => {
     terminal.options.theme = terminalTheme(container);
   };
@@ -143,7 +151,7 @@ export async function createTerminalSurface(
   });
   const media = matchMedia("(prefers-color-scheme: dark)");
   media.addEventListener("change", updateTheme);
-  fit.fit();
+  if (fitsContainer) fit.fit();
   return {
     terminal,
     fit,

@@ -332,7 +332,8 @@ export class AgentPlanLoopRunner {
       .update(loop.id, (entry) => ({
         ...entry,
         status: final.status,
-        completion: ending.completion ?? null,
+        // The reason belongs to a regular end only; an unconfirmed cleanup is a failure.
+        completion: hasUnconfirmed ? null : (ending.completion ?? null),
         cleanup: cleanupOf(entry, hasUnconfirmed),
         endedAt: new Date().toISOString(),
         error: final.error ?? null,

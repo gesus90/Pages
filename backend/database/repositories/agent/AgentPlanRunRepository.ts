@@ -2,7 +2,11 @@ import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
 import { workspaceReferenceIds } from "@/backend/agents/AgentWorkspaceReferences";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
-import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
+import {
+  readCountColumn,
+  readNullableTextColumn,
+  readTextColumn,
+} from "@/backend/database/RowValue";
 import { readPlanBranchState } from "@/backend/service/agents/branching/AgentPlanBranchPersistence";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -42,6 +46,8 @@ export interface AgentPlanRunEntry {
   readonly id: string;
   readonly startedAt: string;
   readonly status: AgentPlanRun["status"];
+  /** When somebody first typed into a terminal of the run (PAGE-265). */
+  readonly manualInputAt?: string;
 }
 
 /** The latest run one person started of a plan, without its view, snapshot or results. */
@@ -282,13 +288,21 @@ export class AgentPlanRunRepository {
   /** Reads only the public record; service authorization still precedes delivery. */
   public async find(id: string): Promise<AgentPlanRun | null> {
     const [row] = await this.database.query(
-      "SELECT view_json FROM agent_plan_runs WHERE id = $id;",
+      `
+      SELECT
+          view_json,
+          manual_input_at
+      FROM agent_plan_runs
+      WHERE id = $id;
+    `,
       { id },
     );
     if (!row) return null;
+    const manualInputAt = readNullableTextColumn(row, 1, "manual_input_at");
     return readStoredRecord(() => {
       const input: unknown = JSON.parse(readTextColumn(row, 0, "view_json"));
-      return readPlanRun(input);
+      const run = readPlanRun(input);
+      return manualInputAt ? { ...run, manualInputAt } : run;
     });
   }
 
@@ -493,7 +507,8 @@ export class AgentPlanRunRepository {
       SELECT
           id,
           started_at,
-          status
+          status,
+          manual_input_at
       FROM agent_plan_runs
       WHERE user_id = $user_id
           AND plan_id = $plan_id
@@ -501,11 +516,15 @@ export class AgentPlanRunRepository {
     `,
       { user_id: userId, plan_id: planId },
     );
-    return rows.map((row) => ({
-      id: readTextColumn(row, 0, "id"),
-      startedAt: readTextColumn(row, 1, "started_at"),
-      status: readRunStatus(readTextColumn(row, 2, "status")),
-    }));
+    return rows.map((row) => {
+      const manualInputAt = readNullableTextColumn(row, 3, "manual_input_at");
+      return {
+        id: readTextColumn(row, 0, "id"),
+        startedAt: readTextColumn(row, 1, "started_at"),
+        status: readRunStatus(readTextColumn(row, 2, "status")),
+        ...(manualInputAt ? { manualInputAt } : {}),
+      };
+    });
   }
 
   /**

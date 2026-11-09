@@ -786,6 +786,8 @@
         "plan_model_unavailable": "Der Katalog des Runners bietet das Modell des Agenten nicht an; es wurde nichts gesendet, und der Lauf wechselt nie auf ein anderes Modell.",
         "plan_reasoning_unsupported": "Der Runner bietet die Reasoning-Stufe des Agenten für dieses Modell nicht an; es wurde nichts gesendet.",
         "plan_permission_mode_unenforceable": "Der ACP-Adapter bietet den Berechtigungsmodus des Agenten nicht an oder bestätigt ihn nicht, daher lässt er sich nicht durchsetzen; es wurde nichts gesendet. Bei Claude Code verursachen das eine verwaltete oder im Workspace liegende Claude-Einstellung, die bypassPermissions abschaltet, oder ein Server-Konto, das als root läuft. Der Laufbericht nennt, was der Adapter gemeldet hat.",
+        "plan_terminal_question": "Die CLI des Knotens hat eine Rückfrage gestellt oder auf eine Freigabe gewartet. In einem Planlauf antwortet niemand, daher ist der Knoten sofort fehlgeschlagen. Lauf und Terminal-Log zeigen die Frage.",
+        "plan_terminal_unavailable": "Das Terminal dieses Knotens ist beendet oder nicht erreichbar und nimmt keine Eingabe an.",
         "plan_yolo_isolation_unavailable": "YOLO läuft ohne Freigabeschritt des Runners und startet deshalb nur in der Bubblewrap-Abschottung, die für das Server-Konto nicht funktioniert. Installiere bubblewrap (apt install bubblewrap), erlaube dem Konto unprivilegierte User-Namespaces und starte den Knoten erneut; Pages prüft die Abschottung innerhalb einer Minute neu.",
         "plan_codex_configuration_unmanaged": "Eine Codex-Konfigurationsdatei (config.toml) außerhalb von Pages könnte diesen Lauf verändern. Entferne sie aus dem Verbindungsordner oder dem Workspace.",
         "plan_acp_session_failed": "Die Codex-ACP-Sitzung ist vor oder während ihres Turns fehlgeschlagen.",
@@ -1287,8 +1289,8 @@
       "resources": {
         "title": "ACP-Ressourcen",
         "unavailable": "Ressourcenstatus wird geladen oder ist nicht verfügbar.",
-        "summary": "Belegt: {{active}} · Limit: {{limit}} · Warteschlange: {{waiting}}",
-        "ram": "Verfügbarer RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
+        "summary": "Reservierte Plätze: {{active}} (davon Bereinigung unbestätigt: {{unconfirmed}}) · Limit: {{limit}} · Wartende Anfragen: {{waiting}}",
+        "ram": "Gemessener verfügbarer Host-RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
         "memoryEnabled": "RAM-Prüfung aktiv",
         "memoryDisabled": "RAM-Prüfung deaktiviert",
         "storage": "Ressourcenspeicherung fehlgeschlagen; neue Starts sind blockiert.",
@@ -1296,7 +1298,7 @@
         "running": "Läuft",
         "idle": "Inaktiv (Kapazität reserviert)",
         "closing": "Prozessbaum wird beendet",
-        "cleanup_failed": "Bereinigung fehlgeschlagen oder unbestätigt (Kapazität blockiert)",
+        "cleanup_failed": "Bereinigung unbestätigt – Platz bleibt vorsorglich reserviert (kein fehlgeschlagener Modellauftrag)",
         "capacity": "Wartet auf Kapazität",
         "memory": "Wartet auf ausreichend RAM",
         "memory_unknown": "Wartet auf verlässliche RAM-Messung",
@@ -1326,6 +1328,62 @@
           "invalidSetting": "Bitte eine ganze Zahl von 0 bis 999 eingeben.",
           "environmentOverride": "Die Umgebungsvariable überschreibt das Limit. Hier ist keine Änderung möglich.",
           "general": "Das ACP-Limit konnte nicht vollständig gespeichert und angewendet werden. Das wirksame Limit wird unten angezeigt."
+        },
+        "processes": "Bestätigt laufende Prozesse: {{confirmed}} · Noch nicht gestartet: {{none}} · Prozessstatus unbekannt: {{unknown}}",
+        "processesHint": "Eine Reservierung hält einen Platz vorsorglich frei; sie ist kein Nachweis eines laufenden Programms und sagt nichts über dessen RAM-Verbrauch. „Unbekannt“ bedeutet nicht „0 Prozesse“.",
+        "waitingNone": "Keine Anfrage wartet. Reservierte Plätze halten derzeit keinen Start auf.",
+        "waitingSome": "{{count}} Anfrage(n) warten, davon {{capacity}} am Instanzlimit.",
+        "ramUnknown": "Verfügbarer Host-RAM derzeit nicht messbar · Reserve: {{reserve}} MiB",
+        "check": {
+          "title": "Automatische Prüfung der Reservierungen (alle {{minutes}} Minuten, ohne KI-Aufrufe)",
+          "last": "Letzte Prüfung:",
+          "next": "Nächste Prüfung:",
+          "never": "noch keine",
+          "running": "läuft gerade oder ist beendet",
+          "outcome": {
+            "pending": "Die erste Prüfung steht noch aus.",
+            "checked": "Geprüft: keine unbestätigte Reservierung.",
+            "released": "Geprüft: {{released}} Reservierung(en) nach bestätigtem Ende freigegeben, {{unconfirmed}} weiterhin unbestätigt.",
+            "unconfirmed": "Geprüft: {{unconfirmed}} Reservierung(en) weiterhin unbestätigt; die Plätze bleiben vorsorglich reserviert.",
+            "failed": "Prüfung teilweise fehlgeschlagen ({{failed}}). Betroffene Reservierungen bleiben erhalten; Pages prüft in 5 Minuten erneut."
+          },
+          "scope": {
+            "chat": "Dieser Dienst prüft die Pica-Reservierungen. Plan-Reservierungen prüft der Plan-Dienst; ihr letztes Ergebnis steht am Eintrag.",
+            "plans": "Dieser Dienst prüft die Plan-Reservierungen. Pica-Reservierungen prüft der API-Dienst."
+          }
+        },
+        "process": {
+          "confirmed": "Prozess läuft (bestätigt)",
+          "none": "noch kein Prozess gestartet",
+          "unknown": "Prozessstatus unbekannt"
+        },
+        "entry": {
+          "pica": "Pica-Chat",
+          "plan": "Plan „{{name}}“",
+          "planUnknown": "Plan-Lauf",
+          "age": "Reserviert seit",
+          "waitingSince": "Wartet seit",
+          "details": "Technische Details",
+          "instance": "Instanz-ID",
+          "run": "Lauf-ID",
+          "step": "Schritt",
+          "lastCheck": "Zuletzt automatisch geprüft:",
+          "otherService": "Zuständig ist ein anderer Pages-Dienst; dieser Dienst zählt die Reservierung nur mit."
+        },
+        "reason": {
+          "unchecked": "Noch nicht automatisch geprüft. Der Platz bleibt reserviert, bis das Ende der Sitzung bestätigt ist.",
+          "process_alive": "Der zugehörige Prozess läuft nachweislich noch (gleiche Prozess- und Bootidentität). Pages beendet ihn nicht automatisch. Nächster Schritt: Lauf über die Lauf-Bereinigung abschließen oder sein Ende abwarten; danach gibt die Prüfung den Platz frei.",
+          "unit_active": "Eine Worker-Unit dieser Sitzung ist noch aktiv. Pages beendet sie nicht automatisch. Nächster Schritt: Lauf-Bereinigung ausführen oder die Unit mit „systemctl --user status pages-acp-{{instance}}-*“ prüfen.",
+          "owner_managed": "Ein verwalteter lokaler Sitzungsbesitzer hält die Sitzung, etwa pausiert oder wiederaufnehmbar. Pages beendet sie nicht automatisch. Nächster Schritt: Lauf fortsetzen oder über die Lauf-Bereinigung abschließen.",
+          "owner_unverified": "Der lokale Sitzungsbesitzer ließ sich beim Start nicht nachweisen. Nächster Schritt: Wiederherstellung in der Laufansicht nutzen; freigegeben wird erst nach nachgewiesenem Ende.",
+          "start_unconfirmed": "Die Prozessanlage hatte begonnen, eine Prozessidentität wurde aber nicht erfasst. Ein solcher Start gilt nicht als nie gestartet. Nächster Schritt: Prozesse mit PAGES_RUN_INSTANCE={{instance}} prüfen; nach einem Neustart des Hosts gibt die nächste Prüfung den Platz frei.",
+          "start_interrupted": "Pages wurde während des Starts beendet. Ohne Nachweis gilt der Start nicht als nie erfolgt. Nächster Schritt: Prozesse mit PAGES_RUN_INSTANCE={{instance}} prüfen; nach einem Neustart des Hosts gibt die nächste Prüfung den Platz frei.",
+          "legacy_unproven": "Ältere Reservierung ohne gespeicherten Eigentumsnachweis. Alter, eine fehlende Prozessmarkierung oder ein Neustart von Pages beweisen kein Ende. Nächster Schritt: Prozesse mit PAGES_RUN_INSTANCE={{instance}} prüfen; nach einem Neustart des Hosts gibt die nächste Prüfung den Platz automatisch frei.",
+          "check_failed": "Die letzte Prüfung konnte den Nachweis nicht lesen. Der Platz bleibt reserviert; Pages prüft erneut.",
+          "not_spawned": "Start vor der Prozessanlage beendet.",
+          "previous_boot": "Vor dem letzten Hostneustart gestartet.",
+          "namespace_ended": "Prozess nachweislich beendet.",
+          "owner_released": "Vom Sitzungsbesitzer freigegeben."
         }
       },
       "openCodeProvider": "Schlüsselanbieter für OpenCode",
@@ -4393,12 +4451,12 @@
     },
     "console": {
       "label": "Agentenkonsole {{name}}",
-      "kicker": "{{type}} · PageAgentCLI",
+      "kicker": "{{type}} · Agent-Session",
       "close": "Agentenkonsole schließen",
       "run": "Lauf dieses Knotens",
       "readOnly": "Verlauf · schreibgeschützt",
       "backToGroup": "Zurück zu den Gruppenmitgliedern",
-      "pickMember": "Eine Gruppe teilt einen Prozess zwischen ihren Agenten, aber jeder Agent hat eine eigene Session. Wähle den Agent-Schritt, dessen Session du öffnen willst.",
+      "pickMember": "Wähle das Mitglied, dessen Session du öffnen willst. Alle Mitglieder teilen sich ein Terminal; das gerade aktive ist markiert.",
       "noMembers": "Diese Gruppe hat noch keine Agent-Schritte.",
       "loading": "Session wird geladen …",
       "details": "Session-Details",
@@ -4413,7 +4471,10 @@
         "requestedReasoning": "Reasoning angefragt",
         "confirmedReasoning": "Reasoning bestätigt",
         "sessionId": "Session-ID",
-        "lastActivity": "Letzte Aktivität"
+        "lastActivity": "Letzte Aktivität",
+        "status": "Status",
+        "provider": "Anbieter",
+        "runtime": "Laufzeit"
       },
       "git": {
         "detached": "Detached HEAD bei {{commit}}",
@@ -4429,7 +4490,7 @@
       },
       "context": "Belegung des Kontextfensters",
       "contextValue": "{{used}} von {{limit}} Tokens im Kontext ({{percent}} %)",
-      "contextUnavailable": "Kontextbelegung nicht verfügbar: Der Adapter hat nicht Belegung und Fenstergröße gemeldet.",
+      "contextUnavailable": "Kontextbelegung: unbekannt",
       "tokens": {
         "in": "In",
         "out": "Out",
@@ -4442,7 +4503,7 @@
       "cacheReadHint": "Aus dem Prompt-Cache erneut gelesene Tokens. Jeder Turn liest den gecachten Anfang erneut, daher kann die Summe das Kontextfenster übersteigen.",
       "cacheWriteHint": "In den Prompt-Cache geschriebene Tokens.",
       "partial": "Teilweise: Ein Turn hat keinen Zähler gemeldet, oder der Adapter zählt nur einen Teil der Arbeit.",
-      "noTokens": "Noch keine Tokenzähler gemeldet.",
+      "noTokens": "Tokenverbrauch: unbekannt",
       "history": "Session-Verlauf",
       "noEvents": "Noch keine Einträge.",
       "legacy": "Lauf aus der Zeit vor strukturierten Verläufen: Bekannt sind nur die kurzen Ereigniszeilen des Protokolls.",
@@ -4510,15 +4571,15 @@
           "access_denied": "Du hast keine Rechte mehr für diesen Lauf.",
           "configuration_incompatible": "Die Knotenkonfiguration hat sich geändert und passt nicht mehr zur Session.",
           "native_session_ended": "Die native Session endete mit ihrem Prozess.",
-          "pages_resume_unavailable": "Der Adapter könnte die Session fortsetzen, aber Pages bietet dafür noch keinen Weg.",
-          "capabilities_unknown": "Der Adapter hat nicht gemeldet, ob er eine Session fortsetzen kann.",
+          "pages_resume_unavailable": "Diese Session lässt sich in Pages nicht fortsetzen.",
+          "capabilities_unknown": "Ob sich diese Session fortsetzen lässt, ist nicht bekannt.",
           "remote_one_shot": "Dieser Remote-Agent läuft als Einzelsitzung. Der Live-Verlauf ist lesbar; zusätzliche Anweisungen sind in dieser Sitzung nicht verfügbar."
         }
       },
       "waitingForCapacity": "Der Knoten wartet auf einen freien Agenten-Platz; er startet, sobald einer frei ist.",
       "cancelTurn": "Turn abbrechen",
       "stopRun": "Lauf stoppen",
-      "confirmStop": "Wirklich den ganzen Lauf stoppen?",
+      "confirmStop": "Ja, Lauf stoppen",
       "empty": {
         "no_run": "Noch kein Lauf. Die Session erscheint, sobald ein Lauf diesen Knoten ausführt.",
         "not_started": "Dieser Knoten hat im gewählten Lauf noch keine Session.",
@@ -4540,7 +4601,40 @@
       "followLatest": "Neueste Ausgabe verfolgen",
       "download": "Gesamten verfügbaren Verlauf herunterladen",
       "remoteHistory": "Remote-Live-Verlauf",
-      "remoteDiagnostic": "Zwischenstände der CLI sind diagnostisch. Maßgeblich bleibt das Endergebnis des Schritts."
+      "remoteDiagnostic": "Zwischenstände der CLI sind diagnostisch. Maßgeblich bleibt das Endergebnis des Schritts.",
+      "contextUsedOnly": "{{used}} Tokens im Kontext, Fenstergröße unbekannt",
+      "manualInput": "Manuell eingegriffen",
+      "stopTitle": "Lauf stoppen?",
+      "stopDescription": "Das beendet den ganzen Lauf mit allen laufenden Knoten, nicht nur diesen Agenten. Bereits gemeldete Ergebnisse bleiben erhalten.",
+      "stopCancel": "Weiterlaufen lassen",
+      "terminal": {
+        "title": "Terminal der CLI",
+        "inputLabel": "Mehrzeilige Eingabe",
+        "inputPlaceholder": "Text für die CLI … (Strg+Enter sendet den ganzen Text auf einmal)",
+        "send": "An die CLI senden",
+        "interrupt": "Schritt unterbrechen",
+        "notice": {
+          "pasted": "Text an die CLI übergeben.",
+          "interrupted": "Unterbrechung an die CLI gesendet."
+        },
+        "connection": {
+          "loading": "Terminal wird geladen …",
+          "live": "Live",
+          "reconnecting": "Verbindung unterbrochen, verbinde neu …",
+          "closed": "Keine Live-Verbindung",
+          "ended": "CLI beendet: Das Terminal ist nur noch lesbar."
+        },
+        "access": {
+          "typing": "Du kannst direkt im Terminal tippen. Strg+Umschalt+X schließt die Konsole.",
+          "touch": "Auf diesem Gerät ist das Terminal nur lesbar; greife über die Eingabe unten ein.",
+          "readOnly": "Nur lesbar"
+        },
+        "activeMember": "Aktiv: {{name}}",
+        "question": "Offene Rückfrage der CLI, der Knoten ist deshalb fehlgeschlagen: {{question}}",
+        "older": "Ältere Ausgabe laden",
+        "olderLoading": "Ältere Ausgabe wird geladen …",
+        "ended": "Beendet"
+      }
     },
     "flowInShort": "In",
     "flowOutShort": "Out",
@@ -5176,7 +5270,8 @@
         "succeeded": "Erfolgreich",
         "failed": "Fehlgeschlagen",
         "cancelled": "Gestoppt",
-        "skipped": "Übersprungen"
+        "skipped": "Übersprungen",
+        "closing": "Wird abgeschlossen"
       },
       "completion": {
         "count_reached": "Anzahl erreicht",
@@ -5706,6 +5801,12 @@
         "empty": "Leer",
         "used": "Aufgebraucht",
         "ready": "Bereit"
+      },
+      "outcome": {
+        "processing": "Abarbeitung läuft",
+        "succeeded": "Abarbeitung erfolgreich",
+        "open": "Abarbeitung mit offenem Bericht",
+        "failed": "Abarbeitung nicht erfolgreich"
       },
       "entries": "Einträge in Übergabereihenfolge",
       "emptyHint": "Leer: Ticket- oder Parameter-Karten hierher ziehen oder ein Ticket hinzufügen.",

@@ -23,7 +23,7 @@ vi.mock(
   () => ({
     ConsoleSession: (props: Parameters<typeof ConsoleSession>[0]) => (
       <>
-        {props.header("running")}
+        {props.header("running", undefined)}
         <p data-testid="session">
           {[
             props.sessionKey.runId,
@@ -137,7 +137,7 @@ it("opens an agent before any run with the focus on its heading and closes on a 
     "The model mapping is missing. Choose a permitted connection and model on the node.",
   );
   expect(document.activeElement).toBe(heading());
-  expect(screen.getByText("Agent · PageAgentCLI")).toBeTruthy();
+  expect(screen.getByText("Agent · Agent session")).toBeTruthy();
   expect(
     screen.getByText(
       "No run yet. The session appears once a run executes this node.",
@@ -206,7 +206,7 @@ it("says when the node has not started or runs over an API connection", () => {
 it("lets the reader pick a group member, opens its session and returns to the members", () => {
   renderPanel("group", running(cliRun()));
   expect(heading().textContent).toBe("Review group");
-  expect(screen.getByText("Group · PageAgentCLI")).toBeTruthy();
+  expect(screen.getByText("Group · Agent session")).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: "Back to the group members" }),
   ).toBeNull();
@@ -224,7 +224,7 @@ it("lets the reader pick a group member, opens its session and returns to the me
   expect(heading().textContent).toBe("Review group");
   expect(
     screen.getByText(
-      "A group shares one process between its agents, but every agent has its own session. Choose the agent step whose session you want to open.",
+      "Choose the member whose session you want to open. All members share one terminal; the active one is marked.",
     ),
   ).toBeTruthy();
 });

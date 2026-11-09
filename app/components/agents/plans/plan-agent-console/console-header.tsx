@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import { ConsoleRunPicker } from "./console-run-picker";
+import { ConsoleStopRun } from "./console-stop-run";
 
 import type { AgentPlanRun, AgentPlanRunSummary } from "@/definition/AgentPlan";
 import type { AgentSessionState } from "@/definition/AgentSessionJournal";
@@ -21,6 +22,8 @@ interface ConsoleHeaderProps {
   readonly onClose: () => void;
   /** Returns from a group member to the group's member list. */
   readonly onBack?: () => void;
+  /** Stops the whole run; absent when the run cannot be stopped from here. */
+  readonly onStopRun?: () => Promise<void>;
 }
 
 /** Agent, node and run, provider, translated session state, run choice and close stay visible. */
@@ -68,6 +71,11 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
               {t("plans.console.readOnly")}
             </span>
           ) : null}
+          {props.run?.manualInputAt ? (
+            <span className="rounded-md bg-warning-subtle px-2 py-0.5 font-medium text-warning">
+              {t("plans.console.manualInput")}
+            </span>
+          ) : null}
           {props.run?.status === "work_done_closeout_open" ? (
             <span className="rounded-md bg-warning-subtle px-2 py-0.5 font-medium text-warning">
               {t("plans.status.work_done_closeout_open")}
@@ -83,6 +91,7 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
           onSelect={props.onSelectRun}
         />
       ) : null}
+      {props.onStopRun ? <ConsoleStopRun onStop={props.onStopRun} /> : null}
       <Button
         size="icon-sm"
         variant="ghost"

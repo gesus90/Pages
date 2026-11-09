@@ -1,6 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
+import { formatLocalTime } from "@/app/components/agents/plans/plan-agent-console/console-time";
 import { ConsoleHistory } from "@/app/components/agents/plans/plan-agent-console/console-history";
 
 import { renderConsole } from "./console-fixture";
@@ -80,7 +81,7 @@ it("renders entries as text with kind, turn, shortened mark and collapsed long t
   );
   const entries = screen.getAllByRole("listitem");
   expect(entries[0]?.textContent).toBe(
-    "Status2026-10-26T00:00:00.000Z<b>prepared</b>",
+    `Status${formatLocalTime("2026-10-26T00:00:00.000Z") ?? ""}<b>prepared</b>`,
   );
   expect(entries[1]?.textContent).toContain("Tool finishedTurn 1");
   expect(entries[1]?.querySelector("details")).toBeNull();

@@ -138,6 +138,8 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   plan_reasoning_unsupported: "open",
   plan_permission_mode_unenforceable: "harm",
   plan_yolo_isolation_unavailable: "harm",
+  plan_terminal_question: "open",
+  plan_terminal_unavailable: "open",
   plan_codex_configuration_unmanaged: "harm",
   plan_acp_session_failed: "infrastructure",
   acp_session_resume_failed: "infrastructure",

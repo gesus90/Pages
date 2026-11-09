@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import { planLoopMembers, planLoopMode } from "@/definition/AgentPlanLoop";
+import { isPlanLoopLeftRegularly } from "@/definition/AgentPlanLoopRun";
 
 import { keepPlanControlKeys } from "./plan-flow-keys";
 import {
@@ -19,6 +20,7 @@ import { planLoopRunOf, planLoopSummary } from "./plan-loop-summary";
 import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
 import { PLAN_NODE_TEXT } from "./plan-node-text";
+import { planSuccessClass } from "./plan-status";
 
 import type {
   AgentPlanInput,
@@ -57,19 +59,29 @@ function memberChain(loop: AgentPlanLoop, sources: AgentPlanSources): string {
  * The full settings are not drawn here; the pencil opens them in a floating
  * panel. The container is one flow node outwardly, with its dots on the
  * container edge; its members are separate nodes of the canvas placed in it.
+ * While a run is shown, the container turns to success only once the whole
+ * loop was left regularly with a confirmed cleanup, never after a single
+ * iteration; a failed loop takes the destructive edge.
  */
 export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
   const { t } = useTranslation();
   const { loop, graph } = props;
   const label = loop.name || t("plans.loops.defaultName");
   const hasIssue = graph.issues.some((issue) => issue.nodeId === loop.id);
+  const record = planLoopRunOf(props.run, loop.id);
+  const isLeft = props.run !== null && isPlanLoopLeftRegularly(record);
   return (
     <section
       data-plan-loop={loop.id}
+      data-plan-loop-outcome={isLeft ? "succeeded" : undefined}
       aria-label={t("plans.loops.frame", { name: label })}
       onKeyDown={keepPlanControlKeys}
       className={cn(
         "relative size-full rounded-[1.25rem] border border-plan-loop-edge bg-plan-loop-subtle shadow-xs",
+        isLeft && planSuccessClass(),
+        props.run !== null &&
+          record?.status === "failed" &&
+          "border-destructive",
         props.isDropTarget && "ring-2 ring-plan-loop/40",
         graph.selectedId === loop.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-background",

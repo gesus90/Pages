@@ -39,25 +39,89 @@ const MESSAGE_BOUNDARIES: ReadonlySet<SessionUpdate["sessionUpdate"]> = new Set(
   ["agent_thought_chunk", "tool_call", "tool_call_update", "plan"],
 );
 
-/** The event an update of tools, plans or modes is recorded as; `null` for other updates. */
+/** Longest command or output kept of one tool call; the journal limits the event as a whole. */
+const TOOL_TEXT = 3_000;
+
+/** What a tool call reported so far: its title, kind and input. */
+interface ToolCallState {
+  title: string;
+  kind: string;
+  input: string;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value))
+    : null;
+}
+
+function shortened(text: string): string {
+  return text.length > TOOL_TEXT ? `${text.slice(0, TOOL_TEXT)} …` : text;
+}
+
+/** The command, file or query a tool call works on, as the adapter reported it. */
+function describeInput(raw: unknown): string {
+  if (raw === undefined || raw === null) return "";
+  if (typeof raw === "string") return shortened(raw);
+  const input = readRecord(raw);
+  const command = input?.command ?? input?.cmd;
+  if (typeof command === "string") return shortened(command);
+  if (Array.isArray(command)) return shortened(command.map(String).join(" "));
+  for (const field of ["file_path", "path", "pattern", "query", "url"]) {
+    const value = input?.[field];
+    if (typeof value === "string") return shortened(value);
+  }
+  return shortened(JSON.stringify(raw));
+}
+
+/** What a tool call returned: its text content, diffs and raw output. */
+function describeOutput(
+  update: Extract<SessionUpdate, { sessionUpdate: "tool_call_update" }>,
+): string {
+  const parts: string[] = [];
+  for (const entry of update.content ?? []) {
+    if (entry.type === "content" && entry.content.type === "text")
+      parts.push(entry.content.text);
+    else if (entry.type === "diff")
+      parts.push(`diff ${entry.path}\n${entry.newText}`);
+  }
+  const raw = update.rawOutput;
+  const output = readRecord(raw);
+  if (parts.length === 0 && typeof raw === "string") parts.push(raw);
+  else if (parts.length === 0 && output) {
+    for (const field of [
+      "formatted_output",
+      "output",
+      "stdout",
+      "stderr",
+      "result",
+    ]) {
+      const value = output[field];
+      if (typeof value === "string" && value.trim()) parts.push(value);
+    }
+    if (parts.length === 0) parts.push(JSON.stringify(raw));
+  }
+  return shortened(parts.join("\n").trim());
+}
+
+/**
+ * The text of a tool call: its title, the command and, once it ended, its output.
+ *
+ * @remarks
+ * A call without a title is named by its kind, never by the internal ID of
+ * the call, which says nothing to a reader.
+ */
+function toolText(state: ToolCallState, output = ""): string {
+  const title = state.title.trim() || state.kind;
+  return [title, state.input ? `$ ${state.input}` : "", output]
+    .filter((part) => part !== "")
+    .join("\n");
+}
+
+/** The event an update of plans or modes is recorded as; `null` for other updates. */
 function activityEvent(
   update: SessionUpdate,
 ): Omit<AgentSessionEventInput, "turn"> | null {
-  if (update.sessionUpdate === "tool_call")
-    return {
-      kind: "tool_started",
-      text: `${update.kind ?? "other"} ${update.title}`,
-      dedupeKey: `tool:${update.toolCallId}:started`,
-    };
-  if (
-    update.sessionUpdate === "tool_call_update" &&
-    (update.status === "completed" || update.status === "failed")
-  )
-    return {
-      kind: update.status === "completed" ? "tool_completed" : "tool_failed",
-      text: update.title ?? update.toolCallId,
-      dedupeKey: `tool:${update.toolCallId}:${update.status}`,
-    };
   if (update.sessionUpdate === "plan")
     return {
       kind: "plan",
@@ -93,6 +157,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
   private readonly dependencies: AgentSessionRecorderDependencies;
   private readonly clock: () => string;
   private readonly turns = new Map<string, number>();
+  private readonly tools = new Map<string, ToolCallState>();
   private attempt: AgentSessionAttemptRecord;
   private message = "";
   private messageBytes = 0;
@@ -178,7 +243,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
     }
     // Like the plan session's own reader, thoughts, tools and plans end the current message.
     if (MESSAGE_BOUNDARIES.has(update.sessionUpdate)) this.flushMessage();
-    const event = activityEvent(update);
+    const event = this.toolEvent(update) ?? activityEvent(update);
     if (event) this.record(event);
   };
 
@@ -233,6 +298,48 @@ export class AgentSessionRecorder implements AcpSessionListener {
     await this.writes;
     if (this.hasWriteFailure) throw new AgentError("plan_history_unavailable");
   };
+
+  /**
+   * The event of a tool call: one when it starts, with its command, and one
+   * when it ends, with command and output; updates in between only add to
+   * what the call reported.
+   */
+  private toolEvent(
+    update: SessionUpdate,
+  ): Omit<AgentSessionEventInput, "turn"> | null {
+    if (update.sessionUpdate === "tool_call") {
+      const state: ToolCallState = {
+        title: update.title,
+        kind: update.kind ?? "other",
+        input: describeInput(update.rawInput),
+      };
+      this.tools.set(update.toolCallId, state);
+      return {
+        kind: "tool_started",
+        text: toolText(state),
+        dedupeKey: `tool:${update.toolCallId}:started`,
+      };
+    }
+    if (update.sessionUpdate !== "tool_call_update") return null;
+    const state = this.tools.get(update.toolCallId) ?? {
+      title: "",
+      kind: "other",
+      input: "",
+    };
+    if (update.title) state.title = update.title;
+    if (update.kind) state.kind = update.kind;
+    if (update.rawInput !== undefined)
+      state.input = describeInput(update.rawInput);
+    this.tools.set(update.toolCallId, state);
+    if (update.status !== "completed" && update.status !== "failed")
+      return null;
+    this.tools.delete(update.toolCallId);
+    return {
+      kind: update.status === "completed" ? "tool_completed" : "tool_failed",
+      text: toolText(state, describeOutput(update)),
+      dedupeKey: `tool:${update.toolCallId}:${update.status}`,
+    };
+  }
 
   private readUsage(
     update: Extract<SessionUpdate, { sessionUpdate: "usage_update" }>,

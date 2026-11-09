@@ -206,3 +206,22 @@ export interface AgentPlanLoopIterationCheckpoint {
     } | null;
   }[];
 }
+
+/**
+ * Whether the whole loop was left regularly: it succeeded with a reason and a confirmed cleanup.
+ *
+ * @remarks
+ * A running or paused loop never counts, however many iterations succeeded,
+ * and neither does a failed, stopped or cancelled one or one whose cleanup is
+ * still pending or failed. The reason itself stays as recorded.
+ */
+export function isPlanLoopLeftRegularly(
+  record:
+    Pick<AgentPlanLoopRun, "status" | "completion" | "cleanup"> | undefined,
+): boolean {
+  return (
+    record?.status === "succeeded" &&
+    record.completion !== null &&
+    (record.cleanup === "confirmed" || record.cleanup === "not_needed")
+  );
+}

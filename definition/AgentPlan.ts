@@ -458,6 +458,8 @@ export interface AgentPlanRun {
   readonly recovery?: AgentPlanRecoveryReason;
   /** The earlier run an explicit restart or resume came from. */
   readonly origin?: AgentPlanRunOrigin;
+  /** When somebody first typed into a terminal of the run: the run was intervened in manually (PAGE-265). */
+  readonly manualInputAt?: string;
   readonly steps: readonly AgentPlanStepResult[];
   /** The iterations and sessions of the loops of the plan; absent in runs without a loop. */
   readonly loops?: readonly AgentPlanLoopRun[];
@@ -468,7 +470,7 @@ export interface AgentPlanRun {
 /** A run of the history list by its start and status, without its snapshot or results. */
 export type AgentPlanRunSummary = Pick<
   AgentPlanRun,
-  "id" | "startedAt" | "status"
+  "id" | "startedAt" | "status" | "manualInputAt"
 >;
 
 /** Creates an unsaved plan without guessing a workspace or granting other users access. */

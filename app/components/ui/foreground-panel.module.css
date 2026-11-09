@@ -26,6 +26,10 @@
   transform-origin: top center;
 }
 
+.wide {
+  max-width: none;
+}
+
 @keyframes backdropIn {
   from {
     opacity: 0;

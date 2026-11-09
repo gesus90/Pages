@@ -159,6 +159,46 @@ export async function stopWorkerUnits(
 }
 
 /**
+ * Lists the ACP worker units that still run, without stopping any of them.
+ *
+ * @param command - Runs `systemctl`; defaults to a real process.
+ * @returns The names of units that are active, starting or stopping.
+ *
+ * @remarks
+ * Used by the periodic reservation check (PAGE-264), which only observes. A
+ * failed or inactive unit holds no process; a unit that is stopping still may.
+ */
+export async function listRunningWorkerUnits(
+  command: CliWorkerCommand = runCommand,
+): Promise<ReadonlySet<string>> {
+  const listed = await command(SYSTEMCTL, [
+    "--user",
+    "list-units",
+    "--all",
+    "--plain",
+    "--no-legend",
+    "--type=service",
+    `${UNIT_PREFIX}*`,
+  ]);
+  const running = new Set<string>();
+  for (const line of listed.stdout.split("\n")) {
+    const [name = "", , active = ""] = line.trim().split(/\s+/u);
+    if (
+      name.startsWith(UNIT_PREFIX) &&
+      [
+        "active",
+        "activating",
+        "deactivating",
+        "reloading",
+        "refreshing",
+      ].includes(active)
+    )
+      running.add(name);
+  }
+  return running;
+}
+
+/**
  * Proves that the user's service manager starts a limited transient unit.
  *
  * @param command - Runs `systemd-run`; defaults to a real process.

@@ -1,3 +1,4 @@
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
 import { planLoopMemberResult } from "../plan-loop-summary";
@@ -101,4 +102,27 @@ export function sessionAddress(key: AgentSessionKey, suffix = ""): string {
 /** A stable text for a key, used to keep the data of one session apart from the next. */
 export function sessionKeyText(key: AgentSessionKey): string {
   return [key.planId, key.runId, key.stepId, key.attemptId].join("/");
+}
+
+/**
+ * Whether the CLI of a node runs in a terminal (PAGE-265).
+ *
+ * @param run - The selected run.
+ * @param step - The node's result in that run.
+ * @returns `true` when its record or the record of another member of the
+ * same process says so: members of a group share one terminal, and only
+ * the member that started the process records it.
+ */
+export function isTerminalSession(
+  run: Pick<AgentPlanRun, "steps" | "loops">,
+  step: AgentPlanStepResult,
+): boolean {
+  const record = step.session;
+  if (!record) return false;
+  if (record.surface === "terminal") return true;
+  return allPlanRunResults(run).some(
+    (entry) =>
+      entry.session?.instanceId === record.instanceId &&
+      entry.session.surface === "terminal",
+  );
 }

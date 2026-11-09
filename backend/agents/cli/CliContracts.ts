@@ -95,6 +95,11 @@ export interface CliSessionRequest {
   readonly onStderr?: (tail: string) => void;
   /** The limited unit the session runs in; signals and the closeout go through it. */
   readonly unit?: CliWorkerUnitHandle;
+  /**
+   * The CLI runs in a pseudo terminal (PAGE-265): it keeps the terminal as
+   * its controlling terminal where the kernel refuses injected input.
+   */
+  readonly isTerminal?: boolean;
 }
 
 export interface CliRunningProcess {
@@ -152,6 +157,8 @@ export interface CliCredentialAccess {
     modelProvider: string,
   ) => Readonly<Record<string, string>>;
   readonly redact: (text: string) => string;
+  /** The exact values `redact` masks, for output that arrives in pieces such as a terminal. */
+  readonly secrets?: readonly string[];
 }
 
 export interface CliStatusOutcome {

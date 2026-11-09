@@ -1,6 +1,7 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { formatLocalTime } from "@/app/components/agents/plans/plan-agent-console/console-time";
 import { ConsoleSession } from "@/app/components/agents/plans/plan-agent-console/console-session";
 import { useAgentSession } from "@/app/components/agents/plans/plan-agent-console/use-agent-session";
 import { useSessionCommands } from "@/app/components/agents/plans/plan-agent-console/use-session-commands";
@@ -101,6 +102,9 @@ function renderSession(
       step={step}
       isLive={options.isLive ?? false}
       isReadOnly={options.isReadOnly ?? false}
+      isTerminal={false}
+      nodeName={(stepId) => stepId}
+      onClose={() => undefined}
       header={header}
     />,
   );
@@ -160,9 +164,7 @@ it("lays out history, composer, controls, usage and facts of a live session", ()
   expect(
     screen.getByRole("complementary", { name: "Session details" }),
   ).toBeTruthy();
-  expect(lastActivity()).toBe(
-    new Date("2026-10-26T00:00:00.000Z").toLocaleString(),
-  );
+  expect(lastActivity()).toBe(formatLocalTime("2026-10-26T00:00:00.000Z"));
   expect(vi.mocked(useAgentSession).mock.calls[0]?.[1].isLive).toBe(true);
 });
 
@@ -178,17 +180,13 @@ it("adds a later read error to the connection line and falls back to the record'
   ).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.getByText("This run is history and read only.")).toBeTruthy();
-  expect(lastActivity()).toBe(
-    new Date("2026-10-15T10:00:12.000Z").toLocaleString(),
-  );
+  expect(lastActivity()).toBe(formatLocalTime("2026-10-15T10:00:12.000Z"));
 });
 
 it("uses the start of the session before its first turn ended and unknown without any time", () => {
   vi.mocked(useAgentSession).mockReturnValue(sessionData());
   renderSession(cliStep({ session: cliSession({ turnEndedAt: null }) }));
-  expect(lastActivity()).toBe(
-    new Date("2026-10-15T10:00:00.000Z").toLocaleString(),
-  );
+  expect(lastActivity()).toBe(formatLocalTime("2026-10-15T10:00:00.000Z"));
 });
 
 it("reads unknown activity when the record holds no time", () => {

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { formatLocalTime } from "./console-time";
 import { RUN_ROW_HEIGHT, useRunPicker } from "./use-run-picker";
 
 import type { RunPicker } from "./use-run-picker";
@@ -67,7 +68,11 @@ function runLabel(
   entry: AgentPlanRunSummary,
   t: ReturnType<typeof useTranslation>["t"],
 ): string {
-  return `${entry.startedAt} · ${t(`plans.status.${entry.status}`)}`;
+  const started = formatLocalTime(entry.startedAt) ?? entry.startedAt;
+  const manual = entry.manualInputAt
+    ? ` · ${t("plans.console.manualInput")}`
+    : "";
+  return `${started} · ${t(`plans.status.${entry.status}`)}${manual}`;
 }
 
 /**

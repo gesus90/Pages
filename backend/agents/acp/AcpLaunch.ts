@@ -34,6 +34,16 @@ export function requireAcpMcpCapabilities(
 const PLAN_BRIDGE_PATH = "/api/v1/plan-bridge";
 
 /**
+ * The address of the plan bridge a session reaches.
+ *
+ * @param mcp - The step-bound bridge access of the node.
+ * @returns The bridge URL below the address of this Pages instance.
+ */
+export function planBridgeUrl(mcp: CliSessionMcp): string {
+  return `${mcp.url.replace(/\/$/u, "")}${PLAN_BRIDGE_PATH}`;
+}
+
+/**
  * The Pages MCP server of one session, or none for a node without MCP access.
  *
  * @param mcp - The step-bound bridge access of the node and how it reaches Pages.
@@ -52,7 +62,7 @@ export function pagesMcpServers(
     {
       type: "http",
       name: PAGES_MCP_SERVER,
-      url: `${mcp.url.replace(/\/$/u, "")}${PLAN_BRIDGE_PATH}`,
+      url: planBridgeUrl(mcp),
       headers: [
         { name: "Authorization", value: `Bearer ${mcp.token}` },
         {

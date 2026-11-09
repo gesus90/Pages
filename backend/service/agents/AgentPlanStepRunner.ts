@@ -93,6 +93,8 @@ interface StepRunnerDependencies {
     AgentSessionService,
     "listen" | "settle" | "released" | "offer" | "abandon"
   >;
+  /** Removes the terminal logs of a run (PAGE-265). */
+  readonly terminals?: { removeRun(runId: string): Promise<void> };
 }
 
 /**
@@ -216,6 +218,9 @@ export class AgentPlanStepRunner {
     status: "succeeded" | "failed" | "cancelled",
   ): Promise<void> {
     await this.dependencies.execution.finishPlanRun?.(runId, status);
+    // A completed run keeps no terminal log; a failed or stopped one keeps it until the next run.
+    if (status === "succeeded")
+      await this.dependencies.terminals?.removeRun(runId);
   }
 
   /** Ends the sessions of a group or loop agent, or of the whole run, and tells how each one closed. */

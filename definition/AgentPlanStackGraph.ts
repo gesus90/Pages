@@ -23,7 +23,7 @@ import type {
 } from "./AgentPlanStack";
 
 /** A node that reads inputs through bindings. */
-type BindingNode = Extract<
+export type PlanBindingNode = Extract<
   AgentPlanNode,
   { readonly bindings: Readonly<Record<string, AgentPlanBinding>> }
 >;
@@ -96,8 +96,10 @@ function scopeIssues(
 }
 
 /** Every node of a plan that reads inputs, the members of groups and loops included. */
-function bindingNodes(plan: AgentPlanInput): readonly BindingNode[] {
-  return plan.nodes.flatMap((node): readonly BindingNode[] => {
+export function planBindingNodes(
+  plan: Pick<AgentPlanInput, "nodes">,
+): readonly PlanBindingNode[] {
+  return plan.nodes.flatMap((node): readonly PlanBindingNode[] => {
     if (
       node.type === "agent" ||
       node.type === "script" ||
@@ -115,7 +117,7 @@ function orderIssues(
   plan: AgentPlanInput,
   expanded: AgentPlanInput,
 ): AgentPlanIssue[] {
-  return bindingNodes(plan).flatMap((node) => {
+  return planBindingNodes(plan).flatMap((node) => {
     if (node.type === "loop") return [];
     return Object.entries(node.bindings).flatMap(
       ([name, binding]): AgentPlanIssue[] =>
@@ -130,7 +132,7 @@ function orderIssues(
 
 /** A remote runner has no access to the state of a stack in the run. */
 function remoteIssues(plan: AgentPlanInput): AgentPlanIssue[] {
-  return bindingNodes(plan).flatMap((node) => {
+  return planBindingNodes(plan).flatMap((node) => {
     if (node.type === "loop" || node.type === "group") return [];
     const target =
       node.type === "git_closeout"
@@ -159,7 +161,7 @@ export function planStackIssues(
   const stacks = planStacks(plan);
   if (
     stacks.length === 0 &&
-    !bindingNodes(plan).some((node) =>
+    !planBindingNodes(plan).some((node) =>
       Object.values(node.bindings).some((binding) => binding.kind === "stack"),
     )
   )

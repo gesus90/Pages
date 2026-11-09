@@ -1,20 +1,29 @@
+import {
+  CheckCircle2,
+  CircleX,
+  LoaderCircle,
+  TriangleAlert,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 import { addPlanStackTicket } from "@/definition/AgentPlanStackEdit";
 import { PLAN_STACK_ENTRY_COUNT } from "@/definition/AgentPlanStack";
+import { planStackOutcome } from "@/definition/AgentPlanStackOutcome";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { planNodeLabel } from "../plan-layout";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { planStackView } from "../plan-stack-summary";
+import { planStatusClass, planSuccessClass } from "../plan-status";
 import { PlanCard } from "./plan-card";
 import { PlanStackEntries } from "./plan-stack-entries";
 import { PlanStackFlowRow, PlanStackOutput } from "./plan-stack-ports";
 import { PlanTicketPicker } from "./plan-ticket-picker";
 
 import type { AgentPlanStack } from "@/definition/AgentPlanStack";
+import type { AgentPlanStackOutcome } from "@/definition/AgentPlanStackOutcome";
 import type { PlanStackView } from "../plan-stack-summary";
 
 /** The state badge beside the menu: progress during a run, or that the stack is empty or used up. */
@@ -46,6 +55,58 @@ function StackBadge(props: {
     >
       {text}
     </span>
+  );
+}
+
+/** The icon beside the processing state; color is never its only sign. */
+const OUTCOME_ICONS = {
+  processing: LoaderCircle,
+  succeeded: CheckCircle2,
+  open: TriangleAlert,
+  failed: CircleX,
+} as const;
+
+/** The card colors of a processing outcome; `undefined` keeps the stack's type colors. */
+function outcomeCardClass(outcome: AgentPlanStackOutcome): string | undefined {
+  if (outcome === "succeeded") return planSuccessClass();
+  if (outcome === "open") return planStatusClass("succeeded", false, true);
+  if (outcome === "failed") return planStatusClass("failed");
+  return undefined;
+}
+
+/**
+ * How the processing of the handed-over entries stands, apart from the handovers.
+ *
+ * @remarks
+ * Shown only once an entry was handed over; an empty, untriggered or
+ * unprocessed stack keeps its handover state alone.
+ */
+function StackOutcomeNote(props: {
+  readonly outcome: AgentPlanStackOutcome;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { outcome } = props;
+  if (outcome === "none") return null;
+  const Icon = OUTCOME_ICONS[outcome];
+  return (
+    <p
+      role="status"
+      data-plan-stack-outcome={outcome}
+      className={cn(
+        "flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-semibold",
+        PLAN_NODE_TEXT.meta,
+        outcomeCardClass(outcome) ?? planStatusClass("running"),
+      )}
+    >
+      <Icon
+        aria-hidden="true"
+        className={cn(
+          "size-3.5 shrink-0",
+          outcome === "processing" && "motion-safe:animate-spin",
+        )}
+      />
+      <span className="truncate">{t(`plans.stack.outcome.${outcome}`)}</span>
+    </p>
   );
 }
 
@@ -125,7 +186,9 @@ function StackScopeNote(props: {
  * IN sits on the left, the flow OUT and the two data outputs Content and
  * Count on the right, like on every card. While a run is shown, entries
  * that were handed over are greyed out and crossed, and the badge says
- * whether the stack is empty or used up.
+ * whether the stack is empty or used up. Handing over is no proof of
+ * success: the card turns to success only once the participants processed
+ * every handed-over entry successfully, and a separate note names that state.
  */
 export function PlanStackCard(props: {
   readonly stack: AgentPlanStack;
@@ -144,6 +207,7 @@ export function PlanStackCard(props: {
     translate: t,
     run: context.run,
   });
+  const outcome = planStackOutcome(context.draft, context.run, stack.id);
   function edit(): void {
     graph.select(stack.id);
     onEdit?.(stack.id);
@@ -161,6 +225,7 @@ export function PlanStackCard(props: {
         label={label}
         title={label}
         subtitle={t("plans.stack.caption")}
+        runClass={props.hasRun ? outcomeCardClass(outcome) : undefined}
         status={<StackBadge view={view} hasRun={props.hasRun} />}
         onEdit={edit}
       >
@@ -168,6 +233,7 @@ export function PlanStackCard(props: {
           <PlanStackFlowRow stack={stack} />
           <StackScopeNote view={view} />
           <StackSummary view={view} />
+          <StackOutcomeNote outcome={outcome} />
           <PlanStackEntries view={view} />
           <StackTicketAdd stack={stack} />
           <div className="flex flex-col">

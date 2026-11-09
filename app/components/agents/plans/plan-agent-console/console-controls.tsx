@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -7,7 +6,7 @@ import type { AgentSessionView } from "@/definition/AgentSessionJournal";
 import type { SessionCommands } from "./use-session-commands";
 
 /**
- * How the next instruction would continue, and the stops the backend offers.
+ * How the next instruction would continue, and the turn cancel the backend offers.
  *
  * @remarks
  * Same session, native recovery and a new session with bounded context read
@@ -24,18 +23,8 @@ export function ConsoleControls({
   readonly commands: SessionCommands;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [isConfirmingStop, setConfirmingStop] = useState(false);
   const { actions, continuation } = view;
-  const canCancelRun = actions.canCancelRun && !isReadOnly;
   const canCancelTurn = actions.canCancelTurn && !isReadOnly;
-  async function stopRun(): Promise<void> {
-    if (!isConfirmingStop) {
-      setConfirmingStop(true);
-      return;
-    }
-    setConfirmingStop(false);
-    await commands.cancel("run");
-  }
   return (
     <section aria-labelledby="console-controls" className="space-y-2 text-xs">
       <h3 id="console-controls" className="text-sm font-semibold">
@@ -63,21 +52,6 @@ export function ConsoleControls({
             onClick={() => void commands.cancel("turn")}
           >
             {t("plans.console.cancelTurn")}
-          </Button>
-        ) : null}
-        {canCancelRun ? (
-          <Button
-            size="sm"
-            variant={isConfirmingStop ? "destructive" : "outline"}
-            disabled={commands.isPending}
-            onClick={() => void stopRun()}
-            onBlur={() => setConfirmingStop(false)}
-          >
-            {t(
-              isConfirmingStop
-                ? "plans.console.confirmStop"
-                : "plans.console.stopRun",
-            )}
           </Button>
         ) : null}
       </div>

@@ -10,8 +10,7 @@ import type {
   AgentSessionUsageTotal,
 } from "@/definition/AgentSessionJournal";
 
-const UNAVAILABLE =
-  "Context occupancy not available: the adapter has not reported both occupancy and window size.";
+const UNAVAILABLE = "Context usage: unknown";
 
 function context(
   contextUsed: number | null,
@@ -69,14 +68,19 @@ it("estimates no occupancy from a missing or invalid count", () => {
   for (const [used, limit] of [
     [10, null],
     [10, 0],
-    [-1, 100],
   ] as const) {
     rerender(
       <ConsoleUsage view={sessionView({ context: context(used, limit) })} />,
     );
     expect(screen.queryByRole("meter")).toBeNull();
-    expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
+    // A known occupancy without a window says so; it never reads as unknown.
+    expect(
+      screen.getByText("10 tokens in context, window size unknown"),
+    ).toBeTruthy();
   }
+  rerender(<ConsoleUsage view={sessionView({ context: context(-1, 100) })} />);
+  expect(screen.queryByRole("meter")).toBeNull();
+  expect(screen.getByText(UNAVAILABLE)).toBeTruthy();
 });
 
 it("shows this session's sums by default and the whole run on request, labelled by their models", () => {
@@ -131,7 +135,7 @@ it("shows the last turn with its confirmed model and says when nothing was count
       })}
     />,
   );
-  expect(screen.getByText("No token counts reported yet.")).toBeTruthy();
+  expect(screen.getByText("Token usage: unknown")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Last turn" }));
   expect(screen.getByText("gpt-5-codex")).toBeTruthy();
   expect(screen.queryByText("gpt-5")).toBeNull();
@@ -145,5 +149,5 @@ it("shows the last turn with its confirmed model and says when nothing was count
   );
   expect(screen.getAllByText("In", { selector: "dt" })).toHaveLength(1);
   rerender(<ConsoleUsage view={sessionView()} />);
-  expect(screen.getByText("No token counts reported yet.")).toBeTruthy();
+  expect(screen.getByText("Token usage: unknown")).toBeTruthy();
 });

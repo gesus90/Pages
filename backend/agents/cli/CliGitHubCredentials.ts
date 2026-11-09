@@ -42,6 +42,8 @@ export interface CliGitHubAccess {
   readonly status: string;
   /** Masks the exact credential and common Git/HTTP encodings before they leave ACP. */
   readonly redact: (text: string) => string;
+  /** The exact values `redact` masks, for output that arrives in pieces such as a terminal. */
+  readonly secrets?: readonly string[];
   /** Persists server-owned namespace evidence before the adapter receives a turn. */
   readonly recordNamespace: (owner: AcpNamespaceOwner) => Promise<void>;
   readonly cleanup: () => Promise<void>;
@@ -201,8 +203,9 @@ function gitSettings(
   ];
 }
 
-function redactor(token: string): (text: string) => string {
-  const secrets = [
+/** The token and the encodings Git and HTTP show it in. */
+function tokenForms(token: string): readonly string[] {
+  return [
     ...new Set([
       token,
       encodeURIComponent(token),
@@ -211,6 +214,10 @@ function redactor(token: string): (text: string) => string {
       JSON.stringify(token).slice(1, -1),
     ]),
   ].sort((left, right) => right.length - left.length);
+}
+
+function redactor(token: string): (text: string) => string {
+  const secrets = tokenForms(token);
   return (text) =>
     secrets.reduce(
       (masked, secret) => masked.replaceAll(secret, "[redacted]"),
@@ -438,6 +445,7 @@ export class CliGitHubCredentials {
       },
       status,
       redact: hasToken ? redactor(access.token) : (text) => text,
+      secrets: hasToken ? tokenForms(access.token) : [],
       recordNamespace: (owner) => recordNamespaceMarker(directory, owner),
       cleanup: () => this.remove(directory),
     };
@@ -488,6 +496,7 @@ export class CliGitHubCredentials {
       environment: { ...prepared.environment, PAGES_GITHUB_ACCESS: status },
       redact: (text) =>
         prepared.redact(text).replaceAll(capability, "[redacted]"),
+      secrets: [...(prepared.secrets ?? []), capability],
       cleanup: async () => {
         await endpoint.close();
         await prepared.cleanup();

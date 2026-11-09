@@ -786,6 +786,8 @@
         "plan_model_unavailable": "The catalog of the runner does not offer the agent's model; nothing was sent, and the run never switches to another model.",
         "plan_reasoning_unsupported": "The runner does not offer the agent's reasoning effort for this model; nothing was sent.",
         "plan_permission_mode_unenforceable": "The ACP adapter does not offer or confirm the permission mode of the agent, so it cannot be enforced; nothing was sent. For Claude Code, a managed or workspace Claude setting that disables bypassPermissions, or a server account running as root, causes this. The run record names what the adapter reported.",
+        "plan_terminal_question": "The CLI of the node asked a question or waited for an approval, and nobody answers in a plan run, so the node failed at once. The run and the terminal log show the question.",
+        "plan_terminal_unavailable": "The terminal of this node has ended or is not available; it takes no input.",
         "plan_yolo_isolation_unavailable": "YOLO runs without an approval step of the runner, so it starts only inside the bubblewrap isolation, which does not work for the server account. Install bubblewrap (apt install bubblewrap), allow unprivileged user namespaces for the account, and start the node again; Pages probes the isolation again within a minute.",
         "plan_codex_configuration_unmanaged": "A Codex configuration file (config.toml) outside Pages could change this run. Remove it from the connection folder or the workspace.",
         "plan_acp_session_failed": "The Codex ACP session failed before or during its turn.",
@@ -1287,8 +1289,8 @@
       "resources": {
         "title": "ACP resources",
         "unavailable": "Resource status is loading or unavailable.",
-        "summary": "Occupied: {{active}} · Limit: {{limit}} · Queue: {{waiting}}",
-        "ram": "Available RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
+        "summary": "Reserved slots: {{active}} (cleanup unconfirmed: {{unconfirmed}}) · Limit: {{limit}} · Waiting requests: {{waiting}}",
+        "ram": "Measured available host RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
         "memoryEnabled": "Memory check enabled",
         "memoryDisabled": "Memory check disabled",
         "storage": "Resource storage failed; admission is blocked.",
@@ -1296,7 +1298,7 @@
         "running": "Running",
         "idle": "Idle (capacity reserved)",
         "closing": "Closing process tree",
-        "cleanup_failed": "Cleanup failed or unconfirmed (capacity blocked)",
+        "cleanup_failed": "Cleanup unconfirmed – slot stays reserved as a precaution (not a failed model job)",
         "capacity": "Waiting for capacity",
         "memory": "Waiting for sufficient RAM",
         "memory_unknown": "Waiting for a reliable RAM reading",
@@ -1326,6 +1328,62 @@
           "invalidSetting": "Enter a whole number from 0 to 999.",
           "environmentOverride": "The environment variable overrides the limit. It cannot be changed here.",
           "general": "The ACP limit could not be fully saved and applied. The effective limit is shown below."
+        },
+        "processes": "Confirmed running processes: {{confirmed}} · Not started yet: {{none}} · Process state unknown: {{unknown}}",
+        "processesHint": "A reservation holds a slot as a precaution; it does not prove a running program and says nothing about its memory use. \"Unknown\" does not mean \"0 processes\".",
+        "waitingNone": "No request is waiting. Reserved slots are not holding up any start.",
+        "waitingSome": "{{count}} request(s) waiting, {{capacity}} of them at the instance limit.",
+        "ramUnknown": "Available host RAM cannot be measured right now · Reserve: {{reserve}} MiB",
+        "check": {
+          "title": "Automatic reservation check (every {{minutes}} minutes, no AI calls)",
+          "last": "Last check:",
+          "next": "Next check:",
+          "never": "none yet",
+          "running": "running or stopped",
+          "outcome": {
+            "pending": "The first check is still pending.",
+            "checked": "Checked: no unconfirmed reservation.",
+            "released": "Checked: {{released}} reservation(s) released after confirmed end, {{unconfirmed}} still unconfirmed.",
+            "unconfirmed": "Checked: {{unconfirmed}} reservation(s) still unconfirmed; their slots stay reserved as a precaution.",
+            "failed": "Check partly failed ({{failed}}). Affected reservations are kept; Pages checks again in 5 minutes."
+          },
+          "scope": {
+            "chat": "This service checks the Pica reservations. The plan service checks plan reservations; their last result is shown on the entry.",
+            "plans": "This service checks the plan reservations. The API service checks Pica reservations."
+          }
+        },
+        "process": {
+          "confirmed": "Process running (confirmed)",
+          "none": "no process started yet",
+          "unknown": "Process state unknown"
+        },
+        "entry": {
+          "pica": "Pica chat",
+          "plan": "Plan “{{name}}”",
+          "planUnknown": "Plan run",
+          "age": "Reserved since",
+          "waitingSince": "Waiting since",
+          "details": "Technical details",
+          "instance": "Instance ID",
+          "run": "Run ID",
+          "step": "Step",
+          "lastCheck": "Last checked automatically:",
+          "otherService": "Another Pages service is responsible; this service only counts the reservation."
+        },
+        "reason": {
+          "unchecked": "Not checked automatically yet. The slot stays reserved until the end of the session is confirmed.",
+          "process_alive": "The related process is provably still running (same process and boot identity). Pages does not end it automatically. Next step: finish the run through the run cleanup or wait for it to end; the check then releases the slot.",
+          "unit_active": "A worker unit of this session is still active. Pages does not end it automatically. Next step: run the run cleanup or inspect the unit with “systemctl --user status pages-acp-{{instance}}-*”.",
+          "owner_managed": "A managed local session owner holds the session, for example paused or resumable. Pages does not end it automatically. Next step: resume the run or finish it through the run cleanup.",
+          "owner_unverified": "The local session owner could not be proven at startup. Next step: use recovery in the run view; the slot is released only after a proven end.",
+          "start_unconfirmed": "Process creation had begun, but no process identity was captured. Such a start does not count as never started. Next step: check for processes with PAGES_RUN_INSTANCE={{instance}}; after a host restart the next check releases the slot.",
+          "start_interrupted": "Pages stopped during the start. Without evidence the start does not count as never started. Next step: check for processes with PAGES_RUN_INSTANCE={{instance}}; after a host restart the next check releases the slot.",
+          "legacy_unproven": "Older reservation without stored ownership evidence. Age, a missing process marker or a Pages restart prove no end. Next step: check for processes with PAGES_RUN_INSTANCE={{instance}}; after a host restart the next check releases the slot automatically.",
+          "check_failed": "The last check could not read the evidence. The slot stays reserved; Pages checks again.",
+          "not_spawned": "Start ended before process creation.",
+          "previous_boot": "Started before the last host restart.",
+          "namespace_ended": "Process provably ended.",
+          "owner_released": "Released by the session owner."
         }
       },
       "openCodeProvider": "Key provider for OpenCode",
@@ -4393,12 +4451,12 @@
     },
     "console": {
       "label": "Agent console {{name}}",
-      "kicker": "{{type}} · PageAgentCLI",
+      "kicker": "{{type}} · Agent session",
       "close": "Close agent console",
       "run": "Run of this node",
       "readOnly": "History · read only",
       "backToGroup": "Back to the group members",
-      "pickMember": "A group shares one process between its agents, but every agent has its own session. Choose the agent step whose session you want to open.",
+      "pickMember": "Choose the member whose session you want to open. All members share one terminal; the active one is marked.",
       "noMembers": "This group has no agent steps yet.",
       "loading": "Loading the session…",
       "details": "Session details",
@@ -4413,7 +4471,10 @@
         "requestedReasoning": "Reasoning requested",
         "confirmedReasoning": "Reasoning confirmed",
         "sessionId": "Session ID",
-        "lastActivity": "Last activity"
+        "lastActivity": "Last activity",
+        "status": "Status",
+        "provider": "Provider",
+        "runtime": "Runtime"
       },
       "git": {
         "detached": "Detached HEAD at {{commit}}",
@@ -4429,7 +4490,7 @@
       },
       "context": "Context window occupancy",
       "contextValue": "{{used}} of {{limit}} tokens in context ({{percent}} %)",
-      "contextUnavailable": "Context occupancy not available: the adapter has not reported both occupancy and window size.",
+      "contextUnavailable": "Context usage: unknown",
       "tokens": {
         "in": "In",
         "out": "Out",
@@ -4442,7 +4503,7 @@
       "cacheReadHint": "Tokens read again from the prompt cache. Every turn reads the cached prefix again, so the cumulative count can exceed the context window.",
       "cacheWriteHint": "Tokens written to the prompt cache.",
       "partial": "Partial: a turn reported no count, or the adapter counts only part of the work.",
-      "noTokens": "No token counts reported yet.",
+      "noTokens": "Token usage: unknown",
       "history": "Session history",
       "noEvents": "No entries yet.",
       "legacy": "Run from before structured histories: only the short event lines of the record are known.",
@@ -4510,15 +4571,15 @@
           "access_denied": "You no longer have the rights for this run.",
           "configuration_incompatible": "The node configuration changed and no longer fits the session.",
           "native_session_ended": "The native session ended with its process.",
-          "pages_resume_unavailable": "The adapter could continue the session, but Pages offers no path for it yet.",
-          "capabilities_unknown": "The adapter did not report whether it can continue a session.",
+          "pages_resume_unavailable": "This session cannot be continued in Pages.",
+          "capabilities_unknown": "Whether this session can be continued is unknown.",
           "remote_one_shot": "This remote agent runs as a one-shot session. Live history is available; additional instructions are unavailable in this session."
         }
       },
       "waitingForCapacity": "The node waits for a free agent slot; it starts once one is free.",
       "cancelTurn": "Cancel turn",
       "stopRun": "Stop run",
-      "confirmStop": "Really stop the whole run?",
+      "confirmStop": "Yes, stop run",
       "empty": {
         "no_run": "No run yet. The session appears once a run executes this node.",
         "not_started": "This node has no session in the selected run yet.",
@@ -4540,7 +4601,40 @@
       "followLatest": "Follow latest output",
       "download": "Download all available history",
       "remoteHistory": "Remote live history",
-      "remoteDiagnostic": "CLI progress is diagnostic. The final step result remains authoritative."
+      "remoteDiagnostic": "CLI progress is diagnostic. The final step result remains authoritative.",
+      "contextUsedOnly": "{{used}} tokens in context, window size unknown",
+      "manualInput": "Manually intervened",
+      "stopTitle": "Stop run?",
+      "stopDescription": "This ends the whole run with all running nodes, not just this agent. Results reported so far are kept.",
+      "stopCancel": "Keep running",
+      "terminal": {
+        "title": "CLI terminal",
+        "inputLabel": "Multi-line input",
+        "inputPlaceholder": "Text for the CLI … (Ctrl+Enter sends the whole text at once)",
+        "send": "Send to the CLI",
+        "interrupt": "Interrupt step",
+        "notice": {
+          "pasted": "Text handed to the CLI.",
+          "interrupted": "Interruption sent to the CLI."
+        },
+        "connection": {
+          "loading": "Loading terminal …",
+          "live": "Live",
+          "reconnecting": "Connection lost, reconnecting …",
+          "closed": "No live connection",
+          "ended": "CLI ended: the terminal is read-only now."
+        },
+        "access": {
+          "typing": "You can type directly into the terminal. Ctrl+Shift+X closes the console.",
+          "touch": "On this device the terminal is read-only; intervene with the input below.",
+          "readOnly": "Read-only"
+        },
+        "activeMember": "Active: {{name}}",
+        "question": "The CLI asked an open question, so the node failed: {{question}}",
+        "older": "Load earlier output",
+        "olderLoading": "Loading earlier output …",
+        "ended": "Ended"
+      }
     },
     "flowInShort": "In",
     "flowOutShort": "Out",
@@ -5176,7 +5270,8 @@
         "succeeded": "Succeeded",
         "failed": "Failed",
         "cancelled": "Stopped",
-        "skipped": "Skipped"
+        "skipped": "Skipped",
+        "closing": "Closing"
       },
       "completion": {
         "count_reached": "Count reached",
@@ -5706,6 +5801,12 @@
         "empty": "Empty",
         "used": "Used up",
         "ready": "Ready"
+      },
+      "outcome": {
+        "processing": "Processing",
+        "succeeded": "Processed successfully",
+        "open": "Processed, report open",
+        "failed": "Processing not successful"
       },
       "entries": "Entries in handover order",
       "emptyHint": "Empty: drag ticket or parameter cards here or add a ticket.",

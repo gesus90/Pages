@@ -1,16 +1,17 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
-import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
-import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
-import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
 import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
-import { endLeaseProcesses } from "./resources/AcpLeaseProcesses";
-import { AgentToolPreflightError } from "./tools/AgentToolReadinessError";
+import { AcpLeaseChecks } from "./resources/AcpLeaseChecks";
+import {
+  closeLease,
+  confirmFailedStart,
+  endLeaseProcesses,
+} from "./resources/AcpLeaseProcesses";
 import {
   readAcpAvailableMemory,
   readScheduledAcpMemory,
@@ -18,11 +19,13 @@ import {
 import { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
 
 import type { SchedulerDependencies } from "./resources/AcpSchedulerDependencies";
+import type { AcpStartLifecycle } from "./resources/AcpStartLifecycle";
 import type {
   PlanSession,
   PlanSessionObserver,
 } from "@/backend/agents/AgentPlanExecution";
 import type {
+  AcpResourceDiagnostics,
   AcpResourceOptions,
   AcpResourceLimitSource,
   AcpResourceOwner,
@@ -62,6 +65,7 @@ export class AcpResourceScheduler {
   private readonly pausedRuns = new Set<string>();
   private readonly shutdownController = new AbortController();
   private readonly opening = new Set<Promise<PlanSession>>();
+  private readonly checks: AcpLeaseChecks;
   private unverifiedLocal: ReadonlySet<string> = new Set();
   private availableMemory: number | null = null;
   private problem: AcpResourceSnapshot["problem"] = null;
@@ -87,6 +91,16 @@ export class AcpResourceScheduler {
         : "config");
     this.memory = dependencies.memory ?? readAcpAvailableMemory;
     this.cleanup = dependencies.cleanup ?? endLeaseProcesses;
+    this.checks = new AcpLeaseChecks({
+      store: this.store,
+      scope: this.admission.recoveryScope(),
+      active: this.active,
+      sessions: this.sessions,
+      pausedRuns: this.pausedRuns,
+      unverifiedLocal: () => this.unverifiedLocal,
+      persist: (task) => this.persist(task),
+      wake: () => this.wake(),
+    });
   }
 
   /**
@@ -124,21 +138,28 @@ export class AcpResourceScheduler {
       await this.recoverRecord(record, { preserved, retained, adopted });
     this.isReady = true;
     this.wake();
+    // The periodic check runs with the service, also without queue or open settings page.
+    this.checks.start();
   }
 
   /** Waits without a native process; the durable starting lease precedes the callback. */
   public open(
     owner: AcpResourceOwner,
     signal: AbortSignal,
-    start: (signal: AbortSignal) => Promise<PlanSession>,
+    start: (
+      signal: AbortSignal,
+      lifecycle: AcpStartLifecycle,
+    ) => Promise<PlanSession>,
     observer?: PlanSessionObserver,
   ): Promise<PlanSession> {
     const pending = this.openSession(owner, signal, start, observer);
     this.opening.add(pending);
-    void pending.then(
-      () => this.opening.delete(pending),
-      () => this.opening.delete(pending),
-    );
+    const settled = this.checks.opening(owner.instanceId);
+    const settle = (): void => {
+      this.opening.delete(pending);
+      settled();
+    };
+    void pending.then(settle, settle);
     return pending;
   }
 
@@ -165,7 +186,7 @@ export class AcpResourceScheduler {
         JSON.stringify(current.namespace) !== JSON.stringify(namespace)
       )
         throw new Error("ACP namespace identity changed");
-      const record = { ...current, namespace };
+      const record = { ...current, namespace, lifecycle: "process" as const };
       await this.store.save(record);
       this.active.set(instanceId, record);
     });
@@ -219,12 +240,14 @@ export class AcpResourceScheduler {
   }
 
   /** Refreshes RAM for monitoring even while capacity is full or the queue is empty. */
-  public async inspect(): Promise<AcpResourceSnapshot> {
+  public async inspect(): Promise<Omit<AcpResourceDiagnostics, "leftovers">> {
     await this.refreshOptions();
     await this.refreshMemory();
     return {
       ...this.snapshot(),
-      active: await this.admission.records(this.pausedRuns),
+      ...(await this.admission.records((record) =>
+        this.checks.describe(record),
+      )),
     };
   }
 
@@ -248,10 +271,10 @@ export class AcpResourceScheduler {
       limitSource: this.limitSource,
       availableMemory: this.availableMemory,
       problem: this.problem,
-      active: [...this.active.values()].map((record) => ({
-        ...record,
-        isPaused: record.runId !== null && this.pausedRuns.has(record.runId),
-      })),
+      check: this.checks.summary(),
+      active: [...this.active.values()].map((record) =>
+        this.checks.describe(record),
+      ),
       waiting: this.waiting.map((request) => ({
         ...request.owner,
         since: request.since,
@@ -296,6 +319,7 @@ export class AcpResourceScheduler {
     this.isClosing = true;
     clearTimeout(this.timer);
     this.shutdownController.abort();
+    await this.checks.stop();
     await Promise.allSettled([...this.opening]);
     await Promise.allSettled(
       [...this.sessions.values()]
@@ -342,24 +366,16 @@ export class AcpResourceScheduler {
       throw new Error(
         "Local native owner is unverified; no cleanup is authorized",
       );
-    const managed = await settleManagedLocalOwner(record.instanceId);
-    if (managed !== null) return { remaining: managed ? 0 : 1 };
-    if (record.namespace)
-      return {
-        remaining: (await settleOwnedNamespace(
-          record.namespace,
-          record.instanceId,
-        ))
-          ? 0
-          : 1,
-      };
-    return this.cleanup(record.instanceId, startedAt);
+    return closeLease(record, startedAt, this.cleanup);
   }
 
   private async openSession(
     owner: AcpResourceOwner,
     signal: AbortSignal,
-    start: (signal: AbortSignal) => Promise<PlanSession>,
+    start: (
+      signal: AbortSignal,
+      lifecycle: AcpStartLifecycle,
+    ) => Promise<PlanSession>,
     observer?: PlanSessionObserver,
   ): Promise<PlanSession> {
     const combined = AbortSignal.any([signal, this.shutdownController.signal]);
@@ -370,7 +386,7 @@ export class AcpResourceScheduler {
       if (combined.aborted || this.isClosing)
         throw new AgentPlanCancelledError();
       hasAttemptedStart = true;
-      native = await start(combined);
+      native = await start(combined, this.checks.lifecycle(owner.instanceId));
       await this.transition(owner.instanceId, "running");
       const session = new ScheduledAcpSession(
         native,
@@ -386,32 +402,21 @@ export class AcpResourceScheduler {
     } catch (error: unknown) {
       logCaughtError("AcpResourceScheduler", error);
 
-      let isConfirmed =
-        !hasAttemptedStart || error instanceof AgentToolPreflightError;
-      const startedAt = this.active.get(owner.instanceId)?.since ?? null;
-      try {
-        if (native) isConfirmed = (await native.close()).isConfirmed;
-        else if (
-          hasAttemptedStart &&
-          !isConfirmed &&
-          !(error instanceof AcpCleanupUnconfirmedError)
-        )
-          isConfirmed =
-            (
-              await this.cleanupRecord(
-                this.active.get(owner.instanceId) ?? {
-                  ...owner,
-                  state: "starting",
-                  since: startedAt ?? "",
-                },
-                startedAt,
-              )
-            ).remaining === 0;
-      } catch (caughtError: unknown) {
-        logCaughtError("AcpResourceScheduler", caughtError);
-
-        // Any unknown closeout keeps the reservation.
-      }
+      const isConfirmed = await confirmFailedStart({
+        error,
+        native,
+        isProven:
+          !hasAttemptedStart ||
+          this.checks.markNotSpawned(owner.instanceId, native),
+        close: () => {
+          const current = this.active.get(owner.instanceId);
+          const fallback = { ...owner, state: "starting" as const, since: "" };
+          return this.cleanupRecord(
+            current ?? fallback,
+            current?.since ?? null,
+          );
+        },
+      });
       await this.finish(owner.instanceId, isConfirmed);
       throw error;
     }
@@ -524,6 +529,7 @@ export class AcpResourceScheduler {
         ...request.owner,
         state: "starting",
         since: request.since,
+        lifecycle: "reserved",
       };
       this.active.set(record.instanceId, record);
       try {

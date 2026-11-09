@@ -89,6 +89,7 @@ async function startAgents(
       ticketAssets,
       acpOptions: runtime.getConfig(),
       gitBridges: runtime.getConfig().agentGitBridges,
+      databaseUrl: runtime.getDatabaseUrl() ?? undefined,
     },
   );
   if (!canProcessRuns()) {

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
+import { formatLocalTime } from "./console-time";
 import { useHistoryWindow } from "./use-history-window";
 
 import type {
@@ -37,6 +38,36 @@ const IS_TOOL: ReadonlySet<AgentSessionEventKind> = new Set([
   "tool_completed",
   "tool_failed",
 ]);
+
+/** The first line of a tool entry: the title the call keeps from its start to its end. */
+function toolHeader(event: AgentSessionEvent): string {
+  return event.text.split("\n", 1)[0] ?? "";
+}
+
+/**
+ * One entry per tool call: the start of a call drops out once its end, with
+ * command and output, is in the history; a call that still runs shows its start.
+ *
+ * @param events - The entries in sequence order.
+ */
+export function mergeToolEvents(
+  events: readonly AgentSessionEvent[],
+): readonly AgentSessionEvent[] {
+  const ended = new Map<string, number>();
+  for (const event of events)
+    if (event.kind === "tool_completed" || event.kind === "tool_failed") {
+      const key = `${event.turn ?? ""}:${toolHeader(event)}`;
+      ended.set(key, (ended.get(key) ?? 0) + 1);
+    }
+  return events.filter((event) => {
+    if (event.kind !== "tool_started") return true;
+    const key = `${event.turn ?? ""}:${toolHeader(event)}`;
+    const count = ended.get(key) ?? 0;
+    if (count === 0) return true;
+    ended.set(key, count - 1);
+    return false;
+  });
+}
 
 function EventText({
   event,
@@ -108,7 +139,9 @@ function HistoryEntry({
           {event.turn !== null ? (
             <span>{t("plans.console.turn", { turn: event.turn })}</span>
           ) : null}
-          <time dateTime={event.createdAt}>{event.createdAt}</time>
+          <time dateTime={event.createdAt}>
+            {formatLocalTime(event.createdAt) ?? event.createdAt}
+          </time>
         </p>
         <EventText
           event={event}
@@ -214,7 +247,7 @@ function HistoryToolbar({
  * journal is; the others keep their space, so scrolling reaches all of them.
  */
 export function ConsoleHistory({
-  events,
+  events: allEvents,
   source,
   retainedFrom,
   navigation,
@@ -225,6 +258,8 @@ export function ConsoleHistory({
   readonly navigation: HistoryNavigation;
 }): React.ReactElement {
   const { t } = useTranslation();
+  // The window measures by list identity; a new list each render would measure forever.
+  const events = useMemo(() => mergeToolEvents(allEvents), [allEvents]);
   const historyWindow = useHistoryWindow(events);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const scroll = useStickToEnd(
