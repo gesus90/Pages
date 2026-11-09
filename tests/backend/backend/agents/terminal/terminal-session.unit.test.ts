@@ -27,6 +27,7 @@ function fakeSession(): {
   };
   readonly pasted: string[];
   readonly exit: (exit: CliSessionExit) => void;
+  readonly process: TerminalSessionContext["process"];
 } {
   let monitorEvents: TerminalMonitorEvents | null = null;
   let exit: (value: CliSessionExit) => void = () => undefined;
@@ -38,6 +39,14 @@ function fakeSession(): {
     activate: vi.fn(async () => undefined),
     question: vi.fn(async () => undefined),
     end: vi.fn(async () => undefined),
+  };
+  const process: TerminalSessionContext["process"] = {
+    exited,
+    isRunning: true,
+    cancel: vi.fn(),
+    endInput: vi.fn(() => {
+      exit({ code: 129, signal: null, errorCode: null, stderrTail: "" });
+    }),
   };
   const context: TerminalSessionContext = {
     instanceId: "process",
@@ -52,12 +61,7 @@ function fakeSession(): {
       questionPattern: null,
       sessionId: "session-1",
     },
-    process: {
-      exited,
-      isRunning: true,
-      cancel: vi.fn(),
-      endInput: vi.fn(),
-    },
+    process,
     recorder: { finish: async () => undefined },
     screen: { text: () => "", dispose: vi.fn() },
     inputs: {
@@ -83,6 +87,7 @@ function fakeSession(): {
     store,
     pasted,
     exit,
+    process,
   };
 }
 
@@ -121,6 +126,43 @@ it("fails the turn when the CLI ends during it", async () => {
   const turn = await world.session.turn;
   expect(turn.failure).toBe("failed");
   expect(turn.errorCode).toBe("plan_step_failed");
+});
+
+async function completeTurn(
+  world: ReturnType<typeof fakeSession>,
+): Promise<void> {
+  await vi.advanceTimersByTimeAsync(0);
+  world.events().turnEnded({ status: "completed", output: "done" });
+  await vi.advanceTimersByTimeAsync(1_500);
+  await world.session.turn;
+}
+
+it("counts the hang-up after a completed turn as a clean end", async () => {
+  const world = fakeSession();
+  await completeTurn(world);
+  await expect(world.session.close()).resolves.toMatchObject({
+    isConfirmed: true,
+    exit: { code: 0, signal: null },
+  });
+});
+
+it("keeps the real exit after a failed turn", async () => {
+  const world = fakeSession();
+  await vi.advanceTimersByTimeAsync(0);
+  world.events().question("Allow?");
+  await world.session.turn;
+  await expect(world.session.close()).resolves.toMatchObject({
+    exit: { code: 129, signal: null },
+  });
+});
+
+it("keeps the real exit of a CLI that ended before the closeout", async () => {
+  const world = fakeSession();
+  await completeTurn(world);
+  Object.defineProperty(world.process, "isRunning", { value: false });
+  await expect(world.session.close()).resolves.toMatchObject({
+    exit: { code: 129, signal: null },
+  });
 });
 
 it("pastes the next step of a group and marks its member active", async () => {

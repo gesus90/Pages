@@ -101,6 +101,21 @@ function abortFailure(signal: AbortSignal): TerminalTurnOutcome {
 }
 
 /**
+ * Reads the end of a CLI that Pages hung up after its completed turn.
+ *
+ * @param closed - The closeout as the process ended.
+ * @returns The closeout with a clean exit, unless a process is unconfirmed.
+ *
+ * @remarks
+ * Claude Code, for example, ends with its own non-zero code on the hang-up.
+ * The session events keep the real code.
+ */
+function cleanEndAfterHangUp(closed: PlanSessionClosed): PlanSessionClosed {
+  if (!closed.isConfirmed || closed.exit === null) return closed;
+  return { ...closed, exit: { code: 0, signal: null } };
+}
+
+/**
  * A plan session whose CLI runs in a pseudo terminal (PAGE-265).
  *
  * @remarks
@@ -111,7 +126,9 @@ function abortFailure(signal: AbortSignal): TerminalTurnOutcome {
  * question that nobody would answer fails the node at once, and so does the
  * end of the CLI during a turn. Closing hangs the terminal up, ends what is
  * left of the process group and secures the credentials; the terminal then
- * takes no input any more.
+ * takes no input any more. How a CLI answers that hang-up after a completed
+ * turn says nothing about its work: it counts as a clean end once no process
+ * of the session is left.
  */
 export class TerminalSession implements PlanSession {
   public readonly turn: Promise<PlanSessionTurn>;
@@ -127,6 +144,7 @@ export class TerminalSession implements PlanSession {
   private questionTimer: ReturnType<typeof setInterval> | null = null;
   private closing: Promise<PlanSessionClosed> | null = null;
   private ending: Promise<void> | null = null;
+  private hasCompletedLastTurn = false;
 
   public constructor(context: TerminalSessionContext) {
     this.context = context;
@@ -240,7 +258,9 @@ export class TerminalSession implements PlanSession {
         .catch((error: unknown) => {
           logCaughtError("TerminalSession", error);
         });
-      return this.finishTurn(await outcome);
+      const ended = await outcome;
+      this.hasCompletedLastTurn = ended.failure === null;
+      return this.finishTurn(ended);
     } finally {
       signal.removeEventListener("abort", abort);
     }
@@ -354,6 +374,7 @@ export class TerminalSession implements PlanSession {
     const { context } = this;
     if (this.questionTimer !== null) clearInterval(this.questionTimer);
     context.inputs.stop();
+    const isEndedByPages = context.process.isRunning;
     try {
       const closed = await closeCliSession(
         context.process,
@@ -362,7 +383,9 @@ export class TerminalSession implements PlanSession {
         context.isPidNamespace,
       );
       await this.endTerminal(closed.endedAt);
-      return closed;
+      return isEndedByPages && this.hasCompletedLastTurn
+        ? cleanEndAfterHangUp(closed)
+        : closed;
     } finally {
       await context.launch.monitor.close().catch((error: unknown) => {
         logCaughtError("TerminalSession", error);
