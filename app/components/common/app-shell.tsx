@@ -486,7 +486,7 @@ export function AppShell({
     <div
       ref={shellRef}
       className={cn(
-        "min-h-screen bg-background text-foreground",
+        "min-h-screen bg-background pages-page-surface text-foreground",
         styles.shell,
         layout.isCollapsed && styles.collapsed,
         layout.isResizing && styles.resizing,
