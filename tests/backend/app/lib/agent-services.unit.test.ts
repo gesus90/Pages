@@ -476,10 +476,6 @@ it("runs plan steps over the API and over isolated CLI sessions", () => {
     tools: TOOL_MANAGER,
     resources: services.acpResourceScheduler,
     github: services.agentCliGitHubCredentials,
-    terminals: {
-      store: services.agentTerminals,
-      signals: services.agentTerminalSignals,
-    },
     units: only(vi.mocked(CliWorkerUnits)),
     isolation: {
       protectedDirectories: ["/srv/pages/data", "/srv/pages/Agents"],

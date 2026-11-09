@@ -25,20 +25,23 @@ function sendButton(): HTMLElement {
   return screen.getByRole("button", { name: "Send instruction" });
 }
 
-it("sends on Enter while a turn runs and clears the field only after the backend confirmed", async () => {
+function interruptButton(): HTMLElement {
+  return screen.getByRole("button", { name: "Interrupt the step" });
+}
+
+it("sends on Enter while a turn runs, clears the field only after the backend confirmed and interrupts the turn", async () => {
   const send = vi.fn<SessionCommands["send"]>(async () => true);
+  const cancel = vi.fn<SessionCommands["cancel"]>(async () => undefined);
   renderConsole(
     <ConsoleComposer
       view={sessionView({ state: "running" })}
       isReadOnly={false}
-      commands={sessionCommands({ send })}
+      commands={sessionCommands({ send, cancel })}
+      canInterrupt
     />,
   );
-  expect(
-    screen.getByText(
-      "A turn is running: a new instruction is queued and follows once it ended.",
-    ),
-  ).toBeTruthy();
+  fireEvent.click(interruptButton());
+  expect(cancel).toHaveBeenCalledWith("turn");
   expect(field().getAttribute("aria-describedby")).toBeNull();
   expect(sendButton().hasAttribute("disabled")).toBe(true);
   fireEvent.change(field(), { target: { value: "Check the tests" } });
@@ -85,11 +88,7 @@ it("keeps the text when the backend refused and submits through the send button"
       commands={sessionCommands({ send })}
     />,
   );
-  expect(
-    screen.queryByText(
-      "A turn is running: a new instruction is queued and follows once it ended.",
-    ),
-  ).toBeNull();
+  expect(interruptButton().hasAttribute("disabled")).toBe(true);
   fireEvent.change(field(), { target: { value: "Retry later" } });
   fireEvent.click(sendButton());
   await waitFor(() => expect(send).toHaveBeenCalledWith("Retry later"));
@@ -141,11 +140,7 @@ it("locks a read-only history with its reason and never sends from it", async ()
   expect(field().hasAttribute("disabled")).toBe(true);
   expect(field().getAttribute("aria-describedby")).toBe(reason.id);
   expect(document.activeElement).not.toBe(field());
-  expect(
-    screen.queryByText(
-      "A turn is running: a new instruction is queued and follows once it ended.",
-    ),
-  ).toBeNull();
+  expect(interruptButton().hasAttribute("disabled")).toBe(true);
   fireEvent.change(field(), { target: { value: "Ignored" } });
   await act(async () => {
     fireEvent.keyDown(field(), { key: "Enter" });

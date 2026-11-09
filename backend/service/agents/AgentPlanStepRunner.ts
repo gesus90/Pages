@@ -23,7 +23,10 @@ import { createPlanSessionObserver } from "./AgentPlanSessionObserver";
 import { guardPlanStepStart } from "./AgentPlanStepDispatch";
 import { failureCloseout, planAcceptanceOutcome } from "./AgentPlanStepFailure";
 import { waitForTurn } from "./AgentPlanTurn";
-import { offerGroupInstructions } from "./AgentPlanGroupInstructions";
+import {
+  offerGroupInstructions,
+  offerTurnInput,
+} from "./AgentPlanGroupInstructions";
 import { planSharedSessionLink } from "./AgentPlanSharedSessionLink";
 import { createNodeRun } from "./AgentPlanNodeRun";
 import { openEventTurn } from "./branching/AgentPlanEventSession";
@@ -70,6 +73,8 @@ import type {
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
+import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
+import type { AgentPlanStepProgressTodo } from "@/definition/AgentPlanStepProgress";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
 import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
@@ -87,14 +92,14 @@ interface StepRunnerDependencies {
   readonly access: Pick<AgentPlanSessionAccess, "grant" | "revoke">;
   /** Takes what a session reports through `report_step_result`. */
   readonly stepReports?: Pick<AgentPlanStepReportService, "open" | "close">;
+  /** The live progress of a step, which a new session after a failure continues from (PAGE-284). */
+  readonly stepProgress?: Pick<AgentPlanStepProgressService, "find">;
   readonly archive?: Pick<AgentRunArchive, "input">;
   /** Records the PageAgentCLI history and usage of every ACP node. */
   readonly sessions?: Pick<
     AgentSessionService,
     "listen" | "settle" | "released" | "offer" | "abandon"
   >;
-  /** Removes the terminal logs of a run (PAGE-265). */
-  readonly terminals?: { removeRun(runId: string): Promise<void> };
 }
 
 /**
@@ -218,9 +223,6 @@ export class AgentPlanStepRunner {
     status: "succeeded" | "failed" | "cancelled",
   ): Promise<void> {
     await this.dependencies.execution.finishPlanRun?.(runId, status);
-    // A completed run keeps no terminal log; a failed or stopped one keeps it until the next run.
-    if (status === "succeeded")
-      await this.dependencies.terminals?.removeRun(runId);
   }
 
   /** Ends the sessions of a group or loop agent, or of the whole run, and tells how each one closed. */
@@ -410,6 +412,7 @@ export class AgentPlanStepRunner {
       { contract, mcp, instanceId },
       {
         pin: (prompt) => this.pin(node, prompt),
+        progress: () => this.lastProgress(node),
         journal: (id) =>
           this.dependencies.execution.hasDurableLocalSessions
             ? undefined
@@ -432,7 +435,7 @@ export class AgentPlanStepRunner {
           this.observer(node),
         );
     node.control.claimStart?.();
-    this.offerInstructions(node, groupKey, input);
+    this.offerInstructions(node, groupKey, input, session);
     node.hasStarted = true;
     return this.finishStartedSession(node, session, terms);
   }
@@ -462,15 +465,34 @@ export class AgentPlanStepRunner {
     }
   }
 
-  /** Lets the executor instruct a group member's open session through the group's queue. */
+  /**
+   * Lets the executor instruct a group member's open session through the
+   * group's queue, or type into the running turn of a single node (PAGE-284).
+   */
   private offerInstructions(
     node: NodeRun,
     key: string,
     input: AgentPlanSessionInput | (() => Promise<AgentPlanSessionInput>),
+    session?: PlanSession,
   ): void {
     const { sessions } = this.dependencies;
-    if (!sessions || !node.step.groupId) return;
+    if (!sessions) return;
+    if (!node.step.groupId) {
+      if (session) offerTurnInput(sessions, node, session);
+      return;
+    }
     offerGroupInstructions({ sessions, groups: this.groups, node, key, input });
+  }
+
+  /** The live todo states of the step, which a new session after a failure continues from. */
+  private async lastProgress(
+    node: NodeRun,
+  ): Promise<readonly AgentPlanStepProgressTodo[]> {
+    const progress = await this.dependencies.stepProgress?.find(
+      node.run.id,
+      node.step.step.id,
+    );
+    return progress?.todos ?? [];
   }
 
   private async finish(

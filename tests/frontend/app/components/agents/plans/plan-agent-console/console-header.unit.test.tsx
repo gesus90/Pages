@@ -7,7 +7,7 @@ import { ConsoleHeader } from "@/app/components/agents/plans/plan-agent-console/
 import { renderConsole } from "./console-fixture";
 import { syntheticRun } from "../../page72-run-fixture";
 
-it("shows node, provider, translated state, read-only mark, run choice and the way back", () => {
+it("shows node, provider and translated state as pills, run choice and the way back", () => {
   const onBack = vi.fn();
   const onClose = vi.fn();
   const headingRef = createRef<HTMLHeadingElement>();
@@ -20,8 +20,7 @@ it("shows node, provider, translated state, read-only mark, run choice and the w
       runs={[run, older]}
       run={run}
       provider="codex_cli"
-      state="waiting_for_input"
-      isReadOnly
+      stateLabel="Waiting for input"
       headingRef={headingRef}
       onSelectRun={vi.fn()}
       onClose={onClose}
@@ -31,7 +30,7 @@ it("shows node, provider, translated state, read-only mark, run choice and the w
   expect(screen.getByText("Group · Agent session")).toBeTruthy();
   expect(headingRef.current?.textContent).toBe("Review group · Writer");
   expect(screen.getByRole("status").textContent).toBe(
-    "Codex CLI (ChatGPT account)Waiting for inputHistory · read only",
+    "Codex CLI (ChatGPT account)Waiting for input",
   );
   expect(
     screen.getByRole("combobox", { name: "Run of this node" }).textContent,
@@ -52,8 +51,7 @@ it("leaves out provider, state, run choice and the way back when nothing reporte
       runs={[]}
       run={null}
       provider={null}
-      state={null}
-      isReadOnly={false}
+      stateLabel={null}
       headingRef={createRef<HTMLHeadingElement>()}
       onSelectRun={vi.fn()}
       onClose={vi.fn()}
@@ -65,15 +63,15 @@ it("leaves out provider, state, run choice and the way back when nothing reporte
 });
 
 it("offers the runs without a selection while no run is chosen", () => {
+  const run = syntheticRun();
   renderConsole(
     <ConsoleHeader
       title="Writer"
       nodeType="Agent"
-      runs={[syntheticRun()]}
+      runs={[run, { ...run, id: "older-run", status: "succeeded" as const }]}
       run={null}
       provider={null}
-      state={null}
-      isReadOnly={false}
+      stateLabel={null}
       headingRef={createRef<HTMLHeadingElement>()}
       onSelectRun={vi.fn()}
       onClose={vi.fn()}
@@ -81,7 +79,24 @@ it("offers the runs without a selection while no run is chosen", () => {
   );
   expect(
     screen.getByRole("combobox", { name: "Run of this node" }).textContent,
-  ).not.toContain("Running");
+  ).not.toMatch(/Running|Succeeded/u);
+});
+
+it("offers no run choice while the node has only one run", () => {
+  renderConsole(
+    <ConsoleHeader
+      title="Writer"
+      nodeType="Agent"
+      runs={[syntheticRun()]}
+      run={syntheticRun()}
+      provider={null}
+      stateLabel={null}
+      headingRef={createRef<HTMLHeadingElement>()}
+      onSelectRun={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.queryByRole("combobox")).toBeNull();
 });
 
 it("stops the run from the header only after the question was confirmed", async () => {
@@ -93,8 +108,7 @@ it("stops the run from the header only after the question was confirmed", async 
       runs={[]}
       run={{ ...syntheticRun(), manualInputAt: "2026-10-15T10:05:00.000Z" }}
       provider="claude_code"
-      state="running"
-      isReadOnly={false}
+      stateLabel="Turn running"
       headingRef={createRef<HTMLHeadingElement>()}
       onSelectRun={vi.fn()}
       onClose={vi.fn()}

@@ -439,10 +439,6 @@ function agentPlanRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       "agent-api/plan-runs/:runId/steps/:stepId/session/download",
       "routes/agent-plan-session-download.ts",
     ),
-    resource(
-      "agent-api/plan-runs/:runId/steps/:stepId/terminal",
-      "routes/agent-plan-terminal.ts",
-    ),
   ];
 }
 

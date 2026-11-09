@@ -29,6 +29,8 @@ export type AgentSessionEventKind =
   | "user_instruction"
   | "repair_instruction"
   | "agent_message"
+  | "thought"
+  | "progress"
   | "tool_started"
   | "tool_completed"
   | "tool_failed"

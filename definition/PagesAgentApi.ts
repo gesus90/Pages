@@ -1,3 +1,4 @@
+import type { AGENT_STEP_PROGRESS_OPERATION } from "./AgentPlanStepProgress.js";
 import type { AGENT_STEP_REPORT_OPERATION } from "./AgentPlanStepReport.js";
 import type { AgentExtensionReadOperation } from "./AgentExtensions.js";
 import type { AgentAdminReadOperation } from "./AgentAdministration.js";
@@ -33,6 +34,7 @@ export type PagesAgentApiBusinessOperation =
   | "ticket.work.read"
   | "ticket.work.save"
   | typeof AGENT_STEP_REPORT_OPERATION
+  | typeof AGENT_STEP_PROGRESS_OPERATION
   | "assets.download.prepare"
   | "projects.names.list"
   | "chat.sessions.list"

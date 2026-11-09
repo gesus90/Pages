@@ -125,6 +125,7 @@ export function assetSession(
     turn: session.turn,
     terminated: session.terminated,
     steer: session.steer?.bind(session),
+    interrupt: session.interrupt?.bind(session),
     next: session.next
       ? async (input, signal, observer) => {
           const prepared = await assets.prepare(input);

@@ -6,6 +6,7 @@ import {
   hasNoSessionProcesses,
 } from "../AgentPlanRecovery";
 import { classifyPlanFailure } from "./AgentPlanFailure";
+import { canResumeAfterRestart } from "../AgentPlanStepDecision";
 import { interruptedLoopRuns } from "./AgentPlanLoopRecovery";
 import { endInterruptedScript } from "../AgentPlanScriptRecovery";
 import {
@@ -211,7 +212,10 @@ export class AgentPlanStartupRecovery {
             recovery: {
               state: "interrupted" as const,
               requiresReconciliation: true,
-              automaticResume: { state: "pending" as const },
+              // The same decision as every automatic retry: only an infrastructure failure resumes on its own.
+              automaticResume: previous.steps.every(canResumeAfterRestart)
+                ? { state: "pending" as const }
+                : { state: "stopped" as const, reason: "failure_class" },
             },
           }),
       steps: steps.map((step) => interruptedStep(step, previous.stopRequested)),

@@ -61,6 +61,7 @@ const WITHOUT_OPERATION_ID = [
   "prepare_asset_upload",
   "save_ticket_work",
   "report_step_result",
+  "update_step_progress",
 ];
 
 describe("the MCP tool catalog", () => {

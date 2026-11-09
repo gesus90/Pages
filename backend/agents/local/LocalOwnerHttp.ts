@@ -169,6 +169,8 @@ export class LocalOwnerHttp {
       case "cancel":
         await this.session.cancel();
         return { ok: true };
+      case "interrupt":
+        return { interrupted: await this.session.interrupt() };
       case "close":
         return { closed: await this.session.close() };
       case "release":

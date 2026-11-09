@@ -8,7 +8,7 @@ import type { CliGitHubAccess } from "./CliGitHubCredentials";
 import type { CliSessionRequest } from "./CliContracts";
 import type { CliSessionProcess } from "./CliSessionProcess";
 
-/** The process of a session start: an ACP worker or a terminal CLI. */
+/** The process of a session start: the ACP worker. */
 type StartedProcess = Pick<CliSessionProcess, "cancel" | "endInput" | "exited">;
 
 /** A partially started session and its resources. */

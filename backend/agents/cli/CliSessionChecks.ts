@@ -2,7 +2,6 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { openCodeModelProvider } from "@/definition/AgentConnection";
-import { isTerminalProvider } from "@/definition/AgentTerminal";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AcpNamespaceOwner } from "@/definition/AcpResource";
@@ -16,15 +15,6 @@ export async function recordGitHubNamespace(
   namespace: AcpNamespaceOwner | undefined,
 ): Promise<void> {
   if (github && namespace) await github.recordNamespace(namespace);
-}
-
-/** A plan node of Claude Code, Codex or OpenCode; Pica's conversations stay on ACP. */
-export function isTerminalSession(input: AgentPlanSessionInput): boolean {
-  return (
-    input.chat === undefined &&
-    input.resourceContext !== undefined &&
-    isTerminalProvider(input.agent.connection.provider)
-  );
 }
 
 /** Every CLI plan runner and native Pica runner uses ACP, without a one-shot fallback. */

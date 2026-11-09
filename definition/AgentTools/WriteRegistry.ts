@@ -1,6 +1,8 @@
+import { AGENT_STEP_PROGRESS_OPERATION } from "../AgentPlanStepProgress.js";
 import { AGENT_STEP_REPORT_OPERATION } from "../AgentPlanStepReport.js";
 
 import { PLAN_WORK_SAVE_TOOL } from "./PlanWork.js";
+import { STEP_PROGRESS_TOOL } from "./StepProgress.js";
 import { STEP_REPORT_TOOL } from "./StepReport.js";
 import { ADMIN_WRITE_TOOLS } from "./Administration.js";
 import { AGENT_WRITE_TOOLS } from "./Agents.js";
@@ -57,11 +59,13 @@ export const WRITE_TOOLS: readonly {
   readonly operation:
     | PagesAgentWriteOperation
     | "ticket.work.save"
-    | typeof AGENT_STEP_REPORT_OPERATION;
+    | typeof AGENT_STEP_REPORT_OPERATION
+    | typeof AGENT_STEP_PROGRESS_OPERATION;
   readonly tool: Tool;
 }[] = [
   { operation: "ticket.work.save", tool: PLAN_WORK_SAVE_TOOL },
   { operation: AGENT_STEP_REPORT_OPERATION, tool: STEP_REPORT_TOOL },
+  { operation: AGENT_STEP_PROGRESS_OPERATION, tool: STEP_PROGRESS_TOOL },
   { operation: "chat.sessions.delete", tool: CHAT_SESSIONS_DELETE_TOOL },
   ...EXTENSION_WRITE_TOOLS,
   ...ADMIN_WRITE_TOOLS,

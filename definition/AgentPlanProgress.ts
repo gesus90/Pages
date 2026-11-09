@@ -21,6 +21,11 @@ export interface AgentPlanProgress {
     readonly contentHash: string;
   }[];
   readonly todos: readonly AgentPlanProgressItem[];
+  /** What the agent said it does now through `update_step_progress` (PAGE-284). */
+  readonly activity?: {
+    readonly text: string;
+    readonly reportedAt: string;
+  };
 }
 
 /** Stable ticket identity, or the contract ID for an unbound requirement. */
@@ -28,6 +33,8 @@ export interface AgentPlanProgressItem {
   readonly id: string;
   readonly text: string;
   readonly status: "done" | "active" | "open" | "missing" | "unreported";
+  /** The ID of the step contract, such as `T1`, under which the agent reports it. */
+  readonly contractId?: string;
   readonly ticket?: {
     readonly id: string;
     readonly key: string;

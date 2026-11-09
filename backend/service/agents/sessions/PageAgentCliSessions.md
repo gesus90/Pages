@@ -1,11 +1,12 @@
-# PageAgentCLI sessions (PAGE-85, PAGE-265)
+# PageAgentCLI sessions (PAGE-85, PAGE-284)
 
 PageAgentCLI is the controlled interface to the session of a plan node. Since
-PAGE-265, Claude Code, Codex and OpenCode run as their own interactive CLI in
-a pseudo terminal that the plan console shows (section "Terminal sessions"
-below); Antigravity stays on ACP. It is no system shell: input reaches only
-the CLI of the node, and only from a person who may run the plan. This
-document covers the backend; the plan console is its only surface.
+PAGE-284 every local plan node runs over ACP, whether Claude Code, Codex,
+OpenCode or Antigravity, and the plan console shows its stored ACP history in
+the Pages terminal (section "Pages terminal" below). The PTY terminals of
+PAGE-265 are removed. It is no system shell: input reaches only the session
+of the node, and only from a person who may run the plan. This document
+covers the backend; the plan console is its only surface.
 
 ## Verified starting point
 
@@ -113,8 +114,8 @@ such, otherwise `unavailable` with a reason (`access_denied`,
 `capabilities_unknown`). A plan checkpoint is reported
 apart (`hasPlanCheckpoint`); it is plan recovery, not native recovery.
 
-Today only open group sessions are offered as `live` for ACP instructions;
-a terminal session takes input in its terminal while its CLI runs. Resume, load and
+Open group sessions are offered as `live` for instructions between turns; a
+single node takes input in its running turn (PAGE-284). Resume, load and
 reconstruction are decided but no path executes them for plan nodes yet, so
 the view reports them as unavailable instead of offering them.
 
@@ -173,122 +174,76 @@ not part of the input, for the others the column says it is unknown.
   process, which would end the shared group session, so `cancel("turn")`
   reports `nothing_running` for plan sessions.
 
-## Terminal sessions (PAGE-265)
+## Pages terminal (PAGE-284)
 
-### Providers
+### One way for every provider
 
-| Provider    | Surface                                       | Turn end and usage                                                                         | Open question detected by                                                    |
-| ----------- | --------------------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Claude Code | terminal, full screen (alternate buffer)      | hooks `Stop`/`StopFailure`/`UserPromptSubmit`; transcript: model, tokens, interrupted turn | hooks `PermissionRequest`, `Elicitation`, `Notification` (permission prompt) |
-| Codex       | terminal, ordinary output (`--no-alt-screen`) | rollout file: `task_complete`, `turn_aborted`, `token_count`, `turn_context`               | the approval text on the screen                                              |
-| OpenCode    | terminal, full screen                         | local interface `GET /event`: `session.idle`, `session.error`, `message.updated`           | `permission.asked`, `question.asked`                                         |
-| Antigravity | ACP (decision 2)                              | ACP as before                                                                              | Pages answers every permission request                                       |
+`CliSessionExecution` starts every plan node through the ACP driver of its
+provider, with the profile of its mode, isolation, the limited unit, the
+resource scheduler and the Git access of the ACP path. There is no PTY, no
+terminal table and no terminal channel any more: migration 030 drops
+`agent_plan_terminals`, `agent_plan_terminal_segments` and
+`agent_plan_terminal_inputs`; step reports, acceptance and run status of
+older runs stay readable. `agent_plan_runs.manual_input_at` stays as the mark
+of older runs.
 
-Antigravity stays on the adapter `antigravity-acp`: `agy` cannot be isolated
-with `GEMINI_HOME`, starts a setup assistant with a consent Pages must not
-give, and updates itself. Its history shows the command and output of every
-tool call (below).
+### History and terminal
 
-### Start
+`AgentSessionRecorder` stores, besides tool calls, plans and turn ends, the
+thoughts of the model (`thought`, where the adapter reports them), the answer
+in pieces at most one second apart while it is written, and every successful
+`update_step_progress` call as a `progress` event. The console renders all
+attempts of the node with `renderTerminal` (`plan-agent-console/terminal-lines.ts`),
+a pure function, in one xterm; earlier attempts of the run are read with
+`history=only`.
 
-`CliSessionExecution` decides per plan node: a Claude Code, Codex or OpenCode
-node without `chat` starts `startTerminalSession` (`backend/agents/terminal/`),
-everything else ACP. The start keeps the ACP contract: verified sign-in, exact
-model and effort, the profile of the mode, the Pages MCP server of the step,
-bubblewrap and the limited unit, the resource scheduler and its lease. The ACP
-adapter is not needed; unmanaged configuration files are still refused.
+### Input in the running turn
 
-| Provider    | Start (`--` arguments abbreviated)                                                                                                                                                                                                                                                                                                                             |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code | `claude --session-id <uuid> --model … --effort … --setting-sources "" --settings <hooks> --mcp-config <pages> --strict-mcp-config` + YOLO `--dangerously-skip-permissions` or "Nur Lesen" `--permission-mode dontAsk --tools Read Glob Grep WebSearch WebFetch`; `AskUserQuestion` removed; `.claude.json` of the private plan home marks onboarding and trust |
-| Codex       | `codex --no-alt-screen --no-daemon -C <dir>` + YOLO `--dangerously-bypass-approvals-and-sandbox` or "Nur Lesen" `-a never -s read-only`; model, effort, profile, trust, no update check and the Pages MCP server as `-c` overrides; the credential in `PAGES_MCP_TOKEN`                                                                                        |
-| OpenCode    | `opencode --pure --port <free> --hostname 127.0.0.1 -m <model> --prompt … <dir>` with the inline configuration of the ACP driver plus the Pages MCP server, the server password and the `OPENCODE_DISABLE_*` switches (without them the update dialog takes the first key)                                                                                     |
+A single node offers its live session for input. `AcpTurnControl` joins an
+input to the running turn: an adapter with its steering extension takes it
+natively, every other adapter gets its running `session/prompt` cancelled and
+the input as the next prompt of the same native session; the turn of the
+node ends only with a prompt that ends without waiting input. Strg+C and
+Escape interrupt the running prompt; the turn then waits up to five minutes
+for the next input and otherwise ends as cancelled. The route checks the
+right to run the plan for every input.
 
-The terminal environment adds `TERM=xterm-256color` and colors. A terminal
-session keeps its controlling terminal inside bubblewrap only where the kernel
-refuses `TIOCSTI` (`/proc/sys/dev/tty/legacy_tiocsti` = 0); otherwise it stays
-a new session and resize signals are sent to the unit and the processes below.
-The prompt is the start argument of the CLI; the run record stores the
-arguments with `<prompt>` in its place. A further step of a group and a steer
-are pasted as one bracketed paste and submitted.
+### Live progress and usage
 
-ACP and the terminal never share one process: the hooks, transcripts and the
-local interface of each CLI give progress, token counts and turn ends.
+`update_step_progress` (operation `run.step.progress`) is bound to run and
+node like `report_step_result` and allowed in read-only sessions. It stores
+the todo states and the activity per run and node in
+`agent_plan_step_progress` (migration 031), so a further attempt of the run
+starts from them; `withPlanProgress` projects them into `step.progress`.
+`usage_update` stores the context and the cost (`cost_amount`,
+`cost_currency`) of the attempt; the view sums the tokens per turn, attempt
+(`totals`) and node (`nodeTotals`).
 
-### Turns and questions
+### One decision for completion and resume
 
-A reported turn end counts once no new prompt follows within 1.5 s (a CLI may
-start a typed prompt as a turn of its own); after an interruption a person has
-five minutes to continue, then the turn ends as cancelled. A question that
-nobody would answer fails the node at once with `plan_terminal_question`; the
-question is stored with the terminal and is the output of the turn. The end of
-the CLI during a turn fails the node. Closing hangs the terminal up, ends what
-is left of the process group and secures the credentials; the terminal then
-takes no input.
-
-### Output, screen and logs (migration 023)
-
-| Table                             | Content                                                                                                                                          |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `agent_plan_terminals`            | One row per CLI process: run, node, provider, state, geometry, full-screen flag, serialized screen and its segment, active member, open question |
-| `agent_plan_terminal_segments`    | Redacted output in order, at most 16 KiB each, at most 8 MiB per terminal (older ones are removed)                                               |
-| `agent_plan_terminal_inputs`      | Checked inputs until the process of the terminal applied them                                                                                    |
-| `agent_plan_runs.manual_input_at` | The run was intervened in manually; it stays after the logs are gone                                                                             |
-
-`TerminalRedactor` masks the exact secrets of the session (MCP credential,
-OpenCode server password, provider keys, GitHub token forms) and the patterns
-of `sanitizePlanOutput` before anything is stored, shown or answered. It
-works on the visible text, so colors and control sequences between the
-characters of a secret, a wrap over lines and a cut between chunks do not
-stop it; a partial secret at the end of a chunk is held back. The headless
-xterm of the server applies every stored segment, answers the queries of the
-CLI without a viewer and stores the screen every two seconds.
-
-Every change is announced with PostgreSQL `NOTIFY pages_terminal`, so the
-process that runs the CLI (the API, `pages-runs` or a durable local owner) and
-the process a viewer is connected to need not be the same.
-
-Retention: `AgentPlanStepRunner.finishPlanRun` removes the terminal logs of a
-run that succeeded at once. The logs of a failed or stopped run stay readable
-and go with the run when the plan starts its next run (`AgentPlanRunPurge`);
-the private session folder lies below `plan-sessions/<run>/`, so a crash
-leaves nothing that the next start does not remove.
-
-### Viewing and input
-
-`AgentTerminalService` reads with the rights of the session history (the
-executor of the run). Opening returns the screen of a full-screen CLI with
-the segments after it, or the last 96 KiB of an ordinary CLI; older pages of
-96 KiB follow while the viewer scrolls up. The WebSocket channel
-`/agent-api/plan-runs/<run>/steps/<node>/terminal/socket` follows from a
-cursor and takes keys and geometry; `…/terminal` takes the multi-line input
-(one bracketed paste) and the interruption by POST. Every input requires the
-right to run the plan (`canEdit`), a running run and a running CLI, checked on
-the server within the last two seconds; any input except a resize marks the
-run. A phone shows the terminal read-only and intervenes with the multi-line
-input and the interruption.
-
-### ACP history (Antigravity)
-
-`AgentSessionRecorder` keeps title, command (`rawInput`) and output
-(`content`, `rawOutput`) of a tool call; a call without a title is named by
-its kind, never by its ID. The console shows one entry per finished call.
+`backend/service/agents/AgentPlanStepDecision.ts` decides for every provider
+how a turn ended (`decidePlanStepCompletion`) and whether and how a failed
+attempt continues (`decidePlanStepRetry`, `decidePlanRetryContinuation`); the
+restart after a restart of Pages uses the same budget and classes
+(`decideAutomaticRestart`, `decideRestartSessionMode`,
+`canResumeAfterRestart`). A resumable native session is always continued,
+whether or not tool events were recorded.
 
 ## Open points
 
 - Remote nodes keep the runner execution (a non-interactive job per node) and
-  the event history (decision 2); a terminal on a remote host needs an
-  extension of the runner protocol and its job model.
-- Bubblewrap around a terminal CLI and real model turns of Claude Code and
-  Codex were not proven in the PAGE-265 environment (nested namespaces and
-  credentials unavailable); OpenCode ran end to end.
+  the event history (decision 2); input into a turn on a remote host needs
+  an extension of the runner protocol and its job model.
+- Real model turns of Claude Code, Codex and Antigravity in the Pages
+  terminal were not part of the PAGE-284 proof; OpenCode ran end to end.
 - No MCP tool exposes the service. The plan console (PAGE-86) reads and
   steers it over `agent-api/plan-runs/:runId/steps/:stepId/session` (view and
   one history page after `after`; POST `send` and `cancel`) and follows it over
   `…/session/events`, a server-sent event stream that resumes from
   `Last-Event-ID`. Both take `planId` and `attemptId` in the query.
-- Standalone nodes close their session right after their turn, so only group
-  members (between turns and while a run is paused) can take instructions.
+- Standalone nodes close their session right after their turn; their input
+  joins the running turn (PAGE-284). Group members take instructions between
+  turns and while a run is paused.
 - Resume, load and reconstructed sessions, a recovery API for failed runs and
   turn-only cancellation (`session/cancel`) are not wired for plan nodes.
 - Codex's cache counting and OpenCode's are not verified against adapter

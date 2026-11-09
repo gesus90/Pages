@@ -1,4 +1,3 @@
-import { Square } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -37,8 +36,11 @@ export function ConsoleStopRun({
   }
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
-      <Button size="sm" variant="destructive" onClick={() => setOpen(true)}>
-        <Square className="size-3.5 fill-current" aria-hidden="true" />
+      <Button
+        size="sm"
+        className="bg-agent-console-danger font-semibold text-agent-console-danger-foreground hover:bg-agent-console-danger-hover"
+        onClick={() => setOpen(true)}
+      >
         {t("plans.console.stopRun")}
       </Button>
       <DialogContent>

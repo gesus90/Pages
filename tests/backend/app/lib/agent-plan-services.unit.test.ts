@@ -1,3 +1,4 @@
+import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
 import "./agent-plan-services-mocks";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -52,7 +53,6 @@ import { AgentSessionRepository } from "@/backend/database/repositories/agent/Ag
 import { AgentSessionInbox } from "@/backend/service/agents/sessions/AgentSessionInbox";
 import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
 import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
-import { AgentTerminalService } from "@/backend/service/agents/terminal/AgentTerminalService";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 
 import type { Mock } from "vitest";
@@ -215,7 +215,6 @@ it("returns the plan service with its management, templates, sessions and recove
     agentPlanManagement: only(vi.mocked(AgentPlanManagement)),
     agentPlanTemplateService: only(vi.mocked(AgentPlanTemplateService)),
     agentSessionService: only(vi.mocked(AgentSessionService)),
-    agentTerminalService: expect.any(AgentTerminalService) as unknown,
     agentPlanRecoveryService: only(vi.mocked(AgentPlanRecoveryService)),
   });
   expect(vi.mocked(createPicaMobileNotificationServices)).toHaveBeenCalledWith({
@@ -241,6 +240,7 @@ it("wires the plan service on one access, preparation and engine", async () => {
   const [options] = vi.mocked(AgentPlanService).mock.calls[0];
   expect(options).toEqual({
     workGate: vi.mocked(AgentPlanWorkGate).mock.instances[1],
+    stepProgress: expect.any(AgentPlanStepProgressService) as unknown,
     workspaceCatalog: CATALOG,
     remoteExecution: only(vi.mocked(AgentPlanRemoteExecution)),
     remoteTargets: only(vi.mocked(AgentPlanRemoteTargets)),
@@ -357,6 +357,7 @@ it("drives runs with the engine and reports engine activity to the runners", asy
     tasks: vi.mocked(AgentPlanTasks).mock.instances[0],
     access: sessions,
     stepReports: expect.any(Object) as unknown,
+    stepProgress: expect.any(AgentPlanStepProgressService) as unknown,
     archive: agents.agentRunArchive,
     sessions: only(vi.mocked(AgentSessionService)),
   });

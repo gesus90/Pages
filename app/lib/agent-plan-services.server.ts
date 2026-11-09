@@ -10,7 +10,8 @@ import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories
 import { AgentWorkspaceCleanupService } from "@/backend/service/agents/AgentWorkspaceCleanupService";
 import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
-import { AgentTerminalService } from "@/backend/service/agents/terminal/AgentTerminalService";
+import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
+import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
 
 import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
@@ -100,8 +101,6 @@ export interface AgentPlanServices {
   /** The personal node templates of the plan editor, checked by the plan service. */
   readonly agentPlanTemplateService: AgentPlanTemplateService;
   readonly agentSessionService: AgentSessionService;
-  /** The terminals of plan nodes for their viewers (PAGE-265). */
-  readonly agentTerminalService: AgentTerminalService;
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;
 }
 
@@ -166,6 +165,7 @@ function planRecords(input: {
 }): Pick<
   PlanDependencies,
   | "workGate"
+  | "stepProgress"
   | "phases"
   | "archive"
   | "startRejections"
@@ -174,6 +174,10 @@ function planRecords(input: {
 > {
   return {
     workGate: new AgentPlanWorkGate(input.database, input.users),
+    stepProgress: new AgentPlanStepProgressService({
+      reports: new AgentPlanStepReportRepository(input.database),
+      progress: new AgentPlanStepProgressRepository(input.database),
+    }),
     phases: new AgentPlanPhases(input.tasks, input.users),
     archive: input.agents.agentRunArchive,
     startRejections: new AgentPlanStartRejectionRepository(input.database),
@@ -271,7 +275,6 @@ export async function createAgentPlanService(input: {
     agentLocalSessionPreparation: new AgentLocalSessionPreparation(runs, start),
     ...views,
     agentSessionService: pageAgentSessions,
-    agentTerminalService: createTerminalService(input.agents, service, access),
     agentPlanRecoveryService: startPlanRecovery(input, {
       service,
       access,
@@ -281,23 +284,6 @@ export async function createAgentPlanService(input: {
       remoteExecution,
     }),
   };
-}
-
-/** The terminals of plan nodes read and steered with the rights of the plan service (PAGE-265). */
-function createTerminalService(
-  agents: AgentApplicationServices,
-  service: AgentPlanService,
-  access: AgentPlanAccess,
-): AgentTerminalService {
-  return new AgentTerminalService({
-    runs: {
-      run: (userId, id) => service.run(userId, id),
-      stop: (userId, id) => service.stop(userId, id),
-    },
-    plans: access,
-    store: agents.agentTerminals,
-    signals: agents.agentTerminalSignals,
-  });
 }
 
 function createPlanStepStart(
@@ -634,9 +620,12 @@ async function createPlanEngine(
         new AgentPlanStepReportRepository(input.database),
         parts.tasks,
       ),
+      stepProgress: new AgentPlanStepProgressService({
+        reports: new AgentPlanStepReportRepository(input.database),
+        progress: new AgentPlanStepProgressRepository(input.database),
+      }),
       archive: input.agents.agentRunArchive,
       sessions: parts.pageAgentSessions,
-      terminals: input.agents.agentTerminals,
     }),
     archive: input.agents.agentRunArchive,
     files: input.agents.agentDefinitionFiles,

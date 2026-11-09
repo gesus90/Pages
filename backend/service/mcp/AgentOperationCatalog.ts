@@ -1,4 +1,5 @@
 import { AGENT_ADMIN_READ_OPERATIONS } from "@/definition/AgentAdministration";
+import { AGENT_STEP_PROGRESS_OPERATION } from "@/definition/AgentPlanStepProgress";
 import { AGENT_STEP_REPORT_OPERATION } from "@/definition/AgentPlanStepReport";
 import { AGENT_EXTENSION_READ_OPERATIONS } from "@/definition/AgentExtensions";
 import {
@@ -136,7 +137,7 @@ function forSession(
  * the upload, which only a personal credential completes. Whatever the reach,
  * never the deletion of a project, which needs a person at a keyboard, and
  * always the report of the session's own step, which a personal credential
- * never has.
+ * never has, with the live progress of that step (PAGE-284).
  */
 export function sessionOperations(
   scope: AgentRunScope,
@@ -160,5 +161,9 @@ export function sessionOperations(
         (deletion) => deletion === operation,
       ),
   );
-  return [...operations, AGENT_STEP_REPORT_OPERATION];
+  return [
+    ...operations,
+    AGENT_STEP_REPORT_OPERATION,
+    AGENT_STEP_PROGRESS_OPERATION,
+  ];
 }

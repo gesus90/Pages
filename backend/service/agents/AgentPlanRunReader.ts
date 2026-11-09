@@ -23,6 +23,7 @@ export type PlanRunReadDependencies = Pick<
   | "tasks"
   | "parameters"
   | "workGate"
+  | "stepProgress"
 > & {
   readonly engine?: Pick<PlanRunEnginePort, "commandReceipt">;
   readonly remoteExecution?: Pick<
@@ -94,6 +95,7 @@ async function loadAuthorizedPlanRun(
     projectId: resources.projectId,
     tasks: dependencies.tasks,
     stepTickets: resources.stepTickets,
+    live: await dependencies.stepProgress?.listForRun(run.id),
   });
   const scoped =
     (await dependencies.workGate?.withProgress(progress)) ?? progress;

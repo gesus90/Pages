@@ -1,7 +1,6 @@
 import { I18nextProvider } from "react-i18next";
 import {
   act,
-  fireEvent,
   render,
   renderHook,
   screen,
@@ -10,7 +9,7 @@ import {
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { ConsoleFailure } from "@/app/components/agents/plans/plan-agent-console/console-failure";
-import { ConsoleHistory } from "@/app/components/agents/plans/plan-agent-console/console-history";
+import { ConsoleTerminal } from "@/app/components/agents/plans/plan-agent-console/console-terminal";
 import { mergeEvents } from "@/app/components/agents/plans/plan-agent-console/session-client";
 import { useAgentSession } from "@/app/components/agents/plans/plan-agent-console/use-agent-session";
 import { createI18n } from "@/app/lib/i18n";
@@ -20,6 +19,19 @@ import {
   SessionEventSource,
   historyEvent,
 } from "./page161-session-fixture";
+import {
+  cliStep,
+  sessionCommands,
+} from "./plans/plan-agent-console/console-fixture";
+
+import type { TerminalInputMode } from "@/app/components/agents/plans/plan-agent-console/console-terminal";
+import type { AgentSessionData } from "@/app/components/agents/plans/plan-agent-console/use-agent-session";
+
+// xterm cannot draw in jsdom; the terminal keeps its section, input and footer.
+vi.mock(
+  "@/app/components/agents/plans/plan-agent-console/use-terminal-surface",
+  () => ({ useTerminalSurface: () => null, useNow: () => 1_790_000_000_000 }),
+);
 
 const i18n = createI18n("en");
 
@@ -124,57 +136,62 @@ it("keeps selection and the old window stable and reports gaps and missing histo
   window.getSelection()?.removeAllRanges();
 });
 
-it("shows bounded history, older-load progress, retention and a streaming download link", () => {
-  const loadEarlier = vi.fn();
-  const stopFollowing = vi.fn();
-  const followLatest = vi.fn();
-  render(
-    <I18nextProvider i18n={i18n}>
-      <ConsoleHistory
-        events={Array.from({ length: 200 }, (_, index) =>
-          historyEvent(index + 1),
-        )}
-        source="journal"
-        retainedFrom={5}
-        navigation={{
-          hasEarlier: true,
-          isHistoryLoading: true,
-          isFollowing: false,
-          loadEarlier,
-          stopFollowing,
-          followLatest,
-          downloadAddress: "/authorized/download",
-        }}
-      />
-    </I18nextProvider>,
+it("puts the bounded session history into the Pages terminal with its input line or end", () => {
+  const events = Array.from({ length: 200 }, (_, index) =>
+    historyEvent(index + 1),
   );
-  // Only the newest entries near the opened end are drawn; each names its place in all 200.
-  const entries = screen.getAllByRole("listitem");
-  expect(entries.length).toBeLessThan(200);
-  expect(entries.at(-1)?.getAttribute("aria-posinset")).toBe("200");
-  expect(entries.at(-1)?.getAttribute("aria-setsize")).toBe("200");
-  expect(screen.getByText("Loading earlier history …")).toBeTruthy();
+  const session: AgentSessionData = {
+    view: SESSION_VIEW,
+    events,
+    source: "journal",
+    retainedFrom: 5,
+    hasEarlier: true,
+    error: null,
+    connection: "live",
+    isHistoryLoading: false,
+    isFollowing: true,
+    refresh: vi.fn(),
+    loadEarlier: vi.fn(),
+    followLatest: vi.fn(),
+    stopFollowing: vi.fn(),
+    downloadAddress: "/authorized/download",
+  };
+  function terminal(inputMode: TerminalInputMode): React.ReactElement {
+    return (
+      <I18nextProvider i18n={i18n}>
+        <ConsoleTerminal
+          sessionKey={SESSION_VIEW.key}
+          step={cliStep()}
+          session={session}
+          commands={sessionCommands()}
+          provider="Codex CLI"
+          model="gpt-5"
+          prompt="Write the release notes"
+          inputMode={inputMode}
+          canInterrupt
+          onCloseRequest={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+  }
+  const { rerender } = render(terminal("line"));
+  const section = screen.getByRole("region", { name: "Pages terminal" });
+  expect(section.querySelector("[data-testid='plan-terminal']")).toBeTruthy();
   expect(
-    screen
-      .getByRole("button", { name: "Load earlier history" })
-      .hasAttribute("disabled"),
-  ).toBe(true);
+    screen.getByRole("textbox", { name: "Message to the agent" }),
+  ).toBeTruthy();
   expect(
-    screen
-      .getByRole("link", { name: "Download all available history" })
-      .getAttribute("href"),
-  ).toBe("/authorized/download");
-  fireEvent.click(screen.getByRole("button", { name: "Follow latest output" }));
-  expect(followLatest).toHaveBeenCalledOnce();
-  const log = screen.getByRole("log");
-  const viewport = log.parentElement;
-  if (!viewport) throw new Error("Viewport missing");
-  Object.defineProperties(viewport, {
-    scrollHeight: { value: 1000 },
-    clientHeight: { value: 100 },
-  });
-  fireEvent.scroll(viewport, { target: { scrollTop: 100 } });
-  expect(stopFollowing).toHaveBeenCalled();
+    screen.getByText("Enter sends · Shift+Enter new line · Ctrl+C interrupts"),
+  ).toBeTruthy();
+  rerender(terminal("ended"));
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(
+    screen.getByText("Session ended, no more input possible"),
+  ).toBeTruthy();
+  rerender(terminal("none"));
+  expect(
+    screen.queryByText("Session ended, no more input possible"),
+  ).toBeNull();
 });
 
 it("deduplicates overlapping pages without dropping unseen entries and surfaces failed older reads", async () => {

@@ -11,7 +11,6 @@ import {
   consoleSession,
   findConsoleNode,
   isRunActive,
-  isTerminalSession,
   sessionKeyText,
 } from "./plan-agent-console/console-target";
 import { planNodeLabel } from "./plan-layout";
@@ -22,7 +21,6 @@ import type {
   AgentPlanSources,
   AgentPlanStep,
 } from "@/definition/AgentPlan";
-import type { AgentSessionState } from "@/definition/AgentSessionJournal";
 import type { ConsoleNode } from "./plan-agent-console/console-target";
 import type { usePlanRun } from "./use-plan-run";
 
@@ -46,8 +44,8 @@ function consoleFocusKey(
 
 /**
  * Escape closes the console like a ticket panel, unless a field inside
- * handled it, an IME composes or the terminal has the focus: there Escape
- * belongs to the CLI, which interrupts with it.
+ * handled it, an IME composes or the terminal has the focus: in the input
+ * line of the Pages terminal Escape interrupts the running step.
  */
 function useEscapeToClose(onClose: () => void): void {
   useEffect(() => {
@@ -68,15 +66,23 @@ function useEscapeToClose(onClose: () => void): void {
   }, [onClose]);
 }
 
+/** The first line of the node's instruction, the plan prompt of the terminal. */
+function promptLine(step: AgentPlanStep): string | null {
+  const line = step.instruction
+    .split("\n")
+    .map((entry) => entry.trim())
+    .find((entry) => entry !== "");
+  return line ?? null;
+}
+
 function AgentConsole(props: {
   readonly step: AgentPlanStep;
   readonly run: AgentPlanRun | null;
   readonly isReadOnly: boolean;
-  readonly nodeName: (stepId: string) => string;
   readonly onClose: () => void;
   readonly header: (
     provider: string | null,
-    state: AgentSessionState | null,
+    stateLabel: string | null,
     onStopRun?: () => Promise<void>,
   ) => React.ReactNode;
 }): React.ReactElement {
@@ -101,10 +107,11 @@ function AgentConsole(props: {
       step={session.step}
       isLive={isRunActive(props.run)}
       isReadOnly={props.isReadOnly}
-      isTerminal={isTerminalSession(props.run, session.step)}
-      nodeName={props.nodeName}
+      prompt={promptLine(props.step)}
       onClose={props.onClose}
-      header={(state, onStopRun) => props.header(provider, state, onStopRun)}
+      header={(stateLabel, onStopRun) =>
+        props.header(provider, stateLabel, onStopRun)
+      }
     />
   );
 }
@@ -150,14 +157,9 @@ export function PlanAgentConsole(
     opened.kind === "group"
       ? opened.group.name
       : planNodeLabel(opened.step, props.sources) || t("plans.missingAgent");
-  function nodeName(stepId: string): string {
-    const node = findConsoleNode(props.draft, stepId);
-    if (node?.kind === "group") return node.group.name;
-    return node ? planNodeLabel(node.step, props.sources) || stepId : stepId;
-  }
   function header(
     provider: string | null,
-    state: AgentSessionState | null,
+    stateLabel: string | null,
     onStopRun?: () => Promise<void>,
   ): React.ReactNode {
     return (
@@ -171,8 +173,7 @@ export function PlanAgentConsole(
         runs={running.runs}
         run={run}
         provider={provider}
-        state={state}
-        isReadOnly={isReadOnly}
+        stateLabel={stateLabel}
         headingRef={heading}
         onSelectRun={(id) => running.select(id, "history")}
         onClose={onClose}
@@ -185,14 +186,14 @@ export function PlanAgentConsole(
     <ForegroundPanel
       aria-label={t("plans.console.label", { name: title })}
       keyboardInset={keyboardInset}
-      isWide
+      isFullscreen
+      className="flex flex-col border border-agent-console-border bg-agent-console-surface text-agent-console-foreground"
     >
       {member ? (
         <AgentConsole
           step={member}
           run={run}
           isReadOnly={isReadOnly}
-          nodeName={nodeName}
           onClose={onClose}
           header={header}
         />

@@ -20,6 +20,7 @@ import { AgentPlanRepository } from "@/backend/database/repositories/agent/Agent
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanRunVisibilityRepository } from "@/backend/database/repositories/agent/AgentPlanRunVisibilityRepository";
 import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
+import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentPlanWorkRepository } from "@/backend/database/repositories/agent/AgentPlanWorkRepository";
@@ -28,7 +29,6 @@ import { AgentProfileRemoval } from "@/backend/database/repositories/agent/Agent
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import { AgentProfileStore } from "@/backend/database/repositories/agent/AgentProfileStore";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
-import { AgentTerminalRepository } from "@/backend/database/repositories/agent/AgentTerminalRepository";
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { AgentWorkspaceReferencesRepository } from "@/backend/database/repositories/agent/AgentWorkspaceReferencesRepository";
 import { AgentWorkspaceRepository } from "@/backend/database/repositories/agent/AgentWorkspaceRepository";
@@ -53,7 +53,6 @@ import {
   AGENT_OPERATION_FLOW,
   PLAN_ASSET_FLOW,
 } from "./agent-asset-flows";
-import { AGENT_TERMINAL_FLOW } from "./agent-terminal-flows";
 import {
   ACP_RESOURCE_FLOW,
   ASSIGNMENT_FLOW,
@@ -148,7 +147,6 @@ export const AGENT_AREA_FLOWS: readonly RepositoryFlow[] = [
   PLAN_ASSET_FLOW,
   AGENT_IMPORT_FLOW,
   AGENT_OPERATION_FLOW,
-  AGENT_TERMINAL_FLOW,
   RUNNER_DEPLOY_KEY_FLOW,
   RUNNER_FLOW,
   RUNNER_EVENT_FLOW,
@@ -189,6 +187,7 @@ export const AGENT_AREA_CLASSES: Readonly<
   AgentPlanRunRepository,
   AgentPlanRunVisibilityRepository,
   AgentPlanStartRejectionRepository,
+  AgentPlanStepProgressRepository,
   AgentPlanStepReportRepository,
   AgentPlanTemplateRepository,
   AgentPlanWorkRepository,
@@ -197,7 +196,6 @@ export const AGENT_AREA_CLASSES: Readonly<
   AgentProfileRepository,
   AgentProfileStore,
   AgentSessionRepository,
-  AgentTerminalRepository,
   AgentWorkspaceCleanupRepository,
   AgentWorkspaceReferencesRepository,
   AgentWorkspaceRepository,

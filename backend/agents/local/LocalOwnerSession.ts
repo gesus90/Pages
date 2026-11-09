@@ -142,6 +142,11 @@ export class LocalOwnerSession {
     return this.closing;
   }
 
+  /** Interrupts the running prompt of the turn, which then waits for a person's input (PAGE-284). */
+  public async interrupt(): Promise<boolean> {
+    return (await this.session?.interrupt?.()) ?? false;
+  }
+
   /** Preserves native steering semantics with a durable command receipt before dispatch. */
   public async steer(prompt: string, commandId: string): Promise<string> {
     const file = path.join(this.manifest.directory, `steer-${commandId}.json`);

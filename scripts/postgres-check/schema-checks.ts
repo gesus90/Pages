@@ -124,36 +124,72 @@ function checkDeclaredObjects(
   const text = migrations
     .map((migration) => migration.sql.replace(/--.*$/gmu, ""))
     .join("\n");
-  const declarations: readonly [RegExp, ReadonlyMap<string, unknown>][] = [
-    [
-      /\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/giu,
-      shape.indexes,
-    ],
-    [
-      /\bCREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/giu,
-      shape.sequences,
-    ],
-    [/\bCREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)/giu, shape.views],
+  const activeTables = new Set(shape.tables.keys());
+  const droppedIndexes = new Set(
+    [...text.matchAll(/\bDROP\s+INDEX\s+(?:IF\s+EXISTS\s+)?(\w+)/giu)].map(
+      (match) => match[1],
+    ),
+  );
+  const droppedSequences = new Set(
+    [...text.matchAll(/\bDROP\s+SEQUENCE\s+(?:IF\s+EXISTS\s+)?(\w+)/giu)].map(
+      (match) => match[1],
+    ),
+  );
+  const droppedViews = new Set(
+    [...text.matchAll(/\bDROP\s+VIEW\s+(?:IF\s+EXISTS\s+)?(\w+)/giu)].map(
+      (match) => match[1],
+    ),
+  );
+
+  const indexes = [
+    ...text.matchAll(
+      /\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s+ON\s+(\w+)/giu,
+    ),
+  ]
+    .filter(
+      ([, name, table]) => activeTables.has(table) && !droppedIndexes.has(name),
+    )
+    .map(([, name]) => name);
+
+  const sequences = [
+    ...[
+      ...text.matchAll(
+        /\bCREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/giu,
+      ),
+    ]
+      .map((match) => match[1])
+      .filter((name) => !droppedSequences.has(name)),
+    ...identitySequences(text, activeTables),
   ];
-  for (const [pattern, actual] of declarations) {
-    const names = [...text.matchAll(pattern)].map((match) => match[1]);
-    if (actual === shape.sequences) names.push(...identitySequences(text));
-    assert.deepEqual([...actual.keys()].sort(), names.sort());
-  }
+
+  const views = [
+    ...text.matchAll(/\bCREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)/giu),
+  ]
+    .map((match) => match[1])
+    .filter((name) => !droppedViews.has(name));
+
+  assert.deepEqual([...shape.indexes.keys()].sort(), indexes.sort());
+  assert.deepEqual([...shape.sequences.keys()].sort(), sequences.sort());
+  assert.deepEqual([...shape.views.keys()].sort(), views.sort());
 }
 
 /** PostgreSQL creates a named sequence for every declared identity column. */
-function identitySequences(text: string): string[] {
+function identitySequences(
+  text: string,
+  activeTables: ReadonlySet<string>,
+): string[] {
   const tables = text.matchAll(
     /\bCREATE\s+TABLE\s+(\w+)\s*\(([\s\S]*?)\n\);/giu,
   );
-  return [...tables].flatMap(([, table, body]) =>
-    [
-      ...body.matchAll(
-        /^\s*(\w+)\s+(?:\w+\s+GENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY|(?:BIG|SMALL)?SERIAL)\b/gimu,
-      ),
-    ].map(([, column]) => `${table}_${column}_seq`),
-  );
+  return [...tables]
+    .filter(([, table]) => activeTables.has(table))
+    .flatMap(([, table, body]) =>
+      [
+        ...body.matchAll(
+          /^\s*(\w+)\s+(?:\w+\s+GENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY|(?:BIG|SMALL)?SERIAL)\b/gimu,
+        ),
+      ].map(([, column]) => `${table}_${column}_seq`),
+    );
 }
 
 async function fingerprint(database: Database): Promise<string> {

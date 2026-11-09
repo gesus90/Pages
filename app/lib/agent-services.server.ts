@@ -60,8 +60,6 @@ import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignment
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentPlanGitHubCredentials } from "@/backend/service/agents/AgentPlanGitHubCredentials";
 import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials";
-import { AgentTerminalRepository } from "@/backend/database/repositories/agent/AgentTerminalRepository";
-import { TerminalSignals } from "@/backend/service/agents/terminal/TerminalSignals";
 
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 import { createRemoteServices } from "./remote-services.server";
@@ -107,10 +105,6 @@ export interface AgentApplicationServices
   readonly agentSimulation: AgentSimulationMode;
   /** Signed references through which a runner reaches a plan asset; `null` without a plan asset store. */
   readonly agentPlanAssetReferences: PlanAssetReferences | null;
-  /** Terminals of plan nodes (PAGE-265): their stored output and inputs. */
-  readonly agentTerminals: AgentTerminalRepository;
-  /** Notifications of terminal output and input between the processes of the instance. */
-  readonly agentTerminalSignals: TerminalSignals;
   readonly localSessions?: LocalSessions | null;
   /** Server-only project credentials, resolved live for YOLO plan nodes. */
   readonly agentPlanGitHubCredentials: AgentPlanGitHubCredentials;
@@ -122,9 +116,6 @@ export interface AgentApplicationServices
 
 interface ExecutionInput {
   readonly localSessions: LocalSessions | null;
-  /** The database and its URL, for the terminals of plan nodes. */
-  readonly database: Database;
-  readonly databaseUrl: string | undefined;
   readonly tools: AgentToolManagerService;
   readonly resources: AcpResourceScheduler;
   /** Instance folders a CLI agent process must not reach. */
@@ -176,16 +167,10 @@ function createExecutions(
   | "agentPlanExecution"
   | "agentCheckService"
   | "openCodeProviderLinks"
-  | "agentTerminals"
-  | "agentTerminalSignals"
   | "agentSimulation"
   | "agentPlanAssetReferences"
 > {
   const { repository, cipher, operations } = input;
-  const terminals = {
-    store: new AgentTerminalRepository(input.database),
-    signals: new TerminalSignals(input.databaseUrl),
-  };
   const agentCheckService = new AgentCheckService({
     repository,
     catalog: input.catalog,
@@ -207,7 +192,6 @@ function createExecutions(
     tools: input.tools,
     resources: isLocalSessionOwner() ? undefined : input.resources,
     github: input.github,
-    terminals,
     units: new CliWorkerUnits(
       localSessionOwnerDirectory()
         ? path.join(
@@ -235,8 +219,6 @@ function createExecutions(
     agentSimulation: input.simulation,
     agentPlanAssetReferences: input.references,
     agentCheckService,
-    agentTerminals: terminals.store,
-    agentTerminalSignals: terminals.signals,
     openCodeProviderLinks: new OpenCodeProviderLinks({
       connections: repository,
       check: (actor, id) => agentCheckService.run(actor, id, "auth"),
@@ -290,8 +272,6 @@ interface AgentServiceResources {
   readonly gitBridges?: readonly AgentGitBridgeSetting[];
   readonly agentsDirectory: string;
   readonly ticketAssets: AgentTicketAssetDependencies;
-  /** The instance's PostgreSQL URL, for terminal notifications between processes. */
-  readonly databaseUrl?: string;
 }
 
 /** Shares one refresh worker and operation registry between catalog reads and its scheduler. */
@@ -467,8 +447,6 @@ export function createAgentServices(
     ...createAssignments(database, repository),
     ...createExecutions({
       localSessions,
-      database,
-      databaseUrl: resources.databaseUrl,
       tools: agentToolManagerService,
       resources: acpResourceScheduler,
       protectedDirectories: [dataDirectory, agentsDirectory],

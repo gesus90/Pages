@@ -1,5 +1,6 @@
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
+import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
@@ -23,6 +24,8 @@ import type { PlanAssetService } from "./assets/PlanAssetService";
 export interface PlanDependencies {
   readonly workspaceCleanup?: AgentWorkspaceCleanupRepository;
   readonly workGate?: AgentPlanWorkGate;
+  /** The live progress `update_step_progress` reported (PAGE-284). */
+  readonly stepProgress?: Pick<AgentPlanStepProgressService, "listForRun">;
   readonly workspaceCatalog?: AgentPlanWorkspaces;
   readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly remoteTargets?: AgentPlanRemoteTargets;

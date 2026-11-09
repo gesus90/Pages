@@ -13,6 +13,7 @@ import type { AgentSessionAttemptRecord } from "@/backend/service/agents/session
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type {
   AgentSessionContextUsage,
+  AgentSessionCost,
   AgentSessionEvent,
   AgentSessionEventKind,
   AgentSessionGitState,
@@ -46,6 +47,8 @@ const EVENT_KINDS: readonly AgentSessionEventKind[] = [
   "user_instruction",
   "repair_instruction",
   "agent_message",
+  "thought",
+  "progress",
   "tool_started",
   "tool_completed",
   "tool_failed",
@@ -95,7 +98,9 @@ export const ATTEMPT_COLUMNS = `
     agent_session_attempts.git_state,
     agent_session_attempts.git_reference,
     agent_session_attempts.workspace_at,
-    agent_session_attempts.updated_at`;
+    agent_session_attempts.updated_at,
+    agent_session_attempts.cost_amount,
+    agent_session_attempts.cost_currency`;
 
 /** The columns of a turn's usage, in the order {@link readUsageRow} reads them. */
 export const USAGE_COLUMNS = `
@@ -156,6 +161,15 @@ function readReported(row: Row, index: number): AgentSessionReportedValue {
   };
 }
 
+function readCost(row: Row): AgentSessionCost | null {
+  const amount = row[24];
+  const currency = readNullableTextColumn(row, 25, "cost_currency");
+  const value = typeof amount === "string" ? Number(amount) : amount;
+  return typeof value === "number" && Number.isFinite(value) && currency
+    ? { amount: value, currency }
+    : null;
+}
+
 function readContext(row: Row): AgentSessionContextUsage {
   const contextUsed = nullableCount(row, 9, "context_used");
   const contextLimit = nullableCount(row, 10, "context_limit");
@@ -169,6 +183,7 @@ function readContext(row: Row): AgentSessionContextUsage {
         : Math.round((contextUsed / contextLimit) * 1_000) / 10,
     source: source === "acp_usage_update" ? source : null,
     reportedAt: readNullableTextColumn(row, 12, "context_at"),
+    cost: readCost(row),
   };
 }
 

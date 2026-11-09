@@ -30,45 +30,6 @@ const CHANNEL_PATHS: readonly {
   },
 ];
 
-/** The terminal of a plan node (PAGE-265): run and node in the path, plan and attempt in the query. */
-const PLAN_TERMINAL_PATH = new RegExp(
-  `^/agent-api/plan-runs/(${UUID})/steps/([^/]{1,200})/terminal/socket$`,
-  "u",
-);
-
-/**
- * Run and node of a plan terminal channel.
- *
- * @param pathname - The decoded path of the request target.
- * @returns The run and the node, or `null` for another path.
- */
-export function planTerminalOf(
-  pathname: string,
-): { readonly runId: string; readonly stepId: string } | null {
-  const match = PLAN_TERMINAL_PATH.exec(pathname);
-  if (!match?.[1] || !match[2]) return null;
-  try {
-    return { runId: match[1], stepId: decodeURIComponent(match[2]) };
-  } catch {
-    // A malformed escape names no node; the upgrade is left to the other handlers.
-    return null;
-  }
-}
-
-/**
- * Whether an upgrade request addresses the terminal of a plan node.
- *
- * @param url - The request target, path and query.
- * @returns `true` for `/agent-api/plan-runs/<run>/steps/<node>/terminal/socket`.
- */
-export function isPlanTerminalChannel(url: string | undefined): boolean {
-  if (!URL.canParse(url ?? "/", "http://pages.invalid")) return false;
-  return (
-    planTerminalOf(new URL(url ?? "/", "http://pages.invalid").pathname) !==
-    null
-  );
-}
-
 /** A runner's channel; matched against the whole request target, query included. */
 export const RUNNER_CHANNEL_PATH = /^\/runner\/v1\/channel\/([a-f0-9-]{36})$/u;
 

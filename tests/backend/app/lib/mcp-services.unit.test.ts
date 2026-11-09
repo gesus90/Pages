@@ -40,6 +40,7 @@ import { ChatAgentOperationService } from "@/backend/service/agents/ChatAgentOpe
 import { PageAgentOperationService } from "@/backend/service/agents/PageAgentOperationService";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
+import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
@@ -385,6 +386,7 @@ it("serves the agent API over the MCP catalog with run, download and upload capa
     {
       runs: vi.mocked(AgentRunCredentialService).mock.instances[0],
       workGate: vi.mocked(AgentPlanWorkGate).mock.instances[0],
+      stepProgress: expect.any(AgentPlanStepProgressService) as unknown,
       downloads: services.agentAssetDownloadService,
       upload: opaque("upload"),
     },

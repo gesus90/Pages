@@ -121,6 +121,7 @@ it("records members of one process into separate attempts with their own turns a
     toolCallId: "call-1",
     title: "pnpm build",
     kind: "execute",
+    rawInput: { command: "pnpm build" },
   });
   first.update({
     sessionUpdate: "usage_update",
@@ -160,12 +161,17 @@ it("records members of one process into separate attempts with their own turns a
     after: 0,
     limit: 50,
   });
+  // An answer is stored in pieces while it is written (PAGE-284): the first piece at once.
   expect(historyA.events.map((event) => [event.kind, event.turn])).toEqual([
+    ["agent_message", 1],
     ["agent_message", 1],
     ["tool_started", 1],
     ["status", 1],
   ]);
-  expect(historyA.events[0]?.text).toBe("Ich prüfe den Build.");
+  expect(historyA.events.slice(0, 2).map((event) => event.text)).toEqual([
+    "Ich prüfe ",
+    "den Build.",
+  ]);
   expect(historyB.events.map((event) => [event.kind, event.turn])).toEqual([
     ["tool_failed", 1],
     ["status", 1],
@@ -448,8 +454,8 @@ it("records the command and output of a tool call and never its internal ID (PAG
     event.kind.startsWith("tool_"),
   );
   expect(tools.map((event) => event.text)).toEqual([
-    "execute\n$ pnpm test",
-    "execute\n$ pnpm test\n12 passed",
+    "execute\n@kind execute\n$ pnpm test",
+    "execute\n@kind execute\n$ pnpm test\n12 passed",
   ]);
   expect(tools.some((event) => event.text.includes("toolu_01ABC"))).toBe(false);
 });

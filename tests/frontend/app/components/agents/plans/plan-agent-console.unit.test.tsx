@@ -23,7 +23,7 @@ vi.mock(
   () => ({
     ConsoleSession: (props: Parameters<typeof ConsoleSession>[0]) => (
       <>
-        {props.header("running", undefined)}
+        {props.header("Turn running", undefined)}
         <p data-testid="session">
           {[
             props.sessionKey.runId,
@@ -32,6 +32,7 @@ vi.mock(
             props.isReadOnly ? "read-only" : "writable",
           ].join(" ")}
         </p>
+        <p data-testid="prompt">{props.prompt ?? "no prompt"}</p>
       </>
     ),
   }),
@@ -39,13 +40,13 @@ vi.mock(
 
 const SOURCES: AgentPlanSources = { agents: [], tasks: [] };
 
-function agentNode(id: string, agentId = ""): AgentPlanStep {
+function agentNode(id: string, agentId = "", instruction = ""): AgentPlanStep {
   return {
     id,
     type: "agent",
     agentId,
     personalAgentId: null,
-    instruction: "",
+    instruction,
     bindings: {},
     x: 0,
     y: 0,
@@ -156,12 +157,25 @@ it("opens an agent before any run with the focus on its heading and closes on a 
   expect(onClose).toHaveBeenCalledOnce();
 });
 
-it("opens the live session of the newest running run with its provider", () => {
+it("opens the live session of the newest running run with its provider and plan prompt", () => {
   const run = cliRun();
-  renderPanel("writer", running(run));
+  const plan = draft();
+  renderConsole(
+    <PlanAgentConsole
+      nodeId="writer"
+      draft={{
+        ...plan,
+        nodes: [agentNode("writer", "", "\n  Write the notes  \nThen review")],
+      }}
+      sources={SOURCES}
+      running={running(run)}
+      onClose={vi.fn()}
+    />,
+  );
   expect(screen.getByTestId("session").textContent).toBe(
     `${run.id} writer live writable`,
   );
+  expect(screen.getByTestId("prompt").textContent).toBe("Write the notes");
   expect(screen.getByRole("status").textContent).toBe(
     "Codex CLI (ChatGPT account)Turn running",
   );
@@ -185,7 +199,6 @@ it("reads a settled, stopping or older run as history", () => {
   expect(screen.getByTestId("session").textContent).toBe(
     "synthetic-run writer settled read-only",
   );
-  expect(screen.getByText("History · read only")).toBeTruthy();
 });
 
 it("says when the node has not started or runs over an API connection", () => {
@@ -260,5 +273,6 @@ it("names no provider for a session record that reports no runner", () => {
   expect(screen.getByTestId("session").textContent).toBe(
     "synthetic-run writer live writable",
   );
+  expect(screen.getByTestId("prompt").textContent).toBe("no prompt");
   expect(screen.getByRole("status").textContent).toBe("Turn running");
 });

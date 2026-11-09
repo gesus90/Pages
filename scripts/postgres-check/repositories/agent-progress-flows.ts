@@ -3,6 +3,7 @@ import { AgentPlanProgressRepository } from "@/backend/database/repositories/age
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { retireRestartSource } from "@/backend/database/repositories/agent/AgentPlanResourceReservation";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
 import {
   AgentPlanRunVisibilityRepository,
   planRunResourcesOf,
@@ -60,6 +61,12 @@ function continuations({
   return new AgentPlanContinuationRepository(database);
 }
 
+function stepProgress({
+  database,
+}: RepositoryWorld): AgentPlanStepProgressRepository {
+  return new AgentPlanStepProgressRepository(database);
+}
+
 /** Progress of a run: completions, stops, retirement and new bases. */
 export const PLAN_PROGRESS_FLOW: RepositoryFlow = {
   title: "plan progress",
@@ -108,6 +115,31 @@ export const PLAN_PROGRESS_FLOW: RepositoryFlow = {
       }),
     ),
     call("AgentPlanRunRepository.find", (world) => runs(world).find("run-a")),
+    call("AgentPlanStepProgressRepository.find", (world) =>
+      stepProgress(world).find("run-a", "review"),
+    ),
+    call("AgentPlanStepProgressRepository.listForRun", (world) =>
+      stepProgress(world).listForRun("run-a"),
+    ),
+    call("AgentPlanStepProgressRepository.save", (world) =>
+      stepProgress(world).save({
+        runId: "run-a",
+        stepId: "review",
+        attemptId: "attempt-1",
+        todosJson: JSON.stringify([{ id: "T1", status: "open" }]),
+        activity: "Prüfe",
+        updatedAt: "2026-03-01T08:35:00.000Z",
+      }),
+    ),
+    stored(
+      "SELECT run_id, step_id, attempt_id, todos_json, activity, updated_at FROM agent_plan_step_progress WHERE run_id = 'run-a';",
+    ),
+    call("AgentPlanStepProgressRepository.find", (world) =>
+      stepProgress(world).find("run-a", "review"),
+    ),
+    call("AgentPlanStepProgressRepository.listForRun", (world) =>
+      stepProgress(world).listForRun("run-a"),
+    ),
     call("AgentPlanRunVisibilityRepository.bases", ({ database }) =>
       new AgentPlanRunVisibilityRepository(database).bases(RUN.userId, PLAN.id),
     ),

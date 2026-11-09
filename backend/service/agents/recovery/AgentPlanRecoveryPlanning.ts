@@ -2,6 +2,8 @@ import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
+import { resumableSessionId } from "../AgentPlanStepDecision";
+
 import type {
   AgentPlanRun,
   AgentPlanStepResult,
@@ -215,14 +217,9 @@ export function planResume(
 /** The native session of a started agent node that its adapter can resume. */
 function nativeSession(step: AgentPlanStepResult): string | null {
   const { session } = step;
-  if (
-    !session?.sessionId ||
-    session.runner === "api" ||
-    !isAcpProvider(session.runner) ||
-    session.continuationCapabilities?.canResume !== true
-  )
+  if (!session || session.runner === "api" || !isAcpProvider(session.runner))
     return null;
-  return session.sessionId;
+  return resumableSessionId(session);
 }
 
 /** Why the earlier session of one failed node can or cannot be continued. */

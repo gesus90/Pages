@@ -799,7 +799,6 @@
         "plan_reasoning_unsupported": "Der Runner bietet die Reasoning-Stufe des Agenten für dieses Modell nicht an; es wurde nichts gesendet.",
         "plan_permission_mode_unenforceable": "Der ACP-Adapter bietet den Berechtigungsmodus des Agenten nicht an oder bestätigt ihn nicht, daher lässt er sich nicht durchsetzen; es wurde nichts gesendet. Bei Claude Code verursachen das eine verwaltete oder im Workspace liegende Claude-Einstellung, die bypassPermissions abschaltet, oder ein Server-Konto, das als root läuft. Der Laufbericht nennt, was der Adapter gemeldet hat.",
         "plan_terminal_question": "Die CLI des Knotens hat eine Rückfrage gestellt oder auf eine Freigabe gewartet. In einem Planlauf antwortet niemand, daher ist der Knoten sofort fehlgeschlagen. Lauf und Terminal-Log zeigen die Frage.",
-        "plan_terminal_unavailable": "Das Terminal dieses Knotens ist beendet oder nicht erreichbar und nimmt keine Eingabe an.",
         "plan_yolo_isolation_unavailable": "YOLO läuft ohne Freigabeschritt des Runners und startet deshalb nur in der Bubblewrap-Abschottung, die für das Server-Konto nicht funktioniert. Installiere bubblewrap (apt install bubblewrap), erlaube dem Konto unprivilegierte User-Namespaces und starte den Knoten erneut; Pages prüft die Abschottung innerhalb einer Minute neu.",
         "plan_codex_configuration_unmanaged": "Eine Codex-Konfigurationsdatei (config.toml) außerhalb von Pages könnte diesen Lauf verändern. Entferne sie aus dem Verbindungsordner oder dem Workspace.",
         "plan_acp_session_failed": "Die Codex-ACP-Sitzung ist vor oder während ihres Turns fehlgeschlagen.",
@@ -4673,32 +4672,79 @@
       "stopDescription": "Das beendet den ganzen Lauf mit allen laufenden Knoten, nicht nur diesen Agenten. Bereits gemeldete Ergebnisse bleiben erhalten.",
       "stopCancel": "Weiterlaufen lassen",
       "terminal": {
-        "title": "Terminal der CLI",
-        "inputLabel": "Mehrzeilige Eingabe",
-        "inputPlaceholder": "Text für die CLI … (Strg+Enter sendet den ganzen Text auf einmal)",
-        "send": "An die CLI senden",
+        "title": "Pages-Terminal",
+        "attempt": "Versuch {{number}}",
+        "done": "fertig",
+        "aborted": "abgebrochen",
+        "running": "läuft seit {{seconds}} s",
+        "todoActive": "{{id}} aktiv · {{text}}",
+        "todoDone": "{{id}} erledigt",
+        "turnEnded": "Turn beendet",
+        "interrupted": "Unterbrochen, wartet auf deine Eingabe",
+        "reportReceived": "Bericht erhalten · {{done}} von {{total}} To-dos, Abnahme erfüllt",
+        "sessionClosed": "Session geschlossen · Node erfolgreich",
+        "abort": "Abbruch: {{reason}}",
+        "resume": "Wiederaufnahme geplant in {{seconds}} s · Neustart {{restart}} von {{limit}} · {{session}}",
+        "repair": "Korrekturrunde {{restart}} von {{limit}} · {{session}}",
+        "sameSession": "gleiche Session",
+        "newSession": "neue Session",
+        "blocked": "Blockiert: {{reason}} · {{attempts}} Versuche",
+        "stopped": "Gestoppt, keine Wiederaufnahme",
+        "placeholder": "Nachricht an den Agent …",
+        "inputLabel": "Nachricht an den Agent",
+        "hint": "Enter senden · Umschalt+Enter neue Zeile · Strg+C unterbrechen",
+        "ended": "Session beendet, keine Eingabe mehr möglich",
         "interrupt": "Schritt unterbrechen",
-        "notice": {
-          "pasted": "Text an die CLI übergeben.",
-          "interrupted": "Unterbrechung an die CLI gesendet."
+        "state": {
+          "resume": "Wiederaufnahme in {{seconds}} s",
+          "succeeded": "Erfolgreich",
+          "blocked": "Blockiert",
+          "failed": "Fehlgeschlagen",
+          "stopped": "Gestoppt"
         },
-        "connection": {
-          "loading": "Terminal wird geladen …",
-          "live": "Live",
-          "reconnecting": "Verbindung unterbrochen, verbinde neu …",
-          "closed": "Keine Live-Verbindung",
-          "ended": "CLI beendet: Das Terminal ist nur noch lesbar."
+        "sidebar": {
+          "todos": "To-dos {{done}} / {{total}}",
+          "noTodos": "Keine To-dos",
+          "todoStatus": {
+            "done": "erledigt",
+            "active": "aktiv",
+            "open": "offen",
+            "missing": "nicht lesbar",
+            "unreported": "noch nicht gemeldet"
+          },
+          "activity": "Tätigkeit",
+          "noActivity": "–",
+          "activityDone": "Abgeschlossen",
+          "activityWaiting": "Wartet auf Neustart",
+          "usage": "Verbrauch",
+          "context": "Kontext",
+          "tokens": "Tokens gesamt",
+          "afterTurn": "nach Turn-Ende",
+          "cost": "Kosten",
+          "unknown": "unbekannt",
+          "session": "Session",
+          "model": "Modell",
+          "reasoning": "Reasoning",
+          "access": "Zugriff",
+          "accessMode": {
+            "yolo": "YOLO",
+            "read_only": "Nur Lesen",
+            "workspace_write": "Arbeitsbereich"
+          },
+          "branch": "Branch",
+          "restarts": "Neustarts",
+          "activityStopped": "Angehalten"
         },
-        "access": {
-          "typing": "Du kannst direkt im Terminal tippen. Strg+Umschalt+X schließt die Konsole.",
-          "touch": "Auf diesem Gerät ist das Terminal nur lesbar; greife über die Eingabe unten ein.",
-          "readOnly": "Nur lesbar"
+        "toolKind": {
+          "read": "Datei lesen",
+          "edit": "Datei ändern",
+          "delete": "Datei löschen",
+          "move": "Datei verschieben",
+          "search": "Suchen",
+          "execute": "Shell",
+          "fetch": "Abrufen"
         },
-        "activeMember": "Aktiv: {{name}}",
-        "question": "Offene Rückfrage der CLI, der Knoten ist deshalb fehlgeschlagen: {{question}}",
-        "older": "Ältere Ausgabe laden",
-        "olderLoading": "Ältere Ausgabe wird geladen …",
-        "ended": "Beendet"
+        "noReport": "Turn-Ende ohne gültigen Bericht"
       }
     },
     "flowInShort": "In",

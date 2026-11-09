@@ -40,8 +40,13 @@ export class LocalAcpJournalListener implements AcpSessionListener {
   };
 
   /** Preserves the original native usage response before token projection. */
-  public readonly prompted = (usage: Usage | null): void => {
-    this.enqueue("prompted", usage, () => this.recorder.prompted(usage));
+  public readonly prompted = (
+    usage: Usage | null,
+    isContinued = false,
+  ): void => {
+    this.enqueue("prompted", usage, () =>
+      this.recorder.prompted(usage, isContinued),
+    );
   };
 
   /** Records the native channel close before flushing its final message. */

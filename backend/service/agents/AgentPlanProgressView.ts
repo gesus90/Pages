@@ -8,22 +8,55 @@ import type {
   AgentPlanProgressItem,
 } from "@/definition/AgentPlanProgress";
 import type { AgentChecklistItem } from "@/definition/AgentTicketChecklist";
+import type { AgentPlanStepLiveProgress } from "@/definition/AgentPlanStepProgress";
 import type {
   AgentPlanTasks,
   AgentPlanTicketChecklist,
 } from "./AgentPlanTasks";
 
+/** The live state of a contract todo, reported in the current or an earlier attempt of the run. */
+function liveStatus(
+  live: AgentPlanStepLiveProgress | undefined,
+  contractId: string | undefined,
+): AgentPlanProgressItem["status"] | null {
+  return live?.todos.find((todo) => todo.id === contractId)?.status ?? null;
+}
+
 function contractItems(
   step: AgentPlanStepResult,
+  live?: AgentPlanStepLiveProgress,
 ): readonly AgentPlanProgressItem[] {
   return (step.session?.contract?.todos ?? []).map((item) => ({
     id: item.ticket ? `${item.ticket.id}:${item.ticket.itemId}` : item.id,
+    contractId: item.id,
     text: sanitizePlanOutput(item.text),
     ...(item.ticket ? { ticket: item.ticket } : {}),
-    status:
+    status: contractStatus(
       step.session?.acceptance?.todos.find((entry) => entry.id === item.id)
-        ?.status ?? "unreported",
+        ?.status,
+      liveStatus(live, item.id),
+    ),
   }));
+}
+
+/** A reported acceptance decides; a todo the report left out shows what the agent reported live. */
+function contractStatus(
+  accepted: AgentPlanProgressItem["status"] | undefined,
+  live: AgentPlanProgressItem["status"] | null,
+): AgentPlanProgressItem["status"] {
+  if (accepted === "done" || accepted === "open") return accepted;
+  return live ?? accepted ?? "unreported";
+}
+
+/** The contract ID under which the agent reports a ticket entry, such as `T3`. */
+function contractIdOf(
+  step: AgentPlanStepResult,
+  ticketId: string,
+  itemId: string,
+): string | undefined {
+  return step.session?.contract?.todos.find(
+    (todo) => todo.ticket?.id === ticketId && todo.ticket.itemId === itemId,
+  )?.id;
 }
 
 function progressTicketIds(
@@ -41,8 +74,11 @@ function observedStatus(
   step: AgentPlanStepResult,
   ticket: AgentPlanTicketChecklist,
   item: AgentChecklistItem,
+  live?: AgentPlanStepLiveProgress,
 ): AgentPlanProgressItem["status"] {
   if (item.checked) return "done";
+  const reported = liveStatus(live, contractIdOf(step, ticket.id, item.id));
+  if (reported) return reported;
   const activity = step.session?.activity;
   const startedAt = step.session?.startedAt;
   const isCurrent =
@@ -64,6 +100,7 @@ async function liveProgress(
   step: AgentPlanStepResult,
   ticketIds: readonly string[],
   readTicket: (id: string) => Promise<AgentPlanTicketChecklist>,
+  live?: AgentPlanStepLiveProgress,
 ): Promise<Pick<AgentPlanProgress, "todos" | "tickets" | "availability">> {
   try {
     const tickets = await Promise.all([...new Set(ticketIds)].map(readTicket));
@@ -75,14 +112,18 @@ async function liveProgress(
         contentHash: ticket.checklist.contentHash,
       })),
       todos: [
-        ...contractItems(step).filter((item) => !item.ticket),
+        ...contractItems(step, live).filter((item) => !item.ticket),
         ...tickets.flatMap((ticket) =>
-          ticket.checklist.items.map((item) => ({
-            id: `${ticket.id}:${item.id}`,
-            text: sanitizePlanOutput(item.text),
-            ticket: { id: ticket.id, key: ticket.key, itemId: item.id },
-            status: observedStatus(step, ticket, item),
-          })),
+          ticket.checklist.items.map((item) => {
+            const contractId = contractIdOf(step, ticket.id, item.id);
+            return {
+              id: `${ticket.id}:${item.id}`,
+              ...(contractId ? { contractId } : {}),
+              text: sanitizePlanOutput(item.text),
+              ticket: { id: ticket.id, key: ticket.key, itemId: item.id },
+              status: observedStatus(step, ticket, item, live),
+            };
+          }),
         ),
       ],
     };
@@ -90,12 +131,26 @@ async function liveProgress(
     logCaughtError("AgentPlanProgressView", error);
     return {
       availability: "unavailable",
-      todos: contractItems(step).map((item) => ({
+      todos: contractItems(step, live).map((item) => ({
         ...item,
         status: "missing",
       })),
     };
   }
+}
+
+/** The activity the agent reported live, sanitized; nothing without one. */
+function liveActivity(
+  live: AgentPlanStepLiveProgress | undefined,
+): Pick<AgentPlanProgress, "activity"> {
+  return live?.activity
+    ? {
+        activity: {
+          text: sanitizePlanOutput(live.activity),
+          reportedAt: live.updatedAt,
+        },
+      }
+    : {};
 }
 
 /** Projects current authorized ticket checkboxes without altering execution or historical acceptance. */
@@ -106,6 +161,8 @@ export async function withPlanProgress(
     readonly tasks: Pick<AgentPlanTasks, "checklist">;
     /** Per-node ticket bindings from the run's private snapshot, including remote nodes. */
     readonly stepTickets?: Readonly<Record<string, readonly string[]>>;
+    /** What `update_step_progress` reported, by step (PAGE-284). */
+    readonly live?: ReadonlyMap<string, AgentPlanStepLiveProgress>;
   },
 ): Promise<AgentPlanRun> {
   const tickets = new Map<string, Promise<AgentPlanTicketChecklist>>();
@@ -126,9 +183,10 @@ export async function withPlanProgress(
         ["running", "pausing", "paused", "stopping"].includes(run.status) &&
         (step.status === "running" || step.status === "paused");
       const readsTicket = isLive || ticketIds.length > 0;
+      const live = context.live?.get(step.id);
       const projection = readsTicket
-        ? await liveProgress(step, ticketIds, readTicket)
-        : { todos: contractItems(step) };
+        ? await liveProgress(step, ticketIds, readTicket, live)
+        : { todos: contractItems(step, live) };
       return {
         ...step,
         progress: {
@@ -141,6 +199,7 @@ export async function withPlanProgress(
               step.session?.attemptId ?? step.execution?.attemptId ?? null,
           },
           ...projection,
+          ...liveActivity(live),
         },
       };
     }),

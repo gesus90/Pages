@@ -4,12 +4,13 @@ import type { FitAddon } from "@xterm/addon-fit";
 /**
  * ANSI colors from the terminal tokens. Black is the selection tone, so a
  * full-screen program that paints a black background keeps its light text
- * readable, and black text stays visible on the dark surface.
+ * readable, and black text stays visible on the dark surface. Bright white
+ * takes the `strong` token where the palette has one.
  */
-function terminalTheme(container: HTMLElement): ITheme {
+function terminalTheme(container: HTMLElement, palette: string): ITheme {
   const styles = getComputedStyle(container);
   const color = (token: string): string =>
-    styles.getPropertyValue(`--color-terminal-${token}`).trim();
+    styles.getPropertyValue(`--color-${palette}-${token}`).trim();
   return {
     background: color("surface"),
     foreground: color("foreground"),
@@ -19,7 +20,7 @@ function terminalTheme(container: HTMLElement): ITheme {
     black: color("selection"),
     brightBlack: color("muted"),
     white: color("foreground"),
-    brightWhite: color("foreground"),
+    brightWhite: color("strong") || color("foreground"),
     red: color("error"),
     brightRed: color("error"),
     green: color("success"),
@@ -102,6 +103,12 @@ export interface TerminalSurfaceOptions {
   readonly fitsContainer?: boolean;
   /** Lines kept above the screen; 3000 when absent. */
   readonly scrollback?: number;
+  /** The token family of the colors, such as `agent-terminal`; `terminal` when absent. */
+  readonly palette?: string;
+  /** Row height as a multiple of the font size; 1.52 when absent. */
+  readonly lineHeight?: number;
+  /** Shows output only: no cursor and no keyboard input, as the Pages terminal of agent nodes (PAGE-284). */
+  readonly isOutputOnly?: boolean;
 }
 
 /** Loads xterm only in the browser and follows container size and the Pages theme. */
@@ -113,18 +120,22 @@ export async function createTerminalSurface(
     import("@xterm/xterm"),
     import("@xterm/addon-fit"),
   ]);
+  const palette = options.palette ?? "terminal";
+  const isOutputOnly = options.isOutputOnly === true;
   const terminal = new Terminal({
-    cursorBlink: true,
+    cursorBlink: !isOutputOnly,
+    cursorInactiveStyle: isOutputOnly ? "none" : "outline",
+    disableStdin: isOutputOnly,
     // The monospace stack of the Pages theme, at 15 px on 25 px rows.
     fontFamily:
       getComputedStyle(container).getPropertyValue("--font-mono").trim() ||
       "monospace",
     fontSize: 15,
-    lineHeight: 1.52,
+    lineHeight: options.lineHeight ?? 1.52,
     scrollback: options.scrollback ?? 3000,
     screenReaderMode: options.isScreenReaderMode,
     allowProposedApi: false,
-    theme: terminalTheme(container),
+    theme: terminalTheme(container, palette),
   });
   const fit = new FitAddon();
   terminal.loadAddon(fit);
@@ -142,7 +153,7 @@ export async function createTerminalSurface(
   });
   if (fitsContainer) resize.observe(container);
   const updateTheme = (): void => {
-    terminal.options.theme = terminalTheme(container);
+    terminal.options.theme = terminalTheme(container, palette);
   };
   const theme = new MutationObserver(updateTheme);
   theme.observe(document.documentElement, {

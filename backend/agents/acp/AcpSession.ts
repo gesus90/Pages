@@ -20,11 +20,7 @@ import {
   stopFailure,
   finishAcpTurn,
 } from "./AcpSessionOutcome";
-import {
-  ACP_STEERING_METHOD,
-  isAcpSteeringSupported,
-  readAcpSteerOutcome,
-} from "./AcpChat";
+import { isAcpSteeringSupported, requestAcpSteer } from "./AcpChat";
 import { acpTicketAssetPrompt } from "./AcpTicketAssets";
 import {
   createAcpSessionState,
@@ -32,6 +28,7 @@ import {
   readAcpUpdate,
 } from "./AcpEvents";
 import { reportAcpPlanActivity } from "./AcpPlanActivity";
+import { AcpTurnControl } from "./AcpTurnControl";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
 import { closeAcpProtocol } from "./AcpProtocolClose";
 import { readAntigravityTurnFailure } from "./AntigravityTurnFailure";
@@ -84,6 +81,7 @@ export type {
 
 /** Progress reaches the run record at most this often. */
 const PROGRESS_INTERVAL_MS = 5_000;
+
 /**
  * The ACP session of one plan node, from the handshake to the closeout.
  *
@@ -114,8 +112,6 @@ export class AcpSession implements PlanSession {
   private observer: PlanSessionObserver;
   private turnSignal: AbortSignal;
   private isWorking = true;
-  /** A `session/prompt` of Pages is running, so a steer can join its turn. */
-  private isPrompting = false;
   /** The adapter announced `_session/steering` in `initialize`. */
   private isSteeringSupported = false;
   private lastProgressAt = 0;
@@ -129,6 +125,8 @@ export class AcpSession implements PlanSession {
   private readonly mcpReadiness: AcpMcpReadiness;
   private readonly picaCodex: PicaCodexRequests | null;
   private closing: Promise<PlanSessionClosed> | null = null;
+  /** The inputs and interruptions of a person in the running turn. */
+  private readonly control = new AcpTurnControl(() => this.cancelTurn());
 
   /**
    * Connects to the started adapter and begins the turn at once.
@@ -148,7 +146,7 @@ export class AcpSession implements PlanSession {
     this.picaCodex = createPicaCodexRequests(
       context,
       () => this.state.sessionId,
-      () => this.isPrompting,
+      () => this.control.isPrompting,
     );
     this.observer = context.observer;
     this.turnSignal = context.signal;
@@ -216,28 +214,32 @@ export class AcpSession implements PlanSession {
     prompt: readonly ContentBlock[],
   ): Promise<AcpSteerOutcome> {
     const { sessionId } = this.state;
+    if (this.closing || sessionId === null) return "inactive";
     if (
-      !this.isSteeringSupported ||
-      !this.isPrompting ||
-      this.closing ||
-      sessionId === null
+      this.isSteeringSupported &&
+      this.control.isPrompting &&
+      !this.control.isWaiting
     )
-      return "inactive";
-    const { steeringMeta } = this.context.driver;
-    try {
-      return readAcpSteerOutcome(
-        await this.connection.agent.request(ACP_STEERING_METHOD, {
-          sessionId,
-          prompt: [...prompt],
-          ...(steeringMeta === null ? {} : { _meta: { ...steeringMeta } }),
-        }),
-      );
-    } catch (caughtError: unknown) {
-      logCaughtError("AcpSession", caughtError);
+      return requestAcpSteer(this.connection.agent, {
+        sessionId,
+        prompt,
+        meta: this.context.driver.steeringMeta,
+      });
+    // Without the extension the input cuts the prompt short and follows as the next prompt (PAGE-284).
+    return this.context.acceptsTurnInput === true
+      ? this.control.add(prompt)
+      : "inactive";
+  }
 
-      // The adapter refused the steer or the connection is gone; the turn decides the rest.
-      return "failed";
-    }
+  /**
+   * Interrupts the running prompt of a plan turn; the turn waits for the next input of a person.
+   *
+   * @returns Whether a prompt of Pages was running.
+   */
+  public interrupt(): Promise<boolean> {
+    const canTakeInput =
+      this.context.acceptsTurnInput === true && !this.closing;
+    return Promise.resolve(canTakeInput && this.control.interrupt());
   }
 
   /**
@@ -351,16 +353,24 @@ export class AcpSession implements PlanSession {
       ),
       ...((await request.promptContent?.(capabilities)) ?? []),
     ];
-    this.isPrompting = true;
-    const response = await this.connection.agent
-      .request(methods.agent.session.prompt, { sessionId, prompt })
-      .finally(async () => {
-        try {
-          await this.picaCodex?.cancelTurn();
-        } finally {
-          this.isPrompting = false;
-        }
-      });
+    // A person's input or interruption continues the same turn (PAGE-284).
+    const response = await this.control.drive({
+      first: prompt,
+      send: (next) =>
+        this.connection.agent.request(methods.agent.session.prompt, {
+          sessionId,
+          prompt: next,
+        }),
+      settled: async () => {
+        await this.picaCodex?.cancelTurn();
+      },
+      signal: this.turnSignal,
+      isClosing: () => this.closing !== null,
+      continued: async (cut) => {
+        this.context.listener?.prompted(cut.usage ?? null, true);
+        await this.context.listener?.drained?.();
+      },
+    });
     this.context.listener?.prompted(response.usage ?? null);
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);

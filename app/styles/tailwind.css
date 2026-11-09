@@ -86,6 +86,31 @@
   --color-terminal-accent: #c4a2ff;
   --color-terminal-cyan: #67d5e5;
 
+  /* The Pages terminal of agent nodes (PAGE-284): near black in both themes,
+     white prompts, grey hints, cyan tools, yellow todos, orange resumes. */
+  --color-agent-terminal-surface: #0b0e14;
+  --color-agent-terminal-foreground: #d6dce5;
+  --color-agent-terminal-strong: #ffffff;
+  --color-agent-terminal-muted: #8b95a5;
+  --color-agent-terminal-selection: #2b3442;
+  --color-agent-terminal-success: #4cc38a;
+  --color-agent-terminal-warning: #e3b341;
+  --color-agent-terminal-error: #e5534b;
+  --color-agent-terminal-info: #7fb4ff;
+  --color-agent-terminal-accent: #f0883e;
+  --color-agent-terminal-cyan: #4fb3d9;
+  --color-agent-terminal-rule: #262c36;
+  /* The dialog around the Pages terminal stays dark with it. */
+  --color-agent-console-surface: #151a22;
+  --color-agent-console-border: #272d38;
+  --color-agent-console-foreground: #e8ecf2;
+  --color-agent-console-muted: #8d97a7;
+  --color-agent-console-pill: #232a35;
+  --color-agent-console-track: #2a313d;
+  --color-agent-console-danger: #d9534f;
+  --color-agent-console-danger-hover: #c64541;
+  --color-agent-console-danger-foreground: #ffffff;
+
   /* Plan node types stay distinct from their execution status: start and end
      green, parameters violet, agents cyan, scripts rose, tickets yellow, apart
      from the orange of the flow ports and of a running node. */
@@ -417,6 +442,31 @@
     --color-terminal-info: #80baff;
     --color-terminal-accent: #c4a2ff;
     --color-terminal-cyan: #67d5e5;
+
+    /* The Pages terminal of agent nodes (PAGE-284): near black in both themes,
+       white prompts, grey hints, cyan tools, yellow todos, orange resumes. */
+    --color-agent-terminal-surface: #0b0e14;
+    --color-agent-terminal-foreground: #d6dce5;
+    --color-agent-terminal-strong: #ffffff;
+    --color-agent-terminal-muted: #8b95a5;
+    --color-agent-terminal-selection: #2b3442;
+    --color-agent-terminal-success: #4cc38a;
+    --color-agent-terminal-warning: #e3b341;
+    --color-agent-terminal-error: #e5534b;
+    --color-agent-terminal-info: #7fb4ff;
+    --color-agent-terminal-accent: #f0883e;
+    --color-agent-terminal-cyan: #4fb3d9;
+    --color-agent-terminal-rule: #262c36;
+    /* The dialog around the Pages terminal stays dark with it. */
+    --color-agent-console-surface: #151a22;
+    --color-agent-console-border: #272d38;
+    --color-agent-console-foreground: #e8ecf2;
+    --color-agent-console-muted: #8d97a7;
+    --color-agent-console-pill: #232a35;
+    --color-agent-console-track: #2a313d;
+    --color-agent-console-danger: #d9534f;
+    --color-agent-console-danger-hover: #c64541;
+    --color-agent-console-danger-foreground: #ffffff;
 
     --color-plan-agent: #3cc6d6;
     --color-plan-agent-subtle: #0f262d;

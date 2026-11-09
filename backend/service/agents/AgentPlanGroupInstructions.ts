@@ -4,7 +4,10 @@ import type {
   PlanInstructionControl,
   PlanInstructionWork,
 } from "./AgentPlanInstructionControl";
-import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
+import type {
+  PlanSession,
+  PlanSessionTurn,
+} from "@/backend/agents/AgentPlanExecution";
 import type {
   AgentPlanSessionInput,
   PlanSessionObserver,
@@ -91,6 +94,38 @@ export function offerGroupInstructions(offer: GroupInstructionOffer): void {
             });
         await sessions.settle(node.record, turn);
       },
+    },
+  );
+}
+
+/**
+ * Lets the executor type into and interrupt the running turn of a single
+ * agent node, the same way for every provider (PAGE-284).
+ *
+ * @param sessions - The PageAgentCLI sessions that take the offer.
+ * @param node - The node whose record names the attempt and the process.
+ * @param session - The running session of the node.
+ */
+export function offerTurnInput(
+  sessions: Pick<AgentSessionService, "offer">,
+  node: Pick<AgentSessionNode, "record">,
+  session: Pick<PlanSession, "steer" | "interrupt">,
+): void {
+  const record = node.record;
+  if (!record?.attemptId || !session.steer) return;
+  const steer = session.steer.bind(session);
+  const interrupt = session.interrupt?.bind(session);
+  sessions.offer(
+    { attemptId: record.attemptId, instanceId: record.instanceId },
+    {
+      // A single node takes no turn after its own; its input joins the running one.
+      instruct: () =>
+        Promise.reject(new AgentError("plan_session_unavailable")),
+      steer: async (text) =>
+        ["injected", "startedNewTurn"].includes(
+          await steer([{ type: "text", text }]),
+        ),
+      ...(interrupt ? { cancelTurn: interrupt } : {}),
     },
   );
 }

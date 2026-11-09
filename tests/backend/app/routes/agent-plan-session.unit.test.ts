@@ -93,6 +93,7 @@ it("sends an instruction to the own node session", async () => {
   const response = await post({ intent: "send", text: "Continue" });
 
   expect(sessions.send).toHaveBeenCalledWith(EMPLOYEE.id, KEY, {
+    author: EMPLOYEE.displayName,
     kind: "instruction",
     text: "Continue",
   });

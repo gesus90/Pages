@@ -24,6 +24,9 @@ const MAXIMUM_INSTRUCTION = 20_000;
  *
  * @remarks
  * Reading uses the journal only; it starts no process and occupies no slot.
+ * `history=only` reads the history alone, which also an earlier attempt of
+ * the node has: the Pages terminal shows the attempts of a node one after
+ * another (PAGE-284).
  */
 export async function loader({
   request,
@@ -36,7 +39,10 @@ export async function loader({
     const search = new URL(request.url).searchParams;
     const key = readSessionKey(params, search);
     const sessions = (await getApplicationServices()).agentSessionService;
-    const view = await sessions.view(user.id, key);
+    const view =
+      search.get("history") === "only"
+        ? null
+        : await sessions.view(user.id, key);
     const page = await sessions.history(
       user.id,
       key,
@@ -53,7 +59,8 @@ export async function loader({
 function readInstruction(input: FormDataEntryValue | null): string {
   if (typeof input !== "string" || input.length > MAXIMUM_INSTRUCTION)
     throw new AgentError("plan_invalid");
-  return input;
+  // Form data ends lines with CRLF; the agent gets the lines as they were typed.
+  return input.replace(/\r\n?/gu, "\n");
 }
 
 /** Sends an instruction to or cancels the turn or run of the executor's own node session. */
@@ -69,6 +76,7 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       const result = await sessions.send(user.id, key, {
         kind: "instruction",
         text: readInstruction(formData.get("text")),
+        author: user.displayName,
       });
       return Response.json(
         { ok: true, intent, delivery: result.delivery },

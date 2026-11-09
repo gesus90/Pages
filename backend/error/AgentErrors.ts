@@ -200,8 +200,6 @@ export const AGENT_ERROR_MESSAGES = {
     "The ACP adapter does not offer or confirm the permission mode of the agent, so it cannot be enforced; nothing was sent. For Claude Code, a managed or workspace Claude setting that disables bypassPermissions, or a server account running as root, causes this. The run record names what the adapter reported.",
   plan_terminal_question:
     "The CLI of the node asked a question or waited for an approval, and nobody answers in a plan run, so the node failed at once. The run and the terminal log show the question.",
-  plan_terminal_unavailable:
-    "The terminal of this node has ended or is not available; it takes no input.",
   plan_yolo_isolation_unavailable:
     "YOLO runs without an approval step of the runner, so it starts only inside the bubblewrap isolation, which does not work for the server account. Install bubblewrap (apt install bubblewrap), allow unprivileged user namespaces for the account, and start the node again; Pages probes the isolation again within a minute.",
   plan_codex_configuration_unmanaged:

@@ -31,6 +31,14 @@ export type AgentSessionDelivery = (
   message: AgentSessionMessage,
 ) => Promise<void>;
 
+/** An instruction as a person or Pages writes it. */
+export interface AgentSessionInstruction {
+  readonly kind: AgentSessionMessageKind;
+  readonly text: string;
+  /** The display name of the person, shown before the text in the history. */
+  readonly author?: string;
+}
+
 /** What `send` did with an instruction. */
 export interface AgentSessionSendResult {
   readonly message: AgentSessionMessage;
@@ -83,35 +91,33 @@ export class AgentSessionInbox {
    */
   public async send(
     target: AgentSessionTarget,
-    input: { readonly kind: AgentSessionMessageKind; readonly text: string },
+    input: AgentSessionInstruction,
     delivery: AgentSessionDelivery,
   ): Promise<AgentSessionSendResult> {
-    const now = this.clock();
-    const message: AgentSessionMessage = {
-      id: randomUUID(),
-      attemptId: target.attemptId,
-      userId: target.userId,
-      kind: input.kind,
-      text: input.text.slice(0, MAXIMUM_INSTRUCTION),
-      status: "queued",
-      createdAt: now,
-      updatedAt: now,
-    };
-    await this.store.saveMessage(message);
-    await this.journal.append(target.attemptId, [
-      {
-        turn: null,
-        kind:
-          input.kind === "repair" ? "repair_instruction" : "user_instruction",
-        text: message.text,
-        dedupeKey: `message:${message.id}`,
-      },
-    ]);
+    const message = await this.persistInstruction(target, input);
     const isBusy =
       this.running.has(target.instanceId) ||
       this.draining.has(target.instanceId);
     this.schedule(target, delivery);
     return { message, delivery: isBusy ? "queued" : "started" };
+  }
+
+  /**
+   * Stores an instruction and writes it into the running turn at once (PAGE-284).
+   *
+   * @param target - The authorized attempt.
+   * @param input - The kind, the text and the person who wrote it.
+   * @param delivery - Joins the running turn; it rejects when no turn takes the input.
+   * @returns The message; a failed write is marked and shown, never repeated.
+   */
+  public async deliverNow(
+    target: AgentSessionTarget,
+    input: AgentSessionInstruction,
+    delivery: AgentSessionDelivery,
+  ): Promise<AgentSessionSendResult> {
+    const message = await this.persistInstruction(target, input);
+    await this.deliverOnce(message, delivery);
+    return { message, delivery: "started" };
   }
 
   /** Marks a turn of the native session as running, so instructions wait for it. */
@@ -283,5 +289,35 @@ export class AgentSessionInbox {
         metadata: { messageId: message.id, ...databaseFailureFacts(error) },
       }),
     );
+  }
+
+  /** Stores an instruction and shows it in the history before anything reaches the agent. */
+  private async persistInstruction(
+    target: AgentSessionTarget,
+    input: AgentSessionInstruction,
+  ): Promise<AgentSessionMessage> {
+    const now = this.clock();
+    const message: AgentSessionMessage = {
+      id: randomUUID(),
+      attemptId: target.attemptId,
+      userId: target.userId,
+      kind: input.kind,
+      text: input.text.slice(0, MAXIMUM_INSTRUCTION),
+      status: "queued",
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.store.saveMessage(message);
+    await this.journal.append(target.attemptId, [
+      {
+        turn: null,
+        kind:
+          input.kind === "repair" ? "repair_instruction" : "user_instruction",
+        // The terminal names who wrote it; the agent receives the text alone.
+        text: input.author ? `${input.author}: ${message.text}` : message.text,
+        dedupeKey: `message:${message.id}`,
+      },
+    ]);
+    return message;
   }
 }

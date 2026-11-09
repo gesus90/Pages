@@ -25,7 +25,6 @@ import {
 import { startAgentTools } from "./AgentToolsStartup";
 import { installRunnerChannel } from "./RunnerChannel";
 import { installRemoteConsoleChannel } from "./RemoteConsoleChannel";
-import { installPlanTerminalChannel } from "./PlanTerminalChannel";
 import { startPicaMobile } from "./PicaMobileRuntime";
 import { AppRoutes } from "./AppRoutes";
 import { requestTargetPath, serveAppDocument } from "./AppDocument";
@@ -370,7 +369,6 @@ export async function startPagesServer(
   );
   installRunnerChannel(server);
   installRemoteConsoleChannel(server, runtime.getConfig().trustedProxies);
-  installPlanTerminalChannel(server, runtime.getConfig().trustedProxies);
   registerShutdownTask(
     async () => {
       server.close();

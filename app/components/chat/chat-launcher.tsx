@@ -40,7 +40,7 @@ export function ChatLauncher(): React.ReactElement {
         aria-expanded={isOpen}
         aria-label={label}
         className={cn(
-          "fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-40 flex size-14 items-center justify-center rounded-full border-2 border-primary bg-surface shadow-floating transition-colors hover:border-primary-hover hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:border-primary-hover active:bg-muted md:bottom-[calc(env(safe-area-inset-bottom)+1rem)]",
+          "fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-[45] flex size-14 items-center justify-center rounded-full border-2 border-primary bg-surface shadow-floating transition-colors hover:border-primary-hover hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:border-primary-hover active:bg-muted md:bottom-[calc(env(safe-area-inset-bottom)+1rem)]",
           isOpen && "ring-2 ring-primary/25 ring-offset-2 ring-offset-surface",
         )}
         onClick={handleToggle}

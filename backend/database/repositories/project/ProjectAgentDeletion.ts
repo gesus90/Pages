@@ -51,32 +51,6 @@ async function deleteSessionJournal(
   );
 }
 
-/** Deletes the CLI process terminals of the plan runs with their segments and inputs (PAGE-265). */
-async function deletePlanTerminals(
-  database: DatabaseTransaction,
-  parameters: { project_id: string },
-): Promise<void> {
-  for (const table of [
-    "agent_plan_terminal_segments",
-    "agent_plan_terminal_inputs",
-  ] as const)
-    await database.execute(
-      `
-        DELETE FROM ${table}
-        WHERE instance_id IN (
-            SELECT instance_id
-            FROM agent_plan_terminals
-            WHERE run_id IN (${PLAN_RUNS})
-        );
-      `,
-      parameters,
-    );
-  await database.execute(
-    `DELETE FROM agent_plan_terminals WHERE run_id IN (${PLAN_RUNS});`,
-    parameters,
-  );
-}
-
 async function deletePlanRefusals(
   database: DatabaseTransaction,
   parameters: { project_id: string },
@@ -135,6 +109,7 @@ async function deletePlanRunDetails(
     "agent_workspace_cleanup",
     "agent_plan_work",
     "agent_plan_step_reports",
+    "agent_plan_step_progress",
     "pica_mobile_notification_deliveries",
     "pica_mobile_notification_occurrences",
     "pica_mobile_notification_sequences",
@@ -145,7 +120,6 @@ async function deletePlanRunDetails(
       parameters,
     );
   await deleteSessionJournal(database, parameters);
-  await deletePlanTerminals(database, parameters);
   await database.execute(
     `DELETE FROM agent_run_credentials WHERE run_id IN (${PLAN_RUNS});`,
     parameters,

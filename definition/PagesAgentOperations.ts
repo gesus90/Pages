@@ -1,5 +1,6 @@
 import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation.js";
 
+import type { AgentPlanStepProgressReceipt } from "./AgentPlanStepProgress.js";
 import type { AgentPlanStepReportReceipt } from "./AgentPlanStepReport.js";
 import type { AgentPlanWorkView } from "./AgentPlanWork.js";
 import type { AgentPlanCleanupFailure } from "./AgentPlanCleanupResource.js";
@@ -213,6 +214,7 @@ export interface PagesAgentReadResponse {
   readonly result:
     | AgentPlanWorkView
     | AgentPlanStepReportReceipt
+    | AgentPlanStepProgressReceipt
     | AgentAssetDownload
     | AgentProjectReference
     | AgentProjectList

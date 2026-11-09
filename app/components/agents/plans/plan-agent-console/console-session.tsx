@@ -1,27 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
-
 import { ConsoleComposer } from "./console-composer";
-import { ConsoleControls } from "./console-controls";
 import { ConsoleFailure } from "./console-failure";
-import { ConsoleHistory } from "./console-history";
-import { ConsoleMetadata } from "./console-metadata";
+import { ConsoleSidebar } from "./console-sidebar";
+import { consoleStepState, hasSessionEnded } from "./console-step-state";
 import { ConsoleTerminal } from "./console-terminal";
-import { formatDuration, formatLocalTime } from "./console-time";
-import { ConsoleUsage } from "./console-usage";
 import { useAgentSession } from "./use-agent-session";
 import { useSessionCommands } from "./use-session-commands";
+import { useNow } from "./use-terminal-surface";
 import { PlanRemoteHistoryNotice } from "../plan-remote-history";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
   AgentSessionKey,
-  AgentSessionState,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
-import type { AgentTerminalState } from "@/definition/AgentTerminal";
+import type { ConsoleStepState } from "./console-step-state";
+import type { TerminalInputMode } from "./console-terminal";
 import type { SessionCommands } from "./use-session-commands";
 
 interface ConsoleSessionProps {
@@ -29,147 +25,52 @@ interface ConsoleSessionProps {
   readonly step: AgentPlanStepResult;
   readonly isLive: boolean;
   readonly isReadOnly: boolean;
-  /** The CLI of the node runs in a terminal; otherwise the session shows its ACP history. */
-  readonly isTerminal: boolean;
-  /** Names a node of the plan, for the active member of a shared terminal. */
-  readonly nodeName: (stepId: string) => string;
+  /** The instruction of the node, the plan prompt of its first attempt. */
+  readonly prompt: string | null;
   readonly onClose: () => void;
-  /** Draws the header with what the session reported and the stop of the run. */
+  /** Draws the header with the translated state and the stop of the run. */
   readonly header: (
-    state: AgentSessionState | null,
+    stateLabel: string | null,
     onStopRun: (() => Promise<void>) | undefined,
   ) => React.ReactNode;
 }
 
-/** The newest time something happened: output of the terminal, an event or the record. */
-function sessionActivity(
-  terminal: AgentTerminalState | null,
-  session: ReturnType<typeof useAgentSession>,
-  step: AgentPlanStepResult,
+/** Narrow windows and touch devices type in the field below the terminal instead of its line. */
+const COMPACT_QUERY =
+  "(max-width: 679.98px), (hover: none) and (pointer: coarse)";
+
+function useIsCompact(): boolean {
+  const [isCompact, setCompact] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia(COMPACT_QUERY);
+    function update(): void {
+      setCompact(query.matches);
+    }
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return isCompact;
+}
+
+function stateLabel(
+  state: ConsoleStepState | null,
+  t: ReturnType<typeof useTranslation>["t"],
 ): string | null {
-  const values = [
-    terminal?.lastActivityAt,
-    session.events.at(-1)?.createdAt,
-    step.session?.turnEndedAt,
-    step.session?.startedAt,
-  ];
-  return formatLocalTime(values.find((value) => value) ?? null);
+  if (!state) return null;
+  const key = "plans.console.terminal.state";
+  if (state.kind === "resume")
+    return t(`${key}.resume`, { seconds: state.seconds });
+  if (state.kind === "session") return t(`plans.console.state.${state.state}`);
+  return t(`${key}.${state.kind}`);
 }
 
-function runtime(step: AgentPlanStepResult): string | null {
-  const started = step.session?.startedAt;
-  if (!started) return null;
-  const ended = step.session?.endedAt ?? step.session?.turnEndedAt;
-  const end =
-    step.status === "running" || !ended ? Date.now() : Date.parse(ended);
-  return formatDuration(end - Date.parse(started));
-}
-
-function remoteSessionView(
+function modelLabel(
   view: AgentSessionView | null,
   step: AgentPlanStepResult,
-): AgentSessionView | null {
-  if (
-    !view ||
-    step.execution?.target.kind !== "remote" ||
-    step.status !== "running" ||
-    view.continuation.mode !== "unavailable"
-  )
-    return view;
-  return {
-    ...view,
-    continuation: { ...view.continuation, reason: "remote_one_shot" },
-  };
-}
-
-/** The status the facts beside a terminal show: the terminal's own once it reported one. */
-function terminalStatus(
-  terminal: AgentTerminalState | null,
-  view: AgentSessionView,
-  t: ReturnType<typeof useTranslation>["t"],
 ): string {
-  if (terminal?.status === "ended") return t("plans.console.terminal.ended");
-  return t(`plans.console.state.${view.state}`);
-}
-
-/** The facts of the session in the fixed column beside the terminal or history. */
-function SessionFacts(props: {
-  readonly view: AgentSessionView;
-  readonly step: AgentPlanStepResult;
-  readonly terminal: AgentTerminalState | null;
-  readonly isTerminal: boolean;
-  readonly isReadOnly: boolean;
-  readonly commands: SessionCommands;
-  readonly activity: string | null;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  const record = props.step.session;
-  if (!record) return null;
   return (
-    <ScrollViewport
-      as="aside"
-      axis="vertical"
-      aria-label={t("plans.console.details")}
-      containerClassName={
-        // Beside a terminal the facts follow it on small screens, so the terminal keeps its height.
-        props.isTerminal
-          ? "shrink-0 lg:w-[340px]"
-          : "order-first max-h-[35%] shrink-0 lg:order-none lg:max-h-none lg:w-[340px]"
-      }
-      className="space-y-5 overflow-y-auto border-b border-border px-5 py-4 lg:border-b-0 lg:border-l"
-    >
-      <ConsoleMetadata
-        view={props.view}
-        record={record}
-        status={terminalStatus(props.terminal, props.view, t)}
-        runtime={runtime(props.step)}
-        lastActivity={props.activity}
-      />
-      <ConsoleUsage view={props.view} />
-      {props.isTerminal ? null : (
-        <ConsoleControls
-          view={props.view}
-          isReadOnly={props.isReadOnly}
-          commands={props.commands}
-        />
-      )}
-    </ScrollViewport>
-  );
-}
-
-/** The history and instruction field of an ACP session, such as Antigravity's. */
-function AcpColumn(props: {
-  readonly session: ReturnType<typeof useAgentSession>;
-  readonly view: AgentSessionView;
-  readonly step: AgentPlanStepResult;
-  readonly isReadOnly: boolean;
-  readonly commands: SessionCommands;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const { session, step } = props;
-  const error = session.error
-    ? ` · ${t([`settings.agents.error.${session.error}`, "settings.agents.error.general"])}`
-    : "";
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <p role="status" className="px-5 pt-2 text-xs text-muted-foreground">
-        {t(`plans.console.connection.${session.connection}`)}
-        {error}
-      </p>
-      <ConsoleFailure remote={step.remote} />
-      <ConsoleHistory
-        events={session.events}
-        source={session.source}
-        retainedFrom={session.retainedFrom}
-        navigation={session}
-      />
-      <PlanRemoteHistoryNotice step={step} />
-      <ConsoleComposer
-        view={props.view}
-        isReadOnly={props.isReadOnly}
-        commands={props.commands}
-      />
-    </div>
+    view?.model.confirmedModel.value ?? step.session?.requested.model ?? ""
   );
 }
 
@@ -184,7 +85,7 @@ function SessionNotice({
   const { t } = useTranslation();
   if (session.error && !hasView)
     return (
-      <p role="alert" className="px-5 py-4 text-sm text-destructive">
+      <p role="alert" className="px-5 py-4 text-sm text-agent-terminal-error">
         {t([
           `settings.agents.error.${session.error}`,
           "settings.agents.error.general",
@@ -193,73 +94,102 @@ function SessionNotice({
     );
   if (session.connection !== "loading") return null;
   return (
-    <p role="status" className="px-5 py-4 text-sm text-muted-foreground">
+    <p role="status" className="px-5 py-4 text-sm text-agent-console-muted">
       {t("plans.console.loading")}
     </p>
   );
 }
 
+/** The terminal with its input on the left and the sidebar on the right; below 680 px stacked. */
+function SessionBody(
+  props: ConsoleSessionProps & {
+    readonly view: AgentSessionView;
+    readonly session: ReturnType<typeof useAgentSession>;
+    readonly commands: SessionCommands;
+  },
+): React.ReactElement {
+  const { t } = useTranslation();
+  const { step, view, commands } = props;
+  const isCompact = useIsCompact();
+  const hasEnded = hasSessionEnded(step) || !props.isLive;
+  const canType = view.actions.canSend && !props.isReadOnly;
+  const canInterrupt = view.actions.canCancelTurn;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-agent-terminal-surface min-[680px]:flex-row min-[680px]:overflow-hidden">
+      <div className="flex min-w-0 shrink-0 flex-col min-[680px]:min-h-0 min-[680px]:flex-1 min-[680px]:shrink">
+        <ConsoleFailure remote={step.remote} />
+        <ConsoleTerminal
+          sessionKey={props.sessionKey}
+          step={step}
+          session={props.session}
+          commands={commands}
+          provider={t(`settings.agents.provider.${view.provider}`)}
+          model={modelLabel(view, step)}
+          prompt={props.prompt}
+          inputMode={inputModeOf({ hasEnded, canType, isCompact })}
+          canInterrupt={canInterrupt}
+          onCloseRequest={props.onClose}
+        />
+        <PlanRemoteHistoryNotice step={step} />
+        {isCompact && canType && !hasEnded ? (
+          <ConsoleComposer
+            view={view}
+            isReadOnly={props.isReadOnly}
+            commands={commands}
+            canInterrupt={canInterrupt}
+          />
+        ) : null}
+      </div>
+      <ConsoleSidebar step={step} view={view} />
+    </div>
+  );
+}
+
+/** The ended line after the session, the input line where a person may type, else nothing. */
+function inputModeOf(facts: {
+  readonly hasEnded: boolean;
+  readonly canType: boolean;
+  readonly isCompact: boolean;
+}): TerminalInputMode {
+  if (facts.hasEnded) return "ended";
+  return facts.canType && !facts.isCompact ? "line" : "none";
+}
+
 /**
- * The session of one node attempt: the terminal of its CLI, or the history
- * and input of an ACP session, on the left, the facts on the right.
+ * The session of one node: the Pages terminal on the left, the sidebar on the right (PAGE-284).
  *
  * @remarks
- * The caller mounts it once per session key, so a node or run switch starts
- * from empty data and late answers of the previous session are dropped.
+ * Every provider looks and works the same. Below 680 px the sidebar stands
+ * under the terminal, and the field below the terminal takes the input with
+ * send and interrupt. The caller mounts it once per session key, so a node
+ * or run switch starts from empty data.
  */
 export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
+  const { t } = useTranslation();
   const { step } = props;
-  const [terminal, setTerminal] = useState<AgentTerminalState | null>(null);
   const session = useAgentSession(props.sessionKey, {
     isLive: props.isLive || step.remote?.liveHistoryVersion === 1,
     status: step.status,
     isRemote: step.execution?.target.kind === "remote",
   });
   const commands = useSessionCommands(props.sessionKey, session.refresh);
-  const view = remoteSessionView(session.view, step);
+  const now = useNow(step.session?.retry?.state === "waiting");
+  const { view } = session;
   const canStop = view?.actions.canCancelRun === true && !props.isReadOnly;
-  const activity = sessionActivity(terminal, session, step);
   return (
     <>
       {props.header(
-        view?.state ?? null,
+        stateLabel(consoleStepState(step, view?.state ?? null, now), t),
         canStop ? () => commands.cancel("run") : undefined,
       )}
       <SessionNotice session={session} hasView={view !== null} />
       {view && step.session ? (
-        <div
-          className={
-            props.isTerminal
-              ? "flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
-              : "flex min-h-0 flex-1 flex-col lg:flex-row"
-          }
-        >
-          {props.isTerminal ? (
-            <ConsoleTerminal
-              sessionKey={props.sessionKey}
-              nodeName={props.nodeName}
-              onCloseRequest={props.onClose}
-              onState={setTerminal}
-            />
-          ) : (
-            <AcpColumn
-              session={session}
-              view={view}
-              step={step}
-              isReadOnly={props.isReadOnly}
-              commands={commands}
-            />
-          )}
-          <SessionFacts
-            view={view}
-            step={step}
-            terminal={terminal}
-            isTerminal={props.isTerminal}
-            isReadOnly={props.isReadOnly}
-            commands={commands}
-            activity={activity}
-          />
-        </div>
+        <SessionBody
+          {...props}
+          view={view}
+          session={session}
+          commands={commands}
+        />
       ) : null}
     </>
   );

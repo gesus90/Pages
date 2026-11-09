@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { createPortal } from "react-dom";
+
 import { FloatingPanel } from "@/app/components/ui/card";
 import { cn } from "@/app/lib/cn";
 
@@ -11,6 +14,27 @@ interface ForegroundPanelProps extends HTMLAttributes<HTMLElement> {
   readonly keyboardInset?: number;
   /** Fills the main area beside the navigation instead of a reading width, as a terminal needs. */
   readonly isWide?: boolean;
+  /** Covers almost the whole window with a margin of 28 px, as the Pages terminal of an agent node (PAGE-284). */
+  readonly isFullscreen?: boolean;
+}
+
+/**
+ * Renders into the document body; the server renders nothing.
+ *
+ * @remarks
+ * The panel opens only in the browser, so the body is known at the first
+ * render and the content mounts together with its caller, whose effects can
+ * focus it at once.
+ */
+function BodyPortal({
+  children,
+}: {
+  readonly children: ReactNode;
+}): React.ReactElement | null {
+  const [target] = useState(() =>
+    typeof document === "undefined" ? null : document.body,
+  );
+  return target ? createPortal(children, target) : null;
 }
 
 /**
@@ -27,13 +51,20 @@ export function ForegroundPanel({
   className,
   keyboardInset = 0,
   isWide = false,
+  isFullscreen = false,
   ...properties
 }: ForegroundPanelProps): React.ReactElement {
-  return (
+  const panel = (
     <>
-      <div aria-hidden="true" className={styles.backdrop} />
       <div
-        className={styles.positioner}
+        aria-hidden="true"
+        className={cn(
+          styles.backdrop,
+          isFullscreen && styles.fullscreenBackdrop,
+        )}
+      />
+      <div
+        className={cn(styles.positioner, isFullscreen && styles.fullscreen)}
         style={
           keyboardInset > 0
             ? { bottom: `calc(0.75rem + ${keyboardInset}px)` }
@@ -56,4 +87,6 @@ export function ForegroundPanel({
       </div>
     </>
   );
+  // Above every layer of the page, the app header included; only Pica's symbol lies above it.
+  return isFullscreen ? <BodyPortal>{panel}</BodyPortal> : panel;
 }

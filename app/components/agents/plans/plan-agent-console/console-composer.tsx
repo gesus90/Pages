@@ -1,4 +1,4 @@
-import { Send } from "lucide-react";
+import { CircleStop, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -16,6 +16,8 @@ interface ConsoleComposerProps {
   readonly view: AgentSessionView;
   readonly isReadOnly: boolean;
   readonly commands: SessionCommands;
+  /** A turn runs that the interrupt button can stop (PAGE-284). */
+  readonly canInterrupt?: boolean;
 }
 
 /** Why the field takes no instruction now; `null` when it does. */
@@ -100,13 +102,15 @@ function NoticeLine({
  * The instruction field: Enter sends, Shift+Enter breaks the line, an IME composition is never sent.
  *
  * @remarks
- * The original plan assignment stays as it is; an instruction is a turn of
- * its own. While a turn runs the backend queues the instruction and says so.
+ * The original plan assignment stays as it is. On phones and in narrow
+ * windows it is the input of the Pages terminal: the instruction joins the
+ * running turn, and the interrupt button stops the running step (PAGE-284).
  */
 export function ConsoleComposer({
   view,
   isReadOnly,
   commands,
+  canInterrupt = false,
 }: ConsoleComposerProps): React.ReactElement {
   const { t } = useTranslation();
   const [text, setText] = useState("");
@@ -133,7 +137,7 @@ export function ConsoleComposer({
   }
   return (
     <form
-      className="space-y-2 border-t border-border px-5 py-3"
+      className="space-y-2 border-t border-agent-console-border bg-agent-console-surface px-5 py-3 text-agent-console-foreground"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
@@ -145,11 +149,6 @@ export function ConsoleComposer({
         </p>
       ) : null}
       <OpenMessages messages={view.messages} />
-      {!isLocked && view.state === "running" ? (
-        <p className="text-xs text-muted-foreground">
-          {t("plans.console.queueHint")}
-        </p>
-      ) : null}
       <div className="flex items-end gap-2">
         <Textarea
           containerClassName="flex-1"
@@ -171,6 +170,16 @@ export function ConsoleComposer({
           aria-label={t("plans.console.send")}
         >
           <Send className="size-4" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          disabled={!canInterrupt || commands.isPending}
+          onClick={() => void commands.cancel("turn")}
+          aria-label={t("plans.console.terminal.interrupt")}
+        >
+          <CircleStop className="size-4" aria-hidden="true" />
         </Button>
       </div>
       <NoticeLine commands={commands} />

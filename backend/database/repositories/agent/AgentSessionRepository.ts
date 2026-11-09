@@ -50,6 +50,8 @@ function attemptParameters(attempt: AgentSessionAttemptRecord): SqlParameters {
     context_limit: context.contextLimit,
     context_source: context.source,
     context_at: context.reportedAt,
+    cost_amount: context.cost?.amount ?? null,
+    cost_currency: context.cost?.currency ?? null,
     confirmed_model: confirmedModel.value,
     confirmed_model_source: confirmedModel.source,
     confirmed_model_at: confirmedModel.reportedAt,
@@ -102,7 +104,9 @@ export class AgentSessionRepository implements AgentSessionStore {
           git_state,
           git_reference,
           workspace_at,
-          updated_at
+          updated_at,
+          cost_amount,
+          cost_currency
       )
       VALUES (
           $attempt_id,
@@ -128,7 +132,9 @@ export class AgentSessionRepository implements AgentSessionStore {
           $git_state,
           $git_reference,
           $workspace_at,
-          $updated_at
+          $updated_at,
+          $cost_amount,
+          $cost_currency
       )
       ON CONFLICT (attempt_id) DO UPDATE SET
           state = excluded.state,
@@ -146,7 +152,9 @@ export class AgentSessionRepository implements AgentSessionStore {
           git_state = excluded.git_state,
           git_reference = excluded.git_reference,
           workspace_at = excluded.workspace_at,
-          updated_at = excluded.updated_at;
+          updated_at = excluded.updated_at,
+          cost_amount = excluded.cost_amount,
+          cost_currency = excluded.cost_currency;
     `,
       attemptParameters(attempt),
     );

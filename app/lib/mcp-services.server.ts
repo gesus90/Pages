@@ -39,6 +39,9 @@ import { ChatAgentOperationService } from "@/backend/service/agents/ChatAgentOpe
 import { PageAgentOperationService } from "@/backend/service/agents/PageAgentOperationService";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
+import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
+import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
+import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
@@ -409,6 +412,10 @@ function createBinaryAssetServices(input: {
           runs: runCredentials,
           workGate: new AgentPlanWorkGate(database, users),
           stepReports,
+          stepProgress: new AgentPlanStepProgressService({
+            reports: new AgentPlanStepReportRepository(database),
+            progress: new AgentPlanStepProgressRepository(database),
+          }),
           downloads: agentAssetDownloadService,
           upload: runnerAssetUpload(async () => ({
             agentUploadTicketService,

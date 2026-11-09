@@ -385,7 +385,6 @@ export function readPlanSessionRecord(
     runner: oneOf(record.runner, RUNNERS),
     ...readRetryMetadata(record),
     mode: oneOf(record.mode, MODES),
-    ...(record.surface === "terminal" ? { surface: "terminal" as const } : {}),
     instanceId: text(record.instanceId, 100),
     ...(typeof record.attemptId === "string"
       ? { attemptId: text(record.attemptId, 100) }

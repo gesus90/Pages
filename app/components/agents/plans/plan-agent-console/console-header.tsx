@@ -7,7 +7,6 @@ import { ConsoleRunPicker } from "./console-run-picker";
 import { ConsoleStopRun } from "./console-stop-run";
 
 import type { AgentPlanRun, AgentPlanRunSummary } from "@/definition/AgentPlan";
-import type { AgentSessionState } from "@/definition/AgentSessionJournal";
 
 interface ConsoleHeaderProps {
   readonly title: string;
@@ -15,8 +14,8 @@ interface ConsoleHeaderProps {
   readonly runs: readonly AgentPlanRunSummary[];
   readonly run: AgentPlanRun | null;
   readonly provider: string | null;
-  readonly state: AgentSessionState | null;
-  readonly isReadOnly: boolean;
+  /** The translated state of the node, such as „Turn läuft“; absent before a session. */
+  readonly stateLabel: string | null;
   readonly headingRef: React.RefObject<HTMLHeadingElement | null>;
   readonly onSelectRun: (id: string) => void;
   readonly onClose: () => void;
@@ -26,15 +25,35 @@ interface ConsoleHeaderProps {
   readonly onStopRun?: () => Promise<void>;
 }
 
-/** Agent, node and run, provider, translated session state, run choice and close stay visible. */
+/** A small label of the header, such as the provider or the state. */
+function Pill({
+  children,
+}: {
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <span className="rounded-md bg-agent-console-pill px-1.5 py-px text-agent-console-muted">
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Title, provider and state of the node, run choice, the stop of the run and close (PAGE-284).
+ *
+ * @remarks
+ * The title is the node; below it the provider and the state stand as two
+ * pills. The red stop is there only while the run can still be stopped.
+ */
 export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <header className="flex flex-wrap items-start gap-3 border-b border-border px-5 py-4">
+    <header className="flex flex-wrap items-center gap-3 border-b border-agent-console-border bg-agent-console-surface px-5 py-3">
       {props.onBack ? (
         <Button
           size="icon-sm"
           variant="ghost"
+          className="text-agent-console-muted hover:bg-agent-console-pill hover:text-agent-console-foreground"
           onClick={props.onBack}
           aria-label={t("plans.console.backToGroup")}
         >
@@ -42,48 +61,33 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
         </Button>
       ) : null}
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">
+        <p className="sr-only">
           {t("plans.console.kicker", { type: props.nodeType })}
         </p>
         <h2
           ref={props.headingRef}
           tabIndex={-1}
-          className="truncate text-lg font-semibold outline-none"
+          className="truncate text-[18px] leading-6 font-bold text-agent-console-foreground outline-none"
         >
           {props.title}
         </h2>
         <div
           role="status"
-          className="mt-1 flex flex-wrap items-center gap-2 text-xs"
+          className="mt-1 flex flex-wrap items-center gap-1.5 text-xs"
         >
           {props.provider ? (
-            <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
-              {t(`settings.agents.provider.${props.provider}`)}
-            </span>
+            <Pill>{t(`settings.agents.provider.${props.provider}`)}</Pill>
           ) : null}
-          {props.state ? (
-            <span className="rounded-md bg-info-subtle px-2 py-0.5 font-medium text-info">
-              {t(`plans.console.state.${props.state}`)}
-            </span>
-          ) : null}
-          {props.isReadOnly ? (
-            <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
-              {t("plans.console.readOnly")}
-            </span>
-          ) : null}
+          {props.stateLabel ? <Pill>{props.stateLabel}</Pill> : null}
           {props.run?.manualInputAt ? (
-            <span className="rounded-md bg-warning-subtle px-2 py-0.5 font-medium text-warning">
-              {t("plans.console.manualInput")}
-            </span>
+            <Pill>{t("plans.console.manualInput")}</Pill>
           ) : null}
           {props.run?.status === "work_done_closeout_open" ? (
-            <span className="rounded-md bg-warning-subtle px-2 py-0.5 font-medium text-warning">
-              {t("plans.status.work_done_closeout_open")}
-            </span>
+            <Pill>{t("plans.status.work_done_closeout_open")}</Pill>
           ) : null}
         </div>
       </div>
-      {props.runs.length > 0 ? (
+      {props.runs.length > 1 ? (
         <ConsoleRunPicker
           ariaLabel={t("plans.console.run")}
           runs={props.runs}
@@ -95,6 +99,7 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
       <Button
         size="icon-sm"
         variant="ghost"
+        className="text-agent-console-muted hover:bg-agent-console-pill hover:text-agent-console-foreground"
         onClick={props.onClose}
         aria-label={t("plans.console.close")}
       >

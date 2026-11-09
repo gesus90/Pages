@@ -7,16 +7,13 @@ import {
   logEvent,
   withLogContext,
 } from "@/backend/logging/Logger";
-import {
-  PLAN_BLOCKER_RETRIES,
-  PLAN_INFRASTRUCTURE_RETRY_DELAYS,
-} from "@/definition/AgentPlanRetry";
 
+import { planFailureStop } from "../AgentPlanBlockerRules";
 import {
-  classifyPlanStepFailure,
-  planFailureStop,
-} from "../AgentPlanBlockerRules";
-import { hasToolActivity } from "../AgentPlanStepRetry";
+  canResumeAfterRestart,
+  decideAutomaticRestart,
+  decideRestartSessionMode,
+} from "../AgentPlanStepDecision";
 import { planResume, resumeOption } from "./AgentPlanRecoveryPlanning";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -44,17 +41,6 @@ interface AutoResumeDependencies {
   readonly engine: Pick<AgentPlanRunEngine, "isShuttingDown">;
 }
 
-function canRepeatAfterRestart(step: AgentPlanStepResult): boolean {
-  if (step.status !== "failed") return true;
-  return (
-    classifyPlanStepFailure({
-      error: step.error,
-      acceptance: step.session?.acceptance,
-      output: step.output,
-    }) === "infrastructure"
-  );
-}
-
 /**
  * How the retried work of a run may continue, or why it may not.
  *
@@ -74,11 +60,10 @@ function resumeMode(
     return "script_started";
   if (retried.some((step) => facts.run.loops?.some(({ id }) => id === step.id)))
     return "loop_session";
-  if (plan.canResumeNatively) return "native_resume";
-  const hasEffects = retried.some(
-    (step) => step.session && hasToolActivity(step.session),
+  return decideRestartSessionMode(
+    retried.map((step) => step.session),
+    plan.canResumeNatively,
   );
-  return hasEffects ? "effect_unknown" : "new_session";
 }
 
 /**
@@ -99,7 +84,7 @@ export function automaticResumeDecision(
   revision: number,
   attempt: number,
 ): AgentPlanAutomaticResumeDecision {
-  if (!facts.run.steps.every(canRepeatAfterRestart)) return "failure_class";
+  if (!facts.run.steps.every(canResumeAfterRestart)) return "failure_class";
   if (facts.plan.revision !== facts.run.planRevision) return "plan_changed";
   const plan = planResume(facts);
   const option = resumeOption(facts, plan);
@@ -152,13 +137,12 @@ export class AgentPlanAutoResume {
   private async resume(run: AgentPlanRun): Promise<void> {
     const attempt = (run.origin?.automaticAttempt ?? 0) + 1;
     try {
-      if (attempt > PLAN_BLOCKER_RETRIES.infrastructure) {
+      const restart = decideAutomaticRestart(attempt);
+      if (restart.kind === "exhausted") {
         await this.record(run, "stopped", "exhausted");
         return;
       }
-      await wait(PLAN_INFRASTRUCTURE_RETRY_DELAYS[attempt - 1], undefined, {
-        ref: false,
-      });
+      await wait(restart.delayMilliseconds, undefined, { ref: false });
       // A run still waiting at a stop stays pending for the next start.
       if (this.dependencies.engine.isShuttingDown()) return;
       const result = await this.dependencies.recovery.automaticResume(

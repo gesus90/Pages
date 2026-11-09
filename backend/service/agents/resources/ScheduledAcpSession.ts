@@ -92,6 +92,12 @@ export class ScheduledAcpSession implements PlanSession {
     return outcome;
   }
 
+  /** Interrupts the running prompt of a plan turn; the lease stays as it is. */
+  public async interrupt(): Promise<boolean> {
+    if (this.closing || !this.session.interrupt) return false;
+    return this.session.interrupt();
+  }
+
   /** Whether a retirement or a close has begun, before the session reports its end. */
   public get isClosing(): boolean {
     return this.closing !== null;

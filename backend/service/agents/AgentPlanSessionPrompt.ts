@@ -11,6 +11,7 @@ import { sessionStart } from "./sessions/AgentSessionAttempts";
 import type { GroupSessionResume } from "./AgentPlanGroupSessions";
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanContract } from "@/definition/AgentPlanSession";
+import type { AgentPlanStepProgressTodo } from "@/definition/AgentPlanStepProgress";
 import type { NodeRun } from "./AgentPlanStepContext";
 import type { PreparedPlanStep } from "./AgentPlanStepStart";
 
@@ -22,14 +23,20 @@ interface PromptTerms {
 
 interface PromptDependencies {
   readonly pin: (prompt: string) => Promise<void>;
+  /** The live todo states of the step, which a new session after a failure continues from. */
+  readonly progress?: () => Promise<readonly AgentPlanStepProgressTodo[]>;
   readonly journal: (instanceId: string) => AgentPlanSessionInput["journal"];
 }
 
 /** The notice of a running retry; a first attempt has none. */
-function retryNotice(node: NodeRun, resumeSessionId: string | null): string {
+function retryNotice(
+  node: NodeRun,
+  resumeSessionId: string | null,
+  progress: readonly AgentPlanStepProgressTodo[] = [],
+): string {
   const retry = node.retry;
   if (retry?.state !== "running") return "";
-  return planRetryNotice(retry, resumeSessionId !== null);
+  return planRetryNotice(retry, resumeSessionId !== null, progress);
 }
 
 const EVENT_FOLLOW_UP =
@@ -74,7 +81,11 @@ export async function buildPlanSessionInput(
   if (directory === null) throw new AgentError("plan_directory_required");
   const recovery = planRecoveryTerms(node.snapshot, node.step.step.id, node);
   const resumeSessionId = recovery.resumeSessionId ?? node.retryResumeSessionId;
-  const scope = `${retryNotice(node, resumeSessionId)}${recovery.note}${planTurnScope(node.step, node.loop)}`;
+  const progress =
+    node.retry?.state === "running" && resumeSessionId === null
+      ? ((await dependencies.progress?.()) ?? [])
+      : [];
+  const scope = `${retryNotice(node, resumeSessionId, progress)}${recovery.note}${planTurnScope(node.step, node.loop)}`;
   const prompt = `${scope}${startBody(node, prepared)}\n\n${renderPlanAssignment(
     {
       contract: terms.contract,

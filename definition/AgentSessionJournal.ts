@@ -27,6 +27,15 @@ export interface AgentSessionContextUsage {
   readonly percent: number | null;
   readonly source: "acp_usage_update" | null;
   readonly reportedAt: string | null;
+  /** The cumulative cost of the session where the adapter reports one; absent or `null` when unknown. */
+  readonly cost?: AgentSessionCost | null;
+}
+
+/** A cost as an adapter reports it with `usage_update`. */
+export interface AgentSessionCost {
+  readonly amount: number;
+  /** ISO 4217 code, such as `USD`. */
+  readonly currency: string;
 }
 
 /**
@@ -171,6 +180,8 @@ export interface AgentSessionView {
   readonly totals: readonly AgentSessionUsageTotal[];
   /** Sums of every attempt of the run, one per provider counting. */
   readonly runTotals: readonly AgentSessionUsageTotal[];
+  /** Sums of every attempt of this node in the run, without counting a turn twice (PAGE-284). */
+  readonly nodeTotals?: readonly AgentSessionUsageTotal[];
   readonly continuation: AgentSessionContinuation;
   readonly messages: readonly AgentSessionMessage[];
   readonly actions: AgentSessionActions;

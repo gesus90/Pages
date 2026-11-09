@@ -28,6 +28,7 @@ const SESSION_TOOLS = [
   "set_ticket_checklist_item",
   "set_ticket_checklist_items",
   "report_step_result",
+  "update_step_progress",
 ] as const;
 // Moving a bound ticket between statuses is offered only to a node that reports its own progress.
 const STATUS_OPERATION = "ticket.setStatus";

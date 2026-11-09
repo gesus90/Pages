@@ -53,8 +53,6 @@ export interface PlanSessionObserver {
     readonly unattended: string;
     /** Durable supervisor identity, when this runner owns a PID namespace. */
     readonly namespace?: AcpNamespaceOwner;
-    /** The CLI runs in a terminal a viewer can open (PAGE-265); absent for ACP. */
-    readonly surface?: "terminal";
   }) => void;
   readonly identified: (sessionId: string) => void;
   /** Announced by a supported adapter; never inferred from a provider name. */
@@ -120,6 +118,8 @@ export interface PlanSession {
   ): Promise<PlanSessionTurn>;
   /** Adds a prompt to the running turn; absent for runners without steering. */
   steer?(prompt: readonly ContentBlock[]): Promise<AcpSteerOutcome>;
+  /** Interrupts the running prompt of a plan turn, which then waits for a person's input (PAGE-284). */
+  interrupt?(): Promise<boolean>;
   /** Whether the closeout has begun: the session takes no further turn, though its end is not yet reported. */
   readonly isClosing?: boolean;
   /** Ends the session and its helpers; resolves only after the confirmation. */
@@ -262,6 +262,7 @@ export class AgentPlanExecution implements PlanExecution {
       throw error;
     }
     const steer = session.steer?.bind(session);
+    const interrupt = session.interrupt?.bind(session);
     return {
       turn: session.turn,
       terminated: session.terminated,
@@ -271,6 +272,7 @@ export class AgentPlanExecution implements PlanExecution {
       },
       ...(session.detach ? { detach: () => session.detach?.() } : {}),
       ...(steer ? { steer } : {}),
+      ...(interrupt ? { interrupt } : {}),
       ...(session.next
         ? {
             next: async (

@@ -799,7 +799,6 @@
         "plan_reasoning_unsupported": "The runner does not offer the agent's reasoning effort for this model; nothing was sent.",
         "plan_permission_mode_unenforceable": "The ACP adapter does not offer or confirm the permission mode of the agent, so it cannot be enforced; nothing was sent. For Claude Code, a managed or workspace Claude setting that disables bypassPermissions, or a server account running as root, causes this. The run record names what the adapter reported.",
         "plan_terminal_question": "The CLI of the node asked a question or waited for an approval, and nobody answers in a plan run, so the node failed at once. The run and the terminal log show the question.",
-        "plan_terminal_unavailable": "The terminal of this node has ended or is not available; it takes no input.",
         "plan_yolo_isolation_unavailable": "YOLO runs without an approval step of the runner, so it starts only inside the bubblewrap isolation, which does not work for the server account. Install bubblewrap (apt install bubblewrap), allow unprivileged user namespaces for the account, and start the node again; Pages probes the isolation again within a minute.",
         "plan_codex_configuration_unmanaged": "A Codex configuration file (config.toml) outside Pages could change this run. Remove it from the connection folder or the workspace.",
         "plan_acp_session_failed": "The Codex ACP session failed before or during its turn.",
@@ -4673,32 +4672,79 @@
       "stopDescription": "This ends the whole run with all running nodes, not just this agent. Results reported so far are kept.",
       "stopCancel": "Keep running",
       "terminal": {
-        "title": "CLI terminal",
-        "inputLabel": "Multi-line input",
-        "inputPlaceholder": "Text for the CLI … (Ctrl+Enter sends the whole text at once)",
-        "send": "Send to the CLI",
-        "interrupt": "Interrupt step",
-        "notice": {
-          "pasted": "Text handed to the CLI.",
-          "interrupted": "Interruption sent to the CLI."
+        "title": "Pages terminal",
+        "attempt": "Attempt {{number}}",
+        "done": "done",
+        "aborted": "cancelled",
+        "running": "running for {{seconds}} s",
+        "todoActive": "{{id}} active · {{text}}",
+        "todoDone": "{{id}} done",
+        "turnEnded": "Turn ended",
+        "interrupted": "Interrupted, waiting for your input",
+        "reportReceived": "Report received · {{done}} of {{total}} todos, acceptance met",
+        "sessionClosed": "Session closed · node succeeded",
+        "abort": "Aborted: {{reason}}",
+        "resume": "Resume planned in {{seconds}} s · restart {{restart}} of {{limit}} · {{session}}",
+        "repair": "Repair round {{restart}} of {{limit}} · {{session}}",
+        "sameSession": "same session",
+        "newSession": "new session",
+        "blocked": "Blocked: {{reason}} · {{attempts}} attempts",
+        "stopped": "Stopped, no resume",
+        "placeholder": "Message to the agent …",
+        "inputLabel": "Message to the agent",
+        "hint": "Enter sends · Shift+Enter new line · Ctrl+C interrupts",
+        "ended": "Session ended, no more input possible",
+        "interrupt": "Interrupt the step",
+        "state": {
+          "resume": "Resume in {{seconds}} s",
+          "succeeded": "Succeeded",
+          "blocked": "Blocked",
+          "failed": "Failed",
+          "stopped": "Stopped"
         },
-        "connection": {
-          "loading": "Loading terminal …",
-          "live": "Live",
-          "reconnecting": "Connection lost, reconnecting …",
-          "closed": "No live connection",
-          "ended": "CLI ended: the terminal is read-only now."
+        "sidebar": {
+          "todos": "Todos {{done}} / {{total}}",
+          "noTodos": "No todos",
+          "todoStatus": {
+            "done": "done",
+            "active": "active",
+            "open": "open",
+            "missing": "unreadable",
+            "unreported": "not reported yet"
+          },
+          "activity": "Activity",
+          "noActivity": "–",
+          "activityDone": "Finished",
+          "activityWaiting": "Waiting for the restart",
+          "usage": "Usage",
+          "context": "Context",
+          "tokens": "Total tokens",
+          "afterTurn": "after the turn",
+          "cost": "Cost",
+          "unknown": "unknown",
+          "session": "Session",
+          "model": "Model",
+          "reasoning": "Reasoning",
+          "access": "Access",
+          "accessMode": {
+            "yolo": "YOLO",
+            "read_only": "Read only",
+            "workspace_write": "Workspace"
+          },
+          "branch": "Branch",
+          "restarts": "Restarts",
+          "activityStopped": "Stopped"
         },
-        "access": {
-          "typing": "You can type directly into the terminal. Ctrl+Shift+X closes the console.",
-          "touch": "On this device the terminal is read-only; intervene with the input below.",
-          "readOnly": "Read-only"
+        "toolKind": {
+          "read": "Read file",
+          "edit": "Edit file",
+          "delete": "Delete file",
+          "move": "Move file",
+          "search": "Search",
+          "execute": "Shell",
+          "fetch": "Fetch"
         },
-        "activeMember": "Active: {{name}}",
-        "question": "The CLI asked an open question, so the node failed: {{question}}",
-        "older": "Load earlier output",
-        "olderLoading": "Loading earlier output …",
-        "ended": "Ended"
+        "noReport": "Turn ended without a valid report"
       }
     },
     "flowInShort": "In",

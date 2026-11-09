@@ -1,5 +1,8 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import type {
   AgentCapabilities,
+  ClientConnection,
   ContentBlock,
   McpServer,
   PromptCapabilities,
@@ -51,8 +54,11 @@ export interface AcpSessionListener {
     capabilities: AgentCapabilities | null | undefined,
   ) => void;
   readonly update: (update: SessionUpdate) => void;
-  /** The token usage the adapter returned with a prompt, or `null` without one. */
-  readonly prompted: (usage: Usage | null) => void;
+  /**
+   * The token usage the adapter returned with a prompt, or `null` without one;
+   * `isContinued` marks a prompt a person's input cut short, whose turn goes on.
+   */
+  readonly prompted: (usage: Usage | null, isContinued?: boolean) => void;
   /** The connection to the adapter ended, for example because its process exited. */
   readonly closed: () => void;
   /** Waits for the journal writes caused by the last notification. */
@@ -66,6 +72,36 @@ export interface AcpChatOptions {
   /** The protocol session to continue with `session/resume`; `null` starts a new one. */
   readonly resumeSessionId: string | null;
   readonly listener: AcpSessionListener;
+}
+
+/**
+ * Sends a steer through the steering extension an adapter announced.
+ *
+ * @param agent - The ACP connection of the session.
+ * @param steer - The session, the prompt blocks and the driver's extension meta.
+ * @returns What became of the steer; `failed` when the adapter refused it or the connection is gone.
+ */
+export async function requestAcpSteer(
+  agent: Pick<ClientConnection["agent"], "request">,
+  steer: {
+    readonly sessionId: string;
+    readonly prompt: readonly ContentBlock[];
+    readonly meta: Readonly<Record<string, unknown>> | null;
+  },
+): Promise<AcpSteerOutcome> {
+  try {
+    return readAcpSteerOutcome(
+      await agent.request(ACP_STEERING_METHOD, {
+        sessionId: steer.sessionId,
+        prompt: [...steer.prompt],
+        ...(steer.meta === null ? {} : { _meta: { ...steer.meta } }),
+      }),
+    );
+  } catch (caughtError: unknown) {
+    logCaughtError("AcpChat", caughtError);
+    // The adapter refused the steer or the connection is gone; the turn decides the rest.
+    return "failed";
+  }
 }
 
 /**

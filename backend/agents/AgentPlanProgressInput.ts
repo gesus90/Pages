@@ -29,6 +29,9 @@ function readItem(input: unknown): AgentPlanProgressItem {
     id: readPlanText(item.id, 420),
     text: readProgressText(item.text),
     status,
+    ...(item.contractId === undefined
+      ? {}
+      : { contractId: readPlanText(item.contractId, 200) }),
     ...(item.ticket === undefined
       ? {}
       : { ticket: readItemTicket(item.ticket) }),
@@ -85,6 +88,16 @@ function readObservation(
   };
 }
 
+function readActivity(
+  input: unknown,
+): NonNullable<AgentPlanProgress["activity"]> {
+  const activity = readAgentObject(input);
+  return {
+    text: readProgressText(activity.text).slice(0, 200),
+    reportedAt: readPlanText(activity.reportedAt),
+  };
+}
+
 /** Validates the safe read-time checklist projection used by run polling. */
 export function readPlanProgress(input: unknown): AgentPlanProgress {
   const progress = readAgentObject(input);
@@ -106,5 +119,8 @@ export function readPlanProgress(input: unknown): AgentPlanProgress {
     ...(progress.scope === undefined
       ? {}
       : { scope: readScope(progress.scope) }),
+    ...(progress.activity === undefined
+      ? {}
+      : { activity: readActivity(progress.activity) }),
   };
 }

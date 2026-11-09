@@ -100,6 +100,10 @@ const attempt = z.object({
     percent: z.number().nullable(),
     source: z.literal("acp_usage_update").nullable(),
     reportedAt: z.string().nullable(),
+    cost: z
+      .object({ amount: z.number().finite(), currency: z.string().max(10) })
+      .nullable()
+      .optional(),
   }),
   confirmedModel: reported,
   confirmedReasoning: reported,
@@ -123,6 +127,8 @@ const event = z.object({
     "user_instruction",
     "repair_instruction",
     "agent_message",
+    "thought",
+    "progress",
     "tool_started",
     "tool_completed",
     "tool_failed",
@@ -234,7 +240,6 @@ export const localMutationSchema = z.discriminatedUnion("kind", [
       arguments: z.array(z.string()),
       unattended: z.string(),
       namespace: z.unknown().transform(readOwnedNamespace).optional(),
-      surface: z.literal("terminal").optional(),
     }),
   }),
   z.object({ kind: z.literal("identified"), sessionId: z.string() }),
@@ -281,6 +286,7 @@ export const localCommandSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("read"), after: count, limit: count.max(200) }),
   z.object({ kind: z.literal("ack"), sequence: count, digest: z.string() }),
   z.object({ kind: z.literal("cancel") }),
+  z.object({ kind: z.literal("interrupt") }),
   z.object({ kind: z.literal("close") }),
   z.object({ kind: z.literal("release") }),
   z.object({ kind: z.literal("next"), launch: localLaunchSchema }),

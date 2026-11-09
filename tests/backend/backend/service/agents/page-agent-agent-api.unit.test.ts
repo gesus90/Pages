@@ -147,7 +147,7 @@ it("does not offer or run them for the credential of an agent plan session", asy
   });
 
   expect(offered).toMatchObject({
-    tools: ["ticket.read", "run.step.report"],
+    tools: ["ticket.read", "run.step.report", "run.step.progress"],
   });
   await expect(
     api().handle("session-token", {

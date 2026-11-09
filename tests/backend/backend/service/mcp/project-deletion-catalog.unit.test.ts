@@ -58,7 +58,7 @@ describe("an agent plan run never receives the deletion", () => {
   it("withholds it from a ticket reach that names it", () => {
     expect(
       sessionOperations(session("tickets", [DELETE, "ticket.setStatus"]), true),
-    ).toEqual(["ticket.setStatus", "run.step.report"]);
+    ).toEqual(["ticket.setStatus", "run.step.report", "run.step.progress"]);
   });
 
   it("still lets an administrator's run read the extent and use its other operations", () => {

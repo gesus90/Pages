@@ -1,164 +1,224 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-
-import { Button } from "@/app/components/ui/button";
 
 import { ConsoleTerminalInput } from "./console-terminal-input";
 import {
-  isTouchDevice,
-  usePlanTerminal,
-  useTerminalSurface,
-} from "./use-plan-terminal";
+  currentEnding,
+  earlierAttempts,
+  hasSessionEnded,
+} from "./console-step-state";
+import { renderTerminal } from "./terminal-lines";
+import { terminalTexts } from "./terminal-texts";
+import { useNow, useTerminalSurface } from "./use-terminal-surface";
+import { useTerminalHistory } from "./use-terminal-history";
 
-import type { AgentSessionKey } from "@/definition/AgentSessionJournal";
-import type { AgentTerminalState } from "@/definition/AgentTerminal";
-import type { PlanTerminal } from "./use-plan-terminal";
+import type { TerminalSurface } from "@/app/components/agents/workspaces/remote/console/terminal-surface";
+import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  AgentSessionEvent,
+  AgentSessionKey,
+} from "@/definition/AgentSessionJournal";
+import type { TerminalAttempt } from "./terminal-lines";
+import type { AgentSessionData } from "./use-agent-session";
+import type { SessionCommands } from "./use-session-commands";
+import type { TerminalHistory } from "./use-terminal-history";
+
+/** What the bottom of the terminal offers. */
+export type TerminalInputMode = "line" | "ended" | "none";
 
 interface ConsoleTerminalProps {
   readonly sessionKey: AgentSessionKey;
-  /** Names a node of the plan, for the member whose turn runs in a shared terminal. */
-  readonly nodeName: (stepId: string) => string;
+  readonly step: AgentPlanStepResult;
+  readonly session: AgentSessionData;
+  readonly commands: SessionCommands;
+  readonly provider: string;
+  readonly model: string;
+  /** The instruction of the node, as the plan prompt of the first attempt. */
+  readonly prompt: string | null;
+  readonly inputMode: TerminalInputMode;
+  readonly canInterrupt: boolean;
   readonly onCloseRequest: () => void;
-  /** Reports the state to the session facts beside the terminal. */
-  readonly onState: (state: AgentTerminalState | null) => void;
 }
 
-/** What the line above the terminal says: connection, input right and the active member. */
-function TerminalStatus({
-  terminal,
-  nodeName,
-  isTouch,
-  canLoadOlder,
-}: {
-  readonly terminal: PlanTerminal;
-  readonly nodeName: (stepId: string) => string;
-  readonly isTouch: boolean;
-  /** Older segments of an ordinary CLI can be loaded; the button sits in this line so nothing moves when it goes. */
-  readonly canLoadOlder: boolean;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const { state } = terminal;
-  const typing = isTouch ? "touch" : "typing";
-  const access = state?.canInput ? typing : "readOnly";
-  return (
-    <div
-      role="status"
-      className="flex flex-wrap items-center gap-2 px-4 py-2 text-xs text-muted-foreground"
-    >
-      <span>
-        {t(
-          `plans.console.terminal.connection.${state?.status === "ended" ? "ended" : terminal.connection}`,
-        )}
-      </span>
-      <span aria-hidden="true">·</span>
-      <span>{t(`plans.console.terminal.access.${access}`)}</span>
-      {state?.activeStepId ? (
-        <span className="rounded-md bg-info-subtle px-2 py-0.5 font-medium text-info">
-          {t("plans.console.terminal.activeMember", {
-            name: nodeName(state.activeStepId),
-          })}
-        </span>
-      ) : null}
-      {canLoadOlder ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-6 px-2 text-xs"
-          disabled={terminal.isLoadingOlder}
-          onClick={terminal.loadOlder}
-        >
-          {t(
-            terminal.isLoadingOlder
-              ? "plans.console.terminal.olderLoading"
-              : "plans.console.terminal.older",
-          )}
-        </Button>
-      ) : null}
-      {terminal.error ? (
-        <span role="alert" className="text-destructive">
-          {t([
-            `settings.agents.error.${terminal.error}`,
-            "settings.agents.error.general",
-          ])}
-        </span>
-      ) : null}
-    </div>
+function joined(
+  older: readonly AgentSessionEvent[],
+  live: readonly AgentSessionEvent[],
+): readonly AgentSessionEvent[] {
+  const unique = new Map(older.map((event) => [event.sequence, event]));
+  for (const event of live) unique.set(event.sequence, event);
+  return [...unique.values()].sort(
+    (left, right) => left.sequence - right.sequence,
   );
 }
 
+/** The attempts of the node in order, the current one last. */
+function terminalAttempts(
+  props: Pick<ConsoleTerminalProps, "sessionKey" | "step" | "session">,
+  history: TerminalHistory,
+  now: number,
+): readonly TerminalAttempt[] {
+  const earlier = earlierAttempts(props.step, props.sessionKey.attemptId);
+  const index = (props.step.session?.retry?.attempts ?? []).findIndex(
+    (attempt) => attempt.attemptId === props.sessionKey.attemptId,
+  );
+  return [
+    ...earlier.map((attempt) => {
+      const events = history.earlier.get(attempt.attemptId) ?? [];
+      return {
+        number: attempt.number,
+        startedAt: events[0]?.createdAt ?? null,
+        events,
+        ending: attempt.ending,
+      };
+    }),
+    {
+      number: index >= 0 ? index + 1 : earlier.length + 1,
+      startedAt: props.step.session?.startedAt ?? null,
+      events: joined(history.older, props.session.events),
+      ending: currentEnding(props.step, now),
+    },
+  ];
+}
+
 /**
- * The CLI of a node in its terminal, as it runs on the server.
+ * Writes the text into xterm: only what was added when the text grew, all of
+ * it after another change, keeping the line the reader looks at in place.
+ */
+function useTerminalText(surface: TerminalSurface | null, text: string): void {
+  const written = useRef("");
+  useEffect(() => {
+    if (!surface) return;
+    const { terminal } = surface;
+    if (text.startsWith(written.current)) {
+      terminal.write(text.slice(written.current.length));
+      written.current = text;
+      return;
+    }
+    const buffer = terminal.buffer.active;
+    const lengthBefore = buffer.length;
+    const top = buffer.viewportY;
+    const isAtBottom = buffer.viewportY >= buffer.baseY;
+    terminal.reset();
+    terminal.write(`\u001b[?25l${text}`, () => {
+      if (isAtBottom) terminal.scrollToBottom();
+      else
+        terminal.scrollToLine(
+          Math.max(0, top + terminal.buffer.active.length - lengthBefore),
+        );
+    });
+    written.current = text;
+  }, [surface, text]);
+}
+
+/** Reads older history once the reader reaches the top, by scrolling or by the wheel at the top. */
+function useLoadOlderAtTop(
+  surface: TerminalSurface | null,
+  container: React.RefObject<HTMLDivElement | null>,
+  history: TerminalHistory,
+): void {
+  const { hasOlder, loadOlder } = history;
+  useEffect(() => {
+    if (!surface || !hasOlder) return undefined;
+    const scroll = surface.terminal.onScroll((line) => {
+      if (line === 0) loadOlder();
+    });
+    const element = container.current;
+    function handleWheel(event: WheelEvent): void {
+      if (event.deltaY < 0 && surface?.terminal.buffer.active.viewportY === 0)
+        loadOlder();
+    }
+    element?.addEventListener("wheel", handleWheel, { passive: true });
+    return () => {
+      scroll.dispose();
+      element?.removeEventListener("wheel", handleWheel);
+    };
+  }, [surface, container, hasOlder, loadOlder]);
+}
+
+function TerminalFooter(props: {
+  readonly inputMode: TerminalInputMode;
+  readonly commands: SessionCommands;
+  readonly canInterrupt: boolean;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (props.inputMode === "line")
+    return (
+      <ConsoleTerminalInput
+        commands={props.commands}
+        canInterrupt={props.canInterrupt}
+      />
+    );
+  if (props.inputMode === "ended")
+    return (
+      <p className="px-[22px] pt-2 pb-3 font-mono text-xs text-agent-terminal-muted">
+        {t("plans.console.terminal.ended")}
+      </p>
+    );
+  return null;
+}
+
+/**
+ * The Pages terminal of an agent node: the stored ACP history of all its
+ * attempts in one xterm, the same for every provider (PAGE-284).
  *
  * @remarks
- * Whoever may run the plan types directly into the CLI, its own commands
- * included; everyone else, and every phone, only sees it. Closing the
- * console ends the view, never the CLI or the run. A CLI with ordinary
- * output loads older segments when the viewer reaches the top; a full-screen
- * CLI scrolls only with its own keys.
+ * It is no PTY and no surface of a CLI. The lines come from
+ * {@link renderTerminal}; the newest events arrive live, older ones load
+ * when the reader scrolls up. Closing the console ends only the view.
  */
 export function ConsoleTerminal(
   props: ConsoleTerminalProps,
 ): React.ReactElement {
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement | null>(null);
-  const [isTouch] = useState(isTouchDevice);
-  const { onCloseRequest, onState } = props;
+  const { onCloseRequest } = props;
   // The terminal is created once; it calls the newest close handler.
   const latestClose = useRef(onCloseRequest);
   useEffect(() => {
     latestClose.current = onCloseRequest;
   }, [onCloseRequest]);
   const closeRequest = useCallback(() => latestClose.current(), []);
-  const surface = useTerminalSurface(container, {
-    fitsContainer: !isTouch,
-    onCloseRequest: closeRequest,
+  const surface = useTerminalSurface(container, closeRequest);
+  const now = useNow(!hasSessionEnded(props.step));
+  const history = useTerminalHistory(props.sessionKey, {
+    firstSequence: props.session.events[0]?.sequence ?? null,
+    hasEarlier: props.session.hasEarlier,
+    earlier: earlierAttempts(props.step, props.sessionKey.attemptId),
   });
-  const terminal = usePlanTerminal(props.sessionKey, surface, {
-    isTypingDevice: !isTouch,
+  const todoTexts = new Map(
+    (props.step.session?.contract?.todos ?? []).map((todo) => [
+      todo.id,
+      todo.text,
+    ]),
+  );
+  const text = renderTerminal({
+    provider: props.provider,
+    model: props.model,
+    prompt: props.prompt,
+    attempts: terminalAttempts(props, history, now),
+    todoTexts,
+    now,
+    texts: terminalTexts(t),
   });
-  const { loadOlder, hasOlder } = terminal;
-  useEffect(() => {
-    if (!surface) return undefined;
-    const scroll = surface.terminal.onScroll((line) => {
-      if (line === 0 && hasOlder) loadOlder();
-    });
-    return () => scroll.dispose();
-  }, [surface, hasOlder, loadOlder]);
-  const { state } = terminal;
-  useEffect(() => {
-    onState(state);
-  }, [state, onState]);
-  const isAlternate = terminal.state?.isAlternateScreen === true;
-  const canIntervene = terminal.state?.canInput === true;
+  useTerminalText(surface, text);
+  useLoadOlderAtTop(surface, container, history);
   return (
     <section
       aria-label={t("plans.console.terminal.title")}
-      className="flex min-h-[32rem] flex-1 flex-col lg:min-h-0"
+      className="flex min-h-[24rem] min-w-0 flex-1 flex-col bg-agent-terminal-surface min-[680px]:min-h-0"
     >
-      <TerminalStatus
-        terminal={terminal}
-        canLoadOlder={hasOlder && !isAlternate}
-        nodeName={props.nodeName}
-        isTouch={isTouch}
-      />
-      {terminal.state?.question ? (
-        <p
-          role="alert"
-          className="mx-4 mb-2 rounded-md bg-destructive-subtle px-3 py-2 text-xs text-destructive"
-        >
-          {t("plans.console.terminal.question", {
-            question: terminal.state.question,
-          })}
-        </p>
-      ) : null}
-      <div className="min-h-0 flex-1 overflow-auto bg-terminal-surface px-2 py-1">
+      <div className="min-h-0 flex-1 px-[22px] pt-[18px] pb-2">
         <div
           ref={container}
           data-testid="plan-terminal"
-          className="h-full min-h-64 w-full"
+          className="h-full w-full"
         />
       </div>
-      {canIntervene ? <ConsoleTerminalInput terminal={terminal} /> : null}
+      <TerminalFooter
+        inputMode={props.inputMode}
+        commands={props.commands}
+        canInterrupt={props.canInterrupt}
+      />
     </section>
   );
 }

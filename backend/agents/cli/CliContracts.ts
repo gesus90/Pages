@@ -95,11 +95,6 @@ export interface CliSessionRequest {
   readonly onStderr?: (tail: string) => void;
   /** The limited unit the session runs in; signals and the closeout go through it. */
   readonly unit?: CliWorkerUnitHandle;
-  /**
-   * The CLI runs in a pseudo terminal (PAGE-265): it keeps the terminal as
-   * its controlling terminal where the kernel refuses injected input.
-   */
-  readonly isTerminal?: boolean;
 }
 
 export interface CliRunningProcess {

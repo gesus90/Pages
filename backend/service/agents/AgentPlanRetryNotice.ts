@@ -10,6 +10,7 @@ import {
 } from "./AgentPlanBlockerRules";
 
 import type { AgentPlanRetry } from "@/definition/AgentPlanRetry";
+import type { AgentPlanStepProgressTodo } from "@/definition/AgentPlanStepProgress";
 
 const EFFECTS =
   "Files and other external effects of the earlier attempt may already exist. Inspect the current state first, keep correct results, and do not repeat a completed external action.";
@@ -59,6 +60,21 @@ function issueLine(issue: string): string {
   return `- ${describePlanIssue(issue)}`;
 }
 
+const COMMITS =
+  "Commits of the earlier attempt are already in the workspace: reuse them and build on them instead of redoing that work.";
+
+/** The todos of a new session with the state the earlier attempt reported last (PAGE-284). */
+function progressLines(
+  progress: readonly AgentPlanStepProgressTodo[],
+): readonly string[] {
+  if (progress.length === 0) return [COMMITS];
+  return [
+    COMMITS,
+    "The earlier attempt reported these todos last; continue from there and keep reporting them with `update_step_progress`:",
+    ...progress.map((todo) => `- ${todo.id}: ${todo.status}`),
+  ];
+}
+
 /** The concrete error an agent gets back: what failed and every finding of the acceptance. */
 function concreteError(code: string, issues: readonly string[]): string {
   const message = isAgentErrorCode(code) ? AGENT_ERROR_MESSAGES[code] : code;
@@ -70,6 +86,7 @@ function concreteError(code: string, issues: readonly string[]): string {
  *
  * @param retry - The retry record of the step, with the failed attempts.
  * @param isResumed - Whether this attempt continues the earlier native session.
+ * @param progress - The live todo states the earlier attempts reported last.
  * @returns The text that precedes the assignment.
  *
  * @remarks
@@ -80,6 +97,7 @@ function concreteError(code: string, issues: readonly string[]): string {
 export function planRetryNotice(
   retry: AgentPlanRetry,
   isResumed: boolean,
+  progress: readonly AgentPlanStepProgressTodo[] = [],
 ): string {
   const last = retry.attempts.at(-1);
   if (!last) return "";
@@ -98,6 +116,7 @@ export function planRetryNotice(
     "## Pages automatic session retry",
     "",
     lead,
+    ...(isResumed ? [] : ["", ...progressLines(progress)]),
     ...(failureClass === "infrastructure"
       ? []
       : ["", concreteError(last.code, last.issues ?? [])]),

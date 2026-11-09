@@ -5,6 +5,7 @@ import {
 import { loggedOperation } from "@/backend/logging/LoggedOperation";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { AGENT_STEP_PROGRESS_OPERATION } from "@/definition/AgentPlanStepProgress";
 import { AGENT_STEP_REPORT_OPERATION } from "@/definition/AgentPlanStepReport";
 
 import { resolveAgentTicketReference } from "./agents/AgentTicketValidation";
@@ -15,6 +16,7 @@ import {
 } from "./mcp/AgentOperationCatalog";
 
 import type { AgentPlanStepReportService } from "./agents/AgentPlanStepReportService";
+import type { AgentPlanStepProgressService } from "./agents/AgentPlanStepProgressService";
 import type { AgentPlanWorkGate } from "./agents/AgentPlanWorkGate";
 import type { AgentTicketAssetService } from "./agents/AgentTicketAssetService";
 import type { AgentAsset } from "@/definition/PagesAgentWrites";
@@ -71,6 +73,7 @@ function isRunTicketCall(scope: AgentRunScope, parameters: unknown): boolean {
 export class PagesAgentApiService {
   private readonly workGate: AgentPlanWorkGate | undefined;
   private readonly stepReports: AgentPlanStepReportService | undefined;
+  private readonly stepProgress: AgentPlanStepProgressService | undefined;
   private readonly projects: AgentProjectService;
   private readonly operations: AgentOperationRouter;
   private readonly runs: AgentRunCredentialService | null;
@@ -85,6 +88,7 @@ export class PagesAgentApiService {
       | {
           readonly workGate?: AgentPlanWorkGate;
           readonly stepReports?: AgentPlanStepReportService;
+          readonly stepProgress?: AgentPlanStepProgressService;
           readonly runs?: AgentRunCredentialService;
           readonly downloads?: AgentAssetDownloadService;
           readonly upload?: (
@@ -99,6 +103,7 @@ export class PagesAgentApiService {
       capabilities && !("verify" in capabilities) ? capabilities : null;
     this.workGate = named?.workGate;
     this.stepReports = named?.stepReports;
+    this.stepProgress = named?.stepProgress;
     this.projects = projects;
     this.operations = operations;
     this.publish = named?.upload;
@@ -220,6 +225,8 @@ export class PagesAgentApiService {
       throw new AgentOperationError("FORBIDDEN");
     if (input.operation === AGENT_STEP_REPORT_OPERATION)
       return this.reportStep(identity, input.parameters);
+    if (input.operation === AGENT_STEP_PROGRESS_OPERATION)
+      return this.reportProgress(identity, input.parameters);
     if (scope.reach === "tickets" && !isRunTicketCall(scope, input.parameters))
       throw new AgentOperationError("FORBIDDEN");
     if (input.operation === "assets.upload.prepare")
@@ -238,6 +245,18 @@ export class PagesAgentApiService {
     return {
       apiVersion: "1",
       result: await this.stepReports.report(identity, parameters),
+    };
+  }
+
+  /** Like the step report, the credential alone names the run and the step of the progress. */
+  private async reportProgress(
+    identity: AgentIdentity,
+    parameters: unknown,
+  ): Promise<PagesAgentReadResponse> {
+    if (!this.stepProgress) throw new AgentOperationError("FORBIDDEN");
+    return {
+      apiVersion: "1",
+      result: await this.stepProgress.update(identity, parameters),
     };
   }
 

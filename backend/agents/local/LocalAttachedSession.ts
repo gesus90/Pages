@@ -183,6 +183,16 @@ export class LocalAttachedSession implements PlanSession {
     );
   }
 
+  /** Interrupts the running prompt inside the authenticated native owner (PAGE-284). */
+  public async interrupt(): Promise<boolean> {
+    const answer = await this.dependencies.control({ kind: "interrupt" });
+    return (
+      typeof answer === "object" &&
+      answer !== null &&
+      Reflect.get(answer, "interrupted") === true
+    );
+  }
+
   /** Requires owner proof again and returns the actual native cleanup result. */
   public close(): Promise<PlanSessionClosed> {
     this.closing ??= this.closeOnce().catch((error: unknown) => {

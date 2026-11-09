@@ -49,13 +49,10 @@ import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
 import { requirePicaCodexProfile } from "./PicaCodexBundle";
 import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
 import {
-  isTerminalSession,
   recordGitHubNamespace,
   sessionAcpProvider,
   validateSessionStatus,
 } from "./CliSessionChecks";
-import { startTerminalSession } from "@/backend/agents/terminal/TerminalStart";
-import { isTerminalProvider } from "@/definition/AgentTerminal";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AgentToolId } from "@/definition/AgentTools";
@@ -92,7 +89,6 @@ import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpSt
 import type { CliWorkerUnits } from "./CliWorkerUnit";
 import type { PicaCodexBundle } from "./PicaCodexBundle";
 import type { PicaNativeArtifact } from "./PicaNativeArtifact";
-import type { TerminalServices } from "@/backend/agents/terminal/TerminalStart";
 
 /** How CLI runs are kept away from the instance folders. */
 export interface CliIsolationOptions {
@@ -122,11 +118,6 @@ interface SessionDependencies {
   readonly github?: Pick<CliGitHubCredentials, "prepare">;
   /** Prepares the private transcript home of a Claude plan session; defaults to the real folders. */
   readonly claudeHome?: typeof prepareClaudePlanSessionHome;
-  /**
-   * Where plan nodes of Claude Code, Codex and OpenCode run their CLI in a
-   * terminal (PAGE-265); absent keeps them on ACP.
-   */
-  readonly terminals?: TerminalServices;
 }
 
 /** What a session start has verified about its connection. */
@@ -314,10 +305,6 @@ export class CliSessionExecution implements PlanSessionRunner {
           ? await this.verifyAcp(acpDriverFor(acpProvider), input, {
               home,
               locations,
-              // A terminal runs the CLI itself; its ACP adapter is not needed.
-              isTerminal:
-                this.dependencies.terminals !== undefined &&
-                isTerminalSession(input),
             })
           : null;
       await input.beforeStart?.();
@@ -364,14 +351,9 @@ export class CliSessionExecution implements PlanSessionRunner {
     verified: {
       readonly home: CliHome;
       readonly locations?: ReadonlyMap<AgentToolId, AgentToolLocation>;
-      readonly isTerminal?: boolean;
     },
-  ): Promise<string | null> {
+  ): Promise<string> {
     const { home, locations } = verified;
-    if (verified.isTerminal === true) {
-      await driver.requireManagedConfiguration(home, input.directory);
-      return null;
-    }
     const adapterId = providerToolIds(driver.provider).at(-1);
     const pinned = adapterId ? locations?.get(adapterId) : null;
     const location = pinned
@@ -389,60 +371,7 @@ export class CliSessionExecution implements PlanSessionRunner {
   ): Promise<PlanSession> {
     const acpProvider = sessionAcpProvider(input);
     if (acpProvider === null) throw new AgentError("provider_invalid");
-    const driver = acpDriverFor(acpProvider);
-    if (this.dependencies.terminals && isTerminalSession(input))
-      return this.spawnTerminal(driver, input, start, control);
-    return this.spawnAcp(driver, input, start, control);
-  }
-
-  /**
-   * Starts the CLI of a plan node in a terminal a viewer can open (PAGE-265).
-   *
-   * @remarks
-   * Claude Code, Codex and OpenCode run as their own interactive CLI;
-   * Antigravity and Pica's conversations stay on ACP.
-   */
-  private async spawnTerminal(
-    driver: AcpDriver,
-    input: AgentPlanSessionInput,
-    start: VerifiedStart,
-    control: SessionControl,
-  ): Promise<PlanSession> {
-    const mode = input.options.access;
-    const provider = driver.provider;
-    const terminals = this.dependencies.terminals;
-    if (
-      !isAcpPermissionMode(mode) ||
-      !isTerminalProvider(provider) ||
-      !terminals
-    )
-      throw new AgentError(driver.errors.modeRequired);
-    const scoped = await this.scopedHome(driver, input, start);
-    const github = await this.prepareGitHub(input, start, mode);
-    return startTerminalSession(
-      {
-        driver,
-        provider,
-        input,
-        mode,
-        cliFile: start.file,
-        home: start.home,
-        scoped,
-        credentials: start.credentials,
-        github,
-        signal: control.signal,
-        observer: control.observer,
-        lifecycle: control.lifecycle,
-        terminals,
-      },
-      {
-        isolate: (request, home) => this.gate.isolateSession(request, home),
-        limit: (request) => this.limit(request, input),
-        registerNamespace: (processId, request, isPidNamespace) =>
-          this.registerNamespace(input, processId, request, isPidNamespace),
-        secure: () => this.secureAcp(input, start, github),
-      },
-    );
+    return this.spawnAcp(acpDriverFor(acpProvider), input, start, control);
   }
 
   /**
@@ -542,6 +471,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         cleanupAdapter: picaBundle?.cleanup,
         listener: input.chat?.listener ?? input.journal,
         notificationHandled: () => channel.acknowledge(),
+        acceptsTurnInput: input.chat === undefined,
       });
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);

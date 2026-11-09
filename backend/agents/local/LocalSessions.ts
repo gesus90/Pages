@@ -280,6 +280,7 @@ export class LocalSessions {
         return session.next(input, nextSignal, nextObserver);
       },
       steer: (prompt) => session.steer?.(prompt) ?? Promise.resolve("inactive"),
+      interrupt: () => session.interrupt?.() ?? Promise.resolve(false),
     };
   }
 

@@ -64,6 +64,14 @@ const PROJECT_GITHUB_LINES = [
 const STEP_REPORT_LINE =
   "Report your result by calling the Pages MCP tool `report_step_result`: `status` (`done`, or `blocked` when a person has to decide), `message`, `todos` and `criteria` with the IDs above, `decisions` and `summary`. This is the intended way. Pages checks the call at once; when it refuses, correct what `details.problems` names and call again. A valid call is the result of this step, a later call of this attempt replaces it, and it takes precedence over any text in your closing message.";
 
+/** The live progress every provider reports while it works (PAGE-284). */
+const STEP_PROGRESS_LINE =
+  "- Report your progress live with the Pages MCP tool `update_step_progress`: set a todo to `active` right before you start it and to `done` right after you finished it, each time at once, and give `activity` as one short line of what you do now. It ends nothing and is no result; `report_step_result` stays the binding report.";
+
+function progressLines(assignment: AgentPlanAssignment): readonly string[] {
+  return assignment.usesMcp ? [STEP_PROGRESS_LINE] : [];
+}
+
 function gitHubLines(assignment: AgentPlanAssignment): readonly string[] {
   return assignment.hasProjectGitHub === true ? PROJECT_GITHUB_LINES : [];
 }
@@ -272,6 +280,7 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
         ]
       : []),
     ...todoMcpLines(assignment),
+    ...progressLines(assignment),
     ...gitHubLines(assignment),
     "",
     "### Closing message",
@@ -331,6 +340,7 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
         ]
       : []),
     ...mcpLines(assignment),
+    ...progressLines(assignment),
     ...gitHubLines(assignment),
     "",
     "### Closing message and optional progress report",

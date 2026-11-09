@@ -20,7 +20,6 @@ import type {
   AgentSessionEventPage,
   AgentSessionHistoryWindow,
   AgentSessionKey,
-  AgentSessionMessageKind,
   AgentSessionState,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
@@ -32,6 +31,7 @@ import type {
 } from "./AgentSessionAttempts";
 import type {
   AgentSessionInbox,
+  AgentSessionInstruction,
   AgentSessionSendResult,
 } from "./AgentSessionInbox";
 import type {
@@ -43,6 +43,19 @@ import type {
   AgentSessionStore,
 } from "./AgentSessionStore";
 
+/** Every attempt of the node in its run: the current one and those its retries recorded (PAGE-284). */
+function nodeAttemptIds(
+  attemptId: string,
+  record: AgentPlanSessionRecord,
+): ReadonlySet<string> {
+  return new Set([
+    attemptId,
+    ...(record.retry?.attempts ?? []).flatMap((entry) =>
+      entry.attemptId ? [entry.attemptId] : [],
+    ),
+  ]);
+}
+
 /** Reads and stops runs with every current right of their executor checked. */
 export interface AgentSessionRunAccess {
   run(userId: string, runId: string): Promise<AgentPlanRun>;
@@ -53,6 +66,12 @@ export interface AgentSessionRunAccess {
 export interface AgentSessionLiveTurn {
   /** Sends an instruction as a turn of its own; resolves when that turn ended. */
   readonly instruct: (text: string) => Promise<void>;
+  /**
+   * Writes an instruction into the running turn of a plan node at once (PAGE-284).
+   *
+   * @returns Whether a running turn took it.
+   */
+  readonly steer?: (text: string) => Promise<boolean>;
   /** Cancels the running turn only; absent where only ending the process would stop it. */
   readonly cancelTurn?: () => Promise<boolean>;
 }
@@ -203,6 +222,7 @@ export class AgentSessionService {
     const stored = await this.dependencies.store.findAttempt(key.attemptId);
     const runTurns = await this.dependencies.store.listRunUsage(run.id);
     const turns = runTurns.filter((turn) => turn.attemptId === key.attemptId);
+    const nodeAttempts = nodeAttemptIds(key.attemptId, attempt.record);
     const isLive = this.live.has(key.attemptId) && isRunActive(run);
     const state = this.state(run, attempt, stored);
     const recorder = this.recorders.get(attempt.record.instanceId);
@@ -217,6 +237,9 @@ export class AgentSessionService {
       turns,
       totals: sumTurnUsage(turns),
       runTotals: sumTurnUsage(runTurns),
+      nodeTotals: sumTurnUsage(
+        runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
+      ),
       continuation: decideContinuation({
         isAuthorized: true,
         isConfigurationCompatible: true,
@@ -298,22 +321,40 @@ export class AgentSessionService {
   public async send(
     userId: string,
     key: AgentSessionKey,
-    input: { readonly kind: AgentSessionMessageKind; readonly text: string },
+    input: AgentSessionInstruction,
   ): Promise<AgentSessionSendResult> {
     const { run, attempt } = await this.authorize(userId, key);
     if (run.status !== "running" || run.stopRequested)
       throw new AgentError("plan_run_unavailable");
     const text = input.text.trim();
     if (text === "") throw new AgentError("plan_invalid");
-    if (!this.live.has(key.attemptId))
-      throw new AgentError("plan_session_unavailable");
+    const entry = this.live.get(key.attemptId);
+    if (!entry) throw new AgentError("plan_session_unavailable");
+    const target = {
+      attemptId: key.attemptId,
+      instanceId: attempt.record.instanceId,
+      userId,
+    };
+    if (entry.turn.steer)
+      return this.dependencies.inbox.deliverNow(
+        target,
+        { ...input, text },
+        async (message) => {
+          // Rights and run are checked again right before the native write.
+          const current = await this.authorize(userId, key);
+          const steer = this.live.get(key.attemptId)?.turn.steer;
+          if (
+            current.run.status !== "running" ||
+            current.run.stopRequested ||
+            !steer ||
+            !(await steer(message.text))
+          )
+            throw new AgentError("plan_session_unavailable");
+        },
+      );
     return this.dependencies.inbox.send(
-      {
-        attemptId: key.attemptId,
-        instanceId: attempt.record.instanceId,
-        userId,
-      },
-      { kind: input.kind, text },
+      target,
+      { ...input, text },
       async (message) => {
         // Rights, run and session are checked again right before the native write.
         const current = await this.authorize(userId, key);

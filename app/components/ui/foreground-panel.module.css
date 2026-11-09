@@ -30,6 +30,23 @@
   max-width: none;
 }
 
+/* The Pages terminal of an agent node (PAGE-284): almost the whole window. */
+.fullscreenBackdrop {
+  inset: 0;
+}
+
+.fullscreen {
+  --console-inset: 28px;
+  /* Pica's symbol: 4 rem from the bottom, 3.5 rem high, and a gap. */
+  --console-narrow-bottom: calc(env(safe-area-inset-bottom) + 8rem);
+
+  inset: var(--console-inset);
+}
+
+.fullscreen .panel {
+  max-width: none;
+}
+
 @keyframes backdropIn {
   from {
     opacity: 0;
@@ -69,6 +86,26 @@
 @media (max-width: 47.999rem) {
   .positioner {
     inset: 5.25rem 0.75rem 0.75rem;
+  }
+}
+
+@media (min-width: 48rem) {
+  .positioner.fullscreen {
+    left: var(--console-inset);
+  }
+}
+
+@media (min-width: 80rem) {
+  .positioner.fullscreen {
+    right: var(--console-inset);
+    left: var(--console-inset);
+  }
+}
+
+/* Below 680 px the dialog ends above the Pica symbol, so the symbol covers nothing of it. */
+@media (max-width: 679.98px) {
+  .positioner.fullscreen {
+    inset: 0.5rem 0.5rem var(--console-narrow-bottom);
   }
 }
 
