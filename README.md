@@ -2887,7 +2887,68 @@ All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 | `clean`         | Deletes the `build/` directory.                                                                                                                           |
 
 There is no `test` script. CI runs `check` and `lint` on pushes to `main` and
-on pull requests; it runs no tests and no browser suite.
+on pull requests; it runs no tests and no browser suite there. Only a pushed
+`ci_test` tag runs them (see [CI test tags](#ci-test-tags-page-290)).
+
+### CI test tags (`PAGE-290`)
+
+Pushing the Git tag `ci_test` or `ci_test-<id>` starts, besides `Pages check`,
+the job **Pages tests (100% coverage)** of `.github/workflows/ci.yml` on exactly
+the tagged commit. Pushes to `main`, pull requests and `workflow_call` keep
+their test-free checks; the job is skipped there.
+
+```sh
+git tag ci_test-$(git rev-parse --short HEAD)
+git push origin ci_test-$(git rev-parse --short HEAD)
+```
+
+Every new run gets a new, unique tag such as `ci_test-<short commit SHA>`
+(append a counter for another run of the same commit). Existing tags are never
+moved, force-pushed or deleted. The plain `ci_test` is for a first run only.
+
+The job installs from the frozen lockfile with Node.js 24, adds the PostgreSQL 18
+programs and the Chromium system libraries on the runner, and runs these steps
+in order. The step names are read by the plan `Pages Test` and must not change:
+
+| Step | Command |
+| --- | --- |
+| `Formatting` | `pnpm exec prettier --check .` |
+| `Check` | `pnpm run check` |
+| `Lint` | `pnpm run lint` |
+| `Backend unit tests` | `pnpm run test:backend` |
+| `Frontend unit tests` | `pnpm run test:frontend` |
+| `Browser tests` | `pnpm run browser:test` |
+| `PostgreSQL check` | `pnpm run postgres:check` |
+| `Backend coverage 100%` | `node scripts/qa-evidence.mjs coverage --scope pages --summary coverage/backend/coverage-summary.json --population backend` |
+| `Frontend coverage 100%` | `node scripts/qa-evidence.mjs coverage --scope pages --summary coverage/frontend/coverage-summary.json --population frontend` |
+| `Build` | `pnpm run build` |
+
+- The two unit suites run one after the other in the same job, never in
+  parallel, and their reports stay separate.
+- Each coverage step demands, separately for Backend and Frontend, `covered ==
+  total` and `skipped == 0` for statements, branches, functions and lines in the
+  total and in every file of the complete source population, including untested
+  files. A missing, older-than-source, invalid or empty summary, a file missing
+  from the population or a total that is not the sum of its files fails the
+  step. Only this tag job requires 100%; elsewhere coverage stays diagnostic.
+- After a successful installation every step runs even when an earlier one
+  failed, so one failing suite does not hide the other suite or its coverage
+  verdict. Any failed step still fails the job: a green check exists only when
+  all ten steps succeeded. No step uses `continue-on-error`; a skipped or
+  missing job is no proof of passed tests.
+- The run summary shows the raw counters (covered, total, skipped, percent
+  rounded down) of each scope separately and names a missing report as missing
+  (`scripts/ci-coverage-summary.mjs`). It only displays; the coverage steps
+  decide.
+- Also after failures the job uploads the artifacts
+  `pages-coverage-backend-<tag>` and `pages-coverage-frontend-<tag>` (text,
+  HTML, JSON and JSON summary of `coverage/backend/` and `coverage/frontend/`)
+  and `pages-browser-reports-<tag>` (the Playwright reports of the browser
+  suite). A report that was not produced is reported as a missing artifact
+  instead of being invented.
+- The job uses only runner-local resources: the temporary PostgreSQL instance
+  of `postgres:check`, a loopback port of its own for the browser suite, no
+  secrets, no production database and no live service.
 
 ### Sequential block linting (`PAGE-192`)
 

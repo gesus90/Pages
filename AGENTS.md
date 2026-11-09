@@ -182,9 +182,13 @@ for behavior selection, boundaries, results and gaps. Backend validation says
 nothing about Frontend coverage.
 
 Keep the two Pages scripts `test:backend` and `test:frontend` separate. No root
-`test` script, aggregate or alias is allowed. Pages CI test execution remains
-absent after PAGE-35. Run `pnpm run check` and `pnpm run lint` as non-test
-gates; neither demonstrates functional coverage.
+`test` script, aggregate or alias is allowed. Pages CI runs no tests on pushes
+to `main` and on pull requests. The one exception (PAGE-290) is a pushed Git tag
+`ci_test` or `ci_test-<id>`: it starts the CI job `Pages tests (100% coverage)`
+with both unit suites, the browser suite, `postgres:check`, the build and a
+mandatory 100% coverage verdict per scope (see the README, "CI test tags"). Run
+`pnpm run check` and `pnpm run lint` as non-test gates; neither demonstrates
+functional coverage.
 
 ### Rules for future test work
 
@@ -195,16 +199,17 @@ gates; neither demonstrates functional coverage.
   test infrastructure.
 - Coverage is diagnostic: report statements, branches, functions and lines per
   relevant Pages source module, including untested files and branch gaps. No
-  mandatory percentage, per-file quota or replacement threshold applies for now.
+  mandatory percentage, per-file quota or replacement threshold applies for now,
+  except in the tag-started CI job of PAGE-290, which requires 100%.
   Do not hide gaps with coverage-ignore comments or blanket exclusions.
 - Keep exactly two Pages unit test scripts: `test:backend` and `test:frontend`,
   both with coverage. No `test` script, aggregator or alias. The browser and visual regression suite of `tests/browser/`
   (PAGE-172, `pnpm run browser:test`) is one of two other test commands. It is not a
-  unit scope, has no coverage, is not part of CI, and is the only place for real
+  unit scope, has no coverage, runs in CI only for a `ci_test` tag, and is the only place for real
   browser tests; see [tests/browser/README.md](./tests/browser/README.md).
 - `pnpm run postgres:check` (PAGE-212) is the second one, and the only test that starts a real
   database server, a temporary PostgreSQL instance of its own. Like the browser
-  suite it is no unit scope, has no coverage and is not part of CI.
+  suite it is no unit scope, has no coverage and runs in CI only for a `ci_test` tag.
   `pnpm run postgres:restore-check` (PAGE-219) also starts one, but it is an operating
   command that checks a backup, no test (`docs/PostgresMigration.md`).
 - Choose scope by behavior: server-side loaders/actions under `app/` belong to
