@@ -2950,6 +2950,9 @@ in order. The step names are read by the plan `Pages Test` and must not change:
   of `postgres:check`, a loopback port of its own for the browser suite, no
   secrets, no production database and no live service.
 
+The first observed runs, step results, measured coverage gaps and artifacts are
+recorded in [docs/PAGE-290.md](./docs/PAGE-290.md).
+
 ### Sequential block linting (`PAGE-192`)
 
 `pnpm run lint` (`node scripts/run-lint.mjs`) is the single standard entry point
