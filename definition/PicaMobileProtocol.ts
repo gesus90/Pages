@@ -56,6 +56,9 @@ export const PICA_MOBILE_MAXIMUM_PLANS_FRAME_LENGTH = 262_144;
 /** Longest text of a plan row field such as a name or a step, in UTF-16 code units. */
 export const PICA_MOBILE_MAXIMUM_PLAN_TEXT_LENGTH = 200;
 
+/** Most iterations of one loop a `plan` lists in `flow`; older ones are only counted. */
+export const PICA_MOBILE_MAXIMUM_FLOW_ITERATIONS = 100;
+
 /** Types of the messages a client sends. */
 export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   AUTH: "auth",
@@ -147,10 +150,15 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * chunked voice upload `voice_start`, `voice_chunk`, `voice_finish`,
  * `voice_cancel`, with their answers, the `conversation_event` messages the
  * server sends on its own, and the voice endpoint on the same port.
+ * `plans.flow.v1` stands for the opt-in `flow` of `plans_sync` and
+ * `plan_get` (PAGE-281): the frozen structure of a run with every node, its
+ * states, loop iterations, progress and revision in `plan`, and the `state`
+ * key in the plan rows; a server names it only together with `plans.v1`.
  */
 export const PICA_MOBILE_CAPABILITY = {
   DASHBOARD_V1: "dashboard.v1",
   PLANS_V1: "plans.v1",
+  PLANS_FLOW_V1: "plans.flow.v1",
   CHAT_V1: "chat.v1",
   CHAT_DELETE: "chat.delete",
   CONVERSATIONS_V1: "conversations.v1",
@@ -225,14 +233,26 @@ export const picaMobileAvatarGetPayloadSchema = z.object({
 /**
  * A `plans_sync` message names the `seq` of the last `plans` message the
  * client applied; `null` asks for the full list.
+ *
+ * @remarks
+ * `flow: true` (`plans.flow.v1`) asks for the `state` key in every row from
+ * this answer on; a client without it gets the rows of `plans.v1` unchanged.
  */
 export const picaMobilePlansSyncPayloadSchema = z.object({
   since: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).nullable(),
+  flow: z.boolean().optional(),
 });
 
-/** A `plan_get` message names the plan whose latest own run the client wants. */
+/**
+ * A `plan_get` message names the plan whose latest own run the client wants.
+ *
+ * @remarks
+ * `flow: true` (`plans.flow.v1`) asks for the whole structure of the run in
+ * `run.flow`; without it the run has the form of `plans.v1`.
+ */
 export const picaMobilePlanGetPayloadSchema = z.object({
   planId: z.string().min(1).max(PICA_MOBILE_MAXIMUM_PLAN_TEXT_LENGTH),
+  flow: z.boolean().optional(),
 });
 
 /** Chat session IDs are five lowercase words joined by hyphens. */
@@ -428,6 +448,98 @@ export interface PicaMobileDashboardRun {
   readonly stages: readonly PicaMobileDashboardStage[];
 }
 
+/** Kind of a node of a run's flow in `plans.flow.v1`; a client shows an unknown kind as a plain node. */
+export type PicaMobileFlowNodeKind =
+  | "start"
+  | "end"
+  | "agent"
+  | "script"
+  | "closeout"
+  | "decision"
+  | "stack"
+  | "loop";
+
+/** State of a node in `plans.flow.v1`; `skipped` lies on a branch a decision did not take. */
+export type PicaMobileFlowStatus = PicaMobileStepStatus | "skipped";
+
+/** A node of a loop iteration with the state it has in that iteration. */
+export interface PicaMobileFlowIterationNode {
+  readonly id: string;
+  readonly status: PicaMobileFlowStatus;
+}
+
+/** One iteration a loop actually started, with its own identity `loopId#number`. */
+export interface PicaMobileFlowIteration {
+  readonly id: string;
+  /** Counts from 1. */
+  readonly number: number;
+  readonly status: PicaMobileFlowStatus;
+  /** The nodes the iteration recorded, in the order of the loop's stages. */
+  readonly nodes: readonly PicaMobileFlowIterationNode[];
+}
+
+/** What a loop resolved and ran; never an iteration that did not start. */
+export interface PicaMobileFlowLoop {
+  /** The number of iterations resolved once at the loop's start; absent before. */
+  readonly count?: {
+    readonly limit: number;
+    readonly mode: "max" | "expected" | "while";
+  };
+  /** Why the loop ended regularly; absent while it runs or when it failed. */
+  readonly completion?: "count_reached" | "condition_met" | "while_false";
+  /** The nodes of one iteration grouped by their step; they carry no state of their own. */
+  readonly stages: readonly PicaMobileFlowStage[];
+  /** Every iteration the loop started so far. */
+  readonly iterationCount: number;
+  /** The newest of them, oldest first, at most {@link PICA_MOBILE_MAXIMUM_FLOW_ITERATIONS}. */
+  readonly iterations: readonly PicaMobileFlowIteration[];
+}
+
+/** A node of the frozen plan revision a run executes. */
+export interface PicaMobileFlowNode {
+  readonly id: string;
+  readonly kind: PicaMobileFlowNodeKind;
+  /** Number in the flow as on the plan page; absent for a node inside a loop. */
+  readonly number?: number;
+  /** Absent for Start, End and a decision without a name. */
+  readonly name?: string;
+  /** Absent inside the stages of a loop and when the run recorded nothing for the node. */
+  readonly status?: PicaMobileFlowStatus;
+  /** Whether `progress` counts the node. */
+  readonly counted: boolean;
+  /** Which start of the node `status` belongs to; present only once it started again. */
+  readonly pass?: number;
+  /** The output a decision took in its current start. */
+  readonly branch?: "true" | "false";
+  readonly loop?: PicaMobileFlowLoop;
+}
+
+/** Nodes on the same step of the flow; several run side by side. */
+export interface PicaMobileFlowStage {
+  /** `stage-` and the identifier of the first node. */
+  readonly id: string;
+  readonly nodes: readonly PicaMobileFlowNode[];
+}
+
+/** The complete structure and state of a run in `plans.flow.v1`. */
+export interface PicaMobileRunFlow {
+  /** Rises with every committed write of the run; a client never replaces a newer one. */
+  readonly revision?: number;
+  /** Changes exactly when something of the flow changes; the same key as the plan row's `state`. */
+  readonly state: string;
+  readonly startedAt: string;
+  readonly endedAt?: string;
+  /** Succeeded and all counted nodes, the same numbers as `done` and `total` of the plan row. */
+  readonly progress: { readonly done: number; readonly total: number };
+  readonly error?: PicaMobilePlanError;
+  readonly stages: readonly PicaMobileFlowStage[];
+}
+
+/** A run in `plan`: a run of `plans.v1` and, when asked for, its `flow`. */
+export interface PicaMobilePlanRun extends PicaMobileDashboardRun {
+  readonly flow?: PicaMobileRunFlow;
+}
+
 /** Numbers a project reports; every number is one Pages stores or counts. */
 export interface PicaMobileProjectProgress {
   readonly percent: number;
@@ -501,6 +613,8 @@ export interface PicaMobilePlanRow {
   readonly error?: PicaMobilePlanError;
   /** ISO-8601 time: end of the run, otherwise its start; absent for `idle`. */
   readonly at?: string;
+  /** Key of the visible state of the run (`plans.flow.v1`); absent for `idle` and without `flow`. */
+  readonly state?: string;
 }
 
 /** A field of a plan row besides its identifier. */
@@ -545,7 +659,7 @@ export type PicaMobilePlanPayload =
   | {
       readonly planId: string;
       readonly access: "ok";
-      readonly run: PicaMobileDashboardRun | null;
+      readonly run: PicaMobilePlanRun | null;
     }
   | { readonly planId: string; readonly access: "gone" };
 

@@ -75,12 +75,15 @@ export type PicaMobilePlansClientMessage =
   | {
       readonly type: "plans_sync";
       readonly requestId: string;
-      readonly payload: { readonly since: number | null };
+      readonly payload: {
+        readonly since: number | null;
+        readonly flow?: boolean;
+      };
     }
   | {
       readonly type: "plan_get";
       readonly requestId: string;
-      readonly payload: { readonly planId: string };
+      readonly payload: { readonly planId: string; readonly flow?: boolean };
     };
 
 /** Why a frame is not a usable message, with what the answer needs. */
@@ -242,7 +245,7 @@ function parsePlansSyncPayload(
       }
     : reject(
         PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
-        'The payload of "plans_sync" needs a "since" that is null or an integer of at least 1.',
+        'The payload of "plans_sync" needs a "since" that is null or an integer of at least 1 and an optional boolean "flow".',
         requestId,
       );
 }
@@ -260,7 +263,7 @@ function parsePlanGetPayload(
       }
     : reject(
         PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
-        'The payload of "plan_get" needs a "planId" of 1 to 200 characters.',
+        'The payload of "plan_get" needs a "planId" of 1 to 200 characters and an optional boolean "flow".',
         requestId,
       );
 }

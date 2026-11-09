@@ -15,6 +15,18 @@ export type PicaMobilePlansOutcome =
   | { readonly kind: "ready"; readonly rows: readonly PicaMobilePlanRow[] }
   | { readonly kind: "sessionEnded" };
 
+/** How the plan rows are read. */
+export interface PicaMobilePlansReadOptions {
+  /** Whether every row of a run carries its `state` key (`plans.flow.v1`). */
+  readonly withState: boolean;
+}
+
+/** How one plan is read. */
+export interface PicaMobilePlanReadOptions {
+  /** Whether the run carries its `flow` (`plans.flow.v1`). */
+  readonly withFlow: boolean;
+}
+
 /** The answer to a read of one plan. */
 export type PicaMobilePlanOutcome =
   | { readonly kind: "ready"; readonly payload: PicaMobilePlanPayload }
@@ -32,11 +44,13 @@ export interface PicaMobilePlansReader {
   /** Reads every row of the account, unordered and not yet limited. */
   readPlans(
     session: PicaMobileSessionIdentity,
+    options: PicaMobilePlansReadOptions,
   ): Promise<PicaMobilePlansOutcome>;
   /** Reads the latest own run of one plan of the account. */
   readPlan(
     session: PicaMobileSessionIdentity,
     planId: string,
+    options: PicaMobilePlanReadOptions,
   ): Promise<PicaMobilePlanOutcome>;
 }
 

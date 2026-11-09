@@ -1,8 +1,8 @@
-# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200, PAGE-201, PAGE-263, PAGE-278)
+# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200, PAGE-201, PAGE-263, PAGE-278, PAGE-281)
 
 Pages stellt für die App Pica Mobile einen WebSocket-Endpunkt bereit. Dieses Dokument ist der Vertrag zwischen Pages und der App: Es beschreibt, wie ein Administrator den Endpunkt einrichtet, wie eine Verbindung aufgebaut wird und welche Nachrichten in Version 1 des Formats gelten.
 
-Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)), `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)) `chat.v1` (Chat mit Pica in denselben Unterhaltungen wie im Web, samt Dateianhängen über HTTP am selben Port; siehe [Erweiterung chat.v1](#erweiterung-chatv1)) `chat.delete` (Löschen einer Unterhaltung; siehe [Erweiterung chat.delete](#erweiterung-chatdelete)) und `conversations.v1` (gespeicherte Unterhaltungen mit Personen, Agents und Gruppen samt Sprachnachrichten und Push; siehe [Erweiterung conversations.v1](#erweiterung-conversationsv1)).
+Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)), `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `plans.flow.v1` (vollständige, eingefrorene Ablaufstruktur eines Laufs mit Start, Ende, Entscheidungen, Schleifen, Iterationen und Zuständen auf Anfrage; siehe [Erweiterung plans.flow.v1](#erweiterung-plansflowv1)) `chat.v1` (Chat mit Pica in denselben Unterhaltungen wie im Web, samt Dateianhängen über HTTP am selben Port; siehe [Erweiterung chat.v1](#erweiterung-chatv1)) `chat.delete` (Löschen einer Unterhaltung; siehe [Erweiterung chat.delete](#erweiterung-chatdelete)) und `conversations.v1` (gespeicherte Unterhaltungen mit Personen, Agents und Gruppen samt Sprachnachrichten und Push; siehe [Erweiterung conversations.v1](#erweiterung-conversationsv1)).
 
 ## Einrichtung durch einen Administrator
 
@@ -131,7 +131,7 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 
 `sessionToken` ist bei `method: "password"` das neu ausgestellte Sitzungstoken und sonst `null`. Die App speichert das Token im sicheren Speicher des Geräts und meldet sich danach mit `method: "session"` an; das Passwort behält sie nicht.
 
-`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1`, `notifications.push.fcm` und `notifications.team.v1` folgen eigenen Regeln (siehe [Capabilities](#capabilities)), `plans.v1` nennt Pages nur, wenn es `plans_sync` und `plan_get` beantwortet (siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `chat.v1` nur, wenn es die acht Chat-Anfragen und die Datei-Endpunkte beantwortet (siehe [Erweiterung chat.v1](#erweiterung-chatv1)), `chat.delete` nur zusammen mit `chat.v1` und nur, wenn es `chat_delete` beantwortet (siehe [Erweiterung chat.delete](#erweiterung-chatdelete)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
+`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1`, `notifications.push.fcm` und `notifications.team.v1` folgen eigenen Regeln (siehe [Capabilities](#capabilities)), `plans.v1` nennt Pages nur, wenn es `plans_sync` und `plan_get` beantwortet (siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `plans.flow.v1` nur zusammen mit `plans.v1` (siehe [Erweiterung plans.flow.v1](#erweiterung-plansflowv1)), `chat.v1` nur, wenn es die acht Chat-Anfragen und die Datei-Endpunkte beantwortet (siehe [Erweiterung chat.v1](#erweiterung-chatv1)), `chat.delete` nur zusammen mit `chat.v1` und nur, wenn es `chat_delete` beantwortet (siehe [Erweiterung chat.delete](#erweiterung-chatdelete)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
 
 **`pong`** antwortet auf `ping`:
 
@@ -477,10 +477,225 @@ Innerhalb jeder Klasse gilt `at` absteigend und danach `name`; Zeilen ohne `at` 
 - Die Planrechte gelten bei **jedem** Lesevorgang: Ein gelöschter Plan oder ein entzogenes Planrecht fällt mit der nächsten Abfrage heraus.
 - Den Lauf selbst liest Pages mit denselben Prüfungen wie beim Öffnen auf der Planseite (Ticket, Wiki-Seite, Modell, Arbeitsumgebung). Damit nicht jede Abfrage alle Läufe neu prüft, merkt sich Pages je Verbindung das Ergebnis dieser Prüfung und wiederholt sie nur, wenn der Lauf seit der letzten Prüfung geschrieben wurde oder die Prüfung mehr als 60 Sekunden zurückliegt; abgelaufene Prüfungen holt ein Lesevorgang für höchstens 20 Läufe nach, die ältesten zuerst. Die 60 Sekunden entsprechen der regelmäßigen Sitzungsprüfung der Verbindung. **Der Entzug eines einzelnen Rechts an einem Ticket, einer Wiki-Seite oder einem Modell wird also spätestens nach rund 60 Sekunden wirksam.**
 - Scheitert die Prüfung eines Laufs an fehlenden Rechten, steht der Plan auf `idle`, oder er fällt heraus, wenn er nur über diesen Lauf zur Liste gehörte. Kann Pages dagegen nicht lesen (zum Beispiel wegen einer Störung der Datenbank), ist das kein Rechteverlust: Die Anfrage erhält `server_unavailable` mit ihrer `requestId`, und der bisherige Stand der Verbindung (`seq` und zuletzt gesendete Zeilen) bleibt.
-- Pages sendet von sich aus, sobald ein bestätigter Schreibvorgang eines eigenen Laufs den Laufstatus, den Status eines Schritts, den Steuerungsfehler, den Fehlercode oder den Namen des fehlgeschlagenen Schritts ändert; reine Fortschrittsmeldungen lösen nichts aus. Ein Laufstart wird mit dem ersten Schreibvorgang des Laufs gemeldet, spätestens findet ihn die nächste Abfrage. Pages wartet nach einer Änderung 300 ms auf weitere und liest dann einmal; ändert sich an den Zeilen nichts, sendet es nichts. Scheitert dieser Lesevorgang, protokolliert Pages das und sendet nichts; die nächste Abfrage holt es nach. Diese Lesevorgänge zählen weder zum Rate-Limit noch zu den unerledigten Nachrichten der App.
+- Pages liest von sich aus neu, sobald ein bestätigter Schreibvorgang eines eigenen Laufs etwas ändert, das eine Zeile oder die Ablaufstruktur von [plans.flow.v1](#erweiterung-plansflowv1) zeigt: den Laufstatus, das Ende, den Status eines Schritts (samt Wiederholung und gewähltem Zweig einer Entscheidung), den Zustand einer Schleife, ihrer Iterationen und der Knoten darin, den Steuerungsfehler oder den Fehlercode. Seit PAGE-281 zählt also auch eine Änderung nur innerhalb einer laufenden Schleife; reine Fortschrittsmeldungen lösen nichts aus. Gesendet wird nur, was sich an den Zeilen der Verbindung ändert: Eine Verbindung ohne `flow` erhält für eine Änderung, die nur in der Schleife liegt, deshalb weiterhin nichts. Ein Laufstart wird mit dem ersten Schreibvorgang des Laufs gemeldet, spätestens findet ihn die nächste Abfrage. Pages wartet nach einer Änderung 300 ms auf weitere und liest dann einmal; ändert sich an den Zeilen nichts, sendet es nichts. Scheitert dieser Lesevorgang, protokolliert Pages das und sendet nichts; die nächste Abfrage holt es nach. Diese Lesevorgänge zählen weder zum Rate-Limit noch zu den unerledigten Nachrichten der App.
 - Anfragen zählen wie jede Nachricht zum Rate-Limit (30 in 10 Sekunden), zu den höchstens 8 unerledigten Nachrichten und, wenn sie abgelehnt werden, zu den fünf abgelehnten Nachrichten in Folge.
 - Dauert ein Lesevorgang der Planliste 500 ms oder länger, schreibt Pages `pica_mobile.plans.slow` mit Dauer und Zeilenzahl ins Protokoll.
 - **Klartext.** Plannamen, Schrittnamen und Fehlercodes laufen wie alle Nachrichten von Version 1 über `ws://` im Klartext durch das Netz (siehe [Sicherheit](#sicherheit)). Fehlertexte, Prompts, Ausgaben, Pfade und Sitzungsdaten enthält der Vertrag nicht.
+
+## Erweiterung plans.flow.v1
+
+Die Erweiterung (PAGE-281) ergänzt [plans.v1](#erweiterung-plansv1) um die vollständige Ablaufstruktur eines Laufs, so wie Pages sie für genau diesen Lauf ausführt, und um einen Zustandsschlüssel, an dem die App erkennt, dass sich daran etwas geändert hat. Sie ist **opt-in**: Nur wer in einer Anfrage `flow: true` mitschickt, bekommt die neuen Felder. Eine App, die die Erweiterung nicht kennt, erhält jede Nachricht von `plans.v1` und `dashboard.v1` Byte für Byte wie bisher, also weder ein neues Pflichtfeld noch einen neuen Enum-Wert in `stages`, `steps[].status` oder den Zeilen. Pages nennt `plans.flow.v1` in `connected.payload.server.capabilities` nur zusammen mit `plans.v1`. Ein Pages ohne die Erweiterung ignoriert das unbekannte Feld `flow` (siehe [Nachrichtenformat](#nachrichtenformat)) und antwortet wie bisher; die App erkennt das am Fehlen von `run.flow` und von `state` in den Zeilen.
+
+### Anfragen
+
+- **`plans_sync`** mit `{ "since": …, "flow": true }`: Ab dieser Antwort trägt jede Zeile mit Lauf zusätzlich `state`. Es gilt der Wert der jeweils letzten `plans_sync` der Verbindung; auch die Änderungen, die Pages von sich aus sendet, folgen ihm. Wechselt der Wert, kommen die Schlüssel als geänderte Felder (bzw. `state: null`) wie jede andere Änderung, weil Pages immer gegen die zuletzt gesendeten Zeilen vergleicht.
+- **`plan_get`** mit `{ "planId": "…", "flow": true }`: `run` trägt zusätzlich `flow`. Ohne `flow` hat `run` genau die Form von `plans.v1`.
+- `flow` ist optional und muss, wenn vorhanden, ein Boolean sein; ein anderer Wert ergibt `invalid_message`.
+
+### Zustandsschlüssel `state` in der Zeile
+
+| Feld    | Inhalt                                                                                                                                                                                         |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `state` | 16 Hexadezimalzeichen; nur mit `flow`, fehlt bei `idle`. Gleicher Wert heißt gleicher sichtbarer Zustand des Laufs, ein anderer Wert heißt: Die Ablaufstruktur dieses Laufs hat sich geändert. |
+
+Der Schlüssel ändert sich genau dann, wenn sich etwas ändert, das `flow` zeigt: Laufstatus, Ende, Status, Wiederholung oder gewählter Zweig eines Knotens, Zustand, aufgelöste Anzahl oder Ende einer Schleife, eine neue Iteration oder der Status einer Iteration oder eines Knotens darin, Steuerungsfehler oder Fehlercode. Reine Fortschrittsmeldungen ändern ihn nicht. Er ist kein Zähler und trägt keine Reihenfolge, nur Gleichheit.
+
+### `run.flow` in `plan`
+
+```json
+{
+  "revision": 57,
+  "state": "32a56c667e920286",
+  "startedAt": "2026-11-09T10:00:00.000Z",
+  "progress": { "done": 1, "total": 4 },
+  "stages": [
+    {
+      "id": "stage-start",
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "start",
+          "number": 1,
+          "status": "completed",
+          "counted": false
+        }
+      ]
+    },
+    {
+      "id": "stage-A",
+      "nodes": [
+        {
+          "id": "A",
+          "kind": "agent",
+          "number": 2,
+          "name": "Planer",
+          "status": "completed",
+          "counted": true
+        }
+      ]
+    },
+    {
+      "id": "stage-D",
+      "nodes": [
+        {
+          "id": "D",
+          "kind": "decision",
+          "number": 3,
+          "status": "completed",
+          "branch": "true",
+          "counted": false
+        }
+      ]
+    },
+    {
+      "id": "stage-C",
+      "nodes": [
+        {
+          "id": "C",
+          "kind": "agent",
+          "number": 4,
+          "name": "Fixer",
+          "status": "skipped",
+          "counted": false
+        },
+        {
+          "id": "L",
+          "kind": "loop",
+          "number": 5,
+          "name": "Review-Schleife",
+          "status": "running",
+          "counted": true,
+          "loop": {
+            "count": { "limit": 3, "mode": "max" },
+            "stages": [
+              {
+                "id": "stage-M1",
+                "nodes": [
+                  {
+                    "id": "M1",
+                    "kind": "agent",
+                    "name": "Reviewer",
+                    "counted": false
+                  }
+                ]
+              },
+              {
+                "id": "stage-M2",
+                "nodes": [
+                  {
+                    "id": "M2",
+                    "kind": "script",
+                    "name": "Tests",
+                    "counted": false
+                  }
+                ]
+              }
+            ],
+            "iterationCount": 2,
+            "iterations": [
+              {
+                "id": "L#1",
+                "number": 1,
+                "status": "completed",
+                "nodes": [
+                  { "id": "M1", "status": "completed" },
+                  { "id": "M2", "status": "completed" }
+                ]
+              },
+              {
+                "id": "L#2",
+                "number": 2,
+                "status": "running",
+                "nodes": [
+                  { "id": "M1", "status": "completed" },
+                  { "id": "M2", "status": "running" }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "stage-P1",
+      "nodes": [
+        {
+          "id": "P1",
+          "kind": "script",
+          "number": 6,
+          "name": "Lint",
+          "status": "waiting",
+          "counted": true
+        },
+        {
+          "id": "P2",
+          "kind": "script",
+          "number": 7,
+          "name": "Build",
+          "status": "waiting",
+          "counted": true
+        }
+      ]
+    },
+    {
+      "id": "stage-end",
+      "nodes": [
+        {
+          "id": "end",
+          "kind": "end",
+          "number": 8,
+          "status": "waiting",
+          "counted": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Struktur.** `stages` stammt aus dem privaten Schnappschuss des Laufs, also aus der Planversion, die dieser Lauf ausführt; eine spätere Änderung des Plans im Editor ändert die Darstellung eines älteren Laufs nie. Eine Stufe fasst die Knoten auf derselben Stufe des Ablaufs zusammen (längster Weg ab Start über die Flusskanten, wie die Nummerierung der Planseite); mehrere Knoten in einer Stufe laufen nebeneinander. Die erste Stufe ist Start, die letzte Ende. Innerhalb einer Stufe sind die Knoten nach ID sortiert, wie auf der Planseite. `id` einer Stufe ist `stage-` und die ID ihres ersten Knotens. Knoten, die die Planseite nicht nummeriert (nicht von Start erreichbar), fehlen auch hier. Gruppen erscheinen wie im Lauf als ihre einzelnen Agenten.
+
+**Knoten.**
+
+| Feld      | Inhalt                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`      | Knoten-ID der ausgeführten Planversion; stabil über alle Antworten zu diesem Lauf                                                                                                                                                                                                                                                                                                                                                     |
+| `kind`    | `start`, `end`, `agent`, `script`, `closeout` (Git-Abschluss), `decision`, `stack` oder `loop`. Die App zeigt eine unbekannte Art als einfachen Knoten, denn spätere Versionen der Erweiterung dürfen Arten ergänzen                                                                                                                                                                                                                  |
+| `number`  | Nummer im Ablauf wie auf der Planseite (Start ist 1, Ende die letzte); fehlt bei Knoten innerhalb einer Schleife                                                                                                                                                                                                                                                                                                                      |
+| `name`    | Name im Lauf; fehlt bei Start, Ende und einer Entscheidung ohne eigenen Namen (die App beschriftet sie selbst)                                                                                                                                                                                                                                                                                                                        |
+| `status`  | `waiting`, `running`, `paused`, `blocked` (wartet hinter einem fehlgeschlagenen oder abgebrochenen Vorgänger), `completed`, `failed`, `cancelled` oder `skipped` (liegt auf einem Zweig, den eine Entscheidung nicht genommen hat; lief nie). Fehlt in den `stages` einer Schleife und, wenn der Lauf für den Knoten nichts aufgezeichnet hat; Pages erfindet dann keinen Zustand. Die App zeigt einen unbekannten Wert wie `waiting` |
+| `counted` | ob `progress` den Knoten zählt                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `pass`    | welcher Start des Knotens `status` beschreibt; nur vorhanden, wenn der Knoten mehr als einmal gestartet wurde (Wiederholung über ein Ereignis)                                                                                                                                                                                                                                                                                        |
+| `branch`  | bei einer Entscheidung der Ausgang ihres aktuellen Starts, `"true"` oder `"false"`                                                                                                                                                                                                                                                                                                                                                    |
+| `loop`    | nur bei `kind: "loop"`, siehe unten                                                                                                                                                                                                                                                                                                                                                                                                   |
+
+**Schleifen.** `loop.stages` sind die Knoten einer Iteration (Mitglieder und die Stacks, die die Schleife je Iteration auslöst), nach ihrer Stufe innerhalb der Iteration gruppiert, ohne eigenen Zustand. `loop.iterations` sind die Iterationen, die die Schleife **tatsächlich gestartet** hat, älteste zuerst, je mit `id` (`<Schleifen-ID>#<Nummer>`, wie in Pages), `number` (ab 1), `status` und den Knoten mit ihrem Zustand in dieser Iteration in der Reihenfolge von `loop.stages`. Den Zustand der laufenden Iteration zeigt die letzte. Pages listet keine geschätzte oder künftige Iteration. `loop.count` ist die einmal beim Start der Schleife aufgelöste Anzahl (`limit`) mit `mode` `max` (höchstens, kann früher enden), `expected` (genau) oder `while` (`limit` ist dann nur die Obergrenze); es fehlt, bevor die Schleife gestartet ist. `loop.completion` nennt den regulären Abschluss (`count_reached`, `condition_met`, `while_false`) und fehlt sonst. `loop.iterationCount` zählt alle gestarteten Iterationen; `iterations` enthält höchstens die neuesten 100 (siehe Grenzen).
+
+**Fortschritt.** `progress.done` und `progress.total` sind genau die Zahlen `done` und `total` der Zeile: erfolgreich erledigte und alle Knoten mit `counted: true`. Gezählt werden Agenten, Scripts, Git-Abschluss und Schleifen der äußeren Ebene; eine Schleife zählt einmal, egal wie viele Iterationen und Mitglieder sie hat. Start, Ende, Entscheidungen, Stacks, Knoten innerhalb einer Schleife und übersprungene Knoten zählen nie. Darstellung (`stages`) und Zählung (`counted`, `progress`) sind damit getrennt, und nichts wird doppelt gezählt.
+
+**Weitere Felder.** `startedAt` und, nach dem Ende, `endedAt` sind ISO-8601-Zeiten des Laufs. `error` hat die Form von `error` der Zeile (`code` nur als maschineller Code, `step` als Name des ersten fehlgeschlagenen Schritts) und ist nur vorhanden, wenn ein Schritt oder der Lauf fehlschlug.
+
+### Aktualität, Reihenfolge und Wiederverbindung
+
+- `revision` steigt mit jedem bestätigten Schreibvorgang des Laufs. Pages liest sie vor dem Lauf, der gelieferte Zustand ist also mindestens so neu wie die Zahl. Die App ersetzt einen gehaltenen `flow` desselben Laufs nur durch einen mit gleicher oder höherer `revision`; eine niedrigere ist veraltet und wird verworfen. Die Zahl gilt je Lauf; ein neuer Lauf (andere `run.id`) ersetzt den alten immer.
+- **Laufende Anzeige.** Solange die App einen Lauf zeigt, vergleicht sie `state` der Zeile mit `flow.state`. Weicht er ab, fragt sie `plan_get` mit `flow: true` neu. Die Zeilenänderung kommt von Pages aus (höchstens alle 300 ms, siehe [Rechte, Sitzung, Aktualität und Fehler](#rechte-sitzung-aktualität-und-fehler)) und deckt auch Änderungen nur innerhalb einer Schleife, neue Iterationen und Endzustände ab. Pages sendet `plan` nie von sich aus.
+- **Verpasste Ereignisse und Wiederverbindung.** Eine neue Verbindung beginnt mit `plans_sync` `{ "since": null, "flow": true }` und erhält den vollen Stand mit dem aktuellen `state` jeder Zeile; eine Lücke in `seq` behandelt die App wie bisher mit `since: null`. Danach fragt sie für einen angezeigten Lauf `plan_get` mit `flow: true` und ersetzt ihren Stand vollständig. Da jede Antwort den ganzen Lauf beschreibt und keine Teiländerung, führt jede Antwort wieder zu einem vollständigen, aktuellen Stand; die 10-Sekunden-Abfrage bleibt das Sicherheitsnetz.
+
+### Rechte und Datenschutz
+
+Es gelten unverändert die Regeln von `plans.v1`: nur eigene Läufe des Kontos, jede Anfrage prüft Sitzung und Planrechte, der Lauf wird mit denselben Prüfungen wie auf der Planseite gelesen, Läufe anderer Personen und fremde Pläne kommen nie vor (`gone`). `flow` enthält nur IDs, Arten, Nummern, Namen, Zustände, Zeiten und maschinelle Codes. Prompts und Anweisungen, Agent- und Script-Parameter, Script-Inhalte, Ausgaben und Ergebnisse, Fehlertexte, Sitzungen, Modelle, Arbeitsumgebungen und Dateipfade gehören nie dazu.
+
+### Grenzen
+
+- `plan` bleibt höchstens 262144 UTF-16-Codeeinheiten lang. Wäre es länger, kürzt Pages zuerst alle Namen auf 200 Zeichen, behält dann je Schleife nur die neuesten 20, 5, 1 und schließlich keine Iteration; `iterationCount` nennt weiter alle, die App erkennt die Kürzung also an `iterations.length < iterationCount`. Passt es dann immer noch nicht, antwortet Pages mit `server_unavailable`.
+- Je Schleife listet `flow` höchstens die neuesten 100 Iterationen.
+- `dashboard` trägt kein `flow`; seine `stages` bleiben die kompakte Form von `dashboard.v1`.
+- Eine Schleife in einer Schleife gibt es in Pages nicht; `loop.stages` enthält deshalb nie eine weitere Schleife.
+- Gruppen werden nicht als eigener Rahmen übertragen, nur ihre Agenten.
+
+### Abnahme
+
+Pages ist über ein isoliertes Pages mit eigener Datenbank auf einem freien Loopback-Port geprüft (Capability, Anfragen mit und ohne `flow`, Ablehnung eines falschen `flow`) und über einen gezielten Einzeltest der Abbildung mit einem Lauf aus Start, Entscheidung mit übersprungenem Zweig, Schleife mit Iterationen, parallelen Scripts und Ende (Änderungen nur in der Schleife, neue Iteration, Endzustand, Wiederverbindung, Framegrenze). Eine Abnahme mit der App Pica Mobile gegen einen echten Lauf steht aus, bis die App die Erweiterung umsetzt, und wird gesondert dokumentiert.
 
 ## Erweiterung chat.v1
 
@@ -981,7 +1196,7 @@ Pica Mobile führt keinen eigenen Zugang ein, sondern nutzt die Pages-Konten:
 - `method: "session"` weist eine solche Sitzung vor. Sie ist 14 Tage gültig, wie im Browser.
 - Konten, die ihr Passwort erst ändern müssen, können sich nicht verbinden (`password_change_required`), ebenso wenig wie sie Pages im Browser nutzen können.
 
-Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`, `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1` , `plans_sync` und `plan_get` der Erweiterung `plans.v1` sowie die acht `chat_*`-Anfragen und die Datei-Endpunkte der Erweiterung `chat.v1` und `chat_delete` der Erweiterung `chat.delete`.
+Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`, `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1` , `plans_sync` und `plan_get` der Erweiterung `plans.v1` (auch mit `flow` der Erweiterung `plans.flow.v1`) sowie die acht `chat_*`-Anfragen und die Datei-Endpunkte der Erweiterung `chat.v1` und `chat_delete` der Erweiterung `chat.delete`.
 
 Pages prüft die Sitzung einer Verbindung etwa jede Minute neu. Wurde sie beendet oder das Konto deaktiviert, sendet Pages `authentication_failed` und trennt mit Code 1008 („Session ended“). Schlägt nur die Prüfung selbst fehl (zum Beispiel wegen einer Störung der Datenbank), bleibt die Verbindung bestehen.
 

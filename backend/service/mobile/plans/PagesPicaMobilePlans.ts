@@ -3,15 +3,20 @@ import { AgentPlanOverviewCache } from "@/backend/service/agents/AgentPlanOvervi
 
 import { toDashboardRun } from "../PicaMobileRunMapping";
 import { readCurrentSessionUser } from "../PicaMobileSessionUser";
+import { toPlanFlow } from "./PicaMobilePlanFlow";
 import { toPlanRow } from "./PicaMobilePlanRows";
 
 import type { AuthService } from "@/backend/auth/AuthService";
+import type { AgentPlanActiveRun } from "@/backend/service/agents/AgentPlanActiveRuns";
 import type { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
+import type { PicaMobilePlanRun } from "@/definition/PicaMobileProtocol";
 import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 import type { PicaMobilePlanRunObserver } from "./PicaMobilePlanRunObserver";
 import type {
   PicaMobilePlanOutcome,
+  PicaMobilePlanReadOptions,
   PicaMobilePlansOutcome,
+  PicaMobilePlansReadOptions,
   PicaMobilePlansProvider,
   PicaMobilePlansReader,
 } from "./PicaMobilePlansProvider";
@@ -41,6 +46,15 @@ export interface PagesPicaMobilePlansOptions {
 const COMPONENT = "PagesPicaMobilePlans";
 const SLOW_READ_MILLISECONDS = 500;
 
+function toPlanRun(
+  entry: AgentPlanActiveRun,
+  options: PicaMobilePlanReadOptions,
+): PicaMobilePlanRun {
+  const run = toDashboardRun(entry);
+
+  return options.withFlow ? { ...run, flow: toPlanFlow(entry) } : run;
+}
+
 /** Reads the plan rows of one connection with the checked runs it keeps. */
 class PagesPicaMobilePlansReader implements PicaMobilePlansReader {
   private readonly options: PagesPicaMobilePlansOptions;
@@ -55,6 +69,7 @@ class PagesPicaMobilePlansReader implements PicaMobilePlansReader {
   /** Reads every plan row of the account behind the session. */
   public async readPlans(
     session: PicaMobileSessionIdentity,
+    options: PicaMobilePlansReadOptions,
   ): Promise<PicaMobilePlansOutcome> {
     const started = this.now();
     const services = await this.options.resolveServices();
@@ -68,7 +83,7 @@ class PagesPicaMobilePlansReader implements PicaMobilePlansReader {
       user.id,
       this.cache,
     );
-    const rows = entries.flatMap((entry) => toPlanRow(entry) ?? []);
+    const rows = entries.flatMap((entry) => toPlanRow(entry, options) ?? []);
 
     this.reportSlowRead(started, rows.length);
 
@@ -79,6 +94,7 @@ class PagesPicaMobilePlansReader implements PicaMobilePlansReader {
   public async readPlan(
     session: PicaMobileSessionIdentity,
     planId: string,
+    options: PicaMobilePlanReadOptions,
   ): Promise<PicaMobilePlanOutcome> {
     const services = await this.options.resolveServices();
     const user = await readCurrentSessionUser(services.authService, session);
@@ -100,7 +116,7 @@ class PagesPicaMobilePlansReader implements PicaMobilePlansReader {
           : {
               planId,
               access: "ok",
-              run: plan.run === null ? null : toDashboardRun(plan.run),
+              run: plan.run === null ? null : toPlanRun(plan.run, options),
             },
     };
   }

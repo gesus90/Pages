@@ -4,16 +4,14 @@ import {
   isPlanLoopConditionActive,
   planLoopMembers,
   planLoopMode,
-  planLoopScopeEdges,
-  planLoopScopeIds,
 } from "@/definition/AgentPlanLoop";
+import { planLoopStages } from "@/definition/AgentPlanLoopStages";
 import {
   planLoopBoundRuns,
   planLoopParameterBoolean,
 } from "@/definition/AgentPlanLoopGraph";
-import { isPlanEventEdge } from "@/definition/AgentPlanBranching";
 
-import type { AgentPlanEdge, AgentPlanInput } from "@/definition/AgentPlan";
+import type { AgentPlanInput } from "@/definition/AgentPlan";
 import type {
   AgentPlanLoop,
   AgentPlanLoopMember,
@@ -34,31 +32,6 @@ export interface PlanLoopOutlook {
 
 const NO_ITERATION: PlanLoopOutlook = { sure: 0, assumed: 0 };
 
-/** Orders ids along their flow edges: by the longest path to them, then by id. */
-function flowOrder(
-  ids: readonly string[],
-  edges: readonly AgentPlanEdge[],
-): readonly string[] {
-  const known = new Set(ids);
-  const inner = edges.filter(
-    (edge) =>
-      known.has(edge.from) && known.has(edge.to) && !isPlanEventEdge(edge),
-  );
-  const depths = new Map(ids.map((id) => [id, 0]));
-  // A loop's subgraph is acyclic, so as many passes as nodes settle every depth.
-  for (let pass = 0; pass < ids.length; pass += 1)
-    for (const edge of inner)
-      depths.set(
-        edge.to,
-        Math.max(depths.get(edge.to) ?? 0, (depths.get(edge.from) ?? 0) + 1),
-      );
-  return [...ids].sort((first, second) => {
-    const depth = (depths.get(first) ?? 0) - (depths.get(second) ?? 0);
-    if (depth !== 0) return depth;
-    return first < second ? -1 : 1;
-  });
-}
-
 /**
  * The agents and scripts of one iteration in the order the iteration runs them.
  *
@@ -76,13 +49,12 @@ export function planLoopStepOrder(
   const members = new Map(
     planLoopMembers(loop).map((member) => [member.id, member]),
   );
-  return flowOrder(
-    planLoopScopeIds(graph, loop),
-    planLoopScopeEdges(graph, loop),
-  ).flatMap((id) => {
-    const member = members.get(id);
-    return member ? [member] : [];
-  });
+  return planLoopStages(graph, loop)
+    .flat()
+    .flatMap((id) => {
+      const member = members.get(id);
+      return member ? [member] : [];
+    });
 }
 
 /** The boolean a while loop reads before its first iteration, or `null` while unknown. */

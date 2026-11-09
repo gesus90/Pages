@@ -25,7 +25,10 @@ export async function readPicaMobileCapabilities(
   }
 
   if (plans !== undefined) {
-    capabilities.push(PICA_MOBILE_CAPABILITY.PLANS_V1);
+    capabilities.push(
+      PICA_MOBILE_CAPABILITY.PLANS_V1,
+      PICA_MOBILE_CAPABILITY.PLANS_FLOW_V1,
+    );
   }
 
   if (chat !== undefined) {

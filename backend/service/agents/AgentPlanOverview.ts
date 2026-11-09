@@ -1,5 +1,6 @@
 import { activeStages, describePlanRun } from "./AgentPlanActiveRuns";
 import { isPlanHistoryReadFailure } from "./AgentPlanControlAccess";
+import { planRunStateKey } from "./AgentPlanRunFingerprint";
 import { readAuthorizedPlanRun } from "./AgentPlanRunReader";
 import { failureReason } from "./AgentPlanRunTransitions";
 import { readPlanSnapshot } from "./AgentPlanSnapshot";
@@ -40,6 +41,8 @@ export interface AgentPlanOverviewRun {
   readonly failure: AgentPlanOverviewFailure | null;
   /** End of the run, otherwise its start. */
   readonly at: string;
+  /** Changes exactly when something the structure view of the run shows changes. */
+  readonly state: string;
 }
 
 /** A plan of the overview with its latest own run. */
@@ -127,7 +130,19 @@ export class AgentPlanOverviewCache {
   }
 }
 
-function summarizeRun(
+/**
+ * Summarizes a run for the overview.
+ *
+ * @param run - The authorized view of the run.
+ * @param stages - The steps of the revision it executes.
+ * @returns Running, succeeded and all steps, failure, time and state key.
+ *
+ * @remarks
+ * Only the steps of the stages count: Start, End, decisions, stacks and
+ * steps on a branch a decision did not take never do, and a loop counts as
+ * one step whatever its members and iterations did.
+ */
+export function summarizePlanRun(
   run: AgentPlanRun,
   stages: readonly (readonly AgentPlanActiveStep[])[],
 ): AgentPlanOverviewRun {
@@ -157,6 +172,7 @@ function summarizeRun(
       ? { code: failureReason(run), stepName: failed?.name ?? null }
       : null,
     at: run.endedAt ?? run.startedAt,
+    state: planRunStateKey(run),
   };
 }
 
@@ -240,30 +256,33 @@ export class AgentPlanOverviewService {
     userId: string,
     planId: string,
   ): Promise<AgentPlanOverviewPlan> {
-    const [summaries, entries] = await Promise.all([
+    const [summaries, latestRuns] = await Promise.all([
       this.dependencies.access.summaries(userId),
-      this.dependencies.runs.entries(userId, planId, "newest"),
+      this.dependencies.runs.latestOwn(userId),
     ]);
     const summary = summaries.find((entry) => entry.id === planId);
-    const [latest] = entries;
+    // Read before the view, so the view is never older than its revision.
+    const latest = latestRuns.find((entry) => entry.planId === planId);
 
     if (summary === undefined || (latest === undefined && !summary.canEdit)) {
       return { kind: "gone" };
     }
 
-    const run =
-      latest === undefined ? null : await this.readOwnRun(userId, latest.id);
+    if (latest === undefined) {
+      return { kind: "ok", run: null };
+    }
+
+    const run = await this.readOwnRun(userId, latest.id);
 
     if (run === null) {
       return summary.canEdit ? { kind: "ok", run: null } : { kind: "gone" };
     }
 
-    return {
-      kind: "ok",
-      run: await describePlanRun(this.dependencies, run, (id) =>
-        this.plans.control(userId, id),
-      ),
-    };
+    const described = await describePlanRun(this.dependencies, run, (id) =>
+      this.plans.control(userId, id),
+    );
+
+    return { kind: "ok", run: { ...described, revision: latest.revision } };
   }
 
   /** The authorized view of a run; `null` when the person may not read it. */
@@ -296,7 +315,7 @@ export class AgentPlanOverviewService {
       await this.dependencies.runs.snapshot(entry.id),
     );
 
-    return { ...checked, run: summarizeRun(run, activeStages(plan)) };
+    return { ...checked, run: summarizePlanRun(run, activeStages(plan)) };
   }
 }
 

@@ -9,6 +9,7 @@ import type {
   AgentPlanOverviewEntry,
   AgentPlanOverviewRun,
 } from "@/backend/service/agents/AgentPlanOverview";
+import type { PicaMobilePlansReadOptions } from "./PicaMobilePlansProvider";
 import type {
   PicaMobilePlanRow,
   PicaMobilePlanRowChange,
@@ -35,6 +36,7 @@ const ROW_FIELDS: readonly PicaMobilePlanRowField[] = [
   "total",
   "error",
   "at",
+  "state",
 ];
 
 /**
@@ -64,6 +66,7 @@ function toIsoTime(text: string): string | undefined {
 
 function runFields(
   run: AgentPlanOverviewRun,
+  options: PicaMobilePlansReadOptions,
 ): Omit<PicaMobilePlanRow, "id" | "name"> {
   const at = toIsoTime(run.at);
 
@@ -87,6 +90,7 @@ function runFields(
           },
         }),
     ...(at === undefined ? {} : { at }),
+    ...(options.withState ? { state: run.state } : {}),
   };
 }
 
@@ -94,11 +98,14 @@ function runFields(
  * Maps a plan of the overview onto a row of `plans`.
  *
  * @param entry - The plan with its latest own run.
+ * @param options - Whether a row of a run carries its `state` key, which
+ * only a connection that asked for `flow` gets.
  * @returns The row, or `null` for a plan identifier longer than the
  * protocol allows.
  */
 export function toPlanRow(
   entry: AgentPlanOverviewEntry,
+  options: PicaMobilePlansReadOptions,
 ): PicaMobilePlanRow | null {
   if (entry.planId.length > PICA_MOBILE_MAXIMUM_PLAN_TEXT_LENGTH) {
     return null;
@@ -108,7 +115,7 @@ export function toPlanRow(
 
   return entry.run === null
     ? { id: entry.planId, name, status: "idle" }
-    : { id: entry.planId, name, ...runFields(entry.run) };
+    : { id: entry.planId, name, ...runFields(entry.run, options) };
 }
 
 function rank(row: PicaMobilePlanRow): number {
@@ -198,6 +205,7 @@ function diffRow(
     total: changedValue(previous.total, next.total),
     error: changedValue(previous.error, next.error),
     at: changedValue(previous.at, next.at),
+    state: changedValue(previous.state, next.state),
   };
 
   return ROW_FIELDS.some((field) => change[field] !== undefined)

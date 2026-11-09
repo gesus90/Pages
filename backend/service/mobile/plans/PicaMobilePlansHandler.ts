@@ -4,19 +4,11 @@ import {
   PICA_MOBILE_MAXIMUM_PLANS_FRAME_LENGTH,
 } from "@/definition/PicaMobileProtocol";
 
-import {
-  encodePicaMobilePlan,
-  encodePicaMobilePlans,
-} from "../PicaMobileMessages";
-import {
-  diffPlanRows,
-  selectPlanRows,
-  truncatePlanText,
-} from "./PicaMobilePlanRows";
+import { encodePicaMobilePlans } from "../PicaMobileMessages";
+import { encodePlanWithinLimit } from "./PicaMobilePlanFrame";
+import { diffPlanRows, selectPlanRows } from "./PicaMobilePlanRows";
 
 import type {
-  PicaMobileDashboardRun,
-  PicaMobilePlanPayload,
   PicaMobilePlanRow,
   PicaMobilePlansPayload,
 } from "@/definition/PicaMobileProtocol";
@@ -86,45 +78,6 @@ function rowsToDrop(
   return Math.max(dropped, 1);
 }
 
-function shortenRun(run: PicaMobileDashboardRun): PicaMobileDashboardRun {
-  return {
-    ...run,
-    name: truncatePlanText(run.name),
-    stages: run.stages.map((stage) => ({
-      ...stage,
-      steps: stage.steps.map((step) => ({
-        ...step,
-        name: truncatePlanText(step.name),
-      })),
-    })),
-  };
-}
-
-/** The `plan` frame within the frame limit; `null` when even shortened names do not fit. */
-function encodePlanWithinLimit(
-  requestId: string,
-  payload: PicaMobilePlanPayload,
-): string | null {
-  const frame = encodePicaMobilePlan(requestId, payload);
-
-  if (frame.length <= PICA_MOBILE_MAXIMUM_PLANS_FRAME_LENGTH) {
-    return frame;
-  }
-
-  if (payload.access === "gone" || payload.run === null) {
-    return null;
-  }
-
-  const shortened = encodePicaMobilePlan(requestId, {
-    ...payload,
-    run: shortenRun(payload.run),
-  });
-
-  return shortened.length <= PICA_MOBILE_MAXIMUM_PLANS_FRAME_LENGTH
-    ? shortened
-    : null;
-}
-
 /**
  * Answers `plans.v1` for one connection and sends its changes on its own.
  *
@@ -135,7 +88,10 @@ function encodePlanWithinLimit(
  * `plans_sync` it follows the runs of the account: a change waits 300
  * milliseconds for more and then queues one read behind the messages of the
  * connection, with at most one such read running and one waiting. A change
- * without any difference in the rows sends nothing.
+ * without any difference in the rows sends nothing. The rows carry their
+ * `state` key only while the latest `plans_sync` asked for `flow`; the
+ * change is compared against the rows as they were sent, so switching it
+ * sends the keys as changed fields.
  */
 export class PicaMobilePlansHandler {
   private readonly provider: PicaMobilePlansProvider | undefined;
@@ -143,6 +99,7 @@ export class PicaMobilePlansHandler {
   private readonly reader: PicaMobilePlansReader | null;
   private seq = 0;
   private sent = new Map<string, PicaMobilePlanRow>();
+  private withState = false;
   private stopWatching: (() => void) | null = null;
   private pushTimer: NodeJS.Timeout | null = null;
   private isPushWaiting = false;
@@ -225,7 +182,8 @@ export class PicaMobilePlansHandler {
     session: PicaMobileSessionIdentity,
     message: SyncMessage,
   ): Promise<void> {
-    const outcome = await reader.readPlans(session);
+    const withState = message.payload.flow === true;
+    const outcome = await reader.readPlans(session, { withState });
 
     if (!this.host.isOpen()) {
       return;
@@ -239,6 +197,9 @@ export class PicaMobilePlansHandler {
 
     const isFull =
       message.payload.since === null || message.payload.since !== this.seq;
+
+    this.withState = withState;
+
     const composed = this.compose(outcome.rows, {
       requestId: message.requestId,
       isFull,
@@ -264,7 +225,9 @@ export class PicaMobilePlansHandler {
     session: PicaMobileSessionIdentity,
     message: PlanMessage,
   ): Promise<void> {
-    const outcome = await reader.readPlan(session, message.payload.planId);
+    const outcome = await reader.readPlan(session, message.payload.planId, {
+      withFlow: message.payload.flow === true,
+    });
 
     if (!this.host.isOpen()) {
       return;
@@ -341,7 +304,9 @@ export class PicaMobilePlansHandler {
     let outcome: Awaited<ReturnType<PicaMobilePlansReader["readPlans"]>>;
 
     try {
-      outcome = await this.reader.readPlans(session);
+      outcome = await this.reader.readPlans(session, {
+        withState: this.withState,
+      });
     } catch (error: unknown) {
       // The next plans_sync of the app catches up; nothing is sent now.
       logEvent({

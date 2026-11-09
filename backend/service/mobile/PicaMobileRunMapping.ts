@@ -8,6 +8,7 @@ import type {
   PicaMobileDashboardRun,
   PicaMobileDashboardStage,
   PicaMobileDashboardStep,
+  PicaMobileFlowStatus,
   PicaMobileRunStatus,
   PicaMobileStepStatus,
 } from "@/definition/PicaMobileProtocol";
@@ -71,6 +72,24 @@ function toStepStatus(
 ): PicaMobileStepStatus {
   // A blocked step waits behind a failed or cancelled predecessor.
   return step.isBlocked ? "blocked" : STEP_STATUS[step.status];
+}
+
+/**
+ * Names the state of a node the way `plans.flow.v1` does.
+ *
+ * @param result - The state of a node, a loop iteration or a node in it.
+ * @returns `skipped` for a node on a branch a decision did not take,
+ * `blocked` for one waiting behind a failed or cancelled predecessor, and
+ * otherwise the state of `plans.v1`.
+ */
+export function toPicaMobileFlowStatus(
+  result: Pick<AgentPlanStepResult, "status"> & {
+    readonly isBlocked?: boolean;
+  },
+): PicaMobileFlowStatus {
+  if (result.status === "skipped") return "skipped";
+
+  return result.isBlocked === true ? "blocked" : STEP_STATUS[result.status];
 }
 
 function toStage(
@@ -146,7 +165,9 @@ function singleTicketKey(run: AgentPlanRun): string | undefined {
  * A stage holds the steps on the same step of the flow; several make it
  * `parallel`, and a lone loop node makes it `loop` with the loop as its one
  * step. Start and End are no steps. Pages has no run state `blocked`, so it
- * never reports one.
+ * never reports one. The complete structure, Start, End, decisions,
+ * skipped nodes and loop iterations included, is the opt-in `flow` of
+ * `plans.flow.v1`; `stages` keeps its form for every older client.
  */
 export function toDashboardRun(
   entry: AgentPlanActiveRun,

@@ -6,10 +6,12 @@ import {
 
 import { isPlanHistoryReadFailure } from "./AgentPlanControlAccess";
 import { readAuthorizedPlanRun } from "./AgentPlanRunReader";
+import { planRunStructure } from "./AgentPlanRunStructure";
 import { readPlanSnapshot } from "./AgentPlanSnapshot";
 
 import type { AgentPlan, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type { AgentPlanRunStructure } from "./AgentPlanRunStructure";
 import type { AgentPlanService, PlanDependencies } from "./AgentPlanService";
 
 /** A step of the executed revision, numbered the way the plan numbers its flow. */
@@ -27,7 +29,8 @@ export interface AgentPlanActiveStep {
  * @remarks
  * The structure comes from the private snapshot of the run, never from the
  * plan as it is saved now, so editing the plan while the run is active
- * changes nothing here. Only node identifiers, numbers and kinds leave the snapshot.
+ * changes nothing here. Only node identifiers, numbers, kinds and display
+ * names leave the snapshot.
  */
 export interface AgentPlanActiveRun {
   /** The authorized view of the run; the person may read it right now. */
@@ -37,8 +40,15 @@ export interface AgentPlanActiveRun {
    * steps of one group run side by side. Start and End are not steps.
    */
   readonly stages: readonly (readonly AgentPlanActiveStep[])[];
+  /** Every node of the flow, Start and End included, with the inner stages of each loop. */
+  readonly structure: AgentPlanRunStructure;
   /** Whether the person may resume the run right now; `false` unless confirmed. */
   readonly canResume: boolean;
+  /**
+   * The write counter of the run, read before its view; absent where the
+   * read did not ask for it. The view is at least as new as this number.
+   */
+  readonly revision?: number;
 }
 
 /**
@@ -115,18 +125,19 @@ async function readActiveRun(
  * @param run - The authorized view of the run, active or ended.
  * @param readControl - Reads the current control state of a plan; asked only
  * for a paused run.
- * @returns The run with its stages; only node identifiers, numbers and kinds
- * leave the snapshot.
+ * @returns The run with its stages and structure; only node identifiers,
+ * numbers, kinds and display names leave the snapshot.
  */
 export async function describePlanRun(
   dependencies: Pick<PlanDependencies, "runs">,
   run: AgentPlanRun,
   readControl: (planId: string) => Promise<AgentPlanControl>,
 ): Promise<AgentPlanActiveRun> {
-  const { plan } = readPlanSnapshot(await dependencies.runs.snapshot(run.id));
+  const snapshot = readPlanSnapshot(await dependencies.runs.snapshot(run.id));
   return {
     run,
-    stages: activeStages(plan),
+    stages: activeStages(snapshot.plan),
+    structure: planRunStructure(snapshot),
     canResume: await readCanResume(run, readControl),
   };
 }

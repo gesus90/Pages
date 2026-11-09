@@ -2996,7 +2996,7 @@ over FCM; the operator setup and the handover to the device test are in
 
 The native Pica app for Android and iOS lives in its own GitHub project,
 "Pica Mobile", and is not part of this repository. Pages keeps its server side
-of the app: the WebSocket protocol (`chat.v1`, `plans.v1`), the mobile
+of the app: the WebSocket protocol (`chat.v1`, `plans.v1`, `plans.flow.v1`), the mobile
 connection settings and push notifications. See
 [docs/PicaMobileWebSocket.md](./docs/PicaMobileWebSocket.md) and
 [docs/PicaMobileNotifications.md](./docs/PicaMobileNotifications.md).
