@@ -338,7 +338,18 @@
         "scope_missing": "Der Zugriff auf Google Drive wurde nicht freigegeben. Bitte erneut anmelden und Drive zulassen.",
         "failed": "Google hat die Anmeldung nicht bestätigt.",
         "forbidden": "Nur ein Administrator im Admin-Modus kann die Anmeldung abschließen.",
-        "not_configured": "Der OAuth-Client von Google ist nicht eingerichtet."
+        "not_configured": "Der OAuth-Client von Google ist nicht eingerichtet.",
+        "write_declined": "Schreibzugriff wurde nicht erteilt; die bestehende Verbindung bleibt unverändert.",
+        "account_mismatch": "Anderes Google-Konto gewählt; die bestehende Verbindung bleibt unverändert."
+      },
+      "simulation": {
+        "badge": "Simulation",
+        "text": "Simulierte Google Drive – keine echten Daten, keine Verbindung zu Google. Die Anmeldung bei Google ist hier abgeschaltet."
+      },
+      "writeAccess": {
+        "title": "Schreibzugriff fehlt",
+        "text": "Storage kann Dateien nur lesen. Zum Anlegen, Umbenennen, Kopieren, Verschieben und Löschen braucht Pages den vollen Google-Drive-Zugriff. Dafür hier neu anmelden und ihn bei Google erlauben; wird er abgelehnt, bleibt die bestehende Verbindung unverändert.",
+        "grant": "Neu anmelden und vollen Drive-Zugriff erlauben"
       }
     },
     "title": "Einstellungen",
@@ -6340,7 +6351,10 @@
       "countMore_one": "{{count}} Eintrag geladen, weitere vorhanden",
       "countMore_other": "{{count}} Einträge geladen, weitere vorhanden",
       "loadMore": "Weitere laden",
-      "loadMoreFailed": "Weitere Einträge konnten nicht geladen werden."
+      "loadMoreFailed": "Weitere Einträge konnten nicht geladen werden.",
+      "actions": "Aktionen",
+      "select": "{{name}} auswählen",
+      "selected": "(ausgewählt)"
     },
     "quota": {
       "title": "Speicherquote",
@@ -6355,6 +6369,147 @@
       "noShare": "Google meldet kein Limit; Prozent und freier Speicher entfallen.",
       "poolHint": "Bei Google Workspace kann das Limit ein gemeinsamer Speicherpool der Organisation sein; Prozent und freier Speicher werden daher nicht berechnet.",
       "barLabel": "Belegter Anteil des Google-Kontospeichers"
+    },
+    "simulation": {
+      "title": "Simulierte Google Drive",
+      "text": "Simulierte Google Drive – keine echten Daten, keine Verbindung zu Google. Änderungen bleiben nur bis zum Neustart des Servers erhalten."
+    },
+    "write": {
+      "missingTitle": "Schreibzugriff fehlt",
+      "missingText": "Storage kann Dateien nur anzeigen und herunterladen. Zum Anlegen, Umbenennen, Kopieren, Verschieben und Löschen braucht Pages den vollen Google-Drive-Zugriff: unter Einstellungen → System neu anmelden und ihn erlauben.",
+      "grant": "Unter Einstellungen → System neu anmelden",
+      "readOnlyScenario": "Dieses Simulationsszenario ist schreibgeschützt; Änderungen sind nicht möglich."
+    },
+    "actions": {
+      "menu": "Aktionen für {{name}}",
+      "download": "Herunterladen",
+      "upload": "Hochladen",
+      "cancel": "Abbrechen",
+      "dismiss": "Schließen"
+    },
+    "name": {
+      "label": "Name",
+      "title": {
+        "create_folder": "Neuer Ordner",
+        "rename": "Umbenennen"
+      },
+      "submit": {
+        "create_folder": "Anlegen",
+        "rename": "Umbenennen"
+      }
+    },
+    "conflict": {
+      "title": "Name bereits vergeben",
+      "text": "Im Ordner gibt es bereits „{{name}}“.",
+      "textUnnamed": "Im Ordner gibt es bereits einen Eintrag mit diesem Namen.",
+      "keepBoth": "Beide behalten",
+      "replace": "Ersetzen"
+    },
+    "confirm": {
+      "title": {
+        "delete": "In den Papierkorb verschieben?",
+        "delete_permanently": "Endgültig löschen?",
+        "overwrite": "Datei ersetzen?",
+        "update": "Datei aktualisieren?"
+      },
+      "text": {
+        "delete": "„{{name}}“ wird mit seinem gesamten Inhalt in den Papierkorb verschoben und lässt sich von dort wiederherstellen.",
+        "delete_permanently": "„{{name}}“ wird endgültig gelöscht. Das lässt sich nicht rückgängig machen.",
+        "overwrite": "Der Inhalt der vorhandenen Datei „{{name}}“ wird durch die hochgeladene Datei ersetzt.",
+        "update": "Der Inhalt der Datei „{{name}}“ wird ersetzt."
+      },
+      "action": {
+        "delete": "In den Papierkorb",
+        "delete_permanently": "Endgültig löschen",
+        "overwrite": "Ersetzen",
+        "update": "Aktualisieren"
+      },
+      "scope": "Betroffen: {{folders}}, {{files}}, {{size}}.",
+      "folderCount_one": "{{count}} Ordner",
+      "folderCount_other": "{{count}} Ordner",
+      "fileCount_one": "{{count}} Datei",
+      "fileCount_other": "{{count}} Dateien",
+      "truncated": "Die Zählung wurde an ihrer Grenze beendet; tatsächlich sind es mehr Einträge.",
+      "refreshed": "Der Eintrag hat sich inzwischen geändert. Bitte den aktuellen Stand prüfen und erneut bestätigen."
+    },
+    "trash": {
+      "open": "Papierkorb",
+      "close": "Papierkorb schließen",
+      "loading": "Papierkorb wird geladen …",
+      "empty": "Der Papierkorb ist leer.",
+      "restore": "Wiederherstellen",
+      "deletePermanently": "Endgültig löschen"
+    },
+    "error": {
+      "forbidden": "Für diese Aktion fehlt die Berechtigung in Pages.",
+      "invalid_request": "Die Anfrage war unvollständig oder ungültig.",
+      "invalid_reference": "Der Verweis auf den Eintrag ist ungültig.",
+      "invalid_path": "Der Pfad ist ungültig.",
+      "not_found": "Der Eintrag wurde nicht gefunden. Er wurde vielleicht verschoben oder gelöscht.",
+      "trashed": "Der Eintrag liegt im Papierkorb.",
+      "not_trashed": "Der Eintrag liegt nicht im Papierkorb.",
+      "not_folder": "Das Ziel ist kein Ordner.",
+      "is_folder": "Diese Aktion ist für Ordner nicht möglich.",
+      "ambiguous_path": "Der Pfad ist mehrdeutig, weil mehrere Einträge gleich heißen.",
+      "name_conflict": "Im Ordner gibt es bereits einen Eintrag mit diesem Namen.",
+      "confirmation_required": "Diese Aktion muss erst bestätigt werden.",
+      "confirmation_invalid": "Die Bestätigung ist abgelaufen oder gilt nicht mehr. Bitte erneut ausführen.",
+      "unsupported_operation": "Diese Aktion ist für diesen Eintrag nicht möglich.",
+      "too_large": "Die Datei ist zu groß.",
+      "provider_forbidden": "Google Drive verweigert diese Aktion für das verbundene Konto.",
+      "provider_scope_missing": "Der Google-Drive-Verbindung fehlt der Schreibzugriff.",
+      "connection_unavailable": "Die Google-Drive-Verbindung ist gerade nicht nutzbar.",
+      "provider_unreachable": "Google Drive ist gerade nicht erreichbar. Bitte später erneut versuchen.",
+      "failed": "Die Aktion ist fehlgeschlagen.",
+      "tooLargeLimit": "Die Datei ist zu groß. Erlaubt sind höchstens {{limit}}."
+    },
+    "menu": {
+      "label": "Dateiaktionen",
+      "newFolder": "Neuer Ordner",
+      "rename": "Umbenennen",
+      "copy": "Kopieren",
+      "move": "Verschieben",
+      "paste": "Hier einfügen",
+      "trash": "Löschen",
+      "multiSelect": "Mehrfachauswahl",
+      "selectAll": "Alle auswählen",
+      "on": "an",
+      "selected_one": "{{count}} ausgewählt",
+      "selected_other": "{{count}} ausgewählt",
+      "clipboard": {
+        "copy_one": "{{count}} Eintrag zum Kopieren bereit",
+        "copy_other": "{{count}} Einträge zum Kopieren bereit",
+        "move_one": "{{count}} Eintrag zum Verschieben bereit",
+        "move_other": "{{count}} Einträge zum Verschieben bereit"
+      },
+      "hint": {
+        "copyFolder": "Google Drive kann keine Ordner kopieren. Ordner lassen sich verschieben.",
+        "limit": "Höchstens 100 Einträge je Aktion."
+      }
+    },
+    "batch": {
+      "done": {
+        "copy_one": "{{count}} Eintrag kopiert",
+        "copy_other": "{{count}} Einträge kopiert",
+        "move_one": "{{count}} Eintrag verschoben",
+        "move_other": "{{count}} Einträge verschoben",
+        "delete_one": "{{count}} Eintrag in den Papierkorb gelegt",
+        "delete_other": "{{count}} Einträge in den Papierkorb gelegt"
+      },
+      "partly_one": "{{done}}, {{count}} abgelehnt",
+      "partly_other": "{{done}}, {{count}} abgelehnt",
+      "reason_one": "{{count}} × {{reason}} ({{names}})",
+      "reason_other": "{{count}} × {{reason}} ({{names}})",
+      "more_one": "und {{count}} weiterer",
+      "more_other": "und {{count}} weitere",
+      "trash": {
+        "title_one": "{{count}} Eintrag in den Papierkorb legen?",
+        "title_other": "{{count}} Einträge in den Papierkorb legen?",
+        "text": "Die Auswahl wird in den Papierkorb von Google Drive gelegt und lässt sich dort wiederherstellen. Endgültig gelöscht wird hier nichts.",
+        "folders_one": "Ein Ordner wird mit seinem gesamten Inhalt verschoben.",
+        "folders_other": "{{count}} Ordner werden mit ihrem gesamten Inhalt verschoben.",
+        "confirm": "In den Papierkorb legen"
+      }
     }
   },
   "personColor": {

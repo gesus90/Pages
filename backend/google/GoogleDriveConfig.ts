@@ -36,17 +36,43 @@ export const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 export const GOOGLE_DRIVE_READ_SCOPE =
   "https://www.googleapis.com/auth/drive.readonly";
 
-/** The scopes the sign-in asks for, see {@link GOOGLE_DRIVE_SCOPE} and {@link GOOGLE_DRIVE_READ_SCOPE}. */
+/**
+ * The scope that lets Storage change files and folders (PAGE-270).
+ *
+ * @remarks
+ * Only `drive` reaches every existing file for copy, move, rename, trash and
+ * content updates; `drive.file` changes only what Pages created itself. Every
+ * sign-in asks for it in addition (PAGE-272, confirmed by the operator); with
+ * Google's granular consent the person may decline it, the connection then
+ * stays read-only and the targeted, incremental consent (PAGE-270) asks again
+ * when Storage reports the missing write access.
+ */
+export const GOOGLE_DRIVE_FULL_SCOPE = "https://www.googleapis.com/auth/drive";
+
+/**
+ * The scopes the sign-in asks for: {@link GOOGLE_DRIVE_SCOPE},
+ * {@link GOOGLE_DRIVE_READ_SCOPE} and {@link GOOGLE_DRIVE_FULL_SCOPE}.
+ */
 export const GOOGLE_DRIVE_REQUESTED_SCOPES: readonly string[] = [
   GOOGLE_DRIVE_SCOPE,
   GOOGLE_DRIVE_READ_SCOPE,
+  GOOGLE_DRIVE_FULL_SCOPE,
 ];
 
 /** Granted scopes that let Storage read the whole folder tree of the account. */
 export const GOOGLE_DRIVE_TREE_SCOPES: readonly string[] = [
   GOOGLE_DRIVE_READ_SCOPE,
-  "https://www.googleapis.com/auth/drive",
+  GOOGLE_DRIVE_FULL_SCOPE,
 ];
+
+/** Granted scopes that let Storage change every file the account may change. */
+export const GOOGLE_DRIVE_WRITE_SCOPES: readonly string[] = [
+  GOOGLE_DRIVE_FULL_SCOPE,
+];
+
+/** The scopes of the targeted write consent; Google adds the granted ones. */
+export const GOOGLE_DRIVE_WRITE_REQUESTED_SCOPES: readonly string[] =
+  GOOGLE_DRIVE_REQUESTED_SCOPES;
 
 const CLIENT_ID_PATTERN = /^[A-Za-z0-9._-]+\.apps\.googleusercontent\.com$/;
 

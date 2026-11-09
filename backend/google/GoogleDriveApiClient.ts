@@ -1,4 +1,7 @@
-import { GOOGLE_DRIVE_REQUESTED_SCOPES } from "@/backend/google/GoogleDriveConfig";
+import {
+  GOOGLE_DRIVE_REQUESTED_SCOPES,
+  GOOGLE_DRIVE_WRITE_REQUESTED_SCOPES,
+} from "@/backend/google/GoogleDriveConfig";
 import {
   driveProblem,
   isRecord,
@@ -87,29 +90,43 @@ function readGrant(body: unknown, now: number): GoogleTokenGrant | null {
 /**
  * Builds the official Google sign-in link for the Drive connection.
  *
- * @param input - Client id, the exact redirect URI, the OAuth state and the PKCE challenge.
+ * @param input - Client id, the exact redirect URI, the OAuth state, the PKCE
+ * challenge and whether the targeted write consent is asked for.
  * @returns The authorization link.
  *
  * @remarks
  * `access_type=offline` asks for a refresh token, and `prompt=consent` makes
  * Google issue a new one on every sign-in, so a new sign-in after a revocation
- * really replaces the stored access.
+ * really replaces the stored access. The write consent (PAGE-270) adds only
+ * the full drive scope and keeps the granted ones with
+ * `include_granted_scopes=true`, so declining it takes nothing away.
  */
 export function buildGoogleAuthorizationUrl(input: {
   readonly clientId: string;
   readonly redirectUri: string;
   readonly state: string;
   readonly codeChallenge: string;
+  readonly isWriteConsent?: boolean;
 }): string {
+  const isWriteConsent = input.isWriteConsent === true;
   const url = new URL(AUTHORIZE_URL);
 
   url.searchParams.set("client_id", input.clientId);
   url.searchParams.set("redirect_uri", input.redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", GOOGLE_DRIVE_REQUESTED_SCOPES.join(" "));
+  url.searchParams.set(
+    "scope",
+    (isWriteConsent
+      ? GOOGLE_DRIVE_WRITE_REQUESTED_SCOPES
+      : GOOGLE_DRIVE_REQUESTED_SCOPES
+    ).join(" "),
+  );
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
-  url.searchParams.set("include_granted_scopes", "false");
+  url.searchParams.set(
+    "include_granted_scopes",
+    isWriteConsent ? "true" : "false",
+  );
   url.searchParams.set("state", input.state);
   url.searchParams.set("code_challenge", input.codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");

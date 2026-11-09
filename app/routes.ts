@@ -8,6 +8,7 @@ import {
 
 import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
 import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
+import { storageRoutes } from "./lib/storage-routes";
 
 /**
  * Which route table a build reads (PAGE-235).
@@ -502,13 +503,8 @@ function settingsRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     resource("settings-api/system", "routes/settings-system-data.ts"),
     resource("settings-api/agents", "routes/settings-agents-data.ts"),
     resource("settings-api/agent-tools", "routes/settings-agent-tools-data.ts"),
-    resource("settings-api/google-drive", "routes/settings-google-drive.ts"),
-    resource(
-      "settings-api/google-drive/callback",
-      "routes/settings-google-drive-callback.ts",
-    ),
     ...page("storage", { browser: "routes/storage.tsx" }),
-    resource("storage-api", "routes/storage-api.ts"),
+    ...storageRoutes(resource),
   ];
 }
 

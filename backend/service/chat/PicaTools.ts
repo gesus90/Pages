@@ -5,6 +5,7 @@ import { ChatResultBudget } from "./ChatResultBudget";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
+import { registerPicaStorageTools } from "./admin/PicaStorageTools";
 import { registerPicaBrowserTools } from "./browser/PicaBrowserTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { isChatDeleteOperation } from "./ChatToolCatalog";
@@ -486,7 +487,8 @@ interface AdministratorToolParts {
 
 /**
  * Registers host files, the restricted browser, the visual operator browser
- * (PAGE-181) and the administrator catalog of Pages operations.
+ * (PAGE-181), the administrator catalog of Pages operations and the Storage
+ * tools (PAGE-271).
  *
  * @remarks
  * Every call runs in the administrator scope of its job: the right is
@@ -513,6 +515,16 @@ function registerAdministratorTools(
           ),
       ),
   });
+  if (service.hasStorage())
+    registerPicaStorageTools(registry, {
+      service,
+      spend: () => spend(input, budget),
+      turn: async (context) => ({
+        message: input.message ?? "",
+        id: input.planTurnId,
+        confirmation: await input.sessions.confirmationWord(context.userId),
+      }),
+    });
 }
 
 /** Registers the archive search of an agent employee; it reads only the agent's own archive. */

@@ -18,6 +18,8 @@ const CONNECTED: GoogleDriveStatus = {
   canSignIn: true,
   missingSettings: [],
   needsFolderAccess: false,
+  needsWriteAccess: false,
+  isSimulation: false,
   problem: null,
   redirectUris: [
     "https://pages.example.test/settings-api/google-drive/callback",

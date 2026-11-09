@@ -124,6 +124,22 @@
   --color-plan-asset: #4d7c0f;
   --color-plan-asset-edge: #65a30d;
   --color-plan-asset-subtle: #f1f6e4;
+  /* PAGE-272: the type tiles of the Storage list; the tile tints the same
+     color, unknown files keep the muted text color. */
+  --color-file-folder: #ea7a12;
+  --color-file-document: #2563eb;
+  --color-file-spreadsheet: #16a34a;
+  --color-file-presentation: #ca8a04;
+  --color-file-pdf: #dc2626;
+  --color-file-image: #7c3aed;
+  --color-file-video: #db2777;
+  --color-file-audio: #0d9488;
+  --color-file-archive: #a16207;
+  --color-file-code: #4f46e5;
+  --color-file-text: #475569;
+  --color-file-form: #c026d3;
+  --color-file-drawing: #65a30d;
+  --color-file-shortcut: #0891b2;
   /* Secondary text on the tinted plan cards: the page's muted text reaches only
      4.1 to 4.3:1 on these tints, the plan editor needs 4.5:1. */
   --color-plan-muted-foreground: #5f6675;
@@ -428,6 +444,20 @@
     --color-plan-asset: #a3d65c;
     --color-plan-asset-edge: #6f9a32;
     --color-plan-asset-subtle: #1a2410;
+    --color-file-folder: #fb923c;
+    --color-file-document: #60a5fa;
+    --color-file-spreadsheet: #4ade80;
+    --color-file-presentation: #facc15;
+    --color-file-pdf: #f87171;
+    --color-file-image: #a78bfa;
+    --color-file-video: #f472b6;
+    --color-file-audio: #2dd4bf;
+    --color-file-archive: #d6a74a;
+    --color-file-code: #818cf8;
+    --color-file-text: #94a3b8;
+    --color-file-form: #e879f9;
+    --color-file-drawing: #a3e635;
+    --color-file-shortcut: #22d3ee;
     --color-plan-muted-foreground: #9aa3b2;
     --color-plan-progress-active-label: var(--color-background);
     --color-plan-progress-done: #51df5c;

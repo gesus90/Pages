@@ -14,6 +14,8 @@ import type {
   GoogleDriveStatus,
 } from "@/definition/GoogleDrive";
 
+import type { GoogleDriveAccessRequest } from "./google-drive-requests";
+
 /** What the card knows about the connection. */
 export type GoogleDriveReading =
   | { readonly kind: "loading" }
@@ -29,6 +31,10 @@ export interface GoogleDriveCardModel {
     Exclude<GoogleDriveActionResult, { ok: true }>["error"] | null;
   readonly isStarting: boolean;
   readonly signIn: () => void;
+  /** Starts the targeted consent for the write access of Storage (PAGE-270). */
+  readonly grantWriteAccess: () => void;
+  /** Whether the address asks to grant the write access (`?googleDriveAccess=write`). */
+  readonly isWriteAccessRequested: boolean;
 }
 
 function readOutcome(value: string | null): GoogleDriveCallbackOutcome | null {
@@ -78,10 +84,10 @@ export function useGoogleDrive(): GoogleDriveCardModel {
   const [startError, setStartError] =
     useState<GoogleDriveCardModel["startError"]>(null);
 
-  async function start(): Promise<void> {
+  async function start(access: GoogleDriveAccessRequest): Promise<void> {
     setIsStarting(true);
     setStartError(null);
-    const result = await requestGoogleDriveSignIn();
+    const result = await requestGoogleDriveSignIn(access);
 
     if (result.ok) {
       window.location.assign(result.authorizeUrl);
@@ -94,10 +100,12 @@ export function useGoogleDrive(): GoogleDriveCardModel {
   }
 
   return {
+    grantWriteAccess: () => void start("write"),
     isStarting,
+    isWriteAccessRequested: searchParams.get("googleDriveAccess") === "write",
     outcome: readOutcome(searchParams.get("googleDrive")),
     reading,
-    signIn: () => void start(),
+    signIn: () => void start("read"),
     startError,
   };
 }

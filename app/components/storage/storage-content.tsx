@@ -14,12 +14,28 @@ import {
 import type {
   StorageBrowseResult,
   StorageFolderView,
+  StorageItem,
 } from "@/definition/GoogleDriveStorage";
+import type { ReactNode } from "react";
 
+import type { StorageMenuPoint } from "./storage-context-menu";
 import type { StorageFolderModel } from "./use-storage-folder";
+import type { StorageSelection } from "./use-storage-selection";
+
+/** The file management around the list of a loaded folder (PAGE-272). */
+export interface StorageListTools {
+  /** The menu bar above the list; it stays visible while the list scrolls. */
+  readonly menuBar: ReactNode;
+  readonly selection: StorageSelection;
+  /** Opens the own context menu instead of the browser's. */
+  readonly onOpenMenu: (point: StorageMenuPoint) => void;
+}
 
 interface StorageContentProps {
   readonly model: StorageFolderModel;
+  /** The menu of one entry of the shown folder, when entries have one. */
+  readonly renderActions?: (item: StorageItem) => ReactNode;
+  readonly tools?: StorageListTools;
   readonly onChooseStartFolder: () => void;
   readonly onClearStartFolder: () => void;
 }
@@ -81,16 +97,32 @@ function FolderBody({
   result,
   folder,
   model,
+  renderActions,
+  tools,
 }: {
   readonly result: StorageBrowseResult;
   readonly folder: StorageFolderView;
   readonly model: StorageFolderModel;
+  readonly renderActions?: (item: StorageItem) => ReactNode;
+  readonly tools?: StorageListTools;
 }): React.ReactElement {
   const { t } = useTranslation();
 
+  function handleContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
+    if (!tools) return;
+
+    // A right click beside the rows opens the menu without a selection change.
+    event.preventDefault();
+    tools.onOpenMenu({ x: event.clientX, y: event.clientY });
+  }
+
   return (
     <>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {tools?.menuBar}
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        onContextMenu={handleContextMenu}
+      >
         {folder.items.length === 0 ? (
           <CenteredMessage>
             <FolderOpen aria-hidden="true" className="size-8" />
@@ -103,7 +135,12 @@ function FolderBody({
             </p>
           </CenteredMessage>
         ) : (
-          <StorageFileList items={folder.items} />
+          <StorageFileList
+            items={folder.items}
+            onOpenMenu={tools?.onOpenMenu}
+            renderActions={renderActions}
+            selection={tools?.selection}
+          />
         )}
       </div>
       <FolderFooter folder={folder} model={model} />
@@ -116,11 +153,21 @@ function LoadedContent({
   model,
   onChooseStartFolder,
   onClearStartFolder,
+  renderActions,
+  tools,
 }: StorageContentProps & {
   readonly result: StorageBrowseResult;
 }): React.ReactElement {
   if (result.folder) {
-    return <FolderBody folder={result.folder} model={model} result={result} />;
+    return (
+      <FolderBody
+        folder={result.folder}
+        model={model}
+        renderActions={renderActions}
+        result={result}
+        tools={tools}
+      />
+    );
   }
 
   return (
@@ -144,8 +191,9 @@ function LoadedContent({
  * The file card of the Storage area with its loading, empty and error states.
  *
  * @remarks
- * Only the list scrolls; the card keeps its footer visible and its bottom
- * edge above the free space of the Pica launcher.
+ * Only the list scrolls; the card keeps its menu bar, column heads and
+ * footer visible and its bottom edge above the free space of the Pica
+ * launcher.
  */
 export function StorageContent(props: StorageContentProps): React.ReactElement {
   const { t } = useTranslation();

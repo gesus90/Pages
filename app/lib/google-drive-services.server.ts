@@ -5,17 +5,78 @@ import {
   findMissingGoogleDriveSettings,
   readGoogleOAuthApplication,
 } from "@/backend/google/GoogleDriveConfig";
-import { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import { GoogleDriveFilesClient } from "@/backend/google/GoogleDriveFilesClient";
+import { GoogleDriveItemsClient } from "@/backend/google/GoogleDriveItemsClient";
+import { GoogleDriveSimulation } from "@/backend/google/GoogleDriveSimulation";
+import { readGoogleDriveSimulation } from "@/backend/google/GoogleDriveSimulationConfig";
+import { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import { GoogleDriveConnectionService } from "@/backend/service/google/GoogleDriveConnectionService";
+import { GoogleDriveFileService } from "@/backend/service/google/GoogleDriveFileService";
+import { GoogleDriveSimulatedConnection } from "@/backend/service/google/GoogleDriveSimulatedConnection";
 import { GoogleDriveStorageService } from "@/backend/service/google/GoogleDriveStorageService";
 
 import type { Database } from "@/backend/database/Database";
+import type { GoogleFetch } from "@/backend/google/GoogleDriveResponses";
+import type { GoogleDriveConnection } from "@/backend/service/google/GoogleDriveConnectionService";
 
-/** The Google Drive sign-in of the system settings (PAGE-170) and the Storage area (PAGE-188). */
+/** The client id the simulation passes to the account check; it never reaches Google. */
+const SIMULATED_APPLICATION = {
+  clientId: "simulation.apps.googleusercontent.com",
+  clientSecret: "simulation",
+};
+
+/**
+ * The Google Drive sign-in of the system settings (PAGE-170), the Storage
+ * area (PAGE-188) and the Storage interface for files and folders (PAGE-270).
+ */
 export interface GoogleDriveApplicationServices {
-  readonly googleDriveConnectionService: GoogleDriveConnectionService;
+  readonly googleDriveConnectionService: GoogleDriveConnection;
   readonly googleDriveStorageService: GoogleDriveStorageService;
+  readonly googleDriveFileService: GoogleDriveFileService;
+}
+
+/** The connection and the `fetch` the Drive clients use. */
+interface DriveWiring {
+  readonly connection: GoogleDriveConnection;
+  readonly fetcher: GoogleFetch | undefined;
+  readonly isSimulation: boolean;
+  readonly canRequestWriteAccess: boolean;
+}
+
+function realWiring(database: Database, instanceKey: Buffer): DriveWiring {
+  const application = readGoogleOAuthApplication();
+
+  return {
+    canRequestWriteAccess: application !== null,
+    connection: new GoogleDriveConnectionService({
+      cipher: new InstanceSecretCipher(instanceKey),
+      missingSettings: findMissingGoogleDriveSettings(),
+      repository: new GoogleDriveRepository(database),
+      runtime: application
+        ? { application, client: new GoogleDriveApiClient(application) }
+        : null,
+    }),
+    fetcher: undefined,
+    isSimulation: false,
+  };
+}
+
+/**
+ * Wires the in-memory Drive: every Drive client answers from the simulation,
+ * and the connection counts as connected without a sign-in.
+ */
+function simulatedWiring(simulation: GoogleDriveSimulation): DriveWiring {
+  return {
+    canRequestWriteAccess: false,
+    connection: new GoogleDriveSimulatedConnection({
+      client: new GoogleDriveApiClient(SIMULATED_APPLICATION, {
+        fetcher: simulation.fetch,
+      }),
+      grantedScopes: simulation.grantedScopes(),
+    }),
+    fetcher: simulation.fetch,
+    isSimulation: true,
+  };
 }
 
 /**
@@ -24,32 +85,36 @@ export interface GoogleDriveApplicationServices {
  * @param database - Central database access.
  * @param instanceKey - The key the instance encrypts its connection secrets with.
  * @returns The connection service, which without the OAuth client of the
- * instance only names the settings that are missing, and the Storage area on it.
+ * instance only names the settings that are missing, the Storage area and the
+ * Storage interface on it.
  *
  * @remarks
  * The OAuth client comes from the environment, like the Discord application,
- * and never leaves this process.
+ * and never leaves this process. With `PAGES_GOOGLE_DRIVE_SIMULATION=1` outside
+ * of production, the simulated Drive replaces Google entirely: no OAuth flow,
+ * no stored credential and no request to Google.
  */
 export function createGoogleDriveServices(
   database: Database,
   instanceKey: Buffer,
 ): GoogleDriveApplicationServices {
-  const application = readGoogleOAuthApplication();
-
-  const googleDriveConnectionService = new GoogleDriveConnectionService({
-    cipher: new InstanceSecretCipher(instanceKey),
-    missingSettings: findMissingGoogleDriveSettings(),
-    repository: new GoogleDriveRepository(database),
-    runtime: application
-      ? { application, client: new GoogleDriveApiClient(application) }
-      : null,
-  });
+  const simulation = readGoogleDriveSimulation();
+  const wiring = simulation
+    ? simulatedWiring(new GoogleDriveSimulation(simulation.scenario))
+    : realWiring(database, instanceKey);
 
   return {
-    googleDriveConnectionService,
+    googleDriveConnectionService: wiring.connection,
+    googleDriveFileService: new GoogleDriveFileService({
+      canRequestWriteAccess: wiring.canRequestWriteAccess,
+      connection: wiring.connection,
+      drive: new GoogleDriveItemsClient(wiring.fetcher),
+      isSimulation: wiring.isSimulation,
+    }),
     googleDriveStorageService: new GoogleDriveStorageService({
-      connection: googleDriveConnectionService,
-      files: new GoogleDriveFilesClient(),
+      connection: wiring.connection,
+      files: new GoogleDriveFilesClient(wiring.fetcher),
+      isSimulation: wiring.isSimulation,
       startFolders: new StorageStartFolderRepository(database),
     }),
   };

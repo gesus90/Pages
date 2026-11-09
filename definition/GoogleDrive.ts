@@ -41,6 +41,10 @@ export interface GoogleDriveStatus {
   readonly canSignIn: boolean;
   /** Whether the working connection lacks the read access that Storage needs for the folder tree. */
   readonly needsFolderAccess: boolean;
+  /** Whether the working connection lacks the write access Storage needs to change files (PAGE-270). */
+  readonly needsWriteAccess: boolean;
+  /** Whether Drive is the in-memory simulation of a development server, not a real account. */
+  readonly isSimulation: boolean;
 }
 
 /** What happened when Google sent the browser back to Pages. */
@@ -50,6 +54,8 @@ export type GoogleDriveCallbackOutcome =
   | "invalid"
   | "expired"
   | "scope_missing"
+  | "write_declined"
+  | "account_mismatch"
   | "failed"
   | "forbidden"
   | "not_configured";
@@ -62,6 +68,8 @@ export const GOOGLE_DRIVE_CALLBACK_OUTCOMES: readonly GoogleDriveCallbackOutcome
     "invalid",
     "expired",
     "scope_missing",
+    "write_declined",
+    "account_mismatch",
     "failed",
     "forbidden",
     "not_configured",

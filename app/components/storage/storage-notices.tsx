@@ -32,8 +32,8 @@ const TONE_CLASSES: Readonly<Record<NoticeProps["tone"], string>> = {
   warning: "bg-warning-subtle text-warning",
 };
 
-/** A short explanation with an optional way forward. */
-function Notice({
+/** A short explanation of the Storage area with an optional way forward. */
+export function Notice({
   tone,
   title,
   children,

@@ -36,6 +36,7 @@ import { logDiagnostic } from "@/backend/logging/Logger";
 import { AdministrationService } from "@/backend/service/AdministrationService";
 import { AnnouncingTaskService } from "@/backend/service/AnnouncingTaskService";
 import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
+import { GoogleDriveFileService } from "@/backend/service/google/GoogleDriveFileService";
 import { GitHubJobClient } from "@/backend/service/integrations/GitHubJobClient";
 import { GitHubCreationRepository } from "@/backend/database/repositories/integrations/GitHubCreationRepository";
 import { GroupAdministrationService } from "@/backend/service/GroupAdministrationService";
@@ -404,8 +405,9 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
     },
   );
   const [chatInput] = vi.mocked(createChatServices).mock.calls[0];
-  const { picaBrowser, ...chatSettings } = chatInput;
+  const { picaBrowser, storage, ...chatSettings } = chatInput;
   expect(picaBrowser?.browserSessions).toBeDefined();
+  expect(storage).toBeInstanceOf(GoogleDriveFileService);
   expect(chatSettings).toEqual({
     database: world.database,
     directory: "/srv/pages/data",

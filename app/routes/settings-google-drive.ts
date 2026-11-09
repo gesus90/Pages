@@ -61,7 +61,8 @@ export async function loader({
  *
  * @remarks
  * The answer carries the official Google link; the browser opens it itself,
- * so no password of Google ever passes through Pages. Only an allowed origin
+ * so no password of Google ever passes through Pages. `access=write` asks for
+ * the targeted write consent of Storage (PAGE-270) instead of the first sign-in. Only an allowed origin
  * starts a sign-in, and the link returns to exactly that origin.
  */
 export async function action({
@@ -98,7 +99,9 @@ export async function action({
   }
 
   try {
+    const formData = await request.formData();
     const authorizeUrl = await services.googleDriveConnectionService.start({
+      access: formData.get("access") === "write" ? "write" : "read",
       baseUrl: current,
       userId: user.id,
     });

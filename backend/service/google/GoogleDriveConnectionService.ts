@@ -2,8 +2,10 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { buildGoogleAuthorizationUrl } from "@/backend/google/GoogleDriveApiClient";
 import {
+  GOOGLE_DRIVE_FULL_SCOPE,
   GOOGLE_DRIVE_SCOPE,
   GOOGLE_DRIVE_TREE_SCOPES,
+  GOOGLE_DRIVE_WRITE_SCOPES,
 } from "@/backend/google/GoogleDriveConfig";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
@@ -16,6 +18,7 @@ import type { GoogleOAuthApplication } from "@/backend/google/GoogleDriveConfig"
 import type {
   GoogleDriveReauthorizationReason,
   GoogleDriveRepository,
+  GoogleDriveRequestedAccess,
   GoogleDriveSignInAttempt,
   StoredGoogleDriveConnection,
 } from "@/backend/database/repositories/google/GoogleDriveRepository";
@@ -106,6 +109,15 @@ export type GoogleDriveAccess =
       readonly problem: GoogleDriveProblem | null;
     };
 
+/**
+ * The part of the connection the routes and Storage use; the real connection
+ * and the simulated one (PAGE-270) both provide it.
+ */
+export type GoogleDriveConnection = Pick<
+  GoogleDriveConnectionService,
+  "start" | "complete" | "getStatus" | "access"
+>;
+
 /** An access token in process memory, valid for one stored connection. */
 interface CachedAccessToken {
   readonly connectedAt: number;
@@ -142,6 +154,14 @@ function grantsFolderTree(grantedScope: string): boolean {
   const grantedScopes = grantedScope.split(" ");
 
   return GOOGLE_DRIVE_TREE_SCOPES.some((scope) =>
+    grantedScopes.includes(scope),
+  );
+}
+
+function grantsWrite(grantedScope: string): boolean {
+  const grantedScopes = grantedScope.split(" ");
+
+  return GOOGLE_DRIVE_WRITE_SCOPES.some((scope) =>
     grantedScopes.includes(scope),
   );
 }
@@ -185,12 +205,15 @@ export class GoogleDriveConnectionService {
   /**
    * Starts a sign-in and builds the official Google sign-in link.
    *
-   * @param input - The administrator and the public address of the instance.
+   * @param input - The administrator, the public address of the instance and
+   * the access asked for; `write` is the targeted consent for the full drive
+   * scope (PAGE-270).
    * @returns The link, or `null` without an OAuth client.
    */
   public async start(input: {
     readonly userId: string;
     readonly baseUrl: string;
+    readonly access?: GoogleDriveRequestedAccess;
   }): Promise<string | null> {
     const runtime = this.runtime;
 
@@ -210,6 +233,7 @@ export class GoogleDriveConnectionService {
       expiresAt: createdAt + ATTEMPT_LIFETIME_MS,
       id,
       redirectUri,
+      requestedAccess: input.access ?? "read",
       stateHash: hashState(state),
       userId: input.userId,
     });
@@ -217,6 +241,7 @@ export class GoogleDriveConnectionService {
     return buildGoogleAuthorizationUrl({
       clientId: runtime.application.clientId,
       codeChallenge: challengeOf(codeVerifier),
+      isWriteConsent: input.access === "write",
       redirectUri,
       state,
     });
@@ -288,8 +313,10 @@ export class GoogleDriveConnectionService {
     const base = {
       accountEmail: null,
       canSignIn: origins.current !== null,
+      isSimulation: false,
       missingSettings: this.missingSettings,
       needsFolderAccess: false,
+      needsWriteAccess: false,
       problem: null,
       redirectUris: origins.allowed.map(
         (origin) => `${origin}${GOOGLE_DRIVE_CALLBACK_PATH}`,
@@ -319,6 +346,7 @@ export class GoogleDriveConnectionService {
         ...base,
         accountEmail: result.value.emailAddress,
         needsFolderAccess: !grantsFolderTree(connection.grantedScope),
+        needsWriteAccess: !grantsWrite(connection.grantedScope),
         state: "connected",
       };
     }
@@ -456,6 +484,16 @@ export class GoogleDriveConnectionService {
       return account.problem === "scope_missing" ? "scope_missing" : "failed";
     }
 
+    const writeRefusal = await this.refuseWriteConsent(
+      attempt,
+      grant.grantedScopes,
+      account.value,
+    );
+
+    if (writeRefusal !== null) {
+      return writeRefusal;
+    }
+
     const connectedAt = this.now();
 
     await this.repository.saveConnection({
@@ -483,6 +521,34 @@ export class GoogleDriveConnectionService {
     });
 
     return "connected";
+  }
+
+  /**
+   * Keeps the stored connection when a write consent did not bring what it asked for.
+   *
+   * @remarks
+   * A declined write scope or another Google account than the connected one
+   * must not replace a working connection: the attempt ends with an outcome
+   * the settings explain, and the stored tokens stay as they are.
+   */
+  private async refuseWriteConsent(
+    attempt: GoogleDriveSignInAttempt,
+    grantedScopes: readonly string[],
+    account: GoogleDriveAccount,
+  ): Promise<GoogleDriveCallbackOutcome | null> {
+    if (attempt.requestedAccess !== "write") {
+      return null;
+    }
+
+    if (!grantedScopes.includes(GOOGLE_DRIVE_FULL_SCOPE)) {
+      return "write_declined";
+    }
+
+    const stored = await this.repository.findConnection();
+
+    return stored !== null && stored.googlePermissionId !== account.permissionId
+      ? "account_mismatch"
+      : null;
   }
 
   private async verify(

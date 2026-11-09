@@ -29,6 +29,7 @@ import { isSafeSvg } from "./settings-actions/svg-safety.server";
 
 import type { Database } from "@/backend/database/Database";
 import type { PicaAdminServiceOptions } from "@/backend/service/chat/admin/PicaAdminService";
+import type { PicaStorageFiles } from "@/backend/service/chat/admin/PicaStorageHandlers";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
@@ -152,6 +153,8 @@ export interface ChatServicesInput {
   readonly protectedOrigin?: string;
   /** The operator browser of Pica (PAGE-181): local origins, saved sessions and an optional launcher. */
   readonly picaBrowser?: PicaAdminServiceOptions;
+  /** The Storage interface of the instance Drive; Pica's Storage tools use it (PAGE-271). */
+  readonly storage?: PicaStorageFiles;
   readonly database: Database;
   /** Directory next to the database; attachments live in its `chat-attachments`. */
   readonly directory: string;
@@ -213,7 +216,12 @@ export function createChatServices(
     chatSessionService,
     adapterContext,
   });
-  const adminTools = new PicaAdminService(input.accounts, input.picaBrowser);
+  const adminTools = new PicaAdminService(
+    input.accounts,
+    input.storage
+      ? { ...input.picaBrowser, storage: input.storage }
+      : input.picaBrowser,
+  );
   if (input.protectedOrigin) adminTools.protectOrigin(input.protectedOrigin);
   const tools = new ChatToolExecutor({
     router: input.router,

@@ -103,6 +103,8 @@ export interface StorageBrowseResult {
   readonly reach: StorageAccessReach;
   /** Whether shared drives are offered; only a read scope lists them. */
   readonly hasSharedDrives: boolean;
+  /** Whether Drive is the in-memory simulation of a development server (PAGE-270). */
+  readonly isSimulation?: boolean;
   readonly startFolder: StorageStartFolder | null;
   /** Set when the saved start folder was asked for and not shown. */
   readonly startFolderProblem: StorageStartFolderProblem | null;

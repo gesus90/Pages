@@ -32,6 +32,8 @@ const statusSchema = z.object({
   redirectUris: z.array(z.string()),
   canSignIn: z.boolean(),
   needsFolderAccess: z.boolean(),
+  needsWriteAccess: z.boolean(),
+  isSimulation: z.boolean(),
 });
 
 const actionSchema = z.union([
@@ -75,15 +77,28 @@ export async function requestGoogleDriveStatus(
   }
 }
 
+/** Which access a Google sign-in asks for. */
+export type GoogleDriveAccessRequest = "read" | "write";
+
 /**
  * Starts the Google sign-in.
  *
+ * @param access - `write` asks for the additional write access of Storage
+ * (PAGE-270); the existing connection stays unchanged when it is declined.
  * @returns The official Google link, or why the sign-in could not start.
  */
-export async function requestGoogleDriveSignIn(): Promise<GoogleDriveActionResult> {
+export async function requestGoogleDriveSignIn(
+  access: GoogleDriveAccessRequest = "read",
+): Promise<GoogleDriveActionResult> {
+  const body = new URLSearchParams({ intent: "start" });
+
+  if (access === "write") {
+    body.set("access", "write");
+  }
+
   try {
     const response = await fetch(GOOGLE_DRIVE_ENDPOINT, {
-      body: new URLSearchParams({ intent: "start" }),
+      body,
       method: "POST",
     });
     const parsed = actionSchema.safeParse(await response.json());

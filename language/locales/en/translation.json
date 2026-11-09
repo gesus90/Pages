@@ -338,7 +338,18 @@
         "scope_missing": "Access to Google Drive was not granted. Please sign in again and allow Drive.",
         "failed": "Google did not confirm the sign-in.",
         "forbidden": "Only an administrator in the admin mode can finish the sign-in.",
-        "not_configured": "The Google OAuth client is not set up."
+        "not_configured": "The Google OAuth client is not set up.",
+        "write_declined": "Write access was not granted; the existing connection stays unchanged.",
+        "account_mismatch": "A different Google account was chosen; the existing connection stays unchanged."
+      },
+      "simulation": {
+        "badge": "Simulation",
+        "text": "Simulated Google Drive – no real data, no connection to Google. The Google sign-in is switched off here."
+      },
+      "writeAccess": {
+        "title": "Write access missing",
+        "text": "Storage can only read files. To create, rename, copy, move and delete, Pages needs full Google Drive access. Sign in again here and allow it at Google; if it is declined, the existing connection stays unchanged.",
+        "grant": "Sign in again with full Drive access"
       }
     },
     "title": "Settings",
@@ -6340,7 +6351,10 @@
       "countMore_one": "{{count}} item loaded, more available",
       "countMore_other": "{{count}} items loaded, more available",
       "loadMore": "Load more",
-      "loadMoreFailed": "More items could not be loaded."
+      "loadMoreFailed": "More items could not be loaded.",
+      "actions": "Actions",
+      "select": "Select {{name}}",
+      "selected": "(selected)"
     },
     "quota": {
       "title": "Storage quota",
@@ -6355,6 +6369,147 @@
       "noShare": "Google reports no limit; percentage and free storage are omitted.",
       "poolHint": "With Google Workspace the limit may be a storage pool shared by the organization, so percentage and free storage are not calculated.",
       "barLabel": "Used share of the Google account storage"
+    },
+    "simulation": {
+      "title": "Simulated Google Drive",
+      "text": "Simulated Google Drive – no real data, no connection to Google. Changes last only until the server restarts."
+    },
+    "write": {
+      "missingTitle": "Write access missing",
+      "missingText": "Storage can only show and download files. To create, rename, copy, move and delete, Pages needs full Google Drive access: sign in again under Settings → System and allow it.",
+      "grant": "Sign in again under Settings → System",
+      "readOnlyScenario": "This simulation scenario is read-only; changes are not possible."
+    },
+    "actions": {
+      "menu": "Actions for {{name}}",
+      "download": "Download",
+      "upload": "Upload",
+      "cancel": "Cancel",
+      "dismiss": "Dismiss"
+    },
+    "name": {
+      "label": "Name",
+      "title": {
+        "create_folder": "New folder",
+        "rename": "Rename"
+      },
+      "submit": {
+        "create_folder": "Create",
+        "rename": "Rename"
+      }
+    },
+    "conflict": {
+      "title": "Name already taken",
+      "text": "The folder already holds “{{name}}”.",
+      "textUnnamed": "The folder already holds an entry with this name.",
+      "keepBoth": "Keep both",
+      "replace": "Replace"
+    },
+    "confirm": {
+      "title": {
+        "delete": "Move to trash?",
+        "delete_permanently": "Delete permanently?",
+        "overwrite": "Replace file?",
+        "update": "Update file?"
+      },
+      "text": {
+        "delete": "“{{name}}” moves to the trash with all its content and can be restored from there.",
+        "delete_permanently": "“{{name}}” will be deleted permanently. This cannot be undone.",
+        "overwrite": "The content of the existing file “{{name}}” will be replaced by the uploaded file.",
+        "update": "The content of the file “{{name}}” will be replaced."
+      },
+      "action": {
+        "delete": "Move to trash",
+        "delete_permanently": "Delete permanently",
+        "overwrite": "Replace",
+        "update": "Update"
+      },
+      "scope": "Affected: {{folders}}, {{files}}, {{size}}.",
+      "folderCount_one": "{{count}} folder",
+      "folderCount_other": "{{count}} folders",
+      "fileCount_one": "{{count}} file",
+      "fileCount_other": "{{count}} files",
+      "truncated": "The count stopped at its limit; there are more entries.",
+      "refreshed": "The entry changed meanwhile. Please check its current state and confirm again."
+    },
+    "trash": {
+      "open": "Trash",
+      "close": "Close trash",
+      "loading": "Loading the trash …",
+      "empty": "The trash is empty.",
+      "restore": "Restore",
+      "deletePermanently": "Delete permanently"
+    },
+    "error": {
+      "forbidden": "Pages does not allow you this action.",
+      "invalid_request": "The request was incomplete or invalid.",
+      "invalid_reference": "The reference to the entry is invalid.",
+      "invalid_path": "The path is invalid.",
+      "not_found": "The entry was not found. It may have been moved or deleted.",
+      "trashed": "The entry is in the trash.",
+      "not_trashed": "The entry is not in the trash.",
+      "not_folder": "The target is not a folder.",
+      "is_folder": "This action is not possible for folders.",
+      "ambiguous_path": "The path is ambiguous because several entries share a name.",
+      "name_conflict": "The folder already holds an entry with this name.",
+      "confirmation_required": "This action has to be confirmed first.",
+      "confirmation_invalid": "The confirmation expired or is no longer valid. Please run the action again.",
+      "unsupported_operation": "This action is not possible for this entry.",
+      "too_large": "The file is too large.",
+      "provider_forbidden": "Google Drive refuses this action for the connected account.",
+      "provider_scope_missing": "The Google Drive connection lacks write access.",
+      "connection_unavailable": "The Google Drive connection cannot be used right now.",
+      "provider_unreachable": "Google Drive cannot be reached right now. Please try again later.",
+      "failed": "The action failed.",
+      "tooLargeLimit": "The file is too large. At most {{limit}} are allowed."
+    },
+    "menu": {
+      "label": "File actions",
+      "newFolder": "New folder",
+      "rename": "Rename",
+      "copy": "Copy",
+      "move": "Move",
+      "paste": "Paste here",
+      "trash": "Delete",
+      "multiSelect": "Multi-select",
+      "selectAll": "Select all",
+      "on": "on",
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "clipboard": {
+        "copy_one": "{{count}} entry ready to copy",
+        "copy_other": "{{count}} entries ready to copy",
+        "move_one": "{{count}} entry ready to move",
+        "move_other": "{{count}} entries ready to move"
+      },
+      "hint": {
+        "copyFolder": "Google Drive cannot copy folders. Folders can be moved.",
+        "limit": "At most 100 entries per action."
+      }
+    },
+    "batch": {
+      "done": {
+        "copy_one": "{{count}} entry copied",
+        "copy_other": "{{count}} entries copied",
+        "move_one": "{{count}} entry moved",
+        "move_other": "{{count}} entries moved",
+        "delete_one": "{{count}} entry moved to the trash",
+        "delete_other": "{{count}} entries moved to the trash"
+      },
+      "partly_one": "{{done}}, {{count}} refused",
+      "partly_other": "{{done}}, {{count}} refused",
+      "reason_one": "{{count}} × {{reason}} ({{names}})",
+      "reason_other": "{{count}} × {{reason}} ({{names}})",
+      "more_one": "and {{count}} more",
+      "more_other": "and {{count}} more",
+      "trash": {
+        "title_one": "Move {{count}} entry to the trash?",
+        "title_other": "Move {{count}} entries to the trash?",
+        "text": "The selection goes to the Google Drive trash and can be restored there. Nothing is deleted for good here.",
+        "folders_one": "One folder moves with all its content.",
+        "folders_other": "{{count}} folders move with all their content.",
+        "confirm": "Move to trash"
+      }
     }
   },
   "personColor": {

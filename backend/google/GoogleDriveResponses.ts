@@ -112,18 +112,21 @@ export function driveProblem(
  * @param fetcher - The `fetch` to use.
  * @param url - The Google address.
  * @param init - Method, headers and body.
+ * @param timeoutMs - How long the whole exchange may take, body included;
+ * downloads and uploads of the Storage interface need longer than metadata.
  * @returns The answer, or `null` when Google could not be reached.
  */
 export async function sendGoogleRequest(
   fetcher: GoogleFetch,
   url: string,
   init: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<Response | null> {
   try {
     return await fetcher(url, {
       ...init,
       redirect: "error",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (caughtError: unknown) {
     logCaughtError("GoogleDriveApiClient", caughtError);

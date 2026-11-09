@@ -5,6 +5,12 @@ import googleDriveIconUrl from "@/assets/google-drive/page256-google-drive-icon.
 import { Button } from "@/app/components/ui/button";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 
+import {
+  GoogleDriveSimulationBadge,
+  GoogleDriveSimulationNotice,
+  GoogleDriveWriteAccessNotice,
+  lacksWriteAccess,
+} from "./google-drive-access-notices";
 import { useGoogleDrive } from "./use-google-drive";
 
 import type {
@@ -61,6 +67,11 @@ function GoogleDriveAction({
 
   const { state } = reading.status;
 
+  if (reading.status.isSimulation) {
+    // The simulation has no Google sign-in; starting one only fails.
+    return <GoogleDriveSimulationBadge />;
+  }
+
   if (!reading.status.canSignIn || !awaitsSignIn(reading.status)) {
     return state === "connected" ? <ConnectedBadge /> : null;
   }
@@ -114,6 +125,36 @@ function statusProblem(status: GoogleDriveStatus, t: TFunction): string | null {
   return status.problem === null
     ? null
     : t(`settings.googleDrive.problem.${status.problem}`);
+}
+
+/** The notices about the simulation and the missing write access, when they apply. */
+function GoogleDriveAccessNotices({
+  model,
+}: {
+  readonly model: GoogleDriveCardModel;
+}): React.ReactElement | null {
+  if (model.reading.kind !== "loaded") {
+    return null;
+  }
+
+  const { status } = model.reading;
+
+  // A read-only simulation names the missing access too; without a sign-in
+  // in the simulation the notice offers no button (PAGE-272).
+  if (status.isSimulation) {
+    return (
+      <>
+        <GoogleDriveSimulationNotice />
+        {status.state === "connected" && status.needsWriteAccess ? (
+          <GoogleDriveWriteAccessNotice model={model} status={status} />
+        ) : null}
+      </>
+    );
+  }
+
+  return lacksWriteAccess(status) ? (
+    <GoogleDriveWriteAccessNotice model={model} status={status} />
+  ) : null;
 }
 
 /** Every error message the card shows right now, newest cause first. */
@@ -179,6 +220,7 @@ export function GoogleDriveCard(): React.ReactElement {
           <GoogleDriveAction model={model} />
         </div>
       </div>
+      <GoogleDriveAccessNotices model={model} />
       {messages.length > 0 ? (
         <ul
           className="mt-3 flex flex-col gap-1 text-xs break-words text-destructive"

@@ -22,7 +22,12 @@ export interface GoogleDriveSignInAttempt {
   readonly createdAt: number;
   readonly expiresAt: number;
   readonly consumedAt: number | null;
+  /** `write` for the targeted consent that adds the full drive scope (PAGE-270). */
+  readonly requestedAccess: GoogleDriveRequestedAccess;
 }
+
+/** The access a sign-in attempt asks Google for. */
+export type GoogleDriveRequestedAccess = "read" | "write";
 
 /** The stored connection of the instance; the refresh token is encrypted. */
 export interface StoredGoogleDriveConnection {
@@ -60,7 +65,8 @@ const ATTEMPT_COLUMNS = `
             code_verifier_secret,
             CAST(created_at AS TEXT),
             CAST(expires_at AS TEXT),
-            CAST(consumed_at AS TEXT)`;
+            CAST(consumed_at AS TEXT),
+            requested_access`;
 
 function readMilliseconds(
   row: readonly DatabaseValue[],
@@ -92,6 +98,8 @@ function toAttempt(row: readonly DatabaseValue[]): GoogleDriveSignInAttempt {
     expiresAt: readMilliseconds(row, 6, "expires_at"),
     id: readTextColumn(row, 0, "id"),
     redirectUri: readTextColumn(row, 3, "redirect_uri"),
+    requestedAccess:
+      readTextColumn(row, 8, "requested_access") === "write" ? "write" : "read",
     stateHash: readTextColumn(row, 1, "state_hash"),
     userId: readTextColumn(row, 2, "user_id"),
   };
@@ -153,7 +161,8 @@ export class GoogleDriveRepository {
               redirect_uri,
               code_verifier_secret,
               created_at,
-              expires_at
+              expires_at,
+              requested_access
           )
           VALUES (
               $id,
@@ -162,7 +171,8 @@ export class GoogleDriveRepository {
               $redirect_uri,
               $code_verifier_secret,
               $created_at,
-              $expires_at
+              $expires_at,
+              $requested_access
           );
         `,
         {
@@ -171,6 +181,7 @@ export class GoogleDriveRepository {
           expires_at: attempt.expiresAt,
           id: attempt.id,
           redirect_uri: attempt.redirectUri,
+          requested_access: attempt.requestedAccess,
           state_hash: attempt.stateHash,
           user_id: attempt.userId,
         },

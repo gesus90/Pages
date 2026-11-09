@@ -10,6 +10,7 @@ import { PicaAdminBrowser } from "./PicaAdminBrowser";
 import { PicaAdminFiles, adminScope } from "./PicaAdminFiles";
 import { PICA_ADMIN_SCHEMAS, PicaAdminError } from "./PicaAdminContracts";
 import { launchPicaBrowser } from "./PicaBrowserSandbox";
+import { PicaStorageService } from "./PicaStorageService";
 
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
@@ -27,6 +28,8 @@ import type { PicaBrowserFrame } from "../browser/PicaBrowserSession";
 import type { PicaBrowserSessionStore } from "../browser/PicaBrowserSessionStore";
 import type { PicaBrowserOrigins } from "../browser/PicaBrowserTargets";
 import type { PicaAdminTool } from "./PicaAdminContracts";
+import type { PicaStorageFiles } from "./PicaStorageHandlers";
+import type { PicaStorageCall } from "./PicaStorageService";
 
 /** The scope id of a task the administrator console started, as opposed to a chat job. */
 const CONSOLE_SESSION = "admin-console";
@@ -49,6 +52,8 @@ export interface PicaAdminServiceOptions {
   readonly localOrigins?: () => PicaBrowserOrigins;
   /** Where signed-in sessions the administrator released are kept, encrypted. */
   readonly browserSessions?: PicaBrowserSessionStore;
+  /** The Storage interface of the instance Drive (PAGE-271); without it no Storage tool is offered. */
+  readonly storage?: PicaStorageFiles;
 }
 
 interface AdminScope {
@@ -72,6 +77,7 @@ export class PicaAdminService {
   private readonly browsers = new PicaAdminBrowser();
   private readonly operatorBrowsers: PicaOperatorBrowser;
   private readonly scopes = new Map<string, AdminScope>();
+  private readonly storage: PicaStorageService | null;
 
   public constructor(
     accounts: {
@@ -81,6 +87,9 @@ export class PicaAdminService {
     options: PicaAdminServiceOptions = {},
   ) {
     this.accounts = accounts;
+    this.storage = options.storage
+      ? new PicaStorageService(options.storage)
+      : null;
     this.operatorBrowsers = new PicaOperatorBrowser({
       launch: options.launchBrowser ?? launchPicaBrowser,
       origins: options.localOrigins ?? (() => ({ pages: [], services: [] })),
@@ -110,6 +119,27 @@ export class PicaAdminService {
   public async requireAdministrator(userId: string): Promise<void> {
     if (process.getuid?.() === 0) throw new PicaAdminError("OS_RIGHTS_DENIED");
     await this.requireAccount(userId);
+  }
+
+  /** Tells whether the Storage tools are offered on this instance. */
+  public hasStorage(): boolean {
+    return this.storage !== null;
+  }
+
+  /**
+   * Runs one Storage tool with the administrator right resolved before and after it (PAGE-271).
+   *
+   * @param call - Tool, checked arguments, job scope and human turn.
+   * @returns The outcome, or `ADMIN_REQUIRED` without an active administrator in the admin mode.
+   */
+  public async runStorage(call: PicaStorageCall): Promise<PicaToolOutcome> {
+    const storage = this.storage;
+    if (!storage) return { ok: false, result: null, error: "UNKNOWN_TOOL" };
+    return this.runPrivileged(
+      { operation: call.tool, input: call.parameters },
+      call.context,
+      (guarded) => storage.run({ ...call, context: guarded }),
+    );
   }
 
   /** Tells whether the person is an administrator right now; only an unknown answer is an error. */

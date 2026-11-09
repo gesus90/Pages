@@ -9,18 +9,31 @@ import {
   STORAGE_SHARED_DRIVES_ID,
 } from "@/definition/GoogleDriveStorage";
 
+import { StorageActionDialogs } from "./storage-action-dialogs";
+import {
+  StorageActionError,
+  StorageReadOnlyNotice,
+  StorageSimulationBanner,
+} from "./storage-action-notices";
+import { StorageActionToolbar } from "./storage-action-toolbar";
 import { StorageContent } from "./storage-content";
 import { pathText, storageFolderHref } from "./storage-format";
 import { StorageHeader } from "./storage-header";
 import { StorageReachNotice, StorageRenamedNotice } from "./storage-notices";
 import { requestStartFolderChange } from "./storage-requests";
 import { StorageStartFolderPicker } from "./storage-start-folder-picker";
+import { StorageTrashPanel } from "./storage-trash-panel";
 import { useStorageFolder } from "./use-storage-folder";
+import { useStorageFileManager } from "./use-storage-file-manager";
+import { useStorageFolderActions } from "./use-storage-folder-actions";
 
+import type { StorageCapabilities } from "@/definition/GoogleDriveFiles";
 import type {
   StorageBrowseResult,
   StorageStartFolder,
 } from "@/definition/GoogleDriveStorage";
+
+import type { StorageFolderActions } from "./use-storage-folder-actions";
 
 /** The folder of the address; without one the start folder opens. */
 function readFolderParameter(searchParams: URLSearchParams): string | null {
@@ -80,22 +93,39 @@ function StorageToolbar({
   );
 }
 
+/** Whether Drive is simulated, by the folder answer or by the capabilities. */
+function isSimulated(
+  result: StorageBrowseResult,
+  capabilities: StorageCapabilities | null,
+): boolean {
+  return result.isSimulation === true || capabilities?.isSimulation === true;
+}
+
 function StorageMessages({
   result,
+  capabilities,
 }: {
   readonly result: StorageBrowseResult;
+  readonly capabilities: StorageCapabilities | null;
 }): React.ReactElement | null {
   const renamedTo = result.startFolder?.name ?? null;
+  const isSimulation = isSimulated(result, capabilities);
+  const isReadOnly = capabilities !== null && !capabilities.canWrite;
+  const hasRenamed =
+    result.startFolderRenamedFrom !== null && renamedTo !== null;
+  const hasMessages =
+    result.reach === "app_files" || hasRenamed || isSimulation || isReadOnly;
 
-  if (
-    result.reach === "full" &&
-    (result.startFolderRenamedFrom === null || renamedTo === null)
-  ) {
+  if (!hasMessages) {
     return null;
   }
 
   return (
     <div className="flex flex-col gap-2">
+      {isSimulation ? <StorageSimulationBanner /> : null}
+      {isReadOnly ? (
+        <StorageReadOnlyNotice capabilities={capabilities} />
+      ) : null}
       {result.reach === "app_files" ? <StorageReachNotice /> : null}
       {result.startFolderRenamedFrom !== null && renamedTo !== null ? (
         <StorageRenamedNotice
@@ -107,26 +137,89 @@ function StorageMessages({
   );
 }
 
+/** The folder actions, a failure no dialog resolves, and the trash switch. */
+function StorageActionBar({
+  writing,
+  isTrashOpen,
+  onToggleTrash,
+}: {
+  readonly writing: StorageFolderActions;
+  readonly isTrashOpen: boolean;
+  readonly onToggleTrash: () => void;
+}): React.ReactElement {
+  const { actions } = writing;
+
+  return (
+    <>
+      <StorageActionToolbar
+        actions={actions}
+        canAddHere={writing.canAddHere}
+        isTrashOpen={isTrashOpen}
+        onToggleTrash={onToggleTrash}
+      />
+      {actions.dialog.kind === "none" && actions.error !== null ? (
+        <StorageActionError
+          error={actions.error}
+          onDismiss={actions.dismissError}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * The frame of the Storage area.
+ *
+ * The section fills the width beside the global navigation and the height
+ * down to the bottom padding of the frame (`2.5rem`); only the list inside the
+ * card scrolls, menu bar, column heads and footer stay. Its own bottom
+ * padding keeps the card just above the Pica launcher (PAGE-272), so the
+ * launcher never covers it, also while the list scrolls or the window
+ * changes: on tablets and desktops the launcher takes `1rem` offset and a
+ * `3.5rem` button, and the card ends `0.75rem` above it (`5.25rem` above the
+ * viewport bottom); on phones, where the launcher sits `4rem` up, it ends
+ * `8.25rem` above the bottom. The safe-area inset the launcher adds is added
+ * here as well.
+ *
+ * The bottom padding sits outside the inner column, which scrolls when the
+ * notices above the card need more room than a phone has: nothing scrolls
+ * through the free space of the launcher, so it covers no part of the card
+ * at any scroll position.
+ */
+function StorageFrame({
+  children,
+}: {
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <section className="flex h-[calc(100dvh-8.5rem)] min-h-0 flex-col pb-[calc(env(safe-area-inset-bottom)+5.75rem)] md:pb-[calc(env(safe-area-inset-bottom)+2.75rem)]">
+      <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1">
+        {children}
+      </div>
+    </section>
+  );
+}
+
 /**
  * The Storage area (PAGE-188): the Google Drive of the existing instance
  * connection, with path, file list, start folder and storage quota.
- *
- * @remarks
- * The section fills the width beside the global navigation and the height
- * down to the bottom padding of the frame (`2.5rem`); only the list inside the
- * card scrolls. Its own bottom padding keeps the free space of the Pica
- * launcher, so the launcher never covers the card, also while the list
- * scrolls or the window changes: on tablets and desktops the card ends
- * `9.75rem` above the viewport bottom, which is the launcher (`1rem` offset,
- * `3.5rem` button) plus a gap of about 85 px; on phones, where the launcher
- * sits `4rem` up, it ends `8.5rem` above the bottom.
  */
 export function StoragePage(): React.ReactElement {
   const [searchParams] = useSearchParams();
   const folderId = readFolderParameter(searchParams);
   const model = useStorageFolder({ folderId, isFoldersOnly: false });
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
   const result = model.reading.kind === "loaded" ? model.reading.result : null;
+  const writing = useStorageFolderActions(result, model.reload);
+  const manager = useStorageFileManager(result, writing, model.reload);
+
+  function toggleTrash(): void {
+    // A restore in the trash may bring entries back into the shown folder.
+    if (isTrashOpen) model.reload();
+
+    setIsTrashOpen(!isTrashOpen);
+  }
 
   function handleSaved(startFolder: StorageStartFolder | null): void {
     setIsPickerOpen(false);
@@ -145,12 +238,14 @@ export function StoragePage(): React.ReactElement {
   }
 
   return (
-    <section className="flex h-[calc(100dvh-8.5rem)] min-h-0 flex-col gap-4 pb-24 md:pb-29">
+    <StorageFrame>
       <StorageHeader
         isConnected={result !== null}
         path={result?.folder?.path ?? []}
       />
-      {result ? <StorageMessages result={result} /> : null}
+      {result ? (
+        <StorageMessages capabilities={writing.capabilities} result={result} />
+      ) : null}
       {result ? (
         <StorageToolbar
           isExplicitTarget={folderId !== null}
@@ -158,11 +253,27 @@ export function StoragePage(): React.ReactElement {
           result={result}
         />
       ) : null}
-      <StorageContent
-        model={model}
-        onChooseStartFolder={() => setIsPickerOpen(true)}
-        onClearStartFolder={() => void clearStartFolder()}
-      />
+      {result ? (
+        <StorageActionBar
+          isTrashOpen={isTrashOpen}
+          onToggleTrash={toggleTrash}
+          writing={writing}
+        />
+      ) : null}
+      {isTrashOpen ? null : manager.notices}
+      {isTrashOpen ? (
+        <StorageTrashPanel canWrite={writing.canWrite} />
+      ) : (
+        <StorageContent
+          model={model}
+          onChooseStartFolder={() => setIsPickerOpen(true)}
+          onClearStartFolder={() => void clearStartFolder()}
+          renderActions={writing.renderActions}
+          tools={manager.tools}
+        />
+      )}
+      <StorageActionDialogs actions={writing.actions} />
+      {manager.overlays}
       {result ? (
         <StorageStartFolderPicker
           initialFolderId={
@@ -176,6 +287,6 @@ export function StoragePage(): React.ReactElement {
           startFolder={result.startFolder}
         />
       ) : null}
-    </section>
+    </StorageFrame>
   );
 }

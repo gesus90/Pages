@@ -72,6 +72,7 @@ const browseSchema = z.object({
   accountEmail: z.string().nullable(),
   reach: z.enum(["full", "app_files"]),
   hasSharedDrives: z.boolean(),
+  isSimulation: z.boolean().optional(),
   startFolder: startFolderSchema.nullable(),
   startFolderProblem: z
     .union([folderProblemSchema, z.literal("other_account")])

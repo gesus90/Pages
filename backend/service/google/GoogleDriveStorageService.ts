@@ -71,6 +71,8 @@ export interface GoogleDriveStorageDependencies {
     "find" | "save" | "rename" | "remove"
   >;
   readonly now?: () => number;
+  /** Whether Drive is the in-memory simulation (PAGE-270); answers say so. */
+  readonly isSimulation?: boolean;
 }
 
 /** A folder Drive confirmed, with its path. */
@@ -171,6 +173,7 @@ export class GoogleDriveStorageService {
   private readonly files: GoogleDriveStorageDependencies["files"];
   private readonly startFolders: GoogleDriveStorageDependencies["startFolders"];
   private readonly now: () => number;
+  private readonly isSimulation: boolean;
 
   /**
    * Creates the storage service.
@@ -182,6 +185,7 @@ export class GoogleDriveStorageService {
     this.files = dependencies.files;
     this.startFolders = dependencies.startFolders;
     this.now = dependencies.now ?? Date.now;
+    this.isSimulation = dependencies.isSimulation ?? false;
   }
 
   /**
@@ -208,6 +212,7 @@ export class GoogleDriveStorageService {
       folder: null,
       folderProblem: null,
       hasSharedDrives: reach === "full",
+      isSimulation: this.isSimulation,
       kind: "browse",
       reach,
       startFolder: saved && isOwnStart ? toStartFolder(saved) : null,

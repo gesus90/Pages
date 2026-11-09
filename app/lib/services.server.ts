@@ -375,7 +375,10 @@ async function startMcpWorkspace(context: {
   /** The ticket services, whose GitHub synchronization and event publisher the workspace shares. */
   readonly tasks: Pick<
     ApplicationServices,
-    "gitHubSyncService" | "pagesEventPublisher" | "taskService"
+    | "gitHubSyncService"
+    | "googleDriveFileService"
+    | "pagesEventPublisher"
+    | "taskService"
   >;
   readonly serverCache: ServerCache;
   readonly tokenKey: Buffer;
@@ -429,6 +432,7 @@ async function startMcpWorkspace(context: {
     router: services.chatOperationRouter,
     acp: await picaAcpSettings(),
     protectedOrigin: runtime.getConfig().publicUrl,
+    storage: context.tasks.googleDriveFileService,
     picaBrowser: picaBrowserOptions({
       directory,
       instanceKey: context.tokenKey,
@@ -479,8 +483,7 @@ async function createTaskServices(
     | "discordAuthorizationService"
     | "discordConnectionService"
     | "gitHubSyncService"
-    | "googleDriveConnectionService"
-    | "googleDriveStorageService"
+    | keyof GoogleDriveApplicationServices
     | "liveChangeHub"
     | "liveChangeAudience"
     | "pagesEventPublisher"
