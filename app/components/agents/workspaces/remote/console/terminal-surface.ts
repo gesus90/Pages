@@ -105,6 +105,8 @@ export interface TerminalSurfaceOptions {
   readonly scrollback?: number;
   /** The token family of the colors, such as `agent-terminal`; `terminal` when absent. */
   readonly palette?: string;
+  /** Font size in pixels; 15 when absent, as the remote console has it. */
+  readonly fontSize?: number;
   /** Row height as a multiple of the font size; 1.52 when absent. */
   readonly lineHeight?: number;
   /** Shows output only: no cursor and no keyboard input, as the Pages terminal of agent nodes (PAGE-284). */
@@ -126,11 +128,11 @@ export async function createTerminalSurface(
     cursorBlink: !isOutputOnly,
     cursorInactiveStyle: isOutputOnly ? "none" : "outline",
     disableStdin: isOutputOnly,
-    // The monospace stack of the Pages theme, at 15 px on 25 px rows.
+    // The monospace stack of the Pages theme, by default at 15 px on 25 px rows.
     fontFamily:
       getComputedStyle(container).getPropertyValue("--font-mono").trim() ||
       "monospace",
-    fontSize: 15,
+    fontSize: options.fontSize ?? 15,
     lineHeight: options.lineHeight ?? 1.52,
     scrollback: options.scrollback ?? 3000,
     screenReaderMode: options.isScreenReaderMode,
@@ -155,10 +157,11 @@ export async function createTerminalSurface(
   const updateTheme = (): void => {
     terminal.options.theme = terminalTheme(container, palette);
   };
+  // A change of theme or design recolors an open terminal at once.
   const theme = new MutationObserver(updateTheme);
   theme.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ["data-theme"],
+    attributeFilter: ["data-theme", "data-design-theme"],
   });
   const media = matchMedia("(prefers-color-scheme: dark)");
   media.addEventListener("change", updateTheme);

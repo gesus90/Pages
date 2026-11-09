@@ -12,7 +12,7 @@ import {
   sessionCommands,
   sessionView,
 } from "./console-fixture";
-import { SESSION_VIEW } from "../../page161-session-fixture";
+import { SESSION_VIEW, historyEvent } from "../../page161-session-fixture";
 
 import type { AgentSessionData } from "@/app/components/agents/plans/plan-agent-console/use-agent-session";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -248,10 +248,105 @@ it("reads the todos and the activity the agent reported before the title of its 
   expect(screen.getByRole("heading", { name: "Todos 1 / 2" })).toBeTruthy();
   const items = screen.getAllByRole("listitem").map((item) => item.textContent);
   expect(items).toEqual([
-    "✓doneRead requirements",
-    "●activeT2 Implement changes",
+    "doneRead requirements",
+    "activeT2 Implement changes",
   ]);
+  const marks = screen
+    .getAllByRole("listitem")
+    .map((item) => item.querySelector("[data-todo-mark]"));
+  expect(marks.map((mark) => mark?.getAttribute("data-todo-mark"))).toEqual([
+    "done",
+    "active",
+  ]);
+  expect(
+    marks.every((mark) => mark?.getAttribute("aria-hidden") === "true"),
+  ).toBe(true);
+  expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   expect(activity()).toBe("Writing the tests");
+});
+
+it("ticks only the status line and the runtime while a tool runs, and drops both at the end", () => {
+  const now = 1_790_000_000_000;
+  const at = (milliseconds: number): string =>
+    new Date(now - milliseconds).toISOString();
+  vi.mocked(useAgentSession).mockReturnValue(
+    sessionData({
+      events: [
+        {
+          ...historyEvent(1),
+          kind: "tool_started",
+          text: "Run tests\n@kind execute\n$ pnpm run check",
+          createdAt: at(12_000),
+        },
+      ],
+    }),
+  );
+  renderSession(
+    cliStep({ session: cliSession({ startedAt: at(65_000), endedAt: null }) }),
+    { isLive: true },
+  );
+  expect(screen.getByTestId("plan-terminal-status").textContent).toBe(
+    "Shellpnpm run checkrunning for 12 s",
+  );
+  expect(fact("Runtime")).toBe("01:05");
+  const facts = screen.getAllByText(/./u, { selector: "dt" });
+  expect(
+    facts[facts.findIndex((term) => term.textContent === "Runtime") - 1]
+      ?.textContent,
+  ).toBe("Cost");
+  cleanup();
+  renderSession(
+    cliStep({
+      status: "succeeded",
+      session: cliSession({ startedAt: at(3_725_000), endedAt: at(0) }),
+    }),
+    { isLive: true },
+  );
+  expect(screen.queryByTestId("plan-terminal-status")).toBeNull();
+  expect(fact("Runtime")).toBe("1:02:05");
+});
+
+it("counts down a planned resume in the status line while the terminal names the planned delay", () => {
+  const now = 1_790_000_000_000;
+  vi.mocked(useAgentSession).mockReturnValue(sessionData());
+  renderSession(
+    cliStep({
+      session: cliSession({
+        attemptId: SESSION_VIEW.key.attemptId,
+        retry: {
+          state: "waiting",
+          reason: "transient",
+          failureClass: "infrastructure",
+          nextAttemptAt: new Date(now + 42_000).toISOString(),
+          resetAt: null,
+          attempts: [
+            {
+              attemptId: SESSION_VIEW.key.attemptId,
+              sessionId: null,
+              endedAt: new Date(now - 18_000).toISOString(),
+              code: "provider_unavailable",
+              failureClass: "infrastructure",
+            },
+          ],
+        },
+      }),
+    }),
+    { isLive: true },
+  );
+  expect(screen.getByTestId("plan-terminal-status").textContent).toBe(
+    "Resume plannedin 42 s",
+  );
+});
+
+it("shows that the agent works without a counter when no tool runs", () => {
+  vi.mocked(useAgentSession).mockReturnValue(sessionData());
+  renderSession(cliStep({ session: cliSession({ startedAt: null }) }), {
+    isLive: true,
+  });
+  expect(screen.getByTestId("plan-terminal-status").textContent).toBe(
+    "Agent is working",
+  );
+  expect(fact("Runtime")).toBe("unknown");
 });
 
 it("falls back to the title of the ACP plan and reads a finished node as finished", () => {

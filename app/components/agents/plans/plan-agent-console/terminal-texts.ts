@@ -27,7 +27,6 @@ export function terminalTexts(t: TFunction): TerminalTexts {
       TOOL_KINDS.has(kind) ? t(`${key}.toolKind.${kind}`) : null,
     done: t(`${key}.done`),
     aborted: t(`${key}.aborted`),
-    running: (seconds) => t(`${key}.running`, { seconds }),
     todoActive: (id, text) => t(`${key}.todoActive`, { id, text }),
     todoDone: (id) => t(`${key}.todoDone`, { id }),
     turnEnded: t(`${key}.turnEnded`),

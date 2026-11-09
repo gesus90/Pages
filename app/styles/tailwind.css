@@ -86,30 +86,35 @@
   --color-terminal-accent: #c4a2ff;
   --color-terminal-cyan: #67d5e5;
 
-  /* The Pages terminal of agent nodes (PAGE-284): near black in both themes,
-     white prompts, grey hints, cyan tools, yellow todos, orange resumes. */
-  --color-agent-terminal-surface: #0b0e14;
-  --color-agent-terminal-foreground: #d6dce5;
-  --color-agent-terminal-strong: #ffffff;
-  --color-agent-terminal-muted: #8b95a5;
-  --color-agent-terminal-selection: #2b3442;
-  --color-agent-terminal-success: #4cc38a;
-  --color-agent-terminal-warning: #e3b341;
-  --color-agent-terminal-error: #e5534b;
-  --color-agent-terminal-info: #7fb4ff;
-  --color-agent-terminal-accent: #f0883e;
-  --color-agent-terminal-cyan: #4fb3d9;
-  --color-agent-terminal-rule: #262c36;
-  /* The dialog around the Pages terminal stays dark with it. */
-  --color-agent-console-surface: #151a22;
-  --color-agent-console-border: #272d38;
-  --color-agent-console-foreground: #e8ecf2;
-  --color-agent-console-muted: #8d97a7;
-  --color-agent-console-pill: #232a35;
-  --color-agent-console-track: #2a313d;
-  --color-agent-console-danger: #d9534f;
-  --color-agent-console-danger-hover: #c64541;
-  --color-agent-console-danger-foreground: #ffffff;
+  /* The Pages terminal of agent nodes (PAGE-284) follows the active theme and
+     design (PAGE-289): bold prompts, grey hints, tools, todos and resumes in
+     the status colors of the design. */
+  --color-agent-terminal-surface: var(--color-panel-body);
+  --color-agent-terminal-foreground: var(--color-foreground);
+  --color-agent-terminal-strong: var(--color-foreground);
+  --color-agent-terminal-muted: var(--color-muted-foreground);
+  --color-agent-terminal-selection: var(--color-primary-subtle);
+  --color-agent-terminal-success: var(--color-success);
+  --color-agent-terminal-warning: var(--color-warning);
+  --color-agent-terminal-error: var(--color-destructive);
+  --color-agent-terminal-info: var(--color-info);
+  --color-agent-terminal-accent: var(--color-primary);
+  --color-agent-terminal-cyan: var(--color-info);
+  --color-agent-terminal-rule: var(--color-border);
+  /* The dialog around the Pages terminal. */
+  --color-agent-console-surface: var(--color-surface);
+  --color-agent-console-border: var(--color-border);
+  --color-agent-console-foreground: var(--color-foreground);
+  --color-agent-console-muted: var(--color-muted-foreground);
+  --color-agent-console-pill: var(--color-muted);
+  --color-agent-console-track: var(--color-muted);
+  --color-agent-console-danger: var(--color-destructive);
+  --color-agent-console-danger-hover: color-mix(
+    in srgb,
+    var(--color-destructive) 85%,
+    var(--color-foreground)
+  );
+  --color-agent-console-danger-foreground: var(--color-surface);
 
   /* Plan node types stay distinct from their execution status: start and end
      green, parameters violet, agents cyan, scripts rose, tickets yellow, apart
@@ -442,31 +447,6 @@
     --color-terminal-info: #80baff;
     --color-terminal-accent: #c4a2ff;
     --color-terminal-cyan: #67d5e5;
-
-    /* The Pages terminal of agent nodes (PAGE-284): near black in both themes,
-       white prompts, grey hints, cyan tools, yellow todos, orange resumes. */
-    --color-agent-terminal-surface: #0b0e14;
-    --color-agent-terminal-foreground: #d6dce5;
-    --color-agent-terminal-strong: #ffffff;
-    --color-agent-terminal-muted: #8b95a5;
-    --color-agent-terminal-selection: #2b3442;
-    --color-agent-terminal-success: #4cc38a;
-    --color-agent-terminal-warning: #e3b341;
-    --color-agent-terminal-error: #e5534b;
-    --color-agent-terminal-info: #7fb4ff;
-    --color-agent-terminal-accent: #f0883e;
-    --color-agent-terminal-cyan: #4fb3d9;
-    --color-agent-terminal-rule: #262c36;
-    /* The dialog around the Pages terminal stays dark with it. */
-    --color-agent-console-surface: #151a22;
-    --color-agent-console-border: #272d38;
-    --color-agent-console-foreground: #e8ecf2;
-    --color-agent-console-muted: #8d97a7;
-    --color-agent-console-pill: #232a35;
-    --color-agent-console-track: #2a313d;
-    --color-agent-console-danger: #d9534f;
-    --color-agent-console-danger-hover: #c64541;
-    --color-agent-console-danger-foreground: #ffffff;
 
     --color-plan-agent: #3cc6d6;
     --color-plan-agent-subtle: #0f262d;

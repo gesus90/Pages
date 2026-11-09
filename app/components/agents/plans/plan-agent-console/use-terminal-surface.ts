@@ -32,8 +32,9 @@ export function useTerminalSurface(
           onCloseRequest,
           scrollback: SCROLLBACK,
           palette: "agent-terminal",
-          // xterm multiplies the cell height, not the font size: 15 px rows of 25 px as in the design.
-          lineHeight: 1.45,
+          // xterm multiplies the cell height, not the font size: 13 px on rows of about 18 px (PAGE-289).
+          fontSize: 13,
+          lineHeight: 1.4,
           isOutputOnly: true,
         }),
       )

@@ -35,6 +35,17 @@ function secondsUntil(at: string | null, now: number): number {
     : 0;
 }
 
+/** The seconds from one stored time to another; `undefined` when one is unreadable. */
+function secondsBetween(
+  from: string | null | undefined,
+  to: string | null | undefined,
+): number | undefined {
+  const start = Date.parse(from ?? "");
+  const end = Date.parse(to ?? "");
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return undefined;
+  return Math.max(0, Math.round((end - start) / 1000));
+}
+
 /** Failed attempts of a class up to and including one index. */
 function failedUpTo(
   attempts: readonly AgentPlanRetryAttempt[],
@@ -132,7 +143,6 @@ export function earlierAttempts(
 function retryEnding(
   step: AgentPlanStepResult,
   retry: AgentPlanRetry,
-  now: number,
 ): TerminalEnding | null {
   const index = retry.attempts.findIndex(
     (attempt) => attempt.attemptId === step.session?.attemptId,
@@ -140,7 +150,11 @@ function retryEnding(
   if (index < 0) return null;
   if (retry.state === "waiting")
     return abortedEnding(retry, index, {
-      delaySeconds: secondsUntil(retry.nextAttemptAt, now),
+      // The planned delay, not the countdown: the terminal text never depends on the time (PAGE-289).
+      delaySeconds: secondsBetween(
+        retry.attempts[index]?.endedAt,
+        retry.nextAttemptAt,
+      ),
       nextSessionId: retry.requiredResumeSessionId ?? null,
     });
   if (retry.state === "cancelled") return { kind: "stopped" };
@@ -167,14 +181,12 @@ function doneTodos(step: AgentPlanStepResult): {
  * How the current attempt of the node ended, or `null` while it runs.
  *
  * @param step - The node in the run.
- * @param now - The time now, for the countdown of a planned resume.
  */
 export function currentEnding(
   step: AgentPlanStepResult,
-  now: number,
 ): TerminalEnding | null {
   const retry = step.session?.retry;
-  const ending = retry ? retryEnding(step, retry, now) : null;
+  const ending = retry ? retryEnding(step, retry) : null;
   if (ending) return ending;
   if (step.status === "succeeded")
     return { kind: "succeeded", ...doneTodos(step) };

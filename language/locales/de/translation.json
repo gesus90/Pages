@@ -4723,6 +4723,7 @@
           "cost": "Kosten",
           "unknown": "unbekannt",
           "session": "Session",
+          "runtime": "Laufzeit",
           "model": "Modell",
           "reasoning": "Reasoning",
           "access": "Zugriff",
@@ -4744,7 +4745,12 @@
           "execute": "Shell",
           "fetch": "Abrufen"
         },
-        "noReport": "Turn-Ende ohne gültigen Bericht"
+        "noReport": "Turn-Ende ohne gültigen Bericht",
+        "status": {
+          "working": "Agent arbeitet",
+          "resume": "Wiederaufnahme geplant",
+          "resumeIn": "in {{seconds}} s"
+        }
       }
     },
     "flowInShort": "In",

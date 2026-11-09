@@ -4723,6 +4723,7 @@
           "cost": "Cost",
           "unknown": "unknown",
           "session": "Session",
+          "runtime": "Runtime",
           "model": "Model",
           "reasoning": "Reasoning",
           "access": "Access",
@@ -4744,7 +4745,12 @@
           "execute": "Shell",
           "fetch": "Fetch"
         },
-        "noReport": "Turn ended without a valid report"
+        "noReport": "Turn ended without a valid report",
+        "status": {
+          "working": "Agent is working",
+          "resume": "Resume planned",
+          "resumeIn": "in {{seconds}} s"
+        }
       }
     },
     "flowInShort": "In",
