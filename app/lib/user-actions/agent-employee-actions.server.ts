@@ -28,14 +28,22 @@ const AGENT_ERRORS: Readonly<
   usernameTaken: { code: "usernameTaken", status: 409 },
   modelNotAllowed: { code: "modelNotAllowed", status: 400 },
   accessUnsupported: { code: "accessUnsupported", status: 400 },
-  costLimitReached: { code: "invalidInput", status: 400 },
+  templateNameTaken: { code: "templateNameTaken", status: 409 },
   inactive: { code: "invalidInput", status: 400 },
   busy: { code: "invalidInput", status: 409 },
   unavailable: { code: "invalidInput", status: 400 },
 };
 
-/** Turns a refused agent operation into the response the panel shows. */
-function toAgentError(error: unknown, intent: UsersIntent): UsersActionResult {
+/**
+ * Turns a refused agent operation into the response the panel shows.
+ *
+ * @param error - What the service rejected with; anything else is thrown again.
+ * @param intent - The intent of the form.
+ */
+export function toAgentError(
+  error: unknown,
+  intent: UsersIntent,
+): UsersActionResult {
   if (!(error instanceof AgentEmployeeError)) throw error;
   const failure = AGENT_ERRORS[error.code];
   return data<UsersActionData>(

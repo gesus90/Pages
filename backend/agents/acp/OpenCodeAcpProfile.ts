@@ -1,5 +1,3 @@
-import { AgentError } from "@/backend/error/AgentErrors";
-
 import { approvePermission, refusePermission } from "./AcpPermissions";
 
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
@@ -112,14 +110,44 @@ function planProfile(mode: AcpPermissionMode): AcpSessionProfile {
   };
 }
 
-/** Resolves a plan mode while preserving Pica's narrower, existing read-only profile. */
+/**
+ * The conversation of an agent employee with full access: the YOLO rules of a
+ * plan node with every native tool inside the bubblewrap isolation, on the
+ * stock runner instead of the native Pages build, and the Pages tools of the
+ * agent's account over Pica's turn-bound bridge.
+ */
+function chatFullAccessProfile(): AcpSessionProfile {
+  const yolo = planProfile("yolo");
+  return {
+    ...yolo,
+    unattended:
+      "Native OpenCode ACP for an agent employee with full access, inside the bubblewrap isolation; managed permission rules and automatic ACP decisions, no interactive approvals",
+    permissions: {
+      ...yolo.permissions,
+      tools:
+        "all available native tools and the Pages tools of the agent's account",
+      pagesTools: "Pica bridge with the rights of the agent's account",
+      mcpServers: "Pica bridge only",
+    },
+  };
+}
+
+/**
+ * The profile of one Pages mode.
+ *
+ * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
+ * @param purpose - A Pica conversation takes the chat profile; the caller
+ * decides beforehand which stored mode it accepts for it. Only an agent
+ * employee with full access reaches the chat purpose in YOLO.
+ * @returns The plan profile of the mode, Pica's narrower read-only profile, or
+ * the full access profile of an employee's conversation.
+ */
 export function openCodeAcpProfile(
   mode: AcpPermissionMode,
   purpose?: AcpSessionPurpose,
 ): AcpSessionProfile {
   if (purpose !== "chat") return planProfile(mode);
-  if (mode !== "read_only") throw new AgentError("opencode_chat_mode_required");
-  return OPENCODE_PICA_PROFILE;
+  return mode === "yolo" ? chatFullAccessProfile() : OPENCODE_PICA_PROFILE;
 }
 
 /**

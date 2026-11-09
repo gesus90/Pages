@@ -65,8 +65,7 @@ function defaultWait(milliseconds: number): Promise<void> {
  * projects, plan runs and own chats. Without anything new no model runs.
  * Otherwise the agent's own model condenses it in a session of the agent's
  * own account, and the result replaces `MEMORY.md` and changes the archive
- * within both word limits; every applied run records a version. A reached
- * cost limit refuses the run, and the reason is recorded.
+ * within both word limits; every applied run records a version.
  */
 export class AgentLearningService {
   private readonly dependencies: AgentLearningDependencies;
@@ -123,12 +122,7 @@ export class AgentLearningService {
         return this.finish(
           agentId,
           null,
-          result(
-            error.code === "costLimitReached" ? "limitReached" : "failed",
-            {
-              errorCode: error.code,
-            },
-          ),
+          result("failed", { errorCode: error.code }),
         );
       }
       logCaughtError("AgentLearningService", error);

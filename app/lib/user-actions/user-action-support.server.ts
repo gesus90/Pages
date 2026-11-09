@@ -42,7 +42,8 @@ export type UsersErrorCode =
   | "userNotFound"
   | "conflict"
   | "modelNotAllowed"
-  | "accessUnsupported";
+  | "accessUnsupported"
+  | "templateNameTaken";
 
 /** The directory actions a form can ask for. */
 export type UsersIntent =
@@ -63,6 +64,8 @@ export type UsersIntent =
   | "create-agent"
   | "update-agent"
   | "restore-agent-memory"
+  | "save-agent-template"
+  | "delete-agent-template"
   | "set-user-color";
 
 /** What the user directory receives after a submitted form. */

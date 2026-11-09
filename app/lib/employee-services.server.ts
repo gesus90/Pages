@@ -16,11 +16,13 @@ import { AgentEmployeeSessions } from "@/backend/service/employee/AgentEmployeeS
 import { AgentLearningScheduler } from "@/backend/service/employee/AgentLearningScheduler";
 import { AgentLearningService } from "@/backend/service/employee/AgentLearningService";
 import { AgentMemoryService } from "@/backend/service/employee/AgentMemoryService";
+import { AgentTemplateService } from "@/backend/service/employee/AgentTemplateService";
 import { ChatDirectoryService } from "@/backend/service/employee/ChatDirectoryService";
 import { ChatGroupService } from "@/backend/service/employee/ChatGroupService";
 import { PersonColorService } from "@/backend/service/employee/PersonColorService";
 
 import { createConversationServices } from "./conversation-services.server";
+import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
@@ -34,6 +36,8 @@ import type { ConversationApplicationServices } from "./conversation-services.se
  */
 export interface EmployeeApplicationServices extends ConversationApplicationServices {
   readonly agentEmployeeAdministration: AgentEmployeeAdministration;
+  /** The templates of `AGENT.md` (PAGE-283). */
+  readonly agentTemplateService: AgentTemplateService;
   readonly agentEmployeeSessions: AgentEmployeeSessions;
   readonly agentLearningService: AgentLearningService;
   readonly chatDirectoryService: ChatDirectoryService;
@@ -76,6 +80,7 @@ export function createEmployeeServices(
     authorization,
     groups: new UserGroupRepository(database),
   });
+  const languages = new UserSettingsRepository(database);
   const memory = new AgentMemoryService(store);
   const activity = new AgentActivityService(store);
   const sessions = new AgentEmployeeSessions({
@@ -83,9 +88,8 @@ export function createEmployeeServices(
     users,
     authorization,
     messages,
-    languages: new UserSettingsRepository(database),
+    languages,
     models,
-    activity,
     memory,
     acp: input.acp,
     createSessionId: () => createChatSessionId(),
@@ -108,6 +112,12 @@ export function createEmployeeServices(
       models,
       memory,
       activity,
+    }),
+    agentTemplateService: new AgentTemplateService({
+      store,
+      authorization,
+      languages,
+      defaults: defaultAgentTemplateTexts,
     }),
     agentEmployeeSessions: sessions,
     agentLearningService: learning,

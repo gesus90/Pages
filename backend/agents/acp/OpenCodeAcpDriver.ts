@@ -18,6 +18,8 @@ import type { AcpDriver } from "./AcpDriver";
 /**
  * The installed native `opencode acp` contract for Pica and plan nodes.
  * No external adapter, alternate model, user config or updater is involved.
+ * A conversation brings Pica's bridge itself, so its launch names no MCP
+ * server.
  */
 export const OPENCODE_ACP_DRIVER: AcpDriver = {
   provider: "opencode",
@@ -39,8 +41,10 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
     if (!model) throw new AgentError("plan_model_unavailable");
     const modelProvider = model.model.split("/")[0];
     const isChat = specification.purpose === "chat";
+    // Full access of an agent employee runs the stock agent of its plan mode; only Pica's chat runs the Pages build.
+    const isPica = isChat && specification.profile.mode === "read_only";
     const mode = specification.profile.permissions.sessionMode;
-    const permission = isChat
+    const permission = isPica
       ? OPENCODE_PICA_PERMISSIONS
       : openCodePlanPermissions(specification.profile.mode);
     return {
@@ -51,7 +55,7 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
           model: model.model,
           small_model: model.model,
           enabled_providers: [modelProvider],
-          default_agent: isChat ? OPENCODE_PICA_MODE : mode,
+          default_agent: isPica ? OPENCODE_PICA_MODE : mode,
           share: "disabled",
           autoupdate: false,
           permission,
@@ -62,7 +66,7 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
               variant: model.reasoningEffort ?? "default",
               permission,
             },
-            ...(!isChat
+            ...(!isPica
               ? {
                   build: { disable: true },
                   plan: { disable: true },

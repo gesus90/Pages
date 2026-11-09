@@ -492,6 +492,9 @@ export class CliSessionExecution implements PlanSessionRunner {
    * Codex and OpenCode offer no tool surface without MCP that Pages can use
    * through the stock runner. Pica therefore starts only the verified native
    * build, which refuses every built-in tool; without one the chat is refused.
+   * An agent employee with full access needs those tools, so its chat runs
+   * the stock runner inside the isolation and reaches the Pages tools over
+   * Pica's bridge.
    */
   private selectPicaNative(
     driver: AcpDriver,
@@ -500,7 +503,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     profile: ReturnType<AcpDriver["profile"]>,
   ): PicaNativeArtifact | null {
     const runner = picaNativeRunner(driver.provider);
-    if (!input.chat || runner === null) return null;
+    if (!input.chat || runner === null || profile.mode === "yolo") return null;
     if (!input.chat.listener.picaCodex || launch.mcpServers.length > 0)
       throw new AgentError(driver.errors.adapterUnsupported);
     if (runner === "codex") requirePicaCodexProfile(profile);

@@ -16,8 +16,6 @@ export interface AgentDraft {
   readonly modelKey: string;
   readonly reasoningEffort: string;
   readonly access: AgentEmployeeAccess;
-  /** US dollars per month as typed; empty for no limit. */
-  readonly monthlyCostLimit: string;
   readonly roleId: string;
   readonly departments: readonly string[];
   readonly soul: string;
@@ -49,7 +47,6 @@ export function createAgentDraft(
       modelKey: "",
       reasoningEffort: "",
       access: "read_only",
-      monthlyCostLimit: "",
       roleId: defaults.roleId,
       departments: [],
       soul: defaults.soul,
@@ -65,10 +62,6 @@ export function createAgentDraft(
     modelKey: agentModelKey(agent.settings.connectionId, agent.settings.model),
     reasoningEffort: agent.settings.reasoningEffort ?? "",
     access: agent.settings.access,
-    monthlyCostLimit:
-      agent.settings.monthlyCostLimit === null
-        ? ""
-        : String(agent.settings.monthlyCostLimit),
     roleId: agent.roleId ?? defaults.roleId,
     departments: agent.departmentIds,
     soul: agent.documents.soul,
@@ -116,7 +109,6 @@ export function agentDraftPayload(
     ...selectionOf(draft, models, agent),
     reasoningEffort: draft.reasoningEffort,
     access: draft.access,
-    monthlyCostLimit: draft.monthlyCostLimit.trim(),
     soul: draft.soul,
     instructions: draft.instructions,
     memory: draft.memory,

@@ -4,7 +4,7 @@ import { McpAgentService } from "./McpAgentService";
 import type { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
 import type { McpDeviceService } from "@/backend/service/mcp/McpDeviceService";
 import type { UserService } from "@/backend/service/UserService";
-import type { McpAgentTemplate } from "./McpAgentContract";
+import type { AgentTemplateService } from "@/backend/service/employee/AgentTemplateService";
 
 /** What the agent API needs beyond the administration: the token check and the accounts. */
 export interface McpAgentAccess {
@@ -39,15 +39,18 @@ export class McpAgentApi {
    *
    * @param administration - The administration of agents of the interface, whichever channel it was built for.
    * @param access - The device token check and the account lookup.
-   * @param templates - The templates of `AGENT.md` the interface offers.
+   * @param templates - The stored templates of `AGENT.md` of the instance.
    */
   public constructor(
     administration: AgentEmployeeAdministration,
     access: McpAgentAccess,
-    templates: readonly McpAgentTemplate[],
+    templates: AgentTemplateService,
   ) {
     this.administration = administration.forChannel("mcp");
-    this.agents = new McpAgentService(this.administration, templates);
+    this.agents = new McpAgentService(
+      this.administration,
+      templates.forChannel("mcp"),
+    );
     this.access = access;
   }
 

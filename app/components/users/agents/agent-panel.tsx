@@ -31,6 +31,7 @@ import type { UsersErrorCode } from "@/app/lib/user-actions/user-action-support.
 
 import type { AgentDraft, AgentDraftChange } from "./agent-draft";
 import type { AgentEmployeeDetailData } from "@/definition/AgentEmployeePage";
+import type { AgentInstructionTemplateList } from "@/definition/AgentInstructionTemplate";
 import type { Department, UserRole } from "@/definition/Authorization";
 import type { PageAgentModel } from "@/definition/PageAgent";
 
@@ -42,6 +43,8 @@ interface AgentPanelProps {
   readonly models: readonly PageAgentModel[];
   readonly roles: readonly UserRole[];
   readonly departments: readonly Department[];
+  /** The templates of `AGENT.md` (PAGE-283). */
+  readonly templates: AgentInstructionTemplateList;
 }
 
 /** The draft of the panel and the picked image, reset whenever the agent is read anew. */
@@ -185,9 +188,12 @@ function AgentPanelTabs({
       ariaLabel={t("agentEmployees.panel.tabs")}
       className="min-h-0 flex-1 px-6"
     >
+      {/* The inner padding keeps border and focus ring of every field inside
+          the clipping viewport; the negative margin keeps the fields aligned
+          with header, tabs and footer. */}
       <VerticalScrollArea
-        className="mt-5 min-h-0 flex-1"
-        contentClassName="pb-8 pr-1"
+        className="-mx-2 mt-3 min-h-0 flex-1"
+        contentClassName="px-2 pt-2 pb-8"
       >
         {state.loaded.hasFailed ? (
           <p className="text-sm text-destructive" role="alert">
@@ -218,6 +224,7 @@ function AgentPanelTabs({
           <AgentInstructionsSection
             value={panel.draft.instructions}
             onChange={(value) => panel.change("instructions", value)}
+            templates={props.templates}
             isDisabled={isDisabled}
           />
         </TabsContent>

@@ -63,6 +63,8 @@ export interface PicaAcpUpdateOptions {
   readonly isCostEstimated: boolean;
   /** The reported amount belongs to the native session, including earlier jobs. */
   readonly isCostSessionTotal?: boolean;
+  /** The session reaches the Pages tools over Pica's bridge, not as native tools of a Pica build. */
+  readonly hasBridgeMcp?: boolean;
 }
 
 function isCount(value: unknown): value is number {
@@ -212,7 +214,8 @@ export class PicaAcpUpdates implements AcpSessionListener {
   public constructor(sink: PicaAcpUpdateSink, options: PicaAcpUpdateOptions) {
     this.sink = sink;
     this.options = options;
-    this.picaCodex = sink.picaCodex;
+    // A session on the bridge runs the stock runner, which asks for no native Pica tools.
+    this.picaCodex = options.hasBridgeMcp === true ? undefined : sink.picaCodex;
     this.picaHelper = sink.picaHelper;
   }
 

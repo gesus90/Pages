@@ -72,7 +72,6 @@ const CONVERSATION_STATUS: Readonly<Record<ConversationErrorCode, number>> = {
 };
 
 const FAILURES: Readonly<Record<string, VirtualChatSendFailure>> = {
-  costLimitReached: "costLimitReached",
   inactive: "inactive",
   busy: "busy",
   unavailable: "unavailable",

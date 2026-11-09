@@ -1,5 +1,5 @@
 import { databaseTimeToIso } from "@/backend/service/employee/AgentEmployeeText";
-import { employeeAccessModes } from "@/definition/AgentEmployee";
+import { AGENT_EMPLOYEE_ACCESS_MODES } from "@/definition/AgentEmployee";
 
 import type { StoredAgentUsages } from "@/backend/database/repositories/employee/AgentEmployeeRemovalRepository";
 import type {
@@ -8,6 +8,7 @@ import type {
   AgentEmployee,
   AgentMemoryVersion,
 } from "@/definition/AgentEmployee";
+import type { AgentInstructionTemplate } from "@/definition/AgentInstructionTemplate";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type {
   McpAgentActivityResponse,
@@ -17,6 +18,7 @@ import type {
   McpAgentPage,
   McpAgentResponse,
   McpAgentSummary,
+  McpAgentTemplate,
   McpAgentUsagesResponse,
 } from "./McpAgentContract";
 
@@ -50,7 +52,6 @@ function changeTitle(entry: AgentActivityEntry): string {
 
 function activityTitle(entry: AgentActivityEntry): string {
   if (entry.id.startsWith("session:")) return sessionTitle(entry);
-  if (entry.kind === "limit") return "Kostenlimit erreicht";
   if (entry.kind === "learning") {
     const status = detailText(entry.detail, "status");
     return status === null ? "Lernlauf" : `Lernlauf (${status})`;
@@ -79,7 +80,6 @@ export function projectAgentSummary(agent: AgentEmployee): McpAgentSummary {
     },
     reasoning: agent.settings.reasoningEffort,
     access: agent.settings.access,
-    costLimitUsdPerMonth: agent.settings.monthlyCostLimit,
     costUsdThisMonth: hasOnlyUnknownCosts ? null : agent.cost.spent,
     roleId: agent.roleId,
     departmentIds: agent.departmentIds,
@@ -122,7 +122,7 @@ export function projectModelOption(
     provider: model.provider,
     connectionName: model.connectionName ?? null,
     reasoningEfforts: model.reasoningEfforts,
-    accessModes: employeeAccessModes(model.provider),
+    accessModes: AGENT_EMPLOYEE_ACCESS_MODES,
   };
 }
 
@@ -207,5 +207,22 @@ export function pageOf<Item>(
   return {
     items: items.slice(start, end),
     nextCursor: end < items.length ? String(end) : null,
+  };
+}
+
+/**
+ * A stored template of `AGENT.md` as the interface answers it (PAGE-283).
+ *
+ * @param template - A template of the instance.
+ */
+export function projectTemplate(
+  template: AgentInstructionTemplate,
+): McpAgentTemplate {
+  return {
+    id: template.id,
+    name: template.name,
+    description: template.description,
+    content: template.content,
+    isDefault: template.isDefault,
   };
 }

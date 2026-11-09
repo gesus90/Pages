@@ -3,8 +3,6 @@ import { z } from "zod";
 import {
   AGENT_DOCUMENT_LIMITS,
   AGENT_EMPLOYEE_ACCESS_MODES,
-  AGENT_INSTRUCTION_TEMPLATES,
-  AGENT_MAXIMUM_COST_LIMIT,
 } from "@/definition/AgentEmployee";
 import { MAXIMUM_AVATAR_BYTES } from "@/definition/User";
 import { ROLE } from "@/definition/Role";
@@ -42,13 +40,9 @@ const reasoningField = z
   .nullable()
   .optional();
 const colorField = z.string().max(20).nullable().optional();
-const costField = z
-  .number()
-  .finite()
-  .min(0)
-  .max(AGENT_MAXIMUM_COST_LIMIT)
-  .nullable()
-  .optional();
+// Pages sets no cost limit any more (PAGE-283); an older client may still send
+// one, which is accepted and ignored.
+const ignoredCostField = z.unknown().optional();
 const departmentsField = z
   .array(identifierField)
   .max(MAXIMUM_DEPARTMENTS)
@@ -76,10 +70,10 @@ const createSchema = z
     reasoning: reasoningField,
     color: colorField,
     departmentIds: departmentsField,
-    costLimitUsdPerMonth: costField,
+    costLimitUsdPerMonth: ignoredCostField,
     soul: soulField,
     agentInstructions: instructionsField,
-    templateId: z.enum(AGENT_INSTRUCTION_TEMPLATES).optional(),
+    templateId: identifierField.optional(),
     isLearningEnabled: z.boolean().optional(),
   })
   .strict();
@@ -94,7 +88,7 @@ const updateSchema = z
     model: modelField.optional(),
     reasoning: reasoningField,
     access: z.enum(AGENT_EMPLOYEE_ACCESS_MODES).optional(),
-    costLimitUsdPerMonth: costField,
+    costLimitUsdPerMonth: ignoredCostField,
     roleId: roleField.optional(),
     departmentIds: departmentsField,
     soul: soulField,

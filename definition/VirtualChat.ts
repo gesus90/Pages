@@ -124,12 +124,7 @@ export interface VirtualChatDirectory {
 
 /** Why sending to an agent was refused, as the interface translates it. */
 export type VirtualChatSendFailure =
-  | "costLimitReached"
-  | "inactive"
-  | "busy"
-  | "unavailable"
-  | "invalidInput"
-  | "tooLong";
+  "inactive" | "busy" | "unavailable" | "invalidInput" | "tooLong";
 
 /** The longest group name. */
 export const VIRTUAL_GROUP_NAME_LENGTH = 80;

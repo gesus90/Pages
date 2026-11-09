@@ -110,10 +110,11 @@ it("gives Pica its own read-only profile", () => {
   expect(openCodeAcpProfile("read_only", "chat")).toBe(OPENCODE_PICA_PROFILE);
 });
 
-it("refuses Pica in any other mode", () => {
-  expect(() => openCodeAcpProfile("yolo", "chat")).toThrow(
-    expect.objectContaining({ code: "opencode_chat_mode_required" }),
-  );
+it("runs a full access employee conversation with the YOLO plan agent", () => {
+  const profile = openCodeAcpProfile("yolo", "chat");
+  expect(profile.mode).toBe("yolo");
+  expect(profile.permissions.sessionMode).toBe("pages-yolo");
+  expect(profile.permissions.mcpServers).toBe("Pica bridge only");
 });
 
 it("confirms Pica's mode and model and refuses its permission requests", () => {

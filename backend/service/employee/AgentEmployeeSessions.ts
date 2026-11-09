@@ -20,7 +20,6 @@ import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolutio
 import type { PicaAcpService, PicaAcpStart } from "../chat/acp/PicaAcpService";
 import type { ChatJob, ChatJobStart } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
-import type { AgentActivityService } from "./AgentActivityService";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
 import type { AgentMemoryService } from "./AgentMemoryService";
 
@@ -34,7 +33,6 @@ export interface AgentEmployeeSessionDependencies {
   readonly messages: Pick<ChatSessionRepository, "messages">;
   readonly languages: Pick<UserSettingsRepository, "findByUserId">;
   readonly models: AgentEmployeeModels;
-  readonly activity: AgentActivityService;
   readonly memory: AgentMemoryService;
   /** Pica's ACP path; `null` where the server runs no ACP chat. */
   readonly acp: Pick<
@@ -96,9 +94,8 @@ function readMessage(input: unknown): AgentMessage {
  * the agent's role, departments and project memberships. It runs with the
  * model and access stored for the agent; full access only inside the
  * isolation the ACP execution never runs YOLO without. `SOUL.md` and
- * `AGENT.md` open every instruction, `MEMORY.md` follows as data. A reached
- * cost limit refuses the start, and ends a running session at its next
- * turn or tool call.
+ * `AGENT.md` open every instruction, `MEMORY.md` follows as data. A change
+ * of the agent ends a running session at its next turn or tool call.
  */
 export class AgentEmployeeSessions {
   private readonly dependencies: AgentEmployeeSessionDependencies;
@@ -110,7 +107,7 @@ export class AgentEmployeeSessions {
   /**
    * Sends a person's message to an agent: into its running job, or as a new one.
    *
-   * @throws {AgentEmployeeError} `inactive`, `costLimitReached`, `busy`,
+   * @throws {AgentEmployeeError} `inactive`, `busy`,
    * `unavailable` or `invalidInput`.
    */
   public async send(person: User, input: unknown): Promise<void> {
@@ -172,10 +169,6 @@ export class AgentEmployeeSessions {
     const acp = this.dependencies.acp;
     if (!acp) throw new AgentEmployeeError("unavailable");
     const { agent, employee } = request;
-    await this.dependencies.activity.requireBelowLimit(
-      employee,
-      request.purpose === "learning" ? "learning" : "session",
-    );
     const conversation = await this.dependencies.store.conversations().ensure(
       {
         agentId: agent.id,
@@ -289,7 +282,7 @@ export class AgentEmployeeSessions {
 
   /**
    * Checks a running job against the current state of its agent: still
-   * active, unchanged and below its cost limit; otherwise the job ends.
+   * active and unchanged; otherwise the job ends.
    */
   private async requireCurrent(
     agentId: string,
@@ -302,7 +295,6 @@ export class AgentEmployeeSessions {
     if (!agent?.isActive || agent.isAgent !== true || !employee)
       throw new ChatError("accessDenied");
     if (employee.revision !== revision) throw new ChatError("contextChanged");
-    await this.dependencies.activity.requireBelowLimit(employee, "session");
   }
 
   private translate(error: unknown): unknown {

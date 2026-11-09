@@ -82,7 +82,12 @@ it("confirms mode, adapter-resolved model and effort of a Claude conversation", 
 
 it("confirms the read-only mode and stored model of a Codex conversation", () => {
   expect(
-    codexAcpProfile("yolo", "chat").steps({
+    codexAcpProfile("yolo", "chat")
+      .steps({ model: "gpt-5", reasoningEffort: null })
+      .at(0)?.value,
+  ).toBe("agent-full-access");
+  expect(
+    codexAcpProfile("read_only", "chat").steps({
       model: "gpt-5",
       reasoningEffort: null,
     }),

@@ -259,6 +259,7 @@ export function AgentDirectory({
           }}
           agentId={panel.agentId}
           models={agents.models}
+          templates={agents.templates}
           roles={directory.assignableRoles}
           departments={directory.departments.filter((department) =>
             directory.adoptableDepartmentIds.includes(department.id),

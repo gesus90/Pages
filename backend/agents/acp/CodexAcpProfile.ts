@@ -200,16 +200,36 @@ const CHAT_PROFILE: CodexAcpProfile = {
 };
 
 /**
+ * The conversation of an agent employee with full access: every native tool
+ * of Codex inside the bubblewrap isolation, which a YOLO session never runs
+ * without, on the stock runner instead of the native Pica build, and the
+ * Pages tools of the agent's account over Pica's turn-bound bridge.
+ */
+const CHAT_FULL_ACCESS_PROFILE: CodexAcpProfile = {
+  ...YOLO_PROFILE,
+  unattended:
+    "ACP session mode agent-full-access (approval never, no Codex sandbox) for an agent employee with full access, inside the bubblewrap isolation; Pages approves any remaining request",
+  permissions: {
+    ...YOLO_PROFILE.permissions,
+    pagesTools: "Pica bridge with the rights of the agent's account",
+    mcpServers: "Pica bridge only",
+  },
+};
+
+/**
  * The adapter configuration of one Pages mode.
  *
  * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
- * @param purpose - A Pica conversation always takes the chat profile.
+ * @param purpose - A Pica conversation takes the chat profile; the caller
+ * decides beforehand which stored mode it accepts for it. Only an agent
+ * employee with full access reaches the chat purpose in YOLO.
  * @returns Session mode, configuration and the recorded permissions.
  */
 export function codexAcpProfile(
   mode: AcpPermissionMode,
   purpose: AcpSessionPurpose = "plan",
 ): CodexAcpProfile {
-  if (purpose === "chat") return CHAT_PROFILE;
+  if (purpose === "chat")
+    return mode === "yolo" ? CHAT_FULL_ACCESS_PROFILE : CHAT_PROFILE;
   return mode === "yolo" ? YOLO_PROFILE : READ_ONLY_PROFILE;
 }

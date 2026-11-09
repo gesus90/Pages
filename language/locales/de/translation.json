@@ -1708,7 +1708,8 @@
       "userNotFound": "Dieser Benutzer wurde nicht gefunden.",
       "conflict": "Der Agent wurde inzwischen geändert. Bitte neu öffnen.",
       "modelNotAllowed": "Dieses Modell ist für Agents nicht zulässig.",
-      "accessUnsupported": "Vollzugriff ist mit diesem Anbieter nicht verfügbar."
+      "accessUnsupported": "YOLO ist mit diesem Anbieter nicht verfügbar.",
+      "templateNameTaken": "Eine Vorlage mit diesem Namen gibt es schon."
     },
     "saved": "Gespeichert",
     "discardChanges": "Ungespeicherte Änderungen verwerfen?",
@@ -3702,7 +3703,6 @@
       "agent": "Agent"
     },
     "sendFailure": {
-      "costLimitReached": "{{name}} hat das Kostenlimit erreicht und startet keine neue Sitzung.",
       "inactive": "{{name}} ist deaktiviert.",
       "busy": "{{name}} arbeitet gerade an einer anderen Sitzung. Versuch es gleich noch einmal.",
       "unavailable": "{{name}} kann gerade nicht antworten: Modell oder Verbindung ist nicht verfügbar.",
@@ -6615,17 +6615,13 @@
       "chooseModel": "Modell wählen",
       "noModels": "Keine zulässigen Modelle: Sprachmodelle mit Werkzeugen über ACP.",
       "access": "Zugriff",
-      "costLimit": "Kostenlimit (US-Dollar pro Monat)",
-      "costLimitHint": "Leer lassen für keine Grenze.",
       "rights": "Rechte",
       "role": "Rolle",
       "chooseRole": "Rolle wählen"
     },
     "access": {
       "read_only": "Nur Lesen · Pages-Werkzeuge",
-      "yolo": "Vollzugriff (Yolo) · alle Systemwerkzeuge",
-      "yoloUnsupported": "Mit diesem Anbieter nicht verfügbar",
-      "note": "Läuft über ACP; Vollzugriff nur innerhalb der Isolation. Agents melden sich nicht an, brauchen kein Passwort und können nicht Administrator werden."
+      "yolo": "YOLO · alle Tools und alle Berechtigungen"
     },
     "soul": {
       "template": "# Persönlichkeit\n\nDu bist ruhig, genau und direkt.\n\n## Art\n- Du sagst klar, was fehlt, ohne Umschweife.\n- Du hakst nach, wenn ein Auftrag unklar ist.\n\n## Ton\n- Kurze Sätze, freundlich und sachlich.\n\n## Grenzen\n- Du behauptest nichts, was du nicht geprüft hast.\n- Wenn du etwas nicht weißt, sagst du das."
@@ -6634,21 +6630,22 @@
       "length_one": "{{length}} / {{maximum}} Zeichen",
       "length_other": "{{length}} / {{maximum}} Zeichen",
       "soulDescription": "Wer der Agent ist: Charakter, Ton und Haltung. Gilt in jedem Gespräch.",
-      "instructionsDescription": "Was der Agent tut: Beruf, Zuständigkeit, Arbeitsweise und Regeln. Projektwissen liest er aktuell aus Tickets und Wiki.",
-      "template": "Vorlage",
-      "chooseTemplate": "Vorlage wählen"
+      "instructionsDescription": "Was der Agent tut: Beruf, Zuständigkeit, Arbeitsweise und Regeln. Projektwissen liest er aktuell aus Tickets und Wiki."
     },
     "templates": {
       "coder": {
         "label": "Coder",
+        "description": "Setzt Tickets im Code um.",
         "content": "# Aufgabe: Coder\n\nDu setzt Tickets im Code um.\n\n## Zuständig für\n- Umsetzung und Fehlerbehebung nach Ticket\n- Saubere, geprüfte Änderungen\n\n## Arbeitsweise\n1. Lies das Ticket und seine Abnahme vollständig.\n2. Ändere nur, was das Ticket verlangt.\n3. Halte das Ergebnis im Ticket fest.\n\n## Nicht zuständig\n- Ohne Auftrag deployen."
       },
       "designer": {
         "label": "Designer",
+        "description": "Gestaltet Oberflächen und Abläufe.",
         "content": "# Aufgabe: Designer\n\nDu gestaltest Oberflächen und Abläufe.\n\n## Zuständig für\n- Entwürfe, Texte und Zustände einer Oberfläche\n- Konsistenz mit dem bestehenden Design\n\n## Arbeitsweise\n1. Lies das Ticket und vorhandene Entwürfe.\n2. Beschreibe Entscheidungen nachvollziehbar.\n3. Halte Vorgaben im Wiki fest.\n\n## Nicht zuständig\n- Code schreiben."
       },
       "manager": {
         "label": "Manager",
+        "description": "Steuert das Projekt und kennt seinen Stand.",
         "content": "# Aufgabe: Manager\n\nDu steuerst das Projekt und kennst seinen Stand.\n\n## Zuständig für\n- Meilensteine, Tickets und Prioritäten\n- Überblick, was offen ist und was blockiert\n\n## Arbeitsweise\n1. Lies vor jeder Antwort den aktuellen Stand.\n2. Belege Aussagen mit Ticket oder Wiki-Seite.\n3. Halte Entscheidungen im Wiki fest.\n\n## Nicht zuständig\n- Ohne Auftrag deployen."
       }
     },
@@ -6669,8 +6666,7 @@
       "result": {
         "updated": "{{added}} neu, {{merged}} zusammengefasst, {{archived}} archiviert, {{removed}} entfernt",
         "unchanged": "nichts Neues, kein Modell gestartet",
-        "failed": "fehlgeschlagen",
-        "limitReached": "Kostenlimit erreicht, nicht gelernt"
+        "failed": "fehlgeschlagen"
       },
       "sharedHint": "Was der Agent in einem Chat lernt, kann er in anderen Gesprächen verwenden. Zugangsdaten werden vor dem Speichern entfernt.",
       "archiveEntries_one": "Archiv: {{count}} Eintrag",
@@ -6689,11 +6685,9 @@
     },
     "activity": {
       "empty": "Noch keine Aktivität.",
-      "spent": "Diesen Monat: {{spent}} von {{limit}}",
-      "spentNoLimit": "Diesen Monat: {{spent}} · kein Kostenlimit",
+      "spent": "Diesen Monat: {{spent}}",
       "unknownSessions_one": "{{count}} Sitzung ohne gemeldete Kosten (unbekannt)",
       "unknownSessions_other": "{{count}} Sitzungen ohne gemeldete Kosten (unbekannt)",
-      "limitReached": "Kostenlimit erreicht: Der Agent startet bis Monatsende keine neue Sitzung und keinen Lernlauf.",
       "estimated": "(geschätzt)",
       "unknownCost": "Kosten unbekannt",
       "kind": {
@@ -6701,8 +6695,7 @@
         "learningSession": "Lernlauf-Sitzung · {{state}}",
         "learning": "Lernlauf: {{status}}",
         "ticket": "Ticket: {{message}}",
-        "wiki": "Wiki: {{message}}",
-        "limit": "Nicht gestartet ({{cause}}): Kostenlimit erreicht"
+        "wiki": "Wiki: {{message}}"
       },
       "state": {
         "running": "läuft",
@@ -6711,10 +6704,39 @@
         "stopped": "gestoppt",
         "interrupted": "unterbrochen",
         "none": "–"
+      }
+    },
+    "templateList": {
+      "title": "Vorlagen",
+      "description": "Ein Klick füllt AGENT.md einmalig; der Text bleibt frei bearbeitbar. Änderungen an einer Vorlage ändern keinen bestehenden Agent.",
+      "create": "Neue Vorlage",
+      "saveFromDocument": "Als Vorlage speichern",
+      "edit": "Bearbeiten",
+      "duplicate": "Duplizieren",
+      "remove": "Löschen",
+      "default": "Standard",
+      "selected": "Gewählt",
+      "empty": "Noch keine Vorlagen.",
+      "actions": "Aktionen für {{name}}",
+      "copyName": "{{name}} (Kopie)",
+      "editor": {
+        "createTitle": "Neue Vorlage",
+        "editTitle": "Vorlage bearbeiten",
+        "name": "Name",
+        "description": "Kurzbeschreibung",
+        "content": "Inhalt",
+        "save": "Speichern",
+        "cancel": "Abbrechen"
       },
-      "cause": {
-        "session": "Sitzung",
-        "learning": "Lernlauf"
+      "removeConfirm": {
+        "title": "Vorlage löschen?",
+        "description": "„{{name}}“ wird für alle gelöscht. Agents, deren AGENT.md aus ihr gefüllt wurde, behalten ihren Text.",
+        "confirm": "Löschen"
+      },
+      "replaceConfirm": {
+        "title": "AGENT.md ersetzen?",
+        "description": "AGENT.md enthält bereits Text. Die Vorlage „{{name}}“ ersetzt ihn vollständig.",
+        "confirm": "Ersetzen"
       }
     }
   }

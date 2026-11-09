@@ -5,6 +5,7 @@ import { cn } from "@/app/lib/cn";
 
 import { ChatPanel } from "./chat-panel";
 import { PicaMascot } from "./pica-mascot";
+import { useIsPicaLauncherHidden } from "./use-pica-launcher-visibility";
 
 /**
  * Pica's symbol at the bottom right of every page (T6.12.1, T6.12.15); it
@@ -13,12 +14,15 @@ import { PicaMascot } from "./pica-mascot";
  * @remarks
  * The panel is mounted on first use and then only hidden, so the server
  * renders just the button and nothing is loaded before the person opens it.
+ * A surface that asks for it, such as the terminal of the agent plan, hides
+ * the button while it is open (PAGE-283).
  */
 export function ChatLauncher(): React.ReactElement {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const launcher = useRef<HTMLButtonElement>(null);
+  const isHidden = useIsPicaLauncherHidden();
 
   function handleToggle(): void {
     setIsMounted(true);
@@ -42,6 +46,7 @@ export function ChatLauncher(): React.ReactElement {
         className={cn(
           "fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-[45] flex size-14 items-center justify-center rounded-full border-2 border-primary bg-surface shadow-floating transition-colors hover:border-primary-hover hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:border-primary-hover active:bg-muted md:bottom-[calc(env(safe-area-inset-bottom)+1rem)]",
           isOpen && "ring-2 ring-primary/25 ring-offset-2 ring-offset-surface",
+          isHidden && "hidden",
         )}
         onClick={handleToggle}
         title={label}

@@ -20,7 +20,6 @@ export interface StoredAgentEmployee {
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
-  readonly monthlyCostLimit: number | null;
   readonly soul: string;
   readonly instructions: string;
   readonly memory: string;
@@ -41,7 +40,6 @@ export interface AgentEmployeeChange {
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
-  readonly monthlyCostLimit: number | null;
   readonly soul: string;
   readonly instructions: string;
   readonly isLearningEnabled: boolean;
@@ -60,7 +58,6 @@ const COLUMNS = `
     model,
     reasoning_effort,
     access,
-    monthly_cost_limit,
     soul,
     instructions,
     memory,
@@ -77,7 +74,6 @@ const STATUSES: readonly AgentLearningStatus[] = [
   "updated",
   "unchanged",
   "failed",
-  "limitReached",
 ];
 
 function readCount(input: unknown): number {
@@ -110,14 +106,6 @@ function readLearningResult(text: string | null): AgentLearningResult | null {
   }
 }
 
-function readNullableNumber(
-  row: readonly DatabaseValue[],
-  index: number,
-): number | null {
-  const value = row[index];
-  return typeof value === "number" ? value : null;
-}
-
 function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
   const access = readTextColumn(row, 4, "access");
   if (!isAgentEmployeeAccess(access))
@@ -128,20 +116,19 @@ function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
     model: readTextColumn(row, 2, "model"),
     reasoningEffort: readNullableTextColumn(row, 3, "reasoning_effort"),
     access,
-    monthlyCostLimit: readNullableNumber(row, 5),
-    soul: readTextColumn(row, 6, "soul"),
-    instructions: readTextColumn(row, 7, "instructions"),
-    memory: readTextColumn(row, 8, "memory"),
-    isLearningEnabled: readBooleanColumn(row, 9, "is_learning_enabled"),
-    learningIntervalHours: readCountColumn(row, 10, "learning_interval_hours"),
-    learnedThrough: readNullableTextColumn(row, 11, "learned_through"),
-    lastLearningAt: readNullableTextColumn(row, 12, "last_learning_at"),
+    soul: readTextColumn(row, 5, "soul"),
+    instructions: readTextColumn(row, 6, "instructions"),
+    memory: readTextColumn(row, 7, "memory"),
+    isLearningEnabled: readBooleanColumn(row, 8, "is_learning_enabled"),
+    learningIntervalHours: readCountColumn(row, 9, "learning_interval_hours"),
+    learnedThrough: readNullableTextColumn(row, 10, "learned_through"),
+    lastLearningAt: readNullableTextColumn(row, 11, "last_learning_at"),
     lastLearningResult: readLearningResult(
-      readNullableTextColumn(row, 13, "last_learning_result"),
+      readNullableTextColumn(row, 12, "last_learning_result"),
     ),
-    revision: readCountColumn(row, 14, "revision"),
-    createdAt: readTextColumn(row, 15, "created_at"),
-    updatedAt: readTextColumn(row, 16, "updated_at"),
+    revision: readCountColumn(row, 13, "revision"),
+    createdAt: readTextColumn(row, 14, "created_at"),
+    updatedAt: readTextColumn(row, 15, "updated_at"),
   };
 }
 
@@ -197,8 +184,7 @@ export class AgentEmployeeRepository {
             model,
             reasoning_effort,
             access,
-            monthly_cost_limit,
-            soul,
+                    soul,
             instructions,
             is_learning_enabled
         )
@@ -208,7 +194,6 @@ export class AgentEmployeeRepository {
             $model,
             $reasoning_effort,
             $access,
-            $monthly_cost_limit,
             $soul,
             $instructions,
             $is_learning_enabled
@@ -236,7 +221,6 @@ export class AgentEmployeeRepository {
             model = $model,
             reasoning_effort = $reasoning_effort,
             access = $access,
-            monthly_cost_limit = $monthly_cost_limit,
             soul = $soul,
             instructions = $instructions,
             is_learning_enabled = $is_learning_enabled,
@@ -332,7 +316,6 @@ export class AgentEmployeeRepository {
       model: change.model,
       reasoning_effort: change.reasoningEffort,
       access: change.access,
-      monthly_cost_limit: change.monthlyCostLimit,
       soul: change.soul,
       instructions: change.instructions,
       is_learning_enabled: change.isLearningEnabled,

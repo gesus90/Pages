@@ -5,12 +5,15 @@
  * An agent is an account of its own: it has a username, a role, departments
  * and project memberships like a person, but no password, no sign-in and
  * never the administrator right. Beside the account it has a model, an
- * access mode, an optional monthly cost limit and three documents: `SOUL.md`
+ * access mode and three documents: `SOUL.md`
  * (who it is), `AGENT.md` (what it does) and `MEMORY.md` (what it learned),
  * with a searchable archive behind the memory.
  */
 
-/** How an agent may work on the host: Pages tools only, or every system tool inside the isolation. */
+/**
+ * How an agent may work on the host: Pages tools only, or every system tool
+ * inside the isolation ("YOLO"), with every provider.
+ */
 export const AGENT_EMPLOYEE_ACCESS_MODES = ["read_only", "yolo"] as const;
 
 /** An access mode of {@link AGENT_EMPLOYEE_ACCESS_MODES}. */
@@ -21,32 +24,6 @@ export function isAgentEmployeeAccess(
   value: unknown,
 ): value is AgentEmployeeAccess {
   return value === "read_only" || value === "yolo";
-}
-
-/**
- * The providers whose conversation runs an agent with full access.
- *
- * @remarks
- * Claude Code reaches the Pages tools through the helper, which a full-access
- * session runs like any other command inside the isolation. Codex and
- * OpenCode answer the chat with their native Pica builds, and Antigravity
- * with its bridge alone; none of them runs a chat session with system tools,
- * so they offer "Nur Lesen" only.
- */
-const FULL_ACCESS_PROVIDERS: ReadonlySet<string> = new Set(["claude_code"]);
-
-/**
- * The access modes an agent may get with a provider.
- *
- * @param provider - The provider of the agent's connection.
- * @returns "Nur Lesen", and "YOLO" where the provider runs it.
- */
-export function employeeAccessModes(
-  provider: string,
-): readonly AgentEmployeeAccess[] {
-  return FULL_ACCESS_PROVIDERS.has(provider)
-    ? ["read_only", "yolo"]
-    : ["read_only"];
 }
 
 /** Fixed length limits of the documents an agent gets in every session. */
@@ -70,20 +47,6 @@ export const AGENT_MEMORY_LIMITS = {
 /** Hours between two learning runs. */
 export const AGENT_LEARNING_INTERVAL_HOURS = 12;
 
-/** Largest monthly cost limit in US dollars an agent may get. */
-export const AGENT_MAXIMUM_COST_LIMIT = 1_000_000;
-
-/** The templates `AGENT.md` can be filled from. */
-export const AGENT_INSTRUCTION_TEMPLATES = [
-  "coder",
-  "designer",
-  "manager",
-] as const;
-
-/** A template of {@link AGENT_INSTRUCTION_TEMPLATES}. */
-export type AgentInstructionTemplate =
-  (typeof AGENT_INSTRUCTION_TEMPLATES)[number];
-
 /**
  * Counts the words of a text as the memory limits count them.
  *
@@ -95,14 +58,12 @@ export function countWords(text: string): number {
   return trimmed === "" ? 0 : trimmed.split(/\s+/u).length;
 }
 
-/** Model, access and cost limit of an agent. */
+/** Model and access of an agent. */
 export interface AgentEmployeeSettings {
   readonly connectionId: string;
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
-  /** US dollars per calendar month; `null` sets no limit. */
-  readonly monthlyCostLimit: number | null;
 }
 
 /** The two documents that shape every session of an agent. */
@@ -114,8 +75,7 @@ export interface AgentEmployeeDocuments {
 }
 
 /** What a learning run did. */
-export type AgentLearningStatus =
-  "updated" | "unchanged" | "failed" | "limitReached";
+export type AgentLearningStatus = "updated" | "unchanged" | "failed";
 
 /** The result of the last learning run. */
 export interface AgentLearningResult {
@@ -149,13 +109,10 @@ export interface AgentMemoryUsage {
 
 /** What an agent spent in the current calendar month. */
 export interface AgentCostState {
-  /** The limit in US dollars, or `null` without one. */
-  readonly limit: number | null;
   /** Known costs of the month in US dollars. */
   readonly spent: number;
   /** Sessions of the month whose model reported no cost. */
   readonly unknownSessions: number;
-  readonly isReached: boolean;
   /** The month as `YYYY-MM` (UTC). */
   readonly month: string;
 }
@@ -220,8 +177,7 @@ export interface AgentArchiveEntry {
 }
 
 /** What one line of the activity reports. */
-export type AgentActivityKind =
-  "session" | "learning" | "ticket" | "wiki" | "limit";
+export type AgentActivityKind = "session" | "learning" | "ticket" | "wiki";
 
 /** How much a session or learning run cost, as far as the model reported it. */
 export interface AgentActivityCost {

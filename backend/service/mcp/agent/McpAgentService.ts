@@ -12,6 +12,7 @@ import {
   projectArchiveEntry,
   projectMemoryVersion,
   projectModelOption,
+  projectTemplate,
   projectUsages,
 } from "./McpAgentProjection";
 
@@ -19,7 +20,9 @@ import type {
   AgentAvatarUpload,
   AgentEmployeeAdministration,
 } from "@/backend/service/employee/AgentEmployeeAdministration";
+import type { AgentTemplateService } from "@/backend/service/employee/AgentTemplateService";
 import type { AgentEmployee } from "@/definition/AgentEmployee";
+import type { AgentInstructionTemplate } from "@/definition/AgentInstructionTemplate";
 import type {
   McpAgentActivityResponse,
   McpAgentArchiveEntryResponse,
@@ -29,7 +32,6 @@ import type {
   McpAgentRemovalQuestion,
   McpAgentResponse,
   McpAgentSummary,
-  McpAgentTemplate,
 } from "./McpAgentContract";
 import type {
   McpAgentActivityRequest,
@@ -52,9 +54,8 @@ type PanelFields = Readonly<Record<string, unknown>>;
 /** The panel fields of a new agent; a template fills `AGENT.md` when it is absent. */
 function createFields(
   request: McpAgentCreateRequest,
-  templates: readonly McpAgentTemplate[],
+  template: AgentInstructionTemplate | null,
 ): PanelFields {
-  const template = templates.find((entry) => entry.id === request.templateId);
   return {
     displayName: request.name,
     username: request.username,
@@ -66,7 +67,6 @@ function createFields(
     model: request.model.modelId,
     reasoningEffort: request.reasoning ?? null,
     access: request.access,
-    monthlyCostLimit: request.costLimitUsdPerMonth ?? null,
     soul: request.soul ?? "",
     instructions: request.agentInstructions ?? template?.content ?? "",
     isLearningEnabled: request.isLearningEnabled ?? true,
@@ -79,7 +79,7 @@ function changed<Value>(next: Value | undefined, stored: Value): Value {
   return next;
 }
 
-/** Model, reasoning, access and cost limit of a change laid over the stored ones. */
+/** Model, reasoning and access of a change laid over the stored ones. */
 function mergedSettings(
   agent: AgentEmployee,
   request: McpAgentUpdateRequest,
@@ -90,10 +90,6 @@ function mergedSettings(
     model: request.model?.modelId ?? settings.model,
     reasoningEffort: changed(request.reasoning, settings.reasoningEffort),
     access: request.access ?? settings.access,
-    monthlyCostLimit: changed(
-      request.costLimitUsdPerMonth,
-      settings.monthlyCostLimit,
-    ),
   };
 }
 
@@ -122,7 +118,10 @@ function isOnlyActivation(request: McpAgentUpdateRequest): boolean {
   return (
     request.isActive !== undefined &&
     Object.keys(request).every(
-      (key) => key === "revision" || key === "isActive",
+      (key) =>
+        key === "revision" ||
+        key === "isActive" ||
+        key === "costLimitUsdPerMonth",
     )
   );
 }
@@ -148,17 +147,17 @@ function matchesText(agent: AgentEmployee, text: string): boolean {
  */
 export class McpAgentService {
   private readonly administration: AgentEmployeeAdministration;
-  private readonly templates: readonly McpAgentTemplate[];
+  private readonly templates: AgentTemplateService;
 
   /**
    * Creates the service.
    *
    * @param administration - The administration of agents, already on the MCP channel.
-   * @param templates - The templates of `AGENT.md` the interface offers.
+   * @param templates - The stored templates of `AGENT.md`, already on the MCP channel.
    */
   public constructor(
     administration: AgentEmployeeAdministration,
-    templates: readonly McpAgentTemplate[],
+    templates: AgentTemplateService,
   ) {
     this.administration = administration;
     this.templates = templates;
@@ -184,9 +183,10 @@ export class McpAgentService {
 
   /** The choices of the panel: models, roles, departments, colors, access modes and templates. */
   public async options(actorId: string): Promise<McpAgentOptionsResponse> {
-    const [page, choices] = await Promise.all([
+    const [page, choices, templates] = await Promise.all([
       this.administration.page(actorId),
       this.administration.choices(actorId),
+      this.templates.list(actorId),
     ]);
     return {
       models: page.models
@@ -199,7 +199,7 @@ export class McpAgentService {
       })),
       colors: PERSON_COLORS,
       accessModes: AGENT_EMPLOYEE_ACCESS_MODES,
-      templates: this.templates,
+      templates: templates.templates.map(projectTemplate),
     };
   }
 
@@ -208,7 +208,13 @@ export class McpAgentService {
     actorId: string,
     request: McpAgentCreateRequest,
   ): Promise<{ readonly agent: McpAgentResponse }> {
-    const input = readAgentEmployeeInput(createFields(request, this.templates));
+    const template =
+      request.templateId === undefined
+        ? null
+        : await this.templates.find(request.templateId);
+    if (request.templateId !== undefined && template === null)
+      throw new AgentEmployeeError("invalidInput");
+    const input = readAgentEmployeeInput(createFields(request, template));
     const agentId = await this.administration.create(actorId, input, null);
     return this.read(actorId, agentId);
   }

@@ -11,6 +11,10 @@ import {
   handleSetUserColor,
   handleUpdateAgent,
 } from "./agent-employee-actions.server";
+import {
+  handleDeleteAgentTemplate,
+  handleSaveAgentTemplate,
+} from "./agent-template-actions.server";
 import { invalidInput } from "./user-action-support.server";
 import { ADMINISTRATION_ACTION_HANDLERS } from "./administration-actions.server";
 
@@ -30,6 +34,8 @@ const USERS_ACTION_HANDLERS = {
   "create-agent": handleCreateAgent,
   "update-agent": handleUpdateAgent,
   "restore-agent-memory": handleRestoreAgentMemory,
+  "save-agent-template": handleSaveAgentTemplate,
+  "delete-agent-template": handleDeleteAgentTemplate,
   "set-user-color": handleSetUserColor,
 } satisfies Record<string, UsersActionHandler>;
 
