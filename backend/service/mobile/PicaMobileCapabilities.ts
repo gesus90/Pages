@@ -14,11 +14,11 @@ import type { PicaMobileConnectionOptions } from "./PicaMobileConnection";
 export async function readPicaMobileCapabilities(
   options: Pick<
     PicaMobileConnectionOptions,
-    "dashboard" | "notifications" | "plans" | "chat"
+    "dashboard" | "notifications" | "plans" | "chat" | "conversations"
   >,
 ): Promise<readonly PicaMobileCapability[]> {
   const capabilities: PicaMobileCapability[] = [];
-  const { dashboard, notifications, plans, chat } = options;
+  const { dashboard, notifications, plans, chat, conversations } = options;
 
   if (dashboard !== undefined) {
     capabilities.push(PICA_MOBILE_CAPABILITY.DASHBOARD_V1);
@@ -34,6 +34,10 @@ export async function readPicaMobileCapabilities(
 
   if (chat?.canDelete === true) {
     capabilities.push(PICA_MOBILE_CAPABILITY.CHAT_DELETE);
+  }
+
+  if (conversations !== undefined) {
+    capabilities.push(PICA_MOBILE_CAPABILITY.CONVERSATIONS_V1);
   }
 
   if (notifications === undefined) {

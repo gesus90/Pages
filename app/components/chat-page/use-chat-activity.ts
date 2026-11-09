@@ -3,7 +3,6 @@ import { useFetcher } from "react-router";
 
 import type {
   VirtualChatDirectory,
-  VirtualChatMessage,
   VirtualChatSelection,
   VirtualGroup,
   VirtualParticipant,
@@ -15,14 +14,8 @@ export interface ChatActivity {
   readonly participants: readonly VirtualParticipant[];
   /** The person's groups with a member on its way, the latest activity first. */
   readonly groups: readonly VirtualGroup[];
-  /** Messages sent to a group in this visit, by group; they are not stored. */
-  readonly groupMessages: Readonly<
-    Record<string, readonly VirtualChatMessage[]>
-  >;
   /** Moves a conversation to the top at once; the server stores the time. */
   touch(selection: VirtualChatSelection): void;
-  /** Adds a message to a group's local history and stores its time. */
-  sendToGroup(groupId: string, content: string): void;
   /** Adds one of the person's participants to a group and stores it. */
   addMember(groupId: string, participantId: string): void;
 }
@@ -52,7 +45,7 @@ function pendingMember(
 
 /**
  * Orders participants and groups by their last activity, newest first, and
- * sends the changes that move an entry: a message and a new member.
+ * sends the change that moves an entry without a message: a new member.
  *
  * @remarks
  * A sent message moves its conversation up at once; the time the server
@@ -60,10 +53,6 @@ function pendingMember(
  */
 export function useChatActivity(directory: VirtualChatDirectory): ChatActivity {
   const [touched, setTouched] = useState<Readonly<Record<string, string>>>({});
-  const [groupMessages, setGroupMessages] = useState<
-    Readonly<Record<string, readonly VirtualChatMessage[]>>
-  >({});
-  const groupSender = useFetcher();
   const memberAdder = useFetcher();
 
   function latest(selection: VirtualChatSelection, stored: string): string {
@@ -101,24 +90,6 @@ export function useChatActivity(directory: VirtualChatDirectory): ChatActivity {
     setTouched((current) => ({ ...current, [selectionKey(selection)]: at }));
   }
 
-  function sendToGroup(groupId: string, content: string): void {
-    const message: VirtualChatMessage = {
-      id: crypto.randomUUID(),
-      authorId: null,
-      content,
-      toolUses: [],
-    };
-    setGroupMessages((current) => ({
-      ...current,
-      [groupId]: [...(current[groupId] ?? []), message],
-    }));
-    touch({ kind: "group", id: groupId });
-    const formData = new FormData();
-    formData.set("intent", "send-group");
-    formData.set("groupId", groupId);
-    void groupSender.submit(formData, { method: "post" });
-  }
-
   function addMember(groupId: string, participantId: string): void {
     const formData = new FormData();
     formData.set("intent", "add-member");
@@ -127,5 +98,5 @@ export function useChatActivity(directory: VirtualChatDirectory): ChatActivity {
     void memberAdder.submit(formData, { method: "post" });
   }
 
-  return { participants, groups, groupMessages, touch, sendToGroup, addMember };
+  return { participants, groups, touch, addMember };
 }

@@ -12,7 +12,11 @@ import { logEvent } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
-import { createFcmPicaMobilePushSender } from "@/backend/service/mobile/notifications/FcmPicaMobilePushSender";
+import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
+import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
+import { sharedPicaMobileConversationPresence } from "@/backend/service/mobile/conversations/PicaMobileConversationPresence";
+import { PicaMobileConversationPush } from "@/backend/service/mobile/notifications/PicaMobileConversationPush";
+import { createPicaMobilePushSender } from "@/backend/service/mobile/notifications/PicaMobilePushSenders";
 import { PagesPicaMobileAccountChecks } from "@/backend/service/mobile/notifications/PicaMobileAccountChecks";
 import { PicaMobileNotificationAccess } from "@/backend/service/mobile/notifications/PicaMobileNotificationAccess";
 import { PicaMobileNotificationDispatcher } from "@/backend/service/mobile/notifications/PicaMobileNotificationDispatcher";
@@ -30,6 +34,7 @@ import type { UserService } from "@/backend/service/UserService";
 
 declare global {
   var pagesPicaMobileNotifications: PicaMobileNotificationService | undefined;
+  var pagesPicaMobileConversationPush: (() => void) | undefined;
 }
 
 /** What the notification services are built on. */
@@ -38,6 +43,45 @@ export interface PicaMobileNotificationInput {
   readonly users: UserService;
   /** Proves the relation to a run, starter or team member, and the rights on it. */
   readonly ownerRuns: AgentPlanOwnerRunReader;
+}
+
+/**
+ * Sends the pushes of new conversation messages (PAGE-278) from now on; a
+ * second call replaces the first.
+ */
+function followConversationMessages(input: {
+  readonly database: Database;
+  readonly registrations: PicaMobilePushRegistrationRepository;
+  readonly accounts: PagesPicaMobileAccountChecks;
+  readonly vault: PicaMobilePushTokenVault;
+  readonly sender: ReturnType<typeof createPicaMobilePushSender>;
+  readonly instanceId: () => Promise<string>;
+  readonly ttlSeconds: number;
+}): void {
+  globalThis.pagesPicaMobileConversationPush?.();
+  const conversations = new ConversationRepository(input.database);
+  const push = new PicaMobileConversationPush({
+    registrations: input.registrations,
+    accounts: input.accounts,
+    vault: input.vault,
+    sender: input.sender,
+    instanceId: input.instanceId,
+    mutedMemberIds: (conversationId) =>
+      conversations.mutedMemberIds(conversationId),
+    conversation: (conversationId, memberId) =>
+      conversations.findForMember(conversationId, memberId),
+    presence: sharedPicaMobileConversationPresence(),
+    ttlSeconds: input.ttlSeconds,
+  });
+  const stop = push.follow(sharedConversationEvents());
+  globalThis.pagesPicaMobileConversationPush = stop;
+  registerShutdownTask(
+    () => {
+      stop();
+      return Promise.resolve();
+    },
+    { step: "pica_mobile_conversation_push" },
+  );
 }
 
 /**
@@ -63,10 +107,7 @@ export async function createPicaMobileNotificationServices(
 
   const runtime = await getPagesRuntime();
   const settings = readPicaMobileNotificationSettings(runtime.getConfig());
-  const sender =
-    settings.fcmServiceAccountFile === null
-      ? null
-      : createFcmPicaMobilePushSender(settings.fcmServiceAccountFile);
+  const sender = createPicaMobilePushSender(settings.fcmServiceAccountFile);
   const registrationRepository = new PicaMobilePushRegistrationRepository(
     input.database,
   );
@@ -96,16 +137,26 @@ export async function createPicaMobileNotificationServices(
 
     return instanceId;
   };
+  const accounts = new PagesPicaMobileAccountChecks(
+    new SessionRepository(input.database),
+    input.users,
+  );
+  followConversationMessages({
+    database: input.database,
+    registrations: registrationRepository,
+    accounts,
+    vault,
+    sender,
+    instanceId: readInstanceId,
+    ttlSeconds: settings.replayTtlSeconds,
+  });
   const dispatcher = new PicaMobileNotificationDispatcher({
     canDispatch: canProcessIntegrations,
     deliveries: new PicaMobileNotificationDeliveryRepository(input.database),
     events: eventRepository,
     registrations: registrationRepository,
     runs: runAccess,
-    accounts: new PagesPicaMobileAccountChecks(
-      new SessionRepository(input.database),
-      input.users,
-    ),
+    accounts,
     vault,
     sender,
     instanceId: readInstanceId,

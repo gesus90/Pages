@@ -32,6 +32,10 @@ export interface LiveChangeAudienceDependencies {
   readonly wiki: {
     canView(actor: User, id: string): Promise<boolean>;
   };
+  /** Whether an account is a member of a conversation (PAGE-278). */
+  readonly conversations: {
+    isMember(actor: User, conversationId: string): Promise<boolean>;
+  };
 }
 
 /**
@@ -58,6 +62,7 @@ function kindOf(type: PagesEvent["type"]): LiveChangeKind | null {
   if (type.startsWith("milestone.")) return "milestone";
   if (type.startsWith("wiki.")) return "wiki";
   if (type === "project.tickets.changed") return "project";
+  if (type === "conversation.changed") return "conversation";
   // A linked asset always arrives with the page that links it.
   return null;
 }
@@ -120,6 +125,8 @@ export class LiveChangeAudience {
     event: PagesEvent,
   ): Promise<boolean> {
     if (kind === "wiki") return this.dependencies.wiki.canView(actor, event.id);
+    if (kind === "conversation")
+      return this.dependencies.conversations.isMember(actor, event.id);
     if (kind === "milestone") return this.canSeeMilestone(actor, event.id);
     if (kind === "project") {
       await this.dependencies.projects.getById(actor, event.id);

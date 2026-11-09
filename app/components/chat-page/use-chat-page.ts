@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 
 import { useChatActivity } from "./use-chat-activity";
+import { useConversationRead } from "./use-conversation-read";
 
 import type {
   VirtualChatDirectory,
@@ -45,7 +46,7 @@ export interface ChatPageState {
   readonly isAnswering: boolean;
   /** Why the last message could not be sent, or `null`. */
   readonly sendFailure: VirtualChatSendFailure | null;
-  /** Sends a message to the opened agent, or to the opened group's local history. */
+  /** Sends a message to the opened agent, person or group. */
   send(content: string): void;
   /** Adds one of the person's participants to a group. */
   addMember(groupId: string, participantId: string): void;
@@ -122,9 +123,33 @@ function pendingMessage(
   selection: VirtualChatSelection | null,
 ): VirtualChatMessage | null {
   const text = formData?.get("text");
-  const agentId = formData?.get("agentId");
-  if (typeof text !== "string" || agentId !== selection?.id) return null;
+  const targetId =
+    formData?.get("agentId") ??
+    formData?.get("participantId") ??
+    formData?.get("groupId");
+  if (typeof text !== "string" || targetId !== selection?.id) return null;
   return { id: "pending", authorId: null, content: text, toolUses: [] };
+}
+
+/** The form of a message to the opened conversation, or `null` when nothing can be sent. */
+function messageForm(
+  opened: OpenedConversation,
+  content: string,
+): FormData | null {
+  const formData = new FormData();
+  formData.set("text", content);
+  formData.set("clientMessageId", crypto.randomUUID());
+  if (opened.kind === "group") {
+    formData.set("intent", "send-group");
+    formData.set("groupId", opened.group.id);
+    return formData;
+  }
+  const { participant } = opened;
+  if (!participant.canChat) return null;
+  const isAgent = participant.kind === "agent";
+  formData.set("intent", isAgent ? "send" : "send-direct");
+  formData.set(isAgent ? "agentId" : "participantId", participant.id);
+  return formData;
 }
 
 /** Reads the history again while the opened agent answers. */
@@ -167,10 +192,11 @@ function searchLists(lists: ChatLists, query: string): ChatLists {
  *
  * @remarks
  * Both lists come newest activity first; the first group opens at first,
- * else the first agent of the list. A sent message goes to the agent over the
- * page's action and shows at once; the page reads the history again until
- * the agent's answer is stored. A message to a group stays in this visit's
- * history and only moves the group up (PAGE-259).
+ * else the first agent of the list. A sent message goes over the page's
+ * action and shows at once: to an agent, which answers over ACP while the
+ * page reads the history again, or into the stored conversation with a
+ * person or of a group (PAGE-278), whose other members see it live. Opening
+ * a conversation with unread messages marks it read.
  */
 export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
   const [query, setQuery] = useState("");
@@ -184,34 +210,28 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
   const opened = openConversation(lists, selection);
   const historyId = selection?.id ?? "";
   const pending = pendingMessage(sender.formData, selection);
-  const stored =
-    selection?.kind === "group"
-      ? (activity.groupMessages[historyId] ?? [])
-      : (directory.histories[historyId] ?? []);
+  const stored = directory.histories[historyId] ?? [];
   const messages = pending ? [...stored, pending] : stored;
+  const isAgent =
+    opened?.kind === "participant" && opened.participant.kind === "agent";
   const isAnswering =
-    pending !== null ||
-    (opened?.kind === "participant" && opened.participant.status === "working");
+    isAgent &&
+    (pending !== null ||
+      (opened.kind === "participant" &&
+        opened.participant.status === "working"));
   const result: unknown = sender.data;
   const sendFailure =
     sender.state === "idle" && isSendResult(result) && !result.ok
       ? (result.error ?? "invalidInput")
       : null;
   useAnswerPolling(isAnswering);
+  useConversationRead(opened, stored);
 
   function send(content: string): void {
-    if (content.trim() === "" || !opened) return;
-    if (opened.kind === "group") {
-      activity.sendToGroup(opened.group.id, content);
-      return;
-    }
-    if (!opened.participant.canChat) return;
-    const formData = new FormData();
-    formData.set("intent", "send");
-    formData.set("agentId", opened.participant.id);
-    formData.set("text", content);
-    formData.set("clientMessageId", crypto.randomUUID());
-    activity.touch({ kind: "participant", id: opened.participant.id });
+    if (content.trim() === "" || !opened || !selection) return;
+    const formData = messageForm(opened, content);
+    if (!formData) return;
+    activity.touch(selection);
     void sender.submit(formData, { method: "post" });
   }
 

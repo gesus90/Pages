@@ -6,6 +6,7 @@ import {
   VIRTUAL_GROUP_NAME_LENGTH,
 } from "@/definition/VirtualChat";
 
+import type { ChatGroupRecord } from "@/backend/database/repositories/employee/ChatGroupRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { User } from "@/definition/User";
 import type { VirtualChatSelection } from "@/definition/VirtualChat";
@@ -103,6 +104,16 @@ export class ChatGroupService {
       createdAt: this.now(),
     });
     return id;
+  }
+
+  /** Returns one of the person's groups with its members, or `null` for none of theirs. */
+  public async find(
+    person: User,
+    groupId: unknown,
+  ): Promise<ChatGroupRecord | null> {
+    const id = readId(groupId);
+    const groups = await this.dependencies.store.groups().list(person.id);
+    return groups.find((group) => group.id === id) ?? null;
   }
 
   /**

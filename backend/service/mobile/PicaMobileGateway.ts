@@ -10,6 +10,7 @@ import { PICA_MOBILE_PATH } from "@/definition/PicaMobile";
 import { PICA_MOBILE_MAXIMUM_CHAT_SEND_BYTES } from "@/definition/PicaMobileProtocol";
 
 import { PicaMobileChatFiles } from "./chat/PicaMobileChatFiles";
+import { PicaMobileConversationFiles } from "./conversations/PicaMobileConversationFiles";
 import { PicaMobileConnection } from "./PicaMobileConnection";
 
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
@@ -19,6 +20,7 @@ import type { PicaMobilePortError } from "@/definition/PicaMobile";
 import type { PicaMobileAuthenticator } from "./PicaMobileAuthenticator";
 import type { PicaMobileDashboardProvider } from "./PicaMobileDashboardProvider";
 import type { PicaMobileChatProvider } from "./chat/PicaMobileChatProvider";
+import type { PicaMobileConversationsProvider } from "./conversations/PicaMobileConversationsProvider";
 import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
 import type { PicaMobilePlansProvider } from "./plans/PicaMobilePlansProvider";
 import type { PicaMobileRelay } from "./PicaMobileRelay";
@@ -37,6 +39,11 @@ export interface PicaMobileGatewayOptions {
    * `chat.v1` is not announced and the endpoints answer 426.
    */
   readonly chat?: PicaMobileChatProvider;
+  /**
+   * Answers `conversations.v1` and its voice endpoint; without it
+   * `conversations.v1` is not announced and the endpoint answers 426.
+   */
+  readonly conversations?: PicaMobileConversationsProvider;
   /** Version of this Pages build, reported to connected clients. */
   readonly serverVersion: string;
   /** Interface to listen on; every interface when missing. */
@@ -188,6 +195,7 @@ export class PicaMobileGateway {
   private readonly options: PicaMobileGatewayOptions;
   private readonly changes = new SerialQueue();
   private readonly files: PicaMobileChatFiles | null;
+  private readonly voices: PicaMobileConversationFiles | null;
   private active: Listener | null = null;
   private lastFailure: PicaMobileListenFailure | null = null;
   private isClosed = false;
@@ -205,6 +213,13 @@ export class PicaMobileGateway {
         : new PicaMobileChatFiles({
             authenticator: options.authenticator,
             chat: options.chat,
+          });
+    this.voices =
+      options.conversations === undefined
+        ? null
+        : new PicaMobileConversationFiles({
+            authenticator: options.authenticator,
+            conversations: options.conversations,
           });
   }
 
@@ -378,7 +393,7 @@ export class PicaMobileGateway {
     return relay.admit(request) ?? undefined;
   }
 
-  /** Answers the attachment endpoints of `chat.v1`; every other request learns to upgrade. */
+  /** Answers the file endpoints of `chat.v1` and `conversations.v1`; every other request learns to upgrade. */
   private handleRequest(
     request: IncomingMessage,
     response: ServerResponse,
@@ -399,7 +414,10 @@ export class PicaMobileGateway {
       return;
     }
 
-    if (this.files?.handle(request, response, clientAddress) === true) {
+    if (
+      this.files?.handle(request, response, clientAddress) === true ||
+      this.voices?.handle(request, response, clientAddress) === true
+    ) {
       return;
     }
 
@@ -475,6 +493,7 @@ export class PicaMobileGateway {
       notifications: this.options.notifications,
       plans: this.options.plans,
       chat: this.options.chat,
+      conversations: this.options.conversations,
       handshakeOrigin: readHandshakeOrigin(request.headers.host),
       serverVersion: this.options.serverVersion,
     });

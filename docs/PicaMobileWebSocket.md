@@ -1,8 +1,8 @@
-# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200, PAGE-201, PAGE-263)
+# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200, PAGE-201, PAGE-263, PAGE-278)
 
 Pages stellt für die App Pica Mobile einen WebSocket-Endpunkt bereit. Dieses Dokument ist der Vertrag zwischen Pages und der App: Es beschreibt, wie ein Administrator den Endpunkt einrichtet, wie eine Verbindung aufgebaut wird und welche Nachrichten in Version 1 des Formats gelten.
 
-Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)), `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)) `chat.v1` (Chat mit Pica in denselben Unterhaltungen wie im Web, samt Dateianhängen über HTTP am selben Port; siehe [Erweiterung chat.v1](#erweiterung-chatv1)) und `chat.delete` (Löschen einer Unterhaltung; siehe [Erweiterung chat.delete](#erweiterung-chatdelete)).
+Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)), `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)) `chat.v1` (Chat mit Pica in denselben Unterhaltungen wie im Web, samt Dateianhängen über HTTP am selben Port; siehe [Erweiterung chat.v1](#erweiterung-chatv1)) `chat.delete` (Löschen einer Unterhaltung; siehe [Erweiterung chat.delete](#erweiterung-chatdelete)) und `conversations.v1` (gespeicherte Unterhaltungen mit Personen, Agents und Gruppen samt Sprachnachrichten und Push; siehe [Erweiterung conversations.v1](#erweiterung-conversationsv1)).
 
 ## Einrichtung durch einen Administrator
 
@@ -601,6 +601,79 @@ Erweiterung `chat.delete` von Version 1 des Pica-Mobile-Protokolls. Sie ergänzt
 - `chat_failed` mit `{ "code": "sessionMissing" }`: Die Unterhaltung existiert nicht oder gehört einem anderen Konto.
 - `chat_failed` mit einem anderen Code des Chats: Die Löschung ist gescheitert, und die Unterhaltung besteht weiter.
 - Ein Bestätigungswort gibt es nicht. Pica Mobile fragt vor dem Senden selbst nach.
+
+## Erweiterung conversations.v1
+
+Die Erweiterung (PAGE-278) gibt der App die gespeicherten Unterhaltungen der Chat-Seite `/chat`: Direktunterhaltungen zwischen zwei Teilnehmern (Mensch oder Agent, je Paar genau eine) und Gruppen mit Namen und Mitgliedern. Pica selbst ist keine dieser Unterhaltungen; dafür bleibt `chat.v1`. Sie läuft über die bestehende, angemeldete Verbindung, ohne neuen Port. Hülle, Authentifizierung, Heartbeat und Fehlerregeln von Version 1 gelten unverändert; eine ungültige Nutzlast ergibt wie überall `error` `invalid_message`. Es gelten dieselben Rechte wie im Web: Nur Mitglieder lesen und schreiben, nur aktive Konten und Agents lassen sich aufnehmen, und jede Anfrage prüft zuerst die Sitzung.
+
+Pages nennt `conversations.v1` in `connected.server.capabilities`, wenn die Verbindung die Erweiterung beantwortet. Ein Pages ohne sie antwortet auf die Anfragen mit `unknown_type`.
+
+### Anfragen und Antworten
+
+| App → Pages                 | Nutzlast                                                        | Antwort                                                         |
+| --------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| `conversations_list`        | `{ cursor? }`                                                   | `conversations` `{ items, nextCursor, totalUnread }`            |
+| `conversation_history`      | `{ conversationId, beforeId? }`                                 | `conversation_messages` `{ conversationId, messages, hasMore }` |
+| `conversation_participants` | `{}`                                                            | `conversation_participant_list` `{ people, agents }`            |
+| `conversation_create`       | `{ kind: "direct" \| "group", participantIds, name? }`          | `conversation_event` `conversation`                             |
+| `conversation_send`         | `{ conversationId, clientMessageId, text }`                     | `conversation_event` `message`                                  |
+| `conversation_read`         | `{ conversationId, upToMessageId }`                             | `conversation_event` `read`                                     |
+| `conversation_mute`         | `{ conversationId, isMuted }`                                   | `conversation_event` `conversation`                             |
+| `voice_start`               | `{ id, conversationId, clientMessageId, mimeType, durationMs }` | keine; nur eine Ablehnung als `conversation_error`              |
+| `voice_chunk`               | `{ id, index, data }`                                           | keine; nur eine Ablehnung als `conversation_error`              |
+| `voice_finish`              | `{ id, chunkCount }`                                            | `conversation_event` `message` mit `voice`                      |
+| `voice_cancel`              | `{ id }`                                                        | keine                                                           |
+
+- **Unterhaltung** (`items`, `conversation`): `{ id, kind, name, members, lastMessage, lastActivityAt, unreadCount, isMuted }`. `name` ist der Gruppenname oder bei einer Direktunterhaltung der Name des anderen Teilnehmers; `members` sind `{ id, kind, name, color }`. Die Liste ist nach letzter Aktivität sortiert, höchstens 50 je Seite; `nextCursor` setzt sie fort und ist auf der letzten Seite `null`.
+- **`totalUnread`** zählt alle ungelesenen Nachrichten anderer, auch aus stummgeschalteten Unterhaltungen; `unreadCount` gilt je Unterhaltung und Mitglied.
+- **Nachricht:** `{ id, conversationId, clientMessageId, sender: { id, kind, name, color }, text, createdAt, mentions, voice? }`. `kind` ist `human` oder `agent`, `color` die Personenfarbe oder `null`. `mentions` sind die IDs der Mitglieder, die der Text mit `@username` nennt. Eine Sprachnachricht trägt `voice: { durationMs, transcriptionState, mimeType, sizeBytes }`; `transcriptionState` ist `pending`, `done` oder `failed`, `text` ist bis zur Erkennung leer.
+- **Verlauf:** älteste zuerst, je Seite die neuesten 50 Nachrichten und höchstens 400000 Zeichen, aber immer mindestens eine. `beforeId` ist die älteste gelieferte Nachricht und liest die Seite davor. Eine Anfrage ohne `beforeId` öffnet die Unterhaltung auf der Verbindung (siehe [Push](#push-bei-neuen-nachrichten)).
+- **`conversation_send`:** `clientMessageId` ist eine UUID; eine Wiederholung liefert die gespeicherte Nachricht und erzeugt keine zweite. `text` hat höchstens 16000 Zeichen, sonst `too_long`; ein leerer Text ist `invalid`.
+- **`conversation_create`:** `direct` braucht genau einen anderen Teilnehmer und liefert die vorhandene Unterhaltung des Paares, wenn es sie schon gibt. `group` braucht einen Namen (1 bis 80 Zeichen) und 1 bis 49 andere Teilnehmer. Die eigene ID, unbekannte und deaktivierte Konten ergeben `invalid`.
+- **`conversation_participants`:** aktive Personen (`people`) und Agents (`agents`) außer dem eigenen Konto, je `{ id, kind, name, color, username, role }`.
+
+### Ereignisse
+
+`conversation_event` hat die Nutzlast `{ type, data }`. Als Antwort trägt es die `requestId` der Anfrage; was Pages von sich aus sendet, trägt `requestId: null`.
+
+| `type`            | `data`                                                            | Wer es erhält                                                            |
+| ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `message`         | neue Nachricht, auch aus dem Web                                  | alle Mitglieder                                                          |
+| `message_updated` | geänderte Nachricht, etwa der erkannte Text einer Sprachnachricht | alle Mitglieder                                                          |
+| `conversation`    | neue oder geänderte Unterhaltung, wie das Mitglied sie sieht      | alle Mitglieder; nach `conversation_mute` nur das Konto                  |
+| `read`            | `{ conversationId, upToMessageId, unreadCount, totalUnread }`     | nur das Konto selbst                                                     |
+| `typing`          | `{ conversationId, participantId, isTyping }`                     | vorgesehen für antwortende Agents (PAGE-276); Pages sendet es noch nicht |
+
+Die Verbindung, die eine Änderung ausgelöst hat, erhält sie als Antwort und nicht noch einmal als Ereignis; andere Verbindungen desselben Kontos erhalten das Ereignis.
+
+### Fehler
+
+`conversation_error` hat die Nutzlast `{ id, code }`. `id` ist bei `voice_*` die Upload-ID, sonst die genannte Unterhaltung oder `null`. `code` ist `forbidden` (Direktunterhaltung mit einem deaktivierten Konto), `not_found` (fehlende Unterhaltung, Nichtmitglied oder unbekannter Upload; ein Nichtmitglied und eine fehlende Unterhaltung antworten gleich), `invalid`, `too_large`, `too_long` oder `unsupported_format`.
+
+### Sprachnachrichten
+
+Audio geht in Stücken, weil der Frame begrenzt bleibt. `voice_start` kündigt die Nachricht an; Pages prüft Mitgliedschaft, Format (`audio/wav` oder `audio/mpeg`, sonst `unsupported_format`) und Dauer (höchstens 5 Minuten, sonst `too_long`). Danach folgen die `voice_chunk` in der Reihenfolge `index` 0, 1, 2 …, `data` Base64 mit höchstens 64 KB Rohdaten je Stück, zusammen höchstens 25 MB (`too_large`). `voice_finish` mit der Zahl der Stücke speichert die Nachricht. Pages prüft dann den Inhalt: Er muss zum angekündigten Format passen (`unsupported_format`), und die Länge aus dem WAV-Kopf darf die Höchstdauer nicht überschreiten (`too_long`); bei MP3 gilt die angekündigte Dauer. Das Audio liegt im Dateispeicher von Pages, nicht in der Datenbank.
+
+Eine Ablehnung kommt einmal je Upload; weitere Stücke dieses Uploads verwirft Pages still, und `voice_finish` wiederholt die Ablehnung. Ein Upload, der eine Minute still bleibt, und jeder Upload einer geschlossenen Verbindung verfällt ohne Rest; `voice_cancel` verwirft ihn sofort. Eine Verbindung hat höchstens 2 Uploads gleichzeitig.
+
+Der Text kommt nach dem Senden als `message_updated`. Ohne Spracherkennungsmodell endet die Erkennung mit `failed`, das Audio bleibt abspielbar. Für Entwicklung und Prüfung schaltet `PAGES_STT_SIMULATION=1` eine Simulation ein (`PAGES_STT_SIMULATION_SCENARIO` `ok`, `provider_failed` oder `slow`); bei `NODE_ENV=production` wird der Schalter ignoriert und das geloggt.
+
+Laden: `GET /pica-mobile/conversations/voice/<messageId>` am selben Host und Port, mit `Authorization: Bearer <Sitzungstoken>` wie bei den Chat-Anhängen. Die Mitgliedschaft wird bei jedem Abruf geprüft: 200 mit dem Audio (`Content-Type` `audio/wav` oder `audio/mpeg`), 404 `{ ok: false, error: "not_found" }` für Nichtmitglieder und fehlende Nachrichten, 401 `accessDenied` ohne gültiges Token, 429 bei mehr als 4 gleichzeitigen Abrufen eines Kontos. Im Web spielt die Chat-Seite dieselbe Datei über `/chat/voice/<messageId>` mit derselben Prüfung ab.
+
+### Grenzen
+
+- `conversation_send` und `voice_chunk` dürfen wie `chat_send` bis 128 KiB groß sein (`PICA_MOBILE_MAXIMUM_CHAT_SEND_BYTES`), jeder andere Frame bleibt bei 16 KiB.
+- `voice_chunk` zählt nicht zum allgemeinen Rate-Limit (30 Nachrichten in 10 Sekunden, 8 unerledigte), sondern zu einem eigenen: 160 Stücke in 10 Sekunden und 64 unerledigte. Ein Frame, der sich als `voice_chunk` ausgibt, aber keiner ist, wird abgelehnt.
+- Frames von Pages an die App haben höchstens 524288 UTF-16-Codeeinheiten.
+
+### Push bei neuen Nachrichten
+
+Eine neue Nachricht löst über die vorhandene FCM-Anbindung (siehe [notifications.v1](#erweiterung-notificationsv1-android-fcm)) einen Push an die registrierten Geräte der anderen Mitglieder aus. Kein Push geht an den Absender, für eine stummgeschaltete Unterhaltung, oder solange eine Verbindung des Kontos die Unterhaltung offen hat. Offen ist sie nach `conversation_history` ohne `beforeId`, `conversation_send` oder `conversation_read`; `conversations_list` und das Schließen der Verbindung schließen sie. Vor jedem Push prüft Pages Sitzung und Konto der Registrierung wie bei den Plan-Pushes; ein gescheiterter Push wird nicht wiederholt, die Nachricht wartet in der Unterhaltung.
+
+- Kanal `pica-conversation-messages`, Tag `conversation:<id>`, sodass ein neuerer Push derselben Unterhaltung den älteren ersetzt.
+- Mit `preview: "details"` nennt der Titel die Unterhaltung (Gruppenname oder Absender einer Direktunterhaltung) und der Text den Absender („Nachricht von …“, „Sprachnachricht von …“); mit `hidden` bleiben beide allgemein. Der Nachrichtentext geht nie in einen Push.
+- `data`: `pica_v`, `pica_type: "conversation_message"`, `pica_instance`, `pica_account`, `pica_conversation`, `pica_message`, `pica_at`, `tag`. Damit öffnet die App die Unterhaltung.
+- Für Entwicklung und Prüfung ohne FCM schaltet `PAGES_PUSH_SIMULATION=1` außerhalb von Produktion einen Push-Dienst ein, der nur ausgibt, was er an FCM übergeben würde (ohne Token); jede Übergabe steht als `pica_mobile.conversation_push.handed_over` im Log.
 
 ## Erweiterung notifications.v1 (Android, FCM)
 

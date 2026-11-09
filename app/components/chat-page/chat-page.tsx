@@ -20,6 +20,14 @@ function conversationKey(opened: OpenedConversation): string {
     : `participant:${opened.participant.id}`;
 }
 
+/** The hint in the input: groups take mentions, agents commands, people plain text. */
+function placeholderKey(opened: OpenedConversation): string {
+  if (opened.kind === "group") return "chatPage.groupPlaceholder";
+  return opened.participant.kind === "agent"
+    ? "chatPage.participantPlaceholder"
+    : "chatPage.personPlaceholder";
+}
+
 /** The input at the foot, or why nothing can be sent to the opened participant. */
 function ConversationFoot({
   page,
@@ -30,13 +38,12 @@ function ConversationFoot({
 }): React.ReactElement {
   const { t } = useTranslation();
   const name = conversationName(opened);
-  const isGroup = opened.kind === "group";
   if (opened.kind === "participant" && !opened.participant.canChat)
     return (
       <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
         {opened.participant.kind === "agent"
           ? t("chatPage.agentInactive", { name })
-          : t("chatPage.personNotYet", { name })}
+          : t("chatPage.personInactive", { name })}
       </p>
     );
   return (
@@ -49,11 +56,7 @@ function ConversationFoot({
       <ChatPageComposer
         key={conversationKey(opened)}
         label={t("chatPage.inputLabel", { name })}
-        placeholder={
-          isGroup
-            ? t("chatPage.groupPlaceholder", { name })
-            : t("chatPage.participantPlaceholder", { name })
-        }
+        placeholder={t(placeholderKey(opened), { name })}
         onSend={page.send}
       />
     </div>
@@ -107,9 +110,10 @@ function ChatPageConversation({
  * px with a scroll area for each list, and the chat without card or
  * background.
  * Below `lg` the list stands above the chat; below `md` a selection replaces
- * it. Messages go to active agents, which answer over ACP; a message to a
- * group stays in this visit. The list holds only existing people and agents
- * the person chose, and groups of them.
+ * it. Messages go to active agents, which answer over ACP, and into the
+ * stored conversations with people and of groups (PAGE-278). The list holds
+ * only existing people and agents the person chose or who wrote to them, and
+ * groups of them.
  */
 export function ChatPage({
   directory,

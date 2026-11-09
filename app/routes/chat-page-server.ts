@@ -3,8 +3,10 @@ import { data } from "react-router";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
+import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { ConversationErrorCode } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
 import type {
   VirtualChatDirectory,
@@ -33,7 +35,9 @@ export type ChatPageIntent =
   | "stop"
   | "create-group"
   | "add-member"
-  | "send-group";
+  | "send-group"
+  | "send-direct"
+  | "read";
 
 const INTENTS: readonly ChatPageIntent[] = [
   "save-contacts",
@@ -42,7 +46,30 @@ const INTENTS: readonly ChatPageIntent[] = [
   "create-group",
   "add-member",
   "send-group",
+  "send-direct",
+  "read",
 ];
+
+/** How a refused conversation request reads on the page (PAGE-278). */
+const CONVERSATION_FAILURES: Readonly<
+  Record<ConversationErrorCode, VirtualChatSendFailure>
+> = {
+  forbidden: "inactive",
+  not_found: "invalidInput",
+  invalid: "invalidInput",
+  too_large: "invalidInput",
+  too_long: "tooLong",
+  unsupported_format: "invalidInput",
+};
+
+const CONVERSATION_STATUS: Readonly<Record<ConversationErrorCode, number>> = {
+  forbidden: 403,
+  not_found: 404,
+  invalid: 400,
+  too_large: 413,
+  too_long: 400,
+  unsupported_format: 415,
+};
 
 const FAILURES: Readonly<Record<string, VirtualChatSendFailure>> = {
   costLimitReached: "costLimitReached",
@@ -73,6 +100,69 @@ function readJson(value: FormDataEntryValue | null): unknown {
 }
 
 type ChatServices = Awaited<ReturnType<typeof getApplicationServices>>;
+
+/**
+ * Makes a group of the person a conversation its members share and adds the
+ * members it gained, so they see the group and its history (PAGE-278).
+ */
+async function shareGroup(
+  services: ChatServices,
+  person: User,
+  groupId: FormDataEntryValue | null,
+): Promise<boolean> {
+  const group = await services.chatGroupService.find(person, groupId);
+  if (!group) return false;
+  await services.conversationService.adoptGroup(person, group);
+  return true;
+}
+
+/** Stores a message of a group or of a direct conversation with a person, or a read state. */
+async function runConversationIntent(
+  services: ChatServices,
+  person: User,
+  intent: "send-group" | "send-direct" | "read",
+  formData: FormData,
+): Promise<void> {
+  const { conversationService } = services;
+  const text = formData.get("text");
+  const clientMessageId = formData.get("clientMessageId");
+  if (intent === "read") {
+    await conversationService.markRead(person, {
+      conversationId: String(formData.get("conversationId") ?? ""),
+      upToMessageId: String(formData.get("upToMessageId") ?? ""),
+    });
+    return;
+  }
+  if (intent === "send-direct") {
+    const conversation = await conversationService.openDirect(
+      person,
+      String(formData.get("participantId") ?? ""),
+    );
+    await conversationService.send(person, {
+      conversationId: conversation.id,
+      clientMessageId,
+      text,
+    });
+    await recordParticipantActivity(
+      services,
+      person,
+      formData.get("participantId"),
+    );
+    return;
+  }
+  const groupId = String(formData.get("groupId") ?? "");
+  const isOwn = await shareGroup(services, person, groupId);
+  await conversationService.send(person, {
+    conversationId: groupId,
+    clientMessageId,
+    text,
+  });
+  if (isOwn)
+    await services.chatGroupService.recordActivity(person, {
+      kind: "group",
+      id: groupId,
+    });
+}
 
 /** Runs one change of the person; returns the ID of a created group. */
 async function runIntent(
@@ -106,29 +196,28 @@ async function runIntent(
         formData.get("agentId"),
       );
       return undefined;
-    case "create-group":
-      return services.chatGroupService.create(person, {
+    case "create-group": {
+      const groupId = await services.chatGroupService.create(person, {
         name: formData.get("name"),
         description: formData.get("description"),
         memberIds: readJson(formData.get("memberIds")),
       });
+      await shareGroup(services, person, groupId);
+      return groupId;
+    }
     case "add-member":
       await services.chatGroupService.addMember(
         person,
         formData.get("groupId"),
         formData.get("participantId"),
       );
+      await shareGroup(services, person, formData.get("groupId"));
       return undefined;
-    case "send-group": {
-      const groupId = formData.get("groupId");
-      if (typeof groupId !== "string")
-        throw new AgentEmployeeError("invalidInput");
-      await services.chatGroupService.recordActivity(person, {
-        kind: "group",
-        id: groupId,
-      });
+    case "send-group":
+    case "send-direct":
+    case "read":
+      await runConversationIntent(services, person, intent, formData);
       return undefined;
-    }
   }
 }
 
@@ -165,8 +254,9 @@ export async function loader({
 }
 
 /**
- * Saves the participant list, creates a group or adds a member, records a
- * message to a group, sends a message to an agent or stops its answer.
+ * Saves the participant list, creates a group or adds a member, stores a
+ * message to a group or a person or a read state (PAGE-278), sends a
+ * message to an agent or stops its answer.
  *
  * @remarks
  * Saving the list only adds and removes entries of the person's own list;
@@ -187,6 +277,13 @@ export async function action({
     const groupId = await runIntent(services, person, intent, formData);
     return data<ChatPageActionData>({ ok: true, intent, groupId });
   } catch (error: unknown) {
+    if (error instanceof ConversationError) {
+      logCaughtError("chat_page", error);
+      return data<ChatPageActionData>(
+        { ok: false, intent, error: CONVERSATION_FAILURES[error.code] },
+        { status: CONVERSATION_STATUS[error.code] },
+      );
+    }
     if (!(error instanceof AgentEmployeeError)) throw error;
     logCaughtError("chat_page", error);
     return data<ChatPageActionData>(

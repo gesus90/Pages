@@ -1,5 +1,9 @@
-/** What kind of object a live notice names; `project` stands for the tickets of a project. */
-export type LiveChangeKind = "ticket" | "milestone" | "wiki" | "project";
+/**
+ * What kind of object a live notice names; `project` stands for the tickets
+ * of a project, `conversation` for a stored conversation of the chat page.
+ */
+export type LiveChangeKind =
+  "ticket" | "milestone" | "wiki" | "project" | "conversation";
 
 /**
  * One live notice: which object changed, never what it now contains.
@@ -26,6 +30,7 @@ const LIVE_CHANGE_KINDS: ReadonlySet<string> = new Set([
   "milestone",
   "wiki",
   "project",
+  "conversation",
 ]);
 
 function isLiveChangeKind(value: unknown): value is LiveChangeKind {

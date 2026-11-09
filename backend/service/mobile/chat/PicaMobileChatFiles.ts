@@ -85,7 +85,14 @@ function readChatFileRequest(request: IncomingMessage): ChatFileRequest | null {
   return request.method === "DELETE" ? { kind: "discard", attachmentId } : null;
 }
 
-function readOrigin(
+/**
+ * Reads the origin of a plain HTTP request on the port of Pica Mobile.
+ *
+ * @param request - The request.
+ * @param clientAddress - The app's address, as the gateway decided it.
+ * @returns The address and the shortened user agent the authentication logs.
+ */
+export function readPicaMobileFileOrigin(
   request: IncomingMessage,
   clientAddress: string | null,
 ): PicaMobileClientOrigin {
@@ -121,6 +128,33 @@ function respond(
     "Content-Type": "application/json; charset=utf-8",
   });
   response.end(content);
+}
+
+/**
+ * Checks the session token a plain HTTP request carries as `Authorization: Bearer`.
+ *
+ * @param authenticator - Checks the token like an `auth` message.
+ * @param request - The request; the token is never read from its address.
+ * @param origin - The origin the authentication logs.
+ * @returns The account and session, or `null` without a valid token.
+ */
+export async function authenticatePicaMobileBearer(
+  authenticator: Pick<PicaMobileAuthenticator, "authenticate">,
+  request: IncomingMessage,
+  origin: PicaMobileClientOrigin,
+): Promise<PicaMobileSessionIdentity | null> {
+  const token = BEARER.exec(request.headers.authorization ?? "")?.[1];
+
+  if (token === undefined) {
+    return null;
+  }
+
+  const outcome = await authenticator.authenticate(
+    { method: "session", token },
+    origin,
+  );
+
+  return outcome.ok ? { userId: outcome.user.id, sessionToken: token } : null;
 }
 
 /**
@@ -167,7 +201,7 @@ export class PicaMobileChatFiles {
       return false;
     }
 
-    const origin = readOrigin(request, clientAddress);
+    const origin = readPicaMobileFileOrigin(request, clientAddress);
 
     void this.serve(request, response, {
       fileRequest,
@@ -194,7 +228,11 @@ export class PicaMobileChatFiles {
     },
   ): Promise<void> {
     const { fileRequest, origin } = target;
-    const session = await this.authenticate(request, origin);
+    const session = await authenticatePicaMobileBearer(
+      this.options.authenticator,
+      request,
+      origin,
+    );
 
     if (session === null) {
       respond(response, 401, { ok: false, error: "accessDenied" });
@@ -217,24 +255,6 @@ export class PicaMobileChatFiles {
     } finally {
       this.release(session.userId);
     }
-  }
-
-  private async authenticate(
-    request: IncomingMessage,
-    origin: PicaMobileClientOrigin,
-  ): Promise<PicaMobileSessionIdentity | null> {
-    const token = BEARER.exec(request.headers.authorization ?? "")?.[1];
-
-    if (token === undefined) {
-      return null;
-    }
-
-    const outcome = await this.options.authenticator.authenticate(
-      { method: "session", token },
-      origin,
-    );
-
-    return outcome.ok ? { userId: outcome.user.id, sessionToken: token } : null;
   }
 
   private async transfer(exchange: {

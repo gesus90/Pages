@@ -6,7 +6,7 @@ import {
 } from "@/backend/database/repositories/mobile/PicaMobileNotificationEventRepository";
 import { PicaMobileNotificationPreferenceRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
 import { PicaMobilePushRegistrationRepository } from "@/backend/database/repositories/mobile/PicaMobilePushRegistrationRepository";
-import { createFcmPicaMobilePushSender } from "@/backend/service/mobile/notifications/FcmPicaMobilePushSender";
+import { createPicaMobilePushSender } from "@/backend/service/mobile/notifications/PicaMobilePushSenders";
 import { PagesPicaMobileAccountChecks } from "@/backend/service/mobile/notifications/PicaMobileAccountChecks";
 import { PicaMobileNotificationAccess } from "@/backend/service/mobile/notifications/PicaMobileNotificationAccess";
 import { PicaMobileNotificationDispatcher } from "@/backend/service/mobile/notifications/PicaMobileNotificationDispatcher";
@@ -45,10 +45,7 @@ export function createIntegrationFcmConsumer(input: {
       input.users,
     ),
     vault: new PicaMobilePushTokenVault(input.tokenKey),
-    sender:
-      settings.fcmServiceAccountFile === null
-        ? null
-        : createFcmPicaMobilePushSender(settings.fcmServiceAccountFile),
+    sender: createPicaMobilePushSender(settings.fcmServiceAccountFile),
     instanceId: () => events.readInstanceId(createNotificationEventId()),
   });
 }

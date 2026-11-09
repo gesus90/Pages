@@ -13,6 +13,8 @@ import {
   readRelayedEvent,
 } from "@/backend/service/events/LiveChangeRelay";
 
+import { conversationMembership } from "./conversation-services.server";
+
 import type { Database } from "@/backend/database/Database";
 import type { LiveChangeAudienceDependencies } from "@/backend/service/events/LiveChangeAudience";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
@@ -23,7 +25,8 @@ export interface LiveChangeContext {
   /** The instance's PostgreSQL URL; without it no other process can be heard. */
   readonly databaseUrl: string | undefined;
   readonly events: PagesEventPublisher;
-  readonly audience: LiveChangeAudienceDependencies;
+  /** The rights-checked reads; the membership of conversations comes from the database. */
+  readonly audience: Omit<LiveChangeAudienceDependencies, "conversations">;
 }
 
 /** The live view of a process and the audience check it shares with `pages-core`. */
@@ -51,7 +54,10 @@ export interface LiveChangeServices {
 export function createLiveChangeServices(
   context: LiveChangeContext,
 ): LiveChangeServices {
-  const audience = new LiveChangeAudience(context.audience);
+  const audience = new LiveChangeAudience({
+    ...context.audience,
+    conversations: conversationMembership(context.database),
+  });
   const hub = new LiveChangeHub(context.events, audience);
   const services = { liveChangeHub: hub, liveChangeAudience: audience };
   if (isPagesRunsProcess() || isLocalSessionOwner()) {

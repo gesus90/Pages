@@ -24,6 +24,10 @@ Lauf wird geschrieben ──(nach dem Commit)──> Beobachter ──> Recorder
 - **Ohne registriertes Gerät** legt Pages kein Ereignis an. Das Einschalten der Benachrichtigungen spielt daher nie Vergangenes nach.
 - **Reihenfolge der Dienste.** Der Dispatcher und der Recorder stoppen beim Beenden von Pages, bevor die Datenbank schließt; jeder wartet dabei höchstens fünf Sekunden.
 
+## Pushes für Unterhaltungen (PAGE-278)
+
+Neue Nachrichten der gespeicherten Unterhaltungen (`conversations.v1`) nutzen dieselben Registrierungen, denselben FCM-Absender und dieselbe Prüfung von Sitzung und Konto, aber nicht den Postausgang der Plan-Pushes: Pages übergibt den Push direkt nach dem Speichern der Nachricht und wiederholt ihn nicht, weil die Nachricht in der Unterhaltung wartet. Kein Push geht an den Absender, für stummgeschaltete Unterhaltungen oder solange eine Verbindung des Kontos die Unterhaltung offen hat. Vertrag, Kanal und Nutzlast stehen in [PicaMobileWebSocket.md](./PicaMobileWebSocket.md#push-bei-neuen-nachrichten). `PAGES_PUSH_SIMULATION=1` ersetzt FCM außerhalb von Produktion durch eine Ausgabe dessen, was übergeben würde; das gilt dann auch für die Plan-Pushes.
+
 ## Einrichtung durch den Betreiber
 
 Pages sendet über FCM HTTP v1 mit dem Schlüssel eines Google-Dienstkontos. Pages legt kein Firebase-Projekt, kein Konto und keine Zugangsdaten an; das erledigt der Betreiber.

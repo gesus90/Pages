@@ -8,6 +8,7 @@ import { cn } from "@/app/lib/cn";
 
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
+import { ChatPageVoice } from "./chat-page-voice";
 
 import type {
   VirtualChatMessage,
@@ -39,6 +40,27 @@ function groupRuns(messages: readonly VirtualChatMessage[]): MessageRun[] {
   return runs;
 }
 
+/**
+ * The author of a message from what the conversation tells, for one outside
+ * the person's list (PAGE-278).
+ */
+function authorOf(message: VirtualChatMessage): VirtualParticipant | null {
+  if (!message.author || message.authorId === null) return null;
+  return {
+    id: message.authorId,
+    name: message.author.name,
+    kind: message.author.kind,
+    role: "",
+    username: "",
+    color: message.author.color,
+    avatarImageUrl: null,
+    status: "active",
+    unreadCount: 0,
+    canChat: false,
+    lastActivityAt: "",
+  };
+}
+
 /** The person's own messages at the right, in primary bubbles. */
 function OwnRun({
   messages,
@@ -54,11 +76,21 @@ function OwnRun({
           aria-label={t("chatPage.you")}
           className="flex max-w-[62%] justify-end"
         >
-          <WikiMarkdown
-            className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-[15px] text-primary-foreground"
-            isDisplayableImage={hideImages}
-            source={message.content}
-          />
+          {message.voice ? (
+            <div className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground">
+              <ChatPageVoice
+                voice={message.voice}
+                text={message.content}
+                isOwn
+              />
+            </div>
+          ) : (
+            <WikiMarkdown
+              className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-[15px] text-primary-foreground"
+              isDisplayableImage={hideImages}
+              source={message.content}
+            />
+          )}
         </article>
       ))}
     </div>
@@ -110,14 +142,24 @@ function AnswerBubble({
           >
             {author.name}
           </span>
-          <span className="text-muted-foreground"> · {author.role}</span>
+          {author.role === "" ? null : (
+            <span className="text-muted-foreground"> · {author.role}</span>
+          )}
         </p>
       ) : null}
-      <WikiMarkdown
-        className="text-[15px] text-foreground"
-        isDisplayableImage={hideImages}
-        source={message.content}
-      />
+      {message.voice ? (
+        <ChatPageVoice
+          voice={message.voice}
+          text={message.content}
+          isOwn={false}
+        />
+      ) : (
+        <WikiMarkdown
+          className="text-[15px] text-foreground"
+          isDisplayableImage={hideImages}
+          source={message.content}
+        />
+      )}
       {message.toolUses.length > 0 ? (
         <ul
           aria-label={t("chatPage.toolUses")}
@@ -207,7 +249,7 @@ export function ChatPageHistory({
         if (!first) return null;
         if (run.authorId === null)
           return <OwnRun key={first.id} messages={run.messages} />;
-        const author = findParticipant(run.authorId);
+        const author = findParticipant(run.authorId) ?? authorOf(first);
         return author ? (
           <AnswerRun key={first.id} messages={run.messages} author={author} />
         ) : null;

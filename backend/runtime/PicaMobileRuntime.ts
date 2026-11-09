@@ -4,7 +4,9 @@ import { PagesPicaMobileAuthenticator } from "@/backend/service/mobile/PicaMobil
 import { PagesPicaMobileDashboard } from "@/backend/service/mobile/PicaMobileDashboardService";
 import { PicaMobileGateway } from "@/backend/service/mobile/PicaMobileGateway";
 import { PicaMobileRelay } from "@/backend/service/mobile/PicaMobileRelay";
+import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
 import { PagesPicaMobileChat } from "@/backend/service/mobile/chat/PagesPicaMobileChat";
+import { PagesPicaMobileConversations } from "@/backend/service/mobile/conversations/PagesPicaMobileConversations";
 import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
 import { PagesPicaMobilePlans } from "@/backend/service/mobile/plans/PagesPicaMobilePlans";
 import { PicaMobilePlanRunObserver } from "@/backend/service/mobile/plans/PicaMobilePlanRunObserver";
@@ -91,6 +93,18 @@ export function obtainPicaMobileGateway(
           chatAttachmentService: services.chatAttachmentService,
           picaAdminService: services.picaAdminService,
         };
+      }),
+      conversations: new PagesPicaMobileConversations({
+        resolveServices: async () => {
+          const services = await getApplicationServices();
+
+          return {
+            authService: services.authService,
+            conversationReader: services.conversationReader,
+            conversationService: services.conversationService,
+          };
+        },
+        events: sharedConversationEvents(),
       }),
       serverVersion: PAGES_VERSION,
       listenAddress: runtime.getConfig().listenAddress,

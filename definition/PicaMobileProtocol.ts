@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { PicaMobileConversationAnswer } from "./PicaMobileConversations";
 import type {
   PicaMobileNotificationEventPayload,
   PicaMobileNotificationRegisteredPayload,
@@ -20,11 +21,15 @@ export const PICA_MOBILE_SUPPORTED_VERSIONS: readonly number[] = [
  *
  * @remarks
  * Before authentication a larger frame closes the connection with 1009; after
- * it a larger frame is refused with `invalid_message`, except `chat_send`.
+ * it a larger frame is refused with `invalid_message`, except `chat_send`,
+ * `conversation_send` and `voice_chunk`.
  */
 export const PICA_MOBILE_MAXIMUM_MESSAGE_BYTES = 16_384;
 
-/** Largest `chat_send` frame the server accepts, in UTF-8 bytes; a larger frame closes the connection. */
+/**
+ * Largest `chat_send`, `conversation_send` or `voice_chunk` frame the server
+ * accepts, in UTF-8 bytes; a larger frame closes the connection.
+ */
 export const PICA_MOBILE_MAXIMUM_CHAT_SEND_BYTES = 131_072;
 
 /** Longest `chat_*` frame the server sends, in UTF-16 code units. */
@@ -73,6 +78,17 @@ export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   CHAT_JOB_GET: "chat_job_get",
   CHAT_STOP: "chat_stop",
   CHAT_DELETE: "chat_delete",
+  CONVERSATIONS_LIST: "conversations_list",
+  CONVERSATION_HISTORY: "conversation_history",
+  CONVERSATION_PARTICIPANTS: "conversation_participants",
+  CONVERSATION_CREATE: "conversation_create",
+  CONVERSATION_SEND: "conversation_send",
+  CONVERSATION_READ: "conversation_read",
+  CONVERSATION_MUTE: "conversation_mute",
+  VOICE_START: "voice_start",
+  VOICE_CHUNK: "voice_chunk",
+  VOICE_FINISH: "voice_finish",
+  VOICE_CANCEL: "voice_cancel",
 } as const;
 
 /** Types of the messages the server sends. */
@@ -96,6 +112,11 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
   CHAT_STOPPED: "chat_stopped",
   CHAT_DELETED: "chat_deleted",
   CHAT_FAILED: "chat_failed",
+  CONVERSATIONS: "conversations",
+  CONVERSATION_MESSAGES: "conversation_messages",
+  CONVERSATION_PARTICIPANT_LIST: "conversation_participant_list",
+  CONVERSATION_EVENT: "conversation_event",
+  CONVERSATION_ERROR: "conversation_error",
 } as const;
 
 /**
@@ -119,12 +140,20 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * endpoints on the same port; the server sends nothing of the chat on its own.
  * `chat.delete` stands for the one request `chat_delete` with its answer
  * `chat_deleted`; a server names it only together with `chat.v1`.
+ * `conversations.v1` stands for the stored conversations with people, agents
+ * and groups (PAGE-278): the requests `conversations_list`,
+ * `conversation_history`, `conversation_participants`, `conversation_create`,
+ * `conversation_send`, `conversation_read`, `conversation_mute` and the
+ * chunked voice upload `voice_start`, `voice_chunk`, `voice_finish`,
+ * `voice_cancel`, with their answers, the `conversation_event` messages the
+ * server sends on its own, and the voice endpoint on the same port.
  */
 export const PICA_MOBILE_CAPABILITY = {
   DASHBOARD_V1: "dashboard.v1",
   PLANS_V1: "plans.v1",
   CHAT_V1: "chat.v1",
   CHAT_DELETE: "chat.delete",
+  CONVERSATIONS_V1: "conversations.v1",
   NOTIFICATIONS_V1: "notifications.v1",
   NOTIFICATIONS_PUSH_FCM: "notifications.push.fcm",
   NOTIFICATIONS_TEAM_V1: "notifications.team.v1",
@@ -727,4 +756,9 @@ export type PicaMobileServerMessage =
   | (PicaMobileChatAnswer & {
       readonly version: typeof PICA_MOBILE_PROTOCOL_VERSION;
       readonly requestId: string;
+    })
+  | (PicaMobileConversationAnswer & {
+      readonly version: typeof PICA_MOBILE_PROTOCOL_VERSION;
+      /** `null` for an event Pages sends on its own. */
+      readonly requestId: string | null;
     });

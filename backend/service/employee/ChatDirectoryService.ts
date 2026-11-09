@@ -1,12 +1,23 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 
+import {
+  sharedGroup,
+  splitConversations,
+  toVirtualMessage,
+} from "./ChatConversationView";
+
 import type { ChatContactEntry } from "@/backend/database/repositories/employee/ChatContactRepository";
 import type { ChatGroupRecord } from "@/backend/database/repositories/employee/ChatGroupRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import type {
+  ConversationReader,
+  ConversationView,
+} from "@/backend/service/conversation/ConversationReader";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
 import type { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import type { User } from "@/definition/User";
+import type { ChatConversations } from "./ChatConversationView";
 import type {
   VirtualChatDirectory,
   VirtualChatMessage,
@@ -27,6 +38,8 @@ export interface ChatDirectoryDependencies {
   /** The active accounts, the same source as the owner choice of the wiki. */
   readonly lookups: Pick<WikiLookupRepository, "listActiveUsers">;
   readonly messages: Pick<ChatSessionRepository, "messages">;
+  /** The stored conversations with people and of groups (PAGE-278). */
+  readonly conversations: Pick<ConversationReader, "views">;
   /** Whether a job of the agent's conversation with the person runs now. */
   readonly isWorking: (agent: User, sessionId: string) => Promise<boolean>;
   /** The current time; tests pass a fixed one. */
@@ -60,18 +73,42 @@ function contactChoice(facts: AccountFacts): VirtualContactChoice {
   };
 }
 
+/** The later of two ISO times; the second may be missing. */
+function latest(first: string, second: string | undefined): string {
+  return second !== undefined && second > first ? second : first;
+}
+
 function group(
   record: ChatGroupRecord,
   shownIds: ReadonlySet<string>,
+  view: ConversationView | undefined,
 ): VirtualGroup {
   return {
     id: record.id,
     name: record.name,
     description: record.description,
     memberIds: record.memberIds.filter((id) => shownIds.has(id)),
-    unreadCount: 0,
-    lastActivityAt: record.lastActivityAt,
+    unreadCount: view?.summary.unreadCount ?? 0,
+    lastActivityAt: latest(record.lastActivityAt, view?.summary.lastActivityAt),
   };
+}
+
+/** The groups of the page: the person's own and the shared ones they belong to. */
+function groupsOf(
+  records: readonly ChatGroupRecord[],
+  shownIds: ReadonlySet<string>,
+  conversations: ChatConversations,
+  person: User,
+): VirtualGroup[] {
+  const ownIds = new Set(records.map((record) => record.id));
+  return [
+    ...records.map((record) =>
+      group(record, shownIds, conversations.groups.get(record.id)),
+    ),
+    ...[...conversations.groups.values()]
+      .filter((view) => !ownIds.has(view.summary.id))
+      .map((view) => sharedGroup(view, person)),
+  ];
 }
 
 /**
@@ -92,28 +129,49 @@ export class ChatDirectoryService {
     this.dependencies = dependencies;
   }
 
-  /** Reads the chat page of the person. */
+  /**
+   * Reads the chat page of the person.
+   *
+   * @remarks
+   * A person who wrote to them directly joins the list for this reading,
+   * so a conversation started elsewhere, such as in Pica Mobile, is never
+   * hidden; histories of people and groups come from the stored
+   * conversations (PAGE-278).
+   */
   public async directory(person: User): Promise<VirtualChatDirectory> {
     const accounts = await this.accounts(person);
-    const [contacts, groups] = await Promise.all([
+    const [contacts, groups, views] = await Promise.all([
       this.dependencies.store.contacts().list(person.id),
       this.dependencies.store.groups().list(person.id),
+      this.dependencies.conversations.views(person),
     ]);
+    const conversations = splitConversations(views, person);
     const participants: VirtualParticipant[] = [];
     const histories: Record<string, readonly VirtualChatMessage[]> = {};
-    for (const contact of contacts) {
+    for (const contact of this.withConversationPartners(
+      contacts,
+      conversations,
+    )) {
       const facts = accounts.get(contact.contactId);
       if (!facts) continue;
-      const history = await this.history(person, facts.user);
+      const view = conversations.direct.get(contact.contactId);
+      const history = view
+        ? { messages: this.conversationHistory(view, person), isWorking: false }
+        : await this.history(person, facts.user);
       participants.push(
-        this.participant(facts, contact, history !== null && history.isWorking),
+        this.participant(facts, contact, {
+          isWorking: history !== null && history.isWorking,
+          view,
+        }),
       );
       if (history) histories[contact.contactId] = history.messages;
     }
+    for (const [groupId, view] of conversations.groups)
+      histories[groupId] = this.conversationHistory(view, person);
     const shownIds = new Set(participants.map((participant) => participant.id));
     return {
       participants,
-      groups: groups.map((record) => group(record, shownIds)),
+      groups: groupsOf(groups, shownIds, conversations, person),
       histories,
       contactChoices: [...accounts.values()]
         .filter((facts) => facts.isChoosable || facts.user.isAgent === true)
@@ -183,15 +241,42 @@ export class ChatDirectoryService {
     );
   }
 
+  /** The person's list with everybody who has a direct conversation with them. */
+  private withConversationPartners(
+    contacts: readonly ChatContactEntry[],
+    conversations: ChatConversations,
+  ): ChatContactEntry[] {
+    const listed = new Set(contacts.map((contact) => contact.contactId));
+    const partners = [...conversations.direct.entries()]
+      .filter(([partnerId]) => !listed.has(partnerId))
+      .map(([partnerId, view]) => ({
+        contactId: partnerId,
+        lastActivityAt: view.summary.lastActivityAt,
+      }));
+    return [...contacts, ...partners];
+  }
+
+  private conversationHistory(
+    view: ConversationView,
+    person: User,
+  ): VirtualChatMessage[] {
+    return view.messages.map((message) => toVirtualMessage(message, person));
+  }
+
   private participant(
     facts: AccountFacts,
     contact: ChatContactEntry,
-    isWorking: boolean,
+    state: {
+      readonly isWorking: boolean;
+      readonly view: ConversationView | undefined;
+    },
   ): VirtualParticipant {
     const { user } = facts;
+    const { view } = state;
     const isAgent = user.isAgent === true;
     let status: VirtualParticipant["status"] = user.isActive ? "active" : "off";
-    if (user.isActive && isWorking) status = "working";
+    if (user.isActive && state.isWorking) status = "working";
+
     return {
       id: user.id,
       name: user.displayName,
@@ -201,9 +286,13 @@ export class ChatDirectoryService {
       color: user.avatarColor ?? null,
       avatarImageUrl: avatarImage(user),
       status,
-      unreadCount: 0,
-      canChat: isAgent && user.isActive,
-      lastActivityAt: contact.lastActivityAt,
+      unreadCount: view?.summary.unreadCount ?? 0,
+      canChat: user.isActive && (isAgent || facts.isChoosable),
+      conversationId: view?.summary.id ?? null,
+      lastActivityAt: latest(
+        contact.lastActivityAt,
+        view?.summary.lastActivityAt,
+      ),
     };
   }
 

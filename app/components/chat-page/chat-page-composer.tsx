@@ -20,7 +20,7 @@ interface ChatPageComposerProps {
  *
  * @remarks
  * The editor reads its placeholder once, so the page mounts one composer per
- * conversation. Sending appends the message to the local history only; "+"
+ * conversation. Sending hands the text to the page, which sends it; "+"
  * gets its function with attachments in a later ticket. The field ends 88 px
  * before the right edge of the chat, so Pica's launcher never covers it.
  */

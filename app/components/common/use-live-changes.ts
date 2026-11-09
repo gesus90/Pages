@@ -17,6 +17,7 @@ const PATHS_BY_KIND: Readonly<Record<LiveChangeKind, readonly string[]>> = {
   milestone: ["/tasks", "/aufgaben", "/projekte", "/dashboard"],
   wiki: ["/wiki"],
   project: ["/tasks", "/aufgaben", "/projekte", "/dashboard"],
+  conversation: ["/chat"],
 };
 
 function concerns(change: LiveChange, pathname: string): boolean {

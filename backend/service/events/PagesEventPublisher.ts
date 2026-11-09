@@ -37,6 +37,7 @@ const PAGES_EVENT_TYPES = [
   "milestone.changed",
   "project.tickets.changed",
   "project.access.changed",
+  "conversation.changed",
 ] as const;
 
 const PAGES_EVENT_TYPE_SET: ReadonlySet<string> = new Set(PAGES_EVENT_TYPES);
@@ -60,7 +61,10 @@ export function isPagesEventType(kind: string): kind is PagesEvent["type"] {
  * reordering. `project.tickets.changed` names a project whose tickets a
  * GitHub synchronization changed. `wiki.page.purged` names a page removed
  * from the trash for good, `project.access.changed` a project whose
- * departments changed or that was archived or deleted. Whoever lost the
+ * departments changed or that was archived or deleted.
+ * `conversation.changed` names a conversation that got a message, a text of
+ * a voice message or a member (PAGE-278); only its members hear of it.
+ * Whoever lost the
  * object can no longer be asked whether they saw it, so the live view lets
  * every open page read again instead of naming it.
  * None of them names a field a Discord message states, so Discord leaves

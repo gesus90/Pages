@@ -442,6 +442,7 @@ async function startMcpWorkspace(context: {
       database: context.database,
       cache: context.serverCache,
       acp: chat.picaAcpService,
+      conversations: { directory, events: context.tasks.pagesEventPublisher },
     }),
   };
 }

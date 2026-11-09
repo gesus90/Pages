@@ -342,6 +342,7 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "routes/chat-browser-download.ts",
     ),
     resource("chat/attachments/:attachmentId", "routes/chat-attachment.ts"),
+    resource("chat/voice/:messageId", "routes/conversation-voice.ts"),
     resource(
       "chat/attachments/:attachmentId/preview",
       "routes/chat-attachment-preview.ts",

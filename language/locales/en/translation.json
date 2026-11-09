@@ -3659,6 +3659,7 @@
     "toolUses": "Tools used",
     "inputLabel": "Message to {{name}}",
     "participantPlaceholder": "Ask {{name}} something or type / for commands …",
+    "personPlaceholder": "Message to {{name}} …",
     "groupPlaceholder": "Message to {{name}} – address a participant directly with @name …",
     "attach": "Add attachment",
     "send": "Send",
@@ -3683,7 +3684,7 @@
     "addParticipant": "Add participants",
     "addParticipantHint": "Choose people and agents",
     "agentInactive": "{{name}} is deactivated and takes no messages.",
-    "personNotYet": "Messages to people are not possible here yet. Reach {{name}} through tickets or the wiki.",
+    "personInactive": "{{name}} is deactivated and does not take messages.",
     "answering": "{{name}} is answering …",
     "stop": "Stop",
     "kind": {
@@ -3695,7 +3696,8 @@
       "inactive": "{{name}} is deactivated.",
       "busy": "{{name}} is busy with another session. Try again shortly.",
       "unavailable": "{{name}} cannot answer right now: model or connection unavailable.",
-      "invalidInput": "The message could not be sent."
+      "invalidInput": "The message could not be sent.",
+      "tooLong": "The message is too long: at most 16,000 characters."
     },
     "contacts": {
       "title": "Add participants",
@@ -3716,6 +3718,12 @@
       "description": "Choose a participant of your list. They join the group at once.",
       "search": "Search participants …",
       "allMembers": "All your participants are already members of this group."
+    },
+    "voice": {
+      "label": "Voice message · {{duration}}",
+      "player": "Play voice message",
+      "transcribing": "Recognizing …",
+      "failed": "The text could not be recognized. The recording stays playable."
     }
   },
   "workspaces": {

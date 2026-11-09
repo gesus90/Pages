@@ -14,6 +14,8 @@ import {
   picaMobileRequestIdSchema,
 } from "@/definition/PicaMobileProtocol";
 
+import { picaMobileConversationRequestSchema } from "@/definition/PicaMobileConversations";
+
 import { parsePicaMobileNotificationPayload } from "./notifications/PicaMobileNotificationMessages";
 
 import type {
@@ -30,6 +32,11 @@ import type {
   PicaMobilePlansPayload,
   PicaMobileServerMessage,
 } from "@/definition/PicaMobileProtocol";
+import type {
+  PicaMobileConversationAnswer,
+  PicaMobileConversationRequest,
+  PicaMobileConversationRequestType,
+} from "@/definition/PicaMobileConversations";
 import type { PicaMobileAuthOutcome } from "./PicaMobileAuthenticator";
 import type { PicaMobileNotificationClientMessage } from "./notifications/PicaMobileNotificationMessages";
 
@@ -49,7 +56,14 @@ export type PicaMobileClientMessage =
     }
   | PicaMobileNotificationClientMessage
   | PicaMobilePlansClientMessage
-  | PicaMobileChatClientMessage;
+  | PicaMobileChatClientMessage
+  | PicaMobileConversationClientMessage;
+
+/** A request of `conversations.v1` that passed every check of its payload. */
+export type PicaMobileConversationClientMessage =
+  PicaMobileConversationRequest & {
+    readonly requestId: string;
+  };
 
 /** A chat request of `chat.v1` or `chat.delete` that passed every check of its payload. */
 export type PicaMobileChatClientMessage = PicaMobileChatRequest & {
@@ -98,6 +112,33 @@ const CHAT_REQUEST_TYPES: ReadonlySet<string> =
     PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_STOP,
     PICA_MOBILE_CLIENT_MESSAGE_TYPE.CHAT_DELETE,
   ]);
+
+const CONVERSATION_REQUEST_TYPES: ReadonlySet<string> =
+  new Set<PicaMobileConversationRequestType>([
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CONVERSATIONS_LIST,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CONVERSATION_HISTORY,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CONVERSATION_PARTICIPANTS,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CONVERSATION_CREATE,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CONVERSATION_SEND,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CONVERSATION_READ,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.CONVERSATION_MUTE,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.VOICE_START,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.VOICE_CHUNK,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.VOICE_FINISH,
+    PICA_MOBILE_CLIENT_MESSAGE_TYPE.VOICE_CANCEL,
+  ]);
+
+/**
+ * Tells whether a checked message belongs to `conversations.v1`.
+ *
+ * @param message - A message that passed every check.
+ * @returns `true` for the conversation and voice requests.
+ */
+export function isPicaMobileConversationMessage(
+  message: PicaMobileClientMessage,
+): message is PicaMobileConversationClientMessage {
+  return CONVERSATION_REQUEST_TYPES.has(message.type);
+}
 
 function reject(
   code: PicaMobileErrorCode,
@@ -245,6 +286,30 @@ function parseChatPayload(
       );
 }
 
+/** Reads a request of `conversations.v1`; `null` when the type belongs to none. */
+function parseConversationPayload(
+  type: string,
+  requestId: string,
+  payload: JsonRecord,
+): PicaMobileParseResult | null {
+  if (!CONVERSATION_REQUEST_TYPES.has(type)) {
+    return null;
+  }
+
+  const parsed = picaMobileConversationRequestSchema.safeParse({
+    type,
+    payload,
+  });
+
+  return parsed.success
+    ? { ok: true, message: { ...parsed.data, requestId } }
+    : reject(
+        PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        `The payload of "${type}" is invalid.`,
+        requestId,
+      );
+}
+
 function parseEmptyPayload(
   type: "ping" | "dashboard_get",
   requestId: string,
@@ -286,6 +351,7 @@ function parsePayload(
       return (
         parsePicaMobileNotificationPayload(type, requestId, payload) ??
         parseChatPayload(type, requestId, payload) ??
+        parseConversationPayload(type, requestId, payload) ??
         reject(
           PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
           "The message type is not known.",
@@ -528,6 +594,25 @@ export function encodePicaMobilePlan(
 export function encodePicaMobileChat(
   requestId: string,
   answer: PicaMobileChatAnswer,
+): string {
+  return encode({
+    version: PICA_MOBILE_PROTOCOL_VERSION,
+    requestId,
+    ...answer,
+  });
+}
+
+/**
+ * Builds the text frame of an answer or an event of `conversations.v1`.
+ *
+ * @param requestId - Identifier of the request that is answered; `null` for
+ * an event Pages sends on its own.
+ * @param answer - Type and payload of the answer.
+ * @returns The frame content.
+ */
+export function encodePicaMobileConversation(
+  requestId: string | null,
+  answer: PicaMobileConversationAnswer,
 ): string {
   return encode({
     version: PICA_MOBILE_PROTOCOL_VERSION,

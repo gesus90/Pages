@@ -20,12 +20,19 @@ import { ChatDirectoryService } from "@/backend/service/employee/ChatDirectorySe
 import { ChatGroupService } from "@/backend/service/employee/ChatGroupService";
 import { PersonColorService } from "@/backend/service/employee/PersonColorService";
 
+import { createConversationServices } from "./conversation-services.server";
+
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
 import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
+import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
+import type { ConversationApplicationServices } from "./conversation-services.server";
 
-/** Agents as employees, the chat directory and person colors (PAGE-266). */
-export interface EmployeeApplicationServices {
+/**
+ * Agents as employees, the chat directory and person colors (PAGE-266), with
+ * the stored conversations the chat page shows (PAGE-278).
+ */
+export interface EmployeeApplicationServices extends ConversationApplicationServices {
   readonly agentEmployeeAdministration: AgentEmployeeAdministration;
   readonly agentEmployeeSessions: AgentEmployeeSessions;
   readonly agentLearningService: AgentLearningService;
@@ -40,6 +47,11 @@ export interface EmployeeServicesInput {
   readonly cache: ServerCache;
   /** Pica's ACP path, which agent sessions share; `null` without ACP chat. */
   readonly acp: PicaAcpService | null;
+  /** Where the stored conversations keep their audio and announce their changes (PAGE-278). */
+  readonly conversations: {
+    readonly directory: string;
+    readonly events: PagesEventPublisher;
+  };
 }
 
 /**
@@ -51,6 +63,10 @@ export function createEmployeeServices(
   input: EmployeeServicesInput,
 ): EmployeeApplicationServices {
   const { database } = input;
+  const conversations = createConversationServices({
+    database,
+    ...input.conversations,
+  });
   const store = new EmployeeStore(database);
   const authorization = new AuthorizationRepository(database);
   const users = new UserRepository(database);
@@ -85,6 +101,7 @@ export function createEmployeeServices(
   if (input.acp && !isLocalSessionOwner() && !isPagesRunsProcess())
     new AgentLearningScheduler(store, learning).start();
   return {
+    ...conversations,
     agentEmployeeAdministration: new AgentEmployeeAdministration({
       authorization,
       cache: input.cache,
@@ -99,6 +116,7 @@ export function createEmployeeServices(
       users,
       lookups: new WikiLookupRepository(database),
       messages,
+      conversations: conversations.conversationReader,
       isWorking: (agent, sessionId) => sessions.isWorking(agent, sessionId),
     }),
     chatGroupService: new ChatGroupService({ store }),

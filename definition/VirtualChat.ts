@@ -32,8 +32,13 @@ export interface VirtualParticipant {
   readonly avatarImageUrl: string | null;
   readonly status: VirtualParticipantStatus;
   readonly unreadCount: number;
-  /** Whether a message can be sent: only to an active agent. */
+  /** Whether a message can be sent: to an active agent or an active person. */
   readonly canChat: boolean;
+  /**
+   * The stored direct conversation with a person (PAGE-278); `null` before
+   * the first message and for an agent, whose history is its chat session.
+   */
+  readonly conversationId?: string | null;
   /** ISO time of the adding or the last sent message. */
   readonly lastActivityAt: string;
 }
@@ -56,6 +61,15 @@ export interface VirtualToolUse {
   readonly detail: string;
 }
 
+/** The audio of a voice message (PAGE-278). */
+export interface VirtualVoice {
+  /** The address the browser plays it from; the server checks membership on every request. */
+  readonly url: string;
+  readonly durationMs: number;
+  /** `pending` until the recognized text arrives, `failed` when none will. */
+  readonly transcriptionState: "pending" | "done" | "failed";
+}
+
 /** One message of a history. */
 export interface VirtualChatMessage {
   readonly id: string;
@@ -64,6 +78,14 @@ export interface VirtualChatMessage {
   /** Markdown text of the message. */
   readonly content: string;
   readonly toolUses: readonly VirtualToolUse[];
+  /** The author as the conversation names it, for one outside the person's list. */
+  readonly author?: {
+    readonly name: string;
+    readonly kind: VirtualParticipantKind;
+    readonly color: string | null;
+  };
+  /** Present only for a voice message. */
+  readonly voice?: VirtualVoice;
 }
 
 /** What the list can open: a group or a single participant. */
@@ -102,7 +124,12 @@ export interface VirtualChatDirectory {
 
 /** Why sending to an agent was refused, as the interface translates it. */
 export type VirtualChatSendFailure =
-  "costLimitReached" | "inactive" | "busy" | "unavailable" | "invalidInput";
+  | "costLimitReached"
+  | "inactive"
+  | "busy"
+  | "unavailable"
+  | "invalidInput"
+  | "tooLong";
 
 /** The longest group name. */
 export const VIRTUAL_GROUP_NAME_LENGTH = 80;

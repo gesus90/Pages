@@ -1,5 +1,9 @@
-/** Notification channels the Pica Mobile app creates for plan notifications. */
-export type PicaMobilePushChannel = "pica-plan-steps" | "pica-plan-results";
+/**
+ * Notification channels of the Pica Mobile app: two for plan notifications,
+ * one for new messages of conversations (PAGE-278).
+ */
+export type PicaMobilePushChannel =
+  "pica-plan-steps" | "pica-plan-results" | "pica-conversation-messages";
 
 /**
  * One push message for one registered device, in the words of Pages.
