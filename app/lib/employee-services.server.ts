@@ -1,4 +1,6 @@
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
+import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
+import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
@@ -10,6 +12,7 @@ import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiL
 import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
+import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
 import { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
 import { AgentEmployeeModels } from "@/backend/service/employee/AgentEmployeeModels";
 import { AgentEmployeeSessions } from "@/backend/service/employee/AgentEmployeeSessions";
@@ -63,10 +66,6 @@ export function createEmployeeServices(
   input: EmployeeServicesInput,
 ): EmployeeApplicationServices {
   const { database } = input;
-  const conversations = createConversationServices({
-    database,
-    ...input.conversations,
-  });
   const store = new EmployeeStore(database);
   const authorization = new AuthorizationRepository(database);
   const users = new UserRepository(database);
@@ -89,6 +88,21 @@ export function createEmployeeServices(
     memory,
     acp: input.acp,
     createSessionId: () => createChatSessionId(),
+  });
+  const simulation = currentAgentSimulationMode();
+  const conversations = createConversationServices({
+    database,
+    ...input.conversations,
+    runner: new AgentConversationAnswers({
+      store,
+      users,
+      activity,
+      sessions,
+      messages,
+      simulation: simulation.isActive
+        ? new SimulatedConversationAgent(simulation)
+        : null,
+    }),
   });
   const learning = new AgentLearningService({
     store,
@@ -118,6 +132,8 @@ export function createEmployeeServices(
       messages,
       conversations: conversations.conversationReader,
       isWorking: (agent, sessionId) => sessions.isWorking(agent, sessionId),
+      workingAgentIds: (conversationId) =>
+        conversations.conversationAgentReplies.workingAgentIds(conversationId),
     }),
     chatGroupService: new ChatGroupService({ store }),
     personColorService: new PersonColorService(authorization, input.cache),

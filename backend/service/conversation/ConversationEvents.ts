@@ -9,7 +9,8 @@ import type { ConversationMessage } from "@/definition/Conversation";
  * `recipientIds` names the accounts that may learn of it: every member for a
  * message and a new conversation, the member alone for a read state or a
  * mute. `originId` names the Pica Mobile connection that caused the change,
- * which receives its own answer instead.
+ * which receives its own answer instead. `typing` tells every member that an
+ * agent started or ended an answer (PAGE-276); nothing is stored for it.
  */
 export type ConversationEvent =
   | {
@@ -27,6 +28,14 @@ export type ConversationEvent =
   | {
       readonly kind: "conversation";
       readonly conversationId: string;
+      readonly recipientIds: readonly string[];
+      readonly originId?: string;
+    }
+  | {
+      readonly kind: "typing";
+      readonly conversationId: string;
+      readonly participantId: string;
+      readonly isTyping: boolean;
       readonly recipientIds: readonly string[];
       readonly originId?: string;
     }

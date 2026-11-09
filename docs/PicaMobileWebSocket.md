@@ -841,23 +841,33 @@ Pages nennt `conversations.v1` in `connected.server.capabilities`, wenn die Verb
 
 - **Unterhaltung** (`items`, `conversation`): `{ id, kind, name, members, lastMessage, lastActivityAt, unreadCount, isMuted }`. `name` ist der Gruppenname oder bei einer Direktunterhaltung der Name des anderen Teilnehmers; `members` sind `{ id, kind, name, color }`. Die Liste ist nach letzter Aktivität sortiert, höchstens 50 je Seite; `nextCursor` setzt sie fort und ist auf der letzten Seite `null`.
 - **`totalUnread`** zählt alle ungelesenen Nachrichten anderer, auch aus stummgeschalteten Unterhaltungen; `unreadCount` gilt je Unterhaltung und Mitglied.
-- **Nachricht:** `{ id, conversationId, clientMessageId, sender: { id, kind, name, color }, text, createdAt, mentions, voice? }`. `kind` ist `human` oder `agent`, `color` die Personenfarbe oder `null`. `mentions` sind die IDs der Mitglieder, die der Text mit `@username` nennt. Eine Sprachnachricht trägt `voice: { durationMs, transcriptionState, mimeType, sizeBytes }`; `transcriptionState` ist `pending`, `done` oder `failed`, `text` ist bis zur Erkennung leer.
+- **Nachricht:** `{ id, conversationId, clientMessageId, sender: { id, kind, name, color }, text, createdAt, mentions, voice? }`. `kind` ist `human` oder `agent`, `color` die Personenfarbe oder `null`. `mentions` sind die IDs der Mitglieder, die der Text mit `@Name` nennt: `@username`, oder der Anzeigename ohne Leerzeichen bzw. sein erstes Wort, solange kein anderes Mitglied denselben trägt. Ein Hinweis, warum ein Agent nicht geantwortet hat, trägt `notice` (`agent_inactive`, `agent_cost_limit`, `agent_unavailable` oder `agent_failed`); `text` sagt ihn dann auf Deutsch, und der Client darf ihn über den Code in seiner Sprache zeigen. Eine Sprachnachricht trägt `voice: { durationMs, transcriptionState, mimeType, sizeBytes }`; `transcriptionState` ist `pending`, `done` oder `failed`, `text` ist bis zur Erkennung leer.
 - **Verlauf:** älteste zuerst, je Seite die neuesten 50 Nachrichten und höchstens 400000 Zeichen, aber immer mindestens eine. `beforeId` ist die älteste gelieferte Nachricht und liest die Seite davor. Eine Anfrage ohne `beforeId` öffnet die Unterhaltung auf der Verbindung (siehe [Push](#push-bei-neuen-nachrichten)).
 - **`conversation_send`:** `clientMessageId` ist eine UUID; eine Wiederholung liefert die gespeicherte Nachricht und erzeugt keine zweite. `text` hat höchstens 16000 Zeichen, sonst `too_long`; ein leerer Text ist `invalid`.
 - **`conversation_create`:** `direct` braucht genau einen anderen Teilnehmer und liefert die vorhandene Unterhaltung des Paares, wenn es sie schon gibt. `group` braucht einen Namen (1 bis 80 Zeichen) und 1 bis 49 andere Teilnehmer. Die eigene ID, unbekannte und deaktivierte Konten ergeben `invalid`.
 - **`conversation_participants`:** aktive Personen (`people`) und Agents (`agents`) außer dem eigenen Konto, je `{ id, kind, name, color, username, role }`.
 
+### Antworten von Agents
+
+Agents nehmen an Unterhaltungen teil (PAGE-276). In einer Direktunterhaltung antwortet der Agent auf jede Nachricht der Person, in einer Gruppe ein Agent nur, wenn die Nachricht ihn mit `@Name` erwähnt; mehrere Erwähnte antworten je einmal. Eine Sprachnachricht wird beantwortet, sobald ihr Text erkannt ist. Ein Agent antwortet nie auf eigene Nachrichten und nicht auf Nachrichten anderer Agents, so entstehen keine Schleifen. Von sich aus schreiben Agents nicht.
+
+- Die Antwort ist eine normale Nachricht mit dem Agent als Absender (`message`). Sie entsteht mit dem Modell, den Anweisungen und den Rechten des Agents, in einer eigenen Sitzung des Agents je Unterhaltung; ein Kostenlimit des Agents gilt auch hier.
+- Als Kontext liest der Agent die neuesten Nachrichten der Unterhaltung bis zur beantworteten, höchstens 20 Nachrichten und 12000 Zeichen (`CONVERSATION_AGENT_CONTEXT_MESSAGES`, `CONVERSATION_AGENT_CONTEXT_CHARACTERS`); ältere fallen zuerst weg, die beantwortete bleibt immer. Hinweise bleiben draußen, Zugangsdaten werden geschwärzt.
+- Während der Agent arbeitet, erhalten alle Mitglieder `typing`; im Web zeigt die Gruppe „… antwortet“.
+- Ist der Agent deaktiviert, sein Kostenlimit erreicht, kein Modell nutzbar oder schlägt die Antwort fehl, erscheint statt der Antwort ein Hinweis mit `notice` im Namen des Agents. Der Agent wird nicht erneut gestartet; je beantworteter Nachricht und Agent gibt es höchstens eine Antwort oder einen Hinweis.
+- Für Entwicklung und Prüfung ohne Modell schaltet `PAGES_AGENT_SIMULATION=1` die Agent-Simulation ein; dann geht keine Anfrage an einen Modellanbieter, und der Agent antwortet mit einem festen Text, der die letzte Nachricht nennt. `PAGES_AGENT_SIMULATION_SCENARIO` wählt `ok` (Standard), `failed` (die Antwort schlägt fehl) oder `slow` (Antwort nach fünf Sekunden). Bei `NODE_ENV=production` wird der Schalter ignoriert und das geloggt.
+
 ### Ereignisse
 
 `conversation_event` hat die Nutzlast `{ type, data }`. Als Antwort trägt es die `requestId` der Anfrage; was Pages von sich aus sendet, trägt `requestId: null`.
 
-| `type`            | `data`                                                            | Wer es erhält                                                            |
-| ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `message`         | neue Nachricht, auch aus dem Web                                  | alle Mitglieder                                                          |
-| `message_updated` | geänderte Nachricht, etwa der erkannte Text einer Sprachnachricht | alle Mitglieder                                                          |
-| `conversation`    | neue oder geänderte Unterhaltung, wie das Mitglied sie sieht      | alle Mitglieder; nach `conversation_mute` nur das Konto                  |
-| `read`            | `{ conversationId, upToMessageId, unreadCount, totalUnread }`     | nur das Konto selbst                                                     |
-| `typing`          | `{ conversationId, participantId, isTyping }`                     | vorgesehen für antwortende Agents (PAGE-276); Pages sendet es noch nicht |
+| `type`            | `data`                                                            | Wer es erhält                                                                       |
+| ----------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `message`         | neue Nachricht, auch aus dem Web                                  | alle Mitglieder                                                                     |
+| `message_updated` | geänderte Nachricht, etwa der erkannte Text einer Sprachnachricht | alle Mitglieder                                                                     |
+| `conversation`    | neue oder geänderte Unterhaltung, wie das Mitglied sie sieht      | alle Mitglieder; nach `conversation_mute` nur das Konto                             |
+| `read`            | `{ conversationId, upToMessageId, unreadCount, totalUnread }`     | nur das Konto selbst                                                                |
+| `typing`          | `{ conversationId, participantId, isTyping }`                     | alle Mitglieder, wenn ein Agent eine Antwort beginnt (`true`) und beendet (`false`) |
 
 Die Verbindung, die eine Änderung ausgelöst hat, erhält sie als Antwort und nicht noch einmal als Ereignis; andere Verbindungen desselben Kontos erhalten das Ereignis.
 

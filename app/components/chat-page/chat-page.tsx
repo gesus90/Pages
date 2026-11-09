@@ -95,6 +95,7 @@ function ChatPageConversation({
         name={name}
         findParticipant={page.findParticipant}
         isAnswering={page.isAnswering}
+        answeringNames={page.answeringNames}
       />
       <ConversationFoot page={page} opened={opened} />
     </section>

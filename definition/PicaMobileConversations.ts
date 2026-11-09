@@ -143,7 +143,7 @@ export type PicaMobileConversationMessagesPayload = ConversationHistoryPage;
 /** The answer to `conversation_participants`. */
 export type PicaMobileConversationParticipantListPayload = ConversationContacts;
 
-/** A typing participant; reserved for the answers of agents (PAGE-276), Pages sends none yet. */
+/** An agent that starts (`isTyping: true`) or ends an answer in a conversation (PAGE-276). */
 export interface PicaMobileConversationTyping {
   readonly conversationId: string;
   readonly participantId: string;

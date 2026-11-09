@@ -9,6 +9,7 @@ import {
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
 } from "@/definition/Conversation";
 
+import { findConversationMentions } from "./ConversationMentions";
 import {
   readConversationIdentifier,
   toConversationMessage,
@@ -96,8 +97,6 @@ export interface ConversationGroupAdoption {
   readonly memberIds: readonly string[];
 }
 
-const MENTION = /(?<![\w@])@([A-Za-z0-9._-]{1,100})/gu;
-
 function changedEvent(conversationId: string): PagesEvent {
   return { type: "conversation.changed", id: conversationId };
 }
@@ -116,33 +115,6 @@ function readGroupName(input: string | null | undefined): string {
   if (name === "" || Array.from(name).length > CONVERSATION_NAME_MAXIMUM_LENGTH)
     throw new ConversationError("invalid");
   return name;
-}
-
-/** The members a text names with `@username`, never the sender. */
-function findMentions(
-  text: string,
-  memberIds: readonly string[],
-  context: {
-    readonly accounts: ConversationAccounts;
-    readonly senderId: string;
-  },
-): string[] {
-  const byUsername = new Map(
-    memberIds
-      .filter((id) => id !== context.senderId)
-      .flatMap((id) => {
-        const account = context.accounts.find(id);
-        return account
-          ? [[account.user.username.toLowerCase(), id] as const]
-          : [];
-      }),
-  );
-  const mentioned = new Set<string>();
-  for (const match of text.matchAll(MENTION)) {
-    const id = byUsername.get((match[1] ?? "").toLowerCase());
-    if (id !== undefined) mentioned.add(id);
-  }
-  return [...mentioned];
 }
 
 /**
@@ -493,7 +465,7 @@ export class ConversationService {
         senderId: person.id,
         clientMessageId: message.clientMessageId,
         text: message.text,
-        mentions: findMentions(message.text, memberIds, {
+        mentions: findConversationMentions(message.text, memberIds, {
           accounts,
           senderId: person.id,
         }),

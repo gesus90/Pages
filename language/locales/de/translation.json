@@ -3696,6 +3696,13 @@
     "agentInactive": "{{name}} ist deaktiviert und nimmt keine Nachrichten an.",
     "personInactive": "{{name}} ist deaktiviert und nimmt keine Nachrichten an.",
     "answering": "{{name}} antwortet …",
+    "answeringMany": "{{names}} antworten …",
+    "notice": {
+      "agent_inactive": "{{name}} ist deaktiviert und antwortet nicht auf diese Nachricht.",
+      "agent_cost_limit": "{{name}} antwortet nicht: Das Kostenlimit des Agents ist erreicht.",
+      "agent_unavailable": "{{name}} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.",
+      "agent_failed": "{{name}} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen."
+    },
     "stop": "Stoppen",
     "kind": {
       "human": "Person",

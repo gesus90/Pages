@@ -42,6 +42,8 @@ export interface ChatDirectoryDependencies {
   readonly conversations: Pick<ConversationReader, "views">;
   /** Whether a job of the agent's conversation with the person runs now. */
   readonly isWorking: (agent: User, sessionId: string) => Promise<boolean>;
+  /** The agents answering in a stored conversation now (PAGE-276). */
+  readonly workingAgentIds?: (conversationId: string) => readonly string[];
   /** The current time; tests pass a fixed one. */
   readonly now?: () => Date;
 }
@@ -171,7 +173,12 @@ export class ChatDirectoryService {
     const shownIds = new Set(participants.map((participant) => participant.id));
     return {
       participants,
-      groups: groupsOf(groups, shownIds, conversations, person),
+      groups: groupsOf(groups, shownIds, conversations, person).map(
+        (entry) => ({
+          ...entry,
+          workingAgentNames: this.workingAgentNames(entry.id, accounts),
+        }),
+      ),
       histories,
       contactChoices: [...accounts.values()]
         .filter((facts) => facts.isChoosable || facts.user.isAgent === true)
@@ -216,6 +223,19 @@ export class ChatDirectoryService {
       person.id,
       additions,
       ids.filter((id) => current.has(id)),
+    );
+  }
+
+  /** The names of the agents answering in a group now. */
+  private workingAgentNames(
+    groupId: string,
+    accounts: ReadonlyMap<string, AccountFacts>,
+  ): string[] {
+    return (this.dependencies.workingAgentIds?.(groupId) ?? []).flatMap(
+      (id) => {
+        const facts = accounts.get(id);
+        return facts ? [facts.user.displayName] : [];
+      },
     );
   }
 

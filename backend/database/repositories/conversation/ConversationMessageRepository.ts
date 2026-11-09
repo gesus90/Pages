@@ -12,7 +12,10 @@ import type {
   DatabaseValue,
 } from "@/backend/database/Database";
 import type { PagesEventRecord } from "@/backend/database/repositories/events/PagesEventOutboxRepository";
-import type { ConversationTranscriptionState } from "@/definition/Conversation";
+import type {
+  ConversationNotice,
+  ConversationTranscriptionState,
+} from "@/definition/Conversation";
 
 const MESSAGE_COLUMNS = `
     conversation_messages.id,
@@ -27,7 +30,8 @@ const MESSAGE_COLUMNS = `
     conversation_messages.voice_mime_type,
     conversation_messages.voice_size_bytes,
     conversation_messages.voice_duration_ms,
-    conversation_messages.transcription_state`;
+    conversation_messages.transcription_state,
+    conversation_messages.notice`;
 
 /** The stored audio of a voice message. */
 export interface StoredConversationVoice {
@@ -50,6 +54,8 @@ export interface StoredConversationMessage {
   readonly mentions: readonly string[];
   readonly createdAt: string;
   readonly voice: StoredConversationVoice | null;
+  /** Why an agent did not answer, for a hint in its name (PAGE-276); otherwise `null`. */
+  readonly notice: ConversationNotice | null;
 }
 
 /** What a new message is stored with. */
@@ -62,7 +68,15 @@ export interface NewConversationMessage {
   readonly mentions: readonly string[];
   readonly createdAt: string;
   readonly voice: StoredConversationVoice | null;
+  readonly notice?: ConversationNotice | null;
 }
+
+const NOTICES: readonly ConversationNotice[] = [
+  "agent_inactive",
+  "agent_cost_limit",
+  "agent_unavailable",
+  "agent_failed",
+];
 
 /** The outcome of storing a message. */
 export interface StoredMessageOutcome {
@@ -101,6 +115,11 @@ function readVoice(
   };
 }
 
+function readNotice(row: readonly DatabaseValue[]): ConversationNotice | null {
+  const notice = readNullableTextColumn(row, 13, "notice");
+  return NOTICES.find((known) => known === notice) ?? null;
+}
+
 function toMessage(row: readonly DatabaseValue[]): StoredConversationMessage {
   return {
     id: readTextColumn(row, 0, "id"),
@@ -112,6 +131,7 @@ function toMessage(row: readonly DatabaseValue[]): StoredConversationMessage {
     mentions: readMentions(readTextColumn(row, 6, "mentions")),
     createdAt: readTextColumn(row, 7, "created_at"),
     voice: readVoice(row),
+    notice: readNotice(row),
   };
 }
 
@@ -156,7 +176,8 @@ async function insertMessage(
           voice_mime_type,
           voice_size_bytes,
           voice_duration_ms,
-          transcription_state
+          transcription_state,
+          notice
       )
       VALUES (
           $id,
@@ -170,7 +191,8 @@ async function insertMessage(
           $voice_mime_type,
           $voice_size_bytes,
           $voice_duration_ms,
-          $transcription_state
+          $transcription_state,
+          $notice
       )
       ON CONFLICT (conversation_id, sender_id, client_message_id) DO NOTHING
       RETURNING${MESSAGE_COLUMNS};
@@ -188,6 +210,7 @@ async function insertMessage(
       voice_size_bytes: voice?.sizeBytes ?? null,
       voice_duration_ms: voice?.durationMs ?? null,
       transcription_state: voice?.transcriptionState ?? null,
+      notice: message.notice ?? null,
     },
   );
   const [row] = rows;

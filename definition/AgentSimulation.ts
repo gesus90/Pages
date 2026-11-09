@@ -15,9 +15,16 @@ export const AGENT_SIMULATION_CONNECTIONS = {
 /** The model name both simulation connections offer. */
 export const AGENT_SIMULATION_MODEL = "simulation";
 
-/** The scenarios `PAGES_AGENT_SIMULATION_SCENARIO` selects. */
+/**
+ * The scenarios `PAGES_AGENT_SIMULATION_SCENARIO` selects.
+ *
+ * @remarks
+ * `failed` lets the answer of an agent in a conversation fail (PAGE-276);
+ * `item_failed` and `runner_denied` concern plan nodes, and `slow` delays both.
+ */
 export const AGENT_SIMULATION_SCENARIOS = [
   "ok",
+  "failed",
   "item_failed",
   "runner_denied",
   "slow",

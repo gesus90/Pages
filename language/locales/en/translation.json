@@ -3696,6 +3696,13 @@
     "agentInactive": "{{name}} is deactivated and takes no messages.",
     "personInactive": "{{name}} is deactivated and does not take messages.",
     "answering": "{{name}} is answering …",
+    "answeringMany": "{{names}} are answering …",
+    "notice": {
+      "agent_inactive": "{{name}} is deactivated and does not answer this message.",
+      "agent_cost_limit": "{{name}} does not answer: the agent's cost limit is reached.",
+      "agent_unavailable": "{{name}} does not answer: no model can run the agent right now.",
+      "agent_failed": "{{name}} could not answer; the answer failed. Send the message again to try once more."
+    },
     "stop": "Stop",
     "kind": {
       "human": "Person",

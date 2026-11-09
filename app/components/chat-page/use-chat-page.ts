@@ -42,8 +42,10 @@ export interface ChatPageState {
   readonly opened: OpenedConversation | null;
   /** The history of the opened conversation, with a message still on its way. */
   readonly messages: readonly VirtualChatMessage[];
-  /** Whether the opened agent is answering now. */
+  /** Whether the opened agent, or an agent of the opened group, is answering now. */
   readonly isAnswering: boolean;
+  /** Who is answering: the opened agent, or the agents of the opened group (PAGE-276). */
+  readonly answeringNames: readonly string[];
   /** Why the last message could not be sent, or `null`. */
   readonly sendFailure: VirtualChatSendFailure | null;
   /** Sends a message to the opened agent, person or group. */
@@ -152,6 +154,30 @@ function messageForm(
   return formData;
 }
 
+/**
+ * Whether somebody answers in the opened conversation and who: the opened
+ * agent, or the agents of the opened group (PAGE-276).
+ */
+function answeringState(
+  opened: OpenedConversation | null,
+  hasPending: boolean,
+): {
+  readonly isAnswering: boolean;
+  readonly answeringNames: readonly string[];
+} {
+  if (opened?.kind === "group") {
+    const names = opened.group.workingAgentNames ?? [];
+    return { isAnswering: names.length > 0, answeringNames: names };
+  }
+  const participant = opened?.participant;
+  return {
+    isAnswering:
+      participant?.kind === "agent" &&
+      (hasPending || participant.status === "working"),
+    answeringNames: participant ? [participant.name] : [],
+  };
+}
+
 /** Reads the history again while the opened agent answers. */
 function useAnswerPolling(isAnswering: boolean): void {
   const revalidator = useRevalidator();
@@ -212,13 +238,10 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
   const pending = pendingMessage(sender.formData, selection);
   const stored = directory.histories[historyId] ?? [];
   const messages = pending ? [...stored, pending] : stored;
-  const isAgent =
-    opened?.kind === "participant" && opened.participant.kind === "agent";
-  const isAnswering =
-    isAgent &&
-    (pending !== null ||
-      (opened.kind === "participant" &&
-        opened.participant.status === "working"));
+  const { isAnswering, answeringNames } = answeringState(
+    opened,
+    pending !== null,
+  );
   const result: unknown = sender.data;
   const sendFailure =
     sender.state === "idle" && isSendResult(result) && !result.ok
@@ -263,6 +286,7 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     opened,
     messages,
     isAnswering,
+    answeringNames,
     sendFailure,
     send,
     addMember: activity.addMember,

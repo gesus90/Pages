@@ -18,6 +18,18 @@ export const CONVERSATION_NAME_MAXIMUM_LENGTH = 80;
 /** Most members a group may have, its creator included. */
 export const CONVERSATION_GROUP_MAXIMUM_MEMBERS = 50;
 
+/**
+ * Most messages an answering agent reads as context (PAGE-276): the newest
+ * ones of the conversation, the message it answers included.
+ */
+export const CONVERSATION_AGENT_CONTEXT_MESSAGES = 20;
+
+/**
+ * Most characters of message text an answering agent reads as context; older
+ * messages drop out first, and the message it answers always stays.
+ */
+export const CONVERSATION_AGENT_CONTEXT_CHARACTERS = 12_000;
+
 /** Most messages one page of the history holds. */
 export const CONVERSATION_HISTORY_PAGE_SIZE = 50;
 
@@ -42,6 +54,14 @@ export type ConversationKind = "direct" | "group";
 
 /** Whether a participant is a person or an agent. */
 export type ConversationParticipantKind = "human" | "agent";
+
+/**
+ * Why an agent did not answer (PAGE-276): it was deactivated, its cost limit
+ * was reached, no model could run it, or its answer failed. A message with a
+ * notice is a hint from Pages in the agent's name, never an answer.
+ */
+export type ConversationNotice =
+  "agent_inactive" | "agent_cost_limit" | "agent_unavailable" | "agent_failed";
 
 /** Where the text of a voice message stands. */
 export type ConversationTranscriptionState = "pending" | "done" | "failed";
@@ -107,6 +127,8 @@ export interface ConversationMessage {
   readonly mentions: readonly string[];
   /** Present only for a voice message. */
   readonly voice?: ConversationVoice;
+  /** Present only for a hint why an agent did not answer; `text` then says it in German. */
+  readonly notice?: ConversationNotice;
 }
 
 /** A conversation as one member sees it. */

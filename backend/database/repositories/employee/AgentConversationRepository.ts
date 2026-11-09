@@ -2,8 +2,12 @@ import { readTextColumn } from "@/backend/database/RowValue";
 
 import type { Database } from "@/backend/database/Database";
 
-/** Why a conversation of an agent exists. */
-export type AgentConversationPurpose = "chat" | "learning";
+/**
+ * Why a conversation of an agent exists: a person's chat with it, its
+ * learning runs, or its answers in a stored conversation (PAGE-276), whose
+ * ID then stands in `personId`.
+ */
+export type AgentConversationPurpose = "chat" | "learning" | "conversation";
 
 /** The chat session one person shares with one agent, or the agent's learning session. */
 export interface AgentConversation {
