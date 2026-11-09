@@ -3734,7 +3734,12 @@
       "player": "Play voice message",
       "transcribing": "Recognizing …",
       "failed": "The text could not be recognized. The recording stays playable."
-    }
+    },
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "muted": "Muted",
+    "loadOlder": "Load older messages",
+    "loadingOlder": "Loading …"
   },
   "workspaces": {
     "title": "Workspaces",

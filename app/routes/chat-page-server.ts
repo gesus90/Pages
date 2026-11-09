@@ -10,6 +10,7 @@ import type { ConversationErrorCode } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
 import type {
   VirtualChatDirectory,
+  VirtualChatHistoryPage,
   VirtualChatSendFailure,
 } from "@/definition/VirtualChat";
 import type { Route } from "./+types/chat-page-server";
@@ -21,6 +22,8 @@ export type ChatPageActionData =
       readonly intent: ChatPageIntent;
       /** The ID of a group just created. */
       readonly groupId?: string;
+      /** A page of older messages, the answer of `history` (PAGE-275). */
+      readonly history?: VirtualChatHistoryPage;
     }
   | {
       readonly ok: false;
@@ -37,7 +40,15 @@ export type ChatPageIntent =
   | "add-member"
   | "send-group"
   | "send-direct"
-  | "read";
+  | "read"
+  | "mute"
+  | "history";
+
+/** What a change yields besides success: a created group or a page of older messages. */
+interface ChatIntentOutcome {
+  readonly groupId?: string;
+  readonly history?: VirtualChatHistoryPage;
+}
 
 const INTENTS: readonly ChatPageIntent[] = [
   "save-contacts",
@@ -48,6 +59,8 @@ const INTENTS: readonly ChatPageIntent[] = [
   "send-group",
   "send-direct",
   "read",
+  "mute",
+  "history",
 ];
 
 /** How a refused conversation request reads on the page (PAGE-278). */
@@ -164,20 +177,47 @@ async function runConversationIntent(
     });
 }
 
-/** Runs one change of the person; returns the ID of a created group. */
+/**
+ * Mutes a stored conversation for the person alone, or reads a page of its
+ * older messages (PAGE-275); both answer `not_found` to a non-member.
+ */
+async function runMemberIntent(
+  services: ChatServices,
+  person: User,
+  intent: "mute" | "history",
+  formData: FormData,
+): Promise<ChatIntentOutcome> {
+  if (intent === "history")
+    return {
+      history: await services.chatDirectoryService.olderMessages(person, {
+        conversationId: formData.get("conversationId"),
+        beforeId: formData.get("beforeId"),
+      }),
+    };
+  const isMuted = formData.get("isMuted");
+  if (isMuted !== "true" && isMuted !== "false")
+    throw new ConversationError("invalid");
+  await services.conversationService.setMuted(person, {
+    conversationId: String(formData.get("conversationId") ?? ""),
+    isMuted: isMuted === "true",
+  });
+  return {};
+}
+
+/** Runs one change of the person; returns a created group or a history page. */
 async function runIntent(
   services: ChatServices,
   person: User,
   intent: ChatPageIntent,
   formData: FormData,
-): Promise<string | undefined> {
+): Promise<ChatIntentOutcome> {
   switch (intent) {
     case "save-contacts":
       await services.chatDirectoryService.saveContacts(
         person,
         readJson(formData.get("contacts")),
       );
-      return undefined;
+      return {};
     case "send":
       await services.agentEmployeeSessions.send(person, {
         agentId: formData.get("agentId"),
@@ -189,13 +229,13 @@ async function runIntent(
         person,
         formData.get("agentId"),
       );
-      return undefined;
+      return {};
     case "stop":
       await services.agentEmployeeSessions.stop(
         person,
         formData.get("agentId"),
       );
-      return undefined;
+      return {};
     case "create-group": {
       const groupId = await services.chatGroupService.create(person, {
         name: formData.get("name"),
@@ -203,7 +243,7 @@ async function runIntent(
         memberIds: readJson(formData.get("memberIds")),
       });
       await shareGroup(services, person, groupId);
-      return groupId;
+      return { groupId };
     }
     case "add-member":
       await services.chatGroupService.addMember(
@@ -212,12 +252,15 @@ async function runIntent(
         formData.get("participantId"),
       );
       await shareGroup(services, person, formData.get("groupId"));
-      return undefined;
+      return {};
     case "send-group":
     case "send-direct":
     case "read":
       await runConversationIntent(services, person, intent, formData);
-      return undefined;
+      return {};
+    case "mute":
+    case "history":
+      return runMemberIntent(services, person, intent, formData);
   }
 }
 
@@ -255,8 +298,9 @@ export async function loader({
 
 /**
  * Saves the participant list, creates a group or adds a member, stores a
- * message to a group or a person or a read state (PAGE-278), sends a
- * message to an agent or stops its answer.
+ * message to a group or a person or a read state (PAGE-278), mutes a
+ * conversation or reads its older messages (PAGE-275), sends a message to
+ * an agent or stops its answer.
  *
  * @remarks
  * Saving the list only adds and removes entries of the person's own list;
@@ -274,8 +318,8 @@ export async function action({
   if (!intent) throw new Response("Bad Request", { status: 400 });
   const services = await getApplicationServices();
   try {
-    const groupId = await runIntent(services, person, intent, formData);
-    return data<ChatPageActionData>({ ok: true, intent, groupId });
+    const outcome = await runIntent(services, person, intent, formData);
+    return data<ChatPageActionData>({ ok: true, intent, ...outcome });
   } catch (error: unknown) {
     if (error instanceof ConversationError) {
       logCaughtError("chat_page", error);

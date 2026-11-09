@@ -3,6 +3,7 @@ import { useFetcher, useRevalidator } from "react-router";
 
 import { useChatActivity } from "./use-chat-activity";
 import { useConversationRead } from "./use-conversation-read";
+import { useOlderHistory } from "./use-older-history";
 
 import type {
   VirtualChatDirectory,
@@ -42,6 +43,18 @@ export interface ChatPageState {
   readonly opened: OpenedConversation | null;
   /** The history of the opened conversation, with a message still on its way. */
   readonly messages: readonly VirtualChatMessage[];
+  /** Whether older messages of the opened stored conversation can be loaded. */
+  readonly hasOlder: boolean;
+  readonly isLoadingOlder: boolean;
+  /** Loads the page of messages before the oldest shown one (PAGE-275). */
+  loadOlder(): void;
+  /**
+   * Whether the opened stored conversation is muted for the person; `null`
+   * when there is nothing to mute, as with an agent.
+   */
+  readonly isMuted: boolean | null;
+  /** Mutes or unmutes the opened stored conversation for the person alone. */
+  toggleMute(): void;
   /** Whether the opened agent is answering now. */
   readonly isAnswering: boolean;
   /** Why the last message could not be sent, or `null`. */
@@ -64,6 +77,17 @@ interface SendResult {
 
 function isSendResult(value: unknown): value is SendResult {
   return typeof value === "object" && value !== null && "ok" in value;
+}
+
+/** Why the last message could not be sent, once the sender is idle again. */
+function readSendFailure(sender: {
+  readonly state: string;
+  readonly data: unknown;
+}): VirtualChatSendFailure | null {
+  const result = sender.data;
+  if (sender.state !== "idle" || !isSendResult(result) || result.ok)
+    return null;
+  return result.error ?? "invalidInput";
 }
 
 function matches(texts: readonly string[], query: string): boolean {
@@ -115,6 +139,47 @@ function openConversation(
     (entry) => entry.id === selection.id,
   );
   return participant ? { kind: "participant", participant } : null;
+}
+
+/** The stored conversation of the opened entry; agents and new direct ones have none. */
+function storedConversation(
+  opened: OpenedConversation | null,
+): { readonly id: string; readonly isMuted: boolean } | null {
+  if (!opened) return null;
+  if (opened.kind === "group")
+    return { id: opened.group.id, isMuted: opened.group.isMuted === true };
+  const { conversationId, isMuted } = opened.participant;
+  return conversationId
+    ? { id: conversationId, isMuted: isMuted === true }
+    : null;
+}
+
+/** Mutes the opened stored conversation; the requested state shows at once. */
+function useMute(
+  conversation: {
+    readonly id: string;
+    readonly isMuted: boolean;
+  } | null,
+): { readonly isMuted: boolean | null; toggle(): void } {
+  const muter = useFetcher();
+  const requested = muter.formData;
+  const isRequested =
+    conversation !== null &&
+    requested?.get("conversationId") === conversation.id;
+  const isMuted = isRequested
+    ? requested.get("isMuted") === "true"
+    : (conversation?.isMuted ?? null);
+
+  function toggle(): void {
+    if (conversation === null || isMuted === null) return;
+    const formData = new FormData();
+    formData.set("intent", "mute");
+    formData.set("conversationId", conversation.id);
+    formData.set("isMuted", String(!isMuted));
+    void muter.submit(formData, { method: "post" });
+  }
+
+  return { isMuted, toggle };
 }
 
 /** The message on its way, shown until the history holds it. */
@@ -211,7 +276,14 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
   const historyId = selection?.id ?? "";
   const pending = pendingMessage(sender.formData, selection);
   const stored = directory.histories[historyId] ?? [];
-  const messages = pending ? [...stored, pending] : stored;
+  const conversation = storedConversation(opened);
+  const older = useOlderHistory(
+    conversation?.id ?? null,
+    stored,
+    directory.olderHistoryIds?.includes(historyId) === true,
+  );
+  const mute = useMute(conversation);
+  const messages = pending ? [...older.messages, pending] : older.messages;
   const isAgent =
     opened?.kind === "participant" && opened.participant.kind === "agent";
   const isAnswering =
@@ -219,11 +291,7 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     (pending !== null ||
       (opened.kind === "participant" &&
         opened.participant.status === "working"));
-  const result: unknown = sender.data;
-  const sendFailure =
-    sender.state === "idle" && isSendResult(result) && !result.ok
-      ? (result.error ?? "invalidInput")
-      : null;
+  const sendFailure = readSendFailure(sender);
   useAnswerPolling(isAnswering);
   useConversationRead(opened, stored);
 
@@ -262,6 +330,11 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     allParticipants: lists.participants,
     opened,
     messages,
+    hasOlder: older.hasMore,
+    isLoadingOlder: older.isLoading,
+    loadOlder: older.loadOlder,
+    isMuted: mute.isMuted,
+    toggleMute: mute.toggle,
     isAnswering,
     sendFailure,
     send,

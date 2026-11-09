@@ -89,12 +89,19 @@ function ChatPageConversation({
         isAnswering={page.isAnswering}
         onStop={page.stop}
         onAddMember={page.addMember}
+        isMuted={page.isMuted}
+        onToggleMute={page.toggleMute}
       />
       <ChatPageHistory
         messages={page.messages}
         name={name}
         findParticipant={page.findParticipant}
         isAnswering={page.isAnswering}
+        older={{
+          hasMore: page.hasOlder,
+          isLoading: page.isLoadingOlder,
+          onLoad: page.loadOlder,
+        }}
       />
       <ConversationFoot page={page} opened={opened} />
     </section>

@@ -1,4 +1,4 @@
-import { Square } from "lucide-react";
+import { Bell, BellOff, Square } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -39,14 +39,45 @@ function HeaderFrame({
   );
 }
 
+/** Whether the opened stored conversation is muted, and the change of it. */
+interface MuteControl {
+  /** `null` when there is nothing to mute, as with an agent. */
+  readonly isMuted: boolean | null;
+  readonly onToggleMute: () => void;
+}
+
+/** Mutes or unmutes the conversation for the person alone (PAGE-275). */
+function MuteButton({
+  isMuted,
+  onToggleMute,
+}: MuteControl): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (isMuted === null) return null;
+  const Icon = isMuted ? BellOff : Bell;
+  return (
+    <Button
+      aria-pressed={isMuted}
+      onClick={onToggleMute}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      <Icon aria-hidden="true" className="size-3.5" />
+      {isMuted ? t("chatPage.unmute") : t("chatPage.mute")}
+    </Button>
+  );
+}
+
 function ParticipantHeader({
   participant,
   isAnswering,
   onStop,
+  mute,
 }: {
   readonly participant: VirtualParticipant;
   readonly isAnswering: boolean;
   readonly onStop: () => void;
+  readonly mute: MuteControl;
 }): React.ReactElement {
   const { t } = useTranslation();
   const facts = [
@@ -60,12 +91,15 @@ function ParticipantHeader({
       title={participant.name}
       subtitle={facts.join(" · ")}
       aside={
-        isAnswering && participant.kind === "agent" ? (
-          <Button onClick={onStop} size="sm" type="button" variant="outline">
-            <Square aria-hidden="true" className="size-3.5" />
-            {t("chatPage.stop")}
-          </Button>
-        ) : null
+        <>
+          <MuteButton {...mute} />
+          {isAnswering && participant.kind === "agent" ? (
+            <Button onClick={onStop} size="sm" type="button" variant="outline">
+              <Square aria-hidden="true" className="size-3.5" />
+              {t("chatPage.stop")}
+            </Button>
+          ) : null}
+        </>
       }
     />
   );
@@ -89,11 +123,13 @@ function GroupHeader({
   members,
   participants,
   onAddMember,
+  mute,
 }: {
   readonly group: VirtualGroup;
   readonly members: readonly VirtualParticipant[];
   readonly participants: readonly VirtualParticipant[];
   readonly onAddMember: (groupId: string, participantId: string) => void;
+  readonly mute: MuteControl;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -118,6 +154,7 @@ function GroupHeader({
             participants={participants}
             onAdd={onAddMember}
           />
+          <MuteButton {...mute} />
         </>
       }
     />
@@ -132,6 +169,8 @@ function GroupHeader({
  * and status; a person has no task, model or tools. A stop button shows while
  * an agent answers. A group shows its description, the members as chips and
  * the dashed plus that adds one of the person's participants (PAGE-259).
+ * A stored conversation with a person or of a group can be muted for the
+ * person alone (PAGE-275).
  */
 export function ChatPageHeader({
   opened,
@@ -139,7 +178,9 @@ export function ChatPageHeader({
   isAnswering,
   onStop,
   onAddMember,
-}: {
+  isMuted,
+  onToggleMute,
+}: MuteControl & {
   readonly opened: OpenedConversation;
   /** The person's own participants, which a group can take. */
   readonly participants: readonly VirtualParticipant[];
@@ -147,6 +188,7 @@ export function ChatPageHeader({
   readonly onStop: () => void;
   readonly onAddMember: (groupId: string, participantId: string) => void;
 }): React.ReactElement {
+  const mute: MuteControl = { isMuted, onToggleMute };
   if (opened.kind === "group")
     return (
       <GroupHeader
@@ -154,6 +196,7 @@ export function ChatPageHeader({
         members={opened.members}
         participants={participants}
         onAddMember={onAddMember}
+        mute={mute}
       />
     );
   return (
@@ -161,6 +204,7 @@ export function ChatPageHeader({
       participant={opened.participant}
       isAnswering={isAnswering}
       onStop={onStop}
+      mute={mute}
     />
   );
 }

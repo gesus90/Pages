@@ -39,6 +39,8 @@ export interface VirtualParticipant {
    * the first message and for an agent, whose history is its chat session.
    */
   readonly conversationId?: string | null;
+  /** Whether the person muted the stored direct conversation for themselves alone (PAGE-275). */
+  readonly isMuted?: boolean;
   /** ISO time of the adding or the last sent message. */
   readonly lastActivityAt: string;
 }
@@ -51,6 +53,8 @@ export interface VirtualGroup {
   /** Participant ids in display order. */
   readonly memberIds: readonly string[];
   readonly unreadCount: number;
+  /** Whether the person muted the group for themselves alone (PAGE-275). */
+  readonly isMuted?: boolean;
   /** ISO time of the creation or the last sent message. */
   readonly lastActivityAt: string;
 }
@@ -77,6 +81,10 @@ export interface VirtualChatMessage {
   readonly authorId: string | null;
   /** Markdown text of the message. */
   readonly content: string;
+  /** ISO time the message was stored; missing for one still on its way. */
+  readonly createdAt?: string;
+  /** The account IDs the text mentions with `@username`, as stored (PAGE-275). */
+  readonly mentions?: readonly string[];
   readonly toolUses: readonly VirtualToolUse[];
   /** The author as the conversation names it, for one outside the person's list. */
   readonly author?: {
@@ -118,8 +126,22 @@ export interface VirtualChatDirectory {
    * There is no list of several conversations per participant or group.
    */
   readonly histories: Readonly<Record<string, readonly VirtualChatMessage[]>>;
+  /**
+   * The ids of the participants and groups whose stored history holds older
+   * messages than the ones shown, which the page loads page by page (PAGE-275).
+   */
+  readonly olderHistoryIds?: readonly string[];
   /** People and agents the dialog "Teilnehmer hinzufügen" offers; never the own account. */
   readonly contactChoices: readonly VirtualContactChoice[];
+}
+
+/** A page of older messages of a stored conversation (PAGE-275). */
+export interface VirtualChatHistoryPage {
+  readonly conversationId: string;
+  /** The messages before the requested one, oldest first. */
+  readonly messages: readonly VirtualChatMessage[];
+  /** Whether still older messages exist. */
+  readonly hasMore: boolean;
 }
 
 /** Why sending to an agent was refused, as the interface translates it. */

@@ -1,4 +1,5 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
+import { ConversationError } from "@/backend/error/ConversationError";
 
 import {
   sharedGroup,
@@ -20,6 +21,7 @@ import type { User } from "@/definition/User";
 import type { ChatConversations } from "./ChatConversationView";
 import type {
   VirtualChatDirectory,
+  VirtualChatHistoryPage,
   VirtualChatMessage,
   VirtualContactChoice,
   VirtualGroup,
@@ -39,7 +41,7 @@ export interface ChatDirectoryDependencies {
   readonly lookups: Pick<WikiLookupRepository, "listActiveUsers">;
   readonly messages: Pick<ChatSessionRepository, "messages">;
   /** The stored conversations with people and of groups (PAGE-278). */
-  readonly conversations: Pick<ConversationReader, "views">;
+  readonly conversations: Pick<ConversationReader, "views" | "history">;
   /** Whether a job of the agent's conversation with the person runs now. */
   readonly isWorking: (agent: User, sessionId: string) => Promise<boolean>;
   /** The current time; tests pass a fixed one. */
@@ -89,6 +91,7 @@ function group(
     description: record.description,
     memberIds: record.memberIds.filter((id) => shownIds.has(id)),
     unreadCount: view?.summary.unreadCount ?? 0,
+    isMuted: view?.summary.isMuted ?? false,
     lastActivityAt: latest(record.lastActivityAt, view?.summary.lastActivityAt),
   };
 }
@@ -109,6 +112,24 @@ function groupsOf(
       .filter((view) => !ownIds.has(view.summary.id))
       .map((view) => sharedGroup(view, person)),
   ];
+}
+
+/** What a participant shows of the stored direct conversation with them, if any. */
+function conversationState(
+  view: ConversationView | undefined,
+): Pick<VirtualParticipant, "unreadCount" | "isMuted" | "conversationId"> {
+  return {
+    unreadCount: view?.summary.unreadCount ?? 0,
+    isMuted: view?.summary.isMuted ?? false,
+    conversationId: view?.summary.id ?? null,
+  };
+}
+
+/** The entries of the page whose stored history holds older messages (PAGE-275). */
+function olderHistoryIds(conversations: ChatConversations): string[] {
+  return [...conversations.direct, ...conversations.groups]
+    .filter(([, view]) => view.hasMore)
+    .map(([id]) => id);
 }
 
 /**
@@ -173,9 +194,40 @@ export class ChatDirectoryService {
       participants,
       groups: groupsOf(groups, shownIds, conversations, person),
       histories,
+      olderHistoryIds: olderHistoryIds(conversations),
       contactChoices: [...accounts.values()]
         .filter((facts) => facts.isChoosable || facts.user.isAgent === true)
         .map(contactChoice),
+    };
+  }
+
+  /**
+   * Reads the messages of a stored conversation before one the page shows,
+   * newest page first (PAGE-275).
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member, `invalid` for a malformed ID or a message outside it.
+   */
+  public async olderMessages(
+    person: User,
+    target: { readonly conversationId: unknown; readonly beforeId: unknown },
+  ): Promise<VirtualChatHistoryPage> {
+    if (
+      typeof target.conversationId !== "string" ||
+      typeof target.beforeId !== "string"
+    )
+      throw new ConversationError("invalid");
+    const page = await this.dependencies.conversations.history(
+      person,
+      target.conversationId,
+      target.beforeId,
+    );
+    return {
+      conversationId: page.conversationId,
+      messages: page.messages.map((message) =>
+        toVirtualMessage(message, person),
+      ),
+      hasMore: page.hasMore,
     };
   }
 
@@ -286,9 +338,8 @@ export class ChatDirectoryService {
       color: user.avatarColor ?? null,
       avatarImageUrl: avatarImage(user),
       status,
-      unreadCount: view?.summary.unreadCount ?? 0,
+      ...conversationState(view),
       canChat: user.isActive && (isAgent || facts.isChoosable),
-      conversationId: view?.summary.id ?? null,
       lastActivityAt: latest(
         contact.lastActivityAt,
         view?.summary.lastActivityAt,

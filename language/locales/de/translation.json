@@ -3734,7 +3734,12 @@
       "player": "Sprachnachricht abspielen",
       "transcribing": "Wird erkannt …",
       "failed": "Der Text konnte nicht erkannt werden. Die Aufnahme bleibt abspielbar."
-    }
+    },
+    "mute": "Stummschalten",
+    "unmute": "Stummschaltung aufheben",
+    "muted": "Stummgeschaltet",
+    "loadOlder": "Ältere Nachrichten laden",
+    "loadingOlder": "Lädt …"
   },
   "workspaces": {
     "title": "Arbeitsverzeichnis",
