@@ -24,6 +24,7 @@ import type { PicaMobileConversationsProvider } from "./conversations/PicaMobile
 import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
 import type { PicaMobilePlansProvider } from "./plans/PicaMobilePlansProvider";
 import type { PicaMobileRelay } from "./PicaMobileRelay";
+import type { PicaMobileSpeechProvider } from "./speech/PicaMobileSpeechProvider";
 
 /** What the gateway needs from its surroundings. */
 export interface PicaMobileGatewayOptions {
@@ -44,6 +45,8 @@ export interface PicaMobileGatewayOptions {
    * `conversations.v1` is not announced and the endpoint answers 426.
    */
   readonly conversations?: PicaMobileConversationsProvider;
+  /** Answers `speech.v1`; without it `speech.v1` is not announced. */
+  readonly speech?: PicaMobileSpeechProvider;
   /** Version of this Pages build, reported to connected clients. */
   readonly serverVersion: string;
   /** Interface to listen on; every interface when missing. */
@@ -494,6 +497,7 @@ export class PicaMobileGateway {
       plans: this.options.plans,
       chat: this.options.chat,
       conversations: this.options.conversations,
+      speech: this.options.speech,
       handshakeOrigin: readHandshakeOrigin(request.headers.host),
       serverVersion: this.options.serverVersion,
     });

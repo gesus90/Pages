@@ -6250,6 +6250,52 @@
       "profileSelectionRequired": "Multiple profiles are available. Explicitly choose a connection."
     }
   },
+  "speechSettings": {
+    "title": "Speech recognition · STT",
+    "description": "Turns spoken language into text. Applies to the whole instance.",
+    "model": "Model",
+    "chooseModel": "Choose a model …",
+    "noModels": "No configured connection offers a speech recognition model. Set up an OpenRouter or Z.AI connection with an API key under Agents and, for OpenRouter, refresh its model catalog.",
+    "maxDuration": "Longest recording",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes",
+    "seconds_one": "{{count}} second",
+    "seconds_other": "{{count}} seconds",
+    "modelLimit": "The chosen model takes at most {{limit}} per recording. This shorter limit applies.",
+    "status": {
+      "ready": "Ready",
+      "noModel": "No model chosen",
+      "modelUnavailable": "Model unavailable"
+    },
+    "hint": "The model detects the language itself. Audio is not stored after the conversion.",
+    "testButton": {
+      "idle": "Check test recording",
+      "starting": "Opening microphone …",
+      "recording": "Stop recording",
+      "sending": "Recognizing …"
+    },
+    "saveBeforeTest": "The test recording uses the saved setting. Save your changes first.",
+    "recognized": "Recognized text:",
+    "recognizedEmpty": "(no text recognized)",
+    "microphoneError": "The browser got no access to a microphone. Allow the microphone and try again.",
+    "testError": {
+      "request": "The test recording could not be sent to Pages. Please try again.",
+      "not_configured": "Speech recognition is not set up: no usable model is saved.",
+      "too_large": "The recording is larger than 25 MB.",
+      "too_long": "The recording is longer than the longest recording that applies.",
+      "unsupported_format": "The audio format is not supported. WAV and MP3 are possible.",
+      "invalid_sequence": "The recording arrived incomplete or out of order.",
+      "provider_failed": "The provider did not convert the recording. Check the model and the key of the connection.",
+      "provider_unreachable": "The provider cannot be reached right now. Try again later."
+    },
+    "saved": "Speech recognition saved.",
+    "simulation": "Simulation",
+    "error": {
+      "provider_model_not_found": "The chosen model is no speech recognition model of this instance.",
+      "profile_invalid": "The setting is invalid. Please check the model and the longest recording.",
+      "profile_conflict": "The setting was changed in the meantime. Reload the page and save again."
+    }
+  },
   "picaSettings": {
     "title": "Pica · Chat assistant",
     "description": "The fixed chat assistant for this Pages instance.",

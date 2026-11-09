@@ -15,6 +15,9 @@ import { sharedPicaMobileConversationPresence } from "./conversations/PicaMobile
 import { PicaMobileConversationsHandler } from "./conversations/PicaMobileConversationsHandler";
 import { PicaMobileNotificationHandler } from "./notifications/PicaMobileNotificationHandler";
 import { PicaMobilePlansHandler } from "./plans/PicaMobilePlansHandler";
+import { PicaMobileSpeechHandler } from "./speech/PicaMobileSpeechHandler";
+import { isPicaMobileSpeechType } from "./speech/PicaMobileSpeechMessages";
+import { PicaMobileDashboardHandler } from "./PicaMobileDashboardHandler";
 import { readPicaMobileCapabilities } from "./PicaMobileCapabilities";
 import {
   describePicaMobileFrameMismatch,
@@ -23,9 +26,7 @@ import {
 } from "./PicaMobileFrameBudget";
 import {
   describePicaMobileAuthenticationFailure,
-  encodePicaMobileAvatar,
   encodePicaMobileConnected,
-  encodePicaMobileDashboard,
   encodePicaMobileError,
   encodePicaMobilePong,
   isPicaMobileConversationMessage,
@@ -41,6 +42,8 @@ import type {
   PicaMobileDashboardProvider,
   PicaMobileSessionIdentity,
 } from "./PicaMobileDashboardProvider";
+import type { PicaMobileSpeechClientMessage } from "./speech/PicaMobileSpeechMessages";
+import type { PicaMobileSpeechProvider } from "./speech/PicaMobileSpeechProvider";
 import type {
   PicaMobileChatClientMessage,
   PicaMobileClientMessage,
@@ -96,6 +99,11 @@ export interface PicaMobileConnectionOptions {
    * `conversations.v1` and treats the requests as unknown.
    */
   readonly conversations?: PicaMobileConversationsProvider;
+  /**
+   * Answers the requests of `speech.v1`; without it the connection does not
+   * announce `speech.v1` and treats the requests as unknown.
+   */
+  readonly speech?: PicaMobileSpeechProvider;
   /** Where the connection notes the conversation it shows; the process's own by default. */
   readonly presence?: Pick<PicaMobileConversationPresence, "set">;
   /**
@@ -118,16 +126,18 @@ const MAXIMUM_FAILED_AUTHENTICATIONS = 3;
 const MAXIMUM_LOGGED_REJECTIONS = 5;
 const COMPONENT = "PicaMobileConnection";
 
-type DashboardMessage = Extract<
-  PicaMobileClientMessage,
-  { readonly type: "dashboard_get" | "avatar_get" }
->;
-
 /** Whether a message belongs to `chat.v1` or `chat.delete`, whose requests all start with `chat_`. */
 function isChatMessage(
   message: PicaMobileClientMessage,
 ): message is PicaMobileChatClientMessage {
   return message.type.startsWith("chat_");
+}
+
+/** Whether a message belongs to `speech.v1`. */
+function isSpeechMessage(
+  message: PicaMobileClientMessage,
+): message is PicaMobileSpeechClientMessage {
+  return isPicaMobileSpeechType(message.type);
 }
 
 /**
@@ -150,6 +160,8 @@ export class PicaMobileConnection {
   private readonly plans: PicaMobilePlansHandler;
   private readonly chat: PicaMobileChatHandler;
   private readonly conversations: PicaMobileConversationsHandler;
+  private readonly dashboard: PicaMobileDashboardHandler;
+  private readonly speech: PicaMobileSpeechHandler;
   private readonly now: () => number;
   private session: PicaMobileSessionIdentity | null = null;
   private isStopped = false;
@@ -187,6 +199,8 @@ export class PicaMobileConnection {
       host,
     );
     this.plans = new PicaMobilePlansHandler(options.plans, host);
+    this.dashboard = new PicaMobileDashboardHandler(options.dashboard, host);
+    this.speech = new PicaMobileSpeechHandler(options.speech, host);
     this.chat = new PicaMobileChatHandler(
       options.chat,
       host,
@@ -313,6 +327,7 @@ export class PicaMobileConnection {
     this.isStopped = true;
     this.plans.stop();
     this.conversations.stop();
+    this.speech.stop();
 
     for (const timer of [
       this.heartbeatTimer,
@@ -405,6 +420,12 @@ export class PicaMobileConnection {
 
       return;
     }
+
+    if (isSpeechMessage(message)) {
+      await this.speech.handle(message);
+
+      return;
+    }
     switch (message.type) {
       case "auth":
         await this.authenticate(message);
@@ -416,7 +437,7 @@ export class PicaMobileConnection {
         return;
       case "dashboard_get":
       case "avatar_get":
-        await this.dispatchDashboard(message);
+        await this.dashboard.handle(message);
 
         return;
       case "notification_register":
@@ -473,93 +494,12 @@ export class PicaMobileConnection {
     this.send(encodePicaMobilePong(requestId, new Date(this.now())));
   }
 
-  private async dispatchDashboard(message: DashboardMessage): Promise<void> {
-    const provider = this.options.dashboard;
-
-    // A read queued behind a message that ended the connection would only be thrown away.
-    if (this.isStopped || this.isClosing) {
-      return;
-    }
-
-    if (provider === undefined) {
-      this.reject({
-        code: PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
-        message: "The message type is not known.",
-        requestId: message.requestId,
-      });
-
-      return;
-    }
-
-    if (this.session === null) {
-      this.rejectUnauthenticated(message.requestId);
-
-      return;
-    }
-
-    try {
-      await (message.type === "dashboard_get"
-        ? this.answerDashboard(message.requestId, provider, this.session)
-        : this.answerAvatar(message, provider, this.session));
-    } catch (error: unknown) {
-      logCaughtError(COMPONENT, error);
-
-      this.reportFailure(message.requestId, error);
-    }
-  }
-
   private rejectUnauthenticated(requestId: string): void {
     this.reject({
       code: PICA_MOBILE_ERROR_CODE.AUTHENTICATION_REQUIRED,
       message: "Authenticate with an auth message first.",
       requestId,
     });
-  }
-
-  private async answerDashboard(
-    requestId: string,
-    provider: PicaMobileDashboardProvider,
-    session: PicaMobileSessionIdentity,
-  ): Promise<void> {
-    const outcome = await provider.readDashboard(session);
-
-    if (this.isStopped || this.isClosing) {
-      return;
-    }
-
-    if (outcome.kind === "sessionEnded") {
-      this.endSession(requestId);
-
-      return;
-    }
-
-    this.consecutiveRejections = 0;
-    this.send(encodePicaMobileDashboard(requestId, outcome.dashboard));
-  }
-
-  private async answerAvatar(
-    message: Extract<DashboardMessage, { readonly type: "avatar_get" }>,
-    provider: PicaMobileDashboardProvider,
-    session: PicaMobileSessionIdentity,
-  ): Promise<void> {
-    const outcome = await provider.readAvatar(session, message.payload.version);
-
-    if (this.isStopped || this.isClosing) {
-      return;
-    }
-
-    if (outcome.kind === "sessionEnded") {
-      this.endSession(message.requestId);
-    } else if (outcome.kind === "notFound") {
-      this.reject({
-        code: PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
-        message: "The requested avatar version is not available.",
-        requestId: message.requestId,
-      });
-    } else {
-      this.consecutiveRejections = 0;
-      this.send(encodePicaMobileAvatar(message.requestId, outcome.avatar));
-    }
   }
 
   private async authenticate(
@@ -595,7 +535,10 @@ export class PicaMobileConnection {
     }
 
     if (outcome.ok) {
-      const capabilities = await readPicaMobileCapabilities(this.options);
+      const capabilities = await readPicaMobileCapabilities(this.options, {
+        userId: outcome.user.id,
+        sessionToken: outcome.sessionToken,
+      });
 
       if (!this.isStopped) {
         this.acceptAuthentication(message.requestId, outcome, capabilities);

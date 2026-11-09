@@ -15,14 +15,25 @@ const LARGE_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   "chat_send",
   "conversation_send",
   "voice_chunk",
+  "speech_chunk",
 ]);
 
-/** Recognizes a `voice_chunk` frame before it is parsed, to count it in its own budget. */
-const VOICE_CHUNK_TYPE = /"type"\s*:\s*"voice_chunk"/u;
+/** The audio chunks, which count in a budget of their own. */
+const AUDIO_CHUNK_TYPES: ReadonlySet<string> = new Set([
+  "voice_chunk",
+  "speech_chunk",
+]);
 
 /**
- * Voice chunks have their own budget: 160 chunks of 64 KB are 10 MB in ten
- * seconds, so a recording does not use up the limit of the other messages.
+ * Recognizes a `voice_chunk` or `speech_chunk` frame before it is parsed, to
+ * count it in its own budget.
+ */
+const AUDIO_CHUNK_TYPE = /"type"\s*:\s*"(?:voice|speech)_chunk"/u;
+
+/**
+ * Voice and speech chunks have their own budget: 160 chunks of 64 KB are
+ * 10 MB in ten seconds, so a recording does not use up the limit of the
+ * other messages.
  */
 const LIMITS: Readonly<Record<PicaMobileFrameKind, BudgetLimit>> = {
   message: { perWindow: 30, pending: 8 },
@@ -35,13 +46,13 @@ const LIMITS: Readonly<Record<PicaMobileFrameKind, BudgetLimit>> = {
  * @param text - The frame.
  * @param isAuthenticated - Whether the connection is authenticated; before
  * that every frame is a message.
- * @returns `voiceChunk` for a frame that names `voice_chunk`.
+ * @returns `voiceChunk` for a frame that names `voice_chunk` or `speech_chunk`.
  */
 export function readPicaMobileFrameKind(
   text: string,
   isAuthenticated: boolean,
 ): PicaMobileFrameKind {
-  return isAuthenticated && VOICE_CHUNK_TYPE.test(text)
+  return isAuthenticated && AUDIO_CHUNK_TYPE.test(text)
     ? "voiceChunk"
     : "message";
 }
@@ -58,9 +69,9 @@ export function describePicaMobileFrameMismatch(
   frame: { readonly isLarge: boolean; readonly kind: PicaMobileFrameKind },
 ): string | null {
   if (frame.isLarge && !LARGE_MESSAGE_TYPES.has(type))
-    return "Only chat_send, conversation_send and voice_chunk may exceed 16384 bytes.";
-  if (frame.kind === "voiceChunk" && type !== "voice_chunk")
-    return "A frame that names voice_chunk must be a voice_chunk.";
+    return "Only chat_send, conversation_send, voice_chunk and speech_chunk may exceed 16384 bytes.";
+  if (frame.kind === "voiceChunk" && !AUDIO_CHUNK_TYPES.has(type))
+    return "A frame that names voice_chunk or speech_chunk must be one.";
   return null;
 }
 

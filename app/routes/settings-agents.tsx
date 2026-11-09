@@ -6,6 +6,7 @@ import { useLocalStateRoute } from "@/app/components/common/use-local-state-rout
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings-card";
+import { SpeechSettingsCard } from "@/app/components/settings/agents/speech-settings-card";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
 import { RunnerConnectionsCard } from "@/app/components/settings/agents/runner-connections-card";
 import {
@@ -31,6 +32,7 @@ import type {
 } from "@/definition/AgentConnection";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { PicaAdministration } from "@/definition/PicaSettings";
+import type { SpeechAdministration } from "@/definition/SpeechRecognition";
 import type { Route } from "./+types/settings-agents";
 import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
 
@@ -49,6 +51,7 @@ export type AgentsLoaderData =
         readonly settings: PicaAdministration;
         readonly models: readonly PageAgentModel[];
       };
+      readonly speech: SpeechAdministration;
       readonly audience: LocalStateAudience;
     };
 
@@ -67,6 +70,8 @@ function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
     Array.isArray(value.runners) &&
     "pica" in value &&
     typeof value.pica === "object" &&
+    "speech" in value &&
+    typeof value.speech === "object" &&
     "audience" in value &&
     isLocalStateAudience(value.audience)
   );
@@ -80,7 +85,7 @@ function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
  * metadata; the request for the admin mode is not kept.
  */
 const SETTINGS_AGENTS_STATE: LocalStateRouteKind<AgentsLoaderData> = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   isPayload: isAgentsRouteData,
   isCurrent: (agents) =>
     agents.access === "granted" && isCurrentLocalStateAudience(agents.audience),
@@ -138,6 +143,10 @@ export default function SettingsAgentsRoute(): React.ReactElement {
       <RunnerConnectionsCard
         connections={result.runners}
         githubMode={result.runnerGitHubMode}
+      />
+      <SpeechSettingsCard
+        administration={result.speech}
+        isCatalogFailed={hasFailedCatalog(result.catalogs)}
       />
       <PicaSettingsCard
         settings={result.pica.settings}

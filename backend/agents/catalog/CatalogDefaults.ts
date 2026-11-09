@@ -13,6 +13,11 @@ function listed(
   return models.some((model) => model.id === id) ? id : null;
 }
 
+// A speech model that reads no text (PAGE-273) is listed for speech recognition only.
+function readsText(model: AgentCatalogModel): boolean {
+  return model.inputModalities?.includes("text") ?? true;
+}
+
 /**
  * Picks the model a connection starts with, using only the listed models.
  *
@@ -45,7 +50,7 @@ export function defaultCatalogModel(
     case "opencode":
       return (
         listed(models, OPENROUTER_FREE_ROUTER) ??
-        models.find((model) => model.isFree)?.id ??
+        models.find((model) => model.isFree && readsText(model))?.id ??
         null
       );
     case "google_ai_studio":

@@ -14,7 +14,7 @@ import type { PageAgentModel } from "./PageAgent";
  * Every consumer reads the same models of the same connections; it only
  * leaves out what it cannot run, for one of the reasons below.
  */
-export type AgentModelConsumer = "pica" | "plan" | "employee";
+export type AgentModelConsumer = "pica" | "plan" | "employee" | "stt";
 
 /**
  * Why a consumer cannot run a model.
@@ -27,9 +27,11 @@ export type AgentModelConsumer = "pica" | "plan" | "employee";
  *   which Pica's read-only session does not grant.
  * - `noToolCalls`: the catalog states that the model calls no tools, which an
  *   agent of a plan needs.
+ * - `noSpeech`: the model is not known to recognize speech, which the speech
+ *   recognition of the instance (PAGE-273) needs.
  */
 export type ModelConsumerRefusal =
-  "noChatAdapter" | "noChat" | "zenToolsMissing" | "noToolCalls";
+  "noChatAdapter" | "noChat" | "zenToolsMissing" | "noToolCalls" | "noSpeech";
 
 /** The providers Pica has an ACP adapter for, as registered in {@link AGENT_PROVIDERS}. */
 export type ChatAdapterProviderId = {
@@ -40,7 +42,12 @@ export type ChatAdapterProviderId = {
 
 type ConsumerModel = Pick<
   PageAgentModel,
-  "provider" | "model" | "isFree" | "isToolCapable" | "isChatCapable"
+  | "provider"
+  | "model"
+  | "isFree"
+  | "isToolCapable"
+  | "isChatCapable"
+  | "isSpeechCapable"
 >;
 
 /**
@@ -92,6 +99,16 @@ function employeeRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   return picaRefusal(model) ?? planRefusal(model);
 }
 
+/**
+ * Speech recognition (PAGE-273) takes only a model that is known to turn
+ * audio into text: a model whose catalog states audio input and text output
+ * alone, or a recognition model documented in Pages. A model that states
+ * nothing never qualifies, so chat, agent and CLI models stay out.
+ */
+function sttRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
+  return model.isSpeechCapable === true ? null : "noSpeech";
+}
+
 const CONSUMER_RULES: Readonly<
   Record<
     AgentModelConsumer,
@@ -101,6 +118,7 @@ const CONSUMER_RULES: Readonly<
   pica: picaRefusal,
   plan: planRefusal,
   employee: employeeRefusal,
+  stt: sttRefusal,
 };
 
 /**

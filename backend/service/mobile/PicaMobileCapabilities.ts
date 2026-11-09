@@ -3,19 +3,44 @@ import { PICA_MOBILE_CAPABILITY } from "@/definition/PicaMobileProtocol";
 
 import type { PicaMobileCapability } from "@/definition/PicaMobileProtocol";
 import type { PicaMobileConnectionOptions } from "./PicaMobileConnection";
+import type { PicaMobileSessionIdentity } from "./PicaMobileDashboardProvider";
+
+// `speech.v1` is named only while a speech model is set up for the account.
+async function isSpeechAvailable(
+  options: Pick<PicaMobileConnectionOptions, "speech">,
+  session: PicaMobileSessionIdentity,
+): Promise<boolean> {
+  if (options.speech === undefined) return false;
+  try {
+    return await options.speech.isAvailable(session);
+  } catch (error: unknown) {
+    logCaughtError("PicaMobileConnection", error);
+
+    return false;
+  }
+}
 
 /**
  * Reads the extensions a connection answers, for its `connected` message.
  *
  * @param options - The providers of the connection; each one that is present
  * adds its extension.
- * @returns The extensions; a push that cannot be decided is not announced.
+ * @param session - The account and session the connection authenticated
+ * with; `speech.v1` depends on them.
+ * @returns The extensions; a push or speech recognition that cannot be
+ * decided is not announced.
  */
 export async function readPicaMobileCapabilities(
   options: Pick<
     PicaMobileConnectionOptions,
-    "dashboard" | "notifications" | "plans" | "chat" | "conversations"
+    | "dashboard"
+    | "notifications"
+    | "plans"
+    | "chat"
+    | "conversations"
+    | "speech"
   >,
+  session: PicaMobileSessionIdentity,
 ): Promise<readonly PicaMobileCapability[]> {
   const capabilities: PicaMobileCapability[] = [];
   const { dashboard, notifications, plans, chat, conversations } = options;
@@ -41,6 +66,10 @@ export async function readPicaMobileCapabilities(
 
   if (conversations !== undefined) {
     capabilities.push(PICA_MOBILE_CAPABILITY.CONVERSATIONS_V1);
+  }
+
+  if (await isSpeechAvailable(options, session)) {
+    capabilities.push(PICA_MOBILE_CAPABILITY.SPEECH_V1);
   }
 
   if (notifications === undefined) {

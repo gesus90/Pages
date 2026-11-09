@@ -6,7 +6,7 @@ import {
 } from "@/definition/AgentModelCatalog";
 import { describeClaudeModel } from "@/definition/AgentModelVersion";
 
-import { isTextModel } from "./CatalogTextModels";
+import { isCatalogModel } from "./CatalogTextModels";
 import {
   documentedGoogleThinkingLevels,
   OPENROUTER_BUDGET_EFFORTS,
@@ -336,11 +336,12 @@ function readOpenRouterCursor(
  * @param payload - One page as the provider returned it.
  * @param provider - The provider that returned the page.
  * @param offset - OpenRouter's offset of this page.
- * @returns The page's text models and the cursor of the next page.
+ * @returns The page's text and speech models and the cursor of the next page.
  *
  * @remarks
- * Only entries that the catalog's own metadata marks as text models are kept
- * (A8.4-Fix2-E02). Pagination still counts every listed entry.
+ * Only entries that the catalog's own metadata marks as text models
+ * (A8.4-Fix2-E02) or as speech models (PAGE-273) are kept. Pagination still
+ * counts every listed entry.
  */
 export function parseCatalogPage(
   payload: unknown,
@@ -353,7 +354,7 @@ export function parseCatalogPage(
   );
   return {
     models: entries
-      .filter((entry) => isTextModel(entry, provider))
+      .filter((entry) => isCatalogModel(entry, provider))
       .map((entry) => readModel(entry, provider)),
     nextCursor:
       provider === "openrouter"
