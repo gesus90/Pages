@@ -30,6 +30,7 @@ const services = vi.hoisted(() => ({
   agentCatalogService: { list: vi.fn() },
   agentProfileService: { directory: vi.fn() },
   picaSettingsService: { administration: vi.fn() },
+  speechSettingsService: { administration: vi.fn() },
   runnerService: { overview: vi.fn() },
   openCodeProviderLinks: { describe: vi.fn() },
   runnerGitHubMode: "offline",
@@ -72,6 +73,11 @@ vi.mock("@/app/components/settings/agents/pica-settings-card", () => ({
     readonly models: readonly unknown[];
   }): React.ReactElement => <p>{`pica ${props.models.length}`}</p>,
 }));
+vi.mock("@/app/components/settings/agents/speech-settings-card", () => ({
+  SpeechSettingsCard: (props: {
+    readonly administration: { readonly status: string };
+  }): React.ReactElement => <p>{`speech ${props.administration.status}`}</p>,
+}));
 vi.mock("@/app/components/settings/admin-mode-required", () => ({
   AdminModeRequired: (props: {
     readonly description: string;
@@ -94,6 +100,9 @@ beforeEach(() => {
   services.picaSettingsService.administration.mockResolvedValue({
     settings: {},
     models: [],
+  });
+  services.speechSettingsService.administration.mockResolvedValue({
+    status: "noModel",
   });
   services.runnerService.overview.mockResolvedValue([]);
   services.openCodeProviderLinks.describe.mockResolvedValue(LINKS);
@@ -141,6 +150,7 @@ it("loads the management data and links OpenCode to its keys", async () => {
     catalogs: {},
     profileDirectory: { groups: [] },
     pica: { settings: {}, models: [] },
+    speech: { status: "noModel" },
     audience: AUDIENCE,
   });
   expect(result.init).toMatchObject({
@@ -203,6 +213,7 @@ it("renders the management sections for the admin mode", () => {
       catalogs: {},
       profileDirectory: {},
       pica: { settings: {}, models: [{ id: "m" }] },
+      speech: { status: "ready" },
       audience: AUDIENCE,
     },
   });
@@ -213,6 +224,7 @@ it("renders the management sections for the admin mode", () => {
   expect(screen.getByText("connections c-1")).toBeTruthy();
   expect(screen.getByText("runners http")).toBeTruthy();
   expect(screen.getByText("pica 1")).toBeTruthy();
+  expect(screen.getByText("speech ready")).toBeTruthy();
   expect(screen.getByRole("link").getAttribute("href")).toBe(
     "/settings/agents/tools",
   );
