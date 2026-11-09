@@ -3740,7 +3740,25 @@
       "label": "Sprachnachricht · {{duration}}",
       "player": "Sprachnachricht abspielen",
       "transcribing": "Wird erkannt …",
-      "failed": "Der Text konnte nicht erkannt werden. Die Aufnahme bleibt abspielbar."
+      "failed": "Der Text konnte nicht erkannt werden. Die Aufnahme bleibt abspielbar.",
+      "pause": "Sprachnachricht anhalten",
+      "seek": "Zu einer Stelle der Sprachnachricht springen",
+      "record": "Sprachnachricht aufnehmen",
+      "pickFile": "Audiodatei senden (WAV oder MP3)",
+      "recording": "Aufnahme {{elapsed}} von höchstens {{maximum}}",
+      "cancel": "Aufnahme verwerfen",
+      "sendRecording": "Aufnahme senden",
+      "sending": "Sprachnachricht wird gesendet …",
+      "failure": {
+        "too_large": "Die Aufnahme ist größer als 25 MB und wurde nicht gesendet.",
+        "too_long": "Die Aufnahme ist länger als {{maximum}} Minuten und wurde nicht gesendet.",
+        "unsupported_format": "Dieses Format wird nicht unterstützt. Sende eine WAV- oder MP3-Datei.",
+        "invalid": "Die Sprachnachricht konnte nicht gelesen werden.",
+        "not_found": "Diese Unterhaltung gibt es nicht mehr.",
+        "forbidden": "An diese Unterhaltung kann gerade nichts gesendet werden.",
+        "microphone": "Das Mikrofon konnte nicht geöffnet werden. Erlaube den Zugriff im Browser oder wähle eine Audiodatei.",
+        "general": "Die Sprachnachricht konnte nicht gesendet werden. Versuch es noch einmal."
+      }
     }
   },
   "workspaces": {

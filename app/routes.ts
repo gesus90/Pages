@@ -353,6 +353,7 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "routes/chat-attachment-content.ts",
     ),
     resource("chat-page-api/page", "routes/chat-page-data.ts"),
+    resource("chat-page-api/voice", "routes/chat-page-voice.ts"),
     ...page("chat", {
       browser: "routes/chat-page.tsx",
       server: "routes/chat-page-server.ts",

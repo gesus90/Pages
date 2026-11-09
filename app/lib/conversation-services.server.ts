@@ -13,7 +13,9 @@ import { ConversationService } from "@/backend/service/conversation/Conversation
 import { createConversationTranscriber } from "@/backend/service/conversation/ConversationTranscriber";
 import { ConversationVoiceStore } from "@/backend/service/conversation/ConversationVoiceStore";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
+import { voiceMaximumDurationMs } from "@/backend/config/SpeechRecognitionConfig";
 
+import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { Database } from "@/backend/database/Database";
 import type { ConversationAgentRunner } from "@/backend/service/conversation/ConversationAgentReplies";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
@@ -25,6 +27,8 @@ export interface ConversationApplicationServices {
   readonly conversationService: ConversationService;
   /** The answers of agents in conversations (PAGE-276). */
   readonly conversationAgentReplies: ConversationAgentReplies;
+  /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
+  readonly conversationVoiceMaximumMs: number;
 }
 
 /** What the conversation services are built from. */
@@ -35,6 +39,8 @@ export interface ConversationServicesInput {
   readonly events: PagesEventPublisher;
   /** Runs the answers of agents (PAGE-276). */
   readonly runner: ConversationAgentRunner;
+  /** The speech model and the longest recording of `config.toml` (PAGE-277). */
+  readonly speech?: SpeechRecognitionSetting;
 }
 
 declare global {
@@ -99,17 +105,19 @@ export function createConversationServices(
   });
   globalThis.pagesConversationAgentReplies?.();
   globalThis.pagesConversationAgentReplies = conversationAgentReplies.start();
+  const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
   return {
     conversationReader,
     conversationAgentReplies,
+    conversationVoiceMaximumMs,
     conversationService: new ConversationService({
       conversations,
       messages,
       reader: conversationReader,
       directory,
-      voices: new ConversationVoiceStore(files),
+      voices: new ConversationVoiceStore(files, conversationVoiceMaximumMs),
       files,
-      transcriber: createConversationTranscriber(),
+      transcriber: createConversationTranscriber({ speech: input.speech }),
       events,
       publisher: input.events,
     }),

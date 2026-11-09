@@ -1,8 +1,8 @@
 import { ConversationError } from "@/backend/error/ConversationError";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import {
+  CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS,
   CONVERSATION_VOICE_MAXIMUM_BYTES,
-  CONVERSATION_VOICE_MAXIMUM_DURATION_MILLISECONDS,
 } from "@/definition/Conversation";
 
 import {
@@ -20,13 +20,11 @@ const DURATION_TOLERANCE_MILLISECONDS = 1_000;
 /** Why stored audio is refused, or `null` when it is kept. */
 function refusalOf(
   isDeclaredFormat: boolean,
-  durationMs: number,
+  duration: { readonly durationMs: number; readonly maximumMs: number },
 ): "unsupported_format" | "too_long" | null {
   if (!isDeclaredFormat) return "unsupported_format";
-  const limit =
-    CONVERSATION_VOICE_MAXIMUM_DURATION_MILLISECONDS +
-    DURATION_TOLERANCE_MILLISECONDS;
-  return durationMs > limit ? "too_long" : null;
+  const limit = duration.maximumMs + DURATION_TOLERANCE_MILLISECONDS;
+  return duration.durationMs > limit ? "too_long" : null;
 }
 
 /** The declared facts of a voice message before its audio arrives. */
@@ -61,14 +59,21 @@ export interface StoredConversationVoiceFile {
  */
 export class ConversationVoiceStore {
   private readonly files: Pick<WikiFileStore, "write" | "remove">;
+  private readonly maximumDurationMs: number;
 
   /**
    * Creates the store.
    *
    * @param files - The directory of the audio files.
+   * @param maximumDurationMs - The longest recording Pages is set to
+   * (PAGE-277); 300 seconds by default.
    */
-  public constructor(files: Pick<WikiFileStore, "write" | "remove">) {
+  public constructor(
+    files: Pick<WikiFileStore, "write" | "remove">,
+    maximumDurationMs = CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS * 1000,
+  ) {
     this.files = files;
+    this.maximumDurationMs = maximumDurationMs;
   }
 
   /**
@@ -88,9 +93,7 @@ export class ConversationVoiceStore {
       declaration.durationMs < 1
     )
       throw new ConversationError("invalid");
-    if (
-      declaration.durationMs > CONVERSATION_VOICE_MAXIMUM_DURATION_MILLISECONDS
-    )
+    if (declaration.durationMs > this.maximumDurationMs)
       throw new ConversationError("too_long");
     return { format, durationMs: declaration.durationMs };
   }
@@ -126,7 +129,10 @@ export class ConversationVoiceStore {
     }
     const facts = readAudioFacts(head, stored.size);
     const durationMs = facts?.durationMs ?? intent.durationMs;
-    const refusal = refusalOf(facts?.format === intent.format, durationMs);
+    const refusal = refusalOf(facts?.format === intent.format, {
+      durationMs,
+      maximumMs: this.maximumDurationMs,
+    });
     if (refusal !== null) {
       await this.files.remove([stored.storageName]);
       throw new ConversationError(refusal);

@@ -25,6 +25,7 @@ import { PersonColorService } from "@/backend/service/employee/PersonColorServic
 
 import { createConversationServices } from "./conversation-services.server";
 
+import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
 import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
@@ -54,6 +55,8 @@ export interface EmployeeServicesInput {
   readonly conversations: {
     readonly directory: string;
     readonly events: PagesEventPublisher;
+    /** The speech model and the longest recording of `config.toml` (PAGE-277). */
+    readonly speech?: SpeechRecognitionSetting;
   };
 }
 

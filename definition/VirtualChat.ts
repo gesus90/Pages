@@ -126,6 +126,8 @@ export interface VirtualChatDirectory {
   readonly histories: Readonly<Record<string, readonly VirtualChatMessage[]>>;
   /** People and agents the dialog "Teilnehmer hinzufügen" offers; never the own account. */
   readonly contactChoices: readonly VirtualContactChoice[];
+  /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
+  readonly voiceMaximumMs?: number;
 }
 
 /** Why sending to an agent was refused, as the interface translates it. */

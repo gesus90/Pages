@@ -383,7 +383,12 @@ export class ConversationMessageRepository {
    */
   public async completeTranscription(
     messageId: string,
-    outcome: { readonly state: "done" | "failed"; readonly text: string },
+    outcome: {
+      readonly state: "done" | "failed";
+      readonly text: string;
+      /** The members the recognized text mentions (PAGE-277). */
+      readonly mentions: readonly string[];
+    },
     event: PagesEventRecord,
   ): Promise<StoredConversationMessage | null> {
     return this.database.transaction(async (transaction) => {
@@ -392,12 +397,18 @@ export class ConversationMessageRepository {
           UPDATE conversation_messages
           SET
               transcription_state = $state,
-              text = $text
+              text = $text,
+              mentions = $mentions
           WHERE id = $id
               AND transcription_state = 'pending'
           RETURNING${MESSAGE_COLUMNS};
         `,
-        { id: messageId, state: outcome.state, text: outcome.text },
+        {
+          id: messageId,
+          state: outcome.state,
+          text: outcome.text,
+          mentions: JSON.stringify(outcome.mentions),
+        },
       );
       const [row] = rows;
       if (!row) return null;

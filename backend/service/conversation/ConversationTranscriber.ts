@@ -2,6 +2,9 @@ import { setTimeout as wait } from "node:timers/promises";
 
 import { logEvent } from "@/backend/logging/Logger";
 
+import { ConversationProviderTranscriber } from "./ConversationProviderTranscriber";
+
+import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { Readable } from "node:stream";
 
 /** The audio a recognition reads. */
@@ -107,24 +110,46 @@ function readScenario(
   );
 }
 
+/** The recognition of the server setting, or the one that fails at once without a model. */
+function configuredTranscriber(
+  speech: SpeechRecognitionSetting | undefined,
+): ConversationTranscriber {
+  if (speech?.model === undefined || speech.url === undefined)
+    return new UnavailableTranscriber();
+  return new ConversationProviderTranscriber({
+    model: speech.model,
+    url: speech.url,
+    apiKeyFile: speech.apiKeyFile ?? null,
+  });
+}
+
+/** Where the recognition of the process is chosen from. */
+export interface ConversationTranscriberOptions {
+  /** The speech model of `config.toml` (PAGE-277). */
+  readonly speech?: SpeechRecognitionSetting;
+  /** The environment, the process's own by default. */
+  readonly environment?: Readonly<Record<string, string | undefined>>;
+}
+
 /**
  * Chooses the recognition of the process.
  *
- * @param environment - The environment, the process's own by default.
+ * @param options - The speech model of the server setting and the environment.
  * @returns The simulation with `PAGES_STT_SIMULATION=1` outside production,
- * otherwise a recognition that fails at once, because Pages has no speech
- * model yet.
+ * otherwise the speech model of `[speechRecognition]` in `config.toml`, or a
+ * recognition that fails at once when the file names no model and endpoint.
  *
  * @remarks
  * With `NODE_ENV=production` the simulation switch is ignored and the
  * ignoring is logged. `PAGES_STT_SIMULATION_SCENARIO` chooses `ok`
- * (default), `provider_failed` or `slow`.
+ * (default), `provider_failed` or `slow`. The simulation contacts no provider.
  */
 export function createConversationTranscriber(
-  environment: Readonly<Record<string, string | undefined>> = process.env,
+  options: ConversationTranscriberOptions = {},
 ): ConversationTranscriber {
+  const environment = options.environment ?? process.env;
   if (environment.PAGES_STT_SIMULATION !== "1")
-    return new UnavailableTranscriber();
+    return configuredTranscriber(options.speech);
   if (environment.NODE_ENV === "production") {
     logEvent({
       level: "warn",
@@ -133,7 +158,7 @@ export function createConversationTranscriber(
       message:
         "PAGES_STT_SIMULATION is ignored because NODE_ENV is production.",
     });
-    return new UnavailableTranscriber();
+    return configuredTranscriber(options.speech);
   }
   const scenario = readScenario(environment.PAGES_STT_SIMULATION_SCENARIO);
   logEvent({

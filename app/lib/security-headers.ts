@@ -28,12 +28,14 @@ const CONTENT_SECURITY_POLICY = [
  *
  * @remarks
  * `Strict-Transport-Security` is not part of this set, because it only makes
- * sense behind TLS and a wrong value locks browsers out of plain HTTP.
+ * sense behind TLS and a wrong value locks browsers out of plain HTTP. The
+ * microphone is left to the own origin for the voice messages of the chat
+ * (PAGE-277); the browser still asks the person before it opens.
  */
 export function createSecurityHeaders(): Record<string, string> {
   return {
     "Content-Security-Policy": CONTENT_SECURITY_POLICY,
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Permissions-Policy": "camera=(), microphone=(self), geolocation=()",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",

@@ -36,8 +36,17 @@ export const CONVERSATION_HISTORY_PAGE_SIZE = 50;
 /** Largest audio file of a voice message, in bytes. */
 export const CONVERSATION_VOICE_MAXIMUM_BYTES = 25 * 1024 * 1024;
 
-/** Longest voice message, in milliseconds. */
-export const CONVERSATION_VOICE_MAXIMUM_DURATION_MILLISECONDS = 5 * 60 * 1000;
+/**
+ * Longest voice message in seconds while `config.toml` sets none (PAGE-277);
+ * `speechRecognition.maximumRecordingSeconds` sets the longest recording.
+ */
+export const CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS = 5 * 60;
+
+/** The longest recording an operator may set, in seconds. */
+export const CONVERSATION_VOICE_DURATION_RANGE_SECONDS = {
+  minimum: 1,
+  maximum: 60 * 60,
+} as const;
 
 /** The audio formats of a voice message and the types that name them. */
 export const CONVERSATION_VOICE_MIME_TYPES = {

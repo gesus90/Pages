@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 
+import { CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS } from "@/definition/Conversation";
+
 import { useChatActivity } from "./use-chat-activity";
 import { useConversationRead } from "./use-conversation-read";
 
@@ -46,6 +48,8 @@ export interface ChatPageState {
   readonly isAnswering: boolean;
   /** Who is answering: the opened agent, or the agents of the opened group (PAGE-276). */
   readonly answeringNames: readonly string[];
+  /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
+  readonly voiceMaximumMs: number;
   /** Why the last message could not be sent, or `null`. */
   readonly sendFailure: VirtualChatSendFailure | null;
   /** Sends a message to the opened agent, person or group. */
@@ -287,6 +291,9 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     messages,
     isAnswering,
     answeringNames,
+    voiceMaximumMs:
+      directory.voiceMaximumMs ??
+      CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS * 1000,
     sendFailure,
     send,
     addMember: activity.addMember,

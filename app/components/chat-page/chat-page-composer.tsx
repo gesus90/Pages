@@ -7,11 +7,20 @@ import { useChatEditor } from "@/app/components/chat/use-chat-editor";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
+import { ChatPageVoiceInput } from "./chat-page-voice-input";
+
+import type { VoiceSending } from "./use-voice-sending";
+
 interface ChatPageComposerProps {
   /** Hint of the empty field, for a participant or a group. */
   readonly placeholder: string;
   readonly label: string;
   readonly onSend: (content: string) => void;
+  /** Voice messages of a stored conversation (PAGE-277); missing for an agent's chat. */
+  readonly voice?: {
+    readonly sending: VoiceSending;
+    readonly maximumMs: number;
+  };
 }
 
 /**
@@ -21,13 +30,16 @@ interface ChatPageComposerProps {
  * @remarks
  * The editor reads its placeholder once, so the page mounts one composer per
  * conversation. Sending hands the text to the page, which sends it; "+"
- * gets its function with attachments in a later ticket. The field ends 88 px
+ * gets its function with attachments in a later ticket. In a conversation
+ * with people or of a group, the microphone and the file button send a voice
+ * message (PAGE-277). The field ends 88 px
  * before the right edge of the chat, so Pica's launcher never covers it.
  */
 export function ChatPageComposer({
   placeholder,
   label,
   onSend,
+  voice,
 }: ChatPageComposerProps): React.ReactElement {
   const { t } = useTranslation();
   const input = useChatEditor({
@@ -58,6 +70,12 @@ export function ChatPageComposer({
         >
           <Plus aria-hidden="true" className="size-4" />
         </Button>
+        {voice ? (
+          <ChatPageVoiceInput
+            sending={voice.sending}
+            maximumMs={voice.maximumMs}
+          />
+        ) : null}
         <Button
           className="ml-auto h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3"
           disabled={!canSend}

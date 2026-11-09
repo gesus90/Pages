@@ -562,20 +562,23 @@ export class ConversationService {
       mimeType: voice.mimeType,
       sizeBytes: voice.sizeBytes,
     });
+    const accounts = await this.dependencies.directory.read();
+    const text = outcome.ok
+      ? Array.from(outcome.text.trim())
+          .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
+          .join("")
+      : "";
+    // A group asks its agents by mention; the recognized text may name one.
+    const mentions = findConversationMentions(text, memberIds, {
+      accounts,
+      senderId: stored.senderId,
+    });
     const updated = await this.dependencies.messages.completeTranscription(
       stored.id,
-      outcome.ok
-        ? {
-            state: "done",
-            text: Array.from(outcome.text.trim())
-              .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
-              .join(""),
-          }
-        : { state: "failed", text: "" },
+      { state: outcome.ok ? "done" : "failed", text, mentions },
       changedEvent(stored.conversationId),
     );
     if (!updated) return;
-    const accounts = await this.dependencies.directory.read();
     this.announce(stored.conversationId, {
       kind: "message_updated",
       message: toConversationMessage(updated, accounts),
