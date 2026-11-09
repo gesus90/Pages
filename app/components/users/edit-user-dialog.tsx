@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 import { FormError } from "@/app/components/users/form-error";
+import { UserColorField } from "@/app/components/users/user-color-field";
 import { UserField } from "@/app/components/users/user-field";
 import {
   useIsSubmitting,
@@ -49,6 +50,10 @@ export function EditUserDialog({
         <DialogTitle className="text-lg font-semibold text-foreground">
           {t("users.edit.title")}
         </DialogTitle>
+
+        <div className="mt-5">
+          <UserColorField userId={user.id} color={user.avatarColor ?? null} />
+        </div>
 
         <Form className="mt-5 flex flex-col gap-3" method="post" noValidate>
           <input name="intent" type="hidden" value="update-user" />

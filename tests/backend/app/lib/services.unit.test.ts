@@ -105,6 +105,7 @@ it("returns every service group together with the core services", async () => {
     ...world.plans,
     ...world.mcp,
     ...world.chat,
+    ...world.employee,
     ...world.discord,
     ...world.preferences,
     administrationService: only(vi.mocked(AdministrationService)),

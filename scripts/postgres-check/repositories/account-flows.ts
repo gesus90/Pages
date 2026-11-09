@@ -242,6 +242,9 @@ export const USER_FLOW: RepositoryFlow = {
     call("UserRepository.findAvatarByUserId", ({ users }) =>
       users.findAvatarByUserId("user-employee"),
     ),
+    call("UserRepository.deleteAvatar", ({ users }) =>
+      users.deleteAvatar("user-employee"),
+    ),
     refused("UserRepository.upsertAvatar", ({ users }) =>
       users.upsertAvatar("user-admin", { ...AVATAR, filename: MISSING_TEXT }),
     ),

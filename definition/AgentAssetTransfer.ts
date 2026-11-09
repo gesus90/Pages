@@ -5,7 +5,7 @@ export interface AgentAssetDownload {
   readonly downloadPath: "/api/v1/agent-assets";
   readonly expiresAt: number;
   readonly asset: {
-    readonly source: "ticket" | "wiki" | "agent";
+    readonly source: "ticket" | "wiki" | "agent" | "plan";
     readonly id: string;
     readonly link: string;
   };
@@ -22,7 +22,7 @@ export interface AgentAssetDownload {
 export interface AgentAssetReturn {
   readonly operationId: string;
   readonly sourceAttachmentId?: string;
-  readonly sourceType?: "ticket" | "wiki" | "agent";
+  readonly sourceType?: "ticket" | "wiki" | "agent" | "plan";
   readonly expectedDigest?: string;
   readonly replace?: boolean;
 }

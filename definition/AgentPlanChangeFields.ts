@@ -36,6 +36,7 @@ export const PLAN_NODE_FIELDS = {
   git_closeout: ["name", "checkCommand", "timeoutSeconds"],
   decision: ["name"],
   stack: ["name", "entries"],
+  asset: ["name", "file"],
   task: ["taskId"],
   parameter: ["name", "format", "value"],
   variable: [],

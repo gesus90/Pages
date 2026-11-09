@@ -1,4 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { resolveAgentSimulationModel } from "@/backend/agents/simulation/AgentSimulationModels";
+import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
@@ -25,15 +27,16 @@ export async function resolveDirectPlanModel(
   const { configuration } = selection;
   if (!configuration.connectionId)
     throw new AgentError("model_assignment_missing");
-  const assignment = await resolveAgentAssignmentFor(
-    dependencies.connections,
-    viewer,
-    {
+  const assignment =
+    resolveAgentSimulationModel(
+      dependencies.simulation ?? currentAgentSimulationMode(),
+      configuration,
+    ) ??
+    (await resolveAgentAssignmentFor(dependencies.connections, viewer, {
       connectionId: configuration.connectionId,
       model: configuration.model,
       reasoningEffort: configuration.reasoningEffort,
-    },
-  );
+    }));
   if (assignment.connection.provider !== configuration.provider)
     throw new AgentError("plan_context_changed");
   return {

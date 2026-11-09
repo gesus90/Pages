@@ -48,6 +48,8 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "loopProvider",
   ...PLAN_BRANCHING_PROBLEMS,
   ...PLAN_STACK_PROBLEMS,
+  "assetFile",
+  "assetUnreadable",
   "unsupportedRunNotes",
   "duplicateNode",
   "port",

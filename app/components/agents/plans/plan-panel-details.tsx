@@ -7,9 +7,10 @@ import { PlanWorkspaceConflict } from "./plan-workspace-conflict";
 import { PlanStartRejection } from "./plan-start-rejection";
 import { recoveryErrorText } from "./plan-recovery-panel";
 import { PlanStartHistory } from "./plan-start-history";
+import { PlanEntryResultsOverview } from "./plan-entry-results";
 
 import type { usePlanRecovery } from "./use-plan-recovery";
-import type { AgentPlanPage } from "@/definition/AgentPlan";
+import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanPanelIssue } from "./plan-panel-issues";
 import type { usePlanEditor } from "./use-plan-editor";
@@ -51,6 +52,8 @@ export function PlanPanelDetails(props: {
   readonly page: AgentPlanPage;
   readonly editor: ReturnType<typeof usePlanEditor>;
   readonly control: AgentPlanControl | undefined;
+  /** The run the canvas shows; its file entries get their own result overview. */
+  readonly run?: AgentPlanRun | null;
   readonly issues: readonly PlanPanelIssue[];
   /** A refusal that no finding explains, as an error code. */
   readonly error: string | null;
@@ -60,6 +63,10 @@ export function PlanPanelDetails(props: {
   return (
     <div id={props.id} className="space-y-4 border-t border-border px-4 py-3.5">
       <PlanPanelIssueList issues={props.issues} />
+      <PlanEntryResultsOverview
+        plan={props.editor.draft}
+        run={props.run ?? null}
+      />
       {props.recoveryRunId && props.recovery?.error ? (
         <p role="alert" className="text-xs text-destructive">
           {recoveryErrorText(t, props.recovery.error)}

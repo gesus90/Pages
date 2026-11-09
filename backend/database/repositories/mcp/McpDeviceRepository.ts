@@ -84,6 +84,7 @@ export class McpDeviceRepository {
               AND mcp_device.revoked_at IS NULL
               AND users.id = mcp_device.user_id
               AND users.is_active = 1
+              AND users.account_kind = 'person'
           RETURNING
               mcp_device.id,
               mcp_device.user_id,

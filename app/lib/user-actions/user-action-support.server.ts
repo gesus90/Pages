@@ -39,7 +39,10 @@ export type UsersErrorCode =
   | "inUse"
   | "agentInUse"
   | "lastMembership"
-  | "userNotFound";
+  | "userNotFound"
+  | "conflict"
+  | "modelNotAllowed"
+  | "accessUnsupported";
 
 /** The directory actions a form can ask for. */
 export type UsersIntent =
@@ -56,7 +59,11 @@ export type UsersIntent =
   | "delete-group"
   | "set-memberships"
   | "set-scope"
-  | "set-admin";
+  | "set-admin"
+  | "create-agent"
+  | "update-agent"
+  | "restore-agent-memory"
+  | "set-user-color";
 
 /** What the user directory receives after a submitted form. */
 export type UsersActionData =

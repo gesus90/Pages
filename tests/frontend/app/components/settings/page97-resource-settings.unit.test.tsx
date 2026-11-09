@@ -125,12 +125,16 @@ it("offers a labeled numeric system form and counts every global lease state and
   expect(input.getAttribute("max")).toBe("999");
   expect(input.getAttribute("step")).toBe("1");
   expect(
-    screen.getByText("Belegt: 5 · Limit: 2 · Warteschlange: 2"),
+    screen.getByText(
+      "Reservierte Plätze: 5 (davon Bereinigung unbestätigt: 1) · Limit: 2 · Wartende Anfragen: 2",
+    ),
   ).toBeTruthy();
   expect(screen.getByText(/Startet \(Kapazität reserviert\)/)).toBeTruthy();
   expect(screen.getByText(/Inaktiv \(Kapazität reserviert\)/)).toBeTruthy();
   expect(
-    screen.getByText(/Bereinigung fehlgeschlagen oder unbestätigt/),
+    screen.getByText(
+      /Bereinigung unbestätigt – Platz bleibt vorsorglich reserviert/,
+    ),
   ).toBeTruthy();
   expect(screen.getAllByText(/Wartet auf ausreichend RAM/)).toHaveLength(2);
   expect(document.body.textContent).not.toContain("private-user");
@@ -201,7 +205,9 @@ it.each(["submitting", "loading"] as const)(
       screen.getAllByText("Wird gespeichert und angewendet …"),
     ).toHaveLength(2);
     expect(
-      screen.getByText("Belegt: 5 · Limit: 2 · Warteschlange: 2"),
+      screen.getByText(
+        "Reservierte Plätze: 5 (davon Bereinigung unbestätigt: 1) · Limit: 2 · Wartende Anfragen: 2",
+      ),
     ).toBeTruthy();
     expect(document.querySelector("form")?.getAttribute("aria-busy")).toBe(
       "true",
@@ -221,7 +227,9 @@ it.each(["invalidSetting", "environmentOverride", "general"] as const)(
       "true",
     );
     expect(
-      screen.getByText("Belegt: 5 · Limit: 2 · Warteschlange: 2"),
+      screen.getByText(
+        "Reservierte Plätze: 5 (davon Bereinigung unbestätigt: 1) · Limit: 2 · Wartende Anfragen: 2",
+      ),
     ).toBeTruthy();
     expect(fetcher.load).toHaveBeenCalledTimes(1);
   },
@@ -239,7 +247,9 @@ it("immediately shows the acknowledged snapshot, reloads once, then follows subs
     screen.getByText("ACP-Limit gespeichert und angewendet."),
   ).toBeTruthy();
   expect(
-    screen.getByText("Belegt: 0 · Limit: 3 · Warteschlange: 2"),
+    screen.getByText(
+      "Reservierte Plätze: 0 (davon Bereinigung unbestätigt: 0) · Limit: 3 · Wartende Anfragen: 2",
+    ),
   ).toBeTruthy();
   expect(fetcher.load).toHaveBeenCalledTimes(2);
   await act(async () => {
@@ -249,7 +259,9 @@ it("immediately shows the acknowledged snapshot, reloads once, then follows subs
   fetcher.resources = { ...snapshot(1), waiting: [] };
   view.rerender(card());
   expect(
-    screen.getByText("Belegt: 5 · Limit: 1 · Warteschlange: 0"),
+    screen.getByText(
+      "Reservierte Plätze: 5 (davon Bereinigung unbestätigt: 1) · Limit: 1 · Wartende Anfragen: 0",
+    ),
   ).toBeTruthy();
   expect(fetcher.load).toHaveBeenCalledTimes(3);
   view.unmount();
@@ -260,7 +272,9 @@ it("immediately shows the acknowledged snapshot, reloads once, then follows subs
 it("reuses the same status view without offering the system form in Agents", () => {
   render(card(false));
   expect(
-    screen.getByText("Belegt: 5 · Limit: 2 · Warteschlange: 2"),
+    screen.getByText(
+      "Reservierte Plätze: 5 (davon Bereinigung unbestätigt: 1) · Limit: 2 · Wartende Anfragen: 2",
+    ),
   ).toBeTruthy();
   expect(screen.queryByRole("spinbutton")).toBeNull();
   expect(screen.queryByRole("button")).toBeNull();
@@ -276,7 +290,9 @@ it("updates the confirmed occupancy immediately while the router still revalidat
   };
   view.rerender(card());
   expect(
-    screen.getByText("Belegt: 0 · Limit: 3 · Warteschlange: 0"),
+    screen.getByText(
+      "Reservierte Plätze: 0 (davon Bereinigung unbestätigt: 0) · Limit: 3 · Wartende Anfragen: 0",
+    ),
   ).toBeTruthy();
   expect(screen.getByRole("spinbutton").hasAttribute("disabled")).toBe(true);
   expect(fetcher.load).toHaveBeenCalledTimes(2);

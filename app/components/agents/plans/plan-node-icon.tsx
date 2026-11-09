@@ -2,6 +2,7 @@ import {
   Bot,
   Boxes,
   Braces,
+  File,
   FlagTriangleRight,
   GitFork,
   GitPullRequestArrow,
@@ -70,6 +71,7 @@ const NODE_ICONS = {
   task: PlanTicketIcon,
   parameter: Braces,
   variable: Variable,
+  asset: File,
   start: Play,
   end: FlagTriangleRight,
 };

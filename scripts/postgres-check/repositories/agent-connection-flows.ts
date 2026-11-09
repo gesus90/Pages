@@ -125,6 +125,18 @@ export const ACP_RESOURCE_FLOW: RepositoryFlow = {
     call("AcpResourceRepository.remove", (world) =>
       leases(world).remove("lease-missing"),
     ),
+    call("AcpResourceRepository.runReferences", (world) =>
+      leases(world).runReferences([]),
+    ),
+    call("AcpResourceRepository.recordCheck", (world) =>
+      leases(world).recordCheck("lease-c", {
+        reason: "not_spawned",
+        at: "2026-02-01T08:00:00.000Z",
+      }),
+    ),
+    call("AcpResourceRepository.releaseUncertain", (world) =>
+      leases(world).releaseUncertain("lease-c"),
+    ),
     call("AcpResourceRepository.list", (world) => leases(world).list()),
     prepare("DELETE FROM acp_resource_leases;"),
   ],

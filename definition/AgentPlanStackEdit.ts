@@ -6,6 +6,7 @@ import type {
   AgentPlanNode,
 } from "./AgentPlan";
 import type { AgentPlanStack, AgentPlanStackEntry } from "./AgentPlanStack";
+import type { AgentPlanAssetFile } from "./AgentPlanAsset";
 
 /** A plan after a node joined a stack, with the bindings that read the node and had to go. */
 export interface PlanStackJoin<Plan extends AgentPlanInput> {
@@ -40,6 +41,8 @@ function findStack(
 function entryOf(node: AgentPlanNode): AgentPlanStackEntry | null {
   if (node.type === "task")
     return { id: node.id, type: "task", taskId: node.taskId };
+  if (node.type === "asset")
+    return node.file ? { id: node.id, type: "asset", file: node.file } : null;
   if (node.type !== "parameter") return null;
   return {
     id: node.id,
@@ -148,6 +151,29 @@ export function addPlanStackTicket<Plan extends AgentPlanInput>(
     entries: [
       ...stack.entries,
       { id: entry.id, type: "task", taskId: entry.taskId },
+    ],
+  });
+}
+
+/**
+ * Adds a file as the last entry of a stack (PAGE-268); a full stack stays as it is.
+ *
+ * @param plan - The plan.
+ * @param stackId - The stack.
+ * @param entry - The new entry's identifier and the stored file.
+ */
+export function addPlanStackAsset<Plan extends AgentPlanInput>(
+  plan: Plan,
+  stackId: string,
+  entry: { readonly id: string; readonly file: AgentPlanAssetFile },
+): Plan {
+  const stack = findStack(plan, stackId);
+  if (!stack || stack.entries.length >= PLAN_STACK_ENTRY_COUNT) return plan;
+  return replaceStack(plan, {
+    ...stack,
+    entries: [
+      ...stack.entries,
+      { id: entry.id, type: "asset", file: entry.file },
     ],
   });
 }

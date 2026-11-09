@@ -147,4 +147,15 @@
       color: oklch(from var(--chip-color) max(l, 0.78) c h);
     }
   }
+
+  /* Ring einer Personenfarbe um einen Avatar (PAGE-266). Im dunklen Thema
+     wird nur die Helligkeit angehoben, damit der Ring auf dunklem Grund
+     erkennbar bleibt; der Farbton bleibt. */
+  .pages-user-color-ring {
+    border-color: var(--chip-color);
+
+    @variant dark {
+      border-color: oklch(from var(--chip-color) max(l, 0.72) c h);
+    }
+  }
 }

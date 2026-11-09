@@ -10,6 +10,7 @@ import { PlanGitCloseoutCard } from "./plan-node-card/plan-git-closeout-card";
 import { PlanScriptCard } from "./plan-node-card/plan-script-card";
 import { PlanStackCard } from "./plan-node-card/plan-stack-card";
 import { PlanSourceCard } from "./plan-node-card/plan-source-card";
+import { PlanAssetCard } from "./plan-node-card/plan-asset-card";
 import { planPortLayout, usePlanFlowPorts } from "./use-plan-flow-ports";
 
 import type { NodeProps } from "@xyflow/react";
@@ -88,5 +89,6 @@ export function PlanNodeCard({
         isDropTarget={context.dropTarget === node.id}
       />
     );
+  if (node.type === "asset") return <PlanAssetCard node={node} />;
   return <PlanSourceCard node={node} />;
 }

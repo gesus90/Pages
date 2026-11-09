@@ -309,6 +309,7 @@ function sourceReference(
     ticket: "/aufgaben/attachments/",
     wiki: "/wiki/attachments/",
     agent: "/agent-assets/",
+    plan: "/agent-plan-assets/",
   };
   return { source, id, link: prefixes[source] + id };
 }

@@ -7,6 +7,7 @@ import {
 import { isCapability } from "@/definition/Authorization";
 import { AgentConnectionScopeRepository } from "./agent/AgentConnectionScopeRepository";
 import { AgentProfileStore } from "./agent/AgentProfileStore";
+import { EmployeeStore } from "./employee/EmployeeStore";
 import { UserGroupRepository } from "./UserGroupRepository";
 import { UserRepository } from "./UserRepository";
 
@@ -75,6 +76,11 @@ export class AuthorizationRepository {
   /** Shares group persistence inside the current aggregate transaction. */
   public groups(): UserGroupRepository {
     return new UserGroupRepository(this.database);
+  }
+
+  /** Shares the persistence of agent employees inside the current aggregate transaction (PAGE-266). */
+  public employees(): EmployeeStore {
+    return new EmployeeStore(this.database);
   }
 
   /** Reads agent scopes inside the current aggregate transaction, so deletion locks cannot race. */
@@ -244,7 +250,8 @@ export class AuthorizationRepository {
           users.is_active,
           access.all_departments,
           access.all_projects,
-          access.has_had_department
+          access.has_had_department,
+          users.account_kind
       FROM user_authorization AS access
       INNER JOIN users ON users.id = access.user_id
       ORDER BY access.creation_order;
@@ -277,6 +284,9 @@ export class AuthorizationRepository {
           allDepartments: readBooleanColumn(row, 7, "all_departments"),
           allProjects: readBooleanColumn(row, 8, "all_projects"),
           hasHadDepartment: readBooleanColumn(row, 9, "has_had_department"),
+          ...(readTextColumn(row, 10, "account_kind") === "agent"
+            ? { isAgent: true }
+            : {}),
           departments: memberships
             .filter((member) => member[0] === userId)
             .map((member) => readTextColumn(member, 1, "department_id")),

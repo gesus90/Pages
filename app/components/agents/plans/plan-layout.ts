@@ -144,6 +144,7 @@ const NODE_TINTS = {
   task: "border-plan-ticket-edge bg-plan-ticket-subtle",
   variable: "border-plan-parameter/60 bg-plan-parameter-subtle",
   parameter: "border-plan-parameter/60 bg-plan-parameter-subtle",
+  asset: "border-plan-asset-edge/60 bg-plan-asset-subtle",
 };
 
 const NODE_ACCENTS = {
@@ -159,6 +160,7 @@ const NODE_ACCENTS = {
   task: "text-plan-ticket",
   variable: "text-plan-parameter",
   parameter: "text-plan-parameter",
+  asset: "text-plan-asset",
 };
 
 /**

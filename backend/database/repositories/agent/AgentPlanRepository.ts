@@ -14,6 +14,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { agentPlanNameKey } from "@/definition/AgentPlanName";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
+import { agentSimulationRunner } from "@/definition/AgentSimulation";
 import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
 
 import type {
@@ -551,6 +552,8 @@ async function requirePlanConnections(
       node.configuration?.connectionId ? [node.configuration.connectionId] : [],
     ),
   );
+  // The simulation's connections are never stored; a node keeps naming them while it is off.
+  for (const id of ids) if (agentSimulationRunner(id) !== null) ids.delete(id);
   for (const id of ids) {
     const [connection] = await database.query(
       `

@@ -69,6 +69,8 @@ type WorkItemJoinedNames = Pick<
   WorkItemDetail,
   | "assigneeGroupName"
   | "assigneeName"
+  | "assigneeColor"
+  | "assigneeAvatarImageUrl"
   | "milestoneName"
   | "parentKey"
   | "parentTitle"
@@ -160,6 +162,12 @@ function readWorkItemJoinedNames(row: WorkItemRow): WorkItemJoinedNames {
   return {
     assigneeGroupName: readOptionalTextColumn(row, 41, "assignee_group_name"),
     assigneeName: readOptionalTextColumn(row, 23, "assignee_name"),
+    assigneeColor: readOptionalTextColumn(row, 42, "assignee_color"),
+    assigneeAvatarImageUrl: readOptionalTextColumn(
+      row,
+      43,
+      "assignee_avatar_image_url",
+    ),
     milestoneName: readOptionalTextColumn(row, 24, "milestone_name"),
     parentKey: readOptionalTextColumn(row, 26, "parent_key"),
     parentTitle: readOptionalTextColumn(row, 25, "parent_title"),

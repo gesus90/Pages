@@ -17,7 +17,7 @@ export const planRemoteFileSchema = z.object({
   type: z.string().min(1).max(100),
   asset: z
     .object({
-      source: z.enum(["ticket", "wiki", "agent"]),
+      source: z.enum(["ticket", "wiki", "agent", "plan"]),
       id: z.string().max(100),
       link: z.string().max(400),
     })

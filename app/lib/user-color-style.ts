@@ -43,3 +43,14 @@ export function createUserColorStyle(
     backgroundColor: `${color}${tintAlpha}`,
   };
 }
+
+/**
+ * Builds the style of the ring a person color draws around an avatar
+ * (PAGE-266).
+ *
+ * @param color - The color as stored, `#rrggbb`.
+ * @returns The style to combine with the `pages-user-color-ring` class.
+ */
+export function createUserRingStyle(color: string): UserColorStyle {
+  return { "--chip-color": color };
+}

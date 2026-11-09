@@ -77,7 +77,13 @@ export class AuthService {
       password,
     );
 
-    if (!credentials || !isPasswordValid || !credentials.user.isActive) {
+    // An agent account never signs in, whatever password it is given (PAGE-266).
+    if (
+      !credentials ||
+      !isPasswordValid ||
+      !credentials.user.isActive ||
+      credentials.user.isAgent === true
+    ) {
       this.loginThrottle.recordFailure(username, clientAddress);
       logEvent({
         level: "warn",

@@ -84,8 +84,11 @@ export function PlanParameterFields(props: {
   const { t } = useTranslation();
   const { graph, canEdit } = usePlanFlowContext();
   const { node } = props;
+  // A file comes from an asset node, never from a parameter; such a value shows as text.
   const kind: ValueKind =
-    node.value.type === "text" ? node.format : node.value.type;
+    node.value.type === "text" || node.value.type === "asset"
+      ? node.format
+      : node.value.type;
   const issue = planValueIssue(node);
   const isNameValid = isAgentParameterName(node.name);
   return (

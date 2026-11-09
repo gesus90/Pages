@@ -73,13 +73,17 @@ function noTaskRead(): Promise<AgentPlanTaskSnapshot> {
   return Promise.reject(new AgentError("plan_binding_invalid"));
 }
 
-/** The value of an entry for a parameter: the ticket itself, its text, or the entry's own value. */
+/** The value of an entry for a parameter: the ticket itself, its text, the file, or the entry's own value. */
 async function entryValue(
   entry: AgentPlanStackEntry,
   parameterType: string | undefined,
   context: PlanStackInputContext,
 ): Promise<AgentParameterValue> {
   if (entry.type === "parameter") return entry.value;
+  if (entry.type === "asset") {
+    if (parameterType !== "asset") throw new AgentError("plan_binding_invalid");
+    return { type: "asset", assetId: entry.file.assetId };
+  }
   if (parameterType === "ticket")
     return { type: "ticket", ticketId: entry.taskId };
   const task = await context.readTask(entry.taskId);

@@ -18,6 +18,7 @@ import { PlanAgentEventIn, PlanAgentPassedOut } from "./plan-agent-branching";
 import { PlanCard } from "./plan-card";
 import { PlanResultOut } from "./plan-result-out";
 import { PlanRunNotes } from "./plan-run-notes";
+import { PlanAgentCurrentAsset } from "./plan-agent-current-asset";
 
 import type {
   AgentPlanStep,
@@ -72,6 +73,7 @@ export function PlanAgentCard(props: {
       <div className="flex flex-col gap-1.5 px-3 pt-1 pb-2">
         <PlanRunNotes result={result} />
         <PlanFlowPorts node={step} graph={graph} canEdit={canEdit} isCompact />
+        <PlanAgentCurrentAsset step={step} />
         <PlanNodeExecutionContext step={step} />
         {parameters.length > 0 ? (
           <div

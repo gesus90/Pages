@@ -10,6 +10,8 @@ import type { AgentContentAccess } from "./AgentContentAccess";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { BoundAgentParameters } from "./AgentParameterBinding";
 import type { AgentPlanTemplate } from "./AgentPlanSnapshot";
+import type { AgentPlanAssetFile } from "@/definition/AgentPlanAsset";
+import type { PlanAssetService } from "./assets/PlanAssetService";
 import type {
   AgentTicketInput,
   AgentTicketAssetContent,
@@ -35,6 +37,8 @@ export interface PreparedAgentParameters {
   readonly directory: ResolvedAgentWorkspace | null;
   readonly references: readonly ResolvedAgentWorkspace[];
   readonly tickets?: Readonly<Record<string, AgentTicketParameterText>>;
+  /** The plan assets the parameters name, described after checking the executor's rights. */
+  readonly assets?: Readonly<Record<string, AgentPlanAssetFile>>;
   readonly wiki: Readonly<
     Record<
       string,
@@ -54,6 +58,8 @@ interface ParameterDependencies {
   readonly content: Pick<AgentContentAccess, "wiki">;
   readonly tickets?: Pick<AgentTicketParameterService, "resolve"> &
     Partial<Pick<AgentTicketParameterService, "readAssets" | "requireAssets">>;
+  /** The files of asset nodes (PAGE-268); without them an asset parameter cannot be bound. */
+  readonly planAssets?: Pick<PlanAssetService, "describe">;
 }
 
 /** Connects the A10.2 binder to live authorized workspace and wiki resolvers. */
@@ -129,6 +135,7 @@ export class AgentParameterService {
     if (!configuration) throw new AgentError("configuration_invalid");
     const references = new Map<string, ResolvedAgentWorkspace>();
     const tickets: Record<string, AgentTicketParameterText> = {};
+    const assets: Record<string, AgentPlanAssetFile> = {};
     const wiki: Record<
       string,
       {
@@ -164,6 +171,11 @@ export class AgentParameterService {
         wiki[id] = page;
         return page;
       },
+      asset: async (id) => {
+        const file = await this.describeAsset(userId, id, workspace.projectId);
+        assets[id] = file;
+        return file;
+      },
     });
     const directoryValue =
       configuration.directoryParameter === null
@@ -182,29 +194,65 @@ export class AgentParameterService {
       directory,
       references: [...references.values()],
       tickets,
+      assets,
       wiki,
+    };
+  }
+
+  /**
+   * Describes a plan asset of the plan's project that the executor may read.
+   *
+   * @remarks
+   * Only the description: the bytes are read at the handover, so a damaged
+   * stack entry fails its own turn and not the start of the run.
+   */
+  private async describeAsset(
+    userId: string,
+    assetId: string,
+    projectId: string,
+  ): Promise<AgentPlanAssetFile> {
+    if (!this.dependencies.planAssets)
+      throw new AgentError("parameter_asset_transfer_unsupported");
+    const record = await this.dependencies.planAssets.describe(userId, assetId);
+    if (record.projectId !== projectId)
+      throw new AgentError("plan_asset_missing");
+    return {
+      assetId: record.assetId,
+      fileName: record.fileName,
+      mediaType: record.mediaType,
+      kind: record.kind,
+      size: record.size,
+      digest: record.digest,
     };
   }
   private async pinInputs(
     userId: string,
     inputs: readonly AgentTicketInput[],
   ): Promise<readonly AgentTicketInput[]> {
-    if (!inputs.some((input) => input.ticket.assets.length > 0)) return inputs;
-    const contents = await this.readTicketAssets(userId, inputs);
-    return inputs.map((input) => ({
-      ...input,
-      originals: Object.fromEntries(
-        contents
-          .filter((file) => file.parameter === input.parameter)
-          .map((file) => {
-            if (!file.original)
-              throw new AgentError("parameter_asset_transfer_unsupported");
-            return [
-              `${file.asset.source}:${file.asset.id}`,
-              file.original.digest,
-            ];
-          }),
-      ),
-    }));
+    // A plan asset carries its pinned digest already; its bytes are read at the handover.
+    const reading = inputs.filter((input) => input.owner !== "asset");
+    if (!reading.some((input) => input.ticket.assets.length > 0)) return inputs;
+    const contents = await this.readTicketAssets(userId, reading);
+    return inputs.map((input) =>
+      input.owner === "asset"
+        ? input
+        : {
+            ...input,
+            originals: Object.fromEntries(
+              contents
+                .filter((file) => file.parameter === input.parameter)
+                .map((file) => {
+                  if (!file.original)
+                    throw new AgentError(
+                      "parameter_asset_transfer_unsupported",
+                    );
+                  return [
+                    `${file.asset.source}:${file.asset.id}`,
+                    file.original.digest,
+                  ];
+                }),
+            ),
+          },
+    );
   }
 }

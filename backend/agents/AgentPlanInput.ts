@@ -18,6 +18,7 @@ import {
   PLAN_STACK_ENTRY_COUNT,
   PLAN_STACK_NAME_LENGTH,
 } from "@/definition/AgentPlanStack";
+import { PLAN_ASSET_NAME_LENGTH } from "@/definition/AgentPlanAsset";
 
 import {
   readAgentParameterValue,
@@ -28,6 +29,7 @@ import { readPlanConfiguration } from "./AgentPlanConfigurationInput";
 import { readPlanLoopCondition, readPlanLoopWhile } from "./AgentPlanLoopInput";
 import { readAgentObject } from "./AgentPayload";
 import { readCompletionGate } from "./AgentPlanWorkInput";
+import { readPlanAssetFile, readPlanAssetNode } from "./AgentPlanAssetInput";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type {
@@ -152,6 +154,11 @@ export function readPlanNode(input: unknown): AgentPlanNode {
   if (node.type === "script") return readScriptNode(node, base);
   if (node.type === "git_closeout") return readGitCloseoutNode(node, base);
   if (node.type === "stack") return readStackNode(node, base);
+  if (node.type === "asset")
+    return readPlanAssetNode(base, {
+      name: readPlanText(node.name, PLAN_ASSET_NAME_LENGTH),
+      file: node.file,
+    });
   if (node.type === "decision")
     return {
       ...base,
@@ -589,6 +596,11 @@ function readStackEntry(input: unknown): AgentPlanStackEntry {
     )
       throw new AgentError("plan_stack_invalid");
     return { id, type: "task", taskId: readPlanText(entry.taskId) };
+  }
+  if (entry.type === "asset") {
+    if (Object.keys(entry).some((key) => !["id", "type", "file"].includes(key)))
+      throw new AgentError("plan_stack_invalid");
+    return { id, type: "asset", file: readPlanAssetFile(entry.file) };
   }
   if (entry.type !== "parameter") throw new AgentError("plan_stack_invalid");
   const parameter = readParameterNode(

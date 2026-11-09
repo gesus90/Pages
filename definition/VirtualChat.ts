@@ -1,41 +1,41 @@
 /**
- * Contracts of the chat page with virtual participants and groups (PAGE-254).
+ * Contracts of the chat page with people, agents and groups (PAGE-254,
+ * PAGE-266, PAGE-259).
  *
  * @remarks
- * The page reads one {@link VirtualChatDirectory}. Until participants, groups
- * and histories are stored, an empty directory answers it; later tickets
- * replace only that source with stored data.
+ * The page reads one {@link VirtualChatDirectory}: the participants a person
+ * keeps in their own list, the people and agents the list can take, and the
+ * history with every agent. Agents are created only in the user
+ * administration; the chat chooses among existing accounts. Participants and
+ * groups are stored per account and ordered by their last activity, newest
+ * first.
  */
 
 /** Whether a participant is available, busy with a task, or switched off. */
 export type VirtualParticipantStatus = "active" | "working" | "off";
 
-/** The semantic color of a participant; every value has a light and a dark token. */
-export type VirtualParticipantColor =
-  "primary" | "indigo" | "pink" | "teal" | "lime";
+/** Whether a participant is a person or an agent. */
+export type VirtualParticipantKind = "human" | "agent";
 
-/** How a participant's avatar is drawn: initial letter or Pica's mascot. */
-export type VirtualParticipantAvatar = "initial" | "pica";
-
-/** Reasoning levels a participant may be given. */
-export type VirtualParticipantReasoning = "low" | "medium" | "high";
-
-/** A virtual participant: an agent with a fixed role and task. */
+/** A participant of the person's own list: a person or an agent. */
 export interface VirtualParticipant {
+  /** The user ID of the account. */
   readonly id: string;
   readonly name: string;
+  readonly kind: VirtualParticipantKind;
+  /** The job title of an agent; empty for a person, who shows the username. */
   readonly role: string;
-  /** The participant's standing task, shown as "Aufgabe: …". */
-  readonly task: string;
-  /** Display name of the model the participant answers with. */
-  readonly model: string;
-  readonly reasoning: VirtualParticipantReasoning;
-  /** Display names of the tools the participant may use. */
-  readonly tools: readonly string[];
-  readonly color: VirtualParticipantColor;
-  readonly avatar: VirtualParticipantAvatar;
+  /** The username of the account. */
+  readonly username: string;
+  /** The person color as `#rrggbb`; `null` keeps the former look. */
+  readonly color: string | null;
+  readonly avatarImageUrl: string | null;
   readonly status: VirtualParticipantStatus;
   readonly unreadCount: number;
+  /** Whether a message can be sent: only to an active agent. */
+  readonly canChat: boolean;
+  /** ISO time of the adding or the last sent message. */
+  readonly lastActivityAt: string;
 }
 
 /** A group of participants with one shared history. */
@@ -46,6 +46,8 @@ export interface VirtualGroup {
   /** Participant ids in display order. */
   readonly memberIds: readonly string[];
   readonly unreadCount: number;
+  /** ISO time of the creation or the last sent message. */
+  readonly lastActivityAt: string;
 }
 
 /** A tool a participant used for an answer, for example `list_tickets · 3 offen`. */
@@ -70,17 +72,40 @@ export interface VirtualChatSelection {
   readonly id: string;
 }
 
+/** A person or agent the participant dialog offers. */
+export interface VirtualContactChoice {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: VirtualParticipantKind;
+  /** The job title of an agent, or the username of a person. */
+  readonly subtitle: string;
+  readonly color: string | null;
+  readonly avatarImageUrl: string | null;
+  /** A deactivated agent stays visible but cannot be chosen. */
+  readonly isSelectable: boolean;
+}
+
 /** Everything the chat page shows. */
 export interface VirtualChatDirectory {
+  /** The person's own participants, the latest activity first. */
   readonly participants: readonly VirtualParticipant[];
+  /** The person's own groups, the latest activity first. */
   readonly groups: readonly VirtualGroup[];
   /**
    * The one continuous history of every participant and group, by its id.
    * There is no list of several conversations per participant or group.
    */
   readonly histories: Readonly<Record<string, readonly VirtualChatMessage[]>>;
-  /** Models the create dialog offers. */
-  readonly modelChoices: readonly string[];
-  /** Tools the create dialog offers. */
-  readonly toolChoices: readonly string[];
+  /** People and agents the dialog "Teilnehmer hinzufügen" offers; never the own account. */
+  readonly contactChoices: readonly VirtualContactChoice[];
 }
+
+/** Why sending to an agent was refused, as the interface translates it. */
+export type VirtualChatSendFailure =
+  "costLimitReached" | "inactive" | "busy" | "unavailable" | "invalidInput";
+
+/** The longest group name. */
+export const VIRTUAL_GROUP_NAME_LENGTH = 80;
+
+/** The longest group description. */
+export const VIRTUAL_GROUP_DESCRIPTION_LENGTH = 500;

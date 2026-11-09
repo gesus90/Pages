@@ -6,6 +6,7 @@ import type {
   AgentPlanPosition,
 } from "./AgentPlan";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
+import type { AgentPlanAssetEntry } from "./AgentPlanAsset";
 
 /** The longest stack name, as long as a loop name. */
 export const PLAN_STACK_NAME_LENGTH = 120;
@@ -30,13 +31,14 @@ export const PLAN_STACK_PORT = {
 } as const;
 
 /**
- * One entry of a stack: a ticket or a typed value, in the order it is handed over.
+ * One entry of a stack: a ticket, a typed value or a file, in the order it is handed over.
  *
  * @remarks
  * A ticket entry hands over the ticket itself, so the receiving agent gets its
  * description, its checklist and its acceptance criteria through the existing
- * ticket parameter contract, never only its key or title. An entry is data:
- * it grants no right the executor does not already have.
+ * ticket parameter contract, never only its key or title. An asset entry
+ * (PAGE-268) hands over its file with its own type; a stack may mix types. An
+ * entry is data: it grants no right the executor does not already have.
  */
 export type AgentPlanStackEntry =
   | {
@@ -50,7 +52,8 @@ export type AgentPlanStackEntry =
       readonly name: string;
       readonly format: AgentPlanParameter["format"];
       readonly value: AgentParameterValue;
-    };
+    }
+  | AgentPlanAssetEntry;
 
 /**
  * A stack: an ordered list of entries; every trigger hands over the next one.

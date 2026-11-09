@@ -32,6 +32,15 @@ import { AgentConnectionService } from "@/backend/service/agents/AgentConnection
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
 import { ApiTextExecution } from "@/backend/agents/providers/ApiTextExecution";
 import { AgentPlanExecution } from "@/backend/agents/AgentPlanExecution";
+import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
+import { AgentSimulator } from "@/backend/agents/simulation/AgentSimulator";
+import {
+  SimulatedPlanExecution,
+  simulationGuardedFetch,
+} from "@/backend/agents/simulation/SimulatedPlanExecution";
+import { ProviderHttpClient } from "@/backend/agents/providers/ProviderHttpClient";
+import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
+import { PlanAssetReferences } from "@/backend/service/agents/assets/PlanAssetReferences";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
@@ -66,6 +75,7 @@ import type { AgentTicketAssetDependencies } from "@/backend/service/agents/Agen
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
+import type { AgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 import type { RemoteApplicationServices } from "./remote-services.server";
 import type { RunnerApplicationServices } from "./runner-services.server";
@@ -93,6 +103,10 @@ export interface AgentApplicationServices
    */
   readonly chatRequests: ChatRequestRegistry;
   readonly agentPlanExecution: PlanExecution;
+  /** The agent simulation (PAGE-268); inactive outside development. */
+  readonly agentSimulation: AgentSimulationMode;
+  /** Signed references through which a runner reaches a plan asset; `null` without a plan asset store. */
+  readonly agentPlanAssetReferences: PlanAssetReferences | null;
   /** Terminals of plan nodes (PAGE-265): their stored output and inputs. */
   readonly agentTerminals: AgentTerminalRepository;
   /** Notifications of terminal output and input between the processes of the instance. */
@@ -129,6 +143,27 @@ interface ExecutionInput {
   readonly access: AgentConnectionAccess;
   readonly github: CliGitHubCredentials;
   readonly catalog: AgentCatalogRefresh;
+  readonly simulation: AgentSimulationMode;
+  readonly references: PlanAssetReferences | null;
+  readonly ticketAssets: AgentTicketAssetDependencies;
+}
+
+/** Wraps the real execution in the simulation while it is on; otherwise returns it unchanged. */
+function simulatedExecution(
+  real: PlanExecution,
+  input: Pick<ExecutionInput, "simulation" | "references" | "ticketAssets">,
+): PlanExecution {
+  const assets = input.ticketAssets.plans;
+  if (!input.simulation.isActive || !assets || !input.references) return real;
+  return new SimulatedPlanExecution(
+    real,
+    new AgentSimulator({
+      mode: input.simulation,
+      assets,
+      references: input.references,
+    }),
+    input.simulation,
+  );
 }
 
 /**
@@ -143,6 +178,8 @@ function createExecutions(
   | "openCodeProviderLinks"
   | "agentTerminals"
   | "agentTerminalSignals"
+  | "agentSimulation"
+  | "agentPlanAssetReferences"
 > {
   const { repository, cipher, operations } = input;
   const terminals = {
@@ -155,7 +192,9 @@ function createExecutions(
     cipher,
     operations,
     cli: input.runtime,
-    providers: createApiProviderRegistry(),
+    providers: createApiProviderRegistry(
+      new ProviderHttpClient(simulationGuardedFetch(input.simulation)),
+    ),
   });
   const cliAdapters = {
     runtime: input.runtime,
@@ -193,6 +232,8 @@ function createExecutions(
     },
   });
   return {
+    agentSimulation: input.simulation,
+    agentPlanAssetReferences: input.references,
     agentCheckService,
     agentTerminals: terminals.store,
     agentTerminalSignals: terminals.signals,
@@ -201,13 +242,20 @@ function createExecutions(
       check: (actor, id) => agentCheckService.run(actor, id, "auth"),
       refreshCatalog: (id) => input.catalog.run(id),
     }),
-    agentPlanExecution: new AgentPlanExecution(
-      new ApiTextExecution(repository, cipher),
-      input.localSessions
-        ? new DurableCliSessions(input.localSessions, direct)
-        : direct,
-      operations,
-      input.access,
+    agentPlanExecution: simulatedExecution(
+      new AgentPlanExecution(
+        new ApiTextExecution(
+          repository,
+          cipher,
+          simulationGuardedFetch(input.simulation),
+        ),
+        input.localSessions
+          ? new DurableCliSessions(input.localSessions, direct)
+          : direct,
+        operations,
+        input.access,
+      ),
+      input,
     ),
   };
 }
@@ -331,6 +379,24 @@ function createAcpResources(
   });
 }
 
+/**
+ * Reads the agent simulation once and builds the references through which
+ * runners reach plan assets (PAGE-268).
+ */
+function createSimulation(
+  tokenKey: Buffer,
+  ticketAssets: AgentTicketAssetDependencies,
+): Pick<ExecutionInput, "simulation" | "references" | "ticketAssets"> {
+  const simulation = currentAgentSimulationMode();
+  const references = ticketAssets.plans
+    ? new PlanAssetReferences(ticketAssets.plans, tokenKey, {
+        isDenied:
+          simulation.isActive && simulation.scenario === "runner_denied",
+      })
+    : null;
+  return { simulation, references, ticketAssets };
+}
+
 /** Creates lazy adapters and one shared login/process registry without running any checks. */
 export function createAgentServices(
   database: Database,
@@ -339,6 +405,7 @@ export function createAgentServices(
   resources: AgentServiceResources,
 ): AgentApplicationServices {
   const { agentsDirectory, ticketAssets } = resources;
+  const simulated = createSimulation(tokenKey, ticketAssets);
   const repository = new AgentConnectionRepository(database);
   const cipher = new InstanceSecretCipher(tokenKey);
   const operations = new AgentOperationRegistry();
@@ -414,6 +481,7 @@ export function createAgentServices(
       access,
       github: github.agentCliGitHubCredentials,
       catalog: refresh,
+      ...simulated,
     }),
     chatRequests: new ChatRequestRegistry({
       timeoutMs: CHAT_REQUEST_TIMEOUT_MS,
@@ -461,7 +529,11 @@ function createCatalogRefresh(
     repository,
     cipher,
     operations,
-    client: new CatalogProviderClient(),
+    client: new CatalogProviderClient(
+      new CatalogHttpClient(
+        simulationGuardedFetch(currentAgentSimulationMode()),
+      ),
+    ),
     cli: runtime,
   });
 }

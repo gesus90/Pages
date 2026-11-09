@@ -64,7 +64,12 @@ function createWorkItemDetailStatement(
           work_items.github_last_error,
           work_items.department_id,
           work_items.assignee_group_id,
-          assignee_group.name AS assignee_group_name
+          assignee_group.name AS assignee_group_name,
+          assignee.avatar_color AS assignee_color,
+          CASE
+              WHEN assignee.avatar_type = 'image' THEN assignee.avatar_image_url
+              ELSE NULL
+          END AS assignee_avatar_image_url
       FROM work_items
       INNER JOIN projects
           ON projects.id = work_items.project_id

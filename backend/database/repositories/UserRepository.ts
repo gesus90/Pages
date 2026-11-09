@@ -115,7 +115,8 @@ export class UserRepository {
             avatar_icon,
             avatar_color,
             avatar_image_url,
-            must_change_password
+            must_change_password,
+            account_kind
         FROM users
         WHERE id = $id;
       `,
@@ -132,7 +133,8 @@ export class UserRepository {
    *
    * @remarks
    * Intended for the user-management screen, which every caller must
-   * authorize before this method is used.
+   * authorize before this method is used. A removed agent (PAGE-267) keeps
+   * its row only as the author of earlier changes and is not listed.
    */
   public async findAll(): Promise<User[]> {
     const rows = await this.database.query(`
@@ -146,8 +148,10 @@ export class UserRepository {
           avatar_icon,
           avatar_color,
           avatar_image_url,
-          must_change_password
+          must_change_password,
+          account_kind
       FROM users
+      WHERE removed_at IS NULL
       ORDER BY display_name, creation_order;
     `);
 
@@ -173,7 +177,8 @@ export class UserRepository {
             avatar_icon,
             avatar_color,
             avatar_image_url,
-            must_change_password
+            must_change_password,
+            account_kind
         FROM users
         WHERE email = $email;
       `,
@@ -258,6 +263,7 @@ export class UserRepository {
             avatar_color,
             avatar_image_url,
             must_change_password,
+            account_kind,
             password_hash
         FROM users
         WHERE lower(username) = lower($username);
@@ -273,7 +279,7 @@ export class UserRepository {
 
     return {
       user: this.toUser(row),
-      passwordHash: readTextColumn(row, 10, "password_hash"),
+      passwordHash: readTextColumn(row, 11, "password_hash"),
     };
   }
 
@@ -582,6 +588,22 @@ export class UserRepository {
   }
 
   /**
+   * Removes the custom avatar image of a user and returns to the initials.
+   *
+   * @param userId - User identifier.
+   */
+  public async deleteAvatar(userId: string): Promise<void> {
+    await this.database.execute(
+      "DELETE FROM user_avatars WHERE user_id = $user_id;",
+      { user_id: userId },
+    );
+    await this.updateAvatarReference(userId, {
+      avatarType: "initials",
+      avatarImageUrl: null,
+    });
+  }
+
+  /**
    * Replaces the role of a user.
    *
    * @param id - User identifier.
@@ -703,6 +725,9 @@ export class UserRepository {
       avatarIcon: readNullableTextColumn(row, 6, "avatar_icon"),
       avatarColor: readNullableTextColumn(row, 7, "avatar_color"),
       avatarImageUrl: readNullableTextColumn(row, 8, "avatar_image_url"),
+      ...(readTextColumn(row, 10, "account_kind") === "agent"
+        ? { isAgent: true }
+        : {}),
     };
   }
 }

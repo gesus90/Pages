@@ -17,8 +17,13 @@ import {
   wordEntry,
 } from "./PlanNotationFormat";
 
+import type { AgentPlanAsset } from "@/definition/AgentPlanAsset";
 import type { AgentParameterValue } from "@/definition/AgentParameters";
-import type { AgentPlanNode, AgentPlanParameter } from "@/definition/AgentPlan";
+import type {
+  AgentPlanDecision,
+  AgentPlanNode,
+  AgentPlanParameter,
+} from "@/definition/AgentPlan";
 import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
@@ -66,6 +71,9 @@ export function planNotationValueText(
       const title = names.wikiTitle(value.pageId);
       return title === value.pageId ? null : wordEntry("", title).value;
     }
+    case "asset":
+      // A file has no name that reads back to it; its identifier is written.
+      return null;
   }
 }
 
@@ -82,6 +90,8 @@ function referenceId(value: AgentParameterValue): string {
       return value.workspaceId;
     case "wiki":
       return value.pageId;
+    case "asset":
+      return value.assetId;
   }
 }
 
@@ -227,6 +237,19 @@ function loopEntries(node: AgentPlanLoop): readonly PlanNotationEntry[] {
   ];
 }
 
+function assetEntries(node: AgentPlanAsset): readonly PlanNotationEntry[] {
+  return [
+    ...nameEntries(node.name, node.id),
+    ...(node.file === null ? [] : [jsonEntry("file", node.file)]),
+  ];
+}
+
+function decisionEntries(
+  node: AgentPlanDecision,
+): readonly PlanNotationEntry[] {
+  return node.name === undefined ? [] : [textEntry("name", node.name)];
+}
+
 /**
  * Writes the fields of a node, its type first, without its bindings and members.
  *
@@ -262,14 +285,14 @@ export function planNotationNodeEntries(
       return [type, ...parameterEntries(node, context)];
     case "stack":
       return [type, ...stackEntries(node, context)];
+    case "asset":
+      return [type, ...assetEntries(node)];
     case "group":
       return [type, ...groupEntries(node)];
     case "loop":
       return [type, ...loopEntries(node)];
     case "decision":
-      return node.name === undefined
-        ? [type]
-        : [type, textEntry("name", node.name)];
+      return [type, ...decisionEntries(node)];
     case "variable":
       return [type, textEntry("name", node.name)];
   }

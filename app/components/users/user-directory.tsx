@@ -41,8 +41,10 @@ export function UserDirectory({
       actionData.intent === "reset-password")
       ? actionData.error
       : null;
-  const visibleUsers = directory.users.filter((user) =>
-    matchesSearch(user, search.trim().toLowerCase()),
+  // Agents have their own tab (PAGE-266); this one lists people only.
+  const visibleUsers = directory.users.filter(
+    (user) =>
+      user.isAgent !== true && matchesSearch(user, search.trim().toLowerCase()),
   );
   function resetSearch(): void {
     setSearch("");

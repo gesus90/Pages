@@ -47,6 +47,8 @@ export function readAgentParameterValue(input: unknown): AgentParameterValue {
       };
     case "wiki":
       return { type: "wiki", pageId: text(entry.pageId, 100).trim() };
+    case "asset":
+      return { type: "asset", assetId: text(entry.assetId, 100).trim() };
     default:
       throw new AgentError("parameter_invalid");
   }
@@ -61,7 +63,8 @@ function parameter(input: unknown): AgentParameter {
       entry.type !== "number" &&
       entry.type !== "ticket" &&
       entry.type !== "workspace" &&
-      entry.type !== "wiki") ||
+      entry.type !== "wiki" &&
+      entry.type !== "asset") ||
     typeof entry.isRequired !== "boolean"
   )
     throw new AgentError("parameter_invalid");

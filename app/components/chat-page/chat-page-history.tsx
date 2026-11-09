@@ -81,7 +81,7 @@ function ToolChip({
 interface AnswerBubbleProps {
   readonly message: VirtualChatMessage;
   readonly author: VirtualParticipant;
-  /** Shows name and role as first line, for the first answer of a run in a group. */
+  /** Shows name and role as first line, for the first answer of a run. */
   readonly hasName: boolean;
 }
 
@@ -98,13 +98,16 @@ function AnswerBubble({
       aria-label={author.name}
       className={cn(
         "flex max-w-full min-w-0 flex-col gap-1 rounded-[14px] rounded-bl-[4px] border px-4 py-2.5",
-        colors.surface,
-        colors.border,
+        colors.bubble.className,
       )}
+      style={colors.bubble.style}
     >
       {hasName ? (
         <p className="text-[13px]">
-          <span className={cn("font-semibold", colors.text)}>
+          <span
+            className={cn("font-semibold", colors.text.className)}
+            style={colors.text.style}
+          >
             {author.name}
           </span>
           <span className="text-muted-foreground"> · {author.role}</span>
@@ -132,18 +135,14 @@ function AnswerBubble({
 interface AnswerRunProps {
   readonly messages: readonly VirtualChatMessage[];
   readonly author: VirtualParticipant;
-  readonly isGroup: boolean;
 }
 
 /**
  * Consecutive answers of one participant at the left: the avatar once at the
- * top, the bubbles 8 px apart on the same indent.
+ * top, the name in the person color above the first bubble, the bubbles 8 px
+ * apart on the same indent.
  */
-function AnswerRun({
-  messages,
-  author,
-  isGroup,
-}: AnswerRunProps): React.ReactElement {
+function AnswerRun({ messages, author }: AnswerRunProps): React.ReactElement {
   return (
     <div className="flex items-start gap-3">
       <ParticipantAvatar participant={author} size={32} />
@@ -153,7 +152,7 @@ function AnswerRun({
             key={message.id}
             message={message}
             author={author}
-            hasName={isGroup && index === 0}
+            hasName={index === 0}
           />
         ))}
       </div>
@@ -164,8 +163,9 @@ function AnswerRun({
 interface ChatPageHistoryProps {
   readonly messages: readonly VirtualChatMessage[];
   readonly name: string;
-  readonly isGroup: boolean;
   readonly findParticipant: (id: string) => VirtualParticipant | undefined;
+  /** Shows that the agent is answering at the foot of the history. */
+  readonly isAnswering?: boolean;
 }
 
 /**
@@ -175,8 +175,8 @@ interface ChatPageHistoryProps {
 export function ChatPageHistory({
   messages,
   name,
-  isGroup,
   findParticipant,
+  isAnswering = false,
 }: ChatPageHistoryProps): React.ReactElement {
   const { t } = useTranslation();
   const viewport = useRef<HTMLElement>(null);
@@ -185,9 +185,9 @@ export function ChatPageHistory({
   useEffect(() => {
     const element = viewport.current;
     if (element) element.scrollTop = element.scrollHeight;
-  }, [messages.length, name]);
+  }, [messages.length, name, isAnswering]);
 
-  if (messages.length === 0)
+  if (messages.length === 0 && !isAnswering)
     return (
       <p className="flex min-h-40 flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
         {t("chatPage.emptyHistory", { name })}
@@ -209,14 +209,17 @@ export function ChatPageHistory({
           return <OwnRun key={first.id} messages={run.messages} />;
         const author = findParticipant(run.authorId);
         return author ? (
-          <AnswerRun
-            key={first.id}
-            messages={run.messages}
-            author={author}
-            isGroup={isGroup}
-          />
+          <AnswerRun key={first.id} messages={run.messages} author={author} />
         ) : null;
       })}
+      {isAnswering ? (
+        <p
+          className="animate-pulse text-sm text-muted-foreground"
+          role="status"
+        >
+          {t("chatPage.answering", { name })}
+        </p>
+      ) : null}
     </ScrollViewport>
   );
 }

@@ -108,7 +108,7 @@ export interface AgentUploadTicket {
 export interface AgentAsset {
   readonly digest?: string;
   readonly sourceAttachmentId?: string;
-  readonly sourceType?: "ticket" | "wiki" | "agent";
+  readonly sourceType?: "ticket" | "wiki" | "agent" | "plan";
   readonly sourceLink?: string;
   readonly replaces?: boolean;
   readonly assetId: string;

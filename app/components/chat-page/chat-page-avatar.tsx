@@ -1,4 +1,4 @@
-import { PicaMascot } from "@/app/components/chat/pica-mascot";
+import { AvatarRing } from "@/app/components/common/user-avatar";
 import { cn } from "@/app/lib/cn";
 
 import { participantColors } from "./chat-page-colors";
@@ -11,11 +11,11 @@ import type {
 /** Pixel sizes of avatars on the chat page. */
 type AvatarSize = 22 | 26 | 32 | 40;
 
-const AVATAR_SIZES: Record<AvatarSize, string> = {
-  22: "size-5.5 text-[11px]",
-  26: "size-6.5 text-xs",
-  32: "size-8 text-sm",
-  40: "size-10 text-base",
+const AVATAR_SIZES: Record<AvatarSize, { box: string; ring: string }> = {
+  22: { box: "size-5.5 text-[11px]", ring: "border-[1.5px]" },
+  26: { box: "size-6.5 text-xs", ring: "border-[1.5px]" },
+  32: { box: "size-8 text-sm", ring: "border-2" },
+  40: { box: "size-10 text-base", ring: "border-2" },
 };
 
 const STATUS_COLORS: Record<VirtualParticipantStatus, string> = {
@@ -24,45 +24,66 @@ const STATUS_COLORS: Record<VirtualParticipantStatus, string> = {
   off: "bg-muted-foreground",
 };
 
+/** What a participant avatar is drawn from. */
+type AvatarParticipant = Pick<
+  VirtualParticipant,
+  "name" | "color" | "avatarImageUrl"
+>;
+
 interface ParticipantAvatarProps {
-  readonly participant: VirtualParticipant;
+  readonly participant: AvatarParticipant;
   readonly size: AvatarSize;
-  /** Draws a ring in the surface color, for avatars that overlap. */
-  readonly hasRing?: boolean;
+  /** Draws an outline in the surface color, for avatars that overlap. */
+  readonly hasOutline?: boolean;
+  /** Draws a deactivated account faded. */
+  readonly isFaded?: boolean;
   readonly className?: string;
 }
 
 /**
- * A round participant avatar: the initial on a light tint of the
- * participant's color, or Pica's mascot.
+ * A round participant avatar: the image, or the initial in the person
+ * color, with the ring of the person color around it (PAGE-266).
  *
  * @remarks
- * Decorative; the name next to it names the participant.
+ * The ring is the one of the shared avatar, inside the circle, so it is
+ * never cut off. Decorative; the name next to it names the participant.
  */
 export function ParticipantAvatar({
   participant,
   size,
-  hasRing = false,
+  hasOutline = false,
+  isFaded = false,
   className,
 }: ParticipantAvatarProps): React.ReactElement {
   const colors = participantColors(participant.color);
+  const sizes = AVATAR_SIZES[size];
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold",
-        AVATAR_SIZES[size],
-        participant.avatar === "pica"
-          ? "bg-transparent"
-          : [colors.surface, colors.text],
-        hasRing && "ring-2 ring-surface",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-semibold",
+        sizes.box,
+        participant.color === null
+          ? "bg-muted text-muted-foreground"
+          : colors.text.className,
+        hasOutline && "ring-2 ring-surface",
+        isFaded && "opacity-50",
         className,
       )}
+      style={participant.color === null ? undefined : colors.text.style}
     >
-      {participant.avatar === "pica" ? (
-        <PicaMascot className="size-full" />
+      {participant.avatarImageUrl ? (
+        <img
+          alt=""
+          className="size-full object-cover"
+          draggable={false}
+          src={participant.avatarImageUrl}
+        />
       ) : (
         participant.name.slice(0, 1).toUpperCase()
+      )}
+      {participant.color === null ? null : (
+        <AvatarRing color={participant.color} widthClassName={sizes.ring} />
       )}
     </span>
   );
@@ -109,7 +130,7 @@ export function GroupAvatars({
         <ParticipantAvatar
           participant={first}
           size={26}
-          hasRing
+          hasOutline
           className="absolute top-0 left-0"
         />
       ) : null}
@@ -117,7 +138,7 @@ export function GroupAvatars({
         <ParticipantAvatar
           participant={second}
           size={26}
-          hasRing
+          hasOutline
           className="absolute right-0 bottom-0"
         />
       ) : null}

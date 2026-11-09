@@ -382,6 +382,12 @@ function stepReferences(
       if (!page) throw new AgentError("plan_binding_invalid");
       return page;
     },
+    // A file is described live: a stack entry is only known when its turn starts.
+    asset: async (id) => {
+      const file = live.assets?.[id];
+      if (!file) throw new AgentError("plan_asset_missing");
+      return file;
+    },
   };
 }
 
@@ -467,7 +473,8 @@ function requireTicketHandoff(
   source: AgentPlanStepSnapshot | undefined,
 ): void {
   for (const input of source?.prepared.parameters.assetInputs ?? []) {
-    if (input.ticket.assets.length === 0) continue;
+    // A plan asset belongs to the plan's project, which every node of the run reads with the same rights.
+    if (input.ticket.assets.length === 0 || input.owner === "asset") continue;
     const receiver = target.prepared.parameters.assetInputs?.find(
       (entry) => entry.ticket.id === input.ticket.id,
     );

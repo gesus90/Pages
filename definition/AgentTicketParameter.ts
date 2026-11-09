@@ -1,6 +1,7 @@
 /** A Pages reference, reauthorized when its contents are sent to a runner. */
 export interface AgentTicketAsset {
-  readonly source: "ticket" | "wiki" | "agent";
+  /** `plan` names a plan asset (PAGE-268), read with the plan's project rights. */
+  readonly source: "ticket" | "wiki" | "agent" | "plan";
   readonly id: string;
   readonly link: string;
 }
@@ -19,7 +20,8 @@ export interface ResolvedAgentTicket {
 
 /** The parameter name remains attached even when two parameters select the same ticket. */
 export interface AgentTicketInput {
-  readonly owner?: "ticket" | "wiki";
+  /** `asset` is a plan asset bound directly to the parameter, without a ticket. */
+  readonly owner?: "ticket" | "wiki" | "asset";
   /** Source/id keyed digests frozen during validation, without file contents. */
   readonly originals?: Readonly<Record<string, string>>;
   readonly parameter: string;
@@ -33,7 +35,10 @@ export interface AgentTicketAssetContent {
   readonly ticketKey: string;
   readonly asset: AgentTicketAsset;
   readonly fileName: string;
-  readonly owner?: { readonly type: "ticket" | "wiki"; readonly id: string };
+  readonly owner?: {
+    readonly type: "ticket" | "wiki" | "asset";
+    readonly id: string;
+  };
   /** Original bytes are never reconstructed from a decoded text representation. */
   readonly original?: AgentAssetOriginal;
   /** In-memory handoff only; never included in plan snapshots or audit labels. */

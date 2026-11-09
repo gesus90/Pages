@@ -28,6 +28,8 @@ const PLAN_ENDPOINT_HEIGHT = 56;
 const PLAN_PARAMETER_HEIGHT = 166;
 const PLAN_TICKET_HEIGHT = 101;
 const PLAN_VARIABLE_HEIGHT = 90;
+// Header, preview, file name, meta line and the data OUT of an asset card.
+const PLAN_ASSET_HEIGHT = 268;
 const AGENT_BASE_HEIGHT = 172;
 const AGENT_INPUT_HEIGHT = 38;
 // The two optional rows of an agent, Ereignis IN and the boolean Ergebnis, with their gaps.
@@ -37,8 +39,9 @@ const PLAN_DECISION_HEIGHT = 237;
 const PLAN_GIT_CLOSEOUT_HEIGHT = 200;
 /** The Stack card: wide enough for an entry's key and title beside its number. */
 export const PLAN_STACK_WIDTH = 300;
-// Header, the In and Out row, the summary, both data outputs and the footer.
-const STACK_BASE_HEIGHT = 236;
+// Header, the In and Out row, the summary, the file drop row, both data
+// outputs and the footer.
+const STACK_BASE_HEIGHT = 278;
 // One entry of the list with its gap, and the row of an empty list.
 const STACK_ENTRY_HEIGHT = 50;
 const STACK_EMPTY_HEIGHT = 40;
@@ -186,6 +189,7 @@ export function planNodeHeight(
     decision: PLAN_DECISION_HEIGHT,
     task: PLAN_TICKET_HEIGHT,
     variable: PLAN_VARIABLE_HEIGHT,
+    asset: PLAN_ASSET_HEIGHT,
   };
   if (node.type === "group" || node.type === "loop")
     return groupHeight(node, sources);

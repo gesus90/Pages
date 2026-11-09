@@ -6,21 +6,27 @@ import { RoleCatalog } from "@/app/components/users/role-catalog";
 import { GroupCatalog } from "@/app/components/users/group-catalog";
 import { DepartmentCatalog } from "@/app/components/users/department-catalog";
 import { ManagementFeedback } from "@/app/components/users/management-feedback";
+import { AgentDirectory } from "@/app/components/users/agents/agent-directory";
 
 import type { AdministrationPageData } from "@/definition/Authorization";
+import type { AgentEmployeePageData } from "@/definition/AgentEmployeePage";
 import type { WikiPrivatePagesByOwner } from "@/definition/Wiki";
 
 /** The management sections share the page layout and accessible tab pattern. */
 export function ManagementWorkspace({
   directory,
   privateWikiPages,
+  agents,
 }: {
   readonly directory: AdministrationPageData;
   readonly privateWikiPages: WikiPrivatePagesByOwner;
+  /** The agents tab (PAGE-266), or `null` without it. */
+  readonly agents: AgentEmployeePageData | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   const [section, setSection] = useState("users");
   const tabs = [{ value: "users", label: t("users.sections.users") }];
+  if (agents) tabs.push({ value: "agents", label: t("users.sections.agents") });
   if (directory.canManageRoles)
     tabs.push({ value: "roles", label: t("users.sections.roles") });
   if (directory.canManageDepartments)
@@ -52,6 +58,14 @@ export function ManagementWorkspace({
             privateWikiPages={privateWikiPages}
           />
         </TabsContent>
+        {agents ? (
+          <TabsContent
+            value="agents"
+            className="mt-6 flex min-h-0 flex-1 flex-col"
+          >
+            <AgentDirectory directory={directory} agents={agents} />
+          </TabsContent>
+        ) : null}
         {directory.canManageRoles ? (
           <TabsContent value="roles" className="mt-6 min-h-0 flex-1">
             <RoleCatalog directory={directory} />

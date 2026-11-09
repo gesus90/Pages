@@ -42,6 +42,11 @@ export interface User {
   readonly avatarIcon?: string | null;
   readonly avatarColor?: string | null;
   readonly avatarImageUrl?: string | null;
+  /**
+   * Marks an agent account (PAGE-266): no password, no sign-in, never an
+   * administrator. Absent for every person.
+   */
+  readonly isAgent?: boolean;
 }
 
 /**

@@ -86,7 +86,8 @@ function AgentParameterIdentity(props: {
       type !== "number" &&
       type !== "ticket" &&
       type !== "workspace" &&
-      type !== "wiki"
+      type !== "wiki" &&
+      type !== "asset"
     )
       return;
     props.onChange({ ...parameter, type, defaultValue: null });
@@ -119,7 +120,7 @@ function AgentParameterIdentity(props: {
           disabled={props.disabled}
           onValueChange={chooseType}
           options={(
-            ["text", "number", "ticket", "workspace", "wiki"] as const
+            ["text", "number", "ticket", "workspace", "wiki", "asset"] as const
           ).map((type) => ({
             value: type,
             label: t(`settings.agents.definition.type.${type}`),

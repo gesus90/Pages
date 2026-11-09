@@ -374,13 +374,17 @@ export class AdministrationService {
   ): Promise<{ readonly temporaryPassword: string }> {
     return this.repository.transaction(async (repository) => {
       const snapshot = await repository.snapshot();
+      const target = findAccount(snapshot, targetId);
       requireAdministration(
         this.policy.canChange(
           activeAccount(snapshot, userId),
-          findAccount(snapshot, targetId),
+          target,
           CAPABILITY.MANAGE_USERS,
         ),
       );
+      // An agent has no password to reset (PAGE-266).
+      if (target.isAgent === true)
+        throw new AdministrationError("invalidInput");
       const temporaryPassword = generateTemporaryPassword();
       await repository
         .users()
@@ -507,6 +511,9 @@ export class AdministrationService {
         this.policy.isAdministrator(activeAccount(snapshot, userId)),
       );
       const target = findAccount(snapshot, targetId);
+      // An agent never becomes an administrator (PAGE-266).
+      if (isAdmin && target.isAgent === true)
+        throw new AdministrationError("invalidInput");
       if (!isAdmin) {
         this.requireLastAdministrator(snapshot, target);
         if (target.role === null) {

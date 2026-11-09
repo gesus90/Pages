@@ -1,4 +1,6 @@
 import { configurationForTargets } from "@/backend/agents/AgentConfigurationInput";
+import { agentSimulationModels } from "@/backend/agents/simulation/AgentSimulationModels";
+import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import {
   agentProfilePriority,
   hasAgentUsage,
@@ -92,7 +94,12 @@ export class AgentAvailabilityService {
       this.dependencies.connections,
       context.viewer,
     );
-    return consumerModels("plan", models);
+    return [
+      ...consumerModels("plan", models),
+      ...agentSimulationModels(
+        this.dependencies.simulation ?? currentAgentSimulationMode(),
+      ),
+    ];
   }
 
   /** Administration may inspect all agents, but gets no execution authorization bypass. */

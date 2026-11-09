@@ -93,6 +93,11 @@ export function typedAttribute(
       const id = resolvedAttribute(attributes, key, (text) => names.wiki(text));
       return id === undefined ? undefined : { type: "wiki", pageId: id };
     }
+    case "asset": {
+      // A file is named by its identifier only; the save checks the access to it.
+      const text = attributes.text(key);
+      return text === undefined ? undefined : { type: "asset", assetId: text };
+    }
   }
 }
 

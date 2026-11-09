@@ -381,7 +381,9 @@ export function modelGroups(
       .map((model) => [model.id, model]),
   );
   const drafts = new Map<string, GroupDraft>();
+  const simulated = [...unique.values()].filter((model) => model.isSimulation);
   for (const model of unique.values()) {
+    if (model.isSimulation) continue;
     const target = targetKey(model);
     const tool = toolOf(model);
     const key = target === LOCAL_TARGET ? tool : `${target}:${tool}`;
@@ -400,7 +402,37 @@ export function modelGroups(
       label: modelToolLabel(draft.tool, options.translate),
     }))
     .toSorted(compareGroups)
-    .map((draft) => buildGroup(draft, options));
+    .map((draft) => buildGroup(draft, options))
+    .concat(simulated.length > 0 ? [simulationGroup(simulated, options)] : []);
+}
+
+/**
+ * The models of the agent simulation (PAGE-268) as a group of their own,
+ * named Simulation, never as models of the provider whose path they use.
+ */
+function simulationGroup(
+  models: readonly PageAgentModel[],
+  options: ModelGroupOptions,
+): ModelGroup {
+  const label = options.translate("plans.modelPicker.simulation");
+  const context = options.translate("plans.modelPicker.simulationContext");
+  return {
+    key: "simulation",
+    label,
+    context,
+    mark: "simulation",
+    count: models.length,
+    sources: [
+      {
+        key: "simulation",
+        label: null,
+        choices: choicesOf(
+          { key: "simulation", name: label, models: [...models] },
+          { group: label, context, badge: null, options },
+        ),
+      },
+    ],
+  };
 }
 
 /**

@@ -97,6 +97,7 @@ function readIteration(input: unknown): AgentPlanLoopIteration {
     nodes: iteration.nodes.map(readPlanStepResult),
     condition: readOutcome(iteration.condition),
     error: nullableText(iteration.error),
+    ...(iteration.entryFailure === true ? { entryFailure: true } : {}),
   };
 }
 

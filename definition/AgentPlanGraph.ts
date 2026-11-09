@@ -27,7 +27,12 @@ import {
 } from "./AgentPlanGitCloseout";
 import { planScriptIssues, planScriptParameters } from "./AgentPlanScript";
 import { scriptReportGraphIssues } from "./AgentPlanScriptReportGraph";
-import { fitsPlanStackOutput, planStackIssues } from "./AgentPlanStackGraph";
+import {
+  fitsPlanStackOutput,
+  planBindingNodes,
+  planStackIssues,
+} from "./AgentPlanStackGraph";
+import { PLAN_ASSET_NAME_LENGTH, planAssets } from "./AgentPlanAsset";
 import { isPlanStackTriggered } from "./AgentPlanStack";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
@@ -88,6 +93,8 @@ export interface AgentPlanIssue {
     | "stackOrder"
     | "stackEntries"
     | "stackRemote"
+    | "assetFile"
+    | "assetUnreadable"
     | "loopWhile"
     | "loopNested"
     | "unsupportedRunNotes"
@@ -156,6 +163,7 @@ export function planSourceType(
   if (node?.type === "parameter") return node.value.type;
   if (node?.type === "variable") return "text";
   if (node?.type === "task") return "ticket";
+  if (node?.type === "asset") return "asset";
   return null;
 }
 
@@ -316,6 +324,15 @@ function fitsBinding(
   );
 }
 
+function isPlanAssetNameValid(name: string): boolean {
+  const trimmed = name.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed.length <= PLAN_ASSET_NAME_LENGTH &&
+    !/[\u0000-\u001f\u007f]/u.test(trimmed)
+  );
+}
+
 /** Structural checks apply to drafts too; missing connections are checked before Play. */
 export function planConnectionIssues(
   plan: AgentPlanInput,
@@ -348,6 +365,8 @@ export function planConnectionIssues(
     }
     if (node.type === "variable" && !Object.hasOwn(plan.globals, node.name))
       issues.push({ nodeId: node.id, port: "value-out", reason: "source" });
+    if (node.type === "asset" && !isPlanAssetNameValid(node.name))
+      issues.push({ nodeId: node.id, port: null, reason: "name" });
   }
   return issues;
 }
@@ -515,6 +534,7 @@ function hasConnectedValue(
   if (binding?.kind !== "source") return false;
   const source = plan.nodes.find((node) => node.id === binding.nodeId);
   if (source?.type === "task") return true;
+  if (source?.type === "asset") return source.file !== null;
   if (source?.type === "variable")
     return Boolean(plan.globals[source.name]?.trim());
   if (source?.type !== "parameter") return false;
@@ -592,7 +612,24 @@ function flowExecutionIssues(
   }
   issues.push(...scriptReportGraphIssues(plan));
   issues.push(...planBranchingExecutionIssues(plan));
+  issues.push(...assetFileIssues(plan));
   return issues;
+}
+
+/** An asset node that feeds an input needs a file before the run starts. */
+function assetFileIssues(plan: AgentPlanInput): AgentPlanIssue[] {
+  const used = new Set(
+    planBindingNodes(plan).flatMap((node) =>
+      Object.values(node.bindings).flatMap((binding) =>
+        binding.kind === "source" ? [binding.nodeId] : [],
+      ),
+    ),
+  );
+  return planAssets(plan).flatMap((asset): AgentPlanIssue[] =>
+    asset.file === null && used.has(asset.id)
+      ? [{ nodeId: asset.id, port: "value-out", reason: "assetFile" }]
+      : [],
+  );
 }
 
 /** A runnable DAG has explicit boundaries and no unreachable or unfinished flow branch. */

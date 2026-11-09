@@ -2,6 +2,7 @@ import { AgentAssetRepository } from "@/backend/database/repositories/agents/Age
 import { AgentAssetRevisionRepository } from "@/backend/database/repositories/agents/AgentAssetRevisionRepository";
 import { AgentImportRepository } from "@/backend/database/repositories/agents/AgentImportRepository";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
+import { AgentPlanAssetRepository } from "@/backend/database/repositories/agents/AgentPlanAssetRepository";
 
 import { DIGEST, OWNER, PROJECT } from "./plan-fixtures";
 import {
@@ -312,6 +313,45 @@ export const AGENT_OPERATION_FLOW: RepositoryFlow = {
         operation: "save_plan",
         resultJson: "{}",
       }),
+    ),
+  ],
+};
+
+function planAssets({ database }: RepositoryWorld): AgentPlanAssetRepository {
+  return new AgentPlanAssetRepository(database);
+}
+
+/** Files of asset nodes in agent plans. */
+export const PLAN_ASSET_FLOW: RepositoryFlow = {
+  title: "agent plan assets",
+  steps: [
+    call("AgentPlanAssetRepository.find", (world) =>
+      planAssets(world).find("asset-plan-1"),
+    ),
+    call("AgentPlanAssetRepository.results", (world) =>
+      planAssets(world).results("run-1"),
+    ),
+    call("AgentPlanAssetRepository.insert", (world) =>
+      planAssets(world).insert({
+        id: "asset-plan-1",
+        projectId: PROJECT,
+        ownerId: OWNER,
+        fileName: "test.png",
+        mediaType: "image/png",
+        kind: "image",
+        size: 1024,
+        checksum: DIGEST,
+        storageName: "storage-plan-1",
+        originRunId: "run-1",
+        originStepId: "step-1",
+        originAssetId: null,
+      }),
+    ),
+    call("AgentPlanAssetRepository.find", (world) =>
+      planAssets(world).find("asset-plan-1"),
+    ),
+    call("AgentPlanAssetRepository.results", (world) =>
+      planAssets(world).results("run-1"),
     ),
   ],
 };

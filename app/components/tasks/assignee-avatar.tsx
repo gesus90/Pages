@@ -7,7 +7,8 @@ import { cn } from "@/app/lib/cn";
 import type { WorkItemDetail } from "@/definition/Task";
 
 interface AssigneeAvatarProps {
-  readonly item: Pick<WorkItemDetail, "assigneeGroupName" | "assigneeName">;
+  readonly item: Pick<WorkItemDetail, "assigneeGroupName" | "assigneeName"> &
+    Partial<Pick<WorkItemDetail, "assigneeColor" | "assigneeAvatarImageUrl">>;
   /** Colors of the surrounding card; the shape stays the same. */
   readonly className?: string;
 }
@@ -23,6 +24,10 @@ export function AssigneeAvatar({
     return (
       <UserAvatar
         name={item.assigneeName}
+        avatarColor={item.assigneeColor ?? null}
+        {...(item.assigneeAvatarImageUrl
+          ? { avatarType: "image", avatarImageUrl: item.assigneeAvatarImageUrl }
+          : {})}
         size="xs"
         className={className}
         title={item.assigneeName}

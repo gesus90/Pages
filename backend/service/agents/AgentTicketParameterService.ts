@@ -108,10 +108,7 @@ export class AgentTicketParameterService {
     const contents: AgentTicketAssetContent[] = [];
     let size = 0;
     for (const input of inputs) {
-      const ticket =
-        input.owner === "wiki"
-          ? await this.wikiInput(userId, input.ticket)
-          : await this.resolve(userId, input.ticket.id);
+      const ticket = await this.ownerInput(userId, input);
       // Status, checkbox and text revisions do not change the file handoff.
       // Keep the asset identity check and every live ticket/file authorization.
       requireAssetReferences(input.ticket.assets, ticket.assets);
@@ -123,7 +120,9 @@ export class AgentTicketParameterService {
         const expected = input.originals?.[`${asset.source}:${asset.id}`];
         if (expected !== undefined && expected !== file.original.digest)
           throw new AgentAssetError(
-            "parameter_ticket_changed",
+            input.owner === "asset"
+              ? "plan_asset_changed"
+              : "parameter_ticket_changed",
             asset,
             file.fileName,
           );
@@ -161,6 +160,20 @@ export class AgentTicketParameterService {
       await this.assets.read(actor, asset);
     }
   }
+  /**
+   * The current owner of the files: the ticket or wiki page read again, or
+   * for a plan asset the pinned input, whose file read rechecks the rights.
+   */
+  private async ownerInput(
+    userId: string,
+    input: AgentTicketInput,
+  ): Promise<ResolvedAgentTicket> {
+    if (input.owner === "asset") return input.ticket;
+    return input.owner === "wiki"
+      ? this.wikiInput(userId, input.ticket)
+      : this.resolve(userId, input.ticket.id);
+  }
+
   private async wikiInput(
     userId: string,
     pinned: ResolvedAgentTicket,

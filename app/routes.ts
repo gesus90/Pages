@@ -6,6 +6,7 @@ import {
   type RouteConfigEntry,
 } from "@react-router/dev/routes";
 
+import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
 import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
 
 /**
@@ -296,10 +297,12 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ...mcpPlanRoutes(routes),
     ...mcpPlanNotationRoutes(routes),
     ...mcpWikiRoutes(routes.resource),
+    ...mcpAgentRoutes(routes.resource),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),
     resource("favicon.ico", "routes/favicon.ts"),
     resource("api/v1/agent-assets", "routes/api-v1-agent-assets.ts"),
+    resource("api/v1/plan-asset-references", "routes/plan-asset-refs.ts"),
     resource("api/v1/pica-bridge", "routes/api-v1-pica-bridge.ts"),
     resource("api/v1/plan-bridge", "routes/api-v1-plan-bridge.ts"),
     resource(
@@ -347,6 +350,7 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "chat/attachments/:attachmentId/content",
       "routes/chat-attachment-content.ts",
     ),
+    resource("chat-page-api/page", "routes/chat-page-data.ts"),
     ...page("chat", {
       browser: "routes/chat-page.tsx",
       server: "routes/chat-page-server.ts",
@@ -405,6 +409,8 @@ function agentPlanRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     }),
     resource("agents/plans-api", "routes/agent-plans-data.ts"),
     resource("agent-api/plan-sources", "routes/agent-plan-sources.ts"),
+    resource("agent-api/plan-assets", "routes/agent-plan-assets.ts"),
+    resource("agent-plan-assets/:assetId", "routes/agent-plan-asset.ts"),
     resource("agent-api/plan-templates", "routes/agent-plan-templates.ts"),
     resource("agent-api/plan-runs", "routes/agent-plan-runs.ts"),
     resource(
@@ -451,6 +457,7 @@ function settingsRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       server: "routes/users-server.ts",
     }),
     resource("users-api/page", "routes/users-data.ts"),
+    resource("users-api/agents/:agentId", "routes/users-agent-data.ts"),
     ...page(
       "settings",
       {

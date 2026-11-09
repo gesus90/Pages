@@ -17,6 +17,7 @@ import type { AgentPlanSessionGrants } from "./AgentPlanSessionAccess";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentPlanScripts } from "./AgentPlanScripts";
 import type { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
+import type { PlanAssetService } from "./assets/PlanAssetService";
 
 /** What the plan service and its parts work with. */
 export interface PlanDependencies {
@@ -42,4 +43,6 @@ export interface PlanDependencies {
   /** The interpreter profiles of script nodes; absent, no profile exists. */
   readonly scripts?: AgentPlanScripts;
   readonly startRejections?: AgentPlanStartRejectionRepository;
+  /** The files of asset nodes and asset stack entries (PAGE-268). */
+  readonly planAssets?: PlanAssetService;
 }

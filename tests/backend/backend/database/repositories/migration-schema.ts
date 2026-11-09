@@ -39,6 +39,30 @@ function columnName(definition: string): string | null {
   return definition.split(/\s+/)[0].replaceAll('"', "");
 }
 
+function applyAlterTable(
+  tables: Map<string, string[]>,
+  altered: string,
+  alteredBody: string,
+): void {
+  for (const clause of splitDefinitions(alteredBody)) {
+    const added = clause.match(/^ADD COLUMN\s+"?(\w+)"?/i);
+    const dropped = clause.match(/^DROP COLUMN\s+"?(\w+)"?/i);
+    const renamed = clause.match(/^RENAME TO\s+(\w+)/i);
+    if (added) {
+      tables.get(altered)?.push(added[1]);
+    } else if (dropped) {
+      const columns = tables.get(altered) ?? [];
+      tables.set(
+        altered,
+        columns.filter((column) => column !== dropped[1]),
+      );
+    } else if (renamed) {
+      tables.set(renamed[1], tables.get(altered) ?? []);
+      tables.delete(altered);
+    }
+  }
+}
+
 /**
  * Reads the final table layout out of migration scripts.
  *
@@ -60,9 +84,9 @@ export function parseMigrationSchema(
     .join("\n");
 
   const pattern =
-    /CREATE TABLE(?: IF NOT EXISTS)?\s+(\w+)\s*\(|ALTER TABLE\s+(\w+)\s+(ADD COLUMN\s+"?(\w+)"?|DROP COLUMN\s+"?(\w+)"?|RENAME TO\s+(\w+))|DROP TABLE(?: IF EXISTS)?\s+(\w+)/gi;
+    /CREATE TABLE(?: IF NOT EXISTS)?\s+(\w+)\s*\(|ALTER TABLE\s+(\w+)\s+([^;]+);|DROP TABLE(?: IF EXISTS)?\s+(\w+)/gi;
   for (const match of statements.matchAll(pattern)) {
-    const [, created, altered, , added, dropped, renamed, removed] = match;
+    const [, created, altered, alteredBody, removed] = match;
     if (created) {
       const open = match.index + match[0].length - 1;
       const body = statements.slice(
@@ -76,17 +100,8 @@ export function parseMigrationSchema(
           return name === null ? [] : [name];
         }),
       );
-    } else if (altered && added) {
-      tables.get(altered)?.push(added);
-    } else if (altered && dropped) {
-      const columns = tables.get(altered) ?? [];
-      tables.set(
-        altered,
-        columns.filter((column) => column !== dropped),
-      );
-    } else if (altered && renamed) {
-      tables.set(renamed, tables.get(altered) ?? []);
-      tables.delete(altered);
+    } else if (altered && alteredBody) {
+      applyAlterTable(tables, altered, alteredBody);
     } else if (removed) {
       tables.delete(removed);
     }

@@ -18,6 +18,8 @@ import type { AgentParameterService } from "./AgentParameterService";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
+import type { PlanAssetService } from "./assets/PlanAssetService";
+import type { AgentPlanAssetFile } from "@/definition/AgentPlanAsset";
 
 interface ReferenceDependencies {
   readonly remoteTargets?: AgentPlanRemoteTargets;
@@ -28,6 +30,7 @@ interface ReferenceDependencies {
   >;
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
   readonly workspaces: Pick<AgentWorkspaceService, "resolve">;
+  readonly planAssets?: Pick<PlanAssetService, "describe">;
 }
 
 interface PlanReference {
@@ -75,6 +78,7 @@ export async function validatePlanReferences(
     ),
   ];
   const validationIssues: AgentPlanIssue[] = [];
+  await validatePlanAssetFiles(dependencies, userId, plan, projectId);
   for (const node of nodes) {
     try {
       await validateNodeAccess(dependencies, userId, { node, projectId });
@@ -160,6 +164,14 @@ async function validateReference(
     await dependencies.parameters.requireTicket(userId, reference.ticketId);
   if (reference.type === "wiki")
     await dependencies.parameters.requireWiki(userId, reference.pageId);
+  if (reference.type === "asset") {
+    const stored = await dependencies.planAssets?.describe(
+      userId,
+      reference.assetId,
+    );
+    if (stored?.projectId !== context.projectId)
+      throw new AgentError("plan_asset_missing");
+  }
   if (
     reference.type === "workspace" &&
     (!context.canUseRemoteWorkspace ||
@@ -172,6 +184,46 @@ async function validateReference(
       reference.workspaceId,
       context.projectId,
     );
+}
+
+/** The files a plan names: those of its asset nodes and of its asset stack entries. */
+function planAssetFiles(plan: AgentPlanInput): readonly AgentPlanAssetFile[] {
+  return plan.nodes.flatMap((node): readonly AgentPlanAssetFile[] => {
+    if (node.type === "asset") return node.file ? [node.file] : [];
+    if (node.type !== "stack") return [];
+    return node.entries.flatMap((entry) =>
+      entry.type === "asset" ? [entry.file] : [],
+    );
+  });
+}
+
+/**
+ * Reauthorizes every file of the plan on save: it exists, belongs to the
+ * plan's project, the person may read it, and it is still the content the
+ * plan chose.
+ *
+ * @throws {AgentError} `plan_asset_missing` or `plan_asset_changed`.
+ */
+async function validatePlanAssetFiles(
+  dependencies: ReferenceDependencies,
+  userId: string,
+  plan: AgentPlanInput,
+  projectId: string,
+): Promise<void> {
+  const files = planAssetFiles(plan);
+  if (files.length === 0) return;
+  if (!dependencies.planAssets)
+    throw new AgentError("parameter_asset_transfer_unsupported");
+  const checked = new Set<string>();
+  for (const file of files) {
+    if (checked.has(file.assetId)) continue;
+    checked.add(file.assetId);
+    const stored = await dependencies.planAssets.describe(userId, file.assetId);
+    if (stored.projectId !== projectId)
+      throw new AgentError("plan_asset_missing");
+    if (stored.digest !== file.digest || stored.size !== file.size)
+      throw new AgentError("plan_asset_changed");
+  }
 }
 
 /** Maps an unavailable reference to each remote consumer and its declared parameter. */

@@ -235,6 +235,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
             page={page}
             editor={editor}
             control={control}
+            run={props.run}
             issues={planPanelIssues({
               control,
               editor,

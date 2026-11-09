@@ -512,9 +512,11 @@ export class AcpSession implements PlanSession {
 
   private decide(request: RequestPermissionRequest): RequestPermissionResponse {
     const helperPath = this.context.listener?.picaHelper;
-    const decision = helperPath
-      ? decidePicaHelperPermission(request, helperPath())
-      : this.context.profile.decide(request);
+    // A full-access session of an agent employee keeps its YOLO decisions (PAGE-266).
+    const decision =
+      helperPath && this.context.profile.mode !== "yolo"
+        ? decidePicaHelperPermission(request, helperPath())
+        : this.context.profile.decide(request);
     if (decision.isDenied) {
       logEvent({
         level: "warn",

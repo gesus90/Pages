@@ -35,6 +35,7 @@ function fitsEntry(
 ): boolean {
   if (entry.type === "task")
     return parameterType === "ticket" || parameterType === "text";
+  if (entry.type === "asset") return parameterType === "asset";
   return entry.value.type === parameterType;
 }
 
@@ -72,6 +73,11 @@ function nameIssues(stack: AgentPlanStack): AgentPlanIssue[] {
 
 function isEntryValid(entry: AgentPlanStackEntry): boolean {
   if (entry.type === "task") return entry.taskId.trim().length > 0;
+  if (entry.type === "asset")
+    return (
+      entry.file.assetId.trim().length > 0 &&
+      entry.file.fileName.trim().length > 0
+    );
   return isAgentParameterName(entry.name) && planValueIssue(entry) === null;
 }
 

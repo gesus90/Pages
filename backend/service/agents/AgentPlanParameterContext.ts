@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { AgentPlanStepSnapshot } from "./AgentPlanSnapshot";
 import type { PreparedAgentParameters } from "./AgentParameterService";
+import type { AgentTicketInput } from "@/definition/AgentTicketParameter";
 
 /** Rejects changed resource identities or asset manifests while allowing live authorization checks. */
 export function validatePlanParameterContext(
@@ -32,16 +33,10 @@ function validateAssetInputs(
   live: PreparedAgentParameters,
 ): void {
   for (const input of step.prepared.parameters.assetInputs ?? []) {
-    const current =
-      input.owner === "wiki"
-        ? live.parameters.assetInputs.find(
-            (entry) =>
-              entry.owner === "wiki" && entry.parameter === input.parameter,
-          )?.ticket
-        : live.parameters.tickets[input.parameter];
     const liveInput = live.parameters.assetInputs.find(
       (entry) => entry.parameter === input.parameter,
     );
+    const current = currentAssetOwner(input, liveInput, live);
     if (
       input.originals &&
       JSON.stringify(input.originals) !== JSON.stringify(liveInput?.originals)
@@ -53,4 +48,15 @@ function validateAssetInputs(
     )
       throw new AgentError("parameter_ticket_changed");
   }
+}
+
+/** The current owner of the files: a wiki page or plan asset carries them itself, a ticket through its parameter. */
+function currentAssetOwner(
+  input: AgentTicketInput,
+  liveInput: AgentTicketInput | undefined,
+  live: PreparedAgentParameters,
+): AgentTicketInput["ticket"] | undefined {
+  if (input.owner !== "wiki" && input.owner !== "asset")
+    return live.parameters.tickets[input.parameter];
+  return liveInput?.owner === input.owner ? liveInput.ticket : undefined;
 }

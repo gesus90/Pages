@@ -69,6 +69,7 @@ import {
 import { prepareSessions } from "./session-services.server";
 import { startExecutionServices } from "./agent-execution-services.server";
 import { createChatServices } from "./chat-services.server";
+import { createEmployeeServices } from "./employee-services.server";
 import { picaAcpSettings, planMcpSettings } from "./bridge-settings.server";
 import { picaBrowserOptions } from "./pica-browser.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
@@ -88,6 +89,7 @@ import type { AgentLocalSessionPreparation } from "@/backend/service/agents/Agen
 import type { TaskService } from "@/backend/service/TaskService";
 import type { AgentApplicationServices } from "./agent-services.server";
 import type { ChatApplicationServices } from "./chat-services.server";
+import type { EmployeeApplicationServices } from "./employee-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
@@ -105,6 +107,7 @@ export interface ApplicationServices
   extends
     AgentApplicationServices,
     ChatApplicationServices,
+    EmployeeApplicationServices,
     McpApplicationServices,
     DiscordApplicationServices,
     GoogleDriveApplicationServices,
@@ -376,7 +379,9 @@ async function startMcpWorkspace(context: {
   >;
   readonly serverCache: ServerCache;
   readonly tokenKey: Buffer;
-}): Promise<McpApplicationServices & ChatApplicationServices> {
+}): Promise<
+  McpApplicationServices & ChatApplicationServices & EmployeeApplicationServices
+> {
   // The publisher of the ticket pages, on its own repository: agent ticket changes
   // follow the same GitHub rule once they are committed.
   const taskRepository = new TaskRepository(context.database);
@@ -416,21 +421,27 @@ async function startMcpWorkspace(context: {
       ),
     );
   const runtime = await getPagesRuntime();
+  const chat = createChatServices({
+    database: context.database,
+    directory,
+    accounts: context.accounts,
+    agents: context.agents,
+    router: services.chatOperationRouter,
+    acp: await picaAcpSettings(),
+    protectedOrigin: runtime.getConfig().publicUrl,
+    picaBrowser: picaBrowserOptions({
+      directory,
+      instanceKey: context.tokenKey,
+      config: () => runtime.getConfig(),
+    }),
+  });
   return {
     ...services,
-    ...createChatServices({
+    ...chat,
+    ...createEmployeeServices({
       database: context.database,
-      directory,
-      accounts: context.accounts,
-      agents: context.agents,
-      router: services.chatOperationRouter,
-      acp: await picaAcpSettings(),
-      protectedOrigin: runtime.getConfig().publicUrl,
-      picaBrowser: picaBrowserOptions({
-        directory,
-        instanceKey: context.tokenKey,
-        config: () => runtime.getConfig(),
-      }),
+      cache: context.serverCache,
+      acp: chat.picaAcpService,
     }),
   };
 }

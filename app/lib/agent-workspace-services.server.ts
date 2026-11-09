@@ -24,6 +24,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { PicaSettingsRepository } from "@/backend/database/repositories/chat/PicaSettingsRepository";
 import { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 
+import type { PlanAssetService } from "@/backend/service/agents/assets/PlanAssetService";
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { Database } from "@/backend/database/Database";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -42,6 +43,8 @@ export interface AgentConfigurationApplicationServices {
   readonly agentDefinitionFiles: AgentDefinitionFiles;
   readonly agentRunArchive: AgentRunArchive;
   readonly picaSettingsService: PicaSettingsService;
+  /** The files of asset nodes (PAGE-268); `null` where no file store was wired. */
+  readonly agentPlanAssetService: PlanAssetService | null;
 }
 
 /**
@@ -165,6 +168,8 @@ export function createAgentConfigurationServices(input: {
       authorization,
       content,
       tickets,
+      planAssets: input.ticketAssets.plans,
     }),
+    agentPlanAssetService: input.ticketAssets.plans ?? null,
   };
 }

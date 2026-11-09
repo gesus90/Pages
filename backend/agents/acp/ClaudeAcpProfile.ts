@@ -306,17 +306,36 @@ const CHAT_PROFILE: ClaudeAcpProfile = {
 };
 
 /**
+ * The conversation of an agent employee with full access (PAGE-266): every
+ * native tool of Claude Code inside the bubblewrap isolation, which a YOLO
+ * session never runs without, and the Pages helper for its Pages tools. The
+ * session is kept like Pica's, so the next job continues it.
+ */
+const CHAT_FULL_ACCESS_PROFILE: ClaudeAcpProfile = {
+  ...YOLO_PROFILE,
+  unattended:
+    "ACP session mode bypassPermissions for an agent employee with full access, inside the bubblewrap isolation; Pages approves any remaining request",
+  permissions: {
+    ...YOLO_PROFILE.permissions,
+    pagesTools: "Pages helper with the rights of the agent's account",
+    mcpServers: "none",
+  },
+};
+
+/**
  * The adapter configuration of one Pages mode.
  *
  * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
  * @param purpose - A Pica conversation always takes the chat profile; the
- * caller decides beforehand which stored mode it accepts for it.
+ * caller decides beforehand which stored mode it accepts for it. Only an
+ * agent employee with full access reaches the chat purpose in YOLO.
  * @returns Session mode, Claude options and the recorded permissions.
  */
 export function claudeAcpProfile(
   mode: AcpPermissionMode,
   purpose: AcpSessionPurpose = "plan",
 ): ClaudeAcpProfile {
-  if (purpose === "chat") return CHAT_PROFILE;
+  if (purpose === "chat")
+    return mode === "yolo" ? CHAT_FULL_ACCESS_PROFILE : CHAT_PROFILE;
   return mode === "yolo" ? YOLO_PROFILE : READ_ONLY_PROFILE;
 }

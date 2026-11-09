@@ -14,7 +14,7 @@ import type { PageAgentModel } from "./PageAgent";
  * Every consumer reads the same models of the same connections; it only
  * leaves out what it cannot run, for one of the reasons below.
  */
-export type AgentModelConsumer = "pica" | "plan";
+export type AgentModelConsumer = "pica" | "plan" | "employee";
 
 /**
  * Why a consumer cannot run a model.
@@ -83,6 +83,15 @@ function planRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   return model.isToolCapable === false ? "noToolCalls" : null;
 }
 
+/**
+ * An agent employee (PAGE-266) answers over Pica's ACP path and works with
+ * tools, so it needs both: a chat adapter and a model that calls tools. Pure
+ * image, audio or other special generators never qualify.
+ */
+function employeeRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
+  return picaRefusal(model) ?? planRefusal(model);
+}
+
 const CONSUMER_RULES: Readonly<
   Record<
     AgentModelConsumer,
@@ -91,6 +100,7 @@ const CONSUMER_RULES: Readonly<
 > = {
   pica: picaRefusal,
   plan: planRefusal,
+  employee: employeeRefusal,
 };
 
 /**

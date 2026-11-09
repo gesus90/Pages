@@ -310,6 +310,7 @@ export class McpDevicePairingRepository {
               AND mcp_device_pairing.expires_at > $now
               AND users.id = mcp_device_pairing.user_id
               AND users.is_active = 1
+              AND users.account_kind = 'person'
           RETURNING
               mcp_device_pairing.user_id,
               mcp_device_pairing.device_name,

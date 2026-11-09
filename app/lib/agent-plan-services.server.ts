@@ -148,6 +148,40 @@ async function upgradeStoredPlans(
   });
 }
 
+/** The file store of asset nodes, where one was wired (PAGE-268). */
+function planAssetsOf(
+  agents: Pick<AgentApplicationServices, "agentPlanAssetService">,
+): Pick<PlanDependencies, "planAssets"> {
+  return agents.agentPlanAssetService
+    ? { planAssets: agents.agentPlanAssetService }
+    : {};
+}
+
+/** The stores and gates of the plan service that need only the instance's own services. */
+function planRecords(input: {
+  readonly database: Database;
+  readonly agents: AgentApplicationServices;
+  readonly tasks: TaskService;
+  readonly users: UserService;
+}): Pick<
+  PlanDependencies,
+  | "workGate"
+  | "phases"
+  | "archive"
+  | "startRejections"
+  | "workspaceCleanup"
+  | "planAssets"
+> {
+  return {
+    workGate: new AgentPlanWorkGate(input.database, input.users),
+    phases: new AgentPlanPhases(input.tasks, input.users),
+    archive: input.agents.agentRunArchive,
+    startRejections: new AgentPlanStartRejectionRepository(input.database),
+    workspaceCleanup: new AgentWorkspaceCleanupRepository(input.database),
+    ...planAssetsOf(input.agents),
+  };
+}
+
 /** Shares the existing user, ticket, model and workspace boundaries; no second catalog or runner. */
 export async function createAgentPlanService(input: {
   readonly database: Database;
@@ -203,9 +237,10 @@ export async function createAgentPlanService(input: {
     profiles,
     parameters,
     tasks,
+    ...planAssetsOf(input.agents),
   });
   const dependencies: PlanDependencies = {
-    workGate: new AgentPlanWorkGate(input.database, input.users),
+    ...planRecords(input),
     workspaceCatalog,
     remoteExecution,
     remoteTargets,
@@ -215,15 +250,11 @@ export async function createAgentPlanService(input: {
     profiles,
     parameters,
     tasks,
-    phases: new AgentPlanPhases(input.tasks, input.users),
     access,
     preparation,
     engine,
     sessions,
-    archive: input.agents.agentRunArchive,
     scripts,
-    startRejections: new AgentPlanStartRejectionRepository(input.database),
-    workspaceCleanup: new AgentWorkspaceCleanupRepository(input.database),
   };
   const service = new AgentPlanService(dependencies);
   const views = await createPlanViews(input, dependencies, service);

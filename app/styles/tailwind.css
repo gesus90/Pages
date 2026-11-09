@@ -120,6 +120,10 @@
   --color-plan-stack: #4338ca;
   --color-plan-stack-edge: #6366f1;
   --color-plan-stack-subtle: #eef0fd;
+  /* PAGE-268: the olive family of asset sources. */
+  --color-plan-asset: #4d7c0f;
+  --color-plan-asset-edge: #65a30d;
+  --color-plan-asset-subtle: #f1f6e4;
   /* Secondary text on the tinted plan cards: the page's muted text reaches only
      4.1 to 4.3:1 on these tints, the plan editor needs 4.5:1. */
   --color-plan-muted-foreground: #5f6675;
@@ -421,6 +425,9 @@
     --color-plan-stack: #a5b4fc;
     --color-plan-stack-edge: #6b70d6;
     --color-plan-stack-subtle: #1b1d3a;
+    --color-plan-asset: #a3d65c;
+    --color-plan-asset-edge: #6f9a32;
+    --color-plan-asset-subtle: #1a2410;
     --color-plan-muted-foreground: #9aa3b2;
     --color-plan-progress-active-label: var(--color-background);
     --color-plan-progress-done: #51df5c;

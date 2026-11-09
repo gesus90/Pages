@@ -5,6 +5,12 @@ import {
   handleSetRole,
   handleUpdateUser,
 } from "./user-directory-actions.server";
+import {
+  handleCreateAgent,
+  handleRestoreAgentMemory,
+  handleSetUserColor,
+  handleUpdateAgent,
+} from "./agent-employee-actions.server";
 import { invalidInput } from "./user-action-support.server";
 import { ADMINISTRATION_ACTION_HANDLERS } from "./administration-actions.server";
 
@@ -21,6 +27,10 @@ const USERS_ACTION_HANDLERS = {
   "set-active": handleSetActive,
   "set-role": handleSetRole,
   "update-user": handleUpdateUser,
+  "create-agent": handleCreateAgent,
+  "update-agent": handleUpdateAgent,
+  "restore-agent-memory": handleRestoreAgentMemory,
+  "set-user-color": handleSetUserColor,
 } satisfies Record<string, UsersActionHandler>;
 
 type UsersActionIntent = keyof typeof USERS_ACTION_HANDLERS;

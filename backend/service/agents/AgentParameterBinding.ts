@@ -11,8 +11,10 @@ import {
   ticketAssetReferences,
   externalAssetNotes,
 } from "./AgentTicketAssetReferences";
+import { planAssetInput, planAssetPromptText } from "./assets/PlanAssetInput";
 
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
+import type { AgentPlanAssetFile } from "@/definition/AgentPlanAsset";
 import type {
   ResolvedAgentTicket,
   AgentTicketInput,
@@ -31,6 +33,8 @@ export interface AgentReferenceResolvers {
     readonly link: string;
     readonly version: string;
   }>;
+  /** Describes a plan asset after checking that the executor may read it. */
+  readonly asset?: (id: string) => Promise<AgentPlanAssetFile>;
 }
 
 /** Immutable preparation contract for later A10.4 steps; this never starts a runner. */
@@ -136,6 +140,8 @@ async function resolveParameter(
       ticket,
     };
   }
+  if (bound.type === "asset")
+    return resolveAsset(name, bound.assetId, references);
   if (bound.type === "workspace") {
     const workspace = await references.workspace(bound.workspaceId);
     return {
@@ -165,6 +171,22 @@ async function resolveParameter(
         assets: ticketAssetReferences(wiki.markdown),
       },
     },
+  };
+}
+
+/** An asset parameter names its file in the text and hands the file itself over. */
+async function resolveAsset(
+  name: string,
+  assetId: string,
+  references: AgentReferenceResolvers,
+): Promise<ParameterResolution> {
+  if (!references.asset) throw new AgentError("parameter_asset_unavailable");
+  const file = await references.asset(assetId);
+  return {
+    replacements: { [name]: planAssetPromptText(file) },
+    directory: null,
+    version: null,
+    assetInput: planAssetInput(name, file),
   };
 }
 
@@ -216,12 +238,14 @@ export async function bindAgentParameters(
           ticket: resolved.ticket,
         });
     }
+    // An asset is handed over whenever it is bound, a wiki page only when its markdown is named.
     if (
       resolved.assetInput &&
-      placeholders.some(
-        (entry) =>
-          entry.name === parameter.name && entry.property === "markdown",
-      )
+      (resolved.assetInput.owner === "asset" ||
+        placeholders.some(
+          (entry) =>
+            entry.name === parameter.name && entry.property === "markdown",
+        ))
     )
       assetInputs.push(resolved.assetInput);
     if (parameter.name === configuration.directoryParameter)

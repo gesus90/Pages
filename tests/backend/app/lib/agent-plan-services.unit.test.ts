@@ -52,6 +52,7 @@ import { AgentSessionRepository } from "@/backend/database/repositories/agent/Ag
 import { AgentSessionInbox } from "@/backend/service/agents/sessions/AgentSessionInbox";
 import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
 import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
+import { AgentTerminalService } from "@/backend/service/agents/terminal/AgentTerminalService";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 
 import type { Mock } from "vitest";
@@ -214,6 +215,7 @@ it("returns the plan service with its management, templates, sessions and recove
     agentPlanManagement: only(vi.mocked(AgentPlanManagement)),
     agentPlanTemplateService: only(vi.mocked(AgentPlanTemplateService)),
     agentSessionService: only(vi.mocked(AgentSessionService)),
+    agentTerminalService: expect.any(AgentTerminalService) as unknown,
     agentPlanRecoveryService: only(vi.mocked(AgentPlanRecoveryService)),
   });
   expect(vi.mocked(createPicaMobileNotificationServices)).toHaveBeenCalledWith({

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { ProfileAvatarColumn } from "@/app/components/settings/profile-avatar-column";
 import { ProfileEditForm } from "@/app/components/settings/profile-edit-form";
+import { ProfileColorRow } from "@/app/components/settings/profile/profile-color-row";
 import { ProfileDetails } from "@/app/components/settings/profile/profile-details";
 import { ProfileEditAction } from "@/app/components/settings/profile/profile-edit-action";
 import { useProfileAvatarActions } from "@/app/components/settings/profile/use-profile-avatar-actions";
@@ -87,6 +88,9 @@ export function ProfileCard({
           ) : (
             <ProfileDetails user={user} email={email} roleName={roleName} />
           )}
+          <div className="mt-4">
+            <ProfileColorRow color={user.avatarColor ?? null} />
+          </div>
           {needsAdminMode ? (
             <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
               {t("settings.profile.adminModeHint")}

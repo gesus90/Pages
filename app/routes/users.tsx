@@ -16,6 +16,7 @@ import type { LocalStateRouteKind } from "@/app/components/common/use-local-stat
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { AdministrationPageData } from "@/definition/Authorization";
+import type { AgentEmployeePageData } from "@/definition/AgentEmployeePage";
 import type { WikiPrivatePagesByOwner } from "@/definition/Wiki";
 import type { Route } from "./+types/users";
 
@@ -23,6 +24,8 @@ import type { Route } from "./+types/users";
 export interface UsersPageData extends AdministrationPageData {
   readonly privateWikiPages: WikiPrivatePagesByOwner;
   readonly audience: LocalStateAudience;
+  /** The agents tab (PAGE-266); `null` for an account that may not see it. */
+  readonly agents: AgentEmployeePageData | null;
 }
 
 /** The rights-checked endpoint of the management view; it carries the same middleware. */
@@ -41,7 +44,7 @@ function isUsersPageData(value: unknown): value is UsersPageData {
 
 /** The management view, kept per account and rights, the admin mode included. */
 const USERS_PAGE_STATE: LocalStateRouteKind<UsersPageData> = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   isPayload: isUsersPageData,
   isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
   ownerOf: (page) => page.audience.userId,
@@ -85,6 +88,7 @@ export default function UsersRoute(): React.ReactElement {
     <ManagementWorkspace
       directory={page}
       privateWikiPages={page.privateWikiPages}
+      agents={page.agents}
     />
   );
 }

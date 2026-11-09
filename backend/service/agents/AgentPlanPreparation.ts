@@ -10,6 +10,9 @@ import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { scanAgentPlaceholders } from "@/definition/AgentParameters";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
+import { planAssets } from "@/definition/AgentPlanAsset";
+import { planBindingNodes } from "@/definition/AgentPlanStackGraph";
 import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
 import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
@@ -22,6 +25,7 @@ import {
 } from "@/definition/AgentPlanTarget";
 
 import { validateGroupRuntimes } from "./AgentPlanGroupRuntime";
+import { assetRepresentation } from "./AgentAssetRepresentations";
 import { remoteReferenceIssues } from "./AgentPlanReferences";
 import { planBindings } from "./AgentPlanBindings";
 import { arePlanNodesOrdered, planSteps } from "./AgentPlanGraph";
@@ -48,6 +52,7 @@ import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
+import type { AgentPlanAssetFile } from "@/definition/AgentPlanAsset";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
@@ -58,6 +63,7 @@ import type {
 } from "./AgentPlanScriptPreparation";
 import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
 import type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
+import type { PlanAssetService } from "./assets/PlanAssetService";
 import type {
   AgentPlanSnapshot,
   AgentPlanStepSnapshot,
@@ -71,6 +77,8 @@ interface PreparationDependencies {
   readonly parameters: Pick<AgentParameterService, "prepare">;
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
   readonly scripts?: Pick<AgentPlanScriptPreparation, "prepare" | "validate">;
+  /** Reads the file of every connected asset node before the run starts (PAGE-268). */
+  readonly planAssets?: Pick<PlanAssetService, "describe" | "read">;
 }
 
 interface StepPreparationContext {
@@ -126,6 +134,7 @@ export class AgentPlanPreparation {
     );
     const issues = planExecutionIssues(plan, catalog);
     if (issues.length > 0) throw new AgentPlanValidationError(issues);
+    await requireReadablePlanAssets(this.dependencies.planAssets, userId, plan);
     const groups = [
       ...plan.nodes.filter((node) => node.type === "group"),
       ...plan.nodes.flatMap((node) =>
@@ -359,6 +368,59 @@ export class AgentPlanPreparation {
   }
 }
 
+/**
+ * Reads the file of every asset node an input is connected to, before anything starts.
+ *
+ * @remarks
+ * Without its file such a node gives no input, so a missing, refused,
+ * changed or damaged file refuses the start with a finding on the node.
+ * Stack entries are not read here: one damaged entry fails only its own turn.
+ */
+async function requireReadablePlanAssets(
+  assets: PreparationDependencies["planAssets"],
+  userId: string,
+  plan: AgentPlan,
+): Promise<void> {
+  const used = new Set(
+    planBindingNodes(plan).flatMap((node) =>
+      Object.values(node.bindings).flatMap((binding) =>
+        binding.kind === "source" ? [binding.nodeId] : [],
+      ),
+    ),
+  );
+  const issues: AgentPlanIssue[] = [];
+  for (const node of planAssets(plan)) {
+    if (!node.file || !used.has(node.id)) continue;
+    const cause = await planAssetReadFailure(assets, userId, node.file);
+    if (cause)
+      issues.push({
+        nodeId: node.id,
+        port: "value-out",
+        reason: "assetUnreadable",
+        asset: { id: node.file.assetId, name: node.file.fileName, cause },
+      });
+  }
+  if (issues.length) throw new AgentPlanValidationError(issues);
+}
+
+/** Why a file cannot be handed over, or `null` when it reads completely and unchanged. */
+async function planAssetReadFailure(
+  assets: PreparationDependencies["planAssets"],
+  userId: string,
+  file: AgentPlanAssetFile,
+): Promise<string | null> {
+  if (!assets) return "parameter_asset_transfer_unsupported";
+  try {
+    const record = await assets.describe(userId, file.assetId);
+    if (record.digest !== file.digest) return "plan_asset_changed";
+    await assetRepresentation(await assets.read(userId, file.assetId));
+    return null;
+  } catch (error: unknown) {
+    logCaughtError("AgentPlanPreparation", error);
+    return error instanceof AgentError ? error.code : "plan_asset_unreadable";
+  }
+}
+
 /** Scripts and the Git closeout both run as processes of the script runtime. */
 function isScriptRuntimeNode(node: AgentPlan["nodes"][number]): boolean {
   return node.type === "script" || node.type === "git_closeout";
@@ -408,7 +470,13 @@ function withoutEmptyStackInputs(
   for (const found of placeholders.toReversed())
     if (empty.has(found.name))
       markdown = markdown.slice(0, found.start) + markdown.slice(found.end);
-  return { ...template, markdown };
+  // A file input of a stack is filled when the entry's turn starts and checked there.
+  const parameters = template.parameters.map((parameter) =>
+    empty.has(parameter.name) && parameter.type === "asset"
+      ? { ...parameter, isRequired: false }
+      : parameter,
+  );
+  return { ...template, markdown, parameters };
 }
 
 /**

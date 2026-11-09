@@ -4,6 +4,7 @@ import { startExecutionServices } from "@/app/lib/agent-execution-services.serve
 import { createAgentPlanService } from "@/app/lib/agent-plan-services.server";
 import { createChatServices } from "@/app/lib/chat-services.server";
 import { createDiscordServices } from "@/app/lib/discord-services.server";
+import { createEmployeeServices } from "@/app/lib/employee-services.server";
 import { createMcpServices } from "@/app/lib/mcp-services.server";
 import { createPreferenceServices } from "@/app/lib/preference-services.server";
 import { Database } from "@/backend/database/Database";
@@ -16,6 +17,7 @@ import type { AgentApplicationServices } from "@/app/lib/agent-services.server";
 import type { AgentPlanServices } from "@/app/lib/agent-plan-services.server";
 import type { ChatApplicationServices } from "@/app/lib/chat-services.server";
 import type { DiscordApplicationServices } from "@/app/lib/discord-services.server";
+import type { EmployeeApplicationServices } from "@/app/lib/employee-services.server";
 import type { McpApplicationServices } from "@/app/lib/mcp-services.server";
 import type { PreferenceApplicationServices } from "@/app/lib/preference-services.server";
 import type { PagesRuntime } from "@/backend/runtime/PagesRuntime";
@@ -60,6 +62,9 @@ vi.mock("@/app/lib/agent-execution-services.server", () => ({
 }));
 vi.mock("@/app/lib/chat-services.server", () => ({
   createChatServices: vi.fn(),
+}));
+vi.mock("@/app/lib/employee-services.server", () => ({
+  createEmployeeServices: vi.fn(),
 }));
 vi.mock("@/app/lib/agent-plan-services.server", () => ({
   createAgentPlanService: vi.fn(),
@@ -222,6 +227,7 @@ export interface ServicesWorld {
   readonly plans: AgentPlanServices;
   readonly mcp: McpApplicationServices;
   readonly chat: ChatApplicationServices;
+  readonly employee: EmployeeApplicationServices;
   readonly discord: DiscordApplicationServices;
   readonly preferences: PreferenceApplicationServices;
   readonly tokenKey: Buffer;
@@ -305,6 +311,14 @@ export function servicesWorld(): ServicesWorld {
       pagesAgentApiService: opaque("agent api"),
     }),
     chat: partial<ChatApplicationServices>({ chatService: opaque("chat") }),
+    employee: partial<EmployeeApplicationServices>({
+      agentEmployeeAdministration: opaque("employee admin"),
+      agentEmployeeSessions: opaque("employee sessions"),
+      agentLearningService: opaque("employee learning"),
+      chatDirectoryService: opaque("chat directory"),
+      chatGroupService: opaque("chat group"),
+      personColorService: opaque("person color"),
+    }),
     discord: partial<DiscordApplicationServices>({
       discordConnectionService: opaque("discord"),
     }),
@@ -326,6 +340,7 @@ export function servicesWorld(): ServicesWorld {
   vi.mocked(createAgentPlanService).mockResolvedValue(world.plans);
   vi.mocked(createMcpServices).mockReturnValue(world.mcp);
   vi.mocked(createChatServices).mockReturnValue(world.chat);
+  vi.mocked(createEmployeeServices).mockReturnValue(world.employee);
   vi.mocked(createDiscordServices).mockReturnValue(world.discord);
   vi.mocked(createPreferenceServices).mockReturnValue(world.preferences);
   return world;

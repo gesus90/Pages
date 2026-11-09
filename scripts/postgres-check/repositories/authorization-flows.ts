@@ -173,6 +173,9 @@ export const AUTHORIZATION_FLOW: RepositoryFlow = {
     call("AuthorizationRepository.agentConnectionScopes", ({ authorization }) =>
       Promise.resolve(authorization.agentConnectionScopes() !== null),
     ),
+    call("AuthorizationRepository.employees", ({ authorization }) =>
+      Promise.resolve(authorization.employees() !== null),
+    ),
   ],
 };
 

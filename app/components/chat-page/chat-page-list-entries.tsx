@@ -5,11 +5,25 @@ import { cn } from "@/app/lib/cn";
 
 import { GroupAvatars, ParticipantStatusAvatar } from "./chat-page-avatar";
 
+import type { TFunction } from "i18next";
 import type { ReactNode } from "react";
 import type {
   VirtualGroup,
   VirtualParticipant,
 } from "@/definition/VirtualChat";
+
+/**
+ * What a participant shows below its name: an agent its job title, a person
+ * the username.
+ */
+export function participantSubtitle(
+  participant: Pick<VirtualParticipant, "kind" | "role" | "username">,
+  t: TFunction,
+): string {
+  return participant.kind === "human"
+    ? t("chatPage.username", { username: participant.username })
+    : participant.role;
+}
 
 /** Selects the controls the arrow keys move between. */
 export const LIST_ITEM_SELECTOR = "[data-chat-list-item]";
@@ -112,7 +126,7 @@ interface ParticipantEntryProps {
   readonly onSelect: () => void;
 }
 
-/** A participant in the list: avatar with status point, name and role. */
+/** A participant in the list: avatar with status point, name and job title or username. */
 export function ParticipantEntry({
   participant,
   isSelected,
@@ -122,7 +136,10 @@ export function ParticipantEntry({
   return (
     <EntryButton isSelected={isSelected} onSelect={onSelect}>
       <ParticipantStatusAvatar participant={participant} />
-      <EntryText title={participant.name} subtitle={participant.role} />
+      <EntryText
+        title={participant.name}
+        subtitle={participantSubtitle(participant, t)}
+      />
       <span className="sr-only">
         {t(`chatPage.status.${participant.status}`)}
       </span>
@@ -156,7 +173,7 @@ export function PlaceholderEntry({
       aria-haspopup="dialog"
       className={cn(
         ENTRY_CLASS_NAME,
-        "text-muted-foreground hover:text-primary",
+        "shrink-0 text-muted-foreground hover:text-primary",
       )}
       onClick={onOpen}
       type="button"

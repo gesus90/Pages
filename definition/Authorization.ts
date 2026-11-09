@@ -93,6 +93,8 @@ export interface AccountAccess {
   readonly allDepartments: boolean;
   readonly allProjects: boolean;
   readonly hasHadDepartment: boolean;
+  /** An agent account (PAGE-266): never an administrator, never signed in. */
+  readonly isAgent?: boolean;
 }
 
 /** Directory row with per-action hints computed by the same server-side policy. */

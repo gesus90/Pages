@@ -150,7 +150,7 @@ function identitySequences(text: string): string[] {
   return [...tables].flatMap(([, table, body]) =>
     [
       ...body.matchAll(
-        /^\s*(\w+)\s+\w+\s+GENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b/gimu,
+        /^\s*(\w+)\s+(?:\w+\s+GENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY|(?:BIG|SMALL)?SERIAL)\b/gimu,
       ),
     ].map(([, column]) => `${table}_${column}_seq`),
   );

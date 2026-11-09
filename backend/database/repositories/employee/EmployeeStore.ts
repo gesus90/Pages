@@ -1,0 +1,92 @@
+import { AccountIdentityRepository } from "./AccountIdentityRepository";
+import { AgentActivityRepository } from "./AgentActivityRepository";
+import { AgentConversationRepository } from "./AgentConversationRepository";
+import { AgentEmployeeRemovalRepository } from "./AgentEmployeeRemovalRepository";
+import { AgentEmployeeRepository } from "./AgentEmployeeRepository";
+import { AgentLearningSourceRepository } from "./AgentLearningSourceRepository";
+import { AgentMemoryRepository } from "./AgentMemoryRepository";
+import { ChatContactRepository } from "./ChatContactRepository";
+import { ChatGroupRepository } from "./ChatGroupRepository";
+
+import type {
+  Database,
+  DatabaseTransaction,
+} from "@/backend/database/Database";
+
+/** SQL access usable directly or inside one open transaction. */
+type EmployeeDatabase = Pick<Database, "query" | "execute" | "transaction">;
+
+/** Binds every operation, nested transactions included, to one open transaction. */
+function transactionScope(transaction: DatabaseTransaction): EmployeeDatabase {
+  return {
+    query: transaction.query.bind(transaction),
+    execute: transaction.execute.bind(transaction),
+    transaction: async (operation) => operation(transaction),
+  };
+}
+
+/**
+ * The repositories of agent employees and chat contacts (PAGE-266), on one
+ * database or one open transaction.
+ */
+export class EmployeeStore {
+  private readonly database: EmployeeDatabase;
+
+  public constructor(database: EmployeeDatabase) {
+    this.database = database;
+  }
+
+  /** Runs the work in one transaction; every repository of the given store shares it. */
+  public async transaction<Result>(
+    work: (store: EmployeeStore) => Promise<Result>,
+  ): Promise<Result> {
+    return this.database.transaction((transaction) =>
+      work(new EmployeeStore(transactionScope(transaction))),
+    );
+  }
+
+  /** Model, access, documents and learning state of agents. */
+  public employees(): AgentEmployeeRepository {
+    return new AgentEmployeeRepository(this.database);
+  }
+
+  /** The archive and the versions of the memory. */
+  public memory(): AgentMemoryRepository {
+    return new AgentMemoryRepository(this.database);
+  }
+
+  /** Sessions, learning runs, refused starts and changes of agents. */
+  public activity(): AgentActivityRepository {
+    return new AgentActivityRepository(this.database);
+  }
+
+  /** Account kind, job title and person color. */
+  public identities(): AccountIdentityRepository {
+    return new AccountIdentityRepository(this.database);
+  }
+
+  /** The chat sessions of agents with people. */
+  public conversations(): AgentConversationRepository {
+    return new AgentConversationRepository(this.database);
+  }
+
+  /** The participant lists of the chat. */
+  public contacts(): ChatContactRepository {
+    return new ChatContactRepository(this.database);
+  }
+
+  /** The groups of the chat (PAGE-259). */
+  public groups(): ChatGroupRepository {
+    return new ChatGroupRepository(this.database);
+  }
+
+  /** What refers to an agent, whether it works now, and its removal (PAGE-267). */
+  public removals(): AgentEmployeeRemovalRepository {
+    return new AgentEmployeeRemovalRepository(this.database);
+  }
+
+  /** What is new for a learning run. */
+  public sources(): AgentLearningSourceRepository {
+    return new AgentLearningSourceRepository(this.database);
+  }
+}

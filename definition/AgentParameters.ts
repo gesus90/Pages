@@ -1,5 +1,5 @@
 export type AgentParameterType =
-  "text" | "number" | "ticket" | "workspace" | "wiki";
+  "text" | "number" | "ticket" | "workspace" | "wiki" | "asset";
 
 /** Reference defaults retain identifiers, never copied paths or wiki content. */
 export type AgentParameterValue =
@@ -7,7 +7,9 @@ export type AgentParameterValue =
   | { readonly type: "number"; readonly number: number }
   | { readonly type: "ticket"; readonly ticketId: string }
   | { readonly type: "workspace"; readonly workspaceId: string }
-  | { readonly type: "wiki"; readonly pageId: string };
+  | { readonly type: "wiki"; readonly pageId: string }
+  /** A plan asset (PAGE-268): its file is handed over, not its name. */
+  | { readonly type: "asset"; readonly assetId: string };
 
 /** The authorized ticket projection offered by parameter pickers. */
 export interface AgentTicketChoice {
@@ -74,6 +76,8 @@ export function hasAgentParameterValue(
       return Boolean(value.workspaceId.trim());
     case "wiki":
       return Boolean(value.pageId.trim());
+    case "asset":
+      return Boolean(value.assetId.trim());
   }
 }
 
@@ -173,7 +177,9 @@ export function agentParameterIssues(input: {
       declared.type !== entry.type &&
       !(
         entry.property === "text" &&
-        (declared.type === "number" || declared.type === "ticket")
+        (declared.type === "number" ||
+          declared.type === "ticket" ||
+          declared.type === "asset")
       )
     )
       issues.add("typeMismatch");

@@ -28,6 +28,7 @@ import type { ChatAttachmentService } from "../ChatAttachmentService";
 import type { PicaAcpJobDependencies, PicaAcpRun } from "./PicaAcpJob";
 import type { PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
+import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
 
 /** Journal entries one read returns at most. */
@@ -61,6 +62,24 @@ export interface PicaAcpRequest {
   readonly attachmentIds: unknown;
 }
 
+/**
+ * How a job of an agent employee differs from one of Pica (PAGE-266).
+ *
+ * @remarks
+ * The job runs as the agent's own account, with the runner of its stored
+ * access. Its configuration, not Pica's settings, is checked again before
+ * every turn and tool call, and Pica's switch does not admit it.
+ */
+export interface PicaAcpEmployeeRun {
+  readonly runner: PicaAcpRunner;
+  /** Fails when the agent was deactivated, changed or reached its cost limit. */
+  readonly requireCurrent: () => Promise<void>;
+  /** Fails when the connection of the job is no longer the agent's. */
+  readonly requireConnection: (connectionId: string) => Promise<void>;
+  /** Searches the agent's own memory archive. */
+  readonly searchMemory: (query: string) => Promise<unknown>;
+}
+
 /** What a new job is started from; the agent is resolved by the caller for this message. */
 export interface PicaAcpStart {
   readonly actor: User;
@@ -68,6 +87,8 @@ export interface PicaAcpStart {
   readonly agent: ResolvedAgentAssignment;
   /** Instructions and context with the transcript; a continued session leaves the transcript out. */
   readonly brief: PicaTurnBrief;
+  /** Present for a job of an agent employee instead of Pica. */
+  readonly employee?: PicaAcpEmployeeRun;
 }
 
 interface RunningJob {
@@ -147,7 +168,7 @@ export class PicaAcpService {
    */
   public async start(input: PicaAcpStart): Promise<ChatJobStart> {
     await this.ready();
-    const runner = picaAcpRunner(input.agent);
+    const runner = input.employee?.runner ?? picaAcpRunner(input.agent);
     const run: PicaAcpRun = { runner, options: runner.runOptions(input.agent) };
     const session = await this.dependencies.sessions.require(
       input.actor,
@@ -155,7 +176,10 @@ export class PicaAcpService {
     );
     const launch = (): Promise<ChatJobStart> =>
       this.gate(session.id, () => this.launch(input, session.id, run));
-    return this.dependencies.admit ? this.dependencies.admit(launch) : launch();
+    // Pica's switch admits Pica's jobs only; an agent employee has its own state.
+    return this.dependencies.admit && !input.employee
+      ? this.dependencies.admit(launch)
+      : launch();
   }
 
   /**
@@ -319,7 +343,8 @@ export class PicaAcpService {
     run: PicaAcpRun,
   ): Promise<ChatJobStart> {
     const { actor, agent } = input;
-    await this.dependencies.requireCurrent?.(actor.id, agent);
+    const dependencies = this.jobDependencies(input.employee);
+    await dependencies.requireCurrent?.(actor.id, agent);
     if (this.deleting.has(sessionId)) throw new ChatError("sessionMissing");
     if (this.running.has(sessionId))
       throw new AgentExecutionError("requestBusy");
@@ -338,7 +363,7 @@ export class PicaAcpService {
       userId: actor.id,
       messageId: message.id,
     });
-    const job = new PicaAcpJob(this.dependencies, {
+    const job = new PicaAcpJob(dependencies, {
       id,
       actor,
       sessionId,
@@ -354,6 +379,22 @@ export class PicaAcpService {
     const started = await this.dependencies.jobs.find(actor.id, id);
     if (started === null) throw new ChatError("sessionMissing");
     return { job: started, messageId: message.id };
+  }
+
+  /** The dependencies of a job: Pica's, or those bound to the configuration of an agent employee. */
+  private jobDependencies(
+    employee: PicaAcpEmployeeRun | undefined,
+  ): PicaAcpServiceDependencies {
+    if (!employee) return this.dependencies;
+    return {
+      ...this.dependencies,
+      requireCurrent: () => employee.requireCurrent(),
+      searchMemory: (query) => employee.searchMemory(query),
+      access: {
+        requireUser: (userId, connectionId) =>
+          employee.requireConnection(connectionId),
+      },
+    };
   }
 
   private register(sessionId: string, job: PicaAcpJob): void {

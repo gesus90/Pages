@@ -288,7 +288,7 @@ export function planFlowSource(
     return { kind: "result", nodeId: id };
   if (
     handle === PLAN_PORT.valueOut &&
-    ["task", "parameter", "variable"].includes(node.type)
+    ["task", "parameter", "variable", "asset"].includes(node.type)
   )
     return { kind: "source", nodeId: id };
   if (handle === PLAN_PORT.passedOut && node.type === "agent")

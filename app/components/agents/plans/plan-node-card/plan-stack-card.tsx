@@ -21,6 +21,7 @@ import { PlanCard } from "./plan-card";
 import { PlanStackEntries } from "./plan-stack-entries";
 import { PlanStackFlowRow, PlanStackOutput } from "./plan-stack-ports";
 import { PlanTicketPicker } from "./plan-ticket-picker";
+import { usePlanStackFileDrop } from "./plan-stack-file-drop";
 
 import type { AgentPlanStack } from "@/definition/AgentPlanStack";
 import type { AgentPlanStackOutcome } from "@/definition/AgentPlanStackOutcome";
@@ -208,12 +209,14 @@ export function PlanStackCard(props: {
     run: context.run,
   });
   const outcome = planStackOutcome(context.draft, context.run, stack.id);
+  const files = usePlanStackFileDrop(stack);
   function edit(): void {
     graph.select(stack.id);
     onEdit?.(stack.id);
   }
   return (
     <div
+      {...files.handlers}
       data-plan-stack={stack.id}
       className={cn(
         "w-full min-w-0 rounded-xl",
@@ -235,6 +238,7 @@ export function PlanStackCard(props: {
           <StackSummary view={view} />
           <StackOutcomeNote outcome={outcome} />
           <PlanStackEntries view={view} />
+          {files.row}
           <StackTicketAdd stack={stack} />
           <div className="flex flex-col">
             <PlanStackOutput

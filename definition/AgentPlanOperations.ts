@@ -28,6 +28,7 @@ import type {
 } from "./AgentPlanStartRejection.js";
 import type { AgentReadChunk } from "./AgentReadChunks.js";
 import type { AgentParameter, AgentParameterValue } from "./AgentParameters.js";
+import type { AgentPlanAsset, AgentPlanAssetEntry } from "./AgentPlanAsset.js";
 import type { PageAgentSharingEntry } from "./PageAgentOperations.js";
 
 /**
@@ -301,6 +302,7 @@ export interface AgentPlanStackNodeEntry extends AgentPlanNodeBase {
         readonly format: "string" | "number" | "json";
         readonly value: AgentParameterValue;
       }
+    | AgentPlanAssetEntry
   )[];
 }
 
@@ -313,6 +315,8 @@ export type AgentPlanNodeEntry =
   | AgentPlanLoopNodeEntry
   | AgentPlanStackNodeEntry
   | AgentPlanParameterNodeEntry
+  // An asset source (PAGE-268); a node without a file is a draft.
+  | (AgentPlanNodeBase & Pick<AgentPlanAsset, "type" | "name" | "file">)
   | (AgentPlanNodeBase & { readonly type: "start" | "end" | "decision" })
   | (AgentPlanNodeBase & { readonly type: "task"; readonly taskId: string })
   | (AgentPlanNodeBase & { readonly type: "variable"; readonly name: string });

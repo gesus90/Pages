@@ -9,6 +9,7 @@ import { handleUpdateDesignTheme } from "./settings-design-theme-action.server";
 import { handleSetMode } from "./settings-mode-action.server";
 import {
   handleUpdateAvatar,
+  handleUpdateColor,
   handleUpdateProfile,
 } from "./settings-profile-actions.server";
 
@@ -24,6 +25,7 @@ const SETTINGS_ACTION_HANDLERS = {
   "revoke-other-sessions": handleRevokeOtherSessions,
   "revoke-session": handleRevokeSession,
   "update-avatar": handleUpdateAvatar,
+  "update-color": handleUpdateColor,
   "update-design-theme": handleUpdateDesignTheme,
   "update-profile": handleUpdateProfile,
   "update-settings": handleUpdateSettings,

@@ -1,56 +1,54 @@
-import type { VirtualParticipantColor } from "@/definition/VirtualChat";
+import {
+  createUserColorStyle,
+  createUserTextColorStyle,
+} from "@/app/lib/user-color-style";
 
-/** Tailwind classes of one participant color in its three steps. */
-export interface ParticipantColorClasses {
-  /** The light `-subtle` step as background, for bubbles and avatars. */
-  readonly surface: string;
-  /** The full color at 30 % opacity as border. */
-  readonly border: string;
-  /** The full color as text, for names and initials. */
-  readonly text: string;
+import type { CSSProperties } from "react";
+
+/** Classes and inline style of one colored element. */
+export interface ColoredElement {
+  readonly className: string;
+  readonly style?: CSSProperties;
 }
 
-const PARTICIPANT_COLORS: Record<
-  VirtualParticipantColor,
-  ParticipantColorClasses
-> = {
-  primary: {
-    surface: "bg-primary-subtle",
-    border: "border-primary/30",
-    text: "text-primary",
-  },
-  indigo: {
-    surface: "bg-participant-indigo-subtle",
-    border: "border-participant-indigo/30",
-    text: "text-participant-indigo",
-  },
-  pink: {
-    surface: "bg-participant-pink-subtle",
-    border: "border-participant-pink/30",
-    text: "text-participant-pink",
-  },
-  teal: {
-    surface: "bg-participant-teal-subtle",
-    border: "border-participant-teal/30",
-    text: "text-participant-teal",
-  },
-  lime: {
-    surface: "bg-participant-lime-subtle",
-    border: "border-participant-lime/30",
-    text: "text-participant-lime",
-  },
+/** How a participant's color appears on the chat page. */
+export interface ParticipantColorClasses {
+  /** The answer bubble: a light tint and a border in the color. */
+  readonly bubble: ColoredElement;
+  /** The name above an answer and the initial of the avatar. */
+  readonly text: ColoredElement;
+}
+
+/** The look of a participant without a chosen color: the former primary look. */
+const DEFAULT_COLORS: ParticipantColorClasses = {
+  bubble: { className: "bg-primary-subtle border-primary/30" },
+  text: { className: "text-primary" },
 };
 
 /**
- * Resolves a participant color to its semantic token classes; the one place
- * that turns a color into classes on the chat page.
+ * Resolves a participant's person color (PAGE-266) to what the chat page
+ * draws: the one place that turns a color into classes and styles here.
  *
  * @remarks
- * Later the color comes from the person or agent; only this function then
- * learns the new source and keeps returning the same three steps.
+ * A chosen color is a user-chosen color, so it is drawn directly: as a light
+ * tint and a border of the bubble and, through the readable text class, as
+ * the name color. Without a color the page keeps its primary look.
  */
 export function participantColors(
-  color: VirtualParticipantColor,
+  color: string | null,
 ): ParticipantColorClasses {
-  return PARTICIPANT_COLORS[color];
+  if (color === null) return DEFAULT_COLORS;
+  return {
+    bubble: {
+      className: "border-transparent",
+      style: {
+        ...createUserColorStyle(color, "14"),
+        borderColor: `${color}4d`,
+      },
+    },
+    text: {
+      className: "pages-user-color-text",
+      style: createUserTextColorStyle(color),
+    },
+  };
 }

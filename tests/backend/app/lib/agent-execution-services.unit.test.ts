@@ -7,6 +7,7 @@ import { interruptedAcpOwners } from "@/backend/service/agents/AgentPlanRecovery
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
 import { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
+import { PlanAssetService } from "@/backend/service/agents/assets/PlanAssetService";
 import { resolveAgentsDirectory } from "@/backend/config/PagesConfig";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
@@ -45,6 +46,9 @@ vi.mock("@/backend/service/agents/AgentAssetService", () =>
 vi.mock("@/backend/storage/WikiFileStore", () =>
   fakeClasses({ WikiFileStore: [] }),
 );
+vi.mock("@/backend/service/agents/assets/PlanAssetService", () =>
+  fakeClasses({ PlanAssetService: [] }),
+);
 vi.mock("@/backend/config/PagesConfig", () => ({
   resolveAgentsDirectory: vi.fn(),
 }));
@@ -81,6 +85,7 @@ function agentFixture(): AgentFixture {
     acpResourceScheduler: { recover: recoverResources },
     agentToolStartupService: { start: startTools },
     agentCatalogScheduler: { start: startCatalog },
+    agentSimulation: { isActive: false },
   });
   return {
     services,
@@ -106,6 +111,7 @@ beforeEach(() => {
     partial<PagesRuntime>({
       configFile: { path: "/srv/pages/config.json" },
       getConfig: () => CONFIG,
+      getDatabaseUrl: () => null,
     }),
   );
   vi.mocked(resolveAgentsDirectory).mockReturnValue("/srv/pages/Agents");
@@ -142,20 +148,24 @@ it("reads ticket assets from tickets, the wiki and the agent asset folder", asyn
   await start();
 
   const [, , , resources] = vi.mocked(createAgentServices).mock.calls[0];
+  const [plans] = vi.mocked(PlanAssetService).mock.instances;
   const [assets] = vi.mocked(AgentAssetService).mock.instances;
   expect(resources.ticketAssets).toEqual({
     tickets: TICKETS,
     wiki: WIKI,
     assets,
+    plans,
   });
   expect(resources.ticketAssets.assets).toBe(assets);
+  expect(resources.ticketAssets.plans).toBe(plans);
   expect(vi.mocked(AgentAssetService).mock.calls[0][0]).toEqual({
     repository: vi.mocked(AgentAssetRepository).mock.instances[0],
-    files: vi.mocked(WikiFileStore).mock.instances[0],
+    files: vi.mocked(WikiFileStore).mock.instances[1],
     wiki: WIKI,
   });
   expect(vi.mocked(AgentAssetRepository).mock.calls).toEqual([[DATABASE]]);
   expect(vi.mocked(WikiFileStore).mock.calls).toEqual([
+    ["/srv/pages/data/plan-assets"],
     ["/srv/pages/data/agent-assets"],
   ]);
 });

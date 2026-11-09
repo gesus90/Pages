@@ -206,3 +206,21 @@ export const handleUpdateAvatar: SettingsActionHandler = async ({
     );
   }
 };
+
+/** Sets the person color of the own account (PAGE-266); open to every signed-in user. */
+export const handleUpdateColor: SettingsActionHandler = async ({
+  user,
+  formData,
+  services,
+}) => {
+  try {
+    await services.personColorService.setOwn(user.id, formData.get("color"));
+    return data<SettingsActionData>({ intent: "update-color", ok: true });
+  } catch (caughtError: unknown) {
+    logCaughtError("settings_profile_actions", caughtError);
+    return data<SettingsActionData>(
+      { intent: "update-color", ok: false },
+      { status: 400 },
+    );
+  }
+};

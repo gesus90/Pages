@@ -51,6 +51,32 @@ async function deleteSessionJournal(
   );
 }
 
+/** Deletes the CLI process terminals of the plan runs with their segments and inputs (PAGE-265). */
+async function deletePlanTerminals(
+  database: DatabaseTransaction,
+  parameters: { project_id: string },
+): Promise<void> {
+  for (const table of [
+    "agent_plan_terminal_segments",
+    "agent_plan_terminal_inputs",
+  ] as const)
+    await database.execute(
+      `
+        DELETE FROM ${table}
+        WHERE instance_id IN (
+            SELECT instance_id
+            FROM agent_plan_terminals
+            WHERE run_id IN (${PLAN_RUNS})
+        );
+      `,
+      parameters,
+    );
+  await database.execute(
+    `DELETE FROM agent_plan_terminals WHERE run_id IN (${PLAN_RUNS});`,
+    parameters,
+  );
+}
+
 async function deletePlanRefusals(
   database: DatabaseTransaction,
   parameters: { project_id: string },
@@ -84,6 +110,77 @@ async function requireProjectRunCloseout(
     parameters,
   );
   if (lease) throw new ProjectRunsActiveError();
+}
+
+async function deletePlanRunDetails(
+  database: DatabaseTransaction,
+  parameters: { project_id: string },
+): Promise<void> {
+  for (const table of PLAN_RUN_OWNED_TABLES) {
+    await database.execute(
+      `DELETE FROM ${table} WHERE plan_run_id IN (${PLAN_RUNS});`,
+      parameters,
+    );
+  }
+  for (const table of [
+    "agent_plan_checkpoints",
+    "agent_local_session_owners",
+    "plan_run_commands",
+    "plan_run_api_cleanup",
+    "agent_plan_loop_iterations",
+    "agent_plan_continuations",
+    "agent_plan_repair_attempts",
+    "agent_plan_recovery_executions",
+    "agent_plan_cleanup_failures",
+    "agent_workspace_cleanup",
+    "agent_plan_work",
+    "agent_plan_step_reports",
+    "pica_mobile_notification_deliveries",
+    "pica_mobile_notification_occurrences",
+    "pica_mobile_notification_sequences",
+    "pica_mobile_notification_events",
+  ] as const)
+    await database.execute(
+      `DELETE FROM ${table} WHERE run_id IN (${PLAN_RUNS});`,
+      parameters,
+    );
+  await deleteSessionJournal(database, parameters);
+  await deletePlanTerminals(database, parameters);
+  await database.execute(
+    `DELETE FROM agent_run_credentials WHERE run_id IN (${PLAN_RUNS});`,
+    parameters,
+  );
+  await database.execute(
+    `
+      DELETE FROM agent_plan_workspace_locks
+      WHERE run_id IN (${PLAN_RUNS})
+          OR workspace_id IN (${WORKSPACES});
+    `,
+    parameters,
+  );
+  await database.execute(
+    `DELETE FROM agent_plan_runs WHERE id IN (${PLAN_RUNS});`,
+    parameters,
+  );
+  await deletePlanRefusals(database, parameters);
+}
+
+async function deleteProjectImports(
+  database: DatabaseTransaction,
+  parameters: { project_id: string },
+): Promise<void> {
+  await database.execute(
+    `DELETE FROM agent_import_items WHERE run_id IN (${IMPORT_RUNS});`,
+    parameters,
+  );
+  await database.execute(
+    "DELETE FROM agent_import_runs WHERE project_id = $project_id;",
+    parameters,
+  );
+  await database.execute(
+    "DELETE FROM agent_import_sources WHERE project_id = $project_id;",
+    parameters,
+  );
 }
 
 /**
@@ -123,52 +220,11 @@ export async function deleteProjectAgentData(
     parameters,
   );
 
-  for (const table of PLAN_RUN_OWNED_TABLES) {
-    await database.execute(
-      `DELETE FROM ${table} WHERE plan_run_id IN (${PLAN_RUNS});`,
-      parameters,
-    );
-  }
-  for (const table of [
-    "agent_plan_checkpoints",
-    "agent_local_session_owners",
-    "plan_run_commands",
-    "plan_run_api_cleanup",
-    "agent_plan_loop_iterations",
-    "agent_plan_continuations",
-    "agent_plan_repair_attempts",
-    "agent_plan_recovery_executions",
-    "agent_plan_cleanup_failures",
-    "agent_workspace_cleanup",
-    "agent_plan_work",
-    "agent_plan_step_reports",
-    "pica_mobile_notification_deliveries",
-    "pica_mobile_notification_occurrences",
-    "pica_mobile_notification_sequences",
-    "pica_mobile_notification_events",
-  ] as const)
-    await database.execute(
-      `DELETE FROM ${table} WHERE run_id IN (${PLAN_RUNS});`,
-      parameters,
-    );
-  await deleteSessionJournal(database, parameters);
+  await deletePlanRunDetails(database, parameters);
   await database.execute(
-    `DELETE FROM agent_run_credentials WHERE run_id IN (${PLAN_RUNS});`,
+    "DELETE FROM agent_plan_assets WHERE project_id = $project_id;",
     parameters,
   );
-  await database.execute(
-    `
-      DELETE FROM agent_plan_workspace_locks
-      WHERE run_id IN (${PLAN_RUNS})
-          OR workspace_id IN (${WORKSPACES});
-    `,
-    parameters,
-  );
-  await database.execute(
-    `DELETE FROM agent_plan_runs WHERE id IN (${PLAN_RUNS});`,
-    parameters,
-  );
-  await deletePlanRefusals(database, parameters);
   await database.execute(
     "DELETE FROM agent_plans WHERE project_id = $project_id;",
     parameters,
@@ -187,18 +243,7 @@ export async function deleteProjectAgentData(
     "DELETE FROM remote_workspaces WHERE project_id = $project_id;",
     parameters,
   );
-  await database.execute(
-    `DELETE FROM agent_import_items WHERE run_id IN (${IMPORT_RUNS});`,
-    parameters,
-  );
-  await database.execute(
-    "DELETE FROM agent_import_runs WHERE project_id = $project_id;",
-    parameters,
-  );
-  await database.execute(
-    "DELETE FROM agent_import_sources WHERE project_id = $project_id;",
-    parameters,
-  );
+  await deleteProjectImports(database, parameters);
 
   return records.map((row) => ({
     agentId: readTextColumn(row, 0, "agent_id"),

@@ -24,6 +24,7 @@ const USER_ROW: DatabaseValue[] = [
   "#ffaa00",
   "/avatar/user-1",
   0,
+  "person",
 ];
 
 const USER = {

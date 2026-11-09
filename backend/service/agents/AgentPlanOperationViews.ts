@@ -154,7 +154,8 @@ function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
     node.type === "script" ||
     node.type === "git_closeout" ||
     node.type === "loop" ||
-    node.type === "stack"
+    node.type === "stack" ||
+    node.type === "asset"
   )
     return node.name;
   if (node.type === "parameter" || node.type === "variable") return node.name;

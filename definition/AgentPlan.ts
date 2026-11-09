@@ -46,6 +46,7 @@ import type {
   AgentPlanScriptRun,
 } from "./AgentPlanScript";
 import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
+import type { AgentPlanAsset } from "./AgentPlanAsset";
 import type { AgentPlanScriptAssessment } from "./AgentPlanScriptReport";
 import type {
   AgentPlanRecoveryReason,
@@ -145,6 +146,7 @@ export type AgentPlanNode =
   | AgentPlanDecision
   | AgentPlanStack
   | AgentPlanParameter
+  | AgentPlanAsset
   | (AgentPlanPosition & { readonly id: string; readonly type: "end" })
   | (AgentPlanPosition & {
       readonly id: string;

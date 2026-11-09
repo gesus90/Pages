@@ -57,7 +57,7 @@ function completionOf(
   const last = record.iterations.at(-1);
   // A while loop ends only through a check of its boolean.
   if (!record.count || record.count.source === "while") return null;
-  if (last && last.status !== "succeeded") return null;
+  if (last && !isSettledIteration(last)) return null;
   if (
     last &&
     record.condition?.isActive &&
@@ -65,10 +65,41 @@ function completionOf(
     last.condition.isMet
   )
     return "condition_met";
-  const completed = record.iterations.filter(
-    (iteration) => iteration.status === "succeeded",
-  ).length;
+  const completed = record.iterations.filter(isSettledIteration).length;
   return completed >= record.count.effective ? "count_reached" : null;
+}
+
+/** An iteration that completed, or whose only failure was its own stack entry's file. */
+function isSettledIteration(iteration: AgentPlanLoopIteration): boolean {
+  return iteration.status === "succeeded" || iteration.entryFailure === true;
+}
+
+/**
+ * Whether a failed iteration failed only the asset its stack handed over.
+ *
+ * @remarks
+ * Only a file entry is tolerated (PAGE-268): one damaged or refused file
+ * must not stop the other entries. Tickets and values keep ending the loop
+ * on failure, as before. A cancellation is never tolerated.
+ */
+function isAssetEntryFailure(
+  loop: AgentPlanLoop,
+  host: LoopHost,
+  number: number,
+): boolean {
+  const { plan } = host.snapshot();
+  return planLoopStacks(plan, loop.id).some((stack) => {
+    const delivery = host
+      .run()
+      .stacks?.find((entry) => entry.id === stack.id)
+      ?.deliveries.find(
+        (entry) => entry.loopId === loop.id && entry.iteration === number,
+      );
+    return (
+      stack.entries.find((entry) => entry.id === delivery?.entryId)?.type ===
+      "asset"
+    );
+  });
 }
 
 /** Why an iteration failed: its condition, else its first failed member. */
@@ -81,6 +112,24 @@ function iterationFailure(
     status: "failed",
     error: code === "plan_group_session_lost" ? "plan_loop_session_lost" : code,
     ...(failed ? { failedStepId: failed.id } : {}),
+  };
+}
+
+/**
+ * How a loop that ran all its iterations ends: a success, or a failure that
+ * names the entries whose files failed, never a success that hides them.
+ */
+function completedEnd(
+  completion: AgentPlanLoopCompletion,
+  record: AgentPlanLoopRun,
+): LoopEnd {
+  const failed = record.iterations.find((iteration) => iteration.entryFailure);
+  if (!failed) return { status: "succeeded", completion };
+  const node = failed.nodes.find((entry) => entry.status === "failed");
+  return {
+    status: "failed",
+    error: "plan_stack_entries_failed",
+    ...(node ? { failedStepId: node.id } : {}),
   };
 }
 
@@ -148,7 +197,11 @@ export class AgentPlanLoopRunner {
     for (;;) {
       const completion = completionOf(this.record(loop, host));
       if (completion)
-        return this.end(loop, host, { status: "succeeded", completion });
+        return this.end(
+          loop,
+          host,
+          completedEnd(completion, this.record(loop, host)),
+        );
       const hasDispatchedMembers =
         this.record(loop, host)
           .iterations.at(-1)
@@ -175,6 +228,19 @@ export class AgentPlanLoopRunner {
           iterationFailure(this.record(loop, host).iterations.at(-1)),
         );
     }
+  }
+
+  /** Marks a failed iteration as a failed asset entry, so the loop goes on with the next one. */
+  private async tolerate(
+    loop: AgentPlanLoop,
+    host: LoopHost,
+  ): Promise<boolean> {
+    const last = this.record(loop, host).iterations.at(-1);
+    if (!last || !isAssetEntryFailure(loop, host, last.number)) return false;
+    await host.update(loop.id, (entry) =>
+      patchIteration(entry, last.number, { entryFailure: true }),
+    );
+    return true;
   }
 
   private record(loop: AgentPlanLoop, host: LoopHost): AgentPlanLoopRun {
@@ -204,7 +270,7 @@ export class AgentPlanLoopRunner {
     if (planLoopMode(loop) !== "while") return null;
     const record = this.record(loop, host);
     const last = record.iterations.at(-1);
-    if (last && last.status !== "succeeded") return null;
+    if (last && !isSettledIteration(last)) return null;
     const verdict = checkLoopWhile(loop, host.snapshot().plan, record);
     if ("error" in verdict) return { status: "failed", error: verdict.error };
     await host.update(loop.id, (entry) => ({
@@ -223,7 +289,7 @@ export class AgentPlanLoopRunner {
   ): Promise<LoopIterationOutcome> {
     const last = this.record(loop, host).iterations.at(-1);
     let number = last?.number ?? 0;
-    if (last && last.status !== "succeeded")
+    if (last && !isSettledIteration(last))
       await host.update(loop.id, (entry) =>
         patchIteration(entry, last.number, resumedIteration(last)),
       );
@@ -249,6 +315,9 @@ export class AgentPlanLoopRunner {
     const outcome = await this.iterations.run({ loop, number, host });
     if (outcome === "succeeded") return this.complete(loop, host, number);
     await this.settle(loop, host, { number, outcome });
+    // A failed file entry is settled: the loop goes on with the next entry.
+    if (outcome === "failed" && (await this.tolerate(loop, host)))
+      return "succeeded";
     return outcome;
   }
 

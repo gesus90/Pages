@@ -64,6 +64,7 @@ export class SessionRepository {
             FROM users
             WHERE id = $user_id
                 AND is_active = 1
+                AND account_kind = 'person'
         );
       `,
       {

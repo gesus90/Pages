@@ -36,4 +36,6 @@ export interface PicaAcpJobDependencies {
   readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;
   /** Files Pica writes or returns for its answers, linked once an answer is stored (PAGE-92). */
   readonly answerFiles?: PicaAnswerFiles;
+  /** The archive search of an agent employee (PAGE-266); absent for Pica. */
+  readonly searchMemory?: (query: string) => Promise<unknown>;
 }

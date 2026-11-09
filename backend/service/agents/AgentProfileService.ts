@@ -6,6 +6,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isAgentProfilePurpose } from "@/definition/AgentProfile";
 import { matchesAgentFilters } from "@/definition/AgentFilters";
+import { agentSimulationRunner } from "@/definition/AgentSimulation";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
@@ -53,6 +54,7 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
 import type { AgentTicketParameterService } from "./AgentTicketParameterService";
 import type { PicaSettingsService } from "../chat/PicaSettingsService";
+import type { AgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 
 /** Shared persistence and live authorization boundaries of the central agent aggregate. */
 export interface ProfileDependencies {
@@ -66,6 +68,8 @@ export interface ProfileDependencies {
   readonly files?: AgentDefinitionFiles;
   readonly tickets?: Pick<AgentTicketParameterService, "choices" | "resolve">;
   readonly pica?: Pick<PicaSettingsService, "resolve">;
+  /** The agent simulation (PAGE-268); absent means the switch of this process. */
+  readonly simulation?: AgentSimulationMode;
 }
 
 /** Rechecks persisted grants at selection and execution; no admin execution bypass or fallback. */
@@ -161,6 +165,8 @@ export class AgentProfileService {
     userId: string,
     connectionId: string,
   ): Promise<void> {
+    // The simulation's connections are not stored and disclose nothing (PAGE-268).
+    if (agentSimulationRunner(connectionId) !== null) return;
     const viewer = {
       actor: await this.account(userId),
       groupIds: await this.dependencies.groups.findIdsByMember(userId),

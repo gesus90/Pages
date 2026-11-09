@@ -260,6 +260,10 @@ const FIELD_READERS: Readonly<Record<PlanNotationNodeType, FieldReader>> = {
   group: readGroup,
   loop: readLoop,
   stack: readStack,
+  asset: (attributes, context, id) => ({
+    name: nameOrId(attributes, id),
+    file: attributes.has("file") ? attributes.json("file") : null,
+  }),
   decision: (attributes) =>
     attributes.has("name") ? { name: attributes.text("name") } : {},
   variable: (attributes) => ({ name: attributes.text("name") }),

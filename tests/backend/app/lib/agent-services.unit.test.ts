@@ -455,6 +455,7 @@ it("runs plan steps over the API and over isolated CLI sessions", () => {
   expect(vi.mocked(ApiTextExecution).mock.calls[0]).toEqual([
     only(vi.mocked(AgentConnectionRepository)),
     cipher,
+    expect.any(Function),
   ]);
   expect(vi.mocked(AgentPlanExecution).mock.calls[0]).toEqual([
     only(vi.mocked(ApiTextExecution)),
@@ -475,6 +476,10 @@ it("runs plan steps over the API and over isolated CLI sessions", () => {
     tools: TOOL_MANAGER,
     resources: services.acpResourceScheduler,
     github: services.agentCliGitHubCredentials,
+    terminals: {
+      store: services.agentTerminals,
+      signals: services.agentTerminalSignals,
+    },
     units: only(vi.mocked(CliWorkerUnits)),
     isolation: {
       protectedDirectories: ["/srv/pages/data", "/srv/pages/Agents"],

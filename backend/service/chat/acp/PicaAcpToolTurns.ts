@@ -20,7 +20,7 @@ interface HumanMessage {
 export class PicaAcpToolTurns {
   private readonly dependencies: Pick<
     PicaToolsInput,
-    "tools" | "sessions" | "answerFiles" | "adminTools"
+    "tools" | "sessions" | "answerFiles" | "adminTools" | "searchMemory"
   >;
   private readonly controller = new AbortController();
   private turn = 0;
@@ -30,7 +30,7 @@ export class PicaAcpToolTurns {
   public constructor(
     dependencies: Pick<
       PicaToolsInput,
-      "tools" | "sessions" | "answerFiles" | "adminTools"
+      "tools" | "sessions" | "answerFiles" | "adminTools" | "searchMemory"
     >,
     answerRunId: (turn: number) => string,
   ) {
@@ -63,6 +63,7 @@ export class PicaAcpToolTurns {
       authorize: () => Promise.resolve(),
       answerFiles: this.dependencies.answerFiles,
       adminTools: this.dependencies.adminTools,
+      searchMemory: this.dependencies.searchMemory,
     }).describe({ includeAdministrator: await this.isAdministrator(userId) });
   }
 
@@ -156,6 +157,9 @@ export class PicaAcpToolTurns {
         onLimit: () => this.controller.abort("stepLimit"),
         ...(this.dependencies.answerFiles
           ? { answerFiles: this.dependencies.answerFiles }
+          : {}),
+        ...(this.dependencies.searchMemory
+          ? { searchMemory: this.dependencies.searchMemory }
           : {}),
       },
       state,

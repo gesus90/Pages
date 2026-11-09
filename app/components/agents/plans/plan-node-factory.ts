@@ -6,6 +6,7 @@ import {
 import { emptyPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 import { emptyPlanStack } from "@/definition/AgentPlanStack";
+import { emptyPlanAsset } from "@/definition/AgentPlanAsset";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 import type {
   AgentPlanInput,
@@ -77,12 +78,8 @@ export function createPlanNode(input: {
     x: boundedPlanCoordinate(position.x),
     y: boundedPlanCoordinate(position.y),
   };
-  if (kind === "start" || kind === "end") return { ...base, type: kind };
-  if (kind === "loop") return emptyPlanLoop(base.id, reference, base);
-  if (kind === "decision") return emptyPlanDecision(base.id, base);
-  if (kind === "stack") return emptyPlanStack(base.id, reference, base);
-  if (kind === "git_closeout")
-    return emptyPlanGitCloseout(base.id, reference, base);
+  const container = containerNode(kind, reference, base);
+  if (container) return container;
   if (kind === "group")
     return {
       ...base,
@@ -108,6 +105,22 @@ export function createPlanNode(input: {
     };
   return Object.hasOwn(draft.globals, reference)
     ? { ...base, type: "variable", name: reference }
+    : null;
+}
+
+/** The nodes that need nothing but a name: endpoints, loops, decisions, stacks, assets and closeouts. */
+function containerNode(
+  kind: PlanReferenceKind,
+  reference: string,
+  base: AgentPlanPosition & { readonly id: string },
+): AgentPlanNode | null {
+  if (kind === "start" || kind === "end") return { ...base, type: kind };
+  if (kind === "loop") return emptyPlanLoop(base.id, reference, base);
+  if (kind === "decision") return emptyPlanDecision(base.id, base);
+  if (kind === "stack") return emptyPlanStack(base.id, reference, base);
+  if (kind === "asset") return emptyPlanAsset(base.id, reference, base);
+  return kind === "git_closeout"
+    ? emptyPlanGitCloseout(base.id, reference, base)
     : null;
 }
 

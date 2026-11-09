@@ -57,7 +57,22 @@ export function isEmptyPlanValue(value: AgentParameterValue): boolean {
       return value.workspaceId === "";
     case "wiki":
       return value.pageId === "";
+    case "asset":
+      return value.assetId === "";
   }
+}
+
+/** The name of a plan asset the draft names, in an asset node or a stack entry. */
+function planAssetName(assetId: string, draft: AgentPlanInput): string | null {
+  for (const node of draft.nodes) {
+    if (node.type === "asset" && node.file?.assetId === assetId)
+      return node.file.fileName;
+    if (node.type !== "stack") continue;
+    for (const entry of node.entries)
+      if (entry.type === "asset" && entry.file.assetId === assetId)
+        return entry.file.fileName;
+  }
+  return null;
 }
 
 /**
@@ -78,6 +93,11 @@ export function planValuePreview(
       return String(value.number);
     case "wiki":
       return value.pageId;
+    case "asset":
+      return (
+        planAssetName(value.assetId, context.draft) ??
+        context.translate("plans.asset.unavailable")
+      );
     case "ticket": {
       const task = context.sources.tasks.find(
         (entry) => entry.id === value.ticketId,
@@ -130,6 +150,8 @@ export function planBindingPreview(
       { type: "ticket", ticketId: source.taskId },
       context,
     );
+  if (source?.type === "asset")
+    return source.file?.fileName ?? translate("plans.asset.noFile");
   if (source) return planNodeLabel(source, sources);
   const port = draft.nodes
     .flatMap((node) => (node.type === "group" ? node.parameters : []))

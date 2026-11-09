@@ -35,7 +35,7 @@ const REFUSED = {
 };
 
 it("refuses every unmanaged permission request in a Claude conversation", () => {
-  const profile = claudeAcpProfile("yolo", "chat");
+  const profile = claudeAcpProfile("read_only", "chat");
 
   expect(
     profile.decide(claudeRequest("mcp__pages__read_wiki", "pages")),
@@ -45,6 +45,11 @@ it("refuses every unmanaged permission request in a Claude conversation", () => 
   expect(
     profile.decide(claudeRequest("mcp__pages__read_wiki", "other")),
   ).toEqual(REFUSED);
+});
+
+it("approves requests for a Claude full access employee conversation", () => {
+  const profile = claudeAcpProfile("yolo", "chat");
+  expect(profile.decide(claudeRequest("Bash", "none"))).toEqual(APPROVED);
 });
 
 it("approves any request of a Claude YOLO node", () => {

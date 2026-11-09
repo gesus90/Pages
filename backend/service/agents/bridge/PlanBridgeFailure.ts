@@ -148,6 +148,8 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   stackOrder: true,
   stackEntries: true,
   stackRemote: true,
+  assetFile: true,
+  assetUnreadable: true,
   loopWhile: true,
   loopNested: true,
   unsupportedRunNotes: true,

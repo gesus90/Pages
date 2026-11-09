@@ -345,6 +345,24 @@ export const AGENT_ERROR_MESSAGES = {
     "Ticket assets exceed the 10 MiB transmission limit. No files were truncated or omitted.",
   parameter_ticket_changed:
     "The ticket asset references changed before transmission. Start the run again to use the current assets.",
+  plan_asset_missing:
+    "The plan asset does not exist or is not accessible to you. No file content was disclosed.",
+  plan_asset_unreadable:
+    "The file of the plan asset cannot be read: it is missing, incomplete or damaged. It was not handed over.",
+  plan_asset_invalid: "The file is empty or its name is not valid.",
+  plan_asset_too_large: "The file exceeds the upload or handover limit.",
+  plan_asset_changed:
+    "The content of the plan asset changed since it was chosen. Choose the file again; nothing was handed over.",
+  plan_asset_file_missing:
+    "The asset node has no file. Drop or choose a file before the run starts.",
+  plan_asset_runner_denied:
+    "Pages refused the runner's reference to the file. The runner did not receive the file.",
+  plan_simulation_external_blocked:
+    "The agent simulation is active: Pages sends no request to a model provider. Choose the model Simulation or switch the simulation off.",
+  plan_simulation_item_failed:
+    "Simulation scenario item_failed: this entry fails on purpose because its name begins with defekt.",
+  plan_stack_entries_failed:
+    "At least one stack entry failed. The other entries were processed; each error stays with its entry.",
   parameter_required: "Supply every required parameter.",
   parameter_reference_unavailable:
     "The parameter reference is unavailable or not accessible.",

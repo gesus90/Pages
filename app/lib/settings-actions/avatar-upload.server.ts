@@ -23,6 +23,36 @@ function sanitizeFilename(name: string): string {
 }
 
 /**
+ * Validates the bytes of an avatar image with the limits of profile images.
+ *
+ * @param image - The bytes, the announced type and the original file name.
+ * @returns The validated image, or `invalid` for a wrong type, size or content.
+ */
+export function validateAvatarImage(image: {
+  readonly data: Buffer;
+  readonly mimeType: string;
+  readonly filename: string;
+}): AvatarUploadResult {
+  if (
+    image.data.length === 0 ||
+    image.data.length > MAXIMUM_AVATAR_BYTES ||
+    !SUPPORTED_AVATAR_MIME_TYPES.has(image.mimeType) ||
+    !hasImageSignature(image.data, image.mimeType)
+  ) {
+    return { status: "invalid" };
+  }
+
+  return {
+    avatar: {
+      data: image.data,
+      filename: sanitizeFilename(image.filename) || "avatar",
+      mimeType: image.mimeType,
+    },
+    status: "ready",
+  };
+}
+
+/**
  * Validates an uploaded avatar file without persisting it.
  *
  * @param value - Raw form value submitted as the avatar.
@@ -42,18 +72,9 @@ export async function parseAvatarUpload(
     return { status: "invalid" };
   }
 
-  const buffer = Buffer.from(await value.arrayBuffer());
-
-  if (!hasImageSignature(buffer, value.type)) {
-    return { status: "invalid" };
-  }
-
-  return {
-    avatar: {
-      data: buffer,
-      filename: sanitizeFilename(value.name) || "avatar",
-      mimeType: value.type,
-    },
-    status: "ready",
-  };
+  return validateAvatarImage({
+    data: Buffer.from(await value.arrayBuffer()),
+    mimeType: value.type,
+    filename: value.name,
+  });
 }

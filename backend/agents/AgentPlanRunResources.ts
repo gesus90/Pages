@@ -35,7 +35,8 @@ export function readStoredTicketAsset(reference: unknown): AgentTicketAsset {
   if (
     asset.source !== "ticket" &&
     asset.source !== "wiki" &&
-    asset.source !== "agent"
+    asset.source !== "agent" &&
+    asset.source !== "plan"
   )
     throw new Error("Invalid stored ticket asset source");
   return {
@@ -207,7 +208,8 @@ function addRemoteResources(
       if (
         asset.source !== "ticket" &&
         asset.source !== "wiki" &&
-        asset.source !== "agent"
+        asset.source !== "agent" &&
+        asset.source !== "plan"
       )
         throw new Error("Invalid remote asset");
       references.ticketAssets.set(`${asset.source}:${readPlanText(asset.id)}`, {

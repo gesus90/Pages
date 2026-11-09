@@ -104,6 +104,7 @@ export type SettingsActionData =
       readonly ok: false;
       readonly error: "invalidSetting" | "credentialsInText" | "general";
     }
+  | { readonly intent: "update-color"; readonly ok: boolean }
   | { readonly intent: "remove-logo"; readonly ok: true }
   | { readonly intent: "remove-logo"; readonly ok: false }
   | { readonly intent: "revoke-other-sessions" }

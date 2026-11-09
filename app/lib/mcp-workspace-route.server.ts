@@ -16,7 +16,7 @@ import type { McpWorkspaceActor } from "@/backend/service/mcp/workspace/McpWorks
 const MAXIMUM_BODY_CHARACTERS = 50_000;
 
 /** A character takes at most four bytes of UTF-8, so a larger body cannot hold that few characters. */
-const MAXIMUM_BODY_BYTES = MAXIMUM_BODY_CHARACTERS * 4;
+const BYTES_PER_CHARACTER = 4;
 
 /** The methods the workspace API serves. */
 type McpWorkspaceMethod = "GET" | "POST" | "PATCH";
@@ -118,9 +118,12 @@ export async function runMcpWorkspaceRoute(
 }
 
 /** Reads a request body as text, refusing more than the limit while it arrives. */
-async function readLimitedText(request: Request): Promise<string> {
+async function readLimitedText(
+  request: Request,
+  maximumBytes: number,
+): Promise<string> {
   const announced = Number(request.headers.get("content-length"));
-  if (Number.isFinite(announced) && announced > MAXIMUM_BODY_BYTES)
+  if (Number.isFinite(announced) && announced > maximumBytes)
     throw new McpWorkspaceError("invalid_request");
   if (!request.body) return "";
   const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -131,7 +134,7 @@ async function readLimitedText(request: Request): Promise<string> {
     const { done, value } = await reader.read();
     if (done) break;
     received += value.byteLength;
-    if (received > MAXIMUM_BODY_BYTES) {
+    if (received > maximumBytes) {
       await reader.cancel();
       throw new McpWorkspaceError("invalid_request");
     }
@@ -142,15 +145,21 @@ async function readLimitedText(request: Request): Promise<string> {
 }
 
 /** Reads the text of a body; every failure to read it is an invalid request, without its cause. */
-async function readBodyText(request: Request): Promise<string> {
+async function readBodyText(
+  request: Request,
+  maximumCharacters: number,
+): Promise<string> {
   let text: string;
   try {
-    text = await readLimitedText(request);
+    text = await readLimitedText(
+      request,
+      maximumCharacters * BYTES_PER_CHARACTER,
+    );
   } catch (error: unknown) {
     if (error instanceof McpWorkspaceError) throw error;
     throw new McpWorkspaceError("invalid_request");
   }
-  if (text.length > MAXIMUM_BODY_CHARACTERS)
+  if (text.length > maximumCharacters)
     throw new McpWorkspaceError("invalid_request");
   return text;
 }
@@ -159,9 +168,12 @@ async function readBodyText(request: Request): Promise<string> {
  * Reads the JSON object of a workspace request.
  *
  * @param request - The request with `Content-Type: application/json`.
+ * @param maximumCharacters - The longest body the resource takes; 50,000
+ * characters for the workspace API, more for the agent API with its
+ * documents and images (PAGE-267).
  * @returns The object, its fields still untrusted; an empty body counts as `{}`.
  * @throws {McpWorkspaceError} `invalid_request` for another content type, a body
- * above 50,000 characters, malformed JSON or anything but an object.
+ * above the limit, malformed JSON or anything but an object.
  *
  * @remarks
  * A syntax error is replaced and not logged: the message of the parser can
@@ -169,8 +181,9 @@ async function readBodyText(request: Request): Promise<string> {
  */
 export async function readMcpWorkspaceBody(
   request: Request,
+  maximumCharacters = MAXIMUM_BODY_CHARACTERS,
 ): Promise<Readonly<Record<string, unknown>>> {
-  const text = await readBodyText(request);
+  const text = await readBodyText(request, maximumCharacters);
   if (text.trim() === "") return {};
   if (!request.headers.get("content-type")?.startsWith("application/json"))
     throw new McpWorkspaceError("invalid_request");

@@ -20,6 +20,46 @@ function conversationKey(opened: OpenedConversation): string {
     : `participant:${opened.participant.id}`;
 }
 
+/** The input at the foot, or why nothing can be sent to the opened participant. */
+function ConversationFoot({
+  page,
+  opened,
+}: {
+  readonly page: ChatPageState;
+  readonly opened: OpenedConversation;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const name = conversationName(opened);
+  const isGroup = opened.kind === "group";
+  if (opened.kind === "participant" && !opened.participant.canChat)
+    return (
+      <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
+        {opened.participant.kind === "agent"
+          ? t("chatPage.agentInactive", { name })
+          : t("chatPage.personNotYet", { name })}
+      </p>
+    );
+  return (
+    <div className="flex shrink-0 flex-col gap-2">
+      {page.sendFailure ? (
+        <p className="mr-22 text-sm text-destructive" role="alert">
+          {t(`chatPage.sendFailure.${page.sendFailure}`, { name })}
+        </p>
+      ) : null}
+      <ChatPageComposer
+        key={conversationKey(opened)}
+        label={t("chatPage.inputLabel", { name })}
+        placeholder={
+          isGroup
+            ? t("chatPage.groupPlaceholder", { name })
+            : t("chatPage.participantPlaceholder", { name })
+        }
+        onSend={page.send}
+      />
+    </div>
+  );
+}
+
 /** The opened conversation directly on the page background, without card. */
 function ChatPageConversation({
   page,
@@ -35,42 +75,41 @@ function ChatPageConversation({
       </p>
     );
   const name = conversationName(opened);
-  const isGroup = opened.kind === "group";
   return (
     <section
       aria-label={name}
       className="flex min-h-0 min-w-0 flex-1 flex-col gap-4"
     >
-      <ChatPageHeader opened={opened} />
+      <ChatPageHeader
+        opened={opened}
+        participants={page.allParticipants}
+        isAnswering={page.isAnswering}
+        onStop={page.stop}
+        onAddMember={page.addMember}
+      />
       <ChatPageHistory
         messages={page.messages}
         name={name}
-        isGroup={isGroup}
         findParticipant={page.findParticipant}
+        isAnswering={page.isAnswering}
       />
-      <ChatPageComposer
-        key={conversationKey(opened)}
-        label={t("chatPage.inputLabel", { name })}
-        placeholder={
-          isGroup
-            ? t("chatPage.groupPlaceholder", { name })
-            : t("chatPage.participantPlaceholder", { name })
-        }
-        onSend={page.send}
-      />
+      <ConversationFoot page={page} opened={opened} />
     </section>
   );
 }
 
 /**
- * The chat page with virtual participants and groups (PAGE-254).
+ * The chat page with people, agents and groups (PAGE-254, PAGE-266,
+ * PAGE-259).
  *
  * @remarks
  * Two columns 32 px apart down to the foot of the page: the list card of 340
- * px with its own scroll area, and the chat without card or background.
+ * px with a scroll area for each list, and the chat without card or
+ * background.
  * Below `lg` the list stands above the chat; below `md` a selection replaces
- * it. The page only shows the interface: without stored data the directory
- * is empty, and sent messages stay local.
+ * it. Messages go to active agents, which answer over ACP; a message to a
+ * group stays in this visit. The list holds only existing people and agents
+ * the person chose, and groups of them.
  */
 export function ChatPage({
   directory,

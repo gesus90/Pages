@@ -6,6 +6,12 @@ import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/Ag
 import { interruptedAcpOwners } from "@/backend/service/agents/AgentPlanRecovery";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
 import { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
+import { AgentPlanAssetRepository } from "@/backend/database/repositories/agents/AgentPlanAssetRepository";
+import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
+import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
+import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
+import { AgentContentAccess } from "@/backend/service/agents/AgentContentAccess";
+import { PlanAssetService } from "@/backend/service/agents/assets/PlanAssetService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { resolveAgentsDirectory } from "@/backend/config/PagesConfig";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
@@ -31,18 +37,45 @@ export async function startExecutionServices(
 ): Promise<{
   readonly agentServices: AgentApplicationServices;
 }> {
+  const planAssets = createPlanAssets(database, databasePath, context.wiki);
   const agentServices = await startAgents(
     database,
     databasePath,
     context.tokenKey,
-    ticketAssetDependencies(
-      database,
-      databasePath,
-      context.tickets,
-      context.wiki,
-    ),
+    {
+      ...ticketAssetDependencies(
+        database,
+        databasePath,
+        context.tickets,
+        context.wiki,
+      ),
+      plans: planAssets,
+    },
   );
   return { agentServices };
+}
+
+/** The files of asset nodes lie beside the other agent files, under the plan's project rights. */
+function createPlanAssets(
+  database: Database,
+  databasePath: string,
+  wiki: WikiService,
+): PlanAssetService {
+  return new PlanAssetService({
+    repository: new AgentPlanAssetRepository(database),
+    files: new WikiFileStore(
+      path.join(path.dirname(databasePath), "plan-assets"),
+    ),
+    authorization: new AuthorizationRepository(database),
+    content: new AgentContentAccess(
+      new ProjectRepository(database),
+      new WikiRepository(database),
+    ),
+    uploadLimit: async () => {
+      const settings = await wiki.getSettings();
+      return Math.max(settings.mediaLimitBytes, settings.fileLimitBytes);
+    },
+  });
 }
 
 function ticketAssetDependencies(
@@ -115,7 +148,9 @@ async function startAgents(
       "[pages] Agent tool startup checks could not finish; other Pages functions remain available.",
     );
   });
-  services.agentCatalogScheduler.start();
+  // The simulation contacts no model provider, not even for catalogs.
+  if (!services.agentSimulation?.isActive)
+    services.agentCatalogScheduler.start();
   return services;
 }
 

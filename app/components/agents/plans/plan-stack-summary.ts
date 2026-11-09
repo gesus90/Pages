@@ -62,6 +62,7 @@ export function planStackEntryLabel(
       { id: entry.id, type: "task", taskId: entry.taskId, x: 0, y: 0 },
       context.sources,
     );
+  if (entry.type === "asset") return entry.file.fileName;
   return `${entry.name} = ${planValuePreview(entry.value, context)}`;
 }
 

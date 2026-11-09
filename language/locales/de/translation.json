@@ -503,7 +503,8 @@
         "lastAdministrator": "Dem letzten aktiven Administrator kann die Administratorrolle nicht entzogen werden.",
         "general": "Das Profil konnte nicht gespeichert werden."
       },
-      "adminModeHint": "Zum Bearbeiten wechseln Sie oben in den Admin-Modus."
+      "adminModeHint": "Zum Bearbeiten wechseln Sie oben in den Admin-Modus.",
+      "color": "Farbe"
     },
     "notifications": {
       "title": "Benachrichtigungen",
@@ -914,7 +915,17 @@
         "plan_loop_while_type": "Der Wert am Pfad der While-Bedingung ist kein Boolean. Pages wandelt Typen nie um und liest ihn nie als false.",
         "plan_loop_while_limit": "Die While-Loop erreichte 999 Durchläufe, ohne dass ihre Bedingung false wurde.",
         "plan_stack_invalid": "Stack prüfen: Name und Einträge. Ein Eintrag ist ein Ticket oder ein benannter Wert, jeweils höchstens einmal.",
-        "plan_stack_content_missing": "Die Node liest den Inhalt eines Stacks, aber der neueste Trigger übergab keinen Eintrag. Ein früherer Eintrag wird nie erneut übergeben."
+        "plan_stack_content_missing": "Die Node liest den Inhalt eines Stacks, aber der neueste Trigger übergab keinen Eintrag. Ein früherer Eintrag wird nie erneut übergeben.",
+        "plan_asset_missing": "Das Asset existiert nicht oder ist für dich nicht zugänglich. Es wurde kein Dateiinhalt offengelegt.",
+        "plan_asset_unreadable": "Die Datei des Assets ist nicht lesbar: Sie fehlt, ist unvollständig oder beschädigt. Sie wurde nicht übergeben.",
+        "plan_asset_invalid": "Die Datei ist leer oder ihr Name ist ungültig.",
+        "plan_asset_too_large": "Die Datei überschreitet die Grenze für Upload oder Übergabe.",
+        "plan_asset_changed": "Der Inhalt des Assets hat sich seit der Auswahl geändert. Wähle die Datei erneut; es wurde nichts übergeben.",
+        "plan_asset_file_missing": "Der Asset-Node hat keine Datei. Lege vor dem Lauf eine Datei ab oder wähle eine aus.",
+        "plan_asset_runner_denied": "Pages hat die Referenz des Runners auf die Datei abgelehnt. Der Runner hat die Datei nicht erhalten.",
+        "plan_simulation_external_blocked": "Die Agent-Simulation ist aktiv: Pages sendet keine Anfrage an einen Modellanbieter. Wähle das Modell „Simulation“ oder schalte die Simulation aus.",
+        "plan_simulation_item_failed": "Simulationsszenario item_failed: Dieser Eintrag schlägt absichtlich fehl, weil sein Name mit „defekt“ beginnt.",
+        "plan_stack_entries_failed": "Mindestens ein Stack-Eintrag ist fehlgeschlagen. Die übrigen Einträge wurden verarbeitet; jeder Fehler steht beim Eintrag."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -1226,7 +1237,8 @@
           "workspace": "Arbeitsbereich-Referenz",
           "wiki": "Wiki-Seitenreferenz",
           "number": "Zahl",
-          "ticket": "Ticket"
+          "ticket": "Ticket",
+          "asset": "Datei (Asset)"
         },
         "issue": {
           "syntax": "ungültige Syntax",
@@ -1538,7 +1550,8 @@
   "users": {
     "fields": {
       "firstName": "Vorname",
-      "lastName": "Nachname"
+      "lastName": "Nachname",
+      "color": "Farbe"
     },
     "noRoles": "Noch keine Rollen angelegt.",
     "noDepartments": "Noch keine Abteilungen verfügbar.",
@@ -1546,7 +1559,8 @@
       "users": "Benutzer",
       "roles": "Rollen",
       "departments": "Abteilungen",
-      "groups": "Gruppen"
+      "groups": "Gruppen",
+      "agents": "Agents"
     },
     "access": {
       "memberships": "Abteilungen zuordnen",
@@ -1681,7 +1695,10 @@
       "lastMembership": "Die letzte Abteilungsmitgliedschaft darf nicht direkt entfernt werden.",
       "lastAdministrator": "Der letzte aktive Administrator kann nicht deaktiviert werden.",
       "demoteLastAdministrator": "Dem letzten aktiven Administrator kann die Administratorrolle nicht entzogen werden.",
-      "userNotFound": "Dieser Benutzer wurde nicht gefunden."
+      "userNotFound": "Dieser Benutzer wurde nicht gefunden.",
+      "conflict": "Der Agent wurde inzwischen geändert. Bitte neu öffnen.",
+      "modelNotAllowed": "Dieses Modell ist für Agents nicht zulässig.",
+      "accessUnsupported": "Vollzugriff ist mit diesem Anbieter nicht verfügbar."
     },
     "saved": "Gespeichert",
     "discardChanges": "Ungespeicherte Änderungen verwerfen?",
@@ -3614,7 +3631,7 @@
   },
   "chatPage": {
     "title": "Chat",
-    "subtitle": "Virtuelle Teilnehmer mit festen Aufgaben, einzeln oder in Gruppen.",
+    "subtitle": "Personen und Agents, einzeln oder in Gruppen.",
     "listLabel": "Gruppen und Teilnehmer",
     "search": "Suchen",
     "searchLabel": "Gruppen und Teilnehmer durchsuchen",
@@ -3630,13 +3647,10 @@
     },
     "newGroup": "Neue Gruppe",
     "newGroupHint": "Teilnehmer zusammenstellen",
-    "newParticipant": "Neuer Teilnehmer",
-    "newParticipantHint": "Rolle und Aufgabe festlegen",
     "selectLabel": "Gruppe oder Teilnehmer wählen",
     "groupOption": "Gruppe",
     "nothingSelected": "Wähle eine Gruppe oder einen Teilnehmer.",
     "groupSubtitle": "Gruppe · {{description}}",
-    "task": "Aufgabe:",
     "members": "Mitglieder",
     "addMember": "Teilnehmer hinzufügen",
     "history": "Verlauf mit {{name}}",
@@ -3651,28 +3665,57 @@
     "comingSoon": "Kommt bald",
     "cancel": "Abbrechen",
     "create": "Erstellen",
-    "participantDialog": {
-      "title": "Neuer Teilnehmer",
-      "description": "Ein Teilnehmer ist ein Agent mit fester Rolle und Aufgabe."
-    },
     "groupDialog": {
       "title": "Neue Gruppe",
-      "description": "Eine Gruppe stellt Teilnehmer zu einem gemeinsamen Verlauf zusammen."
+      "description": "Eine Gruppe stellt Teilnehmer aus deiner Liste zu einem gemeinsamen Verlauf zusammen.",
+      "noParticipants": "Füge zuerst über „Teilnehmer hinzufügen“ Personen oder Agents zu deiner Liste hinzu.",
+      "problem": {
+        "nameMissing": "Gib der Gruppe einen Namen.",
+        "membersMissing": "Wähle mindestens einen Teilnehmer.",
+        "failed": "Die Gruppe konnte nicht gespeichert werden."
+      }
     },
     "fields": {
       "name": "Name",
-      "role": "Rolle",
-      "task": "Aufgabe",
-      "model": "Modell",
-      "reasoning": "Reasoning",
-      "tools": "Werkzeuge",
       "description": "Beschreibung",
       "members": "Teilnehmer"
     },
-    "reasoning": {
-      "low": "Niedrig",
-      "medium": "Mittel",
-      "high": "Hoch"
+    "addParticipant": "Teilnehmer hinzufügen",
+    "addParticipantHint": "Personen und Agents auswählen",
+    "agentInactive": "{{name}} ist deaktiviert und nimmt keine Nachrichten an.",
+    "personNotYet": "Nachrichten an Personen sind hier noch nicht möglich. Schreibe {{name}} über Tickets oder das Wiki.",
+    "answering": "{{name}} antwortet …",
+    "stop": "Stoppen",
+    "kind": {
+      "human": "Person",
+      "agent": "Agent"
+    },
+    "sendFailure": {
+      "costLimitReached": "{{name}} hat das Kostenlimit erreicht und startet keine neue Sitzung.",
+      "inactive": "{{name}} ist deaktiviert.",
+      "busy": "{{name}} arbeitet gerade an einer anderen Sitzung. Versuch es gleich noch einmal.",
+      "unavailable": "{{name}} kann gerade nicht antworten: Modell oder Verbindung ist nicht verfügbar.",
+      "invalidInput": "Die Nachricht konnte nicht gesendet werden."
+    },
+    "contacts": {
+      "title": "Teilnehmer hinzufügen",
+      "description": "Wähle die Personen und Agents, denen du schreiben möchtest. Abgewählte verschwinden nur aus deiner Liste.",
+      "search": "Personen und Agents suchen …",
+      "people": "Personen",
+      "agents": "Agents",
+      "inactive": "Deaktiviert",
+      "newAgentsBefore": "Neue Agents legst du in der",
+      "newAgentsLink": "Benutzerverwaltung",
+      "newAgentsAfter": "an.",
+      "save": "Speichern",
+      "failed": "Die Liste konnte nicht gespeichert werden."
+    },
+    "username": "@{{username}}",
+    "memberDialog": {
+      "title": "Teilnehmer zu {{name}} hinzufügen",
+      "description": "Wähle einen Teilnehmer aus deiner Liste. Er wird sofort Mitglied der Gruppe.",
+      "search": "Teilnehmer suchen …",
+      "allMembers": "Alle deine Teilnehmer sind schon Mitglied dieser Gruppe."
     }
   },
   "workspaces": {
@@ -4241,7 +4284,8 @@
       "group": "Gruppe",
       "loop": "Loop",
       "decision": "Decision",
-      "stack": "Stack"
+      "stack": "Stack",
+      "asset": "Asset"
     },
     "status": {
       "waiting": "Wartet",
@@ -4328,7 +4372,9 @@
       "stackEntries": "Einträge des Stacks prüfen: jeder ist ein Ticket oder ein gültiger benannter Wert, höchstens einmal.",
       "stackRemote": "Eine Node auf einem Remote-Ziel kann keinen Stack lesen.",
       "loopWhile": "Die While-Loop braucht einen booleschen Parameter mit genau true oder false; spätere Prüfungen brauchen ein Mitglied der Loop und einen gültigen Pfad.",
-      "loopNested": "Eine Loop enthält Agenten, Scripts und Groups von Agenten, aber keine Loop."
+      "loopNested": "Eine Loop enthält Agenten, Scripts und Groups von Agenten, aber keine Loop.",
+      "assetFile": "Dieser Asset-Node hat keine Datei. Lege eine Datei ab oder wähle eine aus; ohne sie gibt es keine Eingabe.",
+      "assetUnreadable": "Die Datei dieses Asset-Nodes ist nicht lesbar oder nicht zugänglich. Der Lauf startet nicht, weil es ohne sie keine Eingabe gibt."
     },
     "session": {
       "runner": {
@@ -4956,7 +5002,8 @@
         "group": "Groups",
         "loop": "Loop",
         "decision": "Decision",
-        "stack": "Stack"
+        "stack": "Stack",
+        "asset": "Asset"
       },
       "hint": {
         "start": "Beginn eines Ablaufs hinzufügen.",
@@ -4969,7 +5016,8 @@
         "group": "Agents in einer gemeinsamen ACP-Gruppe organisieren.",
         "loop": "Agents und Scripts als Untergraph wiederholen, mit eigener Session je Agent.",
         "decision": "Eine Verzweigung hinzufügen: Das Boolean-Ergebnis eines Agents entscheidet, welcher Zweig weiterläuft.",
-        "stack": "Geordnete Tickets oder Werte; jeder Trigger übergibt den nächsten Eintrag"
+        "stack": "Geordnete Tickets oder Werte; jeder Trigger übergibt den nächsten Eintrag",
+        "asset": "Eine Datei als Quelle: Bild, Video, Dokument, Audio oder eine andere Datei."
       },
       "addTitle": "{{type}} hinzufügen",
       "add": "Hinzufügen",
@@ -5881,6 +5929,58 @@
       "noModels": "Für dieses Ausführungsziel ist kein Modell freigegeben.",
       "catalog": {
         "failed": "Ein Modellkatalog konnte zuletzt nicht aktualisiert werden. Angezeigt wird der zuletzt geladene Stand."
+      },
+      "simulation": "Simulation",
+      "simulationContext": "Entwicklung · kein Modellanbieter"
+    },
+    "asset": {
+      "defaultName": "Asset",
+      "caption": "Daten · Asset",
+      "dataOut": "Daten OUT",
+      "dropHere": "Datei hier loslassen",
+      "dropOrChoose": "Datei ablegen",
+      "or": "oder",
+      "choose": "Datei auswählen",
+      "uploading": "{{name}} wird hochgeladen",
+      "uploaded": "{{sent}} von {{size}}",
+      "uploadingShare": "{{name}} · {{percent}} %",
+      "uploadFailed": "Upload fehlgeschlagen",
+      "noPreview": "Keine Vorschau verfügbar",
+      "checking": "Datei wird geprüft …",
+      "access": {
+        "missing": "Kein Zugriff auf diese Datei",
+        "unreadable": "Datei nicht lesbar",
+        "changed": "Datei wurde verändert"
+      },
+      "blocksRun": "Der Run startet mit dieser Quelle nicht.",
+      "kind": {
+        "image": "Bild",
+        "video": "Video",
+        "audio": "Audio",
+        "document": "Dokument",
+        "archive": "Archiv",
+        "other": "Datei"
+      },
+      "pages_one": "{{count}} Seite",
+      "pages_other": "{{count}} Seiten",
+      "startsOnClick": "startet erst auf Klick",
+      "notExecuted": "Datei wird nicht ausgeführt",
+      "play": "Abspielen",
+      "stackDrop": "Dateien ablegen oder auswählen",
+      "current": "Aktuell: {{name}}",
+      "taskUnchanged": "Aufgabe · bleibt gleich",
+      "noFile": "Asset ohne Datei",
+      "unavailable": "Datei nicht verfügbar"
+    },
+    "entryResults": {
+      "title": "Ergebnisse pro Eintrag",
+      "failed": "Fehlgeschlagen",
+      "producing": "wird erzeugt …",
+      "state": {
+        "waiting": "Wartet",
+        "running": "In Bearbeitung",
+        "done": "Fertig",
+        "failed": "Fehlgeschlagen"
       }
     }
   },
@@ -6247,6 +6347,175 @@
       "noShare": "Google meldet kein Limit; Prozent und freier Speicher entfallen.",
       "poolHint": "Bei Google Workspace kann das Limit ein gemeinsamer Speicherpool der Organisation sein; Prozent und freier Speicher werden daher nicht berechnet.",
       "barLabel": "Belegter Anteil des Google-Kontospeichers"
+    }
+  },
+  "personColor": {
+    "none": "Keine Farbe",
+    "names": {
+      "orange": "Orange",
+      "red": "Rot",
+      "pink": "Pink",
+      "purple": "Lila",
+      "indigo": "Indigo",
+      "blue": "Blau",
+      "cyan": "Cyan",
+      "teal": "Petrol",
+      "green": "Grün",
+      "lime": "Limette",
+      "yellow": "Gelb",
+      "gray": "Grau"
+    }
+  },
+  "agentEmployees": {
+    "search": "Agents suchen …",
+    "create": "Agent erstellen",
+    "count_one": "{{formatted}} Agent",
+    "count_other": "{{formatted}} Agents",
+    "empty": "Keine Agents gefunden.",
+    "columns": {
+      "agent": "Agent",
+      "username": "Benutzername",
+      "model": "Modell",
+      "role": "Rolle",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "status": {
+      "inactive": "Deaktiviert"
+    },
+    "actions": {
+      "menu": "Aktionen für {{name}}",
+      "edit": "Bearbeiten",
+      "view": "Ansehen",
+      "deactivate": "Deaktivieren",
+      "activate": "Aktivieren"
+    },
+    "tabs": {
+      "general": "Allgemein",
+      "soul": "Persönlichkeit",
+      "instructions": "Aufgabe",
+      "memory": "Gedächtnis",
+      "activity": "Aktivität"
+    },
+    "panel": {
+      "createTitle": "Agent erstellen",
+      "editTitle": "Agent bearbeiten",
+      "tabs": "Bereiche des Agents",
+      "create": "Erstellen",
+      "save": "Speichern",
+      "loadFailed": "Der Agent konnte nicht geladen werden."
+    },
+    "fields": {
+      "uploadImage": "Bild hochladen",
+      "color": "Farbe",
+      "name": "Name",
+      "username": "Benutzername",
+      "position": "Position",
+      "positionHint": "Berufsbezeichnung; die Rechte bestimmt die Rolle.",
+      "chooseModel": "Modell wählen",
+      "noModels": "Keine zulässigen Modelle: Sprachmodelle mit Werkzeugen über ACP.",
+      "access": "Zugriff",
+      "costLimit": "Kostenlimit (US-Dollar pro Monat)",
+      "costLimitHint": "Leer lassen für keine Grenze.",
+      "rights": "Rechte",
+      "role": "Rolle",
+      "chooseRole": "Rolle wählen"
+    },
+    "access": {
+      "read_only": "Nur Lesen · Pages-Werkzeuge",
+      "yolo": "Vollzugriff (Yolo) · alle Systemwerkzeuge",
+      "yoloUnsupported": "Mit diesem Anbieter nicht verfügbar",
+      "note": "Läuft über ACP; Vollzugriff nur innerhalb der Isolation. Agents melden sich nicht an, brauchen kein Passwort und können nicht Administrator werden."
+    },
+    "soul": {
+      "template": "# Persönlichkeit\n\nDu bist ruhig, genau und direkt.\n\n## Art\n- Du sagst klar, was fehlt, ohne Umschweife.\n- Du hakst nach, wenn ein Auftrag unklar ist.\n\n## Ton\n- Kurze Sätze, freundlich und sachlich.\n\n## Grenzen\n- Du behauptest nichts, was du nicht geprüft hast.\n- Wenn du etwas nicht weißt, sagst du das."
+    },
+    "documents": {
+      "length_one": "{{length}} / {{maximum}} Zeichen",
+      "length_other": "{{length}} / {{maximum}} Zeichen",
+      "soulDescription": "Wer der Agent ist: Charakter, Ton und Haltung. Gilt in jedem Gespräch.",
+      "instructionsDescription": "Was der Agent tut: Beruf, Zuständigkeit, Arbeitsweise und Regeln. Projektwissen liest er aktuell aus Tickets und Wiki.",
+      "template": "Vorlage",
+      "chooseTemplate": "Vorlage wählen"
+    },
+    "templates": {
+      "coder": {
+        "label": "Coder",
+        "content": "# Aufgabe: Coder\n\nDu setzt Tickets im Code um.\n\n## Zuständig für\n- Umsetzung und Fehlerbehebung nach Ticket\n- Saubere, geprüfte Änderungen\n\n## Arbeitsweise\n1. Lies das Ticket und seine Abnahme vollständig.\n2. Ändere nur, was das Ticket verlangt.\n3. Halte das Ergebnis im Ticket fest.\n\n## Nicht zuständig\n- Ohne Auftrag deployen."
+      },
+      "designer": {
+        "label": "Designer",
+        "content": "# Aufgabe: Designer\n\nDu gestaltest Oberflächen und Abläufe.\n\n## Zuständig für\n- Entwürfe, Texte und Zustände einer Oberfläche\n- Konsistenz mit dem bestehenden Design\n\n## Arbeitsweise\n1. Lies das Ticket und vorhandene Entwürfe.\n2. Beschreibe Entscheidungen nachvollziehbar.\n3. Halte Vorgaben im Wiki fest.\n\n## Nicht zuständig\n- Code schreiben."
+      },
+      "manager": {
+        "label": "Manager",
+        "content": "# Aufgabe: Manager\n\nDu steuerst das Projekt und kennst seinen Stand.\n\n## Zuständig für\n- Meilensteine, Tickets und Prioritäten\n- Überblick, was offen ist und was blockiert\n\n## Arbeitsweise\n1. Lies vor jeder Antwort den aktuellen Stand.\n2. Belege Aussagen mit Ticket oder Wiki-Seite.\n3. Halte Entscheidungen im Wiki fest.\n\n## Nicht zuständig\n- Ohne Auftrag deployen."
+      }
+    },
+    "memory": {
+      "description": "Was der Agent gelernt hat. Pages hält es automatisch aktuell; es wird als Daten mitgegeben und überstimmt SOUL.md und AGENT.md nicht.",
+      "autoLearn": "Automatisch lernen",
+      "on": "An",
+      "off": "Aus",
+      "rhythm": "Rhythmus",
+      "every": "Alle {{hours}} Stunden",
+      "core": "Kernwissen (immer geladen)",
+      "archive": "Archiv (bei Bedarf durchsucht)",
+      "words": "{{words}} / {{maximum}} Wörter",
+      "runs": "Letzter Lernlauf {{last}} · nächster {{next}} · {{result}}",
+      "never": "noch nie",
+      "noNext": "keiner geplant",
+      "noRun": "noch kein Ergebnis",
+      "result": {
+        "updated": "{{added}} neu, {{merged}} zusammengefasst, {{archived}} archiviert, {{removed}} entfernt",
+        "unchanged": "nichts Neues, kein Modell gestartet",
+        "failed": "fehlgeschlagen",
+        "limitReached": "Kostenlimit erreicht, nicht gelernt"
+      },
+      "sharedHint": "Was der Agent in einem Chat lernt, kann er in anderen Gesprächen verwenden. Zugangsdaten werden vor dem Speichern entfernt.",
+      "archiveEntries_one": "Archiv: {{count}} Eintrag",
+      "archiveEntries_other": "Archiv: {{count}} Einträge",
+      "versions": "Versionen",
+      "versionWords": "{{core}} / {{archive}} Wörter",
+      "current": "Aktuell",
+      "restore": "Wiederherstellen",
+      "restoreConfirm": "Diese Version von MEMORY.md und Archiv wiederherstellen?",
+      "reason": {
+        "initial": "Angelegt",
+        "learning": "Lernlauf",
+        "edit": "Bearbeitet",
+        "restore": "Wiederhergestellt"
+      }
+    },
+    "activity": {
+      "empty": "Noch keine Aktivität.",
+      "spent": "Diesen Monat: {{spent}} von {{limit}}",
+      "spentNoLimit": "Diesen Monat: {{spent}} · kein Kostenlimit",
+      "unknownSessions_one": "{{count}} Sitzung ohne gemeldete Kosten (unbekannt)",
+      "unknownSessions_other": "{{count}} Sitzungen ohne gemeldete Kosten (unbekannt)",
+      "limitReached": "Kostenlimit erreicht: Der Agent startet bis Monatsende keine neue Sitzung und keinen Lernlauf.",
+      "estimated": "(geschätzt)",
+      "unknownCost": "Kosten unbekannt",
+      "kind": {
+        "session": "Sitzung mit {{person}} · {{state}}",
+        "learningSession": "Lernlauf-Sitzung · {{state}}",
+        "learning": "Lernlauf: {{status}}",
+        "ticket": "Ticket: {{message}}",
+        "wiki": "Wiki: {{message}}",
+        "limit": "Nicht gestartet ({{cause}}): Kostenlimit erreicht"
+      },
+      "state": {
+        "running": "läuft",
+        "completed": "beendet",
+        "failed": "fehlgeschlagen",
+        "stopped": "gestoppt",
+        "interrupted": "unterbrochen",
+        "none": "–"
+      },
+      "cause": {
+        "session": "Sitzung",
+        "learning": "Lernlauf"
+      }
     }
   }
 }

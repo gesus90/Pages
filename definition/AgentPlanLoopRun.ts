@@ -84,6 +84,12 @@ export interface AgentPlanLoopIteration {
   readonly nodes: readonly AgentPlanStepResult[];
   readonly condition: AgentPlanLoopConditionOutcome;
   readonly error: string | null;
+  /**
+   * `true` when only the file this iteration's stack entry handed over failed
+   * (PAGE-268): the loop went on with the next entry, the error stays here.
+   * Absent for every other failure, which still ends the loop.
+   */
+  readonly entryFailure?: boolean;
 }
 
 /**

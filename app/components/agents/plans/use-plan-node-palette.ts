@@ -13,7 +13,7 @@ export type PlanPaletteKind = Exclude<AgentPlanNode["type"], "variable">;
 
 /** The node types the palette adds at once, because they need no choice. */
 type PlanImmediateKind =
-  "start" | "end" | "loop" | "decision" | "stack" | "git_closeout";
+  "start" | "end" | "loop" | "decision" | "stack" | "asset" | "git_closeout";
 
 const IMMEDIATE_KINDS: readonly PlanPaletteKind[] = [
   "start",
@@ -21,6 +21,7 @@ const IMMEDIATE_KINDS: readonly PlanPaletteKind[] = [
   "loop",
   "decision",
   "stack",
+  "asset",
   "git_closeout",
 ];
 
@@ -39,6 +40,7 @@ function immediateName(kind: PlanImmediateKind, translate: TFunction): string {
   if (kind === "loop") return translate("plans.loops.defaultName");
   if (kind === "git_closeout")
     return translate("plans.gitCloseout.defaultName");
+  if (kind === "asset") return translate("plans.asset.defaultName");
   return kind === "stack" ? translate("plans.stack.defaultName") : "";
 }
 

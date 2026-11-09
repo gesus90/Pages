@@ -42,7 +42,8 @@ function stackValue(
   if (declared?.type === "text")
     return { type: "text", text: PENDING_STACK_ENTRY };
   const first = stack.entries[0];
-  if (!first) return null;
+  // A file is checked when its own turn starts, so one damaged entry never refuses the run.
+  if (!first || first.type === "asset") return null;
   return first.type === "task"
     ? { type: "ticket", ticketId: first.taskId }
     : first.value;
@@ -83,7 +84,17 @@ export function planBindings(
   );
 }
 
-/** The value of a source node: a parameter, a plan variable or a ticket. */
+/** The value a parameter or asset node holds itself; `null` for every other node. */
+function ownValue(
+  source: AgentPlan["nodes"][number] | undefined,
+): AgentParameterValue | null {
+  if (source?.type === "parameter") return source.value;
+  if (source?.type !== "asset") return null;
+  if (!source.file) throw new AgentError("plan_asset_file_missing");
+  return { type: "asset", assetId: source.file.assetId };
+}
+
+/** The value of a source node: a parameter, a plan variable, a ticket or a file. */
 function sourceValue(
   plan: AgentPlan,
   nodeId: string,
@@ -93,7 +104,8 @@ function sourceValue(
   },
 ): AgentParameterValue {
   const source = plan.nodes.find((node) => node.id === nodeId);
-  if (source?.type === "parameter") return source.value;
+  const own = ownValue(source);
+  if (own) return own;
   if (source?.type === "variable" && Object.hasOwn(plan.globals, source.name))
     return { type: "text", text: plan.globals[source.name] ?? "" };
   if (source?.type === "task" && context.declared?.type === "ticket")

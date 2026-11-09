@@ -82,6 +82,11 @@ export interface PageAgentModel {
   readonly isCatalogFailed?: boolean;
   /** For a remote OpenCode model: the connection and workspace it runs on, such as "homeNAS / pageNAS". */
   readonly targetName?: string;
+  /**
+   * `true` for the model of the agent simulation (PAGE-268); the model choice
+   * names it as Simulation. Absent for every real model.
+   */
+  readonly isSimulation?: boolean;
 }
 
 export interface PageAgentPage {

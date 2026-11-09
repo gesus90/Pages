@@ -72,6 +72,7 @@ it("loads the directory together with the private wiki pages", async () => {
     users: [],
     privateWikiPages: { "user-2": [] },
     audience: AUDIENCE,
+    agents: null,
   });
   expect(services.administrationService.pageData).toHaveBeenCalledWith(
     "user-1",

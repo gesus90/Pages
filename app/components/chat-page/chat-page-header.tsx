@@ -1,7 +1,11 @@
-import { Plus } from "lucide-react";
+import { Square } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/app/components/ui/button";
+
 import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
+import { participantSubtitle } from "./chat-page-list-entries";
+import { ChatPageMemberDialog } from "./chat-page-member-dialog";
 
 import type { ReactNode } from "react";
 import type {
@@ -37,14 +41,18 @@ function HeaderFrame({
 
 function ParticipantHeader({
   participant,
+  isAnswering,
+  onStop,
 }: {
   readonly participant: VirtualParticipant;
+  readonly isAnswering: boolean;
+  readonly onStop: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   const facts = [
-    participant.role,
-    participant.model,
-    participant.tools.join(", "),
+    participantSubtitle(participant, t),
+    t(`chatPage.kind.${participant.kind}`),
+    t(`chatPage.status.${participant.status}`),
   ].filter((fact) => fact !== "");
   return (
     <HeaderFrame
@@ -52,10 +60,12 @@ function ParticipantHeader({
       title={participant.name}
       subtitle={facts.join(" · ")}
       aside={
-        <p className="rounded-[10px] bg-surface px-3 py-1.5 text-xs text-foreground shadow-xs">
-          <span className="text-muted-foreground">{t("chatPage.task")}</span>{" "}
-          {participant.task}
-        </p>
+        isAnswering && participant.kind === "agent" ? (
+          <Button onClick={onStop} size="sm" type="button" variant="outline">
+            <Square aria-hidden="true" className="size-3.5" />
+            {t("chatPage.stop")}
+          </Button>
+        ) : null
       }
     />
   );
@@ -77,9 +87,13 @@ function MemberChip({
 function GroupHeader({
   group,
   members,
+  participants,
+  onAddMember,
 }: {
   readonly group: VirtualGroup;
   readonly members: readonly VirtualParticipant[];
+  readonly participants: readonly VirtualParticipant[];
+  readonly onAddMember: (groupId: string, participantId: string) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -99,16 +113,11 @@ function GroupHeader({
               <MemberChip key={member.id} member={member} />
             ))}
           </ul>
-          {/* Adding members follows with the stored groups; until then the control only shows where it will be. */}
-          <button
-            aria-disabled="true"
-            aria-label={t("chatPage.addMember")}
-            className="inline-flex size-7 items-center justify-center rounded-full border-[1.5px] border-dashed border-current text-muted-foreground"
-            title={t("chatPage.comingSoon")}
-            type="button"
-          >
-            <Plus aria-hidden="true" className="size-3.5" />
-          </button>
+          <ChatPageMemberDialog
+            group={group}
+            participants={participants}
+            onAdd={onAddMember}
+          />
         </>
       }
     />
@@ -119,15 +128,39 @@ function GroupHeader({
  * The head of the opened conversation, separated from the history by a line.
  *
  * @remarks
- * A participant shows role, model and tools and the task at the right; a
- * group shows its description and the members as chips.
+ * An agent shows its job title, a person the username, both with their kind
+ * and status; a person has no task, model or tools. A stop button shows while
+ * an agent answers. A group shows its description, the members as chips and
+ * the dashed plus that adds one of the person's participants (PAGE-259).
  */
 export function ChatPageHeader({
   opened,
+  participants,
+  isAnswering,
+  onStop,
+  onAddMember,
 }: {
   readonly opened: OpenedConversation;
+  /** The person's own participants, which a group can take. */
+  readonly participants: readonly VirtualParticipant[];
+  readonly isAnswering: boolean;
+  readonly onStop: () => void;
+  readonly onAddMember: (groupId: string, participantId: string) => void;
 }): React.ReactElement {
   if (opened.kind === "group")
-    return <GroupHeader group={opened.group} members={opened.members} />;
-  return <ParticipantHeader participant={opened.participant} />;
+    return (
+      <GroupHeader
+        group={opened.group}
+        members={opened.members}
+        participants={participants}
+        onAddMember={onAddMember}
+      />
+    );
+  return (
+    <ParticipantHeader
+      participant={opened.participant}
+      isAnswering={isAnswering}
+      onStop={onStop}
+    />
+  );
 }

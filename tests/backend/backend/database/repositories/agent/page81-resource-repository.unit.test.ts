@@ -33,6 +33,7 @@ it("journals only explicit ownership and lifecycle fields using bound SQL parame
       state: "starting",
       since: "2026-10-16",
       namespace_identity: null,
+      lifecycle: null,
     },
   );
   await repository.remove("native-tag");
@@ -55,6 +56,9 @@ it("maps durable states on restart and refuses unknown providers or states", asy
       "cleanup_failed",
       "today",
       null,
+      null,
+      null,
+      null,
     ],
   ]);
   expect(await repository.list()).toEqual([
@@ -67,10 +71,24 @@ it("maps durable states on restart and refuses unknown providers or states", asy
       state: "cleanup_failed",
       since: "today",
       namespace: null,
+      lifecycle: null,
+      check: null,
     },
   ]);
   vi.mocked(connection.query).mockResolvedValueOnce([
-    ["tag", "owner", "unknown", null, null, "starting", "today"],
+    [
+      "tag",
+      "owner",
+      "unknown",
+      null,
+      null,
+      "starting",
+      "today",
+      null,
+      null,
+      null,
+      null,
+    ],
   ]);
   await expect(repository.list()).rejects.toThrow("provider");
   vi.mocked(connection.query).mockResolvedValueOnce([

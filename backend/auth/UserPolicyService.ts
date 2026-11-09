@@ -20,7 +20,13 @@ export class UserPolicyService {
   /** Uses active admin mode on the UI path and personal eligibility on the MCP path. */
   public isAdministrator(actor: AccountAccess): boolean {
     const account = accountForChannel(actor, this.channel);
-    return account.isActive && account.isAdmin && account.mode === "admin";
+    // An agent account is never an administrator, whatever is stored (PAGE-266).
+    return (
+      account.isActive &&
+      account.isAdmin &&
+      account.mode === "admin" &&
+      account.isAgent !== true
+    );
   }
 
   /** Checks a capability independently of target visibility and hierarchy. */

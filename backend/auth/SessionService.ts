@@ -98,7 +98,7 @@ export class SessionService {
 
     const user = await this.userService.getById(userId);
 
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || user.isAgent === true) {
       return null;
     }
 

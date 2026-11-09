@@ -12,11 +12,12 @@ import type { AgentPlanInput, AgentPlanNode } from "@/definition/AgentPlan";
 
 /**
  * The node types a notation writes: those the editor adds, the decision
- * among them, and the legacy variable, so that every stored plan can be
- * written back.
+ * among them, the asset whose file only the editor uploads, and the legacy
+ * variable, so that every stored plan can be written back.
  */
 export const PLAN_NOTATION_NODE_TYPES = [
   ...PLAN_ADDABLE_TYPES,
+  "asset",
   "variable",
 ] as const;
 

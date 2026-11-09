@@ -8,7 +8,9 @@ import { assetRepresentation } from "./AgentAssetRepresentations";
 import { ticketAssetReferences } from "./AgentTicketAssetReferences";
 
 import type { Readable } from "node:stream";
+import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { User } from "@/definition/User";
+import type { PlanAssetService } from "./assets/PlanAssetService";
 import type {
   AgentTicketAsset,
   AgentTicketAssetContent,
@@ -43,6 +45,8 @@ export interface AgentTicketAssetDependencies {
   readonly assets: {
     readonly open: (actor: User, id: string) => Promise<OpenedAsset>;
   };
+  /** The files of asset nodes (PAGE-268), read with the plan's project rights. */
+  readonly plans?: PlanAssetService;
 }
 
 /** Bounded per transmission; exceeding the limit fails instead of truncating. */
@@ -113,13 +117,7 @@ export class AgentTicketAssetService {
     } catch (error: unknown) {
       logCaughtError("AgentTicketAssetService", error);
 
-      throw new AgentAssetError(
-        error instanceof AgentError
-          ? error.code
-          : "parameter_asset_unavailable",
-        asset,
-        fileName,
-      );
+      throw new AgentAssetError(readFailureCode(asset, error), asset, fileName);
     }
   }
 
@@ -133,12 +131,36 @@ export class AgentTicketAssetService {
   }> {
     if (asset.source === "agent")
       return this.dependencies.assets.open(actor, asset.id);
+    if (asset.source === "plan") {
+      if (!this.dependencies.plans)
+        throw new AgentError("parameter_asset_transfer_unsupported");
+      const opened = await this.dependencies.plans.open(actor.id, asset.id);
+      return {
+        fileName: opened.record.fileName,
+        size: opened.record.size,
+        stream: opened.stream,
+      };
+    }
     const opened =
       asset.source === "wiki"
         ? await this.dependencies.wiki.openAttachment(actor, asset.id)
         : await this.dependencies.tickets.open(actor, asset.id);
     return { ...opened.attachment, stream: opened.stream };
   }
+}
+
+/** The code of a failed read; a plan asset names its own causes instead of a ticket's. */
+function readFailureCode(
+  asset: AgentTicketAsset,
+  error: unknown,
+): AgentErrorCode {
+  const code =
+    error instanceof AgentError ? error.code : "parameter_asset_unavailable";
+  if (asset.source !== "plan") return code;
+  if (code === "parameter_assets_too_large") return "plan_asset_too_large";
+  return code === "parameter_asset_unavailable"
+    ? "plan_asset_unreadable"
+    : code;
 }
 
 async function readBytes(stream: Readable): Promise<Buffer> {

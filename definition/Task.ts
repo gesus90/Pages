@@ -474,6 +474,10 @@ export interface WorkItemDetail extends WorkItem {
   readonly statusName: string;
   readonly isDone: boolean;
   readonly assigneeName: string | null;
+  /** The person color of the assignee (PAGE-266); absent in older snapshots. */
+  readonly assigneeColor?: string | null;
+  /** The avatar image of the assignee, when they chose one. */
+  readonly assigneeAvatarImageUrl?: string | null;
   readonly assigneeGroupName: string | null;
   readonly reporterName: string | null;
   readonly milestoneName: string | null;

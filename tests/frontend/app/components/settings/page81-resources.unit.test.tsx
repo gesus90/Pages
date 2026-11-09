@@ -83,11 +83,17 @@ it("shows occupied slots, FIFO wait reasons, memory and failed cleanup without p
   };
   const view = renderCard();
   expect(
-    screen.getByText("Belegt: 1 · Limit: 1 · Warteschlange: 1"),
+    screen.getByText(
+      "Reservierte Plätze: 1 (davon Bereinigung unbestätigt: 1) · Limit: 1 · Wartende Anfragen: 1",
+    ),
   ).toBeTruthy();
-  expect(screen.getByText(/Verfügbarer RAM: 1024 MiB/)).toBeTruthy();
   expect(
-    screen.getByText(/Bereinigung fehlgeschlagen oder unbestätigt/),
+    screen.getByText(/Gemessener verfügbarer Host-RAM: 1024 MiB/),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      /Bereinigung unbestätigt – Platz bleibt vorsorglich reserviert/,
+    ),
   ).toBeTruthy();
   expect(screen.getByText(/Wartet auf ausreichend RAM/)).toBeTruthy();
   expect(screen.getByRole("alert").textContent).toContain("blockiert");
