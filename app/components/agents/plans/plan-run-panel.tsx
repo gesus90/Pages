@@ -9,6 +9,10 @@ import {
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { keepPlanControlKeys } from "./plan-flow-keys";
+import {
+  isForeignEndedRun,
+  PlanForeignRunStartDialog,
+} from "./plan-foreign-run-start-dialog";
 import { PlanManagementDialogs } from "./plan-management/plan-management-dialogs";
 import { usePlanManagement } from "./plan-management/use-plan-management";
 import { PlanPanelDetails } from "./plan-panel-details";
@@ -16,7 +20,7 @@ import { PlanPanelHeading } from "./plan-panel-heading";
 import { planPanelIssues } from "./plan-panel-issues";
 import { PlanPanelStatus } from "./plan-panel-status";
 import { planPanelState } from "./plan-panel-status-model";
-import { recoverableRunId } from "./plan-recovery-panel";
+import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
 import { usePlanRecovery } from "./use-plan-recovery";
 
 import type { TFunction } from "i18next";
@@ -114,20 +118,64 @@ function recoveryReadKey(
   ]);
 }
 
-/** The resume of a failed run as far as the executor's recovery view allows it. */
+/** Why an ended run cannot be continued while no recovery view is there. */
+function missingViewReason(
+  control: AgentPlanControl,
+  recovery: ReturnType<typeof usePlanRecovery>,
+  translate: TFunction,
+): string {
+  if (!control.canEdit)
+    return translate("plans.recovery.blocker.plan_read_only");
+  // Without a run identity the newest run belongs to another executor.
+  if (control.resumeBlocker === "own_run_required" || !control.runId)
+    return translate("plans.recovery.blocker.own_run_required");
+  return recovery.error
+    ? recoveryErrorText(translate, recovery.error)
+    : translate("plans.panel.checking");
+}
+
+/**
+ * The resume of a failed run as far as the control and the executor's recovery view allow it.
+ *
+ * @remarks
+ * An ended run keeps Fortsetzen in sight also without a view: the control
+ * names a run of another executor or missing rights, and an own view that
+ * is still loading or was refused names why it waits. Only the view enables it.
+ */
 function resumeState(
   control: AgentPlanControl | undefined,
   recovery: ReturnType<typeof usePlanRecovery>,
   translate: TFunction,
 ): PlanRecoveryResumeState | null {
+  if (!control || !isResumablePlanRunEnd(control.status)) return null;
   const view = recovery.view;
-  if (!control || !isResumablePlanRunEnd(control.status) || !view) return null;
+  if (!view)
+    return {
+      isAvailable: false,
+      reason: missingViewReason(control, recovery, translate),
+    };
+  // A current blocker of the control, such as a lost execution right, holds back what the view offers.
+  const currentBlocker = control.canResume ? null : control.issue;
   return {
-    isAvailable: view.resume.available && !recovery.isPending,
-    reason: view.resume.reason
-      ? translate(`plans.recovery.blocker.${view.resume.reason}`)
-      : null,
+    isAvailable:
+      view.resume.available && currentBlocker === null && !recovery.isPending,
+    reason: resumeReason(view.resume.reason, currentBlocker, translate),
   };
+}
+
+/** The translated reason of an unavailable resume: the view's first, then the control's. */
+function resumeReason(
+  viewReason: string | null,
+  currentBlocker: string | null,
+  translate: TFunction,
+): string | null {
+  if (viewReason) return translate(`plans.recovery.blocker.${viewReason}`);
+  return currentBlocker
+    ? translate([
+        `settings.agents.error.${currentBlocker}`,
+        "plans.panel.blockedHint",
+      ])
+    : null;
 }
 
 /** The status line of the panel from the server's control state and the draft. */
@@ -166,14 +214,43 @@ function submitRunAction(
   );
 }
 
+/** The decision a run action asks for before anything is sent. */
+type PlanRunDecision = "restart" | "resume" | "foreign-start";
+
+/** Asks for the restart or resume of an own run, or confirms a new run beside another executor's. */
+function PlanRunDecisionDialog({
+  action,
+  recovery,
+  onStart,
+  onClose,
+}: {
+  readonly action: PlanRunDecision | null;
+  readonly recovery: ReturnType<typeof usePlanRecovery>;
+  readonly onStart: () => void;
+  readonly onClose: () => void;
+}): React.ReactElement | null {
+  if (action === "foreign-start")
+    return <PlanForeignRunStartDialog onConfirm={onStart} onClose={onClose} />;
+  if (!action) return null;
+  return (
+    <Suspense fallback={null}>
+      <PlanRecoveryResumeDialog
+        recovery={recovery}
+        action={action}
+        onClose={onClose}
+      />
+    </Suspense>
+  );
+}
+
 /** Fixed within the editor, independent of graph position, viewport and zoom. */
 export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const { t } = useTranslation();
   const detailsId = useId();
   const [isOpen, setOpen] = useState(false);
-  const [recoveryAction, setRecoveryAction] = useState<
-    "restart" | "resume" | null
-  >(null);
+  const [recoveryAction, setRecoveryAction] = useState<PlanRunDecision | null>(
+    null,
+  );
   const { editor, control, page } = props;
   const management = usePlanManagement();
   const recoveryRunId =
@@ -189,6 +266,8 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   function action(intent: PlanRunIntent): void {
     if (intent === "play-plan" && control?.canRestart)
       setRecoveryAction("restart");
+    else if (intent === "play-plan" && isForeignEndedRun(control))
+      setRecoveryAction("foreign-start");
     else submitRunAction(props, intent);
   }
   return (
@@ -246,15 +325,12 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           />
         ) : null}
       </ScrollViewport>
-      {recoveryAction ? (
-        <Suspense fallback={null}>
-          <PlanRecoveryResumeDialog
-            recovery={recovery}
-            action={recoveryAction}
-            onClose={() => setRecoveryAction(null)}
-          />
-        </Suspense>
-      ) : null}
+      <PlanRunDecisionDialog
+        action={recoveryAction}
+        recovery={recovery}
+        onStart={() => submitRunAction(props, "play-plan")}
+        onClose={() => setRecoveryAction(null)}
+      />
       <PlanManagementDialogs
         page={page}
         editor={editor}

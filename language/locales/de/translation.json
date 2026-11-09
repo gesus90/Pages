@@ -4853,6 +4853,7 @@
       "pauseHint": "Pause startet keine wartenden Schritte mehr und lässt laufende Schritte kontrolliert auslaufen.",
       "resumeHint": "Fortsetzen macht ab dem letzten sicheren Stand weiter; abgeschlossene Schritte laufen nicht erneut.",
       "recoverHint": "Fortsetzen übernimmt die erfolgreichen Schritte des beendeten Laufs und führt nur offene Arbeit als neuen Versuch aus.",
+      "foreignRunHint": "Der letzte Lauf gehört einer anderen Person; nur sie kann ihn fortsetzen. Starten beginnt einen neuen eigenen Lauf von vorne und ersetzt dabei den beendeten Lauf samt Aufzeichnungen.",
       "stopHint": "Stop beendet den ganzen Lauf: Kein Schritt startet mehr, laufende Agent- und Script-Prozesse dieses Laufs werden beendet. Plan und Verlauf bleiben erhalten.",
       "issuesLabel": "Planfehler",
       "issueTitle": {
@@ -4946,12 +4947,14 @@
         "failed": {
           "label": "Fehlgeschlagen",
           "hint": "Der letzte Lauf ist an einem Fehler angehalten.",
-          "hint_resumable": "Der letzte Lauf ist angehalten; Fortsetzen übernimmt seine erfolgreichen Schritte."
+          "hint_resumable": "Der letzte Lauf ist angehalten; Fortsetzen übernimmt seine erfolgreichen Schritte.",
+          "hint_foreign": "Der letzte Lauf einer anderen Person ist an einem Fehler angehalten; nur sie kann ihn fortsetzen."
         },
         "work_done_closeout_open": {
           "label": "Arbeit fertig, Abschluss offen",
           "hint": "Alle Arbeitsschritte haben bestanden; nur der Abschluss ist gescheitert. Starten beginnt einen neuen Lauf.",
-          "hint_resumable": "Alle Arbeitsschritte haben bestanden; Fortsetzen wiederholt nur den Abschluss."
+          "hint_resumable": "Alle Arbeitsschritte haben bestanden; Fortsetzen wiederholt nur den Abschluss.",
+          "hint_foreign": "Alle Arbeitsschritte haben bestanden; den Abschluss kann nur die Person fortsetzen, die den Lauf ausgeführt hat."
         },
         "blocked": {
           "label": "Nicht startbereit",
@@ -5622,7 +5625,10 @@
         "branching_unsupported": "Der Plan hat eine Decision oder einen Ereignis-Eingang. Seine Durchläufe lassen sich nicht sicher übernehmen; nur ein Start von vorn ist möglich.",
         "nothing_to_release": "Es wird nichts mehr gehalten.",
         "workflow_unavailable": "Neustart und Fortsetzen sind in dieser Serverzusammensetzung nicht verfügbar.",
-        "context_not_verified": "Der Ausführungskontext konnte nicht geprüft werden."
+        "context_not_verified": "Der Ausführungskontext konnte nicht geprüft werden.",
+        "content_access_required": "Fortsetzen übernimmt Ergebnisse und Kontext des Laufs und braucht deshalb deinen aktuellen Zugriff auf alle seine Inhalte und Ressourcen (Agent, Workspace, Tickets, Dateien). Mindestens einer fehlt dir jetzt.",
+        "own_run_required": "Diesen Lauf hat eine andere Person ausgeführt. Nur sie kann ihn fortsetzen; Rechte am Plan erlauben keine Übernahme.",
+        "plan_access_denied": "Dir fehlt der aktuelle Zugriff auf Inhalte oder Ressourcen dieses Laufs, deshalb kann er nicht fortgesetzt werden."
       },
       "result": {
         "started": "Der neue Lauf wurde gestartet.",
@@ -5648,6 +5654,11 @@
       "cleanupHistoryTime": "{{time}}",
       "cleanupHistoryHint": "Historischer Befund. Die aktuelle Freigabe und Prozesslage stehen bei den verfügbaren Aktionen.",
       "freshDescription": "Den gespeicherten Plan von vorne starten. Logs, Sessions und Aufzeichnungen früherer Läufe dieses Plans werden entfernt; bereits erledigte Arbeit im Arbeitsbereich bleibt. Eigene frühere Jobs werden abgebrochen, und kollidierende Ausführung wartet auf bestätigtes Aufräumen.",
+      "foreignStartTitle": "Neuen Lauf starten",
+      "foreignStartDescription": "Der letzte Lauf dieses Plans gehört einer anderen Person und ist nicht abgeschlossen. Nur sie kann ihn fortsetzen. Starten setzt ihn nicht fort, sondern beginnt einen neuen eigenen Lauf von vorne; alle Schritte laufen erneut, und der beendete Lauf wird samt Logs, Sessions und Aufzeichnungen ersetzt.",
+      "foreignStartConfirm": "Ich starte einen neuen Lauf von vorne. Der beendete Lauf der anderen Person wird dadurch nicht fortgesetzt.",
+      "foreignStartCancel": "Abbrechen",
+      "foreignStartAction": "Neuen Lauf starten",
       "cleanupObligation": "Ausstehende Bereinigung für {{workspace}}, Ursprungslauf {{run}}.",
       "writerWait": "Wartet auf Schreibressource {{resource}}; Besitzer {{run}}.",
       "otherOwner": "anderer Ausführender",

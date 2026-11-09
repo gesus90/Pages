@@ -6,6 +6,7 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
+import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanGraphActions } from "./use-plan-graph";
 import type { PlanTicketRefresh } from "./use-plan-ticket-refresh";
 
@@ -24,6 +25,14 @@ export interface PlanCanvasProps {
   readonly runError?: string | null;
   /** Whether the saved plan may start now, as long as no run is shown; absent while unknown. */
   readonly isReady?: boolean;
+  /**
+   * The stored status of the newest run from the plan control.
+   *
+   * @remarks
+   * Named while no run is shown, because the reader's history is empty or
+   * refused; an ended run then never reads as a plan that has not run.
+   */
+  readonly storedRunStatus?: AgentPlanControl["status"];
   /** The workspaces of the plan's project, offered for workspace values. */
   readonly workspaces?: readonly AgentWorkspaceChoice[];
   /** Reads the tickets of the plan's project again for the ticket choice. */

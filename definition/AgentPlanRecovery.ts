@@ -228,7 +228,8 @@ export type AgentPlanRecoveryBlocker =
   | "branching_unsupported"
   | "nothing_to_release"
   | "workflow_unavailable"
-  | "context_not_verified";
+  | "context_not_verified"
+  | "content_access_required";
 
 export type AgentPlanRecoveryErrorCode =
   | "invalid_request"

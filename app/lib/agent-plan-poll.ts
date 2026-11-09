@@ -3,10 +3,14 @@ import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanStartRejection } from "@/backend/agents/AgentPlanStartRejectionInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AGENT_PLAN_ISSUE_PROBLEMS } from "@/definition/AgentPlanOperations";
+import { AGENT_PLAN_RESUME_BLOCKERS } from "@/definition/AgentPlanControl";
 
 import type { AgentWorkspaceCleanup } from "@/definition/AgentWorkspaceCleanup";
 import type { AgentPlanActionResult } from "./agent-plan-response";
-import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type {
+  AgentPlanControl,
+  AgentPlanResumeBlocker,
+} from "@/definition/AgentPlanControl";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentPlanWorkspaceConflict } from "@/definition/AgentPlanWorkspaceConflict";
 
@@ -104,11 +108,25 @@ function readCleanup(input: unknown): AgentWorkspaceCleanup {
   };
 }
 
+function isResumeBlocker(input: unknown): input is AgentPlanResumeBlocker {
+  return AGENT_PLAN_RESUME_BLOCKERS.some((blocker) => blocker === input);
+}
+
+function readResumeBlocker(
+  input: Record<string, unknown>,
+): Pick<AgentPlanControl, "resumeBlocker"> {
+  if (input.resumeBlocker === undefined || input.resumeBlocker === null)
+    return {};
+  if (!isResumeBlocker(input.resumeBlocker))
+    throw new Error("Invalid plan response");
+  return { resumeBlocker: input.resumeBlocker };
+}
+
 function readControlOptions(
   input: Record<string, unknown>,
 ): Pick<
   AgentPlanControl,
-  "canRestart" | "resumeAction" | "workspaceWait" | "cleanup"
+  "canRestart" | "resumeAction" | "resumeBlocker" | "workspaceWait" | "cleanup"
 > {
   if (
     input.resumeAction !== undefined &&
@@ -125,6 +143,7 @@ function readControlOptions(
     ...(input.resumeAction === undefined
       ? {}
       : { resumeAction: input.resumeAction }),
+    ...readResumeBlocker(input),
     ...(input.workspaceWait === undefined
       ? {}
       : { workspaceWait: planWriterWaitSchema.parse(input.workspaceWait) }),

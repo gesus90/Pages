@@ -44,6 +44,14 @@ function pausedState(control: AgentPlanControl): PlanPanelState {
     : { state: "pausedBlocked", tone: "blocked" };
 }
 
+/** Which hint an ended run shows: continuable, run by another executor, or plainly ended. */
+function endedVariant(input: PlanPanelStateInput): string | undefined {
+  if (input.recovery?.isAvailable) return "resumable";
+  return input.control?.resumeBlocker === "own_run_required"
+    ? "foreign"
+    : undefined;
+}
+
 function endedState(input: PlanPanelStateInput): PlanPanelState | null {
   const control = input.control;
   // The work is done, so this reads apart from a failure, also while the recovery view still loads.
@@ -51,14 +59,11 @@ function endedState(input: PlanPanelStateInput): PlanPanelState | null {
     return {
       state: "work_done_closeout_open",
       tone: "open",
-      variant: input.recovery?.isAvailable ? "resumable" : undefined,
+      variant: endedVariant(input),
     };
+  // The panel passes a resume state for every failed run, also when the reader may see none of its history.
   if (control?.status === "failed" && input.recovery)
-    return {
-      state: "failed",
-      tone: "blocked",
-      variant: input.recovery.isAvailable ? "resumable" : undefined,
-    };
+    return { state: "failed", tone: "blocked", variant: endedVariant(input) };
   if (!control?.canPlay) return { state: "blocked", tone: "blocked" };
   if (control.status === "succeeded" || control.status === "cancelled")
     return { state: "ready", tone: "ready", variant: control.status };

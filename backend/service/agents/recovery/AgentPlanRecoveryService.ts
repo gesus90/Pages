@@ -199,11 +199,19 @@ function executingOptions(
   };
 }
 
-/** Keeps only the authority and opaque review identities needed for restart or cleanup. */
+/**
+ * Keeps only the authority and opaque review identities needed for restart or cleanup.
+ *
+ * @remarks
+ * Resuming reuses the run's results and context, so it needs the executor's
+ * current content rights; the view names that instead of an unverified context.
+ */
 function controlRecoveryView(
   record: { readonly run: AgentPlanRun; readonly revision: number },
   options: ReturnType<typeof recordingOnly>,
 ): AgentPlanRecoveryView {
+  // A reason that holds whatever the rights, such as a newer run or a missing checkpoint, comes first.
+  const resumeReason = options.resume.reason ?? "content_access_required";
   return {
     runId: record.run.id,
     planId: record.run.planId,
@@ -216,7 +224,7 @@ function controlRecoveryView(
     release: options.release,
     resume: {
       available: false,
-      reason: "context_not_verified",
+      reason: resumeReason,
       modes: [],
       reusedStepIds: [],
       reviewStepIds: [],
@@ -227,7 +235,7 @@ function controlRecoveryView(
           (reason): reason is AgentPlanRecoveryBlocker =>
             reason !== null && reason !== "nothing_to_release",
         ),
-        "context_not_verified" as const,
+        resumeReason,
       ]),
     ],
     stepNames: {},

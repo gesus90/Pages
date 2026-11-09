@@ -196,6 +196,19 @@ failure metadata; they do not reset the budget. The continuation after a restart
 one described under Restart; the executor can also continue explicitly after
 checkpoint and side-effect review. A later independent turn starts with a fresh counter.
 
+Only the executor continues a run (PAGE-291). Plan edit rights, plan ownership,
+an administrator role or a matching name grant no control of another
+executor's run. The plan control names that apart from the reader's history in
+`resumeBlocker`: `own_run_required` for a run of another executor, whose run
+ID and failure stay hidden, and `plan_access_denied` for an own run whose
+current content or resource rights are missing; its recovery view then names
+`content_access_required`, because resuming reuses the run's results and
+context. An empty or refused history therefore never reads as a plan that has
+not run: the panel keeps the failed state and a disabled Fortsetzen with its
+reason, also after a reload. Starten beside another executor's ended run is a
+new run of the reader's own and asks for a confirmation first, because its
+start replaces the earlier runs' records.
+
 Retries require a confirmed native closeout, or a remote job whose terminal
 state is proven. Recorded tool activity prevents a new-session replay unless
 the session can be resumed; shared sessions without native resume block. These

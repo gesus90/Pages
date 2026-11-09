@@ -140,6 +140,7 @@ function RunStatusContent({
         contentId={contentId}
         error={canvas.runError ?? null}
         isReady={canvas.isReady}
+        storedRunStatus={canvas.storedRunStatus}
         onSelect={choose}
         onToggle={onToggle}
       />

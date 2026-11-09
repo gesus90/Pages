@@ -62,10 +62,26 @@ export function planControl(
     canResume: canControl && resumableStatus(run, issue),
     canStop: canControl && isActive,
     canEdit: plan.canEdit,
+    ...foreignRunBlocker(plan, run, canIdentify),
     issue: canIdentify
       ? (issue ?? runFailure(run, context.hasReservation))
       : null,
   };
+}
+
+/**
+ * Names the run of another executor, which this reader may neither continue
+ * nor take over; plan rights alone grant no control of it.
+ */
+function foreignRunBlocker(
+  plan: AgentPlanView,
+  run: AgentPlanRun,
+  canIdentify: boolean,
+): Pick<AgentPlanControl, "resumeBlocker"> {
+  if (canIdentify || !plan.canEdit) return {};
+  return run.status === "paused" || isResumablePlanRunEnd(run.status)
+    ? { resumeBlocker: "own_run_required" }
+    : {};
 }
 
 function runFailure(run: AgentPlanRun, hasReservation: boolean): string | null {

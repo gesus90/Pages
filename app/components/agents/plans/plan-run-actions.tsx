@@ -219,6 +219,8 @@ function playTitle(props: PlanRunActionsProps, translate: TFunction): string {
   )
     return translate("plans.panel.stopFirst");
   if (control.runId) return translate("plans.recovery.freshDescription");
+  if (control.resumeBlocker === "own_run_required")
+    return translate("plans.panel.foreignRunHint");
   if (control.issue === "plan_workspace_conflict")
     return translate("settings.agents.error.plan_workspace_conflict");
   return control.issue || control.issues?.length
@@ -238,8 +240,10 @@ function middleTitle(
     if (props.isDirty) return translate("plans.panel.unsaved");
     if (props.hasDeletedFrontier)
       return translate("settings.agents.error.plan_continuation_deleted");
-    return control?.issue
-      ? translate(`settings.agents.error.${control.issue}`)
+    if (control?.issue)
+      return translate(`settings.agents.error.${control.issue}`);
+    return control?.resumeBlocker
+      ? translate(`plans.recovery.blocker.${control.resumeBlocker}`)
       : translate("plans.panel.resumeHint");
   }
   if (control?.status === "pausing")
