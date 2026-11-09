@@ -226,11 +226,13 @@ export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
 }
 
 /**
- * The fixed Git closeout: no model and no agent take part.
+ * A Git closeout node of an earlier version, read as it was saved.
  *
  * @remarks
- * Its work branch is the name of the plan's workspace; the `ticket` input names
- * the commit, and `checkCommand` verifies a state a rebase changed.
+ * The node is no longer supported (PAGE-285): it cannot be added or
+ * configured, Play is refused with the issue `gitCloseoutUnsupported` while
+ * the plan contains it, and `removeNode` removes it. Its fields and bindings
+ * stay readable until then.
  */
 export interface AgentPlanGitCloseoutNodeEntry extends AgentPlanNodeBase {
   readonly type: "git_closeout";

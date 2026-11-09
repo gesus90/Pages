@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { PLAN_GIT_CLOSEOUT_TIMEOUT } from "@/definition/AgentPlanGitCloseout";
+import { PLAN_GIT_CLOSEOUT_DEFAULT_TIMEOUT } from "@/definition/AgentPlanGitCloseout";
 import { PLAN_LOOP_RUNS } from "@/definition/AgentPlanLoop";
 import { PLAN_SCRIPT_TIMEOUT } from "@/definition/AgentPlanScript";
 
@@ -105,6 +105,7 @@ function readScript(
   };
 }
 
+/** Reads a Git closeout of an earlier version; saving refuses one the plan did not already contain. */
 function readGitCloseout(
   attributes: PlanNotationAttributes,
   context: PlanNotationContext,
@@ -115,7 +116,7 @@ function readGitCloseout(
     name: nameOrId(attributes, id),
     checkCommand:
       attributes.text(form === "long" ? "checkCommand" : "check") ?? "",
-    timeoutSeconds: timeout(attributes, PLAN_GIT_CLOSEOUT_TIMEOUT.initial),
+    timeoutSeconds: timeout(attributes, PLAN_GIT_CLOSEOUT_DEFAULT_TIMEOUT),
   };
 }
 

@@ -24,7 +24,6 @@ const PALETTE_KINDS: readonly PlanPaletteKind[] = [
   "end",
   "agent",
   "script",
-  "git_closeout",
   "parameter",
   "asset",
   "task",

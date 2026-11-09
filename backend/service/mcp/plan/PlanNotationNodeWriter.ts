@@ -1,4 +1,4 @@
-import { PLAN_GIT_CLOSEOUT_TIMEOUT } from "@/definition/AgentPlanGitCloseout";
+import { PLAN_GIT_CLOSEOUT_DEFAULT_TIMEOUT } from "@/definition/AgentPlanGitCloseout";
 import {
   PLAN_LOOP_RUNS,
   PLAN_LOOP_RUNS_BINDING,
@@ -161,6 +161,7 @@ function listEntries(
     : [jsonEntry(key, entries)];
 }
 
+/** A saved Git closeout of an earlier version is written back unchanged, so a round trip keeps it. */
 function closeoutEntries(
   node: AgentPlanGitCloseout,
 ): readonly PlanNotationEntry[] {
@@ -169,7 +170,7 @@ function closeoutEntries(
     ...(node.checkCommand === ""
       ? []
       : [textEntry("check", node.checkCommand)]),
-    ...(node.timeoutSeconds === PLAN_GIT_CLOSEOUT_TIMEOUT.initial
+    ...(node.timeoutSeconds === PLAN_GIT_CLOSEOUT_DEFAULT_TIMEOUT
       ? []
       : [{ key: "timeout", value: planNotationNumber(node.timeoutSeconds) }]),
   ];

@@ -33,7 +33,8 @@ export const PLAN_NODE_FIELDS = {
     "timeoutSeconds",
     "role",
   ],
-  git_closeout: ["name", "checkCommand", "timeoutSeconds"],
+  // The removed Git closeout (PAGE-285) is only moved or removed, never configured.
+  git_closeout: [],
   decision: ["name"],
   stack: ["name", "entries"],
   asset: ["name", "file"],
@@ -48,7 +49,6 @@ export const PLAN_ADDABLE_TYPES = [
   "end",
   "agent",
   "script",
-  "git_closeout",
   "task",
   "parameter",
   "group",

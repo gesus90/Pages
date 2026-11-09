@@ -20,11 +20,7 @@ import {
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planValueIssue } from "./AgentPlanValue";
 import { hasPlanPath, planPredecessors } from "./AgentPlanPath";
-import {
-  PLAN_GIT_CLOSEOUT_PARAMETERS,
-  PLAN_GIT_CLOSEOUT_TICKET_INPUT,
-  planGitCloseoutIssues,
-} from "./AgentPlanGitCloseout";
+import { PLAN_GIT_CLOSEOUT_PARAMETERS } from "./AgentPlanGitCloseout";
 import { planScriptIssues, planScriptParameters } from "./AgentPlanScript";
 import { scriptReportGraphIssues } from "./AgentPlanScriptReportGraph";
 import {
@@ -124,8 +120,7 @@ export interface AgentPlanIssue {
     | "scriptReportGate"
     | "loopScriptUnsupported"
     | "scriptUnavailable"
-    | "gitCloseoutConfiguration"
-    | "gitCloseoutRemote";
+    | "gitCloseoutUnsupported";
 }
 
 export { hasPlanPath } from "./AgentPlanPath";
@@ -482,49 +477,6 @@ function scriptIssues(
   return issues;
 }
 
-/** Work on another host leaves nothing in the local workspace that a closeout could publish. */
-function hasRemoteWork(plan: AgentPlanInput): boolean {
-  return (
-    plan.executionTarget?.kind === "remote" ||
-    plan.nodes.some(
-      (node) =>
-        (node.type === "agent" || node.type === "script") &&
-        node.executionTarget?.kind === "remote",
-    )
-  );
-}
-
-/** Checks the ticket, the check command and the place of a Git closeout before Play. */
-function gitCloseoutIssues(
-  closeout: AgentPlanGitCloseout,
-  plan: AgentPlanInput,
-): AgentPlanIssue[] {
-  const issues: AgentPlanIssue[] = [];
-  const binding = closeout.bindings[PLAN_GIT_CLOSEOUT_TICKET_INPUT];
-  if (
-    !(binding?.kind === "literal" && hasAgentParameterValue(binding.value)) &&
-    !hasConnectedValue(binding, plan)
-  )
-    issues.push({
-      nodeId: closeout.id,
-      port: PLAN_GIT_CLOSEOUT_TICKET_INPUT,
-      reason: "required",
-    });
-  if (planGitCloseoutIssues(closeout).length > 0)
-    issues.push({
-      nodeId: closeout.id,
-      port: null,
-      reason: "gitCloseoutConfiguration",
-    });
-  if (hasRemoteWork(plan))
-    issues.push({
-      nodeId: closeout.id,
-      port: null,
-      reason: "gitCloseoutRemote",
-    });
-  return issues;
-}
-
 function hasConnectedValue(
   binding: AgentPlanBinding | undefined,
   plan: AgentPlanInput,
@@ -579,8 +531,13 @@ function flowNodeIssues(
       ),
     );
   if (node.type === "script") issues.push(...scriptIssues(node, plan));
+  // The removed Git closeout (PAGE-285) is never run; it has to be removed or replaced first.
   if (node.type === "git_closeout")
-    issues.push(...gitCloseoutIssues(node, plan));
+    issues.push({
+      nodeId: node.id,
+      port: null,
+      reason: "gitCloseoutUnsupported",
+    });
   return issues;
 }
 
@@ -597,12 +554,7 @@ function flowExecutionIssues(
   if (ends.length === 0)
     issues.push({ nodeId: null, port: null, reason: "end" });
   if (
-    !plan.nodes.some(
-      (node) =>
-        node.type === "agent" ||
-        node.type === "script" ||
-        node.type === "git_closeout",
-    )
+    !plan.nodes.some((node) => node.type === "agent" || node.type === "script")
   )
     issues.push({ nodeId: null, port: null, reason: "agent" });
   for (const node of plan.nodes.filter(isPlanFlowNode)) {

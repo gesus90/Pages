@@ -5,15 +5,9 @@ import {
   planScriptIssues,
   planScriptParameters,
 } from "@/definition/AgentPlanScript";
-import { planGitCloseoutIssues } from "@/definition/AgentPlanGitCloseout";
 import { planBindings } from "./AgentPlanBindings";
-import {
-  gitCloseoutSnapshot,
-  isPagesInterpreter,
-} from "./AgentPlanGitCloseout";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { AgentPlan } from "@/definition/AgentPlan";
-import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { InterpreterProfile } from "@/definition/InterpreterProfile";
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
@@ -30,17 +24,6 @@ export interface AgentPlanScriptSnapshot {
   readonly workspace: ResolvedAgentWorkspace;
   readonly inputs: Readonly<Record<string, string>>;
   readonly taskIds: readonly string[];
-  /** Set when Pages' own Git closeout runs in this process boundary instead of a plan's script. */
-  readonly gitCloseout?: AgentPlanGitCloseoutRun;
-}
-
-/** What only a Git closeout needs when it starts, frozen with the run. */
-export interface AgentPlanGitCloseoutRun {
-  readonly node: AgentPlanGitCloseout;
-  /** The name of the workspace, which is the name of the work branch. */
-  readonly workBranch: string;
-  /** The `owner/name` of the project's GitHub link, which origin must name. */
-  readonly repository: string;
 }
 
 interface ScriptPreparationDependencies {
@@ -59,19 +42,23 @@ export class AgentPlanScriptPreparation {
     this.dependencies = dependencies;
   }
 
-  /** Checks executable configurations for Play/control availability; never runs script content. */
+  /**
+   * Checks executable configurations for Play/control availability; never runs script content.
+   *
+   * @throws {AgentError} `plan_git_closeout_unsupported` while the plan still
+   * contains a Git closeout node of an earlier version.
+   */
   public async validate(userId: string, plan: AgentPlan): Promise<void> {
+    if (plan.nodes.some((node) => node.type === "git_closeout"))
+      throw new AgentError("plan_git_closeout_unsupported");
     const scripts = localScripts(plan);
-    const closeouts = gitCloseouts(plan);
-    if (scripts.length === 0 && closeouts.length === 0) return;
+    if (scripts.length === 0) return;
     await this.authorize(userId, plan);
     for (const script of scripts) {
       if (planScriptIssues(script).length > 0)
         throw new AgentError("plan_script_invalid");
       await this.dependencies.scripts.executable(script.interpreterProfileId);
     }
-    if (closeouts.some((node) => planGitCloseoutIssues(node).length > 0))
-      throw new AgentError("plan_git_closeout_invalid");
   }
 
   /** Freezes declared source bindings and exact interpreter paths before reserving the workspace. */
@@ -80,15 +67,12 @@ export class AgentPlanScriptPreparation {
     plan: AgentPlan,
     tasks: readonly AgentPlanTaskSnapshot[],
   ): Promise<readonly AgentPlanScriptSnapshot[]> {
+    if (plan.nodes.some((node) => node.type === "git_closeout"))
+      throw new AgentError("plan_git_closeout_unsupported");
     const scripts = localScripts(plan);
-    const closeouts = gitCloseouts(plan);
-    if (scripts.length === 0 && closeouts.length === 0) return [];
+    if (scripts.length === 0) return [];
     const workspace = await this.authorize(userId, plan);
-    const snapshots: AgentPlanScriptSnapshot[] = closeouts.map((node) => {
-      if (planGitCloseoutIssues(node).length > 0)
-        throw new AgentError("plan_git_closeout_invalid");
-      return gitCloseoutSnapshot(plan, node, workspace);
-    });
+    const snapshots: AgentPlanScriptSnapshot[] = [];
     for (const step of scripts) {
       if (planScriptIssues(step).length > 0)
         throw new AgentError("plan_script_invalid");
@@ -133,10 +117,9 @@ export class AgentPlanScriptPreparation {
     if (script.step.executionTarget?.kind === "remote")
       throw new AgentError("plan_remote_unavailable");
     const workspace = await this.authorize(userId, plan);
-    // The closeout's interpreter is the Node.js of this server, no configured profile.
-    const interpreter = isPagesInterpreter(script.interpreter)
-      ? script.interpreter
-      : await this.dependencies.scripts.executable(script.interpreter.id);
+    const interpreter = await this.dependencies.scripts.executable(
+      script.interpreter.id,
+    );
     if (
       workspace.path !== script.workspace.path ||
       workspace.directoryIdentity !== script.workspace.directoryIdentity ||
@@ -183,12 +166,6 @@ function localScripts(plan: AgentPlan): readonly AgentPlanScript[] {
   return plan.nodes.filter(
     (node): node is AgentPlanScript =>
       node.type === "script" && node.executionTarget?.kind !== "remote",
-  );
-}
-
-function gitCloseouts(plan: AgentPlan): readonly AgentPlanGitCloseout[] {
-  return plan.nodes.filter(
-    (node): node is AgentPlanGitCloseout => node.type === "git_closeout",
   );
 }
 

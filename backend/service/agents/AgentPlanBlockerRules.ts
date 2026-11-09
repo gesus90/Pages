@@ -85,7 +85,7 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   plan_script_input_limit: "open",
   plan_script_spawn: "open",
   plan_script_exit: "open",
-  plan_git_closeout_invalid: "open",
+  plan_git_closeout_unsupported: "open",
   plan_git_closeout_state: "open",
   plan_git_closeout_conflict: "harm",
   plan_git_closeout_secrets: "harm",

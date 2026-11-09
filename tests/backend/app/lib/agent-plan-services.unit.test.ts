@@ -348,7 +348,7 @@ it("drives runs with the engine and reports engine activity to the runners", asy
     files: agents.agentDefinitionFiles,
   });
   expect(vi.mocked(AgentPlanScriptRunner).mock.calls).toEqual([
-    [only(vi.mocked(AgentPlanScriptPreparation)), expect.anything()],
+    [only(vi.mocked(AgentPlanScriptPreparation))],
   ]);
   expect(vi.mocked(AgentPlanStepRunner).mock.calls[0][0]).toEqual({
     localSessions: undefined,

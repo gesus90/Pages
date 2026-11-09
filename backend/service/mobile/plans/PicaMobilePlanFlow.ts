@@ -31,6 +31,7 @@ const FLOW_KIND: Readonly<
   end: "end",
   agent: "agent",
   script: "script",
+  // Only runs of an earlier version contain a Git closeout (PAGE-285); new runs refuse one.
   git_closeout: "closeout",
   decision: "decision",
   stack: "stack",

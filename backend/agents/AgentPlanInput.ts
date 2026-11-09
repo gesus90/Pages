@@ -4,10 +4,6 @@ import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { planValueIssue } from "@/definition/AgentPlanValue";
-import {
-  PLAN_GIT_CLOSEOUT_COMMAND_LENGTH,
-  planGitCloseoutIssues,
-} from "@/definition/AgentPlanGitCloseout";
 import { planScriptIssues } from "@/definition/AgentPlanScript";
 import {
   PLAN_LOOP_MEMBER_COUNT,
@@ -312,11 +308,13 @@ function readScriptNode(
 }
 
 /**
- * Parses a Git closeout; only the configuration Play needs may still be open.
+ * Parses a saved Git closeout of an earlier version exactly as it was stored.
  *
  * @remarks
- * The role is fixed, so a client cannot turn the node into an ordinary step.
- * The check command may be empty in a draft, see `planGitCloseoutIssues`.
+ * The node is no longer supported (PAGE-285); it is only read so a saved plan
+ * keeps its configuration and connections until someone removes the node.
+ * Its role stays fixed, so it never turns into an ordinary step. Whether a
+ * save may contain it at all is decided where the plan is saved.
  */
 function readGitCloseoutNode(
   node: Record<string, unknown>,
@@ -328,22 +326,16 @@ function readGitCloseoutNode(
     typeof checkCommand !== "string" ||
     typeof timeoutSeconds !== "number"
   )
-    throw new AgentError("plan_git_closeout_invalid");
-  const closeout: AgentPlanGitCloseout = {
+    throw new AgentError("plan_invalid");
+  return {
     ...base,
     type: "git_closeout",
-    name: name.trim(),
+    name,
     role: "closeout",
     checkCommand,
     timeoutSeconds,
     bindings: readBindings(node.bindings),
   };
-  const issues = planGitCloseoutIssues(closeout);
-  if (issues.includes("name") || issues.includes("timeout"))
-    throw new AgentError("plan_git_closeout_invalid");
-  if (checkCommand.length > PLAN_GIT_CLOSEOUT_COMMAND_LENGTH)
-    throw new AgentError("plan_git_closeout_invalid");
-  return closeout;
 }
 
 function readEdge(input: unknown): AgentPlanEdge {

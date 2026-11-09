@@ -883,7 +883,7 @@
         "plan_script_input_limit": "Das Eingabe-JSON überschreitet die UTF-8-Grenze von 1 MiB.",
         "plan_script_spawn": "Der konfigurierte Interpreter konnte nicht gestartet werden. Es wurde kein Ersatz verwendet.",
         "plan_script_exit": "Das Script endete mit einem Fehler. Exit-Code und stderr stehen in den Laufdetails.",
-        "plan_git_closeout_invalid": "Der Git-Abschluss braucht einen Namen, einen Prüfbefehl und ein Zeitlimit von 60 bis 86400 Sekunden.",
+        "plan_git_closeout_unsupported": "Der Git-Abschluss-Knoten wird nicht mehr unterstützt. Entferne ihn oder ersetze ihn durch einen Agenten- oder Skriptschritt, der den Git-Abschluss übernimmt, und starte den Plan erneut.",
         "plan_git_closeout_state": "Der Workspace ist nicht bereit für den Git-Abschluss. Das Ergebnis in den Laufdetails nennt die Ursache; das Remote ist unverändert.",
         "plan_git_closeout_conflict": "Der Rebase auf origin/main hat Konflikte. Das Ergebnis in den Laufdetails nennt die Dateien; Arbeit und Remote sind unverändert.",
         "plan_git_closeout_secrets": "Der Diff enthält Inhalte, die wie Zugangsdaten aussehen. Das Ergebnis in den Laufdetails nennt die Dateien; es wurde nichts gepusht.",
@@ -4370,8 +4370,7 @@
       "scriptConfiguration": "Prüfe die Scriptkonfiguration.",
       "scriptReportTarget": "Verbinde den Prüfbericht ausdrücklich als Eingabe eines nachfolgenden Prüfscripts, Fix-Agenten oder einer Prüfsperre.",
       "scriptReportGate": "Jeder Pfad vom weitergegebenen Prüfbericht zum Ende muss eine bestandene Script-Prüfsperre durchlaufen.",
-      "gitCloseoutConfiguration": "Der Git-Abschluss braucht einen Namen, einen Prüfbefehl und ein gültiges Zeitlimit.",
-      "gitCloseoutRemote": "Der Git-Abschluss läuft nur in einem lokalen Plan: Arbeit auf einem anderen Rechner kann er nicht veröffentlichen.",
+      "gitCloseoutUnsupported": "Der Git-Abschluss-Knoten wird nicht mehr unterstützt und läuft nicht. Entferne ihn über das Knotenmenü oder ersetze ihn durch einen Agenten- oder Skriptschritt, der den Git-Abschluss übernimmt.",
       "loopScriptUnsupported": "Scriptmitglieder in Loops werden von dieser Runtime nicht unterstützt. Die gespeicherte Konfiguration bleibt erhalten; nutze einen ausdrücklichen Planschritt.",
       "remoteTicketUnavailable": "Ticket nicht verfügbar: archiviert, gelöscht oder aktuell nicht sichtbar. Es wird kein anderes Ticket eingesetzt.",
       "remoteWikiUnavailable": "Wiki-Seite nicht verfügbar: archiviert, gelöscht oder aktuell nicht sichtbar. Es wird keine andere Seite eingesetzt.",
@@ -5061,7 +5060,6 @@
         "end": "End",
         "agent": "Agents",
         "script": "Script",
-        "git_closeout": "Git-Abschluss",
         "parameter": "Parameter",
         "task": "Tickets",
         "group": "Groups",
@@ -5075,7 +5073,6 @@
         "end": "Ende eines Ablaufs hinzufügen.",
         "agent": "Einen Schritt direkt mit einem freigegebenen Modell konfigurieren.",
         "script": "Ein Script mit konfiguriertem Interpreter im freigegebenen Plan-Workspace ausführen.",
-        "git_closeout": "Die Arbeit ohne Modell als einen Commit nach main veröffentlichen und den Arbeitsbranch danach löschen.",
         "parameter": "Einen benannten Eingabewert bereitstellen.",
         "task": "Ein lesbares Ticket als Datenquelle verwenden.",
         "group": "Agents in einer gemeinsamen ACP-Gruppe organisieren.",
@@ -5131,21 +5128,16 @@
       "inputs_other": "{{count}} Eingaben"
     },
     "gitCloseout": {
-      "defaultName": "Git-Abschluss",
-      "editTitle": "Git-Abschluss bearbeiten",
-      "description": "Führt ohne Modell und ohne Agent aus: prüfen, auf origin/main rebasen, zu einem Commit zusammenfassen, normal nach main pushen und danach den Arbeitsbranch löschen. Der Arbeitsbranch heißt wie der Workspace, die Commit-Nachricht nennt das gebundene Ticket.",
       "name": "Name",
       "checkCommand": "Prüfbefehl",
-      "checkCommandHint": "Shell-Befehl im Workspace. Läuft vor dem Push, wenn ein Rebase den Stand verändert hat. Scheitert er, wird nicht gepusht.",
       "checkCommandMissing": "Prüfbefehl fehlt",
       "timeout": "Zeitlimit in Sekunden",
-      "timeoutHint": "{{minimum}} bis {{maximum}} Sekunden, für den ganzen Schritt einschließlich Prüfbefehl.",
-      "error": {
-        "name": "Gib einen Namen an.",
-        "checkCommand": "Gib einen Prüfbefehl mit höchstens {{maximum}} Zeichen an.",
-        "timeout": "Gib ganze Sekunden von {{minimum}} bis {{maximum}} an."
-      },
-      "close": "Schließen"
+      "close": "Schließen",
+      "legacyTitle": "Git-Abschluss (nicht mehr unterstützt)",
+      "legacySubtitle": "Git-Abschluss · nicht mehr unterstützt",
+      "legacyHint": "Nicht mehr unterstützt – entfernen oder ersetzen",
+      "legacyDescription": "Dieser Knoten stammt aus einer früheren Version und wird nicht mehr ausgeführt; der Plan startet erst, wenn er entfernt ist. Übernimm den Git-Abschluss bei Bedarf mit einem eigenen Agenten- oder Skriptschritt. Seine gespeicherten Einstellungen und Verbindungen bleiben erhalten, bis du ihn entfernst.",
+      "remove": "Knoten entfernen"
     },
     "scripts": {
       "editTitle": "Script bearbeiten",

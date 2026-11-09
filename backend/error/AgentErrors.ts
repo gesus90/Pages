@@ -107,8 +107,9 @@ export const AGENT_ERROR_MESSAGES = {
     "The configured interpreter could not be started. No replacement was used.",
   plan_script_exit:
     "The script exited with an error. See its exit code and stderr in the run details.",
-  plan_git_closeout_invalid:
-    "The Git closeout needs a name, a check command and a time limit of 60 to 86400 seconds.",
+  plan_git_closeout_unsupported:
+    "The Git closeout node is no longer supported. Remove it, or replace it with an agent or script step that does the Git closeout, and start the plan again.",
+  // The removed Git closeout node (PAGE-285) left these codes in the results of earlier runs.
   plan_git_closeout_state:
     "The workspace is not ready for the Git closeout. The result in the run details names the cause; the remote is unchanged.",
   plan_git_closeout_conflict:

@@ -421,9 +421,9 @@ async function planAssetReadFailure(
   }
 }
 
-/** Scripts and the Git closeout both run as processes of the script runtime. */
+/** Scripts run as processes of the script runtime. */
 function isScriptRuntimeNode(node: AgentPlan["nodes"][number]): boolean {
-  return node.type === "script" || node.type === "git_closeout";
+  return node.type === "script";
 }
 
 function requirePreparedRuntime(
