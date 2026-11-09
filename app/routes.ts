@@ -7,6 +7,7 @@ import {
 } from "@react-router/dev/routes";
 
 import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
+import { mcpUserRoutes } from "./lib/mcp-user-routes";
 import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
 import { storageRoutes } from "./lib/storage-routes";
 
@@ -299,6 +300,7 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ...mcpPlanNotationRoutes(routes),
     ...mcpWikiRoutes(routes.resource),
     ...mcpAgentRoutes(routes.resource),
+    ...mcpUserRoutes(routes.resource),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),
     resource("favicon.ico", "routes/favicon.ts"),

@@ -5,9 +5,12 @@ import {
   projectVersion,
   projectVersionSummary,
 } from "./McpWikiProjection";
+import { McpWikiError } from "./McpWikiError";
 
+import type { WikiPrivatePlaceholder } from "@/definition/Wiki";
 import type {
   McpWikiDeleteConfirmation,
+  McpWikiPlaceholderConfirmation,
   McpWikiPage,
   McpWikiPurgeConfirmation,
   McpWikiTrashEntry,
@@ -40,10 +43,20 @@ export class McpWikiLifecycleService {
     context: McpWikiContext,
     id: string,
     request: McpWikiDeleteRequest,
-  ): Promise<McpWikiDeleteConfirmation | { readonly deleted: true }> {
+  ): Promise<
+    | McpWikiDeleteConfirmation
+    | McpWikiPlaceholderConfirmation
+    | { readonly deleted: true }
+  > {
     const { actor, services } = context;
+    const placeholder = await services.wiki.findPlaceholder(actor, id);
+    if (placeholder !== null && placeholder.ownerId !== actor.id)
+      return this.deletePlaceholder(context, placeholder, request.confirmed);
+    const { expectedRevision } = request;
+    if (expectedRevision === undefined)
+      throw new McpWikiError("invalid_request");
     if (request.confirmed !== true) {
-      await context.pageAtRevision(id, request.expectedRevision);
+      await context.pageAtRevision(id, expectedRevision);
       const scope = await services.wiki.previewDelete(actor, id);
       return {
         confirmationRequired: true,
@@ -52,7 +65,7 @@ export class McpWikiLifecycleService {
       };
     }
     await context.atomically(async () => {
-      await context.pageAtRevision(id, request.expectedRevision);
+      await context.pageAtRevision(id, expectedRevision);
       await services.wiki.delete(actor, id);
     });
     return { deleted: true };
@@ -174,5 +187,33 @@ export class McpWikiLifecycleService {
       await services.wiki.restoreVersion(actor, id, versionId);
       return currentPage(context, id);
     });
+  }
+
+  /**
+   * Moves a private page of somebody else into its owner's trash, the way
+   * the user management of the interface does (PAGE-280).
+   *
+   * @remarks
+   * Only an administrator in the admin mode gets a placeholder. The question
+   * names the identifier and the owner, never a title or text; the page has
+   * no readable revision, so the confirmation alone guards it.
+   */
+  private async deletePlaceholder(
+    context: McpWikiContext,
+    placeholder: WikiPrivatePlaceholder,
+    isConfirmed: boolean | undefined,
+  ): Promise<McpWikiPlaceholderConfirmation | { readonly deleted: true }> {
+    if (isConfirmed !== true)
+      return {
+        confirmationRequired: true,
+        placeholder: { id: placeholder.id, ownerId: placeholder.ownerId },
+      };
+    await context.atomically(async () => {
+      await context.services.wiki.deletePrivateAsAdministrator(
+        context.actor,
+        placeholder.id,
+      );
+    });
+    return { deleted: true };
   }
 }
