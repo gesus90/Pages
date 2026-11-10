@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRevalidator } from "react-router";
 
 import { requestStorageFolder } from "./storage-requests";
 
@@ -22,7 +23,14 @@ export type StorageFolderReading =
 
 /** The folder of the view and what can be done with it. */
 export interface StorageFolderModel {
+  /** What is known about the asked folder; `loading` until its own answer arrived. */
   readonly reading: StorageFolderReading;
+  /**
+   * The folder loaded before, while the asked one loads (PAGE-279). It
+   * belongs to no current target: a view keeps its place with it, but
+   * offers nothing of it.
+   */
+  readonly previousResult: StorageBrowseResult | null;
   readonly isLoadingMore: boolean;
   readonly loadMoreFailed: boolean;
   readonly loadMore: () => void;
@@ -37,6 +45,45 @@ interface StorageFolderTarget {
   readonly isFoldersOnly: boolean;
 }
 
+/** The asked folder with the number of its load. */
+interface StorageFolderRequest extends StorageFolderTarget {
+  /** Counts up with every change of target and every reload. */
+  readonly loadId: number;
+}
+
+/** The last answer and the load it belongs to. */
+interface StorageFolderState {
+  /** The load of the answer; while another load is asked, it is replaced. */
+  readonly loadId: number;
+  readonly reading: StorageFolderReading;
+}
+
+/** A request for the next page, bound to the listing that asked for it. */
+interface StoragePageRequest {
+  readonly loadId: number;
+  readonly folderId: string;
+  readonly pageToken: string;
+}
+
+/** The next-page request of one listing. */
+interface StoragePagesState {
+  readonly loadId: number;
+  readonly status: "idle" | "loading" | "failed";
+}
+
+interface MorePagesOptions {
+  readonly state: StorageFolderState;
+  readonly loadId: number;
+  readonly isFoldersOnly: boolean;
+  readonly setState: (
+    update: (current: StorageFolderState) => StorageFolderState,
+  ) => void;
+}
+
+const LOADING: StorageFolderReading = { kind: "loading" };
+
+const NOTHING_LOADED: StorageFolderState = { loadId: 0, reading: LOADING };
+
 function toReading(
   reply: Awaited<ReturnType<typeof requestStorageFolder>>,
 ): StorageFolderReading {
@@ -49,66 +96,109 @@ function toReading(
     : { kind: "loaded", result: reply.value };
 }
 
-/** Appends the next page to a loaded folder. */
+/** Appends the next page, only to the listing that asked for it. */
 function appendPage(
-  reading: StorageFolderReading,
+  current: StorageFolderState,
+  request: StoragePageRequest,
   next: StorageBrowseResult,
-): StorageFolderReading {
-  if (reading.kind !== "loaded" || !reading.result.folder || !next.folder) {
-    return reading;
+): StorageFolderState {
+  const { reading } = current;
+
+  if (reading.kind !== "loaded" || current.loadId !== request.loadId) {
+    return current;
+  }
+
+  const folder = reading.result.folder;
+
+  // A page of another folder or of a replaced listing never mixes in.
+  if (
+    !folder ||
+    !next.folder ||
+    folder.folderId !== request.folderId ||
+    folder.nextPageToken !== request.pageToken
+  ) {
+    return current;
   }
 
   return {
-    kind: "loaded",
-    result: {
-      ...reading.result,
-      folder: {
-        ...reading.result.folder,
-        items: [...reading.result.folder.items, ...next.folder.items],
-        nextPageToken: next.folder.nextPageToken,
+    loadId: current.loadId,
+    reading: {
+      kind: "loaded",
+      result: {
+        ...reading.result,
+        folder: {
+          ...folder,
+          items: [...folder.items, ...next.folder.items],
+          nextPageToken: next.folder.nextPageToken,
+        },
       },
     },
   };
 }
 
 function useMorePages(
-  reading: StorageFolderReading,
-  target: StorageFolderTarget,
-  setReading: (
-    update: (current: StorageFolderReading) => StorageFolderReading,
-  ) => void,
+  options: MorePagesOptions,
 ): Pick<StorageFolderModel, "isLoadingMore" | "loadMore" | "loadMoreFailed"> {
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-  const folder = reading.kind === "loaded" ? reading.result.folder : null;
+  const { state, loadId, isFoldersOnly, setState } = options;
+  const [pages, setPages] = useState<StoragePagesState>({
+    loadId: 0,
+    status: "idle",
+  });
+  const requestRef = useRef<AbortController | null>(null);
+  const status = pages.loadId === loadId ? pages.status : "idle";
+  const folder =
+    state.loadId === loadId && state.reading.kind === "loaded"
+      ? state.reading.result.folder
+      : null;
 
-  async function fetchMore(folderId: string, pageToken: string): Promise<void> {
-    setIsLoadingMore(true);
-    setLoadMoreFailed(false);
+  // Another folder or a reload ends the page request of the former listing.
+  useEffect(() => () => requestRef.current?.abort(), [loadId]);
+
+  async function fetchMore(request: StoragePageRequest): Promise<void> {
+    const controller = new AbortController();
+
+    requestRef.current = controller;
+    setPages({ loadId: request.loadId, status: "loading" });
     const reply = await requestStorageFolder(
-      { folderId, isFoldersOnly: target.isFoldersOnly, pageToken },
-      new AbortController().signal,
+      {
+        folderId: request.folderId,
+        isFoldersOnly,
+        pageToken: request.pageToken,
+      },
+      controller.signal,
     );
-    setIsLoadingMore(false);
+
+    if (controller.signal.aborted) {
+      return;
+    }
 
     if (!reply.ok || reply.value.kind !== "browse") {
-      setLoadMoreFailed(true);
+      setPages({ loadId: request.loadId, status: "failed" });
       return;
     }
 
     const next = reply.value;
-    setReading((current) => appendPage(current, next));
+    setPages({ loadId: request.loadId, status: "idle" });
+    setState((current) => appendPage(current, request, next));
   }
 
   function loadMore(): void {
-    if (!folder?.nextPageToken || isLoadingMore) {
+    if (!folder?.nextPageToken || status === "loading") {
       return;
     }
 
-    void fetchMore(folder.folderId, folder.nextPageToken);
+    void fetchMore({
+      folderId: folder.folderId,
+      loadId,
+      pageToken: folder.nextPageToken,
+    });
   }
 
-  return { isLoadingMore, loadMore, loadMoreFailed };
+  return {
+    isLoadingMore: status === "loading",
+    loadMore,
+    loadMoreFailed: status === "failed",
+  };
 }
 
 /**
@@ -120,51 +210,72 @@ function useMorePages(
  *
  * @remarks
  * Nothing is kept between visits: every load asks the server, which asks
- * Drive with the rights of the connected account.
+ * Drive with the rights of the connected account. Each answer belongs to the
+ * load that asked for it; an answer or page of a replaced target is dropped
+ * (PAGE-279). A failed load lets the frame check session and rights again.
  */
 export function useStorageFolder(
   target: StorageFolderTarget,
 ): StorageFolderModel {
-  const [reading, setReading] = useState<StorageFolderReading>({
-    kind: "loading",
+  const [state, setState] = useState<StorageFolderState>(NOTHING_LOADED);
+  const [request, setRequest] = useState<StorageFolderRequest>({
+    ...target,
+    loadId: 1,
   });
-  const [reloadCount, setReloadCount] = useState(0);
-  const { folderId, isFoldersOnly } = target;
+  const { revalidate } = useRevalidator();
+
+  // A new target is a new load already in this render, so nothing of the
+  // former answer counts as the asked folder, also on a return to it.
+  if (
+    request.folderId !== target.folderId ||
+    request.isFoldersOnly !== target.isFoldersOnly
+  ) {
+    setRequest({ ...target, loadId: request.loadId + 1 });
+  }
+
+  const { folderId, isFoldersOnly, loadId } = request;
+  const isCurrent = state.loadId === loadId;
 
   useEffect(() => {
     const controller = new AbortController();
 
     async function load(): Promise<void> {
-      setReading({ kind: "loading" });
       const reply = await requestStorageFolder(
         { folderId, isFoldersOnly, pageToken: null },
         controller.signal,
       );
 
-      if (!controller.signal.aborted) {
-        setReading(toReading(reply));
+      if (controller.signal.aborted) {
+        return;
       }
+
+      setState({ loadId, reading: toReading(reply) });
+      // The frame reads session and rights again; an ended session leads to the sign-in.
+      if (!reply.ok) void revalidate();
     }
 
     void load();
 
     return () => controller.abort();
-  }, [folderId, isFoldersOnly, reloadCount]);
+  }, [folderId, isFoldersOnly, loadId, revalidate]);
 
   function reload(): void {
-    setReloadCount((count) => count + 1);
+    setRequest((current) => ({ ...current, loadId: current.loadId + 1 }));
   }
 
   function replaceStartFolder(startFolder: StorageStartFolder | null): void {
-    setReading((current) =>
-      current.kind === "loaded"
+    setState((current) =>
+      current.reading.kind === "loaded"
         ? {
-            kind: "loaded",
-            result: {
-              ...current.result,
-              startFolder,
-              startFolderProblem: null,
-              startFolderRenamedFrom: null,
+            loadId: current.loadId,
+            reading: {
+              kind: "loaded",
+              result: {
+                ...current.reading.result,
+                startFolder,
+                startFolderProblem: null,
+                startFolderRenamedFrom: null,
+              },
             },
           }
         : current,
@@ -172,8 +283,12 @@ export function useStorageFolder(
   }
 
   return {
-    ...useMorePages(reading, target, setReading),
-    reading,
+    ...useMorePages({ isFoldersOnly, loadId, setState, state }),
+    previousResult:
+      !isCurrent && state.reading.kind === "loaded"
+        ? state.reading.result
+        : null,
+    reading: isCurrent ? state.reading : LOADING,
     reload,
     replaceStartFolder,
   };

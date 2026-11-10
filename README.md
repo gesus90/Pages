@@ -409,6 +409,14 @@ one sentence with a link to **Settings → System**.
   step clickable; folders first, then files, 200 per page with "Load more".
   `/storage?folder=<id>` is an explicit target and is never redirected; plain
   `/storage` opens the start folder, else My Drive.
+- **Folder change (PAGE-279):** opening a folder, a path step, My Drive, the
+  shared drives or the start folder changes only the address and the file card.
+  Frame, header, quota and toolbar stay in place; the frame's data is not read
+  again for it. Until the new folder arrives, the card shows the former one
+  dimmed and inert with a loading status, and uploads are off. A late answer
+  or page of a replaced folder is dropped and its request ended. A failed
+  request removes the former folder and lets the frame check session and
+  rights again.
 - **Start folder:** chosen in a compact folder dialog and saved per account in
   `storage_start_folder` with the Drive identifier, the shared drive, the
   readable name and path and the `permissionId` of the connection. It is a

@@ -140,10 +140,13 @@ function StorageMessages({
 /** The folder actions, a failure no dialog resolves, and the trash switch. */
 function StorageActionBar({
   writing,
+  isSwitching,
   isTrashOpen,
   onToggleTrash,
 }: {
   readonly writing: StorageFolderActions;
+  /** Whether the shown folder is being replaced; nothing is added to it then. */
+  readonly isSwitching: boolean;
   readonly isTrashOpen: boolean;
   readonly onToggleTrash: () => void;
 }): React.ReactElement {
@@ -153,7 +156,7 @@ function StorageActionBar({
     <>
       <StorageActionToolbar
         actions={actions}
-        canAddHere={writing.canAddHere}
+        canAddHere={writing.canAddHere && !isSwitching}
         isTrashOpen={isTrashOpen}
         onToggleTrash={onToggleTrash}
       />
@@ -210,7 +213,12 @@ export function StoragePage(): React.ReactElement {
   const model = useStorageFolder({ folderId, isFoldersOnly: false });
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
-  const result = model.reading.kind === "loaded" ? model.reading.result : null;
+  // While another folder loads, the former one keeps header, toolbar and card
+  // in place (PAGE-279); the card shows it inert.
+  const result =
+    model.reading.kind === "loaded"
+      ? model.reading.result
+      : model.previousResult;
   const writing = useStorageFolderActions(result, model.reload);
   const manager = useStorageFileManager(result, writing, model.reload);
 
@@ -255,6 +263,7 @@ export function StoragePage(): React.ReactElement {
       ) : null}
       {result ? (
         <StorageActionBar
+          isSwitching={model.previousResult !== null}
           isTrashOpen={isTrashOpen}
           onToggleTrash={toggleTrash}
           writing={writing}

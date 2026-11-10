@@ -2,6 +2,7 @@ import { FolderOpen, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/lib/cn";
 
 import { StorageFileList } from "./storage-file-list";
 import {
@@ -119,8 +120,10 @@ function FolderBody({
   return (
     <>
       {tools?.menuBar}
+      {/* Another folder starts at the top; a reload keeps the place. */}
       <div
         className="min-h-0 flex-1 overflow-y-auto"
+        key={folder.folderId}
         onContextMenu={handleContextMenu}
       >
         {folder.items.length === 0 ? (
@@ -187,42 +190,94 @@ function LoadedContent({
   );
 }
 
+/** The card without a folder to show: the first load or a failure. */
+function ReadingNotice({
+  model,
+}: {
+  readonly model: StorageFolderModel;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { reading, reload } = model;
+
+  if (reading.kind === "failed") {
+    return (
+      <div className="p-4">
+        <StorageFailureNotice failure={reading.failure} onRetry={reload} />
+      </div>
+    );
+  }
+
+  if (reading.kind === "connection") {
+    return (
+      <div className="p-4">
+        <StorageConnectionNotice
+          connection={reading.connection}
+          onRetry={reload}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <CenteredMessage>
+      <Loader2 aria-hidden="true" className="size-6 animate-spin" />
+      <p role="status">{t("storage.loading")}</p>
+    </CenteredMessage>
+  );
+}
+
+/** The quiet status of a folder change above the former folder. */
+function SwitchingStatus(): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
+      <p
+        className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm"
+        role="status"
+      >
+        <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+        {t("storage.loading")}
+      </p>
+    </div>
+  );
+}
+
 /**
  * The file card of the Storage area with its loading, empty and error states.
  *
  * @remarks
  * Only the list scrolls; the card keeps its menu bar, column heads and
  * footer visible and its bottom edge above the free space of the Pica
- * launcher.
+ * launcher. Loading and failures stay inside the card; while another folder
+ * loads, the former one stays in place without being operable.
  */
 export function StorageContent(props: StorageContentProps): React.ReactElement {
-  const { t } = useTranslation();
-  const { reading, reload } = props.model;
+  const { reading, previousResult } = props.model;
+  const result = reading.kind === "loaded" ? reading.result : previousResult;
+  // The former folder keeps its place, dimmed and inert: nothing of it can be
+  // opened, selected or changed as if it were the asked folder.
+  const isSwitching = reading.kind !== "loaded" && result !== null;
 
   return (
-    <div className="pages-content-card flex min-h-48 min-w-0 flex-1 flex-col overflow-hidden p-0">
-      {reading.kind === "loading" ? (
-        <CenteredMessage>
-          <Loader2 aria-hidden="true" className="size-6 animate-spin" />
-          <p role="status">{t("storage.loading")}</p>
-        </CenteredMessage>
-      ) : null}
-      {reading.kind === "failed" ? (
-        <div className="p-4">
-          <StorageFailureNotice failure={reading.failure} onRetry={reload} />
+    <div
+      aria-busy={reading.kind === "loading"}
+      className="pages-content-card relative flex min-h-48 min-w-0 flex-1 flex-col overflow-hidden p-0"
+    >
+      {result ? (
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 flex-col motion-safe:transition-opacity",
+            isSwitching ? "opacity-50" : null,
+          )}
+          inert={isSwitching}
+        >
+          <LoadedContent {...props} result={result} />
         </div>
-      ) : null}
-      {reading.kind === "connection" ? (
-        <div className="p-4">
-          <StorageConnectionNotice
-            connection={reading.connection}
-            onRetry={reload}
-          />
-        </div>
-      ) : null}
-      {reading.kind === "loaded" ? (
-        <LoadedContent {...props} result={reading.result} />
-      ) : null}
+      ) : (
+        <ReadingNotice model={props.model} />
+      )}
+      {isSwitching ? <SwitchingStatus /> : null}
     </div>
   );
 }
