@@ -5,6 +5,15 @@ import type { AgentPlanRun } from "./AgentPlan";
 import type { AgentPlanWorkspaceConflict } from "./AgentPlanWorkspaceConflict";
 import type { AgentPlanStartRejection } from "./AgentPlanStartRejection";
 
+/** The reasons {@link AgentPlanControl.resumeBlocker} names. */
+export const AGENT_PLAN_RESUME_BLOCKERS = [
+  "own_run_required",
+  "plan_access_denied",
+] as const;
+
+export type AgentPlanResumeBlocker =
+  (typeof AGENT_PLAN_RESUME_BLOCKERS)[number];
+
 /** Plan-visible control metadata contains no private prompts, results or session details. */
 export interface AgentPlanControl {
   readonly runId: string | null;
@@ -12,6 +21,17 @@ export interface AgentPlanControl {
   readonly canPlay: boolean;
   readonly canRestart?: boolean;
   readonly resumeAction?: "paused" | "recovery";
+  /**
+   * Why the reader cannot continue the newest paused or ended run.
+   *
+   * @remarks
+   * Set apart from the history the reader may see, so an empty or refused
+   * history never reads as a plan that has not run. `own_run_required` names
+   * a run of another executor, whose identity stays hidden;
+   * `plan_access_denied` an own run whose current content or resource rights
+   * are missing. Absent while continuing is not the question or allowed.
+   */
+  readonly resumeBlocker?: AgentPlanResumeBlocker;
   readonly workspaceWait?: AgentPlanWriterWait;
   readonly cleanup?: readonly AgentWorkspaceCleanup[];
   readonly canPause: boolean;

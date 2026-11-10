@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConsoleStatusLine } from "./console-status-line";
 import { ConsoleTerminalInput } from "./console-terminal-input";
-import {
-  currentEnding,
-  earlierAttempts,
-  hasSessionEnded,
-} from "./console-step-state";
-import { renderTerminal } from "./terminal-lines";
+import { currentEnding, earlierAttempts } from "./console-step-state";
+import { renderTerminal, runningTerminalTool } from "./terminal-lines";
 import { terminalTexts } from "./terminal-texts";
-import { useNow, useTerminalSurface } from "./use-terminal-surface";
+import { useTerminalSurface } from "./use-terminal-surface";
 import { useTerminalHistory } from "./use-terminal-history";
+import { useTerminalColumns, useTerminalText } from "./use-terminal-text";
 
 import type { TerminalSurface } from "@/app/components/agents/workspaces/remote/console/terminal-surface";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -18,7 +16,7 @@ import type {
   AgentSessionEvent,
   AgentSessionKey,
 } from "@/definition/AgentSessionJournal";
-import type { TerminalAttempt } from "./terminal-lines";
+import type { TerminalAttempt, TerminalInput } from "./terminal-lines";
 import type { AgentSessionData } from "./use-agent-session";
 import type { SessionCommands } from "./use-session-commands";
 import type { TerminalHistory } from "./use-terminal-history";
@@ -55,7 +53,6 @@ function joined(
 function terminalAttempts(
   props: Pick<ConsoleTerminalProps, "sessionKey" | "step" | "session">,
   history: TerminalHistory,
-  now: number,
 ): readonly TerminalAttempt[] {
   const earlier = earlierAttempts(props.step, props.sessionKey.attemptId);
   const index = (props.step.session?.retry?.attempts ?? []).findIndex(
@@ -75,39 +72,9 @@ function terminalAttempts(
       number: index >= 0 ? index + 1 : earlier.length + 1,
       startedAt: props.step.session?.startedAt ?? null,
       events: joined(history.older, props.session.events),
-      ending: currentEnding(props.step, now),
+      ending: currentEnding(props.step),
     },
   ];
-}
-
-/**
- * Writes the text into xterm: only what was added when the text grew, all of
- * it after another change, keeping the line the reader looks at in place.
- */
-function useTerminalText(surface: TerminalSurface | null, text: string): void {
-  const written = useRef("");
-  useEffect(() => {
-    if (!surface) return;
-    const { terminal } = surface;
-    if (text.startsWith(written.current)) {
-      terminal.write(text.slice(written.current.length));
-      written.current = text;
-      return;
-    }
-    const buffer = terminal.buffer.active;
-    const lengthBefore = buffer.length;
-    const top = buffer.viewportY;
-    const isAtBottom = buffer.viewportY >= buffer.baseY;
-    terminal.reset();
-    terminal.write(`\u001b[?25l${text}`, () => {
-      if (isAtBottom) terminal.scrollToBottom();
-      else
-        terminal.scrollToLine(
-          Math.max(0, top + terminal.buffer.active.length - lengthBefore),
-        );
-    });
-    written.current = text;
-  }, [surface, text]);
 }
 
 /** Reads older history once the reader reaches the top, by scrolling or by the wheel at the top. */
@@ -179,7 +146,7 @@ export function ConsoleTerminal(
   }, [onCloseRequest]);
   const closeRequest = useCallback(() => latestClose.current(), []);
   const surface = useTerminalSurface(container, closeRequest);
-  const now = useNow(!hasSessionEnded(props.step));
+  const columns = useTerminalColumns(surface);
   const history = useTerminalHistory(props.sessionKey, {
     firstSequence: props.session.events[0]?.sequence ?? null,
     hasEarlier: props.session.hasEarlier,
@@ -191,17 +158,18 @@ export function ConsoleTerminal(
       todo.text,
     ]),
   );
-  const text = renderTerminal({
+  const input: TerminalInput = {
     provider: props.provider,
     model: props.model,
     prompt: props.prompt,
-    attempts: terminalAttempts(props, history, now),
+    attempts: terminalAttempts(props, history),
     todoTexts,
-    now,
+    columns,
     texts: terminalTexts(t),
-  });
-  useTerminalText(surface, text);
+  };
+  useTerminalText(surface, renderTerminal(input));
   useLoadOlderAtTop(surface, container, history);
+  const retry = props.step.session?.retry;
   return (
     <section
       aria-label={t("plans.console.terminal.title")}
@@ -214,6 +182,12 @@ export function ConsoleTerminal(
           className="h-full w-full"
         />
       </div>
+      {props.inputMode === "ended" ? null : (
+        <ConsoleStatusLine
+          tool={runningTerminalTool(input)}
+          resumeAt={retry?.state === "waiting" ? retry.nextAttemptAt : null}
+        />
+      )}
       <TerminalFooter
         inputMode={props.inputMode}
         commands={props.commands}

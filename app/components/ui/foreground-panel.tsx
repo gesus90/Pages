@@ -14,7 +14,7 @@ interface ForegroundPanelProps extends HTMLAttributes<HTMLElement> {
   readonly keyboardInset?: number;
   /** Fills the main area beside the navigation instead of a reading width, as a terminal needs. */
   readonly isWide?: boolean;
-  /** Covers almost the whole window with a margin of 28 px, as the Pages terminal of an agent node (PAGE-284). */
+  /** Centred in the window, at most 82 × 52 rem and at least 28 px from its edges, as the Pages terminal of an agent node (PAGE-289). */
   readonly isFullscreen?: boolean;
 }
 

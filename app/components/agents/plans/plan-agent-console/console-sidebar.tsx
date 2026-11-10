@@ -1,8 +1,11 @@
+import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
+import { formatClock } from "./console-time";
+import { useNow } from "./use-terminal-surface";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
@@ -16,20 +19,44 @@ interface ConsoleSidebarProps {
   readonly view: AgentSessionView;
 }
 
-/** The symbol and color of a todo: done green, active orange, open grey. */
-const TODO_MARKS: Readonly<
-  Record<"done" | "active" | "open", { symbol: string; className: string }>
-> = {
-  done: { symbol: "✓", className: "text-agent-terminal-success" },
-  active: { symbol: "●", className: "text-agent-terminal-accent" },
-  open: { symbol: "○", className: "text-agent-console-muted" },
-};
-
-function markOf(
-  status: AgentPlanProgressItem["status"],
-): (typeof TODO_MARKS)["open"] {
-  if (status === "done" || status === "active") return TODO_MARKS[status];
-  return TODO_MARKS.open;
+/**
+ * The checkbox of a todo, which only shows its state (PAGE-289): done filled
+ * with a check, active a filled square, open empty.
+ */
+function TodoCheckbox({
+  status,
+}: {
+  readonly status: AgentPlanProgressItem["status"];
+}): React.ReactElement {
+  const box =
+    "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[4px] border";
+  if (status === "done")
+    return (
+      <span
+        aria-hidden="true"
+        data-todo-mark="done"
+        className={`${box} border-agent-terminal-success bg-agent-terminal-success text-agent-terminal-surface`}
+      >
+        <Check className="size-3" strokeWidth={3} />
+      </span>
+    );
+  if (status === "active")
+    return (
+      <span
+        aria-hidden="true"
+        data-todo-mark="active"
+        className={`${box} border-agent-terminal-accent`}
+      >
+        <span className="size-2 rounded-[2px] bg-agent-terminal-accent" />
+      </span>
+    );
+  return (
+    <span
+      aria-hidden="true"
+      data-todo-mark="open"
+      className={`${box} border-agent-console-muted`}
+    />
+  );
 }
 
 function SidebarSection(props: {
@@ -81,12 +108,9 @@ function TodoList({
       ) : (
         <ul className="space-y-1 text-sm text-agent-console-foreground">
           {todos.map((todo) => {
-            const mark = markOf(todo.status);
             return (
-              <li key={todo.id} className="flex min-w-0 gap-1.5">
-                <span aria-hidden="true" className={mark.className}>
-                  {mark.symbol}
-                </span>
+              <li key={todo.id} className="flex min-w-0 items-start gap-2">
+                <TodoCheckbox status={todo.status} />
                 <span className="sr-only">
                   {t(
                     `plans.console.terminal.sidebar.todoStatus.${todo.status}`,
@@ -187,6 +211,38 @@ function UsageSection(props: {
   );
 }
 
+/** How long the session of the node ran, ticking while it runs, else up to its end (PAGE-289). */
+function RuntimeFact({
+  step,
+  label,
+  unknown,
+}: {
+  readonly step: AgentPlanStepResult;
+  readonly label: string;
+  readonly unknown: string;
+}): React.ReactElement {
+  const startedAt = Date.parse(step.session?.startedAt ?? "");
+  const endedAt = Date.parse(
+    step.session?.endedAt ?? step.session?.turnEndedAt ?? "",
+  );
+  const isRunning =
+    Number.isFinite(startedAt) &&
+    !step.session?.endedAt &&
+    !hasSessionEnded(step);
+  const now = useNow(isRunning);
+  const end = isRunning ? now : endedAt;
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-sm">
+      <dt className="text-agent-console-muted">{label}</dt>
+      <dd className="text-right text-agent-console-foreground tabular-nums">
+        {Number.isFinite(startedAt) && Number.isFinite(end)
+          ? formatClock(end - startedAt)
+          : unknown}
+      </dd>
+    </div>
+  );
+}
+
 function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
   const key = "plans.console.terminal.sidebar";
@@ -198,6 +254,11 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
   return (
     <SidebarSection title={t(`${key}.session`)}>
       <dl className="space-y-1.5">
+        <RuntimeFact
+          step={props.step}
+          label={t(`${key}.runtime`)}
+          unknown={unknown}
+        />
         <Fact
           label={t(`${key}.model`)}
           value={model.confirmedModel.value ?? requested?.model ?? unknown}
@@ -228,7 +289,7 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
 }
 
 /**
- * The sidebar of the Pages terminal: todos, activity, usage and session (PAGE-284).
+ * The sidebar of the Pages terminal: todos, activity, usage and session (PAGE-284, PAGE-289).
  *
  * @remarks
  * It follows the run while it runs: the todos and the activity come from the
@@ -241,7 +302,7 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
   return (
     <aside
       aria-label={t("plans.console.details")}
-      className="shrink-0 space-y-5 overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 min-[680px]:w-[360px] min-[680px]:border-t-0 min-[680px]:border-l min-[680px]:pb-28"
+      className="shrink-0 space-y-5 overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l min-[680px]:pb-28"
     >
       <TodoList todos={props.step.progress?.todos ?? []} />
       <SidebarSection title={t("plans.console.terminal.sidebar.activity")}>

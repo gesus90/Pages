@@ -69,12 +69,15 @@ export async function readPlanControlEntry(
           : (isActive && "plan_busy") || null,
       play: playBlocker(plan, control, issue),
       pause: runBlocker(control.canPause, readable, "run_not_running", context),
-      resume: runBlocker(
-        control.canResume,
-        readable,
-        issue ?? "run_not_paused",
-        context,
-      ),
+      // The same reason the panel shows, so an empty history never reads as an unstarted plan.
+      resume:
+        control.resumeBlocker ??
+        runBlocker(
+          control.canResume,
+          readable,
+          issue ?? "run_not_paused",
+          context,
+        ),
       stop: runBlocker(
         control.canStop,
         run,

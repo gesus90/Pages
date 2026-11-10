@@ -1,5 +1,8 @@
 import { withReadScope } from "@/backend/database/ReadScope";
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import {
+  isActivePlanRun,
+  isResumablePlanRunEnd,
+} from "@/definition/AgentPlanRunState";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
@@ -107,6 +110,11 @@ export function controlOnlyPlanControl(
     canEdit: control.canEdit,
     canPause: false,
     canResume: false,
+    // Resuming reuses the run's results and context, so it needs the content rights the history needs.
+    ...(access.run.status === "paused" ||
+    isResumablePlanRunEnd(access.run.status)
+      ? { resumeBlocker: "plan_access_denied" as const }
+      : {}),
     canStop:
       control.canStop &&
       !access.run.stopRequested &&

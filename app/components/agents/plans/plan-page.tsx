@@ -272,6 +272,7 @@ function PlanEditorPage({
         runPlan={display.plan}
         runError={display.error}
         isReady={planReadiness(controls.control, editor.isDirty)}
+        storedRunStatus={controls.control?.status}
         tickets={editor.tickets}
         workspaces={parameterWorkspaces(page, editor.draft)}
         status={<PlanStatusNotices saving={saving} localState={localState} />}

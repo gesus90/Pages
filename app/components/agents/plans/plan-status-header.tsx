@@ -13,6 +13,7 @@ import { hasOpenPlanReport } from "./plan-status";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanSequencePreview } from "./plan-run-status-model";
 import type { PlanStepSequence } from "./plan-step-sequence";
 
@@ -29,6 +30,8 @@ interface StatusHeaderProps {
   readonly error: string | null;
   /** Whether the plan may start, named while there is no run; absent while unknown. */
   readonly isReady?: boolean;
+  /** The stored status of the newest run, named while no run is shown. */
+  readonly storedRunStatus?: AgentPlanControl["status"];
   readonly onSelect: (id: string) => void;
   readonly onToggle: () => void;
 }
@@ -37,6 +40,7 @@ interface StatusHeaderProps {
 function indicatorStatus(
   run: AgentPlanRun | null,
   isReady: boolean | undefined,
+  storedRunStatus: AgentPlanControl["status"] | undefined,
 ): string {
   const isBlocked =
     run?.status === "running" &&
@@ -45,7 +49,10 @@ function indicatorStatus(
   if (isBlocked) return "blocked";
   if (run?.status === "succeeded" && run.steps.some(hasOpenPlanReport))
     return "reportOpen";
-  return run?.status ?? (isReady === false ? "notReady" : "idle");
+  if (run) return run.status;
+  // An empty or refused history is no proof that the plan has not run.
+  if (storedRunStatus && storedRunStatus !== "idle") return storedRunStatus;
+  return isReady === false ? "notReady" : "idle";
 }
 
 const DOT_TONES: Readonly<Record<string, string>> = {
@@ -64,9 +71,13 @@ function RunIndicator({
   run,
   error,
   isReady,
-}: Pick<StatusHeaderProps, "run" | "error" | "isReady">): React.ReactElement {
+  storedRunStatus,
+}: Pick<
+  StatusHeaderProps,
+  "run" | "error" | "isReady" | "storedRunStatus"
+>): React.ReactElement {
   const { t } = useTranslation();
-  const status = indicatorStatus(run, isReady);
+  const status = indicatorStatus(run, isReady, storedRunStatus);
   const label = error
     ? t("plans.progress.unavailable")
     : t(`plans.progress.state.${status}`);
@@ -147,6 +158,7 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
         run={props.run}
         error={props.error}
         isReady={props.isReady}
+        storedRunStatus={props.storedRunStatus}
       />
       <RunDonut sequence={props.sequence} />
       <div className="order-2 flex w-full min-w-0 border-border @2xl/status:order-none @2xl/status:w-auto @2xl/status:flex-1 @2xl/status:border-l">

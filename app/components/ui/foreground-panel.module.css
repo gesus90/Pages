@@ -30,7 +30,8 @@
   max-width: none;
 }
 
-/* The Pages terminal of an agent node (PAGE-284): almost the whole window. */
+/* The Pages terminal of an agent node (PAGE-284): centred in the window at
+   most 82 × 52 rem, at least 28 px from its edges (PAGE-289). */
 .fullscreenBackdrop {
   inset: 0;
 }
@@ -41,10 +42,18 @@
   --console-narrow-bottom: calc(env(safe-area-inset-bottom) + 8rem);
 
   inset: var(--console-inset);
+  align-items: center;
 }
 
 .fullscreen .panel {
   max-width: none;
+}
+
+@media (min-width: 680px) {
+  .fullscreen .panel {
+    max-width: 82rem;
+    max-height: 52rem;
+  }
 }
 
 @keyframes backdropIn {

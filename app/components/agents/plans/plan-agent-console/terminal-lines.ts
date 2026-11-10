@@ -1,3 +1,5 @@
+import { wrapTerminalLine } from "./terminal-wrap";
+
 import type { AgentSessionEvent } from "@/definition/AgentSessionJournal";
 
 /** ANSI styles of the Pages terminal; the colors are the `agent-terminal` tokens of the theme. */
@@ -63,7 +65,6 @@ export interface TerminalTexts {
   readonly toolKind: (kind: string) => string | null;
   readonly done: string;
   readonly aborted: string;
-  readonly running: (seconds: number) => string;
   readonly todoActive: (id: string, text: string) => string;
   readonly todoDone: (id: string) => string;
   readonly turnEnded: string;
@@ -97,8 +98,27 @@ export interface TerminalInput {
   readonly attempts: readonly TerminalAttempt[];
   /** The text of each todo of the contract, by its ID such as `T1`. */
   readonly todoTexts: ReadonlyMap<string, string>;
-  readonly now: number;
+  /** Columns of a measured terminal; `null` keeps the lines unwrapped. */
+  readonly columns: number | null;
   readonly texts: TerminalTexts;
+}
+
+/** The rows of the Pages terminal and where each line before wrapping starts. */
+export interface TerminalRows {
+  /** ANSI rows, each narrower than the terminal. */
+  readonly rows: readonly string[];
+  /** For each line before wrapping, the index of its first row. */
+  readonly lineStarts: readonly number[];
+}
+
+/** The newest tool call of the running attempt that has no result yet. */
+export interface TerminalRunningTool {
+  /** The kind or title of the call, such as `Shell`. */
+  readonly name: string;
+  /** Its command or path; empty when the name says all. */
+  readonly detail: string;
+  /** Milliseconds since the epoch; `null` when the event time is unreadable. */
+  readonly startedAt: number | null;
 }
 
 /** One tool call as the terminal draws it. */
@@ -354,15 +374,25 @@ function addEvent(state: BlockState, event: AgentSessionEvent): void {
   }
 }
 
-/** `Title  command or path`; a known kind names the call, its command or path follows. */
-function toolHead(tool: ToolLine, texts: TerminalTexts): string {
+/** Name and detail of a call: a known kind names it, its command or path follows. */
+function toolParts(
+  tool: ToolLine,
+  texts: TerminalTexts,
+): { readonly name: string; readonly detail: string } {
   const label = texts.toolKind(tool.toolKind);
   // Arguments of Pages tools and other JSON say less than the title of the call.
   const detail = /^[[{]/u.test(tool.input) ? "" : firstLine(tool.input);
-  if (label) return `${label}  ${detail || tool.title}`;
-  return detail && detail !== tool.title
-    ? `${tool.title || "Tool"}  ${detail}`
-    : tool.title || "Tool";
+  if (label) return { name: label, detail: detail || tool.title };
+  return {
+    name: tool.title || "Tool",
+    detail: detail && detail !== tool.title ? detail : "",
+  };
+}
+
+/** `Title  command or path`. */
+function toolHead(tool: ToolLine, texts: TerminalTexts): string {
+  const { name, detail } = toolParts(tool, texts);
+  return detail ? `${name}  ${detail}` : name;
 }
 
 function toolLines(
@@ -383,8 +413,8 @@ function toolLines(
       head,
       styled("error", `  ✗ ${firstLine(tool.output) || texts.aborted}`),
     ];
-  const seconds = Math.max(0, Math.round((input.now - tool.startedAt) / 1000));
-  return [head, styled("muted", `  … ${texts.running(seconds)}`)];
+  // How long it runs is the status line below the terminal, so the text never depends on the time.
+  return [head];
 }
 
 function blockLines(
@@ -450,7 +480,11 @@ function attemptLines(
   const state: BlockState = { blocks: [], todos, input };
   const prompt =
     attempt.number === 1 && input.prompt
-      ? [styled("strong", `> ${plain(input.prompt)}`)]
+      ? plain(input.prompt)
+          .split("\n")
+          .map((line, index) =>
+            styled("strong", `${index === 0 ? "> " : "  "}${line}`),
+          )
       : [];
   for (const event of attempt.events) addEvent(state, event);
   const body = state.blocks.flatMap((block) =>
@@ -472,21 +506,52 @@ function compact(lines: readonly string[]): readonly string[] {
 /**
  * Turns the stored ACP history of a node into the lines of the Pages terminal (PAGE-284).
  *
- * @param input - The attempts of the node with their events, the texts and the time now.
- * @returns ANSI text with CRLF line ends, the same for every provider.
+ * @param input - The attempts of the node with their events, the texts and the columns.
+ * @returns ANSI rows, the same for every provider, wrapped at word boundaries once the terminal is measured.
  *
  * @remarks
  * Every attempt starts with `── Anbieter · Modell · Versuch n · HH:MM` in
- * local time. Prompts and inputs of people are bold white, answers plain,
+ * local time. Prompts and inputs of people are bold, answers plain,
  * thoughts dimmed, tool calls cyan with a green result or a red abort, todo
  * changes yellow, resumes orange and closing stations green. Tool IDs never
  * appear: a tool is named by its title and its command or path.
  */
-export function renderTerminal(input: TerminalInput): string {
+export function renderTerminal(input: TerminalInput): TerminalRows {
   const todos = new Map<string, string>();
   const lines = input.attempts.flatMap((attempt, index) => [
     ...(index > 0 ? [""] : []),
     ...compact(attemptLines(attempt, input, todos)),
   ]);
-  return lines.join("\r\n");
+  const { columns } = input;
+  const rows: string[] = [];
+  const lineStarts: number[] = [];
+  for (const line of lines) {
+    lineStarts.push(rows.length);
+    rows.push(...(columns === null ? [line] : wrapTerminalLine(line, columns)));
+  }
+  return { rows, lineStarts };
+}
+
+/**
+ * The newest tool call of the running attempt that has no result yet, for the status line.
+ *
+ * @param input - The same input the terminal draws.
+ * @returns The call, or `null` when the last attempt ended or no call runs.
+ */
+export function runningTerminalTool(
+  input: TerminalInput,
+): TerminalRunningTool | null {
+  const attempt = input.attempts.at(-1);
+  if (!attempt || attempt.ending) return null;
+  const state: BlockState = { blocks: [], todos: new Map(), input };
+  for (const event of attempt.events) addEvent(state, event);
+  const tool = state.blocks.findLast(
+    (block): block is ToolLine =>
+      block.kind === "tool" && block.state === "running",
+  );
+  if (!tool) return null;
+  return {
+    ...toolParts(tool, input.texts),
+    startedAt: Number.isFinite(tool.startedAt) ? tool.startedAt : null,
+  };
 }

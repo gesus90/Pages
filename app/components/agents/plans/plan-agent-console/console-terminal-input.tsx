@@ -126,7 +126,7 @@ export function ConsoleTerminalInput({
         void send();
       }}
     >
-      <div className="flex items-start gap-2 text-[15px] leading-[1.65]">
+      <div className="flex items-start gap-2 text-[13px] leading-[1.6]">
         <span aria-hidden="true" className="text-agent-terminal-accent">
           ❯
         </span>

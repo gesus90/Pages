@@ -4736,6 +4736,7 @@
           "cost": "Cost",
           "unknown": "unknown",
           "session": "Session",
+          "runtime": "Runtime",
           "model": "Model",
           "reasoning": "Reasoning",
           "access": "Access",
@@ -4757,7 +4758,12 @@
           "execute": "Shell",
           "fetch": "Fetch"
         },
-        "noReport": "Turn ended without a valid report"
+        "noReport": "Turn ended without a valid report",
+        "status": {
+          "working": "Agent is working",
+          "resume": "Resume planned",
+          "resumeIn": "in {{seconds}} s"
+        }
       }
     },
     "flowInShort": "In",
@@ -4867,6 +4873,7 @@
       "pauseHint": "Pause starts no more waiting steps and lets running steps finish in a controlled way.",
       "resumeHint": "Resume continues from the last safe state; completed steps do not run again.",
       "recoverHint": "Resume takes over the successful steps of the ended run and runs only open work as a new attempt.",
+      "foreignRunHint": "The last run belongs to another person; only they can resume it. Start begins a new run of your own from the beginning and replaces the ended run with its records.",
       "stopHint": "Stop ends the whole run: no step starts any more and the agent and script processes of this run end. Plan and history remain.",
       "issuesLabel": "Plan errors",
       "issueTitle": {
@@ -4960,12 +4967,14 @@
         "failed": {
           "label": "Failed",
           "hint": "The last run stopped at a failure.",
-          "hint_resumable": "The last run stopped; Resume takes over its successful steps."
+          "hint_resumable": "The last run stopped; Resume takes over its successful steps.",
+          "hint_foreign": "Another person's last run stopped at a failure; only they can resume it."
         },
         "work_done_closeout_open": {
           "label": "Work done, closeout open",
           "hint": "Every work step passed; only the closeout failed. Start begins a new run.",
-          "hint_resumable": "Every work step passed; Resume repeats only the closeout."
+          "hint_resumable": "Every work step passed; Resume repeats only the closeout.",
+          "hint_foreign": "Every work step passed; only the person who executed the run can resume its closeout."
         },
         "blocked": {
           "label": "Not ready to start",
@@ -5626,7 +5635,10 @@
         "branching_unsupported": "The plan has a decision or an event input. Its rounds cannot be taken over safely; only a start from the start is possible.",
         "nothing_to_release": "Nothing is held.",
         "workflow_unavailable": "Restart and resume are not available in this server composition.",
-        "context_not_verified": "The execution context could not be verified."
+        "context_not_verified": "The execution context could not be verified.",
+        "content_access_required": "Resume takes over the run's results and context, so it needs your current access to all of its content and resources (agent, workspace, tickets, files). At least one of them is missing now.",
+        "own_run_required": "Another person executed this run. Only they can resume it; rights to the plan do not allow taking it over.",
+        "plan_access_denied": "You currently lack access to content or resources of this run, so it cannot be resumed."
       },
       "result": {
         "started": "The new run started.",
@@ -5651,6 +5663,11 @@
       "cleanupHistoryTime": "{{time}}",
       "cleanupHistoryHint": "Historical finding. See available actions for the current release and process state.",
       "freshDescription": "Start the saved plan from the beginning. The logs, sessions and records of earlier runs of this plan are removed; work already done in the workspace remains. Prior owned jobs are cancelled and conflicting dispatch waits for proven cleanup.",
+      "foreignStartTitle": "Start a new run",
+      "foreignStartDescription": "The last run of this plan belongs to another person and has not finished. Only they can resume it. Start does not resume it but begins a new run of your own from the beginning; every step runs again, and the ended run is replaced with its logs, sessions and records.",
+      "foreignStartConfirm": "I start a new run from the beginning. The other person's ended run is not resumed by this.",
+      "foreignStartCancel": "Cancel",
+      "foreignStartAction": "Start new run",
       "cleanupObligation": "Pending cleanup for {{workspace}}, source run {{run}}.",
       "writerWait": "Queued for write resource {{resource}}; owner {{run}}.",
       "otherOwner": "another executor",
