@@ -780,6 +780,7 @@
         "plan_dependency_failed": "Ein Vorgänger ist fehlgeschlagen oder abgebrochen; der Schritt ist blockiert.",
         "plan_interrupted": "Der Server hat diesen Lauf unterbrochen. Pages setzt ihn bis zu dreimal selbst fort, wo das sicher ist; sonst wartet er auf eine Entscheidung.",
         "plan_json_invalid": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",
+        "plan_boolean_invalid": "Wähle true oder false.",
         "plan_number_invalid": "Genau eine endliche Zahl eingeben.",
         "plan_run_unavailable": "Dieser Plan hat bereits einen aktiven oder pausierten Lauf; stoppen Sie ihn vor einem neuen Start. Oder der gewählte Lauf ist nicht mehr aktiv.",
         "plan_run_unreadable": "Der gespeicherte Datensatz dieses Laufs ist beschädigt und kann nicht gelesen werden.",
@@ -863,7 +864,8 @@
         "plan_loop_condition_field": "Das JSON-Ergebnis hat am Pfad der Endbedingung kein Feld.",
         "plan_loop_condition_type": "Der Wert am Pfad der Endbedingung hat einen anderen Typ als der erwartete Wert. Pages wandelt Typen nie um.",
         "plan_loop_session_lost": "Die behaltene ACP-Session eines Loop-Agents ist nach dem Ende ihres Adapterprozesses nicht mehr verfügbar. Pages öffnet unter derselben Identität keine neue Session. Einen neuen Lauf bewusst starten.",
-        "plan_decision_input_invalid": "Die Decision fand kein gültiges boolesches Ergebnis ihres Agenten: Der Agent wurde nicht fertig, oder dasselbe Ergebnis war schon ausgewertet. Sie wird nie als false behandelt.",
+        "plan_decision_input_invalid": "Die Decision fand für diese Aktivierung keinen gültigen Wert: Der Eingang fehlt, hat die falsche Art oder ist nicht lesbar, oder ihre Einstellungen sind unvollständig. Es wurde kein Ausgang aktiviert, und sie wird nie als false behandelt.",
+        "plan_decision_answer_invalid": "Das Modell der Decision hat auch nach einer Korrektur nicht mit genau einem gültigen JSON-Objekt geantwortet. Es wurde kein Ausgang aktiviert.",
         "plan_event_prompt_empty": "Das Ergebnis am Ereignis-Eingang dieses Agenten enthält keine nutzbaren neuen Informationen, deshalb wurde der Agent nicht erneut gestartet. Es wurde kein leerer oder erfundener Prompt gesendet.",
         "plan_event_prompt_too_large": "Das Ergebnis am Ereignis-Eingang dieses Agenten ist länger als 100000 Zeichen. Pages kürzt es nicht; der sendende Node sollte kürzer antworten.",
         "plan_activation_limit": "Ein Node dieses Zyklus wurde in einem Lauf 25-mal gestartet, die Grenze, die einen Zyklus ohne Ende verhindert. Prüfe, warum die Decision den Zyklus nie beendet.",
@@ -1708,7 +1710,8 @@
       "userNotFound": "Dieser Benutzer wurde nicht gefunden.",
       "conflict": "Der Agent wurde inzwischen geändert. Bitte neu öffnen.",
       "modelNotAllowed": "Dieses Modell ist für Agents nicht zulässig.",
-      "accessUnsupported": "Vollzugriff ist mit diesem Anbieter nicht verfügbar."
+      "accessUnsupported": "YOLO ist mit diesem Anbieter nicht verfügbar.",
+      "templateNameTaken": "Eine Vorlage mit diesem Namen gibt es schon."
     },
     "saved": "Gespeichert",
     "discardChanges": "Ungespeicherte Änderungen verwerfen?",
@@ -3702,7 +3705,6 @@
       "agent": "Agent"
     },
     "sendFailure": {
-      "costLimitReached": "{{name}} hat das Kostenlimit erreicht und startet keine neue Sitzung.",
       "inactive": "{{name}} ist deaktiviert.",
       "busy": "{{name}} arbeitet gerade an einer anderen Sitzung. Versuch es gleich noch einmal.",
       "unavailable": "{{name}} kann gerade nicht antworten: Modell oder Verbindung ist nicht verfügbar.",
@@ -4358,12 +4360,12 @@
       "loopCondition": "Die Endbedingung braucht einen Quell-Agent oder ein Quell-Script dieses Loops und einen gültigen JSON-Pfad wie $.end.",
       "loopPrevious": "Ein Ergebnis des vorherigen Durchlaufs gilt nur innerhalb eines Loops, von einem seiner Mitglieder, und braucht für den ersten Durchlauf einen Standardwert.",
       "loopProvider": "Ein Agent, der seine Session behält, braucht einen ACP-Runner (Codex, Claude Code oder OpenCode). Stelle den Loop auf neue Session je Run um oder wähle einen anderen Agent.",
-      "decisionCondition": "Eine Decision liest genau ein boolesches Agent-Ergebnis. Verbinde den Ergebnis-Ausgang (bool) eines Agenten mit ihrer Bedingung.",
-      "decisionBranch": "Beide Ausgänge einer Decision, true und false, brauchen eine Fortsetzung, damit keine Auswertung ins Leere läuft.",
+      "decisionCondition": "Eine Decision liest genau eine Datenquelle: das boolesche Ergebnis eines Agenten, einen Boolean-Parameter, ein Ticket oder ein Textergebnis. Verbinde genau eine mit ihrem Dateneingang.",
+      "decisionBranch": "Jeder Ausgang einer Decision braucht eine Fortsetzung, damit keine Entscheidung ins Leere läuft.",
       "eventOrder": "Ein Ereignis führt neue Informationen in die Sitzung eines Agenten zurück, der bereits gelaufen ist. Die Quelle muss deshalb hinter dem Ziel im Ablauf stehen.",
       "eventFanout": "Ein Ergebnis kehrt nur an einen Ereignis-Eingang zurück. Der Agent, der erneut startet, lässt alles hinter sich den Start vergessen; ein zweites Ziel würde die Neuigkeit verlieren. Nutze einen eigenen Node je Ziel.",
       "eventNesting": "Dieses Ereignis führt über einen anderen Agenten mit Ereignis-Eingang zurück. Dessen Sitzung müsste ohne seine Neuigkeit neu starten. Zwei Zyklen hintereinander sind möglich, verschachtelte nicht.",
-      "branchBoundary": "Decision, boolesches Ergebnis und Ereignis-Eingang gehören auf die oberste Ebene des Plans, nicht in eine Gruppe oder einen Loop. Auch hinter einem Agenten, den ein Ereignis erneut startet, darf keine Gruppe und kein Loop liegen: Sie liefen in der nächsten Runde nicht erneut.",
+      "branchBoundary": "Bedingungs- und Zweigverbindungen verbinden Nodes im selben Container: frei im Plan, in derselben Gruppe oder im selben Loop. Ereignis-Eingänge bleiben außerhalb von Gruppen und Loops, und hinter einem Agenten, den ein Ereignis erneut startet, darf keine Gruppe und kein Loop liegen.",
       "branchProvider": "Ein Agent mit booleschem Ergebnis oder Ereignis-Eingang hält seine Sitzung offen und braucht einen ACP-Runner (Codex, Claude Code oder OpenCode).",
       "branchRemote": "Ein Agent mit booleschem Ergebnis oder Ereignis-Eingang läuft nur auf dem Pages-Host, nicht auf einem Remote-Ziel.",
       "branchGate": "Ein Agent mit booleschem Ergebnis oder Ereignis-Eingang kann das Ticket-Abschluss-Gate nicht nutzen. Schalte das Gate an diesem Agenten aus.",
@@ -4392,7 +4394,13 @@
       "loopWhile": "Die While-Loop braucht einen booleschen Parameter mit genau true oder false; spätere Prüfungen brauchen ein Mitglied der Loop und einen gültigen Pfad.",
       "loopNested": "Eine Loop enthält Agenten, Scripts und Groups von Agenten, aber keine Loop.",
       "assetFile": "Dieser Asset-Node hat keine Datei. Lege eine Datei ab oder wähle eine aus; ohne sie gibt es keine Eingabe.",
-      "assetUnreadable": "Die Datei dieses Asset-Nodes ist nicht lesbar oder nicht zugänglich. Der Lauf startet nicht, weil es ohne sie keine Eingabe gibt."
+      "assetUnreadable": "Die Datei dieses Asset-Nodes ist nicht lesbar oder nicht zugänglich. Der Lauf startet nicht, weil es ohne sie keine Eingabe gibt.",
+      "boolean": "Wähle true oder false.",
+      "decisionInput": "Diese Quelle passt nicht zur Funktion der Decision: Boolean nimmt einen Boolean-Parameter oder das boolesche Ergebnis eines Agenten, das Decision-Modell ein Ticket oder das Textergebnis eines Agenten oder Scripts.",
+      "decisionSequence": "Eine Decision, die einen Parameter, ein Ticket oder ein Textergebnis liest, braucht einen verbundenen Sequenz-IN: Ein Dateneingang allein startet sie nie.",
+      "decisionModel": "Wähle für das Decision-Modell ein Modell einer ACP-Verbindung.",
+      "decisionQuestion": "Gib die Frage ein, die das Decision-Modell beantwortet (höchstens 4000 Zeichen).",
+      "decisionCases": "Eine Klassifizierung braucht 2 bis 20 Werte mit eindeutigen, nicht leeren Namen von höchstens 60 Zeichen."
     },
     "session": {
       "runner": {
@@ -4763,7 +4771,8 @@
       "json": "JSON",
       "ticket": "Ticket",
       "workspace": "Workspace",
-      "wiki": "Wiki-Seite"
+      "wiki": "Wiki-Seite",
+      "boolean": "Boolean"
     },
     "parameterName": "Name des Parameters",
     "parameterType": "Typ von {{name}}",
@@ -5566,17 +5575,7 @@
         "native_resume": "Frühere Agent-Sitzung fortsetzen",
         "new_session": "Neuer Versuch"
       },
-      "modeHint": {
-        "native_resume": "der Adapter setzt die gespeicherte Sitzung mit ihrem Verlauf fort.",
-        "new_session": "offene Schritte starten als neuer Versuch. Agents erhalten eine neue Sitzung mit Auftrag, übernommenen Ergebnissen und Wiederherstellungshinweis."
-      },
-      "modeUnavailable": "hier nicht möglich: der Adapter kann die Sitzung nicht fortsetzen oder sie ist unbekannt.",
-      "resume": "Ab letztem sicheren Stand fortsetzen",
-      "resumeHint_one": "Unverändert übernommen: {{reused}}. Nur offene, fehlgeschlagene oder unterbrochene Arbeit läuft erneut, als neuer Versuch mit dem gespeicherten Plan.",
-      "resumeHint_other": "Unverändert übernommen ({{count}}): {{reused}}. Nur offene, fehlgeschlagene oder unterbrochene Arbeit läuft erneut, als neuer Versuch mit dem gespeicherten Plan.",
-      "resumeHint_zero": "Kein bestätigtes Ergebnis zum Übernehmen. Nur offene, fehlgeschlagene oder unterbrochene Arbeit läuft erneut, als neuer Versuch mit dem gespeicherten Plan.",
-      "review": "Ich habe mögliche Auswirkungen von „{{step}}“ (Dateien, Branches, Tickets) geprüft und will den Schritt erneut ausführen.",
-      "resumeAction": "Lauf fortsetzen",
+      "resumeAction": "Fortsetzen",
       "restart": "Von vorne starten",
       "restartHint": "Startet einen neuen Lauf mit dem gespeicherten Plan. Der frühere Lauf, seine Ergebnisse und sein Journal bleiben erhalten; vorhandene Dateien und Branches werden nicht zurückgesetzt.",
       "confirmRepeat": "Alle Knoten laufen erneut, auch Aktionen, die bereits gewirkt haben können.",
@@ -5642,8 +5641,7 @@
         "plan_conflict": "Der Plan wurde inzwischen gespeichert. Lade den Plan neu und starte den Stand, den du siehst.",
         "diagnostic_unavailable": "Der Bereinigungsbefund konnte nicht gespeichert oder gelesen werden. Die Freigabe ist nicht bestätigt. Erneut prüfen."
       },
-      "resumeTitle": "Lauf fortsetzen",
-      "resumeDescription": "Setzt am letzten sicheren Stand fort: Erfolgreiche Schritte werden übernommen und nicht wiederholt; offene Arbeit läuft als neuer Versuch.",
+      "resumeTitle": "Plan fortsetzen",
       "cleanupHistory": "Letzter gespeicherter Bereinigungsfehler",
       "cleanupHistoryTime": "{{time}}",
       "cleanupHistoryHint": "Historischer Befund. Die aktuelle Freigabe und Prozesslage stehen bei den verfügbaren Aktionen.",
@@ -5666,7 +5664,9 @@
       },
       "planState": "Plan",
       "planChanged": "Seit diesem Lauf erneut gespeichert",
-      "planUnchanged": "Seit diesem Lauf unverändert"
+      "planUnchanged": "Seit diesem Lauf unverändert",
+      "resumeConfirm": "Den Plan an der fehlgeschlagenen Stelle fortsetzen? Erfolgreiche Schritte und Loop-Durchläufe bleiben erhalten und laufen nicht erneut.",
+      "resumePending": "Wird fortgesetzt …"
     },
     "nodeInstruction": "Zusätzliche Node-Anweisung",
     "execution": {
@@ -5845,16 +5845,18 @@
       "condition": "bool",
       "true": "true",
       "false": "false",
-      "event": "Ereignis · neuer Prompt"
+      "event": "Ereignis · neuer Prompt",
+      "case": "Wert",
+      "decisionInput": "Daten"
     },
     "decision": {
-      "caption": "Logik",
-      "condition": "Bedingung",
+      "caption": "Logik · Boolean",
+      "condition": "Daten",
       "boolean": "Boolean",
-      "conditionLabel": "Bedingung von {{name}} verbinden",
-      "reads": "{{name}} · Ergebnis",
+      "conditionLabel": "Dateneingang von {{name}} verbinden",
+      "reads": "{{name}} · boolesches Ergebnis",
       "notConnected": "nicht verbunden",
-      "footer": "Nur ein Zweig wird aktiviert",
+      "footer": "Genau ein Ausgang wird aktiviert",
       "when": {
         "true": "Bedingung erfüllt",
         "false": "Nachbesserung nötig"
@@ -5867,11 +5869,58 @@
       "evaluated": "Ausgewertet: {{name}} (Durchlauf {{number}}) · {{value}}",
       "dialog": {
         "title": "Decision bearbeiten",
-        "hint": "Die Decision wertet bei jedem Durchlauf das Boolean-Ergebnis eines Agents neu aus und aktiviert genau einen Zweig. Ein fehlender oder ungültiger Wert gilt nie als false. Sie ist kein LLM-Agent und ruft kein Modell auf.",
+        "hint": "Boolean: entscheidet deterministisch über einen Boolean-Parameter oder das boolesche Ergebnis eines Agenten, ohne Modellaufruf. Jede Aktivierung entscheidet neu; ein fehlender oder ungültiger Wert gilt nie als false und aktiviert keinen Ausgang.",
         "name": "Name (optional)",
-        "condition": "Bedingung (Boolean)",
-        "none": "–"
-      }
+        "condition": "Dateneingang (Boolean)",
+        "none": "–",
+        "hintModel": "Decision-Modell: Ein Modell einer ACP-Verbindung beantwortet die Frage zu einem Ticket oder Textergebnis in einer eigenen, kurzen, nur lesenden Session ohne Werkzeuge. Es muss mit genau einem JSON-Objekt antworten; eine ungültige Antwort wird einmal korrigiert, danach schlägt der Node fehl, ohne einen Ausgang zu aktivieren.",
+        "content": "Dateneingang (Ticket oder Textergebnis)",
+        "mode": "Funktion",
+        "modeBoolean": "Boolean",
+        "modeModel": "Decision-Modell",
+        "agentBoolean": "{{name}} · boolesches Ergebnis",
+        "parameter": "Parameter {{name}}",
+        "ticket": "Ticket {{name}}",
+        "result": "{{name}} · Textergebnis",
+        "question": "Entscheidungsfrage",
+        "questionPlaceholder": "Zum Beispiel: Ist dieses Ticket ein Bug, ein Feature oder eine Frage?",
+        "model": "Modell",
+        "chooseModel": "Modell wählen",
+        "modelNotAcp": "Eine Decision läuft in einer eigenen ACP-Session; dieses Modell hat keine ACP-Verbindung.",
+        "output": "Ausgabe",
+        "yesNo": "Ja/Nein",
+        "classification": "Klassifizierung",
+        "cases": "Werte",
+        "casesHint": "{{minimum}} bis {{maximum}} Werte, jeder mit eigenem Ausgang. Es gibt kein automatisches „Sonst“; lege bei Bedarf einen Wert wie „unklar“ an.",
+        "caseName": "Name von Wert {{number}}",
+        "removeCase": "Wert {{name}} entfernen",
+        "addCase": "Wert hinzufügen",
+        "removeTitle": "Wert {{name}} entfernen?",
+        "removeConnected": "Der Ausgang von „{{name}}“ ist verbunden. Mit dem Wert wird beim Übernehmen auch seine Verbindung entfernt.",
+        "removeConfirm": "Entfernen",
+        "caseProblem": {
+          "empty": "Jeder Wert braucht einen Namen.",
+          "length": "Ein Name hat höchstens {{maximum}} Zeichen.",
+          "duplicate": "Namen müssen eindeutig sein, unabhängig von Groß- und Kleinschreibung."
+        },
+        "casesTooFew": "Eine Klassifizierung braucht mindestens {{minimum}} Werte, bevor der Plan starten kann."
+      },
+      "captionModel": "Logik · Decision-Modell",
+      "content": "Ticket oder Text",
+      "readsParameter": "Parameter {{name}}",
+      "readsTicket": "Ticket {{name}}",
+      "readsResult": "{{name}} · Textergebnis",
+      "whenCase": "Antwort: {{name}}",
+      "caseUnnamed": "unbenannter Wert",
+      "evaluatedParameter": "Ausgewertet: Parameter {{name}} · {{value}}",
+      "answered": "Modell antwortete: {{value}} (Quelle {{name}})",
+      "reason": "Begründung: {{reason}}",
+      "corrected": "nach einer Korrektur",
+      "sequence": "Ablauf: entscheidet, wenn der Ablauf ankommt",
+      "sequenceLabel": "Sequenz-IN von {{name}} verbinden",
+      "noQuestion": "Noch keine Frage",
+      "modelLine": "Modell: {{model}}",
+      "noModel": "Kein Modell gewählt"
     },
     "event": {
       "in": "Ereignis IN",
@@ -6624,17 +6673,13 @@
       "chooseModel": "Modell wählen",
       "noModels": "Keine zulässigen Modelle: Sprachmodelle mit Werkzeugen über ACP.",
       "access": "Zugriff",
-      "costLimit": "Kostenlimit (US-Dollar pro Monat)",
-      "costLimitHint": "Leer lassen für keine Grenze.",
       "rights": "Rechte",
       "role": "Rolle",
       "chooseRole": "Rolle wählen"
     },
     "access": {
       "read_only": "Nur Lesen · Pages-Werkzeuge",
-      "yolo": "Vollzugriff (Yolo) · alle Systemwerkzeuge",
-      "yoloUnsupported": "Mit diesem Anbieter nicht verfügbar",
-      "note": "Läuft über ACP; Vollzugriff nur innerhalb der Isolation. Agents melden sich nicht an, brauchen kein Passwort und können nicht Administrator werden."
+      "yolo": "YOLO · alle Tools und alle Berechtigungen"
     },
     "soul": {
       "template": "# Persönlichkeit\n\nDu bist ruhig, genau und direkt.\n\n## Art\n- Du sagst klar, was fehlt, ohne Umschweife.\n- Du hakst nach, wenn ein Auftrag unklar ist.\n\n## Ton\n- Kurze Sätze, freundlich und sachlich.\n\n## Grenzen\n- Du behauptest nichts, was du nicht geprüft hast.\n- Wenn du etwas nicht weißt, sagst du das."
@@ -6643,21 +6688,22 @@
       "length_one": "{{length}} / {{maximum}} Zeichen",
       "length_other": "{{length}} / {{maximum}} Zeichen",
       "soulDescription": "Wer der Agent ist: Charakter, Ton und Haltung. Gilt in jedem Gespräch.",
-      "instructionsDescription": "Was der Agent tut: Beruf, Zuständigkeit, Arbeitsweise und Regeln. Projektwissen liest er aktuell aus Tickets und Wiki.",
-      "template": "Vorlage",
-      "chooseTemplate": "Vorlage wählen"
+      "instructionsDescription": "Was der Agent tut: Beruf, Zuständigkeit, Arbeitsweise und Regeln. Projektwissen liest er aktuell aus Tickets und Wiki."
     },
     "templates": {
       "coder": {
         "label": "Coder",
+        "description": "Setzt Tickets im Code um.",
         "content": "# Aufgabe: Coder\n\nDu setzt Tickets im Code um.\n\n## Zuständig für\n- Umsetzung und Fehlerbehebung nach Ticket\n- Saubere, geprüfte Änderungen\n\n## Arbeitsweise\n1. Lies das Ticket und seine Abnahme vollständig.\n2. Ändere nur, was das Ticket verlangt.\n3. Halte das Ergebnis im Ticket fest.\n\n## Nicht zuständig\n- Ohne Auftrag deployen."
       },
       "designer": {
         "label": "Designer",
+        "description": "Gestaltet Oberflächen und Abläufe.",
         "content": "# Aufgabe: Designer\n\nDu gestaltest Oberflächen und Abläufe.\n\n## Zuständig für\n- Entwürfe, Texte und Zustände einer Oberfläche\n- Konsistenz mit dem bestehenden Design\n\n## Arbeitsweise\n1. Lies das Ticket und vorhandene Entwürfe.\n2. Beschreibe Entscheidungen nachvollziehbar.\n3. Halte Vorgaben im Wiki fest.\n\n## Nicht zuständig\n- Code schreiben."
       },
       "manager": {
         "label": "Manager",
+        "description": "Steuert das Projekt und kennt seinen Stand.",
         "content": "# Aufgabe: Manager\n\nDu steuerst das Projekt und kennst seinen Stand.\n\n## Zuständig für\n- Meilensteine, Tickets und Prioritäten\n- Überblick, was offen ist und was blockiert\n\n## Arbeitsweise\n1. Lies vor jeder Antwort den aktuellen Stand.\n2. Belege Aussagen mit Ticket oder Wiki-Seite.\n3. Halte Entscheidungen im Wiki fest.\n\n## Nicht zuständig\n- Ohne Auftrag deployen."
       }
     },
@@ -6678,8 +6724,7 @@
       "result": {
         "updated": "{{added}} neu, {{merged}} zusammengefasst, {{archived}} archiviert, {{removed}} entfernt",
         "unchanged": "nichts Neues, kein Modell gestartet",
-        "failed": "fehlgeschlagen",
-        "limitReached": "Kostenlimit erreicht, nicht gelernt"
+        "failed": "fehlgeschlagen"
       },
       "sharedHint": "Was der Agent in einem Chat lernt, kann er in anderen Gesprächen verwenden. Zugangsdaten werden vor dem Speichern entfernt.",
       "archiveEntries_one": "Archiv: {{count}} Eintrag",
@@ -6698,11 +6743,9 @@
     },
     "activity": {
       "empty": "Noch keine Aktivität.",
-      "spent": "Diesen Monat: {{spent}} von {{limit}}",
-      "spentNoLimit": "Diesen Monat: {{spent}} · kein Kostenlimit",
+      "spent": "Diesen Monat: {{spent}}",
       "unknownSessions_one": "{{count}} Sitzung ohne gemeldete Kosten (unbekannt)",
       "unknownSessions_other": "{{count}} Sitzungen ohne gemeldete Kosten (unbekannt)",
-      "limitReached": "Kostenlimit erreicht: Der Agent startet bis Monatsende keine neue Sitzung und keinen Lernlauf.",
       "estimated": "(geschätzt)",
       "unknownCost": "Kosten unbekannt",
       "kind": {
@@ -6710,8 +6753,7 @@
         "learningSession": "Lernlauf-Sitzung · {{state}}",
         "learning": "Lernlauf: {{status}}",
         "ticket": "Ticket: {{message}}",
-        "wiki": "Wiki: {{message}}",
-        "limit": "Nicht gestartet ({{cause}}): Kostenlimit erreicht"
+        "wiki": "Wiki: {{message}}"
       },
       "state": {
         "running": "läuft",
@@ -6720,10 +6762,39 @@
         "stopped": "gestoppt",
         "interrupted": "unterbrochen",
         "none": "–"
+      }
+    },
+    "templateList": {
+      "title": "Vorlagen",
+      "description": "Ein Klick füllt AGENT.md einmalig; der Text bleibt frei bearbeitbar. Änderungen an einer Vorlage ändern keinen bestehenden Agent.",
+      "create": "Neue Vorlage",
+      "saveFromDocument": "Als Vorlage speichern",
+      "edit": "Bearbeiten",
+      "duplicate": "Duplizieren",
+      "remove": "Löschen",
+      "default": "Standard",
+      "selected": "Gewählt",
+      "empty": "Noch keine Vorlagen.",
+      "actions": "Aktionen für {{name}}",
+      "copyName": "{{name}} (Kopie)",
+      "editor": {
+        "createTitle": "Neue Vorlage",
+        "editTitle": "Vorlage bearbeiten",
+        "name": "Name",
+        "description": "Kurzbeschreibung",
+        "content": "Inhalt",
+        "save": "Speichern",
+        "cancel": "Abbrechen"
       },
-      "cause": {
-        "session": "Sitzung",
-        "learning": "Lernlauf"
+      "removeConfirm": {
+        "title": "Vorlage löschen?",
+        "description": "„{{name}}“ wird für alle gelöscht. Agents, deren AGENT.md aus ihr gefüllt wurde, behalten ihren Text.",
+        "confirm": "Löschen"
+      },
+      "replaceConfirm": {
+        "title": "AGENT.md ersetzen?",
+        "description": "AGENT.md enthält bereits Text. Die Vorlage „{{name}}“ ersetzt ihn vollständig.",
+        "confirm": "Ersetzen"
       }
     }
   }

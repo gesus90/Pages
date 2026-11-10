@@ -7,17 +7,50 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { requireManagedOpenCodeConfiguration } from "./OpenCodeAcpConfiguration";
 import { pagesMcpServers } from "./AcpLaunch";
 import {
+  OPENCODE_DECISION_MODE,
+  OPENCODE_DECISION_PERMISSIONS,
   OPENCODE_PICA_MODE,
   OPENCODE_PICA_PERMISSIONS,
   openCodeAcpProfile,
   openCodePlanPermissions,
 } from "./OpenCodeAcpProfile";
 
-import type { AcpDriver } from "./AcpDriver";
+import type { AcpDriver, AcpLaunchSpecification } from "./AcpDriver";
+
+/** The managed agent and rules of a session: Pica's build, a decision without tools, or a plan mode. */
+function sessionAgent(specification: AcpLaunchSpecification): {
+  readonly mode: string;
+  readonly permission: Readonly<Record<string, unknown>>;
+  readonly isPica: boolean;
+} {
+  // Full access of an agent employee runs the stock agent of its plan mode; only Pica's chat runs the Pages build.
+  const isPica =
+    specification.purpose === "chat" &&
+    specification.profile.mode === "read_only";
+  if (isPica)
+    return {
+      mode: OPENCODE_PICA_MODE,
+      permission: OPENCODE_PICA_PERMISSIONS,
+      isPica,
+    };
+  if (specification.purpose === "decision")
+    return {
+      mode: OPENCODE_DECISION_MODE,
+      permission: OPENCODE_DECISION_PERMISSIONS,
+      isPica,
+    };
+  return {
+    mode: specification.profile.permissions.sessionMode ?? "",
+    permission: openCodePlanPermissions(specification.profile.mode),
+    isPica,
+  };
+}
 
 /**
  * The installed native `opencode acp` contract for Pica and plan nodes.
  * No external adapter, alternate model, user config or updater is involved.
+ * A conversation brings Pica's bridge itself, so its launch names no MCP
+ * server.
  */
 export const OPENCODE_ACP_DRIVER: AcpDriver = {
   provider: "opencode",
@@ -39,10 +72,8 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
     if (!model) throw new AgentError("plan_model_unavailable");
     const modelProvider = model.model.split("/")[0];
     const isChat = specification.purpose === "chat";
-    const mode = specification.profile.permissions.sessionMode;
-    const permission = isChat
-      ? OPENCODE_PICA_PERMISSIONS
-      : openCodePlanPermissions(specification.profile.mode);
+    const isDecision = specification.purpose === "decision";
+    const { mode, permission, isPica } = sessionAgent(specification);
     return {
       environment: {
         [RUN_INSTANCE_VARIABLE]: specification.instanceId,
@@ -51,7 +82,7 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
           model: model.model,
           small_model: model.model,
           enabled_providers: [modelProvider],
-          default_agent: isChat ? OPENCODE_PICA_MODE : mode,
+          default_agent: mode,
           share: "disabled",
           autoupdate: false,
           permission,
@@ -62,7 +93,7 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
               variant: model.reasoningEffort ?? "default",
               permission,
             },
-            ...(!isChat
+            ...(!isPica
               ? {
                   build: { disable: true },
                   plan: { disable: true },
@@ -86,7 +117,8 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
           compaction: { auto: true },
         }),
       },
-      mcpServers: isChat ? [] : pagesMcpServers(specification.mcp),
+      mcpServers:
+        isChat || isDecision ? [] : pagesMcpServers(specification.mcp),
       sessionMeta: {},
     };
   },

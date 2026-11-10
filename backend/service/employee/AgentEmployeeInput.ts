@@ -2,7 +2,6 @@ import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { holdsNulCharacter } from "@/backend/security/IdentityText";
 import {
   AGENT_DOCUMENT_LIMITS,
-  AGENT_MAXIMUM_COST_LIMIT,
   AGENT_MEMORY_LIMITS,
   countWords,
   isAgentEmployeeAccess,
@@ -65,20 +64,6 @@ function readDocument(input: unknown, maximum: number): string {
   return text;
 }
 
-function readCostLimit(input: unknown): number | null {
-  if (input === null || input === undefined || input === "") return null;
-  const value =
-    typeof input === "string" ? Number(input.replace(",", ".")) : input;
-  if (
-    typeof value !== "number" ||
-    !Number.isFinite(value) ||
-    value < 0 ||
-    value > AGENT_MAXIMUM_COST_LIMIT
-  )
-    throw new AgentEmployeeError("invalidInput");
-  return Math.round(value * 100) / 100;
-}
-
 function readSettings(input: Record<string, unknown>): AgentEmployeeSettings {
   const { connectionId, model, reasoningEffort, access } = input;
   if (
@@ -102,7 +87,6 @@ function readSettings(input: Record<string, unknown>): AgentEmployeeSettings {
         ? reasoningEffort
         : null,
     access,
-    monthlyCostLimit: readCostLimit(input.monthlyCostLimit),
   };
 }
 

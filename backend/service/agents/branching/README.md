@@ -1,7 +1,8 @@
-# Decision, boolean result and event retrigger (PAGE-174)
+# Decision, boolean result and event retrigger (PAGE-174, PAGE-286)
 
-A `decision` plan node lets a plan branch on a boolean result and lets a later
-node hand new information back to an agent that already ran. This file is the
+A `decision` plan node lets a plan branch on a boolean or on the answer of a
+decision model, and an event lets a later node hand new information back to an
+agent that already ran. This file is the
 contract of the behaviour. The types live in `definition/AgentPlan.ts` and
 `definition/AgentPlanBranching.ts`, the checks in
 `definition/AgentPlanBranchingGraph.ts`.
@@ -15,7 +16,7 @@ Everything is an edge in `plan.edges`; the ports name what it means
 | --------- | -------------------------------------- | -------------------------------------------------------- |
 | flow      | `flow-out` → `flow-in`                 | unchanged: the target starts after the source            |
 | condition | agent `passed-out` → decision `condition-in` | the decision reads the boolean result of the agent |
-| branch    | decision `true-out`/`false-out` → `flow-in` | the activated output starts the target              |
+| branch    | decision `true-out`/`false-out`/`case:<id>` → `flow-in` | the activated output starts the target  |
 | event     | agent/script `value-out` → agent `event-in` | the result returns to an agent as a new prompt      |
 
 Flow, condition and branch edges order execution (`planOrderEdges`). Only the
@@ -29,13 +30,53 @@ event may not return across another agent that receives events and lies on the
 way (`eventNesting`): that agent would start again without the news it
 expects. Two cycles one after the other are fine, nested ones are refused.
 
-Not supported, and refused with a concrete reason: decisions, boolean results
-and events inside groups or loops, and a group or loop behind an agent that an
-event starts again, because it would not run again in the next round
-(`branchBoundary`), on remote targets
+Not supported, and refused with a concrete reason: events inside groups or
+loops, condition and branch edges between different containers, and a group or
+loop behind an agent that an event starts again, because it would not run
+again in the next round (`branchBoundary`); boolean results on remote targets
 (`branchRemote`), on non-ACP runners (`branchProvider`) and on agents with a
-ticket work gate (`branchGate`). A decision needs exactly one condition and
-both outputs connected before Play (`decisionCondition`, `decisionBranch`).
+ticket work gate (`branchGate`). A decision needs exactly one data source and
+every output connected before Play (`decisionCondition`, `decisionBranch`).
+
+## The decision node (PAGE-286)
+
+`AgentPlanDecision` (`definition/AgentPlan.ts`, helpers in
+`definition/AgentPlanDecision.ts`) has two functions, `mode`:
+
+- **`boolean`** (default; absent in every decision before PAGE-286). The data
+  input is the boolean result of an agent (edge `passed-out` → `condition-in`)
+  or a boolean parameter (`input: { kind: "source" }`, format `boolean`, text
+  `true` or `false`; `false` is a value). It decides without a model and has
+  the outputs `true-out` and `false-out`.
+- **`model`**. The data input is exactly one bound source: a ticket node
+  (`source`) or the text result of an agent or script (`result`). `question`,
+  `model` (connection, provider, model of an ACP connection) and `output`
+  (`boolean` yes/no, default, or `classification`) belong to it. A
+  classification keeps 2 to 20 `cases` `{ id, name }` in the node; each value
+  has the output port `case:<id>`, so renaming keeps its connection. Names are
+  unique ignoring case, not empty, at most 60 characters. There is no
+  automatic "else".
+
+The **sequence input** `flow-in` decides when the decision decides; the data
+input only supplies the value. A data input alone never starts a decision:
+a decision bound to a parameter, a ticket or a text result needs a sequence
+input (`decisionSequence`). A decision with an agent's boolean edge and no
+sequence input starts as soon as the agent has succeeded, as before; with a
+sequence input both must have arrived. Wrong source kinds for the mode are
+`decisionInput`; a model decision without question, ACP model or a valid value
+list is `decisionQuestion`, `decisionModel` or `decisionCases`; an edge from an
+output the decision no longer has is `port`.
+
+**Where it stands.** At the top level, in a group (`group.decisions`) or in a
+loop (`loop.decisions`; a decision of a group inside a loop belongs to the
+loop at run time). Its condition and branch edges are kept with the container
+(`planContainedEdges`) and join nodes of the same container; its bound data
+input may come from outside like every binding (inside a loop a result must be
+a member, `loopBoundary`). Preparation dissolves top-level groups, so a group
+decision is an ordinary top-level node of the run; a skipped group member
+never takes a turn of the shared session. A loop decides its decisions in
+every iteration (`AgentPlanLoopIterationRunner`): what it skips is skipped in
+that iteration only, and a skipped node counts as settled.
 
 ## The boolean result of an agent
 
@@ -51,16 +92,40 @@ An agent whose `passed-out` is connected reports `passed` with its result:
 
 ## Evaluating a decision
 
-The scheduler evaluates a decision itself (no provider, no model) as soon as the
-agent behind its condition has succeeded, and activates exactly one output.
+A **boolean** decision is evaluated by the scheduler itself (no provider, no
+model) once it is ready (`AgentPlanDecisionValue.decidePlanBoolean`), and
+activates exactly one output.
 
-- **Every activation reads a fresh value.** The decision remembers
-  `source#start` of the value it read last and refuses to read the same start of
-  the agent twice. Result: `condition = { sourceStepId, sourceActivation, value }`.
+- **Every activation decides anew.** A parameter is read from the snapshot of
+  the run, an agent's boolean from its current start. An earlier value never
+  stands in for the current one; a decision reads one value per activation.
+  Result: `condition = { sourceStepId, sourceActivation, value }`, with
+  `sourceKind: "parameter"` for a parameter.
 - **A missing or invalid input is not false.** If the agent failed, the decision
   waits behind it like any successor and the run fails with the agent's error.
-  If the value is absent or was already read, the decision fails with
-  `plan_decision_input_invalid`.
+  If the value is absent, the decision fails with `plan_decision_input_invalid`.
+
+A **model** decision is work the scheduler dispatches like a script
+(`AgentPlanDecisionModel`). It reads its source anew (a ticket through
+`AgentPlanTasks.snapshot` with the executor's rights, a result from the current
+start of its node without the closing report; above 100000 characters it is
+refused, never shortened) and opens a short ACP session of its own through
+`PlanExecution.open` with purpose `decision`: the existing path with connection
+lock, resource scheduler lease (run and node named) and isolation, in an empty
+temporary directory, read-only, without MCP server; the OpenCode profile
+`pages-decision` denies every tool. It never runs in another node's or a
+group's session. The prompt holds only the question, the allowed values and
+the source. The answer must be exactly one JSON object
+`{"decision": <value>, "reason": "..."}`: a JSON boolean for yes/no, exactly
+one value name for a classification, a non-empty reason, no other fields or
+text. An invalid answer is corrected once in the same session with the
+concrete problem; a second invalid answer fails the node with
+`plan_decision_answer_invalid`. A technical failure of the session counts as
+`infrastructure` and starts again after 10 s, 60 s and 300 s, then the node
+fails with that code and `failureStop` (blocked). Result:
+`verdict = { decision, caseId?, reason, model, sourceStepId, sourceActivation?, isCorrected }`,
+and `output` names decision and reason for the run report. No failure ever
+activates an output.
 - **Dead paths.** The edge of the branch that was not taken is dead, and so is
   every edge out of a skipped node. A node whose every incoming edge is dead is
   `skipped` and spreads that along the branch; a node with at least one
@@ -150,8 +215,8 @@ that a retry must never replace.
 
 ## Persistence and recovery
 
-- The run view keeps `activation`, `passed`, `branch`, `condition`, `trigger`
-  and `history` per node (`readPlanActivationFields`), and the status `skipped`.
+- The run view keeps `activation`, `passed`, `branch` (`true`, `false` or
+  `case:<id>`), `condition`, `verdict`, `trigger` and `history` per node (`readPlanActivationFields`), and the status `skipped`.
 - The run repository keeps its guards for ordinary plans. A plan with a
   decision or event connection has a node without a checkpoint (the decision)
   and only the first completion of a node has one. Only a plan with an event
@@ -180,7 +245,8 @@ that a retry must never replace.
   turn of the scheduler's queue. A fix agent that ends between two phases of a
   pump can therefore not close the session its result is about to continue.
 - The Pica Mobile protocol has no state for a skipped node and no step for a
-  decision, so both stay out of its dashboard.
+  decision, so both stay out of its dashboard; its flow names only the
+  branches `true` and `false`, a classification value stays out of it.
 - The Pages agent run record (`PageAgentRun`) of a node is written per run and
   node and the first completion wins; for a node that started again it holds
   its first start (prompt and result). Every start, with its result, branch and

@@ -1,6 +1,13 @@
 import { PLAN_PORT, planBranchPort, planEdgeKind } from "./AgentPlanBranching";
+import {
+  findPlanDecision,
+  replacePlanDecision,
+  withPlanEdge,
+  withoutPlanEdges,
+} from "./AgentPlanDecisionEdit";
 
 import type {
+  AgentPlanBinding,
   AgentPlanDecision,
   AgentPlanEdge,
   AgentPlanInput,
@@ -11,7 +18,7 @@ import type { AgentPlanBranch } from "./AgentPlanBranching";
 /** One connection of the branching contract, as the editor asks for it. */
 export type AgentPlanBranchingConnection =
   | {
-      /** Leaves a decision through its true or false output into a flow input. */
+      /** Leaves a decision through its true or false output, or the output of a value, into a flow input. */
       readonly kind: "branch";
       readonly from: string;
       readonly branch: AgentPlanBranch;
@@ -70,12 +77,16 @@ export function planBranchingEdge(
  *
  * @param plan - The draft.
  * @param connection - The connection the person made.
+ *
+ * @remarks
+ * An edge between two nodes of the same group or loop is kept with that
+ * container, as a decision inside it needs (PAGE-286).
  */
 export function connectPlanBranching<Plan extends AgentPlanInput>(
   plan: Plan,
   connection: AgentPlanBranchingConnection,
 ): Plan {
-  return { ...plan, edges: [...plan.edges, planBranchingEdge(connection)] };
+  return withPlanEdge(plan, planBranchingEdge(connection));
 }
 
 /**
@@ -93,17 +104,40 @@ export function setPlanDecisionCondition<Plan extends AgentPlanInput>(
   decisionId: string,
   agentId: string | null,
 ): Plan {
-  const edges = plan.edges.filter(
-    (edge) => edge.to !== decisionId || planEdgeKind(edge) !== "condition",
+  const cleared = setPlanDecisionInput(plan, decisionId, null);
+  if (agentId === null) return cleared;
+  return withPlanEdge(
+    cleared,
+    planBranchingEdge({ kind: "condition", from: agentId, to: decisionId }),
   );
-  if (agentId === null) return { ...plan, edges };
-  return {
-    ...plan,
-    edges: [
-      ...edges,
-      planBranchingEdge({ kind: "condition", from: agentId, to: decisionId }),
-    ],
-  };
+}
+
+/**
+ * Binds the data input of a decision to a parameter, a ticket or a text result, or clears it.
+ *
+ * @param plan - The draft.
+ * @param decisionId - The decision whose input changes.
+ * @param input - The new binding, or `null` for no input.
+ *
+ * @remarks
+ * A decision reads one source: the boolean edge of an agent and any earlier
+ * binding go first (PAGE-286).
+ */
+export function setPlanDecisionInput<Plan extends AgentPlanInput>(
+  plan: Plan,
+  decisionId: string,
+  input: AgentPlanBinding | null,
+): Plan {
+  const cleared = withoutPlanEdges(
+    plan,
+    (edge) => edge.to === decisionId && planEdgeKind(edge) === "condition",
+  );
+  const found = findPlanDecision(cleared, decisionId);
+  if (!found) return cleared;
+  return replacePlanDecision(cleared, {
+    ...found.decision,
+    input: input ?? undefined,
+  });
 }
 
 /**
@@ -116,14 +150,12 @@ export function disconnectPlanEdge<Plan extends AgentPlanInput>(
   plan: Plan,
   edge: AgentPlanEdge,
 ): Plan {
-  return {
-    ...plan,
-    edges: plan.edges.filter(
-      (entry) =>
-        entry.from !== edge.from ||
-        entry.to !== edge.to ||
-        entry.fromPort !== edge.fromPort ||
-        entry.toPort !== edge.toPort,
-    ),
-  };
+  return withoutPlanEdges(
+    plan,
+    (entry) =>
+      entry.from === edge.from &&
+      entry.to === edge.to &&
+      entry.fromPort === edge.fromPort &&
+      entry.toPort === edge.toPort,
+  );
 }

@@ -3,6 +3,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import {
   planLoopMembers,
   planLoopMode,
+  planLoopDecisions,
   planLoopScopeIds,
 } from "@/definition/AgentPlanLoop";
 import { planLoopStacks } from "@/definition/AgentPlanStack";
@@ -28,6 +29,7 @@ import type {
 } from "@/definition/AgentPlanLoopRun";
 import type { AgentPlanStepRunner } from "../AgentPlanStepRunner";
 import type { AgentPlanScriptRunner } from "../AgentPlanScriptRunner";
+import type { AgentPlanDecisionModel } from "../branching/AgentPlanDecisionModel";
 import type { LoopHost } from "./AgentPlanLoopHost";
 import type { LoopIterationOutcome } from "./AgentPlanLoopIterationRunner";
 
@@ -161,10 +163,17 @@ export class AgentPlanLoopRunner {
 
   public constructor(
     steps: Pick<AgentPlanStepRunner, "run" | "closeGroups">,
-    scripts?: Pick<AgentPlanScriptRunner, "run">,
+    members: {
+      readonly scripts?: Pick<AgentPlanScriptRunner, "run">;
+      readonly decisions?: Pick<AgentPlanDecisionModel, "run">;
+    } = {},
   ) {
     this.steps = steps;
-    this.iterations = new AgentPlanLoopIterationRunner(steps, scripts);
+    this.iterations = new AgentPlanLoopIterationRunner(
+      steps,
+      members.scripts,
+      members.decisions,
+    );
   }
 
   /**
@@ -305,6 +314,9 @@ export class AgentPlanLoopRunner {
         ),
         ...planLoopStacks(plan, loop.id).map(
           (stack) => [stack.id, stack.name] as const,
+        ),
+        ...planLoopDecisions(loop).map(
+          (decision) => [decision.id, decision.name ?? "Decision"] as const,
         ),
       ]);
       const ids = planLoopScopeIds(plan, loop);

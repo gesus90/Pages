@@ -124,7 +124,7 @@ export class AgentPlanStepStart {
    *
    * @remarks
    * A loop rechecks the executor's access here before its first iteration,
-   * a stack before each trigger.
+   * a stack before each trigger, a model decision before each session.
    */
   public async control(
     run: AgentPlanRun,
@@ -136,7 +136,8 @@ export class AgentPlanStepStart {
       node.type !== "start" &&
       node.type !== "end" &&
       node.type !== "loop" &&
-      node.type !== "stack"
+      node.type !== "stack" &&
+      node.type !== "decision"
     )
       throw new AgentError("plan_invalid");
   }

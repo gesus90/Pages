@@ -75,7 +75,9 @@ function picker(): HTMLElement {
 
 async function choose(option: string): Promise<void> {
   fireEvent.keyDown(picker(), { key: "Enter" });
-  fireEvent.click(await screen.findByRole("option", { name: option }));
+  fireEvent.click(
+    await screen.findByRole("option", { name: new RegExp(option) }),
+  );
 }
 
 it("explains that the decision is evaluated anew and is no language-model agent", () => {
@@ -87,7 +89,7 @@ it("explains that the decision is evaluated anew and is no language-model agent"
   const hint = i18n.t("plans.decision.dialog.hint");
   expect(screen.getByText(hint)).toBeDefined();
   expect(hint).toContain("false");
-  expect(hint).toContain("LLM");
+  expect(hint).toContain("Modellaufruf");
   // The dialog shows the same symbol as the card and the palette.
   expect(
     screen
@@ -99,7 +101,9 @@ it("explains that the decision is evaluated anew and is no language-model agent"
 it("lists the agents of the plan, none first, and shows the agent it reads now", () => {
   renderDialog();
 
-  expect(picker().textContent).toBe("Codex One");
+  expect(picker().textContent).toBe(
+    i18n.t("plans.decision.dialog.agentBoolean", { name: "Codex One" }),
+  );
   expect(
     planConditionChoices(reviewCyclePlan(), GROUP_SOURCES, i18n.t.bind(i18n)),
   ).toEqual([
@@ -133,20 +137,24 @@ it("keeps edits private until they are applied, then writes name and condition",
     },
   );
   await choose("Codex Two");
-  expect(graph.replaceNode).not.toHaveBeenCalled();
-  expect(graph.setDecisionCondition).not.toHaveBeenCalled();
+  expect(graph.edit).not.toHaveBeenCalled();
   fireEvent.click(
     screen.getByRole("button", { name: i18n.t("plans.closeNode") }),
   );
 
-  expect(graph.replaceNode).toHaveBeenCalledWith({
+  expect(graph.edit).toHaveBeenCalled();
+  const transform = vi.mocked(graph.edit).mock.calls[0]?.[0];
+  if (!transform) throw new Error("Expected graph.edit transform");
+  const nextPlan = transform(twoCheckersPlan());
+  const decisionNode = nextPlan.nodes.find((n) => n.id === "decision");
+  expect(decisionNode).toEqual({
     id: "decision",
     type: "decision",
     x: DECISION.x,
     y: DECISION.y,
     name: "Prüfen & bewerten",
   });
-  expect(graph.setDecisionCondition).toHaveBeenCalledWith("decision", "second");
+  expect(nextPlan.edges).toContainEqual(conditionEdge("second", "decision"));
   expect(onClose).toHaveBeenCalled();
 });
 
@@ -161,8 +169,7 @@ it("refuses an agent that would make a cycle, says why and changes nothing", asy
   expect(screen.getByRole("alert").textContent).toBe(
     i18n.t("plans.validation.cycle"),
   );
-  expect(graph.replaceNode).not.toHaveBeenCalled();
-  expect(graph.setDecisionCondition).not.toHaveBeenCalled();
+  expect(graph.edit).not.toHaveBeenCalled();
   expect(onClose).not.toHaveBeenCalled();
 
   // Another choice takes the reason away and applies as usual.
@@ -171,7 +178,15 @@ it("refuses an agent that would make a cycle, says why and changes nothing", asy
   fireEvent.click(
     screen.getByRole("button", { name: i18n.t("plans.closeNode") }),
   );
-  expect(graph.setDecisionCondition).toHaveBeenCalledWith("decision", null);
+  expect(graph.edit).toHaveBeenCalled();
+  const transform = vi.mocked(graph.edit).mock.calls[0]?.[0];
+  if (!transform) throw new Error("Expected graph.edit transform");
+  const nextPlan = transform(reviewCyclePlan());
+  expect(
+    nextPlan.edges.some(
+      (e) => e.to === "decision" && e.toPort === "condition-in",
+    ),
+  ).toBe(false);
   expect(onClose).toHaveBeenCalled();
 });
 
@@ -191,13 +206,22 @@ it("clears the condition with the none choice and the name with an empty field",
     screen.getByRole("button", { name: i18n.t("plans.closeNode") }),
   );
 
-  expect(graph.replaceNode).toHaveBeenCalledWith({
+  expect(graph.edit).toHaveBeenCalled();
+  const transform = vi.mocked(graph.edit).mock.calls[0]?.[0];
+  if (!transform) throw new Error("Expected graph.edit transform");
+  const nextPlan = transform(reviewCyclePlan());
+  const decisionNode = nextPlan.nodes.find((n) => n.id === "decision");
+  expect(decisionNode).toEqual({
     id: "decision",
     type: "decision",
     x: DECISION.x,
     y: DECISION.y,
   });
-  expect(graph.setDecisionCondition).toHaveBeenCalledWith("decision", null);
+  expect(
+    nextPlan.edges.some(
+      (e) => e.to === "decision" && e.toPort === "condition-in",
+    ),
+  ).toBe(false);
 });
 
 it("leaves the connection alone when the condition did not change", () => {
@@ -207,7 +231,12 @@ it("leaves the connection alone when the condition did not change", () => {
     screen.getByRole("button", { name: i18n.t("plans.closeNode") }),
   );
 
-  expect(graph.setDecisionCondition).not.toHaveBeenCalled();
+  expect(graph.edit).toHaveBeenCalled();
+  const transform = vi.mocked(graph.edit).mock.calls[0]?.[0];
+  if (!transform) throw new Error("Expected graph.edit transform");
+  const initial = reviewCyclePlan();
+  const nextPlan = transform(initial);
+  expect(nextPlan.edges).toEqual(initial.edges);
 });
 
 it("discards edits when it is cancelled", () => {
@@ -223,7 +252,7 @@ it("discards edits when it is cancelled", () => {
     screen.getByRole("button", { name: i18n.t("settings.agents.cancel") }),
   );
 
-  expect(graph.replaceNode).not.toHaveBeenCalled();
+  expect(graph.edit).not.toHaveBeenCalled();
   expect(onClose).toHaveBeenCalled();
 });
 

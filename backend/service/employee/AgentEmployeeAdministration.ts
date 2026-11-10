@@ -47,7 +47,7 @@ export interface AgentEmployeeAdministrationDependencies {
 }
 
 /** The agents tab: rows, the model choice and whether the person may create. */
-export type AgentEmployeePage = AgentEmployeePageData;
+export type AgentEmployeePage = Omit<AgentEmployeePageData, "templates">;
 
 /** Everything the panel of one agent shows. */
 export type AgentEmployeeDetail = AgentEmployeeDetailData;
@@ -83,7 +83,6 @@ function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
     model: input.settings.model,
     reasoningEffort: input.settings.reasoningEffort,
     access: input.settings.access,
-    monthlyCostLimit: input.settings.monthlyCostLimit,
     soul: input.documents.soul,
     instructions: input.documents.instructions,
     isLearningEnabled: input.isLearningEnabled,

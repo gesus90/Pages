@@ -44,20 +44,22 @@ export function unsupportedRunOption(
     : acpDriverFor(provider).errors.modeRequired;
 }
 
-/** Keeps Pica's narrower restrictions separate from plan permission modes. */
+/**
+ * Names a run option a session cannot start with.
+ *
+ * @param input - The session to start, a plan node or a conversation.
+ * @returns The refusal, or `null` when the runner enforces every option.
+ *
+ * @remarks
+ * A conversation runs in both modes like a plan node: Pica's own runners pass
+ * only "Nur Lesen", and only an agent employee with full access reaches a
+ * conversation in YOLO, with the chat profile of its runner.
+ */
 export function sessionRunOptionError(
   input: AgentPlanSessionInput,
 ): AgentErrorCode | null {
   const provider = input.agent.connection.provider;
   if (isApiProvider(provider)) return "provider_invalid";
-  if (input.chat && provider === "antigravity")
-    return input.options.access === "read_only"
-      ? null
-      : "plan_permission_mode_unenforceable";
-  if (input.chat && provider === "opencode")
-    return input.options.access === "read_only"
-      ? null
-      : "opencode_chat_mode_required";
   return unsupportedRunOption(provider, input.options);
 }
 

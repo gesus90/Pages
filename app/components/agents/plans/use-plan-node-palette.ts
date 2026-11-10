@@ -77,7 +77,12 @@ export function usePlanNodePalette(canvas: PlanCanvasProps): {
   function insert(kind: PlanPaletteKind, position?: AgentPlanPosition): void {
     if (blocked) return;
     if (isImmediateKind(kind)) {
-      canvas.graph.add(kind, immediateName(kind, t), position);
+      // A decision dropped on a group or loop stands in it (PAGE-286).
+      const frame =
+        kind === "decision" && position
+          ? planDropGroup(canvas.draft, position, canvas.sources, null)
+          : null;
+      canvas.graph.add(kind, immediateName(kind, t), position, frame?.id);
       return;
     }
     setRequest({ kind, position });

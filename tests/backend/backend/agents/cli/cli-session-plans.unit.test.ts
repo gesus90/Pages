@@ -41,7 +41,7 @@ it("refuses a session of an API provider", () => {
   ).toBe("provider_invalid");
 });
 
-it("allows Pica over OpenCode only read-only", () => {
+it("allows a conversation over OpenCode in both modes", () => {
   expect(
     sessionRunOptionError(
       sessionInput("opencode", acpRunOptions("read_only", 0), { chat: CHAT }),
@@ -51,7 +51,7 @@ it("allows Pica over OpenCode only read-only", () => {
     sessionRunOptionError(
       sessionInput("opencode", acpRunOptions("yolo", 0), { chat: CHAT }),
     ),
-  ).toBe("opencode_chat_mode_required");
+  ).toBeNull();
 });
 
 it("checks the plan mode of a runner session", () => {

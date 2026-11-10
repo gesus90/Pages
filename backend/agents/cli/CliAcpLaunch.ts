@@ -144,7 +144,7 @@ export function planAcpLaunch(
     runnerFile: file,
     profile,
     mcp: input.mcp ?? null,
-    purpose: input.chat ? "chat" : "plan",
+    purpose: input.chat ? "chat" : (input.purpose ?? "plan"),
     model: {
       model: input.agent.model,
       reasoningEffort: input.agent.reasoningEffort,

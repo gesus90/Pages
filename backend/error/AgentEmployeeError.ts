@@ -7,7 +7,7 @@ export type AgentEmployeeErrorCode =
   | "usernameTaken"
   | "modelNotAllowed"
   | "accessUnsupported"
-  | "costLimitReached"
+  | "templateNameTaken"
   | "inactive"
   | "busy"
   | "unavailable";

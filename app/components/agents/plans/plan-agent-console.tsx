@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useHidePicaLauncher } from "@/app/components/chat/use-pica-launcher-visibility";
 import { ForegroundPanel } from "@/app/components/ui/foreground-panel";
 
 import { ConsoleGroup } from "./plan-agent-console/console-group";
@@ -134,6 +135,8 @@ export function PlanAgentConsole(
   const heading = useRef<HTMLHeadingElement | null>(null);
   const keyboardInset = useKeyboardInset();
   useEscapeToClose(onClose);
+  // Pica's symbol would cover the lower right corner of the terminal.
+  useHidePicaLauncher();
   const opened = findConsoleNode(props.draft, props.nodeId);
   const { run } = running;
   const focusKey = consoleFocusKey(opened, memberId, run);

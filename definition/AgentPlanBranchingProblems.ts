@@ -8,6 +8,11 @@
 export const PLAN_BRANCHING_PROBLEMS = [
   "decisionCondition",
   "decisionBranch",
+  "decisionInput",
+  "decisionSequence",
+  "decisionModel",
+  "decisionQuestion",
+  "decisionCases",
   "eventOrder",
   "eventFanout",
   "eventNesting",

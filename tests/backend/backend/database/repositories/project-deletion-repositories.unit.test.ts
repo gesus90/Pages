@@ -288,7 +288,26 @@ describe("every project relation of the schema is part of the deletion", () => {
       "label_id",
       "assigned_at",
     ]);
+    expect(schema.get("agent_employees")).not.toContain("monthly_cost_limit");
     expect(schema.has("project_role_permissions")).toBe(false);
+  });
+
+  it("handles ALTER TABLE with IF NOT EXISTS and IF EXISTS", () => {
+    const parsed = parseMigrationSchema([
+      {
+        name: "001_create.sql",
+        sql: "CREATE TABLE sample (id TEXT PRIMARY KEY, col_a TEXT);",
+      },
+      {
+        name: "002_alter_add.sql",
+        sql: "ALTER TABLE sample ADD COLUMN IF NOT EXISTS col_b TEXT;",
+      },
+      {
+        name: "003_alter_drop.sql",
+        sql: "ALTER TABLE sample DROP COLUMN IF EXISTS col_a;",
+      },
+    ]);
+    expect(parsed.get("sample")).toEqual(["id", "col_b"]);
   });
 
   it("deletes from every table that refers to a project or to something that belongs to one", async () => {

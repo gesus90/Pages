@@ -1,5 +1,3 @@
-import { AgentError } from "@/backend/error/AgentErrors";
-
 import { approvePermission, refusePermission } from "./AcpPermissions";
 
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
@@ -7,6 +5,14 @@ import type { AcpSessionProfile, AcpSessionPurpose } from "./AcpDriver";
 
 /** The managed OpenCode agent whose only tools come from the Pica bridge. */
 export const OPENCODE_PICA_MODE = "pages-pica";
+
+/** The managed OpenCode agent of a decision model, which may use no tool at all (PAGE-286). */
+export const OPENCODE_DECISION_MODE = "pages-decision";
+
+/** Rules of a decision session: every tool is denied. */
+export const OPENCODE_DECISION_PERMISSIONS: Readonly<Record<string, string>> = {
+  "*": "deny",
+};
 
 /** Native primary agent IDs; the persisted Pages modes remain read_only and yolo. */
 export const OPENCODE_PLAN_MODES = {
@@ -112,14 +118,46 @@ function planProfile(mode: AcpPermissionMode): AcpSessionProfile {
   };
 }
 
-/** Resolves a plan mode while preserving Pica's narrower, existing read-only profile. */
+/**
+ * The conversation of an agent employee with full access: the YOLO rules of a
+ * plan node with every native tool inside the bubblewrap isolation, on the
+ * stock runner instead of the native Pages build, and the Pages tools of the
+ * agent's account over Pica's turn-bound bridge.
+ */
+function chatFullAccessProfile(): AcpSessionProfile {
+  const yolo = planProfile("yolo");
+  return {
+    ...yolo,
+    unattended:
+      "Native OpenCode ACP for an agent employee with full access, inside the bubblewrap isolation; managed permission rules and automatic ACP decisions, no interactive approvals",
+    permissions: {
+      ...yolo.permissions,
+      tools:
+        "all available native tools and the Pages tools of the agent's account",
+      pagesTools: "Pica bridge with the rights of the agent's account",
+      mcpServers: "Pica bridge only",
+    },
+  };
+}
+
+/**
+ * The profile of one Pages mode.
+ *
+ * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
+ * @param purpose - A Pica conversation takes the chat profile; the caller
+ * decides beforehand which stored mode it accepts for it. Only an agent
+ * employee with full access reaches the chat purpose in YOLO. A decision
+ * model takes the profile without any tool, whatever the mode.
+ * @returns The plan profile of the mode, Pica's narrower read-only profile, or
+ * the full access profile of an employee's conversation.
+ */
 export function openCodeAcpProfile(
   mode: AcpPermissionMode,
   purpose?: AcpSessionPurpose,
 ): AcpSessionProfile {
+  if (purpose === "decision") return OPENCODE_DECISION_PROFILE;
   if (purpose !== "chat") return planProfile(mode);
-  if (mode !== "read_only") throw new AgentError("opencode_chat_mode_required");
-  return OPENCODE_PICA_PROFILE;
+  return mode === "yolo" ? chatFullAccessProfile() : OPENCODE_PICA_PROFILE;
 }
 
 /**
@@ -153,6 +191,51 @@ export const OPENCODE_PICA_PROFILE: AcpSessionProfile = {
     {
       id: "mode",
       value: OPENCODE_PICA_MODE,
+      refusal: "plan_permission_mode_unenforceable",
+    },
+    { id: "model", value: request.model, refusal: "plan_model_unavailable" },
+    {
+      id: "effort",
+      value: request.reasoningEffort ?? "default",
+      refusal: "plan_reasoning_unsupported",
+      isOptional: request.reasoningEffort === null,
+    },
+  ],
+  decide: refusePermission,
+};
+
+/**
+ * The OpenCode profile of a decision model (PAGE-286): one prompt, one JSON
+ * answer, every tool denied and no MCP server. A correction of an invalid
+ * answer continues the same session once.
+ */
+export const OPENCODE_DECISION_PROFILE: AcpSessionProfile = {
+  mode: "read_only",
+  unattended:
+    "Native OpenCode ACP for a decision model; every tool is denied, no interactive approvals",
+  permissions: {
+    permissionMode: "read_only",
+    sessionMode: OPENCODE_DECISION_MODE,
+    tools: "none",
+    files: "none",
+    shell: "off",
+    web: "off",
+    settings: "Pages managed only",
+    mcpServers: "none",
+    permissionRules: JSON.stringify(OPENCODE_DECISION_PERMISSIONS),
+  },
+  reportedOptions: {
+    sessionMode: "mode",
+    model: "model",
+    reasoningEffort: "effort",
+  },
+  matchesReportedModel: null,
+  hasMcpStatusCommand: false,
+  isContinuable: true,
+  steps: (request) => [
+    {
+      id: "mode",
+      value: OPENCODE_DECISION_MODE,
       refusal: "plan_permission_mode_unenforceable",
     },
     { id: "model", value: request.model, refusal: "plan_model_unavailable" },

@@ -1,10 +1,16 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import { PlanRecoveryResume } from "@/app/components/agents/plans/plan-recovery/plan-recovery-resume";
 
-import { i18n, recoveryView, renderTranslated } from "../plan-panel-fixture";
+import {
+  i18n,
+  recoveryState,
+  recoveryView,
+  renderTranslated,
+} from "../plan-panel-fixture";
 
+import type { PlanRecovery } from "../plan-panel-fixture";
 import type { AgentPlanRecoveryView } from "@/definition/AgentPlanRecovery";
 
 const RESUMABLE = recoveryView({
@@ -22,17 +28,14 @@ const RESUMABLE = recoveryView({
 
 function renderResume(
   view: AgentPlanRecoveryView,
-  isPending = false,
-): ReturnType<typeof vi.fn> {
-  const onSubmit = vi.fn();
+  recoveryOverrides: Partial<PlanRecovery> = {},
+): { onClose: ReturnType<typeof vi.fn>; recovery: PlanRecovery } {
+  const onClose = vi.fn();
+  const recovery = recoveryState({ view, ...recoveryOverrides });
   renderTranslated(
-    <PlanRecoveryResume
-      view={view}
-      isPending={isPending}
-      onSubmit={onSubmit}
-    />,
+    <PlanRecoveryResume view={view} recovery={recovery} onClose={onClose} />,
   );
-  return onSubmit;
+  return { onClose, recovery };
 }
 
 function resumeButton(): HTMLElement {
@@ -41,65 +44,78 @@ function resumeButton(): HTMLElement {
   });
 }
 
-function review(step: string): HTMLElement {
-  return screen.getByRole("checkbox", {
-    name: i18n.t("plans.recovery.review", { step }),
+function cancelButton(): HTMLElement {
+  return screen.getByRole("button", {
+    name: i18n.t("settings.agents.cancel"),
   });
 }
 
-it("names what is taken over and continues only with a chosen mode and every review", () => {
-  const onSubmit = renderResume(RESUMABLE);
-  const fresh = screen.getByRole("radio", {
-    name: `${i18n.t("plans.recovery.mode.new_session")} – ${i18n.t("plans.recovery.modeHint.new_session")}`,
-  });
+it("renders confirmation prompt and submits resume action on continue", async () => {
+  const submit = vi.fn(async () => ({
+    commandId: "cmd-1",
+    revision: 3,
+    outcome: "started" as const,
+    runId: "run-resumed",
+  }));
+  const { onClose } = renderResume(RESUMABLE, { submit });
 
+  expect(screen.getByText(i18n.t("plans.recovery.resumeTitle"))).toBeDefined();
   expect(
-    screen.getByText(
-      i18n.t("plans.recovery.resumeHint", {
-        reused: "Reviewer, unnamed",
-        count: 2,
-      }),
-    ),
+    screen.getByText(i18n.t("plans.recovery.resumeConfirm")),
   ).toBeDefined();
-  expect(
-    screen
-      .getByRole("radio", {
-        name: `${i18n.t("plans.recovery.mode.native_resume")} – ${i18n.t("plans.recovery.modeUnavailable")}`,
-      })
-      .hasAttribute("disabled"),
-  ).toBe(true);
-  expect(resumeButton().hasAttribute("disabled")).toBe(true);
-  fireEvent.click(fresh);
-  fireEvent.click(review("Writer"));
-  expect(resumeButton().hasAttribute("disabled")).toBe(true);
-  fireEvent.click(review("other"));
-  fireEvent.click(review("Writer"));
-  expect(resumeButton().hasAttribute("disabled")).toBe(true);
-  fireEvent.click(review("Writer"));
+  expect(resumeButton().hasAttribute("disabled")).toBe(false);
+
   fireEvent.click(resumeButton());
 
-  expect(onSubmit).toHaveBeenCalledWith({
+  await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  expect(submit).toHaveBeenCalledWith({
     action: "resume",
-    mode: "new_session",
+    confirmContinue: true,
     revision: 3,
-    reviewedStepIds: ["other", "second"],
   });
 });
 
-it("keeps an unavailable resume and a pending decision closed", () => {
-  renderResume(recoveryView());
+it("disables continue and shows blocker reason when resume is unavailable", () => {
+  const blockedView = recoveryView({
+    resume: {
+      available: false,
+      reason: "plan_run_active",
+      modes: [],
+      reusedStepIds: [],
+      reviewStepIds: [],
+    },
+  });
+  renderResume(blockedView);
 
-  expect(screen.getByRole("group").hasAttribute("disabled")).toBe(true);
+  expect(resumeButton().hasAttribute("disabled")).toBe(true);
   expect(
-    screen.getByText(
-      i18n.t("plans.recovery.resumeHint", { reused: "", count: 0 }),
-    ),
+    screen.getByText(i18n.t("plans.recovery.blocker.plan_run_active")),
   ).toBeDefined();
 });
 
-it("disables the decision while it is on its way", () => {
-  renderResume(RESUMABLE, true);
+it("disables cancel and shows pending status while request is in flight", () => {
+  const { onClose } = renderResume(RESUMABLE, { isPending: true });
 
-  expect(screen.getByRole("group").hasAttribute("disabled")).toBe(true);
-  expect(resumeButton().hasAttribute("disabled")).toBe(true);
+  expect(cancelButton().hasAttribute("disabled")).toBe(true);
+  expect(
+    screen.getByText(i18n.t("plans.recovery.resumePending")),
+  ).toBeDefined();
+
+  fireEvent.click(cancelButton());
+  expect(onClose).not.toHaveBeenCalled();
+});
+
+it("closes dialog when cancel button is clicked", () => {
+  const { onClose } = renderResume(RESUMABLE);
+
+  fireEvent.click(cancelButton());
+  expect(onClose).toHaveBeenCalledOnce();
+});
+
+it("displays error message when recovery error occurs", () => {
+  renderResume(RESUMABLE, { error: "review_required" });
+
+  expect(screen.getByRole("alert").textContent).toBe(
+    i18n.t("plans.recovery.error.review_required"),
+  );
 });

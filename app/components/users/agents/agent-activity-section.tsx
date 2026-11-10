@@ -27,7 +27,7 @@ function text(value: unknown): string {
     : "";
 }
 
-/** The month's costs against the limit, and the reason when it stops the agent. */
+/** The month's known costs and the sessions without a reported cost. */
 function CostSummary({
   cost,
 }: {
@@ -41,25 +41,15 @@ function CostSummary({
   return (
     <section className="flex flex-col gap-2 rounded-xl bg-muted px-4 py-3 text-sm">
       <p>
-        {cost.limit === null
-          ? t("agentEmployees.activity.spentNoLimit", {
-              spent: money.format(cost.spent),
-            })
-          : t("agentEmployees.activity.spent", {
-              spent: money.format(cost.spent),
-              limit: money.format(cost.limit),
-            })}
+        {t("agentEmployees.activity.spent", {
+          spent: money.format(cost.spent),
+        })}
       </p>
       {cost.unknownSessions > 0 ? (
         <p className="text-muted-foreground">
           {t("agentEmployees.activity.unknownSessions", {
             count: cost.unknownSessions,
           })}
-        </p>
-      ) : null}
-      {cost.isReached ? (
-        <p className="font-medium text-destructive" role="status">
-          {t("agentEmployees.activity.limitReached")}
         </p>
       ) : null}
     </section>
@@ -111,9 +101,6 @@ function EntryLine({
         archived: detail.archived ?? 0,
         removed: detail.removed ?? 0,
       },
-    ),
-    cause: t(
-      `agentEmployees.activity.cause.${text(detail.cause) || "session"}`,
     ),
   });
   const cost = costText(entry, money, t);

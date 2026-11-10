@@ -7,10 +7,10 @@ import {
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { AgentActivityCost } from "@/definition/AgentEmployee";
 
-/** A learning run or a refused start, as the activity table stores it. */
+/** A learning run, as the activity table stores it. */
 export interface StoredAgentEvent {
   readonly id: string;
-  readonly kind: "learning" | "limit";
+  readonly kind: "learning";
   readonly detail: string;
   readonly cost: AgentActivityCost;
   readonly createdAt: string;
@@ -66,8 +66,8 @@ function readJobCost(row: readonly DatabaseValue[]): AgentActivityCost {
 }
 
 /**
- * What an agent did: its sessions and learning runs with their costs, the
- * starts its cost limit refused, and its ticket and wiki changes (PAGE-266).
+ * What an agent did: its sessions and learning runs with their costs, and
+ * its ticket and wiki changes (PAGE-266).
  *
  * @remarks
  * Sessions are the chat jobs of the agent's conversations, and changes are
@@ -82,7 +82,7 @@ export class AgentActivityRepository {
     this.database = database;
   }
 
-  /** Records a learning run or a refused start. */
+  /** Records a learning run. */
   public async record(
     userId: string,
     event: Omit<StoredAgentEvent, "createdAt">,
@@ -140,30 +140,11 @@ export class AgentActivityRepository {
     );
     return rows.map((row) => ({
       id: readTextColumn(row, 0, "id"),
-      kind: readTextColumn(row, 1, "kind") === "limit" ? "limit" : "learning",
+      kind: "learning" as const,
       detail: readTextColumn(row, 2, "detail"),
       cost: readCost(row[3], readTextColumn(row, 4, "cost_state"), false),
       createdAt: readTextColumn(row, 5, "created_at"),
     }));
-  }
-
-  /** Whether a refused start of the agent is recorded since the given time. */
-  public async hasLimitEventSince(
-    userId: string,
-    since: string,
-  ): Promise<boolean> {
-    const rows = await this.database.query(
-      `
-        SELECT COUNT(*)
-        FROM agent_activity
-        WHERE user_id = $user_id
-            AND kind = 'limit'
-            AND created_at >= $since;
-      `,
-      { user_id: userId, since },
-    );
-    const row = rows[0];
-    return row !== undefined && readCountColumn(row, 0, "count") > 0;
   }
 
   /** Lists the chat jobs of an agent's conversations, the newest first. */

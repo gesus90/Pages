@@ -88,19 +88,18 @@ describe("official Antigravity registration", () => {
     ).toBe("yolo");
   });
 
-  it("runs Pica read-only without any native tool and refuses YOLO", () => {
+  it("runs Pica read-only without any native tool and full access with all of them", () => {
     expect(isPicaAcpProvider("antigravity")).toBe(true);
-    const profile = ANTIGRAVITY_ACP_DRIVER.profile("read_only", "chat");
-    const launch = ANTIGRAVITY_ACP_DRIVER.plan({
-      ...{ instanceId: "synthetic-run", runnerFile: "/adapter/agy" },
-      ...{ profile, mcp: null, purpose: "chat" },
-    });
-    expect(launch.sessionMeta.antigravity).toEqual({
+    const chatMeta = (mode: "read_only" | "yolo"): unknown =>
+      ANTIGRAVITY_ACP_DRIVER.plan({
+        ...{ instanceId: "synthetic-run", runnerFile: "/adapter/agy" },
+        ...{ profile: ANTIGRAVITY_ACP_DRIVER.profile(mode, "chat") },
+        ...{ mcp: null, purpose: "chat" },
+      }).sessionMeta.antigravity;
+    expect(chatMeta("read_only")).toEqual({
       ...{ enabledTools: [], eagerMcpServers: ["pages"] },
     });
-    expect(() => ANTIGRAVITY_ACP_DRIVER.profile("yolo", "chat")).toThrow(
-      expect.objectContaining({ code: "plan_permission_mode_unenforceable" }),
-    );
+    expect(chatMeta("yolo")).toEqual({ eagerMcpServers: ["pages"] });
   });
 
   it("isolates Gemini home and removes unrelated credentials and updater input", () => {

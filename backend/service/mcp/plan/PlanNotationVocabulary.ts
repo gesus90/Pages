@@ -110,13 +110,17 @@ export function allPlanNotationNodes(
   plan: Pick<AgentPlanInput, "nodes">,
 ): readonly AgentPlanNode[] {
   return plan.nodes.flatMap((node): readonly AgentPlanNode[] => {
-    if (node.type === "group") return [node, ...node.steps];
+    if (node.type === "group")
+      return [node, ...node.steps, ...(node.decisions ?? [])];
     if (node.type !== "loop") return [node];
     return [
       node,
       ...node.steps.flatMap((member): readonly AgentPlanNode[] =>
-        member.type === "group" ? [member, ...member.steps] : [member],
+        member.type === "group"
+          ? [member, ...member.steps, ...(member.decisions ?? [])]
+          : [member],
       ),
+      ...(node.decisions ?? []),
     ];
   });
 }

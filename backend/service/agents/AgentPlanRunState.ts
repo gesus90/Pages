@@ -9,6 +9,7 @@ import { withGroupResults } from "./AgentPlanGroupResults";
 import { bindPlanBranchState } from "./branching/AgentPlanBranchPersistence";
 import { hasPlanPath } from "./AgentPlanGraph";
 import { planReadiness } from "./branching/AgentPlanBranchEdges";
+import { planDecisionMode } from "@/definition/AgentPlanDecision";
 
 import type {
   AgentPlanRun,
@@ -113,15 +114,17 @@ export function updateBlocked(active: ActivePlanRun): void {
  * Returns the complete ready frontier, independent of canvas positions.
  *
  * @remarks
- * A decision is no work for a provider: the scheduler evaluates it itself
- * when its boolean result has arrived, so it never appears here.
+ * A boolean decision is no work for a provider: the scheduler evaluates it
+ * itself when its value has arrived, so it never appears here. A model
+ * decision asks a model in a session of its own and is dispatched like a
+ * script (PAGE-286).
  */
 export function readySteps(active: ActivePlanRun): readonly AgentPlanNode[] {
   const results = new Map(active.view.steps.map((step) => [step.id, step]));
   return active.snapshot.plan.nodes.filter((node) => {
     const step = results.get(node.id);
     return (
-      node.type !== "decision" &&
+      !(node.type === "decision" && planDecisionMode(node) === "boolean") &&
       step?.status === "waiting" &&
       !step.isBlocked &&
       planReadiness(active.snapshot.plan, results, node.id) === "ready"
@@ -272,15 +275,8 @@ function isCompletedLoop(
         (iteration) =>
           iteration.status === "succeeded" &&
           !iteration.error &&
-          iteration.nodes.every(
-            (node) =>
-              node.status === "succeeded" &&
-              !node.isBlocked &&
-              !node.error &&
-              node.session?.resultCode !== -1 &&
-              (!node.session?.acceptance ||
-                node.session.acceptance.verdict === "accepted"),
-          ),
+          // A node a decision skipped in this iteration is settled as well (PAGE-286).
+          iteration.nodes.every(isCompletedPlanStep),
       ))
   );
 }

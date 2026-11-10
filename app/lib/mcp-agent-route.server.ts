@@ -12,12 +12,9 @@ import {
   toMcpAgentError,
 } from "@/backend/service/mcp/agent/McpAgentError";
 import { McpAgentRequest } from "@/backend/service/mcp/agent/McpAgentRequest";
-import { AGENT_INSTRUCTION_TEMPLATES } from "@/definition/AgentEmployee";
 import { MAXIMUM_AVATAR_BYTES } from "@/definition/User";
-import germanTranslation from "@/language/locales/de/translation.json";
 
 import type { McpAgentActor } from "@/backend/service/mcp/agent/McpAgentApi";
-import type { McpAgentTemplate } from "@/backend/service/mcp/agent/McpAgentContract";
 import type { AgentAvatarUpload } from "@/backend/service/employee/AgentEmployeeAdministration";
 
 /** Longest body of the agent API: the three documents with room for their JSON escapes. */
@@ -56,29 +53,13 @@ function isServedMethod(
   return Object.hasOwn(handlers, method);
 }
 
-/**
- * The templates of `AGENT.md` as the agents tab offers them.
- *
- * @remarks
- * The interface fills the template from the German texts, the language
- * Pages sets for new accounts; the MCP program shows them unchanged.
- */
-function instructionTemplates(): readonly McpAgentTemplate[] {
-  const texts = germanTranslation.agentEmployees.templates;
-  return AGENT_INSTRUCTION_TEMPLATES.map((id) => ({
-    id,
-    name: texts[id].label,
-    content: texts[id].content,
-  }));
-}
-
 /** Creates the API over the administration of agents and the device token check. */
 async function createApi(): Promise<McpAgentApi> {
   const services = await getApplicationServices();
   return new McpAgentApi(
     services.agentEmployeeAdministration,
     { devices: services.mcpDeviceService, accounts: services.userService },
-    instructionTemplates(),
+    services.agentTemplateService,
   );
 }
 

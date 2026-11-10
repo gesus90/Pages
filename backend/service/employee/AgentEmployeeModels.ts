@@ -5,7 +5,6 @@ import {
   modelConsumerRefusal,
 } from "@/definition/AgentModelConsumers";
 import { isChatCapableModel } from "@/definition/AgentModelFilter";
-import { employeeAccessModes } from "@/definition/AgentEmployee";
 
 import {
   resolveAgentAssignment,
@@ -66,12 +65,11 @@ export class AgentEmployeeModels {
    * Checks a choice the person saves for an agent.
    *
    * @throws {AgentEmployeeError} `modelNotAllowed` for a model outside the
-   * person's choice or the employee rule, `accessUnsupported` for full access
-   * with a provider that does not run it.
+   * person's choice or the employee rule.
    */
   public async requireAllowed(
     userId: string,
-    settings: Omit<AgentEmployeeSettings, "monthlyCostLimit">,
+    settings: AgentEmployeeSettings,
   ): Promise<ResolvedAgentAssignment> {
     let assignment: ResolvedAgentAssignment;
     try {
@@ -86,12 +84,6 @@ export class AgentEmployeeModels {
       throw error;
     }
     await this.requireEmployeeModel(assignment);
-    if (
-      !employeeAccessModes(assignment.connection.provider).includes(
-        settings.access,
-      )
-    )
-      throw new AgentEmployeeError("accessUnsupported");
     return assignment;
   }
 
@@ -102,7 +94,7 @@ export class AgentEmployeeModels {
    * is gone, `modelNotAllowed` when it no longer passes the employee rule.
    */
   public async resolve(
-    settings: Omit<AgentEmployeeSettings, "monthlyCostLimit" | "access">,
+    settings: Omit<AgentEmployeeSettings, "access">,
   ): Promise<ResolvedAgentAssignment> {
     let assignment: ResolvedAgentAssignment;
     try {

@@ -780,6 +780,7 @@
         "plan_dependency_failed": "A predecessor failed or was cancelled; the step is blocked.",
         "plan_interrupted": "The server interrupted this run. Pages continues it on its own up to three times where that is safe; otherwise it waits for a decision.",
         "plan_json_invalid": "Enter exactly one valid JSON value. Numbers must be finite.",
+        "plan_boolean_invalid": "Choose true or false.",
         "plan_number_invalid": "Enter exactly one finite number.",
         "plan_run_unavailable": "This plan already has an active or paused run; stop it before starting again. Or the selected run is no longer active.",
         "plan_run_unreadable": "The stored record of this run is damaged and cannot be read.",
@@ -863,7 +864,8 @@
         "plan_loop_condition_field": "The JSON result has no field at the path of the end condition.",
         "plan_loop_condition_type": "The value at the path of the end condition has another type than the expected value. Pages never converts types.",
         "plan_loop_session_lost": "The retained ACP session of a loop agent is unavailable after its adapter process ended. Pages does not open a new session under the same identity. Deliberately start a new run.",
-        "plan_decision_input_invalid": "A decision found no valid boolean result of its agent: the agent did not finish, or the same result was already evaluated. The decision is never treated as false.",
+        "plan_decision_input_invalid": "A decision found no valid value for this activation: its input is missing, of the wrong kind or not readable, or its settings are incomplete. No output was activated, and the decision is never treated as false.",
+        "plan_decision_answer_invalid": "The model of the decision did not answer with exactly one valid JSON object, also not after one correction. No output was activated.",
         "plan_event_prompt_empty": "The result sent to the event input of this agent holds no usable new information, so the agent was not started again. Nothing was replaced by an empty or invented prompt.",
         "plan_event_prompt_too_large": "The result sent to the event input of this agent is longer than 100000 characters. Pages does not shorten it; let the sending node answer more briefly.",
         "plan_activation_limit": "A node of this cycle started 25 times in one run, the limit that keeps a cycle from running without end. Check why the decision never lets the cycle end.",
@@ -1708,7 +1710,8 @@
       "userNotFound": "This user could not be found.",
       "conflict": "The agent was changed meanwhile. Please open it again.",
       "modelNotAllowed": "This model is not allowed for agents.",
-      "accessUnsupported": "Full access is not available with this provider."
+      "accessUnsupported": "YOLO is not available with this provider.",
+      "templateNameTaken": "A template with this name already exists."
     },
     "saved": "Saved",
     "discardChanges": "Discard unsaved changes?",
@@ -3702,7 +3705,6 @@
       "agent": "Agent"
     },
     "sendFailure": {
-      "costLimitReached": "{{name}} reached the cost limit and starts no new session.",
       "inactive": "{{name}} is deactivated.",
       "busy": "{{name}} is busy with another session. Try again shortly.",
       "unavailable": "{{name}} cannot answer right now: model or connection unavailable.",
@@ -4358,12 +4360,12 @@
       "loopCondition": "The end condition needs a source agent or script of this loop and a valid JSON path such as $.end.",
       "loopPrevious": "A result of the previous iteration is only valid inside a loop, from one of its members, and needs a default value for the first iteration.",
       "loopProvider": "An agent that keeps its session needs an ACP runner (Codex, Claude Code or OpenCode). Switch the loop to a new session per run or choose another agent.",
-      "decisionCondition": "A decision reads exactly one boolean agent result. Connect the result output (bool) of an agent to its condition.",
-      "decisionBranch": "Both outputs of a decision, true and false, need a continuation so that no evaluation ends in a dead end.",
+      "decisionCondition": "A decision reads exactly one data source: the boolean result of an agent, a boolean parameter, a ticket or a text result. Connect exactly one to its data input.",
+      "decisionBranch": "Every output of a decision needs a continuation, so that no decision ends in a dead end.",
       "eventOrder": "An event returns new information to the session of an agent that has already run. Its source must therefore come after the target in the flow.",
       "eventFanout": "A result returns to one event input only. The agent that starts again makes everything behind it forget its start, so a second target would lose the news. Use a node of its own for each target.",
       "eventNesting": "This event returns across another agent with an event input. Its session would have to start again without the news it expects. Two cycles one after the other work, nested ones do not.",
-      "branchBoundary": "A decision, a boolean result and an event input belong to the top level of the plan, not inside a group or a loop. A group or loop also cannot lie behind an agent that an event starts again: it would not run again in the next round.",
+      "branchBoundary": "Condition and branch connections join nodes of the same container: the top level, the same group or the same loop. Event inputs stay outside groups and loops, and no group or loop may lie behind an agent that an event starts again.",
       "branchProvider": "An agent with a boolean result or an event input keeps its session open and needs an ACP runner (Codex, Claude Code or OpenCode).",
       "branchRemote": "An agent with a boolean result or an event input runs on the Pages host only, not on a remote target.",
       "branchGate": "An agent with a boolean result or an event input cannot use the ticket completion gate. Switch the gate off on this agent.",
@@ -4392,7 +4394,13 @@
       "loopWhile": "The while loop needs a boolean parameter that is exactly true or false, and later checks need a member of the loop and a valid path.",
       "loopNested": "A loop holds agents, scripts and groups of agents, but no loop.",
       "assetFile": "This asset node has no file. Drop or choose a file; without it there is no input.",
-      "assetUnreadable": "The file of this asset node cannot be read or is not accessible. The run does not start, because without it there is no input."
+      "assetUnreadable": "The file of this asset node cannot be read or is not accessible. The run does not start, because without it there is no input.",
+      "boolean": "Choose true or false.",
+      "decisionInput": "This source does not fit the function of the decision: Boolean takes a boolean parameter or the boolean result of an agent, the decision model a ticket or the text result of an agent or script.",
+      "decisionSequence": "A decision that reads a parameter, a ticket or a text result needs a connected sequence input: a data input alone never starts it.",
+      "decisionModel": "Choose a model of an ACP connection for the decision model.",
+      "decisionQuestion": "Enter the question the decision model answers (at most 4000 characters).",
+      "decisionCases": "A classification needs 2 to 20 values with unique, non-empty names of at most 60 characters."
     },
     "session": {
       "runner": {
@@ -4763,7 +4771,8 @@
       "json": "JSON",
       "ticket": "Ticket",
       "workspace": "Workspace",
-      "wiki": "Wiki page"
+      "wiki": "Wiki page",
+      "boolean": "Boolean"
     },
     "parameterName": "Parameter name",
     "parameterType": "Type of {{name}}",
@@ -5566,17 +5575,7 @@
         "native_resume": "Continue the earlier agent session",
         "new_session": "New attempt"
       },
-      "modeHint": {
-        "native_resume": "the adapter resumes the stored session with its history.",
-        "new_session": "unfinished steps start as a new attempt. Agents get a new session with their assignment, reused results and recovery notice."
-      },
-      "modeUnavailable": "not possible here: the adapter cannot resume the session, or the session is unknown.",
-      "resume": "Continue from the last safe state",
-      "resumeHint_one": "Taken over unchanged: {{reused}}. Only open, failed or interrupted work runs again, as a new attempt with the saved plan.",
-      "resumeHint_other": "Taken over unchanged ({{count}}): {{reused}}. Only open, failed or interrupted work runs again, as a new attempt with the saved plan.",
-      "resumeHint_zero": "No verified result to take over. Only open, failed or interrupted work runs again, as a new attempt with the saved plan.",
-      "review": "I checked the possible effects of “{{step}}” (files, branches, tickets) and want it to run again.",
-      "resumeAction": "Continue run",
+      "resumeAction": "Continue",
       "restart": "Start from the start",
       "restartHint": "Starts a new run with the saved plan. The earlier run, its results and its journal stay as they are; existing files and branches are not reset.",
       "confirmRepeat": "Every node runs again, including actions that may already have taken effect.",
@@ -5642,8 +5641,7 @@
         "plan_conflict": "The plan was saved meanwhile. Reload the plan and start the version you see.",
         "diagnostic_unavailable": "The cleanup finding could not be stored or read. Release is not confirmed. Check again."
       },
-      "resumeTitle": "Resume run",
-      "resumeDescription": "Continues from the last safe state: successful steps are taken over and not repeated; open work runs as a new attempt.",
+      "resumeTitle": "Continue plan",
       "cleanupHistory": "Last recorded cleanup failure",
       "cleanupHistoryTime": "{{time}}",
       "cleanupHistoryHint": "Historical finding. See available actions for the current release and process state.",
@@ -5666,7 +5664,9 @@
       },
       "planState": "Plan",
       "planChanged": "Saved again since this run",
-      "planUnchanged": "Unchanged since this run"
+      "planUnchanged": "Unchanged since this run",
+      "resumeConfirm": "Continue the plan at the point where it failed? Successful steps and loop iterations are kept and do not run again.",
+      "resumePending": "Continuing …"
     },
     "nodeInstruction": "Additional node instruction",
     "execution": {
@@ -5845,16 +5845,18 @@
       "condition": "bool",
       "true": "true",
       "false": "false",
-      "event": "Event · new prompt"
+      "event": "Event · new prompt",
+      "case": "value",
+      "decisionInput": "data"
     },
     "decision": {
-      "caption": "Logic",
-      "condition": "Condition",
+      "caption": "Logic · Boolean",
+      "condition": "Data",
       "boolean": "Boolean",
-      "conditionLabel": "Connect the condition of {{name}}",
-      "reads": "{{name}} · Result",
+      "conditionLabel": "Connect the data input of {{name}}",
+      "reads": "{{name}} · boolean result",
       "notConnected": "not connected",
-      "footer": "Only one branch is activated",
+      "footer": "Exactly one output is activated",
       "when": {
         "true": "Condition met",
         "false": "Needs rework"
@@ -5867,11 +5869,58 @@
       "evaluated": "Evaluated: {{name}} (pass {{number}}) · {{value}}",
       "dialog": {
         "title": "Edit decision",
-        "hint": "At every pass the decision evaluates the boolean result of an agent anew and activates exactly one branch. A missing or invalid value is never treated as false. It is not an LLM agent and calls no model.",
+        "hint": "Boolean: decides deterministically on a boolean parameter or the boolean result of an agent, without a model call. Every activation decides anew; a missing or invalid value never counts as false and activates no output.",
         "name": "Name (optional)",
-        "condition": "Condition (Boolean)",
-        "none": "–"
-      }
+        "condition": "Data input (boolean)",
+        "none": "–",
+        "hintModel": "Decision model: a model of an ACP connection answers the question about one ticket or text result in a short, read-only session of its own without tools. It must answer with exactly one JSON object; an invalid answer is corrected once, then the node fails without activating an output.",
+        "content": "Data input (ticket or text result)",
+        "mode": "Function",
+        "modeBoolean": "Boolean",
+        "modeModel": "Decision model",
+        "agentBoolean": "{{name}} · boolean result",
+        "parameter": "Parameter {{name}}",
+        "ticket": "Ticket {{name}}",
+        "result": "{{name}} · text result",
+        "question": "Decision question",
+        "questionPlaceholder": "For example: Is this ticket a bug, a feature or a question?",
+        "model": "Model",
+        "chooseModel": "Choose a model",
+        "modelNotAcp": "A decision runs its own ACP session; this model has no ACP connection.",
+        "output": "Answer",
+        "yesNo": "Yes/No",
+        "classification": "Classification",
+        "cases": "Values",
+        "casesHint": "{{minimum}} to {{maximum}} values, each with its own output. There is no automatic \"else\"; add a value such as \"unclear\" if needed.",
+        "caseName": "Name of value {{number}}",
+        "removeCase": "Remove value {{name}}",
+        "addCase": "Add value",
+        "removeTitle": "Remove value {{name}}?",
+        "removeConnected": "The output of \"{{name}}\" is connected. Removing the value also removes its connection when you apply.",
+        "removeConfirm": "Remove",
+        "caseProblem": {
+          "empty": "Every value needs a name.",
+          "length": "A name has at most {{maximum}} characters.",
+          "duplicate": "Names must be unique, regardless of upper and lower case."
+        },
+        "casesTooFew": "A classification needs at least {{minimum}} values before the plan can start."
+      },
+      "captionModel": "Logic · Decision model",
+      "content": "Ticket or text",
+      "readsParameter": "Parameter {{name}}",
+      "readsTicket": "Ticket {{name}}",
+      "readsResult": "{{name}} · text result",
+      "whenCase": "Answer: {{name}}",
+      "caseUnnamed": "unnamed value",
+      "evaluatedParameter": "Evaluated: parameter {{name}} · {{value}}",
+      "answered": "Model answered: {{value}} (source {{name}})",
+      "reason": "Reason: {{reason}}",
+      "corrected": "after one correction",
+      "sequence": "Sequence: decides when the flow arrives",
+      "sequenceLabel": "Connect the sequence input of {{name}}",
+      "noQuestion": "No question yet",
+      "modelLine": "Model: {{model}}",
+      "noModel": "No model chosen"
     },
     "event": {
       "in": "Event IN",
@@ -6624,17 +6673,13 @@
       "chooseModel": "Choose model",
       "noModels": "No eligible models: language models with tools over ACP.",
       "access": "Access",
-      "costLimit": "Cost limit (US dollars per month)",
-      "costLimitHint": "Leave empty for no limit.",
       "rights": "Rights",
       "role": "Role",
       "chooseRole": "Choose role"
     },
     "access": {
       "read_only": "Read only · Pages tools",
-      "yolo": "Full access (YOLO) · all system tools",
-      "yoloUnsupported": "Not available with this provider",
-      "note": "Runs over ACP; full access only inside the isolation. Agents never sign in, need no password and can never be administrators."
+      "yolo": "YOLO · all tools and all permissions"
     },
     "soul": {
       "template": "# Personality\n\nYou are calm, precise and direct.\n\n## Manner\n- You say clearly what is missing.\n- You ask when a task is unclear.\n\n## Tone\n- Short sentences, friendly and factual.\n\n## Limits\n- You claim nothing you have not checked.\n- When you do not know something, you say so."
@@ -6643,21 +6688,22 @@
       "length_one": "{{length}} / {{maximum}} characters",
       "length_other": "{{length}} / {{maximum}} characters",
       "soulDescription": "Who the agent is: character, tone and attitude. Applies in every conversation.",
-      "instructionsDescription": "What the agent does: job, responsibility, way of working and rules. It reads project knowledge from tickets and the wiki.",
-      "template": "Template",
-      "chooseTemplate": "Choose template"
+      "instructionsDescription": "What the agent does: job, responsibility, way of working and rules. It reads project knowledge from tickets and the wiki."
     },
     "templates": {
       "coder": {
         "label": "Coder",
+        "description": "Implements tickets in code.",
         "content": "# Task: Coder\n\nYou implement tickets in code.\n\n## Responsible for\n- Implementation and fixes per ticket\n- Clean, checked changes\n\n## Way of working\n1. Read the ticket and its acceptance.\n2. Change only what the ticket asks for.\n3. Record the result in the ticket.\n\n## Not responsible\n- Deploying without an order."
       },
       "designer": {
         "label": "Designer",
+        "description": "Designs interfaces and flows.",
         "content": "# Task: Designer\n\nYou design interfaces and flows.\n\n## Responsible for\n- Drafts, texts and states of an interface\n- Consistency with the existing design\n\n## Way of working\n1. Read the ticket and existing drafts.\n2. Explain decisions.\n3. Record guidelines in the wiki.\n\n## Not responsible\n- Writing code."
       },
       "manager": {
         "label": "Manager",
+        "description": "Steers the project and knows its state.",
         "content": "# Task: Manager\n\nYou steer the project and know its state.\n\n## Responsible for\n- Milestones, tickets and priorities\n- Overview of what is open and blocked\n\n## Way of working\n1. Read the current state before every answer.\n2. Back statements with a ticket or wiki page.\n3. Record decisions in the wiki.\n\n## Not responsible\n- Deploying without an order."
       }
     },
@@ -6678,8 +6724,7 @@
       "result": {
         "updated": "{{added}} new, {{merged}} merged, {{archived}} archived, {{removed}} removed",
         "unchanged": "nothing new, no model started",
-        "failed": "failed",
-        "limitReached": "cost limit reached, nothing learned"
+        "failed": "failed"
       },
       "sharedHint": "What the agent learns in one chat it may use in other conversations. Credentials are removed before saving.",
       "archiveEntries_one": "Archive: {{count}} entry",
@@ -6698,11 +6743,9 @@
     },
     "activity": {
       "empty": "No activity yet.",
-      "spent": "This month: {{spent}} of {{limit}}",
-      "spentNoLimit": "This month: {{spent}} · no cost limit",
+      "spent": "This month: {{spent}}",
       "unknownSessions_one": "{{count}} session without reported costs (unknown)",
       "unknownSessions_other": "{{count}} sessions without reported costs (unknown)",
-      "limitReached": "Cost limit reached: the agent starts no new session or learning run until the month ends.",
       "estimated": "(estimated)",
       "unknownCost": "Cost unknown",
       "kind": {
@@ -6710,8 +6753,7 @@
         "learningSession": "Learning session · {{state}}",
         "learning": "Learning run: {{status}}",
         "ticket": "Ticket: {{message}}",
-        "wiki": "Wiki: {{message}}",
-        "limit": "Not started ({{cause}}): cost limit reached"
+        "wiki": "Wiki: {{message}}"
       },
       "state": {
         "running": "running",
@@ -6720,10 +6762,39 @@
         "stopped": "stopped",
         "interrupted": "interrupted",
         "none": "–"
+      }
+    },
+    "templateList": {
+      "title": "Templates",
+      "description": "A click fills AGENT.md once; the text stays freely editable. Changing a template changes no existing agent.",
+      "create": "New template",
+      "saveFromDocument": "Save as template",
+      "edit": "Edit",
+      "duplicate": "Duplicate",
+      "remove": "Delete",
+      "default": "Default",
+      "selected": "Selected",
+      "empty": "No templates yet.",
+      "actions": "Actions for {{name}}",
+      "copyName": "{{name}} (copy)",
+      "editor": {
+        "createTitle": "New template",
+        "editTitle": "Edit template",
+        "name": "Name",
+        "description": "Short description",
+        "content": "Content",
+        "save": "Save",
+        "cancel": "Cancel"
       },
-      "cause": {
-        "session": "session",
-        "learning": "learning run"
+      "removeConfirm": {
+        "title": "Delete template?",
+        "description": "“{{name}}” is deleted for everyone. Agents whose AGENT.md was filled from it keep their text.",
+        "confirm": "Delete"
+      },
+      "replaceConfirm": {
+        "title": "Replace AGENT.md?",
+        "description": "AGENT.md already holds text. The template “{{name}}” replaces it completely.",
+        "confirm": "Replace"
       }
     }
   }

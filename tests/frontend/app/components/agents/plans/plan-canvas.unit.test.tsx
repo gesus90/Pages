@@ -135,7 +135,7 @@ it("drops a node dragged from the palette onto the canvas", () => {
   // The canvas accepts the drag, which keeps the copy cursor.
   expect(fireEvent.dragOver(canvas(), { dataTransfer: transfer })).toBe(false);
   fireEvent.drop(canvas(), { dataTransfer: transfer, clientX: 0, clientY: 0 });
-  expect(add).toHaveBeenCalledWith("start", "", expect.any(Object));
+  expect(add).toHaveBeenCalledWith("start", "", expect.any(Object), undefined);
   // Without a drag in progress the canvas ignores dragged content.
   expect(fireEvent.dragOver(canvas(), { dataTransfer: transfer })).toBe(true);
 });
@@ -150,7 +150,7 @@ it("offers the decision in the node palette and adds it at once", () => {
   expect(entry.querySelector("svg")).not.toBeNull();
   fireEvent.click(entry);
 
-  expect(add).toHaveBeenCalledWith("decision", "", undefined);
+  expect(add).toHaveBeenCalledWith("decision", "", undefined, undefined);
   // No dialog asks for a reference first, unlike an agent or a ticket.
   expect(screen.queryByRole("dialog")).toBeNull();
 });
@@ -165,7 +165,12 @@ it("drops a decision dragged from the palette where it was released", () => {
   fireEvent.dragStart(entry, { dataTransfer: transfer });
   fireEvent.drop(canvas(), { dataTransfer: transfer, clientX: 0, clientY: 0 });
 
-  expect(add).toHaveBeenCalledWith("decision", "", expect.any(Object));
+  expect(add).toHaveBeenCalledWith(
+    "decision",
+    "",
+    expect.any(Object),
+    undefined,
+  );
 });
 
 it("ends an open connection with Escape and from its hint", () => {

@@ -1,7 +1,9 @@
 import { planGroupEdges } from "./AgentPlanGroup";
+import { planLoopDecisions } from "./AgentPlanLoop";
 
 import type {
   AgentPlanBinding,
+  AgentPlanDecision,
   AgentPlanInput,
   AgentPlanNode,
   AgentPlanStep,
@@ -41,6 +43,13 @@ export function removePlanNode<Plan extends AgentPlanInput>(
     );
     return { ...node, bindings };
   }
+  const withoutDecisions = (
+    decisions: readonly AgentPlanDecision[] | undefined,
+  ): { readonly decisions?: readonly AgentPlanDecision[] } =>
+    withoutRemovedDecisions(decisions, removed);
+  const withoutDecisionInput = (
+    decision: AgentPlanDecision,
+  ): AgentPlanDecision => withoutRemovedInput(decision, removed);
   function withoutMember(
     node: AgentPlanGroup | AgentPlanLoop,
   ): AgentPlanGroup | AgentPlanLoop {
@@ -54,6 +63,7 @@ export function removePlanNode<Plan extends AgentPlanInput>(
         );
       return {
         ...withoutReferences(node),
+        ...withoutDecisions(node.decisions),
         steps,
         edges: node.edges.filter(
           (edge) => !removed.has(edge.from) && !removed.has(edge.to),
@@ -73,9 +83,12 @@ export function removePlanNode<Plan extends AgentPlanInput>(
     const steps = node.steps
       .filter((step) => step.id !== id)
       .map(withoutReferences);
-    const hasMember = steps.length !== node.steps.length;
+    const hasMember =
+      steps.length !== node.steps.length ||
+      (node.decisions ?? []).some((decision) => decision.id === id);
     return {
       ...node,
+      ...withoutDecisions(node.decisions),
       steps,
       ...(hasMember
         ? {
@@ -97,12 +110,36 @@ export function removePlanNode<Plan extends AgentPlanInput>(
           node.type === "git_closeout"
         )
           return withoutReferences(node);
+        if (node.type === "decision") return withoutDecisionInput(node);
         if (node.type !== "group" && node.type !== "loop") return node;
         return withoutMember(node);
       }),
     edges: draft.edges.filter(
       (edge) => !removed.has(edge.from) && !removed.has(edge.to),
     ),
+  };
+}
+
+/** A decision loses an input that read a removed node. */
+function withoutRemovedInput(
+  decision: AgentPlanDecision,
+  removed: ReadonlySet<string>,
+): AgentPlanDecision {
+  if (!decision.input || !isRemovedBinding(decision.input, removed))
+    return decision;
+  return { ...decision, input: undefined };
+}
+
+/** The decisions of a container without the removed ones and without inputs from removed nodes. */
+function withoutRemovedDecisions(
+  decisions: readonly AgentPlanDecision[] | undefined,
+  removed: ReadonlySet<string>,
+): { readonly decisions?: readonly AgentPlanDecision[] } {
+  if (!decisions) return {};
+  return {
+    decisions: decisions
+      .filter((decision) => !removed.has(decision.id))
+      .map((decision) => withoutRemovedInput(decision, removed)),
   };
 }
 
@@ -122,13 +159,17 @@ function findContainer(
 
 /** The ids of what a container holds: the members of a group or loop, the agents of a loop's groups. */
 function containedIds(node: AgentPlanNode | undefined): readonly string[] {
-  if (node?.type === "group") return node.steps.map((step) => step.id);
+  if (node?.type === "group")
+    return [...node.steps, ...(node.decisions ?? [])].map((step) => step.id);
   if (node?.type !== "loop") return [];
-  return node.steps.flatMap((step) =>
-    step.type === "group"
-      ? [step.id, ...step.steps.map((entry) => entry.id)]
-      : [step.id],
-  );
+  return [
+    ...node.steps.flatMap((step) =>
+      step.type === "group"
+        ? [step.id, ...step.steps.map((entry) => entry.id)]
+        : [step.id],
+    ),
+    ...planLoopDecisions(node).map((decision) => decision.id),
+  ];
 }
 
 /** Whether a binding reads a node that is removed. */

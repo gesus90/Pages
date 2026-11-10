@@ -3,11 +3,17 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { hasPlanPath } from "@/definition/AgentPlanGraph";
 import {
+  planLoopDecisions,
   planLoopMembers,
   planLoopScopeEdges,
 } from "@/definition/AgentPlanLoop";
+import { planDecisionMode } from "@/definition/AgentPlanDecision";
 
 import { planEdgeState } from "../branching/AgentPlanBranchEdges";
+import {
+  decidePlanBoolean,
+  invalidDecisionInput,
+} from "../branching/AgentPlanDecisionValue";
 import {
   patchIteration,
   patchIterationNode,
@@ -20,6 +26,7 @@ import {
 } from "./AgentPlanLoopStep";
 
 import type {
+  AgentPlanDecision,
   AgentPlanEdge,
   AgentPlanStepResult,
 } from "@/definition/AgentPlan";
@@ -30,6 +37,7 @@ import type {
 import type { AgentPlanLoopIteration } from "@/definition/AgentPlanLoopRun";
 import type { AgentPlanScriptRunner } from "../AgentPlanScriptRunner";
 import type { AgentPlanStepRunner } from "../AgentPlanStepRunner";
+import type { AgentPlanDecisionModel } from "../branching/AgentPlanDecisionModel";
 import type { LoopHost } from "./AgentPlanLoopHost";
 
 /** How one iteration of a loop ended. */
@@ -45,6 +53,15 @@ interface IterationTarget {
 
 /** Whether a node of an iteration may start, can no longer start in it, or has to wait. */
 type IterationReadiness = "ready" | "skip" | "wait";
+
+/** What an iteration starts as work: its agents and scripts, and its model decisions. */
+type IterationWork = AgentPlanLoopMember | AgentPlanDecision;
+
+function iterationResults(
+  iteration: AgentPlanLoopIteration | undefined,
+): ReadonlyMap<string, AgentPlanStepResult> {
+  return new Map((iteration?.nodes ?? []).map((node) => [node.id, node]));
+}
 
 function nodeOf(
   iteration: AgentPlanLoopIteration | undefined,
@@ -65,7 +82,9 @@ function isSettled(node: AgentPlanStepResult): boolean {
  * This is the loop's inner schedule, not a second engine. Members without an
  * unfinished predecessor start together; agents of ACP runners and scripts run
  * side by side, other runners one at a time like the engine limits them. The
- * agents of a group take turns in their shared session. A stack the loop
+ * agents of a group take turns in their shared session. A decision decides
+ * anew in every iteration: a boolean one at once, a model one as work of its
+ * own; what it skips is skipped in this iteration only. A stack the loop
  * triggers is a node of the iteration as well: when it is ready the host hands
  * over its next entry, and a used-up stack kills the edges out of it, so what
  * lies behind it is skipped in this iteration. The state of every node is
@@ -75,13 +94,16 @@ function isSettled(node: AgentPlanStepResult): boolean {
 export class AgentPlanLoopIterationRunner {
   private readonly steps: Pick<AgentPlanStepRunner, "run">;
   private readonly scripts: Pick<AgentPlanScriptRunner, "run"> | undefined;
+  private readonly decisions: Pick<AgentPlanDecisionModel, "run"> | undefined;
 
   public constructor(
     steps: Pick<AgentPlanStepRunner, "run">,
     scripts?: Pick<AgentPlanScriptRunner, "run">,
+    decisions?: Pick<AgentPlanDecisionModel, "run">,
   ) {
     this.steps = steps;
     this.scripts = scripts;
+    this.decisions = decisions;
   }
 
   /**
@@ -125,7 +147,7 @@ export class AgentPlanLoopIterationRunner {
     target: IterationTarget,
     running: Map<string, Promise<void>>,
   ): void {
-    for (const member of planLoopMembers(target.loop)) {
+    for (const member of this.work(target)) {
       if (
         nodeOf(this.iteration(target), member.id)?.status !== "running" ||
         running.has(member.id)
@@ -136,6 +158,16 @@ export class AgentPlanLoopIterationRunner {
       });
       running.set(member.id, pending);
     }
+  }
+
+  /** The members and model decisions of the loop, which run as work of the iteration. */
+  private work(target: IterationTarget): readonly IterationWork[] {
+    return [
+      ...planLoopMembers(target.loop),
+      ...planLoopDecisions(target.loop).filter(
+        (decision) => planDecisionMode(decision) === "model",
+      ),
+    ];
   }
 
   private iteration(
@@ -212,6 +244,8 @@ export class AgentPlanLoopIterationRunner {
         );
         return true;
       }
+      if (readiness === "ready" && (await this.decide(target, node.id)))
+        return true;
       const isStack = plan.nodes.some(
         (entry) => entry.id === node.id && entry.type === "stack",
       );
@@ -224,6 +258,30 @@ export class AgentPlanLoopIterationRunner {
       }
     }
     return false;
+  }
+
+  /**
+   * Decides a boolean decision of the iteration that the flow has reached.
+   *
+   * @returns Whether it was one; a model decision is dispatched as work instead.
+   */
+  private async decide(
+    target: IterationTarget,
+    nodeId: string,
+  ): Promise<boolean> {
+    const decision = planLoopDecisions(target.loop).find(
+      (entry) => entry.id === nodeId,
+    );
+    if (!decision || planDecisionMode(decision) !== "boolean") return false;
+    const changes = decidePlanBoolean(decision, {
+      plan: target.host.snapshot().plan,
+      edges: this.edges(target),
+      results: iterationResults(this.iteration(target)),
+    });
+    await target.host.update(target.loop.id, (record) =>
+      patchIterationNode(record, { number: target.number, nodeId }, changes),
+    );
+    return true;
   }
 
   private async dispatch(
@@ -250,8 +308,8 @@ export class AgentPlanLoopIterationRunner {
   private ready(
     target: IterationTarget,
     running: ReadonlyMap<string, unknown>,
-  ): readonly AgentPlanLoopMember[] {
-    const members = planLoopMembers(target.loop);
+  ): readonly IterationWork[] {
+    const members = this.work(target);
     return this.waiting(target, running).flatMap((node) => {
       const member = members.find((entry) => entry.id === node.id);
       return member && this.readiness(target, node.id) === "ready"
@@ -263,7 +321,7 @@ export class AgentPlanLoopIterationRunner {
   /** ACP agents and scripts run side by side; any other runner takes a turn alone. */
   private mayStart(
     target: IterationTarget,
-    member: AgentPlanLoopMember,
+    member: IterationWork,
     running: ReadonlyMap<string, unknown>,
   ): boolean {
     const providers = target.host.snapshot().steps;
@@ -276,14 +334,9 @@ export class AgentPlanLoopIterationRunner {
 
   private async execute(
     target: IterationTarget,
-    member: AgentPlanLoopMember,
+    member: IterationWork,
   ): Promise<void> {
-    const changes = this.afterStop(
-      target,
-      member.type === "script"
-        ? await this.runScript(target, member.id)
-        : await this.runMember(target, member),
-    );
+    const changes = this.afterStop(target, await this.runWork(target, member));
     try {
       await target.host.update(target.loop.id, (record) =>
         withLoopSessions(
@@ -300,6 +353,33 @@ export class AgentPlanLoopIterationRunner {
       // The engine has stopped the run; the member stays unfinished and the iteration fails.
       logCaughtError("AgentPlanLoopIterationRunner", error);
     }
+  }
+
+  private runWork(
+    target: IterationTarget,
+    member: IterationWork,
+  ): Promise<Partial<AgentPlanStepResult>> {
+    if (member.type === "decision") return this.runDecision(target, member);
+    return member.type === "script"
+      ? this.runScript(target, member.id)
+      : this.runMember(target, member);
+  }
+
+  /** Asks the model of a decision about this iteration's result or a ticket, in a session of its own. */
+  private runDecision(
+    target: IterationTarget,
+    decision: AgentPlanDecision,
+  ): Promise<Partial<AgentPlanStepResult>> {
+    const { host } = target;
+    if (!this.decisions) return Promise.resolve(invalidDecisionInput());
+    return this.decisions.run({
+      run: host.run(),
+      snapshot: host.snapshot(),
+      decision,
+      results: iterationResults(this.iteration(target)),
+      signal: host.signal,
+      authorize: host.authorize,
+    });
   }
 
   /** A member that failed while the run was being stopped was cancelled by the stop, not by a fault of its own. */

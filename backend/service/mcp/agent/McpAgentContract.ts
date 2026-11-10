@@ -1,7 +1,6 @@
 import type {
   AgentActivityKind,
   AgentEmployeeAccess,
-  AgentInstructionTemplate,
   AgentMemoryVersionReason,
 } from "@/definition/AgentEmployee";
 
@@ -28,7 +27,6 @@ export interface McpAgentSummary {
   readonly model: McpAgentModel;
   readonly reasoning: string | null;
   readonly access: AgentEmployeeAccess;
-  readonly costLimitUsdPerMonth: number | null;
   /** Known costs of the month; `null` when only sessions without a reported cost exist. */
   readonly costUsdThisMonth: number | null;
   readonly roleId: string | null;
@@ -58,11 +56,14 @@ export interface McpAgentModelOption extends McpAgentModel {
   readonly accessModes: readonly AgentEmployeeAccess[];
 }
 
-/** A template that fills `AGENT.md`. */
+/** A stored template that fills `AGENT.md` (PAGE-283). */
 export interface McpAgentTemplate {
-  readonly id: AgentInstructionTemplate;
+  readonly id: string;
   readonly name: string;
+  readonly description: string;
   readonly content: string;
+  /** Whether it was stored as one of the defaults Coder, Designer and Manager. */
+  readonly isDefault: boolean;
 }
 
 /** The choices of `GET /agents/options`. */

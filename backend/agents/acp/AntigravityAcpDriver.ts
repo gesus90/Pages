@@ -1,4 +1,3 @@
-import { AgentError } from "@/backend/error/AgentErrors";
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 
 import { PAGES_MCP_SERVER, pagesMcpServers } from "./AcpLaunch";
@@ -149,6 +148,24 @@ function profile(mode: AcpPermissionMode): AcpSessionProfile {
   };
 }
 
+const YOLO_PROFILE = profile("yolo");
+
+/**
+ * The conversation of an agent employee with full access: the YOLO profile of
+ * a plan node with every native tool inside the bubblewrap isolation, and the
+ * Pages tools of the agent's account over Pica's turn-bound bridge.
+ */
+const CHAT_FULL_ACCESS_PROFILE: AcpSessionProfile = {
+  ...YOLO_PROFILE,
+  unattended:
+    "Official Antigravity ACP for an agent employee with full access, inside the bubblewrap isolation; exact selectors and automatic permission decisions",
+  permissions: {
+    ...YOLO_PROFILE.permissions,
+    pagesTools: "Pica bridge with the rights of the agent's account",
+    mcpServers: "Pica bridge only",
+  },
+};
+
 /** The official adapter, shared with the existing plan session lifecycle. */
 export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
   provider: "antigravity",
@@ -167,23 +184,23 @@ export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
     agent.version === ANTIGRAVITY_ACP_VERSION,
   profile: (mode, purpose) => {
     if (purpose !== "chat") return profile(mode);
-    if (mode !== "read_only")
-      throw new AgentError("plan_permission_mode_unenforceable");
-    return CHAT_PROFILE;
+    return mode === "yolo" ? CHAT_FULL_ACCESS_PROFILE : CHAT_PROFILE;
   },
   plan: (specification) => {
     const environment = {
       [RUN_INSTANCE_VARIABLE]: specification.instanceId,
       BROWSER: "/bin/true",
     };
-    // Pica's bridge comes with the chat session itself; no native tool is enabled.
+    // Pica's bridge comes with the chat session itself; only full access enables the native tools.
     if (specification.purpose === "chat")
       return {
         environment,
         mcpServers: [],
         sessionMeta: {
           antigravity: {
-            enabledTools: [],
+            ...(specification.profile.mode === "yolo"
+              ? {}
+              : { enabledTools: [] }),
             eagerMcpServers: [PAGES_MCP_SERVER],
           },
         },

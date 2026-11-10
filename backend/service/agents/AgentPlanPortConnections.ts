@@ -1,16 +1,26 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { PLAN_PORT } from "@/definition/AgentPlanBranching";
+import {
+  PLAN_PORT,
+  planContainedEdges,
+  planEdgeBranch,
+} from "@/definition/AgentPlanBranching";
 import {
   connectPlanBranching,
   disconnectPlanEdge,
   setPlanDecisionCondition,
+  setPlanDecisionInput,
 } from "@/definition/AgentPlanBranchingEdit";
+import { findPlanDecision } from "@/definition/AgentPlanDecisionEdit";
 import { planConnectionIssues } from "@/definition/AgentPlanGraph";
 import { connectPlanFlow } from "@/definition/AgentPlanGroupEdit";
 import { joinPlanStack } from "@/definition/AgentPlanStackEdit";
 
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
-import type { AgentPlanEdge, AgentPlanInput } from "@/definition/AgentPlan";
+import type {
+  AgentPlanBinding,
+  AgentPlanEdge,
+  AgentPlanInput,
+} from "@/definition/AgentPlan";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentPlanChangePorts } from "./AgentPlanOperationInput";
 
@@ -67,8 +77,10 @@ function joinStack(
  * Builds the edge of a port connection with the functions the editor uses.
  *
  * @remarks
- * The decision outputs `true-out`/`false-out` branch, the boolean result of an
- * agent becomes the one condition of a decision, a text result enters the
+ * The decision outputs `true-out`/`false-out` and `case:<id>` branch, the
+ * boolean result of an agent becomes the one condition of a decision, a
+ * boolean parameter, a ticket or a text result becomes its bound data input
+ * (PAGE-286), a text result enters the
  * event input of an agent, a ticket or value node joins a stack through its
  * only input, and `flow-out` into `flow-in` is a plain flow edge. Any other
  * pair of ports carries nothing the plan understands.
@@ -79,20 +91,51 @@ function attemptPorts(
 ): PortAttempt {
   const { from, to, ports } = connection;
   const { fromPort, toPort } = ports;
-  const isBranch =
-    fromPort === PLAN_PORT.trueOut || fromPort === PLAN_PORT.falseOut;
-  if (isBranch && toPort === PLAN_PORT.flowIn)
-    return connectPlanBranching(plan, {
-      kind: "branch",
-      from,
-      branch: fromPort === PLAN_PORT.trueOut ? "true" : "false",
-      to,
-    });
+  const branch = planEdgeBranch({ fromPort });
+  if (branch !== null && toPort === PLAN_PORT.flowIn)
+    return connectPlanBranching(plan, { kind: "branch", from, branch, to });
   if (fromPort === PLAN_PORT.passedOut && toPort === PLAN_PORT.conditionIn)
     return setPlanDecisionCondition(plan, to, from);
+  if (fromPort === PLAN_PORT.valueOut && toPort === PLAN_PORT.conditionIn)
+    return attemptDecisionInput(plan, connection);
   if (fromPort === PLAN_PORT.valueOut && toPort === PLAN_PORT.eventIn)
     return connectPlanBranching(plan, { kind: "event", from, to });
   return attemptFlowInput(plan, connection);
+}
+
+/** The bound input of a decision the connection names, as the editor draws it from `value-out` to `condition-in`. */
+function decisionInputOf(
+  plan: AgentPlanInput,
+  connection: AgentPlanPortConnection,
+): AgentPlanBinding | null {
+  const { fromPort, toPort } = connection.ports;
+  if (fromPort !== PLAN_PORT.valueOut || toPort !== PLAN_PORT.conditionIn)
+    return null;
+  const input = findPlanDecision(plan, connection.to)?.decision.input;
+  if (!input) return null;
+  const source = input.kind === "source" ? input.nodeId : null;
+  const result = input.kind === "result" ? input.stepId : null;
+  return source === connection.from || result === connection.from
+    ? input
+    : null;
+}
+
+/** A parameter or ticket node, or the text result of an agent or script, becomes the data input of a decision. */
+function attemptDecisionInput(
+  plan: AgentPlanInput,
+  connection: AgentPlanPortConnection,
+): PortAttempt {
+  const { from, to } = connection;
+  if (!findPlanDecision(plan, to)) return typeIssue(connection);
+  const source = plan.nodes.find((node) => node.id === from);
+  const isValue = source?.type === "parameter" || source?.type === "task";
+  return setPlanDecisionInput(
+    plan,
+    to,
+    isValue
+      ? { kind: "source", nodeId: from }
+      : { kind: "result", stepId: from },
+  );
 }
 
 /** A ticket or value node into a stack, or a control output into a flow input. */
@@ -135,19 +178,24 @@ export function applyPlanPortConnection(
   agents: readonly AgentDefinitionChoice[],
 ): AgentPlanInput {
   const edge = edgeOf(connection);
-  const exists = plan.edges.some(
-    (entry) =>
-      entry.from === edge.from &&
-      entry.to === edge.to &&
-      entry.fromPort === edge.fromPort &&
-      entry.toPort === edge.toPort,
-  );
+  const input = decisionInputOf(plan, connection);
+  const exists =
+    input !== null ||
+    planContainedEdges(plan).some(
+      (entry) =>
+        entry.from === edge.from &&
+        entry.to === edge.to &&
+        entry.fromPort === edge.fromPort &&
+        entry.toPort === edge.toPort,
+    );
   if (connection.action === "disconnect") {
     if (!exists)
       throw new AgentOperationError("INVALID_REQUEST", {
         reason: "element_missing",
       });
-    return disconnectPlanEdge(plan, edge);
+    return input === null
+      ? disconnectPlanEdge(plan, edge)
+      : setPlanDecisionInput(plan, connection.to, null);
   }
   if (exists)
     throw new AgentOperationError("INVALID_REQUEST", {

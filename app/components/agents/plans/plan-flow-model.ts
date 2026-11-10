@@ -1,9 +1,13 @@
 import { MarkerType } from "@xyflow/react";
 
-import { PLAN_PORT } from "@/definition/AgentPlanBranching";
+import { PLAN_PORT, planEdgeBranch } from "@/definition/AgentPlanBranching";
 import { isPlanFlowNode, isPlanResultNode } from "@/definition/AgentPlanGraph";
 import { planLoopEntries, planLoopExits } from "@/definition/AgentPlanLoop";
 import { PLAN_STACK_PORT } from "@/definition/AgentPlanStack";
+import {
+  allPlanDecisions,
+  planDecisionCasePort,
+} from "@/definition/AgentPlanDecision";
 
 import {
   PLAN_FRAME_PADDING,
@@ -48,6 +52,8 @@ export type PlanFlowEdge = Edge<
     readonly routeLabelOffsetY?: number;
     /** A line from a loop's entry dot to a member or from a member to its exit dot; it has no label and is not selectable. */
     readonly isBoundary?: boolean;
+    /** The current name of the value a classification output carries (PAGE-286). */
+    readonly branchName?: string;
   },
   "plan"
 >;
@@ -121,7 +127,9 @@ export function planFlowNodes(
       (options.collapsedGroups?.has(node.id) ?? false);
     return [
       projected,
-      ...node.steps.flatMap((step) => tree(step, { frame: node, isHidden })),
+      ...[...node.steps, ...(node.decisions ?? [])].flatMap((step) =>
+        tree(step, { frame: node, isHidden }),
+      ),
     ];
   }
   return plan.nodes.flatMap((node) => tree(node));
@@ -156,7 +164,9 @@ export function planFlowEdges(
         (node) =>
           node.type === "group" &&
           collapsedGroups.has(node.id) &&
-          node.steps.some((step) => step.id === id),
+          [...node.steps, ...(node.decisions ?? [])].some(
+            (step) => step.id === id,
+          ),
       )?.id ?? id
     );
   }
@@ -185,6 +195,7 @@ export function planFlowEdges(
         link,
         name: planLinkLabel(plan, sources, link),
         ...planGroupRouteLabel(plan, link, collapsedGroups),
+        ...branchName(plan, link),
       },
       selected: planLinkKey(link) === selectedKey,
       deletable: false,
@@ -193,6 +204,19 @@ export function planFlowEdges(
       ariaLabel: planLinkLabel(plan, sources, link),
     }));
   return [...boundary, ...links];
+}
+
+/** The name of the value a classification output carries, for the label of its line. */
+function branchName(
+  plan: AgentPlanInput,
+  link: PlanLink,
+): { readonly branchName?: string } {
+  if (link.kind !== "wire" || link.branch === undefined) return {};
+  const decision = allPlanDecisions(plan).find((node) => node.id === link.from);
+  const name = decision?.cases?.find(
+    (entry) => planDecisionCasePort(entry.id) === link.branch,
+  )?.name;
+  return name ? { branchName: name } : {};
 }
 
 /** The lines from a loop's entry dot to its first members and from its last members to its exit dot. */
@@ -242,6 +266,8 @@ function loopBoundaryEdges(loop: AgentPlanLoop): PlanFlowEdge[] {
 function targetHandle(link: PlanLink, targetId: string): string {
   if (targetId !== link.to) return `route:${planLinkKey(link)}:to`;
   if (link.kind === "wire") return link.toPort;
+  if (link.kind === "data" && link.isDecisionInput)
+    return PLAN_PORT.conditionIn;
   return link.kind === "flow" ? "flow-in" : `input:${link.parameter}`;
 }
 
@@ -260,12 +286,9 @@ function branchSource(
   node: AgentPlanNode,
   handle: string | null,
 ): PlanConnection | null {
-  if (node.type !== "decision") return null;
-  if (handle === PLAN_PORT.trueOut)
-    return { kind: "branch", nodeId: node.id, branch: "true" };
-  if (handle === PLAN_PORT.falseOut)
-    return { kind: "branch", nodeId: node.id, branch: "false" };
-  return null;
+  if (node.type !== "decision" || handle === null) return null;
+  const branch = planEdgeBranch({ fromPort: handle });
+  return branch === null ? null : { kind: "branch", nodeId: node.id, branch };
 }
 
 /** Resolves a visible source handle to its Pages source, never a visual group route. */
@@ -302,11 +325,17 @@ function flowNode(plan: AgentPlanInput, id: string): AgentPlanNode | undefined {
     plan.nodes.find((entry) => entry.id === id) ??
     plan.nodes
       .flatMap((entry): readonly AgentPlanNode[] => {
-        if (entry.type === "group") return entry.steps;
+        if (entry.type === "group")
+          return [...entry.steps, ...(entry.decisions ?? [])];
         return entry.type === "loop"
-          ? entry.steps.flatMap((step): readonly AgentPlanNode[] =>
-              step.type === "group" ? [step, ...step.steps] : [step],
-            )
+          ? [
+              ...entry.steps.flatMap((step): readonly AgentPlanNode[] =>
+                step.type === "group"
+                  ? [step, ...step.steps, ...(step.decisions ?? [])]
+                  : [step],
+              ),
+              ...(entry.decisions ?? []),
+            ]
           : [];
       })
       .find((entry) => entry.id === id)

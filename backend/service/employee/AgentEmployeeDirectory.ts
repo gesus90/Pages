@@ -120,7 +120,6 @@ export class AgentEmployeeDirectory {
         model: employee.model,
         reasoningEffort: employee.reasoningEffort,
         access: employee.access,
-        monthlyCostLimit: employee.monthlyCostLimit,
       },
       documents: {
         soul: employee.soul,

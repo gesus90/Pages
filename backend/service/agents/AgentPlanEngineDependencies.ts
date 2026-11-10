@@ -2,6 +2,7 @@ import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
 import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanScriptRunner } from "./AgentPlanScriptRunner";
+import type { AgentPlanDecisionModel } from "./branching/AgentPlanDecisionModel";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
 import type { AgentRunArchive } from "./AgentRunArchive";
@@ -17,6 +18,8 @@ export interface EngineDependencies {
   readonly workGate?: AgentPlanWorkGate;
   readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly scripts?: Pick<AgentPlanScriptRunner, "run">;
+  /** Asks the model of a model decision; without it such a decision fails instead of guessing. */
+  readonly decisions?: Pick<AgentPlanDecisionModel, "run">;
   readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun">;
   readonly runs: Pick<
     AgentPlanRunRepository,

@@ -156,9 +156,27 @@ function readParameter(
   return {
     name: nameOrId(attributes, id),
     format:
-      attributes.choice("format", ["string", "number", "json"]) ??
+      attributes.choice("format", ["string", "number", "json", "boolean"]) ??
       (value?.type === "number" ? "number" : "string"),
     value,
+  };
+}
+
+/** The settings of a decision (PAGE-286); its data input is an edge `[in=condition]`. */
+function readDecision(
+  attributes: PlanNotationAttributes,
+): Record<string, unknown> {
+  const mode = attributes.choice("mode", ["boolean", "model"]);
+  const output = attributes.choice("output", ["boolean", "classification"]);
+  return {
+    ...(attributes.has("name") ? { name: attributes.text("name") } : {}),
+    ...(mode === undefined ? {} : { mode }),
+    ...(attributes.has("question")
+      ? { question: attributes.text("question") }
+      : {}),
+    ...(attributes.has("model") ? { model: attributes.json("model") } : {}),
+    ...(output === undefined ? {} : { output }),
+    ...(attributes.has("cases") ? { cases: attributes.json("cases") } : {}),
   };
 }
 
@@ -264,8 +282,7 @@ const FIELD_READERS: Readonly<Record<PlanNotationNodeType, FieldReader>> = {
     name: nameOrId(attributes, id),
     file: attributes.has("file") ? attributes.json("file") : null,
   }),
-  decision: (attributes) =>
-    attributes.has("name") ? { name: attributes.text("name") } : {},
+  decision: readDecision,
   variable: (attributes) => ({ name: attributes.text("name") }),
 };
 

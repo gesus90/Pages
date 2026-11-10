@@ -19,14 +19,14 @@ import type {
 } from "../use-plan-recovery";
 
 /**
- * Continues an ended run from its last safe state, after the executor's decision.
+ * Continues an ended run from its last safe state, or starts it from the beginning, after the executor's decision.
  *
  * @remarks
- * The dialog names the results taken over unchanged and the nodes that run
- * again as a new attempt; nothing is preselected. The server checks the
+ * A resume asks one short question (PAGE-269); a restart names what runs
+ * again and asks for each possible repeated effect. The server checks the
  * checkpoints, the revision, the rights and leftover processes again and
- * starts a new run linked to the ended one, or refuses with the reason. It
- * closes once that run started.
+ * starts a new run linked to the ended one, or refuses with the reason. The
+ * dialog closes once that run started.
  */
 export function PlanRecoveryResumeDialog({
   recovery,
@@ -40,6 +40,10 @@ export function PlanRecoveryResumeDialog({
   const { t } = useTranslation();
   const { view } = recovery;
   if (!view) return null;
+  if (action === "resume")
+    return (
+      <PlanRecoveryResume view={view} recovery={recovery} onClose={onClose} />
+    );
   async function submit(request: PlanRecoveryRequest): Promise<void> {
     const answer = await recovery.submit(request);
     if (answer?.runId) onClose();
@@ -54,35 +58,19 @@ export function PlanRecoveryResumeDialog({
       <DialogContent size="lg" className="space-y-4 overflow-y-auto">
         <div className="space-y-1.5">
           <DialogTitle className="text-lg font-semibold">
-            {t(
-              action === "restart"
-                ? "plans.recovery.restart"
-                : "plans.recovery.resumeTitle",
-            )}
+            {t("plans.recovery.restart")}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            {t(
-              action === "restart"
-                ? "plans.recovery.freshDescription"
-                : "plans.recovery.resumeDescription",
-            )}
+            {t("plans.recovery.freshDescription")}
           </DialogDescription>
         </div>
         <div className="space-y-3 text-xs leading-4 wrap-anywhere text-muted-foreground">
           <PlanRecoveryState view={view} />
-          {action === "restart" ? (
-            <PlanRecoveryRestart
-              view={view}
-              isPending={recovery.isPending}
-              onSubmit={(request) => void submit(request)}
-            />
-          ) : (
-            <PlanRecoveryResume
-              view={view}
-              isPending={recovery.isPending}
-              onSubmit={(request) => void submit(request)}
-            />
-          )}
+          <PlanRecoveryRestart
+            view={view}
+            isPending={recovery.isPending}
+            onSubmit={(request) => void submit(request)}
+          />
           {recovery.result?.outcome === "reset" ? (
             <p role="status">
               {t("plans.recovery.result.reset")}{" "}

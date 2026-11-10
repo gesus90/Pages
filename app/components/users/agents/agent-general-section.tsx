@@ -13,7 +13,6 @@ import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
-import { employeeAccessModes } from "@/definition/AgentEmployee";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
 import type { AgentDraft, AgentDraftChange } from "./agent-draft";
@@ -40,14 +39,12 @@ function TextField({
   value,
   onChange,
   isDisabled,
-  type = "text",
   hint,
 }: {
   readonly label: string;
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly isDisabled: boolean;
-  readonly type?: "text" | "number";
   readonly hint?: string;
 }): React.ReactElement {
   const id = useId();
@@ -58,11 +55,9 @@ function TextField({
       </label>
       <Input
         id={id}
-        type={type}
         value={value}
         disabled={isDisabled}
         onChange={(event) => onChange(event.currentTarget.value)}
-        {...(type === "number" ? { min: 0, step: 0.01 } : {})}
       />
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
@@ -150,9 +145,6 @@ function AgentModelRow({
   function selectModel(key: string): void {
     onChange("modelKey", key);
     onChange("reasoningEffort", "");
-    const next = models.find((entry) => entry.id === key);
-    if (next && !employeeAccessModes(next.provider).includes(draft.access))
-      onChange("access", "read_only");
   }
   return (
     <ModelFieldRow>
@@ -175,22 +167,17 @@ function AgentModelRow({
   );
 }
 
-/** The access on the host and the note that agents never sign in. */
+/** The access on the host: Pages tools only, or YOLO with every provider. */
 function AgentAccessField({
   draft,
   onChange,
-  models,
   isDisabled,
 }: Pick<
   AgentGeneralSectionProps,
-  "draft" | "onChange" | "models" | "isDisabled"
+  "draft" | "onChange" | "isDisabled"
 >): React.ReactElement {
   const { t } = useTranslation();
   const id = useId();
-  const provider = models.find(
-    (entry) => entry.id === draft.modelKey,
-  )?.provider;
-  const allowed = provider ? employeeAccessModes(provider) : ["read_only"];
   return (
     <div className="flex flex-col gap-1.5">
       <label className={LABEL_CLASS_NAME} htmlFor={id}>
@@ -205,19 +192,9 @@ function AgentAccessField({
         onValueChange={(access) => onChange("access", access)}
         options={[
           { value: "read_only", label: t("agentEmployees.access.read_only") },
-          {
-            value: "yolo",
-            label: t("agentEmployees.access.yolo"),
-            disabled: !allowed.includes("yolo"),
-            description: allowed.includes("yolo")
-              ? undefined
-              : t("agentEmployees.access.yoloUnsupported"),
-          },
+          { value: "yolo", label: t("agentEmployees.access.yolo") },
         ]}
       />
-      <p className="mt-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-        {t("agentEmployees.access.note")}
-      </p>
     </div>
   );
 }
@@ -290,8 +267,7 @@ function AgentRightsFields({
 
 /**
  * The tab "Allgemein" of the agent panel (PAGE-266): image and color, name,
- * username, job title, model with reasoning, access, cost limit, role and
- * departments.
+ * username, job title, model with reasoning, access, role and departments.
  */
 export function AgentGeneralSection(
   props: AgentGeneralSectionProps,
@@ -324,14 +300,6 @@ export function AgentGeneralSection(
       />
       <AgentModelRow {...props} />
       <AgentAccessField {...props} />
-      <TextField
-        label={t("agentEmployees.fields.costLimit")}
-        value={draft.monthlyCostLimit}
-        onChange={(value) => onChange("monthlyCostLimit", value)}
-        isDisabled={isDisabled}
-        type="number"
-        hint={t("agentEmployees.fields.costLimitHint")}
-      />
       <AgentRightsFields {...props} />
     </div>
   );

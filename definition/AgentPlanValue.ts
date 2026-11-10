@@ -14,9 +14,14 @@ function hasFiniteNumbers(input: unknown): boolean {
 /** Checks a single value without evaluating expressions or expanding JSON objects into fields. */
 export function planValueIssue(
   parameter: Pick<AgentPlanParameter, "format" | "value">,
-): "number" | "json" | null {
+): "number" | "json" | "boolean" | null {
   if (parameter.value.type === "number")
     return Number.isFinite(parameter.value.number) ? null : "number";
+  if (parameter.format === "boolean")
+    return parameter.value.type === "text" &&
+      (parameter.value.text === "true" || parameter.value.text === "false")
+      ? null
+      : "boolean";
   if (parameter.value.type !== "text" || parameter.format === "string")
     return null;
   try {

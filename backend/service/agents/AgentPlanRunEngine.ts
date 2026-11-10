@@ -106,7 +106,10 @@ export class AgentPlanRunEngine {
     this.nodes = {
       writes: this.writes,
       dependencies,
-      loops: new AgentPlanLoopRunner(dependencies.steps, dependencies.scripts),
+      loops: new AgentPlanLoopRunner(dependencies.steps, {
+        scripts: dependencies.scripts,
+        decisions: dependencies.decisions,
+      }),
     };
     this.commands = new AgentPlanRunCommands({
       ...dependencies,

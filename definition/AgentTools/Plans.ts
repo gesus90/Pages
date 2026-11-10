@@ -199,7 +199,7 @@ export const PLAN_WRITE_TOOLS: readonly {
     tool: buildWriteTool({
       name: "create_plan_parameter",
       title: "Create plan parameter",
-      description: `Adds one parameter node to a plan: a display name (letters, digits and _, starting with a letter; nodes are identified by ID) and a value of type text, number, ticket, workspace or wiki. format string (default; number for a number value), number or json says how a text value is checked; numbers and JSON reach text inputs as text. Bind it to an agent input with update_plan. createdNodeIds holds its id. ${CHANGE_DESCRIPTION}`,
+      description: `Adds one parameter node to a plan: a display name (letters, digits and _, starting with a letter; nodes are identified by ID) and a value of type text, number, ticket, workspace or wiki. format string (default; number for a number value), number, json or boolean says how a text value is checked; numbers and JSON reach text inputs as text, a boolean is the text true or false and feeds the input of a boolean decision. Bind it to an agent input with update_plan. createdNodeIds holds its id. ${CHANGE_DESCRIPTION}`,
       properties: { ...TARGET, ...PARAMETER_FIELDS },
       optionalKeys: ["format", "x", "y"],
       isDestructive: false,

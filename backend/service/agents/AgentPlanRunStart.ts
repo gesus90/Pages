@@ -9,7 +9,7 @@ import {
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { initialLoopRuns } from "./loop/AgentPlanLoopRecord";
 
-import { isPlanOuterRunStep } from "@/definition/AgentPlanStack";
+import { isPlanOuterRunStep, planStacks } from "@/definition/AgentPlanStack";
 import type {
   AgentPlanNode,
   AgentPlanRun,
@@ -17,6 +17,7 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
 import type { AgentPlanRunOrigin } from "@/definition/AgentPlanRecovery";
+import type { AgentPlanStackRun } from "@/definition/AgentPlanStack";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
 /** What a restart or resume carries over from the earlier run into the new one. */
@@ -26,6 +27,8 @@ export interface RecoveredRunStart {
   readonly reused: readonly AgentPlanStepResult[];
   /** Loop states whose completed iterations continue; a loop not named here starts empty. */
   readonly loops: readonly AgentPlanLoopRun[];
+  /** What the stacks handed over so far, so no entry is handed over twice or skipped; absent for a restart. */
+  readonly stacks?: readonly AgentPlanStackRun[];
 }
 
 /**
@@ -83,7 +86,8 @@ export function initialPlanRun(
  * Taken-over results keep their status, output and session record; the
  * scheduler treats them as completed dependencies and never starts them
  * again. Everything else waits, so the engine dispatches exactly the open
- * frontier of the earlier run.
+ * frontier of the earlier run. The stacks keep their deliveries, so a loop
+ * member that runs again reads the entry its iteration was handed.
  */
 export function recoveredPlanRun(
   userId: string,
@@ -97,12 +101,17 @@ export function recoveredPlanRun(
   const loops = initial.loops?.map(
     (loop) => recovered.loops.find((entry) => entry.id === loop.id) ?? loop,
   );
+  const stackIds = new Set(planStacks(snapshot.plan).map((stack) => stack.id));
+  const stacks = (recovered.stacks ?? []).filter((stack) =>
+    stackIds.has(stack.id),
+  );
   return withGroupResults(
     {
       ...initial,
       origin: recovered.origin,
       steps,
       ...(loops ? { loops } : {}),
+      ...(stacks.length > 0 ? { stacks } : {}),
     },
     snapshot,
   );

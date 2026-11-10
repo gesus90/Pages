@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
 
-import { PLAN_PORT } from "@/definition/AgentPlanBranching";
+import {
+  PLAN_PORT,
+  planConditionSource,
+} from "@/definition/AgentPlanBranching";
 import {
   connectPlanBranching,
   setPlanDecisionCondition,
+  setPlanDecisionInput,
 } from "@/definition/AgentPlanBranchingEdit";
+import { findPlanDecision } from "@/definition/AgentPlanDecisionEdit";
 import { planConnectionIssues } from "@/definition/AgentPlanGraph";
 import {
   bindPlanParameter,
@@ -111,21 +116,39 @@ function typeIssue(id: string, port: string): PlanConnectionAttempt {
   return { issue: { nodeId: id, port, reason: "type" } };
 }
 
-/** The boolean result of an agent into the condition of a decision. */
+/**
+ * A value into the data input of a decision: an agent's boolean result, a parameter, a ticket or a text result.
+ *
+ * @remarks
+ * A decision reads one source; a connected input must be disconnected
+ * before it reads another. Whether the source fits the decision's mode is
+ * the plan check's: a boolean decision takes a boolean parameter or an
+ * agent's boolean, a model decision a ticket or a text result (PAGE-286).
+ */
 function attemptCondition(
   context: PlanConnectionContext,
   id: string,
 ): PlanConnectionAttempt {
   const { draft, connection } = context;
-  if (connection.kind !== "passed") return typeIssue(id, PLAN_PORT.conditionIn);
-  return checked(
-    connectPlanBranching(draft, {
-      kind: "condition",
-      from: connection.nodeId,
-      to: id,
-    }),
-    context,
-  );
+  const decision = findPlanDecision(draft, id)?.decision;
+  if (!decision) return typeIssue(id, PLAN_PORT.conditionIn);
+  if (decision.input || planConditionSource(draft, id) !== null)
+    return {
+      issue: { nodeId: id, port: PLAN_PORT.conditionIn, reason: "duplicate" },
+    };
+  if (connection.kind === "passed")
+    return checked(
+      connectPlanBranching(draft, {
+        kind: "condition",
+        from: connection.nodeId,
+        to: id,
+      }),
+      context,
+    );
+  const binding = connectionBinding(connection);
+  if (binding?.kind !== "source" && binding?.kind !== "result")
+    return typeIssue(id, PLAN_PORT.conditionIn);
+  return checked(setPlanDecisionInput(draft, id, binding), context);
 }
 
 /**

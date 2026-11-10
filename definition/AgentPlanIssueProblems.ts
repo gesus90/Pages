@@ -72,6 +72,7 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "name",
   "json",
   "number",
+  "boolean",
   "scriptUnavailable",
   "scriptConfiguration",
   "scriptReportTarget",

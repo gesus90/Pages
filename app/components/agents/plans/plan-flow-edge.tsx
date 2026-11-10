@@ -48,6 +48,7 @@ const LABEL_MARKS: Readonly<Record<PlanLinkChannel, string>> = {
   condition: "",
   true: "",
   false: "",
+  case: "",
   event: "",
 };
 
@@ -112,6 +113,7 @@ function dataLabelText(
   t: TFunction,
   link: Extract<NonNullable<PlanFlowEdge["data"]>["link"], { kind: "data" }>,
 ): string {
+  if (link.isDecisionInput) return t("plans.linkLabel.decisionInput");
   const input = link.isLoopInput
     ? t(`plans.loops.inputName.${link.parameter}`)
     : link.parameter;
@@ -128,6 +130,8 @@ function edgeLabelText(
 ): string {
   if (details.routeEnd) return details.name;
   if (details.link.kind === "data") return dataLabelText(t, details.link);
+  if (channel === "case")
+    return details.branchName ?? t("plans.linkLabel.case");
   return t(
     channel === "flow" ? "plans.linkKind.flow" : `plans.linkLabel.${channel}`,
   );

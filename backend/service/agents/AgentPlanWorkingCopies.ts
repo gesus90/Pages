@@ -5,7 +5,7 @@ import {
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
 
-import { arePlanNodesOrdered, hasPlanPath } from "./AgentPlanGraph";
+import { arePlanNodesOrdered } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 import { overlapsWorkspacePath } from "./AgentWorkspacePath";
 import {
@@ -94,8 +94,8 @@ function validateScriptWorkingCopies(
         script.step.id === other.id ||
         !other.workspace ||
         !sameWorkingCopy(script.workspace, other.workspace) ||
-        hasPlanPath(plan.edges, script.step.id, other.id) ||
-        hasPlanPath(plan.edges, other.id, script.step.id)
+        // A decision lets only one of two exclusive branches run, as for agents.
+        arePlanNodesOrdered(plan.edges, script.step.id, other.id)
       )
         continue;
       throw new AgentPlanWorkspaceConflictError(

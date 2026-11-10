@@ -153,6 +153,17 @@ function attributeBindings(
   return bindings;
 }
 
+/** The members of a frame: its agents, scripts and groups, and apart from them its decisions (PAGE-286). */
+function frameMembers(
+  nodes: readonly AgentPlanNode[],
+): Record<string, unknown> {
+  const decisions = nodes.filter((node) => node.type === "decision");
+  return {
+    steps: nodes.filter((node) => node.type !== "decision"),
+    ...(decisions.length === 0 ? {} : { decisions }),
+  };
+}
+
 /**
  * Reads the nodes and frames of a notation into plan nodes.
  *
@@ -231,9 +242,9 @@ export class PlanNotationNodeReader {
     const members =
       declaration.statements === null
         ? {}
-        : {
-            steps: this.read(planNotationDeclarations(declaration.statements)),
-          };
+        : frameMembers(
+            this.read(planNotationDeclarations(declaration.statements)),
+          );
     const bindings = BINDING_TYPES.includes(type) ? { bindings: {} } : {};
     const node = this.check(
       { ...fields, ...members, ...bindings, id, type, x: 0, y: 0 },

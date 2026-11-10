@@ -33,6 +33,7 @@ import {
   planNodeLabel,
 } from "./plan-layout";
 import { boundedPlanCoordinate } from "./plan-node-factory";
+import { placePlanDecisionDrop } from "./plan-decision-placement";
 
 import type { Dispatch, SetStateAction } from "react";
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
@@ -622,6 +623,7 @@ export function usePlanGroupActions(options: {
         keepMembers,
       ),
     place: (id, drop) =>
+      placePlanDecisionDrop(moves(), id, drop) ||
       placeDrop(
         {
           draft: options.currentDraft?.() ?? draft,

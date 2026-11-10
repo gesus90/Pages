@@ -20,7 +20,11 @@ async function readAgentPage(
 ): Promise<UsersPageData["agents"]> {
   if (!services.agentEmployeeAdministration) return null;
   try {
-    return await services.agentEmployeeAdministration.page(actorId);
+    const [page, templates] = await Promise.all([
+      services.agentEmployeeAdministration.page(actorId),
+      services.agentTemplateService.list(actorId),
+    ]);
+    return { ...page, templates };
   } catch (error: unknown) {
     if (error instanceof AgentEmployeeError) return null;
     throw error;

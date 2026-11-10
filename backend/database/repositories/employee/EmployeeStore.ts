@@ -5,6 +5,7 @@ import { AgentEmployeeRemovalRepository } from "./AgentEmployeeRemovalRepository
 import { AgentEmployeeRepository } from "./AgentEmployeeRepository";
 import { AgentLearningSourceRepository } from "./AgentLearningSourceRepository";
 import { AgentMemoryRepository } from "./AgentMemoryRepository";
+import { AgentTemplateRepository } from "./AgentTemplateRepository";
 import { ChatContactRepository } from "./ChatContactRepository";
 import { ChatGroupRepository } from "./ChatGroupRepository";
 
@@ -55,7 +56,12 @@ export class EmployeeStore {
     return new AgentMemoryRepository(this.database);
   }
 
-  /** Sessions, learning runs, refused starts and changes of agents. */
+  /** The templates of `AGENT.md` (PAGE-283). */
+  public templates(): AgentTemplateRepository {
+    return new AgentTemplateRepository(this.database);
+  }
+
+  /** Sessions, learning runs and changes of agents. */
   public activity(): AgentActivityRepository {
     return new AgentActivityRepository(this.database);
   }

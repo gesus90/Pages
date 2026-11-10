@@ -34,6 +34,8 @@ import {
   restartScriptReview,
   resumeOption,
   resumedLoopRuns,
+  resumeSessionMode,
+  reviewedRetries,
 } from "./AgentPlanRecoveryPlanning";
 
 import type { PlanRunEnginePort } from "../runs/PlanRunEnginePort";
@@ -276,8 +278,8 @@ export class AgentPlanRecoveryActions {
    * Continues the run from its last safe state as a new, linked run.
    *
    * @throws {AgentPlanRecoveryError} `review_required` while a started node
-   * lacks the executor's reviewed decision, `native_resume_unavailable` when
-   * an adapter cannot resume its session.
+   * lacks the executor's reviewed decision or confirmation,
+   * `native_resume_unavailable` when a named native resume is not possible.
    */
   public async resume(
     request: RecoveryRequest<ResumeCommand>,
@@ -294,12 +296,8 @@ export class AgentPlanRecoveryActions {
       throw new AgentError("plan_conflict");
     const plan = planResume(facts);
     requireOption(resumeOption(facts, plan));
-    if (command.mode === "live")
-      throw new AgentPlanRecoveryError("action_unavailable");
-    if (plan.retriedStepIds.some((id) => !command.reviewedStepIds.includes(id)))
-      throw new AgentPlanRecoveryError("review_required");
-    if (command.mode === "native_resume" && !plan.canResumeNatively)
-      throw new AgentPlanRecoveryError("native_resume_unavailable");
+    const mode = resumeSessionMode(plan, command.mode);
+    const reviewedStepIds = reviewedRetries(plan, command);
     await this.settleCleanup(facts);
     const proposed = await this.dependencies.preparation.prepare(
       userId,
@@ -314,12 +312,11 @@ export class AgentPlanRecoveryActions {
     const loops = resumedLoopRuns(facts.run.loops ?? [], reusedStepIds);
     const recovery = {
       sourceRunId: facts.run.id,
-      mode: command.mode,
+      mode,
       retriedStepIds: plan.retriedStepIds,
       loopIterations: loops.iterations,
       contextByStepId: recoveredAgentContext(facts.run, plan.retriedStepIds),
-      resumeSessions:
-        command.mode === "native_resume" ? plan.resumeSessions : {},
+      resumeSessions: mode === "native_resume" ? plan.resumeSessions : {},
     };
     return this.start(request, {
       snapshot: withRecoveredAgentContext(merged, recovery),
@@ -329,16 +326,18 @@ export class AgentPlanRecoveryActions {
       recovered: {
         origin: this.origin(facts, {
           kind: "resume",
-          mode: command.mode,
+          mode,
           reusedStepIds,
           retriedStepIds: plan.retriedStepIds,
-          reviewedStepIds: command.reviewedStepIds,
+          reviewedStepIds,
           ...(request.automaticAttempt === undefined
             ? {}
             : { automaticAttempt: request.automaticAttempt }),
         }),
         reused: plan.reused,
         loops: loops.loops,
+        // The resumed iteration reads the entry its stack handed over, and the next one takes the following entry.
+        stacks: facts.run.stacks ?? [],
       },
     });
   }

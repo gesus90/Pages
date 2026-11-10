@@ -34,12 +34,12 @@ const EMPLOYEE_ERROR_CODES: Readonly<
   accessUnsupported: "invalid_request",
   busy: "running",
   conflict: "conflict",
-  costLimitReached: "invalid_request",
   forbidden: "forbidden",
   inactive: "invalid_request",
   invalidInput: "invalid_request",
   modelNotAllowed: "model_not_allowed",
   notFound: "not_found",
+  templateNameTaken: "conflict",
   unavailable: "model_not_allowed",
   usernameTaken: "username_taken",
 };

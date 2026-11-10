@@ -34,7 +34,7 @@ export const PLAN_NODE_FIELDS = {
     "role",
   ],
   git_closeout: ["name", "checkCommand", "timeoutSeconds"],
-  decision: ["name"],
+  decision: ["name", "mode", "question", "model", "output", "cases", "input"],
   stack: ["name", "entries"],
   asset: ["name", "file"],
   task: ["taskId"],

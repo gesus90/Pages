@@ -10,6 +10,7 @@ import {
   isPlanLoopRuns,
   parsePlanLoopPath,
   planLoopEdges,
+  planLoopDecisions,
   planLoopMembers,
   planLoopMode,
   readPlanLoopBoundRunsText,
@@ -217,6 +218,7 @@ function boundaryIssues(
   const members = new Set([
     ...loop.steps.map((step) => step.id),
     ...planLoopMembers(loop).map((step) => step.id),
+    ...planLoopDecisions(loop).map((decision) => decision.id),
   ]);
   const issues: AgentPlanIssue[] = [];
   for (const edge of plan.edges) {
@@ -321,10 +323,12 @@ export function planLoopIssues(
   for (const loop of plan.nodes.filter((node) => node.type === "loop")) {
     if (isExecution && planLoopMembers(loop).length === 0)
       issues.push({ nodeId: loop.id, port: null, reason: "loopSize" });
-    const contained = loop.steps.flatMap(
-      (step): readonly { readonly id: string }[] =>
+    const contained = [
+      ...loop.steps.flatMap((step): readonly { readonly id: string }[] =>
         step.type === "group" ? [step, ...step.steps] : [step],
-    );
+      ),
+      ...planLoopDecisions(loop),
+    ];
     for (const step of contained) {
       if (ids.has(step.id))
         issues.push({ nodeId: step.id, port: null, reason: "duplicateNode" });
@@ -338,7 +342,10 @@ export function planLoopIssues(
       ...conditionIssues(loop),
       ...providerIssues(loop, agents),
       ...containerEdgeIssues(
-        new Set(planLoopMembers(loop).map((step) => step.id)),
+        new Set([
+          ...planLoopMembers(loop).map((step) => step.id),
+          ...planLoopDecisions(loop).map((decision) => decision.id),
+        ]),
         planLoopEdges(loop),
       ),
       ...planLoopMembers(loop).flatMap((member) =>

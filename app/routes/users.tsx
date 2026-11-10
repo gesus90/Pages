@@ -44,7 +44,7 @@ function isUsersPageData(value: unknown): value is UsersPageData {
 
 /** The management view, kept per account and rights, the admin mode included. */
 const USERS_PAGE_STATE: LocalStateRouteKind<UsersPageData> = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   isPayload: isUsersPageData,
   isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
   ownerOf: (page) => page.audience.userId,

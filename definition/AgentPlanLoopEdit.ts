@@ -3,6 +3,7 @@ import { planLoopEntries, planLoopExits, planLoopOf } from "./AgentPlanLoop";
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type {
   AgentPlanBinding,
+  AgentPlanDecision,
   AgentPlanEdge,
   AgentPlanInput,
   AgentPlanNode,
@@ -355,7 +356,9 @@ export function placePlanLoopNode<Plan extends AgentPlanInput>(
 export function ungroupPlanLoop<Plan extends AgentPlanInput>(
   plan: Plan,
   loopId: string,
-  positionOf: (member: AgentPlanLoopContent) => AgentPlanPosition,
+  positionOf: (
+    member: AgentPlanLoopContent | AgentPlanDecision,
+  ) => AgentPlanPosition,
 ): PlanFrameMove<Plan> {
   const loop = plan.nodes.find(
     (node): node is AgentPlanLoop => node.type === "loop" && node.id === loopId,
@@ -382,7 +385,15 @@ export function ungroupPlanLoop<Plan extends AgentPlanInput>(
   return {
     plan: {
       ...plan,
-      nodes: [...plan.nodes.filter((node) => node.id !== loopId), ...members],
+      nodes: [
+        ...plan.nodes.filter((node) => node.id !== loopId),
+        ...members,
+        // A decision of the loop stays a decision of the outer graph (PAGE-286).
+        ...(loop.decisions ?? []).map((decision) => ({
+          ...decision,
+          ...positionOf(decision),
+        })),
+      ],
       edges: [...outer, ...loop.edges],
     },
     removedEdges: 0,

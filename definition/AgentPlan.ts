@@ -29,6 +29,13 @@ import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
 import type { AgentPlanBranch } from "./AgentPlanBranching";
+import type {
+  AgentPlanDecisionCase,
+  AgentPlanDecisionMode,
+  AgentPlanDecisionModel,
+  AgentPlanDecisionOutput,
+  AgentPlanDecisionVerdict,
+} from "./AgentPlanDecision";
 import type { AgentPlanFailureStop } from "./AgentPlanRetry";
 import type {
   AgentPlanStack,
@@ -111,29 +118,59 @@ export interface AgentPlanStep extends AgentPlanPosition {
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
 
-/** One named value; numbers retain their numeric type while JSON uses a text port. */
+/**
+ * One named value; numbers retain their numeric type while JSON uses a text port.
+ *
+ * @remarks
+ * `boolean` holds the text `true` or `false` (PAGE-286); `false` is a value,
+ * not a missing one. Only a boolean parameter feeds the input of a boolean
+ * decision.
+ */
 export interface AgentPlanParameter extends AgentPlanPosition {
   readonly id: string;
   readonly type: "parameter";
   readonly name: string;
-  readonly format: "string" | "number" | "json";
+  readonly format: "string" | "number" | "json" | "boolean";
   readonly value: AgentParameterValue;
 }
 
 /**
- * A decision: evaluates a boolean result and activates exactly one of its two flow outputs.
+ * A decision: decides once per activation and activates exactly one of its outputs.
  *
  * @remarks
- * The decision is no agent and calls no model. Its condition is the boolean
- * result of one agent, connected as an edge to its `condition-in` port. Each
- * time that result arrives anew, the decision evaluates it again; an earlier
- * evaluation is never a lasting choice.
+ * The sequence input (`flow-in`) decides when it decides; the data input
+ * (`condition-in`) supplies what it decides on. In the `boolean` mode
+ * (default) the data input is the boolean result of an agent, connected as an
+ * edge from its `passed-out`, or a boolean parameter bound as `input`; no
+ * model is called. In the `model` mode the bound `input` is a ticket or the
+ * text result of an agent or script, and a model of an ACP connection answers
+ * the question in a short session of its own (PAGE-286). Every activation
+ * decides anew; an earlier decision is never a lasting choice. The settings
+ * beyond `name` are absent in decisions saved before PAGE-286.
  */
 export interface AgentPlanDecision extends AgentPlanPosition {
   readonly id: string;
   readonly type: "decision";
   /** Shown instead of the type name when set. */
   readonly name?: string;
+  /** Absent means `boolean`. */
+  readonly mode?: AgentPlanDecisionMode;
+  /** The question a model decision asks about its source. */
+  readonly question?: string;
+  /** The model a model decision asks. */
+  readonly model?: AgentPlanDecisionModel;
+  /** Absent means yes or no. */
+  readonly output?: AgentPlanDecisionOutput;
+  /** The values of a classification, each with an output of its own. */
+  readonly cases?: readonly AgentPlanDecisionCase[];
+  /**
+   * The bound data input: a boolean parameter, a ticket or a text result.
+   *
+   * @remarks
+   * The boolean result of an agent arrives as an edge to `condition-in`
+   * instead, as before PAGE-286. A decision has at most one of the two.
+   */
+  readonly input?: AgentPlanBinding;
 }
 
 /** Source nodes provide input; they never create an execution dependency. */
@@ -341,12 +378,19 @@ export interface AgentPlanActivationTrigger {
   readonly promptLength: number;
 }
 
-/** The value a decision evaluated: the boolean result of one start of one agent. */
+/**
+ * The boolean a decision evaluated: the result of one start of one agent, or a boolean parameter.
+ *
+ * @remarks
+ * `sourceKind` is absent for an agent, as in every record before PAGE-286. A
+ * parameter is read from the snapshot of the run; its `sourceActivation` is 1.
+ */
 export interface AgentPlanDecisionInput {
   readonly sourceStepId: string;
   /** Which start of the agent delivered the value. */
   readonly sourceActivation: number;
   readonly value: boolean;
+  readonly sourceKind?: "parameter";
 }
 
 /** An earlier start of a node that ran again, kept so the rounds of a cycle stay readable. */
@@ -359,6 +403,7 @@ export interface AgentPlanStepActivation {
   readonly passed?: boolean;
   readonly branch?: AgentPlanBranch;
   readonly condition?: AgentPlanDecisionInput;
+  readonly verdict?: AgentPlanDecisionVerdict;
   readonly trigger?: AgentPlanActivationTrigger;
   readonly startedAt: string | null;
   readonly endedAt: string | null;
@@ -419,6 +464,8 @@ export interface AgentPlanStepResult {
   readonly branch?: AgentPlanBranch;
   /** The boolean result a decision evaluated in this start, and the start of the agent it came from. */
   readonly condition?: AgentPlanDecisionInput;
+  /** What the model of a model decision answered in this start, and why. */
+  readonly verdict?: AgentPlanDecisionVerdict;
   /** What started this node again; absent for its first start. */
   readonly trigger?: AgentPlanActivationTrigger;
   /** The earlier starts of the node, oldest first. */

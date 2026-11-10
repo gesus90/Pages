@@ -96,8 +96,8 @@ it("shows a decision as a compact logic card with a condition input and two outp
   expect(handle(card, "false-out").getAttribute("data-handlepos")).toBe(
     "right",
   );
-  // A decision orders its followers through its outputs, not through flow ports of its own.
-  expect(card.querySelector('[data-handleid="flow-in"]')).toBeNull();
+  // A decision has a sequence flow input, but orders followers through its outputs (PAGE-286).
+  expect(handle(card, "flow-in").getAttribute("data-handlepos")).toBe("left");
   expect(card.querySelector('[data-handleid="flow-out"]')).toBeNull();
 });
 

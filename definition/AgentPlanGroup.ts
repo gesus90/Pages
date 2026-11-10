@@ -10,6 +10,7 @@ import type {
   AgentPlanBinding,
   AgentPlanEdge,
   AgentPlanPosition,
+  AgentPlanDecision,
   AgentPlanStep,
   AgentPlanInput,
   AgentPlanNode,
@@ -48,6 +49,15 @@ export interface AgentPlanGroup extends AgentPlanPosition {
   readonly name: string;
   /** Members in the order they joined; the first one decides the adapter class. */
   readonly steps: readonly AgentPlanStep[];
+  /**
+   * Decisions inside the frame (PAGE-286); absent in groups without one.
+   *
+   * @remarks
+   * A decision is no agent: it never takes a turn of the shared session and
+   * does not decide the adapter class. A model decision opens a session of its
+   * own.
+   */
+  readonly decisions?: readonly AgentPlanDecision[];
   /**
    * Flow edges between members, which alone decide the execution order.
    *
@@ -266,7 +276,7 @@ export function expandPlanGroups<Plan extends AgentPlanInput>(
   const groups = plan.nodes.filter((node) => node.type === "group");
   const nodes = plan.nodes.flatMap<AgentPlanNode>((node) => {
     if (node.type !== "group") return [node];
-    return node.steps;
+    return [...node.steps, ...(node.decisions ?? [])];
   });
   const edges: AgentPlanEdge[] = [...plan.edges];
   for (const group of groups) edges.push(...planGroupEdges(group));

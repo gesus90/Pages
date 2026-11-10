@@ -2,10 +2,10 @@ import {
   PLAN_ACTIVATION_LIMIT,
   PLAN_EVENT_PROMPT_LIMIT,
   hasPlanBranching,
-  planConditionSource,
   planEdgeKind,
   planRegion,
 } from "@/definition/AgentPlanBranching";
+import { planDecisionMode } from "@/definition/AgentPlanDecision";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logDiagnostic } from "@/backend/logging/Logger";
 
@@ -13,9 +13,14 @@ import { patchStep } from "../AgentPlanRunState";
 import { planReadiness } from "./AgentPlanBranchEdges";
 import { newPlanBranchingState } from "./AgentPlanBranchState";
 import { bindPlanBranchState } from "./AgentPlanBranchPersistence";
+import {
+  decidePlanBoolean,
+  invalidDecisionInput,
+} from "./AgentPlanDecisionValue";
 
 import type {
   AgentPlanActivationTrigger,
+  AgentPlanDecision,
   AgentPlanStepActivation,
   AgentPlanStepResult,
 } from "@/definition/AgentPlan";
@@ -113,42 +118,35 @@ function decide(
   state: PlanBranchingState,
   step: AgentPlanStepResult,
 ): Partial<AgentPlanStepResult> {
-  const results = resultsOf(active);
   const activation = (step.activation ?? 0) + 1;
-  const sourceId = planConditionSource(active.snapshot.plan, step.id);
-  const source = sourceId === null ? undefined : results.get(sourceId);
-  const sourceActivation = source?.activation ?? 1;
-  const key = `${sourceId}#${sourceActivation}`;
-  // A value is read once: the same start of the agent never decides twice.
-  const isFresh = state.consumed.get(step.id) !== key;
-  if (
-    sourceId === null ||
-    source?.status !== "succeeded" ||
-    typeof source.passed !== "boolean" ||
-    !isFresh
-  )
-    return {
-      status: "failed",
-      activation,
-      error: "plan_decision_input_invalid",
-      output: null,
-    };
-  state.consumed.set(step.id, key);
-  return {
-    status: "succeeded",
-    activation,
-    branch: source.passed ? "true" : "false",
-    condition: {
-      sourceStepId: sourceId,
-      sourceActivation,
-      value: source.passed,
-    },
-    output: null,
-    error: null,
-  };
+  const decision = active.snapshot.plan.nodes.find(
+    (node): node is AgentPlanDecision =>
+      node.id === step.id && node.type === "decision",
+  );
+  const changes = decision
+    ? decidePlanBoolean(decision, {
+        plan: active.snapshot.plan,
+        edges: active.snapshot.plan.edges,
+        results: resultsOf(active),
+      })
+    : invalidDecisionInput();
+  const condition = changes.condition;
+  // Recorded per activation only: a new activation reads the current value again (PAGE-286).
+  if (condition)
+    state.consumed.set(
+      step.id,
+      `${condition.sourceStepId}#${condition.sourceActivation}`,
+    );
+  return { ...changes, activation };
 }
 
-/** Evaluates one decision whose boolean result has arrived; it then activates exactly one output. */
+/**
+ * Evaluates one boolean decision the flow has reached; it then activates exactly one output.
+ *
+ * @remarks
+ * A model decision is work like a script: the scheduler dispatches it, so it
+ * never decides here.
+ */
 function evaluateDecision(
   active: ActivePlanRun,
   state: PlanBranchingState,
@@ -158,6 +156,7 @@ function evaluateDecision(
     const step = results.get(entry.id);
     return (
       entry.type === "decision" &&
+      planDecisionMode(entry) === "boolean" &&
       step?.status === "waiting" &&
       !step.isBlocked &&
       planReadiness(active.snapshot.plan, results, entry.id) === "ready"
@@ -185,6 +184,7 @@ function archived(step: AgentPlanStepResult): AgentPlanStepActivation {
     ...(step.passed === undefined ? {} : { passed: step.passed }),
     ...(step.branch === undefined ? {} : { branch: step.branch }),
     ...(step.condition === undefined ? {} : { condition: step.condition }),
+    ...(step.verdict === undefined ? {} : { verdict: step.verdict }),
     ...(step.trigger === undefined ? {} : { trigger: step.trigger }),
   };
 }
@@ -218,6 +218,7 @@ function forgotten(keepsSession: boolean): Partial<AgentPlanStepResult> {
     passed: undefined,
     branch: undefined,
     condition: undefined,
+    verdict: undefined,
     trigger: undefined,
     script: undefined,
     report: undefined,

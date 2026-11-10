@@ -1,5 +1,13 @@
-import { planEdgeBranch, planEdgeKind } from "@/definition/AgentPlanBranching";
-import { disconnectPlanEdge } from "@/definition/AgentPlanBranchingEdit";
+import {
+  PLAN_PORT,
+  planEdgeBranch,
+  planEdgeKind,
+} from "@/definition/AgentPlanBranching";
+import {
+  disconnectPlanEdge,
+  setPlanDecisionInput,
+} from "@/definition/AgentPlanBranchingEdit";
+import { allPlanDecisions } from "@/definition/AgentPlanDecision";
 import { allPlanSteps, planGroupEdges } from "@/definition/AgentPlanGroup";
 import {
   PLAN_LOOP_RUNS_BINDING,
@@ -19,6 +27,7 @@ import { planNodeLabel } from "./plan-layout";
 
 import type {
   AgentPlanBinding,
+  AgentPlanDecision,
   AgentPlanEdge,
   AgentPlanInput,
   AgentPlanSources,
@@ -54,6 +63,8 @@ interface PlanDataLink {
   readonly output?: AgentPlanStackOutput;
   /** The binding feeds a loop's own input, its count or its while boolean. */
   readonly isLoopInput?: boolean;
+  /** The binding is the data input of a decision, drawn into its `condition-in` (PAGE-286). */
+  readonly isDecisionInput?: boolean;
 }
 
 /** What a wire between two ports carries: a result into a decision, a branch out of it or a new prompt. */
@@ -91,13 +102,20 @@ export type PlanLink = PlanFlowLink | PlanDataLink | PlanWireLink;
  * difference between them.
  */
 export type PlanLinkChannel =
-  "flow" | "data" | "condition" | "true" | "false" | "event";
+  "flow" | "data" | "condition" | "true" | "false" | "case" | "event";
+
+/** The channel of an output of a decision: true, false, or a value of a classification. */
+export function planBranchChannel(
+  branch: AgentPlanBranch | undefined,
+): "true" | "false" | "case" {
+  if (branch === "false") return "false";
+  return branch === undefined || branch === "true" ? "true" : "case";
+}
 
 /** The drawing channel of a connection. */
 export function planLinkChannel(link: PlanLink): PlanLinkChannel {
   if (link.kind !== "wire") return link.kind;
-  if (link.channel === "branch")
-    return link.branch === "false" ? "false" : "true";
+  if (link.channel === "branch") return planBranchChannel(link.branch);
   return link.channel;
 }
 
@@ -196,6 +214,39 @@ function loopInputLinks(
   );
 }
 
+/** The data input a decision has bound: a parameter, a ticket or a text result. */
+function decisionLinks(
+  decisions: readonly AgentPlanDecision[] | undefined,
+  ids: ReadonlySet<string>,
+): readonly PlanLink[] {
+  return (decisions ?? []).flatMap((decision): PlanLink[] => {
+    const input = decision.input;
+    if (input?.kind !== "source" && input?.kind !== "result") return [];
+    const from = input.kind === "source" ? input.nodeId : input.stepId;
+    return ids.has(from)
+      ? [
+          {
+            kind: "data",
+            from,
+            to: decision.id,
+            parameter: PLAN_PORT.conditionIn,
+            isDecisionInput: true,
+          },
+        ]
+      : [];
+  });
+}
+
+/** An edge inside a frame: a flow line of the frame, or a wire of a decision in it. */
+function containerLink(
+  edge: AgentPlanEdge,
+  frame: { readonly groupId?: string; readonly loopId?: string },
+): PlanLink {
+  return isPlainFlow(edge)
+    ? { kind: "flow", from: edge.from, to: edge.to, ...frame }
+    : edgeLink(edge);
+}
+
 /** The internal flow edges and member bindings of a loop, those of its groups included. */
 function loopLinks(
   loop: AgentPlanLoop,
@@ -203,14 +254,10 @@ function loopLinks(
 ): readonly PlanLink[] {
   const edges = loop.edges
     .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
-    .map((edge): PlanLink => ({
-      kind: "flow",
-      from: edge.from,
-      to: edge.to,
-      loopId: loop.id,
-    }));
+    .map((edge) => containerLink(edge, { loopId: loop.id }));
   return [
     ...edges,
+    ...decisionLinks(loop.decisions, ids),
     ...loopInputLinks(loop, ids),
     ...loop.steps.flatMap((member) =>
       member.type === "group"
@@ -229,12 +276,8 @@ function groupLinks(
     ...bindingLinks(group, ids, null),
     ...planGroupEdges(group)
       .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
-      .map((edge): PlanLink => ({
-        kind: "flow",
-        from: edge.from,
-        to: edge.to,
-        groupId: group.id,
-      })),
+      .map((edge) => containerLink(edge, { groupId: group.id })),
+    ...decisionLinks(group.decisions, ids),
     ...group.steps.flatMap((step) => bindingLinks(step, ids, group)),
   ];
 }
@@ -248,6 +291,7 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
     ...plan.nodes.flatMap((node) =>
       node.type === "loop" ? node.steps.map((step) => step.id) : [],
     ),
+    ...allPlanDecisions(plan).map((decision) => decision.id),
   ]);
   const links: PlanLink[] = plan.edges
     .filter((edge) => ids.has(edge.from) && ids.has(edge.to))
@@ -259,6 +303,7 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
       target.type === "git_closeout"
     )
       links.push(...bindingLinks(target, ids, null));
+    if (target.type === "decision") links.push(...decisionLinks([target], ids));
     if (target.type === "loop") links.push(...loopLinks(target, ids));
     if (target.type === "group") links.push(...groupLinks(target, ids));
   }
@@ -289,6 +334,8 @@ export function removePlanLink(
   if (link.kind === "flow" && link.groupId !== undefined)
     return disconnectPlanGroupFlow(draft, link.groupId, link);
   if (link.kind === "wire") return disconnectPlanEdge(draft, link);
+  if (link.kind === "data" && link.isDecisionInput)
+    return setPlanDecisionInput(draft, link.to, null);
   if (link.kind === "flow")
     return {
       ...draft,
@@ -328,7 +375,8 @@ export function planLinkLabel(
   function label(id: string): string {
     const node =
       draft.nodes.find((entry) => entry.id === id) ??
-      findPlanStep(draft, id)?.step;
+      findPlanStep(draft, id)?.step ??
+      allPlanDecisions(draft).find((entry) => entry.id === id);
     return node ? planNodeLabel(node, sources) : id;
   }
   const group =
