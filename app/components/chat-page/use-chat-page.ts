@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 
+import { CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS } from "@/definition/Conversation";
+
 import { useChatActivity } from "./use-chat-activity";
 import { useConversationRead } from "./use-conversation-read";
 import { useOlderHistory } from "./use-older-history";
@@ -55,8 +57,12 @@ export interface ChatPageState {
   readonly isMuted: boolean | null;
   /** Mutes or unmutes the opened stored conversation for the person alone. */
   toggleMute(): void;
-  /** Whether the opened agent is answering now. */
+  /** Whether the opened agent, or an agent of the opened group, is answering now. */
   readonly isAnswering: boolean;
+  /** Who is answering: the opened agent, or the agents of the opened group (PAGE-276). */
+  readonly answeringNames: readonly string[];
+  /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
+  readonly voiceMaximumMs: number;
   /** Why the last message could not be sent, or `null`. */
   readonly sendFailure: VirtualChatSendFailure | null;
   /** Sends a message to the opened agent, person or group. */
@@ -217,6 +223,30 @@ function messageForm(
   return formData;
 }
 
+/**
+ * Whether somebody answers in the opened conversation and who: the opened
+ * agent, or the agents of the opened group (PAGE-276).
+ */
+function answeringState(
+  opened: OpenedConversation | null,
+  hasPending: boolean,
+): {
+  readonly isAnswering: boolean;
+  readonly answeringNames: readonly string[];
+} {
+  if (opened?.kind === "group") {
+    const names = opened.group.workingAgentNames ?? [];
+    return { isAnswering: names.length > 0, answeringNames: names };
+  }
+  const participant = opened?.participant;
+  return {
+    isAnswering:
+      participant?.kind === "agent" &&
+      (hasPending || participant.status === "working"),
+    answeringNames: participant ? [participant.name] : [],
+  };
+}
+
 /** Reads the history again while the opened agent answers. */
 function useAnswerPolling(isAnswering: boolean): void {
   const revalidator = useRevalidator();
@@ -284,13 +314,10 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
   );
   const mute = useMute(conversation);
   const messages = pending ? [...older.messages, pending] : older.messages;
-  const isAgent =
-    opened?.kind === "participant" && opened.participant.kind === "agent";
-  const isAnswering =
-    isAgent &&
-    (pending !== null ||
-      (opened.kind === "participant" &&
-        opened.participant.status === "working"));
+  const { isAnswering, answeringNames } = answeringState(
+    opened,
+    pending !== null,
+  );
   const sendFailure = readSendFailure(sender);
   useAnswerPolling(isAnswering);
   useConversationRead(opened, stored);
@@ -336,6 +363,10 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     isMuted: mute.isMuted,
     toggleMute: mute.toggle,
     isAnswering,
+    answeringNames,
+    voiceMaximumMs:
+      directory.voiceMaximumMs ??
+      CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS * 1000,
     sendFailure,
     send,
     addMember: activity.addMember,

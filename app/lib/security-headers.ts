@@ -30,8 +30,9 @@ const CONTENT_SECURITY_POLICY = [
  * `Strict-Transport-Security` is not part of this set, because it only makes
  * sense behind TLS and a wrong value locks browsers out of plain HTTP. The
  * own origin may ask for the microphone, for the test recording of the speech
- * recognition (PAGE-273); the browser still asks the person. The app is one
- * document for every page, so the permission cannot be limited to one page.
+ * recognition (PAGE-273) and for the voice messages of the chat (PAGE-277);
+ * the browser still asks the person before it opens. The app is one document
+ * for every page, so the permission cannot be limited to one page.
  */
 export function createSecurityHeaders(): Record<string, string> {
   return {

@@ -49,6 +49,8 @@ import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import { agentConfirmationWord } from "@/backend/service/agents/AgentConfirmation";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
+import { McpUserApi } from "@/backend/service/mcp/users/McpUserApi";
+import { PasswordHasher } from "@/backend/auth/PasswordHasher";
 
 import { runnerAssetUpload } from "./agent-asset-return.server";
 import { createMcpDeviceServices } from "./mcp-device-services.server";
@@ -88,6 +90,8 @@ export interface McpApplicationServices extends McpDeviceApplicationServices {
   readonly mcpPlanService: () => AgentPlanService;
   /** The saves of the wiki API of the paired Pages MCP machines by operation ID (PAGE-257). */
   readonly mcpWikiOperations: AgentOperationKeyRepository;
+  /** The user management API of the paired Pages MCP machines (PAGE-280). */
+  readonly mcpUserApi: McpUserApi;
 }
 
 /** What the operations of one agent channel share. */
@@ -521,8 +525,9 @@ export function createMcpServices(
     },
     creation,
   };
+  const devices = createMcpDeviceServices(database);
   return {
-    ...createMcpDeviceServices(database),
+    ...devices,
     agentAssetService,
     agentTicketUploadService,
     chatOperationRouter: createChatOperationRouter(
@@ -542,5 +547,11 @@ export function createMcpServices(
     mcpPlanServices: lazyMcpPlanServices(database, mcpPlanService, identities),
     mcpPlanService,
     mcpWikiOperations: new AgentOperationKeyRepository(database),
+    mcpUserApi: new McpUserApi({
+      database,
+      cache: workspace.tickets?.cache ?? ServerCache.disabled(),
+      hasher: new PasswordHasher(),
+      devices: devices.mcpDeviceService,
+    }),
   };
 }

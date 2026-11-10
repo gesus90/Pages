@@ -3699,6 +3699,13 @@
     "agentInactive": "{{name}} is deactivated and takes no messages.",
     "personInactive": "{{name}} is deactivated and does not take messages.",
     "answering": "{{name}} is answering …",
+    "answeringMany": "{{names}} are answering …",
+    "notice": {
+      "agent_inactive": "{{name}} is deactivated and does not answer this message.",
+      "agent_cost_limit": "{{name}} does not answer: the agent's cost limit is reached.",
+      "agent_unavailable": "{{name}} does not answer: no model can run the agent right now.",
+      "agent_failed": "{{name}} could not answer; the answer failed. Send the message again to try once more."
+    },
     "stop": "Stop",
     "kind": {
       "human": "Person",
@@ -3735,7 +3742,25 @@
       "label": "Voice message · {{duration}}",
       "player": "Play voice message",
       "transcribing": "Recognizing …",
-      "failed": "The text could not be recognized. The recording stays playable."
+      "failed": "The text could not be recognized. The recording stays playable.",
+      "pause": "Pause voice message",
+      "seek": "Jump to a point of the voice message",
+      "record": "Record voice message",
+      "pickFile": "Send audio file (WAV or MP3)",
+      "recording": "Recording {{elapsed}} of at most {{maximum}}",
+      "cancel": "Discard recording",
+      "sendRecording": "Send recording",
+      "sending": "Sending voice message …",
+      "failure": {
+        "too_large": "The recording is larger than 25 MB and was not sent.",
+        "too_long": "The recording is longer than {{maximum}} minutes and was not sent.",
+        "unsupported_format": "This format is not supported. Send a WAV or MP3 file.",
+        "invalid": "The voice message could not be read.",
+        "not_found": "This conversation no longer exists.",
+        "forbidden": "Nothing can be sent to this conversation right now.",
+        "microphone": "The microphone could not be opened. Allow access in the browser or choose an audio file.",
+        "general": "The voice message could not be sent. Please try again."
+      }
     },
     "mute": "Mute",
     "unmute": "Unmute",

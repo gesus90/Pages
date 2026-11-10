@@ -11,6 +11,8 @@
  * first.
  */
 
+import type { ConversationNotice } from "./Conversation";
+
 /** Whether a participant is available, busy with a task, or switched off. */
 export type VirtualParticipantStatus = "active" | "working" | "off";
 
@@ -57,6 +59,8 @@ export interface VirtualGroup {
   readonly isMuted?: boolean;
   /** ISO time of the creation or the last sent message. */
   readonly lastActivityAt: string;
+  /** The names of the agents answering in the group now (PAGE-276). */
+  readonly workingAgentNames?: readonly string[];
 }
 
 /** A tool a participant used for an answer, for example `list_tickets · 3 offen`. */
@@ -94,6 +98,8 @@ export interface VirtualChatMessage {
   };
   /** Present only for a voice message. */
   readonly voice?: VirtualVoice;
+  /** Present only for a hint why an agent did not answer (PAGE-276). */
+  readonly notice?: ConversationNotice;
 }
 
 /** What the list can open: a group or a single participant. */
@@ -133,6 +139,8 @@ export interface VirtualChatDirectory {
   readonly olderHistoryIds?: readonly string[];
   /** People and agents the dialog "Teilnehmer hinzufügen" offers; never the own account. */
   readonly contactChoices: readonly VirtualContactChoice[];
+  /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
+  readonly voiceMaximumMs?: number;
 }
 
 /** A page of older messages of a stored conversation (PAGE-275). */

@@ -95,9 +95,11 @@ const patchSchema = z
   })
   .strict();
 
+// The revision is required for a page the account reads; a private page of
+// somebody else is a placeholder without one (PAGE-280).
 const deleteSchema = z
   .object({
-    expectedRevision: revisionField,
+    expectedRevision: revisionField.optional(),
     confirmed: z.boolean().optional(),
   })
   .strict();

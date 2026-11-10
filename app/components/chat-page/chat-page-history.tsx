@@ -1,4 +1,4 @@
-import { Zap } from "lucide-react";
+import { CircleAlert, Zap } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -111,6 +111,42 @@ function ToolChip({
   );
 }
 
+/** The text, the voice message, or the hint why an agent did not answer (PAGE-276). */
+function AnswerContent({
+  message,
+  name,
+}: {
+  readonly message: VirtualChatMessage;
+  readonly name: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  if (message.notice)
+    return (
+      <p
+        className="flex items-start gap-2 text-sm text-muted-foreground"
+        role="note"
+      >
+        <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+        {t(`chatPage.notice.${message.notice}`, { name })}
+      </p>
+    );
+  if (message.voice)
+    return (
+      <ChatPageVoice
+        voice={message.voice}
+        text={message.content}
+        isOwn={false}
+      />
+    );
+  return (
+    <WikiMarkdown
+      className="text-[15px] text-foreground"
+      isDisplayableImage={hideImages}
+      source={message.content}
+    />
+  );
+}
+
 interface AnswerBubbleProps {
   readonly message: VirtualChatMessage;
   readonly author: VirtualParticipant;
@@ -148,19 +184,7 @@ function AnswerBubble({
           )}
         </p>
       ) : null}
-      {message.voice ? (
-        <ChatPageVoice
-          voice={message.voice}
-          text={message.content}
-          isOwn={false}
-        />
-      ) : (
-        <WikiMarkdown
-          className="text-[15px] text-foreground"
-          isDisplayableImage={hideImages}
-          source={message.content}
-        />
-      )}
+      <AnswerContent message={message} name={author.name} />
       {message.toolUses.length > 0 ? (
         <ul
           aria-label={t("chatPage.toolUses")}
@@ -247,6 +271,8 @@ interface ChatPageHistoryProps {
   readonly isAnswering?: boolean;
   /** The older pages of a stored conversation; agents have none. */
   readonly older?: OlderMessages;
+  /** Who is answering; the conversation's name by default. */
+  readonly answeringNames?: readonly string[];
 }
 
 /**
@@ -260,6 +286,7 @@ export function ChatPageHistory({
   findParticipant,
   isAnswering = false,
   older = NO_OLDER,
+  answeringNames = [],
 }: ChatPageHistoryProps): React.ReactElement {
   const { t } = useTranslation();
   const viewport = useRef<HTMLElement>(null);
@@ -303,7 +330,9 @@ export function ChatPageHistory({
           className="animate-pulse text-sm text-muted-foreground"
           role="status"
         >
-          {t("chatPage.answering", { name })}
+          {answeringNames.length > 1
+            ? t("chatPage.answeringMany", { names: answeringNames.join(", ") })
+            : t("chatPage.answering", { name: answeringNames[0] ?? name })}
         </p>
       ) : null}
     </ScrollViewport>

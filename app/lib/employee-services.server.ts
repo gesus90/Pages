@@ -1,4 +1,6 @@
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
+import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
+import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
@@ -10,6 +12,7 @@ import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiL
 import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
+import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
 import { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
 import { AgentEmployeeModels } from "@/backend/service/employee/AgentEmployeeModels";
 import { AgentEmployeeSessions } from "@/backend/service/employee/AgentEmployeeSessions";
@@ -24,6 +27,7 @@ import { PersonColorService } from "@/backend/service/employee/PersonColorServic
 import { createConversationServices } from "./conversation-services.server";
 import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 
+import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
 import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
@@ -55,6 +59,8 @@ export interface EmployeeServicesInput {
   readonly conversations: {
     readonly directory: string;
     readonly events: PagesEventPublisher;
+    /** The speech model and the longest recording of `config.toml` (PAGE-277). */
+    readonly speech?: SpeechRecognitionSetting;
   };
 }
 
@@ -67,10 +73,6 @@ export function createEmployeeServices(
   input: EmployeeServicesInput,
 ): EmployeeApplicationServices {
   const { database } = input;
-  const conversations = createConversationServices({
-    database,
-    ...input.conversations,
-  });
   const store = new EmployeeStore(database);
   const authorization = new AuthorizationRepository(database);
   const users = new UserRepository(database);
@@ -93,6 +95,20 @@ export function createEmployeeServices(
     memory,
     acp: input.acp,
     createSessionId: () => createChatSessionId(),
+  });
+  const simulation = currentAgentSimulationMode();
+  const conversations = createConversationServices({
+    database,
+    ...input.conversations,
+    runner: new AgentConversationAnswers({
+      store,
+      users,
+      sessions,
+      messages,
+      simulation: simulation.isActive
+        ? new SimulatedConversationAgent(simulation)
+        : null,
+    }),
   });
   const learning = new AgentLearningService({
     store,
@@ -128,6 +144,8 @@ export function createEmployeeServices(
       messages,
       conversations: conversations.conversationReader,
       isWorking: (agent, sessionId) => sessions.isWorking(agent, sessionId),
+      workingAgentIds: (conversationId) =>
+        conversations.conversationAgentReplies.workingAgentIds(conversationId),
     }),
     chatGroupService: new ChatGroupService({ store }),
     personColorService: new PersonColorService(authorization, input.cache),

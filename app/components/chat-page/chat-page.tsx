@@ -6,6 +6,8 @@ import { ChatPageHistory } from "./chat-page-history";
 import { ChatPageList } from "./chat-page-list";
 import { ChatPagePicker } from "./chat-page-picker";
 import { useChatPage } from "./use-chat-page";
+import { useVoiceSending } from "./use-voice-sending";
+import { formatVoiceDuration } from "./voice-audio";
 
 import type { VirtualChatDirectory } from "@/definition/VirtualChat";
 import type { ChatPageState, OpenedConversation } from "./use-chat-page";
@@ -37,7 +39,11 @@ function ConversationFoot({
   readonly opened: OpenedConversation;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const sending = useVoiceSending(page.selection, page.voiceMaximumMs);
   const name = conversationName(opened);
+  // An agent's history on the page is its chat session, which takes text only.
+  const hasVoice =
+    opened.kind === "group" || opened.participant.kind === "human";
   if (opened.kind === "participant" && !opened.participant.canChat)
     return (
       <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
@@ -53,11 +59,21 @@ function ConversationFoot({
           {t(`chatPage.sendFailure.${page.sendFailure}`, { name })}
         </p>
       ) : null}
+      {sending.failure ? (
+        <p className="mr-22 text-sm text-destructive" role="alert">
+          {t(`chatPage.voice.failure.${sending.failure}`, {
+            maximum: formatVoiceDuration(page.voiceMaximumMs),
+          })}
+        </p>
+      ) : null}
       <ChatPageComposer
         key={conversationKey(opened)}
         label={t("chatPage.inputLabel", { name })}
         placeholder={t(placeholderKey(opened), { name })}
         onSend={page.send}
+        voice={
+          hasVoice ? { sending, maximumMs: page.voiceMaximumMs } : undefined
+        }
       />
     </div>
   );
@@ -102,8 +118,13 @@ function ChatPageConversation({
           isLoading: page.isLoadingOlder,
           onLoad: page.loadOlder,
         }}
+        answeringNames={page.answeringNames}
       />
-      <ConversationFoot page={page} opened={opened} />
+      <ConversationFoot
+        key={conversationKey(opened)}
+        page={page}
+        opened={opened}
+      />
     </section>
   );
 }

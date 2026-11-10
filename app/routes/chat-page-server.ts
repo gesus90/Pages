@@ -1,11 +1,13 @@
 import { data } from "react-router";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
+import { shareChatGroup } from "@/app/lib/chat-page-conversations.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
 import type { ConversationErrorCode } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
 import type {
@@ -111,22 +113,7 @@ function readJson(value: FormDataEntryValue | null): unknown {
   }
 }
 
-type ChatServices = Awaited<ReturnType<typeof getApplicationServices>>;
-
-/**
- * Makes a group of the person a conversation its members share and adds the
- * members it gained, so they see the group and its history (PAGE-278).
- */
-async function shareGroup(
-  services: ChatServices,
-  person: User,
-  groupId: FormDataEntryValue | null,
-): Promise<boolean> {
-  const group = await services.chatGroupService.find(person, groupId);
-  if (!group) return false;
-  await services.conversationService.adoptGroup(person, group);
-  return true;
-}
+type ChatServices = ChatPageServices;
 
 /** Stores a message of a group or of a direct conversation with a person, or a read state. */
 async function runConversationIntent(
@@ -163,7 +150,7 @@ async function runConversationIntent(
     return;
   }
   const groupId = String(formData.get("groupId") ?? "");
-  const isOwn = await shareGroup(services, person, groupId);
+  const isOwn = await shareChatGroup(services, person, groupId);
   await conversationService.send(person, {
     conversationId: groupId,
     clientMessageId,
@@ -241,7 +228,7 @@ async function runIntent(
         description: formData.get("description"),
         memberIds: readJson(formData.get("memberIds")),
       });
-      await shareGroup(services, person, groupId);
+      await shareChatGroup(services, person, groupId);
       return { groupId };
     }
     case "add-member":
@@ -250,7 +237,7 @@ async function runIntent(
         formData.get("groupId"),
         formData.get("participantId"),
       );
-      await shareGroup(services, person, formData.get("groupId"));
+      await shareChatGroup(services, person, formData.get("groupId"));
       return {};
     case "send-group":
     case "send-direct":
@@ -292,7 +279,11 @@ export async function loader({
   const person = context.get(authenticatedUserContext);
   if (!person) throw new Response("Forbidden", { status: 403 });
   const services = await getApplicationServices();
-  return services.chatDirectoryService.directory(person);
+  const directory = await services.chatDirectoryService.directory(person);
+  return {
+    ...directory,
+    voiceMaximumMs: services.conversationVoiceMaximumMs,
+  };
 }
 
 /**

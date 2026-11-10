@@ -9,9 +9,14 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { readAgentGitBridges } from "./AgentGitBridgeConfig";
 import { readPublicAddressConfig } from "./PublicAddressConfig";
 import { readAcpResourceSettings } from "./AcpResourceSettings";
+import {
+  readSpeechRecognitionConfig,
+  SPEECH_RECOGNITION_KEY,
+} from "./SpeechRecognitionConfig";
 import { parseTrustedProxyEntry } from "./TrustedProxies";
 
 import type { AgentGitBridgeSetting } from "./AgentGitBridgeConfig";
+import type { SpeechRecognitionSetting } from "./SpeechRecognitionConfig";
 import type { InterpreterProfile } from "@/definition/InterpreterProfile";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { TomlTable } from "smol-toml";
@@ -84,6 +89,11 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
    * besides this Pages instance, such as `http://127.0.0.1:8080`. Missing: none.
    */
   readonly picaBrowserLocalOrigins?: readonly string[];
+  /**
+   * The speech recognition of voice messages and their longest recording
+   * (PAGE-277); missing: no recognition, at most 300 seconds.
+   */
+  readonly speechRecognition?: SpeechRecognitionSetting;
 }
 
 /**
@@ -326,6 +336,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const picaMobile = readPicaMobileConfig(table, source);
   const gitBridges = readGitBridgeConfig(table, source);
   const pagesCore = readPagesCoreConfig(table, source, port);
+  const speech = readSpeechConfig(table, source);
 
   if (firstRun) {
     return {
@@ -340,6 +351,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
       ...proxies,
       ...picaBrowser,
       ...pagesCore,
+      ...speech,
       databasePath,
       firstRun,
       port,
@@ -369,6 +381,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     ...proxies,
     ...picaBrowser,
     ...pagesCore,
+    ...speech,
     ...databaseUrl,
     databasePath,
     firstRun,
@@ -458,6 +471,24 @@ function readGitBridgeConfig(
       caughtError instanceof Error
         ? caughtError.message
         : '"agentGitBridges" is invalid.',
+    );
+  }
+}
+
+function readSpeechConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "speechRecognition"> {
+  try {
+    return readSpeechRecognitionConfig(table);
+  } catch (caughtError: unknown) {
+    logCaughtError("PagesConfig", caughtError);
+
+    throw invalidConfig(
+      source,
+      caughtError instanceof Error
+        ? caughtError.message
+        : '"speechRecognition" is invalid.',
     );
   }
 }
@@ -625,6 +656,8 @@ export function writePagesConfig(
     document.pagesCoreSecret = config.pagesCoreSecret;
   if (config.picaMobileRelayPort !== undefined)
     document.picaMobileRelayPort = config.picaMobileRelayPort;
+  if (config.speechRecognition !== undefined)
+    document[SPEECH_RECOGNITION_KEY] = { ...config.speechRecognition };
 
   const resourceKeys = [
     "maxConcurrentAcpSessions",

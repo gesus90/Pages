@@ -2435,6 +2435,26 @@ service-account key file kept outside the repository, and
 offers no push and says so to the app. Setup, privacy and limits are in
 [docs/PicaMobileNotifications.md](./docs/PicaMobileNotifications.md).
 
+The optional table `[speechRecognition]` (PAGE-277) names the speech model that
+turns voice messages of the chat into text, until Settings > Agents offers a
+choice for it: `model`, `url` of an OpenAI-compatible `/audio/transcriptions`
+endpoint, and optionally `apiKeyFile`, the absolute path of a file with the API
+key, which Pages reads for every recognition and never logs.
+`maximumRecordingSeconds` (1–3600, default 300) is the longest voice message.
+Without `model` and `url` a voice message keeps its audio and shows that no text
+was recognized. Outside production `PAGES_STT_SIMULATION=1` replaces the model
+by a simulation that contacts no provider (`PAGES_STT_SIMULATION_SCENARIO`:
+`ok`, `provider_failed`, `slow`); with `NODE_ENV=production` the switch is
+ignored and the ignoring logged.
+
+```toml
+[speechRecognition]
+model = "whisper-1"
+url = "https://api.openai.com/v1/audio/transcriptions"
+apiKeyFile = "/etc/pages/speech-key"
+maximumRecordingSeconds = 300
+```
+
 The production server (`pnpm run start`) listens on port 3000 by default.
 Start parameters win over the file:
 

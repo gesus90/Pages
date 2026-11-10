@@ -2,6 +2,7 @@ import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { nextLearningAt } from "./AgentEmployeeDirectory";
+import { awaitAgentJobAnswer } from "./AgentJobAnswer";
 import { toDatabaseTime } from "./AgentEmployeeText";
 import {
   createLearningMessage,
@@ -49,12 +50,6 @@ function result(
     removed: counts.removed ?? 0,
     errorCode: counts.errorCode ?? null,
   };
-}
-
-function defaultWait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds).unref();
-  });
 }
 
 /**
@@ -150,26 +145,17 @@ export class AgentLearningService {
       clientMessageId: null,
     });
     if (!started) return null;
-    const { start, sessionId } = started;
-    const deadline = this.now().getTime() + RUN_TIMEOUT_MILLISECONDS;
-    for (;;) {
-      const job = await this.dependencies.sessions.job(
-        agent,
-        sessionId,
-        start.job.id,
-      );
-      if (job && job.state !== "running") {
-        if (job.state !== "completed")
-          throw new AgentEmployeeError("unavailable");
-        break;
-      }
-      if (this.now().getTime() > deadline)
-        throw new AgentEmployeeError("unavailable");
-      await (this.dependencies.wait ?? defaultWait)(POLL_MILLISECONDS);
-    }
-    const messages = await this.dependencies.messages.messages(sessionId);
-    const answer = messages.at(-1);
-    return answer?.role === "assistant" ? answer.content : "";
+    return awaitAgentJobAnswer(
+      { agent, sessionId: started.sessionId, jobId: started.start.job.id },
+      {
+        sessions: this.dependencies.sessions,
+        messages: this.dependencies.messages,
+        pollMilliseconds: POLL_MILLISECONDS,
+        timeoutMilliseconds: RUN_TIMEOUT_MILLISECONDS,
+        now: () => this.now(),
+        wait: this.dependencies.wait,
+      },
+    );
   }
 
   private async apply(

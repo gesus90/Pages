@@ -188,6 +188,15 @@ export class PagesPicaMobileConversations implements PicaMobileConversationsProv
   ): Promise<PicaMobileConversationEventPayload | null | "sessionEnded"> {
     if (event.kind === "message" || event.kind === "message_updated")
       return { type: event.kind, data: event.message };
+    if (event.kind === "typing")
+      return {
+        type: "typing",
+        data: {
+          conversationId: event.conversationId,
+          participantId: event.participantId,
+          isTyping: event.isTyping,
+        },
+      };
     const services = await this.options.resolveServices();
     const user = await readCurrentSessionUser(services.authService, session);
     if (user === null) return "sessionEnded";

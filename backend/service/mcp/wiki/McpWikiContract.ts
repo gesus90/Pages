@@ -101,6 +101,15 @@ export interface McpWikiDeleteConfirmation {
   readonly affected: readonly McpWikiPageName[];
 }
 
+/**
+ * The question before a private page of somebody else goes into its owner's
+ * trash: identifier and owner only, never a title or text (PAGE-280).
+ */
+export interface McpWikiPlaceholderConfirmation {
+  readonly confirmationRequired: true;
+  readonly placeholder: { readonly id: string; readonly ownerId: string };
+}
+
 /** The question a purge asks before it changes anything (interface 14). */
 export interface McpWikiPurgeConfirmation extends McpWikiDeleteConfirmation {
   readonly attachmentCount: number;

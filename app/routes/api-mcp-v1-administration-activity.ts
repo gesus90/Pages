@@ -1,0 +1,35 @@
+import {
+  mcpUserQuery,
+  mcpUserResponse,
+  runMcpUserRoute,
+} from "@/app/lib/mcp-user-route.server";
+import { McpUserRequest } from "@/backend/service/mcp/users/McpUserRequest";
+
+import type { McpUserHandlers } from "@/app/lib/mcp-user-route.server";
+import type { Route } from "./+types/api-mcp-v1-administration-activity";
+
+/** The methods of this resource. */
+const HANDLERS: McpUserHandlers = {
+  GET: async ({ api, actor, request }) =>
+    mcpUserResponse(
+      await api.read(actor, (session) =>
+        api.reads.activity(session, McpUserRequest.list(mcpUserQuery(request))),
+      ),
+    ),
+};
+
+/**
+ * Reads the administration history, newest first (`GET /api/mcp/v1/administration/activity`), PAGE-280; administrators only.
+ *
+ * @remarks
+ * Only the device token of a paired machine admits a request; the rights of
+ * its account are read again on every call. See `docs/McpUserManagement.md`.
+ */
+export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
+  return runMcpUserRoute(request, HANDLERS);
+}
+
+/** Serves the changing methods of the same resource. */
+export async function action({ request }: Route.ActionArgs): Promise<Response> {
+  return runMcpUserRoute(request, HANDLERS);
+}

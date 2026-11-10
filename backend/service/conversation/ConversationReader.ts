@@ -76,6 +76,7 @@ export function toConversationMessage(
     text: stored.text,
     createdAt: stored.createdAt,
     mentions: stored.mentions,
+    ...(stored.notice === null ? {} : { notice: stored.notice }),
   };
   if (!stored.voice) return message;
   return {

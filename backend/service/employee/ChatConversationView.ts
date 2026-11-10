@@ -38,6 +38,7 @@ export function toVirtualMessage(
       kind: message.sender.kind,
       color: message.sender.color,
     },
+    ...(message.notice ? { notice: message.notice } : {}),
   };
   if (!message.voice) return base;
   return {
