@@ -316,3 +316,40 @@ it("says the session ended for every settled status and for none still alive", (
   for (const status of ["running", "waiting"] as const)
     expect(hasSessionEnded(runStep("node", { status }))).toBe(false);
 });
+
+/** A stored attempt of an older record that lacks the given fields. */
+function legacyAttempt(
+  missing: "code" | "endedAt",
+  overrides: Partial<AgentPlanRetryAttempt> = {},
+): AgentPlanRetryAttempt {
+  return {
+    ...failure(overrides),
+    [missing]: undefined,
+  };
+}
+
+it("keeps the default delay when a waiting attempt has no stored end time", () => {
+  const record = retry({
+    attempts: [legacyAttempt("endedAt", { attemptId: "now" })],
+    nextAttemptAt: "2026-10-26T10:00:45.000Z",
+  });
+  expect(currentEnding(step(record, {}, { attemptId: "now" }))).toMatchObject({
+    kind: "aborted",
+    resume: { delaySeconds: 10, restart: 1 },
+  });
+});
+
+it("names a failure of an older record without a code as the general step failure", () => {
+  const attempts = [legacyAttempt("code", { attemptId: "now" })];
+  expect(
+    currentEnding(
+      step(retry({ state: "blocked", attempts }), {}, { attemptId: "now" }),
+    ),
+  ).toEqual({ kind: "blocked", reason: "plan_step_failed", attempts: 1 });
+  expect(
+    earlierAttempts(
+      step(retry({ attempts }), {}, { attemptId: "other" }),
+      "other",
+    )[0]?.ending,
+  ).toMatchObject({ kind: "aborted", reason: "plan_step_failed" });
+});
