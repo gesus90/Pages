@@ -17,3 +17,4 @@ tests/browser/results/
 
 # Run artifacts belong outside the repository (/home/igor/Results/<task>).
 Results/
+skills/
