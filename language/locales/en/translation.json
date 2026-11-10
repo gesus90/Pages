@@ -732,6 +732,7 @@
         "acp_worker_unit_unavailable": "Pica's agents start only in a limited service unit, which the service manager of the server account does not provide. No model was called.",
         "acp_worker_limit": "The agent process exceeded its memory or process limit and was ended inside its own unit. Other runs and services were not affected.",
         "acp_output_overflow": "The agent process wrote an output line longer than 4 Mi characters and was ended. Its output was not used.",
+        "acp_input_too_large": "The instruction with its complete file inventory does not fit into one ACP prompt message of at most 8 MiB, so Pages sent nothing to the agent. File contents beyond the budget already go as original files only; shorten the instruction or the message.",
         "profile_scope_invalid": "Choose targets within the selected scope. Personal scope uses only the executor’s personal access.",
         "personal_access_missing": "No matching personal model access is assigned.",
         "personal_access_selection_required": "Choose a matching personal access explicitly.",

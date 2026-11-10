@@ -185,7 +185,8 @@ export function disconnectedAcpOutcome(
     return { failure: "timeout", errorCode: null };
   if (
     exit.errorCode === "acp_worker_limit" ||
-    exit.errorCode === "acp_output_overflow"
+    exit.errorCode === "acp_output_overflow" ||
+    exit.errorCode === "acp_input_too_large"
   )
     return { failure: "failed", errorCode: exit.errorCode };
   if (

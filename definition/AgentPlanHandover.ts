@@ -17,7 +17,9 @@ export const PLAN_HANDOVER_LIMITS = {
    *
    * @remarks
    * Files beyond this budget are streamed as originals and reach the agent as
-   * files only, so memory stays bounded however large the handover is.
+   * files only, so memory stays bounded however large the handover is. An ACP
+   * prompt inlines of these only what fits into its 8 MiB message; the other
+   * files reach the agent through their original copies (PAGE-295).
    */
   inlineBytes: 10 * 1024 * 1024,
 } as const;

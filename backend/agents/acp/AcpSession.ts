@@ -5,7 +5,6 @@ import {
   methods,
 } from "@agentclientprotocol/sdk";
 
-import { readTicketAssetInput } from "@/backend/agents/TicketAssetInput";
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -20,8 +19,13 @@ import {
   stopFailure,
   finishAcpTurn,
 } from "./AcpSessionOutcome";
-import { isAcpSteeringSupported, requestAcpSteer } from "./AcpChat";
-import { acpTicketAssetPrompt } from "./AcpTicketAssets";
+import {
+  ACP_STEERING_METHOD,
+  isAcpSteeringSupported,
+  requestAcpSteer,
+} from "./AcpChat";
+import { acpPromptParams, isAcpMessageWithinBudget } from "./AcpPromptBudget";
+import { acpTurnPrompt } from "./AcpTicketAssets";
 import {
   createAcpSessionState,
   readAcpConfiguration,
@@ -215,6 +219,11 @@ export class AcpSession implements PlanSession {
   ): Promise<AcpSteerOutcome> {
     const { sessionId } = this.state;
     if (this.closing || sessionId === null) return "inactive";
+    // An input that cannot be sent fails visibly instead of ending the process.
+    const steering = { sessionId, prompt };
+    const owner = { sessionId, provider: this.context.driver.provider };
+    const message = { method: ACP_STEERING_METHOD, params: steering };
+    if (!isAcpMessageWithinBudget(message, owner)) return "failed";
     if (
       this.isSteeringSupported &&
       this.control.isPrompting &&
@@ -345,22 +354,15 @@ export class AcpSession implements PlanSession {
       this.context.request.modelSupportsImages === false
         ? { ...this.promptCapabilities, image: false }
         : this.promptCapabilities;
-    const prompt: ContentBlock[] = [
-      ...acpTicketAssetPrompt(
-        request.prompt,
-        await readTicketAssetInput(request),
-        capabilities,
-      ),
-      ...((await request.promptContent?.(capabilities)) ?? []),
-    ];
     // A person's input or interruption continues the same turn (PAGE-284).
     const response = await this.control.drive({
-      first: prompt,
-      send: (next) =>
-        this.connection.agent.request(methods.agent.session.prompt, {
-          sessionId,
-          prompt: next,
-        }),
+      first: await acpTurnPrompt(request, sessionId, capabilities),
+      // Measured before writing: an oversized prompt is refused, never sent or repeated.
+      send: async (next) =>
+        this.connection.agent.request(
+          methods.agent.session.prompt,
+          acpPromptParams(sessionId, next, this.context.driver.provider),
+        ),
       settled: async () => {
         await this.picaCodex?.cancelTurn();
       },

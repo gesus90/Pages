@@ -732,6 +732,7 @@
         "acp_worker_unit_unavailable": "Picas Agents starten nur in einer begrenzten Dienst-Unit, die der Dienstmanager des Server-Kontos nicht bereitstellt. Es wurde kein Modell aufgerufen.",
         "acp_worker_limit": "Der Agent-Prozess hat sein Speicher- oder Prozesslimit überschritten und wurde in seiner eigenen Unit beendet. Andere Läufe und Dienste waren nicht betroffen.",
         "acp_output_overflow": "Der Agent-Prozess hat eine Ausgabezeile mit mehr als 4 Mi Zeichen geschrieben und wurde beendet. Seine Ausgabe wurde nicht verwendet.",
+        "acp_input_too_large": "Die Anweisung mit dem vollständigen Dateiinventar passt nicht in eine ACP-Promptnachricht von höchstens 8 MiB. Pages hat dem Agenten nichts gesendet. Dateiinhalte über dem Budget gehen bereits nur als Originaldateien; Anweisung oder Nachricht kürzen.",
         "profile_scope_invalid": "Ziele innerhalb der gewählten Geltung auswählen. Persönliche Geltung nutzt ausschließlich eigene persönliche Zugänge.",
         "personal_access_missing": "Kein passender eigener persönlicher Modellzugang zugewiesen.",
         "personal_access_selection_required": "Einen passenden eigenen persönlichen Zugang ausdrücklich auswählen.",
