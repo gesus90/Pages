@@ -310,7 +310,8 @@
   --shadow-field:
     var(--shadow-xs),
     inset 0 0 0 var(--field-edge-width) var(--color-field-border);
-  --inset-shadow-navigation-selection: inset 0 0 0
+  --inset-shadow-navigation-selection: inset
+    var(--navigation-selection-edge-offset) 0 0
     var(--navigation-selection-edge-width) var(--navigation-active-icon);
   --shadow-metric: inset 0 0 0 var(--metric-edge-width)
     color-mix(in srgb, currentColor 35%, transparent);
@@ -354,6 +355,16 @@
   --sidebar-texture: none;
   --sidebar-texture-size: auto;
   --sidebar-texture-repeat: repeat;
+  /* Optional foliage layer behind the navigation, with its own opacity and fade. */
+  --sidebar-foliage-display: none;
+  --sidebar-foliage: none;
+  --sidebar-foliage-size: 100% 100%;
+  --sidebar-foliage-position: center;
+  --sidebar-foliage-opacity: 1;
+  --sidebar-foliage-mask: none;
+  /* Material of the page behind the content; plain in the Standard design. */
+  --page-texture: none;
+  --card-texture: none;
   /* Navigation can use a contrasting palette without affecting content or portals. */
   --navigation-foreground: var(--color-foreground);
   --navigation-muted-foreground: var(--color-muted-foreground);
@@ -383,6 +394,8 @@
   --navigation-logo-edge: none;
   --sidebar-edge: none;
   --navigation-selection-edge-width: 0px;
+  /* A positive offset draws the selection edge on the left side only. */
+  --navigation-selection-edge-offset: 0px;
   --navigation-selection-texture: none;
   --navigation-selection-shadow: var(--shadow-xs);
   --auth-stage-texture-size:

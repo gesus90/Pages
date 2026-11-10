@@ -34,6 +34,30 @@
     background-size: var(--sidebar-texture-size);
     background-repeat: var(--sidebar-texture-repeat);
     box-shadow: var(--sidebar-edge);
+    isolation: isolate;
+  }
+
+  /* Foliage behind the navigation: below every item, never catching a click.
+     Hidden unless a design theme shows it. */
+  .pages-sidebar-surface::before {
+    content: "";
+    display: var(--sidebar-foliage-display);
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--sidebar-foliage);
+    background-size: var(--sidebar-foliage-size);
+    background-position: var(--sidebar-foliage-position);
+    background-repeat: no-repeat;
+    opacity: var(--sidebar-foliage-opacity);
+    mask-image: var(--sidebar-foliage-mask);
+  }
+
+  /* The page behind the content of the authenticated frame. */
+  .pages-page-surface {
+    background-image: var(--page-texture);
+    background-attachment: fixed;
   }
 
   /* A material boundary shared by permanent and portalled navigation. */
@@ -58,6 +82,7 @@
     --scrollbar-thumb-hover: var(--navigation-scrollbar-thumb-hover);
     --scrollbar-thumb-active: var(--navigation-scrollbar-thumb-hover);
     --logo-filter: var(--navigation-logo-filter);
+    --logo-light-filter: var(--navigation-logo-filter);
     color: var(--color-foreground);
   }
 
@@ -109,8 +134,14 @@
         );
   }
 
+  /* A card may carry a quiet material from its top edge; flat by default. */
+  :where(.bg-surface.shadow-card) {
+    background-image: var(--card-texture);
+  }
+
   .pages-content-card {
-    background: var(--color-surface);
+    background-color: var(--color-surface);
+    background-image: var(--card-texture);
     border-radius: var(--radius-2xl);
     box-shadow: var(--shadow-card);
   }
@@ -124,6 +155,9 @@
   /* Die Wortmarke ist dunkel auf transparent. Im dunklen Thema wird sie weiß,
      der orange Akzent bleibt orange; das Bild selbst bleibt unverändert. */
   .pages-logo {
+    /* Only a navigation material may tint the light mark (Jungle Botanical). */
+    filter: var(--logo-light-filter, none);
+
     @variant dark {
       filter: var(
         --logo-filter,
