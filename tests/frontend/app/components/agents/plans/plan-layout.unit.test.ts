@@ -74,7 +74,7 @@ it("sizes cards by type: compact endpoints, medium sources, agents and scripts b
   expect(planNodeHeight(PARAMETER, GROUP_SOURCES)).toBe(166);
   expect(planNodeHeight(TICKET, GROUP_SOURCES)).toBe(101);
   expect(planNodeHeight(VARIABLE, GROUP_SOURCES)).toBe(90);
-  expect(planNodeHeight(DECISION, GROUP_SOURCES)).toBe(237);
+  expect(planNodeHeight(DECISION, GROUP_SOURCES)).toBe(269);
   // An agent grows by one row per input of its template; an unknown agent has none.
   // Its event input and boolean result add 68 to every agent.
   expect(planNodeHeight(agentNode("a", "codex"), GROUP_SOURCES)).toBe(374);

@@ -106,8 +106,9 @@ function inputRefusal(
     planConnectionIssues(next, input.sources.agents).find(
       (issue) =>
         !known.has(issueKey(issue)) &&
-        issue.nodeId === input.decisionId &&
-        issue.port === PLAN_PORT.conditionIn,
+        (issue.reason === "cycle" ||
+          (issue.nodeId === input.decisionId &&
+            issue.port === PLAN_PORT.conditionIn)),
     ) ?? null
   );
 }

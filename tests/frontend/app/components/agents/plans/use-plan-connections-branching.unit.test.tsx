@@ -82,7 +82,7 @@ it("refuses a second condition and names the reason", () => {
   expect(result.current.draft.edges).toEqual(plan.edges);
   expect(result.current.graph.connectionIssue).toMatchObject({
     nodeId: "decision",
-    reason: "decisionCondition",
+    reason: "duplicate",
   });
 });
 
