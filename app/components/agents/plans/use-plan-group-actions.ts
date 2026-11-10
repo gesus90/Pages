@@ -255,7 +255,7 @@ function dropFrame(
   target: { readonly found: PlanNodeLocation; readonly drop: PlanDrop },
 ): PlanFrame | null {
   const { found, drop } = target;
-  return planDropGroup(
+  const frame = planDropGroup(
     {
       ...draft,
       nodes: draft.nodes.filter((node) => !drop.excludedGroups?.has(node.id)),
@@ -264,6 +264,8 @@ function dropFrame(
     sources,
     found.group?.id ?? found.loop?.id ?? null,
   );
+  // A script joins loops only, so a group under it is no frame for it.
+  return found.node.type === "script" && frame?.type === "group" ? null : frame;
 }
 
 /** The plan without a group, with or without its members; `null` when the group is gone. */
