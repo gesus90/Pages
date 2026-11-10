@@ -282,9 +282,11 @@ describe("a runner reads a large file in sequential chunks", () => {
     const pinned = file(open);
     const first = await cursors.read(0, 0, CHUNK, pinned);
     const second = await cursors.read(0, CHUNK, CHUNK, pinned);
-    expect(await cursors.read(0, CHUNK, CHUNK, pinned)).toEqual(second);
+    expect((await cursors.read(0, CHUNK, CHUNK, pinned)).equals(second)).toBe(
+      true,
+    );
     expect(open).toHaveBeenCalledTimes(1);
-    expect(await cursors.read(0, 0, CHUNK, pinned)).toEqual(first);
+    expect((await cursors.read(0, 0, CHUNK, pinned)).equals(first)).toBe(true);
     expect(open).toHaveBeenCalledTimes(2);
     // Skipping ahead is read and dropped on the open file instead of starting over.
     expect(await cursors.read(0, 2 * CHUNK, CHUNK, pinned)).toHaveLength(CHUNK);
