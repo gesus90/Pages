@@ -78,7 +78,7 @@ export class RunnerService {
   private readonly tools = new Map<string, readonly ToolInventory[]>();
   private readonly cliExecutors = new Set<string>();
   private readonly githubProbes = new Set<string>();
-  private readonly pagesExecutors = new Map<string, 1 | 2>();
+  private readonly pagesExecutors = new Map<string, 1 | 2 | 3>();
   private readonly openCodeExecutors = new Set<string>();
   private readonly liveExecutors = new Set<string>();
   private readonly outputExecutors = new Set<string>();
@@ -470,7 +470,12 @@ export class RunnerService {
 
   /** Asset v2 preserves original MIME, source metadata and authorized workspace copies. */
   public supportsAssetFiles(connectionId: string): boolean {
-    return this.pagesExecutors.get(connectionId) === 2;
+    return (this.pagesExecutors.get(connectionId) ?? 0) >= 2;
+  }
+
+  /** Asset v3 also receives files above 10 MiB, up to 512 MiB, written to disk chunk by chunk. */
+  public supportsLargeAssetFiles(connectionId: string): boolean {
+    return this.pagesExecutors.get(connectionId) === 3;
   }
 
   /** Runners before 1.7.0 list OpenCode by version only and cannot run it over ACP. */

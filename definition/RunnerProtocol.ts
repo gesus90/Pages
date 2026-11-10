@@ -169,7 +169,10 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     executorVersion: z.literal(1).optional(),
     cliExecutorVersion: z.literal(1).optional(),
     githubAccessVersion: z.literal(1).optional(),
-    pagesAccessVersion: z.union([z.literal(1), z.literal(2)]).optional(),
+    /** 2 delivers assets with their original type; 3 (Runner 1.17.0) streams files above 10 MiB, up to 512 MiB. */
+    pagesAccessVersion: z
+      .union([z.literal(1), z.literal(2), z.literal(3)])
+      .optional(),
     /** Runner 1.7.0 reports OpenCode's catalog and runs OpenCode nodes over ACP. */
     openCodeExecutorVersion: z.literal(1).optional(),
     /** Runner 1.8.0 supports expiring viewers and bounded CLI journal batches. */

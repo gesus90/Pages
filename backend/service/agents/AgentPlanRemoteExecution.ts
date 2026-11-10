@@ -24,6 +24,7 @@ import {
   remotePlanContract,
 } from "./AgentPlanRemoteCommand";
 import { validateRemoteParameterPrompt } from "./AgentPlanRemoteParameters";
+import { STREAMED_ASSET_REASON } from "./AgentTicketAssetService";
 import {
   CANCELLED_BEFORE_DISPATCH,
   type RemoteRetryTerms,
@@ -113,6 +114,7 @@ interface RemoteExecutionDependencies {
     | "supportsExactResultPayload"
     | "supportsContinuation"
     | "supportsAssetFiles"
+    | "supportsLargeAssetFiles"
     | "ready"
     | "enqueue"
     | "cancel"
@@ -259,7 +261,7 @@ export class AgentPlanRemoteExecution {
         );
       if (
         parameters?.assets.length &&
-        !this.dependencies.runners.supportsAssetFiles(target.connectionId)
+        !this.canReceiveFiles(target, parameters)
       )
         throw new AgentPlanValidationError([
           { nodeId: step.id, port: null, reason: "remoteAssetRunner" },
@@ -465,6 +467,21 @@ export class AgentPlanRemoteExecution {
         projectId: (await access.require(run.userId, run.planId)).projectId,
       },
     });
+  }
+
+  /** A runner receives files at all with asset contract v2, and files above 10 MiB with v3. */
+  private canReceiveFiles(
+    target: AgentPlanRemoteTarget,
+    parameters: RemotePlanParameters,
+  ): boolean {
+    const { runners } = this.dependencies;
+    if (!runners.supportsAssetFiles(target.connectionId)) return false;
+    return (
+      runners.supportsLargeAssetFiles(target.connectionId) ||
+      parameters.assets.every(
+        (asset) => asset.file.modelContent !== STREAMED_ASSET_REASON,
+      )
+    );
   }
 
   private canUsePages(

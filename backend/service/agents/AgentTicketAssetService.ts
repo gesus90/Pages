@@ -3,6 +3,12 @@ import { createHash } from "node:crypto";
 import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import {
+  digestStream,
+  StreamTooLargeError,
+} from "@/backend/storage/StreamDigest";
+import { detectTicketFileType } from "@/backend/storage/TicketFileType";
+import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
 
 import { assetRepresentation } from "./AgentAssetRepresentations";
 import { ticketAssetReferences } from "./AgentTicketAssetReferences";
@@ -52,9 +58,46 @@ export interface AgentTicketAssetDependencies {
 /** Bounded per transmission; exceeding the limit fails instead of truncating. */
 export const MAX_TICKET_ASSET_BYTES = 10 * 1024 * 1024;
 
+/** What is known of a file Pages read for a transmission. */
+export interface AgentTicketAssetFile {
+  readonly fileName: string;
+  readonly content: AgentTicketAssetContent["content"];
+  readonly original: NonNullable<AgentTicketAssetContent["original"]>;
+  readonly size: number;
+}
+
+/** A file small enough to be held and offered to the model as a whole. */
+export interface AgentTicketAssetBytes extends AgentTicketAssetFile {
+  readonly bytes: Buffer;
+}
+
+/**
+ * A file read as a stream: length and digest are measured, its bytes are not kept.
+ *
+ * @remarks
+ * Such a file reaches an agent as an original file only. `open` reads it again
+ * under the live rights of the person, so a handover copies it chunk by chunk.
+ */
+export interface AgentTicketAssetStream extends AgentTicketAssetFile {
+  readonly open: () => Promise<Readable>;
+}
+
+/** What a streamed file was measured as, kept so a plan check does not read it again. */
+interface MeasuredAsset {
+  readonly digest: string;
+  readonly mimeType: string;
+}
+
+/** How many measurements are kept; the oldest is dropped first. */
+const MEASURED_ASSET_ENTRIES = 256;
+
+/** Why a file is handed over as a file only, without model content. */
+export const STREAMED_ASSET_REASON = "too-large-for-model";
+
 /** Discovers ticket attachments and opens every reference through its original access policy. */
 export class AgentTicketAssetService {
   private readonly dependencies: AgentTicketAssetDependencies;
+  private readonly measured = new Map<string, MeasuredAsset>();
 
   public constructor(dependencies: AgentTicketAssetDependencies) {
     this.dependencies = dependencies;
@@ -88,37 +131,136 @@ export class AgentTicketAssetService {
   public async read(
     actor: User,
     asset: AgentTicketAsset,
-  ): Promise<{
-    readonly fileName: string;
-    readonly content: AgentTicketAssetContent["content"];
-    readonly original: NonNullable<AgentTicketAssetContent["original"]>;
-    readonly bytes: Buffer;
-    readonly size: number;
-  }> {
+  ): Promise<AgentTicketAssetBytes> {
     let fileName = asset.id;
     try {
       const opened = await this.open(actor, asset);
       fileName = opened.fileName;
-      const bytes = await readBytes(opened.stream);
-      if (bytes.length !== opened.size)
-        throw new AgentError("parameter_asset_unavailable");
-      const representation = await assetRepresentation(bytes);
-      return {
-        fileName: opened.fileName,
-        content: representation.content,
-        original: {
-          mimeType: representation.mimeType,
-          size: bytes.length,
-          digest: createHash("sha256").update(bytes).digest("hex"),
-        },
-        bytes,
-        size: bytes.length,
-      };
+      return await readInline(opened);
     } catch (error: unknown) {
       logCaughtError("AgentTicketAssetService", error);
 
       throw new AgentAssetError(readFailureCode(asset, error), asset, fileName);
     }
+  }
+
+  /**
+   * Reads a file for the handover to a plan step, whatever its size up to the plan limit.
+   *
+   * @remarks
+   * A file that fits `inlineBytes` is read like {@link read}. A larger one is
+   * measured as a stream, in constant memory, and returned without bytes or
+   * model content. Beyond 512 MiB (`PLAN_HANDOVER_LIMITS.bytes`) it is refused,
+   * never cut.
+   *
+   * @param actor - The person the step runs for.
+   * @param asset - The referenced file.
+   * @param inlineBytes - What may still be held in memory for this handover.
+   */
+  public async readForHandover(
+    actor: User,
+    asset: AgentTicketAsset,
+    inlineBytes: number,
+  ): Promise<AgentTicketAssetBytes | AgentTicketAssetStream> {
+    let fileName = asset.id;
+    try {
+      const opened = await this.open(actor, asset);
+      fileName = opened.fileName;
+      if (opened.size <= Math.min(inlineBytes, MAX_TICKET_ASSET_BYTES))
+        return await readInline(opened);
+      if (opened.size > PLAN_HANDOVER_LIMITS.bytes) {
+        opened.stream.destroy();
+        throw new AgentError("parameter_assets_too_large");
+      }
+      return await this.measureStream(actor, asset, opened);
+    } catch (error: unknown) {
+      logCaughtError("AgentTicketAssetService", error);
+
+      throw new AgentAssetError(readFailureCode(asset, error), asset, fileName);
+    }
+  }
+
+  /**
+   * Proves the person may still read the file and that its bytes are there.
+   *
+   * @remarks
+   * A file of up to 10 MiB is read completely like {@link read}; a larger one
+   * is only opened, because its rights are what a saved result depends on and
+   * its content was measured when it was handed over.
+   */
+  public async requireReadable(
+    actor: User,
+    asset: AgentTicketAsset,
+  ): Promise<void> {
+    let fileName = asset.id;
+    try {
+      const opened = await this.open(actor, asset);
+      fileName = opened.fileName;
+      if (opened.size <= MAX_TICKET_ASSET_BYTES) await readInline(opened);
+      else opened.stream.destroy();
+    } catch (error: unknown) {
+      logCaughtError("AgentTicketAssetService", error);
+
+      throw new AgentAssetError(readFailureCode(asset, error), asset, fileName);
+    }
+  }
+
+  /** Opens the original again for a copy, under the live rights of the person. */
+  public async stream(actor: User, asset: AgentTicketAsset): Promise<Readable> {
+    try {
+      return (await this.open(actor, asset)).stream;
+    } catch (error: unknown) {
+      logCaughtError("AgentTicketAssetService", error);
+
+      throw new AgentAssetError(readFailureCode(asset, error), asset, asset.id);
+    }
+  }
+
+  private async measureStream(
+    actor: User,
+    asset: AgentTicketAsset,
+    opened: OpenedAsset,
+  ): Promise<AgentTicketAssetStream> {
+    // Stored files never change under their identifier, so a measurement made
+    // once stays valid; whoever consumes the bytes compares them with it anyway.
+    const key = `${asset.source}:${asset.id}:${opened.size}`;
+    let measured = this.measured.get(key);
+    if (measured) opened.stream.destroy();
+    else {
+      const digest = await digestStream(opened.stream, opened.size).catch(
+        (error: unknown) => {
+          if (error instanceof StreamTooLargeError)
+            throw new AgentError("parameter_asset_unavailable");
+          throw error;
+        },
+      );
+      if (digest.size !== opened.size)
+        throw new AgentError("parameter_asset_unavailable");
+      measured = {
+        digest: digest.digest,
+        mimeType: detectTicketFileType(digest.head).contentType,
+      };
+      this.remember(key, measured);
+    }
+    return {
+      fileName: opened.fileName,
+      size: opened.size,
+      content: { type: "file", reason: STREAMED_ASSET_REASON },
+      original: {
+        mimeType: measured.mimeType,
+        size: opened.size,
+        digest: measured.digest,
+      },
+      open: () => this.stream(actor, asset),
+    };
+  }
+
+  private remember(key: string, measured: MeasuredAsset): void {
+    if (this.measured.size >= MEASURED_ASSET_ENTRIES) {
+      const oldest = this.measured.keys().next();
+      if (!oldest.done) this.measured.delete(oldest.value);
+    }
+    this.measured.set(key, measured);
   }
 
   private async open(
@@ -147,6 +289,25 @@ export class AgentTicketAssetService {
         : await this.dependencies.tickets.open(actor, asset.id);
     return { ...opened.attachment, stream: opened.stream };
   }
+}
+
+/** Reads a file of at most {@link MAX_TICKET_ASSET_BYTES} completely and derives its model content. */
+async function readInline(opened: OpenedAsset): Promise<AgentTicketAssetBytes> {
+  const bytes = await readBytes(opened.stream);
+  if (bytes.length !== opened.size)
+    throw new AgentError("parameter_asset_unavailable");
+  const representation = await assetRepresentation(bytes);
+  return {
+    fileName: opened.fileName,
+    content: representation.content,
+    original: {
+      mimeType: representation.mimeType,
+      size: bytes.length,
+      digest: createHash("sha256").update(bytes).digest("hex"),
+    },
+    bytes,
+    size: bytes.length,
+  };
 }
 
 /** The code of a failed read; a plan asset names its own causes instead of a ticket's. */

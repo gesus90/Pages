@@ -103,6 +103,10 @@ export class RunApiClient {
   public supportsAssetFiles(connectionId: string): boolean {
     return this.current(connectionId)?.assets ?? false;
   }
+  /** Uses freshly observed capability to receive files above 10 MiB only. */
+  public supportsLargeAssetFiles(connectionId: string): boolean {
+    return this.current(connectionId)?.largeAssets ?? false;
+  }
   /** Uses freshly observed OpenCode capability only. */
   public supportsOpenCode(connectionId: string): boolean {
     return this.current(connectionId)?.openCode ?? false;

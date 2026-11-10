@@ -12,6 +12,7 @@ import { scanAgentPlaceholders } from "@/definition/AgentParameters";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { planAssets } from "@/definition/AgentPlanAsset";
+import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
 import { planBindingNodes } from "@/definition/AgentPlanStackGraph";
 import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
 import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
@@ -78,7 +79,10 @@ interface PreparationDependencies {
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
   readonly scripts?: Pick<AgentPlanScriptPreparation, "prepare" | "validate">;
   /** Reads the file of every connected asset node before the run starts (PAGE-268). */
-  readonly planAssets?: Pick<PlanAssetService, "describe" | "read">;
+  readonly planAssets?: Pick<
+    PlanAssetService,
+    "describe" | "read" | "isReadable"
+  >;
 }
 
 interface StepPreparationContext {
@@ -413,6 +417,14 @@ async function planAssetReadFailure(
   try {
     const record = await assets.describe(userId, file.assetId);
     if (record.digest !== file.digest) return "plan_asset_changed";
+    if (record.size > PLAN_HANDOVER_LIMITS.bytes) return "plan_asset_too_large";
+    // A file beyond the in-memory budget is handed over as an original only:
+    // here its bytes need to be there, and the copy for the step is compared
+    // with the pinned digest while it is made.
+    if (record.size > PLAN_HANDOVER_LIMITS.inlineBytes)
+      return (await assets.isReadable(userId, file.assetId))
+        ? null
+        : "plan_asset_unreadable";
     await assetRepresentation(await assets.read(userId, file.assetId));
     return null;
   } catch (error: unknown) {

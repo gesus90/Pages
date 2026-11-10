@@ -98,6 +98,27 @@ In both variants `Host` is `$http_host` (it keeps a port such as `:8443`,
 which `$host` drops) and the forwarding headers Pages does not read are
 emptied. Caddy's `reverse_proxy` already does the equivalent by default.
 
+## Request bodies: plan files up to 512 MiB
+
+A file of a plan (PAGE-292) travels as one `PUT /agent-api/plan-assets` body of
+up to 512 MiB (512 × 1024 × 1024 = 536,870,912 bytes). The plan page refuses a
+larger file before it sends anything, and Pages answers a longer body with
+`413` and `plan_asset_too_large`, after cutting the stream; nothing is stored
+or truncated. A proxy in front limits the body on its own and with a page the
+plan page cannot explain, so it must let 512 MiB pass:
+
+- nginx: `client_max_body_size 512m;` (its default is `1m`; `m` is MiB),
+  `proxy_request_buffering off;` so the body streams instead of being written
+  to the proxy's disk first, and a `client_body_timeout` that a slow uplink can
+  meet. Both variants of the example set them.
+- Caddy: no body limit by default; do not add `request_body max_size` below
+  512 MiB for this route.
+- Other balancers and CDNs: raise the request-body limit for `/agent-api/` to
+  at least 512 MiB. A larger limit for wiki or ticket uploads in the Pages
+  settings needs a matching proxy value.
+
+The entrance (`pages-ingress`) streams bodies without a limit of its own.
+
 ## When it does not work
 
 A change whose `Origin` is not the address of the request is refused with HTTP

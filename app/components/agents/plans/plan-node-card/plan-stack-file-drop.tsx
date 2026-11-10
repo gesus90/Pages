@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import { createRandomUuid } from "@/app/lib/random-uuid";
+import { PLAN_HANDOVER_LIMIT_LABEL } from "@/definition/AgentPlanHandover";
 import { addPlanStackAsset } from "@/definition/AgentPlanStackEdit";
 import { PLAN_STACK_ENTRY_COUNT } from "@/definition/AgentPlanStack";
 
@@ -66,6 +67,7 @@ function StackFileRow(props: {
     <>
       <label
         htmlFor={inputId}
+        title={`${t("plans.asset.stackDrop")} · ${t("plans.asset.limit", { limit: PLAN_HANDOVER_LIMIT_LABEL })}`}
         data-plan-stack-files={state.kind}
         className={cn(
           "nodrag flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed px-2 font-medium",

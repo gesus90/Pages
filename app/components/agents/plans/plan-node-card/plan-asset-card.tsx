@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import { planAssetTypeMark } from "@/definition/AgentPlanAsset";
+import { PLAN_HANDOVER_LIMIT_LABEL } from "@/definition/AgentPlanHandover";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
@@ -52,6 +53,8 @@ function AssetDetails(props: {
         >
           {t("plans.asset.choose")}
         </label>
+        {" · "}
+        {t("plans.asset.limit", { limit: PLAN_HANDOVER_LIMIT_LABEL })}
       </p>
     );
   const isBroken =

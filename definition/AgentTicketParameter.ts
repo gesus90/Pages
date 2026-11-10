@@ -43,6 +43,14 @@ export interface AgentTicketAssetContent {
   readonly original?: AgentAssetOriginal;
   /** In-memory handoff only; never included in plan snapshots or audit labels. */
   readonly bytes?: Uint8Array;
+  /**
+   * Opens the original of a file too large for `bytes`, under the live rights of the person.
+   *
+   * @remarks
+   * The caller reads the stream to its end, or destroys it. Exactly one of
+   * `bytes` and `open` is present.
+   */
+  readonly open?: () => Promise<NodeJS.ReadableStream>;
   readonly path?: string;
   readonly content:
     | {

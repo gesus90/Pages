@@ -4,6 +4,9 @@ import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { agentSimulationRunner } from "@/definition/AgentSimulation";
 import { planAssetLink } from "@/backend/service/agents/assets/PlanAssetInput";
+import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
+import { collectStream } from "@/backend/storage/StreamBytes";
+import { digestStream } from "@/backend/storage/StreamDigest";
 
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { PlanAssetService } from "@/backend/service/agents/assets/PlanAssetService";
@@ -11,12 +14,13 @@ import type { PlanAssetReferences } from "@/backend/service/agents/assets/PlanAs
 import type { AgentTicketAsset } from "@/definition/AgentTicketParameter";
 import type { AgentSimulationMode } from "./AgentSimulationMode";
 
-/** One file the simulated agent really read. */
+/** One file the simulated agent really read; a file beyond the in-memory budget is measured, not kept. */
 interface ReadFile {
   readonly asset: AgentTicketAsset;
   readonly fileName: string;
   readonly mediaType: string;
-  readonly bytes: Buffer;
+  readonly size: number;
+  readonly bytes: Buffer | null;
 }
 
 /** The services the simulated agent and its simulated runner use. */
@@ -82,19 +86,13 @@ export class AgentSimulator {
   ): Promise<readonly ReadFile[]> {
     if (!input.readTicketAssets) return [];
     const contents = await input.readTicketAssets();
-    return contents.flatMap((content) =>
-      content.bytes
-        ? [
-            {
-              asset: content.asset,
-              fileName: content.fileName,
-              mediaType:
-                content.original?.mimeType ?? "application/octet-stream",
-              bytes: Buffer.from(content.bytes),
-            },
-          ]
-        : [],
-    );
+    return contents.map((content) => ({
+      asset: content.asset,
+      fileName: content.fileName,
+      mediaType: content.original?.mimeType ?? "application/octet-stream",
+      size: content.original?.size ?? content.bytes?.length ?? 0,
+      bytes: content.bytes ? Buffer.from(content.bytes) : null,
+    }));
   }
 
   /**
@@ -113,7 +111,8 @@ export class AgentSimulator {
           asset,
           fileName: redeemed.fileName,
           mediaType: redeemed.mediaType,
-          bytes: redeemed.bytes,
+          size: redeemed.size,
+          bytes: await receivedBytes(redeemed),
         });
       } catch (error: unknown) {
         if (error instanceof AgentError)
@@ -159,7 +158,9 @@ export class AgentSimulator {
       file.asset.source === "plan"
         ? await this.dependencies.assets.describe(input.userId, file.asset.id)
         : null;
-    const facts = `${file.fileName} · ${described?.kind ?? "file"} · ${file.mediaType} · ${file.bytes.length} Bytes`;
+    const facts = `${file.fileName} · ${described?.kind ?? "file"} · ${file.mediaType} · ${file.size} Bytes`;
+    if (file.bytes === null)
+      return `- Eingabe: ${facts} (als Originaldatei übergeben, keine Ergebnisdatei)`;
     if (!described || !input.resourceContext)
       return `- Eingabe: ${facts} (gelesen, keine Ergebnisdatei)`;
     const stored = await this.dependencies.assets.storeResult(input.userId, {
@@ -174,4 +175,14 @@ export class AgentSimulator {
     });
     return `- Eingabe: ${facts}\n- Ergebnis: ${stored.fileName} (${planAssetLink(stored.assetId)})`;
   }
+}
+
+/** Keeps a redeemed file in memory only within the in-memory budget; a larger one is read through and measured. */
+async function receivedBytes(
+  redeemed: Awaited<ReturnType<PlanAssetReferences["redeem"]>>,
+): Promise<Buffer | null> {
+  if (redeemed.size <= PLAN_HANDOVER_LIMITS.inlineBytes)
+    return collectStream(redeemed.stream, redeemed.size);
+  await digestStream(redeemed.stream, redeemed.size);
+  return null;
 }

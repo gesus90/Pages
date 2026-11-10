@@ -107,7 +107,11 @@ function ticketService(): AgentTicketParameterService {
         findChecklistItems: async () => [...CRITERIA],
       },
     }),
-    { references: async () => [], read: vi.fn() },
+    {
+      references: async () => [],
+      readForHandover: vi.fn(),
+      requireReadable: vi.fn(),
+    },
   );
 }
 
@@ -212,7 +216,11 @@ it("refuses inaccessible, archived and inactive ticket references without disclo
           },
         },
       }),
-      { references: async () => [], read: vi.fn() },
+      {
+        references: async () => [],
+        readForHandover: vi.fn(),
+        requireReadable: vi.fn(),
+      },
     );
     await expect(service.resolve("owner", "ticket-id")).rejects.toThrow(
       new AgentError("parameter_ticket_unavailable"),

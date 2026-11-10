@@ -1,3 +1,5 @@
+import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
+
 import type {
   AgentPlanAssetFile,
   AgentPlanAssetRecord,
@@ -60,6 +62,11 @@ function fileOf(record: AgentPlanAssetRecord): AgentPlanAssetFile {
 /**
  * Sends a file for an asset node or stack entry and reports the progress.
  *
+ * @remarks
+ * A file beyond the limit of a plan, 512 MiB, is refused before anything is
+ * sent, with the same reason the server names, so the person is told at once
+ * instead of after a long upload.
+ *
  * @param projectId - The project of the plan; the server checks access to it.
  * @param file - The file the person dropped or chose.
  * @param onProgress - Called with the share that was sent, from 0 to 1.
@@ -72,6 +79,10 @@ export function uploadPlanAsset(
   onProgress: (share: number) => void,
 ): Promise<AgentPlanAssetFile> {
   return new Promise((resolve, reject) => {
+    if (file.size > PLAN_HANDOVER_LIMITS.bytes) {
+      reject(new PlanAssetUploadError("plan_asset_too_large"));
+      return;
+    }
     const request = new XMLHttpRequest();
     request.open(
       "PUT",
