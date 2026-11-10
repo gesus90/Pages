@@ -7,6 +7,7 @@ import { GitHubRepository } from "@/backend/database/repositories/GitHubReposito
 import { InstanceSettingsRepository } from "@/backend/database/repositories/InstanceSettingsRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
+import { SystemMetricsRepository } from "@/backend/database/repositories/SystemMetricsRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import { UserBoardPreferencesRepository } from "@/backend/database/repositories/UserBoardPreferencesRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
@@ -35,6 +36,7 @@ export interface RepositoryWorld {
   readonly projects: ProjectRepository;
   readonly sessions: SessionRepository;
   readonly settings: UserSettingsRepository;
+  readonly systemMetrics: SystemMetricsRepository;
   readonly tasks: TaskRepository;
   readonly users: UserRepository;
   readonly wiki: WikiRepository;
@@ -84,6 +86,7 @@ export function createWorld(
     projects: new ProjectRepository(database),
     sessions: new SessionRepository(database),
     settings: new UserSettingsRepository(database),
+    systemMetrics: new SystemMetricsRepository(database),
     tasks: new TaskRepository(database),
     users: new UserRepository(database),
     wiki: new WikiRepository(database),

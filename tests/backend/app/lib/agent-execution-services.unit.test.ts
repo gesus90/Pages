@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { startExecutionServices } from "@/app/lib/agent-execution-services.server";
 import { createAgentServices } from "@/app/lib/agent-services.server";
+import { createSystemServices } from "@/app/lib/system-services.server";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { interruptedAcpOwners } from "@/backend/service/agents/AgentPlanRecovery";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
@@ -13,6 +14,7 @@ import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
 import type { Mock } from "vitest";
 import type { AgentApplicationServices } from "@/app/lib/agent-services.server";
+import type { SystemApplicationServices } from "@/app/lib/system-services.server";
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AcpResourceOwner } from "@/definition/AcpResource";
@@ -26,6 +28,9 @@ const { fakeClasses, opaque, partial } = await vi.hoisted(
 
 vi.mock("@/app/lib/agent-services.server", () => ({
   createAgentServices: vi.fn(),
+}));
+vi.mock("@/app/lib/system-services.server", () => ({
+  createSystemServices: vi.fn(),
 }));
 vi.mock("@/backend/runtime/RunsMode", () => ({
   canProcessRuns: () => true,
@@ -96,7 +101,9 @@ function agentFixture(): AgentFixture {
   };
 }
 
-async function start(): Promise<AgentApplicationServices> {
+async function start(): Promise<
+  AgentApplicationServices & SystemApplicationServices
+> {
   const { agentServices } = await startExecutionServices(
     DATABASE,
     "/srv/pages/data/pages.db",
@@ -114,6 +121,11 @@ beforeEach(() => {
       getDatabaseUrl: () => null,
     }),
   );
+  vi.mocked(createSystemServices).mockReturnValue(
+    partial<SystemApplicationServices>({
+      systemDashboardService: opaque("system-dashboard"),
+    }),
+  );
   vi.mocked(resolveAgentsDirectory).mockReturnValue("/srv/pages/Agents");
   vi.mocked(interruptedAcpOwners).mockReturnValue(OWNERS);
   vi.mocked(AgentPlanRunRepository.prototype.unfinished).mockResolvedValue([
@@ -128,7 +140,15 @@ it("creates the agent services next to the database with the configured agent fo
   const fixture = agentFixture();
   vi.mocked(createAgentServices).mockReturnValue(fixture.services);
 
-  await expect(start()).resolves.toBe(fixture.services);
+  await expect(start()).resolves.toEqual({
+    ...fixture.services,
+    systemDashboardService: { opaque: "system-dashboard" },
+  });
+  expect(createSystemServices).toHaveBeenCalledWith(
+    DATABASE,
+    "/srv/pages/data/pages.db",
+    fixture.services,
+  );
 
   expect(resolveAgentsDirectory).toHaveBeenCalledWith("/srv/pages/config.json");
   const [database, directory, tokenKey, resources] =
@@ -206,7 +226,10 @@ it("keeps Pages available when the tool startup checks fail", async () => {
   vi.mocked(createAgentServices).mockReturnValue(fixture.services);
   const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
-  await expect(start()).resolves.toBe(fixture.services);
+  await expect(start()).resolves.toEqual({
+    ...fixture.services,
+    systemDashboardService: { opaque: "system-dashboard" },
+  });
   await vi.waitFor(() => {
     expect(warn).toHaveBeenCalledWith(
       "[pages] Agent tool startup checks could not finish; other Pages functions remain available.",
