@@ -95,6 +95,11 @@ export function AgentCheckResults({
             </p>
           ) : null}
           <CheckDetails detail={check.detail} />
+          {isCli ? (
+            <p className="text-xs text-muted-foreground">
+              {t("settings.agents.cliCheckSnapshot")}
+            </p>
+          ) : null}
         </>
       )}
     </div>

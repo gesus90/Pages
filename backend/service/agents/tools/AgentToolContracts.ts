@@ -3,6 +3,7 @@ import type {
   AgentToolDiagnostic,
   AgentToolId,
   AgentToolStatus,
+  AgentToolTerminalEntry,
 } from "@/definition/AgentTools";
 import type { AgentToolDefinition } from "./AgentToolRegistry";
 
@@ -14,6 +15,10 @@ export interface AgentToolLocation {
   readonly version: string | null;
   /** Last reviewed target applied, including an explicit rollback within that target. */
   readonly approvedTarget?: string | null;
+  /** Retained generation that an explicit rollback checks and activates. */
+  readonly previousRelease?: string | null;
+  /** Stable terminal link of a tool with a terminal entry, and whether it resolves to this generation. */
+  readonly terminalEntry?: AgentToolTerminalEntry;
 }
 
 /** Model-free functional result; upstream text is deliberately excluded. */

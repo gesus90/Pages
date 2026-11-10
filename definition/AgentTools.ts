@@ -56,6 +56,12 @@ export interface AgentToolActivity {
   readonly sessionId: string | null;
 }
 
+/** The operator's terminal starts the same file as new Pages calls only while `isCurrent` holds. */
+export interface AgentToolTerminalEntry {
+  readonly path: string;
+  readonly isCurrent: boolean;
+}
+
 /** Cached operator view; reading this object never executes a program. */
 export interface AgentToolView {
   readonly id: AgentToolId;
@@ -70,6 +76,12 @@ export interface AgentToolView {
   readonly approvedVersion: string | null;
   readonly updateAvailable: boolean;
   readonly source: "managed" | "system" | "bundled" | null;
+  /** File that new Pages calls start; a running session keeps the generation it pinned. */
+  readonly executable?: string | null;
+  /** Retained managed generation that an explicit rollback checks and activates. */
+  readonly rollbackRelease?: string | null;
+  /** Stable link for the operator's terminal of a tool that publishes one. */
+  readonly terminalEntry?: AgentToolTerminalEntry | null;
   readonly installed: boolean | null;
   readonly lastCheck: string | null;
   readonly activities: readonly AgentToolActivity[];

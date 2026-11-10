@@ -4,7 +4,10 @@ import { useFetcher } from "react-router";
 import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { AgentToolActions } from "./agent-tool-actions";
 
-import type { AgentToolView } from "@/definition/AgentTools";
+import type {
+  AgentToolTerminalEntry,
+  AgentToolView,
+} from "@/definition/AgentTools";
 
 interface ToolActionResult {
   readonly ok: boolean;
@@ -47,6 +50,7 @@ export function AgentToolCard({
           {t(`agentTools.source.${tool.source ?? "none"}`)}
         </dd>
         <ToolVersionFacts tool={tool} />
+        <ToolLocationFacts tool={tool} />
         <dt className="text-muted-foreground">{t("agentTools.enabled")}</dt>
         <dd>{t(tool.enabled ? "agentTools.yes" : "agentTools.no")}</dd>
         <dt className="text-muted-foreground">{t("agentTools.lastCheck")}</dt>
@@ -140,6 +144,63 @@ function ToolSupportedVersions({
   const { t } = useTranslation();
   if (tool.id === "bubblewrap") return <span>{t("agentTools.namespace")}</span>;
   return <span>{tool.supportedVersions.join(", ")}</span>;
+}
+
+function TerminalEntryFact({
+  entry,
+}: {
+  readonly entry: AgentToolTerminalEntry;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      <dt className="text-muted-foreground">{t("agentTools.terminalEntry")}</dt>
+      <dd className="space-y-1">
+        <code className="pages-selectable block break-all">{entry.path}</code>
+        <span className="block text-xs text-muted-foreground">
+          {t(
+            entry.isCurrent
+              ? "agentTools.terminalEntryCurrent"
+              : "agentTools.terminalEntryStale",
+          )}
+        </span>
+      </dd>
+    </>
+  );
+}
+
+// Which file new calls start, what a rollback would activate, and the terminal link to the same file.
+function ToolLocationFacts({
+  tool,
+}: {
+  readonly tool: AgentToolView;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      {tool.executable ? (
+        <>
+          <dt className="text-muted-foreground">
+            {t("agentTools.executable")}
+          </dt>
+          <dd>
+            <code className="pages-selectable break-all">
+              {tool.executable}
+            </code>
+          </dd>
+        </>
+      ) : null}
+      {tool.source === "managed" ? (
+        <>
+          <dt className="text-muted-foreground">{t("agentTools.rollback")}</dt>
+          <dd className="break-all">{tool.rollbackRelease ?? "—"}</dd>
+        </>
+      ) : null}
+      {tool.terminalEntry ? (
+        <TerminalEntryFact entry={tool.terminalEntry} />
+      ) : null}
+    </>
+  );
 }
 
 function installationLabel(installed: boolean | null): string {

@@ -1940,7 +1940,8 @@ administrator in admin mode. Every loader and action rechecks persisted rights;
 mutations also require the same origin. Status reads poll cached metadata and
 never install or execute tools. Opening a page is not a model test.
 
-The fixed registry manages Codex CLI **0.160.0**, Claude Code **2.1.293**,
+The fixed registry manages Codex CLI **0.160.0**, Claude Code **2.1.322**
+(rollback also accepts **2.1.293**; Fable 5.2 needs 2.1.321 or later),
 OpenCode **1.18.34**, Codex ACP **2.2.2** (adoption also accepts **2.1.1**), and
 Playwright MCP **0.0.83**. Playwright MCP itself pins
 `playwright@1.64.0-alpha-1790635538000`; its browser revision is used for Chromium
@@ -1972,6 +1973,20 @@ reviewed. Compatible adopted system tools remain untouched by automatic updates.
 Admins can also trigger an update explicitly. There is no periodic registry
 polling; adding an approved target is a reviewed source change, with no
 uncontrolled major upgrade.
+
+New calls resolve a CLI in one order: the activated managed generation
+(`tools/<tool>/active.json`), otherwise a system installation from the service
+PATH whose real path passes the trust check and whose version is on the
+allowlist. Login, status check, model catalog, CLI test and new plan or ACP
+sessions all start the generation this check returned; ACP receives it as
+`CLAUDE_CODE_EXECUTABLE` or `CODEX_PATH`, and a running session keeps the file
+it pinned. Each activation and rollback of Claude Code also points the stable
+link `tools/claude/bin/claude` at the active generation, so an operator's
+terminal that starts this path runs the same installation as Pages. The Tools
+card names the executable of new calls, the rollback generation and whether
+the terminal entry is current; versions there and in connection checks are the
+results of the check shown with its time, not a new call (PAGE-293,
+[docs/PAGE-293.md](docs/PAGE-293.md)).
 
 After listening, Pages reconstructs required dependencies from active CLI
 connections and saved optional integrations in the background. It checks local

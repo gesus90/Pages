@@ -5,8 +5,10 @@ import {
   lstat,
   mkdir,
   readFile,
+  readlink,
   rename,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
@@ -14,7 +16,10 @@ import path from "node:path";
 import { isAgentToolId } from "@/definition/AgentTools";
 
 import type { CliHome } from "@/backend/agents/cli/CliContracts";
-import type { AgentToolId } from "@/definition/AgentTools";
+import type {
+  AgentToolId,
+  AgentToolTerminalEntry,
+} from "@/definition/AgentTools";
 import type { AgentToolLocation, AgentToolStorage } from "./AgentToolContracts";
 import type { AgentToolDefinition } from "./AgentToolRegistry";
 
@@ -55,12 +60,16 @@ export class AgentToolFiles implements AgentToolStorage {
     tool: AgentToolDefinition,
   ): Promise<AgentToolLocation | null> {
     const pointer = await this.pointer(tool);
-    return pointer
-      ? {
-          ...this.location(tool, pointer.current),
-          approvedTarget: pointer.approvedTarget ?? null,
-        }
-      : null;
+    if (!pointer) return null;
+    const location = this.location(tool, pointer.current);
+    return {
+      ...location,
+      approvedTarget: pointer.approvedTarget ?? null,
+      previousRelease: pointer.previous,
+      ...(tool.hasTerminalEntry
+        ? { terminalEntry: await this.readTerminalEntry(tool, location) }
+        : {}),
+    };
   }
 
   /** Every attempt gets a new generation, including a repair of the same version. */
@@ -90,6 +99,7 @@ export class AgentToolFiles implements AgentToolStorage {
       previous: previous?.current ?? null,
       approvedTarget: tool.version,
     });
+    if (tool.hasTerminalEntry) await this.publishTerminalEntry(tool, location);
   }
 
   /** Resolves the retained generation without publishing it before its health check. */
@@ -149,6 +159,52 @@ export class AgentToolFiles implements AgentToolStorage {
       version:
         tool.versions.find((version) => name.startsWith(`${version}-`)) ?? null,
     };
+  }
+
+  private terminalEntryFile(tool: AgentToolDefinition): string {
+    return path.join(this.root, tool.id, "bin", tool.binary);
+  }
+
+  // The release pointer stays authoritative: a link that cannot follow it leaves the
+  // published generation intact and is reported as not current instead of failing it.
+  private async publishTerminalEntry(
+    tool: AgentToolDefinition,
+    location: AgentToolLocation,
+  ): Promise<void> {
+    const entry = this.terminalEntryFile(tool);
+    const temporary = `${entry}.${randomUUID()}.tmp`;
+    try {
+      await this.directory(path.dirname(entry));
+      await symlink(
+        path.relative(path.dirname(entry), location.file),
+        temporary,
+      );
+      await rename(temporary, entry);
+    } catch (error: unknown) {
+      const code =
+        error instanceof Error && "code" in error ? error.code : null;
+      console.warn(
+        `[pages] Terminal entry of agent tool ${tool.id} was not updated (${String(code ?? "unknown")}).`,
+      );
+      await rm(temporary, { force: true });
+    }
+  }
+
+  private async readTerminalEntry(
+    tool: AgentToolDefinition,
+    location: AgentToolLocation,
+  ): Promise<AgentToolTerminalEntry> {
+    const entry = this.terminalEntryFile(tool);
+    try {
+      const target = path.resolve(path.dirname(entry), await readlink(entry));
+      return { path: entry, isCurrent: target === location.file };
+    } catch (error: unknown) {
+      if (!missing(error))
+        console.warn(
+          `[pages] Terminal entry of agent tool ${tool.id} is unreadable.`,
+        );
+      return { path: entry, isCurrent: false };
+    }
   }
 
   private async pointer(
