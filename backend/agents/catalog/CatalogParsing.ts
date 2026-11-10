@@ -336,12 +336,13 @@ function readOpenRouterCursor(
  * @param payload - One page as the provider returned it.
  * @param provider - The provider that returned the page.
  * @param offset - OpenRouter's offset of this page.
- * @returns The page's text and speech models and the cursor of the next page.
+ * @returns The page's text and transcription models and the cursor of the
+ * next page.
  *
  * @remarks
  * Only entries that the catalog's own metadata marks as text models
- * (A8.4-Fix2-E02) or as speech models (PAGE-273) are kept. Pagination still
- * counts every listed entry.
+ * (A8.4-Fix2-E02) or as transcription models (PAGE-294) are kept. Pagination
+ * still counts every listed entry.
  */
 export function parseCatalogPage(
   payload: unknown,

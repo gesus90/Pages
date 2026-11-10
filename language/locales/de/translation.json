@@ -6434,8 +6434,10 @@
     "status": {
       "ready": "Bereit",
       "noModel": "Kein Modell gewählt",
-      "modelUnavailable": "Modell nicht verfügbar"
+      "modelUnavailable": "Modell nicht verfügbar",
+      "modelUnsuitable": "Kein Transkriptionsmodell"
     },
+    "unsuitable": "Das gespeicherte Modell {{model}} ist kein Transkriptionsmodell: Sein Katalog meldet keine Transkriptionsausgabe, etwa weil es ein Chatmodell mit Audioeingabe ist. Die Spracherkennung bleibt aus, bis ein angebotenes Transkriptionsmodell gewählt und gespeichert ist. Die längste Aufnahme bleibt erhalten.",
     "hint": "Die Sprache erkennt das Modell selbst. Audio wird nach der Umwandlung nicht gespeichert.",
     "testButton": {
       "idle": "Testaufnahme prüfen",

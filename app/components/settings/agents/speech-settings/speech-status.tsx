@@ -2,13 +2,17 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
-import type { SpeechStatus } from "@/definition/SpeechRecognition";
+import type {
+  SpeechAdministration,
+  SpeechStatus,
+} from "@/definition/SpeechRecognition";
 import type { TFunction } from "i18next";
 
 const STATUS_CLASSES: Readonly<Record<SpeechStatus, string>> = {
   ready: "bg-success-subtle text-success",
   noModel: "bg-muted text-muted-foreground",
   modelUnavailable: "bg-warning-subtle text-warning",
+  modelUnsuitable: "bg-warning-subtle text-warning",
 };
 
 /**
@@ -29,8 +33,8 @@ export function formatSpeechDuration(
 }
 
 /**
- * Whether the saved speech recognition can run: ready, no model, or a model
- * that is no longer offered.
+ * Whether the saved speech recognition can run: ready, no model, a model
+ * that is no longer offered, or one that is no transcription model.
  */
 export function SpeechStatusBadge({
   status,
@@ -48,5 +52,25 @@ export function SpeechStatusBadge({
     >
       {t(`speechSettings.status.${status}`)}
     </span>
+  );
+}
+
+/**
+ * Explains why a saved model that is no transcription model (PAGE-294) does
+ * not run; the saved choice and the longest recording stay as they are.
+ */
+export function SpeechUnsuitableNote({
+  administration,
+}: {
+  readonly administration: SpeechAdministration;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { selection } = administration.settings;
+  if (administration.status !== "modelUnsuitable" || selection === null)
+    return null;
+  return (
+    <p role="status" className="text-xs text-warning">
+      {t("speechSettings.unsuitable", { model: selection.model })}
+    </p>
   );
 }

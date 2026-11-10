@@ -6,7 +6,11 @@ import {
 } from "@/definition/SpeechRecognition";
 
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
-import { findSpeechModel, listSpeechModels } from "./SpeechModels";
+import {
+  findSpeechModel,
+  isUnsuitableSpeechModel,
+  listSpeechModels,
+} from "./SpeechModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -49,7 +53,8 @@ export interface SpeechConfiguration {
  * as for Pica. The setting belongs to the instance, not to Pica: without a
  * chosen model speech recognition is off. The model must be one of the
  * speech models {@link listSpeechModels} lists; a model the selection no
- * longer offers keeps its value and counts as unavailable.
+ * longer offers keeps its value and counts as unavailable, or as unsuitable
+ * when its catalog lists it as no transcription model (PAGE-294).
  */
 export class SpeechSettingsService {
   private readonly dependencies: SpeechSettingsDependencies;
@@ -74,9 +79,10 @@ export class SpeechSettingsService {
     actor: AccountAccess,
   ): Promise<SpeechAdministration> {
     requireAgentAdministrator(actor);
+    const viewer = await this.viewer(actor);
     const [settings, models] = await Promise.all([
       this.dependencies.settings.read(),
-      this.models(actor),
+      listSpeechModels(this.dependencies, viewer),
     ]);
     const selected = findSpeechModel(models, settings.selection);
     const modelLimits: Record<string, number> = {};
@@ -85,7 +91,7 @@ export class SpeechSettingsService {
     }
     return {
       settings,
-      status: this.status(settings.selection, selected),
+      status: await this.status(viewer, settings.selection, selected),
       models: models.map((entry) => entry.choice),
       modelLimits,
       effectiveMaxDurationMs: effectiveSpeechDuration(
@@ -115,7 +121,10 @@ export class SpeechSettingsService {
       throw new AgentError("profile_invalid");
     if (
       selection !== null &&
-      findSpeechModel(await this.models(actor), selection) === null
+      findSpeechModel(
+        await listSpeechModels(this.dependencies, await this.viewer(actor)),
+        selection,
+      ) === null
     )
       throw new AgentError("provider_model_not_found");
     await this.writes.run(() =>
@@ -146,21 +155,22 @@ export class SpeechSettingsService {
     };
   }
 
-  private async models(
-    actor: AccountAccess,
-  ): Promise<readonly SpeechModelEntry[]> {
-    const viewer: AgentViewer = {
+  private async viewer(actor: AccountAccess): Promise<AgentViewer> {
+    return {
       actor,
       groupIds: await this.dependencies.groups.findIdsByMember(actor.userId),
     };
-    return listSpeechModels(this.dependencies, viewer);
   }
 
-  private status(
+  private async status(
+    viewer: AgentViewer,
     selection: SpeechModelSelection | null,
     selected: SpeechModelEntry | null,
-  ): SpeechAdministration["status"] {
+  ): Promise<SpeechAdministration["status"]> {
     if (selection === null) return "noModel";
-    return selected === null ? "modelUnavailable" : "ready";
+    if (selected !== null) return "ready";
+    return (await isUnsuitableSpeechModel(this.dependencies, viewer, selection))
+      ? "modelUnsuitable"
+      : "modelUnavailable";
   }
 }

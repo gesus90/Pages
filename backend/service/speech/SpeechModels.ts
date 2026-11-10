@@ -1,6 +1,7 @@
 import { catalogModelChoice } from "@/definition/AgentModelChoice";
 import { consumerModels } from "@/definition/AgentModelConsumers";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
+import { isTranscriptionModel } from "@/definition/SpeechRecognition";
 
 import { canUseAgentConnection } from "../agents/AgentConnectionAccess";
 import {
@@ -48,15 +49,6 @@ export interface SpeechModelSource {
   readonly simulation: SpeechSimulationMode;
 }
 
-function isStatedSpeechModel(model: AgentCatalogModel): boolean {
-  const output = model.outputModalities;
-  return (
-    model.inputModalities?.includes("audio") === true &&
-    output?.length === 1 &&
-    output[0] === "text"
-  );
-}
-
 // The shared choice hides models whose stated modalities rule out chatting;
 // recognizing speech is exactly what such a model is listed for here.
 function speechChoice(
@@ -94,7 +86,7 @@ async function openRouterEntries(
 ): Promise<readonly SpeechModelEntry[]> {
   const catalog = await connections.catalogs().find(connection.id);
   const failure = catalog.errorCode ? { isCatalogFailed: true } : {};
-  return catalog.models.filter(isStatedSpeechModel).map((model) => ({
+  return catalog.models.filter(isTranscriptionModel).map((model) => ({
     choice: { ...speechChoice(connection, model), ...failure },
     connection,
     limitMs: null,
@@ -135,6 +127,19 @@ function isSpeechConnection(connection: AgentConnectionRecord): boolean {
   );
 }
 
+// Without a viewer Pages recognizes for the instance, which no connection scope limits.
+async function isUsableSpeechConnection(
+  source: SpeechModelSource,
+  viewer: AgentViewer | null,
+  connection: AgentConnectionRecord,
+): Promise<boolean> {
+  if (!isSpeechConnection(connection)) return false;
+  return (
+    viewer === null ||
+    canUseAgentConnection(source.connections, viewer, connection.id)
+  );
+}
+
 /**
  * Lists the speech models of the instance (PAGE-273).
  *
@@ -144,9 +149,10 @@ function isSpeechConnection(connection: AgentConnectionRecord): boolean {
  * @returns The models the central rule of `stt` keeps, the simulation last.
  *
  * @remarks
- * OpenRouter's stored catalog states the modalities of each model; a model
- * that accepts audio and outputs only text is listed. Z.AI lists its
- * documented {@link ZAI_SPEECH_MODEL}. No provider is called.
+ * OpenRouter's stored catalog states the modalities of each model; only a
+ * transcription model ({@link isTranscriptionModel}) is listed, never a chat
+ * model that also accepts audio or a model that states nothing. Z.AI lists
+ * its documented {@link ZAI_SPEECH_MODEL}. No provider is called.
  */
 export async function listSpeechModels(
   source: SpeechModelSource,
@@ -154,12 +160,7 @@ export async function listSpeechModels(
 ): Promise<readonly SpeechModelEntry[]> {
   const entries: SpeechModelEntry[] = [];
   for (const connection of await source.connections.list()) {
-    if (!isSpeechConnection(connection)) continue;
-    if (
-      viewer !== null &&
-      !(await canUseAgentConnection(source.connections, viewer, connection.id))
-    )
-      continue;
+    if (!(await isUsableSpeechConnection(source, viewer, connection))) continue;
     if (connection.provider === "zai") entries.push(zaiEntry(connection));
     else
       entries.push(
@@ -196,4 +197,35 @@ export function findSpeechModel(
         entry.choice.model === selection.model,
     ) ?? null
   );
+}
+
+/**
+ * Whether a saved choice names a model that its OpenRouter catalog lists, but
+ * not as a transcription model (PAGE-294).
+ *
+ * @param source - The stored connections and the simulation switch.
+ * @param viewer - The administrator who reads the setting.
+ * @param selection - The saved choice that {@link listSpeechModels} no longer lists.
+ * @returns `true` for a chat model that accepts audio, for example; `false`
+ * when the model or its connection is gone, switched off or outside the
+ * viewer's scope.
+ *
+ * @remarks
+ * It only tells the settings card why a saved model is unusable; the choice
+ * stays saved, nothing replaces it and nothing runs with it.
+ */
+export async function isUnsuitableSpeechModel(
+  source: SpeechModelSource,
+  viewer: AgentViewer,
+  selection: SpeechModelSelection,
+): Promise<boolean> {
+  const connection = await source.connections.find(selection.connectionId);
+  if (
+    connection?.provider !== "openrouter" ||
+    !(await isUsableSpeechConnection(source, viewer, connection))
+  )
+    return false;
+  const catalog = await source.connections.catalogs().find(connection.id);
+  const model = catalog.models.find((entry) => entry.id === selection.model);
+  return model !== undefined && !isTranscriptionModel(model);
 }

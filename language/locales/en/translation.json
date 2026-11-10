@@ -6434,8 +6434,10 @@
     "status": {
       "ready": "Ready",
       "noModel": "No model chosen",
-      "modelUnavailable": "Model unavailable"
+      "modelUnavailable": "Model unavailable",
+      "modelUnsuitable": "Not a transcription model"
     },
+    "unsuitable": "The saved model {{model}} is not a transcription model: its catalog reports no transcription output, for example because it is a chat model with audio input. Speech recognition stays off until an offered transcription model is chosen and saved. The longest recording is kept.",
     "hint": "The model detects the language itself. Audio is not stored after the conversion.",
     "testButton": {
       "idle": "Check test recording",

@@ -1,3 +1,4 @@
+import type { AgentCatalogModel } from "./AgentModelCatalog";
 import type { PageAgentModel } from "./PageAgent";
 
 /** The choices of the longest recording, in milliseconds: 1, 2 and 5 minutes. */
@@ -16,9 +17,9 @@ export const SPEECH_MAXIMUM_BYTES = 25 * 1024 * 1024;
  * The audio formats Pages passes on unchanged.
  *
  * @remarks
- * WAV and MP3 are the formats both connected providers accept: the Responses
- * API of OpenRouter takes `wav` and `mp3`, Z.AI's transcription `.wav` and
- * `.mp3`. Pages converts no audio.
+ * WAV and MP3 are the formats both connected providers accept: the
+ * transcription API of OpenRouter takes `wav` and `mp3`, Z.AI's transcription
+ * `.wav` and `.mp3`. Pages converts no audio.
  */
 export const SPEECH_MIME_TYPES = ["audio/wav", "audio/mpeg"] as const;
 
@@ -60,8 +61,12 @@ export interface SpeechSettings {
  * - `noModel`: no model is chosen.
  * - `modelUnavailable`: the chosen model is no longer offered, for example
  *   because its connection was removed or switched off.
+ * - `modelUnsuitable`: the catalog of the chosen model's connection still
+ *   lists it, but not as a transcription model ({@link isTranscriptionModel}),
+ *   such as a chat model that also accepts audio (PAGE-294).
  */
-export type SpeechStatus = "ready" | "noModel" | "modelUnavailable";
+export type SpeechStatus =
+  "ready" | "noModel" | "modelUnavailable" | "modelUnsuitable";
 
 /** What the settings card shows and edits. */
 export interface SpeechAdministration {
@@ -81,6 +86,29 @@ export interface SpeechAdministration {
 export type SpeechTestOutcome =
   | { readonly ok: true; readonly text: string }
   | { readonly ok: false; readonly code: SpeechErrorCode };
+
+/**
+ * Whether a catalog model is a speech-to-text model (PAGE-294).
+ *
+ * @param model - The modalities its catalog states.
+ * @returns `true` only when the catalog states audio among the inputs and
+ * `transcription` among the outputs.
+ *
+ * @remarks
+ * This is OpenRouter's documented capability of the models its
+ * `/audio/transcriptions` endpoint runs
+ * (https://openrouter.ai/docs/guides/overview/multimodal/stt). A chat model
+ * that accepts audio and answers in text is no transcription model, and a
+ * model whose catalog states no modalities never counts as one.
+ */
+export function isTranscriptionModel(
+  model: Pick<AgentCatalogModel, "inputModalities" | "outputModalities">,
+): boolean {
+  return (
+    model.inputModalities?.includes("audio") === true &&
+    model.outputModalities?.includes("transcription") === true
+  );
+}
 
 /**
  * Whether a number is one of the choices of the longest recording.
