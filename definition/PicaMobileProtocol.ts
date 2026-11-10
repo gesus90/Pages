@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { PicaMobileConversationAnswer } from "./PicaMobileConversations";
+import type { PicaMobileSpeechAnswer } from "./PicaMobileSpeech";
 import type {
   PicaMobileNotificationEventPayload,
   PicaMobileNotificationRegisteredPayload,
@@ -27,8 +28,9 @@ export const PICA_MOBILE_SUPPORTED_VERSIONS: readonly number[] = [
 export const PICA_MOBILE_MAXIMUM_MESSAGE_BYTES = 16_384;
 
 /**
- * Largest `chat_send`, `conversation_send` or `voice_chunk` frame the server
- * accepts, in UTF-8 bytes; a larger frame closes the connection.
+ * Largest `chat_send`, `conversation_send`, `voice_chunk` or `speech_chunk`
+ * frame the server accepts, in UTF-8 bytes; a larger frame closes the
+ * connection.
  */
 export const PICA_MOBILE_MAXIMUM_CHAT_SEND_BYTES = 131_072;
 
@@ -92,6 +94,11 @@ export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   VOICE_CHUNK: "voice_chunk",
   VOICE_FINISH: "voice_finish",
   VOICE_CANCEL: "voice_cancel",
+  SPEECH_CONFIG_GET: "speech_config_get",
+  SPEECH_START: "speech_start",
+  SPEECH_CHUNK: "speech_chunk",
+  SPEECH_FINISH: "speech_finish",
+  SPEECH_CANCEL: "speech_cancel",
 } as const;
 
 /** Types of the messages the server sends. */
@@ -120,6 +127,9 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
   CONVERSATION_PARTICIPANT_LIST: "conversation_participant_list",
   CONVERSATION_EVENT: "conversation_event",
   CONVERSATION_ERROR: "conversation_error",
+  SPEECH_CONFIG: "speech_config",
+  SPEECH_RESULT: "speech_result",
+  SPEECH_ERROR: "speech_error",
 } as const;
 
 /**
@@ -154,6 +164,11 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * `plan_get` (PAGE-281): the frozen structure of a run with every node, its
  * states, loop iterations, progress and revision in `plan`, and the `state`
  * key in the plan rows; a server names it only together with `plans.v1`.
+ * `speech.v1` stands for the speech recognition of the instance (PAGE-273):
+ * `speech_config_get` with its answer `speech_config`, and the chunked
+ * recording `speech_start`, `speech_chunk`, `speech_finish`, `speech_cancel`
+ * with the answers `speech_result` and `speech_error`. A server names it only
+ * while a speech model is set up and the account may use Pica.
  */
 export const PICA_MOBILE_CAPABILITY = {
   DASHBOARD_V1: "dashboard.v1",
@@ -165,6 +180,7 @@ export const PICA_MOBILE_CAPABILITY = {
   NOTIFICATIONS_V1: "notifications.v1",
   NOTIFICATIONS_PUSH_FCM: "notifications.push.fcm",
   NOTIFICATIONS_TEAM_V1: "notifications.team.v1",
+  SPEECH_V1: "speech.v1",
 } as const;
 
 /** One extension of {@link PICA_MOBILE_CAPABILITY}. */
@@ -874,5 +890,10 @@ export type PicaMobileServerMessage =
   | (PicaMobileConversationAnswer & {
       readonly version: typeof PICA_MOBILE_PROTOCOL_VERSION;
       /** `null` for an event Pages sends on its own. */
+      readonly requestId: string | null;
+    })
+  | (PicaMobileSpeechAnswer & {
+      readonly version: typeof PICA_MOBILE_PROTOCOL_VERSION;
+      /** `null` when the server drops a silent recording on its own. */
       readonly requestId: string | null;
     });

@@ -73,6 +73,12 @@ export interface PageAgentModel {
    */
   readonly isChatCapable?: boolean;
   /**
+   * `true` for a model that recognizes speech (PAGE-273): its catalog states
+   * audio input and text output alone, or Pages documents it as a
+   * recognition model. Set only in the model choice of speech recognition.
+   */
+  readonly isSpeechCapable?: boolean;
+  /**
    * `true` when the last server refresh of the model's catalog failed.
    *
    * @remarks

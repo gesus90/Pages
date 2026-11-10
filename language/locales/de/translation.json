@@ -3736,7 +3736,12 @@
       "player": "Sprachnachricht abspielen",
       "transcribing": "Wird erkannt …",
       "failed": "Der Text konnte nicht erkannt werden. Die Aufnahme bleibt abspielbar."
-    }
+    },
+    "mute": "Stummschalten",
+    "unmute": "Stummschaltung aufheben",
+    "muted": "Stummgeschaltet",
+    "loadOlder": "Ältere Nachrichten laden",
+    "loadingOlder": "Lädt …"
   },
   "workspaces": {
     "title": "Arbeitsverzeichnis",
@@ -6298,6 +6303,52 @@
       "general": "Die Einstellung konnte nicht gespeichert werden.",
       "accessUnverified": "Der Zugang dieser Anbindung ist nicht bestätigt. Verifiziere sie zuerst in den Agent-Einstellungen.",
       "profileSelectionRequired": "Mehrere Profile sind verfügbar. Bitte einen Zugang ausdrücklich auswählen."
+    }
+  },
+  "speechSettings": {
+    "title": "Spracherkennung · STT",
+    "description": "Wandelt gesprochene Sprache in Text um. Gilt für die ganze Instanz.",
+    "model": "Modell",
+    "chooseModel": "Modell auswählen …",
+    "noModels": "Keine eingerichtete Anbindung bietet ein Spracherkennungsmodell. Unter Agents eine OpenRouter- oder Z.AI-Anbindung mit API-Schlüssel einrichten und bei OpenRouter den Modellkatalog aktualisieren.",
+    "maxDuration": "Längste Aufnahme",
+    "minutes_one": "{{count}} Minute",
+    "minutes_other": "{{count}} Minuten",
+    "seconds_one": "{{count}} Sekunde",
+    "seconds_other": "{{count}} Sekunden",
+    "modelLimit": "Das gewählte Modell nimmt höchstens {{limit}} je Aufnahme. Diese kürzere Grenze gilt.",
+    "status": {
+      "ready": "Bereit",
+      "noModel": "Kein Modell gewählt",
+      "modelUnavailable": "Modell nicht verfügbar"
+    },
+    "hint": "Die Sprache erkennt das Modell selbst. Audio wird nach der Umwandlung nicht gespeichert.",
+    "testButton": {
+      "idle": "Testaufnahme prüfen",
+      "starting": "Mikrofon wird geöffnet …",
+      "recording": "Aufnahme beenden",
+      "sending": "Wird erkannt …"
+    },
+    "saveBeforeTest": "Die Testaufnahme nutzt die gespeicherte Einstellung. Änderungen zuerst speichern.",
+    "recognized": "Erkannter Text:",
+    "recognizedEmpty": "(kein Text erkannt)",
+    "microphoneError": "Der Browser hat keinen Zugriff auf ein Mikrofon erhalten. Mikrofon freigeben und erneut versuchen.",
+    "testError": {
+      "request": "Die Testaufnahme konnte nicht an Pages gesendet werden. Bitte erneut versuchen.",
+      "not_configured": "Spracherkennung ist nicht eingerichtet: Es ist kein nutzbares Modell gespeichert.",
+      "too_large": "Die Aufnahme ist größer als 25 MB.",
+      "too_long": "Die Aufnahme ist länger als die geltende längste Aufnahme.",
+      "unsupported_format": "Das Audioformat wird nicht unterstützt. Möglich sind WAV und MP3.",
+      "invalid_sequence": "Die Aufnahme kam unvollständig oder in falscher Reihenfolge an.",
+      "provider_failed": "Der Anbieter hat die Aufnahme nicht umgewandelt. Modell und Schlüssel der Anbindung prüfen.",
+      "provider_unreachable": "Der Anbieter ist gerade nicht erreichbar. Später erneut versuchen."
+    },
+    "saved": "Spracherkennung gespeichert.",
+    "simulation": "Simulation",
+    "error": {
+      "provider_model_not_found": "Das gewählte Modell ist kein Spracherkennungsmodell dieser Instanz.",
+      "profile_invalid": "Die Einstellung ist ungültig. Bitte Modell und längste Aufnahme prüfen.",
+      "profile_conflict": "Die Einstellung wurde inzwischen geändert. Seite neu laden und erneut speichern."
     }
   },
   "picaSettings": {

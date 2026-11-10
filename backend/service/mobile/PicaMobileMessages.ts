@@ -17,6 +17,7 @@ import {
 import { picaMobileConversationRequestSchema } from "@/definition/PicaMobileConversations";
 
 import { parsePicaMobileNotificationPayload } from "./notifications/PicaMobileNotificationMessages";
+import { parsePicaMobileSpeechPayload } from "./speech/PicaMobileSpeechMessages";
 
 import type {
   PicaMobileAuthPayload,
@@ -39,6 +40,7 @@ import type {
 } from "@/definition/PicaMobileConversations";
 import type { PicaMobileAuthOutcome } from "./PicaMobileAuthenticator";
 import type { PicaMobileNotificationClientMessage } from "./notifications/PicaMobileNotificationMessages";
+import type { PicaMobileSpeechClientMessage } from "./speech/PicaMobileSpeechMessages";
 
 /** A message of a client that passed every check of the envelope and its payload. */
 export type PicaMobileClientMessage =
@@ -57,7 +59,8 @@ export type PicaMobileClientMessage =
   | PicaMobileNotificationClientMessage
   | PicaMobilePlansClientMessage
   | PicaMobileChatClientMessage
-  | PicaMobileConversationClientMessage;
+  | PicaMobileConversationClientMessage
+  | PicaMobileSpeechClientMessage;
 
 /** A request of `conversations.v1` that passed every check of its payload. */
 export type PicaMobileConversationClientMessage =
@@ -355,6 +358,7 @@ function parsePayload(
         parsePicaMobileNotificationPayload(type, requestId, payload) ??
         parseChatPayload(type, requestId, payload) ??
         parseConversationPayload(type, requestId, payload) ??
+        parsePicaMobileSpeechPayload(type, requestId, payload) ??
         reject(
           PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
           "The message type is not known.",

@@ -30,6 +30,8 @@ export function toVirtualMessage(
     id: message.id,
     authorId: isOwn ? null : message.sender.id,
     content: message.text,
+    createdAt: message.createdAt,
+    mentions: message.mentions,
     toolUses: [],
     author: {
       name: message.sender.name,
@@ -102,6 +104,7 @@ export function sharedGroup(
       .map((member) => member.id)
       .filter((id) => id !== person.id),
     unreadCount: view.summary.unreadCount,
+    isMuted: view.summary.isMuted,
     lastActivityAt: view.summary.lastActivityAt,
   };
 }

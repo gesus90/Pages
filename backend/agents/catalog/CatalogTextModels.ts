@@ -39,3 +39,42 @@ export function isTextModel(entry: unknown, provider: ApiProviderId): boolean {
     return listsValue(model.supportedGenerationMethods, "generateContent");
   return true;
 }
+
+/**
+ * Tells whether a listed model recognizes speech, by the catalog's own data (PAGE-273).
+ *
+ * @param entry - One raw model entry of a provider listing.
+ * @param provider - The provider that listed the entry.
+ * @returns `true` for an OpenRouter model that accepts audio and outputs only text.
+ *
+ * @remarks
+ * Only OpenRouter states modalities. A speech model that reads no text is
+ * kept for the speech recognition alone: its stored modalities rule out
+ * chatting, so Pica, agents and plan nodes still leave it out.
+ */
+export function isSpeechModel(
+  entry: unknown,
+  provider: ApiProviderId,
+): boolean {
+  if (provider !== "openrouter") return false;
+  const architecture = readAgentObject(readAgentObject(entry).architecture);
+  return (
+    listsValue(architecture.input_modalities, "audio") &&
+    listsOnly(architecture.output_modalities, "text")
+  );
+}
+
+/**
+ * Tells whether a listed model belongs in the shared catalog: a text model
+ * or a speech model.
+ *
+ * @param entry - One raw model entry of a provider listing.
+ * @param provider - The provider that listed the entry.
+ * @returns `true` when {@link isTextModel} or {@link isSpeechModel} keeps it.
+ */
+export function isCatalogModel(
+  entry: unknown,
+  provider: ApiProviderId,
+): boolean {
+  return isTextModel(entry, provider) || isSpeechModel(entry, provider);
+}

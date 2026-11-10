@@ -4,6 +4,7 @@ import { ChatPage } from "@/app/components/chat-page/chat-page";
 import { sendToBackend } from "@/app/lib/backend-request";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 
+import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { VirtualChatDirectory } from "@/definition/VirtualChat";
 import type { Route } from "./+types/chat-page";
 
@@ -36,6 +37,16 @@ export function clientLoader({
     signal: request.signal,
     isPayload: isChatDirectory,
   });
+}
+
+/** Loading older messages changes nothing, so the page keeps its data (PAGE-275). */
+export function shouldRevalidate({
+  formData,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs): boolean {
+  return formData?.get("intent") === "history"
+    ? false
+    : defaultShouldRevalidate;
 }
 
 /** Sends a change of the chat page to the API, which runs the page's action. */

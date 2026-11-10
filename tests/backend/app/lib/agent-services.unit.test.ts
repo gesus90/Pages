@@ -6,6 +6,7 @@ import { createAgentConfigurationServices } from "@/app/lib/agent-workspace-serv
 import { createAgentServices } from "@/app/lib/agent-services.server";
 import { createRemoteServices } from "@/app/lib/remote-services.server";
 import { createRunnerServices } from "@/app/lib/runner-services.server";
+import { createSpeechServices } from "@/app/lib/speech-services.server";
 import { createAgentToolManager } from "@/backend/service/agents/tools/AgentToolServices";
 import { AgentToolStartupService } from "@/backend/service/agents/tools/AgentToolStartupService";
 import { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
@@ -54,6 +55,7 @@ import type { AgentToolManagerService } from "@/backend/service/agents/tools/Age
 import type { AgentConfigurationApplicationServices } from "@/app/lib/agent-workspace-services.server";
 import type { RemoteApplicationServices } from "@/app/lib/remote-services.server";
 import type { RunnerApplicationServices } from "@/app/lib/runner-services.server";
+import type { SpeechApplicationServices } from "@/app/lib/speech-services.server";
 import type { AccountAccess } from "@/definition/Authorization";
 
 const { fakeClasses, opaque, partial } = await vi.hoisted(
@@ -72,6 +74,9 @@ vi.mock("@/app/lib/remote-services.server", () => ({
 }));
 vi.mock("@/app/lib/runner-services.server", () => ({
   createRunnerServices: vi.fn(),
+}));
+vi.mock("@/app/lib/speech-services.server", () => ({
+  createSpeechServices: vi.fn(),
 }));
 vi.mock("@/backend/service/agents/tools/AgentToolServices", () => ({
   createAgentToolManager: vi.fn(),
@@ -191,6 +196,10 @@ const REMOTE = partial<RemoteApplicationServices>({
 const RUNNER = partial<RunnerApplicationServices>({
   runnerService: opaque("runners"),
 });
+const SPEECH = partial<SpeechApplicationServices>({
+  speechSettingsService: opaque("speech settings"),
+  speechRecognitionService: opaque("speech recognition"),
+});
 const TOOL_MANAGER = partial<AgentToolManagerService>({
   directory: "/srv/pages/tools",
   locate: vi.fn(),
@@ -217,6 +226,7 @@ beforeEach(() => {
   vi.mocked(createAgentConfigurationServices).mockReturnValue(CONFIGURATION);
   vi.mocked(createRemoteServices).mockReturnValue(REMOTE);
   vi.mocked(createRunnerServices).mockReturnValue(RUNNER);
+  vi.mocked(createSpeechServices).mockReturnValue(SPEECH);
   vi.mocked(createAgentToolManager).mockReturnValue(TOOL_MANAGER);
   vi.mocked(readAcpResourceOptions).mockReturnValue(opaque("acp options"));
   vi.mocked(readAcpResourceLimitSource).mockReturnValue(opaque("acp source"));
@@ -268,10 +278,16 @@ it("merges configuration, credentials, remote and runner services", () => {
     tokenKey: TOKEN_KEY,
     configuration: CONFIGURATION,
   });
+  expect(createSpeechServices).toHaveBeenCalledWith({
+    database: DATABASE,
+    connections: repository,
+    cipher,
+  });
   expect(services).toMatchObject({
     ...CONFIGURATION,
     ...REMOTE,
     ...RUNNER,
+    ...SPEECH,
   });
   expect(vi.mocked(AgentPlanGitHubCredentials).mock.calls[0][0]).toEqual({
     projects: only(vi.mocked(ProjectRepository)),

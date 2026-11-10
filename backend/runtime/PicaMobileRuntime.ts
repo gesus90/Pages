@@ -9,6 +9,7 @@ import { PagesPicaMobileChat } from "@/backend/service/mobile/chat/PagesPicaMobi
 import { PagesPicaMobileConversations } from "@/backend/service/mobile/conversations/PagesPicaMobileConversations";
 import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
 import { PagesPicaMobilePlans } from "@/backend/service/mobile/plans/PagesPicaMobilePlans";
+import { PagesPicaMobileSpeech } from "@/backend/service/mobile/speech/PagesPicaMobileSpeech";
 import { PicaMobilePlanRunObserver } from "@/backend/service/mobile/plans/PicaMobilePlanRunObserver";
 import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
 import { PAGES_VERSION } from "@/definition/Version";
@@ -105,6 +106,14 @@ export function obtainPicaMobileGateway(
           };
         },
         events: sharedConversationEvents(),
+      }),
+      speech: new PagesPicaMobileSpeech(async () => {
+        const services = await getApplicationServices();
+
+        return {
+          authService: services.authService,
+          speechRecognitionService: services.speechRecognitionService,
+        };
       }),
       serverVersion: PAGES_VERSION,
       listenAddress: runtime.getConfig().listenAddress,

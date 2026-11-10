@@ -20,6 +20,7 @@ import type {
 } from "@/definition/AgentConnection";
 import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentWorkspaceUsage } from "@/definition/AgentWorkspace";
+import type { SpeechTestOutcome } from "@/definition/SpeechRecognition";
 
 export type AgentActionResult =
   | {
@@ -30,6 +31,8 @@ export type AgentActionResult =
       readonly login?: CliLoginView;
       readonly usages?: readonly AgentUsage[];
       readonly workspaceUsages?: readonly AgentWorkspaceUsage[];
+      /** What a test recording of the speech recognition gave (PAGE-273). */
+      readonly speech?: SpeechTestOutcome;
     }
   | {
       readonly ok: false;

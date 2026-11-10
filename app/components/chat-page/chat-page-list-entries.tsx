@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { BellOff, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
@@ -77,18 +77,38 @@ function EntryText({
   );
 }
 
+/** The unread count; a muted conversation shows it subdued behind a crossed bell (PAGE-275). */
 function UnreadPill({
   count,
+  isMuted = false,
 }: {
   readonly count: number;
+  readonly isMuted?: boolean;
 }): React.ReactElement | null {
   const { t } = useTranslation();
-  if (count === 0) return null;
   return (
-    <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
-      <span aria-hidden="true">{count}</span>
-      <span className="sr-only">{t("chatPage.unread", { count })}</span>
-    </span>
+    <>
+      {isMuted ? (
+        <BellOff
+          aria-label={t("chatPage.muted")}
+          className="size-4 shrink-0 text-muted-foreground"
+          role="img"
+        />
+      ) : null}
+      {count === 0 ? null : (
+        <span
+          className={cn(
+            "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+            isMuted
+              ? "bg-muted text-muted-foreground"
+              : "bg-primary text-primary-foreground",
+          )}
+        >
+          <span aria-hidden="true">{count}</span>
+          <span className="sr-only">{t("chatPage.unread", { count })}</span>
+        </span>
+      )}
+    </>
   );
 }
 
@@ -115,7 +135,7 @@ export function GroupEntry({
         title={group.name}
         subtitle={members.map((member) => member.name).join(", ")}
       />
-      <UnreadPill count={group.unreadCount} />
+      <UnreadPill count={group.unreadCount} isMuted={group.isMuted} />
     </EntryButton>
   );
 }
@@ -143,7 +163,10 @@ export function ParticipantEntry({
       <span className="sr-only">
         {t(`chatPage.status.${participant.status}`)}
       </span>
-      <UnreadPill count={participant.unreadCount} />
+      <UnreadPill
+        count={participant.unreadCount}
+        isMuted={participant.isMuted}
+      />
     </EntryButton>
   );
 }

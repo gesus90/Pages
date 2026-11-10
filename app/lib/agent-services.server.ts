@@ -64,6 +64,7 @@ import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials"
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 import { createRemoteServices } from "./remote-services.server";
 import { createRunnerServices } from "./runner-services.server";
+import { createSpeechServices } from "./speech-services.server";
 
 import type { AcpRecoveryScope } from "@/backend/service/agents/resources/AcpLeaseAdmission";
 import type { AgentGitBridgeSetting } from "@/backend/config/AgentGitBridgeConfig";
@@ -77,12 +78,14 @@ import type { AgentSimulationMode } from "@/backend/agents/simulation/AgentSimul
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 import type { RemoteApplicationServices } from "./remote-services.server";
 import type { RunnerApplicationServices } from "./runner-services.server";
+import type { SpeechApplicationServices } from "./speech-services.server";
 
 export interface AgentApplicationServices
   extends
     AgentConfigurationApplicationServices,
     RemoteApplicationServices,
-    RunnerApplicationServices {
+    RunnerApplicationServices,
+    SpeechApplicationServices {
   readonly agentToolManagerService: AgentToolManagerService;
   readonly agentToolStartupService: AgentToolStartupService;
   readonly acpResourceScheduler: AcpResourceScheduler;
@@ -434,6 +437,7 @@ export function createAgentServices(
     ...github,
     ...remote,
     ...createRunnerServices({ database, remote, tokenKey, configuration }),
+    ...createSpeechServices({ database, connections: repository, cipher }),
     acpResourceScheduler,
     localSessions,
     agentToolManagerService,

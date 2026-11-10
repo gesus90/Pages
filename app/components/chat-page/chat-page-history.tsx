@@ -2,6 +2,7 @@ import { Zap } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/app/components/ui/button";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { cn } from "@/app/lib/cn";
@@ -202,32 +203,74 @@ function AnswerRun({ messages, author }: AnswerRunProps): React.ReactElement {
   );
 }
 
+/** The older pages of a stored history, loaded on request (PAGE-275). */
+interface OlderMessages {
+  readonly hasMore: boolean;
+  readonly isLoading: boolean;
+  readonly onLoad: () => void;
+}
+
+/** The button at the head of the history that loads the page before it. */
+function OlderButton({
+  older,
+}: {
+  readonly older: OlderMessages;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!older.hasMore) return null;
+  return (
+    <div className="flex justify-center">
+      <Button
+        disabled={older.isLoading}
+        onClick={older.onLoad}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        {older.isLoading ? t("chatPage.loadingOlder") : t("chatPage.loadOlder")}
+      </Button>
+    </div>
+  );
+}
+
+const NO_OLDER: OlderMessages = {
+  hasMore: false,
+  isLoading: false,
+  onLoad: () => undefined,
+};
+
 interface ChatPageHistoryProps {
   readonly messages: readonly VirtualChatMessage[];
   readonly name: string;
   readonly findParticipant: (id: string) => VirtualParticipant | undefined;
   /** Shows that the agent is answering at the foot of the history. */
   readonly isAnswering?: boolean;
+  /** The older pages of a stored conversation; agents have none. */
+  readonly older?: OlderMessages;
 }
 
 /**
  * The scrollable history of the opened group or participant: own messages
  * at the right, answers at the left in bubbles in the participant's color.
+ * A stored history loads older pages from its head (PAGE-275).
  */
 export function ChatPageHistory({
   messages,
   name,
   findParticipant,
   isAnswering = false,
+  older = NO_OLDER,
 }: ChatPageHistoryProps): React.ReactElement {
   const { t } = useTranslation();
   const viewport = useRef<HTMLElement>(null);
+  const newestId = messages.at(-1)?.id ?? null;
 
-  // Keeps the newest message in view, as the Pica panel does.
+  // Keeps the newest message in view, as the Pica panel does; a loaded older
+  // page leaves the position alone.
   useEffect(() => {
     const element = viewport.current;
     if (element) element.scrollTop = element.scrollHeight;
-  }, [messages.length, name, isAnswering]);
+  }, [newestId, name, isAnswering]);
 
   if (messages.length === 0 && !isAnswering)
     return (
@@ -244,6 +287,7 @@ export function ChatPageHistory({
       className="flex flex-col gap-4 py-6 pr-1"
       role="log"
     >
+      <OlderButton older={older} />
       {groupRuns(messages).map((run) => {
         const [first] = run.messages;
         if (!first) return null;

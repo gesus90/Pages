@@ -53,6 +53,8 @@ export interface ConversationView {
   readonly summary: ConversationSummary;
   /** The newest page of the history, oldest first. */
   readonly messages: readonly ConversationMessage[];
+  /** Whether older messages exist than this page holds (PAGE-275). */
+  readonly hasMore: boolean;
 }
 
 /**
@@ -337,13 +339,15 @@ export class ConversationReader {
       const stored = await this.dependencies.messages.history(
         summary.id,
         null,
-        CONVERSATION_HISTORY_PAGE_SIZE,
+        CONVERSATION_HISTORY_PAGE_SIZE + 1,
       );
+      const page = limitPage(stored);
       views.push({
         summary,
-        messages: limitPage(stored).messages.map((message) =>
+        messages: page.messages.map((message) =>
           toConversationMessage(message, accounts),
         ),
+        hasMore: page.hasMore,
       });
     }
     return views;
