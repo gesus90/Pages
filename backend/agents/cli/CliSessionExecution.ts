@@ -394,7 +394,7 @@ export class CliSessionExecution implements PlanSessionRunner {
       throw new AgentError(driver.errors.modeRequired);
     const scoped = await this.scopedHome(driver, input, start);
     const adapter = requireAdapter(start.adapter, driver);
-    const purpose = input.chat ? "chat" : "plan";
+    const purpose = input.chat ? "chat" : (input.purpose ?? "plan");
     const profile = driver.profile(mode, purpose);
     const launch = planAcpLaunch(driver, input, start.file, profile);
     const channel = new AcpLineChannel(

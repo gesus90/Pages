@@ -2,6 +2,7 @@ import { hasPlanPath } from "./AgentPlanPath";
 import { agentRunOptionsFor } from "./AgentConfiguration";
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planGroupEdges, planGroupRefusal } from "./AgentPlanGroup";
+import { planEdgeKind } from "./AgentPlanBranching";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentPlanEdge, AgentPlanInput } from "./AgentPlan";
@@ -34,7 +35,10 @@ function internalIssues(
 /** Internal edges join two members of the same frame, once, without a cycle. */
 function internalEdgeIssues(group: AgentPlanGroup): AgentPlanIssue[] {
   return containerEdgeIssues(
-    new Set(group.steps.map((step) => step.id)),
+    new Set([
+      ...group.steps.map((step) => step.id),
+      ...(group.decisions ?? []).map((decision) => decision.id),
+    ]),
     planGroupEdges(group),
   );
 }
@@ -44,6 +48,10 @@ function internalEdgeIssues(group: AgentPlanGroup): AgentPlanIssue[] {
  *
  * @param members - The IDs of the members of the container.
  * @param edges - Its internal edges.
+ *
+ * @remarks
+ * Besides flow edges, a decision inside the container keeps its condition and
+ * branch edges here (PAGE-286); an event edge never joins two members.
  */
 export function containerEdgeIssues(
   members: ReadonlySet<string>,
@@ -60,9 +68,10 @@ export function containerEdgeIssues(
       });
       continue;
     }
-    if (edge.fromPort !== "flow-out" || edge.toPort !== "flow-in")
+    const kind = planEdgeKind(edge);
+    if (kind !== "flow" && kind !== "branch" && kind !== "condition")
       issues.push({ nodeId: edge.to, port: edge.toPort, reason: "port" });
-    const key = JSON.stringify([edge.from, edge.to]);
+    const key = JSON.stringify([edge.from, edge.to, edge.fromPort]);
     if (seen.has(key))
       issues.push({ nodeId: edge.to, port: "flow-in", reason: "duplicate" });
     seen.add(key);
@@ -139,7 +148,7 @@ export function planGroupIssues(
     // A neutral group may be saved empty; it needs one agent before it runs.
     if (isExecution && node.steps.length === 0)
       issues.push({ nodeId: node.id, port: null, reason: "groupSize" });
-    for (const step of node.steps) {
+    for (const step of [...node.steps, ...(node.decisions ?? [])]) {
       if (ids.has(step.id))
         issues.push({ nodeId: step.id, port: null, reason: "duplicateNode" });
       ids.add(step.id);

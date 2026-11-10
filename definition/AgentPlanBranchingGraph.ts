@@ -1,8 +1,16 @@
-import { planStepAdapter } from "./AgentPlanGroup";
+import { isAcpProvider } from "./AgentConfiguration";
+import { expandPlanGroups, planStepAdapter } from "./AgentPlanGroup";
+import {
+  expandPlanLoops,
+  planLoopDecisions,
+  planLoopGroups,
+  planLoopMembers,
+} from "./AgentPlanLoop";
 import { hasPlanPath } from "./AgentPlanPath";
 import {
   PLAN_PORT,
   isPlanEventEdge,
+  planContainedEdges,
   planEdgeBranch,
   planEdgeKind,
   planOrderEdges,
@@ -10,14 +18,24 @@ import {
   planRegion,
   planReportsPassed,
 } from "./AgentPlanBranching";
+import {
+  PLAN_DECISION_QUESTION_LENGTH,
+  planDecisionBinding,
+  planDecisionCasesProblem,
+  planDecisionMode,
+  planDecisionOutput,
+  planDecisionOutputPorts,
+} from "./AgentPlanDecision";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type {
+  AgentPlanDecision,
   AgentPlanEdge,
   AgentPlanInput,
   AgentPlanNode,
   AgentPlanStep,
 } from "./AgentPlan";
+import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanEdgeKind } from "./AgentPlanBranching";
 import type { AgentPlanIssue } from "./AgentPlanGraph";
 
@@ -31,8 +49,8 @@ const SOURCE_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
 
 /** The node types an edge of each kind may enter. */
 const TARGET_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
-  flow: ["end", "agent", "script", "git_closeout", "stack"],
-  branch: ["end", "agent", "script", "git_closeout", "stack"],
+  flow: ["end", "agent", "script", "git_closeout", "stack", "decision"],
+  branch: ["end", "agent", "script", "git_closeout", "stack", "decision"],
   condition: ["decision"],
   event: ["agent"],
 };
@@ -173,13 +191,23 @@ function planReachedFrom(
   return reached;
 }
 
+/** The single output of the decision that reaches the node, or `null` for none or several. */
+function onlyBranch(
+  reached: ReadonlyMap<string, ReadonlySet<string>>,
+  id: string,
+): string | null {
+  const branches = [...reached].filter(([, nodes]) => nodes.has(id));
+  return branches.length === 1 ? (branches[0]?.[0] ?? null) : null;
+}
+
 /**
  * Whether a decision lets only one of the two nodes start in any round.
  *
  * @remarks
- * A node that only the true output leads to and a node that only the false
- * output leads to never run together: the decision activates one of them per
- * round, and the next round starts after the first has ended.
+ * Two nodes that only different outputs of one decision lead to never run
+ * together: the decision activates one output per round, and the next round
+ * starts after the first has ended. This holds for true and false and for the
+ * values of a classification alike (PAGE-286).
  */
 function arePlanBranchesExclusive(
   edges: readonly AgentPlanEdge[],
@@ -190,21 +218,24 @@ function arePlanBranchesExclusive(
     edges.filter((edge) => planEdgeBranch(edge) !== null).map((e) => e.from),
   );
   return [...decisions].some((decision) => {
-    const targets = (branch: "true" | "false"): string[] =>
-      edges
-        .filter(
-          (edge) => edge.from === decision && planEdgeBranch(edge) === branch,
-        )
-        .map((edge) => edge.to);
-    const onTrue = planReachedFrom(edges, targets("true"));
-    const onFalse = planReachedFrom(edges, targets("false"));
-    const isOnlyTrue = (id: string): boolean =>
-      onTrue.has(id) && !onFalse.has(id);
-    const isOnlyFalse = (id: string): boolean =>
-      onFalse.has(id) && !onTrue.has(id);
+    const leaving = edges.filter(
+      (edge) => edge.from === decision && planEdgeBranch(edge) !== null,
+    );
+    const reached = new Map(
+      [...new Set(leaving.map((edge) => edge.fromPort))].map((port) => [
+        port,
+        planReachedFrom(
+          edges,
+          leaving.filter((edge) => edge.fromPort === port).map((e) => e.to),
+        ),
+      ]),
+    );
+    const firstBranch = onlyBranch(reached, first);
+    const secondBranch = onlyBranch(reached, second);
     return (
-      (isOnlyTrue(first) && isOnlyFalse(second)) ||
-      (isOnlyFalse(first) && isOnlyTrue(second))
+      firstBranch !== null &&
+      secondBranch !== null &&
+      firstBranch !== secondBranch
     );
   });
 }
@@ -279,71 +310,236 @@ function eventRegionIssues(plan: AgentPlanInput): AgentPlanIssue[] {
     }));
 }
 
-/** A condition, branch or event connection may only join top-level nodes, never a group or a loop. */
+/**
+ * The container of every node inside a group or loop: the group, or the loop
+ * for its members, its decisions and the agents of its groups.
+ */
+function planContainers(plan: AgentPlanInput): ReadonlyMap<string, string> {
+  const containers = new Map<string, string>();
+  for (const node of plan.nodes) {
+    if (node.type === "group")
+      for (const entry of [...node.steps, ...(node.decisions ?? [])])
+        containers.set(entry.id, node.id);
+    if (node.type !== "loop") continue;
+    const inside = [
+      ...planLoopMembers(node),
+      ...planLoopDecisions(node),
+      ...planLoopGroups(node),
+    ];
+    for (const entry of inside) containers.set(entry.id, node.id);
+  }
+  return containers;
+}
+
+/**
+ * Condition and branch edges join nodes of the same container; an event never enters a group or loop.
+ *
+ * @remarks
+ * A decision may stand at the top level, in a group or in a loop (PAGE-286):
+ * its sequence, condition and outputs stay in the same frame, a loop's
+ * iteration included. Only its bound data input may come from outside, like
+ * every other binding.
+ */
 function boundaryIssues(plan: AgentPlanInput): AgentPlanIssue[] {
-  const inside = new Set(
-    plan.nodes.flatMap((node): readonly string[] => {
-      if (node.type === "group")
-        return [node.id, ...node.steps.map((step) => step.id)];
-      if (node.type !== "loop") return [];
-      return [
-        node.id,
-        ...node.steps.flatMap((step): readonly string[] =>
-          step.type === "group"
-            ? [step.id, ...step.steps.map((entry) => entry.id)]
-            : [step.id],
-        ),
-      ];
-    }),
-  );
-  return plan.edges.flatMap((edge): AgentPlanIssue[] => {
+  const containers = planContainers(plan);
+  return planContainedEdges(plan).flatMap((edge): AgentPlanIssue[] => {
     const kind = planEdgeKind(edge);
     if (kind === null || kind === "flow") return [];
-    if (inside.has(edge.from))
-      return [
-        { nodeId: edge.from, port: edge.fromPort, reason: "branchBoundary" },
-      ];
-    return inside.has(edge.to)
-      ? [{ nodeId: edge.to, port: edge.toPort, reason: "branchBoundary" }]
-      : [];
+    const from = containers.get(edge.from);
+    const to = containers.get(edge.to);
+    const isCrossing = kind === "event" ? (from ?? to) : from !== to;
+    if (!isCrossing) return [];
+    return to === undefined
+      ? [{ nodeId: edge.from, port: edge.fromPort, reason: "branchBoundary" }]
+      : [{ nodeId: edge.to, port: edge.toPort, reason: "branchBoundary" }];
   });
 }
 
-/** A decision reads exactly one boolean result. */
+/** The flat view of a plan: groups and loops dissolved, decisions inside them included. */
+function flatPlan(plan: AgentPlanInput): AgentPlanInput {
+  return expandPlanLoops(expandPlanGroups(plan));
+}
+
+/** Agents, scripts with one output and the Git closeout hand on a text result. */
+function isTextResult(node: AgentPlanNode | undefined): boolean {
+  return (
+    node?.type === "agent" ||
+    node?.type === "git_closeout" ||
+    (node?.type === "script" && node.outputs.length === 1)
+  );
+}
+
+/** What is wrong with the bound data input of a decision for its mode, or `null`. */
+function bindingProblem(
+  decision: AgentPlanDecision,
+  flat: AgentPlanInput,
+  loopMembers: ReadonlySet<string> | null,
+): "decisionInput" | "resultOrder" | "loopBoundary" | null {
+  const binding = planDecisionBinding(decision);
+  if (!binding) return null;
+  const isModel = planDecisionMode(decision) === "model";
+  if (binding.kind === "source") {
+    const source = flat.nodes.find((node) => node.id === binding.nodeId);
+    const fits = isModel
+      ? source?.type === "task"
+      : source?.type === "parameter" && source.format === "boolean";
+    return fits ? null : "decisionInput";
+  }
+  if (binding.kind !== "result" || !isModel) return "decisionInput";
+  if (!isTextResult(flat.nodes.find((node) => node.id === binding.stepId)))
+    return "decisionInput";
+  if (loopMembers && !loopMembers.has(binding.stepId)) return "loopBoundary";
+  return hasPlanPath(flat.edges, binding.stepId, decision.id)
+    ? null
+    : "resultOrder";
+}
+
+/** The members of the loop a decision belongs to, or `null` outside every loop. */
+function loopMembersOf(
+  plan: AgentPlanInput,
+  decisionId: string,
+): ReadonlySet<string> | null {
+  const loop = plan.nodes.find(
+    (node): node is AgentPlanLoop =>
+      node.type === "loop" &&
+      planLoopDecisions(node).some((entry) => entry.id === decisionId),
+  );
+  return loop
+    ? new Set(planLoopMembers(loop).map((member) => member.id))
+    : null;
+}
+
+/** What one decision misses or has too much of in its data input. */
+function inputIssues(
+  decision: AgentPlanDecision,
+  plan: AgentPlanInput,
+  flat: AgentPlanInput,
+  isExecution: boolean,
+): AgentPlanIssue[] {
+  const conditions = flat.edges.filter(
+    (edge) => edge.to === decision.id && planEdgeKind(edge) === "condition",
+  ).length;
+  const binding = planDecisionBinding(decision);
+  const count = conditions + (binding ? 1 : 0);
+  const port = PLAN_PORT.conditionIn;
+  if (count > 1 || (isExecution && count === 0))
+    return [{ nodeId: decision.id, port, reason: "decisionCondition" }];
+  if (conditions > 0 && planDecisionMode(decision) === "model")
+    return [{ nodeId: decision.id, port, reason: "decisionInput" }];
+  const problem = bindingProblem(
+    decision,
+    flat,
+    loopMembersOf(plan, decision.id),
+  );
+  return problem ? [{ nodeId: decision.id, port, reason: problem }] : [];
+}
+
+/** What a model decision needs besides its input: a question, an ACP model and, to classify, a valid list. */
+function modelIssues(decision: AgentPlanDecision): AgentPlanIssue[] {
+  if (planDecisionMode(decision) !== "model") return [];
+  const issues: AgentPlanIssue[] = [];
+  const question = decision.question?.trim() ?? "";
+  if (question.length === 0 || question.length > PLAN_DECISION_QUESTION_LENGTH)
+    issues.push({
+      nodeId: decision.id,
+      port: "question",
+      reason: "decisionQuestion",
+    });
+  const model = decision.model;
+  if (!model?.connectionId || !model.model || !isAcpProvider(model.provider))
+    issues.push({
+      nodeId: decision.id,
+      port: "model",
+      reason: "decisionModel",
+    });
+  if (
+    planDecisionOutput(decision) === "classification" &&
+    planDecisionCasesProblem(decision.cases) !== null
+  )
+    issues.push({
+      nodeId: decision.id,
+      port: "cases",
+      reason: "decisionCases",
+    });
+  return issues;
+}
+
+/**
+ * A decision that reads a parameter, a ticket or a text result needs a sequence input.
+ *
+ * @remarks
+ * A data input alone never starts a decision. Only the boolean edge of an
+ * agent keeps starting it without one, as every decision before PAGE-286 did.
+ */
+function sequenceIssues(
+  decision: AgentPlanDecision,
+  flat: AgentPlanInput,
+): AgentPlanIssue[] {
+  if (!planDecisionBinding(decision)) return [];
+  const hasSequence = flat.edges.some(
+    (edge) =>
+      edge.to === decision.id &&
+      (planEdgeKind(edge) === "flow" || planEdgeKind(edge) === "branch"),
+  );
+  return hasSequence
+    ? []
+    : [
+        {
+          nodeId: decision.id,
+          port: PLAN_PORT.flowIn,
+          reason: "decisionSequence",
+        },
+      ];
+}
+
+/** Every decision of the plan with its own findings: its input, sequence and model settings. */
 function conditionIssues(
   plan: AgentPlanInput,
   isExecution: boolean,
 ): AgentPlanIssue[] {
-  return plan.nodes.flatMap((node): AgentPlanIssue[] => {
+  const flat = flatPlan(plan);
+  return flat.nodes.flatMap((node): AgentPlanIssue[] => {
     if (node.type !== "decision") return [];
-    const count = plan.edges.filter(
-      (edge) => edge.to === node.id && planEdgeKind(edge) === "condition",
-    ).length;
-    const isMissing = isExecution && count === 0;
-    return count > 1 || isMissing
-      ? [
-          {
-            nodeId: node.id,
-            port: PLAN_PORT.conditionIn,
-            reason: "decisionCondition",
-          },
-        ]
-      : [];
+    // A half-done model decision can be saved; it only may not start.
+    return [
+      ...inputIssues(node, plan, flat, isExecution),
+      ...(isExecution
+        ? [...modelIssues(node), ...sequenceIssues(node, flat)]
+        : []),
+    ];
   });
 }
 
-/** Both outputs of a decision lead somewhere, so no evaluation ends in a dead end. */
+/**
+ * Every output of a decision leads somewhere, and no edge leaves an output it does not have.
+ *
+ * @remarks
+ * Yes or no and booleans have two outputs, a classification one per value.
+ * An edge of a value that was deleted, or of `true-out` after a switch to a
+ * classification, is a port that no longer exists.
+ */
 function branchIssues(plan: AgentPlanInput): AgentPlanIssue[] {
-  return plan.nodes.flatMap((node): AgentPlanIssue[] => {
+  const flat = flatPlan(plan);
+  return flat.nodes.flatMap((node): AgentPlanIssue[] => {
     if (node.type !== "decision") return [];
-    return [PLAN_PORT.trueOut, PLAN_PORT.falseOut].flatMap(
-      (port): AgentPlanIssue[] =>
-        plan.edges.some(
-          (edge) => edge.from === node.id && edge.fromPort === port,
-        )
+    const ports = planDecisionOutputPorts(node);
+    const leaving = flat.edges.filter(
+      (edge) => edge.from === node.id && planEdgeKind(edge) === "branch",
+    );
+    return [
+      ...ports.flatMap((port): AgentPlanIssue[] =>
+        leaving.some((edge) => edge.fromPort === port)
           ? []
           : [{ nodeId: node.id, port, reason: "decisionBranch" }],
-    );
+      ),
+      ...leaving
+        .filter((edge) => !ports.includes(edge.fromPort))
+        .map((edge): AgentPlanIssue => ({
+          nodeId: node.id,
+          port: edge.fromPort,
+          reason: "port",
+        })),
+    ];
   });
 }
 
@@ -354,20 +550,22 @@ function branchIssues(plan: AgentPlanInput): AgentPlanIssue[] {
  * @param agents - The agents the editor or the server knows.
  *
  * @remarks
- * A decision, boolean result or event belongs to the top level of a plan: a
- * group or loop keeps its own session policy, and a remote runner has no
- * place to keep an open session between two starts.
+ * An event belongs to the top level of a plan: a group or loop keeps its own
+ * session policy, and a remote runner has no place to keep an open session
+ * between two starts. A decision and a boolean result may stand in a group or
+ * loop too, as long as their edges stay inside it (PAGE-286).
  */
 export function planBranchingIssues(
   plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): readonly AgentPlanIssue[] {
+  const flat = flatPlan(plan);
   return [
     ...boundaryIssues(plan),
     ...eventRegionIssues(plan),
     ...conditionIssues(plan, false),
-    ...plan.nodes.flatMap((node) =>
-      node.type === "agent" ? stepIssues(node, plan, agents) : [],
+    ...flat.nodes.flatMap((node) =>
+      node.type === "agent" ? stepIssues(node, flat, agents) : [],
     ),
   ];
 }

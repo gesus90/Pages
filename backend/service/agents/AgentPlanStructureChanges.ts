@@ -8,7 +8,14 @@ import {
   ungroupPlanGroup,
 } from "@/definition/AgentPlanGroupEdit";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
-import { emptyPlanDecision } from "@/definition/AgentPlanBranchingEdit";
+import {
+  emptyPlanDecision,
+  setPlanDecisionInput,
+} from "@/definition/AgentPlanBranchingEdit";
+import {
+  findPlanDecision,
+  placePlanDecision,
+} from "@/definition/AgentPlanDecisionEdit";
 import {
   planFrameMoveNeedsRepair,
   planFrameUngroupNeedsRepair,
@@ -44,6 +51,7 @@ import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type {
+  AgentPlanDecision,
   AgentPlanInput,
   AgentPlanNode,
   AgentPlanParameter,
@@ -93,7 +101,8 @@ function nextPosition(plan: AgentPlanInput): { x: number; y: number } {
 function findNode(plan: AgentPlanInput, id: string): AgentPlanNode {
   const node =
     plan.nodes.find((entry) => entry.id === id) ??
-    findPlanBindingTarget(plan, id);
+    findPlanBindingTarget(plan, id) ??
+    findPlanDecision(plan, id)?.decision;
   if (!node) throw refused("element_missing");
   return node;
 }
@@ -386,10 +395,25 @@ function connect(
   return disconnected;
 }
 
+/** The data input of a decision is its one binding, named `input` (PAGE-286). */
+function bindDecision(
+  plan: AgentPlanInput,
+  change: Extract<AgentPlanChange, { action: "bind" | "unbind" }>,
+  decision: AgentPlanDecision,
+): AgentPlanInput {
+  if (change.parameter !== "input") throw refused("element_missing");
+  if (change.action === "bind")
+    return setPlanDecisionInput(plan, decision.id, change.binding);
+  if (!decision.input) throw refused("element_missing");
+  return setPlanDecisionInput(plan, decision.id, null);
+}
+
 function bindInput(
   plan: AgentPlanInput,
   change: Extract<AgentPlanChange, { action: "bind" | "unbind" }>,
 ): AgentPlanInput {
+  const decision = findPlanDecision(plan, change.nodeId)?.decision;
+  if (decision) return bindDecision(plan, change, decision);
   const step = findInputNode(plan, change.nodeId);
   if (change.action === "bind")
     return replacePlanNode(plan, {
@@ -512,6 +536,7 @@ function placeMember(
   change: Extract<AgentPlanChange, { action: "placeNode" | "placeLoopNode" }>,
   context: AgentPlanChangeContext,
 ): AgentPlanChangeResult {
+  if (findPlanDecision(plan, change.nodeId)) return placeDecision(plan, change);
   const location = findPlanNodeLocation(plan, change.nodeId);
   if (!location) throw refused("element_missing");
   if (
@@ -571,4 +596,25 @@ function placeMember(
   if (planFrameMoveNeedsRepair(plan, change.nodeId, change.groupId, result))
     throw refused("plan_frame_repair_required");
   return { plan: result.plan, createdNodeIds: [] };
+}
+
+/**
+ * Moves a decision into a group or loop or out to the top level (PAGE-286).
+ *
+ * @remarks
+ * As for agents, a move that would drop a connection needs a repair first:
+ * a condition or branch edge joins nodes of one container only.
+ */
+function placeDecision(
+  plan: AgentPlanInput,
+  change: Extract<AgentPlanChange, { action: "placeNode" | "placeLoopNode" }>,
+): AgentPlanChangeResult {
+  const moved = placePlanDecision(plan, {
+    decisionId: change.nodeId,
+    frameId: change.groupId,
+    position: { x: change.x, y: change.y },
+  });
+  if (!moved) throw refused("element_missing");
+  if (moved.removedEdges > 0) throw refused("plan_frame_repair_required");
+  return { plan: moved.plan, createdNodeIds: [] };
 }

@@ -3,6 +3,7 @@ import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import {
   expandPlanLoops,
   planLoopEdges,
+  planLoopDecisions,
   planLoopGroups,
   planLoopMembers,
 } from "@/definition/AgentPlanLoop";
@@ -512,7 +513,15 @@ function flattenPlanLoopGroups(plan: AgentPlan): AgentPlan {
     ...plan,
     nodes: plan.nodes.map((node) =>
       node.type === "loop" && planLoopGroups(node).length > 0
-        ? { ...node, steps: planLoopMembers(node), edges: planLoopEdges(node) }
+        ? {
+            ...node,
+            steps: planLoopMembers(node),
+            edges: planLoopEdges(node),
+            // A decision inside such a group decides in the iteration like one of the loop.
+            ...(planLoopDecisions(node).length > 0
+              ? { decisions: planLoopDecisions(node) }
+              : {}),
+          }
         : node,
     ),
   };

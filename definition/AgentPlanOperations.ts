@@ -28,6 +28,7 @@ import type {
 } from "./AgentPlanStartRejection.js";
 import type { AgentReadChunk } from "./AgentReadChunks.js";
 import type { AgentParameter, AgentParameterValue } from "./AgentParameters.js";
+import type * as Decision from "./AgentPlanDecisionEntry.js";
 import type { AgentPlanAsset, AgentPlanAssetEntry } from "./AgentPlanAsset.js";
 import type { PageAgentSharingEntry } from "./PageAgentOperations.js";
 
@@ -176,7 +177,8 @@ export interface AgentPlanGroupEdgeEntry {
  * Declared here instead of importing the group of the plan model, because the
  * MCP package type-checks this file on its own.
  */
-export interface AgentPlanGroupNodeEntry extends AgentPlanNodeBase {
+export interface AgentPlanGroupNodeEntry
+  extends AgentPlanNodeBase, Decision.AgentPlanFrameDecisions {
   readonly type: "group";
   readonly name: string;
   readonly steps: readonly AgentPlanGroupStepEntry[];
@@ -186,11 +188,11 @@ export interface AgentPlanGroupNodeEntry extends AgentPlanNodeBase {
   readonly bindings: Readonly<Record<string, AgentPlanBindingEntry>>;
 }
 
-/** A single named value; numbers and JSON reach text ports as text. */
+/** A single named value; numbers and JSON reach text ports as text, a boolean holds the text `true` or `false`. */
 export interface AgentPlanParameterNodeEntry extends AgentPlanNodeBase {
   readonly type: "parameter";
   readonly name: string;
-  readonly format: "string" | "number" | "json";
+  readonly format: "string" | "number" | "json" | "boolean";
   readonly value: AgentParameterValue;
 }
 
@@ -248,7 +250,8 @@ export interface AgentPlanGitCloseoutNodeEntry extends AgentPlanNodeBase {
  * Declared here for the same reason as the group: the MCP package checks this
  * file on its own. The loop's own settings are listed as the plan stores them.
  */
-export interface AgentPlanLoopNodeEntry extends AgentPlanNodeBase {
+export interface AgentPlanLoopNodeEntry
+  extends AgentPlanNodeBase, Decision.AgentPlanFrameDecisions {
   readonly type: "loop";
   readonly name: string;
   readonly steps: readonly (
@@ -295,13 +298,7 @@ export interface AgentPlanStackNodeEntry extends AgentPlanNodeBase {
   readonly name: string;
   readonly entries: readonly (
     | { readonly id: string; readonly type: "task"; readonly taskId: string }
-    | {
-        readonly id: string;
-        readonly type: "parameter";
-        readonly name: string;
-        readonly format: "string" | "number" | "json";
-        readonly value: AgentParameterValue;
-      }
+    | Omit<AgentPlanParameterNodeEntry, "label" | "x" | "y">
     | AgentPlanAssetEntry
   )[];
 }
@@ -317,7 +314,7 @@ export type AgentPlanNodeEntry =
   | AgentPlanParameterNodeEntry
   // An asset source (PAGE-268); a node without a file is a draft.
   | (AgentPlanNodeBase & Pick<AgentPlanAsset, "type" | "name" | "file">)
-  | (AgentPlanNodeBase & { readonly type: "start" | "end" | "decision" })
+  | Decision.AgentPlanControlNodeEntry
   | (AgentPlanNodeBase & { readonly type: "task"; readonly taskId: string })
   | (AgentPlanNodeBase & { readonly type: "variable"; readonly name: string });
 

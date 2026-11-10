@@ -30,6 +30,10 @@ import { readPlanLoopCondition, readPlanLoopWhile } from "./AgentPlanLoopInput";
 import { readAgentObject } from "./AgentPayload";
 import { readCompletionGate } from "./AgentPlanWorkInput";
 import { readPlanAssetFile, readPlanAssetNode } from "./AgentPlanAssetInput";
+import {
+  readPlanContainedDecisions,
+  readPlanDecisionNode,
+} from "./AgentPlanDecisionInput";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type {
@@ -160,13 +164,7 @@ export function readPlanNode(input: unknown): AgentPlanNode {
       file: node.file,
     });
   if (node.type === "decision")
-    return {
-      ...base,
-      type: "decision",
-      ...(node.name === undefined
-        ? {}
-        : { name: readPlanText(node.name, 120) }),
-    };
+    return readPlanDecisionNode(node, base, readPlanBinding);
   if (node.type === "task")
     return { ...base, type: "task", taskId: readPlanText(node.taskId) };
   if (node.type === "variable") {
@@ -359,6 +357,12 @@ function readEdge(input: unknown): AgentPlanEdge {
   };
 }
 
+const PARAMETER_ERRORS = {
+  json: "plan_json_invalid",
+  number: "plan_number_invalid",
+  boolean: "plan_boolean_invalid",
+} as const;
+
 function readParameterNode(
   node: Record<string, unknown>,
   base: AgentPlanPosition & { readonly id: string },
@@ -367,7 +371,10 @@ function readParameterNode(
   const format = node.format;
   if (
     !isAgentParameterName(name) ||
-    (format !== "string" && format !== "number" && format !== "json")
+    (format !== "string" &&
+      format !== "number" &&
+      format !== "json" &&
+      format !== "boolean")
   )
     throw new AgentError("plan_invalid");
   const parameter: AgentPlanParameter = {
@@ -378,10 +385,7 @@ function readParameterNode(
     value: readAgentParameterValue(node.value),
   };
   const issue = planValueIssue(parameter);
-  if (issue !== null)
-    throw new AgentError(
-      issue === "json" ? "plan_json_invalid" : "plan_number_invalid",
-    );
+  if (issue !== null) throw new AgentError(PARAMETER_ERRORS[issue]);
   return parameter;
 }
 
@@ -525,6 +529,7 @@ function readGroupNode(
     steps,
     // Absent edges mark a group saved before them; it keeps reading as the chain of its members.
     ...(node.edges === undefined ? {} : { edges: readGroupEdges(node.edges) }),
+    ...readPlanContainedDecisions(node.decisions, readPlanNode),
     parameters,
     bindings: readBindings(node.bindings),
   };
@@ -573,6 +578,7 @@ function readLoopNode(
     type: "loop",
     name: readPlanText(node.name, PLAN_LOOP_NAME_LENGTH),
     steps,
+    ...readPlanContainedDecisions(node.decisions, readPlanNode),
     edges: readGroupEdges(node.edges),
     runs: node.runs,
     runsSource: node.runsSource,

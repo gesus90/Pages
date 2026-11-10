@@ -2,6 +2,7 @@ import { planLoopStacks } from "./AgentPlanStack";
 
 import type {
   AgentPlanBinding,
+  AgentPlanDecision,
   AgentPlanEdge,
   AgentPlanInput,
   AgentPlanPosition,
@@ -132,6 +133,14 @@ export interface AgentPlanLoop extends AgentPlanPosition {
   readonly type: "loop";
   readonly name: string;
   readonly steps: readonly AgentPlanLoopContent[];
+  /**
+   * Decisions of the iterations (PAGE-286); absent in loops without one.
+   *
+   * @remarks
+   * A decision decides anew in every iteration, and what it skips is skipped
+   * for that iteration only.
+   */
+  readonly decisions?: readonly AgentPlanDecision[];
   /** Flow edges between members, which alone decide the order within an iteration. */
   readonly edges: readonly AgentPlanEdge[];
   /** The saved number of iterations; used only while `runsSource` is `value`. */
@@ -360,12 +369,13 @@ export function planLoopOf(
   return plan.nodes.find(
     (node): node is AgentPlanLoop =>
       node.type === "loop" &&
-      node.steps.some(
+      (node.steps.some(
         (step) =>
           step.id === memberId ||
           (step.type === "group" &&
             step.steps.some((entry) => entry.id === memberId)),
-      ),
+      ) ||
+        planLoopDecisions(node).some((decision) => decision.id === memberId)),
   );
 }
 
@@ -385,7 +395,9 @@ export function expandPlanLoops<Plan extends AgentPlanInput>(plan: Plan): Plan {
   const loops = plan.nodes.filter((node) => node.type === "loop");
   if (loops.length === 0) return plan;
   const nodes = plan.nodes.flatMap<AgentPlanNode>((node) =>
-    node.type === "loop" ? planLoopMembers(node) : [node],
+    node.type === "loop"
+      ? [...planLoopMembers(node), ...planLoopDecisions(node)]
+      : [node],
   );
   const edges: AgentPlanEdge[] = [];
   for (const edge of plan.edges) {
@@ -422,13 +434,24 @@ export function planLoopScopeEdges(
   ];
 }
 
-/** The ids of the nodes of one iteration: the runnable members and the stacks the loop triggers. */
+/** The decisions of a loop, those inside its groups included. */
+export function planLoopDecisions(
+  loop: Pick<AgentPlanLoop, "steps" | "decisions">,
+): readonly AgentPlanDecision[] {
+  return [
+    ...(loop.decisions ?? []),
+    ...planLoopGroups(loop).flatMap((group) => group.decisions ?? []),
+  ];
+}
+
+/** The ids of the nodes of one iteration: the runnable members, the decisions and the stacks the loop triggers. */
 export function planLoopScopeIds(
   plan: Pick<AgentPlanInput, "nodes" | "edges">,
   loop: AgentPlanLoop,
 ): readonly string[] {
   return [
     ...planLoopMembers(loop).map((member) => member.id),
+    ...planLoopDecisions(loop).map((decision) => decision.id),
     ...planLoopStacks(plan, loop.id).map((stack) => stack.id),
   ];
 }

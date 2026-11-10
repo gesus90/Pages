@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { planGroupRefusal } from "@/definition/AgentPlanGroup";
+import { placePlanDecision } from "@/definition/AgentPlanDecisionEdit";
 import { placePlanStep } from "@/definition/AgentPlanGroupEdit";
 import { placePlanLoopNode } from "@/definition/AgentPlanLoopEdit";
 
@@ -179,6 +180,15 @@ function joinFrame(
 ): AgentPlanInput | null {
   const { node, group } = target;
   const position = memberOffset(group, node);
+  // A decision may stand in a group or a loop too (PAGE-286).
+  if (node.type === "decision")
+    return (
+      placePlanDecision(plan, {
+        decisionId: node.id,
+        frameId: group.id,
+        position,
+      })?.plan ?? null
+    );
   if (group.type === "loop") {
     if (node.type !== "agent" && node.type !== "script") return plan;
     const joined = placePlanLoopNode(

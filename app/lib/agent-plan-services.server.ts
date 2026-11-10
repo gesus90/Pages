@@ -36,6 +36,7 @@ import { AgentPlanGitCloseoutRuntime } from "@/backend/service/agents/AgentPlanG
 import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
+import { AgentPlanDecisionModel } from "@/backend/service/agents/branching/AgentPlanDecisionModel";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
@@ -607,6 +608,11 @@ async function createPlanEngine(
         locator: new CliLocator(),
       }),
     ),
+    decisions: new AgentPlanDecisionModel({
+      execution: input.agents.agentPlanExecution,
+      profiles: input.agents.agentProfileService,
+      tasks: parts.tasks,
+    }),
     runs: parts.runs,
     start: parts.start,
     resources: input.agents.acpResourceScheduler,

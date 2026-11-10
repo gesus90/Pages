@@ -131,7 +131,10 @@ function resultFields(
     ...(result.activation !== undefined && result.activation > 1
       ? { pass: result.activation }
       : {}),
-    ...(result.branch === undefined ? {} : { branch: result.branch }),
+    // The protocol knows true and false only; the value of a classification stays out of it.
+    ...(result.branch === "true" || result.branch === "false"
+      ? { branch: result.branch }
+      : {}),
   };
 }
 

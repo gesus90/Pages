@@ -100,8 +100,15 @@ export interface AcpDriverErrors {
   readonly sessionFailed: AgentErrorCode;
 }
 
-/** What a session serves: a plan node, or a conversation with Pica. */
-export type AcpSessionPurpose = "plan" | "chat";
+/**
+ * What a session serves: a plan node, a conversation with Pica, or the model of a decision.
+ *
+ * @remarks
+ * A `decision` session (PAGE-286) reads only its prompt and answers once: a
+ * driver with a profile of its own denies every tool, every other driver runs
+ * its read-only plan profile in an empty directory without the Pages MCP server.
+ */
+export type AcpSessionPurpose = "plan" | "chat" | "decision";
 
 /** What starting the adapter for one session needs; nothing of it is free user input. */
 export interface AcpLaunchSpecification {

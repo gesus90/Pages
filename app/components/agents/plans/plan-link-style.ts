@@ -1,3 +1,5 @@
+import { planBranchChannel } from "./plan-links";
+
 import type { PlanLinkChannel } from "./plan-links";
 import type { PlanConnection } from "./use-plan-connections";
 
@@ -16,6 +18,7 @@ export const PLAN_LINK_STROKE: Readonly<Record<PlanLinkChannel, string>> = {
   condition: "var(--color-plan-logic-edge)",
   true: "var(--color-success)",
   false: "var(--color-warning)",
+  case: "var(--color-plan-logic-edge)",
   event: "var(--color-info)",
 };
 
@@ -28,6 +31,7 @@ export const PLAN_LINK_DASH: Readonly<
   condition: "5 4",
   true: undefined,
   false: undefined,
+  case: undefined,
   event: "9 5",
 };
 
@@ -38,6 +42,7 @@ export const PLAN_LINK_LABEL_TONE: Readonly<Record<PlanLinkChannel, string>> = {
   condition: "border-plan-logic-edge/60 border-dashed text-plan-logic",
   true: "border-success/50 font-semibold text-success",
   false: "border-warning/50 font-semibold text-warning",
+  case: "border-plan-logic-edge/60 font-semibold text-plan-logic",
   event: "border-info/50 border-dashed text-info",
 };
 
@@ -45,7 +50,7 @@ export const PLAN_LINK_LABEL_TONE: Readonly<Record<PlanLinkChannel, string>> = {
 export function planConnectionChannel(
   connection: PlanConnection,
 ): PlanLinkChannel {
-  if (connection.kind === "branch") return connection.branch;
+  if (connection.kind === "branch") return planBranchChannel(connection.branch);
   if (connection.kind === "passed") return "condition";
   return connection.kind === "flow" ? "flow" : "data";
 }

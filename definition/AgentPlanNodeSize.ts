@@ -1,6 +1,8 @@
 import { planStepTemplate } from "./AgentPlanConfiguration";
+import { planDecisionMode, planDecisionOutputPorts } from "./AgentPlanDecision";
 
 import type {
+  AgentPlanDecision,
   AgentPlanNode,
   AgentPlanPosition,
   AgentPlanSources,
@@ -34,8 +36,11 @@ const AGENT_BASE_HEIGHT = 172;
 const AGENT_INPUT_HEIGHT = 38;
 // The two optional rows of an agent, Ereignis IN and the boolean Ergebnis, with their gaps.
 const AGENT_BRANCHING_HEIGHT = 68;
-// Header, condition row with its binding chip, both outputs and the footer line.
-const PLAN_DECISION_HEIGHT = 237;
+// Header, sequence row, data row with its binding chip, two outputs and the footer line.
+const PLAN_DECISION_HEIGHT = 269;
+// One more output of a classification, and the question and model rows of a model decision.
+const DECISION_OUTPUT_HEIGHT = 36;
+const DECISION_MODEL_HEIGHT = 64;
 const PLAN_GIT_CLOSEOUT_HEIGHT = 200;
 /** The Stack card: wide enough for an entry's key and title beside its number. */
 export const PLAN_STACK_WIDTH = 300;
@@ -100,19 +105,34 @@ export function planStackHeight(stack: AgentPlanStack): number {
   );
 }
 
-function memberHeight(
-  member: AgentPlanStep | AgentPlanScript | AgentPlanGroup,
-  sources: AgentPlanSources,
-): number {
+/** A decision grows with its outputs and, as a model decision, with its question and model. */
+function decisionHeight(decision: AgentPlanDecision): number {
+  const outputs = Math.max(1, planDecisionOutputPorts(decision).length);
+  return (
+    PLAN_DECISION_HEIGHT +
+    Math.max(0, outputs - 2) * DECISION_OUTPUT_HEIGHT +
+    (planDecisionMode(decision) === "model" ? DECISION_MODEL_HEIGHT : 0)
+  );
+}
+
+/** What a frame shows: its members and its decisions (PAGE-286). */
+type FrameContent =
+  AgentPlanStep | AgentPlanScript | AgentPlanGroup | AgentPlanDecision;
+
+function frameContent(group: PlanFrame): readonly FrameContent[] {
+  return [...group.steps, ...(group.decisions ?? [])];
+}
+
+function memberHeight(member: FrameContent, sources: AgentPlanSources): number {
   if (member.type === "group") return groupHeight(member, sources);
+  if (member.type === "decision") return decisionHeight(member);
   return member.type === "script"
     ? scriptHeight(member)
     : agentHeight(member, sources);
 }
 
-function memberWidth(
-  member: AgentPlanStep | AgentPlanScript | AgentPlanGroup,
-): number {
+function memberWidth(member: FrameContent): number {
+  if (member.type === "decision") return PLAN_DECISION_WIDTH;
   return member.type === "group" ? planGroupWidth(member) : PLAN_AGENT_WIDTH;
 }
 
@@ -120,7 +140,7 @@ function memberWidth(
 export function planGroupWidth(group: PlanFrame): number {
   const right = Math.max(
     0,
-    ...group.steps.map((step) => step.x + memberWidth(step)),
+    ...frameContent(group).map((step) => step.x + memberWidth(step)),
   );
   return Math.max(FRAME_MIN_WIDTH, right + 2 * PLAN_FRAME_PADDING);
 }
@@ -128,7 +148,7 @@ export function planGroupWidth(group: PlanFrame): number {
 function groupHeight(group: PlanFrame, sources: AgentPlanSources): number {
   const bottom = Math.max(
     0,
-    ...group.steps.map((step) => step.y + memberHeight(step, sources)),
+    ...frameContent(group).map((step) => step.y + memberHeight(step, sources)),
   );
   return (
     planGroupHeaderHeight(group) +
@@ -186,7 +206,6 @@ export function planNodeHeight(
     start: PLAN_ENDPOINT_HEIGHT,
     end: PLAN_ENDPOINT_HEIGHT,
     parameter: PLAN_PARAMETER_HEIGHT,
-    decision: PLAN_DECISION_HEIGHT,
     task: PLAN_TICKET_HEIGHT,
     variable: PLAN_VARIABLE_HEIGHT,
     asset: PLAN_ASSET_HEIGHT,
@@ -197,5 +216,6 @@ export function planNodeHeight(
   if (node.type === "script") return scriptHeight(node);
   if (node.type === "git_closeout") return PLAN_GIT_CLOSEOUT_HEIGHT;
   if (node.type === "stack") return planStackHeight(node);
+  if (node.type === "decision") return decisionHeight(node);
   return heights[node.type];
 }

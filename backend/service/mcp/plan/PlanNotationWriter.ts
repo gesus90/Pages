@@ -84,8 +84,15 @@ function edgeStatement(edge: AgentPlanEdge): string {
   const link = `${id(edge.from)} -> ${id(edge.to)}`;
   const kind = planEdgeKind(edge);
   if (kind === "flow") return `${link};`;
-  if (kind === "branch")
-    return `${link} [branch=${planEdgeBranch(edge) ?? "true"}];`;
+  if (kind === "branch") {
+    const branch = planEdgeBranch(edge) ?? "true";
+    // A value output `case:<id>` is quoted; true and false stay words.
+    const entry =
+      branch === "true" || branch === "false"
+        ? wordEntry("branch", branch)
+        : textEntry("branch", branch);
+    return `${link}${planNotationAttributeList([entry])};`;
+  }
   if (kind === "condition")
     return `${link} [in=${PLAN_NOTATION_CONDITION_INPUT}];`;
   if (kind === "event") return `${link} [in=${PLAN_NOTATION_EVENT_INPUT}];`;
@@ -173,6 +180,18 @@ function bindingForms(
   );
 }
 
+/** The bound data input of a decision, written as the condition wire it is drawn as (PAGE-286). */
+function decisionInputEdges(node: AgentPlanNode): readonly string[] {
+  if (node.type !== "decision" || !node.input) return [];
+  const { input } = node;
+  const source = input.kind === "source" ? input.nodeId : null;
+  const result = input.kind === "result" ? input.stepId : null;
+  const from = source ?? result;
+  return from === null
+    ? []
+    : [`${id(from)} -> ${id(node.id)} [in=${PLAN_NOTATION_CONDITION_INPUT}];`];
+}
+
 function bindingEntries(
   forms: readonly BindingForm[],
 ): readonly PlanNotationEntry[] {
@@ -209,9 +228,10 @@ class PlanNotationDocumentWriter {
       lines.push(`${INDENT}${this.nodeStatement(node)}`);
     const edges = [
       ...plan.edges.map(edgeStatement),
-      ...plan.nodes.flatMap((node) =>
-        bindingEdges(bindingForms(node, this.context)),
-      ),
+      ...plan.nodes.flatMap((node) => [
+        ...bindingEdges(bindingForms(node, this.context)),
+        ...decisionInputEdges(node),
+      ]),
     ];
     if (edges.length > 0) lines.push("");
     for (const edge of edges) lines.push(`${INDENT}${edge}`);
@@ -247,12 +267,17 @@ class PlanNotationDocumentWriter {
     for (const member of frame.steps)
       if (isFrame(member)) lines.push(...this.frameLines(member, inner));
       else lines.push(`${inner}${this.nodeStatement(member)}`);
+    const decisions = frame.decisions ?? [];
+    for (const decision of decisions)
+      lines.push(`${inner}${this.nodeStatement(decision)}`);
     const edges = frame.type === "group" ? planGroupEdges(frame) : frame.edges;
     for (const edge of edges) lines.push(`${inner}${edgeStatement(edge)}`);
     for (const member of frame.steps)
       if (!isFrame(member))
         for (const edge of bindingEdges(bindingForms(member, this.context)))
           lines.push(`${inner}${edge}`);
+    for (const edge of decisions.flatMap(decisionInputEdges))
+      lines.push(`${inner}${edge}`);
     lines.push(`${indent}}`);
     return lines;
   }

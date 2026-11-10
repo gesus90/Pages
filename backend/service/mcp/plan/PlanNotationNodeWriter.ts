@@ -107,6 +107,7 @@ function parameterEntries(
   const impliedType =
     value.type === "number" && !text.startsWith('"') ? "number" : "text";
   const impliedFormat = value.type === "number" ? "number" : "string";
+  // A boolean is the text true or false, written with its format.
   return [
     ...nameEntries(node.name, node.id),
     ...(node.format === impliedFormat
@@ -244,10 +245,20 @@ function assetEntries(node: AgentPlanAsset): readonly PlanNotationEntry[] {
   ];
 }
 
+/** The settings of a decision; a decision of a plan before PAGE-286 writes its name only. */
 function decisionEntries(
   node: AgentPlanDecision,
 ): readonly PlanNotationEntry[] {
-  return node.name === undefined ? [] : [textEntry("name", node.name)];
+  return [
+    ...(node.name === undefined ? [] : [textEntry("name", node.name)]),
+    ...(node.mode === undefined ? [] : [wordEntry("mode", node.mode)]),
+    ...(node.question === undefined
+      ? []
+      : [textEntry("question", node.question)]),
+    ...(node.model === undefined ? [] : [jsonEntry("model", node.model)]),
+    ...(node.output === undefined ? [] : [wordEntry("output", node.output)]),
+    ...(node.cases === undefined ? [] : [jsonEntry("cases", node.cases)]),
+  ];
 }
 
 /**

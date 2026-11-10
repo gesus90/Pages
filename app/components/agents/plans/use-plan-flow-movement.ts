@@ -93,9 +93,9 @@ function movementNodes(
   }));
 }
 
-/** Agents and scripts can join a loop; only agents can join a group. */
+/** Agents and scripts can join a loop; only agents can join a group; a decision can join both. */
 function isPlaceable(type: AgentPlanInput["nodes"][number]["type"]): boolean {
-  return type === "agent" || type === "script";
+  return type === "agent" || type === "script" || type === "decision";
 }
 
 /** Tickets and values can join a stack as entries. */

@@ -2,11 +2,33 @@ import { useTranslation } from "react-i18next";
 
 import { planStatusKey } from "./plan-status";
 
-import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { TFunction } from "i18next";
+import type {
+  AgentPlanStepActivation,
+  AgentPlanStepResult,
+} from "@/definition/AgentPlan";
+import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
+
+/** The word of an output: true or false, or the value a model named for a classification. */
+function branchWord(
+  t: TFunction,
+  branch: AgentPlanBranch,
+  start: Pick<AgentPlanStepActivation, "verdict">,
+): string {
+  if (branch === "true" || branch === "false")
+    return t(`plans.decision.branch.${branch}`);
+  return typeof start.verdict?.decision === "string"
+    ? start.verdict.decision
+    : t("plans.decision.caseUnnamed");
+}
 
 /** Whether a result belongs to a decision: it names the output it activated or the value it read. */
 export function isPlanDecisionResult(step: AgentPlanStepResult): boolean {
-  return step.branch !== undefined || step.condition !== undefined;
+  return (
+    step.branch !== undefined ||
+    step.condition !== undefined ||
+    step.verdict !== undefined
+  );
 }
 
 /**
@@ -29,10 +51,18 @@ export function PlanStatusHistory(props: {
       {step.branch === undefined ? null : (
         <p className="font-medium wrap-anywhere">
           {t("plans.run.branchTaken", {
-            branch: t(`plans.decision.branch.${step.branch}`),
+            branch: branchWord(t, step.branch, step),
           })}
         </p>
       )}
+      {step.verdict ? (
+        <p data-plan-verdict-reason="" className="wrap-anywhere">
+          {t("plans.decision.reason", { reason: step.verdict.reason })}
+          {step.verdict.isCorrected
+            ? ` · ${t("plans.decision.corrected")}`
+            : ""}
+        </p>
+      ) : null}
       {history.length > 0 ? (
         <section aria-label={t("plans.run.history")}>
           <h4 className="font-semibold">{t("plans.run.history")}</h4>
@@ -54,7 +84,12 @@ export function PlanStatusHistory(props: {
                   entry.branch === undefined
                     ? null
                     : t("plans.run.branchTaken", {
-                        branch: t(`plans.decision.branch.${entry.branch}`),
+                        branch: branchWord(t, entry.branch, entry),
+                      }),
+                  entry.verdict === undefined
+                    ? null
+                    : t("plans.decision.reason", {
+                        reason: entry.verdict.reason,
                       }),
                 ]
                   .filter(Boolean)

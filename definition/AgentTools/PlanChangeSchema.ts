@@ -9,8 +9,10 @@ import {
 
 import type { PropertySchema, ToolProperties } from "./ToolDefinition.js";
 
-/** Text parameter validation formats accepted by the plan editor. */
-export const FORMAT: PropertySchema = { enum: ["string", "number", "json"] };
+/** Parameter formats accepted by the plan editor; `boolean` holds the text `true` or `false`. */
+export const FORMAT: PropertySchema = {
+  enum: ["string", "number", "json", "boolean"],
+};
 
 /** Typed plan values used by parameters, defaults and literal bindings. */
 export const VALUE: PropertySchema = {
@@ -109,7 +111,7 @@ const STACK_ENTRIES: PropertySchema = {
           id: PLAN_NODE_IDENTIFIER_SCHEMA,
           type: { const: "parameter" },
           name: { type: "string", minLength: 1, maxLength: 64 },
-          format: { enum: ["string", "number", "json"] },
+          format: FORMAT,
           value: VALUE,
         },
         required: ["id", "type", "name", "format", "value"],
@@ -254,7 +256,52 @@ const NODE_FIELDS: ToolProperties = {
   executionTarget: EXECUTION_TARGET,
   runs: { type: "integer", minimum: 1, maximum: 999 },
   runsSource: { enum: ["value", "parameter"] },
-  mode: { enum: ["count", "while"] },
+  mode: {
+    enum: ["count", "while", "boolean", "model"],
+    description:
+      "loop: count or while. decision: boolean (default; reads a boolean parameter or an agent's passed-out without a model) or model (asks the chosen ACP model the question about one ticket or text result).",
+  },
+  question: {
+    type: "string",
+    maxLength: 4000,
+    description:
+      "decision in model mode: the question the model answers about its source.",
+  },
+  model: {
+    type: "object",
+    description:
+      "decision in model mode: the model of an ACP connection, as list_agent_models names it.",
+    properties: {
+      connectionId: PLAN_NODE_IDENTIFIER_SCHEMA,
+      provider: {
+        enum: ["codex_cli", "claude_code", "opencode", "antigravity"],
+      },
+      model: { type: "string", minLength: 1, maxLength: 300 },
+      reasoningEffort: { type: ["string", "null"], maxLength: 40 },
+    },
+    required: ["connectionId", "provider", "model", "reasoningEffort"],
+    additionalProperties: false,
+  },
+  output: {
+    enum: ["boolean", "classification"],
+    description:
+      "decision in model mode: boolean answers yes or no (outputs true-out and false-out); classification answers one value of cases, each with its own output port case:<id>.",
+  },
+  cases: {
+    type: "array",
+    maxItems: 20,
+    description:
+      "decision classification: 2 to 20 values; ids are stable, so renaming keeps the connection of case:<id>. Names are unique ignoring case, at most 60 characters.",
+    items: {
+      type: "object",
+      properties: {
+        id: PLAN_NODE_IDENTIFIER_SCHEMA,
+        name: { type: "string", maxLength: 60 },
+      },
+      required: ["id", "name"],
+      additionalProperties: false,
+    },
+  },
   while: {
     oneOf: [
       { type: "null" },
@@ -355,6 +402,11 @@ const NODE_FIELDS: ToolProperties = {
   },
   format: FORMAT,
   value: VALUE,
+  input: {
+    ...BINDING,
+    description:
+      "decision: the data input. boolean mode: source of a boolean parameter; model mode: source of a ticket node or result of an agent or script. An agent's boolean result is an edge passed-out -> condition-in instead.",
+  },
   configuration: CONFIGURATION,
   ...SCRIPT_FIELDS,
 };
@@ -375,8 +427,10 @@ const PORT: PropertySchema = { type: "string", minLength: 1, maxLength: 100 };
  * A connection between two nodes, optionally through named ports.
  *
  * @remarks
- * `fromPort` and `toPort` come together, Pages refuses one alone: `true-out`/`false-out` of a decision,
- * `passed-out` into `condition-in`, `value-out` into `event-in`, a ticket or
+ * `fromPort` and `toPort` come together, Pages refuses one alone: `true-out`/`false-out`
+ * or `case:<id>` of a decision into `flow-in`, `passed-out` into `condition-in`,
+ * `value-out` of a boolean parameter, a ticket, an agent or a script into the
+ * `condition-in` of a decision, `value-out` into `event-in`, a ticket or
  * value node with `value-out` into the `flow-in` of a stack, or `flow-out`
  * into `flow-in`.
  */

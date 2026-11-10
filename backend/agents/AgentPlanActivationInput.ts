@@ -1,4 +1,8 @@
-import { PLAN_ACTIVATION_LIMIT } from "@/definition/AgentPlanBranching";
+import {
+  PLAN_ACTIVATION_LIMIT,
+  isPlanBranch,
+} from "@/definition/AgentPlanBranching";
+import { PLAN_DECISION_REASON_LENGTH } from "@/definition/AgentPlanDecision";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { readAgentObject } from "./AgentPayload";
@@ -13,6 +17,7 @@ import type {
   AgentPlanStepStatus,
 } from "@/definition/AgentPlan";
 import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
+import type { AgentPlanDecisionVerdict } from "@/definition/AgentPlanDecision";
 
 const STATUSES: readonly AgentPlanStepStatus[] = [
   "waiting",
@@ -40,7 +45,7 @@ function readCount(input: unknown): number {
 }
 
 function readBranch(input: unknown): AgentPlanBranch {
-  if (input !== "true" && input !== "false") throw invalid();
+  if (!isPlanBranch(input) || input.length > 120) throw invalid();
   return input;
 }
 
@@ -82,10 +87,45 @@ function readTrigger(input: unknown): AgentPlanActivationTrigger {
 function readCondition(input: unknown): AgentPlanDecisionInput {
   const condition = readAgentObject(input);
   if (typeof condition.value !== "boolean") throw invalid();
+  if (
+    condition.sourceKind !== undefined &&
+    condition.sourceKind !== "parameter"
+  )
+    throw invalid();
   return {
     sourceStepId: readPlanText(condition.sourceStepId),
     sourceActivation: readCount(condition.sourceActivation),
     value: condition.value,
+    ...(condition.sourceKind === undefined
+      ? {}
+      : { sourceKind: condition.sourceKind }),
+  };
+}
+
+/** Reads what the model of a decision answered (PAGE-286). */
+function readVerdict(input: unknown): AgentPlanDecisionVerdict {
+  const verdict = readAgentObject(input);
+  const { decision, reason, isCorrected } = verdict;
+  if (
+    (typeof decision !== "boolean" &&
+      (typeof decision !== "string" || decision.length > 60)) ||
+    typeof reason !== "string" ||
+    reason.length > PLAN_DECISION_REASON_LENGTH ||
+    typeof isCorrected !== "boolean"
+  )
+    throw invalid();
+  return {
+    decision,
+    ...(verdict.caseId === undefined
+      ? {}
+      : { caseId: readPlanText(verdict.caseId) }),
+    reason,
+    model: readPlanText(verdict.model, 300),
+    sourceStepId: readPlanText(verdict.sourceStepId),
+    ...(verdict.sourceActivation === undefined
+      ? {}
+      : { sourceActivation: readCount(verdict.sourceActivation) }),
+    isCorrected,
   };
 }
 
@@ -100,7 +140,7 @@ function readStartFacts(
   entry: Record<string, unknown>,
 ): Pick<
   AgentPlanStepActivation,
-  "passed" | "branch" | "condition" | "trigger"
+  "passed" | "branch" | "condition" | "verdict" | "trigger"
 > {
   if (entry.passed !== undefined && typeof entry.passed !== "boolean")
     throw invalid();
@@ -110,6 +150,9 @@ function readStartFacts(
     ...(entry.condition === undefined
       ? {}
       : { condition: readCondition(entry.condition) }),
+    ...(entry.verdict === undefined
+      ? {}
+      : { verdict: readVerdict(entry.verdict) }),
     ...(entry.trigger === undefined
       ? {}
       : { trigger: readTrigger(entry.trigger) }),
@@ -140,7 +183,13 @@ export function readPlanActivationFields(
   step: Record<string, unknown>,
 ): Pick<
   AgentPlanStepResult,
-  "activation" | "passed" | "branch" | "condition" | "trigger" | "history"
+  | "activation"
+  | "passed"
+  | "branch"
+  | "condition"
+  | "verdict"
+  | "trigger"
+  | "history"
 > {
   if (step.history !== undefined && !Array.isArray(step.history))
     throw invalid();

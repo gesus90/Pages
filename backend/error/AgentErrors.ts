@@ -76,6 +76,7 @@ export const AGENT_ERROR_MESSAGES = {
     'OpenCode Zen refused its free tier for this request ("only within OpenCode"). Zen serves its free models only to sessions with OpenCode\'s own tools; Pica runs without them on purpose, plan agents are not affected. No other model was used. For Pica, choose a model of a provider with a key in Pages, such as a free OpenRouter model.',
   plan_json_invalid: "Enter one valid JSON value with finite numbers.",
   plan_number_invalid: "Enter one finite number.",
+  plan_boolean_invalid: "Choose true or false.",
   plan_run_unavailable: "This run is no longer active. Start a new run.",
   plan_run_unreadable:
     "The stored record of this run is damaged and cannot be read.",
@@ -283,7 +284,9 @@ export const AGENT_ERROR_MESSAGES = {
   plan_loop_session_lost:
     "The retained ACP session of a loop agent is unavailable after its adapter process ended. Pages does not open a new session under the same identity; deliberately start a new run.",
   plan_decision_input_invalid:
-    "A decision found no valid boolean result of its agent: the agent did not finish, or the same result was already evaluated. The decision is never treated as false.",
+    "A decision found no valid value for this activation: its input is missing, of the wrong kind or not readable, or its settings are incomplete. No output was activated, and the decision is never treated as false.",
+  plan_decision_answer_invalid:
+    "The model of the decision did not answer with exactly one valid JSON object, also not after one correction. No output was activated.",
   plan_event_prompt_empty:
     "The result sent to the event input of this agent holds no usable new information, so the agent was not started again. Nothing was replaced by an empty or invented prompt.",
   plan_event_prompt_too_large:

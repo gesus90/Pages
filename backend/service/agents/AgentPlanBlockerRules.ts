@@ -181,6 +181,8 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   plan_loop_condition_type: "form",
   plan_loop_session_lost: "infrastructure",
   plan_decision_input_invalid: "form",
+  plan_decision_answer_invalid: "form",
+  plan_boolean_invalid: "form",
   plan_event_prompt_empty: "form",
   plan_event_prompt_too_large: "form",
   plan_activation_limit: "open",

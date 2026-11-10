@@ -82,6 +82,11 @@ export interface AgentPlanIssue {
     | "loopProvider"
     | "decisionCondition"
     | "decisionBranch"
+    | "decisionInput"
+    | "decisionSequence"
+    | "decisionModel"
+    | "decisionQuestion"
+    | "decisionCases"
     | "eventOrder"
     | "eventFanout"
     | "eventNesting"
@@ -119,6 +124,7 @@ export interface AgentPlanIssue {
     | "name"
     | "json"
     | "number"
+    | "boolean"
     | "scriptConfiguration"
     | "scriptReportTarget"
     | "scriptReportGate"
@@ -228,7 +234,12 @@ function edgeIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   const seen = new Set<string>();
   for (const edge of plan.edges) {
     issues.push(...planEdgeEndpointIssues(plan, edge));
-    const key = JSON.stringify([edge.from, edge.to]);
+    // Two outputs of a decision, or an agent's boolean beside its flow, may join the same pair of nodes.
+    const key = JSON.stringify(
+      planEdgeKind(edge) === "flow"
+        ? [edge.from, edge.to]
+        : [edge.from, edge.to, edge.fromPort, edge.toPort],
+    );
     if (seen.has(key))
       issues.push({ nodeId: edge.to, port: edge.toPort, reason: "duplicate" });
     seen.add(key);
@@ -555,7 +566,7 @@ function flowNodeIssues(
   if (node.type !== "start" && !ordering.some((edge) => edge.to === node.id))
     issues.push({
       nodeId: node.id,
-      port: node.type === "decision" ? "condition-in" : "flow-in",
+      port: "flow-in",
       reason: "flowIn",
     });
   if (node.type !== "end" && !plan.edges.some((edge) => edge.from === node.id))

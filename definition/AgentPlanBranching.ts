@@ -1,3 +1,5 @@
+import { planDecisionCaseId } from "./AgentPlanDecision";
+
 import type { AgentPlanEdge, AgentPlanInput } from "./AgentPlan";
 
 /**
@@ -36,8 +38,14 @@ export const PLAN_PORT = {
  */
 export type AgentPlanEdgeKind = "flow" | "branch" | "condition" | "event";
 
-/** The branch of a decision a result belongs to. */
-export type AgentPlanBranch = "true" | "false";
+/**
+ * The branch of a decision a result belongs to.
+ *
+ * @remarks
+ * A value of a classification is its output port `case:<id>` (PAGE-286), so
+ * the branch and the port of the edge it activates are the same text.
+ */
+export type AgentPlanBranch = "true" | "false" | `case:${string}`;
 
 /**
  * How often one node may start again inside one run.
@@ -64,7 +72,11 @@ export function planEdgeKind(
   const { fromPort, toPort } = edge;
   if (toPort === PLAN_PORT.flowIn) {
     if (fromPort === PLAN_PORT.flowOut) return "flow";
-    if (fromPort === PLAN_PORT.trueOut || fromPort === PLAN_PORT.falseOut)
+    if (
+      fromPort === PLAN_PORT.trueOut ||
+      fromPort === PLAN_PORT.falseOut ||
+      planDecisionCaseId(fromPort) !== null
+    )
       return "branch";
     return null;
   }
@@ -80,14 +92,24 @@ export function planEdgeBranch(
   edge: Pick<AgentPlanEdge, "fromPort">,
 ): AgentPlanBranch | null {
   if (edge.fromPort === PLAN_PORT.trueOut) return "true";
-  return edge.fromPort === PLAN_PORT.falseOut ? "false" : null;
+  if (edge.fromPort === PLAN_PORT.falseOut) return "false";
+  const caseId = planDecisionCaseId(edge.fromPort);
+  return caseId === null ? null : `case:${caseId}`;
 }
 
 /** The output port of a decision for a branch. */
-export function planBranchPort(
-  branch: AgentPlanBranch,
-): typeof PLAN_PORT.trueOut | typeof PLAN_PORT.falseOut {
-  return branch === "true" ? PLAN_PORT.trueOut : PLAN_PORT.falseOut;
+export function planBranchPort(branch: AgentPlanBranch): string {
+  if (branch === "true") return PLAN_PORT.trueOut;
+  return branch === "false" ? PLAN_PORT.falseOut : branch;
+}
+
+/** Narrows a text to a branch: `true`, `false` or `case:<id>`. */
+export function isPlanBranch(value: unknown): value is AgentPlanBranch {
+  return (
+    value === "true" ||
+    value === "false" ||
+    (typeof value === "string" && planDecisionCaseId(value) !== null)
+  );
 }
 
 /** Whether the edge returns an event; such an edge orders nothing. */
@@ -147,22 +169,47 @@ export function planReceivesEvents(
   return plan.edges.some((edge) => edge.to === stepId && isPlanEventEdge(edge));
 }
 
+/**
+ * Every edge of a plan: the outer ones and those inside its groups and loops.
+ *
+ * @remarks
+ * A decision inside a group or loop (PAGE-286) keeps its condition and branch
+ * edges with the container, like the flow edges between members.
+ */
+export function planContainedEdges(
+  plan: Pick<AgentPlanInput, "edges"> & {
+    readonly nodes?: AgentPlanInput["nodes"];
+  },
+): readonly AgentPlanEdge[] {
+  const inner = (plan.nodes ?? []).flatMap((node): readonly AgentPlanEdge[] => {
+    if (node.type === "group") return node.edges ?? [];
+    if (node.type !== "loop") return [];
+    return [
+      ...node.edges,
+      ...node.steps.flatMap((member) =>
+        member.type === "group" ? (member.edges ?? []) : [],
+      ),
+    ];
+  });
+  return inner.length === 0 ? plan.edges : [...plan.edges, ...inner];
+}
+
 /** Whether a decision reads the boolean result of the agent, which is then reported as passed or not. */
 export function planReportsPassed(
-  plan: Pick<AgentPlanInput, "edges">,
+  plan: Parameters<typeof planContainedEdges>[0],
   stepId: string,
 ): boolean {
-  return plan.edges.some(
+  return planContainedEdges(plan).some(
     (edge) => edge.from === stepId && edge.fromPort === PLAN_PORT.passedOut,
   );
 }
 
 /** The agent whose boolean result a decision reads, or `null` without exactly one. */
 export function planConditionSource(
-  plan: Pick<AgentPlanInput, "edges">,
+  plan: Parameters<typeof planContainedEdges>[0],
   decisionId: string,
 ): string | null {
-  const sources = plan.edges.filter(
+  const sources = planContainedEdges(plan).filter(
     (edge) => edge.to === decisionId && planEdgeKind(edge) === "condition",
   );
   return sources.length === 1 ? (sources[0]?.from ?? null) : null;

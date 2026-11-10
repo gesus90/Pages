@@ -1,4 +1,9 @@
-import { connectPlanBranching } from "@/definition/AgentPlanBranchingEdit";
+import { isPlanBranch } from "@/definition/AgentPlanBranching";
+import {
+  connectPlanBranching,
+  setPlanDecisionInput,
+} from "@/definition/AgentPlanBranchingEdit";
+import { planDecisionMode } from "@/definition/AgentPlanDecision";
 import { isPlanResultNode } from "@/definition/AgentPlanGraph";
 import {
   bindPlanParameter,
@@ -26,6 +31,7 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
+import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
 import type { PlanNotationAttributes } from "./PlanNotationAttributes";
 import type { PlanNotationIssueCode } from "./PlanNotationIssue";
 
@@ -33,7 +39,8 @@ import type { PlanNotationIssueCode } from "./PlanNotationIssue";
 export interface PlanNotationEdgeSpec {
   /** The input a data edge enters; absent for a flow or branch edge. */
   readonly input?: string;
-  readonly branch?: "true" | "false";
+  /** `true`, `false` or the value output `case:<id>` of a classification. */
+  readonly branch?: AgentPlanBranch;
   readonly output?: "content" | "count";
   readonly isPrevious: boolean;
 }
@@ -52,7 +59,10 @@ export function readPlanNotationEdgeSpec(
   attributes: PlanNotationAttributes,
 ): PlanNotationEdgeSpec {
   const input = attributes.text("in");
-  const branch = attributes.choice("branch", ["true", "false"]);
+  const written = attributes.text("branch");
+  const branch = isPlanBranch(written) ? written : undefined;
+  if (written !== undefined && branch === undefined)
+    attributes.invalid("branch");
   const out = attributes.choice("out", ["entry", "count"]);
   const isPrevious = attributes.boolean("previous") ?? false;
   attributes.finish();
@@ -151,6 +161,45 @@ function connectData(
   return { plan: bindPlanParameter(plan, target.id, input.name, binding) };
 }
 
+/**
+ * The data input of a decision (PAGE-286): an agent's boolean as an edge, or a bound parameter, ticket or text result.
+ *
+ * @remarks
+ * An agent feeds a boolean decision its boolean result and a model decision
+ * its text result, so the mode of the decision decides which one is meant.
+ */
+function connectDecisionInput(
+  plan: AgentPlanInput,
+  link: { readonly source: AgentPlanNode; readonly target: AgentPlanNode },
+): PlanNotationEdgeResult {
+  const { source, target } = link;
+  if (target.type !== "decision") return refused("unknown_port", target.id);
+  if (target.input !== undefined) return refused("duplicate_field", target.id);
+  const isModel = planDecisionMode(target) === "model";
+  if (source.type === "agent" && !isModel)
+    return {
+      plan: connectPlanBranching(plan, {
+        kind: "condition",
+        from: source.id,
+        to: target.id,
+      }),
+    };
+  if (source.type === "parameter" || source.type === "task")
+    return {
+      plan: setPlanDecisionInput(plan, target.id, {
+        kind: "source",
+        nodeId: source.id,
+      }),
+    };
+  if (!isPlanResultNode(source)) return refused("unknown_port", source.id);
+  return {
+    plan: setPlanDecisionInput(plan, target.id, {
+      kind: "result",
+      stepId: source.id,
+    }),
+  };
+}
+
 /** A condition or an event: the two inputs a wire, not a binding, enters. */
 function connectWire(
   plan: AgentPlanInput,
@@ -159,8 +208,8 @@ function connectWire(
 ): PlanNotationEdgeResult {
   const { source, target } = link;
   const isCondition = kind === "condition";
-  if (isCondition ? source.type !== "agent" : !isPlanResultNode(source))
-    return refused("unknown_port", source.id);
+  if (isCondition) return connectDecisionInput(plan, link);
+  if (!isPlanResultNode(source)) return refused("unknown_port", source.id);
   if (target.type !== (isCondition ? "decision" : "agent"))
     return refused("unknown_port", target.id);
   return {

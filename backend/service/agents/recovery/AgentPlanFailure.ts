@@ -30,6 +30,7 @@ const FAILURE_CLASSES: Readonly<Record<string, AgentPlanFailureClass>> = {
   plan_work_gate_unavailable: "configuration",
   plan_work_gate_write_required: "approval",
   plan_decision_input_invalid: "configuration",
+  plan_decision_answer_invalid: "business",
   plan_event_prompt_empty: "configuration",
   plan_event_prompt_too_large: "configuration",
   plan_activation_limit: "configuration",
