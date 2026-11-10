@@ -200,6 +200,28 @@ const CHAT_PROFILE: CodexAcpProfile = {
 };
 
 /**
+ * The group observer (PAGE-296): Pica's model on the stock runner in an empty
+ * directory, without command, app, plugin or web tool and without any MCP
+ * server; Pages refuses every request, so it answers with text alone.
+ */
+const OBSERVER_PROFILE: CodexAcpProfile = {
+  ...READ_ONLY_PROFILE,
+  configuration: {
+    ...READ_ONLY_PROFILE.configuration,
+    web_search: "disabled",
+  },
+  unattended:
+    "ACP session mode read-only for the group observer in an empty directory; no shell, web or MCP tool, and Pages refuses every request",
+  permissions: {
+    ...READ_ONLY_PROFILE.permissions,
+    files: "none",
+    web: "off",
+    pagesMcp: "none",
+  },
+  decide: refusePermission,
+};
+
+/**
  * The conversation of an agent employee with full access: every native tool
  * of Codex inside the bubblewrap isolation, which a YOLO session never runs
  * without, on the stock runner instead of the native Pica build, and the
@@ -222,7 +244,8 @@ const CHAT_FULL_ACCESS_PROFILE: CodexAcpProfile = {
  * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
  * @param purpose - A Pica conversation takes the chat profile; the caller
  * decides beforehand which stored mode it accepts for it. Only an agent
- * employee with full access reaches the chat purpose in YOLO.
+ * employee with full access reaches the chat purpose in YOLO. The group
+ * observer always runs without tools, whatever the mode.
  * @returns Session mode, configuration and the recorded permissions.
  */
 export function codexAcpProfile(
@@ -231,5 +254,6 @@ export function codexAcpProfile(
 ): CodexAcpProfile {
   if (purpose === "chat")
     return mode === "yolo" ? CHAT_FULL_ACCESS_PROFILE : CHAT_PROFILE;
+  if (purpose === "observer") return OBSERVER_PROFILE;
   return mode === "yolo" ? YOLO_PROFILE : READ_ONLY_PROFILE;
 }

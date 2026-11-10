@@ -443,6 +443,7 @@ async function startMcpWorkspace(context: {
       database: context.database,
       cache: context.serverCache,
       acp: chat.picaAcpService,
+      observer: context.agents,
       conversations: {
         directory,
         events: context.tasks.pagesEventPublisher,

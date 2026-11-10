@@ -3738,6 +3738,29 @@
       "search": "Search participants …",
       "allMembers": "All your participants are already members of this group."
     },
+    "groupContext": {
+      "open": "Group context",
+      "title": "Group context of {{name}}",
+      "description": "A summary of this group kept in the background for its members and agents. It is derived; the messages themselves stay binding.",
+      "loading": "Loading the group context …",
+      "failed": "The group context is not available right now.",
+      "empty": "No valid summary yet.",
+      "noStand": "No state yet",
+      "stand": "State: up to message #{{sequence}}, {{moment}}",
+      "pending_one": "{{count}} newer message not summarized yet",
+      "pending_other": "{{count}} newer messages not summarized yet",
+      "decisions": "Decisions",
+      "openItems": "Open points",
+      "responsibilities": "Responsibilities",
+      "excerpts": "Some long messages entered as an excerpt only.",
+      "reason": "Reason: {{code}}",
+      "status": {
+        "current": "Current",
+        "behind": "Behind",
+        "unavailable": "Not available",
+        "rebuilding": "Being rebuilt"
+      }
+    },
     "voice": {
       "label": "Voice message · {{duration}}",
       "player": "Play voice message",

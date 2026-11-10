@@ -33,7 +33,11 @@ function sessionAgent(specification: AcpLaunchSpecification): {
       permission: OPENCODE_PICA_PERMISSIONS,
       isPica,
     };
-  if (specification.purpose === "decision")
+  // The group observer (PAGE-296) runs the same agent without any tool.
+  if (
+    specification.purpose === "decision" ||
+    specification.purpose === "observer"
+  )
     return {
       mode: OPENCODE_DECISION_MODE,
       permission: OPENCODE_DECISION_PERMISSIONS,
@@ -72,7 +76,9 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
     if (!model) throw new AgentError("plan_model_unavailable");
     const modelProvider = model.model.split("/")[0];
     const isChat = specification.purpose === "chat";
-    const isDecision = specification.purpose === "decision";
+    const isDecision =
+      specification.purpose === "decision" ||
+      specification.purpose === "observer";
     const { mode, permission, isPica } = sessionAgent(specification);
     return {
       environment: {

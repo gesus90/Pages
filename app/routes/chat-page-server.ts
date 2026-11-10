@@ -9,6 +9,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
 import type { ConversationErrorCode } from "@/definition/Conversation";
+import type { ConversationGroupContextView } from "@/definition/ConversationObserver";
 import type { User } from "@/definition/User";
 import type {
   VirtualChatDirectory,
@@ -26,6 +27,8 @@ export type ChatPageActionData =
       readonly groupId?: string;
       /** A page of older messages, the answer of `history` (PAGE-275). */
       readonly history?: VirtualChatHistoryPage;
+      /** The stored context of a group, the answer of `group-context` (PAGE-296). */
+      readonly groupContext?: ConversationGroupContextView;
     }
   | {
       readonly ok: false;
@@ -44,12 +47,14 @@ export type ChatPageIntent =
   | "send-direct"
   | "read"
   | "mute"
-  | "history";
+  | "history"
+  | "group-context";
 
-/** What a change yields besides success: a created group or a page of older messages. */
+/** What a change yields besides success: a created group, a page of older messages or a group context. */
 interface ChatIntentOutcome {
   readonly groupId?: string;
   readonly history?: VirtualChatHistoryPage;
+  readonly groupContext?: ConversationGroupContextView;
 }
 
 const INTENTS: readonly ChatPageIntent[] = [
@@ -63,6 +68,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "read",
   "mute",
   "history",
+  "group-context",
 ];
 
 /** How a refused conversation request reads on the page (PAGE-278). */
@@ -247,6 +253,13 @@ async function runIntent(
     case "mute":
     case "history":
       return runMemberIntent(services, person, intent, formData);
+    case "group-context":
+      return {
+        groupContext: await services.conversationContextReader.forMember(
+          person,
+          formData.get("conversationId"),
+        ),
+      };
   }
 }
 

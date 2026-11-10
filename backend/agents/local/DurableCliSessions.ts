@@ -21,15 +21,16 @@ export class DurableCliSessions implements PlanSessionRunner {
    * Starts plan work through the durable owner after the existing authorization boundary.
    *
    * @remarks
-   * The short session of a decision model has no transcript to keep and no
-   * turn to resume, so it runs directly, still under the resource scheduler.
+   * The short session of a decision model or the group observer has no
+   * transcript to keep and no turn to resume, so it runs directly, still
+   * under the resource scheduler.
    */
   public open(
     input: AgentPlanSessionInput,
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSession> {
-    return input.chat || input.purpose === "decision" || !input.resourceContext
+    return input.chat || input.purpose !== undefined || !input.resourceContext
       ? this.direct.open(input, signal, observer)
       : this.local.open(input, signal, observer);
   }

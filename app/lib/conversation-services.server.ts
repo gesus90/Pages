@@ -5,9 +5,18 @@ import { ConversationRepository } from "@/backend/database/repositories/conversa
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
+import { ConversationGroupContextRepository } from "@/backend/database/repositories/conversation/ConversationGroupContextRepository";
+import { ConversationObserverRunRepository } from "@/backend/database/repositories/conversation/ConversationObserverRunRepository";
+import { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { ConversationAgentReplies } from "@/backend/service/conversation/ConversationAgentReplies";
+import { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
 import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
+import { ConversationGroupSummaries } from "@/backend/service/conversation/ConversationGroupSummaries";
+import { ConversationGroupSummaryScheduler } from "@/backend/service/conversation/ConversationGroupSummaryScheduler";
+import { ConversationObserverModel } from "@/backend/service/conversation/ConversationObserverModel";
+import { ConversationObserverRouting } from "@/backend/service/conversation/ConversationObserverRouting";
 import { ConversationReader } from "@/backend/service/conversation/ConversationReader";
 import { ConversationService } from "@/backend/service/conversation/ConversationService";
 import { createConversationTranscriber } from "@/backend/service/conversation/ConversationTranscriber";
@@ -16,8 +25,11 @@ import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { voiceMaximumDurationMs } from "@/backend/config/SpeechRecognitionConfig";
 
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
+import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
+import type { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import type { Database } from "@/backend/database/Database";
 import type { ConversationAgentRunner } from "@/backend/service/conversation/ConversationAgentReplies";
+import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { User } from "@/definition/User";
 
@@ -27,6 +39,8 @@ export interface ConversationApplicationServices {
   readonly conversationService: ConversationService;
   /** The answers of agents in conversations (PAGE-276). */
   readonly conversationAgentReplies: ConversationAgentReplies;
+  /** The stored context of groups (PAGE-296). */
+  readonly conversationContextReader: ConversationContextReader;
   /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
   readonly conversationVoiceMaximumMs: number;
 }
@@ -41,10 +55,28 @@ export interface ConversationServicesInput {
   readonly runner: ConversationAgentRunner;
   /** The speech model and the longest recording of `config.toml` (PAGE-277). */
   readonly speech?: SpeechRecognitionSetting;
+  /** The group observer on Pica's chat model (PAGE-296). */
+  readonly observer: ConversationObserverInput;
+}
+
+/** What the group observer runs on (PAGE-296). */
+export interface ConversationObserverInput {
+  /** Pica's central model choice and its authorized resolver. */
+  readonly pica: Pick<PicaSettingsService, "resolve" | "requireCurrent">;
+  /** The ACP path its sessions open on; `null` without one. */
+  readonly plans: PlanExecution | null;
+  /** The simulated observer; set only while the simulation is on. */
+  readonly simulation: SimulatedConversationObserver | null;
+  /**
+   * Whether this process runs the background work: the summaries and the
+   * end of answers an earlier process left open.
+   */
+  readonly isBackgroundOwner: boolean;
 }
 
 declare global {
   var pagesConversationAgentReplies: (() => void) | undefined;
+  var pagesConversationSummaries: ConversationGroupSummaryScheduler | undefined;
 }
 
 /**
@@ -95,20 +127,31 @@ export function createConversationServices(
     files,
   });
   const events = sharedConversationEvents();
+  const observer = createObserver(input, {
+    conversations,
+    messages,
+    directory,
+  });
   const conversationAgentReplies = new ConversationAgentReplies({
     conversations,
     messages,
     directory,
     runner: input.runner,
+    rounds: observer.rounds,
+    contexts: observer.reader,
+    routing: observer.routing,
     events,
     publisher: input.events,
   });
   globalThis.pagesConversationAgentReplies?.();
   globalThis.pagesConversationAgentReplies = conversationAgentReplies.start();
+  if (input.observer.isBackgroundOwner)
+    startObserverBackground(conversationAgentReplies, observer.summaries);
   const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
   return {
     conversationReader,
     conversationAgentReplies,
+    conversationContextReader: observer.reader,
     conversationVoiceMaximumMs,
     conversationService: new ConversationService({
       conversations,
@@ -122,4 +165,72 @@ export function createConversationServices(
       publisher: input.events,
     }),
   };
+}
+
+/** The parts of the group observer (PAGE-296). */
+interface ObserverParts {
+  readonly rounds: ConversationRoundRepository;
+  readonly reader: ConversationContextReader;
+  readonly routing: ConversationObserverRouting;
+  readonly summaries: ConversationGroupSummaries;
+}
+
+function createObserver(
+  input: ConversationServicesInput,
+  shared: {
+    readonly conversations: ConversationRepository;
+    readonly messages: ConversationMessageRepository;
+    readonly directory: ConversationDirectory;
+  },
+): ObserverParts {
+  const { database } = input;
+  const rounds = new ConversationRoundRepository(database);
+  const contexts = new ConversationGroupContextRepository(database);
+  const reader = new ConversationContextReader({ ...shared, contexts });
+  const model = new ConversationObserverModel({
+    pica: input.observer.pica,
+    plans: input.observer.plans,
+    runs: new ConversationObserverRunRepository(database),
+    simulation: input.observer.simulation,
+  });
+  return {
+    rounds,
+    reader,
+    routing: new ConversationObserverRouting({
+      messages: shared.messages,
+      contexts: reader,
+      model,
+    }),
+    summaries: new ConversationGroupSummaries({
+      ...shared,
+      contexts,
+      rounds,
+      model,
+    }),
+  };
+}
+
+/**
+ * Ends the answers an earlier process left open and starts the summaries of
+ * groups; a second wiring replaces the scheduler of the first.
+ */
+function startObserverBackground(
+  replies: ConversationAgentReplies,
+  summaries: ConversationGroupSummaries,
+): void {
+  // Only what an earlier process left: answers of this process keep running.
+  const processStartedAt = new Date(Date.now() - process.uptime() * 1000);
+  void replies.recover(processStartedAt).catch((error: unknown) => {
+    logCaughtError("ConversationAgentReplies", error);
+  });
+  const previous = globalThis.pagesConversationSummaries;
+  void previous?.shutdown().catch((error: unknown) => {
+    logCaughtError("ConversationGroupSummaryScheduler", error);
+  });
+  const scheduler = new ConversationGroupSummaryScheduler(
+    summaries,
+    sharedConversationEvents(),
+  );
+  scheduler.start();
+  globalThis.pagesConversationSummaries = scheduler;
 }

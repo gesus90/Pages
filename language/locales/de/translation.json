@@ -3738,6 +3738,29 @@
       "search": "Teilnehmer suchen …",
       "allMembers": "Alle deine Teilnehmer sind schon Mitglied dieser Gruppe."
     },
+    "groupContext": {
+      "open": "Gruppenkontext",
+      "title": "Gruppenkontext von {{name}}",
+      "description": "Eine im Hintergrund gepflegte Zusammenfassung dieser Gruppe für ihre Mitglieder und Agents. Sie ist abgeleitet; verbindlich bleiben die Nachrichten selbst.",
+      "loading": "Gruppenkontext wird geladen …",
+      "failed": "Der Gruppenkontext ist gerade nicht verfügbar.",
+      "empty": "Noch keine gültige Zusammenfassung.",
+      "noStand": "Noch kein Stand",
+      "stand": "Stand: bis Nachricht #{{sequence}}, {{moment}}",
+      "pending_one": "{{count}} neuere Nachricht noch nicht zusammengefasst",
+      "pending_other": "{{count}} neuere Nachrichten noch nicht zusammengefasst",
+      "decisions": "Entscheidungen",
+      "openItems": "Offene Punkte",
+      "responsibilities": "Zuständigkeiten",
+      "excerpts": "Einige lange Nachrichten sind nur als Auszug eingegangen.",
+      "reason": "Grund: {{code}}",
+      "status": {
+        "current": "Aktuell",
+        "behind": "Rückständig",
+        "unavailable": "Nicht verfügbar",
+        "rebuilding": "Wird neu aufgebaut"
+      }
+    },
     "voice": {
       "label": "Sprachnachricht · {{duration}}",
       "player": "Sprachnachricht abspielen",

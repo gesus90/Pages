@@ -78,6 +78,8 @@ export interface PicaAcpEmployeeRun {
   readonly requireConnection: (connectionId: string) => Promise<void>;
   /** Searches the agent's own memory archive. */
   readonly searchMemory: (query: string) => Promise<unknown>;
+  /** Reads a group of the agent's own account (PAGE-296). */
+  readonly readConversationContext?: (input: unknown) => Promise<unknown>;
 }
 
 /** What a new job is started from; the agent is resolved by the caller for this message. */
@@ -390,6 +392,9 @@ export class PicaAcpService {
       ...this.dependencies,
       requireCurrent: () => employee.requireCurrent(),
       searchMemory: (query) => employee.searchMemory(query),
+      ...(employee.readConversationContext
+        ? { readConversationContext: employee.readConversationContext }
+        : {}),
       access: {
         requireUser: (userId, connectionId) =>
           employee.requireConnection(connectionId),

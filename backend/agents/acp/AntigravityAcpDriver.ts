@@ -166,6 +166,22 @@ const CHAT_FULL_ACCESS_PROFILE: AcpSessionProfile = {
   },
 };
 
+/**
+ * The group observer (PAGE-296): no native tool and no MCP server; Pages
+ * refuses every request, so it answers with text alone.
+ */
+const OBSERVER_PROFILE: AcpSessionProfile = {
+  ...CHAT_PROFILE,
+  unattended:
+    "Official Antigravity ACP for the group observer; no native tool, no MCP server, every request refused",
+  permissions: {
+    ...CHAT_PROFILE.permissions,
+    tools: "none",
+    mcpServers: "none",
+  },
+  decide: refusePermission,
+};
+
 /** The official adapter, shared with the existing plan session lifecycle. */
 export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
   provider: "antigravity",
@@ -183,6 +199,7 @@ export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
     agent?.name === "antigravity-acp" &&
     agent.version === ANTIGRAVITY_ACP_VERSION,
   profile: (mode, purpose) => {
+    if (purpose === "observer") return OBSERVER_PROFILE;
     if (purpose !== "chat") return profile(mode);
     return mode === "yolo" ? CHAT_FULL_ACCESS_PROFILE : CHAT_PROFILE;
   },
@@ -191,6 +208,12 @@ export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
       [RUN_INSTANCE_VARIABLE]: specification.instanceId,
       BROWSER: "/bin/true",
     };
+    if (specification.purpose === "observer")
+      return {
+        environment,
+        mcpServers: [],
+        sessionMeta: { antigravity: { enabledTools: [] } },
+      };
     // Pica's bridge comes with the chat session itself; only full access enables the native tools.
     if (specification.purpose === "chat")
       return {

@@ -1,6 +1,7 @@
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
+import { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
@@ -9,6 +10,7 @@ import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRe
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
+import { ConversationError } from "@/backend/error/ConversationError";
 import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
@@ -30,7 +32,10 @@ import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
+import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
+import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
+import type { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { ConversationApplicationServices } from "./conversation-services.server";
 
@@ -62,6 +67,14 @@ export interface EmployeeServicesInput {
     /** The speech model and the longest recording of `config.toml` (PAGE-277). */
     readonly speech?: SpeechRecognitionSetting;
   };
+  /** Pica's model choice and the ACP path the group observer runs on (PAGE-296). */
+  readonly observer: {
+    readonly picaSettingsService: Pick<
+      PicaSettingsService,
+      "resolve" | "requireCurrent"
+    >;
+    readonly agentPlanExecution: PlanExecution | null;
+  };
 }
 
 /**
@@ -85,6 +98,8 @@ export function createEmployeeServices(
   const languages = new UserSettingsRepository(database);
   const memory = new AgentMemoryService(store);
   const activity = new AgentActivityService(store);
+  // The reader exists once the conversations are wired below.
+  let contextReader: ConversationContextReader | null = null;
   const sessions = new AgentEmployeeSessions({
     store,
     users,
@@ -95,11 +110,26 @@ export function createEmployeeServices(
     memory,
     acp: input.acp,
     createSessionId: () => createChatSessionId(),
+    conversationContext: {
+      readForAgent: (agentId, request) =>
+        contextReader
+          ? contextReader.readForAgent(agentId, request)
+          : Promise.reject(new ConversationError("not_found")),
+    },
   });
   const simulation = currentAgentSimulationMode();
+  const isBackgroundOwner = !isLocalSessionOwner() && !isPagesRunsProcess();
   const conversations = createConversationServices({
     database,
     ...input.conversations,
+    observer: {
+      pica: input.observer.picaSettingsService,
+      plans: input.observer.agentPlanExecution,
+      simulation: simulation.isActive
+        ? new SimulatedConversationObserver(simulation)
+        : null,
+      isBackgroundOwner,
+    },
     runner: new AgentConversationAnswers({
       store,
       users,
@@ -110,6 +140,7 @@ export function createEmployeeServices(
         : null,
     }),
   });
+  contextReader = conversations.conversationContextReader;
   const learning = new AgentLearningService({
     store,
     users,
@@ -118,7 +149,7 @@ export function createEmployeeServices(
     memory,
     activity,
   });
-  if (input.acp && !isLocalSessionOwner() && !isPagesRunsProcess())
+  if (input.acp && isBackgroundOwner)
     new AgentLearningScheduler(store, learning).start();
   return {
     ...conversations,
