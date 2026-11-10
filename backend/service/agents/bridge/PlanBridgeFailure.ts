@@ -185,8 +185,7 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   scriptReportTarget: true,
   scriptReportGate: true,
   loopScriptUnsupported: true,
-  gitCloseoutConfiguration: true,
-  gitCloseoutRemote: true,
+  gitCloseoutUnsupported: true,
 };
 
 /** Findings a refusal carries at most. */

@@ -35,7 +35,15 @@ export function dispatchPlanLocalNode(
   context: PlanNodeDispatchContext,
 ): Promise<Partial<AgentPlanStepResult>> | null {
   const { writes, dependencies } = context;
-  if (node.type === "script" || node.type === "git_closeout")
+  // A Git closeout of an earlier version is never run, not even from a run frozen before the upgrade.
+  if (node.type === "git_closeout") {
+    active.dispatched.delete(node.id);
+    return Promise.resolve({
+      status: "failed",
+      error: "plan_git_closeout_unsupported",
+    });
+  }
+  if (node.type === "script")
     return dispatchPlanScript(active, node.id, controller, {
       scripts: dependencies.scripts,
       writes,

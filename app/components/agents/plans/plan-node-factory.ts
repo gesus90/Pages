@@ -3,7 +3,6 @@ import {
   copyPlanConfiguration,
   planConfigurationForModel,
 } from "@/definition/AgentPlanConfiguration";
-import { emptyPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 import { emptyPlanStack } from "@/definition/AgentPlanStack";
 import { emptyPlanAsset } from "@/definition/AgentPlanAsset";
@@ -20,7 +19,10 @@ import type {
 } from "@/definition/AgentPlanScript";
 
 /** The node types the palette adds by a reference; a script brings its whole configuration. */
-export type PlanReferenceKind = Exclude<AgentPlanNode["type"], "script">;
+export type PlanReferenceKind = Exclude<
+  AgentPlanNode["type"],
+  "script" | "git_closeout"
+>;
 
 // The plan page and the agent API remove nodes by the same rule.
 export { removePlanNode } from "@/definition/AgentPlanGraph";
@@ -108,7 +110,7 @@ export function createPlanNode(input: {
     : null;
 }
 
-/** The nodes that need nothing but a name: endpoints, loops, decisions, stacks, assets and closeouts. */
+/** The nodes that need nothing but a name: endpoints, loops, decisions, stacks and assets. */
 function containerNode(
   kind: PlanReferenceKind,
   reference: string,
@@ -118,10 +120,7 @@ function containerNode(
   if (kind === "loop") return emptyPlanLoop(base.id, reference, base);
   if (kind === "decision") return emptyPlanDecision(base.id, base);
   if (kind === "stack") return emptyPlanStack(base.id, reference, base);
-  if (kind === "asset") return emptyPlanAsset(base.id, reference, base);
-  return kind === "git_closeout"
-    ? emptyPlanGitCloseout(base.id, reference, base)
-    : null;
+  return kind === "asset" ? emptyPlanAsset(base.id, reference, base) : null;
 }
 
 function planAgentNode(

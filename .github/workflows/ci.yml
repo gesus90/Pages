@@ -3,6 +3,8 @@ name: ci
 on:
   push:
     branches: [main]
+    # A push of one of these tags additionally runs the full test job (PAGE-290).
+    tags: [ci_test, ci_test-*]
   pull_request:
   workflow_call:
 
@@ -37,3 +39,127 @@ jobs:
       - run: pnpm run check
 
       - run: pnpm run lint
+
+  # Tests and exact 100% coverage of both unit scopes, only for a pushed
+  # `ci_test` or `ci_test-<id>` tag. The plan `Pages Test` reads the job and step
+  # names, so they are a contract. Every gate after the installation runs even
+  # when an earlier one failed; any failed gate still fails the job.
+  pages-tests:
+    name: Pages tests (100% coverage)
+    if: >-
+      github.event_name == 'push' &&
+      (github.ref == 'refs/tags/ci_test' || startsWith(github.ref, 'refs/tags/ci_test-'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # The tagged commit itself, not the current state of a branch.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Tagged commit
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "Testing $GITHUB_REF_NAME at $GITHUB_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Browser reports must lie outside the checkout.
+          echo "PAGES_BROWSER_RESULTS=$RUNNER_TEMP/pages-browser-results" >> "$GITHUB_ENV"
+
+      # Reads the `packageManager` field of package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - id: install
+        run: pnpm install --frozen-lockfile
+
+      # `postgres:check` starts its own temporary instance from
+      # /usr/lib/postgresql/18/bin; the cluster the package creates stays unused.
+      - id: postgres-programs
+        name: PostgreSQL 18 programs
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-18
+
+      # `browser:test` installs Chromium itself; the system libraries need root.
+      - id: browser-libraries
+        name: Chromium system libraries
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Formatting
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm exec prettier --check .
+
+      - name: Check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm run check
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm run lint
+
+      # The two unit scopes run one after the other, never in parallel.
+      - name: Backend unit tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm run test:backend
+
+      - name: Frontend unit tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm run test:frontend
+
+      - name: Browser tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm run browser:test
+
+      - name: PostgreSQL check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm run postgres:check
+
+      # Raw counters per metric and file, the complete source population and a
+      # summary not older than the source; a missing summary fails.
+      - name: Backend coverage 100%
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: node scripts/qa-evidence.mjs coverage --scope pages --summary coverage/backend/coverage-summary.json --population backend
+
+      - name: Frontend coverage 100%
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: node scripts/qa-evidence.mjs coverage --scope pages --summary coverage/frontend/coverage-summary.json --population frontend
+
+      - name: Build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm run build
+
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        run: node scripts/ci-coverage-summary.mjs coverage/backend/coverage-summary.json coverage/frontend/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Backend coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-coverage-backend-${{ github.ref_name }}
+          path: coverage/backend/
+          if-no-files-found: warn
+
+      - name: Upload Frontend coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-coverage-frontend-${{ github.ref_name }}
+          path: coverage/frontend/
+          if-no-files-found: warn
+
+      - name: Upload browser test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-browser-reports-${{ github.ref_name }}
+          path: ${{ env.PAGES_BROWSER_RESULTS }}/
+          if-no-files-found: warn

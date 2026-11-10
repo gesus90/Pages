@@ -38,6 +38,7 @@ import {
 import { AgentPlanScripts } from "./AgentPlanScripts";
 import { AgentPlanCloning } from "./AgentPlanCloning";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
+import { requireNoNewGitCloseout } from "./AgentPlanGitCloseoutLegacy";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { PlanDependencies } from "./AgentPlanDependencies";
@@ -667,6 +668,7 @@ export class AgentPlanService {
       throw new AgentError("plan_access_denied");
     if (previous && proposed.revision !== previous.revision)
       throw new AgentError("plan_conflict");
+    requireNoNewGitCloseout(proposed, previous);
     // The workspace is resolved for the person who saves: the owner's access never stands in.
     const workspace = await this.resolveWorkspace(userId, proposed);
     if (workspace.executionTarget)

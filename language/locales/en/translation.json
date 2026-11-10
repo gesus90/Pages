@@ -885,7 +885,7 @@
         "plan_script_input_limit": "The script input JSON exceeds the 1 MiB UTF-8 limit.",
         "plan_script_spawn": "The configured interpreter could not be started. No replacement was used.",
         "plan_script_exit": "The script exited with an error. See its exit code and stderr in the run details.",
-        "plan_git_closeout_invalid": "The Git closeout needs a name, a check command and a time limit of 60 to 86400 seconds.",
+        "plan_git_closeout_unsupported": "The Git closeout node is no longer supported. Remove it, or replace it with an agent or script step that does the Git closeout, and start the plan again.",
         "plan_git_closeout_state": "The workspace is not ready for the Git closeout. The result in the run details names the cause; the remote is unchanged.",
         "plan_git_closeout_conflict": "The rebase on origin/main has conflicts. The result in the run details names the files; the work and the remote are unchanged.",
         "plan_git_closeout_secrets": "The diff contains credential-shaped content. The result in the run details names the files; nothing was pushed.",
@@ -4377,8 +4377,7 @@
       "scriptConfiguration": "Check the script configuration.",
       "scriptReportTarget": "Explicitly bind the review report to a following review script, repair agent or review gate.",
       "scriptReportGate": "Every path from a forwarded review report to End must pass a script review gate.",
-      "gitCloseoutConfiguration": "The Git closeout needs a name, a check command and a valid time limit.",
-      "gitCloseoutRemote": "The Git closeout only runs in a local plan: it cannot publish work done on another host.",
+      "gitCloseoutUnsupported": "The Git closeout node is no longer supported and does not run. Remove it from the node menu, or replace it with an agent or script step that does the Git closeout.",
       "loopScriptUnsupported": "Script members inside loops are not supported by this runtime. Keep the saved configuration and use an explicit plan step.",
       "remoteTicketUnavailable": "Ticket unavailable: archived, deleted or currently not visible. No other ticket is substituted.",
       "remoteWikiUnavailable": "Wiki page unavailable: archived, deleted or currently not visible. No other page is substituted.",
@@ -5084,7 +5083,6 @@
         "end": "End",
         "agent": "Agents",
         "script": "Script",
-        "git_closeout": "Git closeout",
         "parameter": "Parameter",
         "task": "Tickets",
         "group": "Groups",
@@ -5098,7 +5096,6 @@
         "end": "Add the end of a flow.",
         "agent": "Configure a step directly with a permitted model.",
         "script": "Run a script with a configured interpreter in the approved plan workspace.",
-        "git_closeout": "Publish the work as one commit to main without a model and delete the work branch afterwards.",
         "parameter": "Provide a named input value.",
         "task": "Use a readable ticket as a data source.",
         "group": "Organize agents in a shared ACP group.",
@@ -5154,21 +5151,16 @@
       "inputs_other": "{{count}} inputs"
     },
     "gitCloseout": {
-      "defaultName": "Git closeout",
-      "editTitle": "Edit Git closeout",
-      "description": "Runs without a model or agent: checks, rebases on origin/main, combines into one commit, pushes normally to main and then deletes the work branch. The work branch is named like the workspace, and the commit message names the bound ticket.",
       "name": "Name",
       "checkCommand": "Check command",
-      "checkCommandHint": "Shell command in the workspace. It runs before the push when a rebase changed the state. If it fails, nothing is pushed.",
       "checkCommandMissing": "Check command missing",
       "timeout": "Time limit in seconds",
-      "timeoutHint": "{{minimum}} to {{maximum}} seconds, for the whole step including the check command.",
-      "error": {
-        "name": "Enter a name.",
-        "checkCommand": "Enter a check command of at most {{maximum}} characters.",
-        "timeout": "Enter whole seconds from {{minimum}} to {{maximum}}."
-      },
-      "close": "Close"
+      "close": "Close",
+      "legacyTitle": "Git closeout (no longer supported)",
+      "legacySubtitle": "Git closeout · no longer supported",
+      "legacyHint": "No longer supported – remove or replace",
+      "legacyDescription": "This node comes from an earlier version and no longer runs; the plan starts only once it is removed. Do the Git closeout with an agent or script step of your own if you need it. Its saved settings and connections stay until you remove it.",
+      "remove": "Remove node"
     },
     "scripts": {
       "editTitle": "Edit script",

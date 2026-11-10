@@ -31,8 +31,6 @@ import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/Agen
 import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import { AgentPlanCleanupFailureRepository } from "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository";
 import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
-import { CliLocator } from "@/backend/agents/cli/CliLocator";
-import { AgentPlanGitCloseoutRuntime } from "@/backend/service/agents/AgentPlanGitCloseout";
 import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
@@ -599,15 +597,7 @@ async function createPlanEngine(
     localSessions: input.agents.localSessions ?? undefined,
     workGate: new AgentPlanWorkGate(input.database, input.users),
     remoteExecution: parts.remoteExecution,
-    scripts: new AgentPlanScriptRunner(
-      parts.scripts,
-      new AgentPlanGitCloseoutRuntime({
-        tasks: parts.tasks,
-        github: input.agents.agentPlanGitHubCredentials,
-        credentials: input.agents.agentCliGitHubCredentials,
-        locator: new CliLocator(),
-      }),
-    ),
+    scripts: new AgentPlanScriptRunner(parts.scripts),
     decisions: new AgentPlanDecisionModel({
       execution: input.agents.agentPlanExecution,
       profiles: input.agents.agentProfileService,

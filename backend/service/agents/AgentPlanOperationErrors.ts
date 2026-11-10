@@ -55,7 +55,7 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   plan_continuation_deleted: "plan_continuation_deleted",
   // Script nodes keep the codes of the plan page.
   plan_script_invalid: "plan_script_invalid",
-  plan_git_closeout_invalid: "plan_script_invalid",
+  plan_git_closeout_unsupported: "graph_invalid",
   plan_script_profile_missing: "plan_script_profile_missing",
 };
 

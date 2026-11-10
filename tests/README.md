@@ -17,8 +17,10 @@ choices, measured coverage and remaining gaps are in
 PAGE-33 extends and validates the Frontend suite using exactly
 `pnpm run test:frontend`. Its [behavioral analysis, boundaries and measured gaps](./frontend/README.md)
 are separate from PAGE-32; existing focused UI regressions remain selected.
-Pages CI test execution remains absent after PAGE-35; check and lint are non-test
-gates.
+Pages CI runs no tests on pushes to `main` and on pull requests; check and lint
+are non-test gates. Only a pushed `ci_test` or `ci_test-<id>` tag runs the tests
+with a mandatory 100% coverage verdict (PAGE-290, see the root README, "CI test
+tags").
 
 | Command                  | Discovery (relative to repository root) | Environment | Reports              |
 | ------------------------ | --------------------------------------- | ----------- | -------------------- |

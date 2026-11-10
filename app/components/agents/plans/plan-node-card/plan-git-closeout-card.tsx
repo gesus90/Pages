@@ -24,12 +24,13 @@ import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 
 /**
- * The Git closeout with its flow IN and OUT, its ticket and its result.
+ * A saved Git closeout of an earlier version, marked as no longer supported.
  *
  * @remarks
- * It has the width and the type color of a script, because it runs in the same
- * process boundary. In place of a model the card shows the check command, or
- * says that it is missing.
+ * The node (PAGE-285) keeps its flow ports, its ticket input and its result
+ * port, so its saved connections stay visible until someone removes it. In
+ * place of the check command the card says what to do with it; the recorded
+ * status of an earlier run stays readable.
  */
 export function PlanGitCloseoutCard(props: {
   readonly closeout: AgentPlanGitCloseout;
@@ -40,7 +41,6 @@ export function PlanGitCloseoutCard(props: {
   const { graph, canEdit, onEdit } = usePlanFlowContext();
   const { closeout, result } = props;
   const status = result?.status ?? "waiting";
-  const command = closeout.checkCommand.trim();
   function edit(): void {
     graph.select(closeout.id);
     onEdit?.(closeout.id);
@@ -50,7 +50,7 @@ export function PlanGitCloseoutCard(props: {
       node={closeout}
       label={closeout.name}
       title={closeout.name}
-      subtitle={t("plans.nodeType.git_closeout")}
+      subtitle={t("plans.gitCloseout.legacySubtitle")}
       runClass={props.hasRun ? planRunCardClass(result) : undefined}
       status={
         props.hasRun ? (
@@ -92,13 +92,12 @@ export function PlanGitCloseoutCard(props: {
       <div className="flex h-12 shrink-0 items-center border-t border-border px-3">
         <span
           className={cn(
-            "min-w-0 truncate",
+            "min-w-0 truncate text-destructive",
             PLAN_NODE_TEXT.meta,
-            command ? "font-mono text-muted-foreground" : "text-destructive",
           )}
-          title={command || undefined}
+          title={t("plans.validation.gitCloseoutUnsupported")}
         >
-          {command || t("plans.gitCloseout.checkCommandMissing")}
+          {t("plans.gitCloseout.legacyHint")}
         </span>
       </div>
     </PlanCard>
