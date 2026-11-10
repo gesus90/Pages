@@ -206,6 +206,7 @@ export class RunApiBridge {
       availability: await runners.availability(connectionId),
       pages: runners.supportsPagesAccess(connectionId),
       assets: runners.supportsAssetFiles(connectionId),
+      largeAssets: runners.supportsLargeAssetFiles(connectionId),
       openCode: runners.supportsOpenCode(connectionId),
       exactPayload: runners.supportsExactResultPayload(connectionId),
       continuation: runners.supportsContinuation(connectionId),

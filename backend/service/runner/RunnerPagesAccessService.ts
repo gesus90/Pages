@@ -7,6 +7,7 @@ import { assetFailure } from "@/backend/service/agents/AgentPlanStepFailure";
 import { remoteAssetFile } from "@/backend/service/agents/AgentAssetRemoteFile";
 import { ticketAssetReference } from "@/backend/service/agents/AgentTicketAssetReferences";
 import { runnerPagesRequestSchema } from "@/definition/RunnerPagesAccess";
+import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
@@ -18,7 +19,9 @@ import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { AGENT_STEP_PROGRESS_OPERATION } from "@/definition/AgentPlanStepProgress";
 import { AGENT_STEP_REPORT_OPERATION } from "@/definition/AgentPlanStepReport";
 
+import { RunnerAssetCursors } from "./RunnerAssetCursors";
 import { RunnerAssetUploads } from "./RunnerAssetUploads";
+import { FILE_CHUNK_BYTES, RunnerParameterFiles } from "./RunnerParameterFiles";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { PlanRemoteFile } from "@/definition/AgentPlanRemoteAccess";
@@ -33,9 +36,13 @@ import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { RunnerPagesRequest } from "@/definition/RunnerPagesAccess";
 import type { RunnerService } from "./RunnerService";
 
+/** What the files a step reads through the download tool may add up to; parameter files have their own budget. */
+const DOWNLOAD_TOTAL_BYTES = 10 * 1024 * 1024;
+
 interface ActivePagesAccess {
   readonly attemptId: string;
   readonly downloads: Map<string, PlanRemoteFile>;
+  readonly cursors: RunnerAssetCursors;
   readonly run: AgentPlanRun;
   readonly remote: RemotePlanStep;
   readonly token: string;
@@ -56,10 +63,12 @@ interface PagesAccessDependencies {
 export class RunnerPagesAccessService {
   private readonly dependencies: PagesAccessDependencies;
   private readonly uploads: RunnerAssetUploads;
+  private readonly files: RunnerParameterFiles;
   private readonly active = new Map<string, ActivePagesAccess>();
 
   public constructor(dependencies: PagesAccessDependencies) {
     this.dependencies = dependencies;
+    this.files = new RunnerParameterFiles(dependencies);
     this.uploads = new RunnerAssetUploads(async (ticket, bytes) =>
       (await dependencies.api()).uploadAsset(ticket, bytes),
     );
@@ -116,6 +125,7 @@ export class RunnerPagesAccessService {
       remote,
       attemptId,
       downloads: new Map(),
+      cursors: new RunnerAssetCursors(),
       ...issued,
     });
     await this.dependencies.evidence.write(run.id, attemptId, (previous) => ({
@@ -133,6 +143,7 @@ export class RunnerPagesAccessService {
   ): Promise<void> {
     this.uploads.close(attemptId);
     const capability = this.active.get(attemptId);
+    capability?.cursors.close();
     this.active.delete(attemptId);
     const run = await this.dependencies.runs.find(runId);
     const step = run?.steps.find((entry) => entry.id === stepId);
@@ -276,8 +287,8 @@ export class RunnerPagesAccessService {
     if (request.kind === "upload") return this.upload(access, request);
     if (request.kind === "download") return this.download(access, request);
     if (request.kind === "lease") return { active: true };
-    if (request.kind === "prepare") return this.prepareManifest(access);
-    if (request.kind === "asset") return this.asset(access, request);
+    if (request.kind === "prepare") return this.files.manifest(access);
+    if (request.kind === "asset") return this.files.chunk(access, request);
     const api = await this.dependencies.api();
     if (request.kind === "list") {
       const verification = await api.handle(access.token, {
@@ -292,49 +303,6 @@ export class RunnerPagesAccessService {
       };
     }
     return this.call(access, request, api);
-  }
-
-  private async asset(
-    access: ActivePagesAccess,
-    request: Extract<RunnerPagesRequest["request"], { kind: "asset" }>,
-  ): Promise<unknown> {
-    const prepared = access.remote.parameters;
-    const asset = prepared?.assets[request.index];
-    if (!prepared || !asset)
-      throw new AgentError("parameter_asset_unavailable");
-    const bytes = await this.dependencies.parameters.readAsset(
-      access.run.userId,
-      asset,
-      prepared,
-    );
-    if (request.offset > bytes.length)
-      throw new AgentError("parameter_asset_unavailable");
-    const chunk = bytes.subarray(request.offset, request.offset + 512 * 1024);
-    const attemptId = access.run.steps.find(
-      (entry) => entry.id === access.remote.step.id,
-    )?.execution?.attemptId;
-    if (!attemptId) throw new AgentError("plan_context_changed");
-    await this.dependencies.evidence.write(
-      access.run.id,
-      attemptId,
-      (previous) => ({
-        pages: "active",
-        events: previous?.events ?? [],
-        files: [
-          ...(previous?.files ?? []).filter(
-            (file) =>
-              file.asset?.link !== asset.reference.link ||
-              file.parameter !== asset.file.parameter,
-          ),
-          asset.file,
-        ],
-      }),
-    );
-    return {
-      base64: chunk.toString("base64"),
-      size: bytes.length,
-      done: request.offset + chunk.length === bytes.length,
-    };
   }
 
   private async upload(
@@ -377,34 +345,6 @@ export class RunnerPagesAccessService {
     return result;
   }
 
-  private async prepareManifest(access: ActivePagesAccess): Promise<unknown> {
-    const prepared = access.remote.parameters;
-    if (!prepared) throw new AgentError("plan_mcp_unavailable");
-    const files = [];
-    for (const asset of prepared.assets) {
-      const current = await this.dependencies.parameters.readAssetContent(
-        access.run.userId,
-        asset,
-        prepared,
-      );
-      files.push({
-        ...asset.file,
-        textExtract:
-          current.content.type === "text" &&
-          current.content.representation === "text-extract"
-            ? current.content.text
-            : undefined,
-      });
-      if (Buffer.byteLength(JSON.stringify(files)) > 1024 * 1024)
-        throw new AgentAssetError(
-          "parameter_assets_too_large",
-          asset.reference,
-          asset.file.name,
-        );
-    }
-    return { files };
-  }
-
   private async download(
     access: ActivePagesAccess,
     request: Extract<RunnerPagesRequest["request"], { kind: "download" }>,
@@ -421,15 +361,15 @@ export class RunnerPagesAccessService {
       pinned?.digest ?? request.digest,
     );
     const metadata = remoteAssetFile("tool", reference, file);
-    const known = [
-      ...(access.remote.parameters?.assets.map((asset) => asset.file) ?? []),
-      ...access.downloads.values(),
-    ];
+    const parameterFiles = access.remote.parameters?.assets.length ?? 0;
+    // Parameter files have their own budget of 512 MiB; what an agent downloads on top is bounded separately.
     if (
       !pinned &&
-      (known.length >= 64 ||
-        known.reduce((total, entry) => total + entry.size, file.size) >
-          10 * 1024 * 1024)
+      (parameterFiles + access.downloads.size >= PLAN_HANDOVER_LIMITS.files ||
+        [...access.downloads.values()].reduce(
+          (total, entry) => total + entry.size,
+          file.size,
+        ) > DOWNLOAD_TOTAL_BYTES)
     )
       throw new AgentAssetError(
         "parameter_assets_too_large",
@@ -461,7 +401,7 @@ export class RunnerPagesAccessService {
     );
     const bytes = file.bytes.subarray(
       request.offset,
-      request.offset + 512 * 1024,
+      request.offset + FILE_CHUNK_BYTES,
     );
     return {
       file: {

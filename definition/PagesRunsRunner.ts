@@ -94,6 +94,7 @@ export const pagesRunnerFactsSchema = z.object({
     .nullable(),
   pages: z.boolean(),
   assets: z.boolean(),
+  largeAssets: z.boolean(),
   openCode: z.boolean(),
   exactPayload: z.boolean(),
   continuation: z.boolean(),

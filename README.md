@@ -919,9 +919,14 @@ Duplicate references are delivered once per parameter. Code examples do not
 request files. External or relative PNG/TXT links and images must first be
 uploaded to Pages; they fail explicitly instead of becoming filename-only input.
 PNG images and complete UTF-8 text files are supported (including TXT uploaded
-as `application/octet-stream`); other binary formats fail explicitly. The total
-unencoded file contents of one transmission are limited to 10 MiB. Exceeding
-that limit fails the run without truncating or omitting a file.
+as `application/octet-stream`); other binary formats fail explicitly. A plan
+step receives at most 64 files and 512 MiB (536,870,912 bytes) of unencoded
+file contents in all (PAGE-292). The first 10 MiB are read into memory and
+offered to the model as before; every further file is measured as a stream and
+reaches the agent as an original file only, in a copy inside its workspace, so
+memory and model content stay bounded. Files an agent downloads or returns keep
+their own limit of 10 MiB. Exceeding a limit fails the run without truncating
+or omitting a file.
 
 Direct runs and Agent Plans share this resolution and delivery path.
 OpenAI, OpenRouter, Anthropic and Google API agents receive native image blocks

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
+import { constants, createWriteStream } from "node:fs";
 import {
   lstat,
   mkdtemp,
@@ -9,21 +9,33 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
+import { digestStream } from "@/backend/storage/StreamDigest";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { PlanSession } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { AgentTicketAssetContent } from "@/definition/AgentTicketParameter";
 
+/** One copy of an original inside the session's asset directory. */
+interface AssetCopy {
+  readonly path: string;
+  readonly digest: string;
+  readonly size: number;
+}
+
 /** Owns only copies created for one authorized native session; no host file reference is accepted. */
 export class CliAssetWorkspace {
   private readonly directory: string;
   private readonly copies = new Set<string>();
+  /** Copies of streamed originals, so a later turn of the session does not copy them again. */
+  private readonly streamed = new Map<string, AssetCopy>();
 
   public constructor(directory: string) {
     this.directory = directory;
@@ -43,22 +55,16 @@ export class CliAssetWorkspace {
     const root = await realpath(this.directory);
     const directory = await mkdtemp(path.join(root, ".pages-assets-"));
     this.copies.add(directory);
-    const paths = new Map<
-      string,
-      { readonly path: string; readonly digest: string; readonly size: number }
-    >();
+    const paths = new Map<string, AssetCopy>();
     for (const [index, asset] of assets.entries()) {
-      const bytes = originalBytes(asset);
       const target = path.join(
         directory,
         `${index}-${workspaceName(asset.fileName)}`,
       );
-      await writeFile(target, bytes, { mode: 0o600, flag: "wx" });
-      paths.set(`${asset.parameter}:${asset.asset.source}:${asset.asset.id}`, {
-        path: target,
-        digest: digest(bytes),
-        size: bytes.length,
-      });
+      paths.set(
+        `${asset.parameter}:${asset.asset.source}:${asset.asset.id}`,
+        await this.copy(asset, target),
+      );
     }
     const read = input.readTicketAssets;
     return {
@@ -70,7 +76,7 @@ export class CliAssetWorkspace {
             const stored = paths.get(
               `${asset.parameter}:${asset.asset.source}:${asset.asset.id}`,
             );
-            if (!stored || digest(originalBytes(asset)) !== stored.digest)
+            if (!stored || originalDigest(asset) !== stored.digest)
               throw new AgentError("parameter_ticket_changed");
             try {
               await verifyCopy(stored);
@@ -97,6 +103,59 @@ export class CliAssetWorkspace {
       await rm(directory, { recursive: true });
       this.copies.delete(directory);
     }
+    this.streamed.clear();
+  }
+
+  private async copy(
+    asset: AgentTicketAssetContent,
+    target: string,
+  ): Promise<AssetCopy> {
+    if (!asset.open) {
+      const bytes = originalBytes(asset);
+      await writeFile(target, bytes, { mode: 0o600, flag: "wx" });
+      return { path: target, digest: digest(bytes), size: bytes.length };
+    }
+    const key = `${asset.parameter}:${asset.asset.source}:${asset.asset.id}:${originalDigest(asset)}`;
+    const known = this.streamed.get(key);
+    if (known && (await isIntact(known))) return known;
+    const copy = await copyStream(asset, asset.open, target);
+    this.streamed.set(key, copy);
+    return copy;
+  }
+}
+
+/** Streams a large original to disk and proves the copy is the original that was measured. */
+async function copyStream(
+  asset: AgentTicketAssetContent,
+  openOriginal: NonNullable<AgentTicketAssetContent["open"]>,
+  target: string,
+): Promise<AssetCopy> {
+  const hash = createHash("sha256");
+  let size = 0;
+  const counting = new Transform({
+    transform(chunk: Buffer, encoding, done): void {
+      size += chunk.length;
+      hash.update(chunk);
+      done(null, chunk);
+    },
+  });
+  try {
+    await pipeline(
+      await openOriginal(),
+      counting,
+      createWriteStream(target, { mode: 0o600, flags: "wx" }),
+    );
+    const copy = { path: target, digest: hash.digest("hex"), size };
+    if (copy.digest !== originalDigest(asset) || size !== asset.original?.size)
+      throw new AgentAssetError(
+        "parameter_ticket_changed",
+        asset.asset,
+        asset.fileName,
+      );
+    return copy;
+  } catch (error: unknown) {
+    await rm(target, { force: true });
+    throw error;
   }
 }
 
@@ -114,6 +173,12 @@ function originalBytes(asset: AgentTicketAssetContent): Buffer {
 
 function digest(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+/** The digest of the original; a streamed file carries the one measured when it was read. */
+function originalDigest(asset: AgentTicketAssetContent): string {
+  if (asset.open && asset.original) return asset.original.digest;
+  return digest(originalBytes(asset));
 }
 /** Retains copies until the session's own process cleanup is confirmed, including reused turns. */
 export function assetSession(
@@ -165,11 +230,7 @@ export async function cleanupSessionAssets(
     await assets.cleanup();
 }
 
-async function verifyCopy(stored: {
-  readonly path: string;
-  readonly digest: string;
-  readonly size: number;
-}): Promise<void> {
+async function verifyCopy(stored: AssetCopy): Promise<void> {
   if ((await realpath(stored.path)) !== stored.path)
     throw new Error("Asset symlink refused");
   const file = await open(
@@ -180,28 +241,32 @@ async function verifyCopy(stored: {
     const before = await file.stat();
     if (!before.isFile() || before.size !== stored.size)
       throw new Error("Asset copy changed");
-    const buffer = Buffer.alloc(stored.size + 1);
-    let offset = 0;
-    while (offset < buffer.length) {
-      const read = await file.read(
-        buffer,
-        offset,
-        buffer.length - offset,
-        offset,
-      );
-      if (!read.bytesRead) break;
-      offset += read.bytesRead;
-    }
+    // One byte more than the copy has would show a file that grew.
+    const measured = await digestStream(
+      file.createReadStream({ start: 0, autoClose: false }),
+      stored.size,
+    );
     const after = await lstat(stored.path);
     if (
       after.isSymbolicLink() ||
       after.ino !== before.ino ||
       after.dev !== before.dev ||
-      digest(buffer.subarray(0, offset)) !== stored.digest
+      measured.size !== stored.size ||
+      measured.digest !== stored.digest
     )
       throw new Error("Asset copy changed");
   } finally {
     await file.close();
+  }
+}
+
+/** Whether a copy made earlier is still exactly the original that was measured. */
+async function isIntact(stored: AssetCopy): Promise<boolean> {
+  try {
+    await verifyCopy(stored);
+    return true;
+  } catch {
+    return false;
   }
 }
 

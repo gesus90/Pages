@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+
 import { getApplicationServices } from "@/app/lib/services.server";
 import { contentDisposition } from "@/app/lib/content-disposition";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -12,7 +14,8 @@ import type { Route } from "./+types/plan-asset-refs";
  * @remarks
  * The reference is the only credential: it is signed, short-lived, names
  * one file, and is redeemed with the rights of the person the run belongs
- * to. The file is always a download; nothing is rendered.
+ * to. The file is always a download; nothing is rendered. It is streamed from
+ * the store, so a file of any size up to the plan limit costs no memory.
  */
 export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   const reference = request.headers.get("X-Pages-Asset-Reference") ?? "";
@@ -24,9 +27,10 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     );
   try {
     const file = await agentPlanAssetReferences.redeem(reference);
-    return new Response(new Uint8Array(file.bytes), {
+    return new Response(Readable.toWeb(file.stream) as ReadableStream, {
       headers: {
         "Cache-Control": "no-store",
+        "Content-Length": String(file.size),
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; sandbox",
         "Content-Disposition": contentDisposition("attachment", file.fileName),

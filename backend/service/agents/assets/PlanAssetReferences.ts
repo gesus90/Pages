@@ -3,6 +3,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { Readable } from "node:stream";
 import type { PlanAssetService } from "./PlanAssetService";
 
 /** How long a runner may redeem a reference after Pages issued it. */
@@ -19,12 +20,13 @@ interface ReferenceGrant {
   readonly nonce: string;
 }
 
-/** The file a redeemed reference hands to a runner. */
+/** The file a redeemed reference hands to a runner: its description and a stream of exactly its bytes. */
 export interface RedeemedPlanAsset {
   readonly assetId: string;
   readonly fileName: string;
   readonly mediaType: string;
-  readonly bytes: Buffer;
+  readonly size: number;
+  readonly stream: Readable;
 }
 
 function encode(text: string): string {
@@ -52,12 +54,12 @@ function isGrant(input: unknown): input is ReferenceGrant {
  * simulation's `runner_denied` scenario refuse every reference.
  */
 export class PlanAssetReferences {
-  private readonly assets: Pick<PlanAssetService, "read" | "describe">;
+  private readonly assets: Pick<PlanAssetService, "open" | "describe">;
   private readonly key: Buffer;
   private readonly isDenied: boolean;
 
   public constructor(
-    assets: Pick<PlanAssetService, "read" | "describe">,
+    assets: Pick<PlanAssetService, "open" | "describe">,
     secret: Buffer,
     options: { readonly isDenied?: boolean } = {},
   ) {
@@ -94,7 +96,7 @@ export class PlanAssetReferences {
   }
 
   /**
-   * Hands the file of a valid reference to a runner.
+   * Hands the file of a valid reference to a runner as a stream, whatever its size.
    *
    * @throws {AgentError} `plan_asset_runner_denied` for a forged, expired or
    * refused reference and when the person lost the right to the file;
@@ -102,23 +104,28 @@ export class PlanAssetReferences {
    */
   public async redeem(reference: string): Promise<RedeemedPlanAsset> {
     const grant = this.verify(reference);
-    let bytes: Buffer;
-    let fileName: string;
-    let mediaType: string;
     try {
-      const record = await this.assets.describe(grant.userId, grant.assetId);
-      bytes = await this.assets.read(grant.userId, grant.assetId);
-      fileName = record.fileName;
-      mediaType = record.mediaType;
-      if (record.digest !== grant.digest)
+      const { record, stream } = await this.assets.open(
+        grant.userId,
+        grant.assetId,
+      );
+      if (record.digest !== grant.digest) {
+        stream.destroy();
         throw new AgentError("plan_asset_changed");
+      }
+      return {
+        assetId: grant.assetId,
+        fileName: record.fileName,
+        mediaType: record.mediaType,
+        size: record.size,
+        stream,
+      };
     } catch (error: unknown) {
       logCaughtError("PlanAssetReferences", error);
       if (error instanceof AgentError && error.code !== "plan_asset_missing")
         throw error;
       throw new AgentError("plan_asset_runner_denied");
     }
-    return { assetId: grant.assetId, fileName, mediaType, bytes };
   }
 
   private verify(reference: string): ReferenceGrant {

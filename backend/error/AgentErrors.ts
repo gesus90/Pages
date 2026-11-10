@@ -343,7 +343,7 @@ export const AGENT_ERROR_MESSAGES = {
   parameter_asset_reference_unsupported:
     "A referenced image or text file is not a Pages asset. Upload it to Pages and reference its attachment address.",
   parameter_assets_too_large:
-    "Ticket assets exceed the 10 MiB transmission limit. No files were truncated or omitted.",
+    "The files of this step exceed the transmission limit: at most 64 files and 512 MiB (536,870,912 bytes) in total per plan step, and 10 MiB for files an agent downloads or returns. No files were truncated or omitted.",
   parameter_ticket_changed:
     "The ticket asset references changed before transmission. Start the run again to use the current assets.",
   plan_asset_missing:
@@ -351,7 +351,8 @@ export const AGENT_ERROR_MESSAGES = {
   plan_asset_unreadable:
     "The file of the plan asset cannot be read: it is missing, incomplete or damaged. It was not handed over.",
   plan_asset_invalid: "The file is empty or its name is not valid.",
-  plan_asset_too_large: "The file exceeds the upload or handover limit.",
+  plan_asset_too_large:
+    "File too large: plans take files up to 512 MiB (536,870,912 bytes). Nothing was truncated.",
   plan_asset_changed:
     "The content of the plan asset changed since it was chosen. Choose the file again; nothing was handed over.",
   plan_asset_file_missing:

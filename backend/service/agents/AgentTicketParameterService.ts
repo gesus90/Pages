@@ -2,7 +2,8 @@ import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import { MAX_TICKET_ASSET_BYTES } from "./AgentTicketAssetService";
+import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
+
 import {
   ticketAssetReferences,
   externalAssetNotes,
@@ -39,11 +40,14 @@ export class AgentTicketParameterService {
       ) => Promise<{ readonly markdown: string; readonly version: string }>)
     | undefined;
   private readonly context: (userId: string) => Promise<TicketParameterContext>;
-  private readonly assets: Pick<AgentTicketAssetService, "references" | "read">;
+  private readonly assets: Pick<
+    AgentTicketAssetService,
+    "references" | "readForHandover" | "requireReadable"
+  >;
 
   public constructor(
     context: (userId: string) => Promise<TicketParameterContext>,
-    assets: Pick<AgentTicketAssetService, "references" | "read">,
+    assets: AgentTicketParameterService["assets"],
     wiki?: AgentTicketParameterService["wiki"],
   ) {
     this.context = context;
@@ -100,13 +104,22 @@ export class AgentTicketParameterService {
     }
   }
 
-  /** Rechecks the ticket, its references and the executing user's file rights for every transmission. */
+  /**
+   * Rechecks the ticket, its references and the executing user's file rights for every transmission.
+   *
+   * @remarks
+   * A step receives up to 64 files and 512 MiB of originals. The first 10 MiB
+   * are read into memory and offered to the model; every further file is
+   * measured as a stream and carried as an original file only, so memory stays
+   * bounded however large the handover is.
+   */
   public async readAssets(
     userId: string,
     inputs: readonly AgentTicketInput[],
   ): Promise<readonly AgentTicketAssetContent[]> {
     const contents: AgentTicketAssetContent[] = [];
     let size = 0;
+    let inlineBytes: number = PLAN_HANDOVER_LIMITS.inlineBytes;
     for (const input of inputs) {
       const ticket = await this.ownerInput(userId, input);
       // Status, checkbox and text revisions do not change the file handoff.
@@ -116,7 +129,11 @@ export class AgentTicketParameterService {
         const { actor } = await this.context(userId);
         if (!actor.isActive)
           throw new AgentError("parameter_asset_unavailable");
-        const file = await this.assets.read(actor, asset);
+        const file = await this.assets.readForHandover(
+          actor,
+          asset,
+          inlineBytes,
+        );
         const expected = input.originals?.[`${asset.source}:${asset.id}`];
         if (expected !== undefined && expected !== file.original.digest)
           throw new AgentAssetError(
@@ -127,12 +144,16 @@ export class AgentTicketParameterService {
             file.fileName,
           );
         size += file.size;
-        if (size > MAX_TICKET_ASSET_BYTES || contents.length >= 64)
+        if (
+          size > PLAN_HANDOVER_LIMITS.bytes ||
+          contents.length >= PLAN_HANDOVER_LIMITS.files
+        )
           throw new AgentAssetError(
             "parameter_assets_too_large",
             asset,
             file.fileName,
           );
+        if ("bytes" in file) inlineBytes -= file.size;
         contents.push({
           parameter: input.parameter,
           ticketId: ticket.id,
@@ -142,7 +163,7 @@ export class AgentTicketParameterService {
           owner: { type: input.owner ?? "ticket", id: ticket.id },
           content: file.content,
           original: file.original,
-          bytes: file.bytes,
+          ...("bytes" in file ? { bytes: file.bytes } : { open: file.open }),
         });
       }
     }
@@ -157,9 +178,10 @@ export class AgentTicketParameterService {
     for (const asset of assets) {
       const { actor } = await this.context(userId);
       if (!actor.isActive) throw new AgentError("parameter_asset_unavailable");
-      await this.assets.read(actor, asset);
+      await this.assets.requireReadable(actor, asset);
     }
   }
+
   /**
    * The current owner of the files: the ticket or wiki page read again, or
    * for a plan asset the pinned input, whose file read rechecks the rights.

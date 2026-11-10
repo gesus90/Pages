@@ -5,6 +5,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
 import { countCharacters, WIKI_LIMITS } from "@/definition/Wiki";
+import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { assetRepresentation } from "../AgentAssetRepresentations";
@@ -27,8 +28,6 @@ export interface PlanAssetDependencies {
   readonly files: WikiFileStore;
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly content: Pick<AgentContentAccess, "canReadProject">;
-  /** The largest file a person may upload, in bytes. */
-  readonly uploadLimit: () => Promise<number>;
 }
 
 /** An upload as the route received it: the body is streamed, never buffered. */
@@ -57,10 +56,10 @@ export interface OpenedPlanAsset {
   readonly stream: Readable;
 }
 
-/** The largest file Pages reads into memory for a handover. */
+/** The largest file Pages reads into memory at once; larger files are streamed. */
 const MAX_READ_BYTES = 64 * 1024 * 1024;
-/** Files up to the handover limit are checked for complete content, larger ones only for their bytes. */
-const CONTENT_CHECK_BYTES = 10 * 1024 * 1024;
+/** Files up to the in-memory budget of a handover are checked for complete content, larger ones only for their bytes. */
+const CONTENT_CHECK_BYTES = PLAN_HANDOVER_LIMITS.inlineBytes;
 
 function toRecord(asset: StoredPlanAsset): AgentPlanAssetRecord {
   return {
@@ -111,6 +110,12 @@ export class PlanAssetService {
   /**
    * Streams an upload to the store after checking the project, the name and the size.
    *
+   * @remarks
+   * A file may have up to 512 MiB (`PLAN_HANDOVER_LIMITS.bytes`), the same
+   * budget a step receives, so an accepted file can always be handed over.
+   * The limit is checked against the announced length first and then against
+   * the bytes as they arrive, so a longer body is cut off, never stored.
+   *
    * @throws {AgentError} `plan_asset_missing` without access to the project,
    * `plan_asset_invalid` for an empty file or an invalid name,
    * `plan_asset_too_large` beyond the upload limit.
@@ -123,7 +128,7 @@ export class PlanAssetService {
     const fileName = sanitizeFileName(upload.fileName);
     if (countCharacters(fileName) > WIKI_LIMITS.fileNameLength)
       throw new AgentError("plan_asset_invalid");
-    const limit = await this.dependencies.uploadLimit();
+    const limit = PLAN_HANDOVER_LIMITS.bytes;
     if (upload.contentLength !== null && upload.contentLength > limit)
       throw new AgentError("plan_asset_too_large");
     let type: PlanAssetFileType = { mediaType: "", kind: "other" };
@@ -165,7 +170,10 @@ export class PlanAssetService {
     const type = detectPlanAssetType(result.bytes.subarray(0, 4096), fileName);
     const stored = await this.dependencies.files.write(
       Readable.from([result.bytes]),
-      { absoluteLimit: MAX_READ_BYTES, limitFor: () => MAX_READ_BYTES },
+      {
+        absoluteLimit: PLAN_HANDOVER_LIMITS.bytes,
+        limitFor: () => PLAN_HANDOVER_LIMITS.bytes,
+      },
     );
     return this.insert({
       projectId: result.projectId,

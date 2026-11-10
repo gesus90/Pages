@@ -14,13 +14,19 @@ export interface PlanAssetFacts {
   readonly pages?: number;
 }
 
-/** A file size in the units people read, such as `2,4 MB`. */
+/**
+ * A file size in binary units, such as `2,4 MiB`.
+ *
+ * @remarks
+ * The unit is the one of the limit for plan files, 512 MiB = 512 × 1024 × 1024
+ * bytes, so a file at the limit reads `512 MiB`.
+ */
 export function formatPlanAssetSize(size: number, language: string): string {
-  const units = ["B", "KB", "MB", "GB"] as const;
+  const units = ["B", "KiB", "MiB", "GiB"] as const;
   let value = size;
   let unit = 0;
-  while (value >= 1000 && unit < units.length - 1) {
-    value /= 1000;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
     unit += 1;
   }
   const digits = unit === 0 || value >= 10 ? 0 : 1;

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { PLAN_HANDOVER_LIMITS } from "./AgentPlanHandover";
+
 /** Safe preparation failures that can be shown without provider or file contents. */
 export const runnerResourceErrorSchema = z.enum([
   "parameter_asset_conflict",
@@ -31,11 +33,7 @@ export const runnerPagesRequestSchema = z
         .object({
           kind: z.literal("asset"),
           index: z.number().int().min(0).max(63),
-          offset: z
-            .number()
-            .int()
-            .min(0)
-            .max(10 * 1024 * 1024),
+          offset: z.number().int().min(0).max(PLAN_HANDOVER_LIMITS.bytes),
         })
         .strict(),
       z

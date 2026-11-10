@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import { scanAgentPlaceholders } from "@/definition/AgentParameters";
 import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -15,8 +13,11 @@ import {
   requireAssetReferences,
   ticketAssetReferences,
 } from "./AgentTicketAssetReferences";
-import { MAX_TICKET_ASSET_BYTES } from "./AgentTicketAssetService";
+import { STREAMED_ASSET_REASON } from "./AgentTicketAssetService";
+import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
 
+import type { Readable } from "node:stream";
+import type { User } from "@/definition/User";
 import type { AgentTicketAssetContent } from "@/definition/AgentTicketParameter";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { UserService } from "@/backend/service/UserService";
@@ -64,6 +65,8 @@ interface RemoteParameterCollection {
   readonly workspaces: Record<string, AgentPlanRemoteTarget>;
   readonly resources: PlanRemoteResource[];
   readonly assets: RemoteParameterAsset[];
+  /** What the step's files may still add to the model content, 10 MiB in all. */
+  readonly inline: { bytes: number };
 }
 
 interface RemoteParameterContext {
@@ -109,7 +112,14 @@ export class AgentPlanRemoteParameters {
     const values: Record<string, AgentParameterValue | null> = {};
     const resources: PlanRemoteResource[] = [];
     const assets: RemoteParameterAsset[] = [];
-    const collection = { tickets, wiki, workspaces, resources, assets };
+    const collection = {
+      tickets,
+      wiki,
+      workspaces,
+      resources,
+      assets,
+      inline: { bytes: PLAN_HANDOVER_LIMITS.inlineBytes },
+    };
     const placeholders = scanAgentPlaceholders(
       `${template.markdown}\n\n${step.instruction}`,
     ).placeholders;
@@ -206,6 +216,51 @@ export class AgentPlanRemoteParameters {
     readonly bytes: Buffer;
     readonly content: AgentTicketAssetContent["content"];
   }> {
+    await this.authorizeAsset(userId, asset, prepared);
+    const actor = await this.activeActor(userId);
+    const file = await this.dependencies.assets.read(actor, asset.reference);
+    if (
+      file.original.digest !== asset.file.digest ||
+      file.bytes.length !== asset.file.size
+    )
+      throw new AgentAssetError(
+        "parameter_ticket_changed",
+        asset.reference,
+        asset.file.name,
+      );
+    return { bytes: file.bytes, content: file.content };
+  }
+
+  /**
+   * Opens a file that was pinned as a stream, after the same source, owner and rights checks.
+   *
+   * @remarks
+   * The bytes are compared with the pinned digest by the reader that consumes
+   * the stream, once it reached the end of the file.
+   */
+  public async openAsset(
+    userId: string,
+    asset: RemoteParameterAsset,
+    prepared: RemotePlanParameters,
+  ): Promise<Readable> {
+    await this.authorizeAsset(userId, asset, prepared);
+    return this.dependencies.assets.stream(
+      await this.activeActor(userId),
+      asset.reference,
+    );
+  }
+
+  /** Whether the file is pinned as a stream: beyond the model content budget it is served in chunks from disk. */
+  public isStreamed(asset: RemoteParameterAsset): boolean {
+    return asset.file.modelContent === STREAMED_ASSET_REASON;
+  }
+
+  /** Checks that the owner still names this file and the person may still read what the owner names. */
+  public async authorizeAsset(
+    userId: string,
+    asset: RemoteParameterAsset,
+    prepared: RemotePlanParameters,
+  ): Promise<void> {
     const expected =
       asset.owner.type === "ticket"
         ? prepared.tickets[asset.owner.id]?.assets
@@ -227,17 +282,12 @@ export class AgentPlanRemoteParameters {
       )
     )
       throw new AgentError("parameter_ticket_changed");
-    const file = await this.assetContents(userId, asset.reference);
-    if (
-      fileDigest(file.bytes) !== asset.file.digest ||
-      file.bytes.length !== asset.file.size
-    )
-      throw new AgentAssetError(
-        "parameter_ticket_changed",
-        asset.reference,
-        asset.file.name,
-      );
-    return { bytes: file.bytes, content: file.content };
+  }
+
+  private async activeActor(userId: string): Promise<User> {
+    const actor = await this.dependencies.users.getById(userId);
+    if (!actor?.isActive) throw new AgentError("parameter_asset_unavailable");
+    return actor;
   }
 
   private async collectReference(
@@ -312,7 +362,10 @@ export class AgentPlanRemoteParameters {
   ): Promise<void> {
     for (const reference of references) {
       context.collection.assets.push(
-        await this.pinAsset(userId, context.parameter, owner, reference),
+        await this.pinAsset(userId, context.parameter, owner, {
+          reference,
+          inline: context.collection.inline,
+        }),
       );
       requireAssetBudget(context.collection.assets);
     }
@@ -327,49 +380,40 @@ export class AgentPlanRemoteParameters {
     return this.dependencies.content.wiki(actor, id);
   }
 
+  /**
+   * Pins the identity of one file: name, size, digest and what the model may see of it.
+   *
+   * @remarks
+   * Within the 10 MiB budget of the step the file is read like before and
+   * keeps its model content. Every further file is measured as a stream and
+   * pinned as a file only, so the model content of a step stays bounded.
+   */
   private async pinAsset(
     userId: string,
     parameter: string,
     owner: RemoteParameterAsset["owner"],
-    reference: AgentTicketAsset,
+    source: {
+      readonly reference: AgentTicketAsset;
+      readonly inline: { bytes: number };
+    },
   ): Promise<RemoteParameterAsset> {
-    const file = await this.assetContents(userId, reference);
+    const { reference } = source;
+    const file = await this.dependencies.assets.readForHandover(
+      await this.activeActor(userId),
+      reference,
+      source.inline.bytes,
+    );
+    if ("bytes" in file) source.inline.bytes -= file.size;
     return {
       owner,
       reference,
       file: remoteAssetFile(parameter, reference, {
-        fileName: file.name,
+        fileName: file.fileName,
         original: file.original,
         content: file.content,
       }),
     };
   }
-
-  private async assetContents(
-    userId: string,
-    reference: AgentTicketAsset,
-  ): Promise<{
-    readonly bytes: Buffer;
-    readonly name: string;
-    readonly type: string;
-    readonly content: AgentTicketAssetContent["content"];
-    readonly original: NonNullable<AgentTicketAssetContent["original"]>;
-  }> {
-    const actor = await this.dependencies.users.getById(userId);
-    if (!actor?.isActive) throw new AgentError("parameter_asset_unavailable");
-    const file = await this.dependencies.assets.read(actor, reference);
-    return {
-      name: file.fileName,
-      type: file.original.mimeType,
-      bytes: file.bytes,
-      content: file.content,
-      original: file.original,
-    };
-  }
-}
-
-function fileDigest(bytes: Buffer): string {
-  return createHash("sha256").update(bytes).digest("hex");
 }
 
 /** Returns the same safe node/parameter cause for editor checks and dispatch failures. */
@@ -508,8 +552,8 @@ function requireAssetBudget(assets: readonly RemoteParameterAsset[]): void {
     Buffer.byteLength(JSON.stringify(assets.map((asset) => asset.file))) +
     assets.reduce((total, asset) => total + (asset.file.modelSize ?? 0), 0);
   if (
-    assets.length <= 64 &&
-    originalBytes <= MAX_TICKET_ASSET_BYTES &&
+    assets.length <= PLAN_HANDOVER_LIMITS.files &&
+    originalBytes <= PLAN_HANDOVER_LIMITS.bytes &&
     manifestBytes <= 1024 * 1024
   )
     return;

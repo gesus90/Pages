@@ -37,7 +37,7 @@ export async function startExecutionServices(
 ): Promise<{
   readonly agentServices: AgentApplicationServices;
 }> {
-  const planAssets = createPlanAssets(database, databasePath, context.wiki);
+  const planAssets = createPlanAssets(database, databasePath);
   const agentServices = await startAgents(
     database,
     databasePath,
@@ -55,11 +55,15 @@ export async function startExecutionServices(
   return { agentServices };
 }
 
-/** The files of asset nodes lie beside the other agent files, under the plan's project rights. */
+/**
+ * The files of asset nodes lie beside the other agent files, under the plan's project rights.
+ *
+ * @remarks
+ * Their size limit is the one of a plan, not the wiki's upload settings.
+ */
 function createPlanAssets(
   database: Database,
   databasePath: string,
-  wiki: WikiService,
 ): PlanAssetService {
   return new PlanAssetService({
     repository: new AgentPlanAssetRepository(database),
@@ -71,10 +75,6 @@ function createPlanAssets(
       new ProjectRepository(database),
       new WikiRepository(database),
     ),
-    uploadLimit: async () => {
-      const settings = await wiki.getSettings();
-      return Math.max(settings.mediaLimitBytes, settings.fileLimitBytes);
-    },
   });
 }
 

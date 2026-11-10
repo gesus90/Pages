@@ -197,6 +197,7 @@ export function controlledRemoteService(
       supportsExactResultPayload: () => true,
       supportsContinuation: () => false,
       supportsAssetFiles: () => false,
+      supportsLargeAssetFiles: () => false,
       ready: async () => [],
       cancel: async () => {
         throw new Error("No cancellation was requested");

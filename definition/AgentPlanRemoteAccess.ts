@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { PLAN_HANDOVER_LIMITS } from "./AgentPlanHandover";
+
 /** Public resource evidence contains identities and metadata, never file contents or credentials. */
 export const planRemoteResourceSchema = z.object({
   parameter: z.string().max(64),
@@ -34,11 +36,7 @@ export const planRemoteFileSchema = z.object({
     .max(2 * 1024 * 1024)
     .optional(),
   isTruncated: z.boolean().optional(),
-  size: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(10 * 1024 * 1024),
+  size: z.number().int().nonnegative().max(PLAN_HANDOVER_LIMITS.bytes),
   digest: z.string().regex(/^[a-f0-9]{64}$/u),
 });
 export type PlanRemoteFile = z.infer<typeof planRemoteFileSchema>;

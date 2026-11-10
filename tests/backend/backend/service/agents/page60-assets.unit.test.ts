@@ -156,12 +156,14 @@ it("labels invalid UTF-8 as original-only and totals files across parameters bef
   });
   world.files.set("png", Buffer.alloc(MAX_TICKET_ASSET_BYTES / 2 + 1, 65));
   const ticket = await world.service.resolve("executor", TICKET.id);
-  await expect(
-    world.service.readAssets("executor", [
-      { parameter: "one", ticket },
-      { parameter: "two", ticket },
-    ]),
-  ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_assets_too_large);
+  const contents = await world.service.readAssets("executor", [
+    { parameter: "one", ticket },
+    { parameter: "two", ticket },
+  ]);
+  // Memory and model content stay bounded to 10 MiB: what does not fit stays an original file on disk.
+  expect(contents.map((file) => file.content.type)).toEqual(["text", "file"]);
+  expect(contents.filter((file) => file.bytes)).toHaveLength(1);
+  expect(contents.filter((file) => file.open)).toHaveLength(1);
 });
 
 it("refuses an inactive executor on file transmission and historical reads", async () => {

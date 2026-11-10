@@ -50,6 +50,13 @@ server {
         # Live stream (/live-changes) and channels stay open for a long time.
         proxy_buffering off;
         proxy_read_timeout 1h;
+
+        # A plan file is one request body of up to 512 MiB (PAGE-292); nginx
+        # refuses more than 1m by default, with a page the plan page cannot
+        # explain. The body streams to Pages instead of landing on this disk.
+        client_max_body_size 512m;
+        client_body_timeout 15m;
+        proxy_request_buffering off;
     }
 }
 
@@ -102,5 +109,10 @@ server {
 
         proxy_buffering off;
         proxy_read_timeout 1h;
+
+        # Plan files: see variant A.
+        client_max_body_size 512m;
+        client_body_timeout 15m;
+        proxy_request_buffering off;
     }
 }
