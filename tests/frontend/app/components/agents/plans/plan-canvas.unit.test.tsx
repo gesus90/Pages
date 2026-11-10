@@ -165,7 +165,12 @@ it("drops a decision dragged from the palette where it was released", () => {
   fireEvent.dragStart(entry, { dataTransfer: transfer });
   fireEvent.drop(canvas(), { dataTransfer: transfer, clientX: 0, clientY: 0 });
 
-  expect(add).toHaveBeenCalledWith("decision", "", expect.any(Object), undefined);
+  expect(add).toHaveBeenCalledWith(
+    "decision",
+    "",
+    expect.any(Object),
+    undefined,
+  );
 });
 
 it("ends an open connection with Escape and from its hint", () => {
