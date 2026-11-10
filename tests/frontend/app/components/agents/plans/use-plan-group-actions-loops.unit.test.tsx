@@ -77,7 +77,9 @@ describe("placing an agent into or out of a loop", () => {
     expect(stepOf(scene.draft(), "a")).toMatchObject({ x: 1500, y: 100 });
     expect(scene.actions().notice).toBeNull();
   });
+});
 
+describe("refusing a move that would cut a loop's connections", () => {
   it("refuses to leave a loop with the flow edges of a member and says so", () => {
     const initial = planOf([
       loopWith([agentNode("a", "codex"), agentNode("b", "codex", { x: 400 })], {
@@ -103,7 +105,7 @@ describe("placing an agent into or out of a loop", () => {
           sourceNodeId: "a",
           outputPath: "$.end",
           operator: "equals",
-          expected: true,
+          expected: { type: "boolean", value: true },
         },
       }),
     ]);
@@ -136,7 +138,9 @@ describe("placing an agent into or out of a loop", () => {
     });
     expect(scene.draft()).toBe(initial);
   });
+});
 
+describe("placing a member of a group in a loop", () => {
   it("takes a member of a group into a loop and out of its group", () => {
     const scene = mountGroupActions(
       planOf([

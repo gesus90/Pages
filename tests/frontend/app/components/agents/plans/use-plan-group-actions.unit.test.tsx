@@ -104,7 +104,9 @@ describe("placing an agent on the grid", () => {
     expect(nodeIds(scene.draft().nodes)).toEqual(["group"]);
     expect(scene.actions().notice).toBeNull();
   });
+});
 
+describe("moving a member of a group", () => {
   it("moves a member within its group without leaving it", () => {
     const scene = mountGroupActions(
       planOf([
@@ -174,7 +176,9 @@ describe("placing an agent on the grid", () => {
     expect(groupOf(scene.draft()).steps).toEqual([]);
     expect(stepOf(scene.draft(), "a")).toMatchObject({ x: 300, y: 200 });
   });
+});
 
+describe("refusing an agent that does not fit a group", () => {
   it("refuses an agent of another adapter and names both adapters", () => {
     const initial = planOf([
       sessionGroup({ steps: [agentNode("a", "codex")] }),
@@ -263,7 +267,9 @@ describe("placing an agent on the grid", () => {
     });
     expect(scene.draft()).toBe(initial);
   });
+});
 
+describe("naming the refused agent", () => {
   it("names a node by its own copy when it is refused", () => {
     const scene = mountGroupActions(
       planOf([
@@ -427,7 +433,9 @@ describe("assigning an agent from a form", () => {
 
     expect(scene.draft()).toBe(initial);
   });
+});
 
+describe("assigning an agent that cannot move", () => {
   it("does nothing for an agent that already is a member of the group", () => {
     const initial = planOf([
       sessionGroup({ steps: [agentNode("a", "codex")] }),

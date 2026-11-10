@@ -67,7 +67,7 @@ function plan(...extra: AgentPlanNode[]): AgentPlanInput {
       type: "parameter",
       name: "topic",
       format: "string",
-      value: "kept",
+      value: { type: "text", text: "kept" },
       x: 2400,
       y: 900,
     },
@@ -155,6 +155,19 @@ function drag(
 ): void {
   const node = at ? { ...scene.node(id), position: at } : scene.node(id);
   act(() => scene.movement().onNodeDragStop(event, node, [node]));
+}
+
+function hover(
+  scene: Mounted,
+  id: string,
+  point: { x: number; y: number },
+): void {
+  // The pointer is given in screen pixels, which the flow shifts to the grid.
+  act(() =>
+    scene
+      .movement()
+      .onNodeDrag(mouse(point.x + 1000, point.y + 2000), scene.node(id), []),
+  );
 }
 
 beforeEach(() => {
@@ -257,7 +270,9 @@ describe("changes reported by the canvas", () => {
 
     expect(scene.graph.move).toHaveBeenCalledWith("deep", 11, 12);
   });
+});
 
+describe("moves in flight", () => {
   it("keeps a move in flight pending and shows the card where it is dragged", () => {
     const scene = mount();
 
@@ -381,19 +396,6 @@ describe("dragging a card", () => {
 });
 
 describe("the frame a dragged card would land in", () => {
-  function hover(
-    scene: Mounted,
-    id: string,
-    point: { x: number; y: number },
-  ): void {
-    // The pointer is given in screen pixels, which the flow shifts to the grid.
-    act(() =>
-      scene
-        .movement()
-        .onNodeDrag(mouse(point.x + 1000, point.y + 2000), scene.node(id), []),
-    );
-  }
-
   it("marks the group under an agent", () => {
     const scene = mount();
 
@@ -458,7 +460,9 @@ describe("the frame a dragged card would land in", () => {
     hover(scene, "value", { x: 2100, y: 100 });
     expect(scene.movement().dropTarget).toBe("stack");
   });
+});
 
+describe("the pointer of a drag over a frame", () => {
   it("marks nothing for a card that joins no frame", () => {
     const scene = mount();
 
@@ -585,7 +589,9 @@ describe("dropping a card", () => {
       expect.objectContaining({ position: { x: 1520, y: 420 } }),
     );
   });
+});
 
+describe("dropping groups and stack entries", () => {
   it("places a whole group", () => {
     const scene = mount();
 
@@ -626,7 +632,9 @@ describe("dropping a card", () => {
     expect(scene.graph.move).toHaveBeenCalledWith("start", 30, 40);
     expect(scene.graph.place).not.toHaveBeenCalled();
   });
+});
 
+describe("finishing a drop", () => {
   it("falls back to the card's position when a touch has no finger", () => {
     const scene = mount();
 

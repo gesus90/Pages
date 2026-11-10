@@ -1,7 +1,7 @@
 import { Handle, Position, ReactFlow } from "@xyflow/react";
 import { I18nextProvider } from "react-i18next";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { PlanFlowContext } from "@/app/components/agents/plans/plan-flow-context";
 import { PlanFlowEdgeView } from "@/app/components/agents/plans/plan-flow-edge";
@@ -420,5 +420,79 @@ it("keeps the selection colour and the names of a selected wire", async () => {
   expect(graph.disconnect).toHaveBeenCalledWith({
     ...WIRE,
     channel: "condition",
+  });
+});
+
+it("labels the data input of a decision with the word for data, not its port name", async () => {
+  const link = {
+    kind: "data",
+    from: "a",
+    to: "b",
+    parameter: "condition-in",
+    isDecisionInput: true,
+  } as const;
+  renderEdges([edge("decision", { link, name: "A → B · data" })]);
+  await edgePath("decision");
+
+  expect(
+    label(`${i18n.t("plans.linkKind.data")}: A → B · data`).textContent,
+  ).toBe(`◇ ${i18n.t("plans.linkLabel.decisionInput")}`);
+});
+
+it("labels a binding of a loop's own input with the name of that input", async () => {
+  const link = {
+    kind: "data",
+    from: "a",
+    to: "b",
+    parameter: "while",
+    isLoopInput: true,
+  } as const;
+  renderEdges([edge("loop-input", { link, name: "A → Loop" })]);
+  await edgePath("loop-input");
+
+  expect(label(`${i18n.t("plans.linkKind.data")}: A → Loop`).textContent).toBe(
+    `◇ ${i18n.t("plans.loops.inputName.while")}`,
+  );
+});
+
+it("names the output of a stack before the input a binding fills", async () => {
+  const link = { ...DATA_LINK, output: "count" } as const;
+  renderEdges([edge("stack", { link, name: "Stack → B" })]);
+  await edgePath("stack");
+
+  expect(label(`${i18n.t("plans.linkKind.data")}: Stack → B`).textContent).toBe(
+    `◇ ${i18n.t("plans.stack.output.count")} · notes`,
+  );
+});
+
+describe("a value of a classification", () => {
+  const CASE_LINK = {
+    kind: "wire",
+    channel: "branch",
+    branch: "case:bug",
+    from: "a",
+    to: "b",
+    fromPort: "case-out:bug",
+    toPort: "flow-in",
+  } as const;
+
+  it("names its branch on the label", async () => {
+    renderEdges([
+      edge("case", { link: CASE_LINK, name: "A → B", branchName: "Bug" }),
+    ]);
+    await edgePath("case");
+
+    expect(label(`${i18n.t("plans.linkKind.case")}: A → B`).textContent).toBe(
+      "Bug",
+    );
+  });
+
+  it("says value when the classification no longer names the branch", async () => {
+    renderEdges([edge("case", { link: CASE_LINK, name: "A → B" })]);
+    await edgePath("case");
+
+    expect(label(`${i18n.t("plans.linkKind.case")}: A → B`).textContent).toBe(
+      i18n.t("plans.linkLabel.case"),
+    );
   });
 });

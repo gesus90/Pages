@@ -37,6 +37,17 @@ function loopOf(plan: AgentPlanInput): AgentPlanLoop {
   return loop;
 }
 
+const ORIGIN = planMemberOrigin(loopWith([]));
+
+const STACK: AgentPlanStack = {
+  id: "stack",
+  type: "stack",
+  name: "Queue",
+  x: 0,
+  y: 0,
+  entries: [],
+};
+
 function groupOf(plan: AgentPlanInput): AgentPlanGroup {
   const group = plan.nodes.find(
     (node): node is AgentPlanGroup => node.type === "group",
@@ -132,7 +143,9 @@ describe("removing a frame", () => {
     expect(scene.draft().edges).toEqual([]);
     expect(scene.removed).toEqual(["group"]);
   });
+});
 
+describe("removing a loop or a missing frame", () => {
   it("does nothing for a frame that is already gone", () => {
     const initial = planOf([agentNode("a", "codex")]);
     const scene = mountGroupActions(initial);
@@ -202,7 +215,9 @@ describe("removing a frame", () => {
     expect(scene.draft()).toBe(initial);
     expect(scene.removed).toEqual([]);
   });
+});
 
+describe("removing a group inside a loop or while queued", () => {
   it("dissolves a group inside a loop into members of the loop", () => {
     const nested = sessionGroup({
       id: "inner",
@@ -271,8 +286,6 @@ describe("removing a frame", () => {
 });
 
 describe("moving a whole group", () => {
-  const ORIGIN = planMemberOrigin(loopWith([]));
-
   it("takes a group of the grid into the loop under the pointer", () => {
     const scene = mountGroupActions(
       planOf([
@@ -343,7 +356,9 @@ describe("moving a whole group", () => {
     expect(stepOf(scene.draft(), "inner")).toMatchObject({ x: 200, y: 90 });
     expect(loopOf(scene.draft()).steps).toHaveLength(1);
   });
+});
 
+describe("moving a group past a collapsed loop or a missing group", () => {
   it("leaves a collapsed loop under the pointer out of account", () => {
     const scene = mountGroupActions(
       planOf([sessionGroup({ x: 1500, y: 0 }), loopWith([])]),
@@ -389,15 +404,6 @@ describe("moving a whole group", () => {
 });
 
 describe("joining a stack", () => {
-  const STACK: AgentPlanStack = {
-    id: "stack",
-    type: "stack",
-    name: "Queue",
-    x: 0,
-    y: 0,
-    entries: [],
-  };
-
   it("takes a value node into the stack as its last entry", () => {
     const scene = mountGroupActions(
       planOf([
@@ -407,7 +413,7 @@ describe("joining a stack", () => {
           type: "parameter",
           name: "topic",
           format: "string",
-          value: "kept",
+          value: { type: "text", text: "kept" },
           x: 500,
           y: 0,
         },
@@ -425,7 +431,7 @@ describe("joining a stack", () => {
             type: "parameter",
             name: "topic",
             format: "string",
-            value: "kept",
+            value: { type: "text", text: "kept" },
           },
         ],
       }),
@@ -461,7 +467,9 @@ describe("joining a stack", () => {
     });
     expect(stepOf(scene.draft(), "a")).toMatchObject({ bindings: {} });
   });
+});
 
+describe("refusing a node that cannot join a stack", () => {
   it("refuses a node that is no entry and a stack that is gone", () => {
     const initial = planOf([STACK, agentNode("a", "codex")]);
     const scene = mountGroupActions(initial);
