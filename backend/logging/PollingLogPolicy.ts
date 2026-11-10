@@ -7,6 +7,7 @@ const POLLING_ROUTES = [
   /^\/agent-api\/resources$/u,
   /^\/agent-api\/plan-runs$/u,
   /^\/settings-api\/agents\/[^/]+\/login$/u,
+  /^\/settings-api\/system\/dashboard$/u,
 ];
 const scope = new AsyncLocalStorage<boolean>();
 

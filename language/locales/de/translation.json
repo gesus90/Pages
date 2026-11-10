@@ -399,13 +399,87 @@
           "general": "Das Logo konnte nicht gespeichert werden."
         }
       },
-      "status": {
-        "title": "Status",
-        "description": "Angaben zur laufenden Instanz. Sie lassen sich hier nicht ändern.",
-        "version": "Version",
-        "databasePath": "Datenbankdatei",
-        "startedAt": "Läuft seit",
-        "unknown": "Unbekannt"
+      "dashboard": {
+        "title": "System-Leitstand",
+        "description": "Auslastung, Speicher und Dienste dieses Servers auf einen Blick.",
+        "live": "Live · alle 2 s",
+        "load": "Auslastung",
+        "window": "10 Min.",
+        "usage": "{{used}} von {{total}}",
+        "processor": {
+          "name": "Prozessor",
+          "load_one": "Last {{load}} · {{count}} Kern",
+          "load_other": "Last {{load}} · {{count}} Kerne",
+          "cores_one": "{{count}} Kern",
+          "cores_other": "{{count}} Kerne"
+        },
+        "memory": {
+          "name": "Arbeitsspeicher",
+          "used": "{{used}} von {{total}} GB",
+          "available": "{{available}} GB verfügbar"
+        },
+        "swap": {
+          "name": "Swap",
+          "swapping": "lagert aus",
+          "idle": "kein Auslagern"
+        },
+        "agents": {
+          "name": "Agents aktiv",
+          "of": "von {{maximum}} ACP-Instanzen",
+          "unlimited": "ohne Obergrenze",
+          "memory": "{{memory}} Speicher"
+        },
+        "disks": {
+          "title": "Datenträger",
+          "mounted": "{{count}} eingehängt",
+          "root": "System",
+          "path": "{{path}} · {{usage}}",
+          "free": "{{free}} frei",
+          "unreachable": "Nicht erreichbar"
+        },
+        "services": {
+          "title": "Dienste",
+          "running": "{{running}} von {{total}} laufen",
+          "column": {
+            "name": "Dienst",
+            "memory": "Speicher / Limit",
+            "uptime": "Läuft seit",
+            "restarts": "Neustarts"
+          },
+          "memory": "{{current}} / {{limit}}",
+          "noLimit": "{{current}} · ohne Limit",
+          "names": {
+            "api": "API und Oberfläche",
+            "runs": "Plan-Engine",
+            "core": "Live und WebSocket",
+            "coreConfig": "Mobil-Konfiguration",
+            "ingress": "Eingang",
+            "integrations": "Integrationen",
+            "postgres": "PostgreSQL"
+          }
+        },
+        "facts": {
+          "version": "Version",
+          "node": "Node.js",
+          "pagesUptime": "Pages läuft seit",
+          "serverUptime": "Server läuft seit",
+          "database": "Datenbank",
+          "databaseValue": "PostgreSQL · {{size}}",
+          "dataDirectory": "Datenverzeichnis",
+          "lastBackup": "Letztes Backup",
+          "tools": "Agent-Werkzeuge",
+          "toolsValue": "{{ready}} von {{total}} bereit"
+        },
+        "duration": {
+          "days": "{{days}} T. {{hours}} Std.",
+          "hours": "{{hours}} Std. {{minutes}} Min.",
+          "minutes": "{{minutes}} Min.",
+          "underMinute": "< 1 Min."
+        },
+        "day": {
+          "today": "heute {{time}}",
+          "yesterday": "gestern {{time}}"
+        }
       },
       "wiki": {
         "title": "Wiki",
@@ -6415,24 +6489,15 @@
     "unsupported": "{{model}} unterstützt diese Stufe nicht."
   },
   "serviceStatus": {
-    "title": "Dienste",
-    "description": "Zustand der Pages-Dienste aus dem systemd-Manager, auch wenn die API ausgefallen ist.",
     "loading": "Dienststatus wird geladen…",
     "unreachable": "Der Dienststatus ist nicht erreichbar.",
     "denied": "Details sehen nur Administratoren im Adminmodus.",
     "unconfirmed": "Die Anmeldung kann gerade nicht geprüft werden, deshalb ist nur die Ampel sichtbar. Die Details erscheinen wieder, sobald die API antwortet.",
-    "neverStarted": "nie gestartet",
     "light": {
       "green": "Alle Dienste laufen",
       "yellow": "Ein Dienst startet oder stoppt",
       "red": "Störung: nicht alle Dienste laufen",
       "unknown": "Dienststatus unbekannt"
-    },
-    "column": {
-      "name": "Dienst",
-      "state": "Zustand",
-      "lastStart": "Letzter Start",
-      "restarts": "Neustarts"
     },
     "state": {
       "active": "läuft",

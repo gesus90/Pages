@@ -100,6 +100,7 @@ import type { McpApplicationServices } from "./mcp-services.server";
 import type { DiscordApplicationServices } from "./discord-services.server";
 import type { GoogleDriveApplicationServices } from "./google-drive-services.server";
 import type { PreferenceApplicationServices } from "./preference-services.server";
+import type { SystemApplicationServices } from "./system-services.server";
 
 /** Server-only service instances shared by React Router loaders and actions. */
 export interface ApplicationServices
@@ -111,6 +112,7 @@ export interface ApplicationServices
     DiscordApplicationServices,
     GoogleDriveApplicationServices,
     PreferenceApplicationServices,
+    SystemApplicationServices,
     AgentPlanLoaderServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;

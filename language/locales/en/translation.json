@@ -399,13 +399,87 @@
           "general": "The logo could not be saved."
         }
       },
-      "status": {
-        "title": "Status",
-        "description": "Details of the running instance. They cannot be changed here.",
-        "version": "Version",
-        "databasePath": "Database file",
-        "startedAt": "Running since",
-        "unknown": "Unknown"
+      "dashboard": {
+        "title": "System dashboard",
+        "description": "Load, storage and services of this server at a glance.",
+        "live": "Live · every 2 s",
+        "load": "Load",
+        "window": "10 min",
+        "usage": "{{used}} of {{total}}",
+        "processor": {
+          "name": "Processor",
+          "load_one": "Load {{load}} · {{count}} core",
+          "load_other": "Load {{load}} · {{count}} cores",
+          "cores_one": "{{count}} core",
+          "cores_other": "{{count}} cores"
+        },
+        "memory": {
+          "name": "Memory",
+          "used": "{{used}} of {{total}} GB",
+          "available": "{{available}} GB available"
+        },
+        "swap": {
+          "name": "Swap",
+          "swapping": "swapping",
+          "idle": "not swapping"
+        },
+        "agents": {
+          "name": "Active agents",
+          "of": "of {{maximum}} ACP instances",
+          "unlimited": "no upper limit",
+          "memory": "{{memory}} memory"
+        },
+        "disks": {
+          "title": "Drives",
+          "mounted": "{{count}} mounted",
+          "root": "System",
+          "path": "{{path}} · {{usage}}",
+          "free": "{{free}} free",
+          "unreachable": "Not reachable"
+        },
+        "services": {
+          "title": "Services",
+          "running": "{{running}} of {{total}} running",
+          "column": {
+            "name": "Service",
+            "memory": "Memory / limit",
+            "uptime": "Running for",
+            "restarts": "Restarts"
+          },
+          "memory": "{{current}} / {{limit}}",
+          "noLimit": "{{current}} · no limit",
+          "names": {
+            "api": "API and interface",
+            "runs": "Plan engine",
+            "core": "Live and WebSocket",
+            "coreConfig": "Mobile configuration",
+            "ingress": "Entrance",
+            "integrations": "Integrations",
+            "postgres": "PostgreSQL"
+          }
+        },
+        "facts": {
+          "version": "Version",
+          "node": "Node.js",
+          "pagesUptime": "Pages running for",
+          "serverUptime": "Server running for",
+          "database": "Database",
+          "databaseValue": "PostgreSQL · {{size}}",
+          "dataDirectory": "Data directory",
+          "lastBackup": "Last backup",
+          "tools": "Agent tools",
+          "toolsValue": "{{ready}} of {{total}} ready"
+        },
+        "duration": {
+          "days": "{{days}} d {{hours}} h",
+          "hours": "{{hours}} h {{minutes}} min",
+          "minutes": "{{minutes}} min",
+          "underMinute": "< 1 min"
+        },
+        "day": {
+          "today": "today {{time}}",
+          "yesterday": "yesterday {{time}}"
+        }
       },
       "wiki": {
         "title": "Wiki",
@@ -6415,24 +6489,15 @@
     "unsupported": "{{model}} does not support this level."
   },
   "serviceStatus": {
-    "title": "Services",
-    "description": "State of the Pages services from the systemd manager, also while the API is down.",
     "loading": "Loading service status…",
     "unreachable": "The service status cannot be reached.",
     "denied": "Only administrators in admin mode see details.",
     "unconfirmed": "The sign-in cannot be checked right now, so only the light is visible. The details return as soon as the API answers.",
-    "neverStarted": "never started",
     "light": {
       "green": "All services are running",
       "yellow": "A service is starting or stopping",
       "red": "Fault: not all services are running",
       "unknown": "Service status unknown"
-    },
-    "column": {
-      "name": "Service",
-      "state": "State",
-      "lastStart": "Last start",
-      "restarts": "Restarts"
     },
     "state": {
       "active": "running",

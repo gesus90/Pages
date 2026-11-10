@@ -330,6 +330,10 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     resource("dashboard-api/page", "routes/dashboard-data.ts"),
     resource("settings-api/ticket-assets", "routes/settings-ticket-assets.ts"),
     resource("settings-api/interpreters", "routes/settings-interpreters.ts"),
+    resource(
+      "settings-api/system/dashboard",
+      "routes/settings-system-dashboard.ts",
+    ),
     resource("account-version", "routes/account-version.ts"),
     resource("live-changes", "routes/live-changes.ts"),
     resource(

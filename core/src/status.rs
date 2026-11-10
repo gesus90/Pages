@@ -4,12 +4,15 @@
 //! The public status is one light and needs neither `pages-api` nor a
 //! session, so it stays visible while the API is down. The details need an
 //! admin session, which `pages-api` confirms for every request over contract
-//! v1; without its answer in time there are no details, only the light.
+//! v1; without its answer in time there are no details, only the light. The
+//! details also carry when the PostgreSQL base backup last succeeded
+//! (PAGE-282), read from the managers the same way.
 
 use hyper::StatusCode;
 use serde::Serialize;
 use serde_json::json;
 
+use crate::backup::BackupReader;
 use crate::decisions::DecisionClient;
 use crate::log::{self, Severity};
 use crate::units::{Light, ServiceState, UnitReader};
@@ -24,10 +27,13 @@ struct LightBody {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct DetailsBody<'a> {
     version: u32,
     light: Light,
     services: &'a [ServiceState],
+    /// Milliseconds since the epoch; `None` without a backup unit or a successful run.
+    last_backup: Option<u64>,
 }
 
 /// One JSON answer of the status endpoints.
@@ -50,13 +56,18 @@ fn light_answer(status: StatusCode, light: Light) -> StatusAnswer {
 /// Serves the status from the manager's reading and the API's access decision.
 pub struct StatusService {
     units: UnitReader,
+    backup: BackupReader,
     access: DecisionClient,
 }
 
 impl StatusService {
     /// Creates the service.
     pub fn new(units: UnitReader, access: DecisionClient) -> Self {
-        Self { units, access }
+        Self {
+            units,
+            backup: BackupReader::new(),
+            access,
+        }
     }
 
     /// The light of all services, for everyone.
@@ -80,6 +91,7 @@ impl StatusService {
                     version: STATUS_VERSION,
                     light: snapshot.light,
                     services: &snapshot.services,
+                    last_backup: self.backup.last_success().await,
                 })
                 .unwrap_or_default();
                 StatusAnswer {
