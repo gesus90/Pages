@@ -342,14 +342,25 @@ function planContainers(plan: AgentPlanInput): ReadonlyMap<string, string> {
  */
 function boundaryIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   const containers = planContainers(plan);
+  const frameNodes = new Set(
+    plan.nodes
+      .filter((node) => node.type === "group" || node.type === "loop")
+      .map((node) => node.id),
+  );
   return planContainedEdges(plan).flatMap((edge): AgentPlanIssue[] => {
     const kind = planEdgeKind(edge);
     if (kind === null || kind === "flow") return [];
     const from = containers.get(edge.from);
     const to = containers.get(edge.to);
-    const isCrossing = kind === "event" ? (from ?? to) : from !== to;
+    const isCrossing =
+      kind === "event"
+        ? from !== undefined ||
+          to !== undefined ||
+          frameNodes.has(edge.from) ||
+          frameNodes.has(edge.to)
+        : from !== to;
     if (!isCrossing) return [];
-    return to === undefined
+    return to === undefined && !frameNodes.has(edge.to)
       ? [{ nodeId: edge.from, port: edge.fromPort, reason: "branchBoundary" }]
       : [{ nodeId: edge.to, port: edge.toPort, reason: "branchBoundary" }];
   });

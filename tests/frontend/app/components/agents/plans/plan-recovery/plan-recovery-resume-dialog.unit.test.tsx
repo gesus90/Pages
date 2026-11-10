@@ -32,11 +32,6 @@ function renderDialog(recovery: PlanRecovery): ReturnType<typeof vi.fn> {
 
 function continueRun(): void {
   fireEvent.click(
-    screen.getByRole("radio", {
-      name: new RegExp(i18n.t("plans.recovery.mode.new_session")),
-    }),
-  );
-  fireEvent.click(
     screen.getByRole("button", { name: i18n.t("plans.recovery.resumeAction") }),
   );
 }
@@ -64,9 +59,8 @@ it("closes once the decision started a new run", async () => {
   await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
   expect(submit).toHaveBeenCalledWith({
     action: "resume",
-    mode: "new_session",
+    confirmContinue: true,
     revision: 3,
-    reviewedStepIds: [],
   });
 });
 

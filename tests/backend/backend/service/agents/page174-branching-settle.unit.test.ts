@@ -394,7 +394,7 @@ it("forgets results of nodes whose start ended with the round", async () => {
   expect(active.branching?.pending).toEqual([]);
 });
 
-it("never reads the same start of the agent twice: a decision that would replay its old value fails instead", async () => {
+it("evaluates anew on every activation: a decision that runs again reads the current start of the agent", async () => {
   const world = await branchEngine(branchRuntime({}).execution);
   const active = activeRun(world, {
     start: { status: "succeeded", activation: 1 },
@@ -408,16 +408,15 @@ it("never reads the same start of the agent twice: a decision that would replay 
     activation: 1,
   });
 
-  // The decision is made to wait again while the agent has not started anew.
+  // The decision is made to wait again and evaluates anew (PAGE-286).
   patchStep(active, "decision", { status: "waiting", branch: undefined });
   settlePlanRun(active);
 
   expect(stepOf(active.view, "decision")).toMatchObject({
-    status: "failed",
-    error: "plan_decision_input_invalid",
+    status: "succeeded",
+    branch: "false",
     activation: 2,
   });
-  expect(stepOf(active.view, "decision").branch).toBeUndefined();
 });
 
 it("evaluates the next start of the agent as a new value and may take the other branch", async () => {
