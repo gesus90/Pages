@@ -45,8 +45,12 @@ function applyAlterTable(
   alteredBody: string,
 ): void {
   for (const clause of splitDefinitions(alteredBody)) {
-    const added = clause.match(/^ADD COLUMN\s+"?(\w+)"?/i);
-    const dropped = clause.match(/^DROP COLUMN\s+"?(\w+)"?/i);
+    const added = clause.match(
+      /^ADD COLUMN(?:\s+IF\s+NOT\s+EXISTS)?\s+"?(\w+)"?/i,
+    );
+    const dropped = clause.match(
+      /^DROP COLUMN(?:\s+IF\s+EXISTS)?\s+"?(\w+)"?/i,
+    );
     const renamed = clause.match(/^RENAME TO\s+(\w+)/i);
     if (added) {
       tables.get(altered)?.push(added[1]);
