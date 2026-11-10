@@ -125,3 +125,23 @@ it("stops the run from the header only after the question was confirmed", async 
   });
   expect(onStopRun).toHaveBeenCalledOnce();
 });
+
+it("marks a run whose work is done but whose closeout is still open", () => {
+  renderConsole(
+    <ConsoleHeader
+      title="Writer"
+      nodeType="Agent"
+      runs={[]}
+      run={{ ...syntheticRun(), status: "work_done_closeout_open" }}
+      provider={null}
+      stateLabel={null}
+      headingRef={createRef<HTMLHeadingElement>()}
+      onSelectRun={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.getByRole("status").textContent).toBe(
+    "Work done, closeout open",
+  );
+  expect(screen.queryByText("Manually intervened")).toBeNull();
+});
