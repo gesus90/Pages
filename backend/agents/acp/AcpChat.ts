@@ -67,8 +67,18 @@ export interface AcpSessionListener {
 
 /** What a chat session adds to a plan session: its MCP bridge, its continuation and its updates. */
 export interface AcpChatOptions {
-  /** The only MCP servers of the session, in place of the Pages MCP process of a plan node. */
+  /**
+   * The only MCP servers of the session, in place of the Pages MCP process of
+   * a plan node: Pica's bridge and, for an agent employee with host tools,
+   * the MCP servers configured on the host (PAGE-303).
+   */
   readonly mcpServers?: readonly McpServer[];
+  /**
+   * The session of an agent employee on YOLO runs without the bubblewrap
+   * isolation, with the rights of the server account (PAGE-303); every other
+   * conversation starts only inside it.
+   */
+  readonly isUnisolated?: boolean;
   /** The protocol session to continue with `session/resume`; `null` starts a new one. */
   readonly resumeSessionId: string | null;
   readonly listener: AcpSessionListener;

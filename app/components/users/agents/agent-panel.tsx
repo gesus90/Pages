@@ -15,6 +15,7 @@ import {
   useUsersError,
 } from "@/app/components/users/use-users-action";
 
+import { AgentAccessSection } from "./agent-access-section";
 import { AgentActivitySection } from "./agent-activity-section";
 import {
   AgentInstructionsSection,
@@ -160,6 +161,26 @@ function useAgentPanel(props: AgentPanelProps): AgentPanelState {
   };
 }
 
+/** The tab "Zugriff" (PAGE-303), changeable only by an administrator in admin mode. */
+function AgentAccessTab({
+  state,
+}: {
+  readonly state: AgentPanelState;
+}): React.ReactElement {
+  const { panel, agent, isDisabled, loaded } = state;
+  return (
+    <TabsContent value="access">
+      <AgentAccessSection
+        value={panel.draft.access}
+        savedValue={agent?.settings.access ?? null}
+        onChange={(access) => panel.change("access", access)}
+        canChange={!isDisabled && loaded.detail?.canChangeAccess === true}
+        environment={loaded.detail?.accessEnvironment ?? null}
+      />
+    </TabsContent>
+  );
+}
+
 /** The tabs of the panel with their sections. */
 function AgentPanelTabs({
   props,
@@ -176,6 +197,7 @@ function AgentPanelTabs({
     { value: "soul", label: t("agentEmployees.tabs.soul") },
     { value: "instructions", label: t("agentEmployees.tabs.instructions") },
     { value: "memory", label: t("agentEmployees.tabs.memory") },
+    { value: "access", label: t("agentEmployees.tabs.access") },
     ...(state.isEditing
       ? [{ value: "activity", label: t("agentEmployees.tabs.activity") }]
       : []),
@@ -240,6 +262,7 @@ function AgentPanelTabs({
           />
           <FormError error={state.restoreError} />
         </TabsContent>
+        <AgentAccessTab state={state} />
         {agent ? (
           <TabsContent value="activity">
             <AgentActivitySection
@@ -255,8 +278,8 @@ function AgentPanelTabs({
 
 /**
  * The panel "Agent erstellen" and "Agent bearbeiten" (PAGE-266): the tabs
- * Allgemein, Persönlichkeit, Aufgabe, Gedächtnis and, when editing,
- * Aktivität.
+ * Allgemein, Persönlichkeit, Aufgabe, Gedächtnis, Zugriff (PAGE-303) and,
+ * when editing, Aktivität.
  *
  * @remarks
  * Every tab edits one draft, which is saved together; the server checks

@@ -1,4 +1,4 @@
-import { Bell, BellOff, Square } from "lucide-react";
+import { Bell, BellOff, Square, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -68,6 +68,38 @@ function MuteButton({
   );
 }
 
+/**
+ * The access level of an agent as a label (PAGE-303); YOLO stands out in the
+ * destructive color, so nobody overlooks that Pages does not restrict it.
+ */
+function AccessBadge({
+  participant,
+}: {
+  readonly participant: VirtualParticipant;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const level = participant.accessLevel;
+  if (participant.kind !== "agent" || level === undefined) return null;
+  const tone: Readonly<Record<typeof level, string>> = {
+    read_only: "border-border bg-surface text-muted-foreground",
+    workspace: "border-info/40 bg-info-subtle text-info",
+    yolo: "border-destructive bg-destructive font-semibold text-primary-foreground",
+  };
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${tone[level]}`}
+      title={t(`agentEmployees.access.hint.${level}`)}
+    >
+      {level === "yolo" ? (
+        <TriangleAlert aria-hidden="true" className="size-3.5" />
+      ) : null}
+      {t("chatPage.accessLabel", {
+        level: t(`agentEmployees.access.${level}`),
+      })}
+    </span>
+  );
+}
+
 function ParticipantHeader({
   participant,
   isAnswering,
@@ -92,6 +124,7 @@ function ParticipantHeader({
       subtitle={facts.join(" · ")}
       aside={
         <>
+          <AccessBadge participant={participant} />
           <MuteButton {...mute} />
           {isAnswering && participant.kind === "agent" ? (
             <Button onClick={onStop} size="sm" type="button" variant="outline">

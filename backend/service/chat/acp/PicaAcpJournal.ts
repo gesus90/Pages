@@ -42,6 +42,14 @@ export class PicaAcpJournal {
     return this.enqueue(event);
   }
 
+  /** Stores an entry nobody waits for, such as a tool call or a compaction; a failed write is logged. */
+  public note(event: ChatJobEvent): void {
+    void this.record(event).catch((caughtError: unknown) => {
+      logCaughtError("PicaAcpJob", caughtError);
+      return undefined;
+    });
+  }
+
   /** Collects answer text of a turn; a reset or another turn writes what came before. */
   public text(turn: number, isReset: boolean, delta: string): void {
     const pending = this.pendingText;

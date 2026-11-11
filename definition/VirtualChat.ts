@@ -11,6 +11,7 @@
  * first.
  */
 
+import type { AgentEmployeeAccess } from "./AgentEmployee";
 import type { ConversationNotice } from "./Conversation";
 
 /** Whether a participant is available, busy with a task, or switched off. */
@@ -45,6 +46,8 @@ export interface VirtualParticipant {
   readonly isMuted?: boolean;
   /** ISO time of the adding or the last sent message. */
   readonly lastActivityAt: string;
+  /** The access level of an agent, shown in the head of its chat (PAGE-303). */
+  readonly accessLevel?: AgentEmployeeAccess;
 }
 
 /** A group of participants with one shared history. */
@@ -67,6 +70,15 @@ export interface VirtualGroup {
 export interface VirtualToolUse {
   readonly name: string;
   readonly detail: string;
+  /** The ID of the call within its job (PAGE-303). */
+  readonly callId?: string;
+  readonly status?: "running" | "completed" | "failed";
+  /** The command or input of the call, bounded and with credentials masked. */
+  readonly input?: string;
+  /** The result of the call, bounded and with credentials masked. */
+  readonly output?: string;
+  /** A tool of the host rather than a Pages tool. */
+  readonly isNative?: boolean;
 }
 
 /** The audio of a voice message (PAGE-278). */
@@ -137,6 +149,11 @@ export interface VirtualChatDirectory {
    * messages than the ones shown, which the page loads page by page (PAGE-275).
    */
   readonly olderHistoryIds?: readonly string[];
+  /**
+   * The tool calls of the answer an agent is working on now, by the agent's
+   * id; a running call can be cancelled (PAGE-303).
+   */
+  readonly liveToolUses?: Readonly<Record<string, readonly VirtualToolUse[]>>;
   /** People and agents the dialog "Teilnehmer hinzufügen" offers; never the own account. */
   readonly contactChoices: readonly VirtualContactChoice[];
   /** The longest voice message Pages takes, in milliseconds (PAGE-277). */

@@ -347,6 +347,26 @@ export class ChatJobRepository {
     return rows.length === 0 ? null : readJob(rows[0]);
   }
 
+  /** Returns the newest jobs of an own conversation, newest first (PAGE-303). */
+  public async recent(
+    userId: string,
+    sessionId: string,
+    limit: number,
+  ): Promise<readonly ChatJob[]> {
+    const rows = await this.database.query(
+      `
+      SELECT ${JOB_COLUMNS}
+      FROM chat_jobs
+      WHERE chat_jobs.session_id = $session_id
+          AND chat_jobs.user_id = $user_id
+      ORDER BY chat_jobs.created_at DESC, chat_jobs.id DESC
+      LIMIT $limit;
+    `,
+      { session_id: sessionId, user_id: userId, limit },
+    );
+    return rows.map(readJob);
+  }
+
   /** Reads journal entries of an own job after a cursor, oldest first. */
   public async events(
     userId: string,

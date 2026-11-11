@@ -1,4 +1,5 @@
 import type {
+  AgentAccessEnvironment,
   AgentActivityEntry,
   AgentEmployee,
   AgentEmployeeListItem,
@@ -23,4 +24,8 @@ export interface AgentEmployeeDetailData {
   readonly memoryDetails: AgentMemoryDetails;
   readonly activity: readonly AgentActivityEntry[];
   readonly canEdit: boolean;
+  /** Whether the person may change the access level: an administrator in active admin mode (PAGE-303). */
+  readonly canChangeAccess: boolean;
+  /** Isolation and detected MCP servers for the tab "Zugriff". */
+  readonly accessEnvironment: AgentAccessEnvironment;
 }

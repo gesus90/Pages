@@ -11,6 +11,7 @@ import type { ChatToolExecutor } from "../ChatToolExecutor";
 import type { PicaBridge } from "./PicaBridge";
 import type { PicaAnswerFiles } from "./PicaAcpAnswerOutput";
 import type { PicaAttachmentReader } from "./PicaAcpContent";
+import type { PicaHostFileAttach } from "../PicaHostFileTools";
 
 /** What a job needs from Pages; every write path is an existing one. */
 export interface PicaAcpJobDependencies {
@@ -38,4 +39,6 @@ export interface PicaAcpJobDependencies {
   readonly answerFiles?: PicaAnswerFiles;
   /** The archive search of an agent employee (PAGE-266); absent for Pica. */
   readonly searchMemory?: (query: string) => Promise<unknown>;
+  /** Attaches a file of the job's working folder for an agent employee with host tools (PAGE-303). */
+  readonly attachHostFile?: PicaHostFileAttach;
 }

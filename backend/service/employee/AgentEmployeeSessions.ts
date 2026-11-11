@@ -5,9 +5,14 @@ import { ChatError } from "@/backend/error/ChatErrors";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { acpRunOptions } from "@/definition/AgentConfiguration";
 import { CHAT_LIMITS } from "@/definition/Chat";
+import { hasHostTools } from "@/definition/AgentEmployee";
 
-import { employeeAcpRunner } from "../chat/acp/EmployeeAcpRunners";
+import {
+  employeeAcpRunner,
+  employeeRunMode,
+} from "../chat/acp/EmployeeAcpRunners";
 import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
+import { foldJobToolCalls } from "./AgentToolCallView";
 
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
@@ -22,8 +27,15 @@ import type { ChatJob, ChatJobStart } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
 import type { AgentMemoryService } from "./AgentMemoryService";
+import type { AgentAccessEnvironmentService } from "./AgentAccessEnvironmentService";
+import type { AgentHostFiles } from "./AgentHostFiles";
+import type { AgentToolCallView } from "./AgentToolCallView";
 
 const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
+/** Jobs of a conversation whose tool calls the chat page shows. */
+const TOOL_CALL_JOBS = 20;
+/** Journal entries of one job the chat page reads at most for its tool calls. */
+const TOOL_CALL_ENTRIES = 2_000;
 
 /** What the sessions of agents run on. */
 export interface AgentEmployeeSessionDependencies {
@@ -37,8 +49,15 @@ export interface AgentEmployeeSessionDependencies {
   /** Pica's ACP path; `null` where the server runs no ACP chat. */
   readonly acp: Pick<
     PicaAcpService,
-    "start" | "steer" | "update" | "stop"
+    "start" | "steer" | "update" | "stop" | "cancelTool" | "journals"
   > | null;
+  /** The MCP servers of the host for "Arbeitsplatz" and YOLO (PAGE-303); absent gives none. */
+  readonly accessEnvironment?: Pick<
+    AgentAccessEnvironmentService,
+    "chatServers"
+  >;
+  /** Attaches files of the working folder with the agent's rights (PAGE-303); absent offers no such tool. */
+  readonly hostFiles?: Pick<AgentHostFiles, "attach">;
   /** An unused ID for a new chat session. */
   readonly createSessionId: () => string;
   readonly today?: () => string;
@@ -138,6 +157,43 @@ export class AgentEmployeeSessions {
     if (conversation) await acp.stop(agent, conversation.sessionId);
   }
 
+  /**
+   * Cancels the running tool call in the person's conversation with an agent;
+   * the agent answers with what it has (PAGE-303).
+   *
+   * @returns Whether a running call was cancelled.
+   */
+  public async cancelTool(person: User, agentId: unknown): Promise<boolean> {
+    if (typeof agentId !== "string" || !IDENTIFIER.test(agentId))
+      throw new AgentEmployeeError("invalidInput");
+    const acp = this.dependencies.acp;
+    const agent = await this.dependencies.users.findById(agentId);
+    if (!acp || agent?.isAgent !== true) return false;
+    const conversation = await this.dependencies.store
+      .conversations()
+      .find(agentId, person.id, "chat");
+    return conversation ? acp.cancelTool(agent, conversation.sessionId) : false;
+  }
+
+  /**
+   * The tool calls of the newest jobs of a conversation of the agent, by the
+   * answer they belong to (PAGE-303).
+   *
+   * @returns Every call with input and result as the job journaled them;
+   * empty without ACP or a job.
+   */
+  public async toolCalls(
+    agent: User,
+    sessionId: string,
+  ): Promise<AgentToolCallView> {
+    const journals =
+      (await this.dependencies.acp?.journals(agent, sessionId, {
+        jobs: TOOL_CALL_JOBS,
+        entries: TOOL_CALL_ENTRIES,
+      })) ?? [];
+    return foldJobToolCalls(journals);
+  }
+
   /** Whether a job of a conversation of the agent runs now. */
   public async isWorking(agent: User, sessionId: string): Promise<boolean> {
     const acp = this.dependencies.acp;
@@ -194,7 +250,7 @@ export class AgentEmployeeSessions {
         request: chatRequest,
         agent: assignment,
         brief: await this.brief(request, conversation.sessionId),
-        employee: this.employeeRun(agent, employee, assignment),
+        employee: await this.employeeRun(agent, employee, assignment),
       });
       return { start, sessionId: conversation.sessionId };
     } catch (error: unknown) {
@@ -218,7 +274,10 @@ export class AgentEmployeeSessions {
     employee: StoredAgentEmployee,
   ): Promise<ResolvedAgentAssignment> {
     const resolved = await this.dependencies.models.resolve(employee);
-    return { ...resolved, run: acpRunOptions(employee.access, 0) };
+    return {
+      ...resolved,
+      run: acpRunOptions(employeeRunMode(employee.access), 0),
+    };
   }
 
   private async brief(
@@ -264,13 +323,31 @@ export class AgentEmployeeSessions {
     };
   }
 
-  private employeeRun(
+  /**
+   * The runner of a job with the agent's access level (PAGE-303): the host's
+   * MCP servers, read anew for every job, and the file tools only with host
+   * tools.
+   */
+  private async employeeRun(
     agent: User,
     employee: StoredAgentEmployee,
     assignment: ResolvedAgentAssignment,
-  ): NonNullable<PicaAcpStart["employee"]> {
+  ): Promise<NonNullable<PicaAcpStart["employee"]>> {
+    const { access } = employee;
+    const hostServers =
+      (await this.dependencies.accessEnvironment?.chatServers(
+        assignment.connection.provider,
+        access,
+      )) ?? [];
+    const { hostFiles } = this.dependencies;
     return {
-      runner: employeeAcpRunner(assignment, employee.access),
+      runner: employeeAcpRunner(assignment, access, hostServers),
+      ...(hostFiles && hasHostTools(access)
+        ? {
+            attachFile: (directory, target, file) =>
+              hostFiles.attach(agent, { directory, file, target }),
+          }
+        : {}),
       requireCurrent: () => this.requireCurrent(agent.id, employee.revision),
       requireConnection: (connectionId) =>
         connectionId === employee.connectionId

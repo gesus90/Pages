@@ -122,6 +122,11 @@ export interface PlanSession {
   steer?(prompt: readonly ContentBlock[]): Promise<AcpSteerOutcome>;
   /** Interrupts the running prompt of a plan turn, which then waits for a person's input (PAGE-284). */
   interrupt?(): Promise<boolean>;
+  /**
+   * Cancels the running prompt of a chat turn, which stops the running tool
+   * call, and continues the turn with the note (PAGE-303).
+   */
+  cancelTool?(note: string): Promise<boolean>;
   /** Whether the closeout has begun: the session takes no further turn, though its end is not yet reported. */
   readonly isClosing?: boolean;
   /** Ends the session and its helpers; resolves only after the confirmation. */
@@ -265,6 +270,7 @@ export class AgentPlanExecution implements PlanExecution {
     }
     const steer = session.steer?.bind(session);
     const interrupt = session.interrupt?.bind(session);
+    const cancelTool = session.cancelTool?.bind(session);
     return {
       turn: session.turn,
       terminated: session.terminated,
@@ -275,6 +281,7 @@ export class AgentPlanExecution implements PlanExecution {
       ...(session.detach ? { detach: () => session.detach?.() } : {}),
       ...(steer ? { steer } : {}),
       ...(interrupt ? { interrupt } : {}),
+      ...(cancelTool ? { cancelTool } : {}),
       ...(session.next
         ? {
             next: async (

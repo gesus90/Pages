@@ -93,6 +93,8 @@ function EntryLine({
     state: t(`agentEmployees.activity.state.${text(detail.state) || "none"}`),
     person: text(detail.person),
     message: text(detail.message),
+    from: t(`agentEmployees.access.${text(detail.from) || "read_only"}`),
+    to: t(`agentEmployees.access.${text(detail.to) || "read_only"}`),
     status: t(
       `agentEmployees.memory.result.${text(detail.status) || "unchanged"}`,
       {

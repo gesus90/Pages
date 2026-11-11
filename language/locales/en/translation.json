@@ -1787,7 +1787,9 @@
       "conflict": "The agent was changed meanwhile. Please open it again.",
       "modelNotAllowed": "This model is not allowed for agents.",
       "accessUnsupported": "YOLO is not available with this provider.",
-      "templateNameTaken": "A template with this name already exists."
+      "templateNameTaken": "A template with this name already exists.",
+      "accessAdminRequired": "Only administrators in active admin mode can change the access level.",
+      "isolationUnavailable": "Without isolation (bubblewrap), “Workspace” cannot be chosen."
     },
     "saved": "Saved",
     "discardChanges": "Discard unsaved changes?",
@@ -3842,7 +3844,19 @@
     "unmute": "Unmute",
     "muted": "Muted",
     "loadOlder": "Load older messages",
-    "loadingOlder": "Loading …"
+    "loadingOlder": "Loading …",
+    "accessLabel": "Access: {{level}}",
+    "toolStatus": {
+      "running": "running",
+      "completed": "done",
+      "failed": "failed"
+    },
+    "cancelTool": "Cancel",
+    "toolInput": "Input",
+    "toolOutput": "Result",
+    "toolError": "Error",
+    "toolNoDetails": "No further details.",
+    "liveTools": "Tools in use"
   },
   "workspaces": {
     "title": "Workspaces",
@@ -6813,7 +6827,8 @@
       "soul": "Personality",
       "instructions": "Task",
       "memory": "Memory",
-      "activity": "Activity"
+      "activity": "Activity",
+      "access": "Access"
     },
     "panel": {
       "createTitle": "Create agent",
@@ -6838,8 +6853,14 @@
       "chooseRole": "Choose role"
     },
     "access": {
-      "read_only": "Read only · Pages tools",
-      "yolo": "YOLO · all tools and all permissions"
+      "read_only": "Pages only",
+      "workspace": "Workspace",
+      "yolo": "YOLO",
+      "hint": {
+        "read_only": "Only the Pages tools. Shell, files, internet, browser and other MCP servers are technically blocked.",
+        "workspace": "Shell, internet, browser, every installed program and the configured MCP servers, inside the isolation (bubblewrap). Writes only in the working folder of the chat; no access to credentials or live data.",
+        "yolo": "No restriction by Pages: every program, the network and the file system with the rights of the system user, and every configured MCP server, without isolation."
+      }
     },
     "soul": {
       "template": "# Personality\n\nYou are calm, precise and direct.\n\n## Manner\n- You say clearly what is missing.\n- You ask when a task is unclear.\n\n## Tone\n- Short sentences, friendly and factual.\n\n## Limits\n- You claim nothing you have not checked.\n- When you do not know something, you say so."
@@ -6913,7 +6934,8 @@
         "learningSession": "Learning session · {{state}}",
         "learning": "Learning run: {{status}}",
         "ticket": "Ticket: {{message}}",
-        "wiki": "Wiki: {{message}}"
+        "wiki": "Wiki: {{message}}",
+        "access": "Access level: {{from}} → {{to}} (changed by {{person}})"
       },
       "state": {
         "running": "running",
@@ -6956,6 +6978,21 @@
         "description": "AGENT.md already holds text. The template “{{name}}” replaces it completely.",
         "confirm": "Replace"
       }
+    },
+    "accessTab": {
+      "intro": "The access level applies to chats with this agent. Agent plans keep their own run options per step. The Pages tools are available on every level, with the rights of the agent account.",
+      "legend": "Access level",
+      "adminOnly": "Only administrators in active admin mode can change the level.",
+      "createHint": "New agents start on “Pages only”. The level can be changed after creation.",
+      "isolationMissing": "No isolation (bubblewrap) is available on this host, so “Workspace” cannot be chosen.",
+      "mcpTitle": "Detected MCP servers",
+      "mcpHint": "Pages reads the MCP configuration of this agent’s CLI anew for every chat. A server set up later is available from the next chat on, in “Workspace” and “YOLO”.",
+      "mcpEmpty": "No MCP server is configured on this host for this agent’s CLI.",
+      "confirmTitle": "Really choose YOLO?",
+      "confirmText": "The agent can read, change and delete everything on this host, including credentials and live data. Pages does not restrict it and starts it without isolation.",
+      "confirm": "Choose YOLO",
+      "cancel": "Cancel",
+      "pending": "The level is applied with “Save”."
     }
   }
 }

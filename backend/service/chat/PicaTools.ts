@@ -2,6 +2,7 @@ import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistr
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 import { ChatResultBudget } from "./ChatResultBudget";
+import { registerPicaHostFileTools } from "./PicaHostFileTools";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
@@ -24,6 +25,7 @@ import { z } from "zod";
 import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
+import type { PicaHostFileAttach } from "./PicaHostFileTools";
 import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatActionOutcome } from "./ChatPrompt";
 import type { ChatOperation } from "./ChatToolCatalog";
@@ -56,6 +58,12 @@ export interface PicaToolsInput {
    * (PAGE-266); without it the memory tool is not offered.
    */
   readonly searchMemory?: ((query: string) => Promise<unknown>) | undefined;
+  /**
+   * Attaches a file of the chat's working folder to a ticket or a wiki page,
+   * for an agent employee with host tools (PAGE-303); without it the tools
+   * are not offered.
+   */
+  readonly attachHostFile?: PicaHostFileAttach | undefined;
 }
 
 /** The input of the memory tool of an agent employee. */
@@ -638,6 +646,16 @@ export function createPicaTools(
         createAnswerFile(input, budget, { parameters, context }),
     });
   if (input.searchMemory) registerMemoryTool(registry, input, budget);
+  const { attachHostFile } = input;
+  if (attachHostFile)
+    registerPicaHostFileTools(registry, {
+      attach: attachHostFile,
+      admit: async (context) => {
+        await input.authorize();
+        context.signal.throwIfAborted();
+        return spend(input, budget);
+      },
+    });
   if (input.adminTools)
     registerAdministratorTools(registry, {
       input,

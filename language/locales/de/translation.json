@@ -1787,7 +1787,9 @@
       "conflict": "Der Agent wurde inzwischen geändert. Bitte neu öffnen.",
       "modelNotAllowed": "Dieses Modell ist für Agents nicht zulässig.",
       "accessUnsupported": "YOLO ist mit diesem Anbieter nicht verfügbar.",
-      "templateNameTaken": "Eine Vorlage mit diesem Namen gibt es schon."
+      "templateNameTaken": "Eine Vorlage mit diesem Namen gibt es schon.",
+      "accessAdminRequired": "Nur Administratoren im aktiven Admin-Modus können die Zugriffsstufe ändern.",
+      "isolationUnavailable": "Ohne Isolation (bubblewrap) kann „Arbeitsplatz“ nicht gewählt werden."
     },
     "saved": "Gespeichert",
     "discardChanges": "Ungespeicherte Änderungen verwerfen?",
@@ -3842,7 +3844,19 @@
     "unmute": "Stummschaltung aufheben",
     "muted": "Stummgeschaltet",
     "loadOlder": "Ältere Nachrichten laden",
-    "loadingOlder": "Lädt …"
+    "loadingOlder": "Lädt …",
+    "accessLabel": "Zugriff: {{level}}",
+    "toolStatus": {
+      "running": "läuft",
+      "completed": "fertig",
+      "failed": "fehlgeschlagen"
+    },
+    "cancelTool": "Abbrechen",
+    "toolInput": "Eingabe",
+    "toolOutput": "Ergebnis",
+    "toolError": "Fehler",
+    "toolNoDetails": "Keine weiteren Angaben.",
+    "liveTools": "Laufende Werkzeugnutzung"
   },
   "workspaces": {
     "title": "Arbeitsverzeichnis",
@@ -6813,7 +6827,8 @@
       "soul": "Persönlichkeit",
       "instructions": "Aufgabe",
       "memory": "Gedächtnis",
-      "activity": "Aktivität"
+      "activity": "Aktivität",
+      "access": "Zugriff"
     },
     "panel": {
       "createTitle": "Agent erstellen",
@@ -6838,8 +6853,14 @@
       "chooseRole": "Rolle wählen"
     },
     "access": {
-      "read_only": "Nur Lesen · Pages-Werkzeuge",
-      "yolo": "YOLO · alle Tools und alle Berechtigungen"
+      "read_only": "Nur Pages",
+      "workspace": "Arbeitsplatz",
+      "yolo": "YOLO",
+      "hint": {
+        "read_only": "Nur die Pages-Werkzeuge. Shell, Dateien, Internet, Browser und andere MCP-Server sind technisch gesperrt.",
+        "workspace": "Shell, Internet, Browser, alle installierten Programme und die eingerichteten MCP-Server, innerhalb der Isolation (bubblewrap). Schreiben nur im Arbeitsordner des Chats; kein Zugriff auf Zugangsdaten und Live-Daten.",
+        "yolo": "Keine Einschränkung durch Pages: alle Programme, Netzwerk und Dateisystem mit den Rechten des Systembenutzers sowie alle eingerichteten MCP-Server, ohne Isolation."
+      }
     },
     "soul": {
       "template": "# Persönlichkeit\n\nDu bist ruhig, genau und direkt.\n\n## Art\n- Du sagst klar, was fehlt, ohne Umschweife.\n- Du hakst nach, wenn ein Auftrag unklar ist.\n\n## Ton\n- Kurze Sätze, freundlich und sachlich.\n\n## Grenzen\n- Du behauptest nichts, was du nicht geprüft hast.\n- Wenn du etwas nicht weißt, sagst du das."
@@ -6913,7 +6934,8 @@
         "learningSession": "Lernlauf-Sitzung · {{state}}",
         "learning": "Lernlauf: {{status}}",
         "ticket": "Ticket: {{message}}",
-        "wiki": "Wiki: {{message}}"
+        "wiki": "Wiki: {{message}}",
+        "access": "Zugriffsstufe: {{from}} → {{to}} (geändert von {{person}})"
       },
       "state": {
         "running": "läuft",
@@ -6956,6 +6978,21 @@
         "description": "AGENT.md enthält bereits Text. Die Vorlage „{{name}}“ ersetzt ihn vollständig.",
         "confirm": "Ersetzen"
       }
+    },
+    "accessTab": {
+      "intro": "Die Zugriffsstufe gilt für Chats mit diesem Agent. Agent-Pläne behalten ihre eigenen Laufoptionen je Schritt. Die Pages-Werkzeuge stehen in jeder Stufe bereit, mit den Rechten des Agent-Kontos.",
+      "legend": "Zugriffsstufe",
+      "adminOnly": "Nur Administratoren im aktiven Admin-Modus können die Stufe ändern.",
+      "createHint": "Neue Agents starten auf „Nur Pages“. Die Stufe lässt sich nach dem Anlegen ändern.",
+      "isolationMissing": "Auf diesem Rechner ist keine Isolation (bubblewrap) verfügbar. „Arbeitsplatz“ kann deshalb nicht gewählt werden.",
+      "mcpTitle": "Erkannte MCP-Server",
+      "mcpHint": "Pages liest die MCP-Konfiguration der CLI dieses Agents bei jedem Chat neu. Ein nachträglich eingerichteter Server steht ab dem nächsten Chat bereit, in „Arbeitsplatz“ und „YOLO“.",
+      "mcpEmpty": "Für die CLI dieses Agents ist auf dem Rechner kein MCP-Server eingerichtet.",
+      "confirmTitle": "YOLO wirklich wählen?",
+      "confirmText": "Der Agent kann alles auf diesem Rechner lesen, ändern und löschen, auch Zugangsdaten und Live-Daten. Pages schränkt ihn nicht ein und startet ihn ohne Isolation.",
+      "confirm": "YOLO wählen",
+      "cancel": "Abbrechen",
+      "pending": "Die Stufe wird mit „Speichern“ übernommen."
     }
   }
 }

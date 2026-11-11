@@ -38,6 +38,7 @@ export type ChatPageIntent =
   | "save-contacts"
   | "send"
   | "stop"
+  | "cancel-tool"
   | "create-group"
   | "add-member"
   | "send-group"
@@ -56,6 +57,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "save-contacts",
   "send",
   "stop",
+  "cancel-tool",
   "create-group",
   "add-member",
   "send-group",
@@ -218,6 +220,12 @@ async function runIntent(
       return {};
     case "stop":
       await services.agentEmployeeSessions.stop(
+        person,
+        formData.get("agentId"),
+      );
+      return {};
+    case "cancel-tool":
+      await services.agentEmployeeSessions.cancelTool(
         person,
         formData.get("agentId"),
       );

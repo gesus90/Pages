@@ -7,6 +7,8 @@ export type AgentEmployeeErrorCode =
   | "usernameTaken"
   | "modelNotAllowed"
   | "accessUnsupported"
+  | "accessAdminRequired"
+  | "isolationUnavailable"
   | "templateNameTaken"
   | "inactive"
   | "busy"

@@ -11,19 +11,61 @@
  */
 
 /**
- * How an agent may work on the host: Pages tools only, or every system tool
- * inside the isolation ("YOLO"), with every provider.
+ * The access level of an agent in its chats (PAGE-303).
+ *
+ * @remarks
+ * - `read_only` ("Nur Pages", the default): the Pages tools alone; every
+ *   other tool is refused by Pages, not only forbidden by the instruction.
+ * - `workspace` ("Arbeitsplatz"): every program, shell, web, browser and the
+ *   configured MCP servers of the host, inside the bubblewrap isolation of
+ *   the CLI runs; it writes only in the working folder of the chat.
+ * - `yolo`: no restriction by Pages on the host and no isolation; the agent
+ *   works with the rights of the system account Pages runs under.
+ *
+ * Plan steps keep their own run options; the level applies to chats only.
  */
-export const AGENT_EMPLOYEE_ACCESS_MODES = ["read_only", "yolo"] as const;
+export const AGENT_EMPLOYEE_ACCESS_MODES = [
+  "read_only",
+  "workspace",
+  "yolo",
+] as const;
 
-/** An access mode of {@link AGENT_EMPLOYEE_ACCESS_MODES}. */
+/** An access level of {@link AGENT_EMPLOYEE_ACCESS_MODES}. */
 export type AgentEmployeeAccess = (typeof AGENT_EMPLOYEE_ACCESS_MODES)[number];
 
-/** Narrows an unknown value to an access mode. */
+/** Narrows an unknown value to an access level. */
 export function isAgentEmployeeAccess(
   value: unknown,
 ): value is AgentEmployeeAccess {
-  return value === "read_only" || value === "yolo";
+  return AGENT_EMPLOYEE_ACCESS_MODES.some((mode) => mode === value);
+}
+
+/** Whether an access level gives the agent the tools of the host beside the Pages tools. */
+export function hasHostTools(access: AgentEmployeeAccess): boolean {
+  return access !== "read_only";
+}
+
+/** How a configured MCP server is reached. */
+export type AgentMcpTransport = "stdio" | "http" | "sse";
+
+/**
+ * An MCP server Pages found in the configuration of the agent's CLI on this
+ * host; only name, transport and origin, never a command line, header or
+ * environment value.
+ */
+export interface AgentDetectedMcpServer {
+  readonly name: string;
+  readonly transport: AgentMcpTransport;
+  /** The configuration file it came from, with the home folder as `~`. */
+  readonly source: string;
+}
+
+/** What the tab "Zugriff" shows beside the level. */
+export interface AgentAccessEnvironment {
+  /** Whether the bubblewrap isolation works on this host; without it "Arbeitsplatz" cannot be chosen. */
+  readonly isIsolationAvailable: boolean;
+  /** The MCP servers a chat of the agent receives in "Arbeitsplatz" and "YOLO", read anew for every chat. */
+  readonly mcpServers: readonly AgentDetectedMcpServer[];
 }
 
 /** Fixed length limits of the documents an agent gets in every session. */
@@ -177,7 +219,8 @@ export interface AgentArchiveEntry {
 }
 
 /** What one line of the activity reports. */
-export type AgentActivityKind = "session" | "learning" | "ticket" | "wiki";
+export type AgentActivityKind =
+  "session" | "learning" | "ticket" | "wiki" | "access";
 
 /** How much a session or learning run cost, as far as the model reported it. */
 export interface AgentActivityCost {

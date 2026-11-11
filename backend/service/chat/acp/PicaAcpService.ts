@@ -18,6 +18,8 @@ import type { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegi
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { ChatSendResult } from "@/definition/Chat";
 import type {
+  ChatJob,
+  ChatJobEntry,
   ChatJobStart,
   ChatJobUpdate,
   ChatSessionActivity,
@@ -29,7 +31,14 @@ import type { PicaAcpJobDependencies, PicaAcpRun } from "./PicaAcpJob";
 import type { PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
+import type { AgentHostFileTarget } from "@/backend/service/employee/AgentHostFiles";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
+
+/** A job of a conversation with its journal (PAGE-303). */
+export interface ChatJobJournal {
+  readonly job: ChatJob;
+  readonly events: readonly ChatJobEntry[];
+}
 
 /** Journal entries one read returns at most. */
 const PAGE_ENTRIES = 200;
@@ -78,6 +87,15 @@ export interface PicaAcpEmployeeRun {
   readonly requireConnection: (connectionId: string) => Promise<void>;
   /** Searches the agent's own memory archive. */
   readonly searchMemory: (query: string) => Promise<unknown>;
+  /**
+   * Attaches a file of the job's working folder to a ticket or a wiki page
+   * with the agent's rights; present only with host tools (PAGE-303).
+   */
+  readonly attachFile?: (
+    directory: string,
+    target: AgentHostFileTarget,
+    file: string,
+  ) => Promise<{ readonly ok: boolean; readonly error?: string }>;
 }
 
 /** What a new job is started from; the agent is resolved by the caller for this message. */
@@ -216,11 +234,56 @@ export class PicaAcpService {
     };
   }
 
+  /**
+   * Reads the journals of the newest jobs of an own conversation, for the
+   * tool calls the chat page shows under each answer (PAGE-303).
+   *
+   * @param actor - The account the conversation belongs to.
+   * @param sessionId - The conversation.
+   * @param limits - How many jobs, and journal entries per job, at most.
+   * @returns The jobs, oldest first, each with its journal.
+   */
+  public async journals(
+    actor: User,
+    sessionId: unknown,
+    limits: { readonly jobs: number; readonly entries: number },
+  ): Promise<readonly ChatJobJournal[]> {
+    await this.ready();
+    const id = readChatSessionId(sessionId);
+    await this.dependencies.sessions.require(actor, id);
+    const { jobs } = this.dependencies;
+    const recent = await jobs.recent(actor.id, id, limits.jobs);
+    const journals: ChatJobJournal[] = [];
+    for (const job of [...recent].reverse())
+      journals.push({
+        job,
+        events: await jobs.events(actor.id, job.id, {
+          after: 0,
+          limit: limits.entries,
+        }),
+      });
+    return journals;
+  }
+
   /** Stops the running job of an own conversation on the person's explicit request. */
   public async stop(actor: User, sessionId: unknown): Promise<void> {
     const id = readChatSessionId(sessionId);
     await this.dependencies.sessions.require(actor, id);
     this.cancel(actor.id, id);
+  }
+
+  /**
+   * Cancels the running tool call of the running job of an own conversation
+   * on the person's request; the job goes on (PAGE-303).
+   *
+   * @returns Whether a running call was cancelled.
+   */
+  public async cancelTool(actor: User, sessionId: unknown): Promise<boolean> {
+    const id = readChatSessionId(sessionId);
+    await this.dependencies.sessions.require(actor, id);
+    const entry = this.running.get(id);
+    if (entry?.job.userId !== actor.id) return false;
+    return entry.job.cancelTool();
   }
 
   /**
@@ -363,18 +426,28 @@ export class PicaAcpService {
       userId: actor.id,
       messageId: message.id,
     });
-    const job = new PicaAcpJob(dependencies, {
-      id,
-      actor,
-      sessionId,
-      agent,
-      run,
-      directory,
-      message,
-      brief: input.brief,
-      resumeSessionId,
-      gate: (task) => this.gate(sessionId, task),
-    });
+    const attachFile = input.employee?.attachFile;
+    const job = new PicaAcpJob(
+      attachFile
+        ? {
+            ...dependencies,
+            attachHostFile: (target, file) =>
+              attachFile(directory, target, file),
+          }
+        : dependencies,
+      {
+        id,
+        actor,
+        sessionId,
+        agent,
+        run,
+        directory,
+        message,
+        brief: input.brief,
+        resumeSessionId,
+        gate: (task) => this.gate(sessionId, task),
+      },
+    );
     this.register(sessionId, job);
     const started = await this.dependencies.jobs.find(actor.id, id);
     if (started === null) throw new ChatError("sessionMissing");

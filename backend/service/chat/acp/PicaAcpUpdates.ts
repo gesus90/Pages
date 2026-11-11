@@ -9,6 +9,9 @@ import type {
   SessionUpdate,
   Usage,
 } from "@agentclientprotocol/sdk";
+import { PicaAcpToolCalls } from "./PicaAcpToolCalls";
+
+import type { PicaNativeToolEvent } from "./PicaAcpToolCalls";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { PicaCodexListener } from "@/backend/agents/acp/PicaCodexRequests";
 import type {
@@ -55,6 +58,8 @@ export interface PicaAcpUpdateSink {
   readonly content?: (turn: number, block: ContentBlock) => void;
   /** The connection to the adapter ended. */
   readonly closed: () => void;
+  /** A tool call of the host the agent made, for an agent employee with host tools (PAGE-303). */
+  readonly nativeTool?: (event: PicaNativeToolEvent) => void;
 }
 
 /** How the cost an adapter reports is meant. */
@@ -208,6 +213,7 @@ export class PicaAcpUpdates implements AcpSessionListener {
   private readonly sink: PicaAcpUpdateSink;
   private readonly options: PicaAcpUpdateOptions;
   private readonly state = createAcpSessionState();
+  private readonly toolCalls = new PicaAcpToolCalls();
   private shown = "";
   private turn = 1;
 
@@ -240,6 +246,8 @@ export class PicaAcpUpdates implements AcpSessionListener {
     }
     const compaction = readCompaction(update);
     if (compaction !== null) this.sink.compaction(compaction);
+    const toolCall = this.sink.nativeTool ? this.toolCalls.read(update) : null;
+    if (toolCall !== null) this.sink.nativeTool?.(toolCall);
     if (
       update.sessionUpdate === "agent_message_chunk" &&
       update.content.type !== "text"

@@ -1,4 +1,4 @@
-import { CircleAlert, Zap } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -9,12 +9,12 @@ import { cn } from "@/app/lib/cn";
 
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
+import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
 
 import type {
   VirtualChatMessage,
   VirtualParticipant,
-  VirtualToolUse,
 } from "@/definition/VirtualChat";
 
 function hideImages(): boolean {
@@ -98,19 +98,6 @@ function OwnRun({
   );
 }
 
-function ToolChip({
-  use,
-}: {
-  readonly use: VirtualToolUse;
-}): React.ReactElement {
-  return (
-    <li className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2 py-1 font-mono text-xs text-foreground shadow-xs">
-      <Zap aria-hidden="true" className="size-3.5 text-primary" />
-      {use.detail === "" ? use.name : `${use.name} · ${use.detail}`}
-    </li>
-  );
-}
-
 /** The text, the voice message, or the hint why an agent did not answer (PAGE-276). */
 function AnswerContent({
   message,
@@ -188,10 +175,13 @@ function AnswerBubble({
       {message.toolUses.length > 0 ? (
         <ul
           aria-label={t("chatPage.toolUses")}
-          className="mt-1 flex flex-wrap gap-2"
+          className="mt-1 flex flex-col gap-1.5"
         >
           {message.toolUses.map((use) => (
-            <ToolChip key={`${use.name}:${use.detail}`} use={use} />
+            <ChatPageToolUse
+              key={use.callId ?? `${use.name}:${use.detail}`}
+              use={use}
+            />
           ))}
         </ul>
       ) : null}

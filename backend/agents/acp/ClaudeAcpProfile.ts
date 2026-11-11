@@ -306,19 +306,22 @@ const CHAT_PROFILE: ClaudeAcpProfile = {
 };
 
 /**
- * The conversation of an agent employee with full access (PAGE-266): every
- * native tool of Claude Code inside the bubblewrap isolation, which a YOLO
- * session never runs without, and the Pages helper for its Pages tools. The
- * session is kept like Pica's, so the next job continues it.
+ * The conversation of an agent employee on "Arbeitsplatz" or YOLO (PAGE-266,
+ * PAGE-303): every native tool of Claude Code, the MCP servers configured on
+ * the host, and the Pages helper for its Pages tools. "Arbeitsplatz" runs
+ * inside the bubblewrap isolation, YOLO without it. The session is kept like
+ * Pica's, so the next job continues it. There is no Pages MCP server whose
+ * state a status command could report; the Pages tools come over the helper.
  */
 const CHAT_FULL_ACCESS_PROFILE: ClaudeAcpProfile = {
   ...YOLO_PROFILE,
+  hasMcpStatusCommand: false,
   unattended:
-    "ACP session mode bypassPermissions for an agent employee with full access, inside the bubblewrap isolation; Pages approves any remaining request",
+    "ACP session mode bypassPermissions for an agent employee on Arbeitsplatz (inside the bubblewrap isolation) or YOLO (without isolation); Pages approves any remaining request",
   permissions: {
     ...YOLO_PROFILE.permissions,
     pagesTools: "Pages helper with the rights of the agent's account",
-    mcpServers: "none",
+    mcpServers: "the MCP servers configured on the host for Claude Code",
   },
 };
 

@@ -14,7 +14,27 @@ import type {
   VirtualChatSendFailure,
   VirtualGroup,
   VirtualParticipant,
+  VirtualToolUse,
 } from "@/definition/VirtualChat";
+
+/** Sends a stop or a tool cancellation for the opened agent. */
+function useAgentControls(opened: OpenedConversation | null): {
+  readonly stop: () => void;
+  readonly cancelTool: () => void;
+} {
+  const fetcher = useFetcher();
+  function submit(intent: "stop" | "cancel-tool"): void {
+    if (opened?.kind !== "participant") return;
+    const formData = new FormData();
+    formData.set("intent", intent);
+    formData.set("agentId", opened.participant.id);
+    void fetcher.submit(formData, { method: "post" });
+  }
+  return {
+    stop: () => submit("stop"),
+    cancelTool: () => submit("cancel-tool"),
+  };
+}
 
 /** How often the page reads the history again while an agent answers. */
 const ANSWER_POLL_MILLISECONDS = 3_000;
@@ -71,6 +91,10 @@ export interface ChatPageState {
   addMember(groupId: string, participantId: string): void;
   /** Stops the answer of the opened agent. */
   stop(): void;
+  /** The tool calls of the answer the opened agent is working on (PAGE-303). */
+  readonly liveTools: readonly VirtualToolUse[];
+  /** Cancels the running tool call of the opened agent; its answer goes on (PAGE-303). */
+  cancelTool(): void;
   findParticipant(id: string): VirtualParticipant | undefined;
   /** The known members of a group, in its order. */
   findMembers(group: VirtualGroup): VirtualParticipant[];
@@ -299,10 +323,10 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
   const lists: ChatLists = activity;
   const [selection, setSelection] = useState(() => firstSelection(lists));
   const sender = useFetcher();
-  const stopper = useFetcher();
 
   const found = searchLists(lists, query);
   const opened = openConversation(lists, selection);
+  const controls = useAgentControls(opened);
   const historyId = selection?.id ?? "";
   const pending = pendingMessage(sender.formData, selection);
   const stored = directory.histories[historyId] ?? [];
@@ -328,14 +352,6 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     if (!formData) return;
     activity.touch(selection);
     void sender.submit(formData, { method: "post" });
-  }
-
-  function stop(): void {
-    if (opened?.kind !== "participant") return;
-    const formData = new FormData();
-    formData.set("intent", "stop");
-    formData.set("agentId", opened.participant.id);
-    void stopper.submit(formData, { method: "post" });
   }
 
   function findParticipant(id: string): VirtualParticipant | undefined {
@@ -370,7 +386,9 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     sendFailure,
     send,
     addMember: activity.addMember,
-    stop,
+    stop: controls.stop,
+    liveTools: isAnswering ? (directory.liveToolUses?.[historyId] ?? []) : [],
+    cancelTool: controls.cancelTool,
     findParticipant,
     findMembers,
   };

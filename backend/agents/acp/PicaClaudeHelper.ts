@@ -130,11 +130,23 @@ export function decidePicaHelperPermission(
   return { outcome, isDenied: outcome.outcome !== "selected" };
 }
 
-/** The instruction a Claude Code turn receives for the helper of that turn. */
-export function picaHelperUsage(helperPath: string): string {
+/**
+ * The instruction a Claude Code turn receives for the helper of that turn.
+ *
+ * @param helperPath - The helper the turn may run.
+ * @param hasHostTools - An agent employee on "Arbeitsplatz" or YOLO (PAGE-303)
+ * uses every other tool of the host as well; everyone else is told, and held
+ * by {@link decidePicaHelperPermission}, to run nothing but the helper.
+ */
+export function picaHelperUsage(
+  helperPath: string,
+  hasHostTools = false,
+): string {
   return [
     `Use the Bash tool with exactly this command shape, only from this message: '${helperPath}' '{"action":"catalog"}' lists the tools; '${helperPath}' '{"action":"call","name":"projects_list","arguments":{}}' calls one (replace the name and arguments; a single quote inside the JSON is written '\\'').`,
     "The result is JSON. If it lists image files, open each with the Read tool to see it.",
-    "Run no other command and open no other file.",
+    hasHostTools
+      ? "Beside the helper you may use every other tool, program and MCP server of this host the task needs; Pages shows each call in the chat."
+      : "Run no other command and open no other file.",
   ].join(" ");
 }

@@ -54,6 +54,8 @@ export function syntheticDetail(
     memoryDetails: { archive: [], versions: [] },
     activity: [],
     canEdit: true,
+    canChangeAccess: false,
+    accessEnvironment: { isIsolationAvailable: true, mcpServers: [] },
     ...overrides,
   };
 }

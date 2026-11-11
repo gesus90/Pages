@@ -1,3 +1,5 @@
+import { CliHostMcpServers } from "@/backend/agents/cli/CliHostMcpServers";
+import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
@@ -11,6 +13,8 @@ import { UserSettingsRepository } from "@/backend/database/repositories/UserSett
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
+import { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
+import { AgentHostFiles } from "@/backend/service/employee/AgentHostFiles";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
 import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
 import { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
@@ -30,6 +34,7 @@ import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
+import type { AgentHostFileStores } from "@/backend/service/employee/AgentHostFiles";
 import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { ConversationApplicationServices } from "./conversation-services.server";
@@ -55,6 +60,8 @@ export interface EmployeeServicesInput {
   readonly cache: ServerCache;
   /** Pica's ACP path, which agent sessions share; `null` without ACP chat. */
   readonly acp: PicaAcpService | null;
+  /** The ticket and wiki attachments the file tools of an agent with host tools use (PAGE-303). */
+  readonly hostFiles?: AgentHostFileStores;
   /** Where the stored conversations keep their audio and announce their changes (PAGE-278). */
   readonly conversations: {
     readonly directory: string;
@@ -85,6 +92,12 @@ export function createEmployeeServices(
   const languages = new UserSettingsRepository(database);
   const memory = new AgentMemoryService(store);
   const activity = new AgentActivityService(store);
+  // Bubblewrap and the MCP configuration of the CLIs are read anew, so they
+  // change without a restart (PAGE-303).
+  const accessEnvironment = new AgentAccessEnvironmentService({
+    isIsolationAvailable: () => probeBubblewrap(),
+    mcp: new CliHostMcpServers(),
+  });
   const sessions = new AgentEmployeeSessions({
     store,
     users,
@@ -94,6 +107,10 @@ export function createEmployeeServices(
     models,
     memory,
     acp: input.acp,
+    accessEnvironment,
+    ...(input.hostFiles
+      ? { hostFiles: new AgentHostFiles(input.hostFiles) }
+      : {}),
     createSessionId: () => createChatSessionId(),
   });
   const simulation = currentAgentSimulationMode();
@@ -128,6 +145,7 @@ export function createEmployeeServices(
       models,
       memory,
       activity,
+      accessEnvironment,
     }),
     agentTemplateService: new AgentTemplateService({
       store,
@@ -144,6 +162,7 @@ export function createEmployeeServices(
       messages,
       conversations: conversations.conversationReader,
       isWorking: (agent, sessionId) => sessions.isWorking(agent, sessionId),
+      toolCalls: (agent, sessionId) => sessions.toolCalls(agent, sessionId),
       workingAgentIds: (conversationId) =>
         conversations.conversationAgentReplies.workingAgentIds(conversationId),
     }),

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChatPageComposer } from "./chat-page-composer";
 import { ChatPageHeader } from "./chat-page-header";
 import { ChatPageHistory } from "./chat-page-history";
+import { ChatPageLiveTools } from "./chat-page-tool-uses";
 import { ChatPageList } from "./chat-page-list";
 import { ChatPagePicker } from "./chat-page-picker";
 import { useChatPage } from "./use-chat-page";
@@ -120,6 +121,7 @@ function ChatPageConversation({
         }}
         answeringNames={page.answeringNames}
       />
+      <ChatPageLiveTools tools={page.liveTools} onCancel={page.cancelTool} />
       <ConversationFoot
         key={conversationKey(opened)}
         page={page}

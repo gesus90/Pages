@@ -140,6 +140,9 @@ function readProgressEvent(event: Fields): ChatJobEvent | null {
         status: oneOf(event.status, ["running", "completed", "failed"]),
         error: nullableText(event.error),
         ...(event.isPrivileged === true ? { isPrivileged: true } : {}),
+        ...(event.isNative === true ? { isNative: true } : {}),
+        ...(typeof event.input === "string" ? { input: event.input } : {}),
+        ...(typeof event.output === "string" ? { output: event.output } : {}),
       };
     default:
       return null;

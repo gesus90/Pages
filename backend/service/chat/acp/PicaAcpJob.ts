@@ -27,6 +27,7 @@ import {
   turnBeganEvent,
 } from "./PicaAcpTurnResult";
 import { PicaAcpUpdates } from "./PicaAcpUpdates";
+import { chatMcpServers } from "./PicaAcpRunners";
 
 import type { PromptCapabilities } from "@agentclientprotocol/sdk";
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
@@ -42,10 +43,7 @@ import type { NewChatMessage } from "@/backend/database/repositories/chat/ChatSe
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
-import type {
-  ChatJobCompactionEvent,
-  ChatSteerStatus,
-} from "@/definition/ChatJob";
+import type { ChatSteerStatus } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { PicaMessageContent, PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
@@ -54,6 +52,10 @@ import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
+
+/** What the agent reads after the person cancelled its running tool call. */
+const TOOL_CANCELLED_NOTE =
+  "Die Person hat deinen laufenden Werkzeugaufruf abgebrochen. Starte ihn nicht erneut, sondern antworte mit dem bisherigen Stand und frag nach, wie es weitergehen soll.";
 
 /** The runner of a job and the run options it was validated with before anything was stored. */
 export interface PicaAcpRun {
@@ -133,10 +135,11 @@ export class PicaAcpJob {
       specification.id,
       specification.run.runner.hasPartialTokenUsage === true,
     );
-    this.credential = new PicaAcpCredential(
-      specification.directory,
-      specification.agent.connection.provider === "claude_code",
-    );
+    this.credential = new PicaAcpCredential(specification.directory, {
+      isClaude: specification.agent.connection.provider === "claude_code",
+      // Only an agent employee with host tools runs a chat in YOLO mode (PAGE-303).
+      hasHostTools: specification.run.options.access === "yolo",
+    });
     this.answerOutput = new PicaAcpAnswerOutput(
       dependencies.answerFiles,
       specification,
@@ -161,16 +164,12 @@ export class PicaAcpJob {
         steering: (canSteer, capabilities) => {
           this.capabilities = capabilities;
           this.hasSteering = canSteer;
-          void this.journal
-            .record({ kind: "capabilities", canSteer })
-            .catch((caughtError: unknown) => {
-              logCaughtError("PicaAcpJob", caughtError);
-              return undefined;
-            });
+          this.journal.note({ kind: "capabilities", canSteer });
         },
         text: (turn, isReset, delta) => this.journal.text(turn, isReset, delta),
         context: (context, cost) => this.usage.recordContext(context, cost),
-        compaction: (compaction) => this.recordCompaction(compaction),
+        compaction: (compaction) =>
+          this.journal.note({ kind: "compaction", ...compaction }),
         promptEnded: (turn, tokens) => {
           if (this.isSteerBinding && turn === this.turn)
             this.endedDuringSteer = true;
@@ -180,6 +179,13 @@ export class PicaAcpJob {
         threadStatus: (isActive) => this.thread.observe(isActive),
         content: (turn, block) => this.answerOutput.take(turn, block),
         closed: () => this.thread.close(),
+        // Host tools of an agent employee show in the chat with input and result (PAGE-303).
+        ...(specification.run.options.access === "yolo"
+          ? {
+              nativeTool: (event) =>
+                this.journal.note({ kind: "tool", ...event }),
+            }
+          : {}),
       },
       specification.run.runner,
     );
@@ -206,6 +212,22 @@ export class PicaAcpJob {
    */
   public steer(message: PicaAcpMessage): Promise<ChatSteerStatus | null> {
     return this.steering.accept(message);
+  }
+
+  /**
+   * Cancels the running tool call of the agent on the person's request (PAGE-303).
+   *
+   * @remarks
+   * ACP cancels a call only with the running prompt; the turn then goes on
+   * at once with a note that the person cancelled the call, so the agent
+   * answers with what it has instead of ending the job.
+   *
+   * @returns Whether a prompt was running and got cancelled.
+   */
+  public async cancelTool(): Promise<boolean> {
+    const cancel = this.session?.cancelTool?.bind(this.session);
+    if (!cancel || !this.isTurnRunning) return false;
+    return cancel(TOOL_CANCELLED_NOTE);
   }
 
   /** Marks the coming cancellation as the person's explicit stop. */
@@ -290,14 +312,7 @@ export class PicaAcpJob {
       onImages: (turn, images, isCurrent) =>
         this.answerOutput.stageImages(turn, images, isCurrent),
       catalog: await this.toolTurns.catalog(this.userId),
-      onTool: (event) => {
-        void this.journal
-          .record({ kind: "tool", ...event })
-          .catch((caughtError: unknown) => {
-            logCaughtError("PicaAcpJob", caughtError);
-            return undefined;
-          });
-      },
+      onTool: (event) => this.journal.note({ kind: "tool", ...event }),
     });
     this.credential.open(lease);
     await this.journal.record({ kind: "phase", phase: "starting" });
@@ -449,9 +464,8 @@ export class PicaAcpJob {
       options: run.options,
       instanceId: randomUUID(),
       chat: {
-        ...(run.runner.hasBridgeMcp
-          ? { mcpServers: this.credential.mcpServers() }
-          : {}),
+        ...chatMcpServers(run.runner, () => this.credential.mcpServers()),
+        ...(run.runner.isUnisolated === true ? { isUnisolated: true } : {}),
         resumeSessionId,
         listener: this.updates,
       },
@@ -600,18 +614,6 @@ export class PicaAcpJob {
   ): Promise<void> {
     await this.dependencies.steers.update(messageId, status);
     await this.journal.record({ kind: "steer", messageId, status });
-  }
-
-  /** A compaction is journaled on its own; it is no tool of Pages, no steer and no stop. */
-  private recordCompaction(
-    compaction: Omit<ChatJobCompactionEvent, "kind">,
-  ): void {
-    void this.journal
-      .record({ kind: "compaction", ...compaction })
-      .catch((caughtError: unknown) => {
-        logCaughtError("PicaAcpJob", caughtError);
-        return undefined;
-      });
   }
 
   private observer(): PlanSessionObserver {
