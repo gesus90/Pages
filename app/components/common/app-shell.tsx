@@ -220,6 +220,7 @@ function NavigationLinks({
         <StorageNavigationLink onNavigate={onNavigate} />
       ) : null}
 
+      <div aria-hidden="true" className="pages-sidebar-scene" />
       <div className="mt-auto flex flex-col gap-1 pt-2">
         {canViewUsers ? (
           <NavLink
@@ -365,7 +366,7 @@ function MobileNavigation({
           <Menu className="size-5" aria-hidden="true" />
         </Button>
       </SheetTrigger>
-      <SheetContent className="pages-navigation-palette pages-sidebar-surface">
+      <SheetContent className="pages-navigation-palette pages-sidebar-surface [--sidebar-scene-width:min(19rem,86vw)]">
         <div className="mb-8 flex items-center justify-between">
           <SheetTitle className="sr-only">{t("navigation.label")}</SheetTitle>
           <img
@@ -421,7 +422,7 @@ function DesktopSidebar({
       ref={sidebarRef}
       id={sidebarId}
       className={cn(
-        "fixed inset-y-0 left-0 hidden w-(--app-sidebar-width) flex-col bg-sidebar pages-navigation-palette pages-sidebar-surface px-5 pt-7 pb-13 md:flex xl:px-4 xl:pt-5 xl:pb-6",
+        "fixed inset-y-0 left-0 hidden w-(--app-sidebar-width) flex-col bg-sidebar pages-navigation-palette pages-sidebar-surface px-5 pt-7 pb-13 [--sidebar-scene-width:var(--app-sidebar-width)] md:flex xl:px-4 xl:pt-5 xl:pb-6",
         !layout.isCollapsed && "min-w-(--app-sidebar-minimum)",
       )}
     >
@@ -493,6 +494,7 @@ export function AppShell({
       )}
       style={layout.shellStyle}
     >
+      <div aria-hidden="true" className="pages-app-scene" />
       <DesktopSidebar
         branding={branding}
         canManageAgents={canManageAgents}

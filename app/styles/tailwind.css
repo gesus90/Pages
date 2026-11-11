@@ -291,9 +291,14 @@
   --shadow-xs:
     0 1px 2px rgb(var(--shadow-ink) / calc(5% * var(--shadow-strength))),
     0 0 0 1px rgb(var(--shadow-edge) / var(--shadow-edge-alpha));
+  /* A design may replace the depth of cards with `--card-depth` (PAGE-288). */
   --shadow-card:
-    0 1px 2px rgb(var(--shadow-ink) / calc(3% * var(--shadow-strength))),
-    0 12px 32px -8px rgb(var(--shadow-ink) / calc(8% * var(--shadow-strength))),
+    var(
+      --card-depth,
+      0 1px 2px rgb(var(--shadow-ink) / calc(3% * var(--shadow-strength))),
+      0 12px 32px -8px
+        rgb(var(--shadow-ink) / calc(8% * var(--shadow-strength)))
+    ),
     var(--card-material-edge, 0 0 0 transparent);
   --shadow-floating:
     0 4px 12px rgb(var(--shadow-ink) / calc(6% * var(--shadow-strength))),
@@ -376,6 +381,22 @@
   /* Material of the page behind the content; plain in the Standard design. */
   --page-texture: none;
   --card-texture: none;
+  /* Optional painting behind the content and in the free space of the
+     navigation (PAGE-288); empty unless a design theme shows it. */
+  --app-scene-display: none;
+  --app-scene-isolation: auto;
+  --app-scene-image: none;
+  --app-scene-filter: none;
+  --app-scene-wash-color: 0 0 0;
+  --app-scene-tint: transparent;
+  --sidebar-scene-display: none;
+  --sidebar-scene-image: none;
+  --sidebar-scene-fill: transparent;
+  --sidebar-scene-filter: none;
+  --sidebar-tree-flex: 1;
+  --sticky-band-rest-opacity: 1;
+  --scene-veil: transparent;
+  --scene-veil-filter: none;
   /* Navigation can use a contrasting palette without affecting content or portals. */
   --navigation-foreground: var(--color-foreground);
   --navigation-muted-foreground: var(--color-muted-foreground);

@@ -2614,8 +2614,10 @@ user. Every user chooses theirs in **Settings → Personal → Appearance**; the
 choice is stored per user, independently of the color mode (light, dark,
 system). Only the identifier of the theme is stored, and the color mode stays a
 separate setting: **Light**, **Dark** and **System** above the theme cards pick
-the palette of the chosen theme. Pages ships four themes, all built in and not
-removable: `standard`, which looks as Pages always did, `arctic-ice`
+the palette of the chosen theme. The cards show four complete designs and a
+little of the next row; with more than four designs the list scrolls inside the
+picker with the usual fades and opens with the chosen design in view. Pages
+ships five themes, all built in and not removable: `standard`, which looks as Pages always did, `arctic-ice`
 (PAGE-129), a maritime ice-glass design with one white-and-blue palette for
 light and one deep polar-sea palette for dark. Arctic Ice is one card with one
 identifier; under **System** it follows the device color scheme, including
@@ -2634,7 +2636,16 @@ and dark graphite/navy palettes. Cyan actions, quiet violet selection edges and
 static circuit traces in desktop and mobile navigation follow the same color
 mode. Its opaque content cards carry only a subtle edge; the four dashboard
 metric icons use decorative cyan, violet, magenta and blue roles. Fields and
-selection have accessible contours. No theme animation is added. The sign-in page has no signed-in user and therefore
+selection have accessible contours. `koi-garden` (PAGE-288) is one card with a
+lilac morning palette for light and a moonlit palette for dark. An impressionist
+painting of a koi pond lies fixed behind the content of every page of the
+signed-in frame, washed in an arc around the sidebar edge so that headings near
+the navigation stay on a calm ground; cards stay opaque. The sage-green
+navigation shows three koi in the free space between the upper and lower items;
+the items always win, so a low window, the mobile menu or a long tree covers the
+painting with the sidebar color, and the collapsed sidebar shows none. The two
+paintings (`assets/themes/koi-garden/`) are loaded only while this design is
+active. No theme animation is added. The sign-in page has no signed-in user and therefore
 always uses the Standard design.
 
 More themes are installed by putting a directory into `themes/` next to the
@@ -2670,8 +2681,8 @@ themes/
 
 - `id`: lower-case words joined by hyphens, beginning with a letter, at most 40
   characters, equal to the directory name. The identifiers of the themes Pages
-  ships (`standard`, `arctic-ice`, `jungle-botanical`) are reserved; a directory with one of them is
-  skipped.
+  ships (`standard`, `arctic-ice`, `jungle-botanical`, `neural-rgb`, `koi-garden`) are reserved; a
+  directory with one of them is skipped.
 - `name` and `description` hold both languages; names have at most 48 and
   descriptions at most 200 characters.
 - `modes` lists the supported color modes. A theme applies only while a mode it

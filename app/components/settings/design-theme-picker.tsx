@@ -4,6 +4,11 @@ import { useTranslation } from "react-i18next";
 
 import { DesignThemePreview } from "@/app/components/settings/design-theme-preview";
 import { useDesignThemeSelection } from "@/app/components/settings/use-design-theme-selection";
+import {
+  VISIBLE_DESIGN_CARD_COUNT,
+  useDesignThemeViewport,
+} from "@/app/components/settings/use-design-theme-viewport";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 import { pickLocalizedText } from "@/definition/DesignTheme";
 
@@ -69,6 +74,65 @@ function DesignThemeOption({
   );
 }
 
+interface DesignThemeCardsProps {
+  readonly choices: readonly DesignThemeChoice[];
+  readonly labelId: string;
+  readonly selectedId: string;
+  readonly onSelect: (designThemeId: string) => void;
+}
+
+/**
+ * The cards of the offered designs.
+ *
+ * @remarks
+ * Up to four designs show as a plain grid. With more, the grid scrolls inside
+ * the picker with the usual fades of Pages and shows four complete cards and
+ * a little of the next row. The inner padding keeps the selection ring and
+ * the focus outline of a card clear of the scroll edges.
+ */
+function DesignThemeCards({
+  choices,
+  labelId,
+  selectedId,
+  onSelect,
+}: DesignThemeCardsProps): React.ReactElement {
+  const { gridRef, viewportRef, maxHeight } = useDesignThemeViewport(
+    choices.length,
+  );
+  const grid = (
+    <div
+      aria-labelledby={labelId}
+      className="grid gap-3 sm:grid-cols-2"
+      ref={gridRef}
+      role="group"
+    >
+      {choices.map((choice) => (
+        <DesignThemeOption
+          choice={choice}
+          isSelected={choice.id === selectedId}
+          key={choice.id}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  );
+
+  if (choices.length <= VISIBLE_DESIGN_CARD_COUNT) {
+    return grid;
+  }
+
+  return (
+    <ScrollViewport
+      className="p-1"
+      containerClassName="-m-1 [--scroll-fade-color:var(--color-surface)]"
+      containerStyle={maxHeight === null ? undefined : { maxHeight }}
+      ref={viewportRef}
+    >
+      {grid}
+    </ScrollViewport>
+  );
+}
+
 interface DesignThemePickerProps {
   readonly selection: DesignThemeSelection;
 }
@@ -93,20 +157,12 @@ export function DesignThemePicker({
           {t("settings.appearance.design.hint")}
         </p>
       </div>
-      <div
-        aria-labelledby={labelId}
-        className="grid gap-3 sm:grid-cols-2"
-        role="group"
-      >
-        {selection.choices.map((choice) => (
-          <DesignThemeOption
-            choice={choice}
-            isSelected={choice.id === selectedId}
-            key={choice.id}
-            onSelect={selectDesignTheme}
-          />
-        ))}
-      </div>
+      <DesignThemeCards
+        choices={selection.choices}
+        labelId={labelId}
+        selectedId={selectedId}
+        onSelect={selectDesignTheme}
+      />
       {error ? (
         <p className="text-sm text-destructive" role="alert">
           {t(`settings.appearance.design.error.${error}`)}

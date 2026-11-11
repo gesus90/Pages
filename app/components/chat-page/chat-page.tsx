@@ -90,7 +90,9 @@ function ChatPageConversation({
   if (!opened)
     return (
       <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        {t("chatPage.nothingSelected")}
+        <span className="pages-scene-veil rounded-full px-3 py-1.5">
+          {t("chatPage.nothingSelected")}
+        </span>
       </p>
     );
   const name = conversationName(opened);

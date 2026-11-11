@@ -54,10 +54,156 @@
     mask-image: var(--sidebar-foliage-mask);
   }
 
-  /* The page behind the content of the authenticated frame. */
+  /* The page behind the content of the authenticated frame. A design with a
+     painting isolates the frame, so the painting stays above its background. */
   .pages-page-surface {
     background-image: var(--page-texture);
     background-attachment: fixed;
+    isolation: var(--app-scene-isolation);
+  }
+
+  /* Painting behind the content (PAGE-288): fixed, below every surface of the
+     frame and never catching a click. The wash is an arc around the right
+     edge of the sidebar, so text near the navigation stays on a calm ground. */
+  .pages-app-scene {
+    --app-scene-wash-x: 0px;
+
+    display: var(--app-scene-display);
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+
+    @media (min-width: 48rem) {
+      --app-scene-wash-x: var(--app-sidebar-width);
+    }
+  }
+
+  .pages-app-scene::before,
+  .pages-app-scene::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  .pages-app-scene::before {
+    background: var(--app-scene-image) right center / cover no-repeat;
+    filter: var(--app-scene-filter);
+  }
+
+  .pages-app-scene::after {
+    background-image:
+      linear-gradient(var(--app-scene-tint), var(--app-scene-tint)),
+      radial-gradient(
+        1240px 980px at var(--app-scene-wash-x) 43%,
+        rgb(var(--app-scene-wash-color) / 93%) 0%,
+        rgb(var(--app-scene-wash-color) / 92%) 46%,
+        rgb(var(--app-scene-wash-color) / 86%) 56%,
+        rgb(var(--app-scene-wash-color) / 74%) 64%,
+        rgb(var(--app-scene-wash-color) / 56%) 72%,
+        rgb(var(--app-scene-wash-color) / 36%) 80%,
+        rgb(var(--app-scene-wash-color) / 20%) 87%,
+        rgb(var(--app-scene-wash-color) / 7%) 94%,
+        rgb(var(--app-scene-wash-color) / 0%) 100%
+      );
+  }
+
+  /* Text without a surface of its own, where a painting may show through
+     on the right: transparent unless a design shows a painting. */
+  .pages-scene-veil {
+    background-color: var(--scene-veil);
+    backdrop-filter: var(--scene-veil-filter);
+  }
+
+  /* A sticky heading covers what scrolls below it. A design with a painting
+     shows the painting behind the heading while it rests in place. */
+  .pages-sticky-band {
+    container-type: scroll-state;
+  }
+
+  .pages-sticky-band-surface {
+    pointer-events: none;
+  }
+
+  @supports (container-type: scroll-state) {
+    .pages-sticky-band-surface {
+      opacity: var(--sticky-band-rest-opacity);
+    }
+
+    @container scroll-state(stuck: top) {
+      .pages-sticky-band-surface {
+        opacity: 1;
+      }
+    }
+  }
+
+  /* A tree in the navigation grows into the free space unless a painting
+     takes that space. */
+  .pages-sidebar-tree {
+    flex: var(--sidebar-tree-flex);
+  }
+
+  /* Painting in the free space between the upper and the lower navigation
+     items (PAGE-288). The navigation keeps priority: without free space the
+     painting has no height, and its soft edges reach a little above and below
+     the free space, where the opaque sidebar color covers it. The width of
+     the sheet or sidebar comes in as `--sidebar-scene-width`, so the painting
+     spans it without gaps. */
+  .pages-sidebar-scene {
+    /* How far the soft edges reach into the items above and below; in
+       1920×1080 the painting then sits 123 px above the lower edge. */
+    --sidebar-scene-reach-top: 20px;
+    --sidebar-scene-reach-bottom: 34px;
+
+    display: var(--sidebar-scene-display);
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    pointer-events: none;
+  }
+
+  .pages-sidebar-scene::before {
+    content: "";
+    position: absolute;
+    bottom: calc(-1 * var(--sidebar-scene-reach-bottom));
+    left: 50%;
+    z-index: -1;
+    width: var(--sidebar-scene-width);
+    /* Higher than three widths, the side koi would leave the sheet. */
+    height: min(
+      100% + var(--sidebar-scene-reach-top) + var(--sidebar-scene-reach-bottom),
+      var(--sidebar-scene-width) * 3 + 89px
+    );
+    translate: -50% 0;
+    background:
+      var(--sidebar-scene-image) center top 52px / auto
+        max(100% - 89px, var(--sidebar-scene-width) * 1.5) no-repeat,
+      var(--sidebar-scene-fill);
+    filter: var(--sidebar-scene-filter);
+    mask-image:
+      linear-gradient(
+        to bottom,
+        transparent 0,
+        rgb(0 0 0 / 5%) 21.6px,
+        rgb(0 0 0 / 16%) 43.2px,
+        rgb(0 0 0 / 32%) 64.8px,
+        rgb(0 0 0 / 52%) 86.4px,
+        rgb(0 0 0 / 70%) 108px,
+        rgb(0 0 0 / 86%) 129.6px,
+        rgb(0 0 0 / 96%) 151.2px,
+        #000 172.8px
+      ),
+      linear-gradient(
+        to top,
+        transparent 0,
+        rgb(0 0 0 / 12%) 21.6px,
+        rgb(0 0 0 / 30%) 43.2px,
+        rgb(0 0 0 / 54%) 64.8px,
+        rgb(0 0 0 / 76%) 86.4px,
+        rgb(0 0 0 / 92%) 108px,
+        #000 129.6px
+      );
+    mask-composite: intersect;
   }
 
   /* A material boundary shared by permanent and portalled navigation. */
@@ -192,4 +338,12 @@
       border-color: oklch(from var(--chip-color) max(l, 0.72) c h);
     }
   }
+}
+
+/* The paintings of Koi Garden (PAGE-288). The addresses stay here, so the
+   bundler processes the images; a browser loads them only while this design
+   is active, because no other rule refers to them. */
+:root[data-design-theme="koi-garden"] {
+  --app-scene-image: url("../../assets/themes/koi-garden/scene.jpg");
+  --sidebar-scene-image: url("../../assets/themes/koi-garden/sidebar.jpg");
 }

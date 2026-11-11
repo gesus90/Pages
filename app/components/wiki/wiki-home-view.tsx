@@ -42,7 +42,7 @@ function PageList({
   return (
     <section
       aria-label={title}
-      className="space-y-2 rounded-2xl border border-border p-4"
+      className="pages-scene-veil space-y-2 rounded-2xl border border-border p-4"
     >
       <h2 className="text-sm font-semibold text-muted-foreground uppercase">
         {title}
@@ -123,7 +123,7 @@ export function WikiHomeView({
         ) : (
           <ScrollViewport
             axis="horizontal"
-            className="overflow-x-auto rounded-2xl border border-border"
+            className="pages-scene-veil overflow-x-auto rounded-2xl border border-border"
           >
             <table className="w-full text-left text-sm">
               <thead className="bg-muted text-xs text-muted-foreground uppercase">

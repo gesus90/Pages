@@ -33,7 +33,11 @@ export function SettingsSectionHeader({
   readonly description?: string;
 }): React.ReactElement {
   return (
-    <div className="sticky top-0 z-10 mb-4 -ml-2 -mr-4 bg-background pt-3 pb-2 pl-2 pr-4 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-gradient-to-b after:from-background after:to-transparent sm:-mr-6 sm:pr-6 md:-mr-8 md:pr-8 xl:-mr-12 xl:pr-12">
+    <div className="pages-sticky-band sticky top-0 z-10 mb-4 -ml-2 -mr-4 pt-3 pb-2 pl-2 pr-4 sm:-mr-6 sm:pr-6 md:-mr-8 md:pr-8 xl:-mr-12 xl:pr-12">
+      <span
+        aria-hidden="true"
+        className="pages-sticky-band-surface absolute inset-0 -z-10 bg-background after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-gradient-to-b after:from-background after:to-transparent"
+      />
       <div className="flex items-center gap-3">
         <span
           className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary"
