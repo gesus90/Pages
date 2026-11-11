@@ -17,7 +17,6 @@ function handlers(params: Route.ActionArgs["params"]): McpAutomationHandlers {
           await readMcpAutomationBody(request, {
             automationId: requireMcpAutomationParameter(params.automationId),
           }),
-          { requiresWord: false },
         ),
       ),
   };

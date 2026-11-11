@@ -3,7 +3,6 @@ import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { readAgentDirectory } from "./AgentDirectoryService";
 import { readIdentifier } from "./AgentParameterReader";
 import { readAgentTicketRead } from "./AgentTicketValidation";
-import { requireAgentConfirmation } from "./AgentConfirmation";
 
 import type {
   AgentExtensionChanged,
@@ -19,11 +18,6 @@ export async function applyAgentPlanningExtension(
   parameters: Readonly<Record<string, unknown>>,
 ): Promise<AgentExtensionChanged> {
   if (operation === "milestone.delete") {
-    await requireAgentConfirmation(
-      context.database,
-      context.actor.id,
-      parameters.confirmation,
-    );
     const projectId = readIdentifier(parameters.projectId);
     const id = readIdentifier(parameters.milestoneId);
     await context.projects.getById(context.actor, projectId);
@@ -48,11 +42,6 @@ export async function applyAgentPlanningExtension(
       ? await context.tasks.getById(context.actor, reference.id)
       : await context.tasks.getByKey(context.actor, reference.key);
   if (operation === "ticket.delete") {
-    await requireAgentConfirmation(
-      context.database,
-      context.actor.id,
-      parameters.confirmation,
-    );
     const affectedCount = await context.tasks.archive(
       context.actor,
       ticket.id,

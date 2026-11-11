@@ -189,7 +189,6 @@ export function toPicaMobileChatView(
     ...("attachmentLimitBytes" in view
       ? {
           attachmentLimitBytes: view.attachmentLimitBytes,
-          confirmationWord: view.confirmationWord,
         }
       : {}),
   };

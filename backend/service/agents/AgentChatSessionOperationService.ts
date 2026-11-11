@@ -34,7 +34,7 @@ function readSessionParameters(
   return parameters;
 }
 
-/** MCP-only adapter: a UI button or a supplied policy flag never replaces LÖSCHEN. */
+/** MCP-only adapter for an explicit, counted selection of own sessions. */
 export class AgentChatSessionOperationService {
   private readonly dependencies: SessionOperationDependencies;
 
@@ -42,7 +42,7 @@ export class AgentChatSessionOperationService {
     this.dependencies = dependencies;
   }
 
-  /** Lists own sessions or deletes an exact counted selection after typed MCP confirmation. */
+  /** Lists own sessions or deletes an exact counted selection. */
   public async handle(
     identity: AgentIdentity,
     operation: unknown,
@@ -65,8 +65,6 @@ export class AgentChatSessionOperationService {
           result: { sessions, total: sessions.length },
         };
       }
-      if (parameters.confirmation !== "LÖSCHEN")
-        throw new AgentOperationError("CONFIRMATION_REQUIRED");
       const ids = readChatDeletionIds(parameters.sessionIds);
       if (parameters.expectedCount !== ids.length)
         throw new AgentOperationError("INVALID_REQUEST");

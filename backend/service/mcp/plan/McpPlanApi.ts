@@ -32,8 +32,6 @@ export type McpPlanOperation =
 export interface McpPlanServices {
   readonly operations: Pick<AgentPlanOperationService, "handle">;
   readonly identities: Pick<AgentIdentityService, "verify">;
-  /** The confirmation word of the account's interface language, which a deletion needs. */
-  readonly confirmationWord: (userId: string) => Promise<string>;
 }
 
 /** What the plan API needs beyond its services: the token check and the accounts. */
@@ -57,11 +55,13 @@ const PLAN_DELETION_FIELDS: ReadonlySet<string> = new Set([
   "operationId",
   "expectedRevision",
   "confirmed",
+  "confirmation",
 ]);
 const TEMPLATE_DELETION_FIELDS: ReadonlySet<string> = new Set([
   "operationId",
   "workspaceId",
   "confirmed",
+  "confirmation",
 ]);
 
 /** The most parts a chunked plan read can have, so a faulty cursor never loops. */
@@ -92,16 +92,18 @@ function operationInput(request: McpPlanRequest): Record<string, unknown> {
  * Splits `confirmed` off the parameters of a deletion.
  *
  * @throws {McpPlanError} `invalid_request` for a `confirmed` that is not a
- * boolean and for a `confirmation`, which the API sets itself.
+ * boolean. A legacy `confirmation` is accepted and ignored.
  */
 function readDeletion(request: McpPlanRequest): {
   readonly isConfirmed: boolean;
   readonly rest: Record<string, unknown>;
 } {
-  const { confirmed, ...rest } = operationInput(request);
+  const { confirmed, ...legacy } = operationInput(request);
+  const rest = Object.fromEntries(
+    Object.entries(legacy).filter(([key]) => key !== "confirmation"),
+  );
   if (confirmed !== undefined && typeof confirmed !== "boolean")
     throw invalid();
-  if (Object.hasOwn(rest, "confirmation")) throw invalid();
   return { isConfirmed: confirmed === true, rest };
 }
 
@@ -141,7 +143,7 @@ function readPlanName(text: string): string {
  * check beside the input readers of the layer. The layer runs on the `mcp`
  * channel: an account with the administrator role acts as an administrator
  * without the admin mode of the interface. Only the deletions ask back
- * first; once confirmed, the API sets the confirmation word itself.
+ * first; once confirmed, the API dispatches the exact target.
  */
 export class McpPlanApi {
   private readonly services: McpPlanServices;
@@ -211,11 +213,7 @@ export class McpPlanApi {
     request: McpPlanRequest,
   ): Promise<unknown> {
     const { isConfirmed, rest } = readDeletion(request);
-    if (isConfirmed)
-      return this.result(identity, "plans.delete", {
-        ...rest,
-        confirmation: await this.services.confirmationWord(identity.userId),
-      });
+    if (isConfirmed) return this.result(identity, "plans.delete", rest);
     requireQuestionFields(request.parameters, PLAN_DELETION_FIELDS);
     const planId = request.path.planId;
     const read = await this.result(identity, "plans.control.read", { planId });
@@ -244,10 +242,7 @@ export class McpPlanApi {
   ): Promise<unknown> {
     const { isConfirmed, rest } = readDeletion(request);
     if (isConfirmed)
-      return this.result(identity, "plans.templates.delete", {
-        ...rest,
-        confirmation: await this.services.confirmationWord(identity.userId),
-      });
+      return this.result(identity, "plans.templates.delete", rest);
     requireQuestionFields(request.parameters, TEMPLATE_DELETION_FIELDS);
     const read = await this.result(identity, "plans.templates.read", {
       workspaceId: rest.workspaceId,

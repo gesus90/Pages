@@ -16,7 +16,7 @@ import { useChatSend } from "./use-chat-send";
 import { useChatSync } from "./use-chat-sync";
 import { applyChatSessionRead, useChatUploads } from "./use-chat-uploads";
 
-import type { ChatConfirmationWord, ChatContextSize } from "@/definition/Chat";
+import type { ChatContextSize } from "@/definition/Chat";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
 import type { ChatCommands } from "./use-chat-commands";
 import type { ChatJobs } from "./use-chat-job";
@@ -27,7 +27,6 @@ import type { ChatUploads, ChatView } from "./use-chat-uploads";
 /** Limits that apply to the person, read when the panel opens first. */
 interface ChatLimits {
   readonly limitBytes: number;
-  readonly confirmationWord: ChatConfirmationWord;
 }
 
 /** Everything the chat panel shows and does. */
@@ -74,7 +73,6 @@ function useChatLoad(
         setView(toChatView(overview));
         setLimits({
           limitBytes: overview.attachmentLimitBytes,
-          confirmationWord: overview.confirmationWord,
         });
       } catch (failure: unknown) {
         if (isCurrent) setError(chatErrorCode(failure));

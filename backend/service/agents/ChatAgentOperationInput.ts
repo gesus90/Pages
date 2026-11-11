@@ -1,5 +1,3 @@
-import { AgentOperationError } from "@/backend/error/AgentOperationError";
-
 import {
   readIdentifier,
   readParameterRecord,
@@ -47,19 +45,16 @@ export function readChatAgentCloneRequest(
   };
 }
 
-/** Requires the server-injected German confirmation independently of interface language. */
+/** Reads an exact agent deletion target and its expected revision. */
 export function readChatAgentDeleteRequest(
   input: unknown,
 ): ChatAgentDeleteRequest {
   const parameters = readParameterRecord(input);
-  requireParameterKeys(parameters, [
-    "operationId",
-    "agentId",
-    "expectedRevision",
-    "confirmation",
-  ]);
-  if (parameters.confirmation !== "LÖSCHEN")
-    throw new AgentOperationError("CONFIRMATION_REQUIRED");
+  requireParameterKeys(
+    parameters,
+    ["operationId", "agentId", "expectedRevision"],
+    ["confirmation"],
+  );
   return {
     operation: "agents.delete",
     operationId: readIdentifier(parameters.operationId),

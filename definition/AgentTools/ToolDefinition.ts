@@ -1,5 +1,3 @@
-import { PROJECT_DELETION_CONFIRMATIONS } from "../AgentProjectDeletion.js";
-
 import type { Tool } from "@modelcontextprotocol/server";
 
 /** Named argument schemas of a strict tool input. */
@@ -46,17 +44,9 @@ export const COORDINATE_SCHEMA = {
   minimum: 0,
   maximum: 6000,
 } as const;
-/** Confirmation accepted by Pages for project, wiki and archive deletions. */
+/** Legacy confirmation argument accepted and ignored during the transition. */
 export const CONFIRMATION_SCHEMA = {
   type: "string",
-  enum: [...PROJECT_DELETION_CONFIRMATIONS],
-};
-/** Session deletion accepts the same German word in both terminal languages. */
-export const CHAT_CONFIRMATIONS = ["LÖSCHEN"] as const;
-/** Explicit own-session deletion confirmation, without an English alias. */
-export const CHAT_CONFIRMATION_SCHEMA = {
-  type: "string",
-  enum: [...CHAT_CONFIRMATIONS],
 };
 
 /** Reads have no side effects beyond retrieving Pages records. */

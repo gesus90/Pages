@@ -27,6 +27,12 @@ function canonical(input: unknown): unknown {
   );
 }
 
+function isExplicitConsent(message: string): boolean {
+  return /^(?:ja|yes|confirm|bestätig(?:e|t|en)|bitte\s+löschen|lösche|delete|remove|entferne)(?:\b|[.!?,\s])/iu.test(
+    message.trim(),
+  );
+}
+
 /** Builds a stable operation key for identical native plan calls within the same server turn. */
 export function picaPlanOperationId(
   action: ChatActionRequest,
@@ -46,7 +52,7 @@ export function picaPlanOperationId(
     .digest("hex");
 }
 
-/** Binds the existing typed deletion word to one exact server-recorded plan/revision in a later human turn. */
+/** Binds a later explicit reply to one exact server-recorded request. */
 export class PicaPlanConfirmation {
   private readonly pending = new Map<string, PendingDeletion>();
   private readonly approved = new Map<string, number>();
@@ -84,7 +90,7 @@ export class PicaPlanConfirmation {
     if (
       pending?.fingerprint === fingerprint &&
       pending.runId !== turnId &&
-      turn.message === turn.confirmation
+      isExplicitConsent(turn.message)
     ) {
       this.pending.delete(key);
       this.approved.set(approvalKey, now + 600_000);

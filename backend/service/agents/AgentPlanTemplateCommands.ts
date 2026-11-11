@@ -9,7 +9,6 @@ import {
   OperationRecorder,
   StoredOperationFound,
 } from "./AgentOperationRecorder";
-import { requireAgentConfirmation } from "./AgentConfirmation";
 import { readPlanTemplateCommand } from "./AgentPlanCommandInput";
 
 import type { Database } from "@/backend/database/Database";
@@ -39,8 +38,7 @@ type StoredTemplateResult = Pick<
  * the owner changes a template and a replacing node takes the checks of a new
  * template. The operation ID is stored in the commit of the change; a repeated
  * call with the same request returns the first result after a fresh read, a
- * different request under the same ID is a conflict. A deletion needs the
- * confirmation word of the person, checked again in its commit.
+ * different request under the same ID is a conflict.
  */
 export class AgentPlanTemplateCommands {
   private readonly database: Pick<Database, "transaction">;
@@ -64,8 +62,7 @@ export class AgentPlanTemplateCommands {
    * @param operation - `plans.templates.update` or `plans.templates.delete`.
    * @param input - The raw parameters.
    * @throws {AgentOperationError} `INVALID_REQUEST` for malformed input or a
-   * missing node, `CONFIRMATION_REQUIRED` for a deletion without the right
-   * word, `CONFLICT` for a reused operation ID and, with `template_name_taken`,
+   * missing node, `CONFLICT` for a reused operation ID and, with `template_name_taken`,
    * for a name the owner already uses.
    */
   public async write(
@@ -74,10 +71,6 @@ export class AgentPlanTemplateCommands {
     input: unknown,
   ): Promise<AgentPlanTemplateCommandResult> {
     const request = readPlanTemplateCommand(operation, input);
-    if (operation === "plans.templates.delete")
-      await this.database.transaction((transaction) =>
-        requireAgentConfirmation(transaction, userId, request.confirmation),
-      );
     const stored = await this.lookup(userId, request.operationId);
     if (stored) return this.replay(userId, request, stored);
     const recorder = new OperationRecorder<StoredTemplateResult>(
@@ -137,11 +130,6 @@ export class AgentPlanTemplateCommands {
     const base = { action: request.operation, templateId: request.templateId };
     if (request.operation === "plans.templates.delete") {
       await this.templates.remove(userId, target, async (transaction) => {
-        await requireAgentConfirmation(
-          transaction,
-          userId,
-          request.confirmation,
-        );
         await recorder.store(transaction, { ...base, deleted: true });
       });
       return { ...base, deleted: true };

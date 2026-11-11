@@ -153,21 +153,7 @@ export class AutomationOperationService {
       case "automations.run":
         return automations.runNow(userId, input);
       case "automations.delete":
-        return automations.delete(userId, this.deletionInput(input), {
-          requiresWord: this.dependencies.channel === "chat",
-        });
+        return automations.delete(userId, input);
     }
-  }
-
-  /** The chat names its typed confirmation; it counts as the explicit confirmation. */
-  private deletionInput(input: unknown): unknown {
-    if (
-      this.dependencies.channel !== "chat" ||
-      typeof input !== "object" ||
-      input === null ||
-      !("confirmation" in input)
-    )
-      return input;
-    return { ...input, confirmed: true };
   }
 }

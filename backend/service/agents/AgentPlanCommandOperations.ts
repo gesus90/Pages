@@ -14,7 +14,6 @@ import {
   StoredOperationFound,
 } from "./AgentOperationRecorder";
 import { readPlanCommand } from "./AgentPlanCommandInput";
-import { requireAgentConfirmation } from "./AgentConfirmation";
 import { readPlanControlEntry } from "./AgentPlanControlViews";
 import { translatePlanError } from "./AgentPlanOperationErrors";
 import { AgentPlanTemplateCommands } from "./AgentPlanTemplateCommands";
@@ -68,10 +67,6 @@ export class AgentPlanCommandOperations {
       );
     const request = readPlanCommand(operation, input);
     return this.queue.run(async () => {
-      if (operation === "plans.delete")
-        await this.database.transaction((transaction) =>
-          requireAgentConfirmation(transaction, userId, request.confirmation),
-        );
       const stored = await this.lookup(userId, request.operationId);
       if (stored) return this.replay(userId, request, stored);
       const recorder = new OperationRecorder<AgentPlanCommandResult>(
@@ -224,11 +219,6 @@ export class AgentPlanCommandOperations {
       await this.plans.remove(userId, plan.id, {
         revision: plan.revision,
         journal: async (transaction) => {
-          await requireAgentConfirmation(
-            transaction,
-            userId,
-            request.confirmation,
-          );
           await recorder.store(transaction, { ...base, deleted: true });
         },
       });

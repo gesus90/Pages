@@ -27,7 +27,7 @@ export type AgentWikiCommentRequest =
     } & AgentWikiCommentResolveInput)
   | ({
       readonly operation: "wiki.comment.delete";
-    } & AgentWikiCommentTarget & { readonly confirmation: unknown });
+    } & AgentWikiCommentTarget);
 
 const ADD_KEYS = ["operationId", "pageId", "body", "parentId", "quote"];
 const REQUIRED_ADD_KEYS = ["operationId", "pageId", "body"];
@@ -124,8 +124,10 @@ export function readAgentWikiCommentWrite(
       return { operation, ...target, resolved: fields.resolved };
     }
     case "wiki.comment.delete": {
-      const { confirmation, ...target } = fields;
-      return { operation, ...readTarget(target, []), confirmation };
+      const target = Object.fromEntries(
+        Object.entries(fields).filter(([key]) => key !== "confirmation"),
+      );
+      return { operation, ...readTarget(target, []) };
     }
   }
 }

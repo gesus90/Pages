@@ -196,19 +196,11 @@ export class ChatSessionService {
   /**
    * Deletes an own session for good, with its messages and attachments (`/delete`).
    *
-   * @throws {ChatError} `confirmationRequired` unless the person typed the
-   * confirmation word of the interface language; `sessionMissing` for a session
-   * that is not the person's.
+   * @throws {ChatError} `sessionMissing` for a session that is not the person's.
    */
-  public async remove(
-    actor: User,
-    sessionId: unknown,
-    confirmation: unknown,
-  ): Promise<void> {
+  public async remove(actor: User, sessionId: unknown): Promise<void> {
     requireChatActor(actor);
     const id = readChatSessionId(sessionId);
-    if (confirmation !== (await this.confirmationWord(actor.id)))
-      throw new ChatError("confirmationRequired");
     const files = await this.removeRows(actor.id, id);
     await this.dependencies.files.remove(files);
   }
@@ -275,14 +267,10 @@ export class ChatSessionService {
   private async openSession(actor: User): Promise<ChatOverview> {
     const [latest] = await this.dependencies.sessions.list(actor.id, 1);
     const session = latest ?? (await this.createSession(actor.id));
-    const [view, confirmationWord] = await Promise.all([
-      this.viewOf(session, actor.id),
-      this.confirmationWord(actor.id),
-    ]);
+    const view = await this.viewOf(session, actor.id);
     return {
       ...view,
       attachmentLimitBytes: CHAT_ATTACHMENT_LIMIT_BYTES,
-      confirmationWord,
     };
   }
 

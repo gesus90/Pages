@@ -18,7 +18,7 @@ import type { PicaStorageTool } from "./PicaStorageContracts";
 /** What the Storage tools of one turn are registered with. */
 export interface PicaStorageToolParts {
   readonly service: Pick<PicaAdminService, "runStorage">;
-  /** The raw human message of the turn and the person's confirmation word; never from the model. */
+  /** The raw human message and server-owned legacy confirmation context. */
   readonly turn: (context: RuntimeExecutionContext) => Promise<PicaPlanTurn>;
   /** Spends one call of the turn budget; `false` when it is used up. */
   readonly spend: () => boolean;

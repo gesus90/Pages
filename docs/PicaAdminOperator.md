@@ -90,19 +90,18 @@ Pica's administrator tools never take `operationId` or `confirmation` from the
 model; their schemas do not contain them. Pages sets them:
 
 - **Always critical:** `admin.users.setAdministrator`, `admin.users.setActive`,
-  `admin.groups.delete`, `admin.departments.delete`, `admin.roles.delete`,
   `admin.connections.setActive`, `projects.member.remove`
-  (`isPicaCriticalOperation`).
+  (`isPicaCriticalOperation`). Group, department and role deletion follows the
+  person's explicit request in the current message without a second confirmation.
 - **Critical when a service says so:** every change that withdraws rights or
   memberships (role permissions, role assignment, departments, scope, group
   members, role save). The service answers `CONFIRMATION_REQUIRED` and changes
   nothing.
 
 The first call of a critical change returns `CONFIRMATION_REQUIRED` with the exact
-operation, its parameters and the confirmation word of the person's language
-(`LÖSCHEN` or `DELETE`). Pica names the change to the person and asks for the
-word. `ChatToolExecutor.runAdmin` accepts it only when the person's **next
-message consists of the word alone** and the model repeats the **identical call**
+operation and its parameters. Pica names the change to the person and asks for
+explicit approval. `ChatToolExecutor.runAdmin` accepts it only when the person's **next
+message explicitly approves the change** and the model repeats the **identical call**
 in that later turn. Neither Pica's text, history, attachments nor tool results can
 confirm. The confirmation is bound to one operation with one set of parameters and
 is used up by it; it expires after ten minutes. The same call in the same turn

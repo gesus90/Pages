@@ -24,7 +24,6 @@ export interface AgentPlanCommandRequest {
   readonly nodeId: string | null;
   readonly name: string | null;
   readonly workspaceId: string | null;
-  readonly confirmation: unknown;
 }
 
 /** Reads bounded command input before any persistence or execution. */
@@ -68,8 +67,6 @@ export function readPlanCommand(
       isClone && parameters.workspaceId !== undefined
         ? readIdentifier(parameters.workspaceId)
         : null,
-    confirmation:
-      operation === "plans.delete" ? (parameters.confirmation ?? null) : null,
   };
 }
 
@@ -93,7 +90,6 @@ export interface AgentPlanTemplateCommandRequest {
     readonly planId: string;
     readonly nodeId: string;
   } | null;
-  readonly confirmation: unknown;
 }
 
 /**
@@ -133,6 +129,5 @@ export function readPlanTemplateCommand(
       planId === undefined
         ? null
         : { planId: readIdentifier(planId), nodeId: readIdentifier(nodeId) },
-    confirmation: isUpdate ? null : (parameters.confirmation ?? null),
   };
 }

@@ -18,7 +18,6 @@ import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { recordPagesEvent } from "@/backend/service/events/PagesEventPublisher";
 
-import { requireAgentConfirmation } from "./AgentConfirmation";
 import { pageAgentEntries } from "./AgentCursor";
 import { readParameterRecord } from "./AgentParameterReader";
 import { agentTransactionScope } from "./AgentTransactionScope";
@@ -281,8 +280,6 @@ export class AgentWikiCommentService {
     userId: string,
     request: AgentWikiCommentRequest,
   ): Promise<CommentOutcome> {
-    if (request.operation === "wiki.comment.delete")
-      await requireAgentConfirmation(transaction, userId, request.confirmation);
     const base = await openContext(
       agentTransactionScope(transaction),
       userId,

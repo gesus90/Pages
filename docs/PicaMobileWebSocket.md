@@ -705,16 +705,16 @@ Die Erweiterung lässt die App mit Pica chatten, und zwar in **denselben Unterha
 
 ### Anfragen und Antworten
 
-| App → Pages        | Nutzlast                                              | Antwort                                                                                      |
-| ------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `chat_open`        | `{}`                                                  | `chat_view` mit `attachmentLimitBytes` und `confirmationWord`; zuletzt benutzte Unterhaltung |
-| `chat_new`         | `{}`                                                  | `chat_view` einer neuen, leeren Unterhaltung                                                 |
-| `chat_sessions`    | `{}`                                                  | `chat_sessions`                                                                              |
-| `chat_session_get` | `{ sessionId, before? }`                              | `chat_view`; `before` ist eine Nachrichten-ID und liefert die ältere Seite davor             |
-| `chat_state`       | `{ sessionId }`                                       | `chat_state`                                                                                 |
-| `chat_send`        | `{ sessionId, clientMessageId, text, attachmentIds }` | `chat_sent`                                                                                  |
-| `chat_job_get`     | `{ sessionId, jobId, after }`                         | `chat_job`                                                                                   |
-| `chat_stop`        | `{ sessionId }`                                       | `chat_stopped`                                                                               |
+| App → Pages        | Nutzlast                                              | Antwort                                                                          |
+| ------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `chat_open`        | `{}`                                                  | `chat_view` mit `attachmentLimitBytes`; zuletzt benutzte Unterhaltung            |
+| `chat_new`         | `{}`                                                  | `chat_view` einer neuen, leeren Unterhaltung                                     |
+| `chat_sessions`    | `{}`                                                  | `chat_sessions`                                                                  |
+| `chat_session_get` | `{ sessionId, before? }`                              | `chat_view`; `before` ist eine Nachrichten-ID und liefert die ältere Seite davor |
+| `chat_state`       | `{ sessionId }`                                       | `chat_state`                                                                     |
+| `chat_send`        | `{ sessionId, clientMessageId, text, attachmentIds }` | `chat_sent`                                                                      |
+| `chat_job_get`     | `{ sessionId, jobId, after }`                         | `chat_job`                                                                       |
+| `chat_stop`        | `{ sessionId }`                                       | `chat_stopped`                                                                   |
 
 **`chat_view`:** `{ session, messages, hasOlder, pending, job, steers }`
 

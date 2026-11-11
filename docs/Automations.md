@@ -126,6 +126,4 @@ The same ten operations are part of the central agent API
 (`AutomationOperationService` in both operation routers), of the shared tool
 catalog and of Pica's registry (`registerPicaAutomationTools`), which agent
 employees receive through their bridge. Plan sessions get the reads with
-`read` reach and everything with `full` reach. Deleting needs the person's
-typed confirmation word in Pica; the plan bridge has no confirmation surface
-and refuses a confirmed deletion with `CONFIRMATION_REQUIRED`.
+`read` reach and everything with `full` reach. Deletion in Pica follows only the person's explicit request in the current message. A preview call without `confirmed: true` still names the exact scope; the final call confirms that scope. The plan bridge uses the same rights and revision checks.

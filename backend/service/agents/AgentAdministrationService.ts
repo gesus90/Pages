@@ -162,15 +162,25 @@ export class AgentAdministrationService {
     parameters: Readonly<Record<string, unknown>>,
   ): Promise<AgentAdminWriteResponse> {
     const operationId = readIdentifier(parameters.operationId);
-    if (parameters.confirmation !== undefined)
+    const acceptedParameters = operation.endsWith(".delete")
+      ? Object.fromEntries(
+          Object.entries(parameters).filter(([key]) => key !== "confirmation"),
+        )
+      : parameters;
+    if (acceptedParameters.confirmation !== undefined)
       await requireAgentConfirmation(
         context.database,
         context.actor.id,
-        parameters.confirmation,
+        acceptedParameters.confirmation,
       );
     const keys = new AgentOperationKeyRepository(context.database);
     const fingerprint = createHash("sha256")
-      .update(JSON.stringify({ channel: this.channel, parameters }))
+      .update(
+        JSON.stringify({
+          channel: this.channel,
+          parameters: acceptedParameters,
+        }),
+      )
       .digest("hex");
     const previous = await keys.find(context.actor.id, operationId);
     if (previous) {
@@ -182,7 +192,7 @@ export class AgentAdministrationService {
       const stored: unknown = JSON.parse(previous.resultJson);
       return { apiVersion: "1", result: readAdminChanged(stored) };
     }
-    const mutation = await this.apply(context, operation, parameters);
+    const mutation = await this.apply(context, operation, acceptedParameters);
     if (
       Buffer.byteLength(JSON.stringify({ apiVersion: "1", ...mutation })) >
       PAGES_AGENT_LIMITS.responseBytes

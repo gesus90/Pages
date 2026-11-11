@@ -86,11 +86,11 @@ account deletion; the interface offers deactivation only.
   `source = mcp`) and its operation key commit in one transaction. A failed
   creation leaves no account behind. After the commit the shared cache is
   invalidated, so the interface and other sessions read the new state.
-- **Confirmation:** reductions and destructive changes answer
+- **Confirmation:** reductions other than deletion answer
   `428 confirmation_required` with `confirmation: { target, effects,
 affectedUserIds, words }` and change nothing. Only a reply the person typed
   is passed on as `confirmation`; `LÖSCHEN` or `DELETE` are accepted. A client
-  never invents it.
+  never invents it. Deleting a group, department or unused role needs no word; the client acts only on the person's explicit request and still passes the last-read expected fields.
 - **Change answers:** `{ result: { id, targetType, changed, affectedUserIds },
 replayed }`. `targetType` is `person`, `group`, `department` or `role`.
 

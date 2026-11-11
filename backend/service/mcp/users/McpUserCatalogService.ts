@@ -233,7 +233,7 @@ export class McpUserCatalogService {
     };
   }
 
-  /** Deletes an unused role after a confirmation; a used role answers `in_use`. */
+  /** Deletes an unused role; a used role answers `in_use`. */
   public deleteRole(
     roleId: string,
     request: McpRoleDeleteRequest,
@@ -256,11 +256,6 @@ export class McpUserCatalogService {
         );
         if (session.holders(roleId).length > 0)
           throw new McpUserError("in_use");
-        requireMcpUserConfirmation(request.confirmation, {
-          target: { type: "role", id: roleId },
-          effects: ["role_deleted"],
-          affectedUserIds: [],
-        });
         await session.administration.deleteRole(session.actor.userId, roleId);
         return { result: catalogResult("role", roleId, true) };
       },
@@ -318,7 +313,7 @@ export class McpUserCatalogService {
     };
   }
 
-  /** Deletes a department after a confirmation; its members lose the membership. */
+  /** Deletes a department; its members lose the membership. */
   public deleteDepartment(
     departmentId: string,
     request: McpMembersDeleteRequest,
@@ -346,11 +341,6 @@ export class McpUserCatalogService {
             memberIds: sortedIds(request.expected.memberIds),
           },
         );
-        requireMcpUserConfirmation(request.confirmation, {
-          target: { type: "department", id: departmentId },
-          effects: ["department_deleted", "department_memberships_removed"],
-          affectedUserIds: memberIds,
-        });
         await session.administration.deleteDepartment(
           session.actor.userId,
           departmentId,
@@ -449,7 +439,7 @@ export class McpUserCatalogService {
     };
   }
 
-  /** Deletes a group after a confirmation; its ticket assignments go with it. */
+  /** Deletes a group; its ticket assignments go with it. */
   public deleteGroup(
     groupId: string,
     request: McpMembersDeleteRequest,
@@ -472,11 +462,6 @@ export class McpUserCatalogService {
             memberIds: sortedIds(request.expected.memberIds),
           },
         );
-        requireMcpUserConfirmation(request.confirmation, {
-          target: { type: "group", id: groupId },
-          effects: ["group_deleted", "group_ticket_assignments_removed"],
-          affectedUserIds: memberIds,
-        });
         await session.groups.deleteGroup(session.actor.userId, groupId);
         return { result: catalogResult("group", groupId, true, memberIds) };
       },

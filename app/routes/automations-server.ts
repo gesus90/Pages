@@ -135,9 +135,7 @@ async function runIntent(
       };
     }
     case "delete": {
-      const result = await automations.delete(user.id, payload, {
-        requiresWord: false,
-      });
+      const result = await automations.delete(user.id, payload);
       return { ok: true, intent, deletedId: result.automationId };
     }
   }

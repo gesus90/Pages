@@ -11,7 +11,6 @@ import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
 import { registerPicaStorageTools } from "./admin/PicaStorageTools";
 import { registerPicaBrowserTools } from "./browser/PicaBrowserTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
-import { isChatDeleteOperation } from "./ChatToolCatalog";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
 import {
   PICA_FILE_EXTENSIONS,
@@ -47,7 +46,7 @@ export interface PicaToolsInput {
   readonly planTurnId?: string;
   /** The answer-specific staging run, when an ACP job contains several turns. */
   readonly answerRunId?: string;
-  /** The word the deletions of the person's interface language take; Pages passes it, never the model. */
+  /** The server-owned legacy administrative confirmation; never supplied by the model. */
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
   readonly adminTools?: PicaAdminService | undefined;
@@ -423,29 +422,14 @@ async function dispatchPrivileged(
   );
 }
 
-/** Plan deletions that need the target-bound consent of the native plan path. */
-const PLAN_DELETIONS: ReadonlySet<string> = new Set([
-  "plans.delete",
-  "plans.templates.delete",
-]);
-
 async function dispatchAction(
   input: PicaToolsInput,
   binding: PicaToolBinding,
   parameters: ToolParameters,
   context: RuntimeExecutionContext,
 ): Promise<ChatActionOutcome> {
-  if (PLAN_DELETIONS.has(binding.operation) && !input.tools.runPlan)
-    return { ok: false, error: "CONFIRMATION_REQUIRED" };
   if (binding.isPrivileged)
     return await dispatchPrivileged(input, binding, parameters, context);
-  const word = isChatDeleteOperation(binding.operation)
-    ? await input.sessions.confirmationWord(context.userId)
-    : null;
-  const confirmation =
-    word !== null && containsConfirmation(input.message ?? "", word)
-      ? word
-      : null;
   const action = {
     operation: binding.operation,
     parameters: binding.parameters?.(parameters, context) ?? parameters,
@@ -456,20 +440,7 @@ async function dispatchAction(
         id: input.planTurnId,
         confirmation: await input.sessions.confirmationWord(context.userId),
       })
-    : await input.tools.run(
-        context.userId,
-        action,
-        confirmation,
-        containsConfirmation(input.message ?? "", "LÖSCHEN") ? "LÖSCHEN" : null,
-      );
-}
-
-function containsConfirmation(message: string, word: string): boolean {
-  const literalWord = word.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  return new RegExp(
-    `(?:^|[^\\p{L}\\p{M}\\p{N}_])${literalWord}(?:$|[^\\p{L}\\p{M}\\p{N}_])`,
-    "u",
-  ).test(message);
+    : await input.tools.run(context.userId, action, null);
 }
 
 type PicaExecute = (
@@ -534,7 +505,7 @@ function registerAdministratorTools(
  * @remarks
  * Reads find and read projects, tickets, milestones and the wiki. Writes
  * create and change them on user level when the person asks for it. Deletion
- * requires the confirmation word in the current human message. The services
+ * follows the explicit request in the current human message. The services
  * check the person's rights on every call. A write that failed is not sent
  * again unchanged in the same turn.
  */

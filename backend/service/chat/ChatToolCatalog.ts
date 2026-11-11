@@ -162,9 +162,9 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.templates.update":
     "{workspaceId, templateId, name?, planId?, nodeId?} eigene Node-Vorlage umbenennen (name) und/oder ihren Knoten durch den Knoten nodeId des gespeicherten Plans planId ersetzen (Recht zum Ändern des Plans nötig); Freigabe bleibt, eingefügte Kopien bleiben unverändert",
   "plans.templates.delete":
-    "{workspaceId, templateId} eigene Node-Vorlage löschen; eingefügte Kopien in Plänen bleiben; exakte Vorlage nennen und bestehendes Bestätigungswort der Person abwarten",
+    "{workspaceId, templateId} eigene Node-Vorlage löschen; eingefügte Kopien in Plänen bleiben; exakte Vorlage lesen und nur auf ausdrückliche aktuelle Bitte löschen",
   "plans.delete":
-    "{planId, expectedRevision} eigenen Plan löschen, wenn kein Run aktiv ist; exaktes Ziel und Folgen nennen, bestehendes Bestätigungswort der Person in einer späteren Nachricht abwarten",
+    "{planId, expectedRevision} eigenen Plan löschen, wenn kein Run aktiv ist; exaktes Ziel lesen und nur auf ausdrückliche aktuelle Bitte löschen",
   "plans.play":
     "{planId, expectedRevision} gespeicherte Revision ausdrücklich starten",
   "plans.pause": "{planId, expectedRevision, runId} eigenen Run pausieren",
@@ -331,17 +331,18 @@ export function isChatDeleteOperation(operation: ChatOperation): boolean {
   return DELETE_OPERATIONS.has(operation) || operation.endsWith(".delete");
 }
 
-/** Tells whether the action always requires the person's typed confirmation before dispatch. */
+/** Tells whether a non-deletion administration action needs separate confirmation. */
 export function requiresChatConfirmation(operation: ChatOperation): boolean {
   return (
-    isChatDeleteOperation(operation) || requiresChatAdminConfirmation(operation)
+    requiresChatAdminConfirmation(operation) &&
+    !isChatDeleteOperation(operation)
   );
 }
 
-/** Consumes a typed confirmation for one deletion or administrator mutation, including conditional revocations. */
+/** Consumes a legacy confirmation for one administration mutation. */
 export function isChatConfirmationOperation(operation: ChatOperation): boolean {
   return (
-    isChatDeleteOperation(operation) || isChatAdminWriteOperation(operation)
+    isChatAdminWriteOperation(operation) && !isChatDeleteOperation(operation)
   );
 }
 
