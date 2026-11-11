@@ -5,6 +5,8 @@ import {
   WorkItemNotFoundError,
 } from "@/backend/error/WorkItemErrors";
 
+import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
+
 import { TaskWorld } from "./task-world";
 
 let world = new TaskWorld();
@@ -184,6 +186,61 @@ describe("restoring", () => {
       world.tasks.restore(world.user("writer"), "task"),
     ).rejects.toMatchObject({ code: "parentArchived" });
     expect(world.ticket("task").archivedAt).not.toBeNull();
+  });
+
+  it("changes and records nothing for a subtree that is not archived", async () => {
+    await world.tasks.restore(world.user("writer"), "task");
+    world.state.history.length = 0;
+
+    const impact = await world.tasks.restoreWithImpact(
+      world.user("writer"),
+      "sub",
+    );
+
+    expect(impact).toEqual({
+      changedCount: 0,
+      parentId: "task",
+      ticketIds: [],
+    });
+    expect(world.actions("sub")).toEqual([]);
+  });
+
+  it("restores a root ticket that has no parent to check", async () => {
+    await world.tasks.archive(world.user("manager"), "ini");
+
+    const impact = await world.tasks.restoreWithImpact(
+      world.user("writer"),
+      "ini",
+    );
+
+    expect(impact.parentId).toBeNull();
+    expect(world.ticket("ini").archivedAt).toBeNull();
+  });
+
+  it("finds the parent through its reference when the ticket hides it", async () => {
+    world.addTicket("task", { ...world.ticket("task"), parentId: null });
+    world.addTicket("epic", {
+      ...world.ticket("epic"),
+      archivedAt: "2026-01-02 00:00:00",
+    });
+    vi.spyOn(TaskRepository.prototype, "findParentReference").mockResolvedValue(
+      { id: "epic", key: "ALP-2" },
+    );
+
+    await expect(
+      world.tasks.restore(world.user("writer"), "task"),
+    ).rejects.toMatchObject({ code: "parentArchived" });
+  });
+
+  it("restores below a parent that was deleted meanwhile", async () => {
+    world.addTicket("task", { ...world.ticket("task"), parentId: null });
+    vi.spyOn(TaskRepository.prototype, "findParentReference").mockResolvedValue(
+      { id: "gone", key: null },
+    );
+
+    await world.tasks.restore(world.user("writer"), "task");
+
+    expect(world.ticket("task").archivedAt).toBeNull();
   });
 
   it("refuses an actor without the write capability", async () => {
