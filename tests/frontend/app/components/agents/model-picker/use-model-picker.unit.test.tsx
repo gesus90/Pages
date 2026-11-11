@@ -91,6 +91,14 @@ describe("opening and closing", () => {
     expect(screen.getByRole("tree")).toBeTruthy();
   });
 
+  it("opens from the closed trigger with Arrow Up", () => {
+    renderPicker();
+
+    expect(fireEvent.keyDown(trigger(), { key: "ArrowUp" })).toBe(false);
+    expect(screen.getByRole("tree")).toBeTruthy();
+    expect(document.activeElement).toBe(search());
+  });
+
   it("leaves arrow keys on an open trigger to the browser", () => {
     renderPicker();
     open();
