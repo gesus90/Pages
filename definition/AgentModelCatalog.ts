@@ -58,6 +58,15 @@ export interface AgentCatalogModel {
   readonly inputModalities?: readonly string[];
   /** The output modalities the source states, like {@link AgentCatalogModel.inputModalities}. */
   readonly outputModalities?: readonly string[];
+  /**
+   * The voice IDs of a speech output model, as OpenRouter's
+   * `supported_voices` lists them (PAGE-300).
+   *
+   * @remarks
+   * Absent where the catalog lists none, which is every model but a speech
+   * output model and every snapshot saved before PAGE-300.
+   */
+  readonly supportedVoices?: readonly string[];
 }
 
 export interface AgentModelCatalog {

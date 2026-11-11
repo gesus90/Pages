@@ -14,7 +14,7 @@ import type { PageAgentModel } from "./PageAgent";
  * Every consumer reads the same models of the same connections; it only
  * leaves out what it cannot run, for one of the reasons below.
  */
-export type AgentModelConsumer = "pica" | "plan" | "employee" | "stt";
+export type AgentModelConsumer = "pica" | "plan" | "employee" | "stt" | "tts";
 
 /**
  * Why a consumer cannot run a model.
@@ -29,9 +29,19 @@ export type AgentModelConsumer = "pica" | "plan" | "employee" | "stt";
  *   agent of a plan needs.
  * - `noSpeech`: the model is not known to recognize speech, which the speech
  *   recognition of the instance (PAGE-273) needs.
+ * - `noSpeechOutput`: the model is not known to speak text aloud, which the
+ *   speech output of the instance (PAGE-300) needs.
+ * - `speechOutputOnly`: the model speaks text aloud (PAGE-300); it neither
+ *   chats nor works on a plan node, whatever else its catalog states.
  */
 export type ModelConsumerRefusal =
-  "noChatAdapter" | "noChat" | "zenToolsMissing" | "noToolCalls" | "noSpeech";
+  | "noChatAdapter"
+  | "noChat"
+  | "zenToolsMissing"
+  | "noToolCalls"
+  | "noSpeech"
+  | "noSpeechOutput"
+  | "speechOutputOnly";
 
 /** The providers Pica has an ACP adapter for, as registered in {@link AGENT_PROVIDERS}. */
 export type ChatAdapterProviderId = {
@@ -48,6 +58,7 @@ type ConsumerModel = Pick<
   | "isToolCapable"
   | "isChatCapable"
   | "isSpeechCapable"
+  | "isSpeechOutputCapable"
 >;
 
 /**
@@ -78,16 +89,25 @@ export function isZenToolModel(
   );
 }
 
+// A speech output model (PAGE-300) is no chat or agent model, even where its catalog states no tools.
+function speechOutputRefusal(
+  model: ConsumerModel,
+): ModelConsumerRefusal | null {
+  return model.isSpeechOutputCapable === true ? "speechOutputOnly" : null;
+}
+
 // A model whose catalog states nothing, or whose catalog failed to refresh, stays listed.
 function picaRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   if (!hasChatAdapter(model.provider)) return "noChatAdapter";
+  if (model.isSpeechOutputCapable === true) return "speechOutputOnly";
   if (model.isChatCapable === false) return "noChat";
   return isZenToolModel(model) ? "zenToolsMissing" : null;
 }
 
 // A model whose catalog does not say whether it calls tools stays listed.
 function planRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
-  return model.isToolCapable === false ? "noToolCalls" : null;
+  if (model.isToolCapable === false) return "noToolCalls";
+  return speechOutputRefusal(model);
 }
 
 /**
@@ -110,6 +130,14 @@ function sttRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   return model.isSpeechCapable === true ? null : "noSpeech";
 }
 
+/**
+ * Speech output (PAGE-300) takes only a model whose catalog states `speech`
+ * among its outputs; chat, agent, transcription and CLI models stay out.
+ */
+function ttsRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
+  return model.isSpeechOutputCapable === true ? null : "noSpeechOutput";
+}
+
 const CONSUMER_RULES: Readonly<
   Record<
     AgentModelConsumer,
@@ -120,6 +148,7 @@ const CONSUMER_RULES: Readonly<
   plan: planRefusal,
   employee: employeeRefusal,
   stt: sttRefusal,
+  tts: ttsRefusal,
 };
 
 /**

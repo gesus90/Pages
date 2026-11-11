@@ -6468,6 +6468,66 @@
       "profile_conflict": "The setting was changed in the meantime. Reload the page and save again."
     }
   },
+  "speechSynthesis": {
+    "title": "Speech output · TTS",
+    "description": "Gives agents a voice. Applies to the whole instance.",
+    "model": "Model",
+    "chooseModel": "Choose a model …",
+    "noModels": "No configured connection offers a speech output model. Under Agents, set up an OpenRouter connection with an API key and refresh its model catalog.",
+    "maxDuration": "Longest output",
+    "hint": "The voice is chosen per agent in the user administration.",
+    "saved": "Speech output saved.",
+    "status": {
+      "ready": "Ready",
+      "noModel": "No model chosen",
+      "modelUnavailable": "Model unavailable"
+    },
+    "error": {
+      "provider_model_not_found": "The chosen model is no speech output model of this instance.",
+      "profile_invalid": "The setting is invalid. Please check the model and the longest output.",
+      "profile_conflict": "The setting was changed in the meantime. Reload the page and save again."
+    }
+  },
+  "agentVoice": {
+    "title": "Voice",
+    "description": "How {{name}} sounds when the agent speaks.",
+    "listTitle_one": "Voice · {{count}} voice of {{model}}",
+    "listTitle_other": "Voice · {{count}} voices of {{model}}",
+    "listTitleNoVoices": "Voice · {{model}} lists no voices",
+    "search": "Search voices …",
+    "noMatch": "No voice matches the search.",
+    "chosen": "Chosen",
+    "hear": "Listen to voice {{voice}}",
+    "voiceId": "Voice ID",
+    "voiceIdPlaceholder": "e.g. alloy",
+    "voiceIdHint": "The catalog lists no voices for this model. The voice ID is in the provider's documentation; left empty, the model's default voice applies.",
+    "missingVoice": "The saved voice {{voice}} does not exist in this model.",
+    "speed": "Speed",
+    "unnamed": "this agent",
+    "blocked": {
+      "noModel": "No speech output model is chosen. An administrator chooses it under Settings → Agents → Speech output; until then voice and sample are unavailable.",
+      "modelUnavailable": "The chosen speech output model is no longer available. An administrator chooses another one under Settings → Agents → Speech output; until then voice and sample are unavailable.",
+      "notCreated": "A sample can be heard once the agent is created."
+    },
+    "sample": {
+      "title": "Sample",
+      "description": "This is how {{name}} sounds with this setting.",
+      "sentenceLabel": "Sample sentence",
+      "sentence": "Hello, I am {{name}}. This is how I sound in Pages.",
+      "play": "Play sample",
+      "hint": "The sample uses the model from Settings → Agents → Speech output. Without a chosen model the voice cannot be chosen."
+    },
+    "error": {
+      "request": "The sample could not be loaded. Please try again.",
+      "playback": "The browser could not play the sample.",
+      "not_configured": "Speech output is not set up, or its model has no usable key.",
+      "provider_failed": "The provider produced no sample. Check the voice, the model and the connection's key.",
+      "provider_unreachable": "The provider cannot be reached right now. Try again later.",
+      "forbidden": "You may not change the voice of this agent.",
+      "notFound": "The agent was not found.",
+      "invalidInput": "The sample request is invalid."
+    }
+  },
   "picaSettings": {
     "title": "Pica · Chat assistant",
     "description": "The fixed chat assistant for this Pages instance.",
@@ -6812,6 +6872,7 @@
       "general": "General",
       "soul": "Personality",
       "instructions": "Task",
+      "voice": "Voice",
       "memory": "Memory",
       "activity": "Activity"
     },

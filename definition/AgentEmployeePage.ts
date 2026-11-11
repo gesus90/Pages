@@ -6,6 +6,7 @@ import type {
 } from "./AgentEmployee";
 import type { AgentInstructionTemplateList } from "./AgentInstructionTemplate";
 import type { PageAgentModel } from "./PageAgent";
+import type { AgentVoiceOptions } from "./SpeechSynthesis";
 
 /** The agents tab of the user administration (PAGE-266). */
 export interface AgentEmployeePageData {
@@ -15,6 +16,8 @@ export interface AgentEmployeePageData {
   readonly canCreate: boolean;
   /** The templates of `AGENT.md` and whether the person may change them (PAGE-283). */
   readonly templates: AgentInstructionTemplateList;
+  /** The speech output model of the instance and its voices for the voice tab (PAGE-300). */
+  readonly voice: AgentVoiceOptions;
 }
 
 /** The panel of one agent as its endpoint answers it. */

@@ -6,13 +6,16 @@ import { normalizePagePath } from "../service-worker/install-service-worker";
  * @remarks
  * React Router renders inline scripts for hydration and React sets inline
  * styles, so both directives allow `'unsafe-inline'`. Everything else is
- * restricted to the own origin.
+ * restricted to the own origin. Media may also come from `blob:`: the voice
+ * sample of an agent (PAGE-300) is fetched with a `POST` of the own origin
+ * and played from a blob URL the page created itself.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
+  "media-src 'self' blob:",
   "font-src 'self' data:",
   "connect-src 'self'",
   "object-src 'none'",

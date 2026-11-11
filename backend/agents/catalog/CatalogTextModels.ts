@@ -1,5 +1,6 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { isTranscriptionModel } from "@/definition/SpeechRecognition";
+import { isSpeechSynthesisModel } from "@/definition/SpeechSynthesis";
 
 import type { ApiProviderId } from "@/definition/AgentConnection";
 
@@ -74,16 +75,45 @@ export function isSpeechModel(
 }
 
 /**
- * Tells whether a listed model belongs in the shared catalog: a text model
- * or a transcription model.
+ * Tells whether a listed model speaks text aloud, by the catalog's own data (PAGE-300).
  *
  * @param entry - One raw model entry of a provider listing.
  * @param provider - The provider that listed the entry.
- * @returns `true` when {@link isTextModel} or {@link isSpeechModel} keeps it.
+ * @returns `true` for an OpenRouter model that states `speech` among its
+ * outputs ({@link isSpeechSynthesisModel}).
+ *
+ * @remarks
+ * {@link isTextModel} drops such a model, because it does not answer in text
+ * alone; it is kept for the speech output of agents only. Its stored
+ * modalities rule out chatting, so Pica, agents and plan nodes leave it out.
+ */
+export function isSpeechOutputModel(
+  entry: unknown,
+  provider: ApiProviderId,
+): boolean {
+  if (provider !== "openrouter") return false;
+  const architecture = readAgentObject(readAgentObject(entry).architecture);
+  return isSpeechSynthesisModel({
+    outputModalities: statedModalities(architecture.output_modalities),
+  });
+}
+
+/**
+ * Tells whether a listed model belongs in the shared catalog: a text model,
+ * a transcription model or a speech output model.
+ *
+ * @param entry - One raw model entry of a provider listing.
+ * @param provider - The provider that listed the entry.
+ * @returns `true` when {@link isTextModel}, {@link isSpeechModel} or
+ * {@link isSpeechOutputModel} keeps it.
  */
 export function isCatalogModel(
   entry: unknown,
   provider: ApiProviderId,
 ): boolean {
-  return isTextModel(entry, provider) || isSpeechModel(entry, provider);
+  return (
+    isTextModel(entry, provider) ||
+    isSpeechModel(entry, provider) ||
+    isSpeechOutputModel(entry, provider)
+  );
 }

@@ -47,7 +47,10 @@ export interface AgentEmployeeAdministrationDependencies {
 }
 
 /** The agents tab: rows, the model choice and whether the person may create. */
-export type AgentEmployeePage = Omit<AgentEmployeePageData, "templates">;
+export type AgentEmployeePage = Omit<
+  AgentEmployeePageData,
+  "templates" | "voice"
+>;
 
 /** Everything the panel of one agent shows. */
 export type AgentEmployeeDetail = AgentEmployeeDetailData;
@@ -86,6 +89,8 @@ function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
     soul: input.documents.soul,
     instructions: input.documents.instructions,
     isLearningEnabled: input.isLearningEnabled,
+    voiceId: input.voice.voiceId,
+    voiceSpeedTenths: input.voice.speedTenths,
   };
 }
 
@@ -237,6 +242,30 @@ export class AgentEmployeeAdministration {
       activity: await this.dependencies.activity.list(agentId),
       canEdit: this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS),
     };
+  }
+
+  /**
+   * The stored name of an agent whose voice the person may change (PAGE-300).
+   *
+   * @returns The display name the fixed sample sentence of the voice names.
+   * @throws {AgentEmployeeError} `notFound` for an agent the person may not
+   * see, `forbidden` without the right to change it.
+   */
+  public async voiceSampleName(
+    actorId: string,
+    agentId: string,
+  ): Promise<string> {
+    const snapshot = await this.dependencies.authorization.snapshot();
+    const actor = activeAccount(snapshot, actorId);
+    const target = this.requireAgentAccount(snapshot, agentId);
+    if (!this.policy.canSee(actor, target))
+      throw new AgentEmployeeError("notFound");
+    this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
+    const user = await this.dependencies.authorization
+      .users()
+      .findById(agentId);
+    if (!user) throw new AgentEmployeeError("notFound");
+    return user.displayName;
   }
 
   /**

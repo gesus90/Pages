@@ -7,6 +7,7 @@ import { AdminModeRequired } from "@/app/components/settings/admin-mode-required
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings-card";
 import { SpeechSettingsCard } from "@/app/components/settings/agents/speech-settings-card";
+import { SpeechSynthesisCard } from "@/app/components/settings/agents/speech-synthesis-card";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
 import { RunnerConnectionsCard } from "@/app/components/settings/agents/runner-connections-card";
 import {
@@ -33,6 +34,7 @@ import type {
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { PicaAdministration } from "@/definition/PicaSettings";
 import type { SpeechAdministration } from "@/definition/SpeechRecognition";
+import type { SpeechSynthesisAdministration } from "@/definition/SpeechSynthesis";
 import type { Route } from "./+types/settings-agents";
 import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
 
@@ -52,11 +54,24 @@ export type AgentsLoaderData =
         readonly models: readonly PageAgentModel[];
       };
       readonly speech: SpeechAdministration;
+      readonly speechSynthesis: SpeechSynthesisAdministration;
       readonly audience: LocalStateAudience;
     };
 
 /** The rights-checked endpoint of the agents area. */
 const SETTINGS_AGENTS_ENDPOINT = "/settings-api/agents";
+
+// Pica, the speech recognition and the speech output (PAGE-300) each have a card of their own.
+function hasAgentSettingCards(value: object): boolean {
+  return (
+    "pica" in value &&
+    typeof value.pica === "object" &&
+    "speech" in value &&
+    typeof value.speech === "object" &&
+    "speechSynthesis" in value &&
+    typeof value.speechSynthesis === "object"
+  );
+}
 
 function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
   if (typeof value !== "object" || value === null || !("access" in value))
@@ -68,10 +83,7 @@ function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
     Array.isArray(value.connections) &&
     "runners" in value &&
     Array.isArray(value.runners) &&
-    "pica" in value &&
-    typeof value.pica === "object" &&
-    "speech" in value &&
-    typeof value.speech === "object" &&
+    hasAgentSettingCards(value) &&
     "audience" in value &&
     isLocalStateAudience(value.audience)
   );
@@ -85,7 +97,7 @@ function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
  * metadata; the request for the admin mode is not kept.
  */
 const SETTINGS_AGENTS_STATE: LocalStateRouteKind<AgentsLoaderData> = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   isPayload: isAgentsRouteData,
   isCurrent: (agents) =>
     agents.access === "granted" && isCurrentLocalStateAudience(agents.audience),
@@ -144,10 +156,16 @@ export default function SettingsAgentsRoute(): React.ReactElement {
         connections={result.runners}
         githubMode={result.runnerGitHubMode}
       />
-      <SpeechSettingsCard
-        administration={result.speech}
-        isCatalogFailed={hasFailedCatalog(result.catalogs)}
-      />
+      <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+        <SpeechSettingsCard
+          administration={result.speech}
+          isCatalogFailed={hasFailedCatalog(result.catalogs)}
+        />
+        <SpeechSynthesisCard
+          administration={result.speechSynthesis}
+          isCatalogFailed={hasFailedCatalog(result.catalogs)}
+        />
+      </div>
       <PicaSettingsCard
         settings={result.pica.settings}
         models={result.pica.models}

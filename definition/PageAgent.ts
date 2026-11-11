@@ -79,6 +79,12 @@ export interface PageAgentModel {
    */
   readonly isSpeechCapable?: boolean;
   /**
+   * `true` for a model that speaks text aloud (PAGE-300): its catalog states
+   * `speech` among the outputs. Only the speech output takes such a model;
+   * Pica, agents and plan nodes refuse it.
+   */
+  readonly isSpeechOutputCapable?: boolean;
+  /**
    * `true` when the last server refresh of the model's catalog failed.
    *
    * @remarks

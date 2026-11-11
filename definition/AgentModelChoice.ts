@@ -2,6 +2,7 @@ import { AGENT_PROVIDERS } from "./AgentConnection";
 import { supportsModelCatalog } from "./AgentModelCatalog";
 import { isChatCapableModel } from "./AgentModelFilter";
 import { agentModelKey } from "./AgentPlanConfiguration";
+import { isSpeechSynthesisModel } from "./SpeechSynthesis";
 
 import type { AgentProviderId } from "./AgentConnection";
 import type { AgentCatalogModel } from "./AgentModelCatalog";
@@ -52,5 +53,7 @@ export function catalogModelChoice(
       ? {}
       : { isToolCapable: model.isToolCapable }),
     ...(isChatCapableModel(model) ? {} : { isChatCapable: false }),
+    // Marked everywhere, so Pica, agents and plans refuse it on the server too (PAGE-300).
+    ...(isSpeechSynthesisModel(model) ? { isSpeechOutputCapable: true } : {}),
   };
 }
