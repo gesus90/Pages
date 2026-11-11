@@ -11,7 +11,7 @@ side of the shared contract.
 Code: `definition/Automation*.ts`, `definition/AgentTools/Automations.ts`
 (tool catalog and binding JSON Schemas), `backend/service/automation/`,
 `backend/database/repositories/automation/`, migration
-`037_automations.sql`, `app/lib/automation-*.server.ts`,
+`038_automations.sql`, `app/lib/automation-*.server.ts`,
 `app/lib/mcp-automation-route*.ts`, `app/routes/api-mcp-v1-automation*.ts`,
 `app/routes/automations*.ts(x)` and `app/components/automations/`.
 

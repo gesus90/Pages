@@ -9,6 +9,7 @@ import {
 import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
 import { automationRoutes } from "./lib/automation-routes";
 import { mcpAutomationRoutes } from "./lib/mcp-automation-routes";
+import { mcpPlanNotationRoutes } from "./lib/mcp-plan-notation-routes";
 import { mcpUserRoutes } from "./lib/mcp-user-routes";
 import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
 import { storageRoutes } from "./lib/storage-routes";
@@ -216,21 +217,6 @@ function mcpWorkspaceRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   ];
 }
 
-/** The plan notation API of the stand-alone Pages MCP program, admitted by the device token (PAGE-250). */
-function mcpPlanNotationRoutes(routes: RouteBuilder): RouteConfigEntry[] {
-  const { resource } = routes;
-  const notation = "api/mcp/v1/plan-notation";
-  return [
-    resource(notation, "routes/api-mcp-v1-plan-notation.ts"),
-    resource(`${notation}/check`, "routes/api-mcp-v1-plan-notation-check.ts"),
-    resource(`${notation}/:planId`, "routes/api-mcp-v1-plan-notation-plan.ts"),
-    resource(
-      `${notation}/:planId/layout`,
-      "routes/api-mcp-v1-plan-notation-layout.ts",
-    ),
-  ];
-}
-
 /** The plan and node template API of the stand-alone Pages MCP program, admitted by the device token (PAGE-246). */
 function mcpPlanRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource } = routes;
@@ -299,7 +285,7 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ...mcpProjectRoutes(routes),
     ...mcpWorkspaceRoutes(routes),
     ...mcpPlanRoutes(routes),
-    ...mcpPlanNotationRoutes(routes),
+    ...mcpPlanNotationRoutes(routes.resource),
     ...mcpWikiRoutes(routes.resource),
     ...mcpAgentRoutes(routes.resource),
     ...mcpUserRoutes(routes.resource),
