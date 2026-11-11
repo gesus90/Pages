@@ -10,6 +10,13 @@ import { group, participant } from "./chat-page-fixture";
 import type { ComponentProps } from "react";
 import type { VirtualParticipant } from "@/definition/VirtualChat";
 
+const fetcher = vi.hoisted(() => ({
+  data: undefined,
+  state: "idle",
+  submit: vi.fn(),
+}));
+vi.mock("react-router", () => ({ useFetcher: () => fetcher }));
+
 const i18n = createI18n("en");
 const ADA = participant("ada", { name: "Ada", role: "Planner" });
 const BOB = participant("bob", {
