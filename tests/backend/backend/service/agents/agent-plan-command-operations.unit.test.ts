@@ -1,7 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { AgentError } from "@/backend/error/AgentErrors";
-import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { fingerprintOperation } from "@/backend/service/agents/AgentOperationRecorder";
 import { readPlanCommand } from "@/backend/service/agents/AgentPlanCommandInput";
 
