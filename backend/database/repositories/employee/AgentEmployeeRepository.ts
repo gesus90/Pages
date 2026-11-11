@@ -32,6 +32,12 @@ export interface StoredAgentEmployee {
   readonly revision: number;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** `DREAM.md`: the lessons of the dream run (PAGE-305). */
+  readonly dream: string;
+  /** The character limit of `MEMORY.md`. */
+  readonly memoryCharacters: number;
+  /** The character limit of `DREAM.md`. */
+  readonly dreamCharacters: number;
 }
 
 /** What an administrator changes on an agent beside its account. */
@@ -43,9 +49,13 @@ export interface AgentEmployeeChange {
   readonly soul: string;
   readonly instructions: string;
   readonly isLearningEnabled: boolean;
+  /** The character limit of `MEMORY.md` (PAGE-305). */
+  readonly memoryCharacters: number;
+  /** The character limit of `DREAM.md` (PAGE-305). */
+  readonly dreamCharacters: number;
 }
 
-/** What a learning run stores about itself. */
+/** What a dream run stores about itself. */
 export interface AgentLearningRecord {
   readonly learnedThrough: string | null;
   readonly lastLearningAt: string;
@@ -68,7 +78,10 @@ const COLUMNS = `
     last_learning_result,
     revision,
     created_at,
-    updated_at`;
+    updated_at,
+    dream,
+    memory_characters,
+    dream_characters`;
 
 const STATUSES: readonly AgentLearningStatus[] = [
   "updated",
@@ -129,6 +142,9 @@ function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
     revision: readCountColumn(row, 13, "revision"),
     createdAt: readTextColumn(row, 14, "created_at"),
     updatedAt: readTextColumn(row, 15, "updated_at"),
+    dream: readTextColumn(row, 16, "dream"),
+    memoryCharacters: readCountColumn(row, 17, "memory_characters"),
+    dreamCharacters: readCountColumn(row, 18, "dream_characters"),
   };
 }
 
@@ -184,9 +200,11 @@ export class AgentEmployeeRepository {
             model,
             reasoning_effort,
             access,
-                    soul,
+            soul,
             instructions,
-            is_learning_enabled
+            is_learning_enabled,
+            memory_characters,
+            dream_characters
         )
         VALUES (
             $user_id,
@@ -196,7 +214,9 @@ export class AgentEmployeeRepository {
             $access,
             $soul,
             $instructions,
-            $is_learning_enabled
+            $is_learning_enabled,
+            $memory_characters,
+            $dream_characters
         );
       `,
       { user_id: userId, ...this.parameters(change) },
@@ -224,6 +244,8 @@ export class AgentEmployeeRepository {
             soul = $soul,
             instructions = $instructions,
             is_learning_enabled = $is_learning_enabled,
+            memory_characters = $memory_characters,
+            dream_characters = $dream_characters,
             revision = revision + 1,
             updated_at = utc_now()
         WHERE user_id = $user_id
@@ -285,7 +307,21 @@ export class AgentEmployeeRepository {
     );
   }
 
-  /** Stores the outcome of a learning run. */
+  /** Replaces `DREAM.md` (PAGE-305). */
+  public async saveDream(userId: string, dream: string): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE agent_employees
+        SET
+            dream = $dream,
+            updated_at = utc_now()
+        WHERE user_id = $user_id;
+      `,
+      { user_id: userId, dream },
+    );
+  }
+
+  /** Stores the outcome of a dream run. */
   public async saveLearning(
     userId: string,
     record: AgentLearningRecord,
@@ -319,6 +355,8 @@ export class AgentEmployeeRepository {
       soul: change.soul,
       instructions: change.instructions,
       is_learning_enabled: change.isLearningEnabled,
+      memory_characters: change.memoryCharacters,
+      dream_characters: change.dreamCharacters,
     };
   }
 }

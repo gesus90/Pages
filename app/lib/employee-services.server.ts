@@ -2,6 +2,7 @@ import { CliHostMcpServers } from "@/backend/agents/cli/CliHostMcpServers";
 import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
+import { SimulatedAgentMemoryModel } from "@/backend/agents/simulation/SimulatedAgentMemoryModel";
 import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
@@ -15,6 +16,7 @@ import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiL
 import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
+import { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPrivacyService";
 import { AgentHostFiles } from "@/backend/service/employee/AgentHostFiles";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
 import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
@@ -23,7 +25,13 @@ import { AgentEmployeeModels } from "@/backend/service/employee/AgentEmployeeMod
 import { AgentEmployeeSessions } from "@/backend/service/employee/AgentEmployeeSessions";
 import { AgentLearningScheduler } from "@/backend/service/employee/AgentLearningScheduler";
 import { AgentLearningService } from "@/backend/service/employee/AgentLearningService";
+import { AgentSessionMemoryModel } from "@/backend/service/employee/AgentMemoryModel";
+import { AgentMemoryRecorder } from "@/backend/service/employee/AgentMemoryRecorder";
 import { AgentMemoryService } from "@/backend/service/employee/AgentMemoryService";
+import {
+  AgentKnowledgeAccess,
+  AgentMemorySharing,
+} from "@/backend/service/employee/AgentMemorySharing";
 import { AgentSessionLimitService } from "@/backend/service/employee/AgentSessionLimitService";
 import { AgentSessionSlots } from "@/backend/service/employee/AgentSessionSlots";
 import { AgentTemplateService } from "@/backend/service/employee/AgentTemplateService";
@@ -38,6 +46,10 @@ import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitio
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
 import type { AgentHostFileStores } from "@/backend/service/employee/AgentHostFiles";
+import type { AgentLearningDependencies } from "@/backend/service/employee/AgentLearningService";
+import type { AgentMemoryModel } from "@/backend/service/employee/AgentMemoryModel";
+import type { TaskService } from "@/backend/service/TaskService";
+import type { WikiService } from "@/backend/service/WikiService";
 import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { ConversationApplicationServices } from "./conversation-services.server";
@@ -54,6 +66,8 @@ export interface EmployeeApplicationServices extends ConversationApplicationServ
   /** The limits of concurrent chat sessions of agents (PAGE-304). */
   readonly agentSessionLimitService: AgentSessionLimitService;
   readonly agentLearningService: AgentLearningService;
+  /** Marks chats with agents confidential (PAGE-305). */
+  readonly agentChatPrivacyService: AgentChatPrivacyService;
   readonly chatDirectoryService: ChatDirectoryService;
   readonly chatGroupService: ChatGroupService;
   readonly personColorService: PersonColorService;
@@ -67,6 +81,14 @@ export interface EmployeeServicesInput {
   readonly acp: PicaAcpService | null;
   /** The ticket and wiki attachments the file tools of an agent with host tools use (PAGE-303). */
   readonly hostFiles?: AgentHostFileStores;
+  /**
+   * Who may see a ticket or a wiki page (PAGE-305); without it a chat with
+   * further people gets no knowledge of other chats.
+   */
+  readonly knowledge?: {
+    readonly tickets: Pick<TaskService, "getByKey">;
+    readonly wiki: Pick<WikiService, "canView">;
+  };
   /** Where the stored conversations keep their audio and announce their changes (PAGE-278). */
   readonly conversations: {
     readonly directory: string;
@@ -108,6 +130,93 @@ function createChatDirectory(parts: {
 }
 
 /**
+ * The memory of agents (PAGE-305): the rules of sharing, the memory with
+ * its archive, the model calls, the recorder that updates `MEMORY.md`
+ * after each answer and the confidential mark of chats.
+ *
+ * @remarks
+ * The model calls run in the agent's own sessions, which are built after
+ * the memory; `sessions` hands them over once they exist. The simulation
+ * answers them without a model provider.
+ */
+function createMemoryParts(parts: {
+  readonly store: EmployeeStore;
+  readonly users: UserRepository;
+  readonly messages: ChatSessionRepository;
+  readonly knowledge: EmployeeServicesInput["knowledge"];
+  readonly isSimulated: boolean;
+  readonly sessions: () => AgentEmployeeSessions;
+}): {
+  readonly memory: AgentMemoryService;
+  readonly memoryModel: AgentMemoryModel;
+  readonly recorder: AgentMemoryRecorder;
+  readonly privacy: AgentChatPrivacyService;
+} {
+  const { store, users, messages, knowledge } = parts;
+  const sharing = new AgentMemorySharing({
+    store,
+    ...(knowledge
+      ? {
+          visibility: new AgentKnowledgeAccess({
+            users,
+            tickets: knowledge.tickets,
+            wiki: knowledge.wiki,
+          }),
+        }
+      : {}),
+  });
+  const memory = new AgentMemoryService(store, sharing);
+  const memoryModel: AgentMemoryModel = parts.isSimulated
+    ? new SimulatedAgentMemoryModel()
+    : new AgentSessionMemoryModel({
+        sessions: {
+          run: (request) => parts.sessions().run(request),
+          job: (agent, sessionId, jobId) =>
+            parts.sessions().job(agent, sessionId, jobId),
+        },
+        messages,
+      });
+  return {
+    memory,
+    memoryModel,
+    recorder: new AgentMemoryRecorder({
+      store,
+      messages,
+      memory,
+      model: memoryModel,
+    }),
+    privacy: new AgentChatPrivacyService({
+      store,
+      users,
+      createSessionId: () => createChatSessionId(),
+    }),
+  };
+}
+
+/**
+ * Starts the nightly dream runs (PAGE-305) where a model can answer them,
+ * ACP or the simulation, and only in the process that serves the chat.
+ */
+function startDreamRuns(
+  dependencies: AgentLearningDependencies,
+  hasModel: boolean,
+): AgentLearningService {
+  const service = new AgentLearningService(dependencies);
+  if (hasModel && !isLocalSessionOwner() && !isPagesRunsProcess())
+    new AgentLearningScheduler(dependencies.store, service).start();
+  return service;
+}
+
+/** The simulated agent of conversations; `null` outside the simulation. */
+function simulatedAgent(
+  simulation: ReturnType<typeof currentAgentSimulationMode>,
+): SimulatedConversationAgent | null {
+  return simulation.isActive
+    ? new SimulatedConversationAgent(simulation)
+    : null;
+}
+
+/**
  * Wires agents, their sessions and learning runs, the chat directory and
  * person colors on the shared database; the learning scheduler runs only in
  * the process that serves the chat.
@@ -126,7 +235,15 @@ export function createEmployeeServices(
     groups: new UserGroupRepository(database),
   });
   const languages = new UserSettingsRepository(database);
-  const memory = new AgentMemoryService(store);
+  const simulation = currentAgentSimulationMode();
+  const { memory, memoryModel, recorder, privacy } = createMemoryParts({
+    store,
+    users,
+    messages,
+    knowledge: input.knowledge,
+    isSimulated: simulation.isActive,
+    sessions: () => sessions,
+  });
   const activity = new AgentActivityService(store);
   // Bubblewrap and the MCP configuration of the CLIs are read anew, so they
   // change without a restart (PAGE-303).
@@ -151,9 +268,9 @@ export function createEmployeeServices(
     ...(input.hostFiles
       ? { hostFiles: new AgentHostFiles(input.hostFiles) }
       : {}),
+    recorder,
     createSessionId: () => createChatSessionId(),
   });
-  const simulation = currentAgentSimulationMode();
   const conversations = createConversationServices({
     database,
     ...input.conversations,
@@ -162,21 +279,14 @@ export function createEmployeeServices(
       users,
       sessions,
       messages,
-      simulation: simulation.isActive
-        ? new SimulatedConversationAgent(simulation)
-        : null,
+      simulation: simulatedAgent(simulation),
+      recorder,
     }),
   });
-  const learning = new AgentLearningService({
-    store,
-    users,
-    messages,
-    sessions,
-    memory,
-    activity,
-  });
-  if (input.acp && !isLocalSessionOwner() && !isPagesRunsProcess())
-    new AgentLearningScheduler(store, learning).start();
+  const learning = startDreamRuns(
+    { store, users, memory, model: memoryModel, activity },
+    input.acp !== null || simulation.isActive,
+  );
   return {
     ...conversations,
     agentEmployeeAdministration: new AgentEmployeeAdministration({
@@ -199,6 +309,7 @@ export function createEmployeeServices(
       slots,
     ),
     agentLearningService: learning,
+    agentChatPrivacyService: privacy,
     chatDirectoryService: createChatDirectory({
       database,
       store,

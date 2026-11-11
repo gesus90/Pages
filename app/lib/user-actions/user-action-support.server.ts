@@ -66,6 +66,7 @@ export type UsersIntent =
   | "create-agent"
   | "update-agent"
   | "restore-agent-memory"
+  | "reset-agent-memory"
   | "save-agent-template"
   | "delete-agent-template"
   | "set-user-color";

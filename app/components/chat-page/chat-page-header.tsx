@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
+import { ConfidentialButton } from "./chat-page-confidential";
 import { participantSubtitle } from "./chat-page-list-entries";
 import { ChatPageMemberDialog } from "./chat-page-member-dialog";
 
@@ -12,6 +13,7 @@ import type {
   VirtualGroup,
   VirtualParticipant,
 } from "@/definition/VirtualChat";
+import type { ConfidentialControl } from "./chat-page-confidential";
 import type { OpenedConversation } from "./use-chat-page";
 
 function HeaderFrame({
@@ -44,13 +46,15 @@ interface MuteControl {
   /** `null` when there is nothing to mute, as with an agent. */
   readonly isMuted: boolean | null;
   readonly onToggleMute: () => void;
+  /** The confidential mark of a chat with agents (PAGE-305); absent shows none. */
+  readonly confidential?: ConfidentialControl;
 }
 
 /** Mutes or unmutes the conversation for the person alone (PAGE-275). */
 function MuteButton({
   isMuted,
   onToggleMute,
-}: MuteControl): React.ReactElement | null {
+}: Omit<MuteControl, "confidential">): React.ReactElement | null {
   const { t } = useTranslation();
   if (isMuted === null) return null;
   const Icon = isMuted ? BellOff : Bell;
@@ -125,6 +129,7 @@ function ParticipantHeader({
       aside={
         <>
           <AccessBadge participant={participant} />
+          <ConfidentialButton control={mute.confidential} />
           <MuteButton {...mute} />
           {isAnswering && participant.kind === "agent" ? (
             <Button onClick={onStop} size="sm" type="button" variant="outline">
@@ -216,6 +221,7 @@ function GroupHeader({
             participants={participants}
             onAdd={onAddMember}
           />
+          <ConfidentialButton control={mute.confidential} />
           <MuteButton {...mute} />
           {onStopAgent ? (
             <GroupStopButtons group={group} onStopAgent={onStopAgent} />
@@ -236,7 +242,8 @@ function GroupHeader({
  * the dashed plus that adds one of the person's participants (PAGE-259),
  * and a stop button for every agent answering in it (PAGE-304).
  * A stored conversation with a person or of a group can be muted for the
- * person alone (PAGE-275).
+ * person alone (PAGE-275); a chat with an agent and a group can be marked
+ * confidential (PAGE-305).
  */
 export function ChatPageHeader({
   opened,
@@ -247,6 +254,7 @@ export function ChatPageHeader({
   onAddMember,
   isMuted,
   onToggleMute,
+  confidential,
 }: MuteControl & {
   readonly opened: OpenedConversation;
   /** The person's own participants, which a group can take. */
@@ -257,7 +265,7 @@ export function ChatPageHeader({
   readonly onStopAgent?: (agentId: string) => void;
   readonly onAddMember: (groupId: string, participantId: string) => void;
 }): React.ReactElement {
-  const mute: MuteControl = { isMuted, onToggleMute };
+  const mute: MuteControl = { isMuted, onToggleMute, confidential };
   if (opened.kind === "group")
     return (
       <GroupHeader

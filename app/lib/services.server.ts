@@ -447,6 +447,7 @@ async function startMcpWorkspace(context: {
         ticketKeys: context.tasks.taskService,
         wiki: context.wiki,
       },
+      knowledge: { tickets: context.tasks.taskService, wiki: context.wiki },
       conversations: {
         directory,
         events: context.tasks.pagesEventPublisher,

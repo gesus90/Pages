@@ -10,6 +10,10 @@ import type {
   AgentMemoryVersion,
   AgentMemoryVersionReason,
 } from "@/definition/AgentEmployee";
+import type {
+  AgentMemoryChat,
+  AgentMemorySource,
+} from "@/definition/AgentMemory";
 
 /** A new archive entry with its counted words. */
 export interface NewArchiveEntry {
@@ -19,11 +23,15 @@ export interface NewArchiveEntry {
   readonly wordCount: number;
   /** Creation time, `YYYY-MM-DD HH:MM:SS` UTC; the database clock without it. */
   readonly createdAt?: string;
+  /** Where the entry comes from (PAGE-305); `null` for none. */
+  readonly source?: AgentMemorySource | null;
 }
 
 /** A stored version with its full content, for restoring it. */
 export interface StoredMemoryVersion extends AgentMemoryVersion {
   readonly memory: string;
+  /** `DREAM.md` of the version (PAGE-305). */
+  readonly dream: string;
   /** The archive entries of the version as JSON. */
   readonly archive: string;
 }
@@ -34,6 +42,7 @@ export interface NewMemoryVersion {
   readonly userId: string;
   readonly reason: AgentMemoryVersionReason;
   readonly memory: string;
+  readonly dream: string;
   readonly archive: string;
   readonly coreWords: number;
   readonly archiveWords: number;
@@ -45,7 +54,59 @@ const REASONS: readonly AgentMemoryVersionReason[] = [
   "learning",
   "edit",
   "restore",
+  "update",
+  "dream",
+  "reset",
 ];
+
+const ENTRY_COLUMNS = `
+    id,
+    title,
+    content,
+    created_at,
+    source`;
+
+function readStrings(input: unknown): readonly string[] {
+  return Array.isArray(input)
+    ? input.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
+function readChat(input: unknown): AgentMemoryChat | null {
+  if (typeof input !== "object" || input === null) return null;
+  const kind: unknown = Reflect.get(input, "kind");
+  const personId: unknown = Reflect.get(input, "personId");
+  const conversationId: unknown = Reflect.get(input, "conversationId");
+  if (kind === "person" && typeof personId === "string")
+    return { kind, personId };
+  if (kind === "conversation" && typeof conversationId === "string")
+    return { kind, conversationId };
+  return null;
+}
+
+/**
+ * Reads the stored source of an archive entry (PAGE-305).
+ *
+ * @param text - The JSON of the column, or `null`.
+ * @returns The source, or `null` for none or an unreadable one.
+ */
+export function readMemorySource(
+  text: string | null,
+): AgentMemorySource | null {
+  if (text === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    return {
+      chat: readChat(Reflect.get(parsed, "chat")),
+      tickets: readStrings(Reflect.get(parsed, "tickets")),
+      wikiPages: readStrings(Reflect.get(parsed, "wikiPages")),
+    };
+  } catch (error: unknown) {
+    if (error instanceof SyntaxError) return null;
+    throw error;
+  }
+}
 
 function readReason(input: string): AgentMemoryVersionReason {
   const reason = REASONS.find((entry) => entry === input);
@@ -60,6 +121,7 @@ function readEntry(row: readonly DatabaseValue[]): AgentArchiveEntry {
     title: readTextColumn(row, 1, "title"),
     content: readTextColumn(row, 2, "content"),
     createdAt: readTextColumn(row, 3, "created_at"),
+    source: readMemorySource(readNullableTextColumn(row, 4, "source")),
   };
 }
 
@@ -74,8 +136,8 @@ function readVersion(row: readonly DatabaseValue[]): AgentMemoryVersion {
 }
 
 /**
- * The archive behind `MEMORY.md` and the restorable versions of both
- * (PAGE-266).
+ * The archive behind `MEMORY.md` and the restorable versions of
+ * `MEMORY.md`, `DREAM.md` and the archive (PAGE-266, PAGE-305).
  *
  * @remarks
  * The archive is read as a whole only for an authorized view or a version;
@@ -92,11 +154,7 @@ export class AgentMemoryRepository {
   public async archive(userId: string): Promise<AgentArchiveEntry[]> {
     const rows = await this.database.query(
       `
-        SELECT
-            id,
-            title,
-            content,
-            created_at
+        SELECT ${ENTRY_COLUMNS}
         FROM agent_memory_archive
         WHERE user_id = $user_id
         ORDER BY created_at DESC, id;
@@ -143,15 +201,54 @@ export class AgentMemoryRepository {
     });
     const rows = await this.database.query(
       `
-        SELECT
-            id,
-            title,
-            content,
-            created_at
+        SELECT ${ENTRY_COLUMNS}
         FROM agent_memory_archive
         WHERE user_id = $user_id
             ${conditions.map((condition) => `AND ${condition}`).join("\n")}
         ORDER BY created_at DESC, id
+        LIMIT $limit;
+      `,
+      parameters,
+    );
+    return rows.map(readEntry);
+  }
+
+  /**
+   * Finds archive entries that contain any of the terms, those with the most
+   * matching terms first (PAGE-305).
+   *
+   * @param userId - The agent.
+   * @param terms - Lower-case search terms, already limited by the caller.
+   * @param limit - Entries to return at most.
+   */
+  public async searchAny(
+    userId: string,
+    terms: readonly string[],
+    limit: number,
+  ): Promise<AgentArchiveEntry[]> {
+    if (terms.length === 0) return [];
+    const parameters: Record<string, string | number> = {
+      user_id: userId,
+      limit,
+    };
+    // Only placeholders are interpolated; every term is bound as a value.
+    const matches = terms.map((term, index) => {
+      parameters[`term_${index}`] = `%${term.replace(/[\\%_]/gu, "\\$&")}%`;
+      return `CASE WHEN lower(title || ' ' || content) LIKE $term_${index} THEN 1 ELSE 0 END`;
+    });
+    const rows = await this.database.query(
+      `
+        WITH scored AS (
+            SELECT
+                ${ENTRY_COLUMNS},
+                ${matches.join(" + ")} AS score
+            FROM agent_memory_archive
+            WHERE user_id = $user_id
+        )
+        SELECT ${ENTRY_COLUMNS}
+        FROM scored
+        WHERE score > 0
+        ORDER BY score DESC, created_at DESC, id
         LIMIT $limit;
       `,
       parameters,
@@ -173,7 +270,8 @@ export class AgentMemoryRepository {
               title,
               content,
               word_count,
-              created_at
+              created_at,
+              source
           )
           VALUES (
               $id,
@@ -181,7 +279,8 @@ export class AgentMemoryRepository {
               $title,
               $content,
               $word_count,
-              COALESCE($created_at, utc_now())
+              COALESCE($created_at, utc_now()),
+              $source
           );
         `,
         {
@@ -191,6 +290,7 @@ export class AgentMemoryRepository {
           content: entry.content,
           word_count: entry.wordCount,
           created_at: entry.createdAt ?? null,
+          source: entry.source ? JSON.stringify(entry.source) : null,
         },
       );
   }
@@ -259,6 +359,7 @@ export class AgentMemoryRepository {
             user_id,
             reason,
             memory,
+            dream,
             archive,
             core_words,
             archive_words,
@@ -269,6 +370,7 @@ export class AgentMemoryRepository {
             $user_id,
             $reason,
             $memory,
+            $dream,
             $archive,
             $core_words,
             $archive_words,
@@ -280,6 +382,7 @@ export class AgentMemoryRepository {
         user_id: version.userId,
         reason: version.reason,
         memory: version.memory,
+        dream: version.dream,
         archive: version.archive,
         core_words: version.coreWords,
         archive_words: version.archiveWords,
@@ -325,7 +428,8 @@ export class AgentMemoryRepository {
             core_words,
             archive_words,
             memory,
-            archive
+            archive,
+            dream
         FROM agent_memory_versions
         WHERE user_id = $user_id
             AND id = $id;
@@ -338,6 +442,7 @@ export class AgentMemoryRepository {
       ...readVersion(row),
       memory: readTextColumn(row, 5, "memory"),
       archive: readNullableTextColumn(row, 6, "archive") ?? "[]",
+      dream: readTextColumn(row, 7, "dream"),
     };
   }
 

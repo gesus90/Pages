@@ -1,0 +1,96 @@
+import type {
+  AgentMemoryCaller,
+  AgentMemoryModel,
+} from "@/backend/service/employee/AgentMemoryModel";
+import type { AgentDreamAnswerLesson } from "@/backend/service/employee/AgentLearningPrompt";
+import type { AgentTopicUpdate } from "@/backend/service/employee/AgentMemoryPrompt";
+
+/** Words of a message that make the title of a simulated topic. */
+const TITLE_WORDS = 6;
+/** Lessons one simulated dream run derives at most. */
+const DREAM_LESSONS = 5;
+const TICKET_KEY = /\b[A-Z][A-Z0-9]*-\d+\b/gu;
+
+function cut(text: string, maximum: number): string {
+  const single = text.replace(/\s+/gu, " ").trim();
+  const characters = Array.from(single);
+  return characters.length <= maximum
+    ? single
+    : `${characters.slice(0, maximum - 1).join("")}…`;
+}
+
+/**
+ * The model calls of the memory in the development simulation (PAGE-305,
+ * part of PAGE-268).
+ *
+ * @remarks
+ * It contacts no model provider and derives its answers from the input
+ * alone: a topic titled by the first words of the message with the ticket
+ * keys it names, a summary of the first words of each message, and lessons
+ * from the people's messages and plan runs of the day.
+ */
+export class SimulatedAgentMemoryModel implements AgentMemoryModel {
+  /** One topic per exchange; a message with "erledigt" finishes it. */
+  public topics(
+    caller: AgentMemoryCaller,
+    input: Parameters<AgentMemoryModel["topics"]>[1],
+  ): Promise<readonly AgentTopicUpdate[] | null> {
+    const { message, answer } = input.exchange;
+    const title = message.trim().split(/\s+/u).slice(0, TITLE_WORDS).join(" ");
+    if (title === "") return Promise.resolve([]);
+    return Promise.resolve([
+      {
+        title,
+        about: cut(message, 300),
+        status: `${caller.agent.displayName} hat geantwortet: ${cut(answer, 160)}`,
+        nextStep: "",
+        tickets: [...new Set(`${message} ${answer}`.match(TICKET_KEY) ?? [])],
+        wikiPages: [],
+        isDone: /\berledigt\b/iu.test(message),
+      },
+    ]);
+  }
+
+  /** The first words of every message, in order. */
+  public summarize(
+    caller: AgentMemoryCaller,
+    input: Parameters<AgentMemoryModel["summarize"]>[1],
+  ): Promise<string | null> {
+    const lines = input.messages.map(
+      (message) => `${message.from}: ${cut(message.text, 60)}`,
+    );
+    return Promise.resolve(
+      cut(
+        [
+          input.previous ?? `Chat mit ${caller.agent.displayName}`,
+          ...lines,
+        ].join(" · "),
+        4_000,
+      ) || null,
+    );
+  }
+
+  /** A lesson per message of a person and per plan run, the newest first. */
+  public dream(
+    caller: AgentMemoryCaller,
+    input: Parameters<AgentMemoryModel["dream"]>[1],
+  ): Promise<readonly AgentDreamAnswerLesson[] | null> {
+    const lessons = [...input.sources]
+      .reverse()
+      .filter(
+        (source) =>
+          (source.kind === "chat" && !source.origin.startsWith("→")) ||
+          source.kind === "plan",
+      )
+      .slice(0, DREAM_LESSONS)
+      .map((source) => ({
+        text:
+          source.kind === "plan"
+            ? `Planläufe in ${source.origin} prüfen: ${cut(source.text, 80)}`
+            : `${source.origin} wünscht: ${cut(source.text, 80)}`,
+        evidence: `${source.kind === "plan" ? "Planlauf" : `Chat von ${caller.agent.displayName}`} ${source.at}`,
+        date: input.today,
+      }));
+    return Promise.resolve(lessons);
+  }
+}

@@ -5,10 +5,13 @@
  * An agent is an account of its own: it has a username, a role, departments
  * and project memberships like a person, but no password, no sign-in and
  * never the administrator right. Beside the account it has a model, an
- * access mode and three documents: `SOUL.md`
- * (who it is), `AGENT.md` (what it does) and `MEMORY.md` (what it learned),
- * with a searchable archive behind the memory.
+ * access mode and four documents: `SOUL.md`
+ * (who it is), `AGENT.md` (what it does), `MEMORY.md` (its current topics,
+ * with a searchable archive behind it) and `DREAM.md` (its lessons,
+ * PAGE-305).
  */
+
+import type { AgentMemoryLimits, AgentMemorySource } from "./AgentMemory";
 
 /**
  * The access level of an agent in its chats (PAGE-303).
@@ -76,18 +79,16 @@ export const AGENT_DOCUMENT_LIMITS = {
   instructionsCharacters: 12_000,
 } as const;
 
-/** Word limits of the two memory levels. */
+/**
+ * Word limits of the archive; `MEMORY.md` and `DREAM.md` have character
+ * limits per agent (PAGE-305).
+ */
 export const AGENT_MEMORY_LIMITS = {
-  /** `MEMORY.md`, loaded in every session. */
-  coreWords: 5_000,
   /** The archive, searched only on demand. */
   archiveWords: 100_000,
   /** Words of one archive entry. */
   entryWords: 2_000,
 } as const;
-
-/** Hours between two learning runs. */
-export const AGENT_LEARNING_INTERVAL_HOURS = 12;
 
 /**
  * Counts the words of a text as the memory limits count them.
@@ -116,28 +117,29 @@ export interface AgentEmployeeDocuments {
   readonly instructions: string;
 }
 
-/** What a learning run did. */
+/** What a dream run did. */
 export type AgentLearningStatus = "updated" | "unchanged" | "failed";
 
-/** The result of the last learning run. */
+/** The result of the last dream run (PAGE-305), formerly the learning run. */
 export interface AgentLearningResult {
   readonly status: AgentLearningStatus;
-  /** Facts taken in from the sources. */
+  /** Lessons taken in from the sources of the day. */
   readonly added: number;
-  /** Duplicates merged into one fact. */
+  /** Lessons merged with a similar one. */
   readonly merged: number;
-  /** Facts moved from `MEMORY.md` into the archive. */
+  /** Topics moved from `MEMORY.md` into the archive. */
   readonly archived: number;
-  /** Outdated facts removed. */
+  /** Lessons that fell out of the full `DREAM.md`. */
   readonly removed: number;
   /** The error code of a failed run. */
   readonly errorCode: string | null;
 }
 
-/** Learning switch, rhythm and the runs of an agent. */
+/** The switch of the dream run, its time of day and the runs of an agent. */
 export interface AgentLearningState {
   readonly isEnabled: boolean;
-  readonly intervalHours: number;
+  /** The time of day of the dream run, `HH:MM` in the time zone of the server. */
+  readonly dreamTime: string;
   readonly lastRunAt: string | null;
   readonly nextRunAt: string | null;
   readonly lastResult: AgentLearningResult | null;
@@ -185,8 +187,12 @@ export interface AgentEmployee extends AgentEmployeeListItem {
   readonly departmentIds: readonly string[];
   readonly settings: AgentEmployeeSettings;
   readonly documents: AgentEmployeeDocuments;
-  /** `MEMORY.md`. */
+  /** `MEMORY.md`: the current topics. */
   readonly memory: string;
+  /** `DREAM.md`: the lessons of the dream run (PAGE-305). */
+  readonly dream: string;
+  /** The character limits of both files. */
+  readonly memoryLimits: AgentMemoryLimits;
   readonly memoryUsage: AgentMemoryUsage;
   readonly learning: AgentLearningState;
   readonly cost: AgentCostState;
@@ -199,9 +205,9 @@ export interface AgentEmployee extends AgentEmployeeListItem {
 
 /** Why a version of the memory exists. */
 export type AgentMemoryVersionReason =
-  "initial" | "learning" | "edit" | "restore";
+  "initial" | "learning" | "edit" | "restore" | "update" | "dream" | "reset";
 
-/** A restorable version of `MEMORY.md` and its archive. */
+/** A restorable version of `MEMORY.md`, `DREAM.md` and the archive. */
 export interface AgentMemoryVersion {
   readonly id: string;
   readonly reason: AgentMemoryVersionReason;
@@ -216,6 +222,8 @@ export interface AgentArchiveEntry {
   readonly title: string;
   readonly content: string;
   readonly createdAt: string;
+  /** Where the entry comes from; `null` for entries of earlier versions (PAGE-305). */
+  readonly source: AgentMemorySource | null;
 }
 
 /** What one line of the activity reports. */

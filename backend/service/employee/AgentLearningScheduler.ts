@@ -7,8 +7,9 @@ import type { AgentLearningService } from "./AgentLearningService";
 const TICK_MILLISECONDS = 10 * 60_000;
 
 /**
- * Starts the due learning runs of agent employees (PAGE-266): every agent
- * learns once per rhythm, 12 hours by default, one agent after the other.
+ * Starts the due dream runs of agent employees (PAGE-305): every agent
+ * dreams once a day at the time set under Einstellungen → Agents, 03:00 by
+ * default, one agent after the other.
  */
 export class AgentLearningScheduler {
   private readonly store: EmployeeStore;
@@ -48,7 +49,8 @@ export class AgentLearningScheduler {
   private async runAll(): Promise<void> {
     try {
       for (const agent of await this.store.employees().list())
-        if (this.learning.isDue(agent)) await this.learning.run(agent.userId);
+        if (await this.learning.isDue(agent))
+          await this.learning.run(agent.userId);
     } catch (error: unknown) {
       logCaughtError("AgentLearningScheduler", error);
     }

@@ -1,3 +1,4 @@
+import { AGENT_MEMORY_CHARACTERS } from "@/definition/AgentMemory";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 
 import type {
@@ -21,6 +22,11 @@ export interface AgentDraft {
   readonly soul: string;
   readonly instructions: string;
   readonly memory: string;
+  /** `DREAM.md` (PAGE-305). */
+  readonly dream: string;
+  /** The character limits of `MEMORY.md` and `DREAM.md`, as typed. */
+  readonly memoryCharacters: string;
+  readonly dreamCharacters: string;
   readonly isLearningEnabled: boolean;
 }
 
@@ -52,6 +58,9 @@ export function createAgentDraft(
       soul: defaults.soul,
       instructions: "",
       memory: "",
+      dream: "",
+      memoryCharacters: String(AGENT_MEMORY_CHARACTERS.memoryDefault),
+      dreamCharacters: String(AGENT_MEMORY_CHARACTERS.dreamDefault),
       isLearningEnabled: true,
     };
   return {
@@ -67,6 +76,9 @@ export function createAgentDraft(
     soul: agent.documents.soul,
     instructions: agent.documents.instructions,
     memory: agent.memory,
+    dream: agent.dream,
+    memoryCharacters: String(agent.memoryLimits.memoryCharacters),
+    dreamCharacters: String(agent.memoryLimits.dreamCharacters),
     isLearningEnabled: agent.learning.isEnabled,
   };
 }
@@ -111,7 +123,11 @@ export function agentDraftPayload(
     access: draft.access,
     soul: draft.soul,
     instructions: draft.instructions,
-    memory: draft.memory,
+    // Unchanged files are not sent, so a save keeps what Pages wrote since loading (PAGE-305).
+    memory: agent && draft.memory === agent.memory ? null : draft.memory,
+    dream: agent && draft.dream === agent.dream ? null : draft.dream,
+    memoryCharacters: draft.memoryCharacters,
+    dreamCharacters: draft.dreamCharacters,
     isLearningEnabled: draft.isLearningEnabled,
   });
 }

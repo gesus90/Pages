@@ -245,14 +245,28 @@ export class ChatDirectoryService {
         this.dependencies.queuedMessages?.(groupId) ?? new Map(),
       );
     const shownIds = new Set(participants.map((participant) => participant.id));
+    const chats = this.dependencies.store.chats();
+    // Which chats nothing is shared from (PAGE-305).
+    const [confidentialAgents, confidentialGroups] = await Promise.all([
+      chats.confidentialAgents(person.id),
+      chats.confidentialConversations(person.id),
+    ]);
     return {
-      participants,
+      participants: participants.map((participant) =>
+        participant.kind === "agent"
+          ? {
+              ...participant,
+              isConfidential: confidentialAgents.has(participant.id),
+            }
+          : participant,
+      ),
       groups: groupsOf(groups, shownIds, conversations, person).map((entry) => {
         const working = this.workingAgents(entry.id, accounts);
         return {
           ...entry,
           workingAgentNames: working.map((agent) => agent.name),
           workingAgents: working,
+          isConfidential: confidentialGroups.has(entry.id),
         };
       }),
       histories,

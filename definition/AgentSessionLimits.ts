@@ -19,6 +19,8 @@ export interface AgentSessionLimits {
   readonly perAgent: number;
   readonly total: number;
   readonly revision: number;
+  /** The time of day of the nightly dream run, `HH:MM` in the time zone of the server (PAGE-305). */
+  readonly dreamTime: string;
 }
 
 /** What the settings card shows: the limits and how many sessions run and wait now. */

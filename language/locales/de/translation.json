@@ -3862,7 +3862,10 @@
     "queue": {
       "chat": "In Warteschlange – wird direkt nach der laufenden Antwort beantwortet",
       "limit": "In Warteschlange – die Höchstzahl gleichzeitiger Agent-Sitzungen ist erreicht; die Antwort beginnt, sobald eine Sitzung frei wird"
-    }
+    },
+    "confidentialOn": "Vertraulich",
+    "confidentialOff": "Nicht vertraulich",
+    "confidentialHint": "Aus einem vertraulichen Chat teilen Agents nichts mit anderen Chats und lernen nichts für DREAM.md."
   },
   "workspaces": {
     "title": "Arbeitsverzeichnis",
@@ -6451,9 +6454,11 @@
     "saving": "Speichert …",
     "saved": "Grenzen gespeichert.",
     "error": {
-      "profile_invalid": "Bitte ganze Zahlen von 1 bis 64 eingeben; die Grenze je Agent darf nicht größer als die Gesamtgrenze sein.",
+      "profile_invalid": "Bitte ganze Zahlen von 1 bis 64 und eine Uhrzeit im Format HH:MM eingeben; die Grenze je Agent darf nicht größer als die Gesamtgrenze sein.",
       "profile_conflict": "Die Grenzen wurden inzwischen geändert. Lade die Seite neu und versuche es erneut."
-    }
+    },
+    "dreamTime": "Traumlauf um",
+    "dreamTimeHint": "Uhrzeit des nächtlichen Traumlaufs aller Agents in der Zeitzone des Servers. Er wertet die Chats, Planläufe, Fehler und Rückmeldungen des Tages aus und pflegt DREAM.md."
   },
   "speechSettings": {
     "title": "Spracherkennung · STT",
@@ -6910,38 +6915,53 @@
       }
     },
     "memory": {
-      "description": "Was der Agent gelernt hat. Pages hält es automatisch aktuell; es wird als Daten mitgegeben und überstimmt SOUL.md und AGENT.md nicht.",
-      "autoLearn": "Automatisch lernen",
+      "description": "Das Gedächtnis des Agents. MEMORY.md hält die aktuellen Themen und wird nach jeder Antwort aktualisiert; DREAM.md hält Lehren aus dem nächtlichen Traumlauf. Beide werden als Daten mitgegeben und überstimmen nie SOUL.md, AGENT.md oder die Arbeitsweise.",
+      "autoLearn": "Traumlauf",
       "on": "An",
       "off": "Aus",
-      "rhythm": "Rhythmus",
-      "every": "Alle {{hours}} Stunden",
-      "core": "Kernwissen (immer geladen)",
+      "rhythm": "Zeitpunkt",
       "archive": "Archiv (bei Bedarf durchsucht)",
-      "words": "{{words}} / {{maximum}} Wörter",
-      "runs": "Letzter Lernlauf {{last}} · nächster {{next}} · {{result}}",
+      "words": "{{used}} / {{maximum}} Wörter",
+      "runs": "Letzter Traumlauf {{last}} · nächster {{next}} · {{result}}",
       "never": "noch nie",
       "noNext": "keiner geplant",
       "noRun": "noch kein Ergebnis",
       "result": {
-        "updated": "{{added}} neu, {{merged}} zusammengefasst, {{archived}} archiviert, {{removed}} entfernt",
+        "updated": "{{added}} neue Lehren, {{merged}} zusammengeführt, {{removed}} herausgefallen",
         "unchanged": "nichts Neues, kein Modell gestartet",
         "failed": "fehlgeschlagen"
       },
-      "sharedHint": "Was der Agent in einem Chat lernt, kann er in anderen Gesprächen verwenden. Zugangsdaten werden vor dem Speichern entfernt.",
+      "sharedHint": "Wissen aus einem Chat ist in jedem Chat derselben Person nutzbar. In Chats mit weiteren Personen teilt der Agent nur, was an Tickets oder Wiki-Seiten hängt, die alle sehen dürfen. Aus vertraulichen Chats wird nichts geteilt oder gelernt. Zugangsdaten werden vor dem Speichern entfernt.",
       "archiveEntries_one": "Archiv: {{count}} Eintrag",
       "archiveEntries_other": "Archiv: {{count}} Einträge",
       "versions": "Versionen",
       "versionWords": "{{core}} / {{archive}} Wörter",
       "current": "Aktuell",
       "restore": "Wiederherstellen",
-      "restoreConfirm": "Diese Version von MEMORY.md und Archiv wiederherstellen?",
+      "restoreConfirm": "Diese Version von MEMORY.md, DREAM.md und Archiv wiederherstellen?",
       "reason": {
         "initial": "Angelegt",
         "learning": "Lernlauf",
         "edit": "Bearbeitet",
-        "restore": "Wiederhergestellt"
-      }
+        "restore": "Wiederhergestellt",
+        "update": "Nach Antwort aktualisiert",
+        "dream": "Traumlauf",
+        "reset": "Zurückgesetzt"
+      },
+      "nightly": "Jede Nacht um {{time}} Uhr (Einstellungen → Agents)",
+      "nightlyDefault": "Jede Nacht zur Zeit unter Einstellungen → Agents",
+      "characters": "{{used}} / {{maximum}} Zeichen",
+      "memoryDescription": "Aktuelle Themen, ein Eintrag je Thema mit Stand, nächstem Schritt, Quelle und Datum. Wird es voll, wandern ältere und erledigte Themen ins Archiv.",
+      "dreamDescription": "Lehren mit Beleg und Datum. Ähnliche Lehren werden zusammengeführt; ist die Datei voll, fällt die schwächste oder älteste heraus.",
+      "memoryLimit": "Grenze MEMORY.md (Zeichen)",
+      "dreamLimit": "Grenze DREAM.md (Zeichen)",
+      "reset": "Zurücksetzen",
+      "resetConfirm": "{{name}} leeren? Die bisherige Fassung bleibt im Versionsverlauf wiederherstellbar.",
+      "source": "Quelle: {{source}}",
+      "sourceUnknown": "unbekannt",
+      "sourceDirect": "Direktchat",
+      "sourceConversation": "Unterhaltung",
+      "wikiPage": "Wiki-Seite"
     },
     "activity": {
       "empty": "Noch keine Aktivität.",
@@ -6952,8 +6972,8 @@
       "unknownCost": "Kosten unbekannt",
       "kind": {
         "session": "Sitzung mit {{person}} · {{state}}",
-        "learningSession": "Lernlauf-Sitzung · {{state}}",
-        "learning": "Lernlauf: {{status}}",
+        "learningSession": "Gedächtnis-Sitzung · {{state}}",
+        "learning": "Traumlauf: {{status}}",
         "ticket": "Ticket: {{message}}",
         "wiki": "Wiki: {{message}}",
         "access": "Zugriffsstufe: {{from}} → {{to}} (geändert von {{person}})"

@@ -180,8 +180,12 @@ export class AgentActivityRepository {
     );
     return rows.map((row) => ({
       id: readTextColumn(row, 0, "id"),
-      purpose:
-        readTextColumn(row, 1, "purpose") === "learning" ? "learning" : "chat",
+      // Dream runs and memory updates of PAGE-305 are the agent's own sessions.
+      purpose: ["learning", "memory"].includes(
+        readTextColumn(row, 1, "purpose"),
+      )
+        ? "learning"
+        : "chat",
       personName: readNullableTextColumn(row, 2, "person_name"),
       state: readTextColumn(row, 3, "state"),
       createdAt: readTextColumn(row, 4, "created_at"),

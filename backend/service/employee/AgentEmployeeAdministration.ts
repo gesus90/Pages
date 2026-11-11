@@ -39,7 +39,7 @@ import type { AgentAccessEnvironmentService } from "./AgentAccessEnvironmentServ
 import type { AgentActivityService } from "./AgentActivityService";
 import type { AgentEmployeeInput } from "./AgentEmployeeInput";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
-import type { AgentMemoryService } from "./AgentMemoryService";
+import type { AgentMemoryFile, AgentMemoryService } from "./AgentMemoryService";
 
 /** What the administration of agents is built from. */
 export interface AgentEmployeeAdministrationDependencies {
@@ -101,6 +101,8 @@ function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
     soul: input.documents.soul,
     instructions: input.documents.instructions,
     isLearningEnabled: input.isLearningEnabled,
+    memoryCharacters: input.limits.memoryCharacters,
+    dreamCharacters: input.limits.dreamCharacters,
   };
 }
 
@@ -316,6 +318,7 @@ export class AgentEmployeeAdministration {
         });
       if (input.memory)
         await store.employees().saveMemory(agentId, input.memory);
+      if (input.dream) await store.employees().saveDream(agentId, input.dream);
       await this.dependencies.memory.initialize(store, agentId, actorId);
       if (avatar) await this.storeAvatar(repository, agentId, avatar);
     });
@@ -391,16 +394,23 @@ export class AgentEmployeeAdministration {
           from: previousAccess,
           to: input.settings.access,
         });
-      if (input.memory !== null)
-        await this.dependencies.memory.edit(store, {
-          agentId,
-          memory: input.memory,
-          actorId,
-        });
+      for (const [file, text] of [
+        ["memory", input.memory],
+        ["dream", input.dream],
+      ] as const)
+        if (text !== null)
+          await this.dependencies.memory.edit(store, {
+            agentId,
+            file,
+            text,
+            actorId,
+          });
       if (avatar) await this.storeAvatar(repository, agentId, avatar);
       if (change.isActive !== undefined && change.isActive !== target.isActive)
         await this.applyActive(repository, agentId, change.isActive);
     });
+    // A lowered limit applies at once (PAGE-305).
+    await this.dependencies.memory.fitToLimits(agentId);
   }
 
   /**
@@ -528,6 +538,24 @@ export class AgentEmployeeAdministration {
     const target = this.requireAgentAccount(snapshot, agentId);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     await this.dependencies.memory.restore(agentId, version, actorId);
+  }
+
+  /**
+   * Empties `MEMORY.md` or `DREAM.md` of an agent the person may change
+   * (PAGE-305); the version before stays restorable.
+   *
+   * @throws {AgentEmployeeError} `forbidden` or `notFound`.
+   */
+  public async resetMemory(
+    actorId: string,
+    agentId: string,
+    file: AgentMemoryFile,
+  ): Promise<void> {
+    const snapshot = await this.dependencies.authorization.snapshot();
+    const actor = activeAccount(snapshot, actorId);
+    const target = this.requireAgentAccount(snapshot, agentId);
+    this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
+    await this.dependencies.memory.reset(agentId, file, actorId);
   }
 
   /** Runs an aggregate write and translates the shared refusals. */

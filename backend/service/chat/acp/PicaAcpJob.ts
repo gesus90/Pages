@@ -350,9 +350,10 @@ export class PicaAcpJob {
     signal: AbortSignal,
   ): Promise<PlanSessionTurn> {
     const { message, brief } = this.specification;
-    // A continued agent session knows the conversation; a new one gets the transcript.
+    // A continued agent session knows the conversation; a new one gets the
+    // transcript, and a brief that keeps its context gets it on every turn.
     const turnBrief =
-      resumeSessionId === null
+      resumeSessionId === null || brief.keepsContext === true
         ? brief
         : { ...brief, prompt: { ...brief.prompt, history: [], summary: null } };
     const session = await this.dependencies.plans.open(
@@ -403,10 +404,15 @@ export class PicaAcpJob {
     await this.beginTurn("followUp", message);
     const { brief } = this.specification;
     const input: AgentPlanExecutionInput = {
-      ...this.turnInput(message, {
-        ...brief,
-        prompt: { ...brief.prompt, history: [], summary: null },
-      }),
+      ...this.turnInput(
+        message,
+        brief.keepsContext === true
+          ? brief
+          : {
+              ...brief,
+              prompt: { ...brief.prompt, history: [], summary: null },
+            },
+      ),
       agent: this.specification.agent,
       userId: this.userId,
       directory: this.specification.directory,

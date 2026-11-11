@@ -1,11 +1,12 @@
+import { z } from "zod";
+
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { holdsNulCharacter } from "@/backend/security/IdentityText";
 import {
   AGENT_DOCUMENT_LIMITS,
-  AGENT_MEMORY_LIMITS,
-  countWords,
   isAgentEmployeeAccess,
 } from "@/definition/AgentEmployee";
+import { AGENT_MEMORY_CHARACTERS } from "@/definition/AgentMemory";
 import { isPersonColor, readPersonColor } from "@/definition/PersonColor";
 
 import { stripCredentials } from "./AgentEmployeeText";
@@ -14,6 +15,7 @@ import type {
   AgentEmployeeDocuments,
   AgentEmployeeSettings,
 } from "@/definition/AgentEmployee";
+import type { AgentMemoryLimits } from "@/definition/AgentMemory";
 import type { PersonColor } from "@/definition/PersonColor";
 
 /** Longest name, username or job title. */
@@ -35,8 +37,29 @@ export interface AgentEmployeeInput {
   readonly documents: AgentEmployeeDocuments;
   /** `MEMORY.md`; `null` leaves it unchanged. */
   readonly memory: string | null;
+  /** `DREAM.md`; `null` leaves it unchanged (PAGE-305). */
+  readonly dream: string | null;
+  /** The character limits of both files (PAGE-305). */
+  readonly limits: AgentMemoryLimits;
+  /** Whether the nightly dream run is on. */
   readonly isLearningEnabled: boolean;
 }
+
+/** The character limits as the panel sends them; absent ones take the start values. */
+const limitsInput = z.object({
+  memoryCharacters: z.coerce
+    .number()
+    .int()
+    .min(AGENT_MEMORY_CHARACTERS.memoryMinimum)
+    .max(AGENT_MEMORY_CHARACTERS.memoryMaximum)
+    .default(AGENT_MEMORY_CHARACTERS.memoryDefault),
+  dreamCharacters: z.coerce
+    .number()
+    .int()
+    .min(AGENT_MEMORY_CHARACTERS.dreamMinimum)
+    .max(AGENT_MEMORY_CHARACTERS.dreamMaximum)
+    .default(AGENT_MEMORY_CHARACTERS.dreamDefault),
+});
 
 function readName(input: unknown, isOptional: boolean): string | null {
   if (input === null || input === undefined || input === "") {
@@ -101,14 +124,26 @@ function readDepartments(input: unknown): readonly string[] {
   return [...new Set(input)];
 }
 
-function readMemory(input: unknown): string | null {
+/** Reads `MEMORY.md` or `DREAM.md`; the limit of the agent is checked where it is stored. */
+function readMemoryFile(input: unknown, maximum: number): string | null {
   if (input === undefined || input === null) return null;
   if (typeof input !== "string" || holdsNulCharacter(input))
     throw new AgentEmployeeError("invalidInput");
-  const memory = stripCredentials(input.replace(/\r\n/gu, "\n"));
-  if (countWords(memory) > AGENT_MEMORY_LIMITS.coreWords)
+  const text = stripCredentials(input.replace(/\r\n/gu, "\n"));
+  if (Array.from(text).length > maximum)
     throw new AgentEmployeeError("invalidInput");
-  return memory;
+  return text;
+}
+
+function readLimits(
+  fields: Readonly<Record<string, unknown>>,
+): AgentMemoryLimits {
+  const parsed = limitsInput.safeParse({
+    memoryCharacters: fields.memoryCharacters ?? undefined,
+    dreamCharacters: fields.dreamCharacters ?? undefined,
+  });
+  if (!parsed.success) throw new AgentEmployeeError("invalidInput");
+  return parsed.data;
 }
 
 /**
@@ -152,7 +187,12 @@ export function readAgentEmployeeInput(input: unknown): AgentEmployeeInput {
         AGENT_DOCUMENT_LIMITS.instructionsCharacters,
       ),
     },
-    memory: readMemory(fields.memory),
+    memory: readMemoryFile(
+      fields.memory,
+      AGENT_MEMORY_CHARACTERS.memoryMaximum,
+    ),
+    dream: readMemoryFile(fields.dream, AGENT_MEMORY_CHARACTERS.dreamMaximum),
+    limits: readLimits(fields),
     isLearningEnabled: fields.isLearningEnabled !== false,
   };
 }

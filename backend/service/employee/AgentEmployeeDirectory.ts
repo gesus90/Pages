@@ -1,10 +1,8 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
-import {
-  AGENT_LEARNING_INTERVAL_HOURS,
-  countWords,
-} from "@/definition/AgentEmployee";
+import { countWords } from "@/definition/AgentEmployee";
 
-import { addHours, databaseTimeToIso } from "./AgentEmployeeText";
+import { nextDreamSlot } from "./AgentDreamSchedule";
+import { databaseTimeToIso } from "./AgentEmployeeText";
 
 import type {
   AuthorizationRepository,
@@ -28,24 +26,16 @@ interface DirectoryDependencies {
   readonly activity: AgentActivityService;
 }
 
-/**
- * When the next learning run of an agent is due: one rhythm after the last
- * run, or after the creation of an agent that never learned.
- */
-export function nextLearningAt(agent: StoredAgentEmployee): Date {
-  return addHours(
-    agent.lastLearningAt ?? agent.createdAt,
-    agent.learningIntervalHours || AGENT_LEARNING_INTERVAL_HOURS,
-  );
-}
-
-function learningState(agent: StoredAgentEmployee): AgentLearningState {
+function learningState(
+  agent: StoredAgentEmployee,
+  dreamTime: string,
+): AgentLearningState {
   return {
     isEnabled: agent.isLearningEnabled,
-    intervalHours: agent.learningIntervalHours,
+    dreamTime,
     lastRunAt: databaseTimeToIso(agent.lastLearningAt),
     nextRunAt: agent.isLearningEnabled
-      ? nextLearningAt(agent).toISOString()
+      ? nextDreamSlot(new Date(), dreamTime).toISOString()
       : null,
     lastResult: agent.lastLearningResult,
   };
@@ -99,11 +89,12 @@ export class AgentEmployeeDirectory {
   ): Promise<AgentEmployee> {
     const { authorization } = this.dependencies;
     const store = authorization.employees();
-    const [user, employee, titles, archiveWords] = await Promise.all([
+    const [user, employee, titles, archiveWords, settings] = await Promise.all([
       authorization.users().findById(account.userId),
       store.employees().find(account.userId),
       store.identities().jobTitles(),
       store.memory().archiveWords(account.userId),
+      store.sessionSettings().read(),
     ]);
     if (!user || !employee) throw new AgentEmployeeError("notFound");
     const item = await this.listItem(user, account, {
@@ -126,11 +117,16 @@ export class AgentEmployeeDirectory {
         instructions: employee.instructions,
       },
       memory: employee.memory,
+      dream: employee.dream,
+      memoryLimits: {
+        memoryCharacters: employee.memoryCharacters,
+        dreamCharacters: employee.dreamCharacters,
+      },
       memoryUsage: {
         coreWords: countWords(employee.memory),
         archiveWords,
       },
-      learning: learningState(employee),
+      learning: learningState(employee, settings.dreamTime),
       cost: await this.dependencies.activity.cost(employee),
       revision: employee.revision,
       createdAt: databaseTimeToIso(employee.createdAt) ?? employee.createdAt,

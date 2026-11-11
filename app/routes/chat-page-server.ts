@@ -46,7 +46,8 @@ export type ChatPageIntent =
   | "send-direct"
   | "read"
   | "mute"
-  | "history";
+  | "history"
+  | "confidential";
 
 /** What a change yields besides success: a created group or a page of older messages. */
 interface ChatIntentOutcome {
@@ -67,6 +68,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "read",
   "mute",
   "history",
+  "confidential",
 ];
 
 /** How a refused conversation request reads on the page (PAGE-278). */
@@ -169,14 +171,19 @@ async function runConversationIntent(
 
 /**
  * Mutes a stored conversation for the person alone, or reads a page of its
- * older messages (PAGE-275); both answer `not_found` to a non-member.
+ * older messages (PAGE-275); both answer `not_found` to a non-member. Marks
+ * a chat with agents confidential (PAGE-305).
  */
 async function runMemberIntent(
   services: ChatServices,
   person: User,
-  intent: "mute" | "history",
+  intent: (typeof MEMBER_INTENTS)[number],
   formData: FormData,
 ): Promise<ChatIntentOutcome> {
+  if (intent === "confidential") {
+    await markConfidential(services, person, formData);
+    return {};
+  }
   if (intent === "history")
     return {
       history: await services.chatDirectoryService.olderMessages(person, {
@@ -194,6 +201,33 @@ async function runMemberIntent(
   return {};
 }
 
+/** The changes of one member of a chat that leave everybody else's view alone. */
+const MEMBER_INTENTS = ["mute", "history", "confidential"] as const;
+
+function isMemberIntent(
+  intent: ChatPageIntent,
+): intent is (typeof MEMBER_INTENTS)[number] {
+  return MEMBER_INTENTS.some((candidate) => candidate === intent);
+}
+
+/** Marks a chat with agents confidential or not; nothing of it is shared or learned (PAGE-305). */
+async function markConfidential(
+  services: ChatServices,
+  person: User,
+  formData: FormData,
+): Promise<void> {
+  const fields = ["agentId", "conversationId", "isConfidential"].flatMap(
+    (key) => {
+      const entry = formData.get(key);
+      return typeof entry === "string" ? [[key, entry] as const] : [];
+    },
+  );
+  await services.agentChatPrivacyService.setConfidential(
+    person,
+    Object.fromEntries(fields),
+  );
+}
+
 /** Runs one change of the person; returns a created group or a history page. */
 async function runIntent(
   services: ChatServices,
@@ -201,6 +235,8 @@ async function runIntent(
   intent: ChatPageIntent,
   formData: FormData,
 ): Promise<ChatIntentOutcome> {
+  if (isMemberIntent(intent))
+    return runMemberIntent(services, person, intent, formData);
   switch (intent) {
     case "save-contacts":
       await services.chatDirectoryService.saveContacts(
@@ -262,9 +298,6 @@ async function runIntent(
     case "read":
       await runConversationIntent(services, person, intent, formData);
       return {};
-    case "mute":
-    case "history":
-      return runMemberIntent(services, person, intent, formData);
   }
 }
 
@@ -308,8 +341,8 @@ export async function loader({
  * Saves the participant list, creates a group or adds a member, stores a
  * message to a group or a person or a read state (PAGE-278), mutes a
  * conversation or reads its older messages (PAGE-275), sends a message to
- * an agent or stops its answer, or stops the answer of one agent in a group
- * (PAGE-304).
+ * an agent or stops its answer, stops the answer of one agent in a group
+ * (PAGE-304), or marks a chat with agents confidential (PAGE-305).
  *
  * @remarks
  * Saving the list only adds and removes entries of the person's own list;

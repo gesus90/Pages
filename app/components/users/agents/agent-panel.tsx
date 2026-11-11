@@ -67,7 +67,7 @@ function useAgentPanelDraft(
   const loaded = useRef<string | null>(null);
   const agent = detail?.agent ?? null;
   const version = agent
-    ? `${agent.id}:${agent.revision}:${agent.memory.length}`
+    ? `${agent.id}:${agent.revision}:${agent.memory.length}:${agent.dream.length}`
     : "new";
   useEffect(() => {
     if (loaded.current === version) return;
@@ -90,7 +90,7 @@ function useAgentPanelDraft(
   return { draft, change, image, setImage: setImageFile, imagePreview };
 }
 
-/** Reads the agent again after one of its memory versions was restored. */
+/** Reads the agent again after one of its memory versions was restored or a file reset. */
 function useReloadAfterRestore(): number {
   const result = useUsersActionData();
   const [reloadKey, setReloadKey] = useState(0);
@@ -98,7 +98,11 @@ function useReloadAfterRestore(): number {
   useEffect(() => {
     if (result === previous.current) return;
     previous.current = result;
-    if (result?.intent === "restore-agent-memory" && result.ok)
+    if (
+      (result?.intent === "restore-agent-memory" ||
+        result?.intent === "reset-agent-memory") &&
+      result.ok
+    )
       setReloadKey((key) => key + 1);
   }, [result]);
   return reloadKey;
@@ -114,6 +118,7 @@ interface AgentPanelState {
   readonly isDisabled: boolean;
   readonly error: UsersErrorCode | null;
   readonly restoreError: UsersErrorCode | null;
+  readonly resetError: UsersErrorCode | null;
   readonly save: () => void;
 }
 
@@ -157,6 +162,7 @@ function useAgentPanel(props: AgentPanelProps): AgentPanelState {
     isDisabled: isSubmitting || !canEdit,
     error: useUsersError(intent),
     restoreError: useUsersError("restore-agent-memory"),
+    resetError: useUsersError("reset-agent-memory"),
     save,
   };
 }
@@ -252,15 +258,14 @@ function AgentPanelTabs({
         </TabsContent>
         <TabsContent value="memory">
           <AgentMemorySection
-            memory={panel.draft.memory}
-            onMemory={(value) => panel.change("memory", value)}
-            isLearningEnabled={panel.draft.isLearningEnabled}
-            onLearning={(value) => panel.change("isLearningEnabled", value)}
+            draft={panel.draft}
+            onChange={panel.change}
             agent={agent}
             details={state.loaded.detail?.memoryDetails ?? null}
             isDisabled={isDisabled}
           />
           <FormError error={state.restoreError} />
+          <FormError error={state.resetError} />
         </TabsContent>
         <AgentAccessTab state={state} />
         {agent ? (

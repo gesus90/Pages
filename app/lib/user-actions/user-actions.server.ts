@@ -8,6 +8,7 @@ import {
 import {
   handleCreateAgent,
   handleRestoreAgentMemory,
+  handleResetAgentMemory,
   handleSetUserColor,
   handleUpdateAgent,
 } from "./agent-employee-actions.server";
@@ -34,6 +35,7 @@ const USERS_ACTION_HANDLERS = {
   "create-agent": handleCreateAgent,
   "update-agent": handleUpdateAgent,
   "restore-agent-memory": handleRestoreAgentMemory,
+  "reset-agent-memory": handleResetAgentMemory,
   "save-agent-template": handleSaveAgentTemplate,
   "delete-agent-template": handleDeleteAgentTemplate,
   "set-user-color": handleSetUserColor,

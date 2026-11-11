@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { ChatPageComposer } from "./chat-page-composer";
+import { useConfidential } from "./chat-page-confidential";
 import { ChatPageHeader } from "./chat-page-header";
 import { ChatPageHistory } from "./chat-page-history";
 import { ChatPageLiveTools } from "./chat-page-tool-uses";
@@ -88,6 +89,7 @@ function ChatPageConversation({
 }): React.ReactElement {
   const { t } = useTranslation();
   const { opened } = page;
+  const confidential = useConfidential(opened);
   if (!opened)
     return (
       <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -109,6 +111,7 @@ function ChatPageConversation({
         onAddMember={page.addMember}
         isMuted={page.isMuted}
         onToggleMute={page.toggleMute}
+        confidential={confidential}
       />
       <ChatPageHistory
         messages={page.messages}

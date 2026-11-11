@@ -73,7 +73,8 @@ function LimitField({
 }
 
 /**
- * The limits of concurrent chat sessions of agents (PAGE-304).
+ * The limits of concurrent chat sessions of agents (PAGE-304) and the time
+ * of day of the nightly dream run (PAGE-305).
  *
  * @remarks
  * Every chat of an agent has its own session; sessions of different chats
@@ -120,6 +121,20 @@ export function AgentSessionLimitsCard({
           {t("agentSessionLimits.hint", {
             maximum: AGENT_SESSION_LIMIT_MAXIMUM,
           })}
+        </p>
+        <ControlRow label={t("agentSessionLimits.dreamTime")}>
+          <Input
+            className="w-32"
+            name="dreamTime"
+            type="time"
+            required
+            defaultValue={limits.dreamTime}
+            disabled={isPending}
+            aria-label={t("agentSessionLimits.dreamTime")}
+          />
+        </ControlRow>
+        <p className="text-xs text-muted-foreground">
+          {t("agentSessionLimits.dreamTimeHint")}
         </p>
         <p className="text-xs text-muted-foreground">
           {t("agentSessionLimits.current", {

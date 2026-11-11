@@ -39,9 +39,10 @@ function toIso(text: string): string {
 }
 
 /**
- * Reads what is new for an agent since its last learning run (PAGE-266):
- * its own chats, the projects it is a member of, the groups it belongs to
- * and the plan runs of its projects.
+ * Reads what is new for an agent since its last dream run (PAGE-266,
+ * PAGE-305): its own chats and conversations, the projects it is a member
+ * of, the groups it belongs to and the plan runs of its projects; chats
+ * marked confidential are left out.
  *
  * @remarks
  * Every source is limited to what the agent itself takes part in, so a run
@@ -62,6 +63,7 @@ export class AgentLearningSourceRepository {
     const since = window.since ?? BEGINNING;
     const sources = [
       ...(await this.chats(agentId, since, window.limit)),
+      ...(await this.conversations(agentId, since, window.limit)),
       ...(await this.projects(agentId, since, window.limit)),
       ...(await this.groups(agentId, since, window.limit)),
       ...(await this.plans(agentId, since, window.limit)),
@@ -88,6 +90,7 @@ export class AgentLearningSourceRepository {
             ON people.id = agent_conversations.person_id
         WHERE agent_conversations.agent_id = $agent_id
             AND agent_conversations.purpose = 'chat'
+            AND NOT agent_conversations.is_confidential
             AND chat_messages.created_at > $since
         ORDER BY chat_messages.created_at, chat_messages.position
         LIMIT $limit;
@@ -102,6 +105,49 @@ export class AgentLearningSourceRepository {
         origin:
           readTextColumn(row, 1, "role") === "user" ? person : `→ ${person}`,
         text: readTextColumn(row, 2, "content"),
+      };
+    });
+  }
+
+  /** The messages of the stored conversations the agent belongs to, confidential ones left out (PAGE-305). */
+  private async conversations(
+    agentId: string,
+    since: string,
+    limit: number,
+  ): Promise<AgentLearningSource[]> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            conversation_messages.created_at,
+            conversations.name,
+            senders.display_name,
+            conversation_messages.text,
+            conversation_messages.sender_id
+        FROM conversation_messages
+        INNER JOIN conversation_members
+            ON conversation_members.conversation_id = conversation_messages.conversation_id
+            AND conversation_members.user_id = $agent_id
+        INNER JOIN conversations
+            ON conversations.id = conversation_messages.conversation_id
+        INNER JOIN users AS senders
+            ON senders.id = conversation_messages.sender_id
+        WHERE NOT conversations.is_confidential
+            AND conversation_messages.text <> ''
+            AND conversation_messages.created_at > $since
+        ORDER BY conversation_messages.sequence
+        LIMIT $limit;
+      `,
+      { agent_id: agentId, since: toIso(since), limit },
+    );
+    return rows.map((row) => {
+      const sender = readTextColumn(row, 2, "display_name");
+      const name = readTextColumn(row, 1, "name");
+      const isOwn = readTextColumn(row, 4, "sender_id") === agentId;
+      return {
+        kind: "chat",
+        at: fromIso(readTextColumn(row, 0, "created_at")),
+        origin: `${isOwn ? "→ " : ""}${name === "" ? sender : `${name} · ${sender}`}`,
+        text: readTextColumn(row, 3, "text"),
       };
     });
   }

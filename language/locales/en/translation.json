@@ -3862,7 +3862,10 @@
     "queue": {
       "chat": "Queued – answered right after the current answer",
       "limit": "Queued – the maximum of concurrent agent sessions is reached; the answer starts as soon as a session is free"
-    }
+    },
+    "confidentialOn": "Confidential",
+    "confidentialOff": "Not confidential",
+    "confidentialHint": "Agents share nothing from a confidential chat with other chats and learn nothing from it for DREAM.md."
   },
   "workspaces": {
     "title": "Workspaces",
@@ -6451,9 +6454,11 @@
     "saving": "Saving …",
     "saved": "Limits saved.",
     "error": {
-      "profile_invalid": "Enter whole numbers from 1 to 64; the limit per agent must not be greater than the total limit.",
+      "profile_invalid": "Enter whole numbers from 1 to 64 and a time as HH:MM; the limit per agent must not exceed the total limit.",
       "profile_conflict": "The limits were changed in the meantime. Reload the page and try again."
-    }
+    },
+    "dreamTime": "Dream run at",
+    "dreamTimeHint": "Time of the nightly dream run of all agents, in the server's time zone. It evaluates the day's chats, plan runs, errors and feedback and maintains DREAM.md."
   },
   "speechSettings": {
     "title": "Speech recognition · STT",
@@ -6910,38 +6915,53 @@
       }
     },
     "memory": {
-      "description": "What the agent learned. Pages keeps it up to date; it is passed as data and never overrides SOUL.md or AGENT.md.",
-      "autoLearn": "Learn automatically",
+      "description": "The agent's memory. MEMORY.md holds the current topics and is updated after every answer; DREAM.md holds lessons from the nightly dream run. Both are passed as data and never override SOUL.md, AGENT.md or the way of working.",
+      "autoLearn": "Dream run",
       "on": "On",
       "off": "Off",
-      "rhythm": "Rhythm",
-      "every": "Every {{hours}} hours",
-      "core": "Core knowledge (always loaded)",
+      "rhythm": "Time",
       "archive": "Archive (searched on demand)",
-      "words": "{{words}} / {{maximum}} words",
-      "runs": "Last learning run {{last}} · next {{next}} · {{result}}",
+      "words": "{{used}} / {{maximum}} words",
+      "runs": "Last dream run {{last}} · next {{next}} · {{result}}",
       "never": "never",
       "noNext": "none planned",
       "noRun": "no result yet",
       "result": {
-        "updated": "{{added}} new, {{merged}} merged, {{archived}} archived, {{removed}} removed",
+        "updated": "{{added}} new lessons, {{merged}} merged, {{removed}} dropped",
         "unchanged": "nothing new, no model started",
         "failed": "failed"
       },
-      "sharedHint": "What the agent learns in one chat it may use in other conversations. Credentials are removed before saving.",
+      "sharedHint": "Knowledge from one chat is usable in every chat with the same person. In chats with further people the agent shares only what hangs on tickets or wiki pages everyone may see. Nothing is shared or learned from confidential chats. Credentials are removed before saving.",
       "archiveEntries_one": "Archive: {{count}} entry",
       "archiveEntries_other": "Archive: {{count}} entries",
       "versions": "Versions",
       "versionWords": "{{core}} / {{archive}} words",
       "current": "Current",
       "restore": "Restore",
-      "restoreConfirm": "Restore this version of MEMORY.md and the archive?",
+      "restoreConfirm": "Restore this version of MEMORY.md, DREAM.md and the archive?",
       "reason": {
         "initial": "Created",
         "learning": "Learning run",
         "edit": "Edited",
-        "restore": "Restored"
-      }
+        "restore": "Restored",
+        "update": "Updated after an answer",
+        "dream": "Dream run",
+        "reset": "Reset"
+      },
+      "nightly": "Every night at {{time}} (Settings → Agents)",
+      "nightlyDefault": "Every night at the time set under Settings → Agents",
+      "characters": "{{used}} / {{maximum}} characters",
+      "memoryDescription": "Current topics, one entry per topic with status, next step, source and date. When it is full, older and finished topics move into the archive.",
+      "dreamDescription": "Lessons with evidence and date. Similar lessons are merged; when the file is full, the weakest or oldest falls out.",
+      "memoryLimit": "MEMORY.md limit (characters)",
+      "dreamLimit": "DREAM.md limit (characters)",
+      "reset": "Reset",
+      "resetConfirm": "Empty {{name}}? The previous text stays restorable in the version history.",
+      "source": "Source: {{source}}",
+      "sourceUnknown": "unknown",
+      "sourceDirect": "Direct chat",
+      "sourceConversation": "Conversation",
+      "wikiPage": "Wiki page"
     },
     "activity": {
       "empty": "No activity yet.",
@@ -6952,8 +6972,8 @@
       "unknownCost": "Cost unknown",
       "kind": {
         "session": "Session with {{person}} · {{state}}",
-        "learningSession": "Learning session · {{state}}",
-        "learning": "Learning run: {{status}}",
+        "learningSession": "Memory session · {{state}}",
+        "learning": "Dream run: {{status}}",
         "ticket": "Ticket: {{message}}",
         "wiki": "Wiki: {{message}}",
         "access": "Access level: {{from}} → {{to}} (changed by {{person}})"

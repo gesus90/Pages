@@ -149,6 +149,29 @@ export const handleRestoreAgentMemory: UsersActionHandler = async ({
   return data<UsersActionData>({ intent: "restore-agent-memory", ok: true });
 };
 
+/** Empties `MEMORY.md` or `DREAM.md` of an agent; the version before stays restorable (PAGE-305). */
+export const handleResetAgentMemory: UsersActionHandler = async ({
+  actor,
+  formData,
+  services,
+}) => {
+  const agentId = formData.get("agentId");
+  const file = formData.get("file");
+  if (typeof agentId !== "string" || (file !== "memory" && file !== "dream"))
+    return invalidInput("reset-agent-memory");
+  try {
+    await services.agentEmployeeAdministration.resetMemory(
+      actor.id,
+      agentId,
+      file,
+    );
+  } catch (error: unknown) {
+    logCaughtError("agent_employee_actions", error);
+    return toAgentError(error, "reset-agent-memory");
+  }
+  return data<UsersActionData>({ intent: "reset-agent-memory", ok: true });
+};
+
 /** Sets the person color of another account (PAGE-266). */
 export const handleSetUserColor: UsersActionHandler = async ({
   actor,

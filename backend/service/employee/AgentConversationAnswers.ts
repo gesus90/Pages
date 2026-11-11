@@ -13,6 +13,7 @@ import type {
   ConversationAgentRunner,
 } from "@/backend/service/conversation/ConversationAgentReplies";
 import type { AgentEmployeeSessions } from "./AgentEmployeeSessions";
+import type { AgentMemoryRecorder } from "./AgentMemoryRecorder";
 
 /** How often an answer looks at its job. */
 const POLL_MILLISECONDS = 1_500;
@@ -30,6 +31,8 @@ export interface AgentConversationAnswerDependencies {
   readonly messages: Pick<ChatSessionRepository, "messages">;
   /** The simulated agent; set only while the simulation is on, never in production. */
   readonly simulation: SimulatedConversationAgent | null;
+  /** Keeps `MEMORY.md` current after each answer (PAGE-305); absent records nothing. */
+  readonly recorder?: Pick<AgentMemoryRecorder, "record">;
   readonly now?: () => Date;
   readonly wait?: (milliseconds: number) => Promise<void>;
 }
@@ -44,6 +47,7 @@ export interface AgentConversationAnswerDependencies {
  * simulation is on, the simulated agent answers instead, after the same
  * checks and within the same limits of concurrent sessions, and no model
  * provider is asked. A stopped answer ends only its own session (PAGE-304).
+ * Every answer updates the memory of the agent at once (PAGE-305).
  */
 export class AgentConversationAnswers implements ConversationAgentRunner {
   private readonly dependencies: AgentConversationAnswerDependencies;
@@ -65,7 +69,11 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
     const employee = await this.dependencies.store.employees().find(agent.id);
     if (!employee) throw new AgentEmployeeError("notFound");
     const { simulation } = this.dependencies;
-    if (simulation) return this.simulate(simulation, agent, request);
+    if (simulation) {
+      const simulated = await this.simulate(simulation, agent, request);
+      this.record(agent, request, { answer: simulated, sessionId: null });
+      return simulated;
+    }
     const { signal } = request;
     const started = await this.dependencies.sessions.run({
       agent,
@@ -90,7 +98,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
     signal?.addEventListener("abort", stop, { once: true });
     try {
       if (signal?.aborted) stop();
-      return await awaitAgentJobAnswer(
+      const answer = await awaitAgentJobAnswer(
         { agent, sessionId: started.sessionId, jobId: started.start.job.id },
         {
           sessions: this.dependencies.sessions,
@@ -101,9 +109,32 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
           wait: this.dependencies.wait,
         },
       );
+      this.record(agent, request, { answer, sessionId: started.sessionId });
+      return answer;
     } finally {
       signal?.removeEventListener("abort", stop);
     }
+  }
+
+  /** Hands the answer to the memory, which updates it in the background (PAGE-305). */
+  private record(
+    agent: User,
+    request: ConversationAgentRequest,
+    result: { readonly answer: string; readonly sessionId: string | null },
+  ): void {
+    const { conversation, person } = request;
+    void this.dependencies.recorder?.record({
+      agent,
+      chat: { kind: "conversation", conversationId: conversation.id },
+      chatLabel:
+        conversation.kind === "group"
+          ? `Gruppe „${conversation.name}“`
+          : `Chat mit ${person.displayName}`,
+      personName: person.displayName,
+      message: request.lastMessage,
+      answer: result.answer,
+      sessionId: result.sessionId,
+    });
   }
 
   /** The simulated answer, holding a place among the limits while it runs. */

@@ -1,14 +1,17 @@
-import { readCountColumn } from "@/backend/database/RowValue";
+import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentSessionLimits } from "@/definition/AgentSessionLimits";
 
-/** Persists the limits of the concurrent chat sessions of agents (PAGE-304). */
+/**
+ * Persists the limits of the concurrent chat sessions of agents (PAGE-304)
+ * and the time of day of the dream run (PAGE-305).
+ */
 export class AgentSessionSettingsRepository {
-  private readonly database: Database;
+  private readonly database: Pick<Database, "query">;
 
-  public constructor(database: Database) {
+  public constructor(database: Pick<Database, "query">) {
     this.database = database;
   }
 
@@ -18,7 +21,8 @@ export class AgentSessionSettingsRepository {
       SELECT
           per_agent_limit,
           total_limit,
-          revision
+          revision,
+          dream_time
       FROM agent_session_settings
       WHERE id = 1;
     `);
@@ -27,13 +31,14 @@ export class AgentSessionSettingsRepository {
       perAgent: readCountColumn(row, 0, "per_agent_limit"),
       total: readCountColumn(row, 1, "total_limit"),
       revision: readCountColumn(row, 2, "revision"),
+      dreamTime: readTextColumn(row, 3, "dream_time"),
     };
   }
 
   /**
-   * Replaces both limits with optimistic concurrency.
+   * Replaces both limits and the dream time with optimistic concurrency.
    *
-   * @param limits - The new limits with the revision they were read at.
+   * @param limits - The new values with the revision they were read at.
    * @throws {AgentError} `profile_conflict` when the limits changed since.
    */
   public async save(limits: AgentSessionLimits): Promise<void> {
@@ -42,6 +47,7 @@ export class AgentSessionSettingsRepository {
       UPDATE agent_session_settings
       SET per_agent_limit = $per_agent_limit,
           total_limit = $total_limit,
+          dream_time = $dream_time,
           revision = revision + 1,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = 1
@@ -51,6 +57,7 @@ export class AgentSessionSettingsRepository {
       {
         per_agent_limit: limits.perAgent,
         total_limit: limits.total,
+        dream_time: limits.dreamTime,
         revision: limits.revision,
       },
     );

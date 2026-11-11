@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AGENT_DREAM_TIME_PATTERN } from "@/definition/AgentMemory";
 import { AGENT_SESSION_LIMIT_MAXIMUM } from "@/definition/AgentSessionLimits";
 
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
@@ -22,12 +23,13 @@ const limitsInput = z
     perAgent: limit,
     total: limit,
     revision: z.coerce.number().int().min(0),
+    dreamTime: z.string().regex(AGENT_DREAM_TIME_PATTERN),
   })
   .refine((input) => input.perAgent <= input.total);
 
 /**
- * The limits of the concurrent chat sessions of agents (PAGE-304), under
- * Einstellungen → Agents.
+ * The limits of the concurrent chat sessions of agents (PAGE-304) and the
+ * time of day of the dream run (PAGE-305), under Einstellungen → Agents.
  *
  * @remarks
  * Only an administrator in the active admin mode reads and saves them. A
@@ -50,7 +52,7 @@ export class AgentSessionLimitService {
     this.slots = slots;
   }
 
-  /** The limits every session applies, read anew for each one. */
+  /** The limits every session applies and the dream time, read anew for each use. */
   public limits(): Promise<AgentSessionLimits> {
     return this.settings.read();
   }
@@ -68,11 +70,11 @@ export class AgentSessionLimitService {
   }
 
   /**
-   * Saves both limits.
+   * Saves both limits and the time of day of the dream run (PAGE-305).
    *
-   * @throws {AgentError} `profile_invalid` for a value outside 1 to 64 or a
-   * limit per agent above the total, `profile_conflict` after a concurrent
-   * change.
+   * @throws {AgentError} `profile_invalid` for a value outside 1 to 64, a
+   * limit per agent above the total or a time that is no `HH:MM`,
+   * `profile_conflict` after a concurrent change.
    */
   public async save(actor: AccountAccess, input: unknown): Promise<void> {
     requireAgentAdministrator(actor);

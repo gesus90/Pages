@@ -109,6 +109,9 @@ function mergedFields(
     soul: request.soul ?? agent.documents.soul,
     instructions: request.agentInstructions ?? agent.documents.instructions,
     memory: request.memory ?? null,
+    // The limits and DREAM.md stay as they are (PAGE-305).
+    memoryCharacters: agent.memoryLimits.memoryCharacters,
+    dreamCharacters: agent.memoryLimits.dreamCharacters,
     isLearningEnabled: request.isLearningEnabled ?? agent.learning.isEnabled,
   };
 }

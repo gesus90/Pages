@@ -49,6 +49,8 @@ export interface VirtualParticipant {
   readonly lastActivityAt: string;
   /** The access level of an agent, shown in the head of its chat (PAGE-303). */
   readonly accessLevel?: AgentEmployeeAccess;
+  /** Whether the person marked the direct chat with this agent confidential (PAGE-305). */
+  readonly isConfidential?: boolean;
 }
 
 /** A group of participants with one shared history. */
@@ -70,6 +72,8 @@ export interface VirtualGroup {
     readonly id: string;
     readonly name: string;
   }[];
+  /** Whether the group is marked confidential: its agents share and learn nothing from it (PAGE-305). */
+  readonly isConfidential?: boolean;
 }
 
 /** A tool a participant used for an answer, for example `list_tickets · 3 offen`. */
