@@ -3,6 +3,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { allRunAssetReferences } from "@/backend/agents/AgentPlanRunResources";
 
 import { withRunCommand } from "./runs/RunCommandView";
+import { withAgentTodos } from "./AgentPlanAgentTodoService";
 import { withPlanProgress } from "./AgentPlanProgressView";
 import { requirePlanModelResources } from "./AgentPlanModel";
 
@@ -24,6 +25,7 @@ export type PlanRunReadDependencies = Pick<
   | "parameters"
   | "workGate"
   | "stepProgress"
+  | "agentTodos"
 > & {
   readonly engine?: Pick<PlanRunEnginePort, "commandReceipt">;
   readonly remoteExecution?: Pick<
@@ -101,7 +103,11 @@ async function loadAuthorizedPlanRun(
     (await dependencies.workGate?.withProgress(progress)) ?? progress;
   const progressView =
     (await dependencies.remoteExecution?.withProgress?.(scoped)) ?? scoped;
-  return withRunCommand(dependencies.engine, progressView);
+  const withTodos = withAgentTodos(
+    progressView,
+    (await dependencies.agentTodos?.listForRun(run.id)) ?? new Map(),
+  );
+  return withRunCommand(dependencies.engine, withTodos);
 }
 
 /**

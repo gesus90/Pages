@@ -8,6 +8,7 @@ import type {
 } from "./AgentPlanExecution.js";
 import type { AgentWorkspaceCleanup } from "./AgentWorkspaceCleanup.js";
 import type { AgentPlanCompletionGate } from "./AgentPlanWork.js";
+import type { AgentPlanAgentTodoList } from "./AgentPlanAgentTodos.js";
 import type { AgentPlanDiagnostic } from "./AgentPlanDiagnostics.js";
 import type { AgentPlanSessionEvents } from "./AgentPlanSessionEvents.js";
 import type { AgentPlanRemoteStatusProblem } from "./AgentPlanRemoteStatus.js";
@@ -521,6 +522,8 @@ export interface AgentPlanRunStepEntry {
   readonly endedAt: string | null;
   /** Whether {@link AgentPlanReport} has something for this node. */
   readonly hasReport: boolean;
+  /** The last TODO list the CLI reported in this node's attempt; absent when it reported none (PAGE-306). */
+  readonly agentTodos?: AgentPlanAgentTodoList;
   /** Why a failed node stopped: the class of its failure and its attempts. */
   readonly failureStop?: AgentPlanFailureStop;
   /** Persisted automatic retry state, for active waits and finished histories. */
@@ -603,6 +606,13 @@ export interface AgentPlanReport {
   }[];
   readonly decisions: readonly string[];
   readonly issues: readonly string[];
+  /**
+   * The last TODO list the CLI reported as a structured plan in this node's
+   * attempt, with identifier, text, status and time of the last change;
+   * `null` when it reported none (PAGE-306). Unlike `todos`, which holds the
+   * contract todos of the closing report, it is the agent's own list.
+   */
+  readonly agentTodos: AgentPlanAgentTodoList | null;
 }
 
 /** The reports of a run, all assigned to it. */

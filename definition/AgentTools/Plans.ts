@@ -125,7 +125,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: buildReadTool({
       name: "read_plan_run",
       title: "Read plan run",
-      description: `Reads one run of the account: runId, planId, planName, planRevision, startedAt, endedAt, status (work_done_closeout_open means every work step passed and only a step the plan marks with role closeout failed; it holds no plan, and resuming repeats only that step), stopRequested appliedPlanRevision, continuationVersion, loop iterations with their member statuses, and every node with status, isBlocked, blockedByStepId when recorded, error, verdict, startedAt, endedAt, hasReport and its persisted retry state (policy, attempts failed of the total budget, next attempt, reset and failed attempt codes). For remote attempts, these timestamps are Pages observations, not proven process start and end times. ${RUN_DESCRIPTION}`,
+      description: `Reads one run of the account: runId, planId, planName, planRevision, startedAt, endedAt, status (work_done_closeout_open means every work step passed and only a step the plan marks with role closeout failed; it holds no plan, and resuming repeats only that step), stopRequested appliedPlanRevision, continuationVersion, loop iterations with their member statuses, and every node with status, isBlocked, blockedByStepId when recorded, error, verdict, startedAt, endedAt, hasReport, the last TODO list the CLI reported as a structured plan in agentTodos (attemptId, updatedAt and todos with id, text, status open, active or done and updatedAt; absent when none was reported) and its persisted retry state (policy, attempts failed of the total budget, next attempt, reset and failed attempt codes). For remote attempts, these timestamps are Pages observations, not proven process start and end times. ${RUN_DESCRIPTION}`,
       properties: RUN_SELECTION,
     }),
   },
@@ -134,7 +134,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: buildReadTool({
       name: "read_plan_run_reports",
       title: "Read plan run reports",
-      description: `Reads the reports of one run of the account, each with runId, planId and stepId of the node it belongs to (loop member reports additionally identify loopId and iteration): status, startedAt, endedAt, the redacted result text (output), isOutputFiltered, error, verdict, summary, todos, criteria with evidence, decisions and issues. stepId narrows it to one node (NOT_FOUND when that node has no report). Reports over 1 MiB of UTF-8 JSON are PAYLOAD_TOO_LARGE; read one node at a time then. ${RUN_DESCRIPTION}`,
+      description: `Reads the reports of one run of the account, each with runId, planId and stepId of the node it belongs to (loop member reports additionally identify loopId and iteration): status, startedAt, endedAt, the redacted result text (output), isOutputFiltered, error, verdict, summary, todos (the contract todos of the closing report), criteria with evidence, decisions, issues and agentTodos (the last TODO list the CLI reported as a structured plan: attemptId, updatedAt and todos with id, text, status open, active or done and updatedAt; null when none was reported). stepId narrows it to one node (NOT_FOUND when that node has no report). Reports over 1 MiB of UTF-8 JSON are PAYLOAD_TOO_LARGE; read one node at a time then. ${RUN_DESCRIPTION}`,
       properties: { ...RUN_SELECTION, stepId: IDENTIFIER_SCHEMA },
     }),
   },

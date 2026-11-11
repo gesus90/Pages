@@ -110,6 +110,7 @@ async function deletePlanRunDetails(
     "agent_plan_work",
     "agent_plan_step_reports",
     "agent_plan_step_progress",
+    "agent_plan_agent_todos",
     "pica_mobile_notification_deliveries",
     "pica_mobile_notification_occurrences",
     "pica_mobile_notification_sequences",

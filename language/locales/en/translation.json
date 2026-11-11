@@ -4850,6 +4850,7 @@
         },
         "sidebar": {
           "todos": "Todos {{done}} / {{total}}",
+          "agentTodos": "Agent TODO {{done}} / {{total}}",
           "noTodos": "No todos",
           "todoStatus": {
             "done": "done",
@@ -5495,7 +5496,14 @@
         "cycle": "in a cycle – no number"
       },
       "todoLabel": "TODOs",
-      "todoSummary": "{{completed}} done · {{active}} in progress · {{open}} up next"
+      "todoSummary": "{{completed}} done · {{active}} in progress · {{open}} up next",
+      "agentTodos": {
+        "heading": "Agent TODO",
+        "empty": "No TODO list reported",
+        "count": "{{done}} of {{total}} done",
+        "current": "Now: {{text}}",
+        "noCurrent": "No TODO reported in progress"
+      }
     },
     "loops": {
       "defaultName": "Loop",

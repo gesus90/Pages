@@ -8,6 +8,7 @@ import type {
 } from "./AgentPlanExecution";
 import type { AgentPlanCompletionGate } from "./AgentPlanWork";
 import type { AgentPlanProgress } from "./AgentPlanProgress";
+import type { AgentPlanAgentTodoList } from "./AgentPlanAgentTodos";
 import type { PlanRemoteAccess } from "./AgentPlanRemoteAccess";
 import type { AgentPlanControl } from "./AgentPlanControl";
 import type {
@@ -444,6 +445,14 @@ export interface AgentPlanStepResult {
   readonly report?: AgentPlanScriptAssessment;
   /** Authorized read-time projection, separate from persisted acceptance. */
   readonly progress?: AgentPlanProgress;
+  /**
+   * The TODO list the CLI reported as a structured plan in this attempt (PAGE-306).
+   *
+   * @remarks
+   * Absent when the CLI reported none. It is read-only information and never
+   * decides the step: `completion` and `completionGate` keep their meaning.
+   */
+  readonly agentTodos?: AgentPlanAgentTodoList;
   /**
    * Which start of the node this result belongs to, counting from 1.
    *

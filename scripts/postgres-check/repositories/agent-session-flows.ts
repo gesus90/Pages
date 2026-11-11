@@ -2,6 +2,10 @@ import {
   appendSessionHistoryChunks,
   readSessionHistoryChunks,
 } from "@/backend/database/repositories/agent/AgentSessionHistoryChunks";
+import {
+  AgentPlanAgentTodoRepository,
+  readEntries,
+} from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import {
   ATTEMPT_COLUMNS,
@@ -235,6 +239,39 @@ export const AGENT_SESSION_FLOW: RepositoryFlow = {
     call("AgentSessionRepository.appendEvents", (world) =>
       sessions(world).appendEvents(ATTEMPT_ID, [newEvent("Vierte")], 2),
     ),
+    call("AgentSessionRepository.appendEvents", (world) =>
+      sessions(world).appendEvents(
+        ATTEMPT_ID,
+        [
+          {
+            ...newEvent(
+              JSON.stringify({
+                entries: [
+                  { content: "Ursache klären", status: "completed" },
+                  { content: "Anzeige bauen", status: "in_progress" },
+                ],
+              }),
+            ),
+            kind: "plan",
+          },
+        ],
+        2,
+      ),
+    ),
+    call("AgentPlanAgentTodoRepository.findEntries", ({ database }) =>
+      new AgentPlanAgentTodoRepository(database).findEntries(ATTEMPT_ID),
+    ),
+    call("AgentPlanAgentTodoRepository.listForRun", ({ database }) =>
+      new AgentPlanAgentTodoRepository(database).listForRun("run-session"),
+    ),
+    call("AgentPlanAgentTodoRepository.save", ({ database }) =>
+      new AgentPlanAgentTodoRepository(database).save(
+        ATTEMPT_ID,
+        [],
+        STARTED_AT,
+      ),
+    ),
+    call("readEntries", () => Promise.resolve(readEntries("[]"))),
     call("AgentSessionRepository.readEvents", (world) =>
       sessions(world).readEvents(ATTEMPT_ID, 0, 10),
     ),

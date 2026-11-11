@@ -265,6 +265,7 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
       session?.acceptance?.verdict ?? scriptAssessmentVerdict(step.report),
     ...stepTimes(step),
     hasReport: hasReport(step),
+    ...(step.agentTodos ? { agentTodos: step.agentTodos } : {}),
     ...stepRetry(step),
   };
 }
@@ -401,6 +402,7 @@ export function stepReport(
       evidence: sanitizeArtifactText(criterion.evidence),
     })),
     decisions: (acceptance?.decisions ?? []).map(sanitizeArtifactText),
+    agentTodos: step.agentTodos ?? null,
   };
 }
 

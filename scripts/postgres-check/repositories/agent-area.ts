@@ -20,6 +20,7 @@ import { AgentPlanRepository } from "@/backend/database/repositories/agent/Agent
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanRunVisibilityRepository } from "@/backend/database/repositories/agent/AgentPlanRunVisibilityRepository";
 import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
+import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
@@ -187,6 +188,7 @@ export const AGENT_AREA_CLASSES: Readonly<
   AgentPlanRunRepository,
   AgentPlanRunVisibilityRepository,
   AgentPlanStartRejectionRepository,
+  AgentPlanAgentTodoRepository,
   AgentPlanStepProgressRepository,
   AgentPlanStepReportRepository,
   AgentPlanTemplateRepository,

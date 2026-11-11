@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
+import { agentTodoSummary } from "../plan-agent-todo-model";
+
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
 import { formatClock } from "./console-time";
 import { useNow } from "./use-terminal-surface";
@@ -124,6 +126,57 @@ function TodoList({
             );
           })}
         </ul>
+      )}
+    </SidebarSection>
+  );
+}
+
+/**
+ * The TODO list the CLI reported as a structured plan, next to the events (PAGE-306).
+ *
+ * @remarks
+ * It only shows the state; the active mark belongs to the entry the agent
+ * reported as in progress. Without a list it says so and guesses nothing.
+ */
+function AgentTodoList({
+  step,
+}: {
+  readonly step: AgentPlanStepResult;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const agent = agentTodoSummary(step);
+  return (
+    <SidebarSection
+      title={t("plans.console.terminal.sidebar.agentTodos", {
+        done: agent.done,
+        total: agent.total,
+      })}
+    >
+      {agent.isReported ? (
+        <ul
+          data-agent-todo-list=""
+          className="max-h-56 space-y-1 overflow-y-auto text-sm text-agent-console-foreground"
+        >
+          {agent.todos.map((todo) => (
+            <li key={todo.id} className="flex min-w-0 items-start gap-2">
+              <TodoCheckbox status={todo.status} />
+              <span className="sr-only">
+                {t(`plans.console.terminal.sidebar.todoStatus.${todo.status}`)}
+              </span>
+              <span
+                className={
+                  todo.status === "active" ? "min-w-0 font-semibold" : "min-w-0"
+                }
+              >
+                {todo.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-agent-console-muted">
+          {t("plans.progress.agentTodos.empty")}
+        </p>
       )}
     </SidebarSection>
   );
@@ -304,6 +357,7 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
       aria-label={t("plans.console.details")}
       className="shrink-0 space-y-5 overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l min-[680px]:pb-28"
     >
+      <AgentTodoList step={props.step} />
       <TodoList todos={props.step.progress?.todos ?? []} />
       <SidebarSection title={t("plans.console.terminal.sidebar.activity")}>
         <p className="text-sm text-agent-console-muted">

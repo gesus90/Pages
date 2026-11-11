@@ -11,6 +11,8 @@ import { AgentWorkspaceCleanupService } from "@/backend/service/agents/AgentWork
 import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
+import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAgentTodoService";
+import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
 
 import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
@@ -168,6 +170,7 @@ function planRecords(input: {
   PlanDependencies,
   | "workGate"
   | "stepProgress"
+  | "agentTodos"
   | "phases"
   | "archive"
   | "startRejections"
@@ -180,6 +183,9 @@ function planRecords(input: {
       reports: new AgentPlanStepReportRepository(input.database),
       progress: new AgentPlanStepProgressRepository(input.database),
     }),
+    agentTodos: new AgentPlanAgentTodoService(
+      new AgentPlanAgentTodoRepository(input.database),
+    ),
     phases: new AgentPlanPhases(input.tasks, input.users),
     archive: input.agents.agentRunArchive,
     startRejections: new AgentPlanStartRejectionRepository(input.database),

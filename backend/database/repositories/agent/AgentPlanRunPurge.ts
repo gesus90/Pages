@@ -79,6 +79,7 @@ const RUN_TABLES = [
   "agent_plan_work",
   "agent_plan_step_reports",
   "agent_plan_step_progress",
+  "agent_plan_agent_todos",
   "agent_run_credentials",
   "pica_mobile_notification_deliveries",
   "pica_mobile_notification_occurrences",
