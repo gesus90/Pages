@@ -439,6 +439,8 @@ export const AGENT_ERROR_MESSAGES = {
     "The agent process exceeded its memory or process limit and was ended inside its own unit. Other runs and services were not affected.",
   acp_output_overflow:
     "The agent process wrote an output line longer than 4 Mi characters and was ended. Its output was not used.",
+  acp_input_too_large:
+    "The instruction with its complete file inventory does not fit into one ACP prompt message of at most 8 MiB, so Pages sent nothing to the agent. File contents beyond the budget already go as original files only; shorten the instruction or the message.",
   cli_not_logged_in: "Sign in to the CLI account first.",
   cli_auth_failed: "The CLI account was rejected. Sign in again.",
   cli_check_failed: "The CLI test failed.",

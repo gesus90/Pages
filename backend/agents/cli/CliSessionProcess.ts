@@ -12,8 +12,15 @@ import type {
   CliWorkerUnitResult,
 } from "./CliContracts";
 
-// One event line of a runner may be large (a file it read), never unbounded.
-const MAXIMUM_LINE_BYTES = 8 * 1024 * 1024;
+/**
+ * The UTF-8 bytes of one line in either direction: 8 MiB = 8 × 1024 × 1024.
+ *
+ * @remarks
+ * One event line of a runner may be large (a file it read), never unbounded.
+ * An ACP message Pages sends is one input line as well, so its prompt is
+ * measured against the same limit before it is written.
+ */
+export const CLI_LINE_LIMIT_BYTES = 8 * 1024 * 1024;
 const STDERR_TAIL_CHARACTERS = 16 * 1024;
 const TERMINATION_GRACE_MS = 5_000;
 const STREAM_CLOSE_GRACE_MS = 2_000;
@@ -165,8 +172,21 @@ export class CliSessionProcess implements CliRunningProcess {
   /** Waits for the native input write callback, so the ACP writer cannot queue an unbounded pipe backlog. */
   public async writeAsync(line: string): Promise<boolean> {
     if (this.isFinished || !this.child.stdin?.writable) return false;
-    if (Buffer.byteLength(line) > MAXIMUM_LINE_BYTES) {
-      this.cancel("acp_output_overflow");
+    const bytes = Buffer.byteLength(line);
+    if (bytes > CLI_LINE_LIMIT_BYTES) {
+      // The prompt is measured before it is sent; this only guards the pipe.
+      logEvent({
+        level: "warn",
+        event: "cli.process.input_overflow",
+        component: "CliSessionProcess",
+        message: "CLI session input line exceeded its limit",
+        metadata: {
+          code: "acp_input_too_large",
+          bytes,
+          count: CLI_LINE_LIMIT_BYTES,
+        },
+      });
+      this.cancel("acp_input_too_large");
       return false;
     }
     return new Promise((resolve) => {
@@ -218,7 +238,7 @@ export class CliSessionProcess implements CliRunningProcess {
     let newline = this.pending.indexOf("\n");
     while (newline >= 0) {
       if (
-        Buffer.byteLength(this.pending.slice(0, newline)) > MAXIMUM_LINE_BYTES
+        Buffer.byteLength(this.pending.slice(0, newline)) > CLI_LINE_LIMIT_BYTES
       ) {
         this.overflow();
         return;
@@ -228,7 +248,7 @@ export class CliSessionProcess implements CliRunningProcess {
       await this.deliver(line);
       newline = this.pending.indexOf("\n");
     }
-    if (Buffer.byteLength(this.pending) > MAXIMUM_LINE_BYTES) this.overflow();
+    if (Buffer.byteLength(this.pending) > CLI_LINE_LIMIT_BYTES) this.overflow();
   }
 
   /** A runaway line ends the session; neither it nor anything after it reaches the caller. */
@@ -240,7 +260,7 @@ export class CliSessionProcess implements CliRunningProcess {
       event: "cli.process.output_overflow",
       component: "CliSessionProcess",
       message: "CLI session output line exceeded its limit",
-      metadata: { code: "acp_output_overflow", count: MAXIMUM_LINE_BYTES },
+      metadata: { code: "acp_output_overflow", count: CLI_LINE_LIMIT_BYTES },
     });
     this.cancel("acp_output_overflow");
   }

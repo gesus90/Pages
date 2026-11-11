@@ -282,6 +282,8 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   acp_worker_unit_unavailable: "open",
   acp_worker_limit: "infrastructure",
   acp_output_overflow: "form",
+  // The same oversized prompt would be refused again; no turn exists to repair.
+  acp_input_too_large: "open",
   cli_not_logged_in: "open",
   cli_auth_failed: "open",
   cli_check_failed: "open",

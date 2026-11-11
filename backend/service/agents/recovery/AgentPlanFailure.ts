@@ -68,6 +68,7 @@ const FAILURE_CLASSES: Readonly<Record<string, AgentPlanFailureClass>> = {
   plan_script_unavailable: "configuration",
   acp_worker_limit: "interruption",
   acp_output_overflow: "business",
+  acp_input_too_large: "configuration",
   acp_worker_unit_unavailable: "configuration",
   acp_session_resume_failed: "interruption",
   cli_not_logged_in: "configuration",

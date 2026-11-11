@@ -2144,6 +2144,14 @@ A worker whose output holds a line longer than 4 Mi characters, with or
 without a line break, is ended the same way: the line and everything after it
 are discarded, and the job fails with `acp_output_overflow` instead of
 continuing on a truncated or oversized frame.
+The other direction has the same 8 MiB limit (PAGE-295): every ACP message
+Pages sends is measured as the complete serialized JSON-RPC line, including
+the instruction, the file labels, escapes and the Base64 of inline images.
+The instruction and the complete file inventory come first; a file content is
+inlined only while it fits completely, and every other file is marked as not
+inline and reached through its verified original copy in the session. A
+message whose instruction and inventory alone do not fit is never written and
+fails with `acp_input_too_large`, which is not repeated automatically.
 Values reach the worker through a 0600 environment file in
 `<data>/worker-units/`, removed once the worker started, never through an
 argument list. The manager's own variables — session bus, SSH and GPG agents,
