@@ -31,6 +31,7 @@ const services = vi.hoisted(() => ({
   agentProfileService: { directory: vi.fn() },
   picaSettingsService: { administration: vi.fn() },
   speechSettingsService: { administration: vi.fn() },
+  agentSessionLimitService: { administration: vi.fn() },
   runnerService: { overview: vi.fn() },
   openCodeProviderLinks: { describe: vi.fn() },
   runnerGitHubMode: "offline",
@@ -78,6 +79,13 @@ vi.mock("@/app/components/settings/agents/speech-settings-card", () => ({
     readonly administration: { readonly status: string };
   }): React.ReactElement => <p>{`speech ${props.administration.status}`}</p>,
 }));
+vi.mock("@/app/components/settings/agents/agent-session-limits-card", () => ({
+  AgentSessionLimitsCard: (props: {
+    readonly administration: { readonly limits: { readonly perAgent: number } };
+  }): React.ReactElement => (
+    <p>{`session-limits ${props.administration.limits.perAgent}`}</p>
+  ),
+}));
 vi.mock("@/app/components/settings/admin-mode-required", () => ({
   AdminModeRequired: (props: {
     readonly description: string;
@@ -86,6 +94,11 @@ vi.mock("@/app/components/settings/admin-mode-required", () => ({
 
 const ADMIN = accountAccess({ isAdmin: true, mode: "admin" });
 const LINKS = [{ provider: "zai", state: "linked" }];
+const LIMITS = {
+  limits: { perAgent: 4, total: 16, revision: 1, dreamTime: "03:00" },
+  running: 0,
+  waiting: 0,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -104,6 +117,7 @@ beforeEach(() => {
   services.speechSettingsService.administration.mockResolvedValue({
     status: "noModel",
   });
+  services.agentSessionLimitService.administration.mockResolvedValue(LIMITS);
   services.runnerService.overview.mockResolvedValue([]);
   services.openCodeProviderLinks.describe.mockResolvedValue(LINKS);
 });
@@ -151,6 +165,7 @@ it("loads the management data and links OpenCode to its keys", async () => {
     profileDirectory: { groups: [] },
     pica: { settings: {}, models: [] },
     speech: { status: "noModel" },
+    sessionLimits: LIMITS,
     audience: AUDIENCE,
   });
   expect(result.init).toMatchObject({
@@ -214,6 +229,7 @@ it("renders the management sections for the admin mode", () => {
       profileDirectory: {},
       pica: { settings: {}, models: [{ id: "m" }] },
       speech: { status: "ready" },
+      sessionLimits: LIMITS,
       audience: AUDIENCE,
     },
   });
@@ -225,6 +241,7 @@ it("renders the management sections for the admin mode", () => {
   expect(screen.getByText("runners http")).toBeTruthy();
   expect(screen.getByText("pica 1")).toBeTruthy();
   expect(screen.getByText("speech ready")).toBeTruthy();
+  expect(screen.getByText("session-limits 4")).toBeTruthy();
   expect(screen.getByRole("link").getAttribute("href")).toBe(
     "/settings/agents/tools",
   );
