@@ -7,7 +7,7 @@ import { agentNode, flowEdge, planOf } from "./plan-group-fixture";
 import { runStep } from "./plan-panel-fixture";
 
 import type { PlanEntryResult } from "@/app/components/agents/plans/plan-entry-results-model";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanInput, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanAssetFile } from "@/definition/AgentPlanAsset";
 import type {
   AgentPlanStack,
@@ -40,7 +40,9 @@ function stackOf(fileNames: readonly string[]): AgentPlanStack {
   };
 }
 
-function plan(stack: AgentPlanStack = stackOf(["a.png", "b.png"])) {
+function plan(
+  stack: AgentPlanStack = stackOf(["a.png", "b.png"]),
+): AgentPlanInput {
   return planOf(
     [stack, agentNode("worker", "codex")],
     [flowEdge("stack", "worker")],

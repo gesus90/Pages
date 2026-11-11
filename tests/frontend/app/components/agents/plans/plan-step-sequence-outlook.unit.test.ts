@@ -291,49 +291,46 @@ describe("a cycle that an event closes", () => {
   });
 });
 
-describe("a loop", () => {
-  const members = [
-    loopMember("first", "codex", { x: 0, y: 0 }),
-    loopMember("second", "codex", { x: 200, y: 0 }),
-  ];
+const FIRST = loopMember("first", "codex", { x: 0, y: 0 });
+const SECOND = loopMember("second", "codex", { x: 200, y: 0 });
+const members = [FIRST, SECOND];
 
-  function loopingPlan(loop: AgentPlanLoop): AgentPlanInput {
-    return planOf(
-      [START, loop, END],
-      [flowEdge("start", "loop"), flowEdge("loop", "end")],
-    );
-  }
+function loopingPlan(loop: AgentPlanLoop): AgentPlanInput {
+  return planOf(
+    [START, loop, END],
+    [flowEdge("start", "loop"), flowEdge("loop", "end")],
+  );
+}
 
-  function recordOf(
-    iterations: readonly AgentPlanLoopIteration[],
-    overrides: Partial<AgentPlanLoopRun> = {},
-  ): AgentPlanLoopRun {
-    return {
-      id: "loop",
-      name: "Review loop",
-      status: "running",
-      count: { source: "value", parameterId: null, effective: 3, mode: "max" },
-      sessionPolicy: "reuse",
-      condition: null,
-      iterations,
-      sessions: [],
-      completion: null,
-      cleanup: "not_needed",
-      startedAt: "2026-10-15T10:00:00.000Z",
-      endedAt: null,
-      error: null,
-      ...overrides,
-    };
-  }
-
-  const unfinished = (
-    nodes: AgentPlanStepResult[],
-  ): AgentPlanLoopIteration => ({
-    ...loopIteration(2, { state: "not_evaluated", reason: "disabled" }),
+function recordOf(
+  iterations: readonly AgentPlanLoopIteration[],
+  overrides: Partial<AgentPlanLoopRun> = {},
+): AgentPlanLoopRun {
+  return {
+    id: "loop",
+    name: "Review loop",
+    status: "running",
+    count: { source: "value", parameterId: null, effective: 3, mode: "max" },
+    sessionPolicy: "reuse",
+    condition: null,
+    iterations,
+    sessions: [],
+    completion: null,
+    cleanup: "not_needed",
+    startedAt: "2026-10-15T10:00:00.000Z",
     endedAt: null,
-    nodes,
-  });
+    error: null,
+    ...overrides,
+  };
+}
 
+const unfinished = (nodes: AgentPlanStepResult[]): AgentPlanLoopIteration => ({
+  ...loopIteration(2, { state: "not_evaluated", reason: "disabled" }),
+  endedAt: null,
+  nodes,
+});
+
+describe("a loop that has not started", () => {
   it("plans every iteration of a counted loop before it starts", () => {
     const plan = loopingPlan(syntheticLoop({ runs: 2, steps: members }));
 
@@ -349,12 +346,13 @@ describe("a loop", () => {
     const plan = loopingPlan(
       syntheticLoop({
         runs: 3,
-        steps: [members[0]!],
+        steps: [FIRST],
         condition: {
           isEnabled: true,
           sourceNodeId: "first",
           outputPath: "passed",
-          expected: true,
+          operator: "equals",
+          expected: { type: "boolean", value: true },
         },
       }),
     );
@@ -372,7 +370,7 @@ describe("a loop", () => {
         START,
         agentNode("check", "codex"),
         DECISION,
-        syntheticLoop({ runs: 1, steps: [members[0]!] }),
+        syntheticLoop({ runs: 1, steps: [FIRST] }),
         END,
       ],
       [
@@ -385,7 +383,9 @@ describe("a loop", () => {
 
     expect(outlook(plan)).toEqual(["check#1:planned", "loop#1/first:assumed"]);
   });
+});
 
+describe("a loop that is running", () => {
   it("continues the running iteration with the members that have not started and the iterations still to come", () => {
     const plan = loopingPlan(syntheticLoop({ steps: members }));
     const waitingSecond = runStep("second", { name: "Second member" });
