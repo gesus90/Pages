@@ -196,3 +196,18 @@ it("shows the last run's moment and outcome or duration", () => {
     `${t("automations.time.justNow")} · ${t("automations.runs.ok")}`,
   );
 });
+
+it("uses the queued time when no start exists and handles failed forwarded scripts", () => {
+  expect(
+    runTone({
+      ...run,
+      result: { ...result, outcome: "failed", forward: "woken" },
+    }),
+  ).toBe("warning");
+  expect(lastRunText({ ...run, result: null }, context)).toBe(
+    `${t("automations.time.justNow")} · ${t("automations.runs.ok")}`,
+  );
+  expect(
+    summary({ ...run, result: { ...result, forward: "woken" } }, undefined),
+  ).toContain(t("automations.unknownName"));
+});
