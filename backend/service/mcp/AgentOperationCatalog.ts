@@ -157,6 +157,7 @@ export function sessionOperations(
       operation !== "plans.run.diagnostics.read" &&
       operation !== "plans.run.session.events.read" &&
       operation !== "plans.run.checkpoint.read" &&
+      operation !== "plans.run.logs.read" &&
       !AGENT_PROJECT_DELETION_WRITE_OPERATIONS.some(
         (deletion) => deletion === operation,
       ),

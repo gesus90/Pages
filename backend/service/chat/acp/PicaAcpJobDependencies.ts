@@ -1,3 +1,4 @@
+import type { AgentChatTools } from "@/definition/AgentChat";
 import type { PicaAdminService } from "../admin/PicaAdminService";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { ExecutionAuthorizer } from "@/backend/agents/ScopedExecution";
@@ -38,4 +39,6 @@ export interface PicaAcpJobDependencies {
   readonly answerFiles?: PicaAnswerFiles;
   /** The archive search of an agent employee (PAGE-266); absent for Pica. */
   readonly searchMemory?: (query: string) => Promise<unknown>;
+  /** The chat tools of an agent employee (PAGE-311); absent for Pica. */
+  readonly agentChat?: AgentChatTools;
 }

@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/app/components/ui/button";
+
 import { ChatPageComposer } from "./chat-page-composer";
 import { ChatPageHeader } from "./chat-page-header";
 import { ChatPageHistory } from "./chat-page-history";
@@ -30,6 +32,29 @@ function placeholderKey(opened: OpenedConversation): string {
     : "chatPage.personPlaceholder";
 }
 
+/** The hint that agents wrote the most they may in a row, with the way to let them go on (PAGE-311). */
+function AgentPausedBanner({
+  onResume,
+}: {
+  readonly onResume: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="flex shrink-0 flex-wrap items-center gap-3 rounded-[14px] bg-warning-subtle p-4 text-sm text-warning"
+      role="status"
+    >
+      <p className="min-w-0 flex-1">
+        <strong>{t("chatPage.agentPaused.title")}</strong>{" "}
+        {t("chatPage.agentPaused.hint")}
+      </p>
+      <Button onClick={onResume} size="sm" type="button" variant="outline">
+        {t("chatPage.agentPaused.resume")}
+      </Button>
+    </div>
+  );
+}
+
 /** The input at the foot, or why nothing can be sent to the opened participant. */
 function ConversationFoot({
   page,
@@ -44,6 +69,12 @@ function ConversationFoot({
   // An agent's history on the page is its chat session, which takes text only.
   const hasVoice =
     opened.kind === "group" || opened.participant.kind === "human";
+  if (opened.kind === "group" && opened.group.isAgentConversation === true)
+    return (
+      <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
+        {t("chatPage.agentConversationReadOnly")}
+      </p>
+    );
   if (opened.kind === "participant" && !opened.participant.canChat)
     return (
       <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
@@ -108,6 +139,9 @@ function ChatPageConversation({
         isMuted={page.isMuted}
         onToggleMute={page.toggleMute}
       />
+      {opened.kind === "group" && opened.group.isAgentPaused === true ? (
+        <AgentPausedBanner onResume={page.resumeAgents} />
+      ) : null}
       <ChatPageHistory
         messages={page.messages}
         name={name}

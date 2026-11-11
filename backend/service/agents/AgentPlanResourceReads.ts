@@ -39,6 +39,23 @@ export interface AgentPlanResourceServices {
   >;
 }
 
+async function withPlanOfRun(
+  services: AgentPlanResourceServices,
+  userId: string,
+  input: unknown,
+): Promise<unknown> {
+  const fields = readParameterRecord(input);
+  if (fields.planId !== undefined || typeof fields.runId !== "string")
+    return input;
+  return {
+    ...fields,
+    planId: await services.plans.teamRuns.planOf(
+      userId,
+      readIdentifier(fields.runId),
+    ),
+  };
+}
+
 async function readRunEvidence(
   services: AgentPlanResourceServices,
   userId: string,
@@ -50,16 +67,58 @@ async function readRunEvidence(
       throw new AgentOperationError("INVALID_REQUEST", {
         reason: "plan_run_unavailable",
       });
-    return readPlanSessionEvents(services.sessions, userId, input);
+    return readPlanSessionEvents(
+      services.sessions,
+      userId,
+      await withPlanOfRun(services, userId, input),
+      services.plans,
+    );
   }
   if (operation === "plans.run.diagnostics.read")
-    return readPlanDiagnostic(services.plans, userId, input);
+    return readPlanDiagnostic(
+      services.plans,
+      userId,
+      await withPlanOfRun(services, userId, input),
+    );
   if (operation !== "plans.run.checkpoint.read") return null;
   if (!services.recovery)
     throw new AgentOperationError("INVALID_REQUEST", {
       reason: "plan_run_unavailable",
     });
-  return readPlanCheckpoint(services.plans, services.recovery, userId, input);
+  return readPlanCheckpoint(
+    services.plans,
+    services.recovery,
+    userId,
+    await withPlanOfRun(services, userId, input),
+  );
+}
+
+/** Reads the run diagnosis operations: the run list, the failure overview, the timeline and the logs (PAGE-307). */
+async function readRunDiagnosis(
+  services: AgentPlanResourceServices,
+  userId: string,
+  operation: string,
+  input: unknown,
+): Promise<AgentPlanReadResult | null> {
+  if (
+    operation !== "plans.runs.search" &&
+    operation !== "plans.runs.failures" &&
+    operation !== "plans.run.timeline.read" &&
+    operation !== "plans.run.logs.read"
+  )
+    return null;
+  const { diagnosis } = services.plans;
+  if (!diagnosis)
+    throw new AgentOperationError("INVALID_REQUEST", {
+      reason: "plan_run_unavailable",
+    });
+  if (operation === "plans.runs.search")
+    return diagnosis.listRuns(userId, input);
+  if (operation === "plans.runs.failures")
+    return diagnosis.summarizeFailures(userId, input);
+  if (operation === "plans.run.timeline.read")
+    return diagnosis.timeline(userId, input);
+  return diagnosis.logs(userId, input);
 }
 
 /** Reads existing templates and public action availability without exposing private run contents. */
@@ -71,6 +130,8 @@ export async function readPlanResources(
 ): Promise<AgentPlanReadResult | null> {
   const evidence = await readRunEvidence(services, userId, operation, input);
   if (evidence) return evidence;
+  const diagnosis = await readRunDiagnosis(services, userId, operation, input);
+  if (diagnosis) return diagnosis;
   if (
     operation !== "plans.templates.list" &&
     operation !== "plans.templates.read" &&
@@ -80,24 +141,12 @@ export async function readPlanResources(
   )
     return null;
   const parameters = readParameterRecord(input);
-  if (operation === "plans.run.recovery.read") {
-    requireParameterKeys(parameters, ["planId", "runId"]);
-    const planId = readIdentifier(parameters.planId);
-    const runId = readIdentifier(parameters.runId);
-    const run = await services.plans.controlRun(userId, runId);
-    if (run.planId !== planId) throw new AgentOperationError("NOT_FOUND");
-    if (!services.recovery)
-      throw new AgentOperationError("INVALID_REQUEST", {
-        reason: "plan_run_unavailable",
-      });
-    const recovery = await services.recovery.view(userId, runId);
-    const canReadContinuation = await canReadPlanContinuation(
-      services.plans,
+  if (operation === "plans.run.recovery.read")
+    return readRecovery(
+      services,
       userId,
-      recovery,
+      await withPlanOfRun(services, userId, input),
     );
-    return { recovery: planRecoveryEntry(recovery, canReadContinuation) };
-  }
   if (operation === "plans.capabilities.read") {
     requireParameterKeys(parameters, []);
     return {
@@ -136,6 +185,38 @@ export async function readPlanResources(
   const template = templates.find((entry) => entry.id === templateId);
   if (!template) throw new AgentOperationError("NOT_FOUND");
   return { template };
+}
+
+/** Reads the recovery state of a run of any plan the reader may see; only the executor is offered actions. */
+async function readRecovery(
+  services: AgentPlanResourceServices,
+  userId: string,
+  input: unknown,
+): Promise<AgentPlanReadResult> {
+  const parameters = readParameterRecord(input);
+  requireParameterKeys(parameters, ["planId", "runId"]);
+  const planId = readIdentifier(parameters.planId);
+  const runId = readIdentifier(parameters.runId);
+  const { run, startedBy, hiddenFields } = await services.plans.readableRun(
+    userId,
+    runId,
+  );
+  if (run.planId !== planId) throw new AgentOperationError("NOT_FOUND");
+  if (!services.recovery)
+    throw new AgentOperationError("INVALID_REQUEST", {
+      reason: "plan_run_unavailable",
+    });
+  const recovery = await services.recovery.view(userId, runId);
+  const canReadContinuation = await canReadPlanContinuation(
+    services.plans,
+    userId,
+    recovery,
+  );
+  return {
+    recovery: planRecoveryEntry(recovery, canReadContinuation),
+    startedBy,
+    hiddenFields,
+  };
 }
 
 async function readControl(

@@ -1,5 +1,4 @@
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
-import type { PlanRecoveryResumeState } from "./plan-run-actions";
 
 /** The colour family of the status marker. */
 export type PlanPanelTone =
@@ -30,7 +29,6 @@ export interface PlanPanelStateInput {
   readonly hasRefusedIssues: boolean;
   /** Every remaining step of the running run waits behind a failure. */
   readonly isRunBlocked: boolean;
-  readonly recovery: PlanRecoveryResumeState | null;
 }
 
 const RUN_STATES: Readonly<Record<string, PlanPanelState>> = {
@@ -46,7 +44,7 @@ function pausedState(control: AgentPlanControl): PlanPanelState {
 
 /** Which hint an ended run shows: continuable, run by another executor, or plainly ended. */
 function endedVariant(input: PlanPanelStateInput): string | undefined {
-  if (input.recovery?.isAvailable) return "resumable";
+  if (input.control?.canResume) return "resumable";
   return input.control?.resumeBlocker === "own_run_required"
     ? "foreign"
     : undefined;
@@ -61,9 +59,15 @@ function endedState(input: PlanPanelStateInput): PlanPanelState | null {
       tone: "open",
       variant: endedVariant(input),
     };
-  // The panel passes a resume state for every failed run, also when the reader may see none of its history.
-  if (control?.status === "failed" && input.recovery)
-    return { state: "failed", tone: "blocked", variant: endedVariant(input) };
+  if (control?.status === "failed")
+    return {
+      state: control.resumeKind === "interrupted" ? "interrupted" : "failed",
+      tone: "blocked",
+      variant: endedVariant(input),
+    };
+  // A stopped run with a safe state continues like a failed one; without it, it reads as ready.
+  if (control?.status === "cancelled" && control.resumeKind)
+    return { state: "stopped", tone: "open", variant: endedVariant(input) };
   if (!control?.canPlay) return { state: "blocked", tone: "blocked" };
   if (control.status === "succeeded" || control.status === "cancelled")
     return { state: "ready", tone: "ready", variant: control.status };

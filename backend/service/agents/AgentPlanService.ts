@@ -6,6 +6,7 @@ import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { allPlanSteps, mapPlanSteps } from "@/definition/AgentPlanGroup";
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
@@ -25,6 +26,8 @@ import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { readPlanSources } from "./AgentPlanSources";
 import { readPlanContext, readPlanPage } from "./AgentPlanPage";
 import { AgentPlanControlService } from "./AgentPlanControlService";
+import { isEndedResumable } from "./AgentPlanControl";
+import { AgentPlanEndedRuns } from "./AgentPlanEndedRuns";
 import { recoverPlanStartup } from "./recovery/AgentPlanStartupRecovery";
 import { AgentPlanStartActions } from "./AgentPlanStartActions";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
@@ -39,6 +42,7 @@ import { AgentPlanScripts } from "./AgentPlanScripts";
 import { AgentPlanCloning } from "./AgentPlanCloning";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 import { requireNoNewGitCloseout } from "./AgentPlanGitCloseoutLegacy";
+import { AgentPlanTeamReads } from "./diagnosis/AgentPlanTeamReads";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { PlanDependencies } from "./AgentPlanDependencies";
@@ -75,15 +79,23 @@ import type { AgentPlanStartRejectionPage } from "@/definition/AgentPlanStartRej
 export type { PlanDependencies } from "./AgentPlanDependencies";
 
 /** Route-facing plan facade; graph, authorization and execution responsibilities stay in small services. */
-export class AgentPlanService {
-  private readonly dependencies: PlanDependencies;
+export class AgentPlanService extends AgentPlanTeamReads {
   private readonly controls: AgentPlanControlService;
+  private readonly ended: AgentPlanEndedRuns;
   private readonly scripts: AgentPlanScripts;
   private readonly starts: AgentPlanStartActions;
 
   public constructor(dependencies: PlanDependencies) {
-    this.dependencies = dependencies;
+    super(dependencies);
     this.controls = new AgentPlanControlService(dependencies);
+    this.ended = new AgentPlanEndedRuns({
+      advisor: dependencies.resumeAdvisor,
+      engine: dependencies.engine,
+      findRun: (runId) => dependencies.runs.find(runId),
+      readRun: (userId, runId) => this.run(userId, runId),
+      control: (userId, planId) => this.control(userId, planId),
+      sleep: dependencies.sleep,
+    });
     this.scripts = dependencies.scripts ?? new AgentPlanScripts(null);
     this.starts = new AgentPlanStartActions({
       ...dependencies,
@@ -432,6 +444,29 @@ export class AgentPlanService {
   }
 
   /**
+   * Ends the plan's open run and starts the saved revision from the beginning.
+   *
+   * @remarks
+   * The person confirmed that the open run ends: it is stopped, its own
+   * processes are ended by force and its working copies are released before the
+   * new run starts. A run that does not close in time refuses the start.
+   */
+  public async playReplacing(
+    userId: string,
+    id: string,
+    revision: number,
+    journal?: AgentPlanRunJournal,
+  ): Promise<AgentPlanRun> {
+    const control = await this.control(userId, id);
+    const { runId } = control;
+    if (runId && isActivePlanRun(control.status))
+      await this.ended.endOpenRun(userId, runId, () =>
+        this.stop(userId, runId),
+      );
+    return this.play(userId, id, revision, journal);
+  }
+
+  /**
    * Saves the edited plan as its next revision and starts exactly that revision.
    *
    * @remarks
@@ -473,16 +508,28 @@ export class AgentPlanService {
     return withRunCommand(this.dependencies.engine, run);
   }
 
-  /** Other workspace users or plan owners cannot stop an executor's private run. */
+  /**
+   * Stops a run in any state that is not finished; other users cannot stop an executor's private run.
+   *
+   * @remarks
+   * A run that ended at a failure settles as cancelled and gives up its
+   * working copies once its own processes are proven gone. A run an engine
+   * drives stops gracefully first; a second Stop, or a run nothing drives
+   * anymore, ends the run's own processes by force, so a hung or unknown
+   * process never keeps it open.
+   */
   public async stop(
     userId: string,
     id: string,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     const run = await this.controlRun(userId, id);
-    await this.dependencies.engine.stop(id, journal);
-    if (!this.dependencies.engine.commandReceipt)
-      await this.dependencies.remoteExecution?.stop(run);
+    if (!(await this.ended.settleEnded(userId, run, journal))) {
+      await this.dependencies.engine.stop(id, journal);
+      if (!this.dependencies.engine.commandReceipt)
+        await this.dependencies.remoteExecution?.stop(run);
+      await this.ended.forceStuck(userId, run);
+    }
     return (await readPlanControlRun(this, userId, run.planId, id)).run;
   }
 
@@ -517,6 +564,8 @@ export class AgentPlanService {
       run.continuation?.planRevision === revision
     )
       return run;
+    if (isEndedResumable(run))
+      return this.ended.resume(userId, run, plan, journal);
     if (run.status !== "paused" || run.stopRequested)
       throw new AgentError("plan_run_unavailable");
     const control = await this.control(userId, run.planId);

@@ -26,7 +26,19 @@ export type McpPlanOperation =
   | "plans.templates.list"
   | "plans.templates.read"
   | "plans.templates.save"
-  | "plans.templates.update";
+  | "plans.templates.update"
+  // The reads of runs for the whole team (PAGE-307).
+  | "plans.runs.list"
+  | "plans.run.read"
+  | "plans.run.reports.read"
+  | "plans.run.diagnostics.read"
+  | "plans.run.session.events.read"
+  | "plans.run.checkpoint.read"
+  | "plans.run.recovery.read"
+  | "plans.runs.search"
+  | "plans.runs.failures"
+  | "plans.run.timeline.read"
+  | "plans.run.logs.read";
 
 /** What the plan API runs on: the plan operation layer on the `mcp` channel and the facts of the account. */
 export interface McpPlanServices {

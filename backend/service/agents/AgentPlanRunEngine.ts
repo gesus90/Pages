@@ -577,10 +577,20 @@ export class AgentPlanRunEngine {
     controller: AbortController,
     activation: number | undefined,
   ): Promise<void> {
-    return withLogContext({ ...active.logContext, runId: active.view.id }, () =>
-      withDatabaseLogMetrics((metrics) =>
-        this.executeNode(active, node, controller, { metrics, activation }),
-      ),
+    const step = active.view.steps.find((entry) => entry.id === node.id);
+    const attemptId = step?.session?.attemptId ?? step?.execution?.attemptId;
+    // The log of the run names the step and attempt each line belongs to (PAGE-307).
+    return withLogContext(
+      {
+        ...active.logContext,
+        runId: active.view.id,
+        stepId: node.id,
+        ...(attemptId === undefined ? {} : { attemptId }),
+      },
+      () =>
+        withDatabaseLogMetrics((metrics) =>
+          this.executeNode(active, node, controller, { metrics, activation }),
+        ),
     );
   }
 

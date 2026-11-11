@@ -4,7 +4,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
-import { participantSubtitle } from "./chat-page-list-entries";
+import {
+  AgentConversationBadge,
+  participantSubtitle,
+} from "./chat-page-list-entries";
 import { ChatPageMemberDialog } from "./chat-page-member-dialog";
 
 import type { ReactNode } from "react";
@@ -132,6 +135,15 @@ function GroupHeader({
   readonly mute: MuteControl;
 }): React.ReactElement {
   const { t } = useTranslation();
+  if (group.isAgentConversation === true)
+    return (
+      <HeaderFrame
+        avatar={<GroupAvatars members={members} size="header" />}
+        title={group.name}
+        subtitle={t("chatPage.agentConversationSubtitle")}
+        aside={<AgentConversationBadge group={group} />}
+      />
+    );
   return (
     <HeaderFrame
       avatar={<GroupAvatars members={members} size="header" />}

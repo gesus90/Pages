@@ -1,6 +1,7 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 
 import { chunkAgentRead } from "./AgentReadChunking";
+import { readRunForReading } from "./diagnosis/RunReading";
 import { sanitizeArtifactText } from "./AgentPlanOutput";
 import {
   readIdentifier,
@@ -10,7 +11,7 @@ import {
 
 import type { AgentPlanCheckpoint } from "@/definition/AgentPlanRecovery";
 import type { AgentPlanReadResult } from "@/definition/AgentPlanOperations";
-import type { AgentPlanService } from "./AgentPlanService";
+import type { RunReadingPlans } from "./diagnosis/RunReading";
 import type { AgentPlanRecoveryService } from "./recovery/AgentPlanRecoveryService";
 
 interface FilterState {
@@ -81,7 +82,7 @@ function checkpointContent(checkpoint: AgentPlanCheckpoint): {
 
 /** Reads one immutable completion under the same current rights as the recovery page. */
 export async function readPlanCheckpoint(
-  plans: Pick<AgentPlanService, "run">,
+  plans: RunReadingPlans,
   recovery: Pick<AgentPlanRecoveryService, "checkpoint">,
   userId: string,
   input: unknown,
@@ -102,7 +103,11 @@ export async function readPlanCheckpoint(
       version < 1)
   )
     throw new AgentOperationError("INVALID_REQUEST");
-  const run = await plans.run(userId, runId);
+  const { run, startedBy, hiddenFields } = await readRunForReading(
+    plans,
+    userId,
+    runId,
+  );
   if (run.planId !== planId) throw new AgentOperationError("NOT_FOUND");
   const checkpoint = await recovery.checkpoint(userId, runId, version);
   if (
@@ -110,11 +115,20 @@ export async function readPlanCheckpoint(
     (checkpoint.runId !== runId || checkpoint.planId !== planId)
   )
     throw new AgentOperationError("NOT_FOUND");
+  // The content of a checkpoint holds results of tickets and pages.
+  const isHidden = hiddenFields.length > 0;
   return chunkAgentRead(
     {
       checkpoint: checkpoint
-        ? { version: checkpoint.version, ...checkpointContent(checkpoint) }
+        ? {
+            version: checkpoint.version,
+            ...(isHidden
+              ? { isFiltered: true }
+              : checkpointContent(checkpoint)),
+          }
         : null,
+      startedBy,
+      hiddenFields: isHidden ? [...hiddenFields, "checkpoint.content"] : [],
     },
     {
       context: JSON.stringify([

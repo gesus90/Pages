@@ -239,7 +239,8 @@ export type AgentPlanRecoveryBlocker =
   | "nothing_to_release"
   | "workflow_unavailable"
   | "context_not_verified"
-  | "content_access_required";
+  | "content_access_required"
+  | "no_safe_state";
 
 export type AgentPlanRecoveryErrorCode =
   | "invalid_request"

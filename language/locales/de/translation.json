@@ -154,7 +154,8 @@
     "workspace": "Arbeitsverzeichnis",
     "agentList": "Agents Liste",
     "loading": "Ansicht wird geladen …",
-    "storage": "Storage"
+    "storage": "Storage",
+    "runs": "Läufe"
   },
   "role": {
     "admin": "Administrator",
@@ -1012,7 +1013,9 @@
         "plan_asset_runner_denied": "Pages hat die Referenz des Runners auf die Datei abgelehnt. Der Runner hat die Datei nicht erhalten.",
         "plan_simulation_external_blocked": "Die Agent-Simulation ist aktiv: Pages sendet keine Anfrage an einen Modellanbieter. Wähle das Modell „Simulation“ oder schalte die Simulation aus.",
         "plan_simulation_item_failed": "Simulationsszenario item_failed: Dieser Eintrag schlägt absichtlich fehl, weil sein Name mit „defekt“ beginnt.",
-        "plan_stack_entries_failed": "Mindestens ein Stack-Eintrag ist fehlgeschlagen. Die übrigen Einträge wurden verarbeitet; jeder Fehler steht beim Eintrag."
+        "plan_stack_entries_failed": "Mindestens ein Stack-Eintrag ist fehlgeschlagen. Die übrigen Einträge wurden verarbeitet; jeder Fehler steht beim Eintrag.",
+        "cleanup_unconfirmed": "Das Ende der Prozesse des Laufs ist nicht bestätigt. Zuerst freigeben oder kurz warten.",
+        "action_unavailable": "Diese Aktion ist für den Lauf gerade nicht möglich."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -3842,7 +3845,15 @@
     "unmute": "Stummschaltung aufheben",
     "muted": "Stummgeschaltet",
     "loadOlder": "Ältere Nachrichten laden",
-    "loadingOlder": "Lädt …"
+    "loadingOlder": "Lädt …",
+    "agentConversation": "Agent-Gespräch",
+    "agentConversationSubtitle": "Gespräch zwischen Agents · nur lesbar",
+    "agentConversationReadOnly": "Dies ist ein Gespräch zwischen Agents. Du liest es als Administrator oder Leitung und schreibst hier nicht mit.",
+    "agentPaused": {
+      "title": "Agent-Gespräch angehalten",
+      "hint": "Die Agents haben die erlaubte Zahl von 10 Nachrichten in Folge ohne Person erreicht.",
+      "resume": "Weiter erlauben"
+    }
   },
   "workspaces": {
     "title": "Arbeitsverzeichnis",
@@ -4928,7 +4939,7 @@
       "manageWorkspaces": "Arbeitsbereiche verwalten",
       "unsaved": "Ungespeicherte Änderungen – vor Starten oder Fortsetzen speichern.",
       "pausedHint": "Stillstand bestätigt. Ausstehende Schritte bearbeiten, speichern und mit Fortsetzen übernehmen. Abgeschlossene Schritte werden nicht wiederholt. Änderungen an abgeschlossenen Schritten wirken erst bei einem neuen Start.",
-      "stoppingHint": "Abbruch angefordert. Ausführungen und Sessions werden beendet; Reservierungen bleiben bis zum bestätigten Ende bestehen.",
+      "stoppingHint": "Abbruch angefordert. Ein weiterer Klick auf Stop beendet die eigenen Prozesse des Laufs erzwungen und gibt seine Reservierungen frei.",
       "reason": "Hinderungsgrund anzeigen",
       "error": "Die Aktion konnte nicht ausgeführt werden.",
       "status": {
@@ -4974,7 +4985,7 @@
       "resumeHint": "Fortsetzen macht ab dem letzten sicheren Stand weiter; abgeschlossene Schritte laufen nicht erneut.",
       "recoverHint": "Fortsetzen übernimmt die erfolgreichen Schritte des beendeten Laufs und führt nur offene Arbeit als neuen Versuch aus.",
       "foreignRunHint": "Der letzte Lauf gehört einer anderen Person; nur sie kann ihn fortsetzen. Starten beginnt einen neuen eigenen Lauf von vorne und ersetzt dabei den beendeten Lauf samt Aufzeichnungen.",
-      "stopHint": "Stop beendet den ganzen Lauf: Kein Schritt startet mehr, laufende Agent- und Script-Prozesse dieses Laufs werden beendet. Plan und Verlauf bleiben erhalten.",
+      "stopHint": "Stop beendet den ganzen Lauf in jedem Zustand: Kein Schritt startet mehr, laufende Agent- und Script-Prozesse dieses Laufs werden beendet, Reservierungen werden freigegeben. Der Lauf steht danach auf abgebrochen und lässt sich fortsetzen.",
       "issuesLabel": "Planfehler",
       "issueTitle": {
         "plan": "Plan",
@@ -5085,12 +5096,31 @@
           "hint": "Der Plan ist startbereit.",
           "hint_succeeded": "Der letzte Lauf ist erfolgreich beendet; Starten beginnt einen neuen Lauf.",
           "hint_cancelled": "Der letzte Lauf wurde gestoppt; Starten beginnt einen neuen Lauf."
+        },
+        "interrupted": {
+          "label": "Unterbrochen",
+          "hint": "Der letzte Lauf wurde durch Absturz oder Neustart unterbrochen.",
+          "hint_resumable": "Der letzte Lauf wurde unterbrochen; Fortsetzen macht am letzten sicheren Stand weiter.",
+          "hint_foreign": "Der letzte Lauf einer anderen Person wurde unterbrochen; nur sie kann ihn fortsetzen."
+        },
+        "stopped": {
+          "label": "Gestoppt",
+          "hint": "Der letzte Lauf wurde gestoppt.",
+          "hint_resumable": "Der letzte Lauf wurde gestoppt; Fortsetzen macht am letzten sicheren Stand weiter.",
+          "hint_foreign": "Der letzte Lauf einer anderen Person wurde gestoppt; nur sie kann ihn fortsetzen."
         }
       },
       "historicalStartRejection": "Frühere Startablehnung: {{time}}",
       "olderStartRejection": "Ältere Startablehnung lesen",
       "historyEnd": "Keine weiteren eigenen Startablehnungen.",
-      "historyFailed": "Die Ablehnungshistorie konnte nicht gelesen werden. Erneut versuchen."
+      "historyFailed": "Die Ablehnungshistorie konnte nicht gelesen werden. Erneut versuchen.",
+      "resumeHint_paused": "Fortsetzen macht am Pausenpunkt weiter; abgeschlossene Schritte laufen nicht erneut.",
+      "resumeHint_failed": "Fortsetzen versucht den fehlgeschlagenen Schritt neu; fertige Schritte werden übernommen.",
+      "resumeHint_interrupted": "Fortsetzen macht nach dem Abbruch am letzten sicheren Stand weiter; eigene Prozesse und Reservierungen werden vorher freigegeben.",
+      "resumeHint_blocked": "Fortsetzen versucht den blockierten Schritt neu, nachdem die Ursache behoben ist; die gesperrten Nachfolger werden wieder freigegeben.",
+      "resumeHint_closeout_open": "Fortsetzen wiederholt nur den offenen Abschluss-Schritt.",
+      "resumeHint_stopped": "Fortsetzen macht am letzten sicheren Stand des gestoppten Laufs weiter; fertige Schritte laufen nicht erneut.",
+      "allRuns": "Alle Läufe dieses Plans ansehen"
     },
     "ticketPicker": {
       "choose": "Ticket auswählen",
@@ -5716,7 +5746,7 @@
         "run_active": "Der Lauf ist noch aktiv. Zuerst stoppen.",
         "plan_run_active": "Ein anderer Lauf dieses Plans ist aktiv. Auf ihn warten oder ihn stoppen.",
         "plan_read_only": "Dieser Plan ist nur lesbar, nicht ausführbar.",
-        "cancelled_by_user": "Der Lauf wurde bewusst gestoppt und wird nie fortgesetzt. Stattdessen von vorne starten.",
+        "cancelled_by_user": "Der Lauf wurde gestoppt. Er lässt sich fortsetzen, sobald ein sicherer Stand gespeichert ist.",
         "succeeded": "Der Lauf war erfolgreich; es gibt nichts fortzusetzen.",
         "superseded": "Es gibt einen neueren Lauf dieses Plans; nur der neueste Lauf kann fortgesetzt werden.",
         "already_continued": "Dieser Lauf wurde bereits neu gestartet oder fortgesetzt.",
@@ -5731,7 +5761,8 @@
         "context_not_verified": "Der Ausführungskontext konnte nicht geprüft werden.",
         "content_access_required": "Fortsetzen übernimmt Ergebnisse und Kontext des Laufs und braucht deshalb deinen aktuellen Zugriff auf alle seine Inhalte und Ressourcen (Agent, Workspace, Tickets, Dateien). Mindestens einer fehlt dir jetzt.",
         "own_run_required": "Diesen Lauf hat eine andere Person ausgeführt. Nur sie kann ihn fortsetzen; Rechte am Plan erlauben keine Übernahme.",
-        "plan_access_denied": "Dir fehlt der aktuelle Zugriff auf Inhalte oder Ressourcen dieses Laufs, deshalb kann er nicht fortgesetzt werden."
+        "plan_access_denied": "Dir fehlt der aktuelle Zugriff auf Inhalte oder Ressourcen dieses Laufs, deshalb kann er nicht fortgesetzt werden.",
+        "no_safe_state": "Es ist kein sicherer Stand gespeichert, an dem der Lauf weitermachen kann. Neu starten."
       },
       "result": {
         "started": "Der neue Lauf wurde gestartet.",
@@ -6212,6 +6243,45 @@
         "done": "Fertig",
         "failed": "Fehlgeschlagen"
       }
+    },
+    "resumeBlock": {
+      "holder": "(Lauf {{run}})",
+      "reason": {
+        "plan_script_permission_denied": "Admin-Modus nötig: Der Plan enthält Skript-Schritte.",
+        "plan_workspace_conflict": "Der Arbeitsplatz ist von einem anderen Lauf belegt.",
+        "plan_workspace_waiting": "Der Lauf wartet auf einen belegten Arbeitsplatz.",
+        "cleanup_unconfirmed": "Das Ende der Prozesse des Laufs ist nicht bestätigt.",
+        "no_safe_state": "Kein sicherer Stand gespeichert.",
+        "run_active": "Der Lauf ist noch aktiv.",
+        "plan_run_active": "Ein anderer Lauf dieses Plans ist aktiv.",
+        "plan_context_changed": "Projekt, Arbeitsplatz oder Ziel des Plans haben sich geändert.",
+        "plan_continuation_deleted": "Der Fortsetzungspunkt wurde im Plan gelöscht.",
+        "plan_invalid": "Der Plan hat Befunde, die einen Start verhindern.",
+        "plan_access_denied": "Dir fehlen aktuelle Rechte an Inhalten oder Ressourcen des Laufs.",
+        "workspace_not_found": "Der Arbeitsplatz des Plans existiert nicht mehr.",
+        "superseded": "Es gibt einen neueren Lauf dieses Plans.",
+        "already_continued": "Der Lauf wurde bereits fortgesetzt.",
+        "plan_run_unavailable": "Der Lauf ist nicht fortsetzbar.",
+        "unknown": "Fortsetzen ist nicht möglich."
+      },
+      "next": {
+        "admin_mode": "In den Admin-Modus wechseln, dann Fortsetzen.",
+        "release": "Reservierungen freigeben, dann Fortsetzen.",
+        "restart": "Neu starten.",
+        "wait": "Kurz warten.",
+        "none": "Die Ursache beheben oder neu starten."
+      },
+      "button": {
+        "admin_mode": "Admin-Modus",
+        "release": "Freigeben",
+        "restart": "Neu starten"
+      }
+    },
+    "openRun": {
+      "title": "Offenen Lauf beenden und neu beginnen?",
+      "description": "Dieser Plan hat einen offenen Lauf. Starten beendet ihn (Prozesse enden, Reservierungen werden freigegeben) und beginnt einen neuen Lauf von vorn. Zum Weitermachen stattdessen Fortsetzen nutzen.",
+      "cancel": "Abbrechen",
+      "confirm": "Beenden und neu beginnen"
     }
   },
   "pageAgents": {
@@ -6956,6 +7026,177 @@
         "description": "AGENT.md enthält bereits Text. Die Vorlage „{{name}}“ ersetzt ihn vollständig.",
         "confirm": "Ersetzen"
       }
+    }
+  },
+  "agentChatSettings": {
+    "title": "Chat der Agents",
+    "description": "Agents lesen Chats und schreiben mit den Pages-Werkzeugen an Personen, Agents und Gruppen. Gilt für die ganze Instanz.",
+    "hourlyLimit": "Nachrichten je Agent und Stunde",
+    "hourlyLimitHint": "Von {{minimum}} bis {{maximum}}. Antworten auf Nachrichten zählen nicht mit.",
+    "saved": "Gespeichert."
+  },
+  "runDiagnosis": {
+    "title": "Läufe",
+    "subtitle": "Alle Läufe der Pläne, die Sie sehen dürfen – egal, wer sie gestartet hat. Hier sehen Sie, welche fehlschlagen, warum, in welchem Schritt und mit welchen Logs.",
+    "loading": "Lädt …",
+    "loadFailed": "Die Daten konnten nicht geladen werden.",
+    "filters": {
+      "title": "Filter für Läufe",
+      "plan": "Plan",
+      "allPlans": "Alle Pläne",
+      "status": "Status",
+      "allStatuses": "Alle Status",
+      "errorClass": "Fehlerklasse",
+      "allErrorClasses": "Alle Fehlerklassen",
+      "step": "Schritt",
+      "stepPlaceholder": "Schritt-ID",
+      "from": "Von",
+      "to": "Bis",
+      "onlyMine": "Nur meine Läufe",
+      "reset": "Zurücksetzen"
+    },
+    "status": {
+      "running": "Läuft",
+      "pausing": "Wird pausiert",
+      "paused": "Pausiert",
+      "stopping": "Wird gestoppt",
+      "succeeded": "Erfolgreich",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "work_done_closeout_open": "Arbeit erledigt, Abschluss offen"
+    },
+    "errorClass": {
+      "model": {
+        "label": "Modell",
+        "hint": "Modellanbindung, Kontingent und Verfügbarkeit des Modells prüfen, ein anderes Modell wählen oder auf den Reset warten und den Lauf fortsetzen."
+      },
+      "tool_missing": {
+        "label": "Werkzeug fehlt",
+        "hint": "Das fehlende Werkzeug (CLI, Adapter, Interpreter) am Ausführungsort installieren oder anmelden (Einstellungen → Agents → Werkzeuge) und den Lauf fortsetzen."
+      },
+      "timeout": {
+        "label": "Zeitüberschreitung",
+        "hint": "Zeitlimit des Schritts erhöhen oder die Arbeit auf kleinere Schritte aufteilen, dann den Lauf fortsetzen."
+      },
+      "git": {
+        "label": "Git",
+        "hint": "Den Git-Zustand im Arbeitsplatz klären (Konflikte, Remote, Rechte) und den Lauf fortsetzen."
+      },
+      "workspace_busy": {
+        "label": "Arbeitsplatz belegt",
+        "hint": "Warten, bis der andere Lauf den Arbeitsplatz freigibt, diesen Lauf stoppen oder freigeben, oder dem Plan eine eigene Arbeitskopie geben."
+      },
+      "permission": {
+        "label": "Berechtigung",
+        "hint": "Dem ausführenden Konto Zugriff auf Plan, Arbeitsplatz, Ticket oder Werkzeug geben oder den Lauf mit einem Konto starten, das ihn hat."
+      },
+      "plan_invalid": {
+        "label": "Plan ungültig",
+        "hint": "Den Plan öffnen, den Knoten oder die Bindung aus der Plan-Prüfung korrigieren, speichern und neu starten."
+      },
+      "process_crash": {
+        "label": "Prozess abgestürzt",
+        "hint": "Diagnose und Logs des Schritts lesen. Endete der Prozess ohne Ursache, den Lauf fortsetzen; wiederholt es sich, den Fehler mit der Lauf-ID melden."
+      },
+      "runner_unavailable": {
+        "label": "Runner nicht verfügbar",
+        "hint": "Prüfen, ob Runner oder Ausführungsort verbunden und aktuell sind (Einstellungen → Agents), dann den Lauf fortsetzen."
+      },
+      "acceptance_failed": {
+        "label": "Abnahme fehlgeschlagen",
+        "hint": "Den Bericht des Schritts lesen: Der Agent ließ Arbeit offen oder konnte sie nicht belegen. Anweisung oder Kriterien anpassen und den Lauf fortsetzen."
+      },
+      "unknown": {
+        "label": "Unbekannt",
+        "hint": "Diagnose, Ereignisse und Logs des Schritts mit der Lauf-ID lesen. Der Fehler hat noch keine bekannte Klasse."
+      }
+    },
+    "failures": {
+      "title": "Fehlerübersicht",
+      "total_one": "{{count}} fehlgeschlagener Schritt",
+      "total_other": "{{count}} fehlgeschlagene Schritte",
+      "groupBy": "Gruppieren nach",
+      "grouping": {
+        "errorClass": "Fehlerklasse",
+        "plan": "Plan",
+        "step": "Schritt"
+      },
+      "empty": "Keine fehlgeschlagenen Schritte in diesem Zeitraum.",
+      "count_one": "{{count}} Mal",
+      "count_other": "{{count}} Mal",
+      "span": "Erstes Auftreten {{first}} · letztes {{last}}"
+    },
+    "runs": {
+      "title": "Läufe",
+      "total_one": "{{count}} Lauf",
+      "total_other": "{{count}} Läufe",
+      "empty": "Keine Läufe für diese Filter.",
+      "startedBy": "Gestartet von {{name}} am {{time}}",
+      "failedStep": "Schritt {{step}}",
+      "loadMore": "Mehr laden"
+    },
+    "detail": {
+      "choose": "Wählen Sie links einen Lauf, um Schritte, Zeitachse und Logs zu sehen.",
+      "ownRun": "Ihr Lauf",
+      "hidden": "Inhalte von Tickets, Wiki-Seiten oder Arbeitsplätzen, die Sie nicht sehen dürfen, sind ausgeblendet. Status, Zeiten und Fehler des Laufs bleiben lesbar.",
+      "tabs": "Ansicht des Laufs",
+      "tab": {
+        "steps": "Schritte",
+        "timeline": "Zeitachse",
+        "logs": "Logs"
+      }
+    },
+    "steps": {
+      "empty": "Dieser Lauf hat keine Schritte."
+    },
+    "timeline": {
+      "empty": "Für diesen Lauf gibt es noch keine Ereignisse.",
+      "stalledTitle": "Schritte ohne Fortschritt",
+      "stalled": "Schritt {{step}}: ohne Fortschritt seit {{duration}} (letztes Ereignis {{since}})",
+      "iteration": "Durchlauf {{iteration}}",
+      "attempt": "Versuch {{id}}",
+      "event": {
+        "started": "gestartet",
+        "waiting": "wartend",
+        "retrying": "wiederholt",
+        "paused": "pausiert",
+        "resumed": "fortgesetzt",
+        "succeeded": "erfolgreich beendet",
+        "failed": "fehlgeschlagen",
+        "cancelled": "abgebrochen"
+      },
+      "reason": {
+        "run_paused": "Lauf pausiert",
+        "workspace_busy": "Arbeitsplatz belegt",
+        "transient": "vorübergehender Fehler",
+        "quota": "Kontingent erschöpft",
+        "repair": "Nachbesserung",
+        "exhausted": "Versuche aufgebraucht"
+      }
+    },
+    "logs": {
+      "level": "Mindeststufe",
+      "levels": {
+        "debug": "Debug",
+        "info": "Info",
+        "warn": "Warnung",
+        "error": "Fehler"
+      },
+      "step": "Schritt",
+      "empty": "Keine Logzeilen für diese Auswahl.",
+      "filtered": "gefiltert",
+      "truncated": "Diese Seite wurde wegen der Größengrenze gekürzt.",
+      "hiddenMessage": "(ausgeblendet)",
+      "loadMore": "Mehr laden"
+    },
+    "settings": {
+      "title": "Laufdiagnose",
+      "description": "Wie lange Logs und Fehlerprotokolle der Läufe aufbewahrt werden und ab wann ein stiller Schritt als „ohne Fortschritt“ gilt. Gilt für die ganze Instanz.",
+      "retention": "Aufbewahrung in Tagen",
+      "retentionHint": "Von {{minimum}} bis {{maximum}} Tagen. Standard 30.",
+      "stall": "Ohne Fortschritt nach (Minuten)",
+      "stallHint": "Von {{minimum}} bis {{maximum}} Minuten ohne neues Ereignis. Standard 15.",
+      "saved": "Gespeichert."
     }
   }
 }

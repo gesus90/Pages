@@ -59,6 +59,20 @@ function nodeAttemptIds(
 /** Reads and stops runs with every current right of their executor checked. */
 export interface AgentSessionRunAccess {
   run(userId: string, runId: string): Promise<AgentPlanRun>;
+  /**
+   * Reads a run of any plan the person may see, for reading its history only (PAGE-307).
+   *
+   * @remarks
+   * Without it only the executor reads the history.
+   */
+  readableRun?(
+    userId: string,
+    runId: string,
+  ): Promise<{
+    readonly run: AgentPlanRun;
+    /** The reader may not see the content the run used; the journal text stays back. */
+    readonly isContentHidden: boolean;
+  }>;
   stop(userId: string, runId: string): Promise<AgentPlanRun>;
 }
 
@@ -101,6 +115,18 @@ const ACTIVE_STATES: ReadonlySet<AgentSessionState> = new Set([
 
 function isRunActive(run: AgentPlanRun): boolean {
   return ["running", "pausing", "paused", "stopping"].includes(run.status);
+}
+
+/** Keeps the shape of a journal page and drops what the events say. */
+function withoutEventText(page: AgentSessionEventPage): AgentSessionEventPage {
+  return {
+    ...page,
+    events: page.events.map((event) => ({
+      ...event,
+      text: "",
+      isTruncated: false,
+    })),
+  };
 }
 
 function legacyState(attempt: AgentSessionAttempt): AgentSessionState {
@@ -281,14 +307,17 @@ export class AgentSessionService {
     key: AgentSessionKey,
     page: AgentSessionHistoryWindow,
   ): Promise<AgentSessionEventPage> {
-    const attempt = await this.historyAttempt(userId, key);
-    if (attempt?.isLegacy) return this.legacyHistory(attempt, page);
-    return this.dependencies.journal.page(
-      key.attemptId,
-      page.after,
-      page.limit,
-      page,
-    );
+    const { attempt, isContentHidden } = await this.historyAttempt(userId, key);
+    const events =
+      attempt?.isLegacy === true
+        ? this.legacyHistory(attempt, page)
+        : await this.dependencies.journal.page(
+            key.attemptId,
+            page.after,
+            page.limit,
+            page,
+          );
+    return isContentHidden ? withoutEventText(events) : events;
   }
 
   /**
@@ -463,8 +492,15 @@ export class AgentSessionService {
   private async historyAttempt(
     userId: string,
     key: AgentSessionKey,
-  ): Promise<AgentSessionAttempt | null> {
-    const run = await this.dependencies.runs.run(userId, key.runId);
+  ): Promise<{
+    readonly attempt: AgentSessionAttempt | null;
+    readonly isContentHidden: boolean;
+  }> {
+    const { runs } = this.dependencies;
+    const readable = runs.readableRun
+      ? await runs.readableRun(userId, key.runId)
+      : { run: await runs.run(userId, key.runId), isContentHidden: false };
+    const { run, isContentHidden } = readable;
     if (run.planId !== key.planId || run.id !== key.runId)
       throw new AgentError("plan_access_denied");
     const attempts = listSessionAttempts(run).filter(
@@ -473,7 +509,7 @@ export class AgentSessionService {
     const current = attempts.find(
       (entry) => entry.key.attemptId === key.attemptId,
     );
-    if (current) return current;
+    if (current) return { attempt: current, isContentHidden };
     const isRecordedRetry = attempts.some((entry) =>
       entry.record.retry?.attempts.some(
         (retry) => retry.attemptId === key.attemptId,
@@ -483,14 +519,14 @@ export class AgentSessionService {
     const stored = await this.dependencies.store.findAttempt(key.attemptId);
     if (!stored) throw new AgentError("plan_history_unavailable");
     if (
-      stored.userId !== userId ||
+      stored.userId !== run.userId ||
       stored.key.planId !== key.planId ||
       stored.key.runId !== key.runId ||
       stored.key.stepId !== key.stepId ||
       stored.key.attemptId !== key.attemptId
     )
       throw new AgentError("plan_access_denied");
-    return null;
+    return { attempt: null, isContentHidden };
   }
 
   private async authorize(

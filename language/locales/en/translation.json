@@ -154,7 +154,8 @@
     "workspace": "Workspace",
     "agentList": "Agents list",
     "loading": "Loading view …",
-    "storage": "Storage"
+    "storage": "Storage",
+    "runs": "Runs"
   },
   "role": {
     "admin": "Administrator",
@@ -1012,7 +1013,9 @@
         "plan_asset_runner_denied": "Pages refused the runner's reference to the file. The runner did not receive the file.",
         "plan_simulation_external_blocked": "The agent simulation is active: Pages sends no request to a model provider. Choose the model Simulation or switch the simulation off.",
         "plan_simulation_item_failed": "Simulation scenario item_failed: this entry fails on purpose because its name begins with defekt.",
-        "plan_stack_entries_failed": "At least one stack entry failed. The other entries were processed; each error stays with its entry."
+        "plan_stack_entries_failed": "At least one stack entry failed. The other entries were processed; each error stays with its entry.",
+        "cleanup_unconfirmed": "The end of the run's processes is not confirmed. Release first or wait a moment.",
+        "action_unavailable": "This action is not possible for the run right now."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -3842,7 +3845,15 @@
     "unmute": "Unmute",
     "muted": "Muted",
     "loadOlder": "Load older messages",
-    "loadingOlder": "Loading …"
+    "loadingOlder": "Loading …",
+    "agentConversation": "Agent conversation",
+    "agentConversationSubtitle": "Conversation between agents · read-only",
+    "agentConversationReadOnly": "This is a conversation between agents. You read it as an administrator or leader and do not write in it.",
+    "agentPaused": {
+      "title": "Agent conversation paused",
+      "hint": "The agents reached the allowed 10 messages in a row without a person.",
+      "resume": "Allow to continue"
+    }
   },
   "workspaces": {
     "title": "Workspaces",
@@ -4928,7 +4939,7 @@
       "manageWorkspaces": "Manage workspaces",
       "unsaved": "Unsaved changes – save before Start or Resume.",
       "pausedHint": "All steps are quiet. Edit pending work, save and adopt it with Resume. Completed steps will not repeat. Changes to completed steps apply only to a new run.",
-      "stoppingHint": "Cancellation requested. Executions and sessions are closing; reservations remain until their end is confirmed.",
+      "stoppingHint": "Cancellation requested. Another click on Stop ends the run's own processes by force and releases its reservations.",
       "reason": "Show blocking reason",
       "error": "The action could not be completed.",
       "status": {
@@ -4974,7 +4985,7 @@
       "resumeHint": "Resume continues from the last safe state; completed steps do not run again.",
       "recoverHint": "Resume takes over the successful steps of the ended run and runs only open work as a new attempt.",
       "foreignRunHint": "The last run belongs to another person; only they can resume it. Start begins a new run of your own from the beginning and replaces the ended run with its records.",
-      "stopHint": "Stop ends the whole run: no step starts any more and the agent and script processes of this run end. Plan and history remain.",
+      "stopHint": "Stop ends the whole run in any state: no step starts any more, the agent and script processes of this run end and its reservations are released. The run is then cancelled and can be resumed.",
       "issuesLabel": "Plan errors",
       "issueTitle": {
         "plan": "Plan",
@@ -5085,12 +5096,31 @@
           "hint": "The plan is ready to start.",
           "hint_succeeded": "The last run succeeded; Start begins a new run.",
           "hint_cancelled": "The last run was stopped; Start begins a new run."
+        },
+        "interrupted": {
+          "label": "Interrupted",
+          "hint": "The last run was interrupted by a crash or restart.",
+          "hint_resumable": "The last run was interrupted; Resume continues at the last safe state.",
+          "hint_foreign": "Another person's last run was interrupted; only they can resume it."
+        },
+        "stopped": {
+          "label": "Stopped",
+          "hint": "The last run was stopped.",
+          "hint_resumable": "The last run was stopped; Resume continues at the last safe state.",
+          "hint_foreign": "Another person's last run was stopped; only they can resume it."
         }
       },
       "historicalStartRejection": "Earlier start refusal: {{time}}",
       "olderStartRejection": "Read older start refusal",
       "historyEnd": "No more start refusals of your own.",
-      "historyFailed": "The refusal history could not be read. Try again."
+      "historyFailed": "The refusal history could not be read. Try again.",
+      "resumeHint_paused": "Resume continues at the pause point; completed steps do not run again.",
+      "resumeHint_failed": "Resume retries the failed step; finished steps are taken over.",
+      "resumeHint_interrupted": "Resume continues at the last safe state after the interruption; its own processes and reservations are released first.",
+      "resumeHint_blocked": "Resume retries the blocked step once its cause is fixed; the locked successors are released again.",
+      "resumeHint_closeout_open": "Resume repeats only the open closeout step.",
+      "resumeHint_stopped": "Resume continues at the last safe state of the stopped run; completed steps do not run again.",
+      "allRuns": "View all runs of this plan"
     },
     "ticketPicker": {
       "choose": "Choose a ticket",
@@ -5716,7 +5746,7 @@
         "run_active": "The run is still active. Stop it first.",
         "plan_run_active": "Another run of this plan is active. Wait for it or stop it.",
         "plan_read_only": "You can read this plan but not run it.",
-        "cancelled_by_user": "The run was stopped on purpose; it is never continued. Start it from the start instead.",
+        "cancelled_by_user": "The run was stopped. It can be resumed once a safe state is saved.",
         "succeeded": "The run succeeded; there is nothing to continue.",
         "superseded": "A newer run of this plan exists; only the newest run can be continued.",
         "already_continued": "This run was already restarted or continued.",
@@ -5731,7 +5761,8 @@
         "context_not_verified": "The execution context could not be verified.",
         "content_access_required": "Resume takes over the run's results and context, so it needs your current access to all of its content and resources (agent, workspace, tickets, files). At least one of them is missing now.",
         "own_run_required": "Another person executed this run. Only they can resume it; rights to the plan do not allow taking it over.",
-        "plan_access_denied": "You currently lack access to content or resources of this run, so it cannot be resumed."
+        "plan_access_denied": "You currently lack access to content or resources of this run, so it cannot be resumed.",
+        "no_safe_state": "No safe state is saved from which the run can continue. Start anew."
       },
       "result": {
         "started": "The new run started.",
@@ -6212,6 +6243,45 @@
         "done": "Done",
         "failed": "Failed"
       }
+    },
+    "resumeBlock": {
+      "holder": "(run {{run}})",
+      "reason": {
+        "plan_script_permission_denied": "Admin mode needed: the plan contains script steps.",
+        "plan_workspace_conflict": "The workspace is occupied by another run.",
+        "plan_workspace_waiting": "The run waits for an occupied workspace.",
+        "cleanup_unconfirmed": "The end of the run's processes is not confirmed.",
+        "no_safe_state": "No safe state is saved.",
+        "run_active": "The run is still active.",
+        "plan_run_active": "Another run of this plan is active.",
+        "plan_context_changed": "The plan's project, workspace or target changed.",
+        "plan_continuation_deleted": "The continuation point was deleted from the plan.",
+        "plan_invalid": "The plan has findings that prevent a start.",
+        "plan_access_denied": "You are missing current rights to the run's content or resources.",
+        "workspace_not_found": "The plan's workspace no longer exists.",
+        "superseded": "A newer run of this plan exists.",
+        "already_continued": "The run was already continued.",
+        "plan_run_unavailable": "The run cannot be continued.",
+        "unknown": "Resume is not possible."
+      },
+      "next": {
+        "admin_mode": "Switch to admin mode, then Resume.",
+        "release": "Release the reservations, then Resume.",
+        "restart": "Start anew.",
+        "wait": "Wait a moment.",
+        "none": "Fix the cause or start anew."
+      },
+      "button": {
+        "admin_mode": "Admin mode",
+        "release": "Release",
+        "restart": "Start anew"
+      }
+    },
+    "openRun": {
+      "title": "End the open run and begin anew?",
+      "description": "This plan has an open run. Start ends it (processes end, reservations are released) and begins a new run from the start. To carry on instead, use Resume.",
+      "cancel": "Cancel",
+      "confirm": "End and begin anew"
     }
   },
   "pageAgents": {
@@ -6956,6 +7026,177 @@
         "description": "AGENT.md already holds text. The template “{{name}}” replaces it completely.",
         "confirm": "Replace"
       }
+    }
+  },
+  "agentChatSettings": {
+    "title": "Agent chat",
+    "description": "Agents read chats and write to people, agents and groups with the Pages tools. Applies to the whole instance.",
+    "hourlyLimit": "Messages per agent and hour",
+    "hourlyLimitHint": "From {{minimum}} to {{maximum}}. Answers to messages do not count.",
+    "saved": "Saved."
+  },
+  "runDiagnosis": {
+    "title": "Runs",
+    "subtitle": "Every run of the plans you may see, whoever started it. See which runs fail, why, in which step and with which logs.",
+    "loading": "Loading …",
+    "loadFailed": "The data could not be loaded.",
+    "filters": {
+      "title": "Run filters",
+      "plan": "Plan",
+      "allPlans": "All plans",
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "errorClass": "Error class",
+      "allErrorClasses": "All error classes",
+      "step": "Step",
+      "stepPlaceholder": "Step ID",
+      "from": "From",
+      "to": "To",
+      "onlyMine": "Only my runs",
+      "reset": "Reset"
+    },
+    "status": {
+      "running": "Running",
+      "pausing": "Pausing",
+      "paused": "Paused",
+      "stopping": "Stopping",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "work_done_closeout_open": "Work done, closeout open"
+    },
+    "errorClass": {
+      "model": {
+        "label": "Model",
+        "hint": "Check the model connection, its quota and whether the model is still offered, then choose another model or wait for the reset and resume the run."
+      },
+      "tool_missing": {
+        "label": "Tool missing",
+        "hint": "Install or log in the missing tool (CLI, adapter, interpreter) at the execution host under Settings → Agents → Tools, then resume the run."
+      },
+      "timeout": {
+        "label": "Timeout",
+        "hint": "Raise the time limit of the step or split the work into smaller steps, then resume the run."
+      },
+      "git": {
+        "label": "Git",
+        "hint": "Resolve the Git state in the workspace (conflicts, remote, permissions), then resume the run."
+      },
+      "workspace_busy": {
+        "label": "Workspace busy",
+        "hint": "Wait until the other run releases the workspace, stop or release that run, or give the plan its own workspace copy."
+      },
+      "permission": {
+        "label": "Permission",
+        "hint": "Grant the executing account access to the plan, workspace, ticket or tool, or start the run with an account that has it."
+      },
+      "plan_invalid": {
+        "label": "Plan invalid",
+        "hint": "Open the plan, fix the node or binding named by the plan check, save it and start a new run."
+      },
+      "process_crash": {
+        "label": "Process crash",
+        "hint": "Read the diagnostics and logs of the step. If the process ended without a cause, resume the run; if it repeats, report the failure with the run ID."
+      },
+      "runner_unavailable": {
+        "label": "Runner unavailable",
+        "hint": "Check that the runner or execution host is connected and up to date under Settings → Agents, then resume the run."
+      },
+      "acceptance_failed": {
+        "label": "Acceptance failed",
+        "hint": "Read the report of the step: the agent left work open or could not prove it. Adjust the instruction or the criteria and resume the run."
+      },
+      "unknown": {
+        "label": "Unknown",
+        "hint": "Read the diagnostics, events and logs of the step with the run ID. The failure has no known class yet."
+      }
+    },
+    "failures": {
+      "title": "Failure overview",
+      "total_one": "{{count}} failed step",
+      "total_other": "{{count}} failed steps",
+      "groupBy": "Group by",
+      "grouping": {
+        "errorClass": "Error class",
+        "plan": "Plan",
+        "step": "Step"
+      },
+      "empty": "No failed steps in this period.",
+      "count_one": "{{count}} time",
+      "count_other": "{{count}} times",
+      "span": "First seen {{first}} · last {{last}}"
+    },
+    "runs": {
+      "title": "Runs",
+      "total_one": "{{count}} run",
+      "total_other": "{{count}} runs",
+      "empty": "No runs for these filters.",
+      "startedBy": "Started by {{name}} on {{time}}",
+      "failedStep": "Step {{step}}",
+      "loadMore": "Load more"
+    },
+    "detail": {
+      "choose": "Choose a run on the left to see its steps, timeline and logs.",
+      "ownRun": "Your run",
+      "hidden": "Content of tickets, wiki pages or workspaces you may not see is hidden. The status, times and errors of the run stay readable.",
+      "tabs": "View of the run",
+      "tab": {
+        "steps": "Steps",
+        "timeline": "Timeline",
+        "logs": "Logs"
+      }
+    },
+    "steps": {
+      "empty": "This run has no steps."
+    },
+    "timeline": {
+      "empty": "This run has no events yet.",
+      "stalledTitle": "Steps without progress",
+      "stalled": "Step {{step}}: no progress for {{duration}} (last event {{since}})",
+      "iteration": "iteration {{iteration}}",
+      "attempt": "attempt {{id}}",
+      "event": {
+        "started": "started",
+        "waiting": "waiting",
+        "retrying": "retrying",
+        "paused": "paused",
+        "resumed": "resumed",
+        "succeeded": "succeeded",
+        "failed": "failed",
+        "cancelled": "cancelled"
+      },
+      "reason": {
+        "run_paused": "run paused",
+        "workspace_busy": "workspace busy",
+        "transient": "transient failure",
+        "quota": "quota exhausted",
+        "repair": "repair round",
+        "exhausted": "attempts used up"
+      }
+    },
+    "logs": {
+      "level": "Minimum level",
+      "levels": {
+        "debug": "Debug",
+        "info": "Info",
+        "warn": "Warning",
+        "error": "Error"
+      },
+      "step": "Step",
+      "empty": "No log lines for this selection.",
+      "filtered": "filtered",
+      "truncated": "This page was shortened because of the size limit.",
+      "hiddenMessage": "(hidden)",
+      "loadMore": "Load more"
+    },
+    "settings": {
+      "title": "Run diagnosis",
+      "description": "How long logs and failure records of runs are kept, and after how long a silent step counts as “without progress”. Applies to the whole instance.",
+      "retention": "Retention in days",
+      "retentionHint": "From {{minimum}} to {{maximum}} days. Default 30.",
+      "stall": "Without progress after (minutes)",
+      "stallHint": "From {{minimum}} to {{maximum}} minutes without a new event. Default 15.",
+      "saved": "Saved."
     }
   }
 }

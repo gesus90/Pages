@@ -15,6 +15,7 @@ import {
 import {
   agentEntry,
   hasReport,
+  starterOf,
   planDetail,
   planSummary,
   runDetail,
@@ -22,7 +23,9 @@ import {
   stepReport,
 } from "./AgentPlanOperationViews";
 
-import type { AgentPlanRun, AgentPlanView } from "@/definition/AgentPlan";
+import type { AgentPlanView } from "@/definition/AgentPlan";
+import type { ReadableRun } from "./diagnosis/AgentPlanRunTeamReader";
+import type { AgentPlanTeamRuns } from "./diagnosis/AgentPlanTeamRuns";
 import type {
   AgentPlanReadOperation,
   AgentPlanReadResult,
@@ -37,16 +40,14 @@ import type {
 /** The plan service functions the reads use; every one applies the rights of the plan page. */
 export type AgentPlanReads = Pick<
   AgentPlanService,
-  | "visible"
-  | "view"
-  | "directory"
-  | "sources"
-  | "workspaces"
-  | "runEntries"
-  | "runOverview"
-  | "run"
+  "visible" | "view" | "directory" | "sources" | "workspaces" | "readableRun"
 > &
-  Partial<Pick<AgentPlanService, "control">>;
+  Partial<Pick<AgentPlanService, "control">> & {
+    readonly teamRuns: Pick<
+      AgentPlanTeamRuns,
+      "entries" | "overview" | "starters"
+    >;
+  };
 
 /** Runs listed per page when the client names no limit. */
 const DEFAULT_RUN_LIMIT = 20;
@@ -85,8 +86,9 @@ function matches(plan: AgentPlanView, request: AgentPlanListRequest): boolean {
  *
  * @remarks
  * Every read goes through the plan service, so a plan is visible exactly as
- * on the plan page and a run only to the person who started it. A hidden plan
- * or run answers like a missing one.
+ * on the plan page. Whoever sees a plan reads all its runs, whoever started
+ * them (PAGE-307); content the reader may not see is left out and named in
+ * `hiddenFields`. A hidden plan or run answers like a missing one.
  */
 export class AgentPlanReadOperations {
   private readonly plans: AgentPlanReads;
@@ -116,8 +118,11 @@ export class AgentPlanReadOperations {
     if (operation === "plans.runs.list")
       return respond(await this.runs(userId, input));
     if (operation === "plans.run.read") {
-      const run = await this.select(userId, readPlanRunRequest(input));
-      return respond({ run: runDetail(run) });
+      const readable = await this.select(userId, readPlanRunRequest(input));
+      return respond({
+        run: runDetail(readable.run, readable.startedBy),
+        hiddenFields: readable.hiddenFields,
+      });
     }
     return respond(await this.reports(userId, input));
   }
@@ -145,13 +150,18 @@ export class AgentPlanReadOperations {
         preserveOrder: true,
       },
     );
-    const runs = await this.plans.runOverview(
+    const runs = await this.plans.teamRuns.overview(
       userId,
       page.entries.map((plan) => plan.id),
     );
+    const starters = await this.plans.teamRuns.starters(
+      [...runs.values()].flatMap((entries) =>
+        entries.slice(0, 1).map((entry) => entry.userId),
+      ),
+    );
     return {
       plans: page.entries.map((plan) =>
-        planSummary(plan, directory, runs.get(plan.id) ?? []),
+        planSummary(plan, directory, runs.get(plan.id) ?? [], starters),
       ),
       total: page.total,
       nextCursor: page.nextCursor,
@@ -169,8 +179,11 @@ export class AgentPlanReadOperations {
       plan.isWorkspaceMissing
         ? Promise.resolve({ agents: [], tasks: [] })
         : this.plans.sources(userId, plan.workspaceId),
-      this.plans.runEntries(userId, plan.id, "newest"),
+      this.plans.teamRuns.entries(userId, plan.id, "newest"),
     ]);
+    const starters = await this.plans.teamRuns.starters(
+      entries.slice(0, 1).map((entry) => entry.userId),
+    );
     const control = await this.plans.control?.(userId, plan.id);
     return chunkPlanRead(
       {
@@ -178,6 +191,7 @@ export class AgentPlanReadOperations {
           directory,
           sources,
           entries,
+          starters,
           isRunnable: control
             ? control.canPlay || control.canResume
             : undefined,
@@ -246,7 +260,11 @@ export class AgentPlanReadOperations {
   ): Promise<AgentPlanReadResult> {
     const request = readPlanRunsRequest(input);
     const plan = await this.plans.view(userId, request.planId);
-    const entries = await this.plans.runEntries(userId, plan.id, request.order);
+    const entries = await this.plans.teamRuns.entries(
+      userId,
+      plan.id,
+      request.order,
+    );
     const page = pageAgentEntries(entries, {
       cursor: request.cursor,
       limit: request.limit ?? DEFAULT_RUN_LIMIT,
@@ -258,34 +276,40 @@ export class AgentPlanReadOperations {
       ]),
       preserveOrder: true,
     });
+    const starters = await this.plans.teamRuns.starters(
+      page.entries.map((entry) => entry.userId),
+    );
     return {
       planId: plan.id,
       order: request.order,
-      runs: page.entries.map((entry) => runSummary(plan, entry)),
+      runs: page.entries.map((entry) =>
+        runSummary(plan, entry, starterOf(starters, entry)),
+      ),
       total: page.total,
       nextCursor: page.nextCursor,
+      hiddenFields: [],
     };
   }
 
-  /** Finds the run a selection names; one of another plan or person is missing. */
+  /** Finds the run a selection names; one of a plan the reader cannot see is missing. */
   private async select(
     userId: string,
     selection: AgentPlanRunSelection,
-  ): Promise<AgentPlanRun> {
+  ): Promise<ReadableRun> {
     if ("runId" in selection) {
-      const run = await this.plans.run(userId, selection.runId);
-      if (selection.planId !== null && run.planId !== selection.planId)
+      const readable = await this.plans.readableRun(userId, selection.runId);
+      if (selection.planId !== null && readable.run.planId !== selection.planId)
         throw new AgentOperationError("NOT_FOUND");
-      return run;
+      return readable;
     }
-    const entries = await this.plans.runEntries(
+    const entries = await this.plans.teamRuns.entries(
       userId,
       selection.planId,
       selection.select === "latest" ? "newest" : "oldest",
     );
     const entry = entries.at(0);
     if (!entry) throw new AgentOperationError("NOT_FOUND");
-    return this.plans.run(userId, entry.id);
+    return this.plans.readableRun(userId, entry.id);
   }
 
   private async reports(
@@ -293,7 +317,10 @@ export class AgentPlanReadOperations {
     input: unknown,
   ): Promise<AgentPlanReadResult> {
     const request = readPlanReportsRequest(input);
-    const run = await this.select(userId, request.run);
+    const { run, startedBy, hiddenFields } = await this.select(
+      userId,
+      request.run,
+    );
     const steps = run.steps.filter(
       (step) =>
         (request.stepId === null || step.id === request.stepId) &&
@@ -323,8 +350,10 @@ export class AgentPlanReadOperations {
       run: runSummary(
         { id: run.planId, name: run.planName },
         { id: run.id, startedAt: run.startedAt, status: run.status },
+        startedBy,
       ),
       reports,
+      hiddenFields,
     };
   }
 }

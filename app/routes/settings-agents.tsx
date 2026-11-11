@@ -6,6 +6,8 @@ import { useLocalStateRoute } from "@/app/components/common/use-local-state-rout
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings-card";
+import { AgentChatSettingsCard } from "@/app/components/settings/agents/agent-chat-settings-card";
+import { RunDiagnosisSettingsCard } from "@/app/components/settings/agents/run-diagnosis-settings-card";
 import { SpeechSettingsCard } from "@/app/components/settings/agents/speech-settings-card";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
 import { RunnerConnectionsCard } from "@/app/components/settings/agents/runner-connections-card";
@@ -32,6 +34,8 @@ import type {
 } from "@/definition/AgentConnection";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { PicaAdministration } from "@/definition/PicaSettings";
+import type { AgentChatSettings } from "@/definition/Conversation";
+import type { AgentRunDiagnosisSettings } from "@/definition/AgentRunDiagnosis";
 import type { SpeechAdministration } from "@/definition/SpeechRecognition";
 import type { Route } from "./+types/settings-agents";
 import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
@@ -52,6 +56,10 @@ export type AgentsLoaderData =
         readonly models: readonly PageAgentModel[];
       };
       readonly speech: SpeechAdministration;
+      /** The hourly limit of messages one agent sends (PAGE-311). */
+      readonly agentChat: AgentChatSettings;
+      /** How long run logs are kept and when a silent step counts as stalled (PAGE-307). */
+      readonly runDiagnosis: AgentRunDiagnosisSettings;
       readonly audience: LocalStateAudience;
     };
 
@@ -85,7 +93,7 @@ function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
  * metadata; the request for the admin mode is not kept.
  */
 const SETTINGS_AGENTS_STATE: LocalStateRouteKind<AgentsLoaderData> = {
-  schemaVersion: 2,
+  schemaVersion: 4,
   isPayload: isAgentsRouteData,
   isCurrent: (agents) =>
     agents.access === "granted" && isCurrentLocalStateAudience(agents.audience),
@@ -148,6 +156,8 @@ export default function SettingsAgentsRoute(): React.ReactElement {
         administration={result.speech}
         isCatalogFailed={hasFailedCatalog(result.catalogs)}
       />
+      <AgentChatSettingsCard settings={result.agentChat} />
+      <RunDiagnosisSettingsCard settings={result.runDiagnosis} />
       <PicaSettingsCard
         settings={result.pica.settings}
         models={result.pica.models}

@@ -10,6 +10,9 @@ const MAXIMUM_BYTES = 1024 * 1024;
 const MAXIMUM_NATIVE_RESPONSE_BYTES = 4 * 8_000_000 + MAXIMUM_BYTES;
 const PENDING_DELAY_MS = 100;
 const REQUEST_DEADLINE_MS = 15_000;
+/** `chat_send` may wait up to ten minutes for a reply (PAGE-311). */
+const WAITING_TOOL = "chat_send";
+const WAITING_DEADLINE_MS = 11 * 60_000;
 
 /** Server-owned invocation location; neither value comes from tool arguments. */
 export interface PicaToolClientBinding {
@@ -79,7 +82,10 @@ export async function invokePicaTool(
     Reflect.get(inputRecord, "action") === "native_call"
   )
     throw new Error("INVALID_REQUEST");
-  const result = await requestTool(binding, input, signal, MAXIMUM_BYTES);
+  const result = await requestTool(binding, input, signal, {
+    maximumBytes: MAXIMUM_BYTES,
+    deadlineMilliseconds: REQUEST_DEADLINE_MS,
+  });
   const parsed: unknown = JSON.parse(result);
   if (
     typeof parsed !== "object" ||
@@ -102,12 +108,11 @@ export async function invokePicaNativeTool(
     name: call.name,
     arguments: call.arguments,
   });
-  const result = await requestTool(
-    binding,
-    input,
-    signal,
-    MAXIMUM_NATIVE_RESPONSE_BYTES,
-  );
+  const result = await requestTool(binding, input, signal, {
+    maximumBytes: MAXIMUM_NATIVE_RESPONSE_BYTES,
+    deadlineMilliseconds:
+      call.name === WAITING_TOOL ? WAITING_DEADLINE_MS : REQUEST_DEADLINE_MS,
+  });
   const parsed: unknown = JSON.parse(result);
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
     throw new Error("INVALID_RESPONSE");
@@ -121,8 +126,12 @@ async function requestTool(
   binding: PicaToolClientBinding,
   input: string,
   signal: AbortSignal,
-  maximumBytes: number,
+  limits: {
+    readonly maximumBytes: number;
+    readonly deadlineMilliseconds: number;
+  },
 ): Promise<string> {
+  const { maximumBytes, deadlineMilliseconds } = limits;
   const body = requestBody(input);
   const descriptor = readPicaInvocationFile(
     binding.descriptorFile,
@@ -130,7 +139,7 @@ async function requestTool(
   );
   const deadline = AbortSignal.any([
     signal,
-    AbortSignal.timeout(REQUEST_DEADLINE_MS),
+    AbortSignal.timeout(deadlineMilliseconds),
   ]);
   for (;;) {
     deadline.throwIfAborted();

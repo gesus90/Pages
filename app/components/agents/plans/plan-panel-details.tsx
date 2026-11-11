@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { PlanPanelContext } from "./plan-panel-context";
 import { PlanPanelIssueList } from "./plan-panel-issues";
@@ -14,6 +15,24 @@ import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanPanelIssue } from "./plan-panel-issues";
 import type { usePlanEditor } from "./use-plan-editor";
+
+/** Opens the run view of the plan: every run, whoever started it (PAGE-307). */
+function PlanRunsLink({
+  page,
+}: {
+  readonly page: AgentPlanPage;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (page.selected === null) return null;
+  return (
+    <Link
+      to={`/agents/runs?planId=${encodeURIComponent(page.selected.id)}`}
+      className="inline-block text-xs font-medium text-primary-text hover:text-primary-text-hover"
+    >
+      {t("plans.panel.allRuns")}
+    </Link>
+  );
+}
 
 /** The longer explanations of the run state that the status line names briefly. */
 function PlanPanelNotes({
@@ -98,6 +117,7 @@ export function PlanPanelDetails(props: {
         </p>
       ) : null}
       <PlanPanelNotes control={props.control} />
+      <PlanRunsLink page={page} />
       <PlanPanelContext page={page} />
     </div>
   );

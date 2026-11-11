@@ -27,6 +27,7 @@ import { PersonColorService } from "@/backend/service/employee/PersonColorServic
 import { createConversationServices } from "./conversation-services.server";
 import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 
+import type { AgentChatTools } from "@/definition/AgentChat";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
@@ -83,6 +84,8 @@ export function createEmployeeServices(
     groups: new UserGroupRepository(database),
   });
   const languages = new UserSettingsRepository(database);
+  // The conversations are wired after the sessions, which need their chat tools.
+  let agentChat: AgentChatTools | null = null;
   const memory = new AgentMemoryService(store);
   const activity = new AgentActivityService(store);
   const sessions = new AgentEmployeeSessions({
@@ -94,6 +97,7 @@ export function createEmployeeServices(
     models,
     memory,
     acp: input.acp,
+    agentChat: () => agentChat,
     createSessionId: () => createChatSessionId(),
   });
   const simulation = currentAgentSimulationMode();
@@ -110,6 +114,7 @@ export function createEmployeeServices(
         : null,
     }),
   });
+  agentChat = conversations.agentChatService;
   const learning = new AgentLearningService({
     store,
     users,
@@ -146,6 +151,8 @@ export function createEmployeeServices(
       isWorking: (agent, sessionId) => sessions.isWorking(agent, sessionId),
       workingAgentIds: (conversationId) =>
         conversations.conversationAgentReplies.workingAgentIds(conversationId),
+      oversight: conversations.conversationOversight,
+      guard: conversations.conversationAgentGuard,
     }),
     chatGroupService: new ChatGroupService({ store }),
     personColorService: new PersonColorService(authorization, input.cache),

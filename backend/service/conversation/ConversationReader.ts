@@ -9,6 +9,7 @@ import type {
   ConversationRecord,
   ConversationRepository,
 } from "@/backend/database/repositories/conversation/ConversationRepository";
+import type { AgentConversationRecord } from "@/backend/database/repositories/conversation/ConversationAgentChatRepository";
 import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import type {
   ConversationContact,
@@ -220,31 +221,35 @@ export class ConversationReader {
     beforeId: string | null,
   ): Promise<ConversationHistoryPage> {
     await this.requireMember(person, conversationId);
-    let beforeSequence: number | null = null;
-    if (beforeId !== null) {
-      const before = await this.dependencies.messages.find(
-        conversationId,
-        readConversationIdentifier(beforeId),
-      );
-      if (!before) throw new ConversationError("invalid");
-      beforeSequence = before.sequence;
-    }
-    const [stored, accounts] = await Promise.all([
-      this.dependencies.messages.history(
-        conversationId,
-        beforeSequence,
-        CONVERSATION_HISTORY_PAGE_SIZE + 1,
-      ),
-      this.dependencies.directory.read(),
-    ]);
-    const page = limitPage(stored);
-    return {
-      conversationId,
-      messages: page.messages.map((message) =>
-        toConversationMessage(message, accounts),
-      ),
-      hasMore: page.hasMore,
-    };
+    return this.historyPage(conversationId, beforeId);
+  }
+
+  /**
+   * Reads a page of the history of a conversation of agents only for an
+   * overseer who is no member (PAGE-311); the caller has checked the right.
+   *
+   * @throws {ConversationError} `invalid` for a `beforeId` outside the conversation.
+   */
+  public inspectHistory(
+    conversationId: string,
+    beforeId: string | null,
+  ): Promise<ConversationHistoryPage> {
+    return this.historyPage(conversationId, beforeId);
+  }
+
+  /**
+   * Reads conversations of agents only with their newest messages for an
+   * overseer who is no member (PAGE-311); the caller has checked the right.
+   */
+  public async inspect(
+    viewer: User,
+    records: readonly AgentConversationRecord[],
+  ): Promise<ConversationView[]> {
+    const summaries = await this.summaries(
+      viewer,
+      records.map((record) => ({ ...record, isMuted: false, unreadCount: 0 })),
+    );
+    return this.withMessages(summaries);
   }
 
   /** Lists the people and agents the person can start a conversation with. */
@@ -331,10 +336,52 @@ export class ConversationReader {
       null,
       500,
     );
-    const [summaries, accounts] = await Promise.all([
-      this.summaries(person, records),
+    return this.withMessages(await this.summaries(person, records));
+  }
+
+  /** Returns the member IDs of a conversation. */
+  public async memberIds(conversationId: string): Promise<string[]> {
+    const members = await this.dependencies.conversations.memberIds([
+      conversationId,
+    ]);
+    return members.get(conversationId) ?? [];
+  }
+
+  private async historyPage(
+    conversationId: string,
+    beforeId: string | null,
+  ): Promise<ConversationHistoryPage> {
+    let beforeSequence: number | null = null;
+    if (beforeId !== null) {
+      const before = await this.dependencies.messages.find(
+        conversationId,
+        readConversationIdentifier(beforeId),
+      );
+      if (!before) throw new ConversationError("invalid");
+      beforeSequence = before.sequence;
+    }
+    const [stored, accounts] = await Promise.all([
+      this.dependencies.messages.history(
+        conversationId,
+        beforeSequence,
+        CONVERSATION_HISTORY_PAGE_SIZE + 1,
+      ),
       this.dependencies.directory.read(),
     ]);
+    const page = limitPage(stored);
+    return {
+      conversationId,
+      messages: page.messages.map((message) =>
+        toConversationMessage(message, accounts),
+      ),
+      hasMore: page.hasMore,
+    };
+  }
+
+  private async withMessages(
+    summaries: readonly ConversationSummary[],
+  ): Promise<ConversationView[]> {
+    const accounts = await this.dependencies.directory.read();
     const views: ConversationView[] = [];
     for (const summary of summaries) {
       const stored = await this.dependencies.messages.history(
@@ -352,14 +399,6 @@ export class ConversationReader {
       });
     }
     return views;
-  }
-
-  /** Returns the member IDs of a conversation. */
-  public async memberIds(conversationId: string): Promise<string[]> {
-    const members = await this.dependencies.conversations.memberIds([
-      conversationId,
-    ]);
-    return members.get(conversationId) ?? [];
   }
 
   private async requireMember(

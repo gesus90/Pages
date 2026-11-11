@@ -2,6 +2,7 @@ import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistr
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 import { ChatResultBudget } from "./ChatResultBudget";
+import { registerPicaChatTools } from "./PicaChatTools";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
@@ -23,6 +24,7 @@ import {
 import { z } from "zod";
 import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { AgentChatTools } from "@/definition/AgentChat";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatActionOutcome } from "./ChatPrompt";
@@ -56,6 +58,11 @@ export interface PicaToolsInput {
    * (PAGE-266); without it the memory tool is not offered.
    */
   readonly searchMemory?: ((query: string) => Promise<unknown>) | undefined;
+  /**
+   * Reads chats and sends messages as the agent employee whose job runs
+   * (PAGE-311); without it the chat tools are not offered.
+   */
+  readonly agentChat?: AgentChatTools | undefined;
 }
 
 /** The input of the memory tool of an agent employee. */
@@ -638,6 +645,19 @@ export function createPicaTools(
         createAnswerFile(input, budget, { parameters, context }),
     });
   if (input.searchMemory) registerMemoryTool(registry, input, budget);
+  const agentChat = input.agentChat;
+  if (agentChat)
+    registerPicaChatTools(registry, {
+      chat: agentChat,
+      searchTargets: (userId, parameters) =>
+        input.tools.run(
+          userId,
+          { operation: "assignment.targets.search", parameters },
+          null,
+        ),
+      authorize: input.authorize,
+      spend: () => spend(input, budget),
+    });
   if (input.adminTools)
     registerAdministratorTools(registry, {
       input,

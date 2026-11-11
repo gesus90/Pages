@@ -1,19 +1,24 @@
 import { isPlanHistoryReadFailure } from "./AgentPlanControlAccess";
+import { readRunForReading } from "./diagnosis/RunReading";
 
 import type { AgentPlanRecoveryEntry } from "@/definition/AgentPlanRecoveryEntry";
 import type { AgentPlanRecoveryView } from "@/definition/AgentPlanRecovery";
-import type { AgentPlanService } from "./AgentPlanService";
+import type { RunReadingPlans } from "./diagnosis/RunReading";
 
 /** Rechecks the linked run's current access without disclosing an inaccessible ID. */
 export async function canReadPlanContinuation(
-  plans: Pick<AgentPlanService, "run">,
+  plans: RunReadingPlans,
   userId: string,
   recovery: AgentPlanRecoveryView,
 ): Promise<boolean> {
   if (!recovery.continuedBy) return false;
   try {
-    const continuation = await plans.run(userId, recovery.continuedBy);
-    return continuation.planId === recovery.planId;
+    const continuation = await readRunForReading(
+      plans,
+      userId,
+      recovery.continuedBy,
+    );
+    return continuation.run.planId === recovery.planId;
   } catch (error) {
     if (isPlanHistoryReadFailure(error)) return false;
     throw error;

@@ -112,7 +112,7 @@ it("reads the stored failure through recovery and MCP without scanning or releas
   expect(append).not.toHaveBeenCalled();
   await expect(
     world.recovery.view("foreign", fixture.failed.id),
-  ).rejects.toMatchObject({ code: "plan_access_denied" });
+  ).rejects.toMatchObject({ code: "access_denied" });
   expect(latest).toHaveBeenCalledTimes(1);
 });
 

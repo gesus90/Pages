@@ -16,6 +16,7 @@ import type { ChatJobRepository } from "@/backend/database/repositories/chat/Cha
 import type { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
 import type { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
+import type { AgentChatTools } from "@/definition/AgentChat";
 import type { ChatSendResult } from "@/definition/Chat";
 import type {
   ChatJobStart,
@@ -78,6 +79,8 @@ export interface PicaAcpEmployeeRun {
   readonly requireConnection: (connectionId: string) => Promise<void>;
   /** Searches the agent's own memory archive. */
   readonly searchMemory: (query: string) => Promise<unknown>;
+  /** The Pages tools to read chats and send messages (PAGE-311); absent where none run. */
+  readonly agentChat?: AgentChatTools;
 }
 
 /** What a new job is started from; the agent is resolved by the caller for this message. */
@@ -390,6 +393,7 @@ export class PicaAcpService {
       ...this.dependencies,
       requireCurrent: () => employee.requireCurrent(),
       searchMemory: (query) => employee.searchMemory(query),
+      ...(employee.agentChat ? { agentChat: employee.agentChat } : {}),
       access: {
         requireUser: (userId, connectionId) =>
           employee.requireConnection(connectionId),

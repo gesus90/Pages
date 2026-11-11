@@ -27,6 +27,8 @@ const services = vi.hoisted(() => ({
   agentProfileService: { directory: vi.fn() },
   picaSettingsService: { administration: vi.fn() },
   speechSettingsService: { administration: vi.fn() },
+  agentChatSettingsService: { administration: vi.fn() },
+  agentRunDiagnosisSettingsService: { administration: vi.fn() },
   runnerService: { overview: vi.fn() },
   openCodeProviderLinks: { describe: vi.fn() },
   runnerGitHubMode: "offline",
@@ -69,6 +71,20 @@ vi.mock("@/app/components/settings/agents/pica-settings-card", () => ({
     readonly models: readonly unknown[];
   }): React.ReactElement => <p>{`pica ${props.models.length}`}</p>,
 }));
+vi.mock("@/app/components/settings/agents/agent-chat-settings-card", () => ({
+  AgentChatSettingsCard: (props: {
+    readonly settings: { readonly hourlyMessageLimit: number };
+  }): React.ReactElement => (
+    <p>{`agent chat ${props.settings.hourlyMessageLimit}`}</p>
+  ),
+}));
+vi.mock("@/app/components/settings/agents/run-diagnosis-settings-card", () => ({
+  RunDiagnosisSettingsCard: (props: {
+    readonly settings: { readonly logRetentionDays: number };
+  }): React.ReactElement => (
+    <p>{`run diagnosis ${props.settings.logRetentionDays}`}</p>
+  ),
+}));
 vi.mock("@/app/components/settings/agents/speech-settings-card", () => ({
   SpeechSettingsCard: (props: {
     readonly administration: { readonly status: string };
@@ -99,6 +115,15 @@ beforeEach(() => {
   });
   services.speechSettingsService.administration.mockResolvedValue({
     status: "noModel",
+  });
+  services.agentChatSettingsService.administration.mockResolvedValue({
+    hourlyMessageLimit: 30,
+    revision: 1,
+  });
+  services.agentRunDiagnosisSettingsService.administration.mockResolvedValue({
+    logRetentionDays: 30,
+    stallMinutes: 15,
+    revision: 1,
   });
   services.runnerService.overview.mockResolvedValue([]);
   services.openCodeProviderLinks.describe.mockResolvedValue(LINKS);
@@ -147,6 +172,8 @@ it("loads the management data and links OpenCode to its keys", async () => {
     profileDirectory: { groups: [] },
     pica: { settings: {}, models: [] },
     speech: { status: "noModel" },
+    agentChat: { hourlyMessageLimit: 30, revision: 1 },
+    runDiagnosis: { logRetentionDays: 30, stallMinutes: 15, revision: 1 },
     audience: AUDIENCE,
   });
   expect(result.init).toMatchObject({
@@ -210,6 +237,8 @@ it("renders the management sections for the admin mode", () => {
       profileDirectory: {},
       pica: { settings: {}, models: [{ id: "m" }] },
       speech: { status: "ready" },
+      agentChat: { hourlyMessageLimit: 30, revision: 1 },
+      runDiagnosis: { logRetentionDays: 30, stallMinutes: 15, revision: 1 },
       audience: AUDIENCE,
     },
   });
@@ -221,6 +250,7 @@ it("renders the management sections for the admin mode", () => {
   expect(screen.getByText("runners http")).toBeTruthy();
   expect(screen.getByText("pica 1")).toBeTruthy();
   expect(screen.getByText("speech ready")).toBeTruthy();
+  expect(screen.getByText("run diagnosis 30")).toBeTruthy();
   expect(screen.getByRole("link").getAttribute("href")).toBe(
     "/settings/agents/tools",
   );

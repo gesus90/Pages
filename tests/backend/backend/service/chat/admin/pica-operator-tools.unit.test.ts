@@ -15,6 +15,7 @@ import {
   PLAN_WRITE_TOOLS,
 } from "@/definition/AgentTools/Plans";
 import {
+  PLAN_DIAGNOSIS_READ_TOOLS,
   PLAN_RESOURCE_READ_TOOLS,
   PLAN_RESOURCE_WRITE_TOOLS,
 } from "@/definition/AgentTools/PlanResources";
@@ -67,6 +68,7 @@ it("offers an administrator every operation of the chat catalog, and a person no
     ...PLAN_READ_TOOLS,
     ...PLAN_WRITE_TOOLS,
     ...PLAN_RESOURCE_READ_TOOLS,
+    ...PLAN_DIAGNOSIS_READ_TOOLS,
     ...PLAN_RESOURCE_WRITE_TOOLS,
   ].map(({ operation }) => operation);
   const reachable = new Set<string>([

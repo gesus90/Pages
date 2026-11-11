@@ -1,4 +1,5 @@
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
   isActivePlanRun,
   isPlanWriterWaitActive,
@@ -6,7 +7,11 @@ import {
 } from "@/definition/AgentPlanRunState";
 
 import type { AgentPlanRun, AgentPlanView } from "@/definition/AgentPlan";
-import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type {
+  AgentPlanControl,
+  AgentPlanResumeKind,
+} from "@/definition/AgentPlanControl";
+import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 function continuationIssue(
   plan: AgentPlanView,
@@ -20,6 +25,31 @@ function continuationIssue(
   )
     ? "plan_continuation_deleted"
     : null;
+}
+
+function isBlockedByBusiness(step: AgentPlanStepResult): boolean {
+  return step.status === "failed" && step.failureStop?.failureClass === "harm";
+}
+
+/**
+ * The state "Fortsetzen" continues, which names the way the server takes.
+ *
+ * @remarks
+ * A paused run continues at its pause point. Every ended, unfinished run
+ * continues as a new linked run at its last safe state; the kind only tells
+ * the person why: a lost process (`interrupted`), a step that reported
+ * `blocked`, an open closeout, an explicit stop, or a plain failure.
+ */
+export function planResumeKind(run: AgentPlanRun): AgentPlanResumeKind | null {
+  if (run.status === "paused") return "paused";
+  if (run.status === "work_done_closeout_open") return "closeout_open";
+  if (run.status === "cancelled") return "stopped";
+  if (run.status !== "failed") return null;
+  if (run.stopRequested) return "stopped";
+  if (run.recovery?.state === "interrupted") return "interrupted";
+  return allPlanRunResults(run).some(isBlockedByBusiness)
+    ? "blocked"
+    : "failed";
 }
 
 /** Derives every action from durable state and current ownership; read-only never mutates. */
@@ -47,7 +77,6 @@ export function planControl(
     };
   const isActive = isActivePlanRun(run.status);
   const canIdentify = plan.canEdit && run.userId === context.userId;
-  const canControl = canIdentify && !run.stopRequested;
   const issue = continuationIssue(plan, run);
   return {
     ...runControlMetadata(run, canIdentify),
@@ -57,15 +86,31 @@ export function planControl(
         ? run.workspaceWait
         : undefined,
     canRestart: canIdentify,
-    resumeAction: isResumablePlanRunEnd(run.status) ? "recovery" : "paused",
-    canPause: canControl && run.status === "running",
-    canResume: canControl && resumableStatus(run, issue),
-    canStop: canControl && isActive,
+    ...ownRunActions(run, canIdentify, issue),
     canEdit: plan.canEdit,
     ...foreignRunBlocker(plan, run, canIdentify),
     issue: canIdentify
       ? (issue ?? runFailure(run, context.hasReservation))
       : null,
+  };
+}
+
+/** What the executor of the run can do with it now; a run of someone else offers nothing. */
+function ownRunActions(
+  run: AgentPlanRun,
+  canIdentify: boolean,
+  issue: string | null,
+): Pick<
+  AgentPlanControl,
+  "resumeAction" | "resumeKind" | "canPause" | "canResume" | "canStop"
+> {
+  const kind = planResumeKind(run);
+  return {
+    resumeAction: isEndedResumable(run) ? "recovery" : "paused",
+    ...(canIdentify && kind ? { resumeKind: kind } : {}),
+    canPause: canIdentify && !run.stopRequested && run.status === "running",
+    canResume: canIdentify && resumableStatus(run, issue),
+    canStop: canIdentify && isStoppable(run),
   };
 }
 
@@ -79,7 +124,7 @@ function foreignRunBlocker(
   canIdentify: boolean,
 ): Pick<AgentPlanControl, "resumeBlocker"> {
   if (canIdentify || !plan.canEdit) return {};
-  return run.status === "paused" || isResumablePlanRunEnd(run.status)
+  return run.status === "paused" || isEndedResumable(run)
     ? { resumeBlocker: "own_run_required" }
     : {};
 }
@@ -118,8 +163,24 @@ function runControlMetadata(
   };
 }
 
+/** Ended runs that "Fortsetzen" continues: failed, an open closeout, and a stopped run. */
+export function isEndedResumable(run: AgentPlanRun): boolean {
+  return isResumablePlanRunEnd(run.status) || run.status === "cancelled";
+}
+
+/**
+ * Stop reaches every run that is not finished, also one that already stops.
+ *
+ * @remarks
+ * A run that ended at a failure still holds what it ran with, so Stop settles
+ * it as cancelled; a run that already stops is ended by force on the second
+ * Stop, also when a process hangs.
+ */
+function isStoppable(run: AgentPlanRun): boolean {
+  return isActivePlanRun(run.status) || isResumablePlanRunEnd(run.status);
+}
+
 function resumableStatus(run: AgentPlanRun, issue: string | null): boolean {
-  return (
-    (run.status === "paused" || isResumablePlanRunEnd(run.status)) && !issue
-  );
+  if (run.status === "paused") return !run.stopRequested && !issue;
+  return isEndedResumable(run) && !issue;
 }

@@ -6,7 +6,9 @@ import {
   type RouteConfigEntry,
 } from "@react-router/dev/routes";
 
+import { agentRunRoutes } from "./lib/agent-run-routes";
 import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
+import { mcpPlanRunRoutes } from "./lib/mcp-plan-run-routes";
 import { mcpUserRoutes } from "./lib/mcp-user-routes";
 import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
 import { storageRoutes } from "./lib/storage-routes";
@@ -251,6 +253,7 @@ function mcpPlanRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       "routes/api-mcp-v1-plan-parameter-remove.ts",
     ),
     resource(`${plan}/control`, "routes/api-mcp-v1-plan-control.ts"),
+    ...mcpPlanRunRoutes(routes.resource),
     resource(`${plan}/templates`, "routes/api-mcp-v1-plan-template-save.ts"),
     resource(templates, "routes/api-mcp-v1-plan-templates.ts"),
     resource(template, "routes/api-mcp-v1-plan-template.ts"),
@@ -421,11 +424,7 @@ function agentPlanRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     resource("agent-api/plan-assets", "routes/agent-plan-assets.ts"),
     resource("agent-plan-assets/:assetId", "routes/agent-plan-asset.ts"),
     resource("agent-api/plan-templates", "routes/agent-plan-templates.ts"),
-    resource("agent-api/plan-runs", "routes/agent-plan-runs.ts"),
-    resource(
-      "agent-api/plan-run-summaries",
-      "routes/agent-plan-run-summaries.ts",
-    ),
+    ...agentRunRoutes(routes),
     resource(
       "agent-api/plan-runs/:runId/recovery",
       "routes/agent-plan-recovery.ts",

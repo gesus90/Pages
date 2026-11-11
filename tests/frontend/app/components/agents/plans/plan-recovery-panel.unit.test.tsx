@@ -31,11 +31,7 @@ function renderPanel(runId: string | null, recovery: PlanRecovery): void {
 
 function renderRestart(recovery: PlanRecovery): void {
   renderTranslated(
-    <PlanRecoveryResumeDialog
-      recovery={recovery}
-      action="restart"
-      onClose={vi.fn()}
-    />,
+    <PlanRecoveryResumeDialog recovery={recovery} onClose={vi.fn()} />,
   );
 }
 

@@ -87,6 +87,12 @@ const REJECTION_REASONS: Readonly<
   step_report_invalid: true,
   step_report_foreign: true,
   step_report_closed: true,
+  unknown_parameter: true,
+  parameter_invalid: true,
+  limit_out_of_range: true,
+  time_invalid: true,
+  time_range_reversed: true,
+  cursor_invalid: true,
 };
 
 /** The reasons whose problems tell an agent what to correct in its step report. */

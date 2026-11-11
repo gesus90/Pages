@@ -44,7 +44,8 @@ export type ChatPageIntent =
   | "send-direct"
   | "read"
   | "mute"
-  | "history";
+  | "history"
+  | "resume-agents";
 
 /** What a change yields besides success: a created group or a page of older messages. */
 interface ChatIntentOutcome {
@@ -63,6 +64,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "read",
   "mute",
   "history",
+  "resume-agents",
 ];
 
 /** How a refused conversation request reads on the page (PAGE-278). */
@@ -247,6 +249,12 @@ async function runIntent(
     case "mute":
     case "history":
       return runMemberIntent(services, person, intent, formData);
+    case "resume-agents":
+      await services.conversationAgentGuard.resume(
+        person,
+        String(formData.get("conversationId") ?? ""),
+      );
+      return {};
   }
 }
 

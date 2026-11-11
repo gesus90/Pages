@@ -2,6 +2,7 @@ import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AGENT_PLAN_SESSION_READ_LIMITS } from "@/definition/AgentPlanSessionEvents";
 
 import { chunkAgentRead } from "./AgentReadChunking";
+import { readRunForReading } from "./diagnosis/RunReading";
 import { sanitizeArtifactText } from "./AgentPlanOutput";
 import { MAXIMUM_EVENT_TEXT } from "./sessions/AgentSessionJournal";
 import {
@@ -11,6 +12,7 @@ import {
 } from "./AgentParameterReader";
 
 import type { AgentPlanReadResult } from "@/definition/AgentPlanOperations";
+import type { RunReadingPlans } from "./diagnosis/RunReading";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
 import type { AgentSessionEventPage } from "@/definition/AgentSessionJournal";
 
@@ -58,6 +60,7 @@ export async function readPlanSessionEvents(
   sessions: Pick<AgentSessionService, "history">,
   userId: string,
   input: unknown,
+  plans?: RunReadingPlans,
 ): Promise<AgentPlanReadResult> {
   const fields = readParameterRecord(input);
   requireParameterKeys(
@@ -89,13 +92,42 @@ export async function readPlanSessionEvents(
     1,
     AGENT_PLAN_SESSION_READ_LIMITS.eventPage,
   );
+  const { run, startedBy, hiddenFields } = plans
+    ? await readRunForReading(plans, userId, key.runId)
+    : {
+        run: null,
+        startedBy: { id: "", displayName: "" },
+        hiddenFields: [],
+      };
+  if (run !== null && run.planId !== key.planId)
+    throw new AgentOperationError("NOT_FOUND");
   const history = await sessions.history(userId, key, {
     after,
     before,
     limit,
   });
+  const isHidden = hiddenFields.length > 0;
+  const shown = filteredHistory(history);
   return chunkAgentRead(
-    { sessionEvents: { key, ...filteredHistory(history) } },
+    {
+      sessionEvents: {
+        key,
+        // The journal quotes the work of the agent, which may hold hidden content.
+        history: isHidden
+          ? {
+              ...shown.history,
+              events: shown.history.events.map((event) => ({
+                ...event,
+                text: "",
+                isTruncated: false,
+              })),
+            }
+          : shown.history,
+        isFiltered: isHidden || shown.isFiltered,
+      },
+      startedBy,
+      hiddenFields: isHidden ? [...hiddenFields, "events.text"] : [],
+    },
     {
       context: JSON.stringify([
         userId,

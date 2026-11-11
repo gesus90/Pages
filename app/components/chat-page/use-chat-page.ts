@@ -71,6 +71,8 @@ export interface ChatPageState {
   addMember(groupId: string, participantId: string): void;
   /** Stops the answer of the opened agent. */
   stop(): void;
+  /** Lets the agents of the opened paused conversation go on (PAGE-311). */
+  resumeAgents(): void;
   findParticipant(id: string): VirtualParticipant | undefined;
   /** The known members of a group, in its order. */
   findMembers(group: VirtualGroup): VirtualParticipant[];
@@ -106,6 +108,7 @@ function membersOf(
   group: VirtualGroup,
   participants: readonly VirtualParticipant[],
 ): VirtualParticipant[] {
+  if (group.agentMembers) return [...group.agentMembers];
   return group.memberIds.flatMap((id) => {
     const member = participants.find((participant) => participant.id === id);
     return member ? [member] : [];
@@ -300,6 +303,7 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
   const [selection, setSelection] = useState(() => firstSelection(lists));
   const sender = useFetcher();
   const stopper = useFetcher();
+  const resumer = useFetcher();
 
   const found = searchLists(lists, query);
   const opened = openConversation(lists, selection);
@@ -338,6 +342,14 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     void stopper.submit(formData, { method: "post" });
   }
 
+  function resumeAgents(): void {
+    if (opened?.kind !== "group") return;
+    const formData = new FormData();
+    formData.set("intent", "resume-agents");
+    formData.set("conversationId", opened.group.id);
+    void resumer.submit(formData, { method: "post" });
+  }
+
   function findParticipant(id: string): VirtualParticipant | undefined {
     return lists.participants.find((participant) => participant.id === id);
   }
@@ -371,6 +383,7 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     send,
     addMember: activity.addMember,
     stop,
+    resumeAgents,
     findParticipant,
     findMembers,
   };

@@ -99,6 +99,21 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     return { ok: true };
   },
   "save-speech": saveSpeechSettings,
+  "save-agent-chat": async ({ actor, services, formData }) => {
+    await services.agentChatSettingsService.save(actor, {
+      hourlyMessageLimit: Number(readText(formData, "hourlyMessageLimit")),
+      revision: Number(readText(formData, "revision")),
+    });
+    return { ok: true };
+  },
+  "save-run-diagnosis": async ({ actor, services, formData }) => {
+    await services.agentRunDiagnosisSettingsService.save(actor, {
+      logRetentionDays: Number(readText(formData, "logRetentionDays")),
+      stallMinutes: Number(readText(formData, "stallMinutes")),
+      revision: Number(readText(formData, "revision")),
+    });
+    return { ok: true };
+  },
   "test-speech": testSpeechRecognition,
   "save-profile": retiredProfileAction,
   "delete-profile": retiredProfileAction,

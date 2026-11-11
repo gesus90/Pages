@@ -78,6 +78,9 @@ export const PLAN_RUN_FLOW: RepositoryFlow = {
     call("AgentPlanRunRepository.findWorkspaceReservation", (world) =>
       runs(world).findWorkspaceReservation([RESOURCE], "run-a"),
     ),
+    call("AgentPlanRunRepository.workspaceReservationHolder", (world) =>
+      runs(world).workspaceReservationHolder([RESOURCE, "free"]),
+    ),
     call("AgentPlanRunRepository.insert", async ({ database }) => {
       const repository = new AgentPlanRunRepository(database);
       const run = runFixture("run-second", SECOND_PLAN.id, {
@@ -238,6 +241,12 @@ export const PLAN_RUN_FLOW: RepositoryFlow = {
     ),
     call("AgentPlanRunRepository.entries", (world) =>
       runs(world).entries(OWNER, PLAN.id, "oldest"),
+    ),
+    call("AgentPlanRunRepository.teamEntries", (world) =>
+      runs(world).teamEntries(PLAN.id, "newest"),
+    ),
+    call("AgentPlanRunRepository.teamEntries", (world) =>
+      runs(world).teamEntries(PLAN.id, "oldest"),
     ),
     prepare(
       "UPDATE agent_plan_runs SET status = 'exploded' WHERE id = 'run-second';",

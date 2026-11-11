@@ -18,6 +18,7 @@ import type { UserRepository } from "@/backend/database/repositories/UserReposit
 import type { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 import type { PicaAcpService, PicaAcpStart } from "../chat/acp/PicaAcpService";
+import type { AgentChatTools } from "@/definition/AgentChat";
 import type { ChatJob, ChatJobStart } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
@@ -39,6 +40,11 @@ export interface AgentEmployeeSessionDependencies {
     PicaAcpService,
     "start" | "steer" | "update" | "stop"
   > | null;
+  /**
+   * The Pages tools to read chats and send messages (PAGE-311). A function,
+   * because the conversations are wired after the sessions; `null` where none.
+   */
+  readonly agentChat?: () => AgentChatTools | null;
   /** An unused ID for a new chat session. */
   readonly createSessionId: () => string;
   readonly today?: () => string;
@@ -269,7 +275,9 @@ export class AgentEmployeeSessions {
     employee: StoredAgentEmployee,
     assignment: ResolvedAgentAssignment,
   ): NonNullable<PicaAcpStart["employee"]> {
+    const agentChat = this.dependencies.agentChat?.() ?? null;
     return {
+      ...(agentChat ? { agentChat } : {}),
       runner: employeeAcpRunner(assignment, employee.access),
       requireCurrent: () => this.requireCurrent(agent.id, employee.revision),
       requireConnection: (connectionId) =>

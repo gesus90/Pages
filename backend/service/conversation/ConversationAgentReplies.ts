@@ -5,6 +5,8 @@ import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
   CONVERSATION_AGENT_CONTEXT_MESSAGES,
+  CONVERSATION_AGENT_REPLY_PREFIX,
+  CONVERSATION_AGENT_SEND_PREFIX,
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
 } from "@/definition/Conversation";
 
@@ -26,6 +28,7 @@ import type {
   ConversationAccounts,
   ConversationDirectory,
 } from "./ConversationDirectory";
+import type { ConversationAgentGuard } from "./ConversationAgentGuard";
 import type {
   ConversationEvent,
   ConversationEvents,
@@ -33,10 +36,21 @@ import type {
 
 const COMPONENT = "ConversationAgentReplies";
 
+/** How long an answer waits for an agent that is busy before it tries again. */
+const BUSY_RETRY_MILLISECONDS = 5_000;
+/** How long a message waits for a busy agent at most: it is queued, never refused. */
+const BUSY_WAIT_MAXIMUM_MILLISECONDS = 6 * 3_600_000;
+
+function defaultWait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds).unref();
+  });
+}
+
 /** One answer an agent is asked for. */
 export interface ConversationAgentRequest {
   readonly agent: User;
-  /** The person whose message the agent answers. */
+  /** The person, or the agent (PAGE-311), whose message the agent answers. */
   readonly person: User;
   readonly conversation: Pick<ConversationRecord, "id" | "kind" | "name">;
   /** The task with the limited context of the conversation. */
@@ -70,7 +84,11 @@ export interface ConversationAgentRepliesDependencies {
   readonly events: Pick<ConversationEvents, "subscribe" | "publish">;
   /** Tells the live view of this process about a change. */
   readonly publisher: { publish(event: PagesEvent): void };
+  /** Pauses a chain of agent messages (PAGE-311); without it no chain is limited. */
+  readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
   readonly now?: () => Date;
+  /** Waits for a busy agent; tests pass a fast one. */
+  readonly wait?: (milliseconds: number) => Promise<void>;
 }
 
 /** The answered message with what its answers need. */
@@ -121,9 +139,20 @@ function answerableMessage(
   if (event.kind === "message_updated" && message.voice === undefined)
     return null;
   if (isWaiting || message.notice !== undefined) return null;
-  if (message.sender.kind !== "human" || message.text.trim() === "")
-    return null;
-  return message;
+  if (message.text.trim() === "") return null;
+  return isAskingMessage(message) ? message : null;
+}
+
+/**
+ * Whether a message asks for an answer: one a person wrote, or one an agent
+ * chose to send (PAGE-311). The answer of an agent asks nobody, so two agents
+ * never answer each other on their own.
+ */
+function isAskingMessage(message: ConversationMessage): boolean {
+  return (
+    message.sender.kind === "human" ||
+    message.clientMessageId.startsWith(CONVERSATION_AGENT_SEND_PREFIX)
+  );
 }
 
 /**
@@ -132,12 +161,15 @@ function answerableMessage(
  * @remarks
  * In a direct conversation the agent answers every message of the person;
  * in a group an agent answers only when the message mentions it, each
- * mentioned agent once. An agent never answers itself or another agent, so
- * no loop arises. While it works, the members see it (`typing`). A failed
+ * mentioned agent once. An agent answers a message of another agent only when
+ * that agent chose to send it (PAGE-311); an answer asks nobody, and a
+ * conversation paused after a chain of agent messages gets none. While it
+ * works, the members see it (`typing`). A message for a busy agent is queued
+ * and answered once the agent is free, never refused. A failed
  * answer, a deactivated agent, a reached cost limit or a missing model leave
  * a hint in the agent's name instead, and nothing is started again. The
- * answers of one agent in one conversation run one after the other, and each
- * answered message gets at most one answer or hint per agent.
+ * answers of one agent run one after the other, and each answered message
+ * gets at most one answer or hint per agent.
  */
 export class ConversationAgentReplies {
   private readonly dependencies: ConversationAgentRepliesDependencies;
@@ -177,7 +209,7 @@ export class ConversationAgentReplies {
   ): Promise<void> {
     const accounts = await this.dependencies.directory.read();
     const sender = accounts.find(message.sender.id);
-    if (!sender || sender.user.isAgent === true) return;
+    if (!sender || !isAskingMessage(message)) return;
     const conversation = await this.dependencies.conversations.findForMember(
       message.conversationId,
       sender.user.id,
@@ -229,7 +261,8 @@ export class ConversationAgentReplies {
     const key = `${job.agentId}:${job.message.id}`;
     if (this.started.has(key)) return Promise.resolve();
     this.started.add(key);
-    const queueKey = `${job.conversation.id}:${job.agentId}`;
+    // One agent answers one message at a time, whatever the conversation: the others wait their turn.
+    const queueKey = job.agentId;
     const previous = this.queues.get(queueKey) ?? Promise.resolve();
     const next = previous.then(() => this.reply(job));
     this.queues.set(queueKey, next);
@@ -251,9 +284,10 @@ export class ConversationAgentReplies {
       });
       return;
     }
+    if (await this.isPausedChain(job)) return;
     this.setWorking(job, true);
     try {
-      const text = await this.ask(job, agent.user, accounts);
+      const text = await this.askWhenFree(job, agent.user, accounts);
       await this.post(job, accounts, { text, notice: null });
     } catch (error: unknown) {
       const notice = noticeFor(error);
@@ -264,6 +298,33 @@ export class ConversationAgentReplies {
       });
     } finally {
       this.setWorking(job, false);
+    }
+  }
+
+  /** Whether the message came from an agent into a conversation whose chain of agent messages is used up. */
+  private async isPausedChain(job: ReplyJob): Promise<boolean> {
+    if (job.person.isAgent !== true || !this.dependencies.guard) return false;
+    return this.dependencies.guard.isPaused(job.conversation.id);
+  }
+
+  /** Asks the agent; while it is busy with another job the message waits for its turn. */
+  private async askWhenFree(
+    job: ReplyJob,
+    agent: User,
+    accounts: ConversationAccounts,
+  ): Promise<string> {
+    const now = (): number =>
+      (this.dependencies.now?.() ?? new Date()).getTime();
+    const deadline = now() + BUSY_WAIT_MAXIMUM_MILLISECONDS;
+    for (;;) {
+      try {
+        return await this.ask(job, agent, accounts);
+      } catch (error: unknown) {
+        const isBusy =
+          error instanceof AgentEmployeeError && error.code === "busy";
+        if (!isBusy || now() > deadline) throw error;
+        await (this.dependencies.wait ?? defaultWait)(BUSY_RETRY_MILLISECONDS);
+      }
     }
   }
 
@@ -316,7 +377,7 @@ export class ConversationAgentReplies {
         conversationId,
         senderId: job.agentId,
         // One answer or hint per agent and answered message, also after a repeated event.
-        clientMessageId: `reply-${job.message.id}`,
+        clientMessageId: `${CONVERSATION_AGENT_REPLY_PREFIX}${job.message.id}`,
         text: reply.text,
         mentions: [],
         createdAt: (this.dependencies.now?.() ?? new Date()).toISOString(),

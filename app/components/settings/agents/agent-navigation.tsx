@@ -52,6 +52,19 @@ export function AgentNavigation(props: {
             {t("navigation.executionPlan")}
           </NavLink>
           <NavLink
+            to="/agents/runs"
+            onClick={props.onNavigate}
+            className={({ isActive: isRunsActive }) =>
+              cn(
+                "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground xl:min-h-9",
+                isRunsActive &&
+                  "bg-sidebar-active text-foreground inset-shadow-navigation-selection shadow-xs",
+              )
+            }
+          >
+            {t("navigation.runs")}
+          </NavLink>
+          <NavLink
             to="/agents/workspaces"
             onClick={props.onNavigate}
             className={({ isActive: isWorkspaceActive }) =>

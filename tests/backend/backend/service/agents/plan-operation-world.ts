@@ -309,23 +309,38 @@ export class PlanWorld {
         this.requireWorkspace(userId, workspaceId);
         return this.catalog;
       },
-      runEntries: async (userId, planId, order) => {
-        this.view(userId, planId);
-        return this.entries(userId, planId, order);
+      teamRuns: {
+        entries: async (userId, planId, order) => {
+          this.view(userId, planId);
+          return this.entries(userId, planId, order).map((entry) => ({
+            ...entry,
+            userId,
+          }));
+        },
+        overview: async (userId, planIds) =>
+          new Map(
+            planIds.map((planId) => [
+              planId,
+              this.entries(userId, planId, "newest").map((entry) => ({
+                ...entry,
+                userId,
+              })),
+            ]),
+          ),
+        starters: async (userIds) =>
+          new Map(userIds.map((id) => [id, { id, displayName: id }])),
       },
-      runOverview: async (userId, planIds) =>
-        new Map(
-          planIds.map((planId) => [
-            planId,
-            this.entries(userId, planId, "newest"),
-          ]),
-        ),
-      run: async (userId, id) => {
+      readableRun: async (userId, id) => {
         const run = this.runs.find((entry) => entry.id === id);
         if (!run || run.userId !== userId)
           throw new AgentError("plan_access_denied");
         this.view(userId, run.planId);
-        return structuredClone(run);
+        return {
+          run: structuredClone(run),
+          startedBy: { id: run.userId, displayName: run.userId },
+          hiddenFields: [],
+          hiddenSources: [],
+        };
       },
       save: async (userId, id, input, journal) =>
         this.save(userId, id, input, journal),

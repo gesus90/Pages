@@ -50,6 +50,11 @@ export interface AgentPlanRunEntry {
   readonly manualInputAt?: string;
 }
 
+/** A run of a plan with the person who started it, for reading the runs of a whole team (PAGE-307). */
+export interface AgentPlanTeamRunEntry extends AgentPlanRunEntry {
+  readonly userId: string;
+}
+
 /** The latest run one person started of a plan, without its view, snapshot or results. */
 export interface AgentPlanLatestRunEntry extends AgentPlanRunEntry {
   readonly planId: string;
@@ -281,6 +286,26 @@ export class AgentPlanRunRepository {
       );
       if (row && readTextColumn(row, 0, "run_id") !== exceptRunId)
         return workspaceId;
+    }
+    return null;
+  }
+
+  /**
+   * Names the run that holds one of the working copies.
+   *
+   * @remarks
+   * Only the caller decides whether the run may be shown; the service names it
+   * for the executor's own runs and no one else's.
+   */
+  public async workspaceReservationHolder(
+    workspaceIds: readonly string[],
+  ): Promise<string | null> {
+    for (const workspaceId of new Set(workspaceIds)) {
+      const [row] = await this.database.query(
+        "SELECT run_id FROM agent_plan_workspace_locks WHERE workspace_id = $id;",
+        { id: workspaceId },
+      );
+      if (row) return readTextColumn(row, 0, "run_id");
     }
     return null;
   }
@@ -522,6 +547,43 @@ export class AgentPlanRunRepository {
         id: readTextColumn(row, 0, "id"),
         startedAt: readTextColumn(row, 1, "started_at"),
         status: readRunStatus(readTextColumn(row, 2, "status")),
+        ...(manualInputAt ? { manualInputAt } : {}),
+      };
+    });
+  }
+
+  /**
+   * Lists every run of a plan, whoever started it, ordered by start.
+   *
+   * @param planId - The plan; the service decides whether the reader may see it.
+   * @param order - `newest` first or `oldest` first; the identifier breaks ties.
+   */
+  public async teamEntries(
+    planId: string,
+    order: "newest" | "oldest",
+  ): Promise<readonly AgentPlanTeamRunEntry[]> {
+    const direction = order === "newest" ? "DESC" : "ASC";
+    const rows = await this.database.query(
+      `
+      SELECT
+          id,
+          started_at,
+          status,
+          manual_input_at,
+          user_id
+      FROM agent_plan_runs
+      WHERE plan_id = $plan_id
+      ORDER BY started_at ${direction}, id ${direction};
+    `,
+      { plan_id: planId },
+    );
+    return rows.map((row) => {
+      const manualInputAt = readNullableTextColumn(row, 3, "manual_input_at");
+      return {
+        id: readTextColumn(row, 0, "id"),
+        startedAt: readTextColumn(row, 1, "started_at"),
+        status: readRunStatus(readTextColumn(row, 2, "status")),
+        userId: readTextColumn(row, 4, "user_id"),
         ...(manualInputAt ? { manualInputAt } : {}),
       };
     });

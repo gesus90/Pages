@@ -3,13 +3,20 @@ import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanStartRejection } from "@/backend/agents/AgentPlanStartRejectionInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AGENT_PLAN_ISSUE_PROBLEMS } from "@/definition/AgentPlanOperations";
-import { AGENT_PLAN_RESUME_BLOCKERS } from "@/definition/AgentPlanControl";
+import {
+  AGENT_PLAN_RESUME_ACTIONS,
+  AGENT_PLAN_RESUME_BLOCKERS,
+  AGENT_PLAN_RESUME_KINDS,
+} from "@/definition/AgentPlanControl";
 
 import type { AgentWorkspaceCleanup } from "@/definition/AgentWorkspaceCleanup";
 import type { AgentPlanActionResult } from "./agent-plan-response";
 import type {
   AgentPlanControl,
+  AgentPlanResumeAction,
+  AgentPlanResumeBlock,
   AgentPlanResumeBlocker,
+  AgentPlanResumeKind,
 } from "@/definition/AgentPlanControl";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { AgentPlanWorkspaceConflict } from "@/definition/AgentPlanWorkspaceConflict";
@@ -122,11 +129,51 @@ function readResumeBlocker(
   return { resumeBlocker: input.resumeBlocker };
 }
 
+function isResumeKind(input: unknown): input is AgentPlanResumeKind {
+  return AGENT_PLAN_RESUME_KINDS.some((kind) => kind === input);
+}
+
+function isResumeAction(input: unknown): input is AgentPlanResumeAction {
+  return AGENT_PLAN_RESUME_ACTIONS.some((action) => action === input);
+}
+
+function readResumeBlock(input: unknown): AgentPlanResumeBlock {
+  const block = readAgentObject(input);
+  if (!isResumeAction(block.action)) throw new Error("Invalid plan response");
+  return {
+    code: requiredText(block.code),
+    action: block.action,
+    ...(block.holderRunId === undefined
+      ? {}
+      : { holderRunId: requiredText(block.holderRunId) }),
+  };
+}
+
+/** The state "Fortsetzen" continues and, while it is off, the reason and the action that lifts it. */
+function readResumeState(
+  input: Record<string, unknown>,
+): Pick<AgentPlanControl, "resumeKind" | "resumeBlock"> {
+  if (input.resumeKind !== undefined && !isResumeKind(input.resumeKind))
+    throw new Error("Invalid plan response");
+  return {
+    ...(input.resumeKind === undefined ? {} : { resumeKind: input.resumeKind }),
+    ...(input.resumeBlock === undefined
+      ? {}
+      : { resumeBlock: readResumeBlock(input.resumeBlock) }),
+  };
+}
+
 function readControlOptions(
   input: Record<string, unknown>,
 ): Pick<
   AgentPlanControl,
-  "canRestart" | "resumeAction" | "resumeBlocker" | "workspaceWait" | "cleanup"
+  | "canRestart"
+  | "resumeAction"
+  | "resumeBlocker"
+  | "resumeKind"
+  | "resumeBlock"
+  | "workspaceWait"
+  | "cleanup"
 > {
   if (
     input.resumeAction !== undefined &&
@@ -144,6 +191,7 @@ function readControlOptions(
       ? {}
       : { resumeAction: input.resumeAction }),
     ...readResumeBlocker(input),
+    ...readResumeState(input),
     ...(input.workspaceWait === undefined
       ? {}
       : { workspaceWait: planWriterWaitSchema.parse(input.workspaceWait) }),
