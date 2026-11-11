@@ -130,20 +130,23 @@ describe("wiki import planning", () => {
     });
     expect(response.result).toMatchObject({
       valid: false,
-      errors: expect.arrayContaining([
-        expect.objectContaining({
+      errors: [
+        {
+          code: "INVALID_REQUEST",
           reason: "invalid_path",
           sourceKeys: ["../bad.md"],
-        }),
-        expect.objectContaining({
+        },
+        {
+          code: "INVALID_REQUEST",
           reason: "missing_index_entry",
           sourceKeys: ["extra.md"],
-        }),
-        expect.objectContaining({
+        },
+        {
+          code: "INVALID_REQUEST",
           reason: "index_mismatch",
           sourceKeys: ["../bad.md"],
-        }),
-      ]),
+        },
+      ],
       contentComplete: false,
     });
   });
