@@ -276,3 +276,14 @@ it("names no provider for a session record that reports no runner", () => {
   expect(screen.getByTestId("prompt").textContent).toBe("no prompt");
   expect(screen.getByRole("status").textContent).toBe("Turn running");
 });
+
+it("keeps Escape inside the terminal for the running session", () => {
+  const onClose = vi.fn();
+  renderPanel("writer", running(cliRun()), onClose);
+  const terminal = document.createElement("div");
+  terminal.className = "xterm";
+  document.body.appendChild(terminal);
+  fireEvent.keyDown(terminal, { key: "Escape" });
+  expect(onClose).not.toHaveBeenCalled();
+  terminal.remove();
+});
