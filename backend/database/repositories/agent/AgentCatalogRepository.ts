@@ -52,6 +52,9 @@ function serializeModels(models: readonly AgentCatalogModel[]): string {
       ...(model.outputModalities === undefined
         ? {}
         : { output_modalities: model.outputModalities }),
+      ...(model.supportedVoices === undefined
+        ? {}
+        : { supported_voices: model.supportedVoices }),
     })),
   );
 }

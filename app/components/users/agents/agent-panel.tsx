@@ -23,6 +23,7 @@ import {
 import { agentDraftPayload, createAgentDraft } from "./agent-draft";
 import { AgentGeneralSection } from "./agent-general-section";
 import { AgentMemorySection } from "./agent-memory-section";
+import { AgentVoiceSection } from "./agent-voice-section";
 import { useAgentDetail } from "./use-agent-detail";
 
 import type { AgentDetailState } from "./use-agent-detail";
@@ -34,6 +35,7 @@ import type { AgentEmployeeDetailData } from "@/definition/AgentEmployeePage";
 import type { AgentInstructionTemplateList } from "@/definition/AgentInstructionTemplate";
 import type { Department, UserRole } from "@/definition/Authorization";
 import type { PageAgentModel } from "@/definition/PageAgent";
+import type { AgentVoiceOptions } from "@/definition/SpeechSynthesis";
 
 interface AgentPanelProps {
   readonly isOpen: boolean;
@@ -45,6 +47,8 @@ interface AgentPanelProps {
   readonly departments: readonly Department[];
   /** The templates of `AGENT.md` (PAGE-283). */
   readonly templates: AgentInstructionTemplateList;
+  /** The speech output model of the instance and its voices (PAGE-300). */
+  readonly voice: AgentVoiceOptions;
 }
 
 /** The draft of the panel and the picked image, reset whenever the agent is read anew. */
@@ -160,6 +164,29 @@ function useAgentPanel(props: AgentPanelProps): AgentPanelState {
   };
 }
 
+/** The tab "Stimme": voice and speed of the draft (PAGE-300). */
+function AgentVoiceTab({
+  voice,
+  state,
+}: {
+  readonly voice: AgentVoiceOptions;
+  readonly state: AgentPanelState;
+}): React.ReactElement {
+  const { panel, agent } = state;
+  return (
+    <AgentVoiceSection
+      agentId={agent?.id ?? null}
+      agentName={agent?.displayName ?? panel.draft.displayName}
+      options={voice}
+      voiceId={panel.draft.voiceId}
+      speedTenths={panel.draft.voiceSpeedTenths}
+      isDisabled={state.isDisabled}
+      onVoice={(value) => panel.change("voiceId", value)}
+      onSpeed={(value) => panel.change("voiceSpeedTenths", value)}
+    />
+  );
+}
+
 /** The tabs of the panel with their sections. */
 function AgentPanelTabs({
   props,
@@ -175,6 +202,7 @@ function AgentPanelTabs({
     { value: "general", label: t("agentEmployees.tabs.general") },
     { value: "soul", label: t("agentEmployees.tabs.soul") },
     { value: "instructions", label: t("agentEmployees.tabs.instructions") },
+    { value: "voice", label: t("agentEmployees.tabs.voice") },
     { value: "memory", label: t("agentEmployees.tabs.memory") },
     ...(state.isEditing
       ? [{ value: "activity", label: t("agentEmployees.tabs.activity") }]
@@ -228,6 +256,9 @@ function AgentPanelTabs({
             isDisabled={isDisabled}
           />
         </TabsContent>
+        <TabsContent value="voice">
+          <AgentVoiceTab voice={props.voice} state={state} />
+        </TabsContent>
         <TabsContent value="memory">
           <AgentMemorySection
             memory={panel.draft.memory}
@@ -255,8 +286,8 @@ function AgentPanelTabs({
 
 /**
  * The panel "Agent erstellen" and "Agent bearbeiten" (PAGE-266): the tabs
- * Allgemein, Persönlichkeit, Aufgabe, Gedächtnis and, when editing,
- * Aktivität.
+ * Allgemein, Persönlichkeit, Aufgabe, Stimme (PAGE-300), Gedächtnis and,
+ * when editing, Aktivität.
  *
  * @remarks
  * Every tab edits one draft, which is saved together; the server checks

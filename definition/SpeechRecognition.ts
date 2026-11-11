@@ -64,9 +64,16 @@ export interface SpeechSettings {
  * - `modelUnsuitable`: the catalog of the chosen model's connection still
  *   lists it, but not as a transcription model ({@link isTranscriptionModel}),
  *   such as a chat model that also accepts audio (PAGE-294).
+ * - `modelNotInCatalog`: the chosen model's OpenRouter connection is usable,
+ *   but its catalog no longer lists the model (PAGE-302). Nothing switches
+ *   to another model.
  */
 export type SpeechStatus =
-  "ready" | "noModel" | "modelUnavailable" | "modelUnsuitable";
+  | "ready"
+  | "noModel"
+  | "modelUnavailable"
+  | "modelUnsuitable"
+  | "modelNotInCatalog";
 
 /** What the settings card shows and edits. */
 export interface SpeechAdministration {

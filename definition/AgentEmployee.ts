@@ -1,3 +1,5 @@
+import type { AgentEmployeeVoice } from "./SpeechSynthesis";
+
 /**
  * Contracts of agents that Pages keeps like employees (PAGE-266).
  *
@@ -143,6 +145,8 @@ export interface AgentEmployee extends AgentEmployeeListItem {
   readonly departmentIds: readonly string[];
   readonly settings: AgentEmployeeSettings;
   readonly documents: AgentEmployeeDocuments;
+  /** The voice and speed of the agent (PAGE-300); kept when the instance's model changes. */
+  readonly voice: AgentEmployeeVoice;
   /** `MEMORY.md`. */
   readonly memory: string;
   readonly memoryUsage: AgentMemoryUsage;

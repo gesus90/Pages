@@ -45,6 +45,11 @@ function transcriptionPath(cursor: string | null): string {
   return `/models?output_modalities=transcription&limit=1000&offset=${cursor ?? "0"}`;
 }
 
+// OpenRouter's listing of its text-to-speech models, the one place it names them (PAGE-300).
+function speechOutputPath(cursor: string | null): string {
+  return `/models?output_modalities=speech&limit=1000&offset=${cursor ?? "0"}`;
+}
+
 // Anthropic documents its listing as newest first; other listings follow no stated order.
 function orderCatalog(
   provider: ApiProviderId,
@@ -102,18 +107,51 @@ export class CatalogProviderClient {
     apiKey: string,
     signal: AbortSignal,
   ): Promise<readonly AgentCatalogModel[]> {
-    const transcription = await this.collect({
+    return this.addListing(models, {
       provider: "openrouter",
       apiKey,
       signal,
       path: transcriptionPath,
     });
+  }
+
+  /**
+   * Adds OpenRouter's text-to-speech models to its listed catalog (PAGE-300).
+   *
+   * @param models - The OpenRouter catalog listed so far.
+   * @param apiKey - The key of the same connection.
+   * @param signal - Cancels the listing.
+   * @returns Both listings merged by model ID, in the catalog's order.
+   *
+   * @remarks
+   * OpenRouter lists its speech output models only under
+   * `GET /models?output_modalities=speech`, with their `supported_voices`.
+   * Merging and failures follow {@link CatalogProviderClient.addTranscriptionModels}.
+   */
+  public async addSpeechOutputModels(
+    models: readonly AgentCatalogModel[],
+    apiKey: string,
+    signal: AbortSignal,
+  ): Promise<readonly AgentCatalogModel[]> {
+    return this.addListing(models, {
+      provider: "openrouter",
+      apiKey,
+      signal,
+      path: speechOutputPath,
+    });
+  }
+
+  private async addListing(
+    models: readonly AgentCatalogModel[],
+    listing: CatalogListing,
+  ): Promise<readonly AgentCatalogModel[]> {
+    const listed = await this.collect(listing);
     const merged = new Map(models.map((model) => [model.id, model]));
-    for (const [id, model] of transcription)
+    for (const [id, model] of listed)
       if (!merged.has(id)) merged.set(id, model);
     if (merged.size > MAXIMUM_CATALOG_MODELS)
       throw new AgentError("catalog_limit_exceeded");
-    return orderCatalog("openrouter", [...merged.values()]);
+    return orderCatalog(listing.provider, [...merged.values()]);
   }
 
   private async collect(

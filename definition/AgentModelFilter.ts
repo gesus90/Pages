@@ -18,7 +18,8 @@ export interface AgentModelTraits {
   readonly toolCall: unknown;
 }
 
-const GENERATED_MEDIA = ["image", "video", "audio"] as const;
+// Speech output models (PAGE-300) generate audio as well, under a modality of their own.
+const GENERATED_MEDIA = ["image", "video", "audio", "speech"] as const;
 
 function statesModality(
   modalities: unknown,

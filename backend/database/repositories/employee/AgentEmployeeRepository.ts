@@ -32,6 +32,10 @@ export interface StoredAgentEmployee {
   readonly revision: number;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** The chosen voice ID (PAGE-300); `null` for the first voice of the model. */
+  readonly voiceId: string | null;
+  /** The speed of the voice in tenths, 5 to 20. */
+  readonly voiceSpeedTenths: number;
 }
 
 /** What an administrator changes on an agent beside its account. */
@@ -43,6 +47,8 @@ export interface AgentEmployeeChange {
   readonly soul: string;
   readonly instructions: string;
   readonly isLearningEnabled: boolean;
+  readonly voiceId: string | null;
+  readonly voiceSpeedTenths: number;
 }
 
 /** What a learning run stores about itself. */
@@ -68,7 +74,9 @@ const COLUMNS = `
     last_learning_result,
     revision,
     created_at,
-    updated_at`;
+    updated_at,
+    voice_id,
+    voice_speed_tenths`;
 
 const STATUSES: readonly AgentLearningStatus[] = [
   "updated",
@@ -129,12 +137,14 @@ function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
     revision: readCountColumn(row, 13, "revision"),
     createdAt: readTextColumn(row, 14, "created_at"),
     updatedAt: readTextColumn(row, 15, "updated_at"),
+    voiceId: readNullableTextColumn(row, 16, "voice_id"),
+    voiceSpeedTenths: readCountColumn(row, 17, "voice_speed_tenths"),
   };
 }
 
 /**
- * Persists model, access, cost limit, documents and learning state of agents
- * (PAGE-266).
+ * Persists model, access, voice, documents and learning state of agents
+ * (PAGE-266, PAGE-300).
  *
  * @remarks
  * The account itself lives in `users`; this table holds only what an agent
@@ -184,9 +194,11 @@ export class AgentEmployeeRepository {
             model,
             reasoning_effort,
             access,
-                    soul,
+            soul,
             instructions,
-            is_learning_enabled
+            is_learning_enabled,
+            voice_id,
+            voice_speed_tenths
         )
         VALUES (
             $user_id,
@@ -196,7 +208,9 @@ export class AgentEmployeeRepository {
             $access,
             $soul,
             $instructions,
-            $is_learning_enabled
+            $is_learning_enabled,
+            $voice_id,
+            $voice_speed_tenths
         );
       `,
       { user_id: userId, ...this.parameters(change) },
@@ -224,6 +238,8 @@ export class AgentEmployeeRepository {
             soul = $soul,
             instructions = $instructions,
             is_learning_enabled = $is_learning_enabled,
+            voice_id = $voice_id,
+            voice_speed_tenths = $voice_speed_tenths,
             revision = revision + 1,
             updated_at = utc_now()
         WHERE user_id = $user_id
@@ -319,6 +335,8 @@ export class AgentEmployeeRepository {
       soul: change.soul,
       instructions: change.instructions,
       is_learning_enabled: change.isLearningEnabled,
+      voice_id: change.voiceId,
+      voice_speed_tenths: change.voiceSpeedTenths,
     };
   }
 }

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { holdsNulCharacter } from "@/backend/security/IdentityText";
 import {
@@ -7,6 +9,10 @@ import {
   isAgentEmployeeAccess,
 } from "@/definition/AgentEmployee";
 import { isPersonColor, readPersonColor } from "@/definition/PersonColor";
+import {
+  AGENT_VOICE_ID_MAXIMUM,
+  AGENT_VOICE_SPEED,
+} from "@/definition/SpeechSynthesis";
 
 import { stripCredentials } from "./AgentEmployeeText";
 
@@ -15,11 +21,31 @@ import type {
   AgentEmployeeSettings,
 } from "@/definition/AgentEmployee";
 import type { PersonColor } from "@/definition/PersonColor";
+import type { AgentEmployeeVoice } from "@/definition/SpeechSynthesis";
 
 /** Longest name, username or job title. */
 const MAXIMUM_NAME = 200;
 /** The characters a username of an agent may use. */
 const USERNAME_PATTERN = /^[\p{L}\p{N}._-]{1,64}$/u;
+
+/**
+ * The voice of an agent (PAGE-300): absent fields keep the defaults, an
+ * empty voice ID means the first voice of the instance's model.
+ */
+const voiceSchema = z.object({
+  voiceId: z
+    .string()
+    .trim()
+    .max(AGENT_VOICE_ID_MAXIMUM)
+    .regex(/^[^\p{Cc}]*$/u)
+    .nullish(),
+  voiceSpeedTenths: z
+    .number()
+    .int()
+    .min(AGENT_VOICE_SPEED.minimumTenths)
+    .max(AGENT_VOICE_SPEED.maximumTenths)
+    .nullish(),
+});
 
 /** What an administrator creates or saves for an agent. */
 export interface AgentEmployeeInput {
@@ -36,6 +62,7 @@ export interface AgentEmployeeInput {
   /** `MEMORY.md`; `null` leaves it unchanged. */
   readonly memory: string | null;
   readonly isLearningEnabled: boolean;
+  readonly voice: AgentEmployeeVoice;
 }
 
 function readName(input: unknown, isOptional: boolean): string | null {
@@ -87,6 +114,21 @@ function readSettings(input: Record<string, unknown>): AgentEmployeeSettings {
         ? reasoningEffort
         : null,
     access,
+  };
+}
+
+function readVoice(
+  input: Readonly<Record<string, unknown>>,
+): AgentEmployeeVoice {
+  const voice = voiceSchema.safeParse({
+    voiceId: input.voiceId,
+    voiceSpeedTenths: input.voiceSpeedTenths,
+  });
+  if (!voice.success) throw new AgentEmployeeError("invalidInput");
+  const { voiceId, voiceSpeedTenths } = voice.data;
+  return {
+    voiceId: voiceId === "" ? null : (voiceId ?? null),
+    speedTenths: voiceSpeedTenths ?? AGENT_VOICE_SPEED.defaultTenths,
   };
 }
 
@@ -154,5 +196,6 @@ export function readAgentEmployeeInput(input: unknown): AgentEmployeeInput {
     },
     memory: readMemory(fields.memory),
     isLearningEnabled: fields.isLearningEnabled !== false,
+    voice: readVoice(fields),
   };
 }

@@ -1,4 +1,5 @@
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
+import { AGENT_VOICE_SPEED } from "@/definition/SpeechSynthesis";
 
 import type {
   AgentEmployee,
@@ -22,6 +23,10 @@ export interface AgentDraft {
   readonly instructions: string;
   readonly memory: string;
   readonly isLearningEnabled: boolean;
+  /** The chosen voice ID (PAGE-300); empty for the first voice of the model. */
+  readonly voiceId: string;
+  /** The speed of the voice in tenths, 5 to 20. */
+  readonly voiceSpeedTenths: number;
 }
 
 /** Changes one field of the draft. */
@@ -53,6 +58,8 @@ export function createAgentDraft(
       instructions: "",
       memory: "",
       isLearningEnabled: true,
+      voiceId: "",
+      voiceSpeedTenths: AGENT_VOICE_SPEED.defaultTenths,
     };
   return {
     displayName: agent.displayName,
@@ -68,6 +75,8 @@ export function createAgentDraft(
     instructions: agent.documents.instructions,
     memory: agent.memory,
     isLearningEnabled: agent.learning.isEnabled,
+    voiceId: agent.voice.voiceId ?? "",
+    voiceSpeedTenths: agent.voice.speedTenths,
   };
 }
 
@@ -113,5 +122,7 @@ export function agentDraftPayload(
     instructions: draft.instructions,
     memory: draft.memory,
     isLearningEnabled: draft.isLearningEnabled,
+    voiceId: draft.voiceId.trim() === "" ? null : draft.voiceId.trim(),
+    voiceSpeedTenths: draft.voiceSpeedTenths,
   });
 }

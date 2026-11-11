@@ -10,6 +10,7 @@ import {
   saveSpeechSettings,
   testSpeechRecognition,
 } from "./settings-speech-actions.server";
+import { saveSpeechSynthesisSettings } from "./settings-speech-synthesis-actions.server";
 
 import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentConnectionInput } from "@/definition/AgentConnection";
@@ -100,6 +101,7 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   },
   "save-speech": saveSpeechSettings,
   "test-speech": testSpeechRecognition,
+  "save-speech-synthesis": saveSpeechSynthesisSettings,
   "save-profile": retiredProfileAction,
   "delete-profile": retiredProfileAction,
   "profile-usages": retiredProfileAction,
@@ -199,6 +201,7 @@ const CONNECTION_FREE_INTENTS = new Set([
   "save-pica",
   "save-speech",
   "test-speech",
+  "save-speech-synthesis",
 ]);
 
 /** Dispatches only known intents after checking fresh account facts, preserving mode switching. */

@@ -6436,9 +6436,12 @@
       "ready": "Bereit",
       "noModel": "Kein Modell gewählt",
       "modelUnavailable": "Modell nicht verfügbar",
-      "modelUnsuitable": "Kein Transkriptionsmodell"
+      "modelUnsuitable": "Kein Transkriptionsmodell",
+      "modelNotInCatalog": "Nicht mehr im Katalog"
     },
     "unsuitable": "Das gespeicherte Modell {{model}} ist kein Transkriptionsmodell: Sein Katalog meldet keine Transkriptionsausgabe, etwa weil es ein Chatmodell mit Audioeingabe ist. Die Spracherkennung bleibt aus, bis ein angebotenes Transkriptionsmodell gewählt und gespeichert ist. Die längste Aufnahme bleibt erhalten.",
+    "notInCatalog": "Das gespeicherte Modell {{model}} steht nicht mehr im Modellkatalog seiner OpenRouter-Anbindung. Die Spracherkennung bleibt aus und wechselt nicht von selbst auf ein anderes Modell, bis ein angebotenes Modell gewählt und gespeichert ist.",
+    "noOpenRouterModels": "Keine OpenRouter-Anbindung bietet Transkriptions-Modelle. Damit sie hier wählbar werden, unter Agents eine OpenRouter-Anbindung mit API-Schlüssel einrichten und ihren Modellkatalog aktualisieren.",
     "hint": "Die Sprache erkennt das Modell selbst. Audio wird nach der Umwandlung nicht gespeichert.",
     "testButton": {
       "idle": "Testaufnahme prüfen",
@@ -6466,6 +6469,66 @@
       "provider_model_not_found": "Das gewählte Modell ist kein Spracherkennungsmodell dieser Instanz.",
       "profile_invalid": "Die Einstellung ist ungültig. Bitte Modell und längste Aufnahme prüfen.",
       "profile_conflict": "Die Einstellung wurde inzwischen geändert. Seite neu laden und erneut speichern."
+    }
+  },
+  "speechSynthesis": {
+    "title": "Sprachausgabe · TTS",
+    "description": "Gibt Agents eine Stimme. Gilt für die ganze Instanz.",
+    "model": "Modell",
+    "chooseModel": "Modell auswählen …",
+    "noModels": "Keine eingerichtete Anbindung bietet ein Sprachausgabe-Modell. Unter Agents eine OpenRouter-Anbindung mit API-Schlüssel einrichten und ihren Modellkatalog aktualisieren.",
+    "maxDuration": "Längste Ausgabe",
+    "hint": "Die Stimme wählt man je Agent in der Benutzerverwaltung.",
+    "saved": "Sprachausgabe gespeichert.",
+    "status": {
+      "ready": "Bereit",
+      "noModel": "Kein Modell gewählt",
+      "modelUnavailable": "Modell nicht verfügbar"
+    },
+    "error": {
+      "provider_model_not_found": "Das gewählte Modell ist kein Sprachausgabe-Modell dieser Instanz.",
+      "profile_invalid": "Die Einstellung ist ungültig. Bitte Modell und längste Ausgabe prüfen.",
+      "profile_conflict": "Die Einstellung wurde inzwischen geändert. Seite neu laden und erneut speichern."
+    }
+  },
+  "agentVoice": {
+    "title": "Stimme",
+    "description": "Wie {{name}} klingt, wenn der Agent spricht.",
+    "listTitle_one": "Stimme · {{count}} Stimme von {{model}}",
+    "listTitle_other": "Stimme · {{count}} Stimmen von {{model}}",
+    "listTitleNoVoices": "Stimme · {{model}} nennt keine Stimmen",
+    "search": "Stimme suchen …",
+    "noMatch": "Keine Stimme passt zur Suche.",
+    "chosen": "Gewählt",
+    "hear": "Stimme {{voice}} probehören",
+    "voiceId": "Stimmen-ID",
+    "voiceIdPlaceholder": "z. B. alloy",
+    "voiceIdHint": "Der Katalog nennt für dieses Modell keine Stimmen. Die Stimmen-ID steht in der Dokumentation des Anbieters; leer bleibt die Standardstimme des Modells.",
+    "missingVoice": "Die gespeicherte Stimme {{voice}} gibt es in diesem Modell nicht.",
+    "speed": "Geschwindigkeit",
+    "unnamed": "dieser Agent",
+    "blocked": {
+      "noModel": "Es ist kein Sprachausgabe-Modell gewählt. Ein Administrator wählt es unter Einstellungen → Agents → Sprachausgabe; bis dahin sind Stimme und Probe nicht wählbar.",
+      "modelUnavailable": "Das gewählte Sprachausgabe-Modell ist nicht mehr verfügbar. Ein Administrator wählt unter Einstellungen → Agents → Sprachausgabe ein anderes; bis dahin sind Stimme und Probe nicht wählbar.",
+      "notCreated": "Probehören ist möglich, sobald der Agent angelegt ist."
+    },
+    "sample": {
+      "title": "Probe",
+      "description": "So klingt {{name}} mit dieser Einstellung.",
+      "sentenceLabel": "Probesatz",
+      "sentence": "Hallo, ich bin {{name}}. So klinge ich in Pages.",
+      "play": "Probe abspielen",
+      "hint": "Die Probe nutzt das Modell aus Einstellungen → Agents → Sprachausgabe. Ohne gewähltes Modell ist die Stimme nicht wählbar."
+    },
+    "error": {
+      "request": "Die Probe konnte nicht geladen werden. Bitte erneut versuchen.",
+      "playback": "Der Browser konnte die Probe nicht abspielen.",
+      "not_configured": "Die Sprachausgabe ist nicht eingerichtet oder ihr Modell hat keinen nutzbaren Schlüssel.",
+      "provider_failed": "Der Anbieter hat keine Probe erzeugt. Stimme, Modell und Schlüssel der Anbindung prüfen.",
+      "provider_unreachable": "Der Anbieter ist gerade nicht erreichbar. Später erneut versuchen.",
+      "forbidden": "Für diesen Agent fehlt das Recht, die Stimme zu ändern.",
+      "notFound": "Der Agent wurde nicht gefunden.",
+      "invalidInput": "Die Anfrage der Probe ist ungültig."
     }
   },
   "picaSettings": {
@@ -6812,6 +6875,7 @@
       "general": "Allgemein",
       "soul": "Persönlichkeit",
       "instructions": "Aufgabe",
+      "voice": "Stimme",
       "memory": "Gedächtnis",
       "activity": "Aktivität"
     },

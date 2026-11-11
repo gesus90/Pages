@@ -28,6 +28,7 @@ export function syntheticAgent(
       access: "read_only",
     },
     documents: { soul: "Calm soul", instructions: "" },
+    voice: { voiceId: null, speedTenths: 10 },
     memory: "Fact one",
     memoryUsage: { coreWords: 2, archiveWords: 0 },
     learning: {

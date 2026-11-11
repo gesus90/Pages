@@ -89,6 +89,7 @@ function ui(
             templates: [],
             canManage: options.canManageTemplates ?? false,
           }}
+          voice={{ status: "noModel", model: null }}
         />
       </MemoryRouter>
     </I18nextProvider>

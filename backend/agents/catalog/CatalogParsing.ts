@@ -225,6 +225,26 @@ function readModalityList(value: unknown): readonly string[] | undefined {
   return modalities.length === value.length ? modalities : undefined;
 }
 
+const VOICE_ID_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _.:@()+-]{0,99}$/u;
+
+// OpenRouter lists the voices of a speech output model in `supported_voices`
+// (PAGE-300); a stored snapshot keeps them under the same name. An unreadable
+// list counts as none, so the voice tab asks for a voice ID instead.
+function readSupportedVoices(entry: unknown): {
+  readonly supportedVoices?: readonly string[];
+} {
+  const voices = readAgentObject(entry).supported_voices;
+  if (!Array.isArray(voices) || voices.length === 0 || voices.length > 500)
+    return {};
+  const ids = voices.filter(
+    (voice): voice is string =>
+      typeof voice === "string" && VOICE_ID_PATTERN.test(voice),
+  );
+  return ids.length === voices.length
+    ? { supportedVoices: [...new Set(ids)] }
+    : {};
+}
+
 // OpenRouter states the modalities in `architecture` and tool calls as the
 // `tools` parameter; the chat filter of the model choice decides by them.
 function readOpenRouterChatFacts(
@@ -276,6 +296,7 @@ function readModel(entry: unknown, provider: ApiProviderId): AgentCatalogModel {
     isFree: isZeroPrice(promptPrice) && isZeroPrice(completionPrice),
     ...readReasoning(model, provider, id),
     ...(provider === "openrouter" ? readOpenRouterChatFacts(entry) : {}),
+    ...(provider === "openrouter" ? readSupportedVoices(entry) : {}),
   };
 }
 
@@ -336,12 +357,13 @@ function readOpenRouterCursor(
  * @param payload - One page as the provider returned it.
  * @param provider - The provider that returned the page.
  * @param offset - OpenRouter's offset of this page.
- * @returns The page's text and transcription models and the cursor of the
- * next page.
+ * @returns The page's text, transcription and speech output models and the
+ * cursor of the next page.
  *
  * @remarks
  * Only entries that the catalog's own metadata marks as text models
- * (A8.4-Fix2-E02) or as transcription models (PAGE-294) are kept. Pagination
+ * (A8.4-Fix2-E02), as transcription models (PAGE-294) or as speech output
+ * models (PAGE-300) are kept. Pagination
  * still counts every listed entry.
  */
 export function parseCatalogPage(

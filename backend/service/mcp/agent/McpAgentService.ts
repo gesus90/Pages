@@ -110,6 +110,9 @@ function mergedFields(
     instructions: request.agentInstructions ?? agent.documents.instructions,
     memory: request.memory ?? null,
     isLearningEnabled: request.isLearningEnabled ?? agent.learning.isEnabled,
+    // The voice is chosen in the panel only (PAGE-300); a change here keeps it.
+    voiceId: agent.voice.voiceId,
+    voiceSpeedTenths: agent.voice.speedTenths,
   };
 }
 

@@ -125,6 +125,10 @@ export class AgentEmployeeDirectory {
         soul: employee.soul,
         instructions: employee.instructions,
       },
+      voice: {
+        voiceId: employee.voiceId,
+        speedTenths: employee.voiceSpeedTenths,
+      },
       memory: employee.memory,
       memoryUsage: {
         coreWords: countWords(employee.memory),

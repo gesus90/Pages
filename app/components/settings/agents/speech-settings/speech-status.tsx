@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import type { PageAgentModel } from "@/definition/PageAgent";
 import type {
   SpeechAdministration,
   SpeechStatus,
@@ -13,6 +14,7 @@ const STATUS_CLASSES: Readonly<Record<SpeechStatus, string>> = {
   noModel: "bg-muted text-muted-foreground",
   modelUnavailable: "bg-warning-subtle text-warning",
   modelUnsuitable: "bg-warning-subtle text-warning",
+  modelNotInCatalog: "bg-warning-subtle text-warning",
 };
 
 /**
@@ -55,22 +57,50 @@ export function SpeechStatusBadge({
   );
 }
 
+/** The statuses whose saved model a note names, with the text that explains it. */
+const STATUS_NOTES: Partial<Record<SpeechStatus, string>> = {
+  modelUnsuitable: "speechSettings.unsuitable",
+  modelNotInCatalog: "speechSettings.notInCatalog",
+};
+
 /**
- * Explains why a saved model that is no transcription model (PAGE-294) does
- * not run; the saved choice and the longest recording stay as they are.
+ * Explains why a saved model does not run: it is no transcription model
+ * (PAGE-294), or its OpenRouter catalog no longer lists it (PAGE-302). The
+ * saved choice and the longest recording stay as they are.
  */
-export function SpeechUnsuitableNote({
+export function SpeechStatusNote({
   administration,
 }: {
   readonly administration: SpeechAdministration;
 }): React.ReactElement | null {
   const { t } = useTranslation();
   const { selection } = administration.settings;
-  if (administration.status !== "modelUnsuitable" || selection === null)
-    return null;
+  const note = STATUS_NOTES[administration.status];
+  if (note === undefined || selection === null) return null;
   return (
     <p role="status" className="text-xs text-warning">
-      {t("speechSettings.unsuitable", { model: selection.model })}
+      {t(note, { model: selection.model })}
+    </p>
+  );
+}
+
+/**
+ * Tells how OpenRouter's transcription models become selectable while no
+ * OpenRouter connection offers one (PAGE-302).
+ */
+export function SpeechOpenRouterHint({
+  models,
+}: {
+  readonly models: readonly PageAgentModel[];
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const hasOpenRouterModel = models.some(
+    (model) => model.provider === "openrouter" && model.isSimulation !== true,
+  );
+  if (hasOpenRouterModel) return null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      {t("speechSettings.noOpenRouterModels")}
     </p>
   );
 }

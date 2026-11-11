@@ -43,6 +43,9 @@ const REFUSAL_ERRORS: Readonly<
   zenToolsMissing: "picaZenUnsupported",
   noToolCalls: "picaModelUnsupported",
   noSpeech: "picaModelUnsupported",
+  noSpeechOutput: "picaModelUnsupported",
+  speechOutputOnly: "picaModelUnsupported",
+  transcriptionOnly: "picaModelUnsupported",
 };
 
 interface PicaDependencies extends Pick<
