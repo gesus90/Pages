@@ -33,6 +33,10 @@ import type {
   PagesAgentTicketReadOperation,
 } from "@/definition/PagesAgentOperations";
 import type { PagesAgentWriteOperation } from "@/definition/PagesAgentWrites";
+import type {
+  AutomationReadOperation,
+  AutomationWriteOperation,
+} from "@/definition/AutomationOperations";
 
 /**
  * Operations of the agent API that the chat never offers: imports and uploads
@@ -66,7 +70,9 @@ export type ChatOperation = Exclude<
   | AgentPlanReadOperation
   | AgentPlanWriteOperation
   | AgentPlanCommandOperation
-  | ChatAgentWriteOperation,
+  | ChatAgentWriteOperation
+  | AutomationReadOperation
+  | AutomationWriteOperation,
   ExcludedOperation
 >;
 
@@ -81,6 +87,30 @@ const SCRIPT_FIELDS =
   "interpreterProfileId?, content?, inputs?: [{name, type: text, isRequired}], outputs?: [{name, type: text}], timeoutSeconds?";
 const CHANGES = `placeNode(nodeId, groupId|null, x, y), placeLoopNode(nodeId, loopId|null, x, y), ungroup(nodeId, positions), insertTemplate(templateId, x, y) und changes?: [{action: addNode, node: {type: start|end|agent|script|task|parameter|group|loop|stack|decision, id?, x?, y?, agentId?, personalAgentId?, executionTarget?, configuration?: {connectionId, model, reasoningEffort?, template?: {markdown?, parameters?, directoryParameter?, run?}}, instruction?, taskId?, name?, format?, value?, runs?, runsSource?, countMode?, sessionPolicy?, condition?, mode?, question?, model?, output?, cases?, input?, ${SCRIPT_FIELDS}}} | {action: updateNode, nodeId, fields: {x?, y?, agentId?, personalAgentId?, executionTarget?, configuration?: {connectionId, model, reasoningEffort?, template?: {markdown?, parameters?, directoryParameter?, run?}}, instruction?, taskId?, name?, format?, value?, runs?, runsSource?, countMode?, sessionPolicy?, condition?, mode?, question?, model?, output?, cases?, input?, ${SCRIPT_FIELDS}}} | {action: removeNode, nodeId} | {action: connect|disconnect, from, to, fromPort?, toPort?} (ohne Ports Ablaufkante; mit beiden Ports wie im Editor: true-out|false-out|case:<id> einer Entscheidung → flow-in, passed-out eines Agents → condition-in einer Entscheidung, value-out eines Boolean-Parameters, Tickets, Agents oder Scripts → condition-in einer Entscheidung (Dateneingang; Decision mode boolean|model, question, model, output boolean|classification, cases [{id, name}]), value-out → event-in eines Agents, value-out eines Ticket- oder Parameter-Nodes → flow-in eines Stacks als Eintrag, flow-out → flow-in; disconnect mit Ports entfernt genau diese Kante) | {action: bind, nodeId, parameter, binding: {kind: source, nodeId}|{kind: result|previous, stepId}|{kind: literal, value}} | {action: unbind, nodeId, parameter}]`;
 
+const AUTOMATION_TARGET = "automationId, expectedRevision";
+
+/** The automations of PAGE-297; every call uses the rights of the account itself. */
+const CHAT_AUTOMATION_OPERATIONS: Readonly<
+  Record<AutomationReadOperation | AutomationWriteOperation, string>
+> = {
+  "automations.options.read":
+    "{} erlaubte Auslöser und Aktionen (Skript nur für Administratoren), JSON-Schemas, Grenzen, Zeitzonen, wählbare Agents, Pläne mit Schritten, Projekte mit Status und Freigabeziele lesen",
+  "automations.list":
+    "{cursor?, limit?, text?, isActive?} sichtbare Automationen mit Auslöser, Aktion, Freigabe, nächstem und letztem Lauf und permissions auflisten",
+  "automations.read":
+    "{automationId} sichtbare Automation mit revision lesen; Skript-Inhalt nur für Ersteller und Administratoren",
+  "automations.runs.list":
+    "{automationId, cursor?, limit?} Läufe einer Automation, neueste zuerst: status queued|accepted|delivered|completed|failed und result",
+  "automations.runs.read":
+    "{automationId, runId} einen Lauf mit Schlussantwort, Ausgabe, Fehler, Auslöserdaten und Zustellungen an Agents lesen",
+  "automations.create":
+    "{name, trigger, action, sharing?, isActive?, deleteAfterSuccess?, agentNotification?} Automation des eigenen Kontos anlegen; trigger manual|once{at, timeZone}|interval{every, unit, timeZone, weekdays?, window?}|weekly{weekdays, times, timeZone, window?}|event{eventType, planId?, stepId?, projectId?, statusId?}; action agent{agentId, instruction}|script{workspaceId, interpreterProfileId, content, timeoutSeconds, forward?}|plan{planId}",
+  "automations.update": `{${AUTOMATION_TARGET}, name?, trigger?, action?, sharing?, isActive?, deleteAfterSuccess?, agentNotification?} Automation patchen; enthaltene Objekte werden ganz ersetzt`,
+  "automations.setActive": `{${AUTOMATION_TARGET}, isActive} Automation ein- oder ausschalten; einmalige brauchen zum Einschalten eine künftige Zeit`,
+  "automations.run": `{${AUTOMATION_TARGET}} jetzt ausführen; liefert nur den angenommenen oder vorgemerkten Lauf, nicht sein Ergebnis`,
+  "automations.delete": `{${AUTOMATION_TARGET}} Automation samt Verlauf löschen; ein laufender oder vorgemerkter Lauf verhindert es, ${CONFIRMED}`,
+};
+
 /**
  * Parameters and purpose of every chat operation, as the agent reads them.
  *
@@ -91,6 +121,7 @@ const CHANGES = `placeNode(nodeId, groupId|null, x, y), placeLoopNode(nodeId, lo
  */
 const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   ...CHAT_ADMIN_OPERATIONS,
+  ...CHAT_AUTOMATION_OPERATIONS,
   "agents.list":
     "{cursor?, limit?} sichtbare Benutzer-Agents mit Anweisung, Parametern und Konfiguration auflisten",
   "agents.read":

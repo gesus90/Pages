@@ -62,7 +62,7 @@ export function isPicaCriticalOperation(operation: string): boolean {
  * the shared tool catalog that the chat knows and no native tool covers.
  *
  * @remarks
- * Plan operations have their own native tools. The list is derived from the
+ * Plan and automation operations have their own native tools. The list is derived from the
  * shared static contracts, so a new operation of the agent API
  * reaches administrators without a second description.
  */
@@ -79,6 +79,7 @@ export function picaOperatorEntries(
       !isChatOperation(operation) ||
       native.has(operation) ||
       operation.startsWith("plans.") ||
+      operation.startsWith("automations.") ||
       seen.has(operation)
     )
       continue;

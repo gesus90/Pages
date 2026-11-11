@@ -69,6 +69,9 @@ vi.mock("@/app/lib/employee-services.server", () => ({
 vi.mock("@/app/lib/agent-plan-services.server", () => ({
   createAgentPlanService: vi.fn(),
 }));
+vi.mock("@/app/lib/automation-services.server", () => ({
+  createAutomationServices: vi.fn(() => ({})),
+}));
 vi.mock("@/app/lib/mcp-services.server", () => ({
   createMcpServices: vi.fn(),
 }));

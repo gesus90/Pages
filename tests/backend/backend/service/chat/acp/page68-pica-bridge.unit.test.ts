@@ -72,6 +72,16 @@ const WRITE_TOOLS = [
   "wiki_comment_edit",
   "wiki_comment_resolve",
   "wiki_comment_delete",
+  "read_automation_options",
+  "list_automations",
+  "read_automation",
+  "list_automation_runs",
+  "read_automation_run",
+  "create_automation",
+  "update_automation",
+  "set_automation_active",
+  "run_automation",
+  "delete_automation",
 ];
 
 /** Names of administration: accounts, agents, connections, instance settings and the tag catalog. */

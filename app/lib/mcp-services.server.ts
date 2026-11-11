@@ -55,6 +55,9 @@ import { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import { runnerAssetUpload } from "./agent-asset-return.server";
 import { createMcpDeviceServices } from "./mcp-device-services.server";
 
+import { AutomationOperationService } from "@/backend/service/automation/AutomationOperationService";
+
+import type { AutomationService } from "@/backend/service/automation/AutomationService";
 import type { McpDeviceApplicationServices } from "./mcp-device-services.server";
 import type { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
@@ -144,6 +147,22 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
     ChatInstanceAdministrationDependencies,
     "database"
   >;
+  /** The automations (PAGE-297); the agent tools and the chat use them alike. */
+  readonly automations?: AutomationService;
+}
+
+/** The automation operations of one channel, when the automations are wired. */
+function automationOperations(
+  context: RouterContext,
+  channel: "mcp" | "chat",
+): { readonly automations?: AutomationOperationService } {
+  if (!context.automations) return {};
+  return {
+    automations: new AutomationOperationService({
+      automations: context.automations,
+      channel,
+    }),
+  };
 }
 
 /**
@@ -189,6 +208,7 @@ function createMcpOperationRouter(
         }),
       },
     }),
+    ...automationOperations(context, "mcp"),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
     users: context.users,
@@ -250,6 +270,7 @@ function createChatOperationRouter(
         }),
       },
     }),
+    ...automationOperations(context, channel),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
     users: context.users,
@@ -460,6 +481,8 @@ interface McpWorkspace {
   readonly instanceAdministration?: RouterContext["instanceAdministration"];
   /** The publisher the interface announces its changes on too; a new one by default. */
   readonly events?: PagesEventPublisher;
+  /** The automations shared by the agent tools and the signed-in chat (PAGE-297). */
+  readonly automations?: AutomationService;
 }
 
 /** Wires the API/services/repositories without opening another database or reading credential files. */
@@ -505,6 +528,7 @@ export function createMcpServices(
     planRecovery: workspace.planRecovery,
     planSessions: workspace.planSessions,
     instanceAdministration: workspace.instanceAdministration,
+    automations: workspace.automations,
     publisher: workspace.tickets?.publisher ?? null,
     chatSessions: createChatSessionOperations({
       database,

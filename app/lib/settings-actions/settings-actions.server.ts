@@ -7,6 +7,7 @@ import {
 import { runSettingsAction } from "./settings-action-support.server";
 import { handleUpdateDesignTheme } from "./settings-design-theme-action.server";
 import { handleSetMode } from "./settings-mode-action.server";
+import { handleUpdateAutomationNotification } from "./settings-automation-notification-action.server";
 import {
   handleUpdateAvatar,
   handleUpdateColor,
@@ -24,6 +25,7 @@ const SETTINGS_ACTION_HANDLERS = {
   "change-password": handleChangePassword,
   "revoke-other-sessions": handleRevokeOtherSessions,
   "revoke-session": handleRevokeSession,
+  "update-automation-notification": handleUpdateAutomationNotification,
   "update-avatar": handleUpdateAvatar,
   "update-color": handleUpdateColor,
   "update-design-theme": handleUpdateDesignTheme,

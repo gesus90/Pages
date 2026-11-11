@@ -87,6 +87,20 @@ const REJECTION_REASONS: Readonly<
   step_report_invalid: true,
   step_report_foreign: true,
   step_report_closed: true,
+  time_required: true,
+  script_forbidden: true,
+  agent_unavailable: true,
+  plan_unavailable: true,
+  interpreter_unavailable: true,
+  sharing_target_invalid: true,
+  event_filter_invalid: true,
+  delete_after_success_invalid: true,
+  run_active: true,
+  revision_conflict: true,
+  operation_reused: true,
+  read_only: true,
+  confirmation_required: true,
+  validation: true,
 };
 
 /** The reasons whose problems tell an agent what to correct in its step report. */

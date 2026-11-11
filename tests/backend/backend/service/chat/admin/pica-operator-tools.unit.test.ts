@@ -18,6 +18,10 @@ import {
   PLAN_RESOURCE_READ_TOOLS,
   PLAN_RESOURCE_WRITE_TOOLS,
 } from "@/definition/AgentTools/PlanResources";
+import {
+  AUTOMATION_READ_TOOLS,
+  AUTOMATION_WRITE_TOOLS,
+} from "@/definition/AgentTools/Automations";
 
 import { operatorWorld } from "./pica-operator-world";
 
@@ -68,6 +72,8 @@ it("offers an administrator every operation of the chat catalog, and a person no
     ...PLAN_WRITE_TOOLS,
     ...PLAN_RESOURCE_READ_TOOLS,
     ...PLAN_RESOURCE_WRITE_TOOLS,
+    ...AUTOMATION_READ_TOOLS,
+    ...AUTOMATION_WRITE_TOOLS,
   ].map(({ operation }) => operation);
   const reachable = new Set<string>([
     ...PICA_NATIVE_OPERATIONS,

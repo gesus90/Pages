@@ -4,6 +4,7 @@ import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { ChatResultBudget } from "./ChatResultBudget";
 import { registerPicaEmployeeTools } from "./PicaEmployeeTools";
 import { registerPicaPlanTools } from "./PicaPlanTools";
+import { registerPicaAutomationTools } from "./PicaAutomationTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
 import { registerPicaStorageTools } from "./admin/PicaStorageTools";
@@ -595,6 +596,10 @@ export function createPicaTools(
       execute: (parameters, context) => write(tool, parameters, context),
     });
   registerPicaPlanTools(registry, {
+    execute: (operation, parameters, context) =>
+      execute({ operation, description: "" }, parameters, context),
+  });
+  registerPicaAutomationTools(registry, {
     execute: (operation, parameters, context) =>
       execute({ operation, description: "" }, parameters, context),
   });

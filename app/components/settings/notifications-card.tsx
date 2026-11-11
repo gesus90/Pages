@@ -12,6 +12,9 @@ import { useTranslation } from "react-i18next";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { ToggleRow } from "@/app/components/settings/toggle-row";
 
+import { AutomationNotificationRow } from "./automation-notification-row";
+
+import type { AutomationNotificationMode } from "@/definition/Automation";
 import type { UserNotificationKey, UserSettings } from "@/definition/Settings";
 import type { ReactNode } from "react";
 
@@ -48,12 +51,19 @@ const NOTIFICATION_ITEMS: readonly {
 interface NotificationsCardProps {
   readonly notifications: UserSettings["notifications"];
   readonly onToggle: (key: UserNotificationKey) => void;
+  /** When the person hears about runs of their automations (PAGE-297). */
+  readonly automationNotification: AutomationNotificationMode;
+  readonly onAutomationNotificationChange: (
+    mode: AutomationNotificationMode,
+  ) => void;
 }
 
 /** Renders one switch per notification channel. */
 export function NotificationsCard({
   notifications,
   onToggle,
+  automationNotification,
+  onAutomationNotificationChange,
 }: NotificationsCardProps): React.ReactElement {
   const { t } = useTranslation();
 
@@ -77,6 +87,10 @@ export function NotificationsCard({
             title={t(`settings.notifications.${item.key}.title`)}
           />
         ))}
+        <AutomationNotificationRow
+          mode={automationNotification}
+          onChange={onAutomationNotificationChange}
+        />
       </div>
     </SettingsCard>
   );

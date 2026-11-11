@@ -40,6 +40,7 @@ import {
 } from "./AgentPlanRunState";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { settlePlanRun } from "./AgentPlanRunSettle";
+import { sharedAgentPlanRunObservers } from "./AgentPlanRunObservers";
 import {
   isStaleStart,
   settleEventPrompt,
@@ -375,6 +376,7 @@ export class AgentPlanRunEngine {
         await releaseDefinition?.();
         throw error;
       }
+      sharedAgentPlanRunObservers().notifyStarted(view);
       // The run exists from here on, so its lifecycle no longer hangs on the request.
       await withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, () =>
         retireActivePredecessor(view, this.active, this.dependencies),

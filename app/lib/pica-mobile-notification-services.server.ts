@@ -15,6 +15,7 @@ import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanR
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
 import { sharedPicaMobileConversationPresence } from "@/backend/service/mobile/conversations/PicaMobileConversationPresence";
+import { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
 import { PicaMobileConversationPush } from "@/backend/service/mobile/notifications/PicaMobileConversationPush";
 import { createPicaMobilePushSender } from "@/backend/service/mobile/notifications/PicaMobilePushSenders";
 import { PagesPicaMobileAccountChecks } from "@/backend/service/mobile/notifications/PicaMobileAccountChecks";
@@ -84,6 +85,19 @@ function followConversationMessages(input: {
   );
 }
 
+/** Logs that the notifications started, and whether a push sender exists. */
+function logStarted(isPushAvailable: boolean): void {
+  logEvent({
+    level: "info",
+    event: "pica_mobile.notifications.started",
+    component: "PicaMobileNotificationServices",
+    message: "Pica Mobile notifications started",
+    metadata: {
+      status: isPushAvailable ? "push_available" : "push_unavailable",
+    },
+  });
+}
+
 /**
  * Builds the notification backend of Pica Mobile and starts its dispatcher.
  *
@@ -102,6 +116,8 @@ export async function createPicaMobileNotificationServices(
   input: PicaMobileNotificationInput,
 ): Promise<{
   readonly picaMobileNotifications: PicaMobileNotificationService;
+  /** Tells creators about finished automation runs (PAGE-297). */
+  readonly picaMobileAutomationPush: PicaMobileAutomationPush;
 }> {
   await globalThis.pagesPicaMobileNotifications?.stop();
 
@@ -141,15 +157,15 @@ export async function createPicaMobileNotificationServices(
     new SessionRepository(input.database),
     input.users,
   );
-  followConversationMessages({
-    database: input.database,
+  const push = {
     registrations: registrationRepository,
     accounts,
     vault,
     sender,
     instanceId: readInstanceId,
     ttlSeconds: settings.replayTtlSeconds,
-  });
+  };
+  followConversationMessages({ database: input.database, ...push });
   const dispatcher = new PicaMobileNotificationDispatcher({
     canDispatch: canProcessIntegrations,
     deliveries: new PicaMobileNotificationDeliveryRepository(input.database),
@@ -189,15 +205,10 @@ export async function createPicaMobileNotificationServices(
   registerShutdownTask(() => service.stop(), {
     step: "pica_mobile_notifications",
   });
-  logEvent({
-    level: "info",
-    event: "pica_mobile.notifications.started",
-    component: "PicaMobileNotificationServices",
-    message: "Pica Mobile notifications started",
-    metadata: {
-      status: sender === null ? "push_unavailable" : "push_available",
-    },
-  });
+  logStarted(sender !== null);
 
-  return { picaMobileNotifications: service };
+  return {
+    picaMobileNotifications: service,
+    picaMobileAutomationPush: new PicaMobileAutomationPush(push),
+  };
 }

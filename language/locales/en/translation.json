@@ -154,7 +154,8 @@
     "workspace": "Workspace",
     "agentList": "Agents list",
     "loading": "Loading view …",
-    "storage": "Storage"
+    "storage": "Storage",
+    "automations": "Automations"
   },
   "role": {
     "admin": "Administrator",
@@ -544,7 +545,16 @@
         "title": "Weekly summary",
         "description": "An email overview of your activity."
       },
-      "deliveryPending": "Delivery follows in a later version. Your choices are already stored."
+      "deliveryPending": "Delivery follows in a later version. Your choices are already stored.",
+      "automations": {
+        "title": "Automations",
+        "description": "Message about runs of your own automations",
+        "modes": {
+          "off": "Off",
+          "error": "On errors",
+          "always": "Always"
+        }
+      }
     },
     "security": {
       "title": "Security",
@@ -6904,6 +6914,382 @@
         "title": "Replace AGENT.md?",
         "description": "AGENT.md already holds text. The template “{{name}}” replaces it completely.",
         "confirm": "Replace"
+      }
+    }
+  },
+  "automations": {
+    "title": "Automations",
+    "subtitle": "Jobs for agents and plans that start on their own at set times or on events.",
+    "create": "New automation",
+    "unknownName": "unknown",
+    "tabs": {
+      "label": "Views of the automations",
+      "all": "All",
+      "recurring": "Recurring",
+      "once": "One-time",
+      "event": "Event",
+      "paused": "Paused",
+      "history": "History"
+    },
+    "table": {
+      "columns": {
+        "automation": "Automation",
+        "trigger": "Trigger",
+        "nextRun": "Next run",
+        "lastRun": "Last run",
+        "active": "Active"
+      },
+      "selfDeleting": "deletes itself",
+      "activeLabel": "{{name}} active",
+      "empty": "No automations in this view."
+    },
+    "history": {
+      "columns": {
+        "time": "Time",
+        "automation": "Automation",
+        "trigger": "Trigger",
+        "result": "Result",
+        "duration": "Duration"
+      },
+      "empty": "No runs yet."
+    },
+    "weekdays": {
+      "short": {
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat",
+        "7": "Sun"
+      }
+    },
+    "schedule": {
+      "daily": "daily",
+      "range": "{{from}}–{{to}}",
+      "atTimes": "{{days}} at {{times}}",
+      "onDays": "{{every}} ({{days}})",
+      "once": "once"
+    },
+    "interval": {
+      "second_one": "every second",
+      "second_other": "every {{count}} s",
+      "minute_one": "every minute",
+      "minute_other": "every {{count}} min",
+      "hour_one": "hourly",
+      "hour_other": "every {{count}} h",
+      "day_one": "daily",
+      "day_other": "every {{count}} days"
+    },
+    "intervalLong": {
+      "second_one": "every second",
+      "second_other": "every {{count}} seconds",
+      "minute_one": "every minute",
+      "minute_other": "every {{count}} minutes",
+      "hour_one": "every hour",
+      "hour_other": "every {{count}} hours",
+      "day_one": "every day",
+      "day_other": "every {{count}} days"
+    },
+    "units": {
+      "second_one": "{{count}} second",
+      "second_other": "{{count}} seconds",
+      "minute_one": "{{count}} minute",
+      "minute_other": "{{count}} minutes",
+      "hour_one": "{{count}} hour",
+      "hour_other": "{{count}} hours",
+      "day_one": "{{count}} day",
+      "day_other": "{{count}} days"
+    },
+    "unitNames": {
+      "second": "Seconds",
+      "minute": "Minutes",
+      "hour": "Hours",
+      "day": "Days"
+    },
+    "trigger": {
+      "manual": "manual",
+      "once": "one-time",
+      "interval": "Interval",
+      "weekly": "Weekly",
+      "onceWithoutTime": "no time"
+    },
+    "events": {
+      "plan_started": "Plan started",
+      "plan_succeeded": "Plan succeeded",
+      "plan_failed": "Plan failed",
+      "plan_step_changed": "Plan step changed",
+      "ticket_created": "Ticket created",
+      "ticket_status_changed": "Ticket status changed",
+      "ticketToStatus": "Ticket to {{status}}"
+    },
+    "eventClauses": {
+      "plan_started": "a plan starts",
+      "plan_succeeded": "a plan succeeds",
+      "plan_failed": "a plan fails",
+      "plan_step_changed": "a plan changes its step",
+      "ticket_created": "a ticket is created",
+      "ticket_status_changed": "a ticket changes its status"
+    },
+    "action": {
+      "agent": "Agent · {{agent}}",
+      "script": "Script",
+      "plan": "Start plan · {{plan}}",
+      "scriptForward": {
+        "always": "Script → always wake {{agent}}",
+        "nonzero": "Script → wake {{agent}} on errors",
+        "zero": "Script → wake {{agent}} on success"
+      }
+    },
+    "description": {
+      "agent": {
+        "schedule": "Runs {{schedule}} as a job for {{agent}}.",
+        "once": "Runs once as a job for {{agent}}.",
+        "onceDelete": "Runs once as a job for {{agent}} and then deletes itself.",
+        "event": "Wakes {{agent}} as soon as {{event}}; the run's data is attached to the job.",
+        "manual": "Runs only when someone starts it, as a job for {{agent}}."
+      },
+      "script": {
+        "schedule": "A script runs {{schedule}}.",
+        "event": "A script runs as soon as {{event}}; it receives the run's data.",
+        "manual": "A script runs when someone starts the automation."
+      },
+      "plan": {
+        "schedule": "Starts a new run of {{plan}} {{schedule}}.",
+        "event": "Starts a new run of {{plan}} as soon as {{event}}.",
+        "manual": "Starts a new run of {{plan}} when someone starts the automation."
+      },
+      "forward": {
+        "always": "Then it always wakes {{agent}} with its result.",
+        "nonzero": "Only when it finds something does it wake {{agent}} with its result.",
+        "zero": "Only when it ends without errors does it wake {{agent}} with its result."
+      },
+      "deleteAfter": "Then the automation deletes itself."
+    },
+    "time": {
+      "today": "today {{time}}",
+      "tomorrow": "tomorrow {{time}}",
+      "yesterday": "yesterday {{time}}",
+      "justNow": "just now",
+      "minutesAgo_one": "{{count}} min ago",
+      "minutesAgo_other": "{{count}} min ago",
+      "inMinutes_one": "in {{count}} min",
+      "inMinutes_other": "in {{count}} min",
+      "soon": "shortly"
+    },
+    "next": {
+      "event": "on event",
+      "manual": "manual",
+      "paused": "paused"
+    },
+    "duration": {
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h",
+      "hoursMinutes": "{{hours}} h {{minutes}} min"
+    },
+    "runs": {
+      "ok": "ok",
+      "done": "done",
+      "failed": "failed",
+      "forbidden": "Missing rights",
+      "skipped": "skipped",
+      "paused": "paused",
+      "queued": "queued",
+      "running": "running",
+      "waitingAgent": "waiting for agent",
+      "scriptOk": "Script ok",
+      "scriptExit": "Script exit {{code}}",
+      "agentWoken": "{{agent}} woken",
+      "noAgentWoken": "no agent woken",
+      "planStarted": "Plan started",
+      "planNotStarted": "Plan not started",
+      "planRun": {
+        "running": "run in progress",
+        "succeeded": "run succeeded",
+        "failed": "run failed",
+        "cancelled": "run cancelled",
+        "paused": "run paused",
+        "pausing": "run pausing",
+        "stopping": "run stopping",
+        "work_done_closeout_open": "work done, closeout open",
+        "other": "run {{status}}"
+      }
+    },
+    "panel": {
+      "label": "Automation details",
+      "back": "Back",
+      "createTitle": "New automation",
+      "editTitle": "Edit {{name}}",
+      "empty": "No automation yet. Create one with “New automation”.",
+      "lastRuns": "Last runs",
+      "noRuns": "not run yet",
+      "runNow": "Run now",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "fields": {
+      "name": "Name",
+      "active": "Active",
+      "trigger": "Trigger",
+      "triggerTime": "Time",
+      "triggerEvent": "Event",
+      "triggerManual": "Manual only",
+      "manualHint": "Runs only through “Run now”.",
+      "repeat": "Repetition",
+      "repeatOnce": "One-time",
+      "repeatInterval": "Interval",
+      "date": "Date",
+      "time": "Time",
+      "timeZone": "Time zone",
+      "deleteAfter": "Delete after the run",
+      "deleteAfterOnceOnly": "· one-time only",
+      "rhythm": "Rhythm",
+      "every": "Every",
+      "weeklyAt": "on weekdays at",
+      "unit": "Unit",
+      "weekdays": "Weekdays",
+      "weekdaysOptional": "Weekdays (optional)",
+      "times": "Times",
+      "timeNumber": "Time {{number}}",
+      "addTime": "Time",
+      "removeTime": "Remove time",
+      "window": "Time window",
+      "windowAlways": "around the clock",
+      "windowBetween": "only between",
+      "windowStart": "From",
+      "windowEnd": "To",
+      "event": "Event",
+      "plan": "Plan",
+      "allPlans": "all visible plans",
+      "step": "Step",
+      "allSteps": "all",
+      "project": "Project",
+      "targetStatus": "Target status",
+      "anyStatus": "any",
+      "eventData": "Data passed along",
+      "action": "Action",
+      "actionAgent": "Agent",
+      "actionScript": "Script",
+      "actionPlan": "Plan",
+      "agent": "Agent",
+      "instruction": "Job",
+      "workspace": "Workspace",
+      "interpreter": "Interpreter",
+      "timeout": "Timeout (seconds)",
+      "script": "Script",
+      "scriptHidden": "Script content is visible to its creator and administrators only",
+      "forward": "↓ Pass on result",
+      "forwardAgent": "Wake agent",
+      "noAgent": "no agent",
+      "forwardWhenLabel": "When",
+      "forwardWhen": {
+        "always": "always",
+        "nonzero": "on exit ≠ 0",
+        "zero": "on exit 0"
+      },
+      "sharing": "Sharing",
+      "sharingPrivate": "Only me",
+      "sharingProject": "Project: {{name}}",
+      "sharingGroup": "Group: {{name}}",
+      "notification": "Agent notification",
+      "notificationAgent": "Agent",
+      "notificationModes": {
+        "off": "Off",
+        "error": "On errors",
+        "always": "Always"
+      }
+    },
+    "timeZone": {
+      "placeholder": "Choose a time zone",
+      "unavailable": "unavailable",
+      "search": "Search time zones",
+      "empty": "No time zone found.",
+      "count_one": "{{count}} of {{total}} time zone",
+      "count_other": "{{count}} of {{total}} time zones"
+    },
+    "timeAlert": {
+      "activate": "Enter a new time in the future to switch it on.",
+      "future": "Please enter a time in the future."
+    },
+    "problems": {
+      "name": "Please enter a name.",
+      "time": "Please enter a time in the future.",
+      "every": "Please enter a valid interval (at most one year).",
+      "weekdays": "Please choose at least one weekday.",
+      "times": "Please enter valid, distinct times (HH:MM).",
+      "window": "Please enter start and end of the time window as HH:MM.",
+      "project": "Please choose a project.",
+      "agent": "Please choose an agent.",
+      "instruction": "Please enter a job.",
+      "workspace": "Please choose a workspace.",
+      "interpreter": "Please choose an interpreter.",
+      "content": "Please enter the script content.",
+      "timeout": "Please enter a valid timeout.",
+      "plan": "Please choose a plan.",
+      "notificationAgent": "Please choose the agent for the notification."
+    },
+    "errors": {
+      "time_required": "Enter a new time in the future to switch it on.",
+      "script_forbidden": "Only administrators may create and change scripts.",
+      "agent_unavailable": "The chosen agent is unavailable.",
+      "plan_unavailable": "The chosen plan is unavailable or may not be started.",
+      "workspace_unavailable": "The chosen workspace is unavailable.",
+      "interpreter_unavailable": "The chosen interpreter is unavailable.",
+      "sharing_target_invalid": "The automation cannot be shared with this project or group.",
+      "event_filter_invalid": "The event filters do not fit together.",
+      "delete_after_success_invalid": "“Delete after the run” exists for one-time automations only.",
+      "run_active": "The automation is running; please try again after the run.",
+      "revision_conflict": "The automation has changed meanwhile. Please reload and try again.",
+      "operation_reused": "This change was already sent.",
+      "read_only": "You may only view this automation.",
+      "confirmation_required": "The deletion must be confirmed.",
+      "validation": "The input is incomplete or invalid.",
+      "invalid_request": "The request was invalid.",
+      "forbidden": "You lack the rights for this.",
+      "not_found": "The automation no longer exists.",
+      "conflict": "The change conflicts with the current state.",
+      "too_large": "The input is too large.",
+      "rate_limited": "Too many requests. Please wait a moment.",
+      "server_unavailable": "Pages is unavailable right now. Please try again later.",
+      "unknown": "The change failed."
+    },
+    "toast": {
+      "accepted": "Run accepted",
+      "queued": "Run queued"
+    },
+    "delete": {
+      "title": "Delete automation?",
+      "text": "“{{name}}” and all its runs will be deleted permanently.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "run": {
+      "title": "Run",
+      "loading": "Loading run …",
+      "failed": "The run could not be loaded.",
+      "answer": "Answer",
+      "output": "Output",
+      "error": "Error",
+      "triggerData": "Trigger data",
+      "deliveries": "Deliveries",
+      "noDeliveries": "No deliveries to agents.",
+      "close": "Close",
+      "kinds": {
+        "action": "Job",
+        "forward": "Forward",
+        "notification": "Notification"
+      },
+      "states": {
+        "queued": "waiting",
+        "delivered": "delivered",
+        "completed": "completed",
+        "failed": "failed"
       }
     }
   }

@@ -164,6 +164,7 @@ beforeEach(() => {
   );
   vi.mocked(createPicaMobileNotificationServices).mockResolvedValue({
     picaMobileNotifications: NOTIFICATIONS,
+    picaMobileAutomationPush: opaque("automation push"),
   });
   vi.mocked(AgentProfileRepository.prototype.list).mockResolvedValue([
     opaque("profile"),
@@ -212,6 +213,7 @@ it("returns the plan service with its management, templates, sessions and recove
       AgentPlanRunHistoryService,
     ) as unknown,
     picaMobileNotifications: NOTIFICATIONS,
+    picaMobileAutomationPush: { opaque: "automation push" },
     agentPlanManagement: only(vi.mocked(AgentPlanManagement)),
     agentPlanTemplateService: only(vi.mocked(AgentPlanTemplateService)),
     agentSessionService: only(vi.mocked(AgentSessionService)),

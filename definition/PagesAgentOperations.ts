@@ -1,5 +1,6 @@
 import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation.js";
 
+import type { AutomationReadResult } from "./AutomationOperations";
 import type { AgentPlanStepProgressReceipt } from "./AgentPlanStepProgress.js";
 import type { AgentPlanStepReportReceipt } from "./AgentPlanStepReport.js";
 import type { AgentPlanWorkView } from "./AgentPlanWork.js";
@@ -239,6 +240,7 @@ export interface PagesAgentReadResponse {
     | AgentWorkspaceReadResult
     | AgentPlanReadResult
     | PageAgentReadResult
+    | AutomationReadResult
     | { readonly sessions: readonly ChatSession[]; readonly total: number };
 }
 
@@ -370,6 +372,20 @@ export const AGENT_REJECTION_REASONS = [
   "step_report_invalid",
   "step_report_foreign",
   "step_report_closed",
+  "time_required",
+  "script_forbidden",
+  "agent_unavailable",
+  "plan_unavailable",
+  "interpreter_unavailable",
+  "sharing_target_invalid",
+  "event_filter_invalid",
+  "delete_after_success_invalid",
+  "run_active",
+  "revision_conflict",
+  "operation_reused",
+  "read_only",
+  "confirmation_required",
+  "validation",
 ] as const;
 
 export interface AgentRejectionReason {
@@ -401,7 +417,14 @@ export interface AgentPlanCleanupRejection {
   readonly cleanupFailure: AgentPlanCleanupFailure;
 }
 
+/** A refused automation input, with the paths and messages of its problems but never their values (PAGE-297). */
+export interface AgentInputRejection {
+  readonly reason: "validation";
+  readonly problems: readonly string[];
+}
+
 export type AgentOperationDetails =
+  | AgentInputRejection
   | AgentProjectCandidates
   | AgentLimitDetails
   | AgentRevisionConflict

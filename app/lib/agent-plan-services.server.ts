@@ -13,6 +13,7 @@ import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
 import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
 
+import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
 import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
@@ -95,6 +96,8 @@ export interface AgentPlanServices {
   readonly agentPlanRunHistoryService: AgentPlanRunHistoryService;
   /** Pica Mobile notifications for runs of plans the person owns. */
   readonly picaMobileNotifications: PicaMobileNotificationService;
+  /** Tells creators about finished automation runs on their devices (PAGE-297). */
+  readonly picaMobileAutomationPush: PicaMobileAutomationPush;
   /** Creating, copying and deleting plans from the plan page, each request once. */
   readonly agentPlanManagement: AgentPlanManagement;
   /** The personal node templates of the plan editor, checked by the plan service. */
@@ -352,6 +355,7 @@ async function createPlanViews(
     | "agentPlanOverviewService"
     | "agentPlanRunHistoryService"
     | "picaMobileNotifications"
+    | "picaMobileAutomationPush"
     | "agentPlanManagement"
     | "agentPlanTemplateService"
   >

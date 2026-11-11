@@ -31,6 +31,7 @@ const services = vi.hoisted(() => ({
   sessionService: { getSessionSummaries: vi.fn() },
   administrationService: { getContext: vi.fn() },
   designThemeService: { getSelection: vi.fn() },
+  automationService: { notificationMode: vi.fn() },
 }));
 
 const AUDIENCE = vi.hoisted(() => ({
@@ -140,6 +141,7 @@ beforeEach(() => {
   services.userService.findProfileEmail.mockResolvedValue("ada@example.com");
   services.sessionService.getSessionSummaries.mockResolvedValue([]);
   services.designThemeService.getSelection.mockResolvedValue({ themes: [] });
+  services.automationService.notificationMode.mockResolvedValue("error");
 });
 
 it("requires the user of the authentication middleware", async () => {
@@ -156,6 +158,7 @@ it("lets an administrator in the admin mode edit the profile", async () => {
     loader(routeArguments(pagesRequest("/settings"), { user: ACTOR })),
   ).resolves.toEqual({
     account,
+    automationNotification: "error",
     audience: AUDIENCE,
     canEditProfile: true,
     designThemes: { themes: [] },

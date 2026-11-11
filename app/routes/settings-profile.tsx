@@ -25,6 +25,7 @@ import {
 import { readRouteData } from "@/app/lib/local-state/route-data";
 import { sendToBackend } from "@/app/lib/backend-request";
 
+import type { AutomationNotificationMode } from "@/definition/Automation";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
@@ -38,6 +39,8 @@ import type { Route } from "./+types/settings-profile";
 /** The personal settings as the endpoint answers them. */
 export interface SettingsLoaderData {
   readonly account: AccountAccess;
+  /** When the person hears about runs of their automations (PAGE-297). */
+  readonly automationNotification: AutomationNotificationMode;
   readonly user: User;
   readonly email: string | null;
   readonly settings: UserSettings;
@@ -72,7 +75,7 @@ function isSettingsLoaderData(value: unknown): value is SettingsLoaderData {
 
 /** The personal settings, kept per account and rights. */
 const SETTINGS_PROFILE_STATE: LocalStateRouteKind<SettingsLoaderData> = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   isPayload: isSettingsLoaderData,
   isCurrent: (profile) => isCurrentLocalStateAudience(profile.audience),
   ownerOf: (profile) => profile.audience.userId,
@@ -116,6 +119,7 @@ export default function SettingsProfileRoute(): React.ReactElement {
     designThemes,
     sessions,
     canEditProfile,
+    automationNotification: loadedAutomationNotification,
   } = useLocalStateRoute(
     useLoaderData<typeof clientLoader>(),
     SETTINGS_PROFILE_STATE,
@@ -124,7 +128,19 @@ export default function SettingsProfileRoute(): React.ReactElement {
   const { settings, persistSettings, toggleNotification } =
     useUserSettings(loadedSettings);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [automationNotification, setAutomationNotification] =
+    useState<AutomationNotificationMode>(loadedAutomationNotification);
   const [isRevokeAllDialogOpen, setIsRevokeAllDialogOpen] = useState(false);
+
+  function handleAutomationNotification(
+    mode: AutomationNotificationMode,
+  ): void {
+    setAutomationNotification(mode);
+    const formData = new FormData();
+    formData.set("intent", "update-automation-notification");
+    formData.set("mode", mode);
+    void submit(formData, { method: "post" });
+  }
 
   function handleRevokeSession(sessionId: string): void {
     const formData = new FormData();
@@ -154,6 +170,8 @@ export default function SettingsProfileRoute(): React.ReactElement {
             <NotificationsCard
               notifications={settings.notifications}
               onToggle={toggleNotification}
+              automationNotification={automationNotification}
+              onAutomationNotificationChange={handleAutomationNotification}
             />
           </div>
 

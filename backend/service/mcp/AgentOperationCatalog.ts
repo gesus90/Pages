@@ -15,6 +15,7 @@ import {
 import { AGENT_TEXT_RANGE_READ_OPERATIONS } from "@/definition/AgentTextRange";
 import { AGENT_WORKSPACE_READ_OPERATIONS } from "@/definition/AgentWorkspaceOperations";
 import { PAGE_AGENT_READ_OPERATIONS } from "@/definition/PageAgentOperations";
+import { AUTOMATION_READ_OPERATIONS } from "@/definition/AutomationOperations";
 import { PAGES_AGENT_WRITE_OPERATIONS } from "@/definition/PagesAgentWrites";
 import {
   PAGES_AGENT_COMMENT_OPERATIONS,
@@ -43,6 +44,7 @@ const READING_OPERATIONS: readonly PagesAgentApiBusinessOperation[] = [
   ...AGENT_PLAN_READ_OPERATIONS,
   ...AGENT_PLAN_RESOURCE_READ_OPERATIONS,
   ...PAGE_AGENT_READ_OPERATIONS,
+  ...AUTOMATION_READ_OPERATIONS,
   "chat.sessions.list",
 ];
 
@@ -68,6 +70,7 @@ export function ownerOperations(
     ...AGENT_PLAN_READ_OPERATIONS,
     ...AGENT_PLAN_RESOURCE_READ_OPERATIONS,
     ...PAGE_AGENT_READ_OPERATIONS,
+    ...AUTOMATION_READ_OPERATIONS,
     "chat.sessions.list",
     ...PAGES_AGENT_WRITE_OPERATIONS.filter(
       (operation) =>

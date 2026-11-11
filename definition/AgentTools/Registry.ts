@@ -2,6 +2,7 @@ import { PLAN_WORK_READ_TOOL } from "./PlanWork.js";
 import { ASSET_DOWNLOAD_TOOL } from "./AssetDownload.js";
 import { ADMIN_READ_TOOLS } from "./Administration.js";
 import { AGENT_READ_TOOLS } from "./Agents.js";
+import { AUTOMATION_READ_TOOLS } from "./Automations.js";
 import { CHAT_SESSIONS_LIST_TOOL } from "./ChatSessions.js";
 import { EXTENSION_READ_TOOLS } from "./Extensions.js";
 import { PLAN_RESOURCE_READ_TOOLS } from "./PlanResources.js";
@@ -44,6 +45,7 @@ const READ_TOOL_ENTRIES = [
   ...AGENT_READ_TOOLS,
   ...PLAN_READ_TOOLS,
   ...PLAN_RESOURCE_READ_TOOLS,
+  ...AUTOMATION_READ_TOOLS,
   {
     operation: "projects.resolve",
     tool: {

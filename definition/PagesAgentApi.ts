@@ -1,3 +1,4 @@
+import type { AutomationReadOperation } from "./AutomationOperations.js";
 import type { AGENT_STEP_PROGRESS_OPERATION } from "./AgentPlanStepProgress.js";
 import type { AGENT_STEP_REPORT_OPERATION } from "./AgentPlanStepReport.js";
 import type { AgentExtensionReadOperation } from "./AgentExtensions.js";
@@ -44,6 +45,7 @@ export type PagesAgentApiBusinessOperation =
   | AgentWorkspaceReadOperation
   | AgentPlanReadOperation
   | PageAgentReadOperation
+  | AutomationReadOperation
   | PagesAgentReadOperation
   | PagesAgentStructuredReadOperation
   | PagesAgentTicketReadOperation
