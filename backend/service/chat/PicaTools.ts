@@ -3,6 +3,7 @@ import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 import { ChatResultBudget } from "./ChatResultBudget";
 import { registerPicaEmployeeTools } from "./PicaEmployeeTools";
+import { registerPicaAgentDeletionTools } from "./PicaAgentDeletionTools";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAutomationTools } from "./PicaAutomationTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
@@ -24,6 +25,7 @@ import {
 
 import type { z } from "zod";
 import type { PicaAdminService } from "./admin/PicaAdminService";
+import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { ChatSessionService } from "./ChatSessionService";
@@ -49,6 +51,7 @@ export interface PicaToolsInput {
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
   readonly adminTools?: PicaAdminService | undefined;
+  readonly agentDeletions?: AgentDeletionService | undefined;
   /** Ends or marks the run when a call would exceed the actual execution budget. */
   readonly onLimit?: () => void;
   /** Stores the files Pica writes for its answer; without it the file tool is not offered. */
@@ -613,6 +616,10 @@ export function createPicaTools(
         createAnswerFile(input, budget, { parameters, context }),
     });
   registerPicaEmployeeTools(registry, input, () => spend(input, budget));
+  if (input.agentDeletions)
+    registerPicaAgentDeletionTools(registry, input.agentDeletions, () =>
+      spend(input, budget),
+    );
   if (input.adminTools)
     registerAdministratorTools(registry, {
       input,

@@ -64,6 +64,8 @@ export type UsersIntent =
   | "create-agent"
   | "update-agent"
   | "restore-agent-memory"
+  | "delete-agent"
+  | "restore-agent"
   | "save-agent-template"
   | "delete-agent-template"
   | "set-user-color";
@@ -72,7 +74,15 @@ export type UsersIntent =
 export type UsersActionData =
   | {
       readonly ok: true;
-      readonly intent: Exclude<UsersIntent, "reset-password" | "create-user">;
+      readonly intent: Exclude<
+        UsersIntent,
+        "reset-password" | "create-user" | "delete-agent"
+      >;
+    }
+  | {
+      readonly ok: true;
+      readonly intent: "delete-agent";
+      readonly agentId: string;
     }
   | {
       readonly ok: true;

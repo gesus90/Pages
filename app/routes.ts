@@ -453,6 +453,11 @@ function settingsRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     }),
     resource("users-api/page", "routes/users-data.ts"),
     resource("users-api/agents/:agentId", "routes/users-agent-data.ts"),
+    resource("users-api/agents/deleted", "routes/users-agents-deleted.ts"),
+    resource(
+      "users-api/agents/:agentId/deletion-preview",
+      "routes/users-agent-deletion-preview.ts",
+    ),
     resource("users-api/agent-voice/:agentId", "routes/users-agent-voice.ts"),
     ...page(
       "settings",

@@ -24,6 +24,7 @@ export class PicaAcpToolTurns {
     | "sessions"
     | "answerFiles"
     | "adminTools"
+    | "agentDeletions"
     | "searchMemory"
     | "readConversationContext"
   >;
@@ -39,6 +40,7 @@ export class PicaAcpToolTurns {
       | "sessions"
       | "answerFiles"
       | "adminTools"
+      | "agentDeletions"
       | "searchMemory"
       | "readConversationContext"
     >,
@@ -73,6 +75,7 @@ export class PicaAcpToolTurns {
       authorize: () => Promise.resolve(),
       answerFiles: this.dependencies.answerFiles,
       adminTools: this.dependencies.adminTools,
+      agentDeletions: this.dependencies.agentDeletions,
       searchMemory: this.dependencies.searchMemory,
       readConversationContext: this.dependencies.readConversationContext,
     }).describe({ includeAdministrator: await this.isAdministrator(userId) });
@@ -165,6 +168,7 @@ export class PicaAcpToolTurns {
         sessions: this.dependencies.sessions,
         authorize: context.authorize,
         adminTools: this.dependencies.adminTools,
+        agentDeletions: this.dependencies.agentDeletions,
         onLimit: () => this.controller.abort("stepLimit"),
         ...(this.dependencies.answerFiles
           ? { answerFiles: this.dependencies.answerFiles }

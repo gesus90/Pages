@@ -6902,7 +6902,42 @@
       "edit": "Bearbeiten",
       "view": "Ansehen",
       "deactivate": "Deaktivieren",
-      "activate": "Aktivieren"
+      "activate": "Aktivieren",
+      "delete": "Agent löschen"
+    },
+    "deletion": {
+      "title": "{{name}} löschen?",
+      "loading": "Löschvorschau wird geladen…",
+      "loadFailed": "Die Löschvorschau konnte nicht geladen werden.",
+      "explanation": "Der Agent wird sofort deaktiviert. Ein Administrator kann ihn sieben Tage lang wiederherstellen. Danach werden seine privaten Artefakte endgültig entfernt.",
+      "deletesTitle": "Wird entfernt",
+      "keepsTitle": "Bleibt erhalten",
+      "blocked": "Diese Plan-Läufe müssen vor dem Löschen gestoppt werden:",
+      "failed": "Der Agent konnte nicht gelöscht werden. Laden Sie die Vorschau neu und versuchen Sie es erneut.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen",
+      "deletedTitle": "Gelöschte Agents",
+      "noDeleted": "Keine Agents warten auf die endgültige Entfernung.",
+      "restorableUntil": "Wiederherstellbar bis {{date}}",
+      "remaining": "Noch {{days}} Tage und {{hours}} Stunden",
+      "restore": "Wiederherstellen",
+      "deletes": {
+        "directChats": "Direktchats",
+        "sessions": "Sitzungen",
+        "memoryEntries": "Gedächtniseinträge und Versionen",
+        "ownedPlans": "Eigene Pläne",
+        "runs": "Plan-Läufe",
+        "files": "Dateien und Avatar",
+        "credentials": "Zugänge",
+        "groupMemberships": "Gruppenmitgliedschaften",
+        "assignedTickets": "Nicht mehr zugewiesene Tickets"
+      },
+      "keeps": {
+        "groupChatMessages": "Gruppennachrichten",
+        "ticketChanges": "Ticketänderungen",
+        "wikiChanges": "Wiki-Änderungen",
+        "commits": "Commits"
+      }
     },
     "tabs": {
       "general": "Allgemein",

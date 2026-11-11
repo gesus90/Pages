@@ -2,6 +2,7 @@ import { McpAgentError } from "./McpAgentError";
 import { McpAgentService } from "./McpAgentService";
 
 import type { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
+import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
 import type { McpDeviceService } from "@/backend/service/mcp/McpDeviceService";
 import type { UserService } from "@/backend/service/UserService";
 import type { AgentTemplateService } from "@/backend/service/employee/AgentTemplateService";
@@ -24,13 +25,14 @@ export interface McpAgentActor {
  * A paired machine acts with the rights of the account that confirmed the
  * pairing. Every request checks the token again with the unchanged check of
  * the device API, and then requires the administrator role of that account,
- * on every route including the reading ones: anyone else gets `forbidden`,
- * even for an agent known from the chat. The administration runs on the
- * `mcp` channel, so the administrator role counts without the admin mode of
- * the interface.
+ * on the existing administration routes: anyone else gets `forbidden`, even
+ * for an agent known from the chat. Deletion routes use the separate deletion
+ * service, which also admits the Verwaltung role when it exists. Both run on
+ * the `mcp` channel, so an administrator need not switch the browser mode.
  */
 export class McpAgentApi {
   public readonly agents: McpAgentService;
+  public readonly deletions: AgentDeletionService;
   private readonly administration: AgentEmployeeAdministration;
   private readonly access: McpAgentAccess;
 
@@ -45,6 +47,7 @@ export class McpAgentApi {
     administration: AgentEmployeeAdministration,
     access: McpAgentAccess,
     templates: AgentTemplateService,
+    deletions: AgentDeletionService,
   ) {
     this.administration = administration.forChannel("mcp");
     this.agents = new McpAgentService(
@@ -52,6 +55,7 @@ export class McpAgentApi {
       templates.forChannel("mcp"),
     );
     this.access = access;
+    this.deletions = deletions.forChannel("mcp");
   }
 
   /**
@@ -66,6 +70,15 @@ export class McpAgentApi {
   public async authenticate(
     authorization: string | null,
   ): Promise<McpAgentActor> {
+    const actor = await this.authenticateDeletion(authorization);
+    await this.administration.requireAdministrator(actor.userId);
+    return actor;
+  }
+
+  /** Authenticates a paired account; deletion authorization follows in its service. */
+  public async authenticateDeletion(
+    authorization: string | null,
+  ): Promise<McpAgentActor> {
     const identity = await this.access.devices.authenticate(authorization);
     const credentials = await this.access.accounts.findCredentialsByUsername(
       identity.account.username,
@@ -74,7 +87,6 @@ export class McpAgentApi {
     const account = credentials?.user ?? null;
     if (account === null || !account.isActive)
       throw new McpAgentError("invalid_token");
-    await this.administration.requireAdministrator(account.id);
     return { userId: account.id };
   }
 }

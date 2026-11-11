@@ -81,7 +81,7 @@ export class ConversationDirectory {
   /** Reads every account once. */
   public async read(): Promise<ConversationAccounts> {
     const [users, active, titles] = await Promise.all([
-      this.dependencies.users.findAll(),
+      this.dependencies.users.findAll(true),
       this.dependencies.lookups.listActiveUsers(),
       this.dependencies.jobTitles(),
     ]);

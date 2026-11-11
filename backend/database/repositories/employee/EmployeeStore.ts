@@ -1,6 +1,8 @@
 import { AccountIdentityRepository } from "./AccountIdentityRepository";
 import { AgentActivityRepository } from "./AgentActivityRepository";
 import { AgentConversationRepository } from "./AgentConversationRepository";
+import { AgentDeletionRepository } from "./AgentDeletionRepository";
+import { AgentDeletionPurgeRepository } from "./AgentDeletionPurgeRepository";
 import { AgentEmployeeRemovalRepository } from "./AgentEmployeeRemovalRepository";
 import { AgentEmployeeRepository } from "./AgentEmployeeRepository";
 import { AgentLearningSourceRepository } from "./AgentLearningSourceRepository";
@@ -89,6 +91,16 @@ export class EmployeeStore {
   /** What refers to an agent, whether it works now, and its removal (PAGE-267). */
   public removals(): AgentEmployeeRemovalRepository {
     return new AgentEmployeeRemovalRepository(this.database);
+  }
+
+  /** Reversible agent deletion and its audit trail. */
+  public deletions(): AgentDeletionRepository {
+    return new AgentDeletionRepository(this.database);
+  }
+
+  /** Expiry and disk cleanup of deleted agents. */
+  public deletionPurges(): AgentDeletionPurgeRepository {
+    return new AgentDeletionPurgeRepository(this.database);
   }
 
   /** What is new for a learning run. */

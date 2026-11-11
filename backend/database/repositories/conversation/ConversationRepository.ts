@@ -185,7 +185,8 @@ export class ConversationRepository {
       `
         SELECT id
         FROM conversations
-        WHERE id = $id;
+        WHERE id = $id
+            AND deleted_agent_id IS NULL;
       `,
       { id: conversationId },
     );
@@ -198,7 +199,8 @@ export class ConversationRepository {
       `
         SELECT id
         FROM conversations
-        WHERE direct_key = $direct_key;
+        WHERE direct_key = $direct_key
+            AND deleted_agent_id IS NULL;
       `,
       { direct_key: directKey },
     );
@@ -247,7 +249,8 @@ export class ConversationRepository {
         INNER JOIN conversations
             ON conversations.id = conversation_members.conversation_id
         WHERE conversation_members.conversation_id = $conversation_id
-            AND conversation_members.user_id = $user_id;
+            AND conversation_members.user_id = $user_id
+            AND conversations.deleted_agent_id IS NULL;
       `,
       { conversation_id: conversationId, user_id: userId },
     );
@@ -280,6 +283,7 @@ export class ConversationRepository {
         INNER JOIN conversations
             ON conversations.id = conversation_members.conversation_id
         WHERE conversation_members.user_id = $user_id
+            AND conversations.deleted_agent_id IS NULL
             AND (
                 CAST($after_activity AS TEXT) IS NULL
                 OR (conversations.last_activity_at, conversations.id)
@@ -306,7 +310,10 @@ export class ConversationRepository {
       `
         SELECT COALESCE(SUM(${UNREAD_COUNT}), 0) AS total_unread
         FROM conversation_members
-        WHERE conversation_members.user_id = $user_id;
+        INNER JOIN conversations
+            ON conversations.id = conversation_members.conversation_id
+        WHERE conversation_members.user_id = $user_id
+            AND conversations.deleted_agent_id IS NULL;
       `,
       { user_id: userId },
     );
@@ -325,9 +332,11 @@ export class ConversationRepository {
       `
         SELECT
             conversation_id,
-            user_id
+            conversation_members.user_id
         FROM conversation_members
+        INNER JOIN users ON users.id = conversation_members.user_id
         WHERE conversation_id IN (${list.placeholders})
+            AND users.removed_at IS NULL
         ORDER BY joined_at, user_id;
       `,
       list.parameters,
@@ -398,7 +407,8 @@ export class ConversationRepository {
       `
         SELECT id
         FROM conversations
-        WHERE direct_key = $direct_key;
+        WHERE direct_key = $direct_key
+            AND deleted_agent_id IS NULL;
       `,
       { direct_key: directKey },
     );

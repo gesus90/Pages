@@ -6902,7 +6902,42 @@
       "edit": "Edit",
       "view": "View",
       "deactivate": "Deactivate",
-      "activate": "Activate"
+      "activate": "Activate",
+      "delete": "Delete agent"
+    },
+    "deletion": {
+      "title": "Delete {{name}}?",
+      "loading": "Loading deletion preview…",
+      "loadFailed": "The deletion preview could not be loaded.",
+      "explanation": "The agent is disabled immediately. An administrator can restore it for seven days. Its private artifacts are removed after that period.",
+      "deletesTitle": "Will be removed",
+      "keepsTitle": "Will be kept",
+      "blocked": "Stop these plan runs before deleting the agent:",
+      "failed": "The agent could not be deleted. Refresh the preview and try again.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deletedTitle": "Deleted agents",
+      "noDeleted": "No agents are awaiting final removal.",
+      "restorableUntil": "Restorable until {{date}}",
+      "remaining": "{{days}} days and {{hours}} hours remaining",
+      "restore": "Restore",
+      "deletes": {
+        "directChats": "Direct chats",
+        "sessions": "Sessions",
+        "memoryEntries": "Memory entries and versions",
+        "ownedPlans": "Owned plans",
+        "runs": "Plan runs",
+        "files": "Files and avatar",
+        "credentials": "Credentials",
+        "groupMemberships": "Group memberships",
+        "assignedTickets": "Tickets to unassign"
+      },
+      "keeps": {
+        "groupChatMessages": "Group chat messages",
+        "ticketChanges": "Ticket changes",
+        "wikiChanges": "Wiki changes",
+        "commits": "Commits"
+      }
     },
     "tabs": {
       "general": "General",

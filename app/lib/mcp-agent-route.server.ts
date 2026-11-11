@@ -12,6 +12,7 @@ import {
   toMcpAgentError,
 } from "@/backend/service/mcp/agent/McpAgentError";
 import { McpAgentRequest } from "@/backend/service/mcp/agent/McpAgentRequest";
+import { AgentDeletionError } from "@/backend/service/employee/AgentDeletionService";
 import { MAXIMUM_AVATAR_BYTES } from "@/definition/User";
 
 import type { McpAgentActor } from "@/backend/service/mcp/agent/McpAgentApi";
@@ -60,6 +61,7 @@ async function createApi(): Promise<McpAgentApi> {
     services.agentEmployeeAdministration,
     { devices: services.mcpDeviceService, accounts: services.userService },
     services.agentTemplateService,
+    services.agentDeletionService,
   );
 }
 
@@ -82,6 +84,18 @@ export function mcpAgentResponse(body: unknown, status = 200): Response {
  * document or an image.
  */
 function mcpAgentFailure(error: unknown): Response {
+  if (error instanceof AgentDeletionError) {
+    const status = {
+      FORBIDDEN: 403,
+      NOT_FOUND: 404,
+      CONFLICT: 409,
+      INVALID_REQUEST: 400,
+    }[error.code];
+    return mcpAgentResponse(
+      { error: error.code, reason: error.reason },
+      status,
+    );
+  }
   const failure = toMcpAgentError(error);
   if (failure === null) return mcpDeviceFailure(error);
   return mcpAgentResponse(
@@ -100,13 +114,14 @@ function mcpAgentFailure(error: unknown): Response {
  * @returns The answer; a failure answers `{ "error": "<code>" }`, with the current `revision` for `conflict`.
  *
  * @remarks
- * Only the bearer token of a paired machine admits a request, and only for
- * an account with the administrator role, before the resource is even
- * looked at; browser cookies play no part.
+ * Only the bearer token of a paired machine admits a request; browser cookies
+ * play no part. Existing routes require an administrator before dispatch;
+ * deletion routes check their narrower authorization in the deletion service.
  */
 export async function runMcpAgentRoute(
   request: Request,
   handlers: McpAgentHandlers,
+  options: { readonly deletion?: boolean } = {},
 ): Promise<Response> {
   const method = request.method.toUpperCase();
   const handler = isServedMethod(method, handlers)
@@ -116,7 +131,9 @@ export async function runMcpAgentRoute(
     return mcpDeviceMethodNotAllowed(Object.keys(handlers).join(", "));
   try {
     const api = await createApi();
-    const actor = await api.authenticate(request.headers.get("Authorization"));
+    const actor = options.deletion
+      ? await api.authenticateDeletion(request.headers.get("Authorization"))
+      : await api.authenticate(request.headers.get("Authorization"));
     return await handler({ api, actor, request });
   } catch (error: unknown) {
     return mcpAgentFailure(error);
