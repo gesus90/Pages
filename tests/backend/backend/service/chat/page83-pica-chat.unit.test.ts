@@ -156,7 +156,7 @@ it("joins the pinned running job without changing its model", async () => {
   expect(world.acp.start).not.toHaveBeenCalled();
 });
 
-it("tells only an administrator about the administrator tools and the confirmation it must ask for", async () => {
+it("tells only an administrator about the administrator tools and the explicit approval it must ask for", async () => {
   const person = chatWorld();
   await person.chat.submit(OWNER, MESSAGE);
   const administrator = chatWorld();
@@ -175,7 +175,10 @@ it("tells only an administrator about the administrator tools and the confirmati
   expect(operator).toContain("Administrator im aktiven Admin-Modus");
   expect(operator).toContain("list_admin_users");
   expect(operator).toContain("CONFIRMATION_REQUIRED");
-  expect(operator).toContain("„LÖSCHEN“ allein in einer neuen Nachricht");
+  expect(operator).toContain(
+    "ausdrückliche Zustimmung in einer neuen Nachricht",
+  );
+  expect(operator).not.toContain("„LÖSCHEN“ allein");
   expect(operator).not.toContain("Verwaltung, also Benutzer");
 });
 

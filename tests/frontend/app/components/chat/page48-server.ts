@@ -94,7 +94,6 @@ export class ManagementServer {
       ok: true,
       overview: {
         ...this.view(id),
-        confirmationWord: "LÖSCHEN",
         attachmentLimitBytes: 1024,
       },
     });

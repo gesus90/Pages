@@ -81,37 +81,40 @@ it("refuses a deletion parameter that is not part of the contract", async () => 
     service().handle(IDENTITY, "chat.sessions.delete", {
       sessionIds: [FIRST],
       expectedCount: 1,
-      confirmation: "LÖSCHEN",
       force: true,
     }),
   ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   expect(removeSelected).not.toHaveBeenCalled();
 });
 
-it.each([
-  undefined,
-  {},
-  { confirmation: "DELETE" },
-  { confirmation: "löschen" },
-])("requires the exact word LÖSCHEN before deleting: %j", async (input) => {
-  await expect(
-    service().handle(IDENTITY, "chat.sessions.delete", input),
-  ).rejects.toMatchObject({ code: "CONFIRMATION_REQUIRED" });
-  expect(removeSelected).not.toHaveBeenCalled();
-});
+it.each([undefined, {}])(
+  "refuses a deletion without a selection: %j",
+  async (input) => {
+    await expect(
+      service().handle(IDENTITY, "chat.sessions.delete", input),
+    ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    expect(removeSelected).not.toHaveBeenCalled();
+  },
+);
 
-it("deletes the counted selection and returns the outcome", async () => {
-  const outcome = { deleted: [FIRST], failed: [], cleanupFailed: [] };
-  removeSelected.mockResolvedValue(outcome);
-  expect(
-    await service().handle(IDENTITY, "chat.sessions.delete", {
-      sessionIds: [FIRST],
-      expectedCount: 1,
-      confirmation: "LÖSCHEN",
-    }),
-  ).toEqual({ apiVersion: "1", result: outcome });
-  expect(removeSelected).toHaveBeenCalledExactlyOnceWith(ACTOR, [FIRST]);
-});
+it.each([
+  ["no confirmation word", {}],
+  ["a legacy confirmation word", { confirmation: "LÖSCHEN" }],
+])(
+  "deletes the counted selection with %s and returns the outcome",
+  async (label, legacy) => {
+    const outcome = { deleted: [FIRST], failed: [], cleanupFailed: [] };
+    removeSelected.mockResolvedValue(outcome);
+    expect(
+      await service().handle(IDENTITY, "chat.sessions.delete", {
+        sessionIds: [FIRST],
+        expectedCount: 1,
+        ...legacy,
+      }),
+    ).toEqual({ apiVersion: "1", result: outcome });
+    expect(removeSelected).toHaveBeenCalledExactlyOnceWith(ACTOR, [FIRST]);
+  },
+);
 
 it.each([
   ["no ids", { sessionIds: [], expectedCount: 0 }],
@@ -120,7 +123,6 @@ it.each([
   await expect(
     service().handle(IDENTITY, "chat.sessions.delete", {
       ...parameters,
-      confirmation: "LÖSCHEN",
     }),
   ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   expect(removeSelected).not.toHaveBeenCalled();
@@ -131,7 +133,6 @@ it("refuses a count that differs from the selected ids", async () => {
     service().handle(IDENTITY, "chat.sessions.delete", {
       sessionIds: [FIRST],
       expectedCount: 2,
-      confirmation: "LÖSCHEN",
     }),
   ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   expect(removeSelected).not.toHaveBeenCalled();
@@ -146,7 +147,6 @@ it.each<[ChatErrorCode, string]>([
     service().handle(IDENTITY, "chat.sessions.delete", {
       sessionIds: [FIRST],
       expectedCount: 1,
-      confirmation: "LÖSCHEN",
     }),
   ).rejects.toMatchObject({ code });
 });

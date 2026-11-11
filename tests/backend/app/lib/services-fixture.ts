@@ -315,6 +315,7 @@ export function servicesWorld(): ServicesWorld {
     }),
     chat: partial<ChatApplicationServices>({ chatService: opaque("chat") }),
     employee: partial<EmployeeApplicationServices>({
+      agentDeletionService: { purgeExpired: vi.fn(async () => undefined) },
       agentEmployeeAdministration: opaque("employee admin"),
       agentEmployeeSessions: opaque("employee sessions"),
       agentLearningService: opaque("employee learning"),

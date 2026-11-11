@@ -95,21 +95,23 @@ it("reports per-session partial failures and file cleanup failures after a commi
 });
 
 it.each([undefined, "", "DELETE", true, " LÖSCHEN "])(
-  "MCP refuses confirmation %j even though UI deletion needs no word",
+  "MCP deletes the counted selection and ignores the legacy confirmation %j",
   async (confirmation) => {
     const { mcp, remove } = mcpFixture();
     await expect(
       mcp.handle(IDENTITY, "chat.sessions.delete", {
         sessionIds: [FIRST, SECOND],
         expectedCount: 2,
-        confirmation,
+        ...(confirmation === undefined ? {} : { confirmation }),
       }),
-    ).rejects.toMatchObject({ code: "CONFIRMATION_REQUIRED" });
-    expect(remove).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({
+      result: { deleted: [FIRST, SECOND], failed: [] },
+    });
+    expect(remove).toHaveBeenCalled();
   },
 );
 
-it("MCP lists the owner's full scope, checks its exact count and requires LÖSCHEN for all selected sessions", async () => {
+it("MCP lists the owner's full scope, checks its exact count and deletes all selected sessions without a word", async () => {
   const { mcp, remove, stored } = mcpFixture();
   expect(await mcp.handle(IDENTITY, "chat.sessions.list", {})).toMatchObject({
     result: { total: 2, sessions: [{ id: FIRST }, { id: SECOND }] },
@@ -118,7 +120,6 @@ it("MCP lists the owner's full scope, checks its exact count and requires LÖSCH
     mcp.handle(IDENTITY, "chat.sessions.delete", {
       sessionIds: [FIRST, SECOND],
       expectedCount: 1,
-      confirmation: "LÖSCHEN",
     }),
   ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   expect(remove).not.toHaveBeenCalled();
@@ -126,7 +127,6 @@ it("MCP lists the owner's full scope, checks its exact count and requires LÖSCH
     await mcp.handle(IDENTITY, "chat.sessions.delete", {
       sessionIds: [FIRST, SECOND],
       expectedCount: 2,
-      confirmation: "LÖSCHEN",
     }),
   ).toMatchObject({ result: { deleted: [FIRST, SECOND], failed: [] } });
   expect([...stored.keys()]).toEqual([FOREIGN]);
@@ -138,7 +138,6 @@ it("MCP rejects foreign sessions, forged button flags and unavailable actors", a
     mcp.handle({ ...IDENTITY, isAdmin: true }, "chat.sessions.delete", {
       sessionIds: [FIRST, FOREIGN],
       expectedCount: 2,
-      confirmation: "LÖSCHEN",
     }),
   ).rejects.toMatchObject({ code: "NOT_FOUND" });
   await expect(
@@ -146,7 +145,6 @@ it("MCP rejects foreign sessions, forged button flags and unavailable actors", a
       sessionIds: [FIRST],
       expectedCount: 1,
       confirmed: true,
-      confirmation: "LÖSCHEN",
     }),
   ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   await expect(

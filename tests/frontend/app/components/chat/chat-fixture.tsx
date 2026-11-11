@@ -115,7 +115,6 @@ export class ChatServerFixture {
           overview: {
             ...this.view(FIRST_SESSION),
             attachmentLimitBytes: 16 * 1024 * 1024,
-            confirmationWord: "LÖSCHEN",
           },
         });
       case "session":

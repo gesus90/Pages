@@ -149,18 +149,20 @@ it("asks for a confirmation before a critical change and runs it only after the 
     result: {
       operation: "admin.users.setActive",
       parameters: DEACTIVATE,
-      confirmation: "LÖSCHEN",
     },
   });
+  expect(JSON.parse(prompt.result ?? "null").result).not.toHaveProperty(
+    "confirmation",
+  );
   expect(again.error).toBe("RETRY_REFUSED");
 
-  const chatty = world.turn("turn-2", "Ja, LÖSCHEN bitte");
+  const chatty = world.turn("turn-2", "Erkläre mir erst die Folgen");
   expect(
     (await world.call(chatty, "set_admin_user_active", DEACTIVATE)).error,
   ).toBe("CONFIRMATION_REQUIRED");
   expect(world.router).not.toHaveBeenCalled();
 
-  const confirmed = world.turn("turn-3", "LÖSCHEN");
+  const confirmed = world.turn("turn-3", "Ja, bitte");
   const outcome = await world.call(
     confirmed,
     "set_admin_user_active",
@@ -178,12 +180,12 @@ it("asks for a confirmation before a critical change and runs it only after the 
 it("never takes the confirmation in the turn that asked, and binds it to the exact call", async () => {
   const world = operatorWorld();
 
-  const asking = world.turn("turn-1", "LÖSCHEN");
+  const asking = world.turn("turn-1", "Ja, sperre Benutzer user-7");
   expect(
     (await world.call(asking, "set_admin_user_active", DEACTIVATE)).error,
   ).toBe("CONFIRMATION_REQUIRED");
 
-  const confirmed = world.turn("turn-2", "LÖSCHEN");
+  const confirmed = world.turn("turn-2", "Ja, bitte");
   const other = { ...DEACTIVATE, userId: "user-8" };
   expect(
     (await world.call(confirmed, "set_admin_user_active", other)).error,
@@ -209,7 +211,7 @@ it("asks the person as well when a service holds a change back for a confirmatio
     (await world.call(asking, "set_admin_role_permissions", input)).error,
   ).toBe("CONFIRMATION_REQUIRED");
 
-  const confirmed = world.turn("turn-2", "LÖSCHEN");
+  const confirmed = world.turn("turn-2", "Ja, bitte");
   const outcome = await world.call(
     confirmed,
     "set_admin_role_permissions",

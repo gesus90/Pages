@@ -60,19 +60,21 @@ it("creates no agent when Pica requests the retired create action", async () => 
 });
 
 it.each(["de", "en"] as const)(
-  "accepts LÖSCHEN as the typed confirmation with %s interface language and still refuses the retired deletion",
+  "refuses the retired agent deletion with %s interface language without asking for a confirmation word",
   async (language) => {
     const id = await chat.seed();
     const reply = await chat.send(
-      "Entferne den genannten Agent. LÖSCHEN",
+      "Entferne den genannten Agent.",
       [
         modelAction("agents.read", { agentId: id }),
         modelAction("agents.delete", { agentId: id, expectedRevision: 1 }),
-        "Agent entfernt.",
+        "Agents lassen sich nicht mehr entfernen.",
       ],
       language,
     );
-    expect(reply.answer.content).toBe("Agent entfernt.");
+    expect(reply.answer.content).toBe(
+      "Agents lassen sich nicht mehr entfernen.",
+    );
     expect(chat.prompts[2].prompt).not.toContain("CONFIRMATION_REQUIRED");
     expect(chat.prompts[2].prompt).toContain("operation_retired");
     expect(chat.world.storedAgents()).toHaveLength(1);
@@ -80,63 +82,42 @@ it.each(["de", "en"] as const)(
 );
 
 it.each([
-  "DELETE",
-  "löschen",
-  "LÖSCHENxyz",
-  "LÖSCHEN123",
-  "LÖSCHEN_foo",
-  "LÖSCHEN\u0308",
+  ["a message with the old confirmation word", "Entferne den Agent. LÖSCHEN"],
+  ["a message with another word", "Entferne den Agent: DELETE"],
+  ["a message without any word", "Entferne den Agent."],
 ])(
-  "does not treat %s as the required agent deletion confirmation",
-  async (word) => {
+  "keeps the agent when the model supplies a confirmation itself, with %s",
+  async (label, message) => {
     const id = await chat.seed();
     await chat.send(
-      `Entferne den Agent: ${word}`,
+      message,
       [
         modelAction("agents.delete", {
           agentId: id,
           expectedRevision: 1,
           confirmation: "LÖSCHEN",
         }),
-        "Bitte bestätige mit LÖSCHEN.",
+        "Agents lassen sich nicht mehr entfernen.",
       ],
       "en",
     );
-    expect(chat.prompts[1].prompt).toContain("CONFIRMATION_REQUIRED");
+    expect(chat.prompts[1].prompt).toContain("operation_retired");
+    expect(chat.prompts[1].prompt).not.toContain("CONFIRMATION_REQUIRED");
     expect(chat.world.storedAgents()).toHaveLength(1);
   },
 );
 
-it("does not reuse confirmation from an earlier message or model-supplied parameters", async () => {
-  const id = await chat.seed();
-  chat.messages.push({
-    id: "old",
-    role: "user",
-    content: "LÖSCHEN",
-    createdAt: "2026-10-13",
-  });
-  await chat.send("Entferne den Agent.", [
-    modelAction("agents.delete", {
-      agentId: id,
-      expectedRevision: 1,
-      confirmation: "LÖSCHEN",
-    }),
-    "Bitte bestätige mit LÖSCHEN.",
-  ]);
-  expect(chat.prompts[1].prompt).toContain("CONFIRMATION_REQUIRED");
-  expect(chat.world.storedAgents()).toHaveLength(1);
-});
-
-it("consumes one typed confirmation even if Pica requests more than one agent deletion", async () => {
+it("refuses every one of several retired agent deletions in a turn", async () => {
   const first = await chat.seed();
   const second = await chat.seed();
-  await chat.send("Entferne die Agents. LÖSCHEN", [
+  await chat.send("Entferne die Agents.", [
     modelAction("agents.delete", { agentId: first, expectedRevision: 1 }),
     modelAction("agents.delete", { agentId: second, expectedRevision: 1 }),
-    "Ersten Agent geprüft; für den zweiten benötige ich erneut LÖSCHEN.",
+    "Agents lassen sich nicht mehr entfernen.",
   ]);
+  expect(chat.prompts[1].prompt).toContain("operation_retired");
   expect(chat.prompts[2].prompt).toContain("operation_retired");
-  expect(chat.prompts[2].prompt).toContain("CONFIRMATION_REQUIRED");
+  expect(chat.prompts[2].prompt).not.toContain("CONFIRMATION_REQUIRED");
   expect(chat.world.storedAgents()).toHaveLength(2);
 });
 

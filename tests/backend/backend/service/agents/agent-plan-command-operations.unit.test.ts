@@ -38,10 +38,6 @@ vi.mock(
       .requireRevision,
   }),
 );
-vi.mock("@/backend/service/agents/AgentConfirmation", async () => ({
-  requireAgentConfirmation: (await import("./agent-plan-command-fakes")).world
-    .requireConfirmation,
-}));
 vi.mock("@/backend/service/agents/AgentPlanControlViews", async () => ({
   readPlanControlEntry: (await import("./agent-plan-command-fakes")).world
     .readControl,
@@ -149,61 +145,48 @@ it("reports the current revision when the expected one is stale", async () => {
   });
 });
 
-it("checks the confirmation before looking up an earlier result of a deletion", async () => {
-  world.requireConfirmation.mockRejectedValue(
-    new AgentOperationError("CONFIRMATION_REQUIRED"),
-  );
-  await expect(
-    operations().write(USER, "plans.delete", request("plans.delete")),
-  ).rejects.toMatchObject({ code: "CONFIRMATION_REQUIRED" });
-  expect(world.requireConfirmation).toHaveBeenCalledWith(
-    TRANSACTION,
-    USER,
-    null,
-  );
-  expect(plans.view).not.toHaveBeenCalled();
-});
-
 it("lets only the owner delete a plan", async () => {
   plans.view.mockResolvedValue(plan({ ownerId: "someone-else" }));
   await expect(
-    operations().write(
-      USER,
-      "plans.delete",
-      request("plans.delete", { confirmation: "LÖSCHEN" }),
-    ),
+    operations().write(USER, "plans.delete", request("plans.delete")),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(plans.remove).not.toHaveBeenCalled();
 });
 
-it("deletes a plan, confirming and recording in the commit of the deletion", async () => {
-  plans.remove.mockImplementation(
-    async (
-      user: string,
-      planId: string,
-      options: { journal: (transaction: unknown) => Promise<void> },
-    ) => options.journal(TRANSACTION),
-  );
-  const result = await operations().write(
-    USER,
-    "plans.delete",
-    request("plans.delete", { confirmation: "LÖSCHEN" }),
-  );
-  expect(plans.remove).toHaveBeenCalledWith(USER, "plan-1", {
-    revision: 3,
-    journal: ANY_FUNCTION,
-  });
-  expect(world.requireConfirmation).toHaveBeenCalledTimes(2);
-  expect(stored()).toEqual({ planId: "plan-1", revision: 3, deleted: true });
-  expect(result).toEqual({
-    planId: "plan-1",
-    revision: 3,
-    deleted: true,
-    action: "plans.delete",
-    status: "deleted",
-  });
-  expect(world.readControl).not.toHaveBeenCalled();
-});
+it.each([
+  ["no confirmation field", {}],
+  ["a legacy confirmation word", { confirmation: "LÖSCHEN" }],
+  ["a wrong legacy confirmation word", { confirmation: "wrong" }],
+])(
+  "deletes a plan with %s, recording in the commit of the deletion",
+  async (label, overrides) => {
+    plans.remove.mockImplementation(
+      async (
+        user: string,
+        planId: string,
+        options: { journal: (transaction: unknown) => Promise<void> },
+      ) => options.journal(TRANSACTION),
+    );
+    const result = await operations().write(
+      USER,
+      "plans.delete",
+      request("plans.delete", overrides),
+    );
+    expect(plans.remove).toHaveBeenCalledWith(USER, "plan-1", {
+      revision: 3,
+      journal: ANY_FUNCTION,
+    });
+    expect(stored()).toEqual({ planId: "plan-1", revision: 3, deleted: true });
+    expect(result).toEqual({
+      planId: "plan-1",
+      revision: 3,
+      deleted: true,
+      action: "plans.delete",
+      status: "deleted",
+    });
+    expect(world.readControl).not.toHaveBeenCalled();
+  },
+);
 
 it("saves a template from a top-level node", async () => {
   plans.view.mockResolvedValue(plan({ nodes: [TEMPLATE_NODE] }));

@@ -149,6 +149,32 @@ function fields(input: unknown): Readonly<Record<string, unknown>> | null {
     : null;
 }
 
+/** Refuses wiki content beyond the Pica limit before the tool runs, or returns `null`. */
+function oversizedWikiContent(
+  name: string,
+  input: unknown,
+): PicaToolOutcome | null {
+  if (name !== "wiki_page_create" && name !== "wiki_page_set_content")
+    return null;
+  const content = fields(input)?.content;
+  if (
+    typeof content !== "string" ||
+    countCharacters(content) <= PICA_WIKI_CONTENT_CHARACTERS
+  )
+    return null;
+  return {
+    ok: false,
+    error: "INVALID_REQUEST",
+    result: JSON.stringify({
+      result: null,
+      details: {
+        reason: "content_too_long",
+        maxLength: PICA_WIKI_CONTENT_CHARACTERS,
+      },
+    }),
+  };
+}
+
 /** A parsed bridge request: the catalog, or one tool call. */
 type BridgeAction =
   | { readonly action: "catalog" }
@@ -487,23 +513,8 @@ export class PicaBridge {
     };
     try {
       if (!this.isCurrent(binding)) return refused("TURN_INACTIVE");
-      const parameters = fields(input);
-      if (
-        (name === "wiki_page_create" || name === "wiki_page_set_content") &&
-        typeof parameters?.content === "string" &&
-        countCharacters(parameters.content) > PICA_WIKI_CONTENT_CHARACTERS
-      )
-        return {
-          ok: false,
-          error: "INVALID_REQUEST",
-          result: JSON.stringify({
-            result: null,
-            details: {
-              reason: "content_too_long",
-              maxLength: PICA_WIKI_CONTENT_CHARACTERS,
-            },
-          }),
-        };
+      const oversized = oversizedWikiContent(name, input);
+      if (oversized) return oversized;
       const invoked = await turn.tools.invoke(name, input, context);
       if (invoked === null) return refused("UNKNOWN_TOOL");
       if (!invoked.isValid) return refused("INVALID_ARGUMENTS");

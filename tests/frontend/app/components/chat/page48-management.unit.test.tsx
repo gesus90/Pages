@@ -31,6 +31,16 @@ beforeEach(() => {
   vi.stubGlobal("fetch", server.fetch);
 });
 
+/** Presses the deletion button of the selection and confirms the dialog that asks again. */
+async function confirmDeletion(count: number): Promise<void> {
+  fireEvent.click(
+    screen.getByRole("button", { name: `${count} Sessions endgültig löschen` }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Endgültig löschen" }),
+  );
+}
+
 async function openDeletion(): Promise<void> {
   renderChatPanel();
   await waitForSession(ACTIVE);
@@ -71,12 +81,29 @@ it("opens /delete with a counted multi-selection, no confirmation textbox and a 
   expect(server.selections).toHaveLength(0);
 });
 
-it("deletes all selected own sessions by button, refreshes the list and recovers to an empty usable chat", async () => {
+it("asks again before deleting and deletes nothing when the dialog is cancelled", async () => {
   await openDeletion();
   selectAll();
   fireEvent.click(
     screen.getByRole("button", { name: "2 Sessions endgültig löschen" }),
   );
+  await screen.findByRole("heading", { name: "Sessions endgültig löschen?" });
+  expect(server.selections).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("heading", { name: "Sessions endgültig löschen?" }),
+    ).toBeNull(),
+  );
+  expect(server.selections).toEqual([]);
+  expect(server.sessions.has(ACTIVE)).toBe(true);
+  expect(server.sessions.has(OTHER)).toBe(true);
+});
+
+it("deletes all selected own sessions by button, refreshes the list and recovers to an empty usable chat", async () => {
+  await openDeletion();
+  selectAll();
+  await confirmDeletion(2);
   await waitForSession(NEW);
   expect(server.selections).toEqual([
     { intent: "delete", sessionIds: [ACTIVE, OTHER] },
@@ -101,9 +128,7 @@ it("keeps unselected sessions and the active session when only another session i
   fireEvent.click(
     screen.getByRole("checkbox", { name: new RegExp(OTHER, "u") }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "1 Sessions endgültig löschen" }),
-  );
+  await confirmDeletion(1);
   await screen.findByText("Ausgewählte Sessions endgültig gelöscht.");
   expect(server.sessions.has(ACTIVE)).toBe(true);
   expect(server.sessions.has(OTHER)).toBe(false);
@@ -114,9 +139,7 @@ it("retains failed IDs and the updated session list after partial deletion, then
   server.failedId = OTHER;
   await openDeletion();
   selectAll();
-  fireEvent.click(
-    screen.getByRole("button", { name: "2 Sessions endgültig löschen" }),
-  );
+  await confirmDeletion(2);
   await screen.findByText(
     new RegExp(`Nicht gelöscht bzw. Ergebnis unbestätigt: ${OTHER}`, "u"),
   );
@@ -127,9 +150,7 @@ it("retains failed IDs and the updated session list after partial deletion, then
     screen.queryByRole("checkbox", { name: new RegExp(ACTIVE, "u") }),
   ).toBeNull();
   server.failedId = null;
-  fireEvent.click(
-    screen.getByRole("button", { name: "1 Sessions endgültig löschen" }),
-  );
+  await confirmDeletion(1);
   await waitForSession(NEW);
   expect(server.selections).toEqual([
     { intent: "delete", sessionIds: [ACTIVE, OTHER] },
@@ -141,9 +162,7 @@ it("keeps the deletion outcome on refresh failure and offers recovery when the a
   await openDeletion();
   server.failRefresh = true;
   selectAll();
-  fireEvent.click(
-    screen.getByRole("button", { name: "2 Sessions endgültig löschen" }),
-  );
+  await confirmDeletion(2);
   await screen.findByText(
     "Pages ist gerade nicht erreichbar. Bitte prüf die Verbindung und versuch es noch einmal.",
   );

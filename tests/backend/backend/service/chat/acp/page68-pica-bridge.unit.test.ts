@@ -407,7 +407,7 @@ it("recognizes a failed write regardless of key order and refuses it until the n
   expect(world.router).toHaveBeenCalledTimes(2);
 });
 
-it("deletes only with the person's confirmation word in the human message, never with one of the model", async () => {
+it("deletes on the person's explicit request without any confirmation word, and refuses one supplied by the model", async () => {
   const world = bridgeWorld();
   world.turn("Bitte PAGE-1 entfernen");
   expect(
@@ -422,21 +422,15 @@ it("deletes only with the person's confirmation word in the human message, never
       result: null,
       error: "UNKNOWN_TOOL",
     });
-  expect(
-    await world.call("tickets_delete", { ticketId: "PAGE-1" }),
-  ).toMatchObject({ ok: false, error: "CONFIRMATION_REQUIRED" });
   expect(world.router).not.toHaveBeenCalled();
-  world.confirmationWord.mockResolvedValue("DELETE");
-  world.turn("DELETE");
   expect(
     await world.call("tickets_delete", { ticketId: "PAGE-1" }),
   ).toMatchObject({ ok: true });
-  world.confirmationWord.mockResolvedValue("LÖSCHEN");
-  world.turn("Ja, LÖSCHEN");
+  world.turn("Lösche auch den Kommentar");
   expect(
     await world.call("wiki_comment_delete", { commentId: "comment-1" }),
   ).toMatchObject({ ok: true });
-  expect(world.confirmationWord).toHaveBeenCalledWith(OWNER.id);
+  expect(world.confirmationWord).not.toHaveBeenCalled();
   expect(
     world.router.mock.calls.map(([identity, request]) => [
       identity.userId,
@@ -448,12 +442,16 @@ it("deletes only with the person's confirmation word in the human message, never
   ]);
   expect(world.router.mock.calls[0]?.[1].parameters).toMatchObject({
     ticketId: "PAGE-1",
-    confirmation: "DELETE",
   });
+  expect(world.router.mock.calls[0]?.[1].parameters).not.toHaveProperty(
+    "confirmation",
+  );
   expect(world.router.mock.calls[1]?.[1].parameters).toMatchObject({
     commentId: "comment-1",
-    confirmation: "LÖSCHEN",
   });
+  expect(world.router.mock.calls[1]?.[1].parameters).not.toHaveProperty(
+    "confirmation",
+  );
 });
 
 it("refuses calls between turns, with a foreign or rotated token and after revoked access", async () => {

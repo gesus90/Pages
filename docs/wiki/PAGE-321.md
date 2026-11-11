@@ -4,17 +4,17 @@ Ein Agent kann in der Benutzerverwaltung oder über die Pages-Schnittstelle mit 
 
 ## Speicherorte im Pages-Code
 
-| Artefakt | Beleg |
-| --- | --- |
-| Konto, Rolle, Aktivierung, Avatar | `backend/database/postgres/migrations/001_baseline.sql`, `users` ab Zeile 1380, `user_authorization` ab Zeile 1301 und `user_avatars` ab Zeile 1322; Agent-Kennzeichnung in `024_agent_employees.sql` ab Zeile 5 |
-| Modell, SOUL.md, AGENT.md und MEMORY.md | `backend/database/postgres/migrations/024_agent_employees.sql`, `agent_employees` ab Zeile 14; hier liegen die Dokumente als Spalten `soul`, `instructions` und `memory` |
-| Gedächtnisarchiv und Versionen | `024_agent_employees.sql`, `agent_memory_archive` ab Zeile 39 und `agent_memory_versions` ab Zeile 52 |
-| DREAM.md | Im aktuellen Pages-Quellbestand weder als Datei noch als Datenbankspalte vorhanden; ein eigenes Agent-DREAM.md kann deshalb gegenwärtig nicht gezählt werden. |
-| Pica-Sitzungen und Verzeichnisse | `024_agent_employees.sql`, `agent_conversations` ab Zeile 86; `001_baseline.sql`, `chat_sessions` ab Zeile 616; `backend/service/chat/acp/PicaAcpWorkspace.ts` ab Zeile 9 und 49 legt Arbeitsverzeichnisse unter `pica-sessions/<sessionId>` an. |
-| Zugangs-Tokens und MCP-Geräte | `001_baseline.sql`, `personal_agent_tokens` ab Zeile 893 und `agent_run_credentials` ab Zeile 401; `017_mcp_device_pairing.sql`, `mcp_device` ab Zeile 29. |
-| Pläne und Läufe | `001_baseline.sql`, `agent_plans` ab Zeile 368 und `agent_plan_runs` ab Zeile 303; Sitzungsversuche ab Zeile 417. |
-| Chats und Gruppen | `024_agent_employees.sql`, `agent_conversations` ab Zeile 86; `028_conversations.sql`, `conversations` ab Zeile 6, `conversation_members` ab Zeile 23 und `conversation_messages` ab Zeile 39; ältere Chat-Gruppen in `027_chat_groups.sql` ab Zeile 17. |
-| Tickets und Wiki-Beiträge | `001_baseline.sql`, `work_items` ab Zeile 1642 und `wiki_comments` ab Zeile 1417; frühere Beiträge behalten ihre Autor-ID und die Agent-Tombstone-Zeile. |
+| Artefakt                                | Beleg                                                                                                                                                                                                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Konto, Rolle, Aktivierung, Avatar       | `backend/database/postgres/migrations/001_baseline.sql`, `users` ab Zeile 1380, `user_authorization` ab Zeile 1301 und `user_avatars` ab Zeile 1322; Agent-Kennzeichnung in `024_agent_employees.sql` ab Zeile 5                                         |
+| Modell, SOUL.md, AGENT.md und MEMORY.md | `backend/database/postgres/migrations/024_agent_employees.sql`, `agent_employees` ab Zeile 14; hier liegen die Dokumente als Spalten `soul`, `instructions` und `memory`                                                                                 |
+| Gedächtnisarchiv und Versionen          | `024_agent_employees.sql`, `agent_memory_archive` ab Zeile 39 und `agent_memory_versions` ab Zeile 52                                                                                                                                                    |
+| DREAM.md                                | Im aktuellen Pages-Quellbestand weder als Datei noch als Datenbankspalte vorhanden; ein eigenes Agent-DREAM.md kann deshalb gegenwärtig nicht gezählt werden.                                                                                            |
+| Pica-Sitzungen und Verzeichnisse        | `024_agent_employees.sql`, `agent_conversations` ab Zeile 86; `001_baseline.sql`, `chat_sessions` ab Zeile 616; `backend/service/chat/acp/PicaAcpWorkspace.ts` ab Zeile 9 und 49 legt Arbeitsverzeichnisse unter `pica-sessions/<sessionId>` an.         |
+| Zugangs-Tokens und MCP-Geräte           | `001_baseline.sql`, `personal_agent_tokens` ab Zeile 893 und `agent_run_credentials` ab Zeile 401; `017_mcp_device_pairing.sql`, `mcp_device` ab Zeile 29.                                                                                               |
+| Pläne und Läufe                         | `001_baseline.sql`, `agent_plans` ab Zeile 368 und `agent_plan_runs` ab Zeile 303; Sitzungsversuche ab Zeile 417.                                                                                                                                        |
+| Chats und Gruppen                       | `024_agent_employees.sql`, `agent_conversations` ab Zeile 86; `028_conversations.sql`, `conversations` ab Zeile 6, `conversation_members` ab Zeile 23 und `conversation_messages` ab Zeile 39; ältere Chat-Gruppen in `027_chat_groups.sql` ab Zeile 17. |
+| Tickets und Wiki-Beiträge               | `001_baseline.sql`, `work_items` ab Zeile 1642 und `wiki_comments` ab Zeile 1417; frühere Beiträge behalten ihre Autor-ID und die Agent-Tombstone-Zeile.                                                                                                 |
 
 Der ältere Entfernungsweg liegt in `backend/database/repositories/employee/AgentEmployeeRemovalRepository.ts` ab Zeile 30 und `backend/service/employee/AgentEmployeeAdministration.ts` ab Zeile 445. Er löscht bisher sofort und bietet keine Wiederherstellung; PAGE-321 ergänzt den eigenständigen Lebenszyklus.
 

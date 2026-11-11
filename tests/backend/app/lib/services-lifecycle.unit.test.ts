@@ -186,7 +186,7 @@ it("stops the GitHub synchronization and the wiki maintenance on shutdown", asyn
   expect(world.shutdownSteps).toEqual([]);
 });
 
-it("cleans up the wiki, then the agent assets, then consumed outbox events in each maintenance run", async () => {
+it("cleans up the wiki, then the agent assets, then consumed outbox events, then expired agent deletions in each maintenance run", async () => {
   await activateApplicationServices(world.database, DATABASE_PATH);
   vi.mocked(WikiService.prototype.runMaintenance).mockResolvedValue([]);
   // The maintenance runs as one announced call of the publisher.
@@ -210,6 +210,11 @@ it("cleans up the wiki, then the agent assets, then consumed outbox events in ea
   expect(retention).toHaveBeenCalledOnce();
   expect(assets.mock.invocationCallOrder[0]).toBeLessThan(
     retention.mock.invocationCallOrder[0],
+  );
+  const deletions = vi.mocked(world.employee.agentDeletionService.purgeExpired);
+  expect(deletions).toHaveBeenCalledOnce();
+  expect(retention.mock.invocationCallOrder[0]).toBeLessThan(
+    deletions.mock.invocationCallOrder[0],
   );
 });
 

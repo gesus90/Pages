@@ -40,7 +40,7 @@ it("submits the confirmed deletion and closes once the server removed the agent"
   const [formData] = submissions;
   expect(formData?.get("intent")).toBe("delete-agent");
   expect(formData?.get("agentId")).toBe("agent-1");
-  expect(formData?.get("confirmation")).toBe("LÖSCHEN");
+  expect(formData?.has("confirmation")).toBe(false);
 });
 
 it.each<{ readonly answer: string; readonly result: AgentActionAnswer }>([
