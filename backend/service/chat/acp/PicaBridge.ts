@@ -5,8 +5,12 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { logDiagnostic } from "@/backend/logging/Logger";
 import { answerPlanBridgeMessage } from "@/backend/service/agents/bridge/PlanBridgeProtocol";
+import { countCharacters } from "@/definition/Wiki";
 
-import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
+import {
+  PICA_TOOL_OUTCOME,
+  PICA_WIKI_CONTENT_CHARACTERS,
+} from "../PicaToolSchemas";
 import { isValidPicaToolImage } from "../PicaToolImageValidation";
 
 import type { Tool } from "@modelcontextprotocol/server";
@@ -483,6 +487,23 @@ export class PicaBridge {
     };
     try {
       if (!this.isCurrent(binding)) return refused("TURN_INACTIVE");
+      const parameters = fields(input);
+      if (
+        (name === "wiki_page_create" || name === "wiki_page_set_content") &&
+        typeof parameters?.content === "string" &&
+        countCharacters(parameters.content) > PICA_WIKI_CONTENT_CHARACTERS
+      )
+        return {
+          ok: false,
+          error: "INVALID_REQUEST",
+          result: JSON.stringify({
+            result: null,
+            details: {
+              reason: "content_too_long",
+              maxLength: PICA_WIKI_CONTENT_CHARACTERS,
+            },
+          }),
+        };
       const invoked = await turn.tools.invoke(name, input, context);
       if (invoked === null) return refused("UNKNOWN_TOOL");
       if (!invoked.isValid) return refused("INVALID_ARGUMENTS");

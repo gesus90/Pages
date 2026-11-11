@@ -254,7 +254,7 @@ const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
   },
   wiki_page_create: {
     description:
-      "Create a wiki page with Markdown content in a project, or with projectId null in the instance or private wiki named by scope; parentId null puts it on the top level.",
+      "Create a wiki page with Markdown content of at most 50,000 characters in a project, or with projectId null in the instance or private wiki named by scope; parentId null puts it on the top level. Longer content returns INVALID_REQUEST with details.reason content_too_long and details.maxLength 50000.",
     operation: "wiki.page.create",
     // Pica uploads nothing, so a page it creates references no new files.
     parameters: ({ icon, ...input }) => ({
@@ -269,7 +269,7 @@ const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
   },
   wiki_page_set_content: {
     description:
-      "Replace the whole Markdown content of a wiki page with the revision read last.",
+      "Replace the whole Markdown content of a wiki page with the revision read last. Content accepts at most 50,000 characters; longer content returns INVALID_REQUEST with details.reason content_too_long and details.maxLength 50000.",
     operation: "wiki.page.setContent",
   },
   wiki_page_move: {
