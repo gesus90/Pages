@@ -9,6 +9,11 @@
  * audio in the file store of Pages; its text arrives after the sending.
  */
 
+import type {
+  ConversationAttachment,
+  ConversationLink,
+} from "./ConversationContent";
+
 /** Longest text of a message, in characters. */
 export const CONVERSATION_TEXT_MAXIMUM_LENGTH = 16_000;
 
@@ -138,6 +143,10 @@ export interface ConversationMessage {
   readonly voice?: ConversationVoice;
   /** Present only for a hint why an agent did not answer; `text` then says it in German. */
   readonly notice?: ConversationNotice;
+  /** The files of the message in their order (PAGE-298); empty without any. */
+  readonly attachments: readonly ConversationAttachment[];
+  /** The URLs that stand alone in a line of the text (PAGE-298); empty without any. */
+  readonly links: readonly ConversationLink[];
 }
 
 /** A conversation as one member sees it. */

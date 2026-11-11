@@ -14,6 +14,9 @@ import type { ConversationRoundRepository } from "@/backend/database/repositorie
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type { ConversationMessage } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
+import type { ConversationAgentFiles } from "./content/ConversationAgentFiles";
+import type { ConversationAttachments } from "./content/ConversationAttachments";
+import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
 import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
   ConversationAccount,
@@ -76,6 +79,12 @@ export interface ConversationAgentRepliesDependencies {
   readonly events: Pick<ConversationEvents, "subscribe" | "publish">;
   /** Tells the live view of this process about a change. */
   readonly publisher: { publish(event: PagesEvent): void };
+  /** Reads the file lines of an answer (PAGE-298). */
+  readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
+  /** Stores the files an answer attaches. */
+  readonly attachments: Pick<ConversationAttachments, "attach">;
+  /** The attachments and links of a stored answer. */
+  readonly content: ConversationMessageContentReader;
   readonly now?: () => Date;
 }
 

@@ -150,11 +150,17 @@ export class WikiFileStore {
    * Opens a stored file for reading.
    *
    * @param storageName - Name the store gave the file.
+   * @param range - The first and the last byte to read, both included; the
+   * whole file without it.
    * @returns A read stream.
    */
-  public open(storageName: string): ReadStream {
+  public open(
+    storageName: string,
+    range?: { readonly start: number; readonly end: number },
+  ): ReadStream {
     return createReadStream(
       path.join(this.directory, path.basename(storageName)),
+      range ? { start: range.start, end: range.end } : undefined,
     );
   }
 

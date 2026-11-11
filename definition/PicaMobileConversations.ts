@@ -65,6 +65,8 @@ export const picaMobileConversationRequestSchema = z.discriminatedUnion(
         conversationId: conversationIdSchema,
         clientMessageId: z.uuid(),
         text: z.string().max(40_000),
+        /** The uploaded attachments of the message in their order (PAGE-298). */
+        attachmentIds: z.array(conversationIdSchema).max(10).optional(),
       }),
     }),
     z.object({

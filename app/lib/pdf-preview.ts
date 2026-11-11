@@ -38,10 +38,8 @@ const activeRenders = new WeakMap<
  * Opens an own PDF attachment with pdf.js for a page preview (PAGE-92).
  *
  * @remarks
- * The bytes come from the authenticated download address of Pages and are
- * parsed by pdf.js in its worker; the page is drawn into a canvas. No script
- * of the PDF runs, forms and annotations are not drawn as interactive layers,
- * links are not followed and nothing is loaded from another origin.
+ * The bytes come from the authenticated download address of Pages; see
+ * {@link openPdfBytes} for how they are parsed and drawn.
  *
  * @param url - The download address of the attachment.
  * @param signal - Cancels the download.
@@ -52,7 +50,22 @@ export async function openPdfPreview(
 ): Promise<PdfPreview> {
   const response = await fetch(url, { signal });
   if (!response.ok) throw new Error("The PDF could not be loaded.");
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  return openPdfBytes(new Uint8Array(await response.arrayBuffer()));
+}
+
+/**
+ * Opens the bytes of a PDF with pdf.js for a page preview.
+ *
+ * @remarks
+ * A local file goes through here, because the page may not fetch a `blob:`
+ * address (`connect-src 'self'`). pdf.js parses the bytes in its worker and
+ * the page is drawn into a canvas. No script of the PDF runs, forms and
+ * annotations are not drawn as interactive layers, links are not followed
+ * and nothing is loaded from another origin.
+ *
+ * @param bytes - The content of the PDF; pdf.js takes the buffer over.
+ */
+export async function openPdfBytes(bytes: Uint8Array): Promise<PdfPreview> {
   const pdfjs = await import("pdfjs-dist");
   worker ??= new PdfWorker();
   pdfjs.GlobalWorkerOptions.workerPort = worker;

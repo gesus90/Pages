@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
+import { ChatPageEmbedDomainsButton } from "./chat-page-embed-domains";
 import { ChatPageGroupContext } from "./chat-page-group-context";
 import { participantSubtitle } from "./chat-page-list-entries";
 import { ChatPageMemberDialog } from "./chat-page-member-dialog";
@@ -93,6 +94,7 @@ function ParticipantHeader({
       subtitle={facts.join(" · ")}
       aside={
         <>
+          {participant.kind === "agent" ? null : <ChatPageEmbedDomainsButton />}
           <MuteButton {...mute} />
           {isAnswering && participant.kind === "agent" ? (
             <Button onClick={onStop} size="sm" type="button" variant="outline">
@@ -173,7 +175,9 @@ function GroupHeader({
  * the dashed plus that adds one of the person's participants (PAGE-259)
  * and its stored context (PAGE-296).
  * A stored conversation with a person or of a group can be muted for the
- * person alone (PAGE-275).
+ * person alone (PAGE-275). Its settings list the domains released for
+ * embedding (PAGE-298): in the member dialog of a group, behind a button of
+ * their own in a conversation with a person.
  */
 export function ChatPageHeader({
   opened,

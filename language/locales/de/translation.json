@@ -1643,6 +1643,22 @@
         "retry": "Erneut versuchen"
       },
       "loading": "Verbindungen werden geladen"
+    },
+    "embedDomains": {
+      "title": "Einbetten im Chat",
+      "description": "Seiten dieser Domains lassen sich in jeder Unterhaltung direkt im Chat anzeigen. Pages selbst und lokale Vorschauen sind immer erlaubt; weitere Domains geben Mitglieder je Unterhaltung frei.",
+      "loading": "Domains werden geladen …",
+      "empty": "Keine Domain für alle Unterhaltungen freigegeben.",
+      "list": "Für alle Unterhaltungen freigegebene Domains",
+      "hostName": "Hostname",
+      "placeholder": "docs.example.org",
+      "release": "Freigeben",
+      "remove": "Entfernen",
+      "removeDomain": "Freigabe für {{domain}} entfernen",
+      "error": {
+        "invalid": "Das ist kein gültiger Hostname. Gib nur den Namen ein, zum Beispiel docs.example.org – ohne https://, Pfad oder Port.",
+        "failed": "Die Domains konnten nicht geladen oder gespeichert werden. Versuch es noch einmal."
+      }
     }
   },
   "users": {
@@ -3760,7 +3776,29 @@
     "participantPlaceholder": "Frag {{name}} etwas oder tippe / für Befehle …",
     "personPlaceholder": "Nachricht an {{name}} …",
     "groupPlaceholder": "Nachricht an {{name}} – mit @Name einen Teilnehmer direkt ansprechen …",
-    "attach": "Anhang hinzufügen",
+    "attach": {
+      "menu": "Anhängen und einfügen",
+      "file": "Datei anhängen",
+      "media": "Bild oder Video",
+      "code": "Codeblock",
+      "diff": "Diff",
+      "web": "Webseite einbetten",
+      "voice": "Sprachnachricht",
+      "webAddress": "Adresse der Webseite",
+      "webInsert": "Einfügen",
+      "webInvalid": "Gib eine Adresse ein, die mit http:// oder https:// beginnt.",
+      "list": "Anhänge dieser Nachricht",
+      "remove": "{{name}} entfernen",
+      "uploading": "{{size}} · wird hochgeladen … {{percent}} %",
+      "progress": "{{name}} wird hochgeladen",
+      "failed": "Nicht hochgeladen",
+      "failure": {
+        "tooLarge": "Die Datei ist größer als {{maximum}}.",
+        "tooMany": "Du kannst höchstens {{limit}} Dateien an eine Nachricht anhängen.",
+        "failed": "Die Datei konnte nicht hochgeladen werden. Versuch es noch einmal."
+      },
+      "dropHint": "Lass die Dateien los, um sie anzuhängen."
+    },
     "send": "Abschicken",
     "comingSoon": "Kommt bald",
     "cancel": "Abbrechen",
@@ -3802,7 +3840,8 @@
       "busy": "{{name}} arbeitet gerade an einer anderen Sitzung. Versuch es gleich noch einmal.",
       "unavailable": "{{name}} kann gerade nicht antworten: Modell oder Verbindung ist nicht verfügbar.",
       "invalidInput": "Die Nachricht konnte nicht gesendet werden.",
-      "tooLong": "Die Nachricht ist zu lang: höchstens 16.000 Zeichen."
+      "tooLong": "Die Nachricht ist zu lang: höchstens 16.000 Zeichen.",
+      "tooLarge": "Die Datei ist zu groß: höchstens 512 MB je Datei."
     },
     "contacts": {
       "title": "Teilnehmer hinzufügen",
@@ -3875,7 +3914,87 @@
     "unmute": "Stummschaltung aufheben",
     "muted": "Stummgeschaltet",
     "loadOlder": "Ältere Nachrichten laden",
-    "loadingOlder": "Lädt …"
+    "loadingOlder": "Lädt …",
+    "deleteMessage": {
+      "label": "Nachricht löschen",
+      "confirm": "Für alle löschen",
+      "cancel": "Abbrechen"
+    },
+    "cards": {
+      "beside": "Daneben",
+      "besideOpen": "Rechts geöffnet",
+      "collapse": "Einklappen",
+      "expand": "Ausklappen",
+      "showAllLines": "Alle {{count}} Zeilen zeigen",
+      "lines_one": "{{count}} Zeile",
+      "lines_other": "{{count}} Zeilen",
+      "copy": "Kopieren",
+      "saveFile": "Als Datei",
+      "wholeFile": "Ganze Datei",
+      "codeFile": "code.txt",
+      "rendered": "gerendert",
+      "textLoading": "Inhalt wird geladen …",
+      "textFailed": "Der Inhalt konnte nicht geladen werden.",
+      "close": "Schließen",
+      "viewer": "Inhalt im Vollbild",
+      "resize": "Breite des Panels ändern",
+      "kind": {
+        "code": "Code",
+        "diff": "Diff",
+        "markdown": "Markdown",
+        "web": "Webseite",
+        "link": "Link",
+        "image": "Bild",
+        "pdf": "PDF",
+        "video": "Video",
+        "audio": "Audio",
+        "file": "Datei"
+      },
+      "diff": {
+        "before": "vorher",
+        "after": "nachher",
+        "unified": "Untereinander",
+        "split": "Nebeneinander"
+      },
+      "pdf": {
+        "zoomIn": "Vergrößern",
+        "zoomOut": "Verkleinern",
+        "zoom": "{{percent}} %",
+        "previousPage": "Vorherige Seite",
+        "nextPage": "Nächste Seite",
+        "page": "Seite {{page}} / {{count}}",
+        "pages": "Seiten",
+        "openPage": "Seite {{page}} öffnen",
+        "loading": "PDF wird geladen …",
+        "failed": "Das PDF konnte nicht geladen werden."
+      },
+      "reload": "Neu laden",
+      "newTab": "Neuer Tab",
+      "openInNewTab": "Im neuen Tab öffnen",
+      "address": "Adresse der eingebetteten Seite",
+      "embedHere": "In diesem Chat einbetten",
+      "removeRelease": "Freigabe entfernen",
+      "embeddedPage": "Eingebettete Seite von {{domain}}",
+      "fullscreen": "Vollbild",
+      "download": "Laden",
+      "open": "Öffnen",
+      "play": "Abspielen",
+      "pause": "Pause",
+      "seek": "Im Verlauf springen",
+      "speed": "Geschwindigkeit: {{speed}}",
+      "videoFullscreen": "Video im Vollbild",
+      "previewPending": "Vorschau wird erstellt …",
+      "noPreview": "Keine Vorschau",
+      "you": "Du"
+    },
+    "embedDomains": {
+      "title": "Eingebettete Domains",
+      "dialogTitle": "Einstellungen der Unterhaltung",
+      "description": "Seiten dieser Domains zeigt diese Unterhaltung direkt im Chat an. Jedes Mitglied kann eine Freigabe entfernen; Links dorthin erscheinen danach wieder als Link-Karte.",
+      "empty": "Keine Domain freigegeben.",
+      "remove": "Entfernen",
+      "removeDomain": "Freigabe für {{domain}} entfernen"
+    }
   },
   "workspaces": {
     "title": "Arbeitsverzeichnis",

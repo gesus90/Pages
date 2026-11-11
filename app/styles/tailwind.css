@@ -122,6 +122,56 @@
   );
   --color-agent-console-danger-foreground: var(--color-surface);
 
+  /* Syntax colors and diff rows of the chat content cards (PAGE-298). The
+     code surface is `panel-body`, cards use `surface`. The colors follow the
+     status tokens and the muted text of the active design; a fifth of the
+     text color lifts each to 4.5:1 on both surfaces and on the diff rows in
+     every design and mode. Violet has no base token, so the keyword names its
+     own color. A design sets a token only where its palette misses 4.5:1. */
+  --color-code-keyword: #6d28d9;
+  --color-code-function: color-mix(
+    in srgb,
+    var(--color-info) 80%,
+    var(--color-foreground)
+  );
+  --color-code-string: color-mix(
+    in srgb,
+    var(--color-success) 80%,
+    var(--color-foreground)
+  );
+  --color-code-number: color-mix(
+    in srgb,
+    var(--color-warning) 80%,
+    var(--color-foreground)
+  );
+  --color-code-comment: color-mix(
+    in srgb,
+    var(--color-muted-foreground) 80%,
+    var(--color-foreground)
+  );
+  --color-code-line-number: var(--color-code-comment);
+  /* Counters and markers as text; the subtle tints lie over the code surface. */
+  --color-diff-added: color-mix(
+    in srgb,
+    var(--color-success) 80%,
+    var(--color-foreground)
+  );
+  --color-diff-added-subtle: color-mix(
+    in srgb,
+    var(--color-success) 12%,
+    transparent
+  );
+  --color-diff-removed: color-mix(
+    in srgb,
+    var(--color-destructive) 80%,
+    var(--color-foreground)
+  );
+  --color-diff-removed-subtle: color-mix(
+    in srgb,
+    var(--color-destructive) 12%,
+    transparent
+  );
+
   /* Plan node types stay distinct from their execution status: start and end
      green, parameters violet, agents cyan, scripts rose, tickets yellow, apart
      from the orange of the flow ports and of a running node. */
@@ -470,6 +520,8 @@
     --color-terminal-info: #80baff;
     --color-terminal-accent: #c4a2ff;
     --color-terminal-cyan: #67d5e5;
+
+    --color-code-keyword: #c4a2ff;
 
     --color-plan-agent: #3cc6d6;
     --color-plan-agent-subtle: #0f262d;

@@ -11,6 +11,13 @@ import type { Route } from "./+types/chat-page";
 /** The endpoint of the chat page; it reads with the rights of the signed-in account. */
 export const CHAT_PAGE_ENDPOINT = "/chat-page-api/page";
 
+/** The changes after which the page keeps its data. */
+const QUIET_INTENTS: readonly string[] = [
+  "history",
+  "card-state",
+  "split-width",
+];
+
 /** Recognizes the answer of the chat page endpoint. */
 export function isChatDirectory(value: unknown): value is VirtualChatDirectory {
   return (
@@ -39,12 +46,16 @@ export function clientLoader({
   });
 }
 
-/** Loading older messages changes nothing, so the page keeps its data (PAGE-275). */
+/**
+ * Loading older messages changes nothing, so the page keeps its data
+ * (PAGE-275); a card state and the split width show at once (PAGE-298).
+ */
 export function shouldRevalidate({
   formData,
   defaultShouldRevalidate,
 }: ShouldRevalidateFunctionArgs): boolean {
-  return formData?.get("intent") === "history"
+  const intent = formData?.get("intent");
+  return typeof intent === "string" && QUIET_INTENTS.includes(intent)
     ? false
     : defaultShouldRevalidate;
 }

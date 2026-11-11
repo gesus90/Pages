@@ -1643,6 +1643,22 @@
         "retry": "Try again"
       },
       "loading": "Loading connections"
+    },
+    "embedDomains": {
+      "title": "Embedding in chat",
+      "description": "Pages from these domains can be shown right in the chat of every conversation. Pages itself and local previews are always allowed; members release further domains per conversation.",
+      "loading": "Loading domains …",
+      "empty": "No domain released for all conversations.",
+      "list": "Domains released for all conversations",
+      "hostName": "Host name",
+      "placeholder": "docs.example.org",
+      "release": "Release",
+      "remove": "Remove",
+      "removeDomain": "Remove the release for {{domain}}",
+      "error": {
+        "invalid": "This is not a valid host name. Enter the name only, for example docs.example.org – without https://, a path or a port.",
+        "failed": "The domains could not be loaded or saved. Please try again."
+      }
     }
   },
   "users": {
@@ -3760,7 +3776,29 @@
     "participantPlaceholder": "Ask {{name}} something or type / for commands …",
     "personPlaceholder": "Message to {{name}} …",
     "groupPlaceholder": "Message to {{name}} – address a participant directly with @name …",
-    "attach": "Add attachment",
+    "attach": {
+      "menu": "Attach and insert",
+      "file": "Attach file",
+      "media": "Image or video",
+      "code": "Code block",
+      "diff": "Diff",
+      "web": "Embed web page",
+      "voice": "Voice message",
+      "webAddress": "Address of the web page",
+      "webInsert": "Insert",
+      "webInvalid": "Enter an address that starts with http:// or https://.",
+      "list": "Attachments of this message",
+      "remove": "Remove {{name}}",
+      "uploading": "{{size}} · uploading … {{percent}}%",
+      "progress": "Uploading {{name}}",
+      "failed": "Not uploaded",
+      "failure": {
+        "tooLarge": "The file is larger than {{maximum}}.",
+        "tooMany": "You can attach at most {{limit}} files to one message.",
+        "failed": "The file could not be uploaded. Try again."
+      },
+      "dropHint": "Drop the files to attach them."
+    },
     "send": "Send",
     "comingSoon": "Coming soon",
     "cancel": "Cancel",
@@ -3802,7 +3840,8 @@
       "busy": "{{name}} is busy with another session. Try again shortly.",
       "unavailable": "{{name}} cannot answer right now: model or connection unavailable.",
       "invalidInput": "The message could not be sent.",
-      "tooLong": "The message is too long: at most 16,000 characters."
+      "tooLong": "The message is too long: at most 16,000 characters.",
+      "tooLarge": "The file is too large: at most 512 MB per file."
     },
     "contacts": {
       "title": "Add participants",
@@ -3875,7 +3914,87 @@
     "unmute": "Unmute",
     "muted": "Muted",
     "loadOlder": "Load older messages",
-    "loadingOlder": "Loading …"
+    "loadingOlder": "Loading …",
+    "deleteMessage": {
+      "label": "Delete message",
+      "confirm": "Delete for everyone",
+      "cancel": "Cancel"
+    },
+    "cards": {
+      "beside": "Beside",
+      "besideOpen": "Opened on the right",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "showAllLines": "Show all {{count}} lines",
+      "lines_one": "{{count}} line",
+      "lines_other": "{{count}} lines",
+      "copy": "Copy",
+      "saveFile": "As file",
+      "wholeFile": "Whole file",
+      "codeFile": "code.txt",
+      "rendered": "rendered",
+      "textLoading": "Loading content …",
+      "textFailed": "The content could not be loaded.",
+      "close": "Close",
+      "viewer": "Content in full screen",
+      "resize": "Change the width of the panel",
+      "kind": {
+        "code": "Code",
+        "diff": "Diff",
+        "markdown": "Markdown",
+        "web": "Web page",
+        "link": "Link",
+        "image": "Image",
+        "pdf": "PDF",
+        "video": "Video",
+        "audio": "Audio",
+        "file": "File"
+      },
+      "diff": {
+        "before": "before",
+        "after": "after",
+        "unified": "Stacked",
+        "split": "Side by side"
+      },
+      "pdf": {
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "zoom": "{{percent}} %",
+        "previousPage": "Previous page",
+        "nextPage": "Next page",
+        "page": "Page {{page}} / {{count}}",
+        "pages": "Pages",
+        "openPage": "Open page {{page}}",
+        "loading": "Loading PDF …",
+        "failed": "The PDF could not be loaded."
+      },
+      "reload": "Reload",
+      "newTab": "New tab",
+      "openInNewTab": "Open in new tab",
+      "address": "Address of the embedded page",
+      "embedHere": "Embed in this chat",
+      "removeRelease": "Remove release",
+      "embeddedPage": "Embedded page from {{domain}}",
+      "fullscreen": "Full screen",
+      "download": "Download",
+      "open": "Open",
+      "play": "Play",
+      "pause": "Pause",
+      "seek": "Seek",
+      "speed": "Speed: {{speed}}",
+      "videoFullscreen": "Video in full screen",
+      "previewPending": "Creating preview …",
+      "noPreview": "No preview",
+      "you": "You"
+    },
+    "embedDomains": {
+      "title": "Embedded domains",
+      "dialogTitle": "Conversation settings",
+      "description": "This conversation shows pages from these domains right in the chat. Any member can remove a release; links to that domain then appear as link cards again.",
+      "empty": "No domain released.",
+      "remove": "Remove",
+      "removeDomain": "Remove the release for {{domain}}"
+    }
   },
   "workspaces": {
     "title": "Workspaces",

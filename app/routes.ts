@@ -319,6 +319,7 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     resource("app-api/shell", "routes/shell-data.ts"),
     resource("dashboard-api/page", "routes/dashboard-data.ts"),
     resource("settings-api/ticket-assets", "routes/settings-ticket-assets.ts"),
+    resource("settings-api/embed-domains", "routes/settings-embed-domains.ts"),
     resource("settings-api/interpreters", "routes/settings-interpreters.ts"),
     resource(
       "settings-api/system/dashboard",
@@ -350,6 +351,11 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     ),
     resource("chat-page-api/page", "routes/chat-page-data.ts"),
     resource("chat-page-api/voice", "routes/chat-page-voice.ts"),
+    resource("chat-page-api/files", "routes/chat-page-files.ts"),
+    resource("chat/files/:id", "routes/conversation-file.ts"),
+    resource("chat/files/:id/thumbnail", "routes/conversation-thumbnail.ts"),
+    resource("chat/link-image", "routes/conversation-link-image.ts"),
+    resource("chat/embed", "routes/chat-embed.ts"),
     ...page("chat", {
       browser: "routes/chat-page.tsx",
       server: "routes/chat-page-server.ts",

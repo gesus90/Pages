@@ -132,6 +132,7 @@ export async function startMcpWorkspace(context: {
         directory,
         events: context.tasks.pagesEventPublisher,
         speech: runtime.getConfig().speechRecognition,
+        publicUrl: runtime.getConfig().publicUrl,
       },
     }),
   };

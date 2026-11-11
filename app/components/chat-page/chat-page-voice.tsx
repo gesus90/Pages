@@ -91,7 +91,7 @@ function useVoicePlayer(durationMs: number): {
 }
 
 /** The bars of the waveform; the played part is full, the rest faint. Clicking seeks. */
-function VoiceWave({
+export function VoiceWave({
   peaks,
   share,
   isOwn,

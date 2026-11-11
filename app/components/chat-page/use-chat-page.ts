@@ -65,8 +65,11 @@ export interface ChatPageState {
   readonly voiceMaximumMs: number;
   /** Why the last message could not be sent, or `null`. */
   readonly sendFailure: VirtualChatSendFailure | null;
-  /** Sends a message to the opened agent, person or group. */
-  send(content: string): void;
+  /**
+   * Sends a message to the opened agent, person or group; with uploaded
+   * attachments (PAGE-298) the text may be empty.
+   */
+  send(content: string, attachmentIds?: readonly string[]): void;
   /** Adds one of the person's participants to a group. */
   addMember(groupId: string, participantId: string): void;
   /** Stops the answer of the opened agent. */
@@ -206,9 +209,12 @@ function pendingMessage(
 function messageForm(
   opened: OpenedConversation,
   content: string,
+  attachmentIds: readonly string[],
 ): FormData | null {
   const formData = new FormData();
   formData.set("text", content);
+  if (attachmentIds.length > 0)
+    formData.set("attachmentIds", JSON.stringify(attachmentIds));
   formData.set("clientMessageId", crypto.randomUUID());
   if (opened.kind === "group") {
     formData.set("intent", "send-group");
@@ -322,9 +328,10 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
   useAnswerPolling(isAnswering);
   useConversationRead(opened, stored);
 
-  function send(content: string): void {
-    if (content.trim() === "" || !opened || !selection) return;
-    const formData = messageForm(opened, content);
+  function send(content: string, attachmentIds: readonly string[] = []): void {
+    const isEmpty = content.trim() === "" && attachmentIds.length === 0;
+    if (isEmpty || !opened || !selection) return;
+    const formData = messageForm(opened, content, attachmentIds);
     if (!formData) return;
     activity.touch(selection);
     void sender.submit(formData, { method: "post" });

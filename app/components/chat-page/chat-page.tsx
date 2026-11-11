@@ -1,10 +1,17 @@
 import { useTranslation } from "react-i18next";
 
 import { ChatPageComposer } from "./chat-page-composer";
+import { ChatPageDropZone } from "./chat-page-drop-zone";
 import { ChatPageHeader } from "./chat-page-header";
 import { ChatPageHistory } from "./chat-page-history";
 import { ChatPageList } from "./chat-page-list";
 import { ChatPagePicker } from "./chat-page-picker";
+import { CardOverlay } from "./content/card-panel";
+import {
+  ChatContentProvider,
+  useChatContent,
+} from "./content/chat-content-context";
+import { SplitPanel } from "./content/split-panel";
 import { useChatPage } from "./use-chat-page";
 import { useVoiceSending } from "./use-voice-sending";
 import { formatVoiceDuration } from "./voice-audio";
@@ -71,6 +78,9 @@ function ConversationFoot({
         label={t("chatPage.inputLabel", { name })}
         placeholder={t(placeholderKey(opened), { name })}
         onSend={page.send}
+        attachments={
+          hasVoice && page.selection ? { selection: page.selection } : undefined
+        }
         voice={
           hasVoice ? { sending, maximumMs: page.voiceMaximumMs } : undefined
         }
@@ -95,9 +105,9 @@ function ChatPageConversation({
     );
   const name = conversationName(opened);
   return (
-    <section
+    <ChatPageDropZone
       aria-label={name}
-      className="flex min-h-0 min-w-0 flex-1 flex-col gap-4"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:min-w-[360px]"
     >
       <ChatPageHeader
         opened={opened}
@@ -125,7 +135,34 @@ function ChatPageConversation({
         page={page}
         opened={opened}
       />
-    </section>
+    </ChatPageDropZone>
+  );
+}
+
+/** The stored conversation of the opened entry; agents and new direct ones have none. */
+function storedConversationId(
+  opened: OpenedConversation | null,
+): string | null {
+  if (!opened) return null;
+  return opened.kind === "group"
+    ? opened.group.id
+    : (opened.participant.conversationId ?? null);
+}
+
+/**
+ * The list of conversations; while the split view is open it makes room
+ * for chat and panel on screens below 1536 px (PAGE-298).
+ */
+function ListSlot({
+  children,
+}: {
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  const { beside } = useChatContent();
+  return (
+    <div className={beside ? "hidden 2xl:contents" : "contents"}>
+      {children}
+    </div>
   );
 }
 
@@ -141,7 +178,8 @@ function ChatPageConversation({
  * it. Messages go to active agents, which answer over ACP, and into the
  * stored conversations with people and of groups (PAGE-278). The list holds
  * only existing people and agents the person chose or who wrote to them, and
- * groups of them.
+ * groups of them. Content of messages shows as cards; one of them opens
+ * right of the chat in the split view or over the page (PAGE-298).
  */
 export function ChatPage({
   directory,
@@ -161,9 +199,21 @@ export function ChatPage({
         </p>
       </header>
       <div className="mt-6 flex min-h-0 flex-1 flex-col gap-4 md:gap-8 lg:flex-row">
-        <ChatPageList page={page} directory={directory} />
-        <ChatPagePicker page={page} />
-        <ChatPageConversation page={page} />
+        <ChatContentProvider
+          conversationId={storedConversationId(page.opened)}
+          conversationKey={page.opened ? conversationKey(page.opened) : ""}
+          directory={directory}
+        >
+          <ListSlot>
+            <ChatPageList page={page} directory={directory} />
+            <ChatPagePicker page={page} />
+          </ListSlot>
+          <ChatPageConversation page={page} />
+          <SplitPanel
+            storedWidth={directory.viewPreferences?.splitWidth ?? null}
+          />
+          <CardOverlay />
+        </ChatContentProvider>
       </div>
     </section>
   );

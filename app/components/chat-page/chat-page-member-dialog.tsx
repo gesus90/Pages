@@ -10,6 +10,7 @@ import {
 } from "@/app/components/ui/dialog";
 
 import { ParticipantAvatar } from "./chat-page-avatar";
+import { ChatPageOpenedEmbedDomains } from "./chat-page-embed-domains";
 import { participantSubtitle } from "./chat-page-list-entries";
 
 import type {
@@ -88,7 +89,8 @@ interface ChatPageMemberDialogProps {
  * @remarks
  * Choosing one adds it at once and stores it; the dialog closes and the
  * chips show the new member. When everyone is a member already, the choice
- * says so.
+ * says so. Below the choice the dialog lists the domains released for
+ * embedding in the group's conversation (PAGE-298).
  */
 export function ChatPageMemberDialog({
   group,
@@ -155,6 +157,9 @@ export function ChatPageMemberDialog({
               hasCandidates={available.length > 0}
               onChoose={handleChoose}
             />
+          </div>
+          <div className="mt-4 border-t border-border pt-4 empty:hidden">
+            <ChatPageOpenedEmbedDomains />
           </div>
         </DialogContent>
       </Dialog>

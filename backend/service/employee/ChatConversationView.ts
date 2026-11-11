@@ -39,6 +39,11 @@ export function toVirtualMessage(
       color: message.sender.color,
     },
     ...(message.notice ? { notice: message.notice } : {}),
+    ...(message.attachments.length > 0
+      ? { attachments: message.attachments }
+      : {}),
+    ...(message.links.length > 0 ? { links: message.links } : {}),
+    ...(isOwn && !message.notice ? { canDelete: true } : {}),
   };
   if (!message.voice) return base;
   return {

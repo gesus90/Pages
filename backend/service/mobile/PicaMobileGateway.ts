@@ -10,6 +10,7 @@ import { PICA_MOBILE_PATH } from "@/definition/PicaMobile";
 import { PICA_MOBILE_MAXIMUM_CHAT_SEND_BYTES } from "@/definition/PicaMobileProtocol";
 
 import { PicaMobileChatFiles } from "./chat/PicaMobileChatFiles";
+import { PicaMobileAttachmentFiles } from "./conversations/PicaMobileAttachmentFiles";
 import { PicaMobileConversationFiles } from "./conversations/PicaMobileConversationFiles";
 import { PicaMobileConnection } from "./PicaMobileConnection";
 
@@ -20,6 +21,7 @@ import type { PicaMobilePortError } from "@/definition/PicaMobile";
 import type { PicaMobileAuthenticator } from "./PicaMobileAuthenticator";
 import type { PicaMobileDashboardProvider } from "./PicaMobileDashboardProvider";
 import type { PicaMobileChatProvider } from "./chat/PicaMobileChatProvider";
+import type { PicaMobileAttachmentServices } from "./conversations/PicaMobileAttachmentFiles";
 import type { PicaMobileConversationsProvider } from "./conversations/PicaMobileConversationsProvider";
 import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
 import type { PicaMobilePlansProvider } from "./plans/PicaMobilePlansProvider";
@@ -45,6 +47,11 @@ export interface PicaMobileGatewayOptions {
    * `conversations.v1` is not announced and the endpoint answers 426.
    */
   readonly conversations?: PicaMobileConversationsProvider;
+  /**
+   * Resolves the services of the attachment endpoints of `conversations.v1`
+   * (PAGE-298); without it those addresses answer 426.
+   */
+  readonly attachments?: () => Promise<PicaMobileAttachmentServices>;
   /** Answers `speech.v1`; without it `speech.v1` is not announced. */
   readonly speech?: PicaMobileSpeechProvider;
   /** Version of this Pages build, reported to connected clients. */
@@ -199,6 +206,7 @@ export class PicaMobileGateway {
   private readonly changes = new SerialQueue();
   private readonly files: PicaMobileChatFiles | null;
   private readonly voices: PicaMobileConversationFiles | null;
+  private readonly attachments: PicaMobileAttachmentFiles | null;
   private active: Listener | null = null;
   private lastFailure: PicaMobileListenFailure | null = null;
   private isClosed = false;
@@ -223,6 +231,13 @@ export class PicaMobileGateway {
         : new PicaMobileConversationFiles({
             authenticator: options.authenticator,
             conversations: options.conversations,
+          });
+    this.attachments =
+      options.attachments === undefined
+        ? null
+        : new PicaMobileAttachmentFiles({
+            authenticator: options.authenticator,
+            resolveServices: options.attachments,
           });
   }
 
@@ -419,7 +434,8 @@ export class PicaMobileGateway {
 
     if (
       this.files?.handle(request, response, clientAddress) === true ||
-      this.voices?.handle(request, response, clientAddress) === true
+      this.voices?.handle(request, response, clientAddress) === true ||
+      this.attachments?.handle(request, response, clientAddress) === true
     ) {
       return;
     }
