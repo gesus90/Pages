@@ -375,6 +375,31 @@ it("reports a gateway deadline without JSON as a timeout", async () => {
   }
 });
 
+/** A response that the browser reached after following a redirect to the given address. */
+function redirectedTo(url: string, body: unknown): Response {
+  const response = Response.json(body);
+  Object.defineProperties(response, {
+    redirected: { value: true },
+    url: { value: url },
+  });
+  return response;
+}
+
+it("asks for a new sign-in when the session ended on a sign-in page", async () => {
+  for (const path of ["/login", "/change-password"]) {
+    serve(() => redirectedTo(`https://pages.example${path}`, { ok: true }));
+    await expect(chatApi({})).rejects.toMatchObject({
+      code: "authenticationRequired",
+    });
+  }
+});
+
+it("accepts an answer that was redirected to another page", async () => {
+  serve(() => redirectedTo("https://pages.example/chat-api", { ok: true }));
+
+  await expect(chatApi({})).resolves.toEqual({ ok: true });
+});
+
 it("tells a cancelled request from a network failure", async () => {
   serve(() => {
     throw new TypeError("offline");
