@@ -168,9 +168,12 @@ it("lists the used tools with and without detail", () => {
     ],
   });
   const tools = within(screen.getByRole("list", { name: "Tools used" }));
-  expect(
-    tools.getAllByRole("listitem").map((item) => item.textContent),
-  ).toEqual(["list_tickets · 3 open", "read_wiki"]);
+  const items = tools.getAllByRole("listitem");
+  expect(items).toHaveLength(2);
+  expect(within(items[0]!).getByText("list_tickets")).toBeTruthy();
+  expect(within(items[0]!).getByText("3 open")).toBeTruthy();
+  expect(within(items[1]!).getByText("read_wiki")).toBeTruthy();
+  expect(within(items[1]!).getByText("No further details.")).toBeTruthy();
 });
 
 it("omits the tool list when an answer used no tool", () => {
