@@ -1801,7 +1801,13 @@
       "noCandidates": "Keine aktiven Benutzer verfügbar.",
       "none": "Noch keine Gruppen angelegt.",
       "empty": "Leer – nicht zuweisbar",
-      "memberCount": "Mitglieder: {{total}}"
+      "memberCount": "Mitglieder: {{total}}",
+      "leaders": "Leitung",
+      "noLeaders": "Keine Leitung",
+      "leader": "Leitung",
+      "leadersHint": "Eine Leitung darf die Profile der Agents dieser Gruppe lesen, aber nichts ändern. Nur Administratoren legen sie fest.",
+      "agents": "Agents",
+      "agentsNamed": "Agents der Gruppe {{name}} anzeigen"
     },
     "privateWiki": {
       "count": "Private Wiki-Seiten: {{count}}",
@@ -6956,6 +6962,38 @@
         "description": "AGENT.md enthält bereits Text. Die Vorlage „{{name}}“ ersetzt ihn vollständig.",
         "confirm": "Ersetzen"
       }
+    }
+  },
+  "agentProfile": {
+    "title": "Agent-Profil",
+    "groupTitle": "Agents der Gruppe {{name}}",
+    "groupHint": "Rolle, Kurzbeschreibung, Modell und Auslastung. Ein Klick öffnet das Profil lesend.",
+    "readOnly": "Nur lesend. Gedächtnis, Chatinhalte und Zugangsdaten sind nicht sichtbar.",
+    "loading": "Profil wird geladen …",
+    "forbidden": "Du darfst dieses Profil nicht lesen.",
+    "unavailable": "Das Profil konnte nicht geladen werden.",
+    "none": "Diese Gruppe hat keine Agents.",
+    "empty": "Nicht hinterlegt",
+    "close": "Schließen",
+    "open": "Profil von {{name}} öffnen",
+    "role": "Rolle",
+    "model": "Modell",
+    "reasoning": "Reasoning",
+    "access": "Zugriffsstufe",
+    "departments": "Abteilungen",
+    "groups": "Gruppen",
+    "projects": "Projekte",
+    "activeChats": "Aktive Chats",
+    "runningSteps": "Laufende Plan-Schritte",
+    "lastActive": "Letzte Aktivität",
+    "openTickets": "Offene Tickets ({{count}})",
+    "load": "{{chats}} Chats · {{steps}} Schritte · {{tickets}} Tickets",
+    "columns": {
+      "name": "Name",
+      "role": "Rolle",
+      "summary": "Kurzbeschreibung",
+      "model": "Modell",
+      "workload": "Auslastung"
     }
   }
 }

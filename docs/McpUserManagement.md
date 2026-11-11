@@ -251,6 +251,8 @@ A department: `id, name, memberIds (visible members), canManage`.
 A group: `id, name, memberIds (visible active members), canEdit`. Without
 `manage_users` the list is empty and a detail answers `not_found`.
 
+> **PAGE-308:** `GET /groups/{groupId}` answers without further parameters with the readable group (`id`, `name`, `leaders`, `members`) for administrators and members of the group. The view of this section is `GET /groups/{groupId}?view=administration`. See `docs/wiki/PAGE-308.md`.
+
 ### `POST /groups`, `PATCH /groups/{groupId}`, `DELETE /groups/{groupId}` — manage_user_group
 
 - create: `operationId, name, memberIds` (at least one active member).

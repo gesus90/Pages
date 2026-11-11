@@ -1801,7 +1801,13 @@
       "noCandidates": "No active users available.",
       "none": "No groups created yet.",
       "empty": "Empty – cannot be assigned",
-      "memberCount": "Members: {{total}}"
+      "memberCount": "Members: {{total}}",
+      "leaders": "Leaders",
+      "noLeaders": "No leader",
+      "leader": "Leader",
+      "leadersHint": "A leader may read the profiles of the agents of this group but change nothing. Only administrators set leaders.",
+      "agents": "Agents",
+      "agentsNamed": "Show the agents of the group {{name}}"
     },
     "privateWiki": {
       "count": "Private wiki pages: {{count}}",
@@ -6956,6 +6962,38 @@
         "description": "AGENT.md already holds text. The template “{{name}}” replaces it completely.",
         "confirm": "Replace"
       }
+    }
+  },
+  "agentProfile": {
+    "title": "Agent profile",
+    "groupTitle": "Agents of the group {{name}}",
+    "groupHint": "Role, short description, model and workload. A click opens the profile read-only.",
+    "readOnly": "Read-only. Memory, chat contents and credentials are not visible.",
+    "loading": "Loading profile …",
+    "forbidden": "You may not read this profile.",
+    "unavailable": "The profile could not be loaded.",
+    "none": "This group has no agents.",
+    "empty": "Not set",
+    "close": "Close",
+    "open": "Open the profile of {{name}}",
+    "role": "Role",
+    "model": "Model",
+    "reasoning": "Reasoning",
+    "access": "Access level",
+    "departments": "Departments",
+    "groups": "Groups",
+    "projects": "Projects",
+    "activeChats": "Active chats",
+    "runningSteps": "Running plan steps",
+    "lastActive": "Last activity",
+    "openTickets": "Open tickets ({{count}})",
+    "load": "{{chats}} chats · {{steps}} steps · {{tickets}} tickets",
+    "columns": {
+      "name": "Name",
+      "role": "Role",
+      "summary": "Summary",
+      "model": "Model",
+      "workload": "Workload"
     }
   }
 }

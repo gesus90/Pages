@@ -51,6 +51,7 @@ describe("pageData", () => {
 
     await expect(service.pageData("writer")).resolves.toEqual({
       canManage: false,
+      canSetLeaders: false,
       groups: [],
     });
   });

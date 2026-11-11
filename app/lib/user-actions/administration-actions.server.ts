@@ -93,6 +93,10 @@ export const ADMINISTRATION_ACTION_HANDLERS = {
   "save-group": handler("save-group", async ({ actor, formData, services }) => {
     await services.groupAdministrationService.saveGroup(actor.id, {
       id: text(formData, "entityId") || randomUUID(),
+      // The leader fields travel only from an administrator's form.
+      ...(formData.has("leadersSent")
+        ? { leaderIds: strings(formData, "leader") }
+        : {}),
       memberIds: strings(formData, "member"),
       name: text(formData, "name"),
     });

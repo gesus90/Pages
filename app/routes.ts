@@ -8,6 +8,7 @@ import {
 
 import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
 import { mcpUserRoutes } from "./lib/mcp-user-routes";
+import { userProfileRoutes } from "./lib/user-profile-routes";
 import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
 import { storageRoutes } from "./lib/storage-routes";
 
@@ -462,7 +463,7 @@ function settingsRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       server: "routes/users-server.ts",
     }),
     resource("users-api/page", "routes/users-data.ts"),
-    resource("users-api/agents/:agentId", "routes/users-agent-data.ts"),
+    ...userProfileRoutes(resource),
     ...page(
       "settings",
       {

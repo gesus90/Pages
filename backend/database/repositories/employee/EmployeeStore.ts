@@ -4,6 +4,7 @@ import { AgentConversationRepository } from "./AgentConversationRepository";
 import { AgentEmployeeRemovalRepository } from "./AgentEmployeeRemovalRepository";
 import { AgentEmployeeRepository } from "./AgentEmployeeRepository";
 import { AgentLearningSourceRepository } from "./AgentLearningSourceRepository";
+import { AgentProfileLoadRepository } from "./AgentProfileLoadRepository";
 import { AgentMemoryRepository } from "./AgentMemoryRepository";
 import { AgentTemplateRepository } from "./AgentTemplateRepository";
 import { ChatContactRepository } from "./ChatContactRepository";
@@ -89,6 +90,11 @@ export class EmployeeStore {
   /** What refers to an agent, whether it works now, and its removal (PAGE-267). */
   public removals(): AgentEmployeeRemovalRepository {
     return new AgentEmployeeRemovalRepository(this.database);
+  }
+
+  /** Project roles, workload and last activity of agents (PAGE-308). */
+  public profileLoads(): AgentProfileLoadRepository {
+    return new AgentProfileLoadRepository(this.database);
   }
 
   /** What is new for a learning run. */

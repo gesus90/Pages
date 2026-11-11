@@ -4,6 +4,11 @@ import {
   requireMcpAgentParameter,
   runMcpAgentRoute,
 } from "@/app/lib/mcp-agent-route.server";
+import {
+  isAdministrationView,
+  runMcpAgentProfileRoute,
+} from "@/app/lib/mcp-agent-profile-route.server";
+import { McpAgentProfileRequest } from "@/backend/service/mcp/agent/McpAgentProfileRequest";
 import { McpAgentRequest } from "@/backend/service/mcp/agent/McpAgentRequest";
 
 import type { McpAgentHandlers } from "@/app/lib/mcp-agent-route.server";
@@ -31,18 +36,28 @@ function handlers(params: Route.LoaderArgs["params"]): McpAgentHandlers {
 }
 
 /**
- * Reads an agent (`GET /api/mcp/v1/agents/{id}`) and changes it (`PATCH`), PAGE-267.
+ * Reads an agent profile (`GET /api/mcp/v1/agents/{agentId}`, PAGE-308), the agent of the administration
+ * (`GET /api/mcp/v1/agents/{id}?view=administration`) and changes it (`PATCH`), PAGE-267.
  *
  * @remarks
- * Only the device token of a paired machine admits a request, and only for
- * an account with the administrator role. A change needs the current
- * `revision`; `isActive: false` deactivates an agent that is not running.
+ * The profile answers every account that may read it: administrators, the
+ * leaders of a group of the agent and the managers of a project of the
+ * agent. The administration view and `PATCH` stay with administrators; a
+ * change needs the current `revision`, and `isActive: false` deactivates an
+ * agent that is not running.
  */
 export async function loader({
   params,
   request,
 }: Route.LoaderArgs): Promise<Response> {
-  return runMcpAgentRoute(request, handlers(params));
+  if (isAdministrationView(request))
+    return runMcpAgentRoute(request, handlers(params));
+  return runMcpAgentProfileRoute(request, ({ api, actor }) =>
+    api.profiles.read(
+      actor.userId,
+      McpAgentProfileRequest.identifier(params.id, "agentId"),
+    ),
+  );
 }
 
 /** Serves the changing methods of the same resource. */
