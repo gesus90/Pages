@@ -28,6 +28,124 @@ confirmations). A separate MCP client is not part of PAGE-270.
 - The session cookie authenticates the call (`SameSite=Lax`); changing calls
   are `POST` only.
 
+## Pages MCP API (PAGE-299)
+
+The paired-device API exposes the same reader and writer at
+`/api/mcp/v1/storage/<operation>`. It is a resource route in both the API and
+SPA forwarding tables. Unknown paths below this namespace (including its
+bare root) return JSON `404 not_found` after authentication and authorization,
+never an HTML success document. A missing or invalid bearer token returns
+`401 invalid_token`, even with a valid browser cookie. Wrong methods return
+JSON `405 invalid_request` with `Allow`.
+
+### Contract basis and compatibility boundary
+
+The separate Pages MCP checkout is outside this workspace and was not read.
+The MCP catalog exposed to this implementation session contains no Storage
+schemas. Following the ticket's fallback, this contract is derived from the
+existing Storage interface, the native `PicaStorageContracts.ts` descriptions
+and the established MCP device API's direct JSON/error convention. It is
+**not a verified copy of the separate client's schema**. The previously reported
+HTTP 200 responses alone do not identify their runtime cause or implicate
+Google Drive. The source does establish that the MCP Storage resource was
+missing; an unmatched GET can take the static app document fallback.
+
+Concrete decisions that a client must follow or compare against its contract:
+
+- Read operations use `GET`; all changes use `POST`. The operation names,
+  parameters and result fields in the tables below apply, except `batch`,
+  which is deliberately not offered on MCP. `resolve-path`, `create-folder`,
+  `delete-permanently` and `trash` are aliases of `resolve_path`,
+  `create_folder`, `delete_permanently` and `delete` respectively.
+- Successful JSON is the **direct result object**, plus `simulation`, without
+  the session API's `ok`/`result` envelope. For example, stat returns
+  `{ entry, path, simulation }`, creation/upload/update/move/rename/restore/trash
+  return the entry's fields plus `simulation`, copy returns
+  `{ entry, copiedCount, simulation }`, and quota returns its four byte fields
+  plus `simulation`. `confirm` returns the confirmation's fields directly.
+- List/search return `entries`, `nextPageToken`, `nextCursor` (the same opaque
+  cursor, or `null` at the end) and `simulation`; list also returns `folder`.
+  Send the cursor unchanged with the same listing/search parameters on the
+  next call. `cursor` aliases `pageToken`, `limit` aliases `pageSize` (1–1000),
+  and `folder` aliases search's `folderRef`. `pageToken`, `pageSize` and
+  `folderRef` take precedence when both spellings are supplied.
+  Invalid sizes/types or cursor lengths above 2048 are rejected, never silently
+  restarted. References remain the existing stable Drive IDs, not session IDs.
+- Errors are `{ error: "<code>", ...details, simulation }`, using the HTTP
+  statuses and safe detail fields in the error table below. Authentication
+  errors use the standard device API `{ error: "invalid_token" }`.
+  Confirmation errors carry the full `confirmation` (target, scope, expiry
+  and one-use token); conflicts carry `conflicts`, ambiguity `candidates` and
+  unsupported exports `exportFormats`. No provider response, credential or
+  file content is included. JSON responses use `no-store` and `nosniff`.
+
+### Persisted UI rights, not MCP administrator projection
+
+Each call first uses the normal paired-device authentication, including the
+current account's active/password-change checks. It then calls the ordinary
+`administrationService.getContext(actor.id)` and uses
+`new UserPolicyService("ui").isAdministrator(account)`. The context must belong
+to exactly that user and represent an active **personal administrator in the
+persisted `admin` mode**, never an agent account. Missing, mismatched,
+unreadable or ineligible context returns structured `403 forbidden`.
+No MCP role projection, mode switch or client-supplied account context is used.
+A personal administrator working in `role` mode is refused until the person
+switches mode through the ordinary UI. This restriction also applies to
+capabilities, downloads, confirmations and retries.
+
+### File transfers and destructive changes
+
+- Upload/update accept multipart `file` (filename and MIME type default from
+  the file), or raw bytes with metadata in the query and MIME type in
+  `Content-Type`. The file limit is **64 MiB**, with an additional 64 KiB
+  multipart envelope allowance. Both announced length and streamed bytes are
+  bounded before parsing. The final decoded file limit is checked as well.
+  This path buffers bounded bytes; it is not a resumable upload.
+- Small JSON uploads/updates accept `content`, `encoding` (`text` or strict
+  padded `base64`) and `mimeType` alongside the normal metadata. Text whitespace
+  is preserved. The **whole JSON body** is limited to 64 KiB; use multipart
+  for larger files or raw JSON file bytes. Other changing calls also require
+  a JSON body of at most 64 KiB.
+- Download returns a bearer-authenticated **binary attachment stream**, not
+  JSON, a public URL or a session-only download link. It reuses the existing
+  sandboxed attachment response with `X-Pages-Storage-Ref`; Google documents
+  require an explicit supported export MIME type. Read stays limited to
+  1 MiB of supported text. No caller-provided URL is fetched.
+- The existing writer and its shared confirmation store enforce all conflict,
+  overwrite, folder-scope and revision rules described below. Send
+  `confirmation` from a displayed preview only for the identical intended
+  operation. MCP does not offer the session UI's unconfirmed batch path.
+  File trash remains reversible without a token; folder trash needs its scope
+  preview, and content replacement and permanent deletion always need a token.
+  Restarting the server invalidates pending confirmations. There is no new
+  idempotency journal for Drive mutations; reconcile uncertain responses by
+  stat/list instead of blindly replaying writes.
+
+### Isolated implementation evidence
+
+The PAGE-299 function exercise ran an API development server on the free
+loopback port 45267 with a private home/configuration, its own temporary
+PostgreSQL instance, a setup-created synthetic administrator, normal device
+pairing and `PAGES_GOOGLE_DRIVE_SIMULATION=1` (`NODE_ENV=development`). No
+production account or real Google connection was used. These are simulated
+observations, **not live Drive or external-client verification**:
+
+| Todo | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T1   | All listed operations answered direct JSON or a binary attachment; capabilities/quota/list returned 200. Unknown root/nested/prototype-named paths returned JSON 404, wrong method 405, cookie-only authentication 401.                                                                                                                                                                                                                                                                                       |
+| T2   | List (80 per page) and search (100 per page) each returned all 230 distinct paging entries in three calls. A resolved path was reused by ref; rename/move retained the ref. Ambiguity/conflict returned 409, missing entries 404, invalid search/ref/cursor 400, binary read and unsupported Google exports 422.                                                                                                                                                                                              |
+| T3   | The synthetic account in persisted admin mode received 200; the same device token in persisted role mode received 403, then 200 after the ordinary UI restored admin mode. Direct isolated policy exercises refused inactive, non-admin, agent, missing, mismatched and throwing contexts. Update/overwrite required 428 previews; changed versions, changed folder scope and spent tokens returned 409; fresh confirmations allowed updates, folder trash/restore and separate permanent deletion.           |
+| T4   | Raw and multipart binary upload succeeded; the eight downloaded bytes matched exactly. The generated 300 MiB download delivered an initial chunk and was cancelled without collecting the file. JSON above 64 KiB and raw upload above 64 MiB returned 413, including a chunked request without Content-Length. Supported Google PDF export returned 200, unsupported export 422. The session API still returned its original 200 `ok/result` envelope; Pica and its service implementation were not changed. |
+| T5   | This section records methods, aliases, schemas, transfer limits, errors, confirmation flow and persisted UI rights, including the unavailable external-client contract and the simulation/live distinction.                                                                                                                                                                                                                                                                                                   |
+
+The targeted source files were formatted, linted and checked for TypeScript
+diagnostics in isolation (zero findings). Per the
+assignment, no new automated tests/infrastructure were added and the full
+check/lint/unit suites remain the central QA's responsibility. Later live
+Drive and separate MCP-client acceptance can compare this documented fallback
+contract; neither a Google login nor deployment is a prerequisite for this
+implementation exercise.
+
 ## References
 
 `ref` is Drive's file identifier. It names one concrete object, stays the same
