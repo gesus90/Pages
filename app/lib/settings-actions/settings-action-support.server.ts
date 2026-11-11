@@ -2,6 +2,7 @@ import type { data } from "react-router";
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { User } from "@/definition/User";
 import type { AcpResourceUpdateResult } from "@/definition/AcpResource";
+import type { AutomationNotificationMode } from "@/definition/Automation";
 
 /** Outcome of a password change attempt reported to the visitor. */
 export type PasswordChangeOutcome =
@@ -39,6 +40,11 @@ export type SettingsActionData =
       readonly error: "invalidSetting" | "general";
     }
   | { readonly intent: "set-mode"; readonly ok: boolean }
+  | {
+      readonly intent: "update-automation-notification";
+      readonly ok: true;
+      readonly mode: AutomationNotificationMode;
+    }
   | { readonly intent: "update-design-theme"; readonly ok: true }
   | {
       readonly intent: "update-design-theme";

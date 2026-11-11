@@ -14,6 +14,8 @@ import type { AgentPlanRun } from "@/definition/AgentPlan";
 export interface AgentPlanRunObserver {
   /** Called once per committed write of a run, with the view before and after. */
   runChanged(previous: AgentPlanRun, next: AgentPlanRun): void;
+  /** Called once after a new run was stored, before its first step starts (PAGE-297). */
+  runStarted?(run: AgentPlanRun): void;
 }
 
 /** The observers of run writes of this process. */
@@ -48,6 +50,24 @@ export class AgentPlanRunObservers {
     for (const observer of this.observers) {
       try {
         observer.runChanged(previous, next);
+      } catch (error: unknown) {
+        logCaughtError("AgentPlanRunObservers", error);
+      }
+    }
+  }
+
+  /**
+   * Tells every observer about a newly stored run.
+   *
+   * @param run - The view of the run as it was stored.
+   *
+   * @remarks
+   * A failing observer is logged and skipped, as for changes.
+   */
+  public notifyStarted(run: AgentPlanRun): void {
+    for (const observer of this.observers) {
+      try {
+        observer.runStarted?.(run);
       } catch (error: unknown) {
         logCaughtError("AgentPlanRunObservers", error);
       }

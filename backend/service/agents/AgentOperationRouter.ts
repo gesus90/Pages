@@ -45,6 +45,7 @@ import type { AgentWorkspaceOperationService } from "./AgentWorkspaceOperationSe
 import type { AgentPlanOperationService } from "./AgentPlanOperationService";
 import type { ChatInstanceAdministrationService } from "./ChatInstanceAdministrationService";
 import type { PageAgentOperationService } from "./PageAgentOperationService";
+import type { AutomationOperationService } from "@/backend/service/automation/AutomationOperationService";
 import type { AgentWriteOperationService } from "./AgentWriteOperationService";
 import type { StructuredImportService } from "./StructuredImportService";
 import type { WikiImportService } from "./WikiImportService";
@@ -102,6 +103,8 @@ export interface AgentOperationDependencies {
   /** Agent plans and their runs, offered to the agent tools and the chat alike. */
   readonly plans?: Pick<AgentPlanOperationService, "handle">;
   readonly pageAgents?: Pick<PageAgentOperationService, "handle">;
+  /** Automations (PAGE-297), offered to the agent tools and the chat alike. */
+  readonly automations?: Pick<AutomationOperationService, "handle">;
   /** The agent surface the reads run for; MCP when absent. */
   readonly channel?: AgentChannel;
 }
@@ -283,6 +286,7 @@ export class AgentOperationRouter {
       dependencies.workspaces,
       dependencies.plans,
       dependencies.pageAgents,
+      dependencies.automations,
     ];
     for (const service of services) {
       const response = await service?.handle(

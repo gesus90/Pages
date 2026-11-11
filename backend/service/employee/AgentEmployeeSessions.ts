@@ -41,6 +41,13 @@ export interface AgentEmployeeSessionDependencies {
   > | null;
   /** An unused ID for a new chat session. */
   readonly createSessionId: () => string;
+  /**
+   * Reads the stored context of a group as the agent's own account
+   * (PAGE-296); offered to the agent as `read_conversation_context`.
+   */
+  readonly conversationContext?: {
+    readForAgent(agentId: string, input: unknown): Promise<unknown>;
+  };
   readonly today?: () => string;
 }
 
@@ -279,6 +286,18 @@ export class AgentEmployeeSessions {
       searchMemory: async (query) => ({
         entries: await this.dependencies.memory.search(agent.id, query),
       }),
+      ...this.contextReading(agent.id),
+    };
+  }
+
+  /** The reading of group contexts, bound to the agent's own account. */
+  private contextReading(
+    agentId: string,
+  ): Pick<NonNullable<PicaAcpStart["employee"]>, "readConversationContext"> {
+    const reader = this.dependencies.conversationContext;
+    if (!reader) return {};
+    return {
+      readConversationContext: (input) => reader.readForAgent(agentId, input),
     };
   }
 

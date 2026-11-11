@@ -1,28 +1,22 @@
-import { randomUUID } from "node:crypto";
-
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
-import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
+import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
-import {
-  CONVERSATION_AGENT_CONTEXT_MESSAGES,
-  CONVERSATION_TEXT_MAXIMUM_LENGTH,
-} from "@/definition/Conversation";
+import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
 
-import { createConversationAgentPrompt } from "./ConversationAgentPrompt";
-import { toConversationMessage } from "./ConversationReader";
+import { ConversationReplyRunner } from "./ConversationReplyRunner";
 
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
   ConversationRecord,
   ConversationRepository,
 } from "@/backend/database/repositories/conversation/ConversationRepository";
+import type { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
-import type {
-  ConversationMessage,
-  ConversationNotice,
-} from "@/definition/Conversation";
+import type { ConversationMessage } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
+import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
+  ConversationAccount,
   ConversationAccounts,
   ConversationDirectory,
 } from "./ConversationDirectory";
@@ -30,13 +24,19 @@ import type {
   ConversationEvent,
   ConversationEvents,
 } from "./ConversationEvents";
+import type { ConversationObserverRouting } from "./ConversationObserverRouting";
+import type { ObserverCandidate } from "./ConversationObserverPrompts";
+import type {
+  ConversationReplyJob,
+  ConversationRound,
+} from "./ConversationReplyRunner";
 
 const COMPONENT = "ConversationAgentReplies";
 
 /** One answer an agent is asked for. */
 export interface ConversationAgentRequest {
   readonly agent: User;
-  /** The person whose message the agent answers. */
+  /** The person whose message opened the round the agent answers. */
   readonly person: User;
   readonly conversation: Pick<ConversationRecord, "id" | "kind" | "name">;
   /** The task with the limited context of the conversation. */
@@ -66,6 +66,12 @@ export interface ConversationAgentRepliesDependencies {
   >;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly runner: ConversationAgentRunner;
+  /** The stored rounds, asked agents and routing decisions (PAGE-296). */
+  readonly rounds: ConversationRoundRepository;
+  /** The stored context of groups, for the prompt of an answer. */
+  readonly contexts: Pick<ConversationContextReader, "promptContext">;
+  /** The observer that chooses agents by context (PAGE-296). */
+  readonly routing: Pick<ConversationObserverRouting, "choose">;
   /** The in-process channel: the replies follow it and publish to it. */
   readonly events: Pick<ConversationEvents, "subscribe" | "publish">;
   /** Tells the live view of this process about a change. */
@@ -73,43 +79,17 @@ export interface ConversationAgentRepliesDependencies {
   readonly now?: () => Date;
 }
 
-/** The answered message with what its answers need. */
-interface ReplyJob {
-  readonly message: ConversationMessage;
-  readonly memberIds: readonly string[];
-  readonly conversation: ConversationRecord;
-  readonly person: User;
+/** One agent a round asks for, and why. */
+interface ReplyRequest {
   readonly agentId: string;
+  readonly trigger: ConversationReplyJob["trigger"];
+  readonly triggerMessageId: string;
+  readonly requestedBy: string | null;
+  readonly reason: string;
+  readonly isAutomatic: boolean;
 }
 
-const NOTICE_TEXTS: Readonly<
-  Record<ConversationNotice, (name: string) => string>
-> = {
-  agent_inactive: (name) =>
-    `${name} ist deaktiviert und antwortet nicht auf diese Nachricht.`,
-  agent_cost_limit: (name) =>
-    `${name} antwortet nicht: Das Kostenlimit des Agents ist erreicht.`,
-  agent_unavailable: (name) =>
-    `${name} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.`,
-  agent_failed: (name) =>
-    `${name} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.`,
-};
-
-function changedEvent(conversationId: string): PagesEvent {
-  return { type: "conversation.changed", id: conversationId };
-}
-
-function noticeFor(error: unknown): ConversationNotice {
-  if (!(error instanceof AgentEmployeeError)) return "agent_failed";
-  if (error.code === "inactive") return "agent_inactive";
-  return error.code === "unavailable" ||
-    error.code === "accessUnsupported" ||
-    error.code === "modelNotAllowed"
-    ? "agent_unavailable"
-    : "agent_failed";
-}
-
-/** The message a person wrote whose text is known now, or `null` for every other change. */
+/** The message of a person whose text is known now, or `null` for every other change. */
 function answerableMessage(
   event: ConversationEvent,
 ): ConversationMessage | null {
@@ -126,27 +106,38 @@ function answerableMessage(
   return message;
 }
 
+function isAgentMember(
+  id: string,
+  memberIds: readonly string[],
+  accounts: ConversationAccounts,
+): boolean {
+  return memberIds.includes(id) && accounts.find(id)?.user.isAgent === true;
+}
+
 /**
- * The answers of agents in conversations (PAGE-276).
+ * The answers of agents in conversations (PAGE-276, PAGE-296).
  *
  * @remarks
- * In a direct conversation the agent answers every message of the person;
- * in a group an agent answers only when the message mentions it, each
- * mentioned agent once. An agent never answers itself or another agent, so
- * no loop arises. While it works, the members see it (`typing`). A failed
- * answer, a deactivated agent, a reached cost limit or a missing model leave
- * a hint in the agent's name instead, and nothing is started again. The
- * answers of one agent in one conversation run one after the other, and each
- * answered message gets at most one answer or hint per agent.
+ * In a direct conversation the agent answers every message of the person.
+ * In a group the agents a person mentions with @ answer at once, each once,
+ * and the observer is not asked. A message of a person without such a
+ * mention asks the observer once whether an agent should contribute; its
+ * failure starts nobody and blocks nothing else. An answer can hand the
+ * round over: the agents it mentions with @ answer, and an answer without
+ * such a mention asks the observer once more. Every answer stays in the
+ * round of the person's message: each agent answers a round once at most,
+ * and the observer and hand-overs add at most
+ * {@link CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin} answers.
+ * All of it is stored, so repeated events, concurrent jobs and a restart
+ * start nothing twice. Agents never start a round of their own.
  */
 export class ConversationAgentReplies {
   private readonly dependencies: ConversationAgentRepliesDependencies;
-  private readonly started = new Set<string>();
-  private readonly queues = new Map<string, Promise<void>>();
-  private readonly working = new Map<string, Set<string>>();
+  private readonly replies: ConversationReplyRunner;
 
   public constructor(dependencies: ConversationAgentRepliesDependencies) {
     this.dependencies = dependencies;
+    this.replies = new ConversationReplyRunner(dependencies);
   }
 
   /**
@@ -160,13 +151,34 @@ export class ConversationAgentReplies {
     });
   }
 
+  /**
+   * Ends the answers and routing decisions an earlier process left open,
+   * without starting them again.
+   *
+   * @param startedAt - The start of this process.
+   */
+  public async recover(startedAt: Date): Promise<void> {
+    const interrupted = await this.dependencies.rounds.interruptStale(
+      startedAt.toISOString(),
+    );
+    if (interrupted > 0)
+      logEvent({
+        level: "info",
+        event: "conversation.agent_reply.interrupted",
+        component: COMPONENT,
+        message: "Answers of agents an earlier process left open were ended.",
+        metadata: { count: interrupted },
+      });
+  }
+
   /** The agents that are answering in a conversation now. */
   public workingAgentIds(conversationId: string): string[] {
-    return [...(this.working.get(conversationId) ?? [])];
+    return this.replies.workingAgentIds(conversationId);
   }
 
   /**
-   * Starts the answers a message asks for and returns once they ended.
+   * Starts the answers a message of a person asks for and returns once they
+   * and their hand-overs ended.
    *
    * @param message - A committed message.
    * @param memberIds - The members of its conversation.
@@ -183,21 +195,39 @@ export class ConversationAgentReplies {
       sender.user.id,
     );
     if (!conversation) return;
-    const agentIds = this.addressedAgents(
-      { message, memberIds, conversation },
-      accounts,
+    const round: ConversationRound = {
+      originMessageId: message.id,
+      conversation,
+      memberIds,
+      person: sender.user,
+    };
+    const base = {
+      triggerMessageId: message.id,
+      requestedBy: null,
+      reason: "",
+      isAutomatic: false,
+    };
+    if (conversation.kind === "direct") {
+      const partners = memberIds.filter(
+        (id) => id !== sender.user.id && isAgentMember(id, memberIds, accounts),
+      );
+      await this.dispatchAll(
+        round,
+        partners.map((agentId) => ({ ...base, agentId, trigger: "direct" })),
+      );
+      return;
+    }
+    const mentioned = [...new Set(message.mentions)].filter((id) =>
+      isAgentMember(id, memberIds, accounts),
     );
-    await Promise.all(
-      agentIds.map((agentId) =>
-        this.enqueue({
-          message,
-          memberIds,
-          conversation,
-          person: sender.user,
-          agentId,
-        }),
-      ),
-    );
+    if (mentioned.length > 0) {
+      await this.dispatchAll(
+        round,
+        mentioned.map((agentId) => ({ ...base, agentId, trigger: "mention" })),
+      );
+      return;
+    }
+    await this.route(round, { trigger: message, from: null }, accounts);
   }
 
   private receive(event: ConversationEvent): void {
@@ -210,163 +240,206 @@ export class ConversationAgentReplies {
     });
   }
 
-  /** The agents among the members who answer: the partner of a direct conversation, the mentioned ones of a group. */
-  private addressedAgents(
-    job: Pick<ReplyJob, "message" | "memberIds" | "conversation">,
-    accounts: ConversationAccounts,
-  ): string[] {
-    const isAgent = (id: string): boolean =>
-      id !== job.message.sender.id &&
-      job.memberIds.includes(id) &&
-      accounts.find(id)?.user.isAgent === true;
-    const candidates =
-      job.conversation.kind === "direct" ? job.memberIds : job.message.mentions;
-    return [...new Set(candidates)].filter(isAgent);
+  private async dispatchAll(
+    round: ConversationRound,
+    requests: readonly ReplyRequest[],
+  ): Promise<void> {
+    await Promise.all(requests.map((request) => this.dispatch(round, request)));
   }
 
-  /** Runs the answer after the earlier answers of the same agent in the same conversation. */
-  private enqueue(job: ReplyJob): Promise<void> {
-    const key = `${job.agentId}:${job.message.id}`;
-    if (this.started.has(key)) return Promise.resolve();
-    this.started.add(key);
-    const queueKey = `${job.conversation.id}:${job.agentId}`;
-    const previous = this.queues.get(queueKey) ?? Promise.resolve();
-    const next = previous.then(() => this.reply(job));
-    this.queues.set(queueKey, next);
-    return next.finally(() => {
-      this.started.delete(key);
-      if (this.queues.get(queueKey) === next) this.queues.delete(queueKey);
+  /** Claims the answer of one agent in the round, runs it and follows its hand-over. */
+  private async dispatch(
+    round: ConversationRound,
+    request: ReplyRequest,
+  ): Promise<void> {
+    const outcome = await this.dependencies.rounds.claim({
+      originMessageId: round.originMessageId,
+      conversationId: round.conversation.id,
+      personId: round.person.id,
+      createdAt: this.now(),
+      ...request,
     });
-  }
-
-  /** Answers one message as one agent, or leaves a hint why it did not. */
-  private async reply(job: ReplyJob): Promise<void> {
-    const accounts = await this.dependencies.directory.read();
-    const agent = accounts.find(job.agentId);
-    if (!agent) return;
-    if (!agent.user.isActive) {
-      await this.post(job, accounts, {
-        text: NOTICE_TEXTS.agent_inactive(agent.user.displayName),
-        notice: "agent_inactive",
-      });
+    if (outcome !== "claimed") {
+      if (outcome === "limit") this.logLimit(round, request.agentId);
       return;
     }
-    this.setWorking(job, true);
+    const answer = await this.replies.run({
+      round,
+      agentId: request.agentId,
+      trigger: request.trigger,
+      triggerMessageId: request.triggerMessageId,
+      reason: request.reason,
+    });
+    if (answer && round.conversation.kind === "group")
+      await this.handOver(round, answer);
+  }
+
+  /** The agents an answer hands over to: those it mentions, or the observer's choice. */
+  private async handOver(
+    round: ConversationRound,
+    answer: ConversationMessage,
+  ): Promise<void> {
+    const accounts = await this.dependencies.directory.read();
+    const mentioned = [...new Set(answer.mentions)].filter((id) =>
+      isAgentMember(id, round.memberIds, accounts),
+    );
+    if (mentioned.length === 0) {
+      await this.route(
+        round,
+        { trigger: answer, from: answer.sender },
+        accounts,
+      );
+      return;
+    }
+    const reason = `${answer.sender.name} hat dich in einer Antwort mit @ angesprochen.`;
+    await this.dispatchAll(
+      round,
+      mentioned.map((agentId) => ({
+        agentId,
+        trigger: "handoff",
+        triggerMessageId: answer.id,
+        requestedBy: answer.sender.id,
+        reason,
+        isAutomatic: true,
+      })),
+    );
+  }
+
+  /**
+   * Asks the observer once whether further agents should answer, and starts
+   * the chosen ones; nobody when it fails.
+   */
+  private async route(
+    round: ConversationRound,
+    judged: {
+      readonly trigger: ConversationMessage;
+      readonly from: ConversationMessage["sender"] | null;
+    },
+    accounts: ConversationAccounts,
+  ): Promise<void> {
+    const { rounds } = this.dependencies;
+    const candidates = this.candidates(round, judged.trigger, accounts);
+    if (candidates.length === 0) return;
+    const state = await rounds.round(round.originMessageId);
+    const asked = new Set(state?.agentIds ?? []);
+    const open = candidates.filter((candidate) => !asked.has(candidate.id));
+    const maximum =
+      CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin -
+      (state?.automaticCount ?? 0);
+    if (open.length === 0 || maximum <= 0) return;
+    const isClaimed = await rounds.claimRouting({
+      triggerMessageId: judged.trigger.id,
+      origin: {
+        originMessageId: round.originMessageId,
+        conversationId: round.conversation.id,
+        personId: round.person.id,
+        createdAt: this.now(),
+      },
+    });
+    if (!isClaimed) return;
+    const choices = await this.choose(round, {
+      ...judged,
+      candidates: open,
+      maximum,
+      accounts,
+    });
+    if (choices === null) return;
+    await this.dispatchAll(
+      round,
+      choices.map((choice) => ({
+        agentId: choice.agentId,
+        trigger: judged.from ? "handoff" : "context",
+        triggerMessageId: judged.trigger.id,
+        requestedBy: judged.from?.id ?? null,
+        reason: choice.reason,
+        isAutomatic: true,
+      })),
+    );
+  }
+
+  /** Calls the observer and stores its decision; `null` when it gave none. */
+  private async choose(
+    round: ConversationRound,
+    judged: {
+      readonly trigger: ConversationMessage;
+      readonly from: ConversationMessage["sender"] | null;
+      readonly candidates: readonly ObserverCandidate[];
+      readonly maximum: number;
+      readonly accounts: ConversationAccounts;
+    },
+  ): Promise<{ readonly agentId: string; readonly reason: string }[] | null> {
+    const { rounds } = this.dependencies;
     try {
-      const text = await this.ask(job, agent.user, accounts);
-      await this.post(job, accounts, { text, notice: null });
-    } catch (error: unknown) {
-      const notice = noticeFor(error);
-      this.logFailure(job, notice, error);
-      await this.post(job, accounts, {
-        text: NOTICE_TEXTS[notice](agent.user.displayName),
-        notice,
+      const choices = await this.dependencies.routing.choose({
+        conversation: round.conversation,
+        triggerMessageId: judged.trigger.id,
+        personId: round.person.id,
+        candidates: judged.candidates,
+        maximum: judged.maximum,
+        handoff: judged.from
+          ? {
+              personName: round.person.displayName,
+              agentName: judged.from.name,
+            }
+          : null,
+        accounts: judged.accounts,
       });
-    } finally {
-      this.setWorking(job, false);
+      await rounds.finishRouting(judged.trigger.id, {
+        state: choices.length > 0 ? "routed" : "silent",
+        selection: choices,
+        errorCode: null,
+        finishedAt: this.now(),
+      });
+      return choices;
+    } catch (error: unknown) {
+      if (!(error instanceof ConversationObserverError))
+        logCaughtError(COMPONENT, error);
+      await rounds.finishRouting(judged.trigger.id, {
+        state: "failed",
+        selection: [],
+        errorCode:
+          error instanceof ConversationObserverError
+            ? error.code
+            : "observer_failed",
+        finishedAt: this.now(),
+      });
+      return null;
     }
   }
 
-  /** Asks the agent with the limited context; an empty answer counts as failed. */
-  private async ask(
-    job: ReplyJob,
-    agent: User,
+  /** The active agent members the observer may choose: never the sender, never one without an account now. */
+  private candidates(
+    round: ConversationRound,
+    judged: ConversationMessage,
     accounts: ConversationAccounts,
-  ): Promise<string> {
-    const { messages } = this.dependencies;
-    const stored = await messages.find(job.conversation.id, job.message.id);
-    if (!stored) throw new Error("The answered message is missing.");
-    const newestFirst = await messages.history(
-      job.conversation.id,
-      stored.sequence + 1,
-      CONVERSATION_AGENT_CONTEXT_MESSAGES,
-    );
-    const answer = await this.dependencies.runner.answer({
-      agent,
-      person: job.person,
-      conversation: job.conversation,
-      prompt: createConversationAgentPrompt({
-        conversation: job.conversation,
-        agentId: agent.id,
-        newestFirst,
-        accounts,
-      }),
-      lastMessage: stored.text,
-    });
-    const text = Array.from(answer.trim())
-      .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
-      .join("");
-    if (text === "") throw new Error("The agent answered with an empty text.");
-    return text;
+  ): ObserverCandidate[] {
+    return round.memberIds
+      .filter((id) => id !== judged.sender.id)
+      .map((id) => accounts.find(id))
+      .filter(
+        (account): account is ConversationAccount =>
+          account?.user.isAgent === true && account.isAvailable,
+      )
+      .map((account) => ({
+        id: account.user.id,
+        name: account.user.displayName,
+        username: account.user.username,
+        role: account.role,
+      }));
   }
 
-  /** Stores the answer or hint as the agent's message and announces it. */
-  private async post(
-    job: ReplyJob,
-    accounts: ConversationAccounts,
-    reply: {
-      readonly text: string;
-      readonly notice: ConversationNotice | null;
-    },
-  ): Promise<void> {
-    const conversationId = job.conversation.id;
-    const outcome = await this.dependencies.messages.insert(
-      {
-        id: randomUUID(),
-        conversationId,
-        senderId: job.agentId,
-        // One answer or hint per agent and answered message, also after a repeated event.
-        clientMessageId: `reply-${job.message.id}`,
-        text: reply.text,
-        mentions: [],
-        createdAt: (this.dependencies.now?.() ?? new Date()).toISOString(),
-        voice: null,
-        notice: reply.notice,
-      },
-      changedEvent(conversationId),
-    );
-    if (!outcome.isNew) return;
-    this.dependencies.publisher.publish(changedEvent(conversationId));
-    this.dependencies.events.publish({
-      kind: "message",
-      message: toConversationMessage(outcome.message, accounts),
-      recipientIds: job.memberIds,
-    });
-  }
-
-  private setWorking(job: ReplyJob, isWorking: boolean): void {
-    const conversationId = job.conversation.id;
-    const agents = this.working.get(conversationId) ?? new Set<string>();
-    if (isWorking) agents.add(job.agentId);
-    else agents.delete(job.agentId);
-    if (agents.size === 0) this.working.delete(conversationId);
-    else this.working.set(conversationId, agents);
-    this.dependencies.publisher.publish(changedEvent(conversationId));
-    this.dependencies.events.publish({
-      kind: "typing",
-      conversationId,
-      participantId: job.agentId,
-      isTyping: isWorking,
-      recipientIds: job.memberIds,
-    });
-  }
-
-  private logFailure(
-    job: ReplyJob,
-    notice: ConversationNotice,
-    error: unknown,
-  ): void {
-    if (notice === "agent_failed") logCaughtError(COMPONENT, error);
+  private logLimit(round: ConversationRound, agentId: string): void {
     logEvent({
-      level: "warn",
-      event: "conversation.agent_reply.refused",
+      level: "info",
+      event: "conversation.agent_reply.limit",
       component: COMPONENT,
-      message: "An agent did not answer in a conversation.",
-      metadata: {
-        conversationId: job.conversation.id,
-        agentId: job.agentId,
-        notice,
-      },
+      message:
+        "The limit of automatic answers of a round held back a further answer.",
+      metadata: { conversationId: round.conversation.id, agentId },
     });
+  }
+
+  private now(): string {
+    return (this.dependencies.now?.() ?? new Date()).toISOString();
   }
 }

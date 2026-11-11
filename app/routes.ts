@@ -7,6 +7,8 @@ import {
 } from "@react-router/dev/routes";
 
 import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
+import { automationRoutes } from "./lib/automation-routes";
+import { mcpAutomationRoutes } from "./lib/mcp-automation-routes";
 import { mcpUserRoutes } from "./lib/mcp-user-routes";
 import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
 import { storageRoutes } from "./lib/storage-routes";
@@ -302,6 +304,7 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ...mcpAgentRoutes(routes.resource),
     ...mcpUserRoutes(routes.resource),
     resource("api/mcp/v1/storage/*", "routes/api-mcp-v1-storage.ts"),
+    ...mcpAutomationRoutes(routes.resource),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),
     resource("favicon.ico", "routes/favicon.ts"),
@@ -638,6 +641,7 @@ function routeTable(target: "api" | "spa"): RouteConfigEntry[] {
         ...workspaceResources(routes),
         ...agentWorkspaceRoutes(routes),
         ...agentPlanRoutes(routes),
+        ...automationRoutes(routes),
         ...settingsRoutes(routes),
         ...projectRoutes(routes),
         ...wikiRoutes(routes),

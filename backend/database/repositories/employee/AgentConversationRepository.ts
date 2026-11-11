@@ -4,10 +4,12 @@ import type { Database } from "@/backend/database/Database";
 
 /**
  * Why a conversation of an agent exists: a person's chat with it, its
- * learning runs, or its answers in a stored conversation (PAGE-276), whose
- * ID then stands in `personId`.
+ * learning runs, its answers in a stored conversation (PAGE-276), whose
+ * ID then stands in `personId`, or the runs of one automation (PAGE-297),
+ * whose session key stands there.
  */
-export type AgentConversationPurpose = "chat" | "learning" | "conversation";
+export type AgentConversationPurpose =
+  "chat" | "learning" | "conversation" | "automation";
 
 /** The chat session one person shares with one agent, or the agent's learning session. */
 export interface AgentConversation {

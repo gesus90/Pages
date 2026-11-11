@@ -1,11 +1,7 @@
 import path from "node:path";
 
-import {
-  hasRunServiceOwnership,
-  isPagesRunsProcess,
-} from "@/backend/runtime/RunsMode";
+import { hasRunServiceOwnership } from "@/backend/runtime/RunsMode";
 import { GitHubCreationRepository } from "@/backend/database/repositories/integrations/GitHubCreationRepository";
-import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { TicketAssetAuditService } from "@/backend/service/task/TicketAssetAuditService";
 import { AuthService } from "@/backend/auth/AuthService";
 import { LoginThrottle } from "@/backend/auth/LoginThrottle";
@@ -39,14 +35,7 @@ import { GitHubSyncService } from "@/backend/service/GitHubSyncService";
 import { ProjectService } from "@/backend/service/ProjectService";
 import { ProjectDeletionStorage } from "@/backend/service/project/ProjectDeletionStorage";
 import { AnnouncingTaskService } from "@/backend/service/AnnouncingTaskService";
-import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
-import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
-import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
-import { PagesEventRetention } from "@/backend/service/events/PagesEventRetention";
-import { PagesEventOutboxReaderRepository } from "@/backend/database/repositories/events/PagesEventOutboxReaderRepository";
-import { TaskGitHubPublisher } from "@/backend/service/task/TaskGitHubPublisher";
-import { TaskHistoryRecorder } from "@/backend/service/task/TaskHistoryRecorder";
 import { TaskTemplateService } from "@/backend/service/TaskTemplateService";
 import { TaskDescriptionAssetService } from "@/backend/service/task/TaskDescriptionAssetService";
 import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
@@ -63,24 +52,22 @@ import {
   createServiceCache,
   prepareServiceDatabase,
   startGitHubWorker,
-  startWikiMaintenanceScheduler,
   sweepTicketAttachments,
 } from "./services-background.server";
 import { prepareSessions } from "./session-services.server";
 import { startExecutionServices } from "./agent-execution-services.server";
-import { createChatServices } from "./chat-services.server";
-import { createEmployeeServices } from "./employee-services.server";
-import { picaAcpSettings, planMcpSettings } from "./bridge-settings.server";
-import { picaBrowserOptions } from "./pica-browser.server";
+import { planMcpSettings } from "./bridge-settings.server";
+import { startMcpWorkspace } from "./mcp-workspace-services.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
-import { createMcpServices } from "./mcp-services.server";
 import { createDiscordServices } from "./discord-services.server";
 import { createGoogleDriveServices } from "./google-drive-services.server";
 import { createLiveChangeServices } from "./live-change-services.server";
 import { createPreferenceServices } from "./preference-services.server";
 import { registerShutdownHandler } from "./services-shutdown.server";
+import { createAutomationServices } from "./automation-services.server";
 
 import type { WikiService } from "@/backend/service/WikiService";
+import type { AutomationApplicationServices } from "./automation-services.server";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { LiveChangeHub } from "@/backend/service/events/LiveChangeHub";
 import type { LiveChangeAudience } from "@/backend/service/events/LiveChangeAudience";
@@ -113,6 +100,7 @@ export interface ApplicationServices
     GoogleDriveApplicationServices,
     PreferenceApplicationServices,
     SystemApplicationServices,
+    AutomationApplicationServices,
     AgentPlanLoaderServices {
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
@@ -336,7 +324,7 @@ async function preparePlanService(
     readonly tasks: TaskService;
     readonly users: UserService;
   },
-): Promise<AgentPlanServices> {
+): Promise<AgentPlanServices & AutomationApplicationServices> {
   const runtime = await getPagesRuntime();
   const services = await createAgentPlanService({
     database,
@@ -351,107 +339,9 @@ async function preparePlanService(
   input.projects.setDeletionEffects(
     new ProjectDeletionStorage(plans, path.dirname(runtime.getDatabasePath())),
   );
+  const automations = createAutomationServices(database, input, services);
   registerShutdownHandler(database, input.agents, plans);
-  return services;
-}
-
-/**
- * Builds the agent write services and the chat on the same operation catalog,
- * and shares the existing maintenance scheduler.
- */
-async function startMcpWorkspace(context: {
-  readonly database: Database;
-  readonly databasePath: string;
-  readonly accounts: {
-    readonly users: UserService;
-    readonly administration: AdministrationService;
-  };
-  /** The agent services, with the plan service the agent tools and the chat use. */
-  readonly agents: AgentApplicationServices & AgentPlanServices;
-  readonly wiki: WikiService;
-  /** The instance settings the chat administration changes with the regular rules. */
-  readonly instanceSettings: InstanceSettingsService;
-  /** The ticket services, whose GitHub synchronization and event publisher the workspace shares. */
-  readonly tasks: Pick<
-    ApplicationServices,
-    | "gitHubSyncService"
-    | "googleDriveFileService"
-    | "pagesEventPublisher"
-    | "taskService"
-  >;
-  readonly serverCache: ServerCache;
-  readonly tokenKey: Buffer;
-}): Promise<
-  McpApplicationServices & ChatApplicationServices & EmployeeApplicationServices
-> {
-  // The publisher of the ticket pages, on its own repository: agent ticket changes
-  // follow the same GitHub rule once they are committed.
-  const taskRepository = new TaskRepository(context.database);
-  const publisher = new TaskGitHubPublisher(
-    taskRepository,
-    new TaskHistoryRecorder(taskRepository),
-    context.serverCache,
-  );
-  publisher.attach(context.tasks.gitHubSyncService);
-  const { users, administration } = context.accounts;
-  const directory = path.dirname(context.databasePath);
-  const services = createMcpServices(context.database, users, administration, {
-    directory,
-    wikiService: context.wiki,
-    tickets: { cache: context.serverCache, publisher },
-    agentWorkspaces: context.agents.agentWorkspaceService,
-    pageAgents: context.agents.pageAgentService,
-    plans: context.agents.agentPlanService,
-    stepReports: new AgentPlanStepReportService(
-      new AgentPlanStepReportRepository(context.database),
-      new AgentPlanTasks(context.tasks.taskService, users),
-    ),
-    planRecovery: context.agents.agentPlanRecoveryService,
-    planSessions: context.agents.agentSessionService,
-    instanceAdministration: {
-      connections: context.agents.agentConnectionService,
-      settings: context.instanceSettings,
-    },
-    events: context.tasks.pagesEventPublisher,
-  });
-  if (!isLocalSessionOwner() && !isPagesRunsProcess())
-    startWikiMaintenanceScheduler(
-      context.wiki,
-      services.agentAssetService,
-      new PagesEventRetention(
-        new PagesEventOutboxReaderRepository(context.database),
-      ),
-    );
-  const runtime = await getPagesRuntime();
-  const chat = createChatServices({
-    database: context.database,
-    directory,
-    accounts: context.accounts,
-    agents: context.agents,
-    router: services.chatOperationRouter,
-    acp: await picaAcpSettings(),
-    protectedOrigin: runtime.getConfig().publicUrl,
-    storage: context.tasks.googleDriveFileService,
-    picaBrowser: picaBrowserOptions({
-      directory,
-      instanceKey: context.tokenKey,
-      config: () => runtime.getConfig(),
-    }),
-  });
-  return {
-    ...services,
-    ...chat,
-    ...createEmployeeServices({
-      database: context.database,
-      cache: context.serverCache,
-      acp: chat.picaAcpService,
-      conversations: {
-        directory,
-        events: context.tasks.pagesEventPublisher,
-        speech: runtime.getConfig().speechRecognition,
-      },
-    }),
-  };
+  return { ...services, ...automations };
 }
 
 /** What the task services are built from. */

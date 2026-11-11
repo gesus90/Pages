@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
+import { ChatPageGroupContext } from "./chat-page-group-context";
 import { participantSubtitle } from "./chat-page-list-entries";
 import { ChatPageMemberDialog } from "./chat-page-member-dialog";
 
@@ -154,6 +155,7 @@ function GroupHeader({
             participants={participants}
             onAdd={onAddMember}
           />
+          <ChatPageGroupContext group={group} />
           <MuteButton {...mute} />
         </>
       }
@@ -168,7 +170,8 @@ function GroupHeader({
  * An agent shows its job title, a person the username, both with their kind
  * and status; a person has no task, model or tools. A stop button shows while
  * an agent answers. A group shows its description, the members as chips and
- * the dashed plus that adds one of the person's participants (PAGE-259).
+ * the dashed plus that adds one of the person's participants (PAGE-259)
+ * and its stored context (PAGE-296).
  * A stored conversation with a person or of a group can be muted for the
  * person alone (PAGE-275).
  */

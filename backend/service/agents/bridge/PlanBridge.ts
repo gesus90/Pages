@@ -204,7 +204,8 @@ export class PlanBridge {
       // Consent for a deletion would have to come from a person at a client form; the bridge has none.
       if (
         operation === "plans.delete" ||
-        operation === "plans.templates.delete"
+        operation === "plans.templates.delete" ||
+        (operation === "automations.delete" && parameters.confirmed === true)
       )
         throw new PlanOperationFailure("CONFIRMATION_REQUIRED");
       this.requireEnvelopeBudget(operation, parameters);

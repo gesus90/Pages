@@ -16,6 +16,8 @@ interface TabsProps {
   readonly tabs: readonly TabOption[];
   readonly ariaLabel?: string;
   readonly className?: string;
+  /** Classes of the list of tabs, such as horizontal scrolling on narrow screens. */
+  readonly listClassName?: string;
 }
 
 /**
@@ -31,6 +33,7 @@ export function Tabs({
   tabs,
   ariaLabel,
   className,
+  listClassName,
 }: TabsProps): React.ReactElement {
   function handleValueChange(nextValue: string): void {
     onValueChange(nextValue);
@@ -44,7 +47,10 @@ export function Tabs({
     >
       <TabsPrimitive.List
         aria-label={ariaLabel}
-        className="inline-flex h-9 w-fit shrink-0 items-center gap-0.5 rounded-xl bg-muted/70 p-1"
+        className={cn(
+          "inline-flex h-9 w-fit shrink-0 items-center gap-0.5 rounded-xl bg-muted/70 p-1",
+          listClassName,
+        )}
       >
         {tabs.map((tab) => (
           <TabsPrimitive.Trigger

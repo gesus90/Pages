@@ -1,3 +1,4 @@
+import { AUTOMATION_WRITE_TOOLS } from "./Automations.js";
 import { AGENT_STEP_PROGRESS_OPERATION } from "../AgentPlanStepProgress.js";
 import { AGENT_STEP_REPORT_OPERATION } from "../AgentPlanStepReport.js";
 
@@ -74,6 +75,7 @@ export const WRITE_TOOLS: readonly {
   ...AGENT_WRITE_TOOLS,
   ...PLAN_WRITE_TOOLS,
   ...PLAN_RESOURCE_WRITE_TOOLS,
+  ...AUTOMATION_WRITE_TOOLS,
   { operation: "assets.upload.prepare", tool: ASSET_UPLOAD_TOOL },
   { operation: "wiki.page.create", tool: WIKI_CREATE_TOOL },
   { operation: "wiki.import.apply", tool: WIKI_IMPORT_APPLY_TOOL },

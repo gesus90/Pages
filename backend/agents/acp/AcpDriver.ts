@@ -101,14 +101,18 @@ export interface AcpDriverErrors {
 }
 
 /**
- * What a session serves: a plan node, a conversation with Pica, or the model of a decision.
+ * What a session serves: a plan node, a conversation with Pica, the model of
+ * a decision, or the group observer.
  *
  * @remarks
  * A `decision` session (PAGE-286) reads only its prompt and answers once: a
  * driver with a profile of its own denies every tool, every other driver runs
  * its read-only plan profile in an empty directory without the Pages MCP server.
+ * An `observer` session (PAGE-296) routes or summarizes a group with Pica's
+ * model: every driver denies every native tool, the web and every MCP server,
+ * so it reads its prompt and answers with text alone.
  */
-export type AcpSessionPurpose = "plan" | "chat" | "decision";
+export type AcpSessionPurpose = "plan" | "chat" | "decision" | "observer";
 
 /** What starting the adapter for one session needs; nothing of it is free user input. */
 export interface AcpLaunchSpecification {

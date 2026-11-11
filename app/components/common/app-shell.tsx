@@ -10,6 +10,7 @@ import {
   Settings,
   SquareCheck,
   Users,
+  Workflow,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -135,6 +136,27 @@ function WikiNavigationLink({
   );
 }
 
+/** The automations page (PAGE-297), open to every signed-in account. */
+function AutomationsNavigationLink({
+  onNavigate,
+}: {
+  readonly onNavigate?: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <NavLink
+      className={({ isActive }) => getLinkClassName(isActive)}
+      to="/automationen"
+      prefetch="intent"
+      onClick={onNavigate}
+    >
+      <Workflow className="size-6 text-primary xl:size-5" aria-hidden="true" />
+      {t("navigation.automations")}
+    </NavLink>
+  );
+}
+
 /**
  * The Storage area (PAGE-188); it uses the Google Drive connection of the
  * instance, so it follows the admin right of the system settings.
@@ -214,6 +236,7 @@ function NavigationLinks({
       ) : null}
       <ChatNavigationLink onNavigate={onNavigate} />
       <AgentNavigation canManage={canManageAgents} onNavigate={onNavigate} />
+      <AutomationsNavigationLink onNavigate={onNavigate} />
       <WikiNavigationLink onNavigate={onNavigate} />
       <WikiSidebarSection onNavigate={onNavigate} />
       {canManageAgents ? (

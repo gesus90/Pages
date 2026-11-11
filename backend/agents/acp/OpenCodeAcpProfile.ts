@@ -147,7 +147,8 @@ function chatFullAccessProfile(): AcpSessionProfile {
  * @param purpose - A Pica conversation takes the chat profile; the caller
  * decides beforehand which stored mode it accepts for it. Only an agent
  * employee with full access reaches the chat purpose in YOLO. A decision
- * model takes the profile without any tool, whatever the mode.
+ * model and the group observer (PAGE-296) take the profile without any
+ * tool, whatever the mode.
  * @returns The plan profile of the mode, Pica's narrower read-only profile, or
  * the full access profile of an employee's conversation.
  */
@@ -155,7 +156,8 @@ export function openCodeAcpProfile(
   mode: AcpPermissionMode,
   purpose?: AcpSessionPurpose,
 ): AcpSessionProfile {
-  if (purpose === "decision") return OPENCODE_DECISION_PROFILE;
+  if (purpose === "decision" || purpose === "observer")
+    return OPENCODE_DECISION_PROFILE;
   if (purpose !== "chat") return planProfile(mode);
   return mode === "yolo" ? chatFullAccessProfile() : OPENCODE_PICA_PROFILE;
 }

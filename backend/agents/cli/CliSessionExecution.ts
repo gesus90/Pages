@@ -519,7 +519,13 @@ export class CliSessionExecution implements PlanSessionRunner {
     input: AgentPlanSessionInput,
     start: VerifiedStart,
   ): Promise<ClaudePlanSessionHome | null> {
-    if (driver.provider !== "claude_code" || input.chat) return null;
+    // An observer session keeps no transcript, so it needs no home of a plan run.
+    if (
+      driver.provider !== "claude_code" ||
+      input.chat ||
+      input.purpose === "observer"
+    )
+      return null;
     const prepare =
       this.dependencies.claudeHome ?? prepareClaudePlanSessionHome;
     return prepare(start.home, {

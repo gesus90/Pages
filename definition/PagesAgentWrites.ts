@@ -1,3 +1,4 @@
+import { AUTOMATION_WRITE_OPERATIONS } from "./AutomationOperations.js";
 import { AGENT_EXTENSION_WRITE_OPERATIONS } from "./AgentExtensions.js";
 import { AGENT_ADMIN_WRITE_OPERATIONS } from "./AgentAdministration.js";
 import { AGENT_PROJECT_DELETION_WRITE_OPERATIONS } from "./AgentProjectDeletion.js";
@@ -11,6 +12,7 @@ import { PAGE_AGENT_WRITE_OPERATIONS } from "./PageAgentOperations.js";
 import { AGENT_TICKET_LINK_OPERATIONS } from "./AgentTicketNavigation.js";
 import { AGENT_TEXT_RANGE_WRITE_OPERATIONS } from "./AgentTextRange.js";
 
+import type { AutomationWriteResult } from "./AutomationOperations";
 import type { ChatDeletionResult } from "./ChatSessionOperations.js";
 import type { AgentAdminChanged } from "./AgentAdministration.js";
 import type { AgentExtensionChanged } from "./AgentExtensions.js";
@@ -60,6 +62,7 @@ export const PAGES_AGENT_WRITE_OPERATIONS = [
   ...AGENT_PLAN_COMMAND_OPERATIONS,
   ...AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS,
   ...PAGE_AGENT_WRITE_OPERATIONS,
+  ...AUTOMATION_WRITE_OPERATIONS,
   "chat.sessions.delete",
   "assets.upload.prepare",
   "wiki.page.create",
@@ -176,5 +179,6 @@ export interface PagesAgentWriteResponse {
     | AgentPlanRecoveryCommandResult
     | PageAgentChanged
     | ChatAgentDeleted
-    | ChatDeletionResult;
+    | ChatDeletionResult
+    | AutomationWriteResult;
 }

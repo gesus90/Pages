@@ -38,4 +38,6 @@ export interface PicaAcpJobDependencies {
   readonly answerFiles?: PicaAnswerFiles;
   /** The archive search of an agent employee (PAGE-266); absent for Pica. */
   readonly searchMemory?: (query: string) => Promise<unknown>;
+  /** `read_conversation_context` of an agent employee (PAGE-296); absent for Pica. */
+  readonly readConversationContext?: (input: unknown) => Promise<unknown>;
 }

@@ -306,6 +306,38 @@ const CHAT_PROFILE: ClaudeAcpProfile = {
 };
 
 /**
+ * The group observer (PAGE-296): no built-in tool at all, no MCP server and
+ * no kept transcript; Pages refuses every request, so it answers with text
+ * alone.
+ */
+const OBSERVER_PROFILE: ClaudeAcpProfile = {
+  ...READ_ONLY_PROFILE,
+  options: {
+    ...MANAGED_OPTIONS,
+    persistSession: false,
+    tools: [],
+    disallowedTools: [
+      ...READ_ONLY_DISALLOWED_TOOLS,
+      ...CHAT_DISALLOWED_TOOLS,
+      "Read",
+    ],
+  },
+  unattended:
+    "ACP session mode default for the group observer; no built-in tool, no MCP server, and Pages refuses every request",
+  permissions: {
+    ...READ_ONLY_PROFILE.permissions,
+    tools: "none",
+    files: "none",
+    web: "off",
+    pagesMcp: "none",
+    mcpServers: "none",
+  },
+  hasMcpStatusCommand: false,
+  keepsSession: false,
+  decide: refusePermission,
+};
+
+/**
  * The conversation of an agent employee with full access (PAGE-266): every
  * native tool of Claude Code inside the bubblewrap isolation, which a YOLO
  * session never runs without, and the Pages helper for its Pages tools. The
@@ -328,7 +360,8 @@ const CHAT_FULL_ACCESS_PROFILE: ClaudeAcpProfile = {
  * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
  * @param purpose - A Pica conversation always takes the chat profile; the
  * caller decides beforehand which stored mode it accepts for it. Only an
- * agent employee with full access reaches the chat purpose in YOLO.
+ * agent employee with full access reaches the chat purpose in YOLO. The
+ * group observer always runs without tools, whatever the mode.
  * @returns Session mode, Claude options and the recorded permissions.
  */
 export function claudeAcpProfile(
@@ -337,5 +370,6 @@ export function claudeAcpProfile(
 ): ClaudeAcpProfile {
   if (purpose === "chat")
     return mode === "yolo" ? CHAT_FULL_ACCESS_PROFILE : CHAT_PROFILE;
+  if (purpose === "observer") return OBSERVER_PROFILE;
   return mode === "yolo" ? YOLO_PROFILE : READ_ONLY_PROFILE;
 }

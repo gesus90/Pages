@@ -351,6 +351,38 @@ export class ConversationMessageRepository {
     return rows.map(toMessage);
   }
 
+  /**
+   * Returns the content messages of a conversation after a sequence, oldest
+   * first; hints of Pages why an agent did not answer stay out (PAGE-296).
+   *
+   * @param conversationId - The conversation.
+   * @param afterSequence - Only newer messages.
+   * @param limit - Messages returned at most.
+   */
+  public async contentAfter(
+    conversationId: string,
+    afterSequence: number,
+    limit: number,
+  ): Promise<StoredConversationMessage[]> {
+    const rows = await this.database.query(
+      `
+        SELECT${MESSAGE_COLUMNS}
+        FROM conversation_messages
+        WHERE conversation_id = $conversation_id
+            AND notice IS NULL
+            AND sequence > $after_sequence
+        ORDER BY sequence ASC
+        LIMIT $limit;
+      `,
+      {
+        conversation_id: conversationId,
+        after_sequence: afterSequence,
+        limit,
+      },
+    );
+    return rows.map(toMessage);
+  }
+
   /** Returns the newest message of each conversation that has one. */
   public async latest(
     conversationIds: readonly string[],
