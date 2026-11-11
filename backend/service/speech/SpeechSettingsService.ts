@@ -8,8 +8,8 @@ import {
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
 import {
   findSpeechModel,
-  isUnsuitableSpeechModel,
   listSpeechModels,
+  unlistedSpeechModelStatus,
 } from "./SpeechModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
@@ -53,8 +53,9 @@ export interface SpeechConfiguration {
  * as for Pica. The setting belongs to the instance, not to Pica: without a
  * chosen model speech recognition is off. The model must be one of the
  * speech models {@link listSpeechModels} lists; a model the selection no
- * longer offers keeps its value and counts as unavailable, or as unsuitable
- * when its catalog lists it as no transcription model (PAGE-294).
+ * longer offers keeps its value and counts as unavailable, as unsuitable
+ * when its catalog lists it as no transcription model (PAGE-294), or as no
+ * longer in the catalog of its OpenRouter connection (PAGE-302).
  */
 export class SpeechSettingsService {
   private readonly dependencies: SpeechSettingsDependencies;
@@ -169,8 +170,6 @@ export class SpeechSettingsService {
   ): Promise<SpeechAdministration["status"]> {
     if (selection === null) return "noModel";
     if (selected !== null) return "ready";
-    return (await isUnsuitableSpeechModel(this.dependencies, viewer, selection))
-      ? "modelUnsuitable"
-      : "modelUnavailable";
+    return unlistedSpeechModelStatus(this.dependencies, viewer, selection);
   }
 }

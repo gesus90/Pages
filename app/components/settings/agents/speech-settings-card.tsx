@@ -20,8 +20,9 @@ import {
 } from "@/definition/SpeechRecognition";
 
 import {
+  SpeechOpenRouterHint,
   SpeechStatusBadge,
-  SpeechUnsuitableNote,
+  SpeechStatusNote,
   formatSpeechDuration,
 } from "./speech-settings/speech-status";
 import { SpeechTestResult, useSpeechTest } from "./speech-settings/speech-test";
@@ -172,7 +173,8 @@ function SpeechSettingsForm({
         canTest={canTest}
         isPending={isPending}
       />
-      <SpeechUnsuitableNote administration={administration} />
+      <SpeechStatusNote administration={administration} />
+      <SpeechOpenRouterHint models={models} />
       {draft.isDirty && administration.status === "ready" ? (
         <p className="text-xs text-muted-foreground">
           {t("speechSettings.saveBeforeTest")}

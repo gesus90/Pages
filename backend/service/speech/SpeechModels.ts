@@ -199,33 +199,39 @@ export function findSpeechModel(
   );
 }
 
+/** Why a saved choice that {@link listSpeechModels} no longer lists does not run. */
+export type UnlistedSpeechStatus =
+  "modelUnavailable" | "modelUnsuitable" | "modelNotInCatalog";
+
 /**
- * Whether a saved choice names a model that its OpenRouter catalog lists, but
- * not as a transcription model (PAGE-294).
+ * Tells why a saved choice is no longer listed (PAGE-294, PAGE-302).
  *
  * @param source - The stored connections and the simulation switch.
  * @param viewer - The administrator who reads the setting.
  * @param selection - The saved choice that {@link listSpeechModels} no longer lists.
- * @returns `true` for a chat model that accepts audio, for example; `false`
- * when the model or its connection is gone, switched off or outside the
- * viewer's scope.
+ * @returns `modelUnsuitable` when its OpenRouter catalog lists the model, but
+ * not as a transcription model, such as a chat model that accepts audio;
+ * `modelNotInCatalog` when the usable OpenRouter connection's catalog no
+ * longer lists the model at all; `modelUnavailable` when the connection is
+ * gone, switched off, without a key or outside the viewer's scope.
  *
  * @remarks
  * It only tells the settings card why a saved model is unusable; the choice
  * stays saved, nothing replaces it and nothing runs with it.
  */
-export async function isUnsuitableSpeechModel(
+export async function unlistedSpeechModelStatus(
   source: SpeechModelSource,
   viewer: AgentViewer,
   selection: SpeechModelSelection,
-): Promise<boolean> {
+): Promise<UnlistedSpeechStatus> {
   const connection = await source.connections.find(selection.connectionId);
   if (
     connection?.provider !== "openrouter" ||
     !(await isUsableSpeechConnection(source, viewer, connection))
   )
-    return false;
+    return "modelUnavailable";
   const catalog = await source.connections.catalogs().find(connection.id);
   const model = catalog.models.find((entry) => entry.id === selection.model);
-  return model !== undefined && !isTranscriptionModel(model);
+  if (model === undefined) return "modelNotInCatalog";
+  return isTranscriptionModel(model) ? "modelUnavailable" : "modelUnsuitable";
 }

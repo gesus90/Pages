@@ -6436,9 +6436,12 @@
       "ready": "Bereit",
       "noModel": "Kein Modell gewählt",
       "modelUnavailable": "Modell nicht verfügbar",
-      "modelUnsuitable": "Kein Transkriptionsmodell"
+      "modelUnsuitable": "Kein Transkriptionsmodell",
+      "modelNotInCatalog": "Nicht mehr im Katalog"
     },
     "unsuitable": "Das gespeicherte Modell {{model}} ist kein Transkriptionsmodell: Sein Katalog meldet keine Transkriptionsausgabe, etwa weil es ein Chatmodell mit Audioeingabe ist. Die Spracherkennung bleibt aus, bis ein angebotenes Transkriptionsmodell gewählt und gespeichert ist. Die längste Aufnahme bleibt erhalten.",
+    "notInCatalog": "Das gespeicherte Modell {{model}} steht nicht mehr im Modellkatalog seiner OpenRouter-Anbindung. Die Spracherkennung bleibt aus und wechselt nicht von selbst auf ein anderes Modell, bis ein angebotenes Modell gewählt und gespeichert ist.",
+    "noOpenRouterModels": "Keine OpenRouter-Anbindung bietet Transkriptions-Modelle. Damit sie hier wählbar werden, unter Agents eine OpenRouter-Anbindung mit API-Schlüssel einrichten und ihren Modellkatalog aktualisieren.",
     "hint": "Die Sprache erkennt das Modell selbst. Audio wird nach der Umwandlung nicht gespeichert.",
     "testButton": {
       "idle": "Testaufnahme prüfen",

@@ -85,6 +85,12 @@ export interface PageAgentModel {
    */
   readonly isSpeechOutputCapable?: boolean;
   /**
+   * `true` for a transcription model (PAGE-302): its catalog states audio
+   * input and `transcription` output. Only speech recognition takes such a
+   * model; Pica, agents and plan nodes refuse it.
+   */
+  readonly isTranscriptionOnly?: boolean;
+  /**
    * `true` when the last server refresh of the model's catalog failed.
    *
    * @remarks
