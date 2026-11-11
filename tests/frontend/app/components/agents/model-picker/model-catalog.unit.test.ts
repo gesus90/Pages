@@ -506,3 +506,16 @@ describe("findModelChoice", () => {
     expect(findModelChoice(groups, "missing")).toBeNull();
   });
 });
+
+it("uses a connection name as its source key when its ID is absent", () => {
+  const [group] = groupsOf([
+    pageModel("named", {
+      provider: "anthropic",
+      connectionId: undefined,
+      connectionName: "Team",
+    }),
+  ]);
+
+  expect(group.sources[0].key).toBe("Team");
+  expect(group.sources[0].choices[0].model.id).toBe("named");
+});

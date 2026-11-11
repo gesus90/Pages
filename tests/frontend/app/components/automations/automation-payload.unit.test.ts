@@ -300,3 +300,58 @@ it("omits unchanged triggers and unreadable script content in updates", () => {
     },
   });
 });
+
+it("reports invalid update fields before constructing an update", () => {
+  const valid = { ...draft, name: "Job", instruction: "Run" };
+  expect(
+    buildUpdatePayload({ ...valid, name: " " }, valid, automation, context),
+  ).toEqual({ problem: "name" });
+  expect(
+    buildUpdatePayload({ ...valid, time: "bad" }, valid, automation, context),
+  ).toEqual({ problem: "time" });
+  expect(
+    buildUpdatePayload(
+      { ...valid, instruction: "" },
+      valid,
+      automation,
+      context,
+    ),
+  ).toEqual({ problem: "instruction" });
+  expect(
+    buildUpdatePayload(
+      { ...valid, notificationMode: "error", notificationAgentId: "" },
+      valid,
+      automation,
+      context,
+    ),
+  ).toEqual({ problem: "notificationAgent" });
+});
+
+it("validates weekly windows and preserves a selected ticket status", () => {
+  const weekly = {
+    ...draft,
+    repeat: "interval" as const,
+    intervalMode: "weekly" as const,
+    hasWindow: true,
+    windowEnd: "invalid",
+  };
+  expect(buildTrigger(weekly, now)).toEqual({ problem: "window" });
+  expect(
+    buildTrigger(
+      {
+        ...draft,
+        triggerKind: "event",
+        eventType: "ticket.status_changed",
+        statusId: "done",
+      },
+      now,
+    ),
+  ).toEqual({
+    value: {
+      type: "event",
+      eventType: "ticket.status_changed",
+      projectId: "project",
+      statusId: "done",
+    },
+  });
+});
