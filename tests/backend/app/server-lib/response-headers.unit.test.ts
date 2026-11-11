@@ -17,10 +17,10 @@ function requestFrom(forwardedFor: string | null): Request {
 }
 
 describe("createSecurityHeaders", () => {
-  it("forbids framing, sniffing and cross-origin embedding", () => {
+  it("allows same-origin framing and forbids sniffing and cross-origin embedding", () => {
     const headers = createSecurityHeaders();
 
-    expect(headers["X-Frame-Options"]).toBe("DENY");
+    expect(headers["X-Frame-Options"]).toBe("SAMEORIGIN");
     expect(headers["X-Content-Type-Options"]).toBe("nosniff");
     expect(headers["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
     expect(headers["Permissions-Policy"]).toBe(
@@ -36,7 +36,7 @@ describe("createSecurityHeaders", () => {
     expect(directives).toContain("object-src 'none'");
     expect(directives).toContain("base-uri 'self'");
     expect(directives).toContain("form-action 'self'");
-    expect(directives).toContain("frame-ancestors 'none'");
+    expect(directives).toContain("frame-ancestors 'self'");
     expect(directives).toContain("connect-src 'self'");
     expect(policy).not.toContain("*");
   });
@@ -46,7 +46,7 @@ describe("createSecurityHeaders", () => {
     first["X-Frame-Options"] = "ALLOWALL";
 
     expect(first).not.toHaveProperty("Strict-Transport-Security");
-    expect(createSecurityHeaders()["X-Frame-Options"]).toBe("DENY");
+    expect(createSecurityHeaders()["X-Frame-Options"]).toBe("SAMEORIGIN");
   });
 });
 
