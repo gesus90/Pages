@@ -1,6 +1,7 @@
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
+import { SimulatedConversationDecision } from "@/backend/agents/simulation/SimulatedConversationDecision";
 import { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
@@ -36,10 +37,15 @@ import type { AutomationService } from "@/backend/service/automation/AutomationS
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
+import type { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
-import type { ConversationApplicationServices } from "./conversation-services.server";
+import type { AgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
+import type {
+  ConversationApplicationServices,
+  ConversationObserverInput,
+} from "./conversation-services.server";
 
 /**
  * Agents as employees, the chat directory and person colors (PAGE-266), with
@@ -78,6 +84,11 @@ export interface EmployeeServicesInput {
       "resolve" | "requireCurrent"
     >;
     readonly agentPlanExecution: PlanExecution | null;
+    /** The decision model of the instance (PAGE-317). */
+    readonly chatDecisionSettingsService: Pick<
+      ChatDecisionSettingsService,
+      "resolve"
+    >;
   };
 }
 
@@ -100,6 +111,26 @@ function startBackground(
     automationService: input.automations,
     sessions: parts.sessions,
   });
+}
+
+/** What the group observer and the decision model run on, simulated while the simulation is on. */
+function groupObserverInput(
+  observer: EmployeeServicesInput["observer"],
+  simulation: AgentSimulationMode,
+  isBackgroundOwner: boolean,
+): ConversationObserverInput {
+  return {
+    pica: observer.picaSettingsService,
+    plans: observer.agentPlanExecution,
+    simulation: simulation.isActive
+      ? new SimulatedConversationObserver(simulation)
+      : null,
+    decision: observer.chatDecisionSettingsService,
+    decisionSimulation: simulation.isActive
+      ? new SimulatedConversationDecision(simulation)
+      : null,
+    isBackgroundOwner,
+  };
 }
 
 /**
@@ -147,14 +178,7 @@ export function createEmployeeServices(
   const conversations = createConversationServices({
     database,
     ...input.conversations,
-    observer: {
-      pica: input.observer.picaSettingsService,
-      plans: input.observer.agentPlanExecution,
-      simulation: simulation.isActive
-        ? new SimulatedConversationObserver(simulation)
-        : null,
-      isBackgroundOwner,
-    },
+    observer: groupObserverInput(input.observer, simulation, isBackgroundOwner),
     runner: new AgentConversationAnswers({
       store,
       users,

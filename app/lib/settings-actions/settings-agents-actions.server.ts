@@ -5,6 +5,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { badRequest } from "./settings-action-support.server";
 import { requireAgentAccount } from "./settings-agents-access.server";
 import { AGENT_NO_STORE } from "./settings-agents-response.server";
+import { saveChatDecisionSettings } from "./settings-chat-decision-actions.server";
 import { handleSetMode } from "./settings-mode-action.server";
 import {
   saveSpeechSettings,
@@ -102,6 +103,7 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   "save-speech": saveSpeechSettings,
   "test-speech": testSpeechRecognition,
   "save-speech-synthesis": saveSpeechSynthesisSettings,
+  "save-chat-decision": saveChatDecisionSettings,
   "save-profile": retiredProfileAction,
   "delete-profile": retiredProfileAction,
   "profile-usages": retiredProfileAction,
@@ -202,6 +204,7 @@ const CONNECTION_FREE_INTENTS = new Set([
   "save-speech",
   "test-speech",
   "save-speech-synthesis",
+  "save-chat-decision",
 ]);
 
 /** Dispatches only known intents after checking fresh account facts, preserving mode switching. */

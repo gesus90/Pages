@@ -289,6 +289,10 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ...mcpWikiRoutes(routes.resource),
     ...mcpAgentRoutes(routes.resource),
     ...mcpUserRoutes(routes.resource),
+    resource(
+      "api/mcp/v1/conversations/:conversationId/reply-settings",
+      "routes/api-mcp-v1-conversation-reply-settings.ts",
+    ),
     resource("api/mcp/v1/storage/*", "routes/api-mcp-v1-storage.ts"),
     ...mcpAutomationRoutes(routes.resource),
     resource("health", "routes/health.ts"),

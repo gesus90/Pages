@@ -192,6 +192,19 @@ export class ConversationRepository {
     return rows.length > 0;
   }
 
+  /** Returns the account that created a conversation, or `null` for an unknown one. */
+  public async createdBy(conversationId: string): Promise<string | null> {
+    const [row] = await this.database.query(
+      `
+        SELECT created_by
+        FROM conversations
+        WHERE id = $id;
+      `,
+      { id: conversationId },
+    );
+    return row ? readTextColumn(row, 0, "created_by") : null;
+  }
+
   /** Returns the direct conversation of a sorted pair, or `null`. */
   public async findDirect(directKey: string): Promise<string | null> {
     const rows = await this.database.query(

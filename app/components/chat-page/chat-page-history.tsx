@@ -1,5 +1,5 @@
 import { CircleAlert, Zap } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -9,6 +9,7 @@ import { cn } from "@/app/lib/cn";
 
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
+import { ChatPageDecision } from "./chat-page-decision";
 import { ChatPageVoice } from "./chat-page-voice";
 
 import type {
@@ -72,27 +73,31 @@ function OwnRun({
   return (
     <div className="flex flex-col items-end gap-2">
       {messages.map((message) => (
-        <article
-          key={message.id}
-          aria-label={t("chatPage.you")}
-          className="flex max-w-[62%] justify-end"
-        >
-          {message.voice ? (
-            <div className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground">
-              <ChatPageVoice
-                voice={message.voice}
-                text={message.content}
-                isOwn
+        <Fragment key={message.id}>
+          <article
+            aria-label={t("chatPage.you")}
+            className="flex max-w-[62%] justify-end"
+          >
+            {message.voice ? (
+              <div className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground">
+                <ChatPageVoice
+                  voice={message.voice}
+                  text={message.content}
+                  isOwn
+                />
+              </div>
+            ) : (
+              <WikiMarkdown
+                className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-[15px] text-primary-foreground"
+                isDisplayableImage={hideImages}
+                source={message.content}
               />
-            </div>
-          ) : (
-            <WikiMarkdown
-              className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-[15px] text-primary-foreground"
-              isDisplayableImage={hideImages}
-              source={message.content}
-            />
-          )}
-        </article>
+            )}
+          </article>
+          {message.decision ? (
+            <ChatPageDecision decision={message.decision} />
+          ) : null}
+        </Fragment>
       ))}
     </div>
   );
@@ -215,12 +220,16 @@ function AnswerRun({ messages, author }: AnswerRunProps): React.ReactElement {
       <ParticipantAvatar participant={author} size={32} />
       <div className="flex max-w-[62%] min-w-0 flex-col items-start gap-2">
         {messages.map((message, index) => (
-          <AnswerBubble
-            key={message.id}
-            message={message}
-            author={author}
-            hasName={index === 0}
-          />
+          <Fragment key={message.id}>
+            <AnswerBubble
+              message={message}
+              author={author}
+              hasName={index === 0}
+            />
+            {message.decision ? (
+              <ChatPageDecision decision={message.decision} />
+            ) : null}
+          </Fragment>
         ))}
       </div>
     </div>

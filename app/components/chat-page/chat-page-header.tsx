@@ -7,6 +7,7 @@ import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
 import { ChatPageGroupContext } from "./chat-page-group-context";
 import { participantSubtitle } from "./chat-page-list-entries";
 import { ChatPageMemberDialog } from "./chat-page-member-dialog";
+import { ChatPageReplySettings } from "./chat-page-reply-settings";
 
 import type { ReactNode } from "react";
 import type {
@@ -156,6 +157,7 @@ function GroupHeader({
             onAdd={onAddMember}
           />
           <ChatPageGroupContext group={group} />
+          <ChatPageReplySettings group={group} />
           <MuteButton {...mute} />
         </>
       }
@@ -171,7 +173,7 @@ function GroupHeader({
  * and status; a person has no task, model or tools. A stop button shows while
  * an agent answers. A group shows its description, the members as chips and
  * the dashed plus that adds one of the person's participants (PAGE-259)
- * and its stored context (PAGE-296).
+ * its stored context (PAGE-296) and who answers without an @ (PAGE-317).
  * A stored conversation with a person or of a group can be muted for the
  * person alone (PAGE-275).
  */

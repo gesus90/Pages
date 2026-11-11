@@ -71,9 +71,11 @@ export const CONVERSATION_CONTEXT_READ_LIMITS = {
  * - `context`: the observer chose it because of its responsibility.
  * - `handoff`: another agent named it with @ in its answer, or the observer
  *   chose it after that answer.
+ * - `fallback`: it is the default responder of the group, and it was unclear
+ *   who was addressed (PAGE-317).
  */
 export type ConversationReplyTrigger =
-  "direct" | "mention" | "context" | "handoff";
+  "direct" | "mention" | "context" | "handoff" | "fallback";
 
 /**
  * Where the stored context of a group stands.

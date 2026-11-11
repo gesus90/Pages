@@ -9,6 +9,8 @@
  * audio in the file store of Pages; its text arrives after the sending.
  */
 
+import type { ConversationDecisionView } from "./ConversationDecision";
+
 /** Longest text of a message, in characters. */
 export const CONVERSATION_TEXT_MAXIMUM_LENGTH = 16_000;
 
@@ -138,6 +140,11 @@ export interface ConversationMessage {
   readonly voice?: ConversationVoice;
   /** Present only for a hint why an agent did not answer; `text` then says it in German. */
   readonly notice?: ConversationNotice;
+  /**
+   * The decision about who answers this message (PAGE-317); only the chat page
+   * reads it, and only for a message of a person in a group that decided.
+   */
+  readonly decision?: ConversationDecisionView;
 }
 
 /** A conversation as one member sees it. */

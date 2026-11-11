@@ -3885,7 +3885,62 @@
     "unmute": "Unmute",
     "muted": "Muted",
     "loadOlder": "Load older messages",
-    "loadingOlder": "Loading …"
+    "loadingOlder": "Loading …",
+    "decision": {
+      "summary": {
+        "responders": "Decision: {{names}} answers",
+        "nobody": "Decision: nobody answers"
+      },
+      "chosen": "Chosen:",
+      "nobody": "nobody",
+      "reason": "Reason:",
+      "noReason": "No reason given.",
+      "needsAnswer": "Question or request found:",
+      "needsAnswerYes": "yes",
+      "needsAnswerNo": "no",
+      "suggested": "Probably responsible:",
+      "fallback": "Fallback:",
+      "fallbackBadge": "Fallback",
+      "fallbacks": {
+        "none": "No, the decision model decided.",
+        "no_model": "Yes: no decision model is usable.",
+        "model_failed": "Yes: the decision model failed or gave no valid answer.",
+        "unclear": "Yes: it was unclear who was addressed."
+      },
+      "notice": "Nobody answered because it was unclear who was addressed. Address someone directly with @.",
+      "noticeSuggested": "Probably responsible: {{names}}."
+    },
+    "replySettings": {
+      "open": "Who answers?",
+      "title": "Who answers in “{{name}}”?",
+      "description": "Sets who answers a message without an @ mention. Whoever is mentioned with @ always answers.",
+      "mode": "Who answers?",
+      "modes": {
+        "mentions": {
+          "label": "All addressed agents",
+          "description": "Only agents named with @ answer."
+        },
+        "observer": {
+          "label": "Observer agent",
+          "description": "The observer chooses who contributes from the group context."
+        },
+        "decision": {
+          "label": "Decision model",
+          "description": "The instance's decision model chooses no agent, one or several."
+        }
+      },
+      "defaultResponder": "Default responder",
+      "noDefault": "Nobody",
+      "defaultHint": "Answers when it is unclear who is addressed and says so openly. Without a default responder a notice appears instead.",
+      "maximum": "Most responders per message",
+      "modelHint": "The model is not chosen per chat: the decision model from Settings → Agents applies.",
+      "save": "Save",
+      "saved": "Setting saved.",
+      "saveFailed": "The setting could not be saved.",
+      "readOnly": "Only whoever manages the chat may change this.",
+      "loading": "Loading setting …",
+      "failed": "The setting could not be loaded."
+    }
   },
   "workspaces": {
     "title": "Workspaces",
@@ -6482,6 +6537,25 @@
       "general": "The setting could not be saved.",
       "accessUnverified": "Access to this connection is not verified. Verify it in the agent settings first.",
       "profileSelectionRequired": "Multiple profiles are available. Explicitly choose a connection."
+    }
+  },
+  "chatDecision": {
+    "title": "Decisions in chats",
+    "description": "Chooses which agent answers in group chats when nobody is mentioned with @. The model has no tools and runs no actions. Applies to the whole instance.",
+    "model": "Model",
+    "chooseModel": "Choose a model …",
+    "noModels": "No configured connection offers a text model for chats. Set up a connection under Agents and refresh its model catalog.",
+    "status": {
+      "ready": "Ready",
+      "noModel": "No model chosen",
+      "modelUnavailable": "Model unavailable"
+    },
+    "hint": "Without a model, the default responder answers in group chats.",
+    "saved": "Decision model saved.",
+    "error": {
+      "provider_model_not_found": "The chosen model is not available for decisions in chats.",
+      "profile_invalid": "The setting is invalid. Please check the model and reasoning.",
+      "profile_conflict": "The setting has changed in the meantime. Reload the page and save again."
     }
   },
   "speechSettings": {

@@ -6,6 +6,7 @@ import { useLocalStateRoute } from "@/app/components/common/use-local-state-rout
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings-card";
+import { ChatDecisionCard } from "@/app/components/settings/agents/chat-decision-card";
 import { SpeechSettingsCard } from "@/app/components/settings/agents/speech-settings-card";
 import { SpeechSynthesisCard } from "@/app/components/settings/agents/speech-synthesis-card";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
@@ -33,6 +34,7 @@ import type {
 } from "@/definition/AgentConnection";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { PicaAdministration } from "@/definition/PicaSettings";
+import type { ChatDecisionAdministration } from "@/definition/ConversationDecision";
 import type { SpeechAdministration } from "@/definition/SpeechRecognition";
 import type { SpeechSynthesisAdministration } from "@/definition/SpeechSynthesis";
 import type { Route } from "./+types/settings-agents";
@@ -55,13 +57,14 @@ export type AgentsLoaderData =
       };
       readonly speech: SpeechAdministration;
       readonly speechSynthesis: SpeechSynthesisAdministration;
+      readonly chatDecision: ChatDecisionAdministration;
       readonly audience: LocalStateAudience;
     };
 
 /** The rights-checked endpoint of the agents area. */
 const SETTINGS_AGENTS_ENDPOINT = "/settings-api/agents";
 
-// Pica, the speech recognition and the speech output (PAGE-300) each have a card of their own.
+// Pica, the speech recognition, the speech output (PAGE-300) and the decision model (PAGE-317) each have a card of their own.
 function hasAgentSettingCards(value: object): boolean {
   return (
     "pica" in value &&
@@ -69,7 +72,9 @@ function hasAgentSettingCards(value: object): boolean {
     "speech" in value &&
     typeof value.speech === "object" &&
     "speechSynthesis" in value &&
-    typeof value.speechSynthesis === "object"
+    typeof value.speechSynthesis === "object" &&
+    "chatDecision" in value &&
+    typeof value.chatDecision === "object"
   );
 }
 
@@ -97,7 +102,7 @@ function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
  * metadata; the request for the admin mode is not kept.
  */
 const SETTINGS_AGENTS_STATE: LocalStateRouteKind<AgentsLoaderData> = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   isPayload: isAgentsRouteData,
   isCurrent: (agents) =>
     agents.access === "granted" && isCurrentLocalStateAudience(agents.audience),
@@ -166,6 +171,10 @@ export default function SettingsAgentsRoute(): React.ReactElement {
           isCatalogFailed={hasFailedCatalog(result.catalogs)}
         />
       </div>
+      <ChatDecisionCard
+        administration={result.chatDecision}
+        isCatalogFailed={hasFailedCatalog(result.catalogs)}
+      />
       <PicaSettingsCard
         settings={result.pica.settings}
         models={result.pica.models}

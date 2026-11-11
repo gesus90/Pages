@@ -64,6 +64,7 @@ import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials"
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 import { createRemoteServices } from "./remote-services.server";
 import { createRunnerServices } from "./runner-services.server";
+import { createChatDecisionServices } from "./chat-decision-services.server";
 import { createSpeechServices } from "./speech-services.server";
 
 import type { AcpRecoveryScope } from "@/backend/service/agents/resources/AcpLeaseAdmission";
@@ -78,6 +79,7 @@ import type { AgentSimulationMode } from "@/backend/agents/simulation/AgentSimul
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 import type { RemoteApplicationServices } from "./remote-services.server";
 import type { RunnerApplicationServices } from "./runner-services.server";
+import type { ChatDecisionApplicationServices } from "./chat-decision-services.server";
 import type { SpeechApplicationServices } from "./speech-services.server";
 
 export interface AgentApplicationServices
@@ -85,6 +87,7 @@ export interface AgentApplicationServices
     AgentConfigurationApplicationServices,
     RemoteApplicationServices,
     RunnerApplicationServices,
+    ChatDecisionApplicationServices,
     SpeechApplicationServices {
   readonly agentToolManagerService: AgentToolManagerService;
   readonly agentToolStartupService: AgentToolStartupService;
@@ -158,6 +161,28 @@ function simulatedExecution(
     }),
     input.simulation,
   );
+}
+
+/** The connection scope check and the decision model (PAGE-317), which share one reading of the groups. */
+function createAccessServices(
+  database: Database,
+  repository: AgentConnectionRepository,
+): {
+  readonly access: AgentConnectionAccess;
+} & ChatDecisionApplicationServices {
+  const groups = new UserGroupRepository(database);
+  return {
+    access: new AgentConnectionAccess({
+      connections: repository,
+      authorization: new AuthorizationRepository(database),
+      groups,
+    }),
+    ...createChatDecisionServices({
+      database,
+      connections: repository,
+      groups,
+    }),
+  };
 }
 
 /**
@@ -420,11 +445,7 @@ export function createAgentServices(
     operations,
     catalog: refresh,
   });
-  const access = new AgentConnectionAccess({
-    connections: repository,
-    authorization: new AuthorizationRepository(database),
-    groups: new UserGroupRepository(database),
-  });
+  const { access, ...decision } = createAccessServices(database, repository);
   const github = createGitHubCredentials({
     database,
     dataDirectory,
@@ -438,6 +459,7 @@ export function createAgentServices(
     ...remote,
     ...createRunnerServices({ database, remote, tokenKey, configuration }),
     ...createSpeechServices({ database, connections: repository, cipher }),
+    ...decision,
     acpResourceScheduler,
     localSessions,
     agentToolManagerService,

@@ -9,6 +9,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
 import type { ConversationErrorCode } from "@/definition/Conversation";
+import type { ConversationReplySettingsView } from "@/definition/ConversationDecision";
 import type { ConversationGroupContextView } from "@/definition/ConversationObserver";
 import type { User } from "@/definition/User";
 import type {
@@ -29,6 +30,8 @@ export type ChatPageActionData =
       readonly history?: VirtualChatHistoryPage;
       /** The stored context of a group, the answer of `group-context` (PAGE-296). */
       readonly groupContext?: ConversationGroupContextView;
+      /** The settings "Wer antwortet?" of a group, the answer of `reply-settings` and `save-reply-settings` (PAGE-317). */
+      readonly replySettings?: ConversationReplySettingsView;
     }
   | {
       readonly ok: false;
@@ -48,13 +51,16 @@ export type ChatPageIntent =
   | "read"
   | "mute"
   | "history"
-  | "group-context";
+  | "group-context"
+  | "reply-settings"
+  | "save-reply-settings";
 
 /** What a change yields besides success: a created group, a page of older messages or a group context. */
 interface ChatIntentOutcome {
   readonly groupId?: string;
   readonly history?: VirtualChatHistoryPage;
   readonly groupContext?: ConversationGroupContextView;
+  readonly replySettings?: ConversationReplySettingsView;
 }
 
 const INTENTS: readonly ChatPageIntent[] = [
@@ -69,6 +75,8 @@ const INTENTS: readonly ChatPageIntent[] = [
   "mute",
   "history",
   "group-context",
+  "reply-settings",
+  "save-reply-settings",
 ];
 
 /** How a refused conversation request reads on the page (PAGE-278). */
@@ -196,6 +204,32 @@ async function runMemberIntent(
   return {};
 }
 
+/** Reads or changes who answers in a group; only the one who manages the group changes it (PAGE-317). */
+async function runReplySettingsIntent(
+  services: ChatServices,
+  person: User,
+  intent: "reply-settings" | "save-reply-settings",
+  formData: FormData,
+): Promise<ChatIntentOutcome> {
+  const { conversationReplySettingsService } = services;
+  if (intent === "reply-settings")
+    return {
+      replySettings: await conversationReplySettingsService.read(
+        person,
+        formData.get("conversationId"),
+      ),
+    };
+  const defaultResponderId = String(formData.get("defaultResponderId") ?? "");
+  return {
+    replySettings: await conversationReplySettingsService.save(person, {
+      conversationId: formData.get("conversationId"),
+      mode: formData.get("mode"),
+      defaultResponderId: defaultResponderId === "" ? null : defaultResponderId,
+      maximumResponders: Number(formData.get("maximumResponders")),
+    }),
+  };
+}
+
 /** Runs one change of the person; returns a created group or a history page. */
 async function runIntent(
   services: ChatServices,
@@ -260,6 +294,9 @@ async function runIntent(
           formData.get("conversationId"),
         ),
       };
+    case "reply-settings":
+    case "save-reply-settings":
+      return runReplySettingsIntent(services, person, intent, formData);
   }
 }
 
