@@ -1,4 +1,5 @@
 import { dispatchPlanScript } from "./AgentPlanScriptDispatch";
+import { skippedPlanScriptResult } from "./AgentPlanScriptResult";
 import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
 import { triggerOuterPlanStack } from "./stack/AgentPlanStackTrigger";
 import { invalidDecisionInput } from "./branching/AgentPlanDecisionValue";
@@ -42,6 +43,10 @@ export function dispatchPlanLocalNode(
       status: "failed",
       error: "plan_git_closeout_unsupported",
     });
+  }
+  if (node.type === "script" && node.disabled) {
+    active.dispatched.delete(node.id);
+    return Promise.resolve(skippedPlanScriptResult(node));
   }
   if (node.type === "script")
     return dispatchPlanScript(active, node.id, controller, {

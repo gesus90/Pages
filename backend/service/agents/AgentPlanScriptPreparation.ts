@@ -165,7 +165,9 @@ export class AgentPlanScriptPreparation {
 function localScripts(plan: AgentPlan): readonly AgentPlanScript[] {
   return plan.nodes.filter(
     (node): node is AgentPlanScript =>
-      node.type === "script" && node.executionTarget?.kind !== "remote",
+      node.type === "script" &&
+      !node.disabled &&
+      node.executionTarget?.kind !== "remote",
   );
 }
 

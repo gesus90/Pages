@@ -1,11 +1,13 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
+import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/lib/cn";
 import {
   PLAN_SCRIPT_CONTENT_LENGTH,
+  PLAN_SCRIPT_DISABLED_OUTPUT_LENGTH,
   PLAN_SCRIPT_NAME_LENGTH,
   PLAN_SCRIPT_TIMEOUT,
 } from "@/definition/AgentPlanScript";
@@ -245,6 +247,62 @@ export function PlanScriptContentField(props: {
           maximum: PLAN_SCRIPT_CONTENT_LENGTH.toLocaleString(i18n.language),
         })}
       />
+    </div>
+  );
+}
+
+/** The switch and the replacement result of a disabled script. */
+export function PlanScriptDisabledField(props: {
+  readonly form: PlanScriptForm;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const id = useId();
+  const { form } = props;
+  const issue = shownIssue(form, "disabledOutput", ["disabledOutput"]);
+  const hasOutput = form.values.output.trim() !== "";
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-3">
+      <label className="flex cursor-pointer items-start gap-2 text-sm font-medium">
+        <Checkbox
+          checked={form.values.disabled}
+          data-plan-script-field="disabled"
+          onChange={(event) => form.change({ disabled: event.target.checked })}
+        />
+        <span className="space-y-0.5">
+          <span className="block">{t("plans.scripts.disabled")}</span>
+          <span className="block text-xs font-normal text-muted-foreground">
+            {t("plans.scripts.disabledHint")}
+          </span>
+        </span>
+      </label>
+      {form.values.disabled && hasOutput ? (
+        <div className="space-y-1.5">
+          <label htmlFor={`${id}-output`} className={LABEL_CLASS}>
+            {t("plans.scripts.disabledOutput")}
+          </label>
+          <Textarea
+            id={`${id}-output`}
+            rows={2}
+            value={form.values.disabledOutput}
+            maxLength={PLAN_SCRIPT_DISABLED_OUTPUT_LENGTH}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            aria-invalid={issue !== null}
+            aria-describedby={`${id}-message`}
+            data-plan-script-field="disabledOutput"
+            className="font-mono text-xs leading-4.5 xl:text-xs"
+            onChange={(event) =>
+              form.change({ disabledOutput: event.target.value })
+            }
+          />
+          <PlanScriptFieldMessage
+            id={`${id}-message`}
+            issue={issue}
+            hint={t("plans.scripts.disabledOutputHint")}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

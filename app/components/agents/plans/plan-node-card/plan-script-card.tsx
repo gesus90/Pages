@@ -49,7 +49,12 @@ export function PlanScriptCard(props: {
       node={script}
       label={script.name}
       title={script.name}
-      subtitle={t("plans.nodeType.script")}
+      subtitle={
+        script.disabled
+          ? `${t("plans.nodeType.script")} · ${t("plans.scripts.disabled")}`
+          : t("plans.nodeType.script")
+      }
+      isDimmed={script.disabled === true}
       runClass={props.hasRun ? planRunCardClass(result) : undefined}
       status={
         props.hasRun ? (

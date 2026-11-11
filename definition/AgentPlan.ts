@@ -428,6 +428,8 @@ export interface AgentPlanStepResult {
   readonly blockedByStepId?: string;
   readonly name: string;
   readonly status: AgentPlanStepStatus;
+  /** A disabled script skipped this step; it succeeded without a process. */
+  readonly skipped?: boolean;
   readonly isBlocked: boolean;
   readonly cancellation: "none" | "requested" | "confirmed" | "not_started";
   readonly output: string | null;

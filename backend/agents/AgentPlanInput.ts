@@ -4,7 +4,10 @@ import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { planValueIssue } from "@/definition/AgentPlanValue";
-import { planScriptIssues } from "@/definition/AgentPlanScript";
+import {
+  PLAN_SCRIPT_DISABLED_OUTPUT_LENGTH,
+  planScriptIssues,
+} from "@/definition/AgentPlanScript";
 import {
   PLAN_LOOP_MEMBER_COUNT,
   PLAN_LOOP_NAME_LENGTH,
@@ -279,12 +282,23 @@ function readScriptNode(
   node: Record<string, unknown>,
   base: AgentPlanPosition & { readonly id: string },
 ): AgentPlanScript {
-  const { name, interpreterProfileId, content, timeoutSeconds } = node;
+  const {
+    name,
+    interpreterProfileId,
+    content,
+    timeoutSeconds,
+    disabled,
+    disabledOutput,
+  } = node;
   if (
     typeof name !== "string" ||
     typeof interpreterProfileId !== "string" ||
     typeof content !== "string" ||
-    typeof timeoutSeconds !== "number"
+    typeof timeoutSeconds !== "number" ||
+    (disabled !== undefined && typeof disabled !== "boolean") ||
+    (disabledOutput !== undefined && typeof disabledOutput !== "string") ||
+    (typeof disabledOutput === "string" &&
+      disabledOutput.length > PLAN_SCRIPT_DISABLED_OUTPUT_LENGTH)
   )
     throw new AgentError("plan_script_invalid");
   const script: AgentPlanScript = {
@@ -298,6 +312,10 @@ function readScriptNode(
     inputs: readScriptInputs(node.inputs),
     outputs: readScriptOutputs(node.outputs),
     timeoutSeconds,
+    ...(disabled === true ? { disabled: true } : {}),
+    ...(typeof disabledOutput === "string" && disabledOutput.trim()
+      ? { disabledOutput }
+      : {}),
     bindings: readBindings(node.bindings),
   };
   if (planScriptIssues(script).length > 0)

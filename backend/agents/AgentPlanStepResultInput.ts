@@ -37,6 +37,7 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     throw new AgentError("plan_invalid");
   if (typeof step.isBlocked !== "boolean") throw new AgentError("plan_invalid");
   const display = readStepDisplay(step.isDisplayFiltered);
+  const skipped = readStepSkipped(step.skipped);
   if (
     (output !== null && typeof output !== "string") ||
     (error !== null && typeof error !== "string")
@@ -55,6 +56,7 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     output,
     error,
     ...display,
+    ...skipped,
     session: readPlanSessionRecord(step.session),
     ...readStepArtifacts(step),
     ...readPlanActivationFields(step),
@@ -65,6 +67,14 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
       ? {}
       : { stack: readPlanStackHandover(step.stack) }),
   };
+}
+
+function readStepSkipped(
+  skipped: unknown,
+): Pick<AgentPlanStepResult, "skipped"> {
+  if (skipped !== undefined && typeof skipped !== "boolean")
+    throw new AgentError("plan_invalid");
+  return skipped === true ? { skipped: true } : {};
 }
 
 function readStepDisplay(

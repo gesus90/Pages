@@ -50,6 +50,19 @@ function nodeKind(step: AgentPlanStepResult, translate: TFunction): string {
     : translate("plans.progress.agent", { name: step.name });
 }
 
+/** The note of a step whose disabled script skipped its process. */
+function PlanStatusSkippedNote(props: {
+  readonly isSkipped: boolean;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!props.isSkipped) return null;
+  return (
+    <p className="text-xs leading-4.5 text-success wrap-anywhere">
+      {t("plans.run.skipped")}
+    </p>
+  );
+}
+
 /** Consistent run-step details, with honest empty states when the runner reports no live activity. */
 export function PlanStatusDetails({
   step,
@@ -98,6 +111,7 @@ export function PlanStatusDetails({
             className="rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-4"
           />
         </div>
+        <PlanStatusSkippedNote isSkipped={step.skipped === true} />
         {kind && kind !== "actual" ? (
           <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
             {t(`plans.progress.outlook.${kind}`)}

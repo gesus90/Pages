@@ -7,6 +7,7 @@ import type {
   AgentPlanStepRole,
 } from "./AgentPlan";
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution";
+import { planScriptReportSchema } from "./AgentPlanScriptReport";
 import type {
   InterpreterCheck,
   InterpreterFailure,
@@ -18,6 +19,21 @@ export const PLAN_SCRIPT_NAME_LENGTH = 120;
 export const PLAN_SCRIPT_CONTENT_LENGTH = 100_000;
 /** The most inputs a script declares. */
 export const PLAN_SCRIPT_INPUT_COUNT = 16;
+/** The longest replacement output of a disabled script, in characters. */
+export const PLAN_SCRIPT_DISABLED_OUTPUT_LENGTH = 100_000;
+
+/** The passed report a disabled script returns when it declares a report or gate output. */
+export const PLAN_SCRIPT_SKIPPED_REPORT = {
+  status: "passed",
+  summary: "Übersprungen (deaktiviert)",
+  checks: [
+    {
+      name: "skipped",
+      status: "passed",
+      detail: "Übersprungen (deaktiviert)",
+    },
+  ],
+} as const;
 /** The allowed run time of a script, in whole seconds. */
 export const PLAN_SCRIPT_TIMEOUT = {
   minimum: 1,
@@ -111,6 +127,10 @@ export interface AgentPlanScript extends AgentPlanPosition {
   /** Zero or one text output. Flow OUT is independent of the data result. */
   readonly outputs: readonly AgentPlanScriptOutput[];
   readonly timeoutSeconds: number;
+  /** Absent means active; a disabled script is skipped without a process. */
+  readonly disabled?: boolean;
+  /** Replaces the result of a disabled script; empty means the policy default. */
+  readonly disabledOutput?: string;
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
 
@@ -124,6 +144,8 @@ export type AgentPlanScriptConfiguration = Pick<
   | "inputs"
   | "outputs"
   | "timeoutSeconds"
+  | "disabled"
+  | "disabledOutput"
 >;
 
 /** What is wrong with a script's own configuration. */
@@ -136,7 +158,8 @@ export type AgentPlanScriptIssue =
   | "inputName"
   | "outputName"
   | "duplicateName"
-  | "timeout";
+  | "timeout"
+  | "disabledOutput";
 
 /**
  * An interpreter profile as the plan editor shows it: no program path.
@@ -206,6 +229,7 @@ export function planScriptIssues(
   if (configuration.content.length > PLAN_SCRIPT_CONTENT_LENGTH)
     issues.push("contentLength");
   issues.push(...nameIssues(configuration));
+  if (disabledOutputIssue(configuration)) issues.push("disabledOutput");
   const timeout = configuration.timeoutSeconds;
   if (
     !Number.isInteger(timeout) ||
@@ -214,6 +238,44 @@ export function planScriptIssues(
   )
     issues.push("timeout");
   return issues;
+}
+
+/** The replacement output of a disabled script, before its report policy is assessed. */
+export function planScriptDisabledOutput(
+  script: Pick<AgentPlanScript, "outputs" | "disabledOutput">,
+): string | null {
+  const output = script.outputs[0];
+  if (!output) return null;
+  const replacement = script.disabledOutput ?? "";
+  if (replacement.trim()) return replacement;
+  if (output.policy) return JSON.stringify(PLAN_SCRIPT_SKIPPED_REPORT);
+  return "";
+}
+
+/**
+ * A replacement report may only claim a passed review, so a disabled gate never fails the run.
+ *
+ * @remarks
+ * The length is bounded even while the script is active, so enabling it later
+ * cannot keep an oversized value. The JSON shape is checked only while disabled,
+ * because an enabled script never reads the replacement.
+ */
+function disabledOutputIssue(
+  configuration: AgentPlanScriptConfiguration,
+): boolean {
+  const replacement = configuration.disabledOutput;
+  if (replacement === undefined) return false;
+  if (replacement.length > PLAN_SCRIPT_DISABLED_OUTPUT_LENGTH) return true;
+  const policy = configuration.outputs[0]?.policy;
+  if (!configuration.disabled || !policy || !replacement.trim()) return false;
+  let value: unknown;
+  try {
+    value = JSON.parse(replacement);
+  } catch {
+    return true;
+  }
+  const parsed = planScriptReportSchema.safeParse(value);
+  return !parsed.success || parsed.data.status !== "passed";
 }
 
 /**

@@ -35,6 +35,8 @@ interface PlanCardProps {
   readonly onEdit?: () => void;
   /** The ticket card has a large title row with a tighter corner. */
   readonly size?: "default" | "large";
+  /** A node that will not run is dimmed while keeping its type and run colors. */
+  readonly isDimmed?: boolean;
   readonly children: React.ReactNode;
 }
 
@@ -56,6 +58,7 @@ export function PlanCard(props: PlanCardProps): React.ReactElement {
         "flex w-full flex-col border shadow-xs transition-shadow",
         props.size === "large" ? "rounded-[0.625rem]" : "rounded-xl",
         props.runClass ?? planNodeClass(node.type),
+        props.isDimmed && "opacity-70",
         graph.selectedId === node.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-surface",
         graph.issues.some((issue) => issue.nodeId === node.id) &&
