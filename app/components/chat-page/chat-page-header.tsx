@@ -151,17 +151,46 @@ function MemberChip({
   );
 }
 
+/** One stop button per agent answering in the group; each stops only its own answer (PAGE-304). */
+function GroupStopButtons({
+  group,
+  onStopAgent,
+}: {
+  readonly group: VirtualGroup;
+  readonly onStopAgent: (agentId: string) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      {(group.workingAgents ?? []).map((agent) => (
+        <Button
+          key={agent.id}
+          onClick={() => onStopAgent(agent.id)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Square aria-hidden="true" className="size-3.5" />
+          {t("chatPage.stopAgent", { name: agent.name })}
+        </Button>
+      ))}
+    </>
+  );
+}
+
 function GroupHeader({
   group,
   members,
   participants,
   onAddMember,
+  onStopAgent,
   mute,
 }: {
   readonly group: VirtualGroup;
   readonly members: readonly VirtualParticipant[];
   readonly participants: readonly VirtualParticipant[];
   readonly onAddMember: (groupId: string, participantId: string) => void;
+  readonly onStopAgent: ((agentId: string) => void) | undefined;
   readonly mute: MuteControl;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -188,6 +217,9 @@ function GroupHeader({
             onAdd={onAddMember}
           />
           <MuteButton {...mute} />
+          {onStopAgent ? (
+            <GroupStopButtons group={group} onStopAgent={onStopAgent} />
+          ) : null}
         </>
       }
     />
@@ -201,7 +233,8 @@ function GroupHeader({
  * An agent shows its job title, a person the username, both with their kind
  * and status; a person has no task, model or tools. A stop button shows while
  * an agent answers. A group shows its description, the members as chips and
- * the dashed plus that adds one of the person's participants (PAGE-259).
+ * the dashed plus that adds one of the person's participants (PAGE-259),
+ * and a stop button for every agent answering in it (PAGE-304).
  * A stored conversation with a person or of a group can be muted for the
  * person alone (PAGE-275).
  */
@@ -210,6 +243,7 @@ export function ChatPageHeader({
   participants,
   isAnswering,
   onStop,
+  onStopAgent,
   onAddMember,
   isMuted,
   onToggleMute,
@@ -219,6 +253,8 @@ export function ChatPageHeader({
   readonly participants: readonly VirtualParticipant[];
   readonly isAnswering: boolean;
   readonly onStop: () => void;
+  /** Stops the answer of one agent in the opened group; without it no stop button shows there. */
+  readonly onStopAgent?: (agentId: string) => void;
   readonly onAddMember: (groupId: string, participantId: string) => void;
 }): React.ReactElement {
   const mute: MuteControl = { isMuted, onToggleMute };
@@ -229,6 +265,7 @@ export function ChatPageHeader({
         members={opened.members}
         participants={participants}
         onAddMember={onAddMember}
+        onStopAgent={onStopAgent}
         mute={mute}
       />
     );

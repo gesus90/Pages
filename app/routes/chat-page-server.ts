@@ -38,6 +38,7 @@ export type ChatPageIntent =
   | "save-contacts"
   | "send"
   | "stop"
+  | "stop-group"
   | "cancel-tool"
   | "create-group"
   | "add-member"
@@ -57,6 +58,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "save-contacts",
   "send",
   "stop",
+  "stop-group",
   "cancel-tool",
   "create-group",
   "add-member",
@@ -224,6 +226,14 @@ async function runIntent(
         formData.get("agentId"),
       );
       return {};
+    case "stop-group":
+      // Only the answer of this agent in this conversation stops (PAGE-304).
+      await services.conversationAgentReplies.stop(
+        person,
+        String(formData.get("groupId") ?? ""),
+        String(formData.get("agentId") ?? ""),
+      );
+      return {};
     case "cancel-tool":
       await services.agentEmployeeSessions.cancelTool(
         person,
@@ -298,7 +308,8 @@ export async function loader({
  * Saves the participant list, creates a group or adds a member, stores a
  * message to a group or a person or a read state (PAGE-278), mutes a
  * conversation or reads its older messages (PAGE-275), sends a message to
- * an agent or stops its answer.
+ * an agent or stops its answer, or stops the answer of one agent in a group
+ * (PAGE-304).
  *
  * @remarks
  * Saving the list only adds and removes entries of the person's own list;

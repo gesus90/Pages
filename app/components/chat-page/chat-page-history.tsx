@@ -1,4 +1,4 @@
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, Clock } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -62,6 +62,28 @@ function authorOf(message: VirtualChatMessage): VirtualParticipant | null {
   };
 }
 
+/**
+ * Says that the answer to a message waits (PAGE-304): for the answer the
+ * agent gives in this chat, or for a free place among the session limits.
+ */
+function QueueBadge({
+  queue,
+}: {
+  readonly queue: VirtualChatMessage["queue"];
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (queue === undefined) return null;
+  return (
+    <p
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+      role="status"
+    >
+      <Clock aria-hidden="true" className="size-3.5 shrink-0" />
+      {t(`chatPage.queue.${queue}`)}
+    </p>
+  );
+}
+
 /** The person's own messages at the right, in primary bubbles. */
 function OwnRun({
   messages,
@@ -75,7 +97,7 @@ function OwnRun({
         <article
           key={message.id}
           aria-label={t("chatPage.you")}
-          className="flex max-w-[62%] justify-end"
+          className="flex max-w-[62%] flex-col items-end gap-1"
         >
           {message.voice ? (
             <div className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground">
@@ -92,6 +114,7 @@ function OwnRun({
               source={message.content}
             />
           )}
+          <QueueBadge queue={message.queue} />
         </article>
       ))}
     </div>

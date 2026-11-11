@@ -6,6 +6,11 @@ import {
   splitConversations,
   toVirtualMessage,
 } from "./ChatConversationView";
+import {
+  markQueuedMessages,
+  queuedChatMessages,
+  waitingInChat,
+} from "./ChatMessageQueues";
 
 import type { ChatContactEntry } from "@/backend/database/repositories/employee/ChatContactRepository";
 import type { ChatGroupRecord } from "@/backend/database/repositories/employee/ChatGroupRepository";
@@ -20,6 +25,8 @@ import type { WikiLookupRepository } from "@/backend/database/repositories/wiki/
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
 import type { User } from "@/definition/User";
 import type { AgentToolCallView } from "./AgentToolCallView";
+import type { QueuedAgentMessage } from "./AgentEmployeeSessions";
+import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type { ChatConversations } from "./ChatConversationView";
 import type {
   VirtualChatDirectory,
@@ -66,6 +73,20 @@ export interface ChatDirectoryDependencies {
   ) => Promise<AgentToolCallView>;
   /** The agents answering in a stored conversation now (PAGE-276). */
   readonly workingAgentIds?: (conversationId: string) => readonly string[];
+  /** The messages of a stored conversation whose answer waits (PAGE-304). */
+  readonly queuedMessages?: (
+    conversationId: string,
+  ) => ReadonlyMap<string, AgentMessageQueue>;
+  /** The messages of a direct chat with an agent its running job holds back (PAGE-304). */
+  readonly waitingInJob?: (
+    agent: User,
+    sessionId: string,
+  ) => Promise<ReadonlySet<string>>;
+  /** The person's messages to an agent that wait for a free place (PAGE-304). */
+  readonly queuedAgentMessages?: (
+    agentId: string,
+    personId: string,
+  ) => readonly QueuedAgentMessage[];
   /** The current time; tests pass a fixed one. */
   readonly now?: () => Date;
 }
@@ -219,16 +240,21 @@ export class ChatDirectoryService {
         liveToolUses[contact.contactId] = history.liveTools;
     }
     for (const [groupId, view] of conversations.groups)
-      histories[groupId] = this.conversationHistory(view, person);
+      histories[groupId] = markQueuedMessages(
+        this.conversationHistory(view, person),
+        this.dependencies.queuedMessages?.(groupId) ?? new Map(),
+      );
     const shownIds = new Set(participants.map((participant) => participant.id));
     return {
       participants,
-      groups: groupsOf(groups, shownIds, conversations, person).map(
-        (entry) => ({
+      groups: groupsOf(groups, shownIds, conversations, person).map((entry) => {
+        const working = this.workingAgents(entry.id, accounts);
+        return {
           ...entry,
-          workingAgentNames: this.workingAgentNames(entry.id, accounts),
-        }),
-      ),
+          workingAgentNames: working.map((agent) => agent.name),
+          workingAgents: working,
+        };
+      }),
       histories,
       liveToolUses,
       olderHistoryIds: olderHistoryIds(conversations),
@@ -308,15 +334,15 @@ export class ChatDirectoryService {
     );
   }
 
-  /** The names of the agents answering in a group now. */
-  private workingAgentNames(
+  /** The agents answering in a group now, with their names. */
+  private workingAgents(
     groupId: string,
     accounts: ReadonlyMap<string, AccountFacts>,
-  ): string[] {
+  ): { readonly id: string; readonly name: string }[] {
     return (this.dependencies.workingAgentIds?.(groupId) ?? []).flatMap(
       (id) => {
         const facts = accounts.get(id);
-        return facts ? [facts.user.displayName] : [];
+        return facts ? [{ id, name: facts.user.displayName }] : [];
       },
     );
   }
@@ -410,22 +436,38 @@ export class ChatDirectoryService {
       this.dependencies.store.employees().find(agent.id),
     ]);
     const accessLevel = employee?.access;
+    const queued = queuedChatMessages(
+      this.dependencies.queuedAgentMessages?.(agent.id, person.id) ?? [],
+    );
     if (!conversation)
-      return { messages: [], isWorking: false, liveTools: [], accessLevel };
+      return {
+        messages: queued,
+        isWorking: queued.length > 0,
+        liveTools: [],
+        accessLevel,
+      };
     const { sessionId } = conversation;
-    const [stored, isWorking, calls] = await Promise.all([
+    const [stored, isWorking, calls, waiting] = await Promise.all([
       this.dependencies.messages.messages(sessionId),
       this.dependencies.isWorking(agent, sessionId),
       this.dependencies.toolCalls?.(agent, sessionId) ?? NO_TOOL_CALLS,
+      this.dependencies.waitingInJob?.(agent, sessionId) ?? new Set<string>(),
     ]);
-    return {
-      messages: stored.slice(-HISTORY_MESSAGES).map((message) => ({
+    const messages: VirtualChatMessage[] = stored
+      .slice(-HISTORY_MESSAGES)
+      .map((message) => ({
         id: message.id,
         authorId: message.role === "user" ? null : agent.id,
         content: message.content,
         toolUses: calls.byMessage[message.id] ?? [],
-      })),
-      isWorking,
+      }));
+    return {
+      messages: [
+        ...markQueuedMessages(messages, waitingInChat(messages, waiting)),
+        ...queued,
+      ],
+      // A message waiting for a place keeps the page reading the history.
+      isWorking: isWorking || queued.length > 0,
       liveTools: calls.current,
       accessLevel,
     };

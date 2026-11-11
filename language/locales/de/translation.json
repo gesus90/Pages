@@ -3782,9 +3782,11 @@
       "agent_inactive": "{{name}} ist deaktiviert und antwortet nicht auf diese Nachricht.",
       "agent_cost_limit": "{{name}} antwortet nicht: Das Kostenlimit des Agents ist erreicht.",
       "agent_unavailable": "{{name}} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.",
-      "agent_failed": "{{name}} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen."
+      "agent_failed": "{{name}} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.",
+      "agent_stopped": "Die Antwort von {{name}} wurde gestoppt."
     },
     "stop": "Stoppen",
+    "stopAgent": "{{name}} stoppen",
     "kind": {
       "human": "Person",
       "agent": "Agent"
@@ -3856,7 +3858,11 @@
     "toolOutput": "Ergebnis",
     "toolError": "Fehler",
     "toolNoDetails": "Keine weiteren Angaben.",
-    "liveTools": "Laufende Werkzeugnutzung"
+    "liveTools": "Laufende Werkzeugnutzung",
+    "queue": {
+      "chat": "In Warteschlange – wird direkt nach der laufenden Antwort beantwortet",
+      "limit": "In Warteschlange – die Höchstzahl gleichzeitiger Agent-Sitzungen ist erreicht; die Antwort beginnt, sobald eine Sitzung frei wird"
+    }
   },
   "workspaces": {
     "title": "Arbeitsverzeichnis",
@@ -6432,6 +6438,21 @@
       "general": "Die Einstellung konnte nicht gespeichert werden.",
       "accessUnverified": "Der Zugang dieser Anbindung ist nicht bestätigt. Verifiziere sie zuerst in den Agent-Einstellungen.",
       "profileSelectionRequired": "Mehrere Profile sind verfügbar. Bitte einen Zugang ausdrücklich auswählen."
+    }
+  },
+  "agentSessionLimits": {
+    "title": "Gleichzeitige Agent-Sitzungen",
+    "description": "Jeder Chat eines Agents hat eine eigene Sitzung; Sitzungen verschiedener Chats laufen parallel. Über der Grenze werden Nachrichten eingereiht und danach beantwortet, nie abgewiesen.",
+    "perAgent": "Höchstens je Agent",
+    "total": "Höchstens insgesamt",
+    "hint": "Werte von 1 bis {{maximum}}; die Grenze je Agent darf die Gesamtgrenze nicht übersteigen. Änderungen gelten sofort: Laufende Antworten laufen zu Ende, wartende beginnen, sobald Platz ist.",
+    "current": "Jetzt: {{running}} laufend, {{waiting}} in Warteschlange.",
+    "save": "Speichern",
+    "saving": "Speichert …",
+    "saved": "Grenzen gespeichert.",
+    "error": {
+      "profile_invalid": "Bitte ganze Zahlen von 1 bis 64 eingeben; die Grenze je Agent darf nicht größer als die Gesamtgrenze sein.",
+      "profile_conflict": "Die Grenzen wurden inzwischen geändert. Lade die Seite neu und versuche es erneut."
     }
   },
   "speechSettings": {

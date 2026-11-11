@@ -99,6 +99,15 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     return { ok: true };
   },
   "save-speech": saveSpeechSettings,
+  // The zod schema of the service checks the values (PAGE-304).
+  "save-agent-session-limits": async ({ actor, services, formData }) => {
+    await services.agentSessionLimitService.save(actor, {
+      perAgent: readTextOrEmpty(formData, "perAgent"),
+      total: readTextOrEmpty(formData, "total"),
+      revision: readTextOrEmpty(formData, "revision"),
+    });
+    return { ok: true };
+  },
   "test-speech": testSpeechRecognition,
   "save-profile": retiredProfileAction,
   "delete-profile": retiredProfileAction,
@@ -199,6 +208,7 @@ const CONNECTION_FREE_INTENTS = new Set([
   "save-pica",
   "save-speech",
   "test-speech",
+  "save-agent-session-limits",
 ]);
 
 /** Dispatches only known intents after checking fresh account facts, preserving mode switching. */

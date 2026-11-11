@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
+import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
   CONVERSATION_AGENT_CONTEXT_MESSAGES,
@@ -17,6 +18,7 @@ import type {
   ConversationRepository,
 } from "@/backend/database/repositories/conversation/ConversationRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
+import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type {
   ConversationMessage,
   ConversationNotice,
@@ -43,6 +45,12 @@ export interface ConversationAgentRequest {
   readonly prompt: string;
   /** The text of the answered message alone. */
   readonly lastMessage: string;
+  /** Stops the answer, also while it waits for a free place (PAGE-304). */
+  readonly signal?: AbortSignal;
+  /** Called when the answer waits because the limits of concurrent sessions are reached. */
+  readonly onQueued?: () => void;
+  /** Called when the answer got its place and begins. */
+  readonly onAdmitted?: () => void;
 }
 
 /**
@@ -93,6 +101,7 @@ const NOTICE_TEXTS: Readonly<
     `${name} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.`,
   agent_failed: (name) =>
     `${name} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.`,
+  agent_stopped: (name) => `Die Antwort von ${name} wurde gestoppt.`,
 };
 
 function changedEvent(conversationId: string): PagesEvent {
@@ -138,12 +147,28 @@ function answerableMessage(
  * a hint in the agent's name instead, and nothing is started again. The
  * answers of one agent in one conversation run one after the other, and each
  * answered message gets at most one answer or hint per agent.
+ *
+ * Every agent answers in its own session of the conversation (PAGE-304), so
+ * several agents answer side by side. A message that waits for the earlier
+ * answer of the same agent, or for a free place among the limits of
+ * concurrent sessions, shows as queued until its answer begins. A member
+ * can stop the running answer of one agent; nothing else is touched.
  */
 export class ConversationAgentReplies {
   private readonly dependencies: ConversationAgentRepliesDependencies;
   private readonly started = new Set<string>();
   private readonly queues = new Map<string, Promise<void>>();
   private readonly working = new Map<string, Set<string>>();
+  /** Waiting answers by conversation, keyed by message and agent. */
+  private readonly queued = new Map<
+    string,
+    Map<
+      string,
+      { readonly messageId: string; readonly reason: AgentMessageQueue }
+    >
+  >();
+  /** The stop of the running answer, by conversation and agent. */
+  private readonly controllers = new Map<string, AbortController>();
 
   public constructor(dependencies: ConversationAgentRepliesDependencies) {
     this.dependencies = dependencies;
@@ -158,6 +183,45 @@ export class ConversationAgentReplies {
     return this.dependencies.events.subscribe((event) => {
       this.receive(event);
     });
+  }
+
+  /**
+   * The messages of a conversation whose answer waits, and why (PAGE-304).
+   *
+   * @returns By message ID; `limit` wins over `chat` when several agents wait.
+   */
+  public queuedMessages(
+    conversationId: string,
+  ): ReadonlyMap<string, AgentMessageQueue> {
+    const result = new Map<string, AgentMessageQueue>();
+    for (const { messageId, reason } of this.queued
+      .get(conversationId)
+      ?.values() ?? [])
+      if (result.get(messageId) !== "limit") result.set(messageId, reason);
+    return result;
+  }
+
+  /**
+   * Stops the running answer of one agent in a conversation of the person;
+   * other agents and other conversations answer on (PAGE-304).
+   *
+   * @returns Whether an answer was running and is stopped now.
+   * @throws {ConversationError} `not_found` for a conversation the person is no member of.
+   */
+  public async stop(
+    person: User,
+    conversationId: string,
+    agentId: string,
+  ): Promise<boolean> {
+    const conversation = await this.dependencies.conversations.findForMember(
+      conversationId,
+      person.id,
+    );
+    if (!conversation) throw new ConversationError("not_found");
+    const controller = this.controllers.get(`${conversationId}:${agentId}`);
+    if (!controller || controller.signal.aborted) return false;
+    controller.abort();
+    return true;
   }
 
   /** The agents that are answering in a conversation now. */
@@ -230,8 +294,9 @@ export class ConversationAgentReplies {
     if (this.started.has(key)) return Promise.resolve();
     this.started.add(key);
     const queueKey = `${job.conversation.id}:${job.agentId}`;
-    const previous = this.queues.get(queueKey) ?? Promise.resolve();
-    const next = previous.then(() => this.reply(job));
+    const previous = this.queues.get(queueKey);
+    if (previous) this.markQueued(job, "chat");
+    const next = (previous ?? Promise.resolve()).then(() => this.reply(job));
     this.queues.set(queueKey, next);
     return next.finally(() => {
       this.started.delete(key);
@@ -241,6 +306,7 @@ export class ConversationAgentReplies {
 
   /** Answers one message as one agent, or leaves a hint why it did not. */
   private async reply(job: ReplyJob): Promise<void> {
+    this.unmarkQueued(job);
     const accounts = await this.dependencies.directory.read();
     const agent = accounts.find(job.agentId);
     if (!agent) return;
@@ -251,28 +317,63 @@ export class ConversationAgentReplies {
       });
       return;
     }
+    const controllerKey = `${job.conversation.id}:${job.agentId}`;
+    const controller = new AbortController();
+    this.controllers.set(controllerKey, controller);
     this.setWorking(job, true);
     try {
-      const text = await this.ask(job, agent.user, accounts);
+      const text = await this.ask(job, agent.user, {
+        accounts,
+        signal: controller.signal,
+      });
       await this.post(job, accounts, { text, notice: null });
     } catch (error: unknown) {
-      const notice = noticeFor(error);
+      const notice = controller.signal.aborted
+        ? "agent_stopped"
+        : noticeFor(error);
       this.logFailure(job, notice, error);
       await this.post(job, accounts, {
         text: NOTICE_TEXTS[notice](agent.user.displayName),
         notice,
       });
     } finally {
+      if (this.controllers.get(controllerKey) === controller)
+        this.controllers.delete(controllerKey);
+      this.unmarkQueued(job);
       this.setWorking(job, false);
     }
+  }
+
+  /** Shows the answered message as queued for the agent of the job. */
+  private markQueued(job: ReplyJob, reason: AgentMessageQueue): void {
+    const conversationId = job.conversation.id;
+    const entries = this.queued.get(conversationId) ?? new Map();
+    entries.set(`${job.message.id}:${job.agentId}`, {
+      messageId: job.message.id,
+      reason,
+    });
+    this.queued.set(conversationId, entries);
+    this.dependencies.publisher.publish(changedEvent(conversationId));
+  }
+
+  private unmarkQueued(job: ReplyJob): void {
+    const conversationId = job.conversation.id;
+    const entries = this.queued.get(conversationId);
+    if (!entries?.delete(`${job.message.id}:${job.agentId}`)) return;
+    if (entries.size === 0) this.queued.delete(conversationId);
+    this.dependencies.publisher.publish(changedEvent(conversationId));
   }
 
   /** Asks the agent with the limited context; an empty answer counts as failed. */
   private async ask(
     job: ReplyJob,
     agent: User,
-    accounts: ConversationAccounts,
+    context: {
+      readonly accounts: ConversationAccounts;
+      readonly signal: AbortSignal;
+    },
   ): Promise<string> {
+    const { accounts, signal } = context;
     const { messages } = this.dependencies;
     const stored = await messages.find(job.conversation.id, job.message.id);
     if (!stored) throw new Error("The answered message is missing.");
@@ -292,6 +393,9 @@ export class ConversationAgentReplies {
         accounts,
       }),
       lastMessage: stored.text,
+      signal,
+      onQueued: () => this.markQueued(job, "limit"),
+      onAdmitted: () => this.unmarkQueued(job),
     });
     const text = Array.from(answer.trim())
       .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
@@ -356,7 +460,8 @@ export class ConversationAgentReplies {
     notice: ConversationNotice,
     error: unknown,
   ): void {
-    if (notice === "agent_failed") logCaughtError(COMPONENT, error);
+    if (notice === "agent_failed" || notice === "agent_stopped")
+      logCaughtError(COMPONENT, error);
     logEvent({
       level: "warn",
       event: "conversation.agent_reply.refused",

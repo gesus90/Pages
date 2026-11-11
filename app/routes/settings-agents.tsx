@@ -7,6 +7,7 @@ import { AdminModeRequired } from "@/app/components/settings/admin-mode-required
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings-card";
 import { SpeechSettingsCard } from "@/app/components/settings/agents/speech-settings-card";
+import { AgentSessionLimitsCard } from "@/app/components/settings/agents/agent-session-limits-card";
 import { AgentsSection } from "@/app/components/settings/agents/agents-section";
 import { RunnerConnectionsCard } from "@/app/components/settings/agents/runner-connections-card";
 import {
@@ -33,6 +34,7 @@ import type {
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { PicaAdministration } from "@/definition/PicaSettings";
 import type { SpeechAdministration } from "@/definition/SpeechRecognition";
+import type { AgentSessionLimitsAdministration } from "@/definition/AgentSessionLimits";
 import type { Route } from "./+types/settings-agents";
 import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
 
@@ -52,6 +54,8 @@ export type AgentsLoaderData =
         readonly models: readonly PageAgentModel[];
       };
       readonly speech: SpeechAdministration;
+      /** The limits of concurrent chat sessions of agents (PAGE-304); absent in an older kept answer. */
+      readonly sessionLimits?: AgentSessionLimitsAdministration;
       readonly audience: LocalStateAudience;
     };
 
@@ -144,6 +148,9 @@ export default function SettingsAgentsRoute(): React.ReactElement {
         connections={result.runners}
         githubMode={result.runnerGitHubMode}
       />
+      {result.sessionLimits ? (
+        <AgentSessionLimitsCard administration={result.sessionLimits} />
+      ) : null}
       <SpeechSettingsCard
         administration={result.speech}
         isCatalogFailed={hasFailedCatalog(result.catalogs)}

@@ -3782,9 +3782,11 @@
       "agent_inactive": "{{name}} is deactivated and does not answer this message.",
       "agent_cost_limit": "{{name}} does not answer: the agent's cost limit is reached.",
       "agent_unavailable": "{{name}} does not answer: no model can run the agent right now.",
-      "agent_failed": "{{name}} could not answer; the answer failed. Send the message again to try once more."
+      "agent_failed": "{{name}} could not answer; the answer failed. Send the message again to try once more.",
+      "agent_stopped": "The answer of {{name}} was stopped."
     },
     "stop": "Stop",
+    "stopAgent": "Stop {{name}}",
     "kind": {
       "human": "Person",
       "agent": "Agent"
@@ -3856,7 +3858,11 @@
     "toolOutput": "Result",
     "toolError": "Error",
     "toolNoDetails": "No further details.",
-    "liveTools": "Tools in use"
+    "liveTools": "Tools in use",
+    "queue": {
+      "chat": "Queued – answered right after the current answer",
+      "limit": "Queued – the maximum of concurrent agent sessions is reached; the answer starts as soon as a session is free"
+    }
   },
   "workspaces": {
     "title": "Workspaces",
@@ -6432,6 +6438,21 @@
       "general": "The setting could not be saved.",
       "accessUnverified": "Access to this connection is not verified. Verify it in the agent settings first.",
       "profileSelectionRequired": "Multiple profiles are available. Explicitly choose a connection."
+    }
+  },
+  "agentSessionLimits": {
+    "title": "Concurrent agent sessions",
+    "description": "Every chat of an agent has its own session; sessions of different chats run in parallel. Above the limit, messages are queued and answered afterwards, never refused.",
+    "perAgent": "At most per agent",
+    "total": "At most in total",
+    "hint": "Values from 1 to {{maximum}}; the limit per agent must not exceed the total limit. Changes apply at once: running answers finish, waiting ones start as soon as there is room.",
+    "current": "Now: {{running}} running, {{waiting}} queued.",
+    "save": "Save",
+    "saving": "Saving …",
+    "saved": "Limits saved.",
+    "error": {
+      "profile_invalid": "Enter whole numbers from 1 to 64; the limit per agent must not be greater than the total limit.",
+      "profile_conflict": "The limits were changed in the meantime. Reload the page and try again."
     }
   },
   "speechSettings": {

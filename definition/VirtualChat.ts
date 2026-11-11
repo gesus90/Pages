@@ -12,6 +12,7 @@
  */
 
 import type { AgentEmployeeAccess } from "./AgentEmployee";
+import type { AgentMessageQueue } from "./AgentSessionLimits";
 import type { ConversationNotice } from "./Conversation";
 
 /** Whether a participant is available, busy with a task, or switched off. */
@@ -64,6 +65,11 @@ export interface VirtualGroup {
   readonly lastActivityAt: string;
   /** The names of the agents answering in the group now (PAGE-276). */
   readonly workingAgentNames?: readonly string[];
+  /** The agents answering in the group now, each of which can be stopped alone (PAGE-304). */
+  readonly workingAgents?: readonly {
+    readonly id: string;
+    readonly name: string;
+  }[];
 }
 
 /** A tool a participant used for an answer, for example `list_tickets · 3 offen`. */
@@ -112,6 +118,11 @@ export interface VirtualChatMessage {
   readonly voice?: VirtualVoice;
   /** Present only for a hint why an agent did not answer (PAGE-276). */
   readonly notice?: ConversationNotice;
+  /**
+   * Present while the answer to this message waits (PAGE-304): for the answer
+   * the agent gives in this chat, or for a free place among the limits.
+   */
+  readonly queue?: AgentMessageQueue;
 }
 
 /** What the list can open: a group or a single participant. */

@@ -34,6 +34,7 @@ const AGENT_ERRORS: Readonly<
   inactive: { code: "invalidInput", status: 400 },
   busy: { code: "invalidInput", status: 409 },
   unavailable: { code: "invalidInput", status: 400 },
+  stopped: { code: "invalidInput", status: 409 },
 };
 
 /**

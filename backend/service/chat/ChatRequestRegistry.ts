@@ -2,8 +2,21 @@ import { withBackgroundDatabaseWork } from "@/backend/database/executor/Database
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+/**
+ * Whom a request excludes while it runs.
+ *
+ * @remarks
+ * `person` is one answer per account, for Pica and the API path: a second
+ * one of the same account is refused. `session` is a job of an agent
+ * employee (PAGE-304): it excludes only its own job ID, so one agent
+ * answers in several chats at once; its own limits per agent and in total
+ * queue its jobs before they reach this registry.
+ */
+export type ChatRequestAdmission = "person" | "session";
+
 interface PendingRequest {
   readonly userId: string;
+  readonly admission: ChatRequestAdmission;
   readonly controller: AbortController;
   readonly completed: Promise<unknown>;
 }
@@ -32,15 +45,21 @@ export class ChatRequestRegistry {
     userId: string,
     id: string,
     work: (signal: AbortSignal) => Promise<Result>,
+    admission: ChatRequestAdmission = "person",
   ): Promise<Result> {
-    this.requireAdmission(userId, id);
+    this.requireAdmission(userId, id, admission);
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort("timeout"),
       this.limits.timeoutMs,
     );
     const operation = Promise.resolve().then(() => work(controller.signal));
-    this.requests.set(id, { userId, controller, completed: operation });
+    this.requests.set(id, {
+      userId,
+      admission,
+      controller,
+      completed: operation,
+    });
     try {
       const result = await operation;
       controller.signal.throwIfAborted();
@@ -73,10 +92,11 @@ export class ChatRequestRegistry {
     userId: string,
     id: string,
     work: (signal: AbortSignal) => Promise<Result>,
+    admission: ChatRequestAdmission = "person",
   ): Promise<Result> {
-    this.requireAdmission(userId, id);
+    this.requireAdmission(userId, id, admission);
     return withBackgroundDatabaseWork("pica_job", () =>
-      this.run(userId, id, work),
+      this.run(userId, id, work, admission),
     );
   }
 
@@ -109,15 +129,28 @@ export class ChatRequestRegistry {
   /**
    * Refuses work that {@link run} would refuse, before the caller stores anything for it.
    *
+   * @remarks
+   * Before PAGE-304 every request excluded every other one of its account,
+   * so the job of an agent in one chat refused its answer in every other
+   * chat. A `session` request is therefore checked against its own ID only
+   * and does not count towards the capacity of the `person` requests.
+   *
    * @throws {AgentExecutionError} `requestBusy`.
    */
-  public requireAdmission(userId: string, id: string): void {
+  public requireAdmission(
+    userId: string,
+    id: string,
+    admission: ChatRequestAdmission = "person",
+  ): void {
+    if (this.isStopped || this.isCancelling || this.requests.has(id))
+      throw new AgentExecutionError("requestBusy");
+    if (admission === "session") return;
+    const personal = [...this.requests.values()].filter(
+      (entry) => entry.admission === "person",
+    );
     if (
-      this.isStopped ||
-      this.isCancelling ||
-      this.requests.has(id) ||
-      this.requests.size >= this.limits.capacity ||
-      [...this.requests.values()].some((entry) => entry.userId === userId)
+      personal.length >= this.limits.capacity ||
+      personal.some((entry) => entry.userId === userId)
     )
       throw new AgentExecutionError("requestBusy");
   }

@@ -105,6 +105,7 @@ function ChatPageConversation({
         participants={page.allParticipants}
         isAnswering={page.isAnswering}
         onStop={page.stop}
+        onStopAgent={page.stopGroupAgent}
         onAddMember={page.addMember}
         isMuted={page.isMuted}
         onToggleMute={page.toggleMute}

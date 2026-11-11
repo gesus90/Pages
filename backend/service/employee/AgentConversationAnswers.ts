@@ -1,4 +1,5 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { awaitAgentJobAnswer } from "./AgentJobAnswer";
 
@@ -6,6 +7,7 @@ import type { SimulatedConversationAgent } from "@/backend/agents/simulation/Sim
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
+import type { User } from "@/definition/User";
 import type {
   ConversationAgentRequest,
   ConversationAgentRunner,
@@ -21,7 +23,10 @@ const ANSWER_TIMEOUT_MILLISECONDS = 10 * 60_000;
 export interface AgentConversationAnswerDependencies {
   readonly store: EmployeeStore;
   readonly users: Pick<UserRepository, "findById">;
-  readonly sessions: Pick<AgentEmployeeSessions, "run" | "job">;
+  readonly sessions: Pick<
+    AgentEmployeeSessions,
+    "run" | "job" | "admit" | "stopSession"
+  >;
   readonly messages: Pick<ChatSessionRepository, "messages">;
   /** The simulated agent; set only while the simulation is on, never in production. */
   readonly simulation: SimulatedConversationAgent | null;
@@ -37,7 +42,8 @@ export interface AgentConversationAnswerDependencies {
  * ACP path of its sessions as its own account, with its model, instructions
  * and rights, in one session per agent and conversation. While the
  * simulation is on, the simulated agent answers instead, after the same
- * checks, and no model provider is asked.
+ * checks and within the same limits of concurrent sessions, and no model
+ * provider is asked. A stopped answer ends only its own session (PAGE-304).
  */
 export class AgentConversationAnswers implements ConversationAgentRunner {
   private readonly dependencies: AgentConversationAnswerDependencies;
@@ -59,11 +65,8 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
     const employee = await this.dependencies.store.employees().find(agent.id);
     if (!employee) throw new AgentEmployeeError("notFound");
     const { simulation } = this.dependencies;
-    if (simulation)
-      return simulation.answer({
-        agentName: agent.displayName,
-        lastMessage: request.lastMessage,
-      });
+    if (simulation) return this.simulate(simulation, agent, request);
+    const { signal } = request;
     const started = await this.dependencies.sessions.run({
       agent,
       employee,
@@ -72,18 +75,56 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
       conversationId: request.conversation.id,
       text: request.prompt,
       clientMessageId: null,
+      signal,
+      onQueued: request.onQueued,
+      onAdmitted: request.onAdmitted,
     });
     if (!started) throw new AgentEmployeeError("busy");
-    return awaitAgentJobAnswer(
-      { agent, sessionId: started.sessionId, jobId: started.start.job.id },
-      {
-        sessions: this.dependencies.sessions,
-        messages: this.dependencies.messages,
-        pollMilliseconds: POLL_MILLISECONDS,
-        timeoutMilliseconds: ANSWER_TIMEOUT_MILLISECONDS,
-        now: () => this.dependencies.now?.() ?? new Date(),
-        wait: this.dependencies.wait,
-      },
-    );
+    const stop = (): void => {
+      void this.dependencies.sessions
+        .stopSession(agent, started.sessionId)
+        .catch((error: unknown) => {
+          logCaughtError("AgentConversationAnswers", error);
+        });
+    };
+    signal?.addEventListener("abort", stop, { once: true });
+    try {
+      if (signal?.aborted) stop();
+      return await awaitAgentJobAnswer(
+        { agent, sessionId: started.sessionId, jobId: started.start.job.id },
+        {
+          sessions: this.dependencies.sessions,
+          messages: this.dependencies.messages,
+          pollMilliseconds: POLL_MILLISECONDS,
+          timeoutMilliseconds: ANSWER_TIMEOUT_MILLISECONDS,
+          now: () => this.dependencies.now?.() ?? new Date(),
+          wait: this.dependencies.wait,
+        },
+      );
+    } finally {
+      signal?.removeEventListener("abort", stop);
+    }
+  }
+
+  /** The simulated answer, holding a place among the limits while it runs. */
+  private async simulate(
+    simulation: SimulatedConversationAgent,
+    agent: User,
+    request: ConversationAgentRequest,
+  ): Promise<string> {
+    const slot = await this.dependencies.sessions.admit(agent.id, {
+      signal: request.signal,
+      onQueued: request.onQueued,
+    });
+    request.onAdmitted?.();
+    try {
+      return await simulation.answer({
+        agentName: agent.displayName,
+        lastMessage: request.lastMessage,
+        signal: request.signal,
+      });
+    } finally {
+      slot.release();
+    }
   }
 }

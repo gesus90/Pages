@@ -44,6 +44,7 @@ const EMPLOYEE_ERROR_CODES: Readonly<
   templateNameTaken: "conflict",
   unavailable: "model_not_allowed",
   usernameTaken: "username_taken",
+  stopped: "running",
 };
 
 /** The codes of the shared body reader of the MCP routes that the agent API answers as they are. */

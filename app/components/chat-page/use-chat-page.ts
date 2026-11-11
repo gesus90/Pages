@@ -17,10 +17,14 @@ import type {
   VirtualToolUse,
 } from "@/definition/VirtualChat";
 
-/** Sends a stop or a tool cancellation for the opened agent. */
+/**
+ * Sends a stop or a tool cancellation for the opened agent, or the stop of
+ * one agent's answer in the opened group (PAGE-304).
+ */
 function useAgentControls(opened: OpenedConversation | null): {
   readonly stop: () => void;
   readonly cancelTool: () => void;
+  readonly stopGroupAgent: (agentId: string) => void;
 } {
   const fetcher = useFetcher();
   function submit(intent: "stop" | "cancel-tool"): void {
@@ -30,9 +34,18 @@ function useAgentControls(opened: OpenedConversation | null): {
     formData.set("agentId", opened.participant.id);
     void fetcher.submit(formData, { method: "post" });
   }
+  function stopGroupAgent(agentId: string): void {
+    if (opened?.kind !== "group") return;
+    const formData = new FormData();
+    formData.set("intent", "stop-group");
+    formData.set("groupId", opened.group.id);
+    formData.set("agentId", agentId);
+    void fetcher.submit(formData, { method: "post" });
+  }
   return {
     stop: () => submit("stop"),
     cancelTool: () => submit("cancel-tool"),
+    stopGroupAgent,
   };
 }
 
@@ -91,6 +104,8 @@ export interface ChatPageState {
   addMember(groupId: string, participantId: string): void;
   /** Stops the answer of the opened agent. */
   stop(): void;
+  /** Stops the answer of one agent in the opened group; the others answer on (PAGE-304). */
+  stopGroupAgent(agentId: string): void;
   /** The tool calls of the answer the opened agent is working on (PAGE-303). */
   readonly liveTools: readonly VirtualToolUse[];
   /** Cancels the running tool call of the opened agent; its answer goes on (PAGE-303). */
@@ -387,6 +402,7 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     send,
     addMember: activity.addMember,
     stop: controls.stop,
+    stopGroupAgent: controls.stopGroupAgent,
     liveTools: isAnswering ? (directory.liveToolUses?.[historyId] ?? []) : [],
     cancelTool: controls.cancelTool,
     findParticipant,
