@@ -163,3 +163,19 @@ it("passes on any other failure of the write", async () => {
   ).rejects.toBe(failure);
   expect(logCaughtError).toHaveBeenCalledWith("draft_request", failure);
 });
+
+it("reports a reused operation as a conflict", async () => {
+  const { OperationReusedError } =
+    await import("@/backend/service/InterfaceOperationJournal");
+  const failure = new OperationReusedError();
+  const response = await runDraftWrite(order(6), async () =>
+    Promise.reject(failure),
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    ok: false,
+    error: "operationReused",
+  });
+  expect(logCaughtError).toHaveBeenCalledWith("draft_request", failure);
+});

@@ -271,3 +271,20 @@ describe("GoogleDriveSimulation shared drives", () => {
     expect(beyond.json["drives"]).toEqual([]);
   });
 });
+
+describe("GoogleDriveSimulation metadata defaults", () => {
+  it("creates an untitled root entry when the request body is unreadable", async () => {
+    const simulation = createSimulation();
+    const answer = await callDrive(simulation, "/drive/v3/files", {
+      body: "not json",
+      method: "POST",
+    });
+
+    expect(answer.status).toBe(200);
+    expect(answer.json).toMatchObject({
+      mimeType: "application/octet-stream",
+      name: "Untitled",
+      parents: ["sim-root"],
+    });
+  });
+});
