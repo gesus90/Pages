@@ -155,3 +155,23 @@ it("rejects a record that grows beyond the limit after stat", async () => {
   );
   expect(record.close).toHaveBeenCalledOnce();
 });
+
+it("closes the parent directory when synchronization fails", async () => {
+  const parent = handle();
+  parent.sync.mockRejectedValue(new Error("sync failed"));
+  mocks.open.mockResolvedValue(parent);
+  await expect(requireLocalDirectory("/private/session")).rejects.toThrow(
+    "sync failed",
+  );
+  expect(parent.close).toHaveBeenCalledOnce();
+});
+
+it("closes a control record when its JSON is invalid", async () => {
+  const record = handle();
+  record.readFile.mockResolvedValue("{");
+  mocks.open.mockResolvedValue(record);
+  await expect(readLocalRecord("/private/control")).rejects.toThrow(
+    SyntaxError,
+  );
+  expect(record.close).toHaveBeenCalledOnce();
+});

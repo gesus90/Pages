@@ -13,3 +13,14 @@ it("permits exactly one owner initialization per process", async () => {
   );
   expect(mode.localSessionOwnerDirectory()).toBe("/private/owner");
 });
+
+it("treats an empty owner directory as initialized", async () => {
+  vi.resetModules();
+  const mode = await import("@/backend/agents/local/LocalSessionMode");
+  mode.enterLocalSessionOwner("");
+  expect(mode.isLocalSessionOwner()).toBe(true);
+  expect(mode.localSessionOwnerDirectory()).toBe("");
+  expect(() => mode.enterLocalSessionOwner("/private/owner")).toThrow(
+    "already initialized",
+  );
+});

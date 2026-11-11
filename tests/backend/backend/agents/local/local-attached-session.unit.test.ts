@@ -197,3 +197,74 @@ it("rebinds the observer and stops accepting new turns after detachment", async 
     fixture.session.next(stub({}), new AbortController().signal, nextObserver),
   ).rejects.toMatchObject({ code: "plan_session_unavailable" });
 });
+
+it("starts an authorized next turn and resolves only its matching result", async () => {
+  const fixture = setup();
+  const observer = { started: vi.fn(), identified: vi.fn() };
+  const nextTurn = fixture.session.next(
+    stub({}),
+    new AbortController().signal,
+    observer,
+  );
+  expect(fixture.control).toHaveBeenCalledWith({
+    kind: "next",
+    launch: LAUNCH,
+  });
+  fixture.importer.restore.mockResolvedValue([
+    { kind: "turn", turnId: "other", attemptId: ATTEMPT_ID, result },
+    { kind: "turn", turnId: LAUNCH.turnId, attemptId: ATTEMPT_ID, result },
+  ]);
+  await fixture.session.observe(new AbortController().signal, observer);
+  await expect(nextTurn).resolves.toEqual(result);
+  fixture.session.detach();
+});
+
+it("refreshes the checkpoint after a read failure and acknowledges it", async () => {
+  vi.useFakeTimers();
+  const fixture = setup();
+  fixture.importer.refresh.mockResolvedValue([
+    { kind: "identified", sessionId: "recovered" },
+  ]);
+  fixture.control
+    .mockResolvedValueOnce({})
+    .mockRejectedValueOnce(new Error("read failed"));
+  await fixture.session.attach();
+  expect(fixture.importer.refresh).toHaveBeenCalledOnce();
+  expect(fixture.observer.identified).toHaveBeenCalledWith("recovered");
+  expect(fixture.control).toHaveBeenLastCalledWith({
+    kind: "ack",
+    sequence: 3,
+    digest: "digest",
+  });
+  fixture.session.detach();
+});
+
+it("detaches and rejects the turn when owner verification fails", async () => {
+  vi.useFakeTimers();
+  const fixture = setup();
+  const { AgentError } = await import("@/backend/error/AgentErrors");
+  fixture.control
+    .mockResolvedValueOnce({})
+    .mockRejectedValueOnce(new AgentError("plan_local_owner_unverified"));
+  await fixture.session.attach();
+  await expect(fixture.session.turn).rejects.toMatchObject({
+    code: "plan_local_owner_unverified",
+  });
+  expect(fixture.session.isDetached).toBe(true);
+  expect(fixture.importer.refresh).not.toHaveBeenCalled();
+});
+
+it("cancels an aborted session and drains its journal", async () => {
+  vi.useFakeTimers();
+  const fixture = setup();
+  fixture.controller.abort();
+  await vi.waitFor(() => {
+    expect(fixture.control).toHaveBeenCalledWith({ kind: "cancel" });
+    expect(fixture.control).toHaveBeenCalledWith({
+      kind: "read",
+      after: 3,
+      limit: 100,
+    });
+  });
+  fixture.session.detach();
+});
