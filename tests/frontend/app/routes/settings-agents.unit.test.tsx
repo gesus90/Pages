@@ -27,6 +27,7 @@ const services = vi.hoisted(() => ({
   agentProfileService: { directory: vi.fn() },
   picaSettingsService: { administration: vi.fn() },
   speechSettingsService: { administration: vi.fn() },
+  speechSynthesisSettingsService: { administration: vi.fn() },
   runnerService: { overview: vi.fn() },
   openCodeProviderLinks: { describe: vi.fn() },
   runnerGitHubMode: "offline",
@@ -74,6 +75,13 @@ vi.mock("@/app/components/settings/agents/speech-settings-card", () => ({
     readonly administration: { readonly status: string };
   }): React.ReactElement => <p>{`speech ${props.administration.status}`}</p>,
 }));
+vi.mock("@/app/components/settings/agents/speech-synthesis-card", () => ({
+  SpeechSynthesisCard: (props: {
+    readonly administration: { readonly status: string };
+  }): React.ReactElement => (
+    <p>{`speechSynthesis ${props.administration.status}`}</p>
+  ),
+}));
 vi.mock("@/app/components/settings/admin-mode-required", () => ({
   AdminModeRequired: (props: {
     readonly description: string;
@@ -98,6 +106,9 @@ beforeEach(() => {
     models: [],
   });
   services.speechSettingsService.administration.mockResolvedValue({
+    status: "noModel",
+  });
+  services.speechSynthesisSettingsService.administration.mockResolvedValue({
     status: "noModel",
   });
   services.runnerService.overview.mockResolvedValue([]);
@@ -147,6 +158,7 @@ it("loads the management data and links OpenCode to its keys", async () => {
     profileDirectory: { groups: [] },
     pica: { settings: {}, models: [] },
     speech: { status: "noModel" },
+    speechSynthesis: { status: "noModel" },
     audience: AUDIENCE,
   });
   expect(result.init).toMatchObject({
@@ -210,6 +222,7 @@ it("renders the management sections for the admin mode", () => {
       profileDirectory: {},
       pica: { settings: {}, models: [{ id: "m" }] },
       speech: { status: "ready" },
+      speechSynthesis: { status: "ready" },
       audience: AUDIENCE,
     },
   });
@@ -221,6 +234,7 @@ it("renders the management sections for the admin mode", () => {
   expect(screen.getByText("runners http")).toBeTruthy();
   expect(screen.getByText("pica 1")).toBeTruthy();
   expect(screen.getByText("speech ready")).toBeTruthy();
+  expect(screen.getByText("speechSynthesis ready")).toBeTruthy();
   expect(screen.getByRole("link").getAttribute("href")).toBe(
     "/settings/agents/tools",
   );
