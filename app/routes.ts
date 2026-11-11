@@ -301,6 +301,7 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ...mcpWikiRoutes(routes.resource),
     ...mcpAgentRoutes(routes.resource),
     ...mcpUserRoutes(routes.resource),
+    resource("api/mcp/v1/storage/*", "routes/api-mcp-v1-storage.ts"),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),
     resource("favicon.ico", "routes/favicon.ts"),
