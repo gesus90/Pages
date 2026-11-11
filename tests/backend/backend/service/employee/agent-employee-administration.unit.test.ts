@@ -7,7 +7,13 @@ import type { AgentEmployeeAdministrationDependencies } from "@/backend/service/
 import type { AccountAccess, UserRole } from "@/definition/Authorization";
 import type { Mock } from "vitest";
 
-const role: UserRole = { id: "role", name: "Worker", rank: 1, permissions: [] };
+const role: UserRole = {
+  id: "role",
+  name: "Worker",
+  rank: 1,
+  permissions: [],
+  departmentBound: false,
+};
 const admin: AccountAccess = {
   userId: "admin",
   role,
