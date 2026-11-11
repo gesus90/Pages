@@ -35,6 +35,7 @@ import { readIdentifier, readParameterRecord } from "./AgentParameterReader";
 import { applyAgentPlanningExtension } from "./AgentPlanningExtensions";
 import {
   applyAgentMilestoneInitiative,
+  applyAgentTicketDepartments,
   applyAgentTicketTags,
 } from "./AgentPlanningLinks";
 import { applyAgentProject } from "./AgentProjectOperations";
@@ -84,6 +85,11 @@ const WRITE_KEYS: Readonly<
   "ticket.delete": ["ticketId", "confirmation"],
   "milestone.delete": ["projectId", "milestoneId", "confirmation"],
   "ticket.setTags": ["ticketId", "tagIds", "expectedTagIds"],
+  "ticket.setDepartments": [
+    "ticketId",
+    "departmentIds",
+    "expectedDepartmentIds",
+  ],
   "milestone.initiative.add": ["projectId", "milestoneId", "initiativeId"],
   "milestone.initiative.remove": ["projectId", "milestoneId", "initiativeId"],
   "wiki.page.setAnchors": ["pageId", "anchors", "expectedAnchors"],
@@ -332,6 +338,8 @@ export class AgentExtensionService {
       return applyAgentWikiAnchors(context, parameters);
     if (operation === "ticket.setTags")
       return applyAgentTicketTags(context, parameters);
+    if (operation === "ticket.setDepartments")
+      return applyAgentTicketDepartments(context, parameters);
     if (
       operation === "milestone.initiative.add" ||
       operation === "milestone.initiative.remove"

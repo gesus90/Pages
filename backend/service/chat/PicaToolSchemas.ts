@@ -102,6 +102,7 @@ const TICKET_WRITE_SCHEMAS = {
       statusId: identifier.nullable(),
       parentId: identifier.nullable(),
       assignee: assignee.optional(),
+      departmentIds: z.array(identifier).max(50).optional(),
     })
     .strict(),
   tickets_set_title: z
@@ -139,6 +140,13 @@ const TICKET_WRITE_SCHEMAS = {
       ticketId: identifier,
       tagIds: z.array(identifier).max(50),
       expectedTagIds: z.array(identifier).max(50),
+    })
+    .strict(),
+  tickets_set_departments: z
+    .object({
+      ticketId: identifier,
+      departmentIds: z.array(identifier).max(50),
+      expectedDepartmentIds: z.array(identifier).max(50),
     })
     .strict(),
   tickets_set_parent: z

@@ -1,6 +1,7 @@
 import {
   readBooleanColumn,
   readCountColumn,
+  readIdListColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
 import {
@@ -33,7 +34,7 @@ type WorkItemCore = Pick<
   | "completedAt"
   | "createdAt"
   | "createdBy"
-  | "departmentId"
+  | "departmentIds"
   | "description"
   | "dueAt"
   | "id"
@@ -122,7 +123,7 @@ function readWorkItemCore(row: WorkItemRow): WorkItemCore {
     completedAt: readOptionalTextColumn(row, 17, "completed_at"),
     createdAt: readTextColumn(row, 15, "created_at"),
     createdBy: readTextColumn(row, 11, "created_by"),
-    departmentId: readOptionalTextColumn(row, 39, "department_id"),
+    departmentIds: readIdListColumn(row, 39, "department_ids"),
     description: readTextColumn(row, 7, "description"),
     dueAt: readOptionalTextColumn(row, 13, "due_at"),
     id: readTextColumn(row, 0, "id"),

@@ -320,6 +320,7 @@ export default function TaskDetailRoute(): React.ReactElement {
         assigneeGroupIdsByProject: loaderData.assigneeGroupIdsByProject,
         assigneeGroups: loaderData.assigneeGroups,
         departments: loaderData.departmentChoices.available,
+        knownDepartments: loaderData.departmentChoices.known,
         projects: loaderData.projects,
       }}
     >

@@ -351,7 +351,8 @@ export interface MilestoneDependency {
 interface WorkItem {
   readonly id: string;
   readonly projectId: string;
-  readonly departmentId: string | null;
+  /** Departments that see and edit the ticket; empty means every project member. */
+  readonly departmentIds: readonly string[];
   readonly key: string;
   readonly number: number;
   readonly type: WorkItemType;
@@ -389,9 +390,31 @@ export interface WorkItemVisibility {
   readonly projectIds?: readonly string[];
 }
 
-/** Departments the actor may assign to a ticket; also names every department of a visible ticket. */
+/** Departments the actor may assign to a ticket, and the names of all departments. */
 export interface TicketDepartmentChoices {
   readonly available: readonly Department[];
+  /** Every department of the instance, to name the departments a visible ticket carries. */
+  readonly known: readonly Department[];
+}
+
+/** Who a ticket is about to be assigned to, for the visibility check. */
+export interface TicketAssigneeTarget {
+  /** Departments of the ticket now; a new ticket has no stored ones. */
+  readonly departmentIds: readonly string[];
+  readonly personId: string | null;
+  readonly groupId: string | null;
+}
+
+/** Whether the person or the group members can see a ticket, and which departments would fix it. */
+export interface TicketAssigneeSight {
+  /** `false` when someone of the target cannot see the ticket because of its departments. */
+  readonly canSee: boolean;
+  /** Whether the target is a group, of which only some members may lack sight. */
+  readonly isGroup: boolean;
+  /** Display name of the person or the group. */
+  readonly targetName: string;
+  /** Departments of those without sight that the actor may add to the ticket. */
+  readonly offer: readonly Department[];
 }
 
 /** Server hints for ticket mutation controls; every mutation is authorized again. */

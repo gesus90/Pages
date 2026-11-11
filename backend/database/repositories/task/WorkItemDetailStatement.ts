@@ -62,7 +62,13 @@ function createWorkItemDetailStatement(
           reporter.display_name AS reporter_name,
           work_items.start_at,
           work_items.github_last_error,
-          work_items.department_id,
+          COALESCE((
+              SELECT json_agg(ticket_department.department_id ORDER BY lower(departments."name"), ticket_department.department_id)::text
+              FROM work_item_departments AS ticket_department
+              LEFT JOIN departments
+                  ON departments.id = ticket_department.department_id
+              WHERE ticket_department.work_item_id = work_items.id
+          ), '[]') AS department_ids,
           work_items.assignee_group_id,
           assignee_group.name AS assignee_group_name,
           assignee.avatar_color AS assignee_color,

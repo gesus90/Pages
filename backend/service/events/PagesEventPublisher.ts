@@ -18,7 +18,8 @@ import type {
 /** Where a deleted ticket was visible, because its row no longer answers that. */
 export interface PagesEventAudience {
   readonly projectId: string;
-  readonly departmentId: string | null;
+  /** Empty when the ticket belonged to no department and was visible project-wide. */
+  readonly departmentIds: readonly string[];
 }
 
 /** Every kind of Pages event, as the outbox stores it in `kind`. */

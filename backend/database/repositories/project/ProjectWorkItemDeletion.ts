@@ -12,6 +12,7 @@ const WORK_ITEM_OWNED_TABLES = [
   "work_item_checklist_items",
   "work_item_checklist_revisions",
   "work_item_labels",
+  "work_item_departments",
   "work_item_attachments",
 ] as const;
 

@@ -280,7 +280,7 @@ export class AgentTicketService {
       statusId,
       parentId: parent?.id ?? null,
       milestoneId: values.milestoneId,
-      departmentId: values.departmentId,
+      departmentIds: values.departmentIds,
       assigneeId: values.assigneeId,
       assigneeGroupId: values.assigneeGroupId,
     });

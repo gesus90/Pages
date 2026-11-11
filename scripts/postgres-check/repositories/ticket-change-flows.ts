@@ -11,6 +11,7 @@ import { WorkItemProjectMoveRepository } from "@/backend/database/repositories/t
 import { WorkItemQueryRepository } from "@/backend/database/repositories/task/WorkItemQueryRepository";
 import { WorkItemTemplateRepository } from "@/backend/database/repositories/task/WorkItemTemplateRepository";
 import { WorkItemTreeRepository } from "@/backend/database/repositories/task/WorkItemTreeRepository";
+import { WorkItemDepartmentRepository } from "@/backend/database/repositories/task/WorkItemDepartmentRepository";
 import { WorkItemWriteRepository } from "@/backend/database/repositories/task/WorkItemWriteRepository";
 
 import { agentTransactionScope } from "@/backend/service/agents/AgentTransactionScope";
@@ -151,19 +152,22 @@ const WRITE_STEPS: readonly RepositoryStep[] = [
       "change-a",
     ),
   ),
-  call("WorkItemWriteRepository.setDepartmentIfCurrent", ({ database }) =>
-    new WorkItemWriteRepository(database).setDepartmentIfCurrent(
+  call("WorkItemDepartmentRepository.replace", ({ database }) =>
+    new WorkItemDepartmentRepository(database).replace(
       "change-a",
-      "department-a",
-      null,
+      ["department-a", "department-z"],
+      [],
     ),
   ),
-  call("WorkItemWriteRepository.setDepartmentIfCurrent", ({ database }) =>
-    new WorkItemWriteRepository(database).setDepartmentIfCurrent(
+  call("WorkItemDepartmentRepository.replace", ({ database }) =>
+    new WorkItemDepartmentRepository(database).replace(
       "change-a",
-      null,
-      "falsch",
+      [],
+      ["falsch"],
     ),
+  ),
+  call("WorkItemDepartmentRepository.find", ({ database }) =>
+    new WorkItemDepartmentRepository(database).find("change-a"),
   ),
   call("WorkItemWriteRepository.updateStatus", ({ database }) =>
     new WorkItemWriteRepository(database).updateStatus(
@@ -594,6 +598,7 @@ const LIFECYCLE_STEPS: readonly RepositoryStep[] = [
     DELETE FROM work_item_links;
     DELETE FROM work_item_attachments;
     DELETE FROM work_item_checklist_items;
+    DELETE FROM work_item_departments;
     DELETE FROM work_items WHERE project_id IN ('project-a', 'project-b');
   `),
 ];

@@ -1,5 +1,6 @@
 import {
   readNullableTextColumn,
+  readIdListColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { isWikiAnchorKind } from "@/definition/Wiki";
@@ -169,12 +170,24 @@ export class WikiAnchorRepository {
   public async findAnchorTarget(
     kind: WikiAnchorKind,
     targetId: string,
-  ): Promise<{ projectId: string | null; departmentId: string | null } | null> {
+  ): Promise<{ projectId: string | null; departmentIds: string[] } | null> {
     const statements: Record<WikiAnchorKind, string> = {
-      department: "SELECT NULL, id FROM departments WHERE id = $target_id;",
-      epic: "SELECT project_id, department_id FROM work_items WHERE id = $target_id AND type = 'epic';",
+      department:
+        "SELECT NULL, json_build_array(id)::text FROM departments WHERE id = $target_id;",
+      epic: `
+        SELECT
+            epic.project_id,
+            COALESCE((
+                SELECT json_agg(epic_department.department_id)::text
+                FROM work_item_departments AS epic_department
+                WHERE epic_department.work_item_id = epic.id
+            ), '[]')
+        FROM work_items AS epic
+        WHERE epic.id = $target_id
+            AND epic.type = 'epic';
+      `,
       milestone:
-        "SELECT project_id, NULL FROM milestones WHERE id = $target_id;",
+        "SELECT project_id, '[]' FROM milestones WHERE id = $target_id;",
     };
     const rows = await this.database.query(statements[kind], {
       target_id: targetId,
@@ -183,7 +196,7 @@ export class WikiAnchorRepository {
 
     return row
       ? {
-          departmentId: readNullableTextColumn(row, 1, "department_id"),
+          departmentIds: readIdListColumn(row, 1, "department_ids"),
           projectId: readNullableTextColumn(row, 0, "project_id"),
         }
       : null;

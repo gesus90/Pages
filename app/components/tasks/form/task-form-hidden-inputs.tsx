@@ -69,11 +69,14 @@ export function TaskFormHiddenInputs({
         </>
       ) : (
         <>
-          <input
-            name="departmentId"
-            type="hidden"
-            value={selections.departmentId}
-          />
+          {selections.departmentIds.map((departmentId) => (
+            <input
+              key={departmentId}
+              name="departmentIds"
+              type="hidden"
+              value={departmentId}
+            />
+          ))}
           <input
             name="templateId"
             type="hidden"

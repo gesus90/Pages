@@ -113,18 +113,30 @@ async function assignTicketDepartment(
   const expected = nullableIdentifier(parameters.expectedDepartmentId);
   const departmentId = nullableIdentifier(parameters.targetId);
   const { departments } = await readAgentDirectory(context);
-  if (expected !== visibleAssignmentId(departments, ticket.departmentId))
+  // A ticket with several departments has no single one to compare with; use set_ticket_departments.
+  const current =
+    ticket.departmentIds.length > 1
+      ? undefined
+      : (ticket.departmentIds[0] ?? null);
+  if (
+    current === undefined ||
+    expected !== visibleAssignmentId(departments, current)
+  )
     throw new AgentOperationError("CONFLICT");
   if (
     departmentId !== null &&
     !departments.some(({ id }) => id === departmentId)
   )
     throw new AgentOperationError("NOT_FOUND");
-  await context.tasks.setDepartment(context.actor, ticket.id, departmentId);
+  await context.tasks.setDepartments(
+    context.actor,
+    ticket.id,
+    departmentId === null ? [] : [departmentId],
+  );
   return {
     id: ticket.id,
     projectId: ticket.projectId,
-    changed: departmentId !== ticket.departmentId,
+    changed: departmentId !== current,
   };
 }
 

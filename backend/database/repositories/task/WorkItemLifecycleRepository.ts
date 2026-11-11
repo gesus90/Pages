@@ -30,6 +30,7 @@ const OWNED_ROW_TABLES = [
   "work_item_history",
   "work_item_checklist_items",
   "work_item_labels",
+  "work_item_departments",
   "work_item_attachments",
 ] as const;
 

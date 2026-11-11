@@ -8,7 +8,7 @@ const OTHER_PROJECT = "project-b";
 
 const ITEM = {
   projectId: PROJECT,
-  departmentId: null,
+  departmentIds: [],
   type: "task",
   parentId: null,
   description: "Text",
@@ -201,7 +201,7 @@ const WORK_ITEM_STEPS: readonly RepositoryStep[] = [
       number: 3,
       title: "Zweites",
       priority: "urgent",
-      departmentId: "department-a",
+      departmentIds: ["department-a"],
       sortOrder: 1,
     }),
   ),
@@ -212,7 +212,7 @@ const WORK_ITEM_STEPS: readonly RepositoryStep[] = [
       key: "CHK-4",
       number: 4,
       title: "Verborgen",
-      departmentId: "department-z",
+      departmentIds: ["department-z", "department-a"],
     }),
   ),
   refused("TaskRepository.insert", ({ tasks }) =>
@@ -339,11 +339,17 @@ const WORK_ITEM_CHANGE_STEPS: readonly RepositoryStep[] = [
   call("TaskRepository.updateParent", ({ tasks }) =>
     tasks.updateParent("item-a", null),
   ),
-  call("TaskRepository.setDepartment", ({ tasks }) =>
-    tasks.setDepartment("item-a", "department-a"),
+  call("TaskRepository.setDepartments", ({ tasks }) =>
+    tasks.setDepartments("item-a", ["department-a", "department-z"]),
   ),
-  call("TaskRepository.setDepartmentIfCurrent", ({ tasks }) =>
-    tasks.setDepartmentIfCurrent("item-a", null, "department-a"),
+  call("TaskRepository.findDepartmentIds", ({ tasks }) =>
+    tasks.findDepartmentIds("item-a"),
+  ),
+  call("TaskRepository.setDepartments", ({ tasks }) =>
+    tasks.setDepartments("item-a", [], ["department-z", "department-a"]),
+  ),
+  call("TaskRepository.setDepartments", ({ tasks }) =>
+    tasks.setDepartments("item-a", ["department-a"], ["falsch"]),
   ),
   call("TaskRepository.setMilestoneIfEmpty", ({ tasks }) =>
     tasks.setMilestoneIfEmpty("item-b", "milestone-a"),
@@ -578,6 +584,7 @@ const LIFECYCLE_STEPS: readonly RepositoryStep[] = [
   prepare(
     "DELETE FROM work_items WHERE project_id IN ('project-a', 'project-b');",
   ),
+  prepare("DELETE FROM work_item_departments;"),
   prepare("DELETE FROM milestones WHERE project_id = 'project-a';"),
   prepare("DELETE FROM labels;"),
 ];

@@ -267,6 +267,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "tags.list": `{${WINDOW}} Tag-Katalog; nur diese Tags lassen sich zuweisen`,
   "ticket.setTags":
     "{ticketId, tagIds: [], expectedTagIds: []} Tags eines Tickets setzen, nur Tags des Katalogs",
+  "ticket.setDepartments":
+    "{ticketId, departmentIds: [], expectedDepartmentIds: []} Abteilungen eines Tickets setzen; leere Liste = sichtbar für das ganze Projekt",
   "milestone.initiative.add":
     "{projectId, milestoneId, initiativeId} Initiative mit Meilenstein verknüpfen",
   "milestone.initiative.remove":

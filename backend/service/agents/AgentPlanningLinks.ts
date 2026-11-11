@@ -1,17 +1,18 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 
 import { readIdentifier } from "./AgentParameterReader";
+import { readAgentDirectory } from "./AgentDirectoryService";
 import { readAgentTicketRead } from "./AgentTicketValidation";
 
 import type { AgentExtensionChanged } from "@/definition/AgentExtensions";
 import type { WorkItemDetail } from "@/definition/Task";
 import type { AgentTaskContext } from "./AgentTaskAccess";
 
-/** Most tags a ticket carries after one call. */
+/** Most tags or departments a ticket carries after one call. */
 const MAXIMUM_TAGS = 50;
 
-/** Reads a list of tag identifiers without duplicates. */
-function readTagIds(input: unknown): string[] {
+/** Reads a list of identifiers without duplicates; the list may be empty. */
+function readIdList(input: unknown): string[] {
   if (!Array.isArray(input) || input.length > MAXIMUM_TAGS)
     throw new AgentOperationError("INVALID_REQUEST");
   const ids = input.map(readIdentifier);
@@ -52,8 +53,8 @@ export async function applyAgentTicketTags(
   parameters: Readonly<Record<string, unknown>>,
 ): Promise<AgentExtensionChanged> {
   const ticket = await requireTicket(context, parameters.ticketId);
-  const tagIds = readTagIds(parameters.tagIds);
-  const expected = readTagIds(parameters.expectedTagIds);
+  const tagIds = readIdList(parameters.tagIds);
+  const expected = readIdList(parameters.expectedTagIds);
   const current = (
     (await context.tasks.findLabelsForWorkItems([ticket.id])).get(ticket.id) ??
     []
@@ -77,6 +78,51 @@ export async function applyAgentTicketTags(
     id: ticket.id,
     projectId: ticket.projectId,
     changed: added.length + removed.length > 0,
+  };
+}
+
+/**
+ * Replaces the departments of a ticket.
+ *
+ * @param context - The services of the call, bound to its transaction.
+ * @param parameters - `ticketId`, the new `departmentIds` (empty makes the
+ * ticket visible to the whole project) and the `expectedDepartmentIds` read before.
+ * @returns The ticket and whether any department was added or removed.
+ * @throws {AgentOperationError} `NOT_FOUND` for a department the account
+ * cannot see, `CONFLICT` when the departments changed since they were read,
+ * `FORBIDDEN` for a department the account may not add or remove.
+ *
+ * @remarks
+ * The rights are those of the ticket page: `TaskDepartmentService` decides
+ * which departments the account may add or remove.
+ */
+export async function applyAgentTicketDepartments(
+  context: AgentTaskContext,
+  parameters: Readonly<Record<string, unknown>>,
+): Promise<AgentExtensionChanged> {
+  const ticket = await requireTicket(context, parameters.ticketId);
+  const departmentIds = readIdList(parameters.departmentIds);
+  const expected = readIdList(parameters.expectedDepartmentIds);
+  const current = ticket.departmentIds;
+
+  // The stored departments count as the new ones when someone saved them meanwhile.
+  if (!isSameSet(expected, current) && !isSameSet(departmentIds, current))
+    throw new AgentOperationError("CONFLICT");
+  const { departments } = await readAgentDirectory(context);
+  // Departments the ticket keeps need not be listed for the account.
+  if (
+    departmentIds.some(
+      (id) =>
+        !current.includes(id) && !departments.some((entry) => entry.id === id),
+    )
+  )
+    throw new AgentOperationError("NOT_FOUND");
+  if (!isSameSet(departmentIds, current))
+    await context.tasks.setDepartments(context.actor, ticket.id, departmentIds);
+  return {
+    id: ticket.id,
+    projectId: ticket.projectId,
+    changed: !isSameSet(departmentIds, current),
   };
 }
 

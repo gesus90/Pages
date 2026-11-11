@@ -32,6 +32,7 @@ export const AGENT_EXTENSION_WRITE_OPERATIONS = [
   "ticket.delete",
   "milestone.delete",
   "ticket.setTags",
+  "ticket.setDepartments",
   "milestone.initiative.add",
   "milestone.initiative.remove",
   "wiki.page.setAnchors",

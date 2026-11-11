@@ -564,6 +564,7 @@ function projectRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ),
     resource("aufgaben-api/attachments", "routes/ticket-attachments.ts"),
     resource("aufgaben-api/panel/:ticketKey", "routes/task-panel-data.ts"),
+    resource("aufgaben-api/assignee-sight", "routes/ticket-assignee-sight.ts"),
     resource("aufgaben-api/tree", "routes/tasks-layout-data.ts"),
     resource("aufgaben-api/board", "routes/tasks-data.ts"),
     resource("aufgaben-api/tickets/:ticketKey", "routes/task-detail-data.ts"),

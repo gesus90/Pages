@@ -38,11 +38,9 @@ const outboxEventSchema = z.object({
   audience: z
     .object({
       projectId: z.string().min(1).max(PAGES_CORE_LIMITS.idLength),
-      departmentId: z
-        .string()
-        .min(1)
-        .max(PAGES_CORE_LIMITS.idLength)
-        .nullable(),
+      departmentIds: z
+        .array(z.string().min(1).max(PAGES_CORE_LIMITS.idLength))
+        .max(PAGES_CORE_LIMITS.events),
     })
     .nullable(),
 });

@@ -42,6 +42,7 @@ import { WorkItemAttachmentRepository } from "@/backend/database/repositories/ta
 import { WorkItemChecklistRepository } from "@/backend/database/repositories/task/WorkItemChecklistRepository";
 import { WorkItemChecklistRevisionRepository } from "@/backend/database/repositories/task/WorkItemChecklistRevisionRepository";
 import { WorkItemCountRepository } from "@/backend/database/repositories/task/WorkItemCountRepository";
+import { WorkItemDepartmentRepository } from "@/backend/database/repositories/task/WorkItemDepartmentRepository";
 import { WorkItemHistoryRepository } from "@/backend/database/repositories/task/WorkItemHistoryRepository";
 import { WorkItemKeyRepository } from "@/backend/database/repositories/task/WorkItemKeyRepository";
 import { WorkItemLifecycleRepository } from "@/backend/database/repositories/task/WorkItemLifecycleRepository";
@@ -182,6 +183,7 @@ const AREA_CLASSES: Readonly<Record<string, { readonly prototype: object }>> = {
   WorkItemChecklistRepository,
   WorkItemChecklistRevisionRepository,
   WorkItemCountRepository,
+  WorkItemDepartmentRepository,
   WorkItemHistoryRepository,
   WorkItemKeyRepository,
   WorkItemLifecycleRepository,

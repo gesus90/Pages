@@ -63,7 +63,7 @@ function createAnchorCondition(scope: WikiVisibilityScope): WikiSqlFragment {
     scope.projectIds,
   );
   const epicDepartments = createInCondition(
-    "epic.department_id",
+    "epic_department.department_id",
     "visible_epic_department",
     scope.departmentIds,
   );
@@ -87,8 +87,17 @@ function createAnchorCondition(scope: WikiVisibilityScope): WikiSqlFragment {
             AND ${epicProjects.sql}
             AND (
                 $viewer_is_admin = 1
-                OR epic.department_id IS NULL
-                OR ${epicDepartments.sql}
+                OR NOT EXISTS (
+                    SELECT 1
+                    FROM work_item_departments AS any_department
+                    WHERE any_department.work_item_id = epic.id
+                )
+                OR EXISTS (
+                    SELECT 1
+                    FROM work_item_departments AS epic_department
+                    WHERE epic_department.work_item_id = epic.id
+                        AND ${epicDepartments.sql}
+                )
             )
     ))
     OR (

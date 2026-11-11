@@ -83,6 +83,11 @@ export interface AgentTicketCreateInput {
   readonly milestoneId: string | null;
   /** Absent or `null` takes the department of the parent, when it has one and the account may select it. */
   readonly departmentId?: string | null;
+  /**
+   * The departments of the new ticket; an empty list means none. Absent takes
+   * the selectable departments of the parent. Never given together with `departmentId`.
+   */
+  readonly departmentIds?: readonly string[];
   /** Absent or `null` assigns the account that creates the ticket. */
   readonly assignee?: AgentTicketAssignee | null;
 }
@@ -261,7 +266,10 @@ export interface AgentTicket {
   readonly descendantCount?: number;
   readonly assignee?: AgentVisiblePerson | null;
   readonly assigneeGroup?: AgentDirectoryEntry | null;
+  /** The first of `departments`, kept for compatibility. */
   readonly department?: AgentDirectoryEntry | null;
+  /** Every department of the ticket; empty when everyone with project access sees it. */
+  readonly departments?: readonly AgentDirectoryEntry[];
 }
 
 /** A milestone of a visible project. */

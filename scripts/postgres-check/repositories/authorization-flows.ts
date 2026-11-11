@@ -118,8 +118,10 @@ export const AUTHORIZATION_FLOW: RepositoryFlow = {
       WHERE user_id = 'user-same-name-a';
     `),
     prepare(`
-      INSERT INTO work_items (id, project_id, key, number, department_id, type, title, status_id, created_by)
-      VALUES ('item-of-department', 'project-of-department', 'DEP-1', 1, 'department-b', 'task', 'x', 'status-todo', 'user-admin');
+      INSERT INTO work_items (id, project_id, key, number, type, title, status_id, created_by)
+      VALUES ('item-of-department', 'project-of-department', 'DEP-1', 1, 'task', 'x', 'status-todo', 'user-admin');
+      INSERT INTO work_item_departments (work_item_id, department_id)
+      VALUES ('item-of-department', 'department-b');
       INSERT INTO project_departments (project_id, department_id)
       VALUES ('project-of-department', 'department-b');
     `),
@@ -127,10 +129,13 @@ export const AUTHORIZATION_FLOW: RepositoryFlow = {
       authorization.deleteDepartment("department-b"),
     ),
     stored(
-      "SELECT department_id FROM work_items WHERE id = 'item-of-department';",
+      "SELECT COUNT(*) FROM work_item_departments WHERE work_item_id = 'item-of-department';",
     ),
     stored("SELECT COUNT(*) FROM project_departments;"),
-    prepare("DELETE FROM work_items WHERE id = 'item-of-department';"),
+    prepare(`
+      DELETE FROM work_item_departments WHERE work_item_id = 'item-of-department';
+      DELETE FROM work_items WHERE id = 'item-of-department';
+    `),
     call("AuthorizationRepository.deleteRole", ({ authorization }) =>
       authorization.deleteRole("role-b"),
     ),

@@ -74,8 +74,8 @@ async function requireVisibleTarget(
     target.projectId !== null && viewer.projectIds.includes(target.projectId);
   const readsDepartment =
     viewer.isAdmin ||
-    target.departmentId === null ||
-    viewer.departmentIds.includes(target.departmentId);
+    target.departmentIds.length === 0 ||
+    target.departmentIds.some((id) => viewer.departmentIds.includes(id));
 
   if (!sameProject || !readsProject || !readsDepartment) {
     throw new WikiValidationError("invalidAnchor");

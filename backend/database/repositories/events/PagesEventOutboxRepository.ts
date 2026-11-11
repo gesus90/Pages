@@ -7,7 +7,7 @@ export interface PagesEventRecord {
   /** Project and department of a deleted ticket; absent for every other event. */
   readonly audience?: {
     readonly projectId: string;
-    readonly departmentId: string | null;
+    readonly departmentIds: readonly string[];
   };
 }
 
@@ -43,20 +43,22 @@ export class PagesEventOutboxRepository {
             kind,
             object_id,
             audience_project_id,
-            audience_department_id
+            audience_department_ids
         )
         VALUES (
             $kind,
             $object_id,
             $audience_project_id,
-            $audience_department_id
+            $audience_department_ids
         );
       `,
       {
         kind: event.type,
         object_id: event.id,
         audience_project_id: event.audience?.projectId ?? null,
-        audience_department_id: event.audience?.departmentId ?? null,
+        audience_department_ids: JSON.stringify(
+          event.audience?.departmentIds ?? [],
+        ),
       },
     );
   }

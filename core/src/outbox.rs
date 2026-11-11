@@ -28,7 +28,7 @@ const READ_AFTER: &str = "
         kind,
         object_id,
         audience_project_id,
-        audience_department_id
+        ARRAY(SELECT jsonb_array_elements_text(audience_department_ids::jsonb))
     FROM pages_event_outbox
     WHERE position > $1
     ORDER BY position
@@ -114,14 +114,14 @@ fn database_position(position: u64) -> i64 {
 
 fn read_event(row: &Row) -> Result<OutboxEvent, tokio_postgres::Error> {
     let project_id: Option<String> = row.try_get(3)?;
-    let department_id: Option<String> = row.try_get(4)?;
+    let department_ids: Vec<String> = row.try_get(4)?;
     Ok(OutboxEvent {
         position: position_of(row.try_get(0)?),
         kind: row.try_get(1)?,
         id: row.try_get(2)?,
         audience: project_id.map(|project_id| EventAudience {
             project_id,
-            department_id,
+            department_ids,
         }),
     })
 }

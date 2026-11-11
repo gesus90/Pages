@@ -45,7 +45,7 @@ export class DiscordSubjectLookup implements DiscordSubjectReader {
     }
 
     return {
-      departmentId: ticket.departmentId,
+      hasDepartment: ticket.departmentIds.length > 0,
       key: ticket.key,
       projectId: ticket.projectId,
       projectName: ticket.projectName,

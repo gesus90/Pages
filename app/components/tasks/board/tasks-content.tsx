@@ -91,7 +91,7 @@ export function TasksContent({
   isSyncing,
   onMoveTask,
 }: TasksContentProps): React.ReactElement {
-  const { departments } = useTicketAccess();
+  const { knownDepartments } = useTicketAccess();
   const projectFilter = preferences.project;
   const inProject = <Item extends { readonly projectId: string }>(
     items: readonly Item[],
@@ -129,7 +129,10 @@ export function TasksContent({
         group={preferences.group}
         groupLookups={{
           departmentNames: Object.fromEntries(
-            departments.map((department) => [department.id, department.name]),
+            knownDepartments.map((department) => [
+              department.id,
+              department.name,
+            ]),
           ),
           labelsByWorkItem,
         }}

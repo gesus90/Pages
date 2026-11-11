@@ -10,7 +10,7 @@ import type { AgentTaskContext } from "./AgentTaskAccess";
 export interface ResolvedTicketCreate {
   readonly projectId: string;
   readonly milestoneId: string | null;
-  readonly departmentId: string | null;
+  readonly departmentIds: readonly string[];
   readonly assigneeId: string | null;
   readonly assigneeGroupId: string | null;
 }
@@ -44,7 +44,7 @@ export function takeStatedTicketCreate(
   return {
     projectId: request.projectId,
     milestoneId: request.milestoneId,
-    departmentId: null,
+    departmentIds: [],
     ...UNASSIGNED,
   };
 }
@@ -60,7 +60,7 @@ export function takeStatedTicketCreate(
  * for a department, person or group the account cannot see.
  *
  * @remarks
- * The project, the milestone and the department come from the parent, but
+ * The project, the milestone and the departments come from the parent, but
  * only what the parent carries and the account may use is taken; nothing is
  * invented. A value the call states wins over the parent. A parent in another
  * project than the stated one fails in the hierarchy rules of the ticket
@@ -76,29 +76,31 @@ export async function resolveAgentTicketCreate(
   return {
     projectId,
     milestoneId: request.milestoneId ?? parent?.milestoneId ?? null,
-    departmentId: await resolveDepartment(context, request, parent),
+    departmentIds: await resolveDepartments(context, request, parent),
     ...(await resolveAssignment(context, request, projectId)),
   };
 }
 
-async function resolveDepartment(
+async function resolveDepartments(
   context: AgentTaskContext,
   request: AgentTicketCreateInput,
   parent: WorkItemDetail | null,
-): Promise<string | null> {
-  const stated = request.departmentId ?? null;
+): Promise<readonly string[]> {
+  const stated =
+    request.departmentIds ??
+    (request.departmentId ? [request.departmentId] : null);
   if (stated !== null) {
     const { departments } = await readAgentDirectory(context);
     // A department the account cannot see is reported like one that does not exist.
-    if (!departments.some(({ id }) => id === stated))
+    if (!stated.every((id) => departments.some((entry) => entry.id === id)))
       throw new AgentOperationError("NOT_FOUND");
     return stated;
   }
-  const inherited = parent?.departmentId ?? null;
-  if (inherited === null) return null;
-  // The parent is visible, but its department may be one the account cannot select.
+  const inherited = parent?.departmentIds ?? [];
+  if (inherited.length === 0) return [];
+  // The parent is visible, but its departments may be ones the account cannot select.
   const { available } = await context.tasks.departmentChoices(context.actor);
-  return available.some(({ id }) => id === inherited) ? inherited : null;
+  return inherited.filter((id) => available.some((entry) => entry.id === id));
 }
 
 async function resolveAssignment(

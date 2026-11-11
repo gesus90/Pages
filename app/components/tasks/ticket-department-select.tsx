@@ -1,8 +1,7 @@
-import { useTranslation } from "react-i18next";
 import { useSubmit } from "react-router";
 
 import { useTicketAccess } from "@/app/components/tasks/ticket-access";
-import { Select } from "@/app/components/ui/select";
+import { TicketDepartmentChips } from "@/app/components/tasks/ticket-department-chips";
 
 import type { WorkItemDetail } from "@/definition/Task";
 
@@ -10,20 +9,19 @@ interface TicketDepartmentSelectProps {
   readonly ticket: WorkItemDetail;
 }
 
-/** Reassigns a ticket to a selectable department, or removes its department. */
+/** Changes the departments of a ticket: none, one or several. */
 export function TicketDepartmentSelect({
   ticket,
 }: TicketDepartmentSelectProps): React.ReactElement {
-  const { t } = useTranslation();
   const submit = useSubmit();
-  const { canWrite, departments } = useTicketAccess();
+  const { canWrite, departments, knownDepartments } = useTicketAccess();
 
-  function handleChange(departmentId: string): void {
+  function handleChange(departmentIds: string[]): void {
     void submit(
       {
         boardLocal: "true",
-        departmentId,
-        expectedDepartmentId: ticket.departmentId ?? "",
+        departmentIds: JSON.stringify(departmentIds),
+        expectedDepartmentIds: JSON.stringify(ticket.departmentIds),
         id: ticket.id,
         intent: "set-department",
       },
@@ -32,19 +30,13 @@ export function TicketDepartmentSelect({
   }
 
   return (
-    <Select
-      ariaLabel={t("tasks.fields.department")}
-      className="min-w-0"
+    <TicketDepartmentChips
       disabled={ticket.archivedAt !== null || !canWrite}
-      onValueChange={handleChange}
-      options={[
-        { label: t("tasks.department.none"), value: "" },
-        ...departments.map((department) => ({
-          label: department.name,
-          value: department.id,
-        })),
-      ]}
-      value={ticket.departmentId ?? ""}
+      known={knownDepartments}
+      onChange={handleChange}
+      selectable={departments}
+      selectedIds={ticket.departmentIds}
+      shouldConfirmClear
     />
   );
 }

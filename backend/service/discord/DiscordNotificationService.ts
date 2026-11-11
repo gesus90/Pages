@@ -18,7 +18,7 @@ export interface DiscordTicketFacts {
   readonly title: string;
   readonly statusName: string;
   /** A ticket of a department is not visible to the whole project. */
-  readonly departmentId: string | null;
+  readonly hasDepartment: boolean;
 }
 
 /** The facts of a milestone that a notification states. */
@@ -168,7 +168,7 @@ export class DiscordNotificationService {
     const ticket = await this.dependencies.subjects.findTicket(id);
 
     // Only tickets every member of the project may see belong in a channel.
-    if (!ticket || ticket.departmentId !== null) {
+    if (!ticket || ticket.hasDepartment) {
       return null;
     }
 

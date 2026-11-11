@@ -83,10 +83,11 @@ const COMMENT: NewWikiComment = {
 const ANCHOR_STEPS: readonly RepositoryStep[] = [
   prepare(`
     INSERT INTO milestones (id, project_id, name) VALUES ('mile-wiki', 'project-a', 'Meilenstein');
-    INSERT INTO work_items (id, project_id, key, number, type, title, status_id, created_by, department_id, description)
+    INSERT INTO work_items (id, project_id, key, number, type, title, status_id, created_by, description)
     VALUES
-        ('epic-wiki', 'project-a', 'WIKI-2', 2, 'epic', 'Epos', 'status-todo', 'user-admin', 'department-z', 'Siehe /wiki/page-root'),
-        ('ticket-wiki', 'project-a', 'WIKI-1', 1, 'task', 'Äpfel 100%', 'status-todo', 'user-admin', NULL, 'Siehe /wiki/page-root und 100%');
+        ('epic-wiki', 'project-a', 'WIKI-2', 2, 'epic', 'Epos', 'status-todo', 'user-admin', 'Siehe /wiki/page-root'),
+        ('ticket-wiki', 'project-a', 'WIKI-1', 1, 'task', 'Äpfel 100%', 'status-todo', 'user-admin', 'Siehe /wiki/page-root und 100%');
+    INSERT INTO work_item_departments (work_item_id, department_id) VALUES ('epic-wiki', 'department-z');
     UPDATE projects SET description = 'Siehe /wiki/page-root' WHERE id = 'project-a';
   `),
   call("WikiAnchorRepository.replaceAnchors", ({ database }) =>

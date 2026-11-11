@@ -61,7 +61,10 @@ export interface McpTicket {
   readonly assignee: McpTicketPerson | null;
   readonly assigneeGroup: McpTicketNamed | null;
   readonly reporter: McpTicketPerson | null;
+  /** The first of `departments`, kept for compatibility. */
   readonly department: McpTicketNamed | null;
+  /** Every department of the ticket; empty when everyone with project access sees it. */
+  readonly departments: readonly McpTicketNamed[];
   readonly parent:
     (McpTicketReference & { readonly type: WorkItemType }) | null;
   readonly milestone: McpTicketNamed | null;

@@ -296,6 +296,7 @@ const DELETION_STEPS: readonly RepositoryStep[] = [
     DELETE FROM wiki_recent_pages;
     DELETE FROM wiki_settings;
     DELETE FROM wiki_user_state;
+    DELETE FROM work_item_departments;
     DELETE FROM work_items WHERE id IN ('epic-wiki', 'ticket-wiki');
     DELETE FROM milestones WHERE id = 'mile-wiki';
     UPDATE projects SET description = '' WHERE id = 'project-a';

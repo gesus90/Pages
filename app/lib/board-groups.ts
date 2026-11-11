@@ -65,14 +65,13 @@ function keysOf(
     case "assignee":
       return [assigneeKey(item)];
     case "department":
-      return [
-        item.departmentId === null
-          ? NO_GROUP
-          : {
-              key: item.departmentId,
-              title: lookups.departmentNames[item.departmentId] ?? null,
-            },
-      ];
+      // A ticket of several departments appears in each of their sections.
+      return item.departmentIds.length === 0
+        ? [NO_GROUP]
+        : item.departmentIds.map((departmentId) => ({
+            key: departmentId,
+            title: lookups.departmentNames[departmentId] ?? null,
+          }));
     case "label": {
       const labels = lookups.labelsByWorkItem[item.id] ?? [];
 

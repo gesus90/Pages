@@ -70,7 +70,10 @@ export interface AgentTicketSummary {
   readonly milestoneName: string | null;
   readonly assignee: AgentVisiblePerson | null;
   readonly assigneeGroup: AgentDirectoryEntry | null;
+  /** The first of `departments`, kept for compatibility. */
   readonly department: AgentDirectoryEntry | null;
+  /** Every department of the ticket; empty when everyone with project access sees it. */
+  readonly departments: readonly AgentDirectoryEntry[];
   readonly tags: readonly AgentTag[];
   /** Up to 200 characters of the description around the match; `null` when the match is elsewhere. */
   readonly snippet: string | null;

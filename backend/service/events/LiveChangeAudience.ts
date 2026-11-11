@@ -71,9 +71,10 @@ function departmentAllows(
   visibility: WorkItemVisibility,
   audience: PagesEventAudience,
 ): boolean {
-  if (visibility.departmentIds === null || audience.departmentId === null)
+  if (visibility.departmentIds === null || audience.departmentIds.length === 0)
     return true;
-  return visibility.departmentIds.includes(audience.departmentId);
+  const own = visibility.departmentIds;
+  return audience.departmentIds.some((id) => own.includes(id));
 }
 
 /**

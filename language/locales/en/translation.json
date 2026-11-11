@@ -2229,7 +2229,17 @@
       "none": "No automation rules configured"
     },
     "department": {
-      "none": "No department"
+      "none": "No department",
+      "noneChip": "No department",
+      "noneHint": "Without a department, everyone with access to the project sees the ticket.",
+      "restrictedHint": "Only members of these departments see and edit the ticket.",
+      "add": "Add department",
+      "remove": "Remove {{name}}",
+      "clearConfirm": "Remove all departments? The ticket then becomes visible to everyone with access to the project.",
+      "assigneeNoSight": "{{name}} is not in any department of this ticket and cannot see it.",
+      "groupNoSight": "Members of the group \"{{name}}\" are not in any department of this ticket and cannot see it.",
+      "assigneeDismiss": "Dismiss",
+      "assigneeAddDepartment": "Add department \"{{department}}\""
     },
     "permissions": {
       "readOnly": "You have read-only access to this ticket. Archiving and editing are not possible."

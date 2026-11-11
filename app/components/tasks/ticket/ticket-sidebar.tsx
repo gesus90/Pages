@@ -6,6 +6,7 @@ import { TicketParentField } from "@/app/components/tasks/hierarchy/ticket-paren
 import { TaskGitHubDetails } from "@/app/components/tasks/task-github-details";
 import { TaskTypeBadge } from "@/app/components/tasks/task-badges";
 import { TaskLabelPill } from "@/app/components/tasks/task-labels";
+import { useTicketAssigneeSight } from "@/app/components/tasks/ticket-assignee-sight";
 import { TicketDepartmentSelect } from "@/app/components/tasks/ticket-department-select";
 import { TicketLifecycleControls } from "@/app/components/tasks/ticket-lifecycle-controls";
 import { useTicketAccess } from "@/app/components/tasks/ticket-access";
@@ -113,6 +114,12 @@ function PeopleRows({
     currentGroupId: ticket.assigneeGroupId,
     projectId: ticket.projectId,
   });
+  const { checkAssignee, notice } = useTicketAssigneeSight(ticket);
+
+  function handleAssigneeChange(assignee: string): void {
+    actions.update({ assignee });
+    checkAssignee(assignee);
+  }
 
   return (
     <>
@@ -132,11 +139,12 @@ function PeopleRows({
         <Select
           ariaLabel={t("tasks.fields.assignee")}
           value={toAssigneeValue(ticket)}
-          onValueChange={(assignee) => actions.update({ assignee })}
+          onValueChange={handleAssigneeChange}
           disabled={isArchived}
           options={assigneeOptions}
         />
       </Row>
+      {notice}
       <Row label={t("tasks.fields.reporter")} labelId="detail-reporter">
         <Select
           ariaLabel={t("tasks.fields.reporter")}

@@ -311,8 +311,8 @@ export function readAgentMilestonesRead(input: unknown): string {
  *
  * @remarks
  * `description`, `statusId` and `parentId` are required, with `null` for "the
- * default status" and "no parent". `projectId`, `milestoneId`, `departmentId`
- * and `assignee` may be left out or be `null`: the project, milestone and
+ * default status" and "no parent". `projectId`, `milestoneId`, `departmentId`,
+ * `departmentIds` and `assignee` may be left out or be `null`: the project, milestone and
  * department are then taken from the parent, and the assignee is the account
  * that creates the ticket. Nothing is taken that the parent does not carry.
  */
@@ -321,8 +321,10 @@ export function readAgentTicketCreate(input: unknown): AgentTicketCreateInput {
   requireParameterKeys(
     fields,
     ["operationId", "type", "title", "description", "statusId", "parentId"],
-    ["projectId", "milestoneId", "departmentId", "assignee"],
+    ["projectId", "milestoneId", "departmentId", "departmentIds", "assignee"],
   );
+  if (fields.departmentId !== undefined && fields.departmentIds !== undefined)
+    throw new AgentOperationError("INVALID_REQUEST");
   if (!isWorkItemType(fields.type))
     throw new AgentOperationError("INVALID_REQUEST");
   return {
@@ -337,10 +339,25 @@ export function readAgentTicketCreate(input: unknown): AgentTicketCreateInput {
     ...(fields.departmentId === undefined
       ? {}
       : { departmentId: nullableIdentifier(fields.departmentId) }),
+    ...(fields.departmentIds === undefined
+      ? {}
+      : { departmentIds: readDepartmentIds(fields.departmentIds) }),
     ...(fields.assignee === undefined
       ? {}
       : { assignee: readAssignee(fields.assignee) }),
   };
+}
+
+/** Most departments a ticket carries after one create call. */
+const MAXIMUM_DEPARTMENTS = 50;
+
+function readDepartmentIds(input: unknown): string[] {
+  if (!Array.isArray(input) || input.length > MAXIMUM_DEPARTMENTS)
+    throw new AgentOperationError("INVALID_REQUEST");
+  const ids = input.map(readIdentifier);
+  if (new Set(ids).size !== ids.length)
+    throw new AgentOperationError("INVALID_REQUEST");
+  return ids;
 }
 
 /**

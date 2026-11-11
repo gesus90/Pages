@@ -31,12 +31,12 @@ function isEventType(value: unknown): value is PagesEvent["type"] {
 
 function readAudience(value: unknown): PagesEventAudience | undefined {
   if (typeof value !== "object" || value === null) return undefined;
-  if (!("projectId" in value) || !("departmentId" in value)) return undefined;
-  const { projectId, departmentId } = value;
+  if (!("projectId" in value) || !("departmentIds" in value)) return undefined;
+  const { projectId, departmentIds } = value;
   if (typeof projectId !== "string") return undefined;
-  if (departmentId !== null && typeof departmentId !== "string")
-    return undefined;
-  return { projectId, departmentId };
+  if (!Array.isArray(departmentIds)) return undefined;
+  if (!departmentIds.every((id) => typeof id === "string")) return undefined;
+  return { projectId, departmentIds };
 }
 
 /**

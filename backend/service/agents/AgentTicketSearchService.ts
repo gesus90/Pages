@@ -4,6 +4,7 @@ import { pageAgentEntries } from "./AgentCursor";
 import { readAgentDirectory } from "./AgentDirectoryService";
 import { readAgentTicketTags } from "./AgentPlanningEnrichment";
 import { createAgentReadContext, respondAgentRead } from "./AgentReadContext";
+import { describeTicketDepartments } from "./AgentTicketDepartments";
 import { translateAgentTicketError } from "./AgentTicketErrors";
 import { agentTicketCursorId, agentTicketLink } from "./AgentTicketLookup";
 import { readAgentTicketSearch } from "./AgentTicketNavigationValidation";
@@ -47,9 +48,7 @@ function summarize(
     assignee:
       directory.people.find(({ id }) => id === ticket.assigneeId) ?? null,
     assigneeGroup: group ? { id: group.id, name: group.name } : null,
-    department:
-      directory.departments.find(({ id }) => id === ticket.departmentId) ??
-      null,
+    ...describeTicketDepartments(directory.departments, ticket),
     tags,
     snippet: describeSearchMatch(ticket.description, text),
   };

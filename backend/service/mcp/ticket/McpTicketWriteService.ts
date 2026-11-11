@@ -96,12 +96,26 @@ function presetValues(
 function rejectDoubleAssignment(request: {
   readonly assignee?: string | null;
   readonly assigneeGroupId?: string | null;
+  readonly departmentId?: string | null;
+  readonly departmentIds?: readonly string[];
 }): void {
   if (
     typeof request.assignee === "string" &&
     typeof request.assigneeGroupId === "string"
   )
     throw new McpTicketError("invalid_request");
+  // The single and the list field would say two things about the departments.
+  if (request.departmentId !== undefined && request.departmentIds !== undefined)
+    throw new McpTicketError("invalid_request");
+}
+
+/** The departments a change sets: the list, or the older single field as a list of at most one. */
+function requestedDepartmentIds(
+  request: McpTicketPatchRequest,
+): readonly string[] | undefined {
+  if (request.departmentIds !== undefined) return request.departmentIds;
+  if (request.departmentId === undefined) return undefined;
+  return request.departmentId === null ? [] : [request.departmentId];
 }
 
 /** The optional values of a new ticket; absent means none. */
@@ -109,11 +123,13 @@ function optionalValues(
   request: McpTicketCreateRequest,
 ): Pick<
   CreateWorkItemInput,
-  "assigneeGroupId" | "departmentId" | "milestoneId" | "startAt" | "dueAt"
+  "assigneeGroupId" | "departmentIds" | "milestoneId" | "startAt" | "dueAt"
 > {
   return {
     assigneeGroupId: request.assigneeGroupId ?? null,
-    departmentId: request.departmentId ?? null,
+    departmentIds:
+      request.departmentIds ??
+      (request.departmentId ? [request.departmentId] : []),
     milestoneId: request.milestoneId ?? null,
     startAt: request.startAt ?? null,
     dueAt: request.dueAt ?? null,
@@ -190,24 +206,21 @@ export class McpTicketWriteService {
       await requireExpected(context, ticket, request.expected);
     const references = await resolveReferences(context, ticket, request);
     if (request.labelIds) await requireLabels(context, request.labelIds);
-    if (request.departmentId !== undefined)
-      await this.requireSelectableDepartment(
-        context,
-        ticket,
-        request.departmentId,
-      );
+    const departmentIds = requestedDepartmentIds(request);
+    if (departmentIds !== undefined)
+      await this.requireSelectableDepartments(context, ticket, departmentIds);
     if (changesTicketFields(request))
       await services.tasks.update(
         actor,
         ticket.id,
         updateInput(ticket, request, references),
       );
-    if (request.departmentId !== undefined)
-      await services.tasks.setDepartment(
+    if (departmentIds !== undefined)
+      await services.tasks.setDepartments(
         actor,
         ticket.id,
-        request.departmentId,
-        ticket.departmentId,
+        departmentIds,
+        ticket.departmentIds,
       );
     if (request.labelIds)
       await this.replaceLabels(context, ticket, request.labelIds);
@@ -261,25 +274,33 @@ export class McpTicketWriteService {
   }
 
   /**
-   * Lets the department action decide a department the account may not
+   * Lets the department action decide departments the account may not
    * choose before anything else is written.
    */
-  private async requireSelectableDepartment(
+  private async requireSelectableDepartments(
     context: McpTicketContext,
     ticket: WorkItemDetail,
-    departmentId: string | null,
+    departmentIds: readonly string[],
   ): Promise<void> {
-    if (departmentId === null) return;
     const { available } = await context.services.tasks.departmentChoices(
       context.actor,
     );
-    if (available.some((department) => department.id === departmentId)) return;
+    const selectable = (id: string): boolean =>
+      available.some((department) => department.id === id);
+    const added = departmentIds.filter(
+      (id) => !ticket.departmentIds.includes(id),
+    );
+    const removed =
+      departmentIds.length === 0
+        ? []
+        : ticket.departmentIds.filter((id) => !departmentIds.includes(id));
+    if (added.every(selectable) && removed.every(selectable)) return;
     // Raises not_found or forbidden exactly as the department action does.
-    await context.services.tasks.setDepartment(
+    await context.services.tasks.setDepartments(
       context.actor,
       ticket.id,
-      departmentId,
-      ticket.departmentId,
+      departmentIds,
+      ticket.departmentIds,
     );
   }
 

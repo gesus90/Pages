@@ -7,7 +7,10 @@ import type { GroupSummary } from "@/definition/UserGroup";
 
 /** Server hints and department choices that decide which ticket controls appear. */
 export interface TicketAccess extends TaskActionPermissions {
+  /** Departments the visitor may add to or remove from a ticket. */
   readonly departments: readonly Department[];
+  /** Every department, to name the ones a ticket carries. */
+  readonly knownDepartments: readonly Department[];
   /** Groups a ticket can be assigned to instead of a person. */
   readonly assigneeGroups: readonly GroupSummary[];
   /** Per project id, the groups with a member who can work in the project. */
@@ -25,6 +28,7 @@ const READ_ONLY_ACCESS: TicketAccess = {
   canDelete: false,
   canWrite: false,
   departments: [],
+  knownDepartments: [],
   projects: [],
 };
 

@@ -73,8 +73,10 @@ export class WikiChoiceService {
       epics: epics.filter(
         (epic) =>
           viewer.scope.isAdmin ||
-          epic.departmentId === null ||
-          viewer.scope.departmentIds.includes(epic.departmentId),
+          epic.departmentIds.length === 0 ||
+          epic.departmentIds.some((departmentId) =>
+            viewer.scope.departmentIds.includes(departmentId),
+          ),
       ),
       milestones,
       selected,
