@@ -94,3 +94,18 @@ it("prevents closing while saving and calls back after success", () => {
   rerender();
   expect(onSaved).toHaveBeenCalledTimes(1);
 });
+
+it("does not close a dirty draft while the save is pending", () => {
+  const onSaved = vi.fn();
+  const { result, rerender } = setup(onSaved);
+  act(() => result.current.draft.setName("Changed"));
+  fetcher.state = "submitting";
+  rerender();
+  act(() => result.current.dismissal.requestClose());
+  expect(result.current.dismissal.shouldConfirmClose).toBe(false);
+  expect(onSaved).not.toHaveBeenCalled();
+  fetcher.state = "idle";
+  rerender();
+  act(() => result.current.dismissal.requestClose());
+  expect(result.current.dismissal.shouldConfirmClose).toBe(true);
+});

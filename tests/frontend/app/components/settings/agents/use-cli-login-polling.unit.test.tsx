@@ -159,3 +159,28 @@ it("aborts an obsolete request and clears sessions when the login ends", async (
   expect(result.current).toEqual({});
   expect(revalidate).not.toHaveBeenCalled();
 });
+
+it("polls again after two seconds and stops after unmount", async () => {
+  vi.useFakeTimers();
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValue(new Response(JSON.stringify({ state: "starting" })));
+  vi.stubGlobal("fetch", fetchMock);
+  const view = renderHook(() =>
+    useCliLoginPolling([connection("c1", { state: "starting" })]),
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+  });
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  view.unmount();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(4000);
+  });
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  vi.useRealTimers();
+});
