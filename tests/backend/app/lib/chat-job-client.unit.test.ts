@@ -3,6 +3,7 @@ import { expect, it } from "vitest";
 import {
   readChatJobResult,
   readChatSendResult,
+  readChatSessionStateResult,
 } from "@/app/lib/chat-job-client";
 
 const JOB = {
@@ -70,4 +71,18 @@ it("reads a job update and no update for a conversation without a job", () => {
   expect(readChatJobResult({ update })).toEqual(update);
   expect(readChatJobResult({ update: null })).toBeNull();
   expect(readChatJobResult({})).toBeNull();
+});
+
+it("reads the small state of a conversation with and without a running job", () => {
+  const idle = {
+    sessionId: "aa-bb-cc-dd-ee",
+    lastMessageAt: "2026-10-28 00:00:01",
+    jobId: null,
+    jobState: null,
+  };
+  const running = { ...idle, jobId: "job-1", jobState: "running" };
+
+  expect(readChatSessionStateResult({ state: idle })).toEqual(idle);
+  expect(readChatSessionStateResult({ state: running })).toEqual(running);
+  expect(() => readChatSessionStateResult({})).toThrow();
 });
