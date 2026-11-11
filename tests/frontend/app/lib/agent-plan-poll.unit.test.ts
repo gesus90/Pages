@@ -212,3 +212,168 @@ describe("refusing a malformed polling response", () => {
     expect(() => readPlanPollingResponse(response)).toThrow();
   });
 });
+
+const CLEANUP = {
+  workspaceId: "ws-1",
+  workspaceName: "Copy",
+  runId: "run-1",
+  ownerId: "user-1",
+  blocker: "registered",
+  updatedAt: "2026-11-11T10:00:00.000Z",
+};
+const WAIT = {
+  resource: "/synthetic/repository",
+  reason: "writer",
+  runId: "run-2",
+  jobId: null,
+  attemptId: null,
+};
+
+function controlOf(extra: Record<string, unknown>): unknown {
+  return { ok: true, control: { ...CONTROL, ...extra } };
+}
+
+describe("reading the optional control details", () => {
+  it("keeps restart, resume action, blocker, writer wait and cleanup", () => {
+    const response = readPlanPollingResponse(
+      controlOf({
+        canRestart: true,
+        resumeAction: "recovery",
+        resumeBlocker: "own_run_required",
+        workspaceWait: WAIT,
+        cleanup: [{ ...CLEANUP, extra: "dropped" }],
+      }),
+    );
+
+    expect(response).toMatchObject({
+      control: {
+        canRestart: true,
+        resumeAction: "recovery",
+        resumeBlocker: "own_run_required",
+        workspaceWait: WAIT,
+        cleanup: [CLEANUP],
+      },
+    });
+  });
+
+  it("accepts the paused resume action and a parallel-writers conflict on a local target", () => {
+    const workspaceConflict = {
+      kind: "parallel_writers",
+      targets: [
+        {
+          kind: "local",
+          workspaceId: "ws-1",
+          path: "/synthetic",
+          connectionName: null,
+          workspaceName: null,
+        },
+      ],
+      nodes: [],
+    };
+
+    expect(
+      readPlanPollingResponse(
+        controlOf({ resumeAction: "paused", workspaceConflict }),
+      ),
+    ).toMatchObject({
+      control: { resumeAction: "paused", workspaceConflict },
+    });
+  });
+
+  it("treats a null resume blocker as none", () => {
+    const response = readPlanPollingResponse(
+      controlOf({ resumeBlocker: null }),
+    );
+
+    expect(response).toMatchObject({ ok: true });
+    expect(response).not.toHaveProperty("control.resumeBlocker");
+  });
+
+  it("omits the optional details when the control carries none", () => {
+    const response = readPlanPollingResponse(controlOf({}));
+
+    for (const key of [
+      "canRestart",
+      "resumeAction",
+      "resumeBlocker",
+      "workspaceWait",
+      "cleanup",
+      "workspaceConflict",
+      "lastStartRejection",
+    ])
+      expect(response).not.toHaveProperty(`control.${key}`);
+  });
+
+  it.each([
+    "idle",
+    "pausing",
+    "paused",
+    "stopping",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "work_done_closeout_open",
+  ])("accepts the control status %s", (status) => {
+    expect(readPlanPollingResponse(controlOf({ status }))).toMatchObject({
+      control: { status },
+    });
+  });
+});
+
+describe("refusing malformed control details", () => {
+  it.each([
+    ["a text restart flag", { canRestart: "yes" }],
+    ["an unknown resume action", { resumeAction: "later" }],
+    ["an unknown resume blocker", { resumeBlocker: "nobody" }],
+    ["a malformed writer wait", { workspaceWait: { resource: 1 } }],
+    ["a cleanup that is no list", { cleanup: {} }],
+    [
+      "a cleanup entry with a numeric field",
+      { cleanup: [{ ...CLEANUP, runId: 3 }] },
+    ],
+    [
+      "a workspace conflict of an unknown kind",
+      { workspaceConflict: { kind: "other", targets: [], nodes: [] } },
+    ],
+    [
+      "a workspace conflict without targets",
+      { workspaceConflict: { kind: "reserved", nodes: [] } },
+    ],
+    [
+      "a workspace conflict target of an unknown kind",
+      {
+        workspaceConflict: {
+          kind: "reserved",
+          targets: [{ kind: "cloud" }],
+          nodes: [],
+        },
+      },
+    ],
+    [
+      "a workspace conflict target with a numeric connection name",
+      {
+        workspaceConflict: {
+          kind: "reserved",
+          targets: [
+            {
+              kind: "local",
+              workspaceId: "w",
+              path: "/p",
+              connectionName: 1,
+              workspaceName: null,
+            },
+          ],
+          nodes: [],
+        },
+      },
+    ],
+    ["a negative plan revision", { planRevision: -1 }],
+    ["an unsafe integer version", { continuationVersion: 2 ** 60 }],
+    ["a missing issue", { issue: undefined }],
+    ["a text revision", { planRevision: "4" }],
+  ])("refuses %s", (label, extra) => {
+    expect(() => readPlanPollingResponse(controlOf(extra))).toThrow(
+      /Invalid plan response|invalid|expected/i,
+    );
+  });
+});

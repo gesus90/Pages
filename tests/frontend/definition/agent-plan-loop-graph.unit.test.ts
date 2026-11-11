@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { defaultAgentRunOptions } from "@/definition/AgentConfiguration";
 import {
+  planLoopBoundRuns,
   planLoopIssues,
+  planLoopParameterBoolean,
   planLoopParameterRuns,
 } from "@/definition/AgentPlanLoopGraph";
 
@@ -17,6 +19,7 @@ import type {
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
+import type { AgentPlanStack } from "@/definition/AgentPlanStack";
 
 const FLOW = { fromPort: "flow-out", toPort: "flow-in" };
 
@@ -373,5 +376,277 @@ describe("validating bindings across the border of a loop", () => {
     expect(issues([cyclic]).some((entry) => entry.reason === "cycle")).toBe(
       true,
     );
+  });
+});
+
+function stack(id: string, entryCount: number): AgentPlanStack {
+  return {
+    id,
+    type: "stack",
+    name: id,
+    x: 0,
+    y: 0,
+    entries: Array.from({ length: entryCount }, (_, index) => ({
+      id: `entry-${index}`,
+      type: "task" as const,
+      taskId: `task-${index}`,
+    })),
+  };
+}
+
+const STACK_COUNT: AgentPlanBinding = {
+  kind: "stack",
+  stackId: "st",
+  output: "count",
+};
+
+describe("the iteration count a binding supplies", () => {
+  const text = (value: string): AgentPlanParameter =>
+    parameter("p", { type: "text", text: value });
+
+  it("reads the number of entries of a stack, an empty stack included", () => {
+    expect(planLoopBoundRuns(STACK_COUNT, planOf([stack("st", 3)]))).toBe(3);
+    expect(planLoopBoundRuns(STACK_COUNT, planOf([stack("st", 0)]))).toBe(0);
+  });
+
+  it("refuses a stack that is missing, too large or read for its entry", () => {
+    expect(planLoopBoundRuns(STACK_COUNT, planOf([]))).toBeNull();
+    expect(planLoopBoundRuns(STACK_COUNT, planOf([agent("st")]))).toBeNull();
+    expect(
+      planLoopBoundRuns(STACK_COUNT, planOf([stack("st", 1000)])),
+    ).toBeNull();
+    expect(
+      planLoopBoundRuns(
+        { ...STACK_COUNT, output: "content" },
+        planOf([stack("st", 2)]),
+      ),
+    ).toBeNull();
+  });
+
+  it("reads the number of a bound parameter node and allows 0", () => {
+    const source: AgentPlanBinding = { kind: "source", nodeId: "p" };
+
+    expect(planLoopBoundRuns(source, planOf([text("4")]))).toBe(4);
+    expect(planLoopBoundRuns(source, planOf([text("0")]))).toBe(0);
+    expect(planLoopBoundRuns(source, planOf([text("four")]))).toBeNull();
+    expect(planLoopBoundRuns(source, planOf([]))).toBeNull();
+  });
+
+  it("supplies nothing for other bindings or no binding", () => {
+    expect(planLoopBoundRuns(undefined, planOf([text("4")]))).toBeNull();
+    expect(
+      planLoopBoundRuns({ kind: "literal", value: null }, planOf([text("4")])),
+    ).toBeNull();
+    expect(
+      planLoopBoundRuns({ kind: "result", stepId: "p" }, planOf([text("4")])),
+    ).toBeNull();
+  });
+});
+
+describe("the boolean a parameter supplies to a while loop", () => {
+  const text = (value: string): AgentPlanParameter =>
+    parameter("p", { type: "text", text: value });
+
+  it("reads exactly true and false, trimmed", () => {
+    expect(planLoopParameterBoolean(text("true"))).toBe(true);
+    expect(planLoopParameterBoolean(text(" false "))).toBe(false);
+  });
+
+  it("never reads anything else as false", () => {
+    expect(planLoopParameterBoolean(text("yes"))).toBeNull();
+    expect(planLoopParameterBoolean(text("TRUE"))).toBeNull();
+    expect(planLoopParameterBoolean(text(""))).toBeNull();
+    expect(
+      planLoopParameterBoolean(parameter("p", { type: "number", number: 1 })),
+    ).toBeNull();
+    expect(planLoopParameterBoolean(agent("p"))).toBeNull();
+    expect(planLoopParameterBoolean(undefined)).toBeNull();
+  });
+});
+
+describe("validating a count taken from a stack", () => {
+  const issue = { nodeId: "loop", port: "runs", reason: "loopRuns" };
+  const fromStack = (binding: AgentPlanBinding): AgentPlanLoop =>
+    loopOf("loop", [], [], {
+      runsSource: "parameter",
+      bindings: { runs: binding },
+    });
+
+  it("accepts the count output of an existing stack, whatever its size", () => {
+    expect(issues([fromStack(STACK_COUNT), stack("st", 0)], true)).toEqual([
+      { nodeId: "loop", port: null, reason: "loopSize" },
+    ]);
+    expect(issues([fromStack(STACK_COUNT), stack("st", 5)])).toEqual([]);
+  });
+
+  it("refuses a missing stack, another node and the entry output", () => {
+    expect(issues([fromStack(STACK_COUNT)])).toEqual([issue]);
+    expect(issues([fromStack(STACK_COUNT), agent("st")])).toEqual([issue]);
+    expect(
+      issues([
+        fromStack({ ...STACK_COUNT, output: "content" }),
+        stack("st", 2),
+      ]),
+    ).toEqual([issue]);
+  });
+});
+
+describe("validating a while loop", () => {
+  const whileFlag = (text: string): AgentPlanParameter =>
+    parameter("flag", { type: "text", text });
+  const whileLoop = (overrides: Partial<AgentPlanLoop> = {}): AgentPlanLoop =>
+    loopOf("loop", [acpAgent("a")], [], {
+      mode: "while",
+      bindings: { while: { kind: "source", nodeId: "flag" } },
+      ...overrides,
+    });
+  const whileIssue = (port: string): AgentPlanIssue => ({
+    nodeId: "loop",
+    port,
+    reason: "loopWhile",
+  });
+
+  it("needs no iteration count and accepts a bound boolean parameter", () => {
+    expect(issues([whileLoop({ runs: 0 }), whileFlag("true")])).toEqual([]);
+  });
+
+  it("needs a bound parameter node", () => {
+    expect(issues([whileLoop({ bindings: {} }), whileFlag("true")])).toEqual([
+      whileIssue("while"),
+    ]);
+    expect(issues([whileLoop()])).toEqual([whileIssue("while")]);
+    expect(issues([whileLoop(), acpAgent("flag")])).toEqual([
+      whileIssue("while"),
+    ]);
+  });
+
+  it("checks that the parameter is a boolean only when the plan is about to run", () => {
+    expect(issues([whileLoop(), whileFlag("maybe")])).toEqual([]);
+    expect(issues([whileLoop(), whileFlag("maybe")], true)).toEqual([
+      whileIssue("while"),
+    ]);
+    expect(issues([whileLoop(), whileFlag("false")], true)).toEqual([]);
+  });
+
+  it("needs a member as the source of later checks and a readable path", () => {
+    const later = (sourceNodeId: string, outputPath: string): AgentPlanLoop =>
+      whileLoop({ while: { sourceNodeId, outputPath } });
+
+    expect(issues([later("a", "$.go"), whileFlag("true")])).toEqual([]);
+    expect(issues([later("x", "$.go"), whileFlag("true")])).toEqual([
+      whileIssue("source"),
+    ]);
+    expect(issues([later("a", "go"), whileFlag("true")])).toEqual([
+      whileIssue("path"),
+    ]);
+    expect(issues([later("x", "$.*"), whileFlag("true")])).toEqual([
+      whileIssue("source"),
+      whileIssue("path"),
+    ]);
+  });
+
+  it("reads the bound boolean again when no source member is named", () => {
+    expect(
+      issues([
+        whileLoop({ while: { sourceNodeId: "", outputPath: "nope" } }),
+        whileFlag("true"),
+      ]),
+    ).toEqual([]);
+    expect(issues([whileLoop({ while: null }), whileFlag("true")])).toEqual([]);
+  });
+});
+
+describe("validating what a loop may hold", () => {
+  it("refuses a loop inside a loop", () => {
+    const inner: unknown = loopOf("inner", []);
+    const outer = loopOf("loop", [inner as AgentPlanLoop["steps"][number]]);
+
+    expect(issues([outer])).toContainEqual({
+      nodeId: "inner",
+      port: null,
+      reason: "loopNested",
+    });
+  });
+
+  it("refuses a group of a loop that holds anything but agents", () => {
+    const group = (steps: unknown[]): AgentPlanLoop["steps"][number] => ({
+      id: "lg",
+      type: "group" as const,
+      name: "lg",
+      x: 0,
+      y: 0,
+      steps: steps as AgentPlanStep[],
+      parameters: [],
+      bindings: {},
+    });
+    const withScript = loopOf("loop", [group([acpAgent("a"), script("s")])]);
+    const onlyAgents = loopOf("loop", [group([acpAgent("a")])]);
+
+    expect(issues([withScript])).toContainEqual({
+      nodeId: "lg",
+      port: null,
+      reason: "loopNested",
+    });
+    expect(issues([onlyAgents])).toEqual([]);
+  });
+});
+
+describe("validating decisions and stacks around a loop", () => {
+  const decision = { id: "d", type: "decision" as const, x: 0, y: 0 };
+
+  it("lets a decision of the loop join its members by internal edges", () => {
+    const loop = loopOf("loop", [acpAgent("a")], [flow("a", "d")], {
+      decisions: [decision],
+    });
+
+    expect(issues([loop])).toEqual([]);
+  });
+
+  it("refuses an outer edge into a decision of the loop and ids that repeat", () => {
+    const loop = loopOf("loop", [acpAgent("a")], [], {
+      decisions: [decision],
+    });
+
+    expect(
+      issues([loop], false, [{ ...edge("out", "d"), toPort: "flow-in" }]),
+    ).toEqual([{ nodeId: "d", port: "flow-in", reason: "loopBoundary" }]);
+    expect(issues([loop, agent("d")])).toContainEqual({
+      nodeId: "d",
+      port: null,
+      reason: "duplicateNode",
+    });
+  });
+
+  it("lets a stack join the members of a loop by flow edges without a boundary issue", () => {
+    const loop = loopOf("loop", [acpAgent("a")]);
+
+    expect(
+      issues([loop, stack("st", 1)], false, [flow("st", "a"), flow("a", "st")]),
+    ).toEqual([]);
+  });
+});
+
+describe("validating a previous binding of a script", () => {
+  const carrying = (isRequired: boolean): AgentPlanLoop =>
+    loopOf(
+      "loop",
+      [
+        {
+          ...script("s", { carry: { kind: "previous", stepId: "s" } }),
+          inputs: [{ name: "carry", type: "text", isRequired }],
+        },
+      ],
+      [],
+      { sessionPolicy: "fresh" },
+    );
+
+  it("lets an optional input stay empty in the first iteration", () => {
+    expect(issues([carrying(false)])).toEqual([]);
+  });
+
+  it("needs a start value for a required input, which a script cannot have", () => {
+    expect(issues([carrying(true)])).toEqual([
+      { nodeId: "s", port: "carry", reason: "loopPrevious" },
+    ]);
   });
 });
