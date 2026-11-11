@@ -133,10 +133,7 @@ export class PicaAcpJob {
       specification.id,
       specification.run.runner.hasPartialTokenUsage === true,
     );
-    this.credential = new PicaAcpCredential(
-      specification.directory,
-      specification.agent.connection.provider === "claude_code",
-    );
+    this.credential = new PicaAcpCredential(specification);
     this.answerOutput = new PicaAcpAnswerOutput(
       dependencies.answerFiles,
       specification,

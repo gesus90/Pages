@@ -15,7 +15,15 @@ import type { McpServer } from "@agentclientprotocol/sdk";
 import type { PicaCodexTool } from "@/backend/agents/acp/PicaCodexGlue";
 import type { PicaCodexTurnBinding } from "@/backend/agents/acp/PicaCodexRequests";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { AgentRunAccess } from "@/definition/AgentConfiguration";
 import type { PicaBridgeDescriptor, PicaBridgeLease } from "./PicaBridge";
+
+/** What a credential reads from the specification of its job. */
+export interface PicaAcpCredentialSource {
+  readonly directory: string;
+  readonly agent: { readonly connection: { readonly provider: string } };
+  readonly run: { readonly options: { readonly access: AgentRunAccess } };
+}
 
 /**
  * The turn credential of one Pica job: its bridge lease, the private
@@ -28,15 +36,21 @@ import type { PicaBridgeDescriptor, PicaBridgeLease } from "./PicaBridge";
 export class PicaAcpCredential {
   private readonly directory: string;
   private readonly isClaude: boolean;
+  private readonly access: AgentRunAccess;
   /** Opened when the job runs, so a job that never ran leaves no token behind. */
   private lease: PicaBridgeLease | null = null;
   private file: string | null = null;
   private url: string | null = null;
   private turn: number | null = null;
 
-  public constructor(directory: string, isClaude: boolean) {
-    this.directory = directory;
-    this.isClaude = isClaude;
+  /**
+   * @param source - The job the credential serves: its working directory, the
+   * provider of its connection and the access of its run.
+   */
+  public constructor(source: PicaAcpCredentialSource) {
+    this.directory = source.directory;
+    this.isClaude = source.agent.connection.provider === "claude_code";
+    this.access = source.run.options.access;
   }
 
   /** The turn whose credential is current; `null` while none is. */
@@ -90,7 +104,7 @@ export class PicaAcpCredential {
     if (!this.isClaude)
       return "Use the available Pages tools to access the conversation's authorized data.";
     if (!this.file) throw new PicaAcpJobError("general");
-    return picaHelperUsage(picaHelperPath(this.file));
+    return picaHelperUsage(picaHelperPath(this.file), this.access);
   }
 
   /** Replaces the descriptor file; without a descriptor the bridge binding is revoked too. */

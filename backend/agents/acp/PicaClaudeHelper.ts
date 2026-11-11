@@ -1,6 +1,7 @@
 import { refusePermission, selectPermissionOption } from "./AcpPermissions";
 
 import type { RequestPermissionRequest } from "@agentclientprotocol/sdk";
+import type { AgentRunAccess } from "@/definition/AgentConfiguration";
 import type { AcpPermissionDecision } from "./AcpDriver";
 
 /** Where the helper puts the images it receives; the model may open exactly these files. */
@@ -130,10 +131,28 @@ export function decidePicaHelperPermission(
   return { outcome, isDenied: outcome.outcome !== "selected" };
 }
 
-/** The instruction a Claude Code turn receives for the helper of that turn. */
-export function picaHelperUsage(helperPath: string): string {
+/**
+ * The instruction a Claude Code turn receives for the helper of that turn.
+ *
+ * @param helperPath - The absolute path of the helper of this turn.
+ * @param access - The access of the session. With full access (PAGE-266) the
+ * helper is only the way to the Pages tools; every other command stays
+ * allowed inside the isolation, so the instruction forbids nothing else.
+ * @returns The instruction text appended to the prompt of the turn.
+ */
+export function picaHelperUsage(
+  helperPath: string,
+  access: AgentRunAccess,
+): string {
+  const usage = `'${helperPath}' '{"action":"catalog"}' lists the tools; '${helperPath}' '{"action":"call","name":"projects_list","arguments":{}}' calls one (replace the name and arguments; a single quote inside the JSON is written '\\'').`;
+  if (access === "yolo")
+    return [
+      `Reach the Pages tools with the Bash tool and this command shape, only from this message: ${usage}`,
+      "The result is JSON. If it lists image files, open each with the Read tool to see it.",
+      "Besides this helper you have full access with every native tool inside the isolation of this session: run any other shell command and read or write files as the task requires.",
+    ].join(" ");
   return [
-    `Use the Bash tool with exactly this command shape, only from this message: '${helperPath}' '{"action":"catalog"}' lists the tools; '${helperPath}' '{"action":"call","name":"projects_list","arguments":{}}' calls one (replace the name and arguments; a single quote inside the JSON is written '\\'').`,
+    `Use the Bash tool with exactly this command shape, only from this message: ${usage}`,
     "The result is JSON. If it lists image files, open each with the Read tool to see it.",
     "Run no other command and open no other file.",
   ].join(" ");
