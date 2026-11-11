@@ -1,10 +1,10 @@
 //! Reads the services of the platform target from the systemd manager (PAGE-238).
 //!
 //! Only the services of one configured target are read, and of each only its
-//! name, active state, last start and restart count, plus the load state, type
-//! and result that decide the light. No other property is requested, so the
-//! paths, command line, environment and credentials of a unit never reach the
-//! core.
+//! name, active state, last start and restart count, its current memory and
+//! memory limits (PAGE-282), plus the load state, type and result that decide
+//! the light. No other property is requested, so the paths, command line,
+//! environment and credentials of a unit never reach the core.
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -19,12 +19,14 @@ use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 use crate::config::{ManagerBus, StatusSource};
 use crate::log::{self, Severity};
 
-const DESTINATION: &str = "org.freedesktop.systemd1";
-const MANAGER_PATH: &str = "/org/freedesktop/systemd1";
-const MANAGER_INTERFACE: &str = "org.freedesktop.systemd1.Manager";
+pub(crate) const DESTINATION: &str = "org.freedesktop.systemd1";
+pub(crate) const MANAGER_PATH: &str = "/org/freedesktop/systemd1";
+pub(crate) const MANAGER_INTERFACE: &str = "org.freedesktop.systemd1.Manager";
 const UNIT_INTERFACE: &str = "org.freedesktop.systemd1.Unit";
-const SERVICE_INTERFACE: &str = "org.freedesktop.systemd1.Service";
+pub(crate) const SERVICE_INTERFACE: &str = "org.freedesktop.systemd1.Service";
 const PROPERTIES_INTERFACE: &str = "org.freedesktop.DBus.Properties";
+/// What the manager reports for an unset memory limit or an unknown current memory.
+const UNSET: u64 = u64::MAX;
 
 /// The longest wait for one complete reading, connection included.
 const READ_TIMEOUT: Duration = Duration::from_secs(2);
@@ -83,10 +85,16 @@ pub struct ServiceState {
     pub name: String,
     /// The active state, one of [`ACTIVE_STATES`] or `unknown`.
     pub state: &'static str,
+    /// The light of this service alone; never [`Light::Unknown`].
+    pub light: Light,
     /// Milliseconds since the epoch when the main process last started; `None` when never.
     pub last_start: Option<u64>,
     /// How often the manager restarted the service automatically.
     pub restarts: u32,
+    /// Bytes the service's control group uses now; `None` without memory accounting.
+    pub memory_current: Option<u64>,
+    /// The smaller of `MemoryHigh` and `MemoryMax` in bytes; `None` when neither is set.
+    pub memory_limit: Option<u64>,
 }
 
 /// One reading of the target.
@@ -108,7 +116,7 @@ impl Snapshot {
 }
 
 /// Why a reading failed; only a fixed code, never a message of the manager.
-struct ReadError(&'static str);
+pub(crate) struct ReadError(pub(crate) &'static str);
 
 impl fmt::Display for ReadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -124,6 +132,9 @@ struct Reading {
     result: String,
     started_microseconds: u64,
     restarts: u32,
+    memory_current: Option<u64>,
+    memory_high: Option<u64>,
+    memory_max: Option<u64>,
 }
 
 impl Reading {
@@ -143,15 +154,24 @@ impl Reading {
     }
 
     fn into_state(self, name: String) -> ServiceState {
+        let light = self.light();
         let state = ACTIVE_STATES
             .into_iter()
             .find(|known| *known == self.active_state)
             .unwrap_or("unknown");
+        // Both limits count; the kernel throttles at `MemoryHigh` before it kills at `MemoryMax`.
+        let memory_limit = match (self.memory_high, self.memory_max) {
+            (Some(high), Some(max)) => Some(high.min(max)),
+            (high, max) => high.or(max),
+        };
         ServiceState {
             name,
             state,
+            light,
             last_start: (self.started_microseconds > 0).then_some(self.started_microseconds / 1000),
             restarts: self.restarts,
+            memory_current: self.memory_current,
+            memory_limit,
         }
     }
 }
@@ -245,7 +265,8 @@ impl UnitReader {
     }
 }
 
-async fn connect(bus: ManagerBus) -> Result<Connection, ReadError> {
+/// Opens a connection to the manager on one bus.
+pub(crate) async fn connect(bus: ManagerBus) -> Result<Connection, ReadError> {
     let connection = match bus {
         ManagerBus::System => Connection::system().await,
         ManagerBus::User => Connection::session().await,
@@ -270,7 +291,8 @@ async fn load_unit(connection: &Connection, name: &str) -> Result<OwnedObjectPat
         .map_err(|_| ReadError("unit_path"))
 }
 
-async fn property(
+/// Reads one property of a unit object.
+pub(crate) async fn property(
     connection: &Connection,
     path: &OwnedObjectPath,
     interface: &str,
@@ -342,7 +364,21 @@ async fn read_service(connection: &Connection, name: &str) -> Result<Reading, Re
         result: text(connection, &path, SERVICE_INTERFACE, "Result").await?,
         started_microseconds: number(connection, &path, "ExecMainStartTimestamp").await?,
         restarts: number(connection, &path, "NRestarts").await?,
+        memory_current: memory(connection, &path, "MemoryCurrent").await,
+        memory_high: memory(connection, &path, "MemoryHigh").await,
+        memory_max: memory(connection, &path, "MemoryMax").await,
     })
+}
+
+/// A memory property in bytes; `None` when it is unset, unknown or cannot be read.
+///
+/// The memory never decides the light, so a manager without one of these
+/// properties still gives a complete reading.
+async fn memory(connection: &Connection, path: &OwnedObjectPath, name: &str) -> Option<u64> {
+    number::<u64>(connection, path, name)
+        .await
+        .ok()
+        .filter(|bytes| *bytes != UNSET)
 }
 
 /// A plain unit name; an escaped one (`\x2d`) could encode a path and is not shown.

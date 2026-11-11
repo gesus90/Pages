@@ -12,6 +12,7 @@
 //! delivers nothing. After a restart it continues from its stored outbox
 //! position, and a browser continues from the opaque cursor it received last.
 
+mod backup;
 mod channel;
 mod config;
 mod contract;

@@ -32,7 +32,6 @@ const services = vi.hoisted(() => ({
 }));
 const serverSettings = vi.hoisted(() => ({
   readPort: vi.fn(),
-  readStatus: vi.fn(),
   readLogging: vi.fn(),
 }));
 
@@ -73,7 +72,6 @@ vi.mock("@/app/components/settings/admin-mode-required", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   serverSettings.readPort.mockResolvedValue(3100);
-  serverSettings.readStatus.mockResolvedValue({ version: "1" });
   serverSettings.readLogging.mockResolvedValue({ retentionDays: 7 });
   services.instanceSettingsService.getBranding.mockResolvedValue({
     companyName: "Acme",
@@ -121,7 +119,6 @@ it("loads every system setting for a granted administrator", async () => {
     chatSettings: { instruction: "" },
     logging: { retentionDays: 7 },
     port: 3100,
-    status: { version: "1" },
     wikiSettings: { trashRetentionDays: 30 },
   });
   expect(serverSettings.readLogging).toHaveBeenCalledWith(ACTOR);

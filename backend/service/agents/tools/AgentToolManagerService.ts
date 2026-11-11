@@ -54,6 +54,16 @@ const UNCHECKED: AgentToolHealth = {
   version: null,
 };
 
+function locationFacts(
+  location: AgentToolLocation | null,
+): Pick<AgentToolView, "executable" | "rollbackRelease" | "terminalEntry"> {
+  return {
+    executable: location?.file ?? null,
+    rollbackRelease: location?.previousRelease ?? null,
+    terminalEntry: location?.terminalEntry ?? null,
+  };
+}
+
 /** Central fixed-registry readiness, installation, repair and update coordination. */
 export class AgentToolManagerService {
   public readonly supervisor = new AgentRuntimeSupervisor();
@@ -187,10 +197,12 @@ export class AgentToolManagerService {
     return location ? { found: true, path: location.file } : null;
   }
 
-  /** Installs provider prerequisites before login/check operations use the existing runtime. */
-  public async ensureProvider(provider: CliProviderId): Promise<void> {
+  /** Installs provider prerequisites and returns the verified CLI that login, status, catalog and test calls start. */
+  public async ensureProvider(
+    provider: CliProviderId,
+  ): Promise<AgentToolLocation> {
     await this.start();
-    await this.ensureTool(providerToolIds(provider)[0]);
+    return this.ensureTool(providerToolIds(provider)[0]);
   }
 
   /** Verifies a fixed dependency graph and repairs missing/broken managed tools idempotently. */
@@ -440,7 +452,7 @@ export class AgentToolManagerService {
         );
       await this.dependencies.files.activate(tool, candidate);
       this.states.set(id, {
-        location: candidate,
+        location: await this.published(tool, candidate),
         health,
         dependency: null,
         checkedAt: new Date().toISOString(),
@@ -495,11 +507,30 @@ export class AgentToolManagerService {
     }
     await this.dependencies.files.activate(tool, candidate);
     this.states.set(id, {
-      location: { ...candidate, version: health.version },
+      location: await this.published(tool, {
+        ...candidate,
+        version: health.version,
+      }),
       health,
       dependency: null,
       checkedAt: new Date().toISOString(),
     });
+  }
+
+  // Re-reads the pointer for the rollback generation and terminal entry of a just activated location.
+  private async published(
+    tool: AgentToolDefinition,
+    location: AgentToolLocation,
+  ): Promise<AgentToolLocation> {
+    try {
+      const current = await this.dependencies.files.current(tool);
+      return current?.file === location.file
+        ? { ...current, version: location.version }
+        : location;
+    } catch {
+      // The activation already succeeded; only its secondary facts stay unknown until the next check.
+      return location;
+    }
   }
 
   private activities(id: AgentToolId): readonly AgentToolActivity[] {
@@ -591,6 +622,7 @@ export class AgentToolManagerService {
         health.version !== null &&
         tool.version !== health.version,
       source: location?.source ?? null,
+      ...locationFacts(location),
       lastCheck: state.checkedAt,
       activities: this.activities(tool.id),
       authentication,

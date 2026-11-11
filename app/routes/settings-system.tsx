@@ -17,7 +17,6 @@ import { sendToBackend } from "@/app/lib/backend-request";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
-import type { ServerStatus } from "@/backend/service/ServerSettingsService";
 import type { ChatAdministration } from "@/definition/Chat";
 import type { LoggingStatus } from "@/definition/Logging";
 import type { InstanceBranding } from "@/definition/Instance";
@@ -35,7 +34,6 @@ export type SettingsSystemLoaderData =
         readonly status: LoggingStatus;
       };
       readonly branding: InstanceBranding;
-      readonly status: ServerStatus;
       readonly wikiSettings: WikiSettings;
       /** Supplementary instruction of the chat agent. */
       readonly chatSettings: ChatAdministration;
@@ -54,8 +52,6 @@ function isSettingsSystemLoaderData(
   if (value.access === "adminModeRequired") return true;
   return (
     value.access === "granted" &&
-    "status" in value &&
-    typeof value.status === "object" &&
     "chatSettings" in value &&
     typeof value.chatSettings === "object" &&
     "audience" in value &&
@@ -71,7 +67,8 @@ function isSettingsSystemLoaderData(
  * administrator data; the request for the admin mode is not kept.
  */
 const SETTINGS_SYSTEM_STATE: LocalStateRouteKind<SettingsSystemLoaderData> = {
-  schemaVersion: 1,
+  // 2: without the status of the former "Status" card (PAGE-282).
+  schemaVersion: 2,
   isPayload: isSettingsSystemLoaderData,
   isCurrent: (system) =>
     system.access === "granted" && isCurrentLocalStateAudience(system.audience),
@@ -120,7 +117,6 @@ export default function SettingsSystemRoute(): React.ReactElement {
       chatSettings={loaderData.chatSettings}
       logging={loaderData.logging}
       port={loaderData.port}
-      status={loaderData.status}
       wikiSettings={loaderData.wikiSettings}
     />
   ) : (

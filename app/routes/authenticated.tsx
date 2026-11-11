@@ -12,6 +12,7 @@ import {
 } from "@/app/lib/local-state/local-state-audience";
 import { isLocalStateNavigation } from "@/app/lib/local-state/local-state-navigation";
 import { loadShell } from "@/app/lib/local-state/shell-loader";
+import { isStorageFolderNavigation } from "@/app/lib/storage-folder-navigation";
 import {
   isTaskOverlayMutation,
   isTaskOverlayNavigation,
@@ -22,11 +23,12 @@ import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { ShellData } from "@/app/lib/shell-data";
 import type { Route } from "./+types/authenticated";
 
-/** Keeps navigation data when only a ticket overlay opens or closes or a local-state route opens. */
+/** Keeps navigation data when only a ticket overlay opens or closes, a local-state route opens or Storage changes its folder. */
 export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
   return isTaskOverlayNavigation(args) ||
     isTaskOverlayMutation(args) ||
-    isLocalStateNavigation(args)
+    isLocalStateNavigation(args) ||
+    isStorageFolderNavigation(args)
     ? false
     : args.defaultShouldRevalidate;
 }

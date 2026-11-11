@@ -15,18 +15,27 @@ With `--status-target pages.target` (the template's default through
 `PAGES_CORE_STATUS_OPTIONS`) the core reads the services of that target from
 the systemd manager over D-Bus: the services the target wants or requires and
 those that are `PartOf=` it. Of each it requests only the name, active state,
-start time of the main process and restart count, plus load state, type and
-result for the light, at most once every two seconds and within two seconds.
-No other unit is listed and no other property is read, so paths, command
-lines, environment and credentials of a unit never reach the core.
+start time of the main process, restart count, current memory
+(`MemoryCurrent`) and the limits `MemoryHigh` and `MemoryMax` (PAGE-282), plus
+load state, type and result for the light, at most once every two seconds and
+within two seconds. For the system dashboard it also lists the loaded units
+ending in `-base-backup.service` in the user manager of its own account and in
+the system manager, and reads only their result and the exit time of the main
+process, at most once a minute. No other unit is listed and no other property
+is read, so paths, command lines, environment and credentials of a unit never
+reach the core. The user manager is the one at `/run/user/<uid>/bus`; with
+`ProtectHome=true` it stays out of reach, and only a backup unit of the system
+manager counts.
 
 - `GET /service-status` answers everyone with one light: `green` when every
   service runs (a one-shot service also after a successful run), `yellow`
   while one starts, stops or restarts, `red` when one stopped, failed or is
   missing, `unknown` when the manager cannot be read. It needs neither the API
   nor a session, so it stays visible while `pages-api` is down.
-- `GET /service-status/details` adds name, state, last start and restarts of
-  every service, only for a session the API confirms as an active admin mode
+- `GET /service-status/details` adds name, state, light, last start,
+  restarts, current memory and effective memory limit (the smaller of
+  `MemoryHigh` and `MemoryMax`) of every service and the time of the last
+  successful base backup, only for a session the API confirms as an active admin mode
   over `POST /api/core/v1/status-access` (contract v1, 3 s limit). The core
   asks for every request and keeps no answer. Without a session, or for any
   other account, it answers `403`; without a valid answer in time, `503`. Both

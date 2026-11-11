@@ -12,6 +12,8 @@ export interface AgentToolDefinition {
   readonly versions: readonly string[];
   readonly dependencies: readonly AgentToolId[];
   readonly probe: "version" | "acp" | "mcp" | "browser" | "sandbox";
+  /** Publishes a stable `bin/<binary>` link to the active managed generation for the operator's terminal. */
+  readonly hasTerminalEntry?: boolean;
 }
 
 const NODE: AgentToolDefinition = {
@@ -57,10 +59,12 @@ export const AGENT_TOOL_REGISTRY: readonly AgentToolDefinition[] = [
     kind: "agent",
     binary: "claude",
     packageName: "@anthropic-ai/claude-code",
-    version: "2.1.293",
-    versions: ["2.1.293"],
+    // Fable 5.2 needs 2.1.321 or later; 2.1.293 stays accepted only so its retained generation can be rolled back to.
+    version: "2.1.322",
+    versions: ["2.1.293", "2.1.322"],
     dependencies: ["node"],
     probe: "version",
+    hasTerminalEntry: true,
   },
   {
     id: "opencode",

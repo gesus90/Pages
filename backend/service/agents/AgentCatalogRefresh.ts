@@ -166,6 +166,15 @@ export class AgentCatalogRefresh {
 
       throw new AgentError("secret_unavailable");
     }
-    return client.list(provider, apiKey, signal, connection.zaiAccountType);
+    const models = await client.list(
+      provider,
+      apiKey,
+      signal,
+      connection.zaiAccountType,
+    );
+    // OpenRouter names its speech-to-text models only in a listing of their own (PAGE-294).
+    return provider === "openrouter"
+      ? client.addTranscriptionModels(models, apiKey, signal)
+      : models;
   }
 }

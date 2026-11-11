@@ -43,12 +43,17 @@ export const serviceStatusSchema = z.strictObject({
 /** The public status, see {@link serviceStatusSchema}. */
 export type ServiceStatus = z.infer<typeof serviceStatusSchema>;
 
+/** Bytes as the core reports them; `null` when unknown or unset. */
+const serviceBytesSchema = z.number().int().nonnegative().nullable();
+
 /**
- * One service of the detailed status: name, state, last start and restarts.
+ * One service of the detailed status: name, state, light, last start,
+ * restarts, current memory and effective memory limit.
  *
  * @remarks
  * Nothing else leaves the core: no path, command, environment or
- * configuration of the unit.
+ * configuration of the unit. The light and the memory came with PAGE-282;
+ * they are optional, so the dashboard also reads an older core.
  */
 export const serviceStateSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9:_.@-]{1,128}$/u),
@@ -63,9 +68,15 @@ export const serviceStateSchema = z.strictObject({
     "maintenance",
     "unknown",
   ]),
+  /** The light of this service alone, as it counts for the light of all. */
+  light: serviceStatusLightSchema.exclude(["unknown"]).optional(),
   /** Milliseconds since the epoch when the main process last started; `null` when never. */
   lastStart: z.number().int().nonnegative().nullable(),
   restarts: z.number().int().nonnegative(),
+  /** Bytes the service uses now (`MemoryCurrent`). */
+  memoryCurrent: serviceBytesSchema.optional(),
+  /** The smaller of `MemoryHigh` and `MemoryMax`; `null` when neither is set. */
+  memoryLimit: serviceBytesSchema.optional(),
 });
 
 /** One service of the detailed status, see {@link serviceStateSchema}. */
@@ -76,6 +87,11 @@ export const serviceStatusDetailsSchema = z.strictObject({
   version: z.literal(SERVICE_STATUS_VERSION),
   light: serviceStatusLightSchema,
   services: z.array(serviceStateSchema).max(32),
+  /**
+   * Milliseconds since the epoch when the PostgreSQL base backup last ended
+   * successfully (PAGE-282); `null` without a backup unit or a successful run.
+   */
+  lastBackup: z.number().int().nonnegative().nullable().optional(),
 });
 
 /** The detailed status, see {@link serviceStatusDetailsSchema}. */

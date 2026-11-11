@@ -187,8 +187,10 @@ export class AgentCliRuntime {
   ): Promise<CliToolExecution> {
     if (file)
       return new CliToolExecution(this.dependencies.runner, file, provider);
-    await this.dependencies.tools?.ensureProvider(provider);
-    const location = await this.dependencies.locator.find(provider);
+    // The verified generation itself, so a concurrent activation cannot split one operation across two CLIs.
+    const location = this.dependencies.tools
+      ? { path: (await this.dependencies.tools.ensureProvider(provider)).file }
+      : await this.dependencies.locator.find(provider);
     if (!location.path) throw new AgentError("cli_not_found");
     return new CliToolExecution(
       this.dependencies.runner,

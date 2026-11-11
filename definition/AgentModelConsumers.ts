@@ -101,9 +101,10 @@ function employeeRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
 
 /**
  * Speech recognition (PAGE-273) takes only a model that is known to turn
- * audio into text: a model whose catalog states audio input and text output
- * alone, or a recognition model documented in Pages. A model that states
- * nothing never qualifies, so chat, agent and CLI models stay out.
+ * audio into text: a model whose catalog states audio input and
+ * transcription output (PAGE-294), or a recognition model documented in
+ * Pages. A model that states nothing never qualifies, and neither does a chat
+ * model that accepts audio, so chat, agent and CLI models stay out.
  */
 function sttRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   return model.isSpeechCapable === true ? null : "noSpeech";

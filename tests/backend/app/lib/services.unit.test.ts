@@ -412,7 +412,11 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
     database: world.database,
     directory: "/srv/pages/data",
     accounts,
-    agents: { ...world.agents, ...world.plans },
+    agents: {
+      ...world.agents,
+      systemDashboardService: { opaque: "system dashboard" },
+      ...world.plans,
+    },
     router: world.mcp.chatOperationRouter,
     acp: {
       bridgeUrl: "http://127.0.0.1:3100/api/v1/pica-bridge",

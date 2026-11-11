@@ -43,7 +43,8 @@ function isAgentToolsData(value: unknown): value is AgentToolsData {
 
 /** The tool inventory, kept per account and rights, the admin mode included. */
 const SETTINGS_AGENT_TOOLS_STATE: LocalStateRouteKind<AgentToolsData> = {
-  schemaVersion: 1,
+  // 2: tools name their executable, rollback generation and terminal entry (PAGE-293).
+  schemaVersion: 2,
   isPayload: isAgentToolsData,
   isCurrent: (inventory) => isCurrentLocalStateAudience(inventory.audience),
   ownerOf: (inventory) => inventory.audience.userId,

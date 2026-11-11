@@ -409,6 +409,14 @@ one sentence with a link to **Settings → System**.
   step clickable; folders first, then files, 200 per page with "Load more".
   `/storage?folder=<id>` is an explicit target and is never redirected; plain
   `/storage` opens the start folder, else My Drive.
+- **Folder change (PAGE-279):** opening a folder, a path step, My Drive, the
+  shared drives or the start folder changes only the address and the file card.
+  Frame, header, quota and toolbar stay in place; the frame's data is not read
+  again for it. Until the new folder arrives, the card shows the former one
+  dimmed and inert with a loading status, and uploads are off. A late answer
+  or page of a replaced folder is dropped and its request ended. A failed
+  request removes the former folder and lets the frame check session and
+  rights again.
 - **Start folder:** chosen in a compact folder dialog and saved per account in
   `storage_start_folder` with the Drive identifier, the shared drive, the
   readable name and path and the `permissionId` of the connection. It is a
@@ -1932,7 +1940,8 @@ administrator in admin mode. Every loader and action rechecks persisted rights;
 mutations also require the same origin. Status reads poll cached metadata and
 never install or execute tools. Opening a page is not a model test.
 
-The fixed registry manages Codex CLI **0.160.0**, Claude Code **2.1.293**,
+The fixed registry manages Codex CLI **0.160.0**, Claude Code **2.1.322**
+(rollback also accepts **2.1.293**; Fable 5.2 needs 2.1.321 or later),
 OpenCode **1.18.34**, Codex ACP **2.2.2** (adoption also accepts **2.1.1**), and
 Playwright MCP **0.0.83**. Playwright MCP itself pins
 `playwright@1.64.0-alpha-1790635538000`; its browser revision is used for Chromium
@@ -1964,6 +1973,20 @@ reviewed. Compatible adopted system tools remain untouched by automatic updates.
 Admins can also trigger an update explicitly. There is no periodic registry
 polling; adding an approved target is a reviewed source change, with no
 uncontrolled major upgrade.
+
+New calls resolve a CLI in one order: the activated managed generation
+(`tools/<tool>/active.json`), otherwise a system installation from the service
+PATH whose real path passes the trust check and whose version is on the
+allowlist. Login, status check, model catalog, CLI test and new plan or ACP
+sessions all start the generation this check returned; ACP receives it as
+`CLAUDE_CODE_EXECUTABLE` or `CODEX_PATH`, and a running session keeps the file
+it pinned. Each activation and rollback of Claude Code also points the stable
+link `tools/claude/bin/claude` at the active generation, so an operator's
+terminal that starts this path runs the same installation as Pages. The Tools
+card names the executable of new calls, the rollback generation and whether
+the terminal entry is current; versions there and in connection checks are the
+results of the check shown with its time, not a new call (PAGE-293,
+[docs/PAGE-293.md](docs/PAGE-293.md)).
 
 After listening, Pages reconstructs required dependencies from active CLI
 connections and saved optional integrations in the background. It checks local

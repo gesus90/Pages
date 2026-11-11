@@ -399,13 +399,87 @@
           "general": "Das Logo konnte nicht gespeichert werden."
         }
       },
-      "status": {
-        "title": "Status",
-        "description": "Angaben zur laufenden Instanz. Sie lassen sich hier nicht ändern.",
-        "version": "Version",
-        "databasePath": "Datenbankdatei",
-        "startedAt": "Läuft seit",
-        "unknown": "Unbekannt"
+      "dashboard": {
+        "title": "System-Leitstand",
+        "description": "Auslastung, Speicher und Dienste dieses Servers auf einen Blick.",
+        "live": "Live · alle 2 s",
+        "load": "Auslastung",
+        "window": "10 Min.",
+        "usage": "{{used}} von {{total}}",
+        "processor": {
+          "name": "Prozessor",
+          "load_one": "Last {{load}} · {{count}} Kern",
+          "load_other": "Last {{load}} · {{count}} Kerne",
+          "cores_one": "{{count}} Kern",
+          "cores_other": "{{count}} Kerne"
+        },
+        "memory": {
+          "name": "Arbeitsspeicher",
+          "used": "{{used}} von {{total}} GB",
+          "available": "{{available}} GB verfügbar"
+        },
+        "swap": {
+          "name": "Swap",
+          "swapping": "lagert aus",
+          "idle": "kein Auslagern"
+        },
+        "agents": {
+          "name": "Agents aktiv",
+          "of": "von {{maximum}} ACP-Instanzen",
+          "unlimited": "ohne Obergrenze",
+          "memory": "{{memory}} Speicher"
+        },
+        "disks": {
+          "title": "Datenträger",
+          "mounted": "{{count}} eingehängt",
+          "root": "System",
+          "path": "{{path}} · {{usage}}",
+          "free": "{{free}} frei",
+          "unreachable": "Nicht erreichbar"
+        },
+        "services": {
+          "title": "Dienste",
+          "running": "{{running}} von {{total}} laufen",
+          "column": {
+            "name": "Dienst",
+            "memory": "Speicher / Limit",
+            "uptime": "Läuft seit",
+            "restarts": "Neustarts"
+          },
+          "memory": "{{current}} / {{limit}}",
+          "noLimit": "{{current}} · ohne Limit",
+          "names": {
+            "api": "API und Oberfläche",
+            "runs": "Plan-Engine",
+            "core": "Live und WebSocket",
+            "coreConfig": "Mobil-Konfiguration",
+            "ingress": "Eingang",
+            "integrations": "Integrationen",
+            "postgres": "PostgreSQL"
+          }
+        },
+        "facts": {
+          "version": "Version",
+          "node": "Node.js",
+          "pagesUptime": "Pages läuft seit",
+          "serverUptime": "Server läuft seit",
+          "database": "Datenbank",
+          "databaseValue": "PostgreSQL · {{size}}",
+          "dataDirectory": "Datenverzeichnis",
+          "lastBackup": "Letztes Backup",
+          "tools": "Agent-Werkzeuge",
+          "toolsValue": "{{ready}} von {{total}} bereit"
+        },
+        "duration": {
+          "days": "{{days}} T. {{hours}} Std.",
+          "hours": "{{hours}} Std. {{minutes}} Min.",
+          "minutes": "{{minutes}} Min.",
+          "underMinute": "< 1 Min."
+        },
+        "day": {
+          "today": "heute {{time}}",
+          "yesterday": "gestern {{time}}"
+        }
       },
       "wiki": {
         "title": "Wiki",
@@ -951,7 +1025,7 @@
       "apiEmpty": "Noch keine API-Anbindung eingerichtet.",
       "cliEmpty": "Noch keine CLI-Anbindung eingerichtet.",
       "cliMissing": "CLI nicht gefunden",
-      "cliInstallHint": "Installieren Sie Codex CLI, Claude Code oder OpenCode nach der Anleitung des Anbieters. Der Pages-Dienst muss die ausführbare Datei über seinen PATH finden. Nach PATH-Änderungen den Dienst neu starten.",
+      "cliInstallHint": "Pages startet zuerst die eigene, geprüfte Generation unter Agent-Tools & Laufzeiten und erst ohne sie eine freigegebene Systeminstallation aus dem PATH des Dienstes. Wirksame Version, Quelle und ausführbare Datei zeigt Agent-Tools & Laufzeiten. Nach PATH-Änderungen den Dienst neu starten.",
       "name": "Name",
       "providerLabel": "Anbieter/Werkzeug",
       "statusLabel": "Status",
@@ -994,6 +1068,7 @@
       "zaiAccountHint": "Wähle die Kontoart deines Schlüssels. Der Coding Plan verwendet seinen eigenen Endpunkt und wird bei opencode als zai-coding-plan registriert. Ein Wechsel setzt die Zugangs- und Modellprüfung zurück.",
       "modelRequiredHint": "Wählen und speichern Sie ein Modell, bevor Sie einen Modelltest ausführen.",
       "neverChecked": "Noch nicht geprüft",
+      "cliCheckSnapshot": "Gespeichertes Ergebnis dieser Prüfung zum genannten Zeitpunkt, kein neuer Aufruf. Die jetzt wirksame CLI zeigt Agent-Tools & Laufzeiten.",
       "duration": "{{duration}} ms",
       "model": "Modell",
       "modelId": "Modell-ID",
@@ -1107,7 +1182,7 @@
         "inputTokens": "Eingabe-Tokens",
         "outputTokens": "Ausgabe-Tokens",
         "endpoint": "API-Host",
-        "cliVersion": "CLI-Version",
+        "cliVersion": "CLI-Version dieser Prüfung",
         "authMethod": "Anmeldeart",
         "costUsd": "Rechnerische Kosten laut CLI (USD)",
         "reasoningEffort": "Reasoning-Stufe",
@@ -1127,7 +1202,7 @@
         "refresh": "Katalog aktualisieren",
         "hint": "Ruft nur Modellmetadaten ab. Es werden keine Modell-Token erzeugt. Die Liste bestätigt den API-Key nicht; dafür „Zugang prüfen“ verwenden. Intervalländerungen gelten sofort; „Nur manuell“ deaktiviert geplante Aktualisierungen.",
         "never": "Noch kein Katalog abgerufen. Nach dem Speichern aktualisieren oder eine Modell-ID manuell eingeben.",
-        "ready": "Katalog erfolgreich aktualisiert. Die Auflistung garantiert keine Kompatibilität mit dem Modelltest.",
+        "ready": "Katalog erfolgreich aktualisiert. Die Auflistung belegt weder eine Freigabe für Konto, Tarif oder Organisation noch eine erfolgreiche Modellantwort.",
         "failed": "Katalogaktualisierung fehlgeschlagen. Der letzte erfolgreiche Katalog bleibt erhalten und kann veraltet sein. Manuelle Modell-IDs bleiben möglich.",
         "attemptedAt": "Letzter Versuch",
         "refreshedAt": "Letzte erfolgreiche Aktualisierung",
@@ -6231,7 +6306,12 @@
     "installation": "Installation",
     "installed": "Installiert",
     "missing": "Fehlt",
-    "version": "Installierte Version",
+    "version": "Wirksame Version (letzte Prüfung)",
+    "executable": "Ausführbare Datei neuer Aufrufe",
+    "rollback": "Rückfallgeneration",
+    "terminalEntry": "Terminal-Einstieg",
+    "terminalEntryCurrent": "Zeigt auf die ausführbare Datei neuer Aufrufe. Ein Terminal, das diesen Pfad startet, nutzt dieselbe freigegebene Installation wie Pages.",
+    "terminalEntryStale": "Zeigt noch nicht auf die aktive Generation. Die nächste geprüfte Aktivierung oder ein Rollback setzt ihn; bis dahin nutzt ein Terminal über diesen Pfad nicht die Installation von Pages.",
     "supported": "Unterstützte Versionen",
     "approved": "Freigegebenes Ziel",
     "enabled": "Aktiviert",
@@ -6355,8 +6435,10 @@
     "status": {
       "ready": "Bereit",
       "noModel": "Kein Modell gewählt",
-      "modelUnavailable": "Modell nicht verfügbar"
+      "modelUnavailable": "Modell nicht verfügbar",
+      "modelUnsuitable": "Kein Transkriptionsmodell"
     },
+    "unsuitable": "Das gespeicherte Modell {{model}} ist kein Transkriptionsmodell: Sein Katalog meldet keine Transkriptionsausgabe, etwa weil es ein Chatmodell mit Audioeingabe ist. Die Spracherkennung bleibt aus, bis ein angebotenes Transkriptionsmodell gewählt und gespeichert ist. Die längste Aufnahme bleibt erhalten.",
     "hint": "Die Sprache erkennt das Modell selbst. Audio wird nach der Umwandlung nicht gespeichert.",
     "testButton": {
       "idle": "Testaufnahme prüfen",
@@ -6410,24 +6492,15 @@
     "unsupported": "{{model}} unterstützt diese Stufe nicht."
   },
   "serviceStatus": {
-    "title": "Dienste",
-    "description": "Zustand der Pages-Dienste aus dem systemd-Manager, auch wenn die API ausgefallen ist.",
     "loading": "Dienststatus wird geladen…",
     "unreachable": "Der Dienststatus ist nicht erreichbar.",
     "denied": "Details sehen nur Administratoren im Adminmodus.",
     "unconfirmed": "Die Anmeldung kann gerade nicht geprüft werden, deshalb ist nur die Ampel sichtbar. Die Details erscheinen wieder, sobald die API antwortet.",
-    "neverStarted": "nie gestartet",
     "light": {
       "green": "Alle Dienste laufen",
       "yellow": "Ein Dienst startet oder stoppt",
       "red": "Störung: nicht alle Dienste laufen",
       "unknown": "Dienststatus unbekannt"
-    },
-    "column": {
-      "name": "Dienst",
-      "state": "Zustand",
-      "lastStart": "Letzter Start",
-      "restarts": "Neustarts"
     },
     "state": {
       "active": "läuft",

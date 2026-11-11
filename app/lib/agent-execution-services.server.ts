@@ -17,6 +17,7 @@ import { resolveAgentsDirectory } from "@/backend/config/PagesConfig";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
 import { createAgentServices } from "./agent-services.server";
+import { createSystemServices } from "./system-services.server";
 
 import type { AcpRecoveryScope } from "@/backend/service/agents/resources/AcpLeaseAdmission";
 import type { Database } from "@/backend/database/Database";
@@ -24,8 +25,15 @@ import type { TaskAttachmentService } from "@/backend/service/task/TaskAttachmen
 import type { WikiService } from "@/backend/service/WikiService";
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { AgentApplicationServices } from "./agent-services.server";
+import type { SystemApplicationServices } from "./system-services.server";
 
-/** Wires ticket asset readers before starting the shared agent runtimes. */
+/**
+ * Wires ticket asset readers before starting the shared agent runtimes.
+ *
+ * @remarks
+ * The system dashboard comes along, since it counts the ACP instances and the
+ * agent tools of these runtimes (PAGE-282).
+ */
 export async function startExecutionServices(
   database: Database,
   databasePath: string,
@@ -35,7 +43,7 @@ export async function startExecutionServices(
     readonly wiki: WikiService;
   },
 ): Promise<{
-  readonly agentServices: AgentApplicationServices;
+  readonly agentServices: AgentApplicationServices & SystemApplicationServices;
 }> {
   const planAssets = createPlanAssets(database, databasePath);
   const agentServices = await startAgents(
@@ -52,7 +60,12 @@ export async function startExecutionServices(
       plans: planAssets,
     },
   );
-  return { agentServices };
+  return {
+    agentServices: {
+      ...agentServices,
+      ...createSystemServices(database, databasePath, agentServices),
+    },
+  };
 }
 
 /**

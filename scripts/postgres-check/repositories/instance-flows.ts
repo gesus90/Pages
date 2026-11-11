@@ -112,6 +112,13 @@ export const INSTANCE_FLOW: RepositoryFlow = {
     call("InstanceSettingsRepository.findLogo", ({ instance }) =>
       instance.findLogo(),
     ),
+    call(
+      "SystemMetricsRepository.readDatabaseSize",
+      async ({ systemMetrics }) => {
+        const size = await systemMetrics.readDatabaseSize();
+        return typeof size === "number" && size > 0;
+      },
+    ),
     call("AdministrationActivityRepository.insert", ({ activity }) =>
       activity.insert({
         actorId: "user-admin",

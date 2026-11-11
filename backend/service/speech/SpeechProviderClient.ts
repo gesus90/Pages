@@ -29,12 +29,8 @@ export type SpeechProviderOutcome =
 const ZAI_TRANSCRIPTION_URL =
   "https://api.z.ai/api/paas/v4/audio/transcriptions";
 
-/**
- * The fixed instruction for OpenRouter: the spoken words, verbatim, in the
- * spoken language, and nothing else.
- */
-const TRANSCRIPTION_INSTRUCTION =
-  "Transcribe the speech in this audio verbatim, in the language that is spoken. Do not translate, summarize, answer or comment. Output only the transcribed text.";
+/** OpenRouter's dedicated speech-to-text endpoint (PAGE-294). */
+const OPENROUTER_TRANSCRIPTION_URL = `${AGENT_PROVIDERS.openrouter.endpoint}/audio/transcriptions`;
 
 /** How long a provider may take for one recording. */
 const REQUEST_TIMEOUT_MS = 90_000;
@@ -54,6 +50,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// No `language` is sent, so the model detects the spoken language itself.
 function openRouterRequest(request: SpeechProviderRequest): RequestInit {
   return {
     method: "POST",
@@ -64,23 +61,11 @@ function openRouterRequest(request: SpeechProviderRequest): RequestInit {
     },
     body: JSON.stringify({
       model: request.model,
-      input: [
-        {
-          type: "message",
-          role: "user",
-          content: [
-            { type: "input_text", text: TRANSCRIPTION_INSTRUCTION },
-            {
-              type: "input_audio",
-              input_audio: {
-                data: request.audio.toString("base64"),
-                format: request.mimeType === "audio/wav" ? "wav" : "mp3",
-              },
-            },
-          ],
-        },
-      ],
-      store: false,
+      input_audio: {
+        data: request.audio.toString("base64"),
+        format: request.mimeType === "audio/wav" ? "wav" : "mp3",
+      },
+      response_format: "json",
     }),
   };
 }
@@ -104,36 +89,11 @@ function zaiRequest(request: SpeechProviderRequest): RequestInit {
   };
 }
 
-// The Responses API answers with message items holding `output_text` parts.
-function readOpenRouterText(payload: unknown): string | null {
-  if (!isRecord(payload) || !Array.isArray(payload.output)) return null;
-  if (payload.status !== undefined && payload.status !== "completed")
-    return null;
-  const texts: string[] = [];
-  for (const item of payload.output) {
-    if (!isRecord(item) || item.type !== "message") continue;
-    if (!Array.isArray(item.content)) return null;
-    for (const part of item.content) {
-      if (isRecord(part) && part.type === "output_text")
-        texts.push(typeof part.text === "string" ? part.text : "");
-    }
-  }
-  return texts.length === 0 ? null : texts.join("");
-}
-
-function readZaiText(payload: unknown): string | null {
+// Both transcription APIs answer with the recognized text in the string field `text`.
+function readTranscriptionText(payload: unknown): string | null {
   return isRecord(payload) && typeof payload.text === "string"
     ? payload.text
     : null;
-}
-
-function readProviderText(
-  provider: SpeechProviderId,
-  payload: unknown,
-): string | null {
-  return provider === "zai"
-    ? readZaiText(payload)
-    : readOpenRouterText(payload);
 }
 
 async function readBody(response: Response): Promise<unknown> {
@@ -169,9 +129,11 @@ async function readBody(response: Response): Promise<unknown> {
  * @remarks
  * The key travels only in the header, redirects are refused, and neither the
  * audio, the key nor a provider's answer is logged; only the provider, the
- * HTTP status and the outcome are. OpenRouter is asked through
- * `POST /api/v1/responses` with `input_audio` and a fixed instruction, Z.AI
- * through its transcription endpoint.
+ * HTTP status and the outcome are. OpenRouter is asked through its
+ * speech-to-text endpoint `POST /api/v1/audio/transcriptions` with `model`,
+ * `input_audio` and `response_format: "json"` (PAGE-294), Z.AI through its
+ * own transcription endpoint. Neither gets an instruction or a language, and
+ * a failed transcription is never retried through another API.
  */
 export class SpeechProviderClient {
   private readonly request: typeof fetch;
@@ -199,7 +161,7 @@ export class SpeechProviderClient {
       response = await this.request(
         input.provider === "zai"
           ? ZAI_TRANSCRIPTION_URL
-          : `${AGENT_PROVIDERS.openrouter.endpoint}/responses`,
+          : OPENROUTER_TRANSCRIPTION_URL,
         {
           ...(input.provider === "zai"
             ? zaiRequest(input)
@@ -229,7 +191,7 @@ export class SpeechProviderClient {
       this.log(input.provider, response.status, "provider_unreachable");
       return signal.aborted ? UNREACHABLE : FAILED;
     }
-    const text = response.ok ? readProviderText(input.provider, payload) : null;
+    const text = response.ok ? readTranscriptionText(payload) : null;
     this.log(
       input.provider,
       response.status,

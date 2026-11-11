@@ -61,6 +61,12 @@
   --color-metric-tertiary-subtle: var(--color-primary-subtle);
   --color-metric-quaternary-subtle: var(--color-primary-subtle);
   --color-trend-positive: var(--color-green-600);
+  /* Load levels of the system dashboard (PAGE-282): below 60 % normal, from
+     60 % elevated, from 80 % high, from 90 % critical; rings, bars and curves. */
+  --color-load-normal: #10b981;
+  --color-load-elevated: #eab308;
+  --color-load-high: #f97316;
+  --color-load-critical: #ef4444;
   --color-toggle-thumb: #ffffff;
   --color-toggle-thumb-active: #ffffff;
   --color-placeholder-foreground: color-mix(
@@ -448,6 +454,10 @@
     --color-warning-subtle: #2b220c;
     --color-warning: #fbbf24;
     --color-ring: #fb923c;
+    --color-load-normal: #34d399;
+    --color-load-elevated: #fbbf24;
+    --color-load-high: #fb923c;
+    --color-load-critical: #f87171;
 
     /* The terminal keeps its dark work surface in both Pages themes. */
     --color-terminal-surface: #0f141b;

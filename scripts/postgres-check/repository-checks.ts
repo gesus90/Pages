@@ -11,6 +11,7 @@ import { InstanceSettingsRepository } from "@/backend/database/repositories/Inst
 import { LiveChangeNotificationRepository } from "@/backend/database/repositories/LiveChangeNotificationRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
+import { SystemMetricsRepository } from "@/backend/database/repositories/SystemMetricsRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import { UserBoardPreferencesRepository } from "@/backend/database/repositories/UserBoardPreferencesRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
@@ -150,6 +151,7 @@ const AREA_CLASSES: Readonly<Record<string, { readonly prototype: object }>> = {
   LiveChangeNotificationRepository,
   ProjectRepository,
   SessionRepository,
+  SystemMetricsRepository,
   TaskRepository,
   UserBoardPreferencesRepository,
   UserGroupRepository,

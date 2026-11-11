@@ -9,13 +9,11 @@ import { InterpreterCard } from "@/app/components/settings/system/interpreter-ca
 import { InstanceCard } from "@/app/components/settings/system/instance-card";
 import { ServerCard } from "@/app/components/settings/system/server-card";
 import { LoggingCard } from "@/app/components/settings/system/logging-card";
-import { StatusCard } from "@/app/components/settings/system/status-card";
-import { ServiceStatusCard } from "@/app/components/settings/system/service-status-card";
+import { SystemDashboardCard } from "@/app/components/settings/system/system-dashboard-card";
 import { WikiSettingsCard } from "@/app/components/settings/system/wiki-settings-card";
 
 import { TicketAssetsCard } from "./system/ticket-assets-card";
 
-import type { ServerStatus } from "@/backend/service/ServerSettingsService";
 import type { ChatAdministration } from "@/definition/Chat";
 import type { InstanceBranding } from "@/definition/Instance";
 import type { WikiSettings } from "@/definition/Wiki";
@@ -29,7 +27,6 @@ interface SystemSectionProps {
   /** Port stored in the configuration for the next start. */
   readonly port: number;
   readonly branding: InstanceBranding;
-  readonly status: ServerStatus;
   /** Retention times and upload limits of the wiki. */
   readonly wikiSettings: WikiSettings;
   /** Supplementary instruction of the chat agent. */
@@ -40,14 +37,13 @@ interface SystemSectionProps {
  * Renders the system settings that administrators see.
  *
  * @remarks
- * Company name and logo are stored in the database and apply at once. The
- * port is stored in the configuration file and applies after Pages restarts.
- * Version, database file, and start time are shown and cannot be changed.
+ * The system dashboard stands above both columns (PAGE-282). Company name
+ * and logo are stored in the database and apply at once. The port is stored
+ * in the configuration file and applies after Pages restarts.
  */
 export function SystemSection({
   port,
   branding,
-  status,
   wikiSettings,
   chatSettings,
   logging,
@@ -61,7 +57,8 @@ export function SystemSection({
         icon={<Server className="size-4" aria-hidden="true" />}
         title={t("settings.system.title")}
       />
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <SystemDashboardCard />
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 lg:items-start">
         <div className="flex min-w-0 flex-col gap-4">
           <GoogleDriveCard />
           <InterpreterCard />
@@ -71,8 +68,6 @@ export function SystemSection({
           <AcpResourcesCard canConfigure />
         </div>
         <div className="flex flex-col gap-4">
-          <StatusCard status={status} />
-          <ServiceStatusCard />
           <ServerCard port={port} />
           <LoggingCard
             retentionDays={logging.retentionDays}

@@ -21,6 +21,7 @@ import {
 
 import {
   SpeechStatusBadge,
+  SpeechUnsuitableNote,
   formatSpeechDuration,
 } from "./speech-settings/speech-status";
 import { SpeechTestResult, useSpeechTest } from "./speech-settings/speech-test";
@@ -171,6 +172,7 @@ function SpeechSettingsForm({
         canTest={canTest}
         isPending={isPending}
       />
+      <SpeechUnsuitableNote administration={administration} />
       {draft.isDirty && administration.status === "ready" ? (
         <p className="text-xs text-muted-foreground">
           {t("speechSettings.saveBeforeTest")}

@@ -34,10 +34,9 @@ export async function loader({
 
   const serverSettings = await createServerSettingsService({ services });
 
-  const [port, status, branding, wikiSettings, chatSettings, logging] =
+  const [port, branding, wikiSettings, chatSettings, logging] =
     await Promise.all([
       serverSettings.readPort(),
-      serverSettings.readStatus(),
       services.instanceSettingsService.getBranding(),
       services.wikiService.getSettings(),
       services.chatSettingsService.administration(user),
@@ -51,7 +50,6 @@ export async function loader({
     chatSettings,
     logging,
     port,
-    status,
     wikiSettings,
   };
 }

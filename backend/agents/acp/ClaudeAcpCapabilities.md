@@ -8,11 +8,22 @@ not against its documentation. Checked on 16 October 2026.
 | `@agentclientprotocol/claude-agent-acp`               | 0.90.0  | global npm package of the server account (`claude-agent-acp --version`) |
 | `@anthropic-ai/claude-agent-sdk` (adapter)            | 0.3.296 | `node_modules` of the adapter                                           |
 | `@agentclientprotocol/sdk` (adapter)                  | 1.8.0   | `node_modules` of the adapter                                           |
-| Host `claude` (used through `CLAUDE_CODE_EXECUTABLE`) | 2.1.293 | `claude --version`                                                      |
+| Host `claude` (used through `CLAUDE_CODE_EXECUTABLE`) | 2.1.322 | Pages-managed generation, `claude --version` (PAGE-293)                 |
 | `@agentclientprotocol/sdk` in Pages                   | 1.7.0   | `node_modules/@agentclientprotocol/sdk`                                 |
 
 Pages accepts claude-agent-acp 0.90.x (`ClaudeAcpAdapter.ts`). Another version
 must be checked again.
+
+The adapter starts the CLI Pages passes as `CLAUDE_CODE_EXECUTABLE`
+(`dist/acp-agent.js`, `pathToClaudeCodeExecutable`), never its bundled one. Its
+SDK 0.3.296 bundles Claude Code 2.1.296 but does not check the version of an
+external CLI; the contract between them is the SDK's stream-json control
+protocol. PAGE-293 checked it again on 10 November 2026 against the Pages-managed
+Claude Code 2.1.322, live and without sign-in or prompt: `initialize` reports
+claude-agent-acp 0.90.0 and protocol 1; `session/new` started exactly the
+managed generation and answered with the model values `default`, `opus`,
+`fable`, `sonnet`, `haiku` and the efforts `low` to `max` of that CLI;
+`session/close` succeeded. The rows below were taken with 2.1.293.
 
 Sources: **live** = `initialize` against the installed binary with an empty,
 temporary `CLAUDE_CONFIG_DIR`, without sign-in, session or model call

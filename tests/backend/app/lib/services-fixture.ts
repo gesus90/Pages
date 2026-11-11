@@ -335,7 +335,10 @@ export function servicesWorld(): ServicesWorld {
   vi.mocked(getPagesRuntime).mockResolvedValue(runtimeFixture());
   vi.mocked(resolveGitHubTokenKey).mockReturnValue(world.tokenKey);
   vi.mocked(startExecutionServices).mockResolvedValue({
-    agentServices: world.agents,
+    agentServices: {
+      ...world.agents,
+      systemDashboardService: opaque("system dashboard"),
+    },
   });
   vi.mocked(createAgentPlanService).mockResolvedValue(world.plans);
   vi.mocked(createMcpServices).mockReturnValue(world.mcp);

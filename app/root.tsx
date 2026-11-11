@@ -30,6 +30,7 @@ import {
 import { createI18n } from "@/app/lib/i18n";
 import { loadRoot } from "@/app/lib/local-state/root-loader";
 import { isLocalStateNavigation } from "@/app/lib/local-state/local-state-navigation";
+import { isStorageFolderNavigation } from "@/app/lib/storage-folder-navigation";
 import {
   isTaskOverlayMutation,
   isTaskOverlayNavigation,
@@ -93,8 +94,9 @@ const ACCOUNT_BOUNDARY_PATHS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Keeps the shell settings when only a board overlay opens or closes or a
- * local-state route opens; reads them again on the way to the sign-in page.
+ * Keeps the shell settings when only a board overlay opens or closes, a
+ * local-state route opens or Storage changes its folder; reads them again on
+ * the way to the sign-in page.
  *
  * @remarks
  * A route that finds the session ended redirects to the sign-in page during
@@ -109,7 +111,8 @@ export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
     return true;
   return isTaskOverlayNavigation(args) ||
     isTaskOverlayMutation(args) ||
-    isLocalStateNavigation(args)
+    isLocalStateNavigation(args) ||
+    isStorageFolderNavigation(args)
     ? false
     : args.defaultShouldRevalidate;
 }
