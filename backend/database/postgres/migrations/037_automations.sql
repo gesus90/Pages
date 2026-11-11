@@ -25,7 +25,6 @@ CREATE TABLE automations (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY (creator_id) REFERENCES users (id) ON DELETE CASCADE,
     CHECK (char_length(name) BETWEEN 1 AND 200),
     CHECK (trigger_type IN ('manual', 'once', 'interval', 'weekly', 'event')),
     CHECK ((trigger_type = 'event') = (event_type IS NOT NULL)),
@@ -200,6 +199,5 @@ CREATE TABLE automation_notification_preferences (
     mode TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     PRIMARY KEY (user_id),
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     CHECK (mode IN ('off', 'error', 'always'))
 );
