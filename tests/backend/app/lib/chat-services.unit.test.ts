@@ -27,6 +27,7 @@ import { PicaIdentityService } from "@/backend/service/chat/PicaIdentityService"
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import type { Mock } from "vitest";
+import type { ChatJob } from "@/definition/ChatJob";
 import type { ChatServicesInput } from "@/app/lib/chat-services.server";
 import type { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
@@ -297,6 +298,32 @@ it("shows the latest job and the steering of a session as its activity", async (
   expect(ChatSteerRepository.prototype.selections).toHaveBeenCalledWith(
     "session-1",
   );
+});
+
+it("hands the latest job of a session to the session service", async () => {
+  createChatServices(chatInput());
+  const job = partial<ChatJob>({ usage: { context: null } });
+  vi.mocked(ChatJobRepository.prototype.latest).mockResolvedValue(job);
+
+  await expect(
+    sessionOptions().latestJob?.("user-1", "session-1"),
+  ).resolves.toBe(job);
+  expect(ChatJobRepository.prototype.latest).toHaveBeenCalledWith(
+    "user-1",
+    "session-1",
+  );
+});
+
+it("gives Pica's administration tools the file storage next to the browser options", () => {
+  const storage = opaque<NonNullable<ChatServicesInput["storage"]>>("storage");
+
+  const launchBrowser = vi.fn();
+
+  createChatServices(chatInput({ storage, picaBrowser: { launchBrowser } }));
+
+  expect(vi.mocked(PicaAdminService).mock.calls).toEqual([
+    [ACCOUNTS, { launchBrowser, storage }],
+  ]);
 });
 
 it("reads the context indicator from the latest job only when one exists", async () => {
