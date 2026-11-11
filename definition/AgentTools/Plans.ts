@@ -25,6 +25,12 @@ import type {
 
 const NAME = { type: "string", minLength: 1, maxLength: 120 } as const;
 
+const ONE_SHOT: PropertySchema = {
+  type: "boolean",
+  description:
+    "true marks a one-time plan: five minutes after a run of it ends as succeeded, Pages deletes the plan with its runs, reports, session records and working files made for it (commits, pushed branches, ticket and wiki changes, attachments and shared workspaces, agents, templates and other plans' parameters stay). It stays after failed, cancelled, paused, blocked or work_done_closeout_open runs. false removes the mark and cancels a scheduled deletion; keep_plan does the same for a pending deletion. Omitted keeps the stored value (false when creating).",
+};
+
 const SELECT: PropertySchema = { enum: ["latest", "first"] };
 
 const SHARING: PropertySchema = {
@@ -68,7 +74,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: buildReadTool({
       name: "list_plans",
       title: "List agent plans",
-      description: `Lists the visible agent plans ordered by name: id, name, project, workspaceId, ownerId, canEdit, team (the department whose members and leaders share the plan, or null), sharing, revision, nodeCount, state (idle, running, pausing, paused or stopping by the account's own runs) and latestRun. text keeps plans whose name contains it (case-insensitive), projectId those of one project. Pass nextCursor with the same query to continue. ${SEE_DESCRIPTION}`,
+      description: `Lists the visible agent plans ordered by name: id, name, project, workspaceId, ownerId, canEdit, oneShot (a one-time plan that Pages deletes five minutes after a run ended as succeeded) and scheduledDeletionAt (ISO 8601, only while that deletion is pending), team (the department whose members and leaders share the plan, or null), sharing, revision, nodeCount, state (idle, running, pausing, paused or stopping by the account's own runs) and latestRun. text keeps plans whose name contains it (case-insensitive), projectId those of one project. Pass nextCursor with the same query to continue. ${SEE_DESCRIPTION}`,
       properties: {
         text: NAME,
         projectId: IDENTIFIER_SCHEMA,
@@ -82,7 +88,7 @@ export const PLAN_READ_TOOLS: readonly {
     tool: buildReadTool({
       name: "read_plan",
       title: "Read agent plan",
-      description: `Reads one visible plan with its nodes (id, type, x, y, label and the fields of its kind, agent and script nodes with bindings), its flow edges (from → to), sharing, stored default executionTarget, revision and status: state, runCount, latestRun, live isRunnable and graph issues. Large reads return chunk {text, offsetBytes, byteLength, totalBytes, sha256, nextCursor}: concatenate text in offset order, verify SHA-256 and parse JSON. Pass nextCursor as cursor with the same planId and maxBytes. maxBytes forces chunking (1024..65536 UTF-8 bytes including the response envelope; default 65536). The complete plan is streamed without the general 1 MiB serialized-result limit; each page rechecks its snapshot and very large plans need more work to read. Cursors bind the account, revision and exact snapshot; changes or another query return INVALID_REQUEST. A null executionTarget means the stored plan has no explicit default; consult its registered workspace and current control rather than assuming a local fallback. No partial result is presented as a complete plan. read_plan_control additionally reports actual shared execution state and concrete availability blockers. ${SEE_DESCRIPTION}`,
+      description: `Reads one visible plan with oneShot and, while a deletion is pending, scheduledDeletionAt, its nodes (id, type, x, y, label and the fields of its kind, agent and script nodes with bindings), its flow edges (from → to), sharing, stored default executionTarget, revision and status: state, runCount, latestRun, live isRunnable and graph issues. Large reads return chunk {text, offsetBytes, byteLength, totalBytes, sha256, nextCursor}: concatenate text in offset order, verify SHA-256 and parse JSON. Pass nextCursor as cursor with the same planId and maxBytes. maxBytes forces chunking (1024..65536 UTF-8 bytes including the response envelope; default 65536). The complete plan is streamed without the general 1 MiB serialized-result limit; each page rechecks its snapshot and very large plans need more work to read. Cursors bind the account, revision and exact snapshot; changes or another query return INVALID_REQUEST. A null executionTarget means the stored plan has no explicit default; consult its registered workspace and current control rather than assuming a local fallback. No partial result is presented as a complete plan. read_plan_control additionally reports actual shared execution state and concrete availability blockers. ${SEE_DESCRIPTION}`,
       properties: {
         planId: IDENTIFIER_SCHEMA,
         cursor: CURSOR_SCHEMA,
@@ -164,9 +170,10 @@ export const PLAN_WRITE_TOOLS: readonly {
         workspaceId: IDENTIFIER_SCHEMA,
         sharing: SHARING,
         executionTarget: EXECUTION_TARGET,
+        oneShot: ONE_SHOT,
         changes: CHANGES,
       },
-      optionalKeys: ["sharing", "executionTarget", "changes"],
+      optionalKeys: ["sharing", "executionTarget", "oneShot", "changes"],
       isDestructive: false,
     }),
   },
@@ -182,6 +189,7 @@ export const PLAN_WRITE_TOOLS: readonly {
         sharing: SHARING,
         workspaceId: IDENTIFIER_SCHEMA,
         executionTarget: EXECUTION_TARGET,
+        oneShot: ONE_SHOT,
         changes: CHANGES,
       },
       optionalKeys: [
@@ -189,6 +197,7 @@ export const PLAN_WRITE_TOOLS: readonly {
         "sharing",
         "workspaceId",
         "executionTarget",
+        "oneShot",
         "changes",
       ],
       isDestructive: true,

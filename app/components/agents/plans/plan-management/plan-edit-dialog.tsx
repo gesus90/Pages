@@ -16,6 +16,11 @@ import {
   planRequestError,
 } from "./plan-context-model";
 import { PlanDialogFrame } from "./plan-dialog-frame";
+import {
+  PlanOneShotConfirmDialog,
+  PlanOneShotField,
+  usePlanOneShotChoice,
+} from "./plan-one-shot-field";
 
 import type {
   AgentPlanInput,
@@ -38,6 +43,7 @@ function editedDraft(
     readonly workspaceId: string;
     readonly target: AgentPlanExecutionTarget | undefined;
     readonly followIds: ReadonlySet<string>;
+    readonly isOneShot: boolean;
   },
 ): AgentPlanInput {
   const next: AgentPlanInput = {
@@ -46,6 +52,8 @@ function editedDraft(
     workspaceId: change.workspaceId,
     projectId: change.values.projectId,
     executionTarget: change.target,
+    // An absent key is a normal plan; undefined drops out of the stored JSON.
+    oneShot: change.isOneShot ? true : undefined,
   };
   return withPlanTargetFollowed(next, change.followIds);
 }
@@ -107,7 +115,9 @@ export function PlanEditDialog({
     location: planLocationValue(draft),
   }));
   const [choice, setChoice] = useState<DeviationChoice | null>(null);
+  const oneShot = usePlanOneShotChoice(draft.oneShot === true);
   const save = useEditSave(editor, management.close);
+  const isLocked = !editor.canEdit || (save.isSubmitted && editor.isPending);
   const fields = planLocationFields(page, values);
   const deviations =
     fields && !isSamePlanTarget(fields.executionTarget, draft.executionTarget)
@@ -135,40 +145,49 @@ export function PlanEditDialog({
         workspaceId: fields.workspaceId,
         target: fields.executionTarget,
         followIds,
+        isOneShot: oneShot.isOneShot,
       }),
     );
   }
   return (
-    <PlanDialogFrame
-      title={t("plans.manage.editTitle")}
-      submitLabel={t("plans.execution.save")}
-      isPending={save.isSubmitted && editor.isPending}
-      isSubmitDisabled={isIncomplete || !editor.canEdit}
-      error={planRequestError(save.error, t)}
-      onSubmit={submit}
-      onClose={management.close}
-    >
-      <PlanContextFields
-        page={page}
-        values={values}
-        onChange={setValues}
-        isDisabled={!editor.canEdit || (save.isSubmitted && editor.isPending)}
-        isProjectFixed={plan.ownerId !== page.userId}
-        nameError={isTaken ? t("settings.agents.error.plan_name_taken") : null}
-      />
-      {deviations.length > 0 ? (
-        <PlanDeviationChoice
-          names={deviations.map((node) => planNodeLabel(node, editor.sources))}
-          choice={choice}
-          onChoose={setChoice}
+    <>
+      <PlanDialogFrame
+        title={t("plans.manage.editTitle")}
+        submitLabel={t("plans.execution.save")}
+        isPending={save.isSubmitted && editor.isPending}
+        isSubmitDisabled={isIncomplete || !editor.canEdit}
+        error={planRequestError(save.error, t)}
+        onSubmit={submit}
+        onClose={management.close}
+      >
+        <PlanContextFields
+          page={page}
+          values={values}
+          onChange={setValues}
+          isDisabled={isLocked}
+          isProjectFixed={plan.ownerId !== page.userId}
+          nameError={
+            isTaken ? t("settings.agents.error.plan_name_taken") : null
+          }
         />
-      ) : null}
-      {editor.isDirty ? (
-        <p role="note" className="text-xs text-muted-foreground">
-          {t("plans.manage.editUnsaved")}
-        </p>
-      ) : null}
-    </PlanDialogFrame>
+        <PlanOneShotField choice={oneShot} isDisabled={isLocked} />
+        {deviations.length > 0 ? (
+          <PlanDeviationChoice
+            names={deviations.map((node) =>
+              planNodeLabel(node, editor.sources),
+            )}
+            choice={choice}
+            onChoose={setChoice}
+          />
+        ) : null}
+        {editor.isDirty ? (
+          <p role="note" className="text-xs text-muted-foreground">
+            {t("plans.manage.editUnsaved")}
+          </p>
+        ) : null}
+      </PlanDialogFrame>
+      <PlanOneShotConfirmDialog choice={oneShot} />
+    </>
   );
 }
 

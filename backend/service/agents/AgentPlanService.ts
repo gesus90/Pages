@@ -416,6 +416,33 @@ export class AgentPlanService {
   }
 
   /**
+   * Removes the one-time mark and cancels the scheduled deletion of a plan (PAGE-309).
+   *
+   * @param userId - The authenticated requester, who must be allowed to change the plan.
+   * @param id - The plan to keep.
+   * @param options - The revision the requester saw and a journal that
+   * commits with the change.
+   * @returns Whether the plan carried the mark; a normal plan stays as it is.
+   * @throws {AgentError} `plan_access_denied` for a plan the requester may not
+   * change, `plan_conflict` for a stale revision.
+   */
+  public async keep(
+    userId: string,
+    id: string,
+    options: {
+      readonly revision: number;
+      readonly journal?: (transaction: DatabaseTransaction) => Promise<void>;
+    },
+  ): Promise<boolean> {
+    const plan = await this.dependencies.access.require(userId, id);
+    if (!plan.canEdit) throw new AgentError("plan_access_denied");
+    return this.dependencies.plans.keepOneShot(plan.id, {
+      ...options,
+      editorId: userId,
+    });
+  }
+
+  /**
    * Play uses the saved revision and never executes an unsaved client graph.
    *
    * @remarks

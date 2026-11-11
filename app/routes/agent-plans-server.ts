@@ -4,6 +4,7 @@ import { defaultPlanId } from "@/app/lib/agent-plan-default";
 import { displayPlanRun } from "@/app/lib/agent-plan-display.server";
 import {
   clonePlanAction,
+  keepPlanAction,
   createPlanAction,
   deletePlanAction,
 } from "@/app/lib/agent-plan-management.server";
@@ -293,6 +294,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       return await createPlanAction(user.id, services, formData);
     if (intent === "clone-plan")
       return await clonePlanAction(user.id, services, formData);
+    if (intent === "keep-plan")
+      return await keepPlanAction(user.id, services, formData);
     if (intent === "delete-plan")
       return await deletePlanAction(user.id, services, {
         request: args.request,

@@ -132,6 +132,10 @@ export class AgentPlanAccess {
         departmentId: listing.departmentId,
         usage: listing.usage,
         revision: listing.revision,
+        ...(listing.oneShot ? { oneShot: true } : {}),
+        ...(listing.scheduledDeletionAt
+          ? { scheduledDeletionAt: listing.scheduledDeletionAt }
+          : {}),
         canEdit: place.canEdit,
         ...(place.isWorkspaceMissing ? { isWorkspaceMissing: true } : {}),
       });

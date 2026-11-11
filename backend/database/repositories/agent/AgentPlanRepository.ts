@@ -30,8 +30,25 @@ const PLAN_COLUMNS = `
     project_id,
     revision,
     plan_json,
-    department_id
+    department_id,
+    one_shot_delete_at
 `;
+
+/** The deadline of a one-time plan from its own column; it is never part of the stored graph. */
+function scheduledDeletion(
+  deadline: string | null,
+): Pick<AgentPlan, "scheduledDeletionAt"> {
+  return deadline === null ? {} : { scheduledDeletionAt: deadline };
+}
+
+/** The graph as it is stored: the deadline lives in its own column, so a plan read back never carries it into the JSON. */
+function storedPlanJson(plan: AgentPlan): string {
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(plan).filter(([key]) => key !== "scheduledDeletionAt"),
+    ),
+  );
+}
 
 function readPlan(row: readonly DatabaseValue[]): AgentPlan {
   const input: unknown = JSON.parse(readTextColumn(row, 4, "plan_json"));
@@ -43,6 +60,9 @@ function readPlan(row: readonly DatabaseValue[]): AgentPlan {
       projectId: readTextColumn(row, 2, "project_id"),
       revision: readCountColumn(row, 3, "revision"),
       departmentId: readNullableTextColumn(row, 5, "department_id"),
+      ...scheduledDeletion(
+        readNullableTextColumn(row, 6, "one_shot_delete_at"),
+      ),
     }),
   );
 }
@@ -61,6 +81,10 @@ export interface AgentPlanListing {
   readonly usage: AgentPlanInput["usage"];
   readonly revision: number;
   readonly sharing?: AgentPlanInput["sharing"];
+  /** Whether the plan is a one-time plan, read from its stored graph. */
+  readonly oneShot?: boolean;
+  /** When the one-time plan is deleted; absent or `null` while nothing is scheduled. */
+  readonly scheduledDeletionAt?: string | null;
 }
 
 function readListing(row: readonly DatabaseValue[]): AgentPlanListing {
@@ -77,6 +101,10 @@ function readListing(row: readonly DatabaseValue[]): AgentPlanListing {
     name: readTextColumn(row, 5, "name"),
     usage,
     revision: readCountColumn(row, 7, "revision"),
+    ...(readNullableTextColumn(row, 9, "one_shot") === "true"
+      ? { oneShot: true }
+      : {}),
+    ...scheduledDeletion(readNullableTextColumn(row, 10, "one_shot_delete_at")),
     ...(sharing === null
       ? {}
       : { sharing: readPlanSharing(JSON.parse(sharing)) }),
@@ -174,7 +202,9 @@ export class AgentPlanRepository {
           name,
           usage,
           revision,
-          json_extract_string(plan_json, '$.sharing') AS sharing_json
+          json_extract_string(plan_json, '$.sharing') AS sharing_json,
+          json_extract_string(plan_json, '$.oneShot') AS one_shot,
+          one_shot_delete_at
       FROM agent_plans
       ORDER BY lower(name), id;
     `);
@@ -326,6 +356,66 @@ export class AgentPlanRepository {
   }
 
   /**
+   * Removes the one-time mark of a plan and cancels its scheduled deletion (PAGE-309).
+   *
+   * @param id - The plan.
+   * @param options - The revision the person saw, the person who keeps it
+   * and the journal that runs in the same transaction.
+   * @returns Whether anything changed; a plan without the mark stays as it is.
+   * @throws {AgentError} `plan_conflict` for a stale revision,
+   * `plan_pause_required` while a run of the plan executes steps.
+   *
+   * @remarks
+   * The mark is a plan setting, so removing it is a saved revision like any
+   * other change of the plan.
+   */
+  public async keepOneShot(
+    id: string,
+    options: {
+      readonly revision: number;
+      readonly editorId: string;
+      readonly journal?: (transaction: DatabaseTransaction) => Promise<void>;
+    },
+  ): Promise<boolean> {
+    return this.database.transaction(async (transaction) => {
+      const [row] = await transaction.query(
+        `
+        SELECT
+            revision,
+            plan_json
+        FROM agent_plans
+        WHERE id = $id
+        FOR UPDATE;
+      `,
+        { id },
+      );
+      if (!row || readCountColumn(row, 0, "revision") !== options.revision)
+        throw new AgentError("plan_conflict");
+      const stored = unmarkedPlan(readTextColumn(row, 1, "plan_json"));
+      if (stored === null) {
+        await cancelScheduledDeletion(transaction, { id });
+        await options.journal?.(transaction);
+        return false;
+      }
+      await requireEditablePlan(transaction, id);
+      await transaction.execute(
+        `
+        UPDATE agent_plans
+        SET plan_json = $plan_json,
+            revision = revision + 1,
+            one_shot_delete_at = NULL,
+            updated_by = $updated_by,
+            updated_at = utc_now()
+        WHERE id = $id;
+      `,
+        { id, plan_json: stored, updated_by: options.editorId },
+      );
+      await options.journal?.(transaction);
+      return true;
+    });
+  }
+
+  /**
    * Deletes an owner's plan unless one of its runs is still active.
    *
    * @remarks
@@ -452,6 +542,33 @@ async function requirePlanWorkspace(
     throw new AgentError("plan_context_changed");
 }
 
+/** The stored graph without the one-time mark; `null` when it carries none. */
+function unmarkedPlan(planJson: string): string | null {
+  const stored: unknown = JSON.parse(planJson);
+  if (typeof stored !== "object" || stored === null || !("oneShot" in stored))
+    return null;
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(stored).filter(([key]) => key !== "oneShot"),
+    ),
+  );
+}
+
+async function cancelScheduledDeletion(
+  transaction: DatabaseTransaction,
+  plan: Pick<AgentPlan, "id">,
+): Promise<void> {
+  await transaction.execute(
+    `
+    UPDATE agent_plans
+    SET one_shot_delete_at = NULL
+    WHERE id = $id
+        AND one_shot_delete_at IS NOT NULL;
+  `,
+    { id: plan.id },
+  );
+}
+
 async function storePlan(
   transaction: DatabaseTransaction,
   write: PlanWrite,
@@ -494,6 +611,11 @@ async function storePlan(
         usage = EXCLUDED.usage,
         revision = agent_plans.revision + 1,
         plan_json = EXCLUDED.plan_json,
+        -- Removing the one-time mark cancels a scheduled deletion in the commit of that change.
+        one_shot_delete_at = CASE
+            WHEN json_extract_string(EXCLUDED.plan_json, '$.oneShot') = 'true'
+                THEN agent_plans.one_shot_delete_at
+        END,
         updated_by = COALESCE(EXCLUDED.updated_by, agent_plans.updated_by),
         updated_at = CASE
             WHEN EXCLUDED.updated_by IS NULL THEN agent_plans.updated_at
@@ -509,7 +631,7 @@ async function storePlan(
       name: plan.name,
       name_key: agentPlanNameKey(plan.name),
       usage: plan.usage,
-      plan_json: JSON.stringify(plan),
+      plan_json: storedPlanJson(plan),
       updated_by: write.editorId ?? null,
     },
   );

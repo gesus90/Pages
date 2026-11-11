@@ -140,6 +140,8 @@ export interface AgentPlanCreateRequest {
   readonly workspaceId: string;
   readonly sharing: PageAgentSharingRequest | null;
   readonly executionTarget?: AgentPlanExecutionTarget;
+  /** `true` creates a one-time plan (PAGE-309); absent is a normal plan. */
+  readonly oneShot?: boolean;
   readonly changes: readonly AgentPlanChange[];
 }
 
@@ -152,6 +154,8 @@ export interface AgentPlanUpdateRequest extends AgentPlanTarget {
   readonly workspaceId?: string | null;
   /** Absent keeps the plan's current default target. */
   readonly executionTarget?: AgentPlanExecutionTarget;
+  /** Sets (`true`) or removes (`false`) the one-time mark; absent keeps it. */
+  readonly oneShot?: boolean;
   readonly changes: readonly AgentPlanChange[];
   /** The parameter node a parameter operation must find, `null` otherwise. */
   readonly parameterId: string | null;
@@ -441,6 +445,14 @@ function readExecutionTarget(input: unknown): AgentPlanExecutionTarget {
   return parsed.data;
 }
 
+function readOneShotField(
+  input: unknown,
+): Pick<AgentPlanCreateRequest, "oneShot"> {
+  if (input === undefined) return {};
+  if (typeof input !== "boolean") throw invalid();
+  return { oneShot: input };
+}
+
 function readTarget(
   parameters: Readonly<Record<string, unknown>>,
 ): AgentPlanTarget {
@@ -524,7 +536,7 @@ export function readPlanWriteRequest(
     requireParameterKeys(
       parameters,
       ["operationId", "name", "workspaceId"],
-      ["sharing", "executionTarget", "changes"],
+      ["sharing", "executionTarget", "oneShot", "changes"],
     );
     return {
       operation,
@@ -535,6 +547,7 @@ export function readPlanWriteRequest(
       ...(parameters.executionTarget === undefined
         ? {}
         : { executionTarget: readExecutionTarget(parameters.executionTarget) }),
+      ...readOneShotField(parameters.oneShot),
       changes: readChanges(parameters.changes),
     };
   }
@@ -545,6 +558,7 @@ export function readPlanWriteRequest(
     "sharing",
     "workspaceId",
     "executionTarget",
+    "oneShot",
     "changes",
   ]);
   const request: AgentPlanUpdateRequest = {
@@ -556,6 +570,7 @@ export function readPlanWriteRequest(
     ...(parameters.executionTarget === undefined
       ? {}
       : { executionTarget: readExecutionTarget(parameters.executionTarget) }),
+    ...readOneShotField(parameters.oneShot),
     changes: readChanges(parameters.changes),
     parameterId: null,
   };
@@ -564,6 +579,7 @@ export function readPlanWriteRequest(
     request.sharing === null &&
     request.workspaceId === null &&
     request.executionTarget === undefined &&
+    request.oneShot === undefined &&
     request.changes.length === 0
   )
     throw invalid();

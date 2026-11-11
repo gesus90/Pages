@@ -62,6 +62,7 @@ function planKey(plan: AgentPlanInput): string {
     plan.usage,
     plan.sharing ?? null,
     plan.executionTarget ?? null,
+    plan.oneShot === true,
     plan.nodes,
     plan.edges,
   ]);
@@ -77,11 +78,20 @@ function editable(plan: AgentPlanView): AgentPlanInput {
     ...(plan.executionTarget === undefined
       ? {}
       : { executionTarget: plan.executionTarget }),
+    ...(plan.oneShot === true ? { oneShot: true } : {}),
     globals: plan.globals,
     nodes: plan.nodes,
     edges: plan.edges,
     revision: plan.revision,
   };
+}
+
+/** The one-time mark a change asks for; `false` removes it, absent keeps what the plan has. */
+function oneShotChange(
+  oneShot: boolean | undefined,
+): Partial<Pick<AgentPlanInput, "oneShot">> {
+  if (oneShot === undefined) return {};
+  return oneShot ? { oneShot: true } : { oneShot: false };
 }
 
 function readStoredResult(json: string): AgentPlanChanged {
@@ -239,6 +249,7 @@ export class AgentPlanWriteOperations {
       ...(request.executionTarget === undefined
         ? {}
         : { executionTarget: request.executionTarget }),
+      ...(request.oneShot === true ? { oneShot: true } : {}),
       ...planSharing(
         request.sharing ?? {
           scope: "private",
@@ -317,6 +328,7 @@ export class AgentPlanWriteOperations {
       ...(request.executionTarget === undefined
         ? {}
         : { executionTarget: request.executionTarget }),
+      ...oneShotChange(request.oneShot),
       workspaceId: workspace.id,
       projectId: workspace.projectId,
     };

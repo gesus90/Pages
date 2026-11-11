@@ -6,7 +6,8 @@ import { createRandomUuid } from "@/app/lib/random-uuid";
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 
 /** The dialogs of the plan menu. */
-export type PlanManagementDialog = "create" | "edit" | "clone" | "delete";
+export type PlanManagementDialog =
+  "create" | "edit" | "clone" | "clone-one-shot" | "delete";
 
 /** The request of a create, clone or delete dialog, without its key. */
 export type PlanManagementRequest = Readonly<Record<string, string>>;

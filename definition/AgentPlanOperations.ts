@@ -32,6 +32,8 @@ import type { AgentParameter, AgentParameterValue } from "./AgentParameters.js";
 import type * as Decision from "./AgentPlanDecisionEntry.js";
 import type { AgentPlanAsset, AgentPlanAssetEntry } from "./AgentPlanAsset.js";
 import type { PageAgentSharingEntry } from "./PageAgentOperations.js";
+import type { AgentPlanOneShotState } from "./AgentPlanOneShot.js";
+import type { AgentPlanCapabilities } from "./AgentPlanCapabilities.js";
 
 /**
  * Reads of agent plans and of the runs of the connected account.
@@ -372,7 +374,7 @@ export interface AgentPlanTeamEntry {
 }
 
 /** A visible plan without its graph. */
-export interface AgentPlanSummary {
+export interface AgentPlanSummary extends AgentPlanOneShotState {
   readonly id: string;
   readonly name: string;
   readonly projectId: string;
@@ -649,9 +651,6 @@ export type AgentPlanReadResult =
   | { readonly template: AgentPlanTemplateEntry }
   | { readonly control: AgentPlanControlEntry };
 
-/** Additive contract revision, independently observable from a client's MCP bundle version. */
-export const AGENT_PLAN_CONTRACT_VERSION = 14;
-
 /** An immutable, owner-authorized checkpoint projection encoded as JSON text. */
 export interface AgentPlanCheckpointEntry {
   readonly version: number;
@@ -659,27 +658,6 @@ export interface AgentPlanCheckpointEntry {
   readonly content: string;
   /** At least one stored text value was masked or shortened for display. */
   readonly isFiltered: boolean;
-}
-
-/** Implementation discovery never substitutes for current per-plan access and availability. */
-export interface AgentPlanCapabilities {
-  readonly contractVersion: number;
-  readonly operations: readonly (
-    | AgentPlanReadOperation
-    | AgentPlanWriteOperation
-    | AgentPlanCommandOperation
-    | AgentPlanRecoveryCommandOperation
-  )[];
-  readonly cloneSharing: "create_default";
-  readonly resume: "durable_pause_boundary";
-  /** Human provenance supported by each transport of this implementation. */
-  readonly deletionConfirmation: {
-    readonly stdio: "client_form";
-    readonly http: "unavailable";
-    readonly pica: "target_bound_message";
-    /** A paired Pages MCP machine asks back and confirms with `confirmed: true`. */
-    readonly device: "confirmed_flag";
-  };
 }
 
 /** A node template; only its owner renames, replaces or deletes it. */
@@ -697,7 +675,7 @@ export interface AgentPlanTemplateEntry {
 }
 
 /** Available saved-plan controls, without another executor's results. */
-export interface AgentPlanControlEntry {
+export interface AgentPlanControlEntry extends AgentPlanOneShotState {
   readonly canRestart?: boolean;
   readonly resumeAction?: "paused" | "recovery";
   readonly workspaceWait?: AgentPlanWriterWait;
@@ -733,6 +711,7 @@ export interface AgentPlanControlEntry {
 export const AGENT_PLAN_COMMAND_OPERATIONS = [
   "plans.clone",
   "plans.delete",
+  "plans.keep",
   "plans.play",
   "plans.pause",
   "plans.resume",

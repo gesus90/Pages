@@ -63,6 +63,7 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
+import { startOneShotPlanDeletion } from "./agent-plan-one-shot-services.server";
 import { createPlanRemoteServices } from "./agent-plan-remote-services.server";
 import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
@@ -322,6 +323,7 @@ async function startOwnedPlanProcessing(
   const { service, runs, engine, remoteExecution } = parts;
   await recoverRuns(input, service);
   startWorkspaceCleanup(input.database, runs, engine, remoteExecution);
+  startOneShotPlanDeletion(input.database);
   if (!(engine instanceof AgentPlanRunEngine)) return;
   const runtime = await getPagesRuntime();
   const worker = new PlanRunCommandWorker(

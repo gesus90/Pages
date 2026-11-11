@@ -119,6 +119,10 @@ function planBase(
     sharing: planSharing(plan, directory),
     revision: plan.revision,
     nodeCount: plan.nodes.length,
+    oneShot: plan.oneShot === true,
+    ...(plan.scheduledDeletionAt
+      ? { scheduledDeletionAt: plan.scheduledDeletionAt }
+      : {}),
   };
 }
 

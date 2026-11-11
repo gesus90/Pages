@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { suggestOneShotCopyName } from "@/definition/AgentPlanOneShot";
+
 import { PlanContextFields } from "./plan-context-fields";
 import {
   isPlanNameUsed,
@@ -28,16 +30,25 @@ export function PlanCloneDialog({
   page,
   source,
   isDirty,
+  isOneShot,
   management,
 }: {
   readonly page: AgentPlanPage;
   readonly source: AgentPlanView;
   readonly isDirty: boolean;
+  /** Makes the copy a one-time plan (PAGE-309): its own name suggestion and request flag. */
+  readonly isOneShot: boolean;
   readonly management: ReturnType<typeof usePlanManagement>;
 }): React.ReactElement {
   const { t } = useTranslation();
   const [values, setValues] = useState(() => ({
-    name: t("plans.manage.cloneName", { name: source.name }).slice(0, 120),
+    name: isOneShot
+      ? suggestOneShotCopyName(
+          source.name,
+          t("plans.manage.cloneOneShotLabel"),
+          new Date(),
+        )
+      : t("plans.manage.cloneName", { name: source.name }).slice(0, 120),
     projectId: source.projectId,
     location: planLocationValue(source),
   }));
@@ -46,6 +57,7 @@ export function PlanCloneDialog({
     intent: "clone-plan",
     planId: source.id,
     revision: String(source.revision),
+    ...(isOneShot ? { oneShot: "true" } : {}),
     ...context,
   };
   const key = useRequestKey(JSON.stringify(request));
@@ -56,7 +68,11 @@ export function PlanCloneDialog({
   });
   return (
     <PlanDialogFrame
-      title={t("plans.manage.cloneTitle")}
+      title={t(
+        isOneShot
+          ? "plans.manage.cloneOneShotTitle"
+          : "plans.manage.cloneTitle",
+      )}
       description={t("plans.manage.cloneSource", { name: source.name })}
       submitLabel={t("plans.manage.clone")}
       isPending={management.isPending}
@@ -75,6 +91,11 @@ export function PlanCloneDialog({
         isProjectFixed={false}
         nameError={isTaken ? t("settings.agents.error.plan_name_taken") : null}
       />
+      {isOneShot ? (
+        <p role="note" className="text-xs text-muted-foreground">
+          {t("plans.manage.cloneOneShotNote")}
+        </p>
+      ) : null}
       {isDirty ? (
         <p role="note" className="text-xs text-muted-foreground">
           {t("plans.manage.cloneUnsaved")}

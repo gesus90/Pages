@@ -16,6 +16,7 @@ function initialDraft(page: AgentPlanPage): AgentPlanInput {
     usage: plan.usage,
     sharing: plan.sharing,
     ...(plan.executionTarget ? { executionTarget: plan.executionTarget } : {}),
+    ...(plan.oneShot ? { oneShot: true } : {}),
     globals: plan.globals,
     nodes: plan.nodes,
     edges: plan.edges,

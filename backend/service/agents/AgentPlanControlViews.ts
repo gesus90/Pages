@@ -51,6 +51,10 @@ export async function readPlanControlEntry(
     planId,
     revision: plan.revision,
     status: control.status,
+    oneShot: plan.oneShot === true,
+    ...(plan.scheduledDeletionAt
+      ? { scheduledDeletionAt: plan.scheduledDeletionAt }
+      : {}),
     canEdit: plan.canEdit && !isPlanEditLocked(control.status),
     canDelete,
     canPlay: control.canPlay,

@@ -30,7 +30,7 @@ function deleteBlocker(
 }
 
 /**
- * The plan menu behind ⋯: Neu, Bearbeiten, Klonen and Entfernen.
+ * The plan menu behind ⋯: Neu, Bearbeiten, Klonen, Als Einmal-Plan kopieren and Entfernen.
  *
  * @remarks
  * Each entry opens a dialog and changes nothing by itself. An entry that is
@@ -78,6 +78,13 @@ export function PlanPanelMenu(props: {
         >
           <Copy aria-hidden="true" className={ITEM_ICON_CLASS} />
           {t("plans.manage.cloneItem")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!page.selected}
+          onSelect={() => props.onOpen("clone-one-shot")}
+        >
+          <Copy aria-hidden="true" className={ITEM_ICON_CLASS} />
+          {t("plans.manage.cloneOneShotItem")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
