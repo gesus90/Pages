@@ -181,7 +181,7 @@ it("rechecks the ticket's actual department on replay", async () => {
   await world.call("manager", "ticket.delete");
   world.addTicket("root", {
     archivedAt: "2026-10-14 00:00:00",
-    departmentId: "design",
+    departmentIds: ["design"],
   });
   await expect(world.call("manager", "ticket.delete")).rejects.toMatchObject({
     code: "NOT_FOUND",

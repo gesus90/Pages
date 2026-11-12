@@ -33,7 +33,7 @@ describe("filtering work items", () => {
   const items = [
     item("a", { assigneeId: "me", priority: "high", milestoneId: "m1" }),
     item("b", { assigneeGroupId: "g1", type: "subtask", statusId: "done" }),
-    item("c", { assigneeId: "other", projectId: "p2", departmentId: "d1" }),
+    item("c", { assigneeId: "other", projectId: "p2", departmentIds: ["d1"] }),
     item("d", { type: "epic", title: "Search Target" }),
     item("e", { assigneeGroupId: "g9", key: "ABC-77" }),
   ];
@@ -85,7 +85,7 @@ describe("filtering by assignee, department and text", () => {
   const items = [
     item("a", { assigneeId: "me", priority: "high", milestoneId: "m1" }),
     item("b", { assigneeGroupId: "g1", type: "subtask", statusId: "done" }),
-    item("c", { assigneeId: "other", projectId: "p2", departmentId: "d1" }),
+    item("c", { assigneeId: "other", projectId: "p2", departmentIds: ["d1"] }),
     item("d", { type: "epic", title: "Search Target" }),
     item("e", { assigneeGroupId: "g9", key: "ABC-77" }),
   ];

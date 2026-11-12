@@ -54,7 +54,7 @@ export function ticketFacts(
   overrides: Partial<DiscordTicketFacts> = {},
 ): DiscordTicketFacts {
   return {
-    departmentId: null,
+    hasDepartment: false,
     key: "PAGE-7",
     projectId: "alpha",
     projectName: "Alpha",

@@ -249,7 +249,7 @@ describe("refused moves", () => {
   });
 
   it("reports a ticket outside the visible scope as missing", async () => {
-    world.addTicket("secret", { departmentId: "design" });
+    world.addTicket("secret", { departmentIds: ["design"] });
 
     await expect(
       world.tasks.moveToProject(world.user("writer"), "secret", "spare"),
@@ -261,7 +261,7 @@ describe("refused moves", () => {
       type: "subtask",
       parentId: "task",
       key: "ALP-11",
-      departmentId: "design",
+      departmentIds: ["design"],
     });
 
     await expect(

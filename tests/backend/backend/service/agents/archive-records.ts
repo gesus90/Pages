@@ -116,7 +116,7 @@ export function archiveTicket(
     id,
     projectId: "engineering",
     projectName: "engineering",
-    departmentId: "engineering",
+    departmentIds: ["engineering"],
     key: `SYNTHETIC-${id === "root" ? 1 : 2}`,
     number: 1,
     type: "task",

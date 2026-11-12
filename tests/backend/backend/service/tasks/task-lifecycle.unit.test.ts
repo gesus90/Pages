@@ -27,7 +27,7 @@ describe("descendant overview", () => {
       type: "task",
       parentId: "epic",
       key: "ALP-10",
-      departmentId: "design",
+      departmentIds: ["design"],
     });
 
     const overview = await world.tasks.describeDescendants(
@@ -52,7 +52,7 @@ describe("descendant overview", () => {
   });
 
   it("reports a hidden ticket as missing", async () => {
-    world.addTicket("secret", { departmentId: "design" });
+    world.addTicket("secret", { departmentIds: ["design"] });
 
     await expect(
       world.tasks.describeDescendants(world.user("writer"), "secret"),
@@ -113,7 +113,7 @@ describe("archiving", () => {
   it("refuses a ticket of a project outside the actor's departments", async () => {
     world.addTicket("beta-task", {
       projectId: "beta",
-      departmentId: "design",
+      departmentIds: ["design"],
     });
 
     await expect(
@@ -126,7 +126,7 @@ describe("archiving", () => {
       type: "subtask",
       parentId: "task",
       key: "ALP-11",
-      departmentId: "design",
+      departmentIds: ["design"],
     });
 
     await expect(

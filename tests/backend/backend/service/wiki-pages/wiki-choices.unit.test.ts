@@ -20,21 +20,21 @@ beforeEach(() => {
   ];
   world.reading.epics = [
     {
-      departmentId: null,
+      departmentIds: [],
       id: "e1",
       key: "A-1",
       projectId: "alpha",
       title: "Open",
     },
     {
-      departmentId: "sales",
+      departmentIds: ["sales"],
       id: "e2",
       key: "A-2",
       projectId: "alpha",
       title: "Mine",
     },
     {
-      departmentId: "legal",
+      departmentIds: ["legal"],
       id: "e3",
       key: "A-3",
       projectId: "alpha",

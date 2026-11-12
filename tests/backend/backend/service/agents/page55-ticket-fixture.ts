@@ -15,7 +15,7 @@ export const TICKET_ACTOR: User = {
 export const TICKET: WorkItemDetail = {
   id: "ticket-id",
   projectId: "project",
-  departmentId: null,
+  departmentIds: [],
   key: "SYN-55",
   number: 55,
   type: "task",

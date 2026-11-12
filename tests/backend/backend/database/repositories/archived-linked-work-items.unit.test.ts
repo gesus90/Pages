@@ -43,7 +43,7 @@ it("keeps the ticket scope of the actor when it reads archived linked tasks", as
   });
 
   const [statement, parameters] = vi.mocked(database.query).mock.calls[0] ?? [];
-  expect(statement).toContain("work_items.department_id IN (");
+  expect(statement).toContain("ticket_department.department_id IN (");
   expect(parameters).toMatchObject({
     project_id: "pages",
     type: "task",

@@ -390,7 +390,7 @@ it("disconnects one project and leaves the bot on the server and the other proje
     projectId: "beta",
   });
   world.tickets.set("t1", {
-    departmentId: null,
+    hasDepartment: false,
     key: "PAGE-1",
     projectId: "alpha",
     projectName: "Alpha",

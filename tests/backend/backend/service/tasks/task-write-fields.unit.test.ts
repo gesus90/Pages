@@ -21,23 +21,23 @@ function race(id: string, changes: Record<string, unknown>): void {
 
 describe("department assignment", () => {
   it("refuses to overwrite a department changed after the panel was opened", async () => {
-    world.addTicket("t1", { departmentId: null });
+    world.addTicket("t1", { departmentIds: [] });
     world.state.beforeWrite = () => {
       world.state.tickets.set("t1", {
         ...world.ticket("t1"),
-        departmentId: "design",
+        departmentIds: ["design"],
       });
     };
 
     await expect(
-      world.tasks.setDepartment(
+      world.tasks.setDepartments(
         world.user("writer"),
         "t1",
-        "engineering",
-        null,
+        ["engineering"],
+        [],
       ),
     ).rejects.toMatchObject({ code: "ticketConflict" });
-    expect(world.ticket("t1").departmentId).toBe("design");
+    expect(world.ticket("t1").departmentIds).toEqual(["design"]);
     expect(world.state.history).toEqual([]);
   });
 });

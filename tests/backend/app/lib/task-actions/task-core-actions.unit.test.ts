@@ -27,7 +27,7 @@ const taskService = {
   moveToProject: vi.fn(),
   restore: vi.fn(),
   restoreWithImpact: vi.fn(),
-  setDepartment: vi.fn(),
+  setDepartments: vi.fn(),
   update: vi.fn(),
   updateStatus: vi.fn(),
   updateStatusAndOrder: vi.fn(),
@@ -78,7 +78,7 @@ it("creates a ticket with the optional fields left empty", async () => {
   expect(taskService.create).toHaveBeenCalledExactlyOnceWith(ACTOR, {
     assigneeGroupId: null,
     assigneeId: null,
-    departmentId: null,
+    departmentIds: [],
     description: "",
     dueAt: null,
     milestoneId: null,
@@ -359,23 +359,23 @@ it.each([
 });
 
 it("assigns a department and clears it with an empty value", async () => {
-  await run(handleSetDepartment, { id: "ticket-1", departmentId: "d1" });
+  await run(handleSetDepartment, { id: "ticket-1", departmentIds: '["d1"]' });
   const cleared = await run(handleSetDepartment, {
     id: "ticket-1",
-    departmentId: "",
+    departmentIds: "[]",
   });
 
-  expect(taskService.setDepartment).toHaveBeenNthCalledWith(
+  expect(taskService.setDepartments).toHaveBeenNthCalledWith(
     1,
     ACTOR,
     "ticket-1",
-    "d1",
+    ["d1"],
   );
-  expect(taskService.setDepartment).toHaveBeenNthCalledWith(
+  expect(taskService.setDepartments).toHaveBeenNthCalledWith(
     2,
     ACTOR,
     "ticket-1",
-    "",
+    [],
   );
   expect(cleared.body).toEqual({ ok: true, intent: "set-department" });
 });
@@ -385,15 +385,15 @@ it("checks the displayed department and returns the updated board ticket", async
   taskService.getById.mockResolvedValue(ticket);
   const outcome = await run(handleSetDepartment, {
     id: "ticket-1",
-    departmentId: "d1",
-    expectedDepartmentId: "",
+    departmentIds: '["d1"]',
+    expectedDepartmentIds: "[]",
   });
 
-  expect(taskService.setDepartment).toHaveBeenCalledWith(
+  expect(taskService.setDepartments).toHaveBeenCalledWith(
     ACTOR,
     "ticket-1",
-    "d1",
-    null,
+    ["d1"],
+    [],
   );
   expect(outcome.body).toEqual({
     intent: "set-department",

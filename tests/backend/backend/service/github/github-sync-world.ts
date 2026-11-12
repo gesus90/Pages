@@ -443,7 +443,7 @@ export class GitHubSyncWorld {
   ): WorkItemDetail {
     return withStatus(
       archiveTicket(id, {
-        departmentId: null,
+        departmentIds: [],
         key: `PAGE-${id}`,
         milestoneId: null,
         milestoneName: null,

@@ -177,7 +177,7 @@ describe.each(["ticket.delete", "milestone.delete"] as const)(
 );
 
 it("hides a ticket outside the actor's own department like a nonexistent ticket", async () => {
-  world.addTicket("root", { departmentId: "design" });
+  world.addTicket("root", { departmentIds: ["design"] });
   const before = world.changes();
   await expect(world.call("manager", "ticket.delete")).rejects.toMatchObject({
     code: "NOT_FOUND",
@@ -192,7 +192,7 @@ it("hides a ticket outside the actor's own department like a nonexistent ticket"
 });
 
 it("allows public tickets within project responsibility", async () => {
-  world.addTicket("root", { departmentId: null });
+  world.addTicket("root", { departmentIds: [] });
   await expect(world.call("manager", "ticket.delete")).resolves.toMatchObject({
     affectedCount: 1,
   });

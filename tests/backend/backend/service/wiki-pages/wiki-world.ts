@@ -156,7 +156,7 @@ export class WikiWorld {
     facts: Partial<TargetFacts> = {},
   ): void {
     this.state.targets.set(`${kind}:${id}`, {
-      departmentId: facts.departmentId ?? null,
+      departmentIds: facts.departmentIds ?? [],
       projectId: facts.projectId ?? null,
     });
   }

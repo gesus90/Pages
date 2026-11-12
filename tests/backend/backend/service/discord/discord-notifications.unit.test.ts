@@ -125,7 +125,7 @@ it("sends nothing for a project without a connection and nothing to another proj
 it("does not announce tickets of a department, unknown tickets or other kinds of events", async () => {
   const world = await connectedWorld();
 
-  world.tickets.set("t-private", ticketFacts({ departmentId: "engineering" }));
+  world.tickets.set("t-private", ticketFacts({ hasDepartment: true }));
 
   await world.notifications.handle({ id: "t-private", type: "ticket.created" });
   await world.notifications.handle({ id: "missing", type: "ticket.updated" });

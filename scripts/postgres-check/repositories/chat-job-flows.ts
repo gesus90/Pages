@@ -1,4 +1,5 @@
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
+import { ChatDecisionSettingsRepository } from "@/backend/database/repositories/chat/ChatDecisionSettingsRepository";
 import { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
 import { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
 import { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
@@ -431,6 +432,22 @@ export const CHAT_ACP_FLOW: RepositoryFlow = {
 export const CHAT_SETTINGS_FLOW: RepositoryFlow = {
   title: "chat settings",
   steps: [
+    call("ChatDecisionSettingsRepository.read", ({ database }) =>
+      new ChatDecisionSettingsRepository(database).read(),
+    ),
+    refused("ChatDecisionSettingsRepository.save", ({ database }) =>
+      new ChatDecisionSettingsRepository(database).save({
+        selection: null,
+        revision: 0,
+      }),
+    ),
+    call("ChatDecisionSettingsRepository.save", async ({ database }) => {
+      const repository = new ChatDecisionSettingsRepository(database);
+      await repository.save(await repository.read());
+    }),
+    call("ChatDecisionSettingsRepository.read", ({ database }) =>
+      new ChatDecisionSettingsRepository(database).read(),
+    ),
     call("ChatSettingsRepository.read", (world) => chatSettings(world).read()),
     call("ChatSettingsRepository.save", (world) =>
       chatSettings(world).save({ systemInstruction: "Antworte kurz." }),
