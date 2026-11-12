@@ -21,7 +21,7 @@ const claim: ConversationReplyClaim = {
   isFollowUp: true,
 };
 
-it("permits the fourth answer only for a consumed durable question batch", async () => {
+it("atomically consumes a ready batch and claims the fourth answer", async () => {
   const boundary = scriptedDatabase();
   boundary.answer([[null]], [[6, 3, 0]], [["question"]], [["a"]]);
   const repository = new ConversationRoundRepository(boundary.database);
@@ -38,13 +38,31 @@ it("permits the fourth answer only for a consumed durable question batch", async
   expect(
     boundary
       .ofKind("query")
-      .some((entry) =>
-        entry.statement.includes("questions.consumed_at IS NOT NULL"),
-      ),
+      .some((entry) => entry.statement.includes("SET consumed_at = $now")),
   ).toBe(true);
+  expect(boundary.ofKind("query")[2]?.parameters).toMatchObject({
+    question: "question",
+    now: "now",
+  });
   expect(boundary.ofKind("query").at(-1)?.statement).toContain(
     "ON CONFLICT (origin_message_id, agent_id, trigger_message_id) DO NOTHING",
   );
+});
+
+it("propagates a failed target insert from the batch consumption transaction", async () => {
+  const boundary = scriptedDatabase();
+  const failure = new Error("Target could not be stored");
+  boundary.answer([[null]], [[3, 1, 0]], [["question"]], failure);
+  await expect(
+    new ConversationRoundRepository(boundary.database).claim(claim),
+  ).rejects.toBe(failure);
+  const writes = boundary.ofKind("query").slice(-2);
+  expect(writes[0]?.statement).toContain("SET consumed_at = $now");
+  expect(writes[1]?.statement).toContain(
+    "INSERT INTO conversation_reply_targets",
+  );
+  expect(writes.every((entry) => entry.inTransaction)).toBe(true);
+  expect(boundary.transactions()).toBe(1);
 });
 
 it.each([

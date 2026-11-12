@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 
+import { ConversationAgentReplies } from "@/backend/service/conversation/ConversationAgentReplies";
 import {
   CONVERSATION_OBSERVER_LIMITS,
   conversationRoundLimits,
@@ -262,5 +263,56 @@ it("restores a missing end notice after an interrupted process without waking an
     1,
   );
   expect(dependencies.runner.answer).not.toHaveBeenCalled();
+  stop();
+});
+
+it("retains a ready batch if preparing its answer fails before the durable claim", async () => {
+  const { service, dependencies, questions, claims, stored } =
+    followUpFixture();
+  const stop = service.start();
+  const [origin] = stored;
+  if (!origin) throw new Error("Missing fixture origin");
+  stored.push(
+    {
+      ...origin,
+      id: "question",
+      sequence: 2,
+      senderId: "a",
+      text: "@b Warum?",
+    },
+    {
+      ...origin,
+      id: "reply",
+      sequence: 3,
+      senderId: "b",
+      text: "@a Vorschlag",
+    },
+  );
+  questions.set("question", {
+    questionMessageId: "question",
+    originMessageId: "origin",
+    conversationId: "group",
+    agentId: "a",
+    personId: "person",
+    deadlineAt: new Date().toISOString(),
+    answers: [{ agentId: "b", replyMessageId: "reply" }],
+  });
+  vi.mocked(dependencies.rounds.followUps.context).mockRejectedValueOnce(
+    new Error("Interrupted before claiming the follow-up"),
+  );
+  await expect(service.recover(new Date())).rejects.toThrow(
+    "Interrupted before claiming the follow-up",
+  );
+  expect(claims).toHaveLength(0);
+  expect(dependencies.rounds.followUps.consume).not.toHaveBeenCalled();
+  const restarted = new ConversationAgentReplies(dependencies);
+  const stopRestarted = restarted.start();
+  await Promise.all([
+    restarted.recover(new Date()),
+    restarted.recover(new Date()),
+  ]);
+  expect(claims).toHaveLength(1);
+  expect(dependencies.runner.answer).toHaveBeenCalledOnce();
+  stopRestarted();
   stop();
 });

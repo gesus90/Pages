@@ -136,18 +136,16 @@ export class ConversationRoundFollowUps {
         this.schedule(round, question);
         continue;
       }
-      if (
-        !(await repository.consume(
-          question.questionMessageId,
-          this.now().toISOString(),
-        ))
-      )
-        continue;
       const timer = this.timers.get(question.questionMessageId);
       if (timer) clearTimeout(timer);
       this.timers.delete(question.questionMessageId);
-      if (!question.answers.some((answer) => answer.replyMessageId !== null))
+      if (!question.answers.some((answer) => answer.replyMessageId !== null)) {
+        await repository.consume(
+          question.questionMessageId,
+          this.now().toISOString(),
+        );
         continue;
+      }
       const accounts = await this.dependencies.directory.read();
       const missing = question.answers
         .filter((answer) => answer.replyMessageId === null)

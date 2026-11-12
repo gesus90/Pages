@@ -54,6 +54,11 @@ function mockRounds(
       claims.length >= limits.automaticRepliesPerOrigin
     )
       return "limit";
+    if (
+      claim.isFollowUp &&
+      !(await rounds.followUps.consume(claim.triggerMessageId, claim.createdAt))
+    )
+      return "duplicate";
     claims.push(claim);
     return "claimed";
   });

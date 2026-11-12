@@ -36,7 +36,7 @@ export interface ConversationReplyClaim extends ConversationRoundOrigin {
   readonly reason: string;
   /** Whether the answer counts against the limit of automatic answers. */
   readonly isAutomatic: boolean;
-  /** Only a consumed batch of the agent's own question permits another answer. */
+  /** Only a ready batch of the agent's own question permits another answer. */
   readonly isFollowUp?: boolean;
   /** Effective group settings, clamped again before persistence. */
   readonly limits?: ConversationRoundLimits;
@@ -192,7 +192,9 @@ export class ConversationRoundRepository {
   }
 
   /**
-   * Claims an initial answer or one consumed question batch within both round limits.
+   * Claims an initial answer or consumes a ready question batch within both limits.
+   * Batch consumption and its answer target commit together, so a failed claim
+   * leaves the batch available for recovery.
    *
    * @returns `claimed` when the agent may answer now.
    */
@@ -215,6 +217,8 @@ export class ConversationRoundRepository {
         return "limit";
       const refusal = await this.refuseClaim(transaction, claim);
       if (refusal) return refusal;
+      if (claim.isFollowUp && !(await this.consumeFollowUp(transaction, claim)))
+        return "duplicate";
       if (!(await insertTarget(transaction, claim))) return "duplicate";
       if (claim.isAutomatic)
         await transaction.execute(
@@ -505,34 +509,40 @@ export class ConversationRoundRepository {
         totalCount >= limits.automaticRepliesPerOrigin)
     )
       return "limit";
-    if (claim.isFollowUp && !(await this.hasFollowUp(transaction, claim)))
-      return "duplicate";
     return null;
   }
 
-  private async hasFollowUp(
+  private async consumeFollowUp(
     transaction: Pick<DatabaseTransaction, "query">,
     claim: ConversationReplyClaim,
   ): Promise<boolean> {
     const rows = await transaction.query(
       `
-      SELECT questions.question_message_id
-      FROM conversation_follow_up_questions AS questions
+      UPDATE conversation_follow_up_questions AS questions
+      SET consumed_at = $now
       WHERE questions.question_message_id = $question
           AND questions.origin_message_id = $origin
           AND questions.agent_id = $agent
-          AND questions.consumed_at IS NOT NULL
+          AND questions.consumed_at IS NULL
+          AND (questions.deadline_at <= $now OR NOT EXISTS (
+              SELECT 1
+              FROM conversation_follow_up_answers AS answers
+              WHERE answers.question_message_id = questions.question_message_id
+                  AND answers.reply_message_id IS NULL
+          ))
           AND EXISTS (
               SELECT 1
               FROM conversation_follow_up_answers AS answers
               WHERE answers.question_message_id = questions.question_message_id
                   AND answers.reply_message_id IS NOT NULL
-          );
+          )
+      RETURNING questions.question_message_id;
     `,
       {
         question: claim.triggerMessageId,
         origin: claim.originMessageId,
         agent: claim.agentId,
+        now: claim.createdAt,
       },
     );
     return rows.length > 0;
