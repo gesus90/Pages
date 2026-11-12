@@ -51,7 +51,6 @@ export function PageAgentDelete(props: {
         >
           <input type="hidden" name="intent" value="delete-agent" />
           <input type="hidden" name="agentId" value={props.agent.id} />
-          <input type="hidden" name="confirmation" value="LÖSCHEN" />
           <Button
             type="button"
             variant="ghost"

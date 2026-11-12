@@ -23,14 +23,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("deleting a project with either confirmation word", () => {
-  it.each(["LÖSCHEN", "DELETE"])(
+describe("deleting a project without a confirmation word", () => {
+  it.each([
+    ["no confirmation field", {}],
+    ["a legacy LÖSCHEN", { confirmation: "LÖSCHEN" }],
+    ["a legacy DELETE", { confirmation: "DELETE" }],
+  ])(
     "lets a personal administrator delete a chosen project with %s",
-    async (confirmation) => {
-      const result = await world.delete(
-        "admin",
-        world.request({ confirmation }),
-      );
+    async (label, overrides) => {
+      const result = await world.delete("admin", world.request(overrides));
       expect(result).toMatchObject({
         id: "alpha",
         targetType: "project",
@@ -47,14 +48,9 @@ describe("deleting a project with either confirmation word", () => {
     },
   );
 
-  it.each([
-    ["de", "DELETE"],
-    ["de", "LÖSCHEN"],
-    ["en", "DELETE"],
-    ["en", "LÖSCHEN"],
-  ] as const)(
-    "does not tie the word to the interface language (%s account, %s)",
-    async (language, confirmation) => {
+  it.each(["de", "en"] as const)(
+    "does not depend on the interface language (%s account)",
+    async (language) => {
       const settings = vi
         .spyOn(UserSettingsRepository.prototype, "findByUserId")
         .mockResolvedValue({
@@ -71,7 +67,7 @@ describe("deleting a project with either confirmation word", () => {
           notifyWeeklySummary: null,
         });
       await expect(
-        world.delete("admin", world.request({ confirmation })),
+        world.delete("admin", world.request()),
       ).resolves.toMatchObject({ changed: true });
       expect(settings).not.toHaveBeenCalled();
     },
@@ -131,32 +127,20 @@ describe("deleting a project with either confirmation word", () => {
   });
 });
 
-describe("without a valid confirmation nothing changes", () => {
+describe("a leftover confirmation value is ignored", () => {
   it.each([
-    ["no confirmation at all", undefined],
     ["an empty word", ""],
     ["lower case", "delete"],
-    ["lower case German", "löschen"],
-    ["a trailing space", "DELETE "],
-    ["a leading space", " LÖSCHEN"],
     ["another word", "yes"],
     ["a number", 1],
     ["null", null],
     ["true", true],
     ["a list holding the word", ["DELETE"]],
-  ])("rejects %s", async (label, confirmation) => {
-    const before = world.changes();
-    const parameters =
-      confirmation === undefined
-        ? { operationId: "delete-once", projectId: "alpha" }
-        : world.request({ confirmation });
-    await expect(world.delete("admin", parameters)).rejects.toMatchObject({
-      code: "CONFIRMATION_REQUIRED",
-      status: 400,
-    });
-    expect(world.changes()).toEqual(before);
-    expect(world.effects.stopRuns).not.toHaveBeenCalled();
-    expect(world.effects.removeFiles).not.toHaveBeenCalled();
+  ])("deletes with %s", async (label, confirmation) => {
+    await expect(
+      world.delete("admin", world.request({ confirmation })),
+    ).resolves.toMatchObject({ id: "alpha", changed: true });
+    expect(world.projects.has("alpha")).toBe(false);
   });
 });
 
@@ -164,7 +148,7 @@ describe("only an administrator may delete, also on direct calls", () => {
   it.each([
     ["a project manager who manages all projects", "manager"],
     ["a writer", "writer"],
-  ])("refuses %s even with a valid word", async (label, userId) => {
+  ])("refuses %s", async (label, userId) => {
     const before = world.changes();
     await expect(world.delete(userId)).rejects.toMatchObject({
       code: "FORBIDDEN",
@@ -277,14 +261,11 @@ describe("repeating a call after a lost response", () => {
     ).resolves.toEqual(first);
   });
 
-  it("still requires the administrator and the confirmation", async () => {
+  it("still requires the administrator", async () => {
     await world.delete("admin");
     await expect(world.delete("writer")).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
-    await expect(
-      world.delete("admin", { operationId: "delete-once", projectId: "alpha" }),
-    ).rejects.toMatchObject({ code: "CONFIRMATION_REQUIRED" });
   });
 
   it("refuses a repeat once the administrator was revoked", async () => {

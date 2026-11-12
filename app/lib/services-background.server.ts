@@ -16,6 +16,7 @@ import type { Database } from "@/backend/database/Database";
 import type { GitHubJobWorker } from "@/backend/service/integrations/GitHubJobWorker";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { AgentAssetService } from "@/backend/service/agents/AgentAssetService";
+import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
 import type { PagesEventRetention } from "@/backend/service/events/PagesEventRetention";
 import type { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 
@@ -67,6 +68,7 @@ export function startWikiMaintenanceScheduler(
   wikiService: WikiService,
   assets: AgentAssetService,
   events: PagesEventRetention,
+  deletions: AgentDeletionService,
 ): void {
   if (globalThis.pagesWikiMaintenanceStarted) {
     return;
@@ -78,6 +80,7 @@ export function startWikiMaintenanceScheduler(
       await wikiService.runMaintenance();
       await assets.runMaintenance();
       await events.runOnce();
+      await deletions.purgeExpired();
     },
   });
   scheduler.start();

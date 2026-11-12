@@ -28,7 +28,7 @@ export interface PicaStorageCall {
   /** The arguments the registry already checked against the tool schema. */
   readonly parameters: Readonly<Record<string, unknown>>;
   readonly context: RuntimeExecutionContext;
-  /** The raw human message of this turn and the person's confirmation word. */
+  /** The raw human message and server-owned legacy confirmation context. */
   readonly turn: PicaPlanTurn;
 }
 
@@ -70,8 +70,8 @@ function serialize(result: unknown): string {
  * confirmations bound to action, object and state apply unchanged. The
  * administrator right is checked by the caller on every call. A confirmation
  * token stays on the server: the model sees the target, the scope and the
- * confirmation word, and Pages spends the token only when the person replied
- * with that word alone in a later message and the model repeats the identical
+ * confirmation request, and Pages spends the token only when the person explicitly replied
+ * in a later message and the model repeats the identical
  * call. The writer then refuses the token when the object changed meanwhile.
  */
 export class PicaStorageService {
@@ -148,10 +148,9 @@ export class PicaStorageService {
       result: serialize({
         ...withoutToken(confirmation),
         hasChanged: error.code === "confirmation_invalid",
-        confirmation: call.turn.confirmation,
         simulation: this.files.isSimulation,
         instruction:
-          "Name the target, the action and its effect (for a folder its scope: folders, files, bytes; isTruncated means more) to the person. Only their reply with the confirmation word alone in a new message allows exactly this action on this state; then repeat the identical call. Never type the word yourself.",
+          "Name the target, the action and its effect (for a folder its scope: folders, files, bytes; isTruncated means more) to the person. Only their explicit approval in a new message allows exactly this action on this state; then repeat the identical call.",
       }),
     };
   }

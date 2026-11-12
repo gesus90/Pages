@@ -11,7 +11,6 @@ import {
   recordInterfaceOperation,
   replayInterfaceOperation,
 } from "@/backend/service/InterfaceOperationJournal";
-import { agentConfirmationWord } from "@/backend/service/agents/AgentConfirmation";
 
 import {
   createInputSchema,
@@ -54,12 +53,6 @@ type AutomationPatch = Omit<
   AutomationUpdateInput,
   "operationId" | "automationId" | "expectedRevision"
 >;
-
-/** How a deletion is confirmed on the calling channel. */
-export interface AutomationDeletionConfirmation {
-  /** The chat needs the person's typed confirmation word besides `confirmed`. */
-  readonly requiresWord: boolean;
-}
 
 type Replayed<Result> = Result & { readonly replayed?: boolean };
 
@@ -278,17 +271,20 @@ export class AutomationWrites {
    *
    * @param userId - The calling account.
    * @param input - The raw input of the deletion.
-   * @param confirmation - Whether the channel needs the typed confirmation word.
    */
   public async delete(
     userId: string,
     input: unknown,
-    confirmation: AutomationDeletionConfirmation,
   ): Promise<AutomationDeletionScope | Replayed<AutomationDeleted>> {
     const request = readAutomationInput(deleteInputSchema, input);
     const { access, reads, database } = this.dependencies;
     const actor = await access.actor(userId);
-    const { confirmation: word, ...fingerprinted } = request;
+    const fingerprinted = {
+      operationId: request.operationId,
+      automationId: request.automationId,
+      expectedRevision: request.expectedRevision,
+      confirmed: request.confirmed,
+    };
     const journal = this.journal(actor, "automations.delete", fingerprinted);
     if (request.confirmed) {
       const replayed = await this.replay(journal, deletedSchema);
@@ -316,13 +312,6 @@ export class AutomationWrites {
         blockingRunId: blocking?.id ?? null,
         canDelete: blocking === null,
       };
-    if (
-      confirmation.requiresWord &&
-      word !== (await agentConfirmationWord(database, actor.id))
-    )
-      throw new AutomationError("invalid_request", {
-        reason: "confirmation_required",
-      });
     if (blocking)
       throw new AutomationError("conflict", {
         reason: "run_active",

@@ -3499,6 +3499,9 @@
       "hint": "Wähle die Sessions. Die ausgewählten Sessions werden mit allen Nachrichten und Anhängen endgültig gelöscht.",
       "all": "Alle eigenen Sessions auswählen ({{count}})",
       "extent": "{{count}} Sessions ausgewählt. Die Löschung ist endgültig.",
+      "confirmTitle": "Sessions endgültig löschen?",
+      "confirmDescription": "{{count}} ausgewählte Sessions mit allen Nachrichten und Anhängen endgültig löschen?",
+      "confirmAction": "Endgültig löschen",
       "submit": "{{count}} Sessions endgültig löschen",
       "result": "{{count}} Sessions gelöscht.",
       "failed": "Nicht gelöscht bzw. Ergebnis unbestätigt: {{id}}.",
@@ -3513,7 +3516,7 @@
       "originRejected": "Die Anfrage wurde aus Sicherheitsgründen abgelehnt, weil die Webadresse nicht zur Einrichtung des Servers passt (Proxy). Das ist kein fehlendes Recht. Bitte einen Admin informieren; im Protokoll steht der Eintrag request.origin.rejected.",
       "sessionMissing": "Diese Session gibt es nicht mehr. Mit /new startest du eine neue.",
       "attachmentMissing": "Der Anhang ist nicht mehr vorhanden.",
-      "confirmationRequired": "Das Bestätigungswort stimmt nicht. Es wurde nichts gelöscht.",
+      "confirmationRequired": "Diese Aktion braucht eine ausdrückliche Bestätigung.",
       "credentialsInText": "Zugangsdaten dürfen nicht an Pica gesendet werden. Bitte entferne sie aus der Nachricht.",
       "emptyMessage": "Bitte schreib eine Nachricht oder füge einen Anhang hinzu.",
       "messageAlreadySent": "Diese Nachricht wurde schon gesendet und wird nicht doppelt gespeichert.",
@@ -7248,7 +7251,42 @@
       "edit": "Bearbeiten",
       "view": "Ansehen",
       "deactivate": "Deaktivieren",
-      "activate": "Aktivieren"
+      "activate": "Aktivieren",
+      "delete": "Agent löschen"
+    },
+    "deletion": {
+      "title": "{{name}} löschen?",
+      "loading": "Löschvorschau wird geladen…",
+      "loadFailed": "Die Löschvorschau konnte nicht geladen werden.",
+      "explanation": "Der Agent wird sofort deaktiviert. Ein Administrator kann ihn sieben Tage lang wiederherstellen. Danach werden seine privaten Artefakte endgültig entfernt.",
+      "deletesTitle": "Wird entfernt",
+      "keepsTitle": "Bleibt erhalten",
+      "blocked": "Diese Plan-Läufe müssen vor dem Löschen gestoppt werden:",
+      "failed": "Der Agent konnte nicht gelöscht werden. Laden Sie die Vorschau neu und versuchen Sie es erneut.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen",
+      "deletedTitle": "Gelöschte Agents",
+      "noDeleted": "Keine Agents warten auf die endgültige Entfernung.",
+      "restorableUntil": "Wiederherstellbar bis {{date}}",
+      "remaining": "Noch {{days}} Tage und {{hours}} Stunden",
+      "restore": "Wiederherstellen",
+      "deletes": {
+        "directChats": "Direktchats",
+        "sessions": "Sitzungen",
+        "memoryEntries": "Gedächtniseinträge und Versionen",
+        "ownedPlans": "Eigene Pläne",
+        "runs": "Plan-Läufe",
+        "files": "Dateien und Avatar",
+        "credentials": "Zugänge",
+        "groupMemberships": "Gruppenmitgliedschaften",
+        "assignedTickets": "Nicht mehr zugewiesene Tickets"
+      },
+      "keeps": {
+        "groupChatMessages": "Gruppennachrichten",
+        "ticketChanges": "Ticketänderungen",
+        "wikiChanges": "Wiki-Änderungen",
+        "commits": "Commits"
+      }
     },
     "tabs": {
       "general": "Allgemein",

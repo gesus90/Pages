@@ -21,7 +21,7 @@ interface AutomationToolDispatch {
 }
 
 const NOTE =
-  "Pages runs the call as the account of this conversation, or as the agent's own account in an agent's session, with its current rights; it supplies the operationId itself. Deleting needs the person's confirmation word in the current message; never write it yourself. A read-only agent may only list and read.";
+  "Pages runs the call as the account of this conversation, or as the agent's own account in an agent's session, with its current rights; it supplies the operationId itself. Delete only on the person's explicit request in the current message. A read-only agent may only list and read.";
 
 /**
  * Registers the automation tools of the shared static catalog (PAGE-297) in

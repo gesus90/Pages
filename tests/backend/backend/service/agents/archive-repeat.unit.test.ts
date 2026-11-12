@@ -8,45 +8,33 @@ beforeEach(() => {
 });
 
 describe.each(["ticket.delete", "milestone.delete"] as const)(
-  "%s confirmation and replay",
+  "%s without a confirmation word",
   (operation) => {
-    it.each([undefined, "DELETE", "löschen", " LÖSCHEN", "yes"])(
-      "refuses invalid German confirmation %s before writing",
+    it("deletes on the explicit request alone", async () => {
+      const request = world.request(operation);
+      expect(request).not.toHaveProperty("confirmation");
+      await expect(
+        world.call("manager", operation, request),
+      ).resolves.toMatchObject({ affectedCount: 1 });
+    });
+
+    it.each([undefined, "DELETE", "löschen", " LÖSCHEN", "yes", "LÖSCHEN"])(
+      "accepts and ignores a legacy confirmation value %s",
       async (confirmation) => {
-        const before = world.changes();
         await expect(
           world.call("manager", operation, {
             ...world.request(operation),
             confirmation,
           }),
-        ).rejects.toMatchObject({ code: "CONFIRMATION_REQUIRED" });
-        expect(world.changes()).toEqual(before);
+        ).resolves.toMatchObject({ affectedCount: 1 });
       },
     );
 
-    it("requires English confirmation in the current account language", async () => {
+    it("does not depend on the language of the account", async () => {
       world.languages.set("manager", "en");
-      await expect(world.call("manager", operation)).rejects.toMatchObject({
-        code: "CONFIRMATION_REQUIRED",
+      await expect(world.call("manager", operation)).resolves.toMatchObject({
+        affectedCount: 1,
       });
-      await expect(
-        world.call("manager", operation, {
-          ...world.request(operation),
-          confirmation: "DELETE",
-        }),
-      ).resolves.toMatchObject({ affectedCount: 1 });
-    });
-
-    it("requires confirmation when the parameter is absent", async () => {
-      const request = { ...world.request(operation) };
-      delete request.confirmation;
-      const before = world.changes();
-      await expect(
-        world.call("manager", operation, request),
-      ).rejects.toMatchObject({
-        code: "CONFIRMATION_REQUIRED",
-      });
-      expect(world.changes()).toEqual(before);
     });
   },
 );
@@ -102,13 +90,11 @@ describe.each(["ticket.delete", "milestone.delete"] as const)(
       expect(world.changes()).toEqual(before);
     });
 
-    it("rechecks confirmation using the current language on replay", async () => {
-      await world.call("manager", operation);
+    it("replays the stored result whatever the account language is now", async () => {
+      const first = await world.call("manager", operation);
       world.languages.set("manager", "en");
       const before = world.changes();
-      await expect(world.call("manager", operation)).rejects.toMatchObject({
-        code: "CONFIRMATION_REQUIRED",
-      });
+      expect(await world.call("manager", operation)).toEqual(first);
       expect(world.changes()).toEqual(before);
     });
   },
@@ -123,7 +109,9 @@ describe.each(["ticket.delete", "milestone.delete"] as const)(
       await expect(
         world.call("manager", operation, {
           ...world.request(operation),
-          confirmation: "DELETE",
+          ...(operation === "ticket.delete"
+            ? { ticketId: "other" }
+            : { milestoneId: "other" }),
         }),
       ).rejects.toMatchObject({ code: "CONFLICT" });
       const other =

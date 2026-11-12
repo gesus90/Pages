@@ -3499,6 +3499,9 @@
       "hint": "Choose sessions. Selected sessions and all their messages and attachments will be permanently deleted.",
       "all": "Select all own sessions ({{count}})",
       "extent": "{{count}} sessions selected. Deletion is permanent.",
+      "confirmTitle": "Permanently delete sessions?",
+      "confirmDescription": "Permanently delete {{count}} selected sessions with all messages and attachments?",
+      "confirmAction": "Delete permanently",
       "submit": "Permanently delete {{count}} sessions",
       "result": "{{count}} sessions deleted.",
       "failed": "Not deleted or result unconfirmed: {{id}}.",
@@ -3513,7 +3516,7 @@
       "originRejected": "The request was refused for security reasons because the web address does not match the setup of the server (proxy). This is not a missing permission. Please tell an admin; the log holds the entry request.origin.rejected.",
       "sessionMissing": "This session no longer exists. Start a new one with /new.",
       "attachmentMissing": "The attachment no longer exists.",
-      "confirmationRequired": "The confirmation word does not match. Nothing was deleted.",
+      "confirmationRequired": "This action needs explicit confirmation.",
       "credentialsInText": "Credentials must not be sent to Pica. Please remove them from the message.",
       "emptyMessage": "Please write a message or add an attachment.",
       "messageAlreadySent": "This message was already sent and is not stored twice.",
@@ -7248,7 +7251,42 @@
       "edit": "Edit",
       "view": "View",
       "deactivate": "Deactivate",
-      "activate": "Activate"
+      "activate": "Activate",
+      "delete": "Delete agent"
+    },
+    "deletion": {
+      "title": "Delete {{name}}?",
+      "loading": "Loading deletion preview…",
+      "loadFailed": "The deletion preview could not be loaded.",
+      "explanation": "The agent is disabled immediately. An administrator can restore it for seven days. Its private artifacts are removed after that period.",
+      "deletesTitle": "Will be removed",
+      "keepsTitle": "Will be kept",
+      "blocked": "Stop these plan runs before deleting the agent:",
+      "failed": "The agent could not be deleted. Refresh the preview and try again.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deletedTitle": "Deleted agents",
+      "noDeleted": "No agents are awaiting final removal.",
+      "restorableUntil": "Restorable until {{date}}",
+      "remaining": "{{days}} days and {{hours}} hours remaining",
+      "restore": "Restore",
+      "deletes": {
+        "directChats": "Direct chats",
+        "sessions": "Sessions",
+        "memoryEntries": "Memory entries and versions",
+        "ownedPlans": "Owned plans",
+        "runs": "Plan runs",
+        "files": "Files and avatar",
+        "credentials": "Credentials",
+        "groupMemberships": "Group memberships",
+        "assignedTickets": "Tickets to unassign"
+      },
+      "keeps": {
+        "groupChatMessages": "Group chat messages",
+        "ticketChanges": "Ticket changes",
+        "wikiChanges": "Wiki changes",
+        "commits": "Commits"
+      }
     },
     "tabs": {
       "general": "General",

@@ -4,6 +4,7 @@ import { AGENT_READ_LIMITS } from "@/definition/AgentReadChunks";
 import { CHAT_LIMITS } from "@/definition/Chat";
 import { PROJECT_STATUS } from "@/definition/Project";
 import { WORK_ITEM_TYPE } from "@/definition/Task";
+import { countCharacters } from "@/definition/Wiki";
 
 const identifier = z
   .string()
@@ -25,6 +26,14 @@ const ticketType = z.enum(Object.values(WORK_ITEM_TYPE));
 const WRITE_TEXT_CHARACTERS = 20_000;
 
 const writeText = z.string().max(WRITE_TEXT_CHARACTERS);
+
+/** Markdown characters accepted by Pica's whole-page wiki writes. */
+export const PICA_WIKI_CONTENT_CHARACTERS = 50_000;
+
+const wikiContent = z
+  .string()
+  .refine((content) => countCharacters(content) <= PICA_WIKI_CONTENT_CHARACTERS)
+  .meta({ maxLength: PICA_WIKI_CONTENT_CHARACTERS });
 
 /** Base64 characters of one screenshot a tool may return: about 6 MB of image bytes. */
 const PICA_TOOL_IMAGE_CHARACTERS = 8_000_000;
@@ -253,7 +262,7 @@ const WIKI_WRITE_SCHEMAS = {
       scope: wikiScope.optional(),
       parentId: identifier.nullable(),
       title,
-      content: writeText,
+      content: wikiContent,
       icon: z.string().min(1).max(50).nullable().optional(),
     })
     .strict(),
@@ -264,7 +273,7 @@ const WIKI_WRITE_SCHEMAS = {
     .object({
       pageId: identifier,
       expectedRevision: revision,
-      content: writeText,
+      content: wikiContent,
     })
     .strict(),
   wiki_page_move: z

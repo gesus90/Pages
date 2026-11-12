@@ -33,6 +33,13 @@ describe("mcpAgentRoutes", () => {
       ["api/mcp/v1/agents/:id", "routes/api-mcp-v1-agent.ts"],
       ["api/mcp/v1/agents/:id/image", "routes/api-mcp-v1-agent-image.ts"],
       ["api/mcp/v1/agents/:id/remove", "routes/api-mcp-v1-agent-remove.ts"],
+      ["api/mcp/v1/agents/deleted", "routes/api-mcp-v1-agents-deleted.ts"],
+      [
+        "api/mcp/v1/agents/:id/deletion-preview",
+        "routes/api-mcp-v1-agent-deletion-preview.ts",
+      ],
+      ["api/mcp/v1/agents/:id/delete", "routes/api-mcp-v1-agent-delete.ts"],
+      ["api/mcp/v1/agents/:id/restore", "routes/api-mcp-v1-agent-restore.ts"],
       [
         "api/mcp/v1/agents/:id/memory/versions",
         "routes/api-mcp-v1-agent-memory-versions.ts",

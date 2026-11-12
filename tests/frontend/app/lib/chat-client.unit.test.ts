@@ -162,34 +162,21 @@ it("refuses messages, sessions and attachments of the wrong shape", () => {
   expectCode(() => readChatSessionView({ ...view, messages: null }), "general");
 });
 
-it("reads the overview with the attachment limit and the confirmation word", () => {
+it("reads the overview with the attachment limit", () => {
   const overview = { session: SESSION, messages: [], pending: [] };
 
-  expect(
-    readChatOverview({
-      ...overview,
-      attachmentLimitBytes: 1024,
-      confirmationWord: "LÖSCHEN",
-    }),
-  ).toEqual({
-    ...overview,
-    attachmentLimitBytes: 1024,
-    confirmationWord: "LÖSCHEN",
-  });
+  expect(readChatOverview({ ...overview, attachmentLimitBytes: 1024 })).toEqual(
+    { ...overview, attachmentLimitBytes: 1024 },
+  );
   expect(
     readChatOverview({
       ...overview,
       attachmentLimitBytes: 1024,
       confirmationWord: "DELETE",
-    }).confirmationWord,
-  ).toBe("DELETE");
+    }),
+  ).toEqual({ ...overview, attachmentLimitBytes: 1024 });
   expectCode(
-    () =>
-      readChatOverview({
-        ...overview,
-        attachmentLimitBytes: 1024,
-        confirmationWord: "REMOVE",
-      }),
+    () => readChatOverview({ ...overview, attachmentLimitBytes: 1.5 }),
     "general",
   );
 });

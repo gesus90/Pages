@@ -13,7 +13,6 @@ export const world = {
   keys: new Map<string, StoredOperation>(),
   findOverride: null as null | ((operationId: string) => unknown),
   templateWrite: vi.fn(),
-  requireConfirmation: vi.fn(),
   requireRevision: vi.fn(),
   readControl: vi.fn(),
 };

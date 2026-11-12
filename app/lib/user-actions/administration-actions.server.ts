@@ -30,7 +30,10 @@ function strings(form: FormData, key: string): string[] {
 }
 
 function handler(
-  intent: Exclude<UsersIntent, "create-user" | "reset-password">,
+  intent: Exclude<
+    UsersIntent,
+    "create-user" | "reset-password" | "delete-agent"
+  >,
   operation: (context: UsersActionContext) => Promise<void>,
 ): UsersActionHandler {
   return async (context) => {

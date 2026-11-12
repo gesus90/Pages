@@ -16,6 +16,8 @@ import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { ManagementTable } from "@/app/components/users/management-table";
 
 import { AgentPanel } from "./agent-panel";
+import { AgentDeleteDialog } from "./agent-delete-dialog";
+import { AgentDeletedList } from "./agent-deleted-list";
 
 import type { AdministrationPageData } from "@/definition/Authorization";
 import type { AgentEmployeeListItem } from "@/definition/AgentEmployee";
@@ -38,14 +40,39 @@ function matchesSearch(agent: AgentEmployeeListItem, query: string): boolean {
 interface AgentRowProps {
   readonly agent: AgentEmployeeListItem;
   readonly canManage: boolean;
+  readonly canDelete: boolean;
   readonly onEdit: (agentId: string) => void;
+  readonly onDelete: (agentId: string) => void;
+}
+
+function AgentStatus({
+  isActive,
+}: {
+  readonly isActive: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <span className="inline-flex items-center gap-2 text-sm">
+      <span
+        aria-hidden="true"
+        className={
+          isActive
+            ? "size-2 rounded-full bg-success-dot"
+            : "size-2 rounded-full bg-muted-foreground/50"
+        }
+      />
+      {t(isActive ? "users.status.active" : "agentEmployees.status.inactive")}
+    </span>
+  );
 }
 
 /** One agent: image with job title, username, model, role, status and actions. */
 function AgentRow({
   agent,
   canManage,
+  canDelete,
   onEdit,
+  onDelete,
 }: AgentRowProps): React.ReactElement {
   const { t } = useTranslation();
   const submit = useSubmit();
@@ -85,21 +112,7 @@ function AgentRow({
         {agent.roleName ?? "—"}
       </td>
       <td className="px-4 py-3">
-        <span className="inline-flex items-center gap-2 text-sm">
-          <span
-            aria-hidden="true"
-            className={
-              agent.isActive
-                ? "size-2 rounded-full bg-success-dot"
-                : "size-2 rounded-full bg-muted-foreground/50"
-            }
-          />
-          {t(
-            agent.isActive
-              ? "users.status.active"
-              : "agentEmployees.status.inactive",
-          )}
-        </span>
+        <AgentStatus isActive={agent.isActive} />
       </td>
       <td className="px-4 py-3 text-right">
         <DropdownMenu>
@@ -129,6 +142,11 @@ function AgentRow({
                     ? "agentEmployees.actions.deactivate"
                     : "agentEmployees.actions.activate",
                 )}
+              </DropdownMenuItem>
+            ) : null}
+            {canDelete ? (
+              <DropdownMenuItem onSelect={() => onDelete(agent.id)}>
+                {t("agentEmployees.actions.delete")}
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>
@@ -202,9 +220,13 @@ export function AgentDirectory({
   const [panel, setPanel] = useState<{
     readonly agentId: string | null;
   } | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const visible = agents.agents.filter((agent) =>
     matchesSearch(agent, search.trim().toLowerCase()),
   );
+  const canDelete =
+    (directory.actor.isAdmin && directory.actor.mode === "admin") ||
+    (directory.actor.role?.name === "Verwaltung" && agents.canCreate);
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <AgentToolbar
@@ -234,7 +256,9 @@ export function AgentDirectory({
                 key={agent.id}
                 agent={agent}
                 canManage={agents.canCreate}
+                canDelete={canDelete}
                 onEdit={(agentId) => setPanel({ agentId })}
+                onDelete={setDeleteId}
               />
             ))}
             {visible.length === 0 ? (
@@ -250,6 +274,15 @@ export function AgentDirectory({
           </tbody>
         </ManagementTable>
       </VerticalScrollArea>
+      {directory.actor.isAdmin && directory.actor.mode === "admin" ? (
+        <AgentDeletedList />
+      ) : null}
+      {deleteId ? (
+        <AgentDeleteDialog
+          agentId={deleteId}
+          onClose={() => setDeleteId(null)}
+        />
+      ) : null}
       {panel ? (
         <AgentPanel
           key={panel.agentId ?? "new"}

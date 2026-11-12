@@ -354,9 +354,8 @@ Pica uses the same reader and writer as this interface through native tools
   address of this interface the signed-in person opens; the bytes never reach
   the model.
 - A confirmation token never reaches the model. Pica shows target, action and
-  scope with the person's confirmation word; Pages keeps the token and spends
-  it only when the person replied with that word alone in a later message and
-  Pica repeats the identical call. A change of the object in between is
+  scope; Pages keeps the token and spends it only when the person explicitly
+  approves that exact action in a later message and Pica repeats the identical call. A change of the object in between is
   refused and shown again.
 
 ## Simulated Google Drive (development)

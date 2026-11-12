@@ -5,8 +5,12 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { logDiagnostic } from "@/backend/logging/Logger";
 import { answerPlanBridgeMessage } from "@/backend/service/agents/bridge/PlanBridgeProtocol";
+import { countCharacters } from "@/definition/Wiki";
 
-import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
+import {
+  PICA_TOOL_OUTCOME,
+  PICA_WIKI_CONTENT_CHARACTERS,
+} from "../PicaToolSchemas";
 import { isValidPicaToolImage } from "../PicaToolImageValidation";
 
 import type { Tool } from "@modelcontextprotocol/server";
@@ -143,6 +147,32 @@ function fields(input: unknown): Readonly<Record<string, unknown>> | null {
   return typeof input === "object" && input !== null && !Array.isArray(input)
     ? Object.fromEntries(Object.entries(input))
     : null;
+}
+
+/** Refuses wiki content beyond the Pica limit before the tool runs, or returns `null`. */
+function oversizedWikiContent(
+  name: string,
+  input: unknown,
+): PicaToolOutcome | null {
+  if (name !== "wiki_page_create" && name !== "wiki_page_set_content")
+    return null;
+  const content = fields(input)?.content;
+  if (
+    typeof content !== "string" ||
+    countCharacters(content) <= PICA_WIKI_CONTENT_CHARACTERS
+  )
+    return null;
+  return {
+    ok: false,
+    error: "INVALID_REQUEST",
+    result: JSON.stringify({
+      result: null,
+      details: {
+        reason: "content_too_long",
+        maxLength: PICA_WIKI_CONTENT_CHARACTERS,
+      },
+    }),
+  };
 }
 
 /** A parsed bridge request: the catalog, or one tool call. */
@@ -483,6 +513,8 @@ export class PicaBridge {
     };
     try {
       if (!this.isCurrent(binding)) return refused("TURN_INACTIVE");
+      const oversized = oversizedWikiContent(name, input);
+      if (oversized) return oversized;
       const invoked = await turn.tools.invoke(name, input, context);
       if (invoked === null) return refused("UNKNOWN_TOOL");
       if (!invoked.isValid) return refused("INVALID_ARGUMENTS");

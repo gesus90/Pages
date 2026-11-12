@@ -3,7 +3,7 @@ export const AGENT_PROJECT_DELETION_READ_OPERATIONS = [
   "admin.projects.deletionScope",
 ] as const;
 
-/** The permanent deletion of a project, with its confirmation word and replay record. */
+/** The permanent deletion of a project, with its replay record. */
 export const AGENT_PROJECT_DELETION_WRITE_OPERATIONS = [
   "admin.projects.delete",
 ] as const;
@@ -14,25 +14,6 @@ export type AgentProjectDeletionReadOperation =
 /** The operation that deletes a project for good. */
 export type AgentProjectDeletionWriteOperation =
   (typeof AGENT_PROJECT_DELETION_WRITE_OPERATIONS)[number];
-
-/** Either word confirms the deletion, whatever language the account uses. */
-export const PROJECT_DELETION_CONFIRMATIONS = ["LÖSCHEN", "DELETE"] as const;
-
-/** A word that confirms the permanent deletion of a project. */
-export type ProjectDeletionConfirmation =
-  (typeof PROJECT_DELETION_CONFIRMATIONS)[number];
-
-/**
- * Narrows an input to one of the two confirmation words.
- *
- * @param value - The confirmation the caller passed.
- * @returns Whether the value is exactly `LÖSCHEN` or `DELETE`.
- */
-export function isProjectDeletionConfirmation(
-  value: unknown,
-): value is ProjectDeletionConfirmation {
-  return PROJECT_DELETION_CONFIRMATIONS.some((word) => word === value);
-}
 
 /** What a deletion removes, counted per kind of data. */
 export const PROJECT_DELETION_COUNT_KEYS = [

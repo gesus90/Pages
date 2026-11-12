@@ -29,10 +29,6 @@ vi.mock(
       .requireRevision,
   }),
 );
-vi.mock("@/backend/service/agents/AgentConfirmation", async () => ({
-  requireAgentConfirmation: (await import("./agent-plan-command-fakes")).world
-    .requireConfirmation,
-}));
 vi.mock("@/backend/service/agents/AgentPlanControlViews", async () => ({
   readPlanControlEntry: (await import("./agent-plan-command-fakes")).world
     .readControl,
@@ -65,7 +61,7 @@ it("refuses an operation ID that was used with other parameters", async () => {
 });
 
 it("replays a deletion without reading the deleted plan", async () => {
-  const input = request("plans.delete", { confirmation: "LÖSCHEN" });
+  const input = request("plans.delete");
   storeEarlier(
     "plans.delete",
     { planId: "plan-1", revision: 3, deleted: true },

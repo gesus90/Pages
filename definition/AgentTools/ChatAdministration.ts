@@ -64,7 +64,7 @@ const ONLY =
 const READ =
   "Lists are cursor-paged (limit 1-100); continue with nextCursor. No credentials, password hashes or email addresses are returned.";
 const WRITE =
-  "Pass the values you read last as the expected fields; a stale state returns CONFLICT. Pages supplies operationId and the confirmation itself. When a change removes rights, memberships or access, Pages answers CONFIRMATION_REQUIRED: tell the person exactly what changes and ask them to reply with the confirmation word alone in a new message, then repeat the identical call. Never fabricate a confirmation.";
+  "Pass the values you read last as the expected fields; a stale state returns CONFLICT. Pages supplies operationId and the confirmation itself. When a change removes rights, memberships or access, Pages answers CONFIRMATION_REQUIRED: tell the person exactly what changes and ask them to approve the exact change explicitly in a new message, then repeat the identical call. Never fabricate a confirmation.";
 
 /** Descriptions for the chat; the MCP descriptions ask the client for a confirmation instead. */
 const DESCRIPTIONS: Readonly<

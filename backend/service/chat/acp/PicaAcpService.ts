@@ -162,9 +162,18 @@ export class PicaAcpService {
   /** Conversations being deleted; no job starts or takes a message for them. */
   private readonly deleting = new Set<string>();
   private recovery: Promise<void> | null = null;
+  private agentDeletions: PicaAcpServiceDependencies["agentDeletions"];
 
   public constructor(dependencies: PicaAcpServiceDependencies) {
     this.dependencies = dependencies;
+    this.agentDeletions = dependencies.agentDeletions;
+  }
+
+  /** Offers the shared deletion service to new Pica turns after service wiring. */
+  public setAgentDeletions(
+    service: NonNullable<PicaAcpServiceDependencies["agentDeletions"]>,
+  ): void {
+    this.agentDeletions = service;
   }
 
   /**
@@ -490,9 +499,11 @@ export class PicaAcpService {
   private jobDependencies(
     employee: PicaAcpEmployeeRun | undefined,
   ): PicaAcpServiceDependencies {
-    if (!employee) return this.dependencies;
+    if (!employee)
+      return { ...this.dependencies, agentDeletions: this.agentDeletions };
     return {
       ...this.dependencies,
+      agentDeletions: undefined,
       requireCurrent: () => employee.requireCurrent(),
       searchMemory: (query) => employee.searchMemory(query),
       ...(employee.readConversationContext

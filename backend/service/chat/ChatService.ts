@@ -516,9 +516,6 @@ export class ChatService {
     let confirmation = containsWord(turn.request.text, confirmationWord)
       ? confirmationWord
       : null;
-    let agentConfirmation = containsWord(turn.request.text, "LÖSCHEN")
-      ? ("LÖSCHEN" as const)
-      : null;
     const steps: ChatStep[] = [];
     const results = new ChatResultBudget();
     const temporaryPasswords: ChatTemporaryPassword[] = [];
@@ -556,25 +553,19 @@ export class ChatService {
       }
       calls += 1;
       const { temporaryPassword, ...outcome } =
-        await this.dependencies.tools.run(
-          turn.actor.id,
-          reply,
-          confirmation,
-          agentConfirmation,
-        );
+        await this.dependencies.tools.run(turn.actor.id, reply, confirmation);
       if (temporaryPassword) temporaryPasswords.push(temporaryPassword);
       steps.push({
         operation: reply.operation,
         parameters: reply.parameters,
         outcome: results.consume(outcome),
       });
-      // One typed confirmation allows one deletion or administration mutation.
+      // One typed confirmation allows one legacy administration mutation.
       if (
         isChatOperation(reply.operation) &&
         isChatConfirmationOperation(reply.operation)
       ) {
         confirmation = null;
-        agentConfirmation = null;
       }
     }
     throw new ChatError("stepLimit");

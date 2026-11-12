@@ -24,7 +24,6 @@ export interface AgentPlanCommandRequest {
   readonly nodeId: string | null;
   readonly name: string | null;
   readonly workspaceId: string | null;
-  readonly confirmation: unknown;
   /** Set only for a clone that becomes a one-time plan (PAGE-309). */
   readonly oneShot?: true;
 }
@@ -66,8 +65,6 @@ export function readPlanCommand(
     name: isTemplate
       ? readPlanTemplateName(parameters.name)
       : cloneName(parameters, isClone),
-    confirmation:
-      operation === "plans.delete" ? (parameters.confirmation ?? null) : null,
     ...readCloneTarget(parameters, isClone),
   };
 }
@@ -107,7 +104,6 @@ export interface AgentPlanTemplateCommandRequest {
     readonly planId: string;
     readonly nodeId: string;
   } | null;
-  readonly confirmation: unknown;
 }
 
 /**
@@ -147,6 +143,5 @@ export function readPlanTemplateCommand(
       planId === undefined
         ? null
         : { planId: readIdentifier(planId), nodeId: readIdentifier(nodeId) },
-    confirmation: isUpdate ? null : (parameters.confirmation ?? null),
   };
 }

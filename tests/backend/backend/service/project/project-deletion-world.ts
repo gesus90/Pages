@@ -181,14 +181,13 @@ export class ProjectDeletionWorld {
     this.archived.add(id);
   }
 
-  /** The parameters of a confirmed deletion of the first project. */
+  /** The parameters of an explicit deletion of the first project; no confirmation word is part of it. */
   public request(
     overrides: Readonly<Record<string, unknown>> = {},
   ): Readonly<Record<string, unknown>> {
     return {
       operationId: "delete-once",
       projectId: "alpha",
-      confirmation: "LÖSCHEN",
       ...overrides,
     };
   }

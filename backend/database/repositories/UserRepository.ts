@@ -132,12 +132,12 @@ export class UserRepository {
    * Returns every user ordered by display name.
    *
    * @remarks
-   * Intended for the user-management screen, which every caller must
-   * authorize before this method is used. A removed agent (PAGE-267) keeps
-   * its row only as the author of earlier changes and is not listed.
+   * Intended for authorized readers. Conversation history may opt into
+   * removed-agent tombstones to keep their names on earlier messages.
    */
-  public async findAll(): Promise<User[]> {
-    const rows = await this.database.query(`
+  public async findAll(includeRemovedAgents = false): Promise<User[]> {
+    const rows = await this.database.query(
+      `
       SELECT
           id,
           username,
@@ -152,8 +152,11 @@ export class UserRepository {
           account_kind
       FROM users
       WHERE removed_at IS NULL
+          OR (account_kind = 'agent' AND $include_removed_agents)
       ORDER BY display_name, creation_order;
-    `);
+    `,
+      { include_removed_agents: includeRemovedAgents },
+    );
 
     return rows.map((row) => this.toUser(row));
   }

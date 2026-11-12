@@ -2,6 +2,8 @@ import { AccountIdentityRepository } from "./AccountIdentityRepository";
 import { AgentActivityRepository } from "./AgentActivityRepository";
 import { AgentChatMemoryRepository } from "./AgentChatMemoryRepository";
 import { AgentConversationRepository } from "./AgentConversationRepository";
+import { AgentDeletionRepository } from "./AgentDeletionRepository";
+import { AgentDeletionPurgeRepository } from "./AgentDeletionPurgeRepository";
 import { AgentEmployeeRemovalRepository } from "./AgentEmployeeRemovalRepository";
 import { AgentEmployeeRepository } from "./AgentEmployeeRepository";
 import { AgentLearningSourceRepository } from "./AgentLearningSourceRepository";
@@ -107,6 +109,16 @@ export class EmployeeStore {
   /** Project roles, workload and last activity of agents (PAGE-308). */
   public profileLoads(): AgentProfileLoadRepository {
     return new AgentProfileLoadRepository(this.database);
+  }
+
+  /** Reversible agent deletion and its audit trail. */
+  public deletions(): AgentDeletionRepository {
+    return new AgentDeletionRepository(this.database);
+  }
+
+  /** Expiry and disk cleanup of deleted agents. */
+  public deletionPurges(): AgentDeletionPurgeRepository {
+    return new AgentDeletionPurgeRepository(this.database);
   }
 
   /** What is new for a learning run. */

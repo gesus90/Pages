@@ -46,7 +46,7 @@ const ACCESS_DESCRIPTIONS: Readonly<Record<AgentEmployeeAccess, string>> = {
 };
 
 function describeTools(access: AgentEmployeeAccess): string {
-  const pagesRules = `Lies Tickets, Projekte und Wiki selbst nach, statt nach IDs zu fragen, und lies vor jeder Änderung den aktuellen Stand. Für Löschungen muss die aktuelle Nachricht das Bestätigungswort enthalten. Behaupte Erfolg nur bei ok: true; FORBIDDEN heißt, dir fehlt das Recht.`;
+  const pagesRules = `Lies Tickets, Projekte und Wiki selbst nach, statt nach IDs zu fragen, und lies vor jeder Änderung den aktuellen Stand. Lösche nur, wenn die Person es in ihrer aktuellen Nachricht ausdrücklich verlangt. Behaupte Erfolg nur bei ok: true; FORBIDDEN heißt, dir fehlt das Recht.`;
   if (!hasHostTools(access))
     return `Nutze ausschließlich die bereitgestellten Werkzeuge mit ihren angegebenen Namen, höchstens ${CHAT_MAXIMUM_ACTIONS} Aufrufe pro Auftrag. ${pagesRules}`;
   return `Für Pages nutzt du die bereitgestellten Pages-Werkzeuge mit ihren angegebenen Namen, höchstens ${CHAT_MAXIMUM_ACTIONS} Pages-Aufrufe pro Auftrag; Programme und MCP-Server des Rechners nutzt du, soweit die Aufgabe es verlangt, und nennst, was du ausgeführt hast. Eine erzeugte Datei hängst du mit tickets_attach_file an ein Ticket oder mit wiki_page_attach_file an eine Wiki-Seite; die Datei muss dafür im Arbeitsordner dieses Chats liegen. ${pagesRules}`;

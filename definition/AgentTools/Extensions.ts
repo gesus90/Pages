@@ -44,7 +44,7 @@ const READ_DESCRIPTION =
 const WRITE_DESCRIPTION =
   "Pages checks the same account rights as the UI. Reuse operationId with identical parameters after response loss. Refused changes leave no activity. Changes in a project are marked source=mcp.";
 const DELETE_DESCRIPTION =
-  "Ask the user to type LÖSCHEN for German or DELETE for English and pass the exact reply as confirmation. Without it Pages returns CONFIRMATION_REQUIRED. The operation uses the existing trash/archive, returns affectedCount, and recursively includes descendants where applicable. Never infer confirmation.";
+  "Delete only when the person explicitly asks in their current message. A legacy confirmation field is accepted and ignored. The operation uses the existing trash/archive, returns affectedCount, and recursively includes descendants where applicable.";
 const ARCHIVE_DESCRIPTION =
   "Soft archiving preserves the record and its workflow status. Requires current milestone management rights and project responsibility, or Pages administrator eligibility. Ordinary ticket writing or assignment rights do not suffice. tools/list grants no target permission; every tools/call, including an operationId replay, rechecks current identity, visibility and archive rights.";
 
@@ -161,6 +161,7 @@ export const EXTENSION_WRITE_TOOLS: readonly {
         expected_revision: REVISION_SCHEMA,
         confirmation: CONFIRMATION_SCHEMA,
       },
+      optionalKeys: ["confirmation"],
       isDestructive: true,
     }),
   },
@@ -315,6 +316,7 @@ export const EXTENSION_WRITE_TOOLS: readonly {
         ticketId: IDENTIFIER_SCHEMA,
         confirmation: CONFIRMATION_SCHEMA,
       },
+      optionalKeys: ["confirmation"],
       isDestructive: true,
     }),
   },
@@ -399,6 +401,7 @@ export const EXTENSION_WRITE_TOOLS: readonly {
         milestoneId: IDENTIFIER_SCHEMA,
         confirmation: CONFIRMATION_SCHEMA,
       },
+      optionalKeys: ["confirmation"],
       isDestructive: true,
     }),
   },

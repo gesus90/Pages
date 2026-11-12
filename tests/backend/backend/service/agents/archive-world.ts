@@ -149,7 +149,6 @@ export class ArchiveWorld {
       ...(operation === "ticket.delete"
         ? { ticketId: "root" }
         : { projectId: "engineering", milestoneId: "milestone" }),
-      confirmation: "LÖSCHEN",
     };
   }
 

@@ -19,6 +19,13 @@ export function mcpAgentRoutes(
     resource(agent, "routes/api-mcp-v1-agent.ts"),
     resource(`${agent}/image`, "routes/api-mcp-v1-agent-image.ts"),
     resource(`${agent}/remove`, "routes/api-mcp-v1-agent-remove.ts"),
+    resource(`${agents}/deleted`, "routes/api-mcp-v1-agents-deleted.ts"),
+    resource(
+      `${agent}/deletion-preview`,
+      "routes/api-mcp-v1-agent-deletion-preview.ts",
+    ),
+    resource(`${agent}/delete`, "routes/api-mcp-v1-agent-delete.ts"),
+    resource(`${agent}/restore`, "routes/api-mcp-v1-agent-restore.ts"),
     resource(versions, "routes/api-mcp-v1-agent-memory-versions.ts"),
     resource(
       `${versions}/:versionId/restore`,

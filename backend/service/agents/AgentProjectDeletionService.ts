@@ -18,7 +18,6 @@ import {
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { requireAgentAdministratorActor } from "./AgentAdministratorAccess";
-import { requireProjectDeletionConfirmation } from "./AgentConfirmation";
 import {
   readIdentifier,
   readParameterRecord,
@@ -60,7 +59,6 @@ export interface AgentProjectDeletionDependencies {
 
 /** The validated parameters of one deletion call. */
 interface DeleteRequest {
-  readonly confirmation: unknown;
   readonly operationId: string;
   readonly projectId: string;
 }
@@ -77,7 +75,7 @@ interface RemovedProject {
   readonly result: AgentAdminChanged;
 }
 
-/** Binds an operation ID to the project it was first used for; either confirmation word replays alike. */
+/** Binds an operation ID to the project it was first used for. */
 function fingerprint(projectId: string): string {
   return createHash("sha256")
     .update(JSON.stringify({ channel: "mcp", projectId }))
@@ -106,7 +104,6 @@ function readDeleteRequest(input: unknown): DeleteRequest {
     ["confirmation"],
   );
   return {
-    confirmation: parameters.confirmation,
     operationId: readIdentifier(parameters.operationId),
     projectId: readIdentifier(parameters.projectId),
   };
@@ -118,7 +115,7 @@ function readDeleteRequest(input: unknown): DeleteRequest {
  * @remarks
  * The deletion is the one in {@link ProjectDeletionService}, which the
  * interface uses too. This class adds what MCP needs around it: the exact
- * parameters, the confirmation word, the replay record of the operation ID
+ * parameters, the replay record of the operation ID
  * and the audit entry, all committed with the deletion or not at all. The
  * chat agent never gets this service wired in.
  */
@@ -234,7 +231,7 @@ export class AgentProjectDeletionService {
     return { files: outcome.files, result };
   }
 
-  /** Requires the administrator and the confirmation anew, and finds an earlier call with this ID. */
+  /** Requires the administrator and finds an earlier call with this ID. */
   private async check(
     transaction: DatabaseTransaction,
     identity: AgentIdentity,
@@ -245,7 +242,6 @@ export class AgentProjectDeletionService {
       identity.userId,
       "mcp",
     );
-    requireProjectDeletionConfirmation(request.confirmation);
     const previous = await new AgentOperationKeyRepository(transaction).find(
       actor.id,
       request.operationId,

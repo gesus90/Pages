@@ -98,7 +98,7 @@ export const WIKI_COMMENT_RESOLVE_TOOL: Tool = {
 export const WIKI_COMMENT_DELETE_TOOL: Tool = {
   name: "delete_wiki_comment",
   title: "Delete wiki comment",
-  description: `Deletes a comment together with all replies to it and their mentions; deletedComments says how many comments were removed. The author of a comment, the owner of the page and administrators (not on private pages) may delete it; anybody else gets FORBIDDEN, which read_wiki_comments shows beforehand as canDelete. Deleting cannot be undone. Ask the user to type LÖSCHEN (German) or DELETE (English) and pass that exact reply as confirmation; missing or wrong confirmation is rejected. ${RIGHTS} ${REPLAY}`,
+  description: `Deletes a comment together with all replies to it and their mentions; deletedComments says how many comments were removed. The author of a comment, the owner of the page and administrators (not on private pages) may delete it; anybody else gets FORBIDDEN, which read_wiki_comments shows beforehand as canDelete. Deleting cannot be undone. Delete only when the person explicitly asks in their current message. A legacy confirmation field is accepted and ignored. ${RIGHTS} ${REPLAY}`,
   inputSchema: {
     type: "object",
     properties: {
@@ -106,7 +106,7 @@ export const WIKI_COMMENT_DELETE_TOOL: Tool = {
       commentId: IDENTIFIER_SCHEMA,
       confirmation: CONFIRMATION_SCHEMA,
     },
-    required: ["operationId", "commentId", "confirmation"],
+    required: ["operationId", "commentId"],
     additionalProperties: false,
   },
   annotations: DESTRUCTIVE_ANNOTATIONS,

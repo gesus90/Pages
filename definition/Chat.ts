@@ -118,7 +118,6 @@ export interface ChatSessionView {
 /** What the chat panel needs when it opens. */
 export interface ChatOverview extends ChatSessionView {
   readonly attachmentLimitBytes: number;
-  readonly confirmationWord: ChatConfirmationWord;
 }
 
 /** The outcome of one sent message. */

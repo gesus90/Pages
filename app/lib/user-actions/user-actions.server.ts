@@ -17,6 +17,10 @@ import {
   handleSaveAgentTemplate,
 } from "./agent-template-actions.server";
 import { invalidInput } from "./user-action-support.server";
+import {
+  handleDeleteAgent,
+  handleRestoreAgent,
+} from "./agent-deletion-actions.server";
 import { ADMINISTRATION_ACTION_HANDLERS } from "./administration-actions.server";
 
 import type {
@@ -36,6 +40,8 @@ const USERS_ACTION_HANDLERS = {
   "update-agent": handleUpdateAgent,
   "restore-agent-memory": handleRestoreAgentMemory,
   "reset-agent-memory": handleResetAgentMemory,
+  "delete-agent": handleDeleteAgent,
+  "restore-agent": handleRestoreAgent,
   "save-agent-template": handleSaveAgentTemplate,
   "delete-agent-template": handleDeleteAgentTemplate,
   "set-user-color": handleSetUserColor,

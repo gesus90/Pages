@@ -11,6 +11,7 @@ import {
 
 import {
   isChatConfirmationOperation,
+  isChatDeleteOperation,
   requiresChatConfirmation,
   isChatOperation,
   isChatWriteOperation,
@@ -36,12 +37,6 @@ import type { PicaPlanTurn } from "./PicaPlanConfirmation";
 const SERVER_KEYS: ReadonlySet<string> = new Set([
   "operationId",
   "confirmation",
-]);
-
-/** Plan deletions whose consent Pages binds to the exact target in a later human message. */
-const PLAN_DELETIONS: ReadonlySet<string> = new Set([
-  "plans.delete",
-  "plans.templates.delete",
 ]);
 
 /** One action the agent requested. */
@@ -71,11 +66,10 @@ export interface ChatToolDependencies {
  * Every action goes through the same services and checks as the interface.
  * Rights are resolved anew for every action. Operations outside the catalog, such as files, the database or
  * server files, do not exist for the agent. A deletion runs only when the
- * person typed the confirmation word in the current message.
+ * person explicitly requested it in the current message.
  */
 export class ChatToolExecutor {
   private readonly dependencies: ChatToolDependencies;
-  private readonly planConfirmation = new PicaPlanConfirmation();
   private readonly adminConfirmation = new PicaPlanConfirmation();
 
   public constructor(dependencies: ChatToolDependencies) {
@@ -87,8 +81,7 @@ export class ChatToolExecutor {
    *
    * @param userId - The person the chat speaks with.
    * @param action - The operation and parameters the agent requested.
-   * @param confirmation - The confirmation word the person typed in the current message, or `null`.
-   * @param agentConfirmation - The ticket-required German word for agent deletion, taken only from the current message.
+   * @param confirmation - The legacy administrative confirmation, or `null`.
    * @returns The result, or a stable error code the agent can explain.
    * @throws {ChatError} `accessDenied` when the account may no longer act.
    */
@@ -96,16 +89,10 @@ export class ChatToolExecutor {
     userId: string,
     action: ChatActionRequest,
     confirmation: ChatConfirmationWord | null,
-    agentConfirmation: "LÖSCHEN" | null = confirmation === "LÖSCHEN"
-      ? confirmation
-      : null,
   ): Promise<ChatActionOutcome> {
     const { operation } = action;
     if (!isChatOperation(operation))
       return { ok: false, error: "UNKNOWN_OPERATION" };
-    // The legacy action envelope has no server-owned conversation target binding.
-    if (PLAN_DELETIONS.has(operation))
-      return { ok: false, error: "CONFIRMATION_REQUIRED" };
     logEvent({
       level: "debug",
       event: "chat.tool.started",
@@ -114,8 +101,7 @@ export class ChatToolExecutor {
       metadata: { operation, userId },
     });
     const isConfirmed = isChatConfirmationOperation(operation);
-    const typedConfirmation =
-      operation === "agents.delete" ? agentConfirmation : confirmation;
+    const typedConfirmation = confirmation;
     if (requiresChatConfirmation(operation) && typedConfirmation === null)
       return { ok: false, error: "CONFIRMATION_REQUIRED" };
     const parameters = {
@@ -132,7 +118,7 @@ export class ChatToolExecutor {
     return this.dispatch(userId, operation, parameters);
   }
 
-  /** Native plan calls use server-owned identity, stable turn keys and target-bound human deletion consent. */
+  /** Native plan calls use server-owned identity and stable turn keys. */
   public async runPlan(
     action: ChatActionRequest,
     context: RuntimeExecutionContext,
@@ -150,24 +136,11 @@ export class ChatToolExecutor {
       ),
     );
     const request = { operation: action.operation, parameters };
-    const isDeletion = PLAN_DELETIONS.has(action.operation);
-    if (
-      isDeletion &&
-      !this.planConfirmation.hasApproval(request, context, turn)
-    ) {
-      const prompt =
-        action.operation === "plans.delete"
-          ? await this.deletionPrompt(context.userId, parameters, turn)
-          : await this.templateDeletionPrompt(context.userId, parameters, turn);
-      if (prompt.error !== "CONFIRMATION_REQUIRED") return prompt;
-      if (!this.planConfirmation.consume(request, context, turn)) return prompt;
-    }
     return this.dispatch(context.userId, action.operation, {
       ...parameters,
       ...(isChatWriteOperation(action.operation)
         ? { operationId: picaPlanOperationId(request, context, turn.id) }
         : {}),
-      ...(isDeletion ? { confirmation: turn.confirmation } : {}),
     });
   }
 
@@ -176,13 +149,13 @@ export class ChatToolExecutor {
    *
    * @param action - The operation and the parameters the model requested.
    * @param context - The server-owned scope; the caller has resolved the administrator right.
-   * @param turn - The raw human message of this turn and the confirmation word of the person.
-   * @returns The result, or `CONFIRMATION_REQUIRED` with the exact call and the word to type.
+   * @param turn - The raw human message of this turn and the server-owned legacy confirmation.
+   * @returns The result, or `CONFIRMATION_REQUIRED` with the exact call to approve.
    *
    * @remarks
    * A critical change, and any change a service holds back for a
-   * confirmation, runs only after the person replied with the confirmation
-   * word alone in a later message than the one that asked. Pages binds that
+   * confirmation, runs only after the person explicitly approved it in a
+   * later message than the one that asked. Pages binds that
    * reply to the exact operation and parameters; the model can neither
    * supply nor reuse it. Operations whose result carries a one-time password
    * do not exist here.
@@ -208,9 +181,10 @@ export class ChatToolExecutor {
         ),
       ),
     };
-    const isCritical = isPicaCriticalOperation(operation);
+    const isCritical =
+      isPicaCriticalOperation(operation) && !isChatDeleteOperation(operation);
     if (isCritical && !this.adminConfirmation.consume(request, context, turn))
-      return this.consentPrompt(request, turn);
+      return this.consentPrompt(request);
     const outcome = await this.dispatchAdmin(
       request,
       context,
@@ -221,7 +195,7 @@ export class ChatToolExecutor {
     // The service holds the change back until the person confirmed it.
     return this.adminConfirmation.consume(request, context, turn)
       ? this.dispatchAdmin(request, context, turn, true)
-      : this.consentPrompt(request, turn);
+      : this.consentPrompt(request);
   }
 
   private dispatchAdmin(
@@ -240,87 +214,15 @@ export class ChatToolExecutor {
     });
   }
 
-  private consentPrompt(
-    request: AdminCall,
-    turn: PicaPlanTurn,
-  ): ChatActionOutcome {
+  private consentPrompt(request: AdminCall): ChatActionOutcome {
     return {
       ok: false,
       error: "CONFIRMATION_REQUIRED",
       result: {
         operation: request.operation,
         parameters: request.parameters,
-        confirmation: turn.confirmation,
         scope:
-          "Name this exact change and its effect to the person, then ask them to reply with the confirmation word alone in a new message. Only that reply allows the change; repeat the identical call afterwards.",
-      },
-    };
-  }
-
-  private async deletionPrompt(
-    userId: string,
-    parameters: Readonly<Record<string, unknown>>,
-    turn: PicaPlanTurn,
-  ): Promise<ChatActionOutcome> {
-    const response = await this.dispatch(userId, "plans.control.read", {
-      planId: parameters.planId,
-    });
-    if (!response.ok) return response;
-    const result = response.result;
-    if (typeof result !== "object" || result === null || !("control" in result))
-      return { ok: false, error: "FAILED" };
-    const plan = result.control;
-    if (
-      typeof plan !== "object" ||
-      plan === null ||
-      !("canDelete" in plan) ||
-      !("revision" in plan)
-    )
-      return { ok: false, error: "FAILED" };
-    if (plan.canDelete !== true) return { ok: false, error: "FORBIDDEN" };
-    if (plan.revision !== parameters.expectedRevision)
-      return { ok: false, error: "CONFLICT" };
-    return {
-      ok: false,
-      error: "CONFIRMATION_REQUIRED",
-      result: {
-        planId: parameters.planId,
-        ownerId: userId,
-        expectedRevision: plan.revision,
-        confirmation: turn.confirmation,
-        scope:
-          "Only this saved plan is removed; finished history stays stored, workspace files and templates stay untouched. Ask the person to reply with the existing confirmation word in a new message.",
-      },
-    };
-  }
-
-  /** Names the node template a deletion would remove, before the person confirms it (PAGE-246). */
-  private async templateDeletionPrompt(
-    userId: string,
-    parameters: Readonly<Record<string, unknown>>,
-    turn: PicaPlanTurn,
-  ): Promise<ChatActionOutcome> {
-    const response = await this.dispatch(userId, "plans.templates.read", {
-      workspaceId: parameters.workspaceId,
-      templateId: parameters.templateId,
-    });
-    if (!response.ok) return response;
-    const result = response.result;
-    if (
-      typeof result !== "object" ||
-      result === null ||
-      !("template" in result)
-    )
-      return { ok: false, error: "FAILED" };
-    return {
-      ok: false,
-      error: "CONFIRMATION_REQUIRED",
-      result: {
-        template: result.template,
-        workspaceId: parameters.workspaceId,
-        confirmation: turn.confirmation,
-        scope:
-          "Only this node template is removed; copies already inserted into plans stay unchanged. Only its owner may delete it. Ask the person to reply with the existing confirmation word in a new message.",
+          "Name this exact change and its effect to the person, then ask them to approve it explicitly in a new message. Only that reply allows the change; repeat the identical call afterwards.",
       },
     };
   }

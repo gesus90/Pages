@@ -8,7 +8,6 @@ import {
 
 import type {
   ChatAttachment,
-  ChatConfirmationWord,
   ChatContextSize,
   ChatDeletionResult,
   ChatCompactionResult,
@@ -106,12 +105,6 @@ function readSession(value: unknown): ChatSession {
   };
 }
 
-function readConfirmationWord(value: unknown): ChatConfirmationWord {
-  if (value !== "LÖSCHEN" && value !== "DELETE")
-    throw new ChatClientError("general");
-  return value;
-}
-
 /** Reads the jobs, steers and selection snapshots of a conversation on the Codex path. */
 export function readChatActivity(value: unknown): ChatSessionActivity {
   const activity = readAgentObject(value);
@@ -147,7 +140,6 @@ export function readChatOverview(value: unknown): ChatOverview {
   return {
     ...readChatSessionView(overview),
     attachmentLimitBytes: readSize(overview.attachmentLimitBytes),
-    confirmationWord: readConfirmationWord(overview.confirmationWord),
   };
 }
 

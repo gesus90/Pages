@@ -4,6 +4,7 @@ import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { ChatResultBudget } from "./ChatResultBudget";
 import { registerPicaChatTools } from "./PicaChatTools";
 import { registerPicaEmployeeTools } from "./PicaEmployeeTools";
+import { registerPicaAgentDeletionTools } from "./PicaAgentDeletionTools";
 import { registerPicaHostFileTools } from "./PicaHostFileTools";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAutomationTools } from "./PicaAutomationTools";
@@ -12,7 +13,6 @@ import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
 import { registerPicaStorageTools } from "./admin/PicaStorageTools";
 import { registerPicaBrowserTools } from "./browser/PicaBrowserTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
-import { isChatDeleteOperation } from "./ChatToolCatalog";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
 import {
   PICA_FILE_EXTENSIONS,
@@ -26,6 +26,7 @@ import {
 
 import type { z } from "zod";
 import type { PicaAdminService } from "./admin/PicaAdminService";
+import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
@@ -49,10 +50,11 @@ export interface PicaToolsInput {
   readonly planTurnId?: string;
   /** The answer-specific staging run, when an ACP job contains several turns. */
   readonly answerRunId?: string;
-  /** The word the deletions of the person's interface language take; Pages passes it, never the model. */
+  /** The server-owned legacy administrative confirmation; never supplied by the model. */
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
   readonly adminTools?: PicaAdminService | undefined;
+  readonly agentDeletions?: AgentDeletionService | undefined;
   /** Ends or marks the run when a call would exceed the actual execution budget. */
   readonly onLimit?: () => void;
   /** Stores the files Pica writes for its answer; without it the file tool is not offered. */
@@ -274,7 +276,7 @@ const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
   },
   wiki_page_create: {
     description:
-      "Create a wiki page with Markdown content in a project, or with projectId null in the instance or private wiki named by scope; parentId null puts it on the top level.",
+      "Create a wiki page with Markdown content of at most 50,000 characters in a project, or with projectId null in the instance or private wiki named by scope; parentId null puts it on the top level. Longer content returns INVALID_REQUEST with details.reason content_too_long and details.maxLength 50000.",
     operation: "wiki.page.create",
     // Pica uploads nothing, so a page it creates references no new files.
     parameters: ({ icon, ...input }) => ({
@@ -289,7 +291,7 @@ const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
   },
   wiki_page_set_content: {
     description:
-      "Replace the whole Markdown content of a wiki page with the revision read last.",
+      "Replace the whole Markdown content of a wiki page with the revision read last. Content accepts at most 50,000 characters; longer content returns INVALID_REQUEST with details.reason content_too_long and details.maxLength 50000.",
     operation: "wiki.page.setContent",
   },
   wiki_page_move: {
@@ -440,29 +442,14 @@ async function dispatchPrivileged(
   );
 }
 
-/** Plan deletions that need the target-bound consent of the native plan path. */
-const PLAN_DELETIONS: ReadonlySet<string> = new Set([
-  "plans.delete",
-  "plans.templates.delete",
-]);
-
 async function dispatchAction(
   input: PicaToolsInput,
   binding: PicaToolBinding,
   parameters: ToolParameters,
   context: RuntimeExecutionContext,
 ): Promise<ChatActionOutcome> {
-  if (PLAN_DELETIONS.has(binding.operation) && !input.tools.runPlan)
-    return { ok: false, error: "CONFIRMATION_REQUIRED" };
   if (binding.isPrivileged)
     return await dispatchPrivileged(input, binding, parameters, context);
-  const word = isChatDeleteOperation(binding.operation)
-    ? await input.sessions.confirmationWord(context.userId)
-    : null;
-  const confirmation =
-    word !== null && containsConfirmation(input.message ?? "", word)
-      ? word
-      : null;
   const action = {
     operation: binding.operation,
     parameters: binding.parameters?.(parameters, context) ?? parameters,
@@ -473,20 +460,7 @@ async function dispatchAction(
         id: input.planTurnId,
         confirmation: await input.sessions.confirmationWord(context.userId),
       })
-    : await input.tools.run(
-        context.userId,
-        action,
-        confirmation,
-        containsConfirmation(input.message ?? "", "LÖSCHEN") ? "LÖSCHEN" : null,
-      );
-}
-
-function containsConfirmation(message: string, word: string): boolean {
-  const literalWord = word.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  return new RegExp(
-    `(?:^|[^\\p{L}\\p{M}\\p{N}_])${literalWord}(?:$|[^\\p{L}\\p{M}\\p{N}_])`,
-    "u",
-  ).test(message);
+    : await input.tools.run(context.userId, action, null);
 }
 
 type PicaExecute = (
@@ -551,7 +525,7 @@ function registerAdministratorTools(
  * @remarks
  * Reads find and read projects, tickets, milestones and the wiki. Writes
  * create and change them on user level when the person asks for it. Deletion
- * requires the confirmation word in the current human message. The services
+ * follows the explicit request in the current human message. The services
  * check the person's rights on every call. A write that failed is not sent
  * again unchanged in the same turn.
  */
@@ -656,6 +630,10 @@ export function createPicaTools(
       authorize: input.authorize,
       spend: () => spend(input, budget),
     });
+  if (input.agentDeletions)
+    registerPicaAgentDeletionTools(registry, input.agentDeletions, () =>
+      spend(input, budget),
+    );
   if (input.adminTools)
     registerAdministratorTools(registry, {
       input,

@@ -188,11 +188,6 @@ async function deleteChatGroup(
   context: AgentAdministrationContext,
   parameters: Readonly<Record<string, unknown>>,
 ): Promise<ChatAdminMutation> {
-  await requireAgentConfirmation(
-    context.database,
-    context.actor.id,
-    parameters.confirmation,
-  );
   const id = readIdentifier(parameters.groupId);
   const group = (await context.repository.groups().findAll()).find(
     (candidate) => candidate.id === id,
@@ -237,11 +232,6 @@ async function deleteChatDepartment(
   context: AgentAdministrationContext,
   parameters: Readonly<Record<string, unknown>>,
 ): Promise<ChatAdminMutation> {
-  await requireAgentConfirmation(
-    context.database,
-    context.actor.id,
-    parameters.confirmation,
-  );
   const id = readIdentifier(parameters.departmentId);
   const department = context.snapshot.departments.find(
     (candidate) => candidate.id === id,
@@ -310,11 +300,6 @@ async function deleteChatRole(
   context: AgentAdministrationContext,
   parameters: Readonly<Record<string, unknown>>,
 ): Promise<ChatAdminMutation> {
-  await requireAgentConfirmation(
-    context.database,
-    context.actor.id,
-    parameters.confirmation,
-  );
   const id = readIdentifier(parameters.roleId);
   const current = context.snapshot.roles.find(
     (candidate) => candidate.id === id,

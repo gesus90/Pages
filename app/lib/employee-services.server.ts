@@ -23,6 +23,7 @@ import { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPri
 import { AgentHostFiles } from "@/backend/service/employee/AgentHostFiles";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
 import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
+import { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
 import { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
 import { AgentEmployeeModels } from "@/backend/service/employee/AgentEmployeeModels";
 import { AgentProfileReadService } from "@/backend/service/employee/profile/AgentProfileReadService";
@@ -42,6 +43,8 @@ import { AgentTemplateService } from "@/backend/service/employee/AgentTemplateSe
 import { ChatDirectoryService } from "@/backend/service/employee/ChatDirectoryService";
 import { ChatGroupService } from "@/backend/service/employee/ChatGroupService";
 import { PersonColorService } from "@/backend/service/employee/PersonColorService";
+import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
+import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import { startAutomationAgentWorker } from "./automation-services.server";
 import { createConversationServices } from "./conversation-services.server";
@@ -51,6 +54,7 @@ import type { AgentChatTools } from "@/definition/AgentChat";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { AutomationService } from "@/backend/service/automation/AutomationService";
+import type { AgentDeletionDependencies } from "@/backend/service/employee/AgentDeletionService";
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { AgentHostFileStores } from "@/backend/service/employee/AgentHostFiles";
@@ -74,6 +78,7 @@ import type {
  */
 export interface EmployeeApplicationServices extends ConversationApplicationServices {
   readonly agentEmployeeAdministration: AgentEmployeeAdministration;
+  readonly agentDeletionService: AgentDeletionService;
   /** The templates of `AGENT.md` (PAGE-283). */
   readonly agentTemplateService: AgentTemplateService;
   /** The readable profiles of agents for administrators and leaders (PAGE-308). */
@@ -107,6 +112,8 @@ export interface EmployeeServicesInput {
     readonly tickets: Pick<TaskService, "getByKey">;
     readonly wiki: Pick<WikiService, "canView">;
   };
+  /** The folder of the chat workspaces, whose files an agent deletion removes (PAGE-321). */
+  readonly workspaceRoot: string;
   /** Where the stored conversations keep their audio and announce their changes (PAGE-278). */
   readonly conversations: {
     readonly directory: string;
@@ -286,6 +293,38 @@ function simulatedAgent(
  * person colors on the shared database; the learning scheduler runs only in
  * the process that serves the chat.
  */
+function createDeletionFiles(
+  input: EmployeeServicesInput,
+): NonNullable<AgentDeletionDependencies["files"]> {
+  const directory = input.conversations.directory;
+  const workspace = new PicaAcpWorkspace(input.workspaceRoot);
+  const chatFiles = new WikiFileStore(path.join(directory, "chat-attachments"));
+  const planFiles = new WikiFileStore(path.join(directory, "plan-assets"));
+  const voiceFiles = new WikiFileStore(
+    path.join(directory, "conversation-voice"),
+  );
+  return {
+    remove: async (kind, name) => {
+      if (kind === "session") return workspace.remove(name);
+      if (kind === "chat") return chatFiles.remove([name]);
+      if (kind === "plan") return planFiles.remove([name]);
+      return voiceFiles.remove([name]);
+    },
+  };
+}
+
+function createDeletionService(
+  input: EmployeeServicesInput,
+  authorization: AuthorizationRepository,
+): AgentDeletionService {
+  return new AgentDeletionService({
+    authorization,
+    cache: input.cache,
+    files: createDeletionFiles(input),
+  });
+}
+
+/** Builds the user and agent employee services for one database. */
 export function createEmployeeServices(
   input: EmployeeServicesInput,
 ): EmployeeApplicationServices {
@@ -387,6 +426,7 @@ export function createEmployeeServices(
       activity,
       accessEnvironment,
     }),
+    agentDeletionService: createDeletionService(input, authorization),
     agentTemplateService: new AgentTemplateService({
       store,
       authorization,
@@ -413,3 +453,4 @@ export function createEmployeeServices(
     personColorService: new PersonColorService(authorization, input.cache),
   };
 }
+import path from "node:path";

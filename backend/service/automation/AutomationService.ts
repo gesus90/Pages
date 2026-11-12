@@ -19,7 +19,6 @@ import type {
   AutomationRunSummary,
 } from "@/definition/Automation";
 import type { AutomationDirectory } from "./AutomationDirectory";
-import type { AutomationDeletionConfirmation } from "./AutomationWrites";
 
 /** What the automation service is built from. */
 export interface AutomationServiceDependencies {
@@ -142,9 +141,8 @@ export class AutomationService {
   public async delete(
     userId: string,
     input: unknown,
-    confirmation: AutomationDeletionConfirmation,
   ): Promise<AutomationDeletionScope | AutomationDeleted> {
-    return this.writes.delete(userId, input, confirmation);
+    return this.writes.delete(userId, input);
   }
 
   /** Display names of projects and groups that automations are shared with. */

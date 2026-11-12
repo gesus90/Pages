@@ -47,7 +47,6 @@ import { ProjectRepository } from "@/backend/database/repositories/ProjectReposi
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
 import { AgentProjectService } from "@/backend/service/mcp/AgentProjectService";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
-import { agentConfirmationWord } from "@/backend/service/agents/AgentConfirmation";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { McpUserApi } from "@/backend/service/mcp/users/McpUserApi";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
@@ -314,7 +313,6 @@ function createMcpPlanServices(
       },
     }),
     identities,
-    confirmationWord: (userId) => agentConfirmationWord(database, userId),
   };
 }
 

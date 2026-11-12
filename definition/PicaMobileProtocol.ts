@@ -731,7 +731,7 @@ export interface PicaMobileChatJobSummary {
  * @remarks
  * `messages` holds the newest page, oldest first: at most 30 messages and
  * 400000 characters, but always at least one message when the session has
- * any. `attachmentLimitBytes` and `confirmationWord` belong to `chat_open`.
+ * any. `attachmentLimitBytes` belongs to `chat_open`.
  */
 export interface PicaMobileChatViewPayload {
   readonly session: PicaMobileChatSession;
@@ -746,7 +746,6 @@ export interface PicaMobileChatViewPayload {
     readonly status: PicaMobileChatSteerStatus;
   }[];
   readonly attachmentLimitBytes?: number;
-  readonly confirmationWord?: "LÖSCHEN" | "DELETE";
 }
 
 /** The answer to `chat_sessions`: at most 200 sessions, newest first. */

@@ -29,7 +29,6 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { translateAgentTicketError } from "./AgentTicketErrors";
 import { agentTransactionScope } from "./AgentTransactionScope";
 import { createAgentTaskContext } from "./AgentTaskAccess";
-import { requireAgentConfirmation } from "./AgentConfirmation";
 import { readAgentExtension } from "./AgentExtensionReads";
 import { readIdentifier, readParameterRecord } from "./AgentParameterReader";
 import { applyAgentPlanningExtension } from "./AgentPlanningExtensions";
@@ -230,8 +229,11 @@ export class AgentExtensionService {
         .some((key) => !(key in parameters))
     )
       throw new AgentOperationError("INVALID_REQUEST");
+    const acceptedParameters = Object.fromEntries(
+      Object.entries(parameters).filter(([key]) => key !== "confirmation"),
+    );
     const request = {
-      ...parameters,
+      ...acceptedParameters,
       operationId: readIdentifier(parameters.operationId),
     };
     const completed = await this.transaction.run<AgentExtensionChanged>({
@@ -272,12 +274,6 @@ export class AgentExtensionService {
     replay: AgentExtensionReplay,
   ): Promise<void> {
     const { stored, parameters } = replay;
-    if (operation.endsWith(".delete"))
-      await requireAgentConfirmation(
-        context.database,
-        context.actor.id,
-        parameters.confirmation,
-      );
     if (stored.projectId !== null)
       await context.projects.getById(context.actor, stored.projectId);
     if (operation === "ticket.delete") {
@@ -383,11 +379,6 @@ export class AgentExtensionService {
       parameters.expectedRevision < 1
     )
       throw new AgentOperationError("INVALID_REQUEST");
-    await requireAgentConfirmation(
-      context.database,
-      context.actor.id,
-      parameters.confirmation,
-    );
     const wiki = new WikiRepository(
       context.database,
       agentChannelPolicy(context.channel).source,

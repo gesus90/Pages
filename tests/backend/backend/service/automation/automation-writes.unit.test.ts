@@ -210,9 +210,7 @@ it("rejects stale revisions and denies edits without writing", async () => {
 
 it("reports deletion scope and deletes only after confirmation", async () => {
   const writes = setup();
-  await expect(
-    writes.delete("user", input, { requiresWord: false }),
-  ).resolves.toEqual({
+  await expect(writes.delete("user", input)).resolves.toEqual({
     confirmationRequired: true,
     automationId: "automation",
     name: "Original",
@@ -223,11 +221,7 @@ it("reports deletion scope and deletes only after confirmation", async () => {
   });
   expect(AutomationRepository.prototype.delete).not.toHaveBeenCalled();
   await expect(
-    writes.delete(
-      "user",
-      { ...input, confirmed: true },
-      { requiresWord: false },
-    ),
+    writes.delete("user", { ...input, confirmed: true }),
   ).resolves.toEqual({
     automationId: "automation",
     isDeleted: true,
@@ -244,11 +238,7 @@ it("refuses deletion when a run appears inside the transaction", async () => {
     .mockResolvedValueOnce(null)
     .mockResolvedValueOnce(partial({ id: "run", status: "running" }));
   await expect(
-    writes.delete(
-      "user",
-      { ...input, confirmed: true },
-      { requiresWord: false },
-    ),
+    writes.delete("user", { ...input, confirmed: true }),
   ).rejects.toMatchObject({ reason: "run_active", currentRevision: 2 });
   expect(AutomationRepository.prototype.delete).not.toHaveBeenCalled();
 });

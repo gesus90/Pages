@@ -101,11 +101,15 @@ const deleteSchema = z
   .object({
     expectedRevision: revisionField.optional(),
     confirmed: z.boolean().optional(),
+    confirmation: z.unknown().optional(),
   })
   .strict();
 
 const confirmationSchema = z
-  .object({ confirmed: z.boolean().optional() })
+  .object({
+    confirmed: z.boolean().optional(),
+    confirmation: z.unknown().optional(),
+  })
   .strict();
 
 const commentCreateSchema = z
@@ -120,7 +124,7 @@ const commentEditSchema = z.object({ body: z.string() }).strict();
 
 const commentResolveSchema = z.object({ resolved: z.boolean() }).strict();
 
-const emptySchema = z.object({}).strict();
+const emptySchema = z.object({ confirmation: z.unknown().optional() }).strict();
 
 /** Query of `GET /wiki/pages`. */
 export type McpWikiTreeRequest = z.infer<typeof treeSchema>;

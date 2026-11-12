@@ -96,22 +96,15 @@ export async function startMcpWorkspace(context: {
     events: context.tasks.pagesEventPublisher,
     automations: context.agents.automationService,
   });
-  if (!isLocalSessionOwner() && !isPagesRunsProcess())
-    startWikiMaintenanceScheduler(
-      context.wiki,
-      services.agentAssetService,
-      new PagesEventRetention(
-        new PagesEventOutboxReaderRepository(context.database),
-      ),
-    );
   const runtime = await getPagesRuntime();
+  const picaSettings = await picaAcpSettings();
   const chat = createChatServices({
     database: context.database,
     directory,
     accounts: context.accounts,
     agents: context.agents,
     router: services.chatOperationRouter,
-    acp: await picaAcpSettings(),
+    acp: picaSettings,
     protectedOrigin: runtime.getConfig().publicUrl,
     storage: context.tasks.googleDriveFileService,
     picaBrowser: picaBrowserOptions({
@@ -120,27 +113,39 @@ export async function startMcpWorkspace(context: {
       config: () => runtime.getConfig(),
     }),
   });
+  const employees = createEmployeeServices({
+    automations: context.agents.automationService,
+    database: context.database,
+    cache: context.serverCache,
+    acp: chat.picaAcpService,
+    workspaceRoot: picaSettings.workspaceRoot,
+    observer: context.agents,
+    hostFiles: {
+      tickets: context.tasks.taskAttachmentService,
+      ticketKeys: context.tasks.taskService,
+      wiki: context.wiki,
+    },
+    knowledge: { tickets: context.tasks.taskService, wiki: context.wiki },
+    conversations: {
+      directory,
+      events: context.tasks.pagesEventPublisher,
+      speech: runtime.getConfig().speechRecognition,
+      publicUrl: runtime.getConfig().publicUrl,
+    },
+  });
+  chat.picaAcpService?.setAgentDeletions(employees.agentDeletionService);
+  if (!isLocalSessionOwner() && !isPagesRunsProcess())
+    startWikiMaintenanceScheduler(
+      context.wiki,
+      services.agentAssetService,
+      new PagesEventRetention(
+        new PagesEventOutboxReaderRepository(context.database),
+      ),
+      employees.agentDeletionService,
+    );
   return {
     ...services,
     ...chat,
-    ...createEmployeeServices({
-      automations: context.agents.automationService,
-      database: context.database,
-      cache: context.serverCache,
-      acp: chat.picaAcpService,
-      observer: context.agents,
-      hostFiles: {
-        tickets: context.tasks.taskAttachmentService,
-        ticketKeys: context.tasks.taskService,
-        wiki: context.wiki,
-      },
-      knowledge: { tickets: context.tasks.taskService, wiki: context.wiki },
-      conversations: {
-        directory,
-        events: context.tasks.pagesEventPublisher,
-        speech: runtime.getConfig().speechRecognition,
-        publicUrl: runtime.getConfig().publicUrl,
-      },
-    }),
+    ...employees,
   };
 }
