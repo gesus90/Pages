@@ -14,8 +14,17 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { agentPlanNameKey } from "@/definition/AgentPlanName";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
-import { agentSimulationRunner } from "@/definition/AgentSimulation";
+import { fullPlanTeam } from "@/definition/AgentPlanTeam";
 import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
+import {
+  requirePlanConnections,
+  requireRemotePlanModels,
+} from "./AgentPlanStoredReferences";
+import {
+  AgentPlanTeamRepository,
+  readAllPlanTeams,
+  readPlanTeams,
+} from "./AgentPlanTeamRepository";
 
 import type {
   Database,
@@ -41,11 +50,17 @@ function scheduledDeletion(
   return deadline === null ? {} : { scheduledDeletionAt: deadline };
 }
 
-/** The graph as it is stored: the deadline lives in its own column, so a plan read back never carries it into the JSON. */
+/** Fields of a plan that live in columns or tables of their own and never in its JSON. */
+const UNSTORED_PLAN_FIELDS: ReadonlySet<string> = new Set([
+  "scheduledDeletionAt",
+  "teams",
+]);
+
+/** The graph as it is stored: the deadline and the teams live outside it, so a plan read back never carries them into the JSON. */
 function storedPlanJson(plan: AgentPlan): string {
   return JSON.stringify(
     Object.fromEntries(
-      Object.entries(plan).filter(([key]) => key !== "scheduledDeletionAt"),
+      Object.entries(plan).filter(([key]) => !UNSTORED_PLAN_FIELDS.has(key)),
     ),
   );
 }
@@ -81,6 +96,8 @@ export interface AgentPlanListing {
   readonly usage: AgentPlanInput["usage"];
   readonly revision: number;
   readonly sharing?: AgentPlanInput["sharing"];
+  /** The groups and departments that share the plan, with their rights. */
+  readonly teams?: AgentPlan["teams"];
   /** Whether the plan is a one-time plan, read from its stored graph. */
   readonly oneShot?: boolean;
   /** When the one-time plan is deleted; absent or `null` while nothing is scheduled. */
@@ -140,7 +157,9 @@ async function findPlan(
   `,
     { id },
   );
-  return row ? readPlan(row) : null;
+  return row
+    ? { ...readPlan(row), teams: await readPlanTeams(database, id) }
+    : null;
 }
 
 /** A plan that still waits for the one-time sharing of the plans that existed before teams. */
@@ -176,12 +195,18 @@ export class AgentPlanRepository {
 
   /** Lists metadata for subsequent service-level grant filtering. */
   public async list(): Promise<readonly AgentPlan[]> {
-    const rows = await this.database.query(`
-      SELECT ${PLAN_COLUMNS}
-      FROM agent_plans
-      ORDER BY lower(name), id;
-    `);
-    return rows.map(readPlan);
+    const [rows, teams] = await Promise.all([
+      this.database.query(`
+        SELECT ${PLAN_COLUMNS}
+        FROM agent_plans
+        ORDER BY lower(name), id;
+      `),
+      readAllPlanTeams(this.database),
+    ]);
+    return rows.map((row) => {
+      const plan = readPlan(row);
+      return { ...plan, teams: teams.get(plan.id) ?? [] };
+    });
   }
 
   /**
@@ -192,7 +217,7 @@ export class AgentPlanRepository {
    * hands out only the identity columns and the sharing of each plan.
    */
   public async listings(): Promise<readonly AgentPlanListing[]> {
-    const rows = await this.database.query(`
+    const listed = this.database.query(`
       SELECT
           id,
           owner_id,
@@ -208,7 +233,14 @@ export class AgentPlanRepository {
       FROM agent_plans
       ORDER BY lower(name), id;
     `);
-    return rows.map(readListing);
+    const [rows, teams] = await Promise.all([
+      listed,
+      readAllPlanTeams(this.database),
+    ]);
+    return rows.map((row) => {
+      const listing = readListing(row);
+      return { ...listing, teams: teams.get(listing.id) ?? [] };
+    });
   }
 
   /** Reads a graph without introducing permission policy into persistence. */
@@ -332,6 +364,9 @@ export class AgentPlanRepository {
             name_key: agentPlanNameKey(readTextColumn(row, 0, "name")),
           },
         );
+        await new AgentPlanTeamRepository(transaction).replace(id, [
+          fullPlanTeam("department", departmentId),
+        ]);
         return "shared";
       });
     } catch (error: unknown) {
@@ -422,12 +457,16 @@ export class AgentPlanRepository {
    * Finished runs stay stored, so the run records of the agents keep their
    * history; without the plan they are no longer listed anywhere.
    *
+   * @param id - The plan.
+   * @param ownerId - The owner the plan must still belong to, or `null` for an
+   * administrator, who deletes every plan (PAGE-329).
+   * @param options - The revision the person saw and the journal of the deletion.
    * @throws {AgentError} `plan_access_denied` when the plan no longer belongs
    * to the owner, `plan_running` while a run is running or paused.
    */
   public async remove(
     id: string,
-    ownerId: string,
+    ownerId: string | null,
     options?: {
       readonly revision: number;
       readonly journal: (transaction: DatabaseTransaction) => Promise<void>;
@@ -435,7 +474,7 @@ export class AgentPlanRepository {
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const previous = await findPlan(transaction, id);
-      if (previous?.ownerId !== ownerId)
+      if (!previous || (ownerId !== null && previous.ownerId !== ownerId))
         throw new AgentError("plan_access_denied");
       if (options && previous.revision !== options.revision)
         throw new AgentError("plan_conflict");
@@ -494,6 +533,11 @@ async function writePlan(
     plan,
   );
   await storePlan(transaction, write);
+  if (isNew)
+    await new AgentPlanTeamRepository(transaction).replace(
+      plan.id,
+      plan.teams ?? [],
+    );
   await write.journal?.(transaction);
 }
 
@@ -665,30 +709,6 @@ async function requirePlanAgents(
   await requireRemotePlanModels(database, plan);
 }
 
-async function requirePlanConnections(
-  database: DatabaseTransaction,
-  plan: AgentPlan,
-): Promise<void> {
-  const ids = new Set(
-    allPlanSteps(plan).flatMap((node) =>
-      node.configuration?.connectionId ? [node.configuration.connectionId] : [],
-    ),
-  );
-  // The simulation's connections are never stored; a node keeps naming them while it is off.
-  for (const id of ids) if (agentSimulationRunner(id) !== null) ids.delete(id);
-  for (const id of ids) {
-    const [connection] = await database.query(
-      `
-      SELECT id
-      FROM agent_connections
-      WHERE id = $id;
-    `,
-      { id },
-    );
-    if (!connection) throw new AgentError("plan_context_changed");
-  }
-}
-
 /** Checks the saved revision within an operation's write transaction, before recording a no-op or run command. */
 export async function requirePlanRevision(
   transaction: DatabaseTransaction,
@@ -701,31 +721,4 @@ export async function requirePlanRevision(
   );
   if (!row || Number(row[0]) !== revision)
     throw new AgentError("plan_conflict");
-}
-
-async function requireRemotePlanModels(
-  database: DatabaseTransaction,
-  plan: AgentPlan,
-): Promise<void> {
-  for (const node of allPlanSteps(plan)) {
-    const route = node.configuration?.runnerRoute;
-    if (!route) continue;
-    const [workspace] = await database.query(
-      `
-      SELECT remote_workspaces.id
-      FROM remote_workspaces
-      INNER JOIN remote_connections
-          ON remote_connections.id = remote_workspaces.connection_id
-      WHERE remote_workspaces.id = $workspace_id
-          AND remote_workspaces.project_id = $project_id
-          AND remote_connections.id = $connection_id;
-    `,
-      {
-        workspace_id: route.workspaceId,
-        project_id: plan.projectId,
-        connection_id: route.connectionId,
-      },
-    );
-    if (!workspace) throw new AgentError("plan_context_changed");
-  }
 }

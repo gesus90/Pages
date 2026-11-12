@@ -87,12 +87,14 @@ it("checks plan access with team sharing and the same workspace catalog", () => 
   const { access, workspaceCatalog } = createAccess();
 
   expect(access).toBe(vi.mocked(AgentPlanAccess).mock.instances[0]);
-  const [plans, local, sharing, catalog] =
+  const [plans, local, sharing, options] =
     vi.mocked(AgentPlanAccess).mock.calls[0];
   expect(plans).toBe(PLANS);
   expect(local).toBe(LOCAL);
   expect(sharing).toBe(vi.mocked(AgentPlanSharing).mock.instances[0]);
-  expect(catalog).toBe(workspaceCatalog);
+  expect(options?.catalog).toBe(workspaceCatalog);
+  // Project managers manage the teams of the project's plans (PAGE-329).
+  expect(options?.isProjectManager).toBeTypeOf("function");
   expect(vi.mocked(AgentPlanSharing).mock.calls[0]).toEqual([
     vi.mocked(AuthorizationRepository).mock.instances[0],
     vi.mocked(UserGroupRepository).mock.instances[0],

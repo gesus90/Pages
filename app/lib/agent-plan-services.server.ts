@@ -70,7 +70,10 @@ import {
   readableSessionRun,
 } from "./run-diagnosis-services.server";
 import { createPlanRemoteServices } from "./agent-plan-remote-services.server";
-import { createPlanWorkspaceAccess } from "./plan-access-services.server";
+import {
+  createPlanWorkspaceAccess,
+  planAccessRecords,
+} from "./plan-access-services.server";
 import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
 
 import type { PlanRunEnginePort } from "@/backend/service/agents/runs/PlanRunEnginePort";
@@ -187,8 +190,12 @@ function planRecords(input: {
   | "startRejections"
   | "workspaceCleanup"
   | "planAssets"
+  | "accessChanges"
+  | "planAudit"
+  | "scriptApprovals"
 > {
   return {
+    ...planAccessRecords(input.database),
     workGate: new AgentPlanWorkGate(input.database, input.users),
     stepProgress: new AgentPlanStepProgressService({
       reports: new AgentPlanStepReportRepository(input.database),
@@ -546,6 +553,7 @@ function createScriptRuntime(
       access,
       tasks,
       authorization: new AuthorizationRepository(input.database),
+      approvals: planAccessRecords(input.database).scriptApprovals,
     }),
   };
 }

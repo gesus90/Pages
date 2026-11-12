@@ -11,6 +11,7 @@ import {
 import { createConversationAgentPrompt } from "./ConversationAgentPrompt";
 import { findConversationMentions } from "./ConversationMentions";
 import { toConversationMessage } from "./ConversationReader";
+import { agentSelectionText } from "./content/ConversationAgentFiles";
 import { EMPTY_MESSAGE_CONTENT } from "./content/ConversationMessageContent";
 
 import type {
@@ -97,8 +98,11 @@ export interface ConversationReplyRunnerDependencies {
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
   /** Reads the file lines of an answer (PAGE-298). */
   readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
-  /** Stores the files an answer attaches. */
-  readonly attachments: Pick<ConversationAttachments, "attach">;
+  /** Stores the files an answer attaches and binds them to it. */
+  readonly attachments: Pick<
+    ConversationAttachments,
+    "stage" | "bind" | "release"
+  >;
   /** The attachments and links of the stored answer. */
   readonly content: ConversationMessageContentReader;
   readonly now?: () => Date;
@@ -408,8 +412,14 @@ export class ConversationReplyRunner {
     const selection =
       reply.notice === null
         ? await this.dependencies.agentFiles.select(reply.text)
-        : { text: reply.text, files: [] };
-    const text = Array.from(selection.text)
+        : null;
+    // The files are stored first, so a file that fails keeps its line with the reason.
+    const staged = selection
+      ? await this.stageFiles(conversation.id, job.agentId, selection.files)
+      : { attachmentIds: [], failed: [] };
+    const text = Array.from(
+      selection ? agentSelectionText(selection, staged.failed) : reply.text,
+    )
       .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
       .join("");
     // An answer mentions as a person's message does, so it can hand over (PAGE-296).
@@ -420,27 +430,39 @@ export class ConversationReplyRunner {
             senderId: job.agentId,
           })
         : [];
-    const outcome = await this.dependencies.messages.insert(
-      {
-        id: randomUUID(),
-        conversationId: conversation.id,
-        senderId: job.agentId,
-        // One answer or hint per agent and round, also after a repeated event or a restart.
-        clientMessageId: `${CONVERSATION_AGENT_REPLY_PREFIX}${job.round.originMessageId}`,
-        text,
-        mentions,
-        createdAt: this.now(),
-        voice: null,
-        notice: reply.notice,
-      },
-      changedEvent(conversation.id),
-    );
+    let outcome: Awaited<
+      ReturnType<ConversationReplyRunnerDependencies["messages"]["insert"]>
+    >;
+    try {
+      outcome = await this.dependencies.messages.insert(
+        {
+          id: randomUUID(),
+          conversationId: conversation.id,
+          senderId: job.agentId,
+          // One answer or hint per agent and round, also after a repeated event or a restart.
+          clientMessageId: `${CONVERSATION_AGENT_REPLY_PREFIX}${job.round.originMessageId}`,
+          text,
+          mentions,
+          createdAt: this.now(),
+          voice: null,
+          notice: reply.notice,
+        },
+        changedEvent(conversation.id),
+      );
+    } catch (error: unknown) {
+      await this.releaseFiles(job.agentId, staged.attachmentIds);
+      throw error;
+    }
     await this.setState(job, reply.notice === null ? "answered" : "failed", {
       replyMessageId: outcome.message.id,
       notice: reply.notice,
     });
-    if (!outcome.isNew) return null;
-    await this.attachFiles(outcome.message, selection.files);
+    if (!outcome.isNew) {
+      // A repeated store keeps the first answer; the copies of this one go.
+      await this.releaseFiles(job.agentId, staged.attachmentIds);
+      return null;
+    }
+    await this.bindFiles(outcome.message, staged.attachmentIds);
     const content = await this.dependencies.content.describe([outcome.message]);
     const message = toConversationMessage(
       outcome.message,
@@ -456,30 +478,70 @@ export class ConversationReplyRunner {
     return reply.notice === null ? message : null;
   }
 
-  /** Copies the files an answer named into the file store, as attachments of the answer. */
-  private async attachFiles(
-    answer: StoredConversationMessage,
+  /**
+   * Copies the files an answer named into the file store, without a message
+   * yet.
+   *
+   * @returns The stored attachments in their order, and the files that failed.
+   */
+  private async stageFiles(
+    conversationId: string,
+    agentId: string,
     files: readonly AgentFile[],
-  ): Promise<void> {
-    for (const [position, file] of files.entries()) {
+  ): Promise<{ attachmentIds: string[]; failed: AgentFile[] }> {
+    const attachmentIds: string[] = [];
+    const failed: AgentFile[] = [];
+    for (const file of files) {
       try {
-        await this.dependencies.attachments.attach(
-          {
-            conversationId: answer.conversationId,
-            messageId: answer.id,
-            senderId: answer.senderId,
-            position,
-          },
+        const stored = await this.dependencies.attachments.stage(
+          { conversationId, senderId: agentId },
           {
             name: file.name,
             mimeType: file.mimeType,
             source: this.dependencies.agentFiles.open(file),
           },
         );
+        attachmentIds.push(stored.id);
       } catch (error: unknown) {
-        // The answer stays; a file that vanished since the check is missing in it.
+        // The line of the file stays in the answer with the reason.
         logCaughtError(COMPONENT, error);
+        failed.push(file);
       }
+    }
+    return { attachmentIds, failed };
+  }
+
+  /** Binds the stored files to the stored answer; unbound ones are swept later. */
+  private async bindFiles(
+    answer: StoredConversationMessage,
+    attachmentIds: readonly string[],
+  ): Promise<void> {
+    if (attachmentIds.length === 0) return;
+    try {
+      await this.dependencies.attachments.bind(
+        {
+          id: answer.id,
+          conversationId: answer.conversationId,
+          senderId: answer.senderId,
+        },
+        attachmentIds,
+      );
+    } catch (error: unknown) {
+      logCaughtError(COMPONENT, error);
+      await this.releaseFiles(answer.senderId, attachmentIds);
+    }
+  }
+
+  /** Removes stored files no answer took; a failure leaves them to the sweep. */
+  private async releaseFiles(
+    agentId: string,
+    attachmentIds: readonly string[],
+  ): Promise<void> {
+    if (attachmentIds.length === 0) return;
+    try {
+      await this.dependencies.attachments.release(agentId, attachmentIds);
+    } catch (error: unknown) {
+      logCaughtError(COMPONENT, error);
     }
   }
 

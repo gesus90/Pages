@@ -101,8 +101,11 @@ export interface ConversationAgentRepliesDependencies {
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
   /** Reads the file lines of an answer (PAGE-298). */
   readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
-  /** Stores the files an answer attaches. */
-  readonly attachments: Pick<ConversationAttachments, "attach">;
+  /** Stores the files an answer attaches and binds them to it. */
+  readonly attachments: Pick<
+    ConversationAttachments,
+    "stage" | "bind" | "release"
+  >;
   /** The attachments and links of a stored answer. */
   readonly content: ConversationMessageContentReader;
   readonly now?: () => Date;

@@ -1,4 +1,13 @@
-import { Copy, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  Copy,
+  History,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -23,7 +32,9 @@ function deleteBlocker(
   control: AgentPlanControl | undefined,
 ): string | null {
   if (!page.selected) return "plans.manage.noPlan";
-  if (page.selected.ownerId !== page.userId) return "plans.manage.ownerOnly";
+  const canDelete =
+    page.selected.rights?.canDelete ?? page.selected.ownerId === page.userId;
+  if (!canDelete) return "plans.manage.ownerOnly";
   if (control && control.status !== "idle" && isActivePlanRun(control.status))
     return "plans.manage.runActive";
   return null;
@@ -72,6 +83,7 @@ export function PlanPanelMenu(props: {
           <Pencil aria-hidden="true" className={ITEM_ICON_CLASS} />
           {t("plans.manage.edit")}
         </DropdownMenuItem>
+        <PlanAccessMenuItems page={page} onOpen={props.onOpen} />
         <DropdownMenuItem
           disabled={!page.selected}
           onSelect={() => props.onOpen("clone")}
@@ -104,5 +116,41 @@ export function PlanPanelMenu(props: {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** Teams und Besitzer, Verlauf and, for administrators, Skripte freigeben (PAGE-329). */
+function PlanAccessMenuItems(props: {
+  readonly page: AgentPlanPage;
+  readonly onOpen: (dialog: PlanManagementDialog) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const plan = props.page.selected;
+  const needsApproval =
+    plan?.rights?.isAdministrator === true &&
+    (plan.scriptApproval?.unapprovedStepIds.length ?? 0) > 0;
+  return (
+    <>
+      <DropdownMenuItem
+        disabled={!plan}
+        onSelect={() => props.onOpen("access")}
+      >
+        <Users aria-hidden="true" className={ITEM_ICON_CLASS} />
+        {t("plans.access.menu")}
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={!plan}
+        onSelect={() => props.onOpen("history")}
+      >
+        <History aria-hidden="true" className={ITEM_ICON_CLASS} />
+        {t("plans.access.historyMenu")}
+      </DropdownMenuItem>
+      {needsApproval ? (
+        <DropdownMenuItem onSelect={() => props.onOpen("approve-scripts")}>
+          <ShieldCheck aria-hidden="true" className={ITEM_ICON_CLASS} />
+          {t("plans.access.approveMenu")}
+        </DropdownMenuItem>
+      ) : null}
+    </>
   );
 }

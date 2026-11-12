@@ -10,7 +10,12 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
-import type { AgentPlanRights, AgentPlanSharing } from "./AgentPlanSharing";
+import type {
+  AgentPlanRights,
+  AgentPlanSharedRights,
+  AgentPlanSharing,
+} from "./AgentPlanSharing";
+import type { AgentPlanRightsView } from "@/definition/AgentPlanTeam";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type {
   AgentPlanWorkspaces,
@@ -45,9 +50,17 @@ interface AccessContext {
   readonly orphans: () => Promise<OrphanContext>;
 }
 
+/** Answers whether a person manages a project, for the team management of its plans. */
+export type ProjectManagerCheck = (
+  projectId: string,
+  userId: string,
+) => Promise<boolean>;
+
 /** Where a readable plan belongs and what the person may do with it. */
 interface PlanPlace {
-  readonly canEdit: boolean;
+  readonly rights: AgentPlanSharedRights;
+  readonly isTeamMember: boolean;
+  readonly isOwner: boolean;
   readonly project: Pick<AgentWorkspaceChoice, "projectName" | "github">;
   readonly isWorkspaceMissing: boolean;
 }
@@ -65,17 +78,22 @@ export class AgentPlanAccess {
   private readonly workspaces: AgentWorkspaceService;
   private readonly sharing: AgentPlanSharing;
   private readonly catalog: AgentPlanWorkspaces | undefined;
+  private readonly isProjectManager: ProjectManagerCheck | undefined;
 
   public constructor(
     plans: AgentPlanRepository,
     workspaces: AgentWorkspaceService,
     sharing: AgentPlanSharing,
-    catalog?: AgentPlanWorkspaces,
+    options: {
+      readonly catalog?: AgentPlanWorkspaces;
+      readonly isProjectManager?: ProjectManagerCheck;
+    } = {},
   ) {
     this.plans = plans;
     this.workspaces = workspaces;
     this.sharing = sharing;
-    this.catalog = catalog;
+    this.catalog = options.catalog;
+    this.isProjectManager = options.isProjectManager;
   }
 
   /**
@@ -87,8 +105,11 @@ export class AgentPlanAccess {
     return new AgentPlanAccess(
       this.plans,
       this.workspaces.forChannel(channel),
-      this.sharing,
-      this.catalog?.forChannel(channel),
+      this.sharing.forChannel(channel),
+      {
+        catalog: this.catalog?.forChannel(channel),
+        isProjectManager: this.isProjectManager,
+      },
     );
   }
 
@@ -101,7 +122,7 @@ export class AgentPlanAccess {
     const views: AgentPlanView[] = [];
     for (const plan of plans) {
       const place = await this.place(plan, context);
-      if (place) views.push(this.view(plan, place));
+      if (place) views.push(this.view(plan, place, false));
     }
     return views;
   }
@@ -130,13 +151,17 @@ export class AgentPlanAccess {
         projectName: place.project.projectName,
         workspaceId: listing.workspaceId,
         departmentId: listing.departmentId,
+        teams: listing.teams ?? [],
         usage: listing.usage,
         revision: listing.revision,
         ...(listing.oneShot ? { oneShot: true } : {}),
         ...(listing.scheduledDeletionAt
           ? { scheduledDeletionAt: listing.scheduledDeletionAt }
           : {}),
-        canEdit: place.canEdit,
+        canEdit: place.rights.canEdit,
+        canRun: place.rights.canRun,
+        ...(place.rights.isAdminAccess ? { isAdminAccess: true } : {}),
+        ...(place.isTeamMember ? { isTeamMember: true } : {}),
         ...(place.isWorkspaceMissing ? { isWorkspaceMissing: true } : {}),
       });
     }
@@ -157,7 +182,23 @@ export class AgentPlanAccess {
     ]);
     const place = plan ? await this.place(plan, context) : null;
     if (!plan || !place) throw new AgentError("plan_access_denied");
-    return this.view(plan, place);
+    const isManager =
+      place.rights.canRead &&
+      plan.ownerId !== userId &&
+      !place.rights.isAdministrator &&
+      (await this.isProjectManager?.(plan.projectId, userId)) === true;
+    return this.view(plan, place, isManager);
+  }
+
+  /**
+   * Validates the groups and departments of new teams.
+   *
+   * @throws {AgentError} `profile_target_invalid` for an unknown target.
+   */
+  public async validateTeams(
+    teams: Parameters<AgentPlanSharing["validateTeams"]>[0],
+  ): Promise<void> {
+    await this.sharing.validateTeams(teams);
   }
 
   /**
@@ -188,10 +229,10 @@ export class AgentPlanAccess {
     };
   }
 
-  /** Supplies sharing choices only to active accounts. */
+  /** Supplies sharing choices only to active accounts; administrators also get the owner choices. */
   public async directory(userId: string): Promise<AgentProfileDirectory> {
-    await this.sharing.viewer(userId);
-    return this.sharing.directory();
+    const viewer = await this.sharing.viewer(userId);
+    return this.sharing.directory(this.sharing.isAdministrator(viewer));
   }
 
   /** Validates sharing identifiers before persisting a plan. */
@@ -225,25 +266,50 @@ export class AgentPlanAccess {
     plan: PlanPlacement,
     context: AccessContext,
   ): Promise<PlanPlace | null> {
-    if (!this.sharing.canRead(plan, context.viewer)) return null;
-    const canEdit = this.sharing.canEdit(plan, context.viewer);
+    const rights = this.sharing.rights(plan, context.viewer);
+    if (!rights.canRead) return null;
+    const isTeamMember = this.sharing.isTeamMember(plan, context.viewer);
+    const isOwner = plan.ownerId === context.viewer.actor.userId;
     const workspace = context.workspaces.find(
       (entry) =>
         entry.id === plan.workspaceId && entry.projectId === plan.projectId,
     );
     if (workspace)
-      return { canEdit, project: workspace, isWorkspaceMissing: false };
+      return {
+        rights,
+        isTeamMember,
+        isOwner,
+        project: workspace,
+        isWorkspaceMissing: false,
+      };
     const { registered, projects } = await context.orphans();
     const project = projects?.get(plan.projectId);
     if (!project || !registered || registered.has(plan.workspaceId))
       return null;
-    return { canEdit, project, isWorkspaceMissing: true };
+    return {
+      rights,
+      isTeamMember,
+      isOwner,
+      project,
+      isWorkspaceMissing: true,
+    };
   }
 
-  private view(plan: AgentPlan, place: PlanPlace): AgentPlanView {
+  private view(
+    plan: AgentPlan,
+    place: PlanPlace,
+    isProjectManager: boolean,
+  ): AgentPlanView {
+    const rights: AgentPlanRightsView = {
+      ...place.rights,
+      canManageTeams:
+        place.isOwner || place.rights.isAdministrator || isProjectManager,
+    };
     return {
       ...plan,
-      canEdit: place.canEdit,
+      teams: plan.teams ?? [],
+      canEdit: rights.canEdit,
+      rights,
       projectName: place.project.projectName,
       github: place.project.github,
       ...(place.isWorkspaceMissing ? { isWorkspaceMissing: true } : {}),

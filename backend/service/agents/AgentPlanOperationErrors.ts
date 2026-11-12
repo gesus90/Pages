@@ -51,6 +51,8 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   plan_runner_payload_update_required: "plan_runner_payload_update_required",
   plan_workspace_conflict: "plan_workspace_conflict",
   plan_script_permission_denied: "plan_script_permission_denied",
+  plan_script_approval_required: "plan_script_approval_required",
+  plan_owner_invalid: "plan_owner_invalid",
   plan_script_interpreter_unavailable: "plan_script_interpreter_unavailable",
   plan_continuation_deleted: "plan_continuation_deleted",
   // Script nodes keep the codes of the plan page.
@@ -98,6 +100,9 @@ function translateAgentError(error: AgentError): AgentOperationError {
     return new AgentOperationError("NOT_FOUND");
   if (
     error.code === "plan_project_owner_only" ||
+    error.code === "plan_team_forbidden" ||
+    error.code === "plan_owner_forbidden" ||
+    error.code === "plan_script_approval_forbidden" ||
     error.code === "template_owner_only"
   )
     return new AgentOperationError("FORBIDDEN");

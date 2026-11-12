@@ -7,6 +7,8 @@ import type {
   ConversationReplyJob,
   ConversationReplyRunnerDependencies,
 } from "@/backend/service/conversation/ConversationReplyRunner";
+import type { StoredConversationAttachment } from "@/backend/database/repositories/conversation/ConversationAttachmentRepository";
+import type { AgentFile } from "@/backend/service/conversation/content/ConversationAgentFiles";
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type { Mock } from "vitest";
 import type { User } from "@/definition/User";
@@ -45,6 +47,19 @@ const message: StoredConversationMessage = {
   createdAt: "2026-01-01T00:00:00.000Z",
   voice: null,
   notice: null,
+};
+const staged: StoredConversationAttachment = {
+  id: "attachment-1",
+  conversationId: "group",
+  messageId: null,
+  uploaderId: "agent",
+  name: "eins.png",
+  mimeType: "image/png",
+  sizeBytes: 3,
+  storageName: "stored-1",
+  position: 0,
+  thumbnail: null,
+  createdAt: "2026-01-01T00:00:00.000Z",
 };
 const job: ConversationReplyJob = {
   round: {
@@ -111,10 +126,12 @@ function fixture(user: User = agent): {
     events,
     publisher: { publish: vi.fn() },
     agentFiles: {
-      select: vi.fn().mockResolvedValue({ text: "Answer", files: [] }),
+      select: vi
+        .fn()
+        .mockResolvedValue({ text: "Answer", files: [], lines: ["Answer"] }),
       open: vi.fn(),
     },
-    attachments: { attach: vi.fn() },
+    attachments: { stage: vi.fn(), bind: vi.fn(), release: vi.fn() },
     content: { describe: vi.fn().mockResolvedValue(new Map()) },
     now: () => new Date("2026-01-01T00:00:00Z"),
   };
@@ -181,4 +198,76 @@ it("refuses missing membership and stores an inactive notice", async () => {
     expect.anything(),
   );
   expect(inactive.answer).not.toHaveBeenCalled();
+});
+
+it("binds the stored file and keeps the line of a file that failed with the reason (B2)", async () => {
+  const { runner, messages, dependencies } = fixture();
+  const lines = [
+    "Hier die Entwürfe:",
+    "![Eins](file:/home/a/Results/eins.png)",
+    "![Zwei](file:/home/a/Results/zwei.png)",
+  ];
+  const file = (index: number, name: string): AgentFile => ({
+    path: `/home/a/Results/${name}`,
+    name,
+    mimeType: "image/png",
+    sizeBytes: 3,
+    lineIndex: index,
+  });
+  vi.mocked(dependencies.agentFiles.select).mockResolvedValueOnce({
+    text: "Hier die Entwürfe:",
+    files: [file(1, "eins.png"), file(2, "zwei.png")],
+    lines,
+  });
+  vi.mocked(dependencies.attachments.stage)
+    .mockResolvedValueOnce(staged)
+    .mockRejectedValueOnce(new Error("disk full"));
+  await runner.run(job);
+  const expected =
+    "Hier die Entwürfe:\n![Zwei](file:/home/a/Results/zwei.png) (Datei nicht angehängt: Speichern fehlgeschlagen)";
+  expect(messages.insert).toHaveBeenCalledWith(
+    expect.objectContaining({ text: expected }),
+    expect.anything(),
+  );
+  expect(dependencies.attachments.stage).toHaveBeenCalledTimes(2);
+  expect(dependencies.attachments.stage).toHaveBeenCalledWith(
+    { conversationId: "group", senderId: "agent" },
+    expect.objectContaining({ name: "eins.png" }),
+  );
+  expect(dependencies.attachments.bind).toHaveBeenCalledWith(
+    { id: "answer", conversationId: "group", senderId: "agent" },
+    ["attachment-1"],
+  );
+  expect(dependencies.attachments.release).not.toHaveBeenCalled();
+  // The files are stored before the answer, so a failure can still change its text.
+  expect(
+    vi.mocked(dependencies.attachments.stage).mock.invocationCallOrder[1],
+  ).toBeLessThan(messages.insert.mock.invocationCallOrder[0] ?? 0);
+});
+
+it("releases the stored files of a repeated answer", async () => {
+  const { runner, messages, dependencies } = fixture();
+  vi.mocked(dependencies.agentFiles.select).mockResolvedValueOnce({
+    text: "",
+    files: [
+      {
+        path: "/home/a/Results/eins.png",
+        name: "eins.png",
+        mimeType: "image/png",
+        sizeBytes: 3,
+        lineIndex: 0,
+      },
+    ],
+    lines: ["![Eins](file:/home/a/Results/eins.png)"],
+  });
+  vi.mocked(dependencies.attachments.stage).mockResolvedValueOnce(staged);
+  messages.insert.mockResolvedValueOnce({
+    message: { ...message, id: "answer", senderId: "agent" },
+    isNew: false,
+  });
+  await runner.run(job);
+  expect(dependencies.attachments.bind).not.toHaveBeenCalled();
+  expect(dependencies.attachments.release).toHaveBeenCalledWith("agent", [
+    "attachment-1",
+  ]);
 });

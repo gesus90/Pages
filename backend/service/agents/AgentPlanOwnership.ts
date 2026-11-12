@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { fullPlanTeam, isPlanAdministrator } from "@/definition/AgentPlanTeam";
 
 import type { AgentPlanView } from "@/definition/AgentPlan";
 import type { AccountAccess } from "@/definition/Authorization";
@@ -18,14 +19,18 @@ import type { AgentPlanAccess } from "./AgentPlanAccess";
  * @param previous - The stored plan.
  * @param projectId - The project of the workspace the save names.
  * @throws {AgentError} `plan_project_owner_only` for a move to another
- * project by someone who does not own the plan.
+ * project by someone who neither owns the plan nor is an administrator.
  */
 export function requireOwnerForProjectChange(
   userId: string,
   previous: AgentPlanView,
   projectId: string,
 ): void {
-  if (previous.ownerId !== userId && projectId !== previous.projectId)
+  if (
+    previous.ownerId !== userId &&
+    !isPlanAdministrator(previous) &&
+    projectId !== previous.projectId
+  )
     throw new AgentError("plan_project_owner_only");
 }
 
@@ -58,30 +63,34 @@ export function soleDepartment(departments: readonly string[]): string | null {
 }
 
 /**
- * The owner and the department a plan is stored with.
+ * The owner, the department and the teams a plan is stored with.
  *
  * @param access - Resolves the department of a person.
  * @param userId - The person who saves.
  * @param previous - The stored plan, or `null` for a new one.
  * @returns A new plan belongs to its creator and to the creator's only
- * department, if there is exactly one. A stored plan keeps both, whoever
- * saves it; they are never derived from the person who saves again.
+ * department, if there is exactly one, which is also its first team. A stored
+ * plan keeps all of them, whoever saves it; they are never derived from the
+ * person who saves again and change only by an explicit access change.
  */
 export async function planOwnership(
   access: Pick<AgentPlanAccess, "team">,
   userId: string,
   previous: AgentPlanView | null,
-): Promise<{
-  readonly ownerId: string;
-  readonly departmentId: string | null;
-}> {
+): Promise<
+  Required<Pick<AgentPlanView, "ownerId" | "departmentId" | "teams">>
+> {
   if (previous)
     return {
       ownerId: previous.ownerId,
       departmentId: previous.departmentId ?? null,
+      teams: previous.teams ?? [],
     };
+  const { departmentId } = await access.team(userId, null);
   return {
     ownerId: userId,
-    departmentId: (await access.team(userId, null)).departmentId,
+    departmentId,
+    teams:
+      departmentId === null ? [] : [fullPlanTeam("department", departmentId)],
   };
 }

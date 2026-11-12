@@ -79,6 +79,8 @@ const REJECTION_REASONS: Readonly<
   plan_recovery_checkpoint_too_large: true,
   plan_recovery_workflow_unavailable: true,
   plan_script_permission_denied: true,
+  plan_script_approval_required: true,
+  plan_owner_invalid: true,
   plan_script_interpreter_unavailable: true,
   plan_continuation_deleted: true,
   checklist_items_invalid: true,

@@ -8,6 +8,10 @@ import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 
 import { readPlanGroupChange } from "./AgentPlanGroupChangeInput";
 import {
+  readPlanOwnerParameter,
+  readPlanTeamsParameter,
+} from "./AgentPlanTeamInput";
+import {
   readIdentifier,
   readParameterRecord,
   requireParameterKeys,
@@ -21,6 +25,7 @@ import type { AgentPlanBinding, AgentPlanNode } from "@/definition/AgentPlan";
 import type { AgentPlanWriteOperation } from "@/definition/AgentPlanOperations";
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type { PageAgentSharingRequest } from "./PageAgentOperationInput";
+import type { AgentPlanTeam } from "@/definition/AgentPlanTeam";
 
 /** Changes one call may carry; each change batch stays bounded independently of the saved graph. */
 const MAXIMUM_CHANGES = 200;
@@ -157,6 +162,10 @@ export interface AgentPlanUpdateRequest extends AgentPlanTarget {
   /** Sets (`true`) or removes (`false`) the one-time mark; absent keeps it. */
   readonly oneShot?: boolean;
   readonly changes: readonly AgentPlanChange[];
+  /** The new teams of the plan (PAGE-329); absent keeps them. */
+  readonly teams?: readonly AgentPlanTeam[];
+  /** The new owner, for administrators (PAGE-329); absent keeps the owner. */
+  readonly ownerId?: string;
   /** The parameter node a parameter operation must find, `null` otherwise. */
   readonly parameterId: string | null;
 }
@@ -560,7 +569,11 @@ export function readPlanWriteRequest(
     "executionTarget",
     "oneShot",
     "changes",
+    "teams",
+    "ownerId",
   ]);
+  const teams = readPlanTeamsParameter(parameters.teams);
+  const ownerId = readPlanOwnerParameter(parameters.ownerId);
   const request: AgentPlanUpdateRequest = {
     operation,
     ...readTarget(parameters),
@@ -572,16 +585,24 @@ export function readPlanWriteRequest(
       : { executionTarget: readExecutionTarget(parameters.executionTarget) }),
     ...readOneShotField(parameters.oneShot),
     changes: readChanges(parameters.changes),
+    ...(teams === undefined ? {} : { teams }),
+    ...(ownerId === undefined ? {} : { ownerId }),
     parameterId: null,
   };
-  if (
+  if (isEmptyUpdate(request)) throw invalid();
+  return request;
+}
+
+/** Whether an update names nothing to change. */
+function isEmptyUpdate(request: AgentPlanUpdateRequest): boolean {
+  return (
     request.name === null &&
     request.sharing === null &&
     request.workspaceId === null &&
     request.executionTarget === undefined &&
     request.oneShot === undefined &&
-    request.changes.length === 0
-  )
-    throw invalid();
-  return request;
+    request.changes.length === 0 &&
+    request.teams === undefined &&
+    request.ownerId === undefined
+  );
 }

@@ -1,4 +1,5 @@
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
+import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
@@ -108,7 +109,7 @@ export class AgentPlanControlService {
         : false,
     });
     const control = await this.withCleanup(base, userId, plan);
-    const rejection = plan.canEdit
+    const rejection = canRunPlan(plan)
       ? await this.visibleStartRejection(userId, plan)
       : null;
     const context: ResumeContext = { userId, run, conflict: undefined };
@@ -125,7 +126,7 @@ export class AgentPlanControlService {
         ),
         context,
       );
-    if (!plan.canEdit) return control;
+    if (!canRunPlan(plan)) return control;
     if (
       run &&
       (run.status === "running" ||
@@ -160,7 +161,7 @@ export class AgentPlanControlService {
     before: string | null,
   ): Promise<AgentPlanStartRejectionPage> {
     const plan = await this.dependencies.access.require(userId, planId);
-    if (!plan.canEdit) throw new AgentError("plan_access_denied");
+    if (!canRunPlan(plan)) throw new AgentError("plan_access_denied");
     const page = await this.dependencies.startRejections?.page?.(
       userId,
       planId,
@@ -185,7 +186,7 @@ export class AgentPlanControlService {
   ): Promise<AgentPlanControl> {
     return {
       ...base,
-      cleanup: plan.canEdit
+      cleanup: canRunPlan(plan)
         ? await this.dependencies.workspaceCleanup?.forPlan(userId, plan.id)
         : undefined,
     };

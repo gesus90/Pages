@@ -154,20 +154,17 @@ export class ConversationAttachments {
   }
 
   /**
-   * Stores a file for a message that exists already, as an agent's answer
-   * attaches it.
+   * Stores a file an agent's answer attaches, before the answer is stored
+   * (PAGE-298, B2). It stays without a message until
+   * {@link ConversationAttachments.bind} takes it; {@link ConversationAttachments.sweep}
+   * removes it after a day otherwise.
    *
-   * @param target - The message, its conversation, sender and the position.
+   * @param target - The conversation and the agent that sends the answer.
    * @param file - Name, type and bytes of the file.
    * @throws {ConversationError} `too_large` beyond 512 MB.
    */
-  public async attach(
-    target: {
-      readonly conversationId: string;
-      readonly messageId: string;
-      readonly senderId: string;
-      readonly position: number;
-    },
+  public async stage(
+    target: { readonly conversationId: string; readonly senderId: string },
     file: {
       readonly name: string;
       readonly mimeType: string;
@@ -176,12 +173,25 @@ export class ConversationAttachments {
   ): Promise<StoredConversationAttachment> {
     return this.store(file.source, {
       conversationId: target.conversationId,
-      messageId: target.messageId,
+      messageId: null,
       uploaderId: target.senderId,
       name: file.name,
       mimeType: file.mimeType,
-      position: target.position,
     });
+  }
+
+  /** Drops staged files of a sender that no message took; bound ones stay. */
+  public async release(
+    senderId: string,
+    attachmentIds: readonly string[],
+  ): Promise<void> {
+    for (const attachmentId of attachmentIds) {
+      const removed = await this.dependencies.attachments.removeUnbound(
+        attachmentId,
+        senderId,
+      );
+      if (removed) await this.removeFiles([removed]);
+    }
   }
 
   /**

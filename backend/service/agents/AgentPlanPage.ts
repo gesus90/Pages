@@ -57,7 +57,7 @@ async function loadPlanContext(
   const selected =
     selection.planId === null
       ? null
-      : await service.view(userId, selection.planId);
+      : await service.detailedView(userId, selection.planId);
   const workspaceId = selected?.workspaceId ?? selection.workspaceId;
   const workspace = workspaces.find((entry) => entry.id === workspaceId);
   if (workspaceId !== null && !workspace && !selected?.isWorkspaceMissing)

@@ -57,6 +57,16 @@ are the web paths; the app prefixes `/pica-mobile`.
   and direct conversations). The direct chat with an agent on the web page is
   a text-only chat session: there, code blocks, diffs and URLs become cards,
   but files cannot be attached in either direction.
+- Agent file lines follow an allowlist (fix B1, 2026-11-12): only regular
+  files below `~/.pages/pica-sessions/<session>/` and `~/Results/`
+  (`AGENT_FILE_ROOTS` in `ConversationAgentFiles.ts`), checked after
+  `realpath`, with no part below the root starting with a dot; the old
+  credential places and secret file names stay refused on top. Anything else
+  keeps its line with "(Datei nicht angehängt: Ort nicht freigegeben)".
+- The files of an answer are stored without a message first and bound after
+  the answer is inserted (fix B2). A file that fails to store keeps its line
+  with "(Datei nicht angehängt: Speichern fehlgeschlagen)"; leftovers of a
+  repeated answer are released at once, others are swept after a day.
 - An own message can be deleted (bin below the message); its attachments
   and preview images are removed with it.
 - Collapsed or expanded is remembered per person and card on the server;

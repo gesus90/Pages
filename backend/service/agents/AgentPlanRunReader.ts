@@ -1,6 +1,7 @@
 import { withReadScope } from "@/backend/database/ReadScope";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { allRunAssetReferences } from "@/backend/agents/AgentPlanRunResources";
+import { isPlanAdministrator } from "@/definition/AgentPlanTeam";
 
 import { withRunCommand } from "./runs/RunCommandView";
 import { withAgentTodos } from "./AgentPlanAgentTodoService";
@@ -86,8 +87,11 @@ async function loadAuthorizedPlanRun(
   id: string,
 ): Promise<AgentPlanRun> {
   const run = await findPlanRun(dependencies, userId, id);
-  if (!run || run.userId !== userId) throw new AgentError("plan_access_denied");
-  await dependencies.access.require(userId, run.planId);
+  if (!run) throw new AgentError("plan_access_denied");
+  const plan = await dependencies.access.require(userId, run.planId);
+  // An administrator reads and controls every run of a plan (PAGE-329).
+  if (run.userId !== userId && !isPlanAdministrator(plan))
+    throw new AgentError("plan_access_denied");
   const resources = await dependencies.runs.resources(id);
   await requirePlanRunResourceAccess(dependencies, userId, {
     resources,

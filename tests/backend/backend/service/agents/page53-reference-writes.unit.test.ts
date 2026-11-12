@@ -54,6 +54,7 @@ it.each(["removed", "other"])(
     const transaction: DatabaseTransaction = {
       execute,
       query: async (statement, parameters) => {
+        if (statement.includes("FROM agent_plan_teams")) return [];
         if (statement.includes("FROM agent_plans")) return [];
         if (statement.includes("FROM agent_workspaces")) return [["project"]];
         if (statement.includes("FROM agent_execution_profiles"))
@@ -77,15 +78,18 @@ it("rejects an old plan revision after deletion cleared a reference", async () =
   const execute = vi.fn();
   const transaction: DatabaseTransaction = {
     execute,
-    query: async () => [
-      [
-        previous.id,
-        previous.ownerId,
-        previous.projectId,
-        5,
-        JSON.stringify(previous),
-      ],
-    ],
+    query: async (statement) =>
+      statement.includes("FROM agent_plan_teams")
+        ? []
+        : [
+            [
+              previous.id,
+              previous.ownerId,
+              previous.projectId,
+              5,
+              JSON.stringify(previous),
+            ],
+          ],
   };
   const repository = new AgentPlanRepository({
     query: transaction.query,
@@ -103,6 +107,7 @@ it("saves an explicitly repaired plan without dropping its nodes, edges or bindi
   const transaction: DatabaseTransaction = {
     execute,
     query: async (statement) => {
+      if (statement.includes("FROM agent_plan_teams")) return [];
       if (statement.includes("FROM agent_plans"))
         return [
           [

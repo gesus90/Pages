@@ -17,6 +17,10 @@ import { AgentPlanRecoveryExecutionRepository } from "@/backend/database/reposit
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import { AgentPlanRemoteAccessRepository } from "@/backend/database/repositories/agent/AgentPlanRemoteAccessRepository";
 import { AgentPlanOneShotRepository } from "@/backend/database/repositories/agent/AgentPlanOneShotRepository";
+import { AgentPlanAccessRepository } from "@/backend/database/repositories/agent/AgentPlanAccessRepository";
+import { AgentPlanAuditRepository } from "@/backend/database/repositories/agent/AgentPlanAuditRepository";
+import { AgentPlanScriptApprovalRepository } from "@/backend/database/repositories/agent/AgentPlanScriptApprovalRepository";
+import { AgentPlanTeamRepository } from "@/backend/database/repositories/agent/AgentPlanTeamRepository";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanRunVisibilityRepository } from "@/backend/database/repositories/agent/AgentPlanRunVisibilityRepository";
@@ -89,6 +93,7 @@ import {
   PLAN_PROGRESS_FLOW,
 } from "./agent-progress-flows";
 import { PLAN_ONE_SHOT_FLOW } from "./agent-plan-one-shot-flow";
+import { PLAN_TEAM_FLOW } from "./agent-plan-team-flow";
 import { PLAN_RUN_FLOW } from "./agent-run-flows";
 import { PLAN_RUN_PURGE_FLOW } from "./agent-run-purge-flow";
 import {
@@ -132,6 +137,7 @@ export const AGENT_AREA_FLOWS: readonly RepositoryFlow[] = [
   PLAN_PROGRESS_FLOW,
   PLAN_RUN_PURGE_FLOW,
   PLAN_ONE_SHOT_FLOW,
+  PLAN_TEAM_FLOW,
   PLAN_CONTINUATION_FLOW,
   CHECKPOINT_FLOW,
   CLEANUP_FAILURE_FLOW,
@@ -188,6 +194,10 @@ export const AGENT_AREA_CLASSES: Readonly<
   AgentPlanRecoveryRepository,
   AgentPlanRemoteAccessRepository,
   AgentPlanOneShotRepository,
+  AgentPlanAccessRepository,
+  AgentPlanAuditRepository,
+  AgentPlanScriptApprovalRepository,
+  AgentPlanTeamRepository,
   AgentPlanRepository,
   AgentPlanRunRepository,
   AgentPlanRunVisibilityRepository,

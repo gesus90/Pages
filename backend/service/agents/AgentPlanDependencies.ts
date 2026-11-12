@@ -23,9 +23,18 @@ import type { AgentPlanResumeAdvisorSlot } from "./AgentPlanResumeAdvisor";
 import type { PlanAssetService } from "./assets/PlanAssetService";
 import type { RunStarterDirectory } from "./diagnosis/AgentPlanRunTeamReader";
 import type { AgentRunDiagnosisStores } from "./diagnosis/AgentRunDiagnosisStores";
+import type { AgentPlanAccessRepository } from "@/backend/database/repositories/agent/AgentPlanAccessRepository";
+import type { AgentPlanAuditRepository } from "@/backend/database/repositories/agent/AgentPlanAuditRepository";
+import type { AgentPlanScriptApprovalRepository } from "@/backend/database/repositories/agent/AgentPlanScriptApprovalRepository";
 
 /** What the plan service and its parts work with. */
 export interface PlanDependencies {
+  /** Changes teams and owner and records the history of plans (PAGE-329). */
+  readonly accessChanges?: AgentPlanAccessRepository;
+  /** Reads the history of plans (PAGE-329). */
+  readonly planAudit?: Pick<AgentPlanAuditRepository, "list">;
+  /** Reads the approved script hashes of plans (PAGE-329). */
+  readonly scriptApprovals?: Pick<AgentPlanScriptApprovalRepository, "list">;
   readonly workspaceCleanup?: AgentWorkspaceCleanupRepository;
   readonly workGate?: AgentPlanWorkGate;
   /** The live progress `update_step_progress` reported (PAGE-284). */

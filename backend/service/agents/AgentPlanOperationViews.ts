@@ -4,6 +4,7 @@ import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { scriptAssessmentVerdict } from "@/definition/AgentPlanScriptReport";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
+import { canRunPlan, planTeamsOf } from "@/definition/AgentPlanTeam";
 
 import {
   failedPlanAttempts,
@@ -37,6 +38,7 @@ import type {
   AgentPlanStatusEntry,
   AgentPlanSummary,
   AgentPlanTeamEntry,
+  AgentPlanTeamRightsEntry,
 } from "@/definition/AgentPlanOperations";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { PageAgentSharingEntry } from "@/definition/PageAgentOperations";
@@ -76,6 +78,27 @@ function planTeam(
     (entry) => entry.id === plan.departmentId,
   );
   return department ? { id: department.id, name: department.name } : null;
+}
+
+/** Every team of the plan with its name and rights; an unknown target keeps its identifier. */
+function planTeams(
+  plan: AgentPlanView,
+  directory: AgentProfileDirectory,
+): readonly AgentPlanTeamRightsEntry[] {
+  return planTeamsOf(plan).map((team) => {
+    const entries =
+      team.kind === "group" ? directory.groups : directory.departments;
+    return {
+      kind: team.kind,
+      id: team.targetId,
+      name:
+        entries.find((entry) => entry.id === team.targetId)?.name ??
+        team.targetId,
+      read: team.canRead,
+      edit: team.canEdit,
+      run: team.canRun,
+    };
+  });
 }
 
 /** A run of the plan by its start and status. */
@@ -159,7 +182,10 @@ function planBase(
     workspaceId: plan.workspaceId,
     ownerId: plan.ownerId,
     canEdit: plan.canEdit,
+    canRun: canRunPlan(plan),
+    adminAccess: plan.rights?.isAdminAccess === true,
     team: planTeam(plan, directory),
+    teams: planTeams(plan, directory),
     sharing: planSharing(plan, directory),
     revision: plan.revision,
     nodeCount: plan.nodes.length,

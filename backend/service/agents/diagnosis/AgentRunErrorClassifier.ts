@@ -93,6 +93,7 @@ const EXACT_CODES: Readonly<Record<AgentRunErrorClass, ReadonlySet<string>>> = {
   permission: new Set([
     "plan_access_denied",
     "plan_script_permission_denied",
+    "plan_script_approval_required",
     "plan_runner_permission_denied",
     "plan_permission_mode_unenforceable",
     "plan_yolo_isolation_unavailable",

@@ -4,8 +4,10 @@ import { z } from "zod";
 
 import { drawChartPng } from "./chart-png";
 import { PagesClient } from "./pages-client";
+import { seedPlan } from "./plan-seed";
 
 import type { ChartOptions } from "./chart-png";
+import type { SeedPlan } from "./plan-seed";
 
 /** Password of the synthetic administrator of the isolated instance. */
 const ADMIN_PASSWORD = "browser-admin-pass-1";
@@ -46,6 +48,8 @@ export interface SeedData {
   readonly editing: SeedTicket;
   readonly hiddenAttachmentId: string;
   readonly hiddenTicketKey: string;
+  /** An empty agent plan of the administrator, for Teams and owner (PAGE-329). */
+  readonly plan: SeedPlan;
 }
 
 interface SeedSession {
@@ -525,11 +529,13 @@ async function seedSecret(
  *
  * @param admin - The signed-in administrator of a fresh instance.
  * @param origin - Address of the instance.
+ * @param workspaceDirectory - An empty directory for the workspace of the plan.
  * @returns The reader's client, the administrator's client and the seed data.
  */
 export async function seedFixtures(
   admin: PagesClient,
   origin: string,
+  workspaceDirectory: string,
 ): Promise<SeedSession & { readonly seed: SeedData }> {
   await saveSettings(admin, "system");
 
@@ -551,6 +557,13 @@ export async function seedFixtures(
     { key: "VIEW-5", title: "Explicit editing" },
     LANDSCAPE,
   );
+  // Before the first department exists: the plan project names none, and
+  // the seeding of the plan creates the first department.
+  const plan = await seedPlan(
+    admin,
+    await createProject(admin, "Plans", null),
+    workspaceDirectory,
+  );
   const secret = await seedSecret(admin);
   const hidden = await seedHidden(context, secret.image);
 
@@ -565,6 +578,7 @@ export async function seedFixtures(
       hiddenTicketKey: secret.key,
       linked,
       missing,
+      plan,
       single,
     },
   };

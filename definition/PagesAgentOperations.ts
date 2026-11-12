@@ -368,6 +368,8 @@ export const AGENT_REJECTION_REASONS = [
   "plan_recovery_checkpoint_too_large",
   "plan_recovery_workflow_unavailable",
   "plan_script_permission_denied",
+  "plan_script_approval_required",
+  "plan_owner_invalid",
   "plan_script_interpreter_unavailable",
   "plan_continuation_deleted",
   "checklist_items_invalid",

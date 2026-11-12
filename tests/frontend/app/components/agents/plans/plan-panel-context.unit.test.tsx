@@ -7,7 +7,7 @@ import { i18n, planPage, planView, renderRouted } from "./plan-panel-fixture";
 
 const DIRECTORY = {
   persons: [],
-  groups: [],
+  groups: [{ id: "a-team", name: "A-Team" }],
   departments: [{ id: "sales", name: "Sales" }],
 };
 
@@ -88,7 +88,7 @@ it("names the team that shares a saved plan and says who moves it", () => {
     />,
   );
 
-  expect(team()).toBe(i18n.t("plans.panel.team.shared", { name: "Sales" }));
+  expect(team()).toBe(i18n.t("plans.access.sharedWith", { names: "Sales" }));
   expect(
     screen.getByText(i18n.t("plans.panel.projectOwnerOnly")),
   ).toBeDefined();
@@ -127,4 +127,56 @@ it("selects no plan while plans exist but none is open", async () => {
       await screen.findByRole("option", { name: "Synthetic plan" })
     ).getAttribute("aria-selected"),
   ).toBe("false");
+});
+
+it("shows team badges in the plan list and narrows it to the plans of my teams", async () => {
+  const mine = planView({
+    id: "mine",
+    name: "Team plan",
+    ownerId: "someone",
+    teams: [
+      {
+        kind: "group",
+        targetId: "a-team",
+        canRead: true,
+        canEdit: true,
+        canRun: true,
+      },
+    ],
+  });
+  const shared = planView({ id: "shared", name: "Shared plan" });
+  const summaries = [
+    { ...mine, isTeamMember: true },
+    { ...shared, isAdminAccess: true },
+  ];
+  renderRouted(
+    <PlanPanelContext
+      page={planPage({
+        selected: null,
+        plans: summaries,
+        directory: DIRECTORY,
+      })}
+    />,
+  );
+  const label = i18n.t("plans.panel.openPlan");
+  fireEvent.keyDown(screen.getByRole("combobox", { name: label }), {
+    key: "Enter",
+  });
+  const listbox = await screen.findByRole("listbox");
+  expect(listbox.textContent).toContain(
+    i18n.t("plans.access.teamBadge", { name: "A-Team" }),
+  );
+  expect(listbox.textContent).toContain(i18n.t("plans.access.adminBadge"));
+  fireEvent.keyDown(listbox, { key: "Escape" });
+
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: i18n.t("plans.access.myTeams") }),
+  );
+  fireEvent.keyDown(screen.getByRole("combobox", { name: label }), {
+    key: "Enter",
+  });
+  expect(
+    await screen.findByRole("option", { name: "Team plan" }),
+  ).toBeDefined();
+  expect(screen.queryByRole("option", { name: "Shared plan" })).toBeNull();
 });

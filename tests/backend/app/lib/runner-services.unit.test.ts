@@ -37,6 +37,7 @@ const { fakeClasses, opaque, partial } = await vi.hoisted(
 
 vi.mock("@/app/lib/plan-access-services.server", () => ({
   createPlanWorkspaceAccess: vi.fn(),
+  planAccessRecords: vi.fn(() => ({})),
 }));
 vi.mock("@/backend/service/agents/AgentPlanRemoteTargets", () =>
   fakeClasses({ AgentPlanRemoteTargets: [] }),
