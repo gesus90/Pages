@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { agentApiFailure } from "@/app/lib/agent-api-response.server";
+import {
+  agentApiDatabaseFailure,
+  agentApiFailure,
+} from "@/app/lib/agent-api-response.server";
+import {
+  DatabaseOutcomeUnknownError,
+  DatabaseOverloadedError,
+  DatabaseUnavailableError,
+} from "@/backend/database/executor/DatabaseExecutorErrors";
 
 describe("agentApiFailure", () => {
   it("answers with a fixed uncacheable envelope", async () => {
@@ -87,4 +95,39 @@ describe("agentApiFailure", () => {
       },
     });
   });
+});
+
+describe("agentApiDatabaseFailure", () => {
+  it.each([
+    [new DatabaseOverloadedError("overloaded"), "DATABASE_BUSY", true, "5"],
+    [new DatabaseOverloadedError("queue_timeout"), "DATABASE_BUSY", true, "5"],
+    [new DatabaseOverloadedError("aborted"), "DATABASE_BUSY", true, "5"],
+    [new DatabaseUnavailableError(), "DATABASE_UNAVAILABLE", true, "10"],
+    [
+      new DatabaseOutcomeUnknownError(),
+      "DATABASE_OUTCOME_UNKNOWN",
+      false,
+      "10",
+    ],
+  ])(
+    "maps executor failures to safe retry guidance",
+    async (error, code, retryable, delay) => {
+      const response = agentApiDatabaseFailure(error);
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get("Retry-After")).toBe(delay);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+      expect(await response.json()).toEqual({
+        apiVersion: "1",
+        error: {
+          code,
+          message: retryable
+            ? "The database is busy or unavailable; the request was not started. Retry after the given delay."
+            : "The database stopped during the change; its outcome is unknown. Check the current state before repeating it.",
+          retryable,
+        },
+      });
+    },
+  );
 });
