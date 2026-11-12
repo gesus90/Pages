@@ -5,6 +5,7 @@ import {
 } from "@/definition/AgentConfiguration";
 import { hasChatAdapter } from "@/definition/AgentModelConsumers";
 
+import type { McpServer } from "@agentclientprotocol/sdk";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentProviderId } from "@/definition/AgentConnection";
@@ -36,6 +37,13 @@ export interface PicaAcpRunner {
    * credential of the job that admits calls only during a running turn.
    */
   readonly hasBridgeMcp?: boolean;
+  /**
+   * The MCP servers configured on the host that a session of an agent
+   * employee on "Arbeitsplatz" or YOLO receives beside the Pages tools (PAGE-303).
+   */
+  readonly hostMcpServers?: readonly McpServer[];
+  /** The session of an agent employee on YOLO runs without the bubblewrap isolation (PAGE-303). */
+  readonly isUnisolated?: boolean;
   /**
    * The run options of a job, taken from the assignment.
    *
@@ -114,6 +122,27 @@ const RUNNERS: Readonly<Record<PicaAcpProvider, PicaAcpRunner>> = {
   opencode: OPENCODE_RUNNER,
   antigravity: ANTIGRAVITY_RUNNER,
 };
+
+/**
+ * The MCP servers of a new chat session: Pica's bridge where the runner
+ * reaches the Pages tools over it, then the servers configured on the host
+ * for an agent employee with host tools (PAGE-303).
+ *
+ * @param runner - The runner of the job.
+ * @param bridge - Issues the bridge server with a fresh credential of the job.
+ * @returns The servers, or nothing when there are none, so the session keeps
+ * the servers of its launch.
+ */
+export function chatMcpServers(
+  runner: PicaAcpRunner,
+  bridge: () => readonly McpServer[],
+): { readonly mcpServers?: readonly McpServer[] } {
+  const servers = [
+    ...(runner.hasBridgeMcp === true ? bridge() : []),
+    ...(runner.hostMcpServers ?? []),
+  ];
+  return servers.length > 0 ? { mcpServers: servers } : {};
+}
 
 /** Whether Pica answers with an agent of this provider over ACP. */
 export function isPicaAcpProvider(

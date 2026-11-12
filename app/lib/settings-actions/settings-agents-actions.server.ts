@@ -101,6 +101,16 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     return { ok: true };
   },
   "save-speech": saveSpeechSettings,
+  // The zod schema of the service checks the values (PAGE-304).
+  "save-agent-session-limits": async ({ actor, services, formData }) => {
+    await services.agentSessionLimitService.save(actor, {
+      perAgent: readTextOrEmpty(formData, "perAgent"),
+      total: readTextOrEmpty(formData, "total"),
+      revision: readTextOrEmpty(formData, "revision"),
+      dreamTime: readTextOrEmpty(formData, "dreamTime"),
+    });
+    return { ok: true };
+  },
   "test-speech": testSpeechRecognition,
   "save-speech-synthesis": saveSpeechSynthesisSettings,
   "save-chat-decision": saveChatDecisionSettings,
@@ -205,6 +215,7 @@ const CONNECTION_FREE_INTENTS = new Set([
   "test-speech",
   "save-speech-synthesis",
   "save-chat-decision",
+  "save-agent-session-limits",
 ]);
 
 /** Dispatches only known intents after checking fresh account facts, preserving mode switching. */

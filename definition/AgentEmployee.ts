@@ -7,25 +7,70 @@ import type { AgentEmployeeVoice } from "./SpeechSynthesis";
  * An agent is an account of its own: it has a username, a role, departments
  * and project memberships like a person, but no password, no sign-in and
  * never the administrator right. Beside the account it has a model, an
- * access mode and three documents: `SOUL.md`
- * (who it is), `AGENT.md` (what it does) and `MEMORY.md` (what it learned),
- * with a searchable archive behind the memory.
+ * access mode and four documents: `SOUL.md`
+ * (who it is), `AGENT.md` (what it does), `MEMORY.md` (its current topics,
+ * with a searchable archive behind it) and `DREAM.md` (its lessons,
+ * PAGE-305).
  */
+
+import type { AgentMemoryLimits, AgentMemorySource } from "./AgentMemory";
 
 /**
- * How an agent may work on the host: Pages tools only, or every system tool
- * inside the isolation ("YOLO"), with every provider.
+ * The access level of an agent in its chats (PAGE-303).
+ *
+ * @remarks
+ * - `read_only` ("Nur Pages", the default): the Pages tools alone; every
+ *   other tool is refused by Pages, not only forbidden by the instruction.
+ * - `workspace` ("Arbeitsplatz"): every program, shell, web, browser and the
+ *   configured MCP servers of the host, inside the bubblewrap isolation of
+ *   the CLI runs; it writes only in the working folder of the chat.
+ * - `yolo`: no restriction by Pages on the host and no isolation; the agent
+ *   works with the rights of the system account Pages runs under.
+ *
+ * Plan steps keep their own run options; the level applies to chats only.
  */
-export const AGENT_EMPLOYEE_ACCESS_MODES = ["read_only", "yolo"] as const;
+export const AGENT_EMPLOYEE_ACCESS_MODES = [
+  "read_only",
+  "workspace",
+  "yolo",
+] as const;
 
-/** An access mode of {@link AGENT_EMPLOYEE_ACCESS_MODES}. */
+/** An access level of {@link AGENT_EMPLOYEE_ACCESS_MODES}. */
 export type AgentEmployeeAccess = (typeof AGENT_EMPLOYEE_ACCESS_MODES)[number];
 
-/** Narrows an unknown value to an access mode. */
+/** Narrows an unknown value to an access level. */
 export function isAgentEmployeeAccess(
   value: unknown,
 ): value is AgentEmployeeAccess {
-  return value === "read_only" || value === "yolo";
+  return AGENT_EMPLOYEE_ACCESS_MODES.some((mode) => mode === value);
+}
+
+/** Whether an access level gives the agent the tools of the host beside the Pages tools. */
+export function hasHostTools(access: AgentEmployeeAccess): boolean {
+  return access !== "read_only";
+}
+
+/** How a configured MCP server is reached. */
+export type AgentMcpTransport = "stdio" | "http" | "sse";
+
+/**
+ * An MCP server Pages found in the configuration of the agent's CLI on this
+ * host; only name, transport and origin, never a command line, header or
+ * environment value.
+ */
+export interface AgentDetectedMcpServer {
+  readonly name: string;
+  readonly transport: AgentMcpTransport;
+  /** The configuration file it came from, with the home folder as `~`. */
+  readonly source: string;
+}
+
+/** What the tab "Zugriff" shows beside the level. */
+export interface AgentAccessEnvironment {
+  /** Whether the bubblewrap isolation works on this host; without it "Arbeitsplatz" cannot be chosen. */
+  readonly isIsolationAvailable: boolean;
+  /** The MCP servers a chat of the agent receives in "Arbeitsplatz" and "YOLO", read anew for every chat. */
+  readonly mcpServers: readonly AgentDetectedMcpServer[];
 }
 
 /** Fixed length limits of the documents an agent gets in every session. */
@@ -36,18 +81,16 @@ export const AGENT_DOCUMENT_LIMITS = {
   instructionsCharacters: 12_000,
 } as const;
 
-/** Word limits of the two memory levels. */
+/**
+ * Word limits of the archive; `MEMORY.md` and `DREAM.md` have character
+ * limits per agent (PAGE-305).
+ */
 export const AGENT_MEMORY_LIMITS = {
-  /** `MEMORY.md`, loaded in every session. */
-  coreWords: 5_000,
   /** The archive, searched only on demand. */
   archiveWords: 100_000,
   /** Words of one archive entry. */
   entryWords: 2_000,
 } as const;
-
-/** Hours between two learning runs. */
-export const AGENT_LEARNING_INTERVAL_HOURS = 12;
 
 /**
  * Counts the words of a text as the memory limits count them.
@@ -76,28 +119,29 @@ export interface AgentEmployeeDocuments {
   readonly instructions: string;
 }
 
-/** What a learning run did. */
+/** What a dream run did. */
 export type AgentLearningStatus = "updated" | "unchanged" | "failed";
 
-/** The result of the last learning run. */
+/** The result of the last dream run (PAGE-305), formerly the learning run. */
 export interface AgentLearningResult {
   readonly status: AgentLearningStatus;
-  /** Facts taken in from the sources. */
+  /** Lessons taken in from the sources of the day. */
   readonly added: number;
-  /** Duplicates merged into one fact. */
+  /** Lessons merged with a similar one. */
   readonly merged: number;
-  /** Facts moved from `MEMORY.md` into the archive. */
+  /** Topics moved from `MEMORY.md` into the archive. */
   readonly archived: number;
-  /** Outdated facts removed. */
+  /** Lessons that fell out of the full `DREAM.md`. */
   readonly removed: number;
   /** The error code of a failed run. */
   readonly errorCode: string | null;
 }
 
-/** Learning switch, rhythm and the runs of an agent. */
+/** The switch of the dream run, its time of day and the runs of an agent. */
 export interface AgentLearningState {
   readonly isEnabled: boolean;
-  readonly intervalHours: number;
+  /** The time of day of the dream run, `HH:MM` in the time zone of the server. */
+  readonly dreamTime: string;
   readonly lastRunAt: string | null;
   readonly nextRunAt: string | null;
   readonly lastResult: AgentLearningResult | null;
@@ -147,8 +191,12 @@ export interface AgentEmployee extends AgentEmployeeListItem {
   readonly documents: AgentEmployeeDocuments;
   /** The voice and speed of the agent (PAGE-300); kept when the instance's model changes. */
   readonly voice: AgentEmployeeVoice;
-  /** `MEMORY.md`. */
+  /** `MEMORY.md`: the current topics. */
   readonly memory: string;
+  /** `DREAM.md`: the lessons of the dream run (PAGE-305). */
+  readonly dream: string;
+  /** The character limits of both files. */
+  readonly memoryLimits: AgentMemoryLimits;
   readonly memoryUsage: AgentMemoryUsage;
   readonly learning: AgentLearningState;
   readonly cost: AgentCostState;
@@ -161,9 +209,9 @@ export interface AgentEmployee extends AgentEmployeeListItem {
 
 /** Why a version of the memory exists. */
 export type AgentMemoryVersionReason =
-  "initial" | "learning" | "edit" | "restore";
+  "initial" | "learning" | "edit" | "restore" | "update" | "dream" | "reset";
 
-/** A restorable version of `MEMORY.md` and its archive. */
+/** A restorable version of `MEMORY.md`, `DREAM.md` and the archive. */
 export interface AgentMemoryVersion {
   readonly id: string;
   readonly reason: AgentMemoryVersionReason;
@@ -178,10 +226,13 @@ export interface AgentArchiveEntry {
   readonly title: string;
   readonly content: string;
   readonly createdAt: string;
+  /** Where the entry comes from; `null` for entries of earlier versions (PAGE-305). */
+  readonly source: AgentMemorySource | null;
 }
 
 /** What one line of the activity reports. */
-export type AgentActivityKind = "session" | "learning" | "ticket" | "wiki";
+export type AgentActivityKind =
+  "session" | "learning" | "ticket" | "wiki" | "access";
 
 /** How much a session or learning run cost, as far as the model reported it. */
 export interface AgentActivityCost {

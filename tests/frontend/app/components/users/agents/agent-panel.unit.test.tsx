@@ -397,8 +397,11 @@ it("sends an empty role when no role is offered", () => {
 it("saves the memory and the learning switch edited in the memory tab", async () => {
   renderPanel();
   openTab("memory");
-  fireEvent.change(screen.getByRole("textbox"), {
+  fireEvent.change(screen.getByRole("textbox", { name: "MEMORY.md" }), {
     target: { value: "Remember the milk" },
+  });
+  fireEvent.change(screen.getByRole("textbox", { name: "DREAM.md" }), {
+    target: { value: "Dream of electric sheep" },
   });
   fireEvent.keyDown(
     screen.getByRole("combobox", {
@@ -414,6 +417,7 @@ it("saves the memory and the learning switch edited in the memory tab", async ()
   fireEvent.click(saveButton("create"));
   expect(JSON.parse(String(submittedFields(0).agent))).toMatchObject({
     memory: "Remember the milk",
+    dream: "Dream of electric sheep",
     isLearningEnabled: false,
   });
 });

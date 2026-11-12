@@ -2,7 +2,6 @@ import path from "node:path";
 
 import { hasRunServiceOwnership } from "@/backend/runtime/RunsMode";
 import { GitHubCreationRepository } from "@/backend/database/repositories/integrations/GitHubCreationRepository";
-import { TicketAssetAuditService } from "@/backend/service/task/TicketAssetAuditService";
 import { AuthService } from "@/backend/auth/AuthService";
 import { LoginThrottle } from "@/backend/auth/LoginThrottle";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
@@ -24,9 +23,7 @@ import { InstanceSettingsRepository } from "@/backend/database/repositories/Inst
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
-import { WorkItemAttachmentRepository } from "@/backend/database/repositories/task/WorkItemAttachmentRepository";
 import { WorkItemTemplateRepository } from "@/backend/database/repositories/task/WorkItemTemplateRepository";
-import { WorkItemTreeRepository } from "@/backend/database/repositories/task/WorkItemTreeRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { WikiRepository } from "@/backend/database/repositories/WikiRepository";
 import { HealthService } from "@/backend/service/HealthService";
@@ -37,12 +34,8 @@ import { ProjectDeletionStorage } from "@/backend/service/project/ProjectDeletio
 import { AnnouncingTaskService } from "@/backend/service/AnnouncingTaskService";
 import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import { TaskTemplateService } from "@/backend/service/TaskTemplateService";
-import { TaskDescriptionAssetService } from "@/backend/service/task/TaskDescriptionAssetService";
-import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
-import { TicketTreeService } from "@/backend/service/task/TicketTreeService";
 import { UserService } from "@/backend/service/UserService";
 import { AnnouncingWikiService } from "@/backend/service/wiki/AnnouncingWikiService";
-import { TicketFileStore } from "@/backend/storage/TicketFileStore";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { SetupService } from "@/backend/setup/SetupService";
@@ -52,10 +45,10 @@ import {
   createServiceCache,
   prepareServiceDatabase,
   startGitHubWorker,
-  sweepTicketAttachments,
 } from "./services-background.server";
 import { prepareSessions } from "./session-services.server";
 import { startExecutionServices } from "./agent-execution-services.server";
+import { createTicketServices } from "./ticket-services.server";
 import { planMcpSettings } from "./bridge-settings.server";
 import { startMcpWorkspace } from "./mcp-workspace-services.server";
 import { createAgentPlanService } from "./agent-plan-services.server";
@@ -68,6 +61,9 @@ import { createAutomationServices } from "./automation-services.server";
 
 import type { WikiService } from "@/backend/service/WikiService";
 import type { AutomationApplicationServices } from "./automation-services.server";
+import type { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
+import type { TicketAssetAuditService } from "@/backend/service/task/TicketAssetAuditService";
+import type { TicketTreeService } from "@/backend/service/task/TicketTreeService";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { LiveChangeHub } from "@/backend/service/events/LiveChangeHub";
 import type { LiveChangeAudience } from "@/backend/service/events/LiveChangeAudience";
@@ -465,50 +461,6 @@ async function createTaskServices(
       taskService,
       projectService,
       permissionService,
-    ),
-  };
-}
-
-/**
- * Creates the services of ticket attachments and the ticket tree (A8.2).
- *
- * @param database - The open database.
- * @param databasePath - Path of the database; attachments lie next to it.
- * @param taskService - Checks the access to tickets.
- * @param wikiService - Provides the instance-wide upload limits.
- * @returns The services, with the attachment files tied to ticket deletion.
- */
-function createTicketServices(
-  database: Database,
-  databasePath: string,
-  taskService: TaskService,
-  wikiService: WikiService,
-): Pick<
-  ApplicationServices,
-  "taskAttachmentService" | "ticketTreeService" | "ticketAssetAuditService"
-> {
-  const taskAttachmentService = new TaskAttachmentService(
-    new WorkItemAttachmentRepository(database),
-    taskService,
-    wikiService,
-    new TicketFileStore(path.dirname(databasePath)),
-  );
-
-  taskService.setAttachmentFiles(taskAttachmentService);
-  taskService.setDescriptionAssets(
-    new TaskDescriptionAssetService(database, path.dirname(databasePath)),
-  );
-  void sweepTicketAttachments(taskAttachmentService);
-
-  return {
-    taskAttachmentService,
-    ticketAssetAuditService: new TicketAssetAuditService(
-      database,
-      path.dirname(databasePath),
-    ),
-    ticketTreeService: new TicketTreeService(
-      new WorkItemTreeRepository(database),
-      taskService,
     ),
   };
 }

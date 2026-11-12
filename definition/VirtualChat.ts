@@ -11,6 +11,8 @@
  * first.
  */
 
+import type { AgentEmployeeAccess } from "./AgentEmployee";
+import type { AgentMessageQueue } from "./AgentSessionLimits";
 import type { ConversationNotice } from "./Conversation";
 import type { ConversationDecisionView } from "./ConversationDecision";
 
@@ -46,6 +48,10 @@ export interface VirtualParticipant {
   readonly isMuted?: boolean;
   /** ISO time of the adding or the last sent message. */
   readonly lastActivityAt: string;
+  /** The access level of an agent, shown in the head of its chat (PAGE-303). */
+  readonly accessLevel?: AgentEmployeeAccess;
+  /** Whether the person marked the direct chat with this agent confidential (PAGE-305). */
+  readonly isConfidential?: boolean;
 }
 
 /** A group of participants with one shared history. */
@@ -62,12 +68,28 @@ export interface VirtualGroup {
   readonly lastActivityAt: string;
   /** The names of the agents answering in the group now (PAGE-276). */
   readonly workingAgentNames?: readonly string[];
+  /** The agents answering in the group now, each of which can be stopped alone (PAGE-304). */
+  readonly workingAgents?: readonly {
+    readonly id: string;
+    readonly name: string;
+  }[];
+  /** Whether the group is marked confidential: its agents share and learn nothing from it (PAGE-305). */
+  readonly isConfidential?: boolean;
 }
 
 /** A tool a participant used for an answer, for example `list_tickets · 3 offen`. */
 export interface VirtualToolUse {
   readonly name: string;
   readonly detail: string;
+  /** The ID of the call within its job (PAGE-303). */
+  readonly callId?: string;
+  readonly status?: "running" | "completed" | "failed";
+  /** The command or input of the call, bounded and with credentials masked. */
+  readonly input?: string;
+  /** The result of the call, bounded and with credentials masked. */
+  readonly output?: string;
+  /** A tool of the host rather than a Pages tool. */
+  readonly isNative?: boolean;
 }
 
 /** The audio of a voice message (PAGE-278). */
@@ -103,6 +125,11 @@ export interface VirtualChatMessage {
   readonly notice?: ConversationNotice;
   /** Present only for a message of a person that the decision of a group judged (PAGE-317). */
   readonly decision?: ConversationDecisionView;
+  /**
+   * Present while the answer to this message waits (PAGE-304): for the answer
+   * the agent gives in this chat, or for a free place among the limits.
+   */
+  readonly queue?: AgentMessageQueue;
 }
 
 /** What the list can open: a group or a single participant. */
@@ -140,6 +167,11 @@ export interface VirtualChatDirectory {
    * messages than the ones shown, which the page loads page by page (PAGE-275).
    */
   readonly olderHistoryIds?: readonly string[];
+  /**
+   * The tool calls of the answer an agent is working on now, by the agent's
+   * id; a running call can be cancelled (PAGE-303).
+   */
+  readonly liveToolUses?: Readonly<Record<string, readonly VirtualToolUse[]>>;
   /** People and agents the dialog "Teilnehmer hinzufügen" offers; never the own account. */
   readonly contactChoices: readonly VirtualContactChoice[];
   /** The longest voice message Pages takes, in milliseconds (PAGE-277). */

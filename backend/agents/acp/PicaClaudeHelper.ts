@@ -135,9 +135,11 @@ export function decidePicaHelperPermission(
  * The instruction a Claude Code turn receives for the helper of that turn.
  *
  * @param helperPath - The absolute path of the helper of this turn.
- * @param access - The access of the session. With full access (PAGE-266) the
- * helper is only the way to the Pages tools; every other command stays
- * allowed inside the isolation, so the instruction forbids nothing else.
+ * @param access - The access of the session. An agent employee on
+ * "Arbeitsplatz" or YOLO (PAGE-266, PAGE-303) runs with "yolo": the helper is
+ * then only the way to the Pages tools and it uses every other tool, program
+ * and MCP server of the host as well. Everyone else is told, and held by
+ * {@link decidePicaHelperPermission}, to run nothing but the helper.
  * @returns The instruction text appended to the prompt of the turn.
  */
 export function picaHelperUsage(
@@ -149,7 +151,7 @@ export function picaHelperUsage(
     return [
       `Reach the Pages tools with the Bash tool and this command shape, only from this message: ${usage}`,
       "The result is JSON. If it lists image files, open each with the Read tool to see it.",
-      "Besides this helper you have full access with every native tool inside the isolation of this session: run any other shell command and read or write files as the task requires.",
+      "Besides this helper you have full access with every native tool of this session: run any other shell command, read or write files, and use the programs and MCP servers of this host as the task requires; Pages shows each call in the chat.",
     ].join(" ");
   return [
     `Use the Bash tool with exactly this command shape, only from this message: ${usage}`,

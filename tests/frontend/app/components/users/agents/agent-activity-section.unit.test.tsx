@@ -116,12 +116,12 @@ it("describes a learning run with its counters and a model run as a session", ()
   ]);
   expect(
     screen.getByText(
-      "Lernlauf: 3 neu, 2 zusammengefasst, 1 archiviert, 4 entfernt",
+      "Traumlauf: 3 neue Lehren, 2 zusammengeführt, 4 herausgefallen",
     ),
   ).toBeDefined();
-  expect(screen.getByText("Lernlauf-Sitzung · läuft")).toBeDefined();
+  expect(screen.getByText("Gedächtnis-Sitzung · läuft")).toBeDefined();
   expect(
-    screen.getByText("Lernlauf: nichts Neues, kein Modell gestartet"),
+    screen.getByText("Traumlauf: nichts Neues, kein Modell gestartet"),
   ).toBeDefined();
 });
 

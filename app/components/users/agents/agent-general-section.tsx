@@ -167,38 +167,6 @@ function AgentModelRow({
   );
 }
 
-/** The access on the host: Pages tools only, or YOLO with every provider. */
-function AgentAccessField({
-  draft,
-  onChange,
-  isDisabled,
-}: Pick<
-  AgentGeneralSectionProps,
-  "draft" | "onChange" | "isDisabled"
->): React.ReactElement {
-  const { t } = useTranslation();
-  const id = useId();
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className={LABEL_CLASS_NAME} htmlFor={id}>
-        {t("agentEmployees.fields.access")}
-      </label>
-      <Select
-        id={id}
-        ariaLabel={t("agentEmployees.fields.access")}
-        className="w-full"
-        value={draft.access}
-        disabled={isDisabled}
-        onValueChange={(access) => onChange("access", access)}
-        options={[
-          { value: "read_only", label: t("agentEmployees.access.read_only") },
-          { value: "yolo", label: t("agentEmployees.access.yolo") },
-        ]}
-      />
-    </div>
-  );
-}
-
 /** Role without an administrator option, and the departments. */
 function AgentRightsFields({
   draft,
@@ -267,7 +235,8 @@ function AgentRightsFields({
 
 /**
  * The tab "Allgemein" of the agent panel (PAGE-266): image and color, name,
- * username, job title, model with reasoning, access, role and departments.
+ * username, job title, model with reasoning, role and departments; the
+ * access level has a tab of its own (PAGE-303).
  */
 export function AgentGeneralSection(
   props: AgentGeneralSectionProps,
@@ -299,7 +268,6 @@ export function AgentGeneralSection(
         hint={t("agentEmployees.fields.positionHint")}
       />
       <AgentModelRow {...props} />
-      <AgentAccessField {...props} />
       <AgentRightsFields {...props} />
     </div>
   );

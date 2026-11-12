@@ -28,10 +28,13 @@ const AGENT_ERRORS: Readonly<
   usernameTaken: { code: "usernameTaken", status: 409 },
   modelNotAllowed: { code: "modelNotAllowed", status: 400 },
   accessUnsupported: { code: "accessUnsupported", status: 400 },
+  accessAdminRequired: { code: "accessAdminRequired", status: 403 },
+  isolationUnavailable: { code: "isolationUnavailable", status: 409 },
   templateNameTaken: { code: "templateNameTaken", status: 409 },
   inactive: { code: "invalidInput", status: 400 },
   busy: { code: "invalidInput", status: 409 },
   unavailable: { code: "invalidInput", status: 400 },
+  stopped: { code: "invalidInput", status: 409 },
 };
 
 /**
@@ -144,6 +147,29 @@ export const handleRestoreAgentMemory: UsersActionHandler = async ({
     return toAgentError(error, "restore-agent-memory");
   }
   return data<UsersActionData>({ intent: "restore-agent-memory", ok: true });
+};
+
+/** Empties `MEMORY.md` or `DREAM.md` of an agent; the version before stays restorable (PAGE-305). */
+export const handleResetAgentMemory: UsersActionHandler = async ({
+  actor,
+  formData,
+  services,
+}) => {
+  const agentId = formData.get("agentId");
+  const file = formData.get("file");
+  if (typeof agentId !== "string" || (file !== "memory" && file !== "dream"))
+    return invalidInput("reset-agent-memory");
+  try {
+    await services.agentEmployeeAdministration.resetMemory(
+      actor.id,
+      agentId,
+      file,
+    );
+  } catch (error: unknown) {
+    logCaughtError("agent_employee_actions", error);
+    return toAgentError(error, "reset-agent-memory");
+  }
+  return data<UsersActionData>({ intent: "reset-agent-memory", ok: true });
 };
 
 /** Sets the person color of another account (PAGE-266). */

@@ -1,4 +1,5 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
+import { ConversationError } from "@/backend/error/ConversationError";
 import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { CONVERSATION_DECISION_LIMITS } from "@/definition/ConversationDecision";
@@ -14,6 +15,7 @@ import type {
 import type { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import type { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
+import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type { ConversationMessage } from "@/definition/Conversation";
 import type { ConversationReplySettings } from "@/definition/ConversationDecision";
 import type { User } from "@/definition/User";
@@ -47,6 +49,12 @@ export interface ConversationAgentRequest {
   readonly prompt: string;
   /** The text of the answered message alone. */
   readonly lastMessage: string;
+  /** Stops the answer, also while it waits for a free place (PAGE-304). */
+  readonly signal?: AbortSignal;
+  /** Called when the answer waits because the limits of concurrent sessions are reached. */
+  readonly onQueued?: () => void;
+  /** Called when the answer got its place and begins. */
+  readonly onAdmitted?: () => void;
 }
 
 /**
@@ -141,6 +149,12 @@ function isAgentMember(
  * {@link CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin} answers.
  * All of it is stored, so repeated events, concurrent jobs and a restart
  * start nothing twice. Agents never start a round of their own.
+ *
+ * Every agent answers in its own session of the conversation (PAGE-304), so
+ * several agents answer side by side. A message that waits for the earlier
+ * answer of the same agent, or for a free place among the limits of
+ * concurrent sessions, shows as queued until its answer begins. A member
+ * can stop the running answer of one agent; nothing else is touched.
  */
 export class ConversationAgentReplies {
   private readonly dependencies: ConversationAgentRepliesDependencies;
@@ -185,6 +199,37 @@ export class ConversationAgentReplies {
   /** The agents that are answering in a conversation now. */
   public workingAgentIds(conversationId: string): string[] {
     return this.replies.workingAgentIds(conversationId);
+  }
+
+  /**
+   * The messages of a conversation whose answer waits, and why (PAGE-304).
+   *
+   * @returns By message ID; `limit` wins over `chat` when several agents wait.
+   */
+  public queuedMessages(
+    conversationId: string,
+  ): ReadonlyMap<string, AgentMessageQueue> {
+    return this.replies.queuedMessages(conversationId);
+  }
+
+  /**
+   * Stops the running answer of one agent in a conversation of the person;
+   * other agents and other conversations answer on (PAGE-304).
+   *
+   * @returns Whether an answer was running and is stopped now.
+   * @throws {ConversationError} `not_found` for a conversation the person is no member of.
+   */
+  public async stop(
+    person: User,
+    conversationId: string,
+    agentId: string,
+  ): Promise<boolean> {
+    const conversation = await this.dependencies.conversations.findForMember(
+      conversationId,
+      person.id,
+    );
+    if (!conversation) throw new ConversationError("not_found");
+    return this.replies.stop(conversationId, agentId);
   }
 
   /**

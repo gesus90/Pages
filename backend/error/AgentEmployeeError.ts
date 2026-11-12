@@ -7,10 +7,14 @@ export type AgentEmployeeErrorCode =
   | "usernameTaken"
   | "modelNotAllowed"
   | "accessUnsupported"
+  | "accessAdminRequired"
+  | "isolationUnavailable"
   | "templateNameTaken"
   | "inactive"
   | "busy"
-  | "unavailable";
+  | "unavailable"
+  /** A person stopped the answer, or its wait in the queue (PAGE-304). */
+  | "stopped";
 
 /** A refused operation on an agent employee, without persistence details. */
 export class AgentEmployeeError extends Error {

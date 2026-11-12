@@ -96,6 +96,9 @@ export function superviseAgentToolSession(
     ...(session.interrupt
       ? { interrupt: session.interrupt.bind(session) }
       : {}),
+    ...(session.cancelTool
+      ? { cancelTool: session.cancelTool.bind(session) }
+      : {}),
     close: async () => {
       const closed = await session.close();
       if (closed.isConfirmed) manager.supervisor.release(instanceId);

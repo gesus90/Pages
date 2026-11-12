@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import { readAgentObject } from "@/backend/agents/AgentPayload";
-import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { isChatJobId } from "@/definition/ChatJob";
@@ -9,15 +8,21 @@ import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { readChatSessionId } from "../ChatSessionService";
 import { PicaAcpJob } from "./PicaAcpJob";
+import { PicaAcpSessionGates } from "./PicaAcpSessionGates";
 import { picaAcpRunner } from "./PicaAcpRunners";
 
 import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import type { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
 import type { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
-import type { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
+import type {
+  ChatRequestAdmission,
+  ChatRequestRegistry,
+} from "@/backend/service/chat/ChatRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { ChatSendResult } from "@/definition/Chat";
 import type {
+  ChatJob,
+  ChatJobEntry,
   ChatJobStart,
   ChatJobUpdate,
   ChatSessionActivity,
@@ -29,7 +34,14 @@ import type { PicaAcpJobDependencies, PicaAcpRun } from "./PicaAcpJob";
 import type { PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
+import type { AgentHostFileTarget } from "@/backend/service/employee/AgentHostFiles";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
+
+/** A job of a conversation with its journal (PAGE-303). */
+export interface ChatJobJournal {
+  readonly job: ChatJob;
+  readonly events: readonly ChatJobEntry[];
+}
 
 /** Journal entries one read returns at most. */
 const PAGE_ENTRIES = 200;
@@ -80,6 +92,20 @@ export interface PicaAcpEmployeeRun {
   readonly searchMemory: (query: string) => Promise<unknown>;
   /** Reads a group of the agent's own account (PAGE-296). */
   readonly readConversationContext?: (input: unknown) => Promise<unknown>;
+  /**
+   * Attaches a file of the job's working folder to a ticket or a wiki page
+   * with the agent's rights; present only with host tools (PAGE-303).
+   */
+  readonly attachFile?: (
+    directory: string,
+    target: AgentHostFileTarget,
+    file: string,
+  ) => Promise<{ readonly ok: boolean; readonly error?: string }>;
+  /**
+   * Called once when the job ended, however it ended, so the caller frees
+   * the place of the session among the limits of the agent (PAGE-304).
+   */
+  readonly onSettled?: () => void;
 }
 
 /** What a new job is started from; the agent is resolved by the caller for this message. */
@@ -120,13 +146,16 @@ function readCursor(input: unknown): number {
  * the running job or starts the next one, never both. A job keeps the agent
  * that was resolved for its first message; the next job resolves anew, so a
  * changed assignment applies from the next message on. Jobs run in the
- * existing chat registry: one per person, the existing deadline and the
- * shutdown. Every read and stop is bound to the owner of the conversation.
+ * existing chat registry with its deadline and shutdown: one per person for
+ * Pica, one per conversation for an agent employee, whose conversations run
+ * side by side (PAGE-304). A conversation that rests gives its queue up
+ * after an idle time. Every read and stop is bound to the owner of the
+ * conversation.
  */
 export class PicaAcpService {
   private readonly dependencies: PicaAcpServiceDependencies;
   private readonly running = new Map<string, RunningJob>();
-  private readonly queues = new Map<string, SerialQueue>();
+  private readonly gates = new PicaAcpSessionGates();
   /** Conversations being deleted; no job starts or takes a message for them. */
   private readonly deleting = new Set<string>();
   private recovery: Promise<void> | null = null;
@@ -218,11 +247,66 @@ export class PicaAcpService {
     };
   }
 
+  /**
+   * Reads the journals of the newest jobs of an own conversation, for the
+   * tool calls the chat page shows under each answer (PAGE-303).
+   *
+   * @param actor - The account the conversation belongs to.
+   * @param sessionId - The conversation.
+   * @param limits - How many jobs, and journal entries per job, at most.
+   * @returns The jobs, oldest first, each with its journal.
+   */
+  public async journals(
+    actor: User,
+    sessionId: unknown,
+    limits: { readonly jobs: number; readonly entries: number },
+  ): Promise<readonly ChatJobJournal[]> {
+    await this.ready();
+    const id = readChatSessionId(sessionId);
+    await this.dependencies.sessions.require(actor, id);
+    const { jobs } = this.dependencies;
+    const recent = await jobs.recent(actor.id, id, limits.jobs);
+    const journals: ChatJobJournal[] = [];
+    for (const job of [...recent].reverse())
+      journals.push({
+        job,
+        events: await jobs.events(actor.id, job.id, {
+          after: 0,
+          limit: limits.entries,
+        }),
+      });
+    return journals;
+  }
+
+  /**
+   * Waits until the job of an own conversation released its place, for a
+   * start that found the conversation still busy (PAGE-304).
+   */
+  public async settled(actor: User, sessionId: unknown): Promise<void> {
+    const id = readChatSessionId(sessionId);
+    const entry = this.running.get(id);
+    if (entry?.job.userId === actor.id) await entry.completion;
+  }
+
   /** Stops the running job of an own conversation on the person's explicit request. */
   public async stop(actor: User, sessionId: unknown): Promise<void> {
     const id = readChatSessionId(sessionId);
     await this.dependencies.sessions.require(actor, id);
     this.cancel(actor.id, id);
+  }
+
+  /**
+   * Cancels the running tool call of the running job of an own conversation
+   * on the person's request; the job goes on (PAGE-303).
+   *
+   * @returns Whether a running call was cancelled.
+   */
+  public async cancelTool(actor: User, sessionId: unknown): Promise<boolean> {
+    const id = readChatSessionId(sessionId);
+    await this.dependencies.sessions.require(actor, id);
+    const entry = this.running.get(id);
+    if (entry?.job.userId !== actor.id) return false;
+    return entry.job.cancelTool();
   }
 
   /**
@@ -300,7 +384,7 @@ export class PicaAcpService {
       );
     } finally {
       this.deleting.delete(sessionId);
-      if (!this.running.has(sessionId)) this.queues.delete(sessionId);
+      if (!this.running.has(sessionId)) this.gates.release(sessionId);
     }
   }
 
@@ -352,7 +436,10 @@ export class PicaAcpService {
       throw new AgentExecutionError("requestBusy");
     const id = randomUUID();
     // Refused before anything is stored, as the API path refuses a second answer.
-    this.dependencies.requests.requireAdmission(actor.id, id);
+    const admission: ChatRequestAdmission = input.employee
+      ? "session"
+      : "person";
+    this.dependencies.requests.requireAdmission(actor.id, id, admission);
     const directory = await this.dependencies.workspace.prepare(sessionId);
     const resumeSessionId = await this.compatibleSession(actor.id, sessionId, {
       agent,
@@ -365,19 +452,32 @@ export class PicaAcpService {
       userId: actor.id,
       messageId: message.id,
     });
-    const job = new PicaAcpJob(dependencies, {
-      id,
-      actor,
-      sessionId,
-      agent,
-      run,
-      directory,
-      message,
-      brief: input.brief,
-      resumeSessionId,
-      gate: (task) => this.gate(sessionId, task),
+    const attachFile = input.employee?.attachFile;
+    const job = new PicaAcpJob(
+      attachFile
+        ? {
+            ...dependencies,
+            attachHostFile: (target, file) =>
+              attachFile(directory, target, file),
+          }
+        : dependencies,
+      {
+        id,
+        actor,
+        sessionId,
+        agent,
+        run,
+        directory,
+        message,
+        brief: input.brief,
+        resumeSessionId,
+        gate: (task) => this.gate(sessionId, task),
+      },
+    );
+    this.register(sessionId, job, {
+      admission,
+      onSettled: input.employee?.onSettled,
     });
-    this.register(sessionId, job);
     const started = await this.dependencies.jobs.find(actor.id, id);
     if (started === null) throw new ChatError("sessionMissing");
     return { job: started, messageId: message.id };
@@ -402,13 +502,21 @@ export class PicaAcpService {
     };
   }
 
-  private register(sessionId: string, job: PicaAcpJob): void {
+  private register(
+    sessionId: string,
+    job: PicaAcpJob,
+    options: {
+      readonly admission: ChatRequestAdmission;
+      readonly onSettled: (() => void) | undefined;
+    },
+  ): void {
     let completed: Promise<void>;
     try {
       completed = this.dependencies.requests.start(
         job.userId,
         job.id,
         (signal) => job.run(signal),
+        options.admission,
       );
     } catch (error: unknown) {
       logCaughtError("PicaAcpService", error);
@@ -429,6 +537,7 @@ export class PicaAcpService {
       .finally(() => {
         if (this.running.get(sessionId)?.job === job)
           this.running.delete(sessionId);
+        options.onSettled?.();
       });
     this.running.set(sessionId, { job, completion });
   }
@@ -491,12 +600,7 @@ export class PicaAcpService {
     sessionId: string,
     task: () => Promise<Result>,
   ): Promise<Result> {
-    let queue = this.queues.get(sessionId);
-    if (!queue) {
-      queue = new SerialQueue();
-      this.queues.set(sessionId, queue);
-    }
-    return queue.run(task);
+    return this.gates.run(sessionId, task, (id) => this.running.has(id));
   }
 
   /** Ends the jobs a previous server process left running, once, before the first use. */

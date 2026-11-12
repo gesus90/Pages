@@ -98,6 +98,12 @@ export class ScheduledAcpSession implements PlanSession {
     return this.session.interrupt();
   }
 
+  /** Cancels the running tool call of a chat turn; the lease stays as it is (PAGE-303). */
+  public async cancelTool(note: string): Promise<boolean> {
+    if (this.closing || !this.session.cancelTool) return false;
+    return this.session.cancelTool(note);
+  }
+
   /** Whether a retirement or a close has begun, before the session reports its end. */
   public get isClosing(): boolean {
     return this.closing !== null;

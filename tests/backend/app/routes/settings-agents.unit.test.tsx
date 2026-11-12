@@ -33,6 +33,7 @@ const services = vi.hoisted(() => ({
   speechSettingsService: { administration: vi.fn() },
   speechSynthesisSettingsService: { administration: vi.fn() },
   chatDecisionSettingsService: { administration: vi.fn() },
+  agentSessionLimitService: { administration: vi.fn() },
   runnerService: { overview: vi.fn() },
   openCodeProviderLinks: { describe: vi.fn() },
   runnerGitHubMode: "offline",
@@ -94,6 +95,13 @@ vi.mock("@/app/components/settings/agents/chat-decision-card", () => ({
     <p>{`chatDecision ${props.administration.status}`}</p>
   ),
 }));
+vi.mock("@/app/components/settings/agents/agent-session-limits-card", () => ({
+  AgentSessionLimitsCard: (props: {
+    readonly administration: { readonly limits: { readonly perAgent: number } };
+  }): React.ReactElement => (
+    <p>{`session-limits ${props.administration.limits.perAgent}`}</p>
+  ),
+}));
 vi.mock("@/app/components/settings/admin-mode-required", () => ({
   AdminModeRequired: (props: {
     readonly description: string;
@@ -102,6 +110,11 @@ vi.mock("@/app/components/settings/admin-mode-required", () => ({
 
 const ADMIN = accountAccess({ isAdmin: true, mode: "admin" });
 const LINKS = [{ provider: "zai", state: "linked" }];
+const LIMITS = {
+  limits: { perAgent: 4, total: 16, revision: 1, dreamTime: "03:00" },
+  running: 0,
+  waiting: 0,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -126,6 +139,7 @@ beforeEach(() => {
   services.chatDecisionSettingsService.administration.mockResolvedValue({
     status: "noModel",
   });
+  services.agentSessionLimitService.administration.mockResolvedValue(LIMITS);
   services.runnerService.overview.mockResolvedValue([]);
   services.openCodeProviderLinks.describe.mockResolvedValue(LINKS);
 });
@@ -175,6 +189,7 @@ it("loads the management data and links OpenCode to its keys", async () => {
     speech: { status: "noModel" },
     speechSynthesis: { status: "noModel" },
     chatDecision: { status: "noModel" },
+    sessionLimits: LIMITS,
     audience: AUDIENCE,
   });
   expect(result.init).toMatchObject({
@@ -240,6 +255,7 @@ it("renders the management sections for the admin mode", () => {
       speech: { status: "ready" },
       speechSynthesis: { status: "ready" },
       chatDecision: { status: "ready" },
+      sessionLimits: LIMITS,
       audience: AUDIENCE,
     },
   });
@@ -253,6 +269,7 @@ it("renders the management sections for the admin mode", () => {
   expect(screen.getByText("speech ready")).toBeTruthy();
   expect(screen.getByText("speechSynthesis ready")).toBeTruthy();
   expect(screen.getByText("chatDecision ready")).toBeTruthy();
+  expect(screen.getByText("session-limits 4")).toBeTruthy();
   expect(screen.getByRole("link").getAttribute("href")).toBe(
     "/settings/agents/tools",
   );

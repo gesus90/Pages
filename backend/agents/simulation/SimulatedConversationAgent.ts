@@ -11,6 +11,8 @@ export interface SimulatedConversationQuestion {
   readonly agentName: string;
   /** The text of the answered message. */
   readonly lastMessage: string;
+  /** Stops the answer (PAGE-304). */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -21,6 +23,7 @@ export interface SimulatedConversationQuestion {
  * It answers where the agent's model would answer and contacts no model
  * provider. `ok` answers at once with a fixed text that names the last
  * message, `slow` the same after five seconds, `failed` fails on purpose.
+ * A stopped answer ends at once (PAGE-304).
  * The other scenarios concern plan nodes and answer like `ok`.
  */
 export class SimulatedConversationAgent {
@@ -39,7 +42,9 @@ export class SimulatedConversationAgent {
     question: SimulatedConversationQuestion,
   ): Promise<string> {
     const { scenario } = this.mode;
-    if (scenario === "slow") await delay(SLOW_DELAY_MS);
+    if (scenario === "slow")
+      await delay(SLOW_DELAY_MS, undefined, { signal: question.signal });
+    question.signal?.throwIfAborted();
     if (scenario === "failed")
       throw new Error(
         "Simulation scenario failed: the answer of the agent fails on purpose.",

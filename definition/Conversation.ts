@@ -68,11 +68,16 @@ export type ConversationParticipantKind = "human" | "agent";
 
 /**
  * Why an agent did not answer (PAGE-276): it was deactivated, its cost limit
- * was reached, no model could run it, or its answer failed. A message with a
- * notice is a hint from Pages in the agent's name, never an answer.
+ * was reached, no model could run it, its answer failed, or a member stopped
+ * it (PAGE-304). A message with a notice is a hint from Pages in the agent's
+ * name, never an answer.
  */
 export type ConversationNotice =
-  "agent_inactive" | "agent_cost_limit" | "agent_unavailable" | "agent_failed";
+  | "agent_inactive"
+  | "agent_cost_limit"
+  | "agent_unavailable"
+  | "agent_failed"
+  | "agent_stopped";
 
 /** Where the text of a voice message stands. */
 export type ConversationTranscriptionState = "pending" | "done" | "failed";

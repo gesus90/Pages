@@ -1,3 +1,4 @@
+import { AGENT_MEMORY_CHARACTERS } from "@/definition/AgentMemory";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { AGENT_VOICE_SPEED } from "@/definition/SpeechSynthesis";
 
@@ -22,6 +23,11 @@ export interface AgentDraft {
   readonly soul: string;
   readonly instructions: string;
   readonly memory: string;
+  /** `DREAM.md` (PAGE-305). */
+  readonly dream: string;
+  /** The character limits of `MEMORY.md` and `DREAM.md`, as typed. */
+  readonly memoryCharacters: string;
+  readonly dreamCharacters: string;
   readonly isLearningEnabled: boolean;
   /** The chosen voice ID (PAGE-300); empty for the first voice of the model. */
   readonly voiceId: string;
@@ -57,6 +63,9 @@ export function createAgentDraft(
       soul: defaults.soul,
       instructions: "",
       memory: "",
+      dream: "",
+      memoryCharacters: String(AGENT_MEMORY_CHARACTERS.memoryDefault),
+      dreamCharacters: String(AGENT_MEMORY_CHARACTERS.dreamDefault),
       isLearningEnabled: true,
       voiceId: "",
       voiceSpeedTenths: AGENT_VOICE_SPEED.defaultTenths,
@@ -74,6 +83,9 @@ export function createAgentDraft(
     soul: agent.documents.soul,
     instructions: agent.documents.instructions,
     memory: agent.memory,
+    dream: agent.dream,
+    memoryCharacters: String(agent.memoryLimits.memoryCharacters),
+    dreamCharacters: String(agent.memoryLimits.dreamCharacters),
     isLearningEnabled: agent.learning.isEnabled,
     voiceId: agent.voice.voiceId ?? "",
     voiceSpeedTenths: agent.voice.speedTenths,
@@ -120,7 +132,11 @@ export function agentDraftPayload(
     access: draft.access,
     soul: draft.soul,
     instructions: draft.instructions,
-    memory: draft.memory,
+    // Unchanged files are not sent, so a save keeps what Pages wrote since loading (PAGE-305).
+    memory: agent && draft.memory === agent.memory ? null : draft.memory,
+    dream: agent && draft.dream === agent.dream ? null : draft.dream,
+    memoryCharacters: draft.memoryCharacters,
+    dreamCharacters: draft.dreamCharacters,
     isLearningEnabled: draft.isLearningEnabled,
     voiceId: draft.voiceId.trim() === "" ? null : draft.voiceId.trim(),
     voiceSpeedTenths: draft.voiceSpeedTenths,

@@ -3,51 +3,56 @@ import { useTranslation } from "react-i18next";
 import { useSubmit } from "react-router";
 
 import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
+import { AGENT_MEMORY_LIMITS } from "@/definition/AgentEmployee";
 import {
-  AGENT_LEARNING_INTERVAL_HOURS,
-  AGENT_MEMORY_LIMITS,
-  countWords,
-} from "@/definition/AgentEmployee";
+  AGENT_MEMORY_CHARACTERS,
+  countCharacters,
+} from "@/definition/AgentMemory";
 
 import type {
+  AgentArchiveEntry,
   AgentEmployee,
   AgentLearningResult,
   AgentMemoryDetails,
 } from "@/definition/AgentEmployee";
+import type { AgentDraft, AgentDraftChange } from "./agent-draft";
 
 interface AgentMemorySectionProps {
-  readonly memory: string;
-  readonly onMemory: (value: string) => void;
-  readonly isLearningEnabled: boolean;
-  readonly onLearning: (isEnabled: boolean) => void;
+  readonly draft: AgentDraft;
+  readonly onChange: AgentDraftChange;
   /** The stored agent; `null` while it is created. */
   readonly agent: AgentEmployee | null;
   readonly details: AgentMemoryDetails | null;
   readonly isDisabled: boolean;
 }
 
-/** One memory level: its words against its limit, as a bar. */
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+/** One memory level: its use against its limit, as a bar. */
 function UsageBar({
   label,
-  words,
+  used,
   maximum,
+  unit,
 }: {
   readonly label: string;
-  readonly words: number;
+  readonly used: number;
   readonly maximum: number;
+  readonly unit: "words" | "characters";
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
   const format = new Intl.NumberFormat(i18n.language);
-  const share = Math.min(100, Math.round((words / maximum) * 100));
+  const share = Math.min(100, Math.round((used / Math.max(1, maximum)) * 100));
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3 text-sm">
         <span className="font-medium">{label}</span>
         <span className="tabular-nums text-muted-foreground">
-          {t("agentEmployees.memory.words", {
-            words: format.format(words),
+          {t(`agentEmployees.memory.${unit}`, {
+            used: format.format(used),
             maximum: format.format(maximum),
           })}
         </span>
@@ -58,7 +63,7 @@ function UsageBar({
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={maximum}
-        aria-valuenow={words}
+        aria-valuenow={used}
       >
         <div
           className="h-full rounded-full bg-primary"
@@ -83,7 +88,7 @@ function useDateTime(): (iso: string | null) => string {
 
 function resultText(
   result: AgentLearningResult | null,
-  translate: (key: string, options?: Record<string, unknown>) => string,
+  translate: Translate,
 ): string {
   if (!result) return translate("agentEmployees.memory.noRun");
   return translate(`agentEmployees.memory.result.${result.status}`, {
@@ -94,27 +99,33 @@ function resultText(
   });
 }
 
-/** Learning switch, rhythm, both levels and the last and next run. */
-function LearningOverview(props: AgentMemorySectionProps): React.ReactElement {
+/** The dream run: its switch, its time of day and its last and next run. */
+function DreamRunOverview({
+  draft,
+  onChange,
+  agent,
+  isDisabled,
+}: AgentMemorySectionProps): React.ReactElement {
   const { t } = useTranslation();
   const formatTime = useDateTime();
-  const learningId = useId();
-  const rhythmId = useId();
-  const learning = props.agent?.learning ?? null;
+  const switchId = useId();
+  const learning = agent?.learning ?? null;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium" htmlFor={learningId}>
+          <label className="text-sm font-medium" htmlFor={switchId}>
             {t("agentEmployees.memory.autoLearn")}
           </label>
           <Select
-            id={learningId}
+            id={switchId}
             ariaLabel={t("agentEmployees.memory.autoLearn")}
             className="w-full"
-            value={props.isLearningEnabled ? "on" : "off"}
-            disabled={props.isDisabled}
-            onValueChange={(value) => props.onLearning(value === "on")}
+            value={draft.isLearningEnabled ? "on" : "off"}
+            disabled={isDisabled}
+            onValueChange={(value) =>
+              onChange("isLearningEnabled", value === "on")
+            }
             options={[
               { value: "on", label: t("agentEmployees.memory.on") },
               { value: "off", label: t("agentEmployees.memory.off") },
@@ -122,37 +133,16 @@ function LearningOverview(props: AgentMemorySectionProps): React.ReactElement {
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium" htmlFor={rhythmId}>
+          <span className="text-sm font-medium">
             {t("agentEmployees.memory.rhythm")}
-          </label>
-          <Select
-            id={rhythmId}
-            ariaLabel={t("agentEmployees.memory.rhythm")}
-            className="w-full"
-            value="12"
-            disabled
-            onValueChange={() => undefined}
-            options={[
-              {
-                value: "12",
-                label: t("agentEmployees.memory.every", {
-                  hours: AGENT_LEARNING_INTERVAL_HOURS,
-                }),
-              },
-            ]}
-          />
+          </span>
+          <span className="text-sm text-muted-foreground">
+            {learning
+              ? t("agentEmployees.memory.nightly", { time: learning.dreamTime })
+              : t("agentEmployees.memory.nightlyDefault")}
+          </span>
         </div>
       </div>
-      <UsageBar
-        label={t("agentEmployees.memory.core")}
-        words={countWords(props.memory)}
-        maximum={AGENT_MEMORY_LIMITS.coreWords}
-      />
-      <UsageBar
-        label={t("agentEmployees.memory.archive")}
-        words={props.agent?.memoryUsage.archiveWords ?? 0}
-        maximum={AGENT_MEMORY_LIMITS.archiveWords}
-      />
       <p className="text-sm text-muted-foreground">
         {t("agentEmployees.memory.runs", {
           last: formatTime(learning?.lastRunAt ?? null),
@@ -162,29 +152,187 @@ function LearningOverview(props: AgentMemorySectionProps): React.ReactElement {
           result: resultText(learning?.lastResult ?? null, t),
         })}
       </p>
-      <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-        {t("agentEmployees.memory.sharedHint")}
-      </p>
     </div>
   );
 }
 
-/** The archive entries and the restorable versions, for authorized people. */
-function MemoryHistory({
+/** A character limit of one file, as typed. */
+function LimitField({
+  label,
+  value,
+  minimum,
+  maximum,
+  isDisabled,
+  onValue,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly minimum: number;
+  readonly maximum: number;
+  readonly isDisabled: boolean;
+  readonly onValue: (value: string) => void;
+}): React.ReactElement {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-medium" htmlFor={id}>
+        {label}
+      </label>
+      <Input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={minimum}
+        max={maximum}
+        step={500}
+        value={value}
+        disabled={isDisabled}
+        onChange={(event) => onValue(event.currentTarget.value)}
+      />
+    </div>
+  );
+}
+
+/** One of the two files: its use, its text and its reset. */
+function MemoryFile({
+  file,
+  text,
+  maximum,
+  agent,
+  isDisabled,
+  onText,
+}: {
+  readonly file: "memory" | "dream";
+  readonly text: string;
+  readonly maximum: number;
+  readonly agent: AgentEmployee | null;
+  readonly isDisabled: boolean;
+  readonly onText: (value: string) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const submit = useSubmit();
+  const id = useId();
+  const name = file === "memory" ? "MEMORY.md" : "DREAM.md";
+  function reset(): void {
+    if (
+      !agent ||
+      !window.confirm(t("agentEmployees.memory.resetConfirm", { name }))
+    )
+      return;
+    const formData = new FormData();
+    formData.set("intent", "reset-agent-memory");
+    formData.set("agentId", agent.id);
+    formData.set("file", file);
+    void submit(formData, { method: "post" });
+  }
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">{name}</h3>
+          <p className="text-sm text-muted-foreground">
+            {t(`agentEmployees.memory.${file}Description`)}
+          </p>
+        </div>
+        {agent ? (
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={isDisabled}
+            onClick={reset}
+          >
+            {t("agentEmployees.memory.reset")}
+          </Button>
+        ) : null}
+      </div>
+      <UsageBar
+        label={name}
+        used={countCharacters(text)}
+        maximum={maximum}
+        unit="characters"
+      />
+      <label className="sr-only" htmlFor={id}>
+        {name}
+      </label>
+      <Textarea
+        id={id}
+        className="min-h-56 font-mono text-[13px] leading-relaxed"
+        value={text}
+        disabled={isDisabled}
+        spellCheck={false}
+        onChange={(event) => onText(event.currentTarget.value)}
+      />
+    </section>
+  );
+}
+
+function describeSource(
+  entry: AgentArchiveEntry,
+  translate: Translate,
+): string {
+  const { source } = entry;
+  if (!source) return translate("agentEmployees.memory.sourceUnknown");
+  return [
+    ...(source.chat
+      ? [
+          translate(
+            source.chat.kind === "person"
+              ? "agentEmployees.memory.sourceDirect"
+              : "agentEmployees.memory.sourceConversation",
+          ),
+        ]
+      : []),
+    ...source.tickets,
+    ...source.wikiPages.map(() => translate("agentEmployees.memory.wikiPage")),
+  ].join(" · ");
+}
+
+/** The archive entries with their source. */
+function ArchiveEntries({
+  archive,
+}: {
+  readonly archive: readonly AgentArchiveEntry[];
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <details className="rounded-xl border border-border p-3">
+      <summary className="cursor-pointer text-sm font-medium">
+        {t("agentEmployees.memory.archiveEntries", { count: archive.length })}
+      </summary>
+      <ul className="mt-3 flex flex-col gap-3">
+        {archive.map((entry) => (
+          <li key={entry.id} className="text-sm">
+            <p className="font-medium">{entry.title}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("agentEmployees.memory.source", {
+                source: describeSource(entry, t),
+              })}
+            </p>
+            <p className="whitespace-pre-wrap text-muted-foreground">
+              {entry.content}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+/** The restorable versions of both files and the archive. */
+function MemoryVersions({
   agent,
   details,
   isDisabled,
-}: Pick<
-  AgentMemorySectionProps,
-  "agent" | "details" | "isDisabled"
->): React.ReactElement | null {
+}: {
+  readonly agent: AgentEmployee;
+  readonly details: AgentMemoryDetails;
+  readonly isDisabled: boolean;
+}): React.ReactElement {
   const { t } = useTranslation();
   const submit = useSubmit();
   const formatTime = useDateTime();
-  if (!agent || !details) return null;
   function restore(versionId: string): void {
-    if (!agent || !window.confirm(t("agentEmployees.memory.restoreConfirm")))
-      return;
+    if (!window.confirm(t("agentEmployees.memory.restoreConfirm"))) return;
     const formData = new FormData();
     formData.set("intent", "restore-agent-memory");
     formData.set("agentId", agent.id);
@@ -192,96 +340,127 @@ function MemoryHistory({
     void submit(formData, { method: "post" });
   }
   return (
-    <div className="flex flex-col gap-4">
-      <details className="rounded-xl border border-border p-3">
-        <summary className="cursor-pointer text-sm font-medium">
-          {t("agentEmployees.memory.archiveEntries", {
-            count: details.archive.length,
-          })}
-        </summary>
-        <ul className="mt-3 flex flex-col gap-3">
-          {details.archive.map((entry) => (
-            <li key={entry.id} className="text-sm">
-              <p className="font-medium">{entry.title}</p>
-              <p className="whitespace-pre-wrap text-muted-foreground">
-                {entry.content}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </details>
-      <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-semibold">
-          {t("agentEmployees.memory.versions")}
-        </h3>
-        <ul className="flex flex-col divide-y divide-border/60 rounded-xl border border-border">
-          {details.versions.map((version, index) => (
-            <li
-              key={version.id}
-              className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
-            >
-              <span>
-                {formatTime(version.createdAt)} ·{" "}
-                {t(`agentEmployees.memory.reason.${version.reason}`)} ·{" "}
-                <span className="text-muted-foreground">
-                  {t("agentEmployees.memory.versionWords", {
-                    core: version.coreWords,
-                    archive: version.archiveWords,
-                  })}
-                </span>
+    <section className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold">
+        {t("agentEmployees.memory.versions")}
+      </h3>
+      <ul className="flex flex-col divide-y divide-border/60 rounded-xl border border-border">
+        {details.versions.map((version, index) => (
+          <li
+            key={version.id}
+            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+          >
+            <span>
+              {formatTime(version.createdAt)} ·{" "}
+              {t(`agentEmployees.memory.reason.${version.reason}`)} ·{" "}
+              <span className="text-muted-foreground">
+                {t("agentEmployees.memory.versionWords", {
+                  core: version.coreWords,
+                  archive: version.archiveWords,
+                })}
               </span>
-              {index === 0 ? (
-                <span className="text-xs text-muted-foreground">
-                  {t("agentEmployees.memory.current")}
-                </span>
-              ) : (
-                <Button
-                  size="xs"
-                  variant="outline"
-                  disabled={isDisabled}
-                  onClick={() => restore(version.id)}
-                >
-                  {t("agentEmployees.memory.restore")}
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
+            </span>
+            {index === 0 ? (
+              <span className="text-xs text-muted-foreground">
+                {t("agentEmployees.memory.current")}
+              </span>
+            ) : (
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={isDisabled}
+                onClick={() => restore(version.id)}
+              >
+                {t("agentEmployees.memory.restore")}
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
+function readLimit(value: string, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 /**
- * The tab "Gedächtnis" (PAGE-266): learning, both memory levels, the
- * editable `MEMORY.md`, the archive and the restorable versions.
+ * The tab "Gedächtnis" (PAGE-266, PAGE-305): the dream run, the limits,
+ * the editable `MEMORY.md` and `DREAM.md` with their reset, the archive
+ * with the source of each entry and the restorable versions.
  */
 export function AgentMemorySection(
   props: AgentMemorySectionProps,
 ): React.ReactElement {
   const { t } = useTranslation();
-  const id = useId();
+  const { draft, onChange, agent, details, isDisabled } = props;
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h3 className="text-sm font-semibold">MEMORY.md</h3>
-        <p className="text-sm text-muted-foreground">
-          {t("agentEmployees.memory.description")}
-        </p>
+      <p className="text-sm text-muted-foreground">
+        {t("agentEmployees.memory.description")}
+      </p>
+      <DreamRunOverview {...props} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <LimitField
+          label={t("agentEmployees.memory.memoryLimit")}
+          value={draft.memoryCharacters}
+          minimum={AGENT_MEMORY_CHARACTERS.memoryMinimum}
+          maximum={AGENT_MEMORY_CHARACTERS.memoryMaximum}
+          isDisabled={isDisabled}
+          onValue={(value) => onChange("memoryCharacters", value)}
+        />
+        <LimitField
+          label={t("agentEmployees.memory.dreamLimit")}
+          value={draft.dreamCharacters}
+          minimum={AGENT_MEMORY_CHARACTERS.dreamMinimum}
+          maximum={AGENT_MEMORY_CHARACTERS.dreamMaximum}
+          isDisabled={isDisabled}
+          onValue={(value) => onChange("dreamCharacters", value)}
+        />
       </div>
-      <LearningOverview {...props} />
-      <label className="sr-only" htmlFor={id}>
-        MEMORY.md
-      </label>
-      <Textarea
-        id={id}
-        className="min-h-72 font-mono text-[13px] leading-relaxed"
-        value={props.memory}
-        disabled={props.isDisabled}
-        spellCheck={false}
-        onChange={(event) => props.onMemory(event.currentTarget.value)}
+      <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+        {t("agentEmployees.memory.sharedHint")}
+      </p>
+      <MemoryFile
+        file="memory"
+        text={draft.memory}
+        maximum={readLimit(
+          draft.memoryCharacters,
+          AGENT_MEMORY_CHARACTERS.memoryDefault,
+        )}
+        agent={agent}
+        isDisabled={isDisabled}
+        onText={(value) => onChange("memory", value)}
       />
-      <MemoryHistory {...props} />
+      <MemoryFile
+        file="dream"
+        text={draft.dream}
+        maximum={readLimit(
+          draft.dreamCharacters,
+          AGENT_MEMORY_CHARACTERS.dreamDefault,
+        )}
+        agent={agent}
+        isDisabled={isDisabled}
+        onText={(value) => onChange("dream", value)}
+      />
+      <UsageBar
+        label={t("agentEmployees.memory.archive")}
+        used={agent?.memoryUsage.archiveWords ?? 0}
+        maximum={AGENT_MEMORY_LIMITS.archiveWords}
+        unit="words"
+      />
+      {agent && details ? (
+        <div className="flex flex-col gap-4">
+          <ArchiveEntries archive={details.archive} />
+          <MemoryVersions
+            agent={agent}
+            details={details}
+            isDisabled={isDisabled}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   useUsersError,
 } from "@/app/components/users/use-users-action";
 
+import { AgentAccessSection } from "./agent-access-section";
 import { AgentActivitySection } from "./agent-activity-section";
 import {
   AgentInstructionsSection,
@@ -70,7 +71,7 @@ function useAgentPanelDraft(
   const loaded = useRef<string | null>(null);
   const agent = detail?.agent ?? null;
   const version = agent
-    ? `${agent.id}:${agent.revision}:${agent.memory.length}`
+    ? `${agent.id}:${agent.revision}:${agent.memory.length}:${agent.dream.length}`
     : "new";
   useEffect(() => {
     if (loaded.current === version) return;
@@ -93,7 +94,7 @@ function useAgentPanelDraft(
   return { draft, change, image, setImage: setImageFile, imagePreview };
 }
 
-/** Reads the agent again after one of its memory versions was restored. */
+/** Reads the agent again after one of its memory versions was restored or a file reset. */
 function useReloadAfterRestore(): number {
   const result = useUsersActionData();
   const [reloadKey, setReloadKey] = useState(0);
@@ -101,7 +102,11 @@ function useReloadAfterRestore(): number {
   useEffect(() => {
     if (result === previous.current) return;
     previous.current = result;
-    if (result?.intent === "restore-agent-memory" && result.ok)
+    if (
+      (result?.intent === "restore-agent-memory" ||
+        result?.intent === "reset-agent-memory") &&
+      result.ok
+    )
       setReloadKey((key) => key + 1);
   }, [result]);
   return reloadKey;
@@ -117,6 +122,7 @@ interface AgentPanelState {
   readonly isDisabled: boolean;
   readonly error: UsersErrorCode | null;
   readonly restoreError: UsersErrorCode | null;
+  readonly resetError: UsersErrorCode | null;
   readonly save: () => void;
 }
 
@@ -160,6 +166,7 @@ function useAgentPanel(props: AgentPanelProps): AgentPanelState {
     isDisabled: isSubmitting || !canEdit,
     error: useUsersError(intent),
     restoreError: useUsersError("restore-agent-memory"),
+    resetError: useUsersError("reset-agent-memory"),
     save,
   };
 }
@@ -187,6 +194,26 @@ function AgentVoiceTab({
   );
 }
 
+/** The tab "Zugriff" (PAGE-303), changeable only by an administrator in admin mode. */
+function AgentAccessTab({
+  state,
+}: {
+  readonly state: AgentPanelState;
+}): React.ReactElement {
+  const { panel, agent, isDisabled, loaded } = state;
+  return (
+    <TabsContent value="access">
+      <AgentAccessSection
+        value={panel.draft.access}
+        savedValue={agent?.settings.access ?? null}
+        onChange={(access) => panel.change("access", access)}
+        canChange={!isDisabled && loaded.detail?.canChangeAccess === true}
+        environment={loaded.detail?.accessEnvironment ?? null}
+      />
+    </TabsContent>
+  );
+}
+
 /** The tabs of the panel with their sections. */
 function AgentPanelTabs({
   props,
@@ -204,6 +231,7 @@ function AgentPanelTabs({
     { value: "instructions", label: t("agentEmployees.tabs.instructions") },
     { value: "voice", label: t("agentEmployees.tabs.voice") },
     { value: "memory", label: t("agentEmployees.tabs.memory") },
+    { value: "access", label: t("agentEmployees.tabs.access") },
     ...(state.isEditing
       ? [{ value: "activity", label: t("agentEmployees.tabs.activity") }]
       : []),
@@ -261,16 +289,16 @@ function AgentPanelTabs({
         </TabsContent>
         <TabsContent value="memory">
           <AgentMemorySection
-            memory={panel.draft.memory}
-            onMemory={(value) => panel.change("memory", value)}
-            isLearningEnabled={panel.draft.isLearningEnabled}
-            onLearning={(value) => panel.change("isLearningEnabled", value)}
+            draft={panel.draft}
+            onChange={panel.change}
             agent={agent}
             details={state.loaded.detail?.memoryDetails ?? null}
             isDisabled={isDisabled}
           />
           <FormError error={state.restoreError} />
+          <FormError error={state.resetError} />
         </TabsContent>
+        <AgentAccessTab state={state} />
         {agent ? (
           <TabsContent value="activity">
             <AgentActivitySection
@@ -286,7 +314,8 @@ function AgentPanelTabs({
 
 /**
  * The panel "Agent erstellen" and "Agent bearbeiten" (PAGE-266): the tabs
- * Allgemein, Persönlichkeit, Aufgabe, Stimme (PAGE-300), Gedächtnis and,
+ * Allgemein, Persönlichkeit, Aufgabe, Stimme (PAGE-300), Gedächtnis,
+ * Zugriff (PAGE-303) and,
  * when editing, Aktivität.
  *
  * @remarks

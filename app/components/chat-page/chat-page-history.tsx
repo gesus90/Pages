@@ -1,4 +1,4 @@
-import { CircleAlert, Zap } from "lucide-react";
+import { CircleAlert, Clock } from "lucide-react";
 import { Fragment, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -10,12 +10,12 @@ import { cn } from "@/app/lib/cn";
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
 import { ChatPageDecision } from "./chat-page-decision";
+import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
 
 import type {
   VirtualChatMessage,
   VirtualParticipant,
-  VirtualToolUse,
 } from "@/definition/VirtualChat";
 
 function hideImages(): boolean {
@@ -63,6 +63,28 @@ function authorOf(message: VirtualChatMessage): VirtualParticipant | null {
   };
 }
 
+/**
+ * Says that the answer to a message waits (PAGE-304): for the answer the
+ * agent gives in this chat, or for a free place among the session limits.
+ */
+function QueueBadge({
+  queue,
+}: {
+  readonly queue: VirtualChatMessage["queue"];
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (queue === undefined) return null;
+  return (
+    <p
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+      role="status"
+    >
+      <Clock aria-hidden="true" className="size-3.5 shrink-0" />
+      {t(`chatPage.queue.${queue}`)}
+    </p>
+  );
+}
+
 /** The person's own messages at the right, in primary bubbles. */
 function OwnRun({
   messages,
@@ -76,7 +98,7 @@ function OwnRun({
         <Fragment key={message.id}>
           <article
             aria-label={t("chatPage.you")}
-            className="flex max-w-[62%] justify-end"
+            className="flex max-w-[62%] flex-col items-end gap-1"
           >
             {message.voice ? (
               <div className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground">
@@ -93,6 +115,7 @@ function OwnRun({
                 source={message.content}
               />
             )}
+            <QueueBadge queue={message.queue} />
           </article>
           {message.decision ? (
             <ChatPageDecision decision={message.decision} />
@@ -100,19 +123,6 @@ function OwnRun({
         </Fragment>
       ))}
     </div>
-  );
-}
-
-function ToolChip({
-  use,
-}: {
-  readonly use: VirtualToolUse;
-}): React.ReactElement {
-  return (
-    <li className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2 py-1 font-mono text-xs text-foreground shadow-xs">
-      <Zap aria-hidden="true" className="size-3.5 text-primary" />
-      {use.detail === "" ? use.name : `${use.name} · ${use.detail}`}
-    </li>
   );
 }
 
@@ -193,10 +203,13 @@ function AnswerBubble({
       {message.toolUses.length > 0 ? (
         <ul
           aria-label={t("chatPage.toolUses")}
-          className="mt-1 flex flex-wrap gap-2"
+          className="mt-1 flex flex-col gap-1.5"
         >
           {message.toolUses.map((use) => (
-            <ToolChip key={`${use.name}:${use.detail}`} use={use} />
+            <ChatPageToolUse
+              key={use.callId ?? `${use.name}:${use.detail}`}
+              use={use}
+            />
           ))}
         </ul>
       ) : null}

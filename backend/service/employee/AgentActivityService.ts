@@ -6,6 +6,7 @@ import type { EmployeeStore } from "@/backend/database/repositories/employee/Emp
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type {
   AgentActivityEntry,
+  AgentEmployeeAccess,
   AgentCostState,
   AgentLearningResult,
 } from "@/definition/AgentEmployee";
@@ -53,6 +54,35 @@ export class AgentActivityService {
       id: randomUUID(),
       kind: "learning",
       detail: JSON.stringify(result),
+      cost: { state: "none", amount: null, isEstimated: false },
+    });
+  }
+
+  /**
+   * Records a change of the access level with the person who made it (PAGE-303).
+   *
+   * @param store - The store of the open transaction, so the entry is kept only with the change.
+   * @param change - The agent, the levels before and after, and who changed it.
+   */
+  public async recordAccessChange(
+    store: EmployeeStore,
+    change: {
+      readonly agentId: string;
+      readonly from: AgentEmployeeAccess | null;
+      readonly to: AgentEmployeeAccess;
+      readonly actorId: string;
+      readonly actorName: string;
+    },
+  ): Promise<void> {
+    await store.activity().record(change.agentId, {
+      id: randomUUID(),
+      kind: "access",
+      detail: JSON.stringify({
+        from: change.from,
+        to: change.to,
+        actorId: change.actorId,
+        person: change.actorName,
+      }),
       cost: { state: "none", amount: null, isEstimated: false },
     });
   }

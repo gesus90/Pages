@@ -1,10 +1,12 @@
 import { AccountIdentityRepository } from "./AccountIdentityRepository";
 import { AgentActivityRepository } from "./AgentActivityRepository";
+import { AgentChatMemoryRepository } from "./AgentChatMemoryRepository";
 import { AgentConversationRepository } from "./AgentConversationRepository";
 import { AgentEmployeeRemovalRepository } from "./AgentEmployeeRemovalRepository";
 import { AgentEmployeeRepository } from "./AgentEmployeeRepository";
 import { AgentLearningSourceRepository } from "./AgentLearningSourceRepository";
 import { AgentMemoryRepository } from "./AgentMemoryRepository";
+import { AgentSessionSettingsRepository } from "./AgentSessionSettingsRepository";
 import { AgentTemplateRepository } from "./AgentTemplateRepository";
 import { ChatContactRepository } from "./ChatContactRepository";
 import { ChatGroupRepository } from "./ChatGroupRepository";
@@ -74,6 +76,16 @@ export class EmployeeStore {
   /** The chat sessions of agents with people. */
   public conversations(): AgentConversationRepository {
     return new AgentConversationRepository(this.database);
+  }
+
+  /** Summaries and confidentiality of chats for the memory (PAGE-305). */
+  public chats(): AgentChatMemoryRepository {
+    return new AgentChatMemoryRepository(this.database);
+  }
+
+  /** The session limits and the time of day of the dream run (PAGE-304, PAGE-305). */
+  public sessionSettings(): AgentSessionSettingsRepository {
+    return new AgentSessionSettingsRepository(this.database);
   }
 
   /** The participant lists of the chat. */

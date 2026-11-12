@@ -123,6 +123,18 @@ export class AcpTurnControl {
   }
 
   /**
+   * Cancels the running prompt and continues the turn at once with a note,
+   * as when a person cancels the running tool call of a chat (PAGE-303).
+   *
+   * @returns Whether a prompt was running.
+   */
+  public cancelWith(note: string): boolean {
+    if (!this.interrupt()) return false;
+    this.add([{ type: "text", text: note }]);
+    return true;
+  }
+
+  /**
    * The next prompt of the same turn, after a prompt ended.
    *
    * @param stopReason - How the prompt ended.

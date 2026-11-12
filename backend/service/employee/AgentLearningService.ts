@@ -1,41 +1,37 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { AGENT_DREAM_DEFAULT_TIME } from "@/definition/AgentMemory";
 
-import { nextLearningAt } from "./AgentEmployeeDirectory";
-import { awaitAgentJobAnswer } from "./AgentJobAnswer";
-import { toDatabaseTime } from "./AgentEmployeeText";
 import {
-  createLearningMessage,
-  readLearningAnswer,
-} from "./AgentLearningPrompt";
+  mergeDreamLessons,
+  parseDreamDocument,
+  renderDreamDocument,
+} from "./AgentDreamDocument";
+import { isDreamDue } from "./AgentDreamSchedule";
+import { toDatabaseTime } from "./AgentEmployeeText";
 
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
-import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import type { AgentLearningSource } from "@/backend/database/repositories/employee/AgentLearningSourceRepository";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
 import type { AgentLearningResult } from "@/definition/AgentEmployee";
 import type { User } from "@/definition/User";
 import type { AgentActivityService } from "./AgentActivityService";
-import type { AgentEmployeeSessions } from "./AgentEmployeeSessions";
+import type { AgentMemoryModel } from "./AgentMemoryModel";
 import type { AgentMemoryService } from "./AgentMemoryService";
 
 /** Source entries per kind one run reads at most. */
 const SOURCE_LIMIT = 80;
-/** How often a waiting run looks at its job. */
-const POLL_MILLISECONDS = 3_000;
-/** How long a run waits for its job before it gives up. */
-const RUN_TIMEOUT_MILLISECONDS = 30 * 60_000;
 
-/** What learning runs use. */
+/** What dream runs use. */
 export interface AgentLearningDependencies {
   readonly store: EmployeeStore;
   readonly users: Pick<UserRepository, "findById">;
-  readonly messages: Pick<ChatSessionRepository, "messages">;
-  readonly sessions: Pick<AgentEmployeeSessions, "run" | "job">;
-  readonly memory: AgentMemoryService;
+  readonly memory: Pick<AgentMemoryService, "saveDream">;
+  /** The model call of the dream run; the simulation replaces it. */
+  readonly model: AgentMemoryModel;
   readonly activity: AgentActivityService;
   readonly now?: () => Date;
-  readonly wait?: (milliseconds: number) => Promise<void>;
 }
 
 function result(
@@ -53,14 +49,18 @@ function result(
 }
 
 /**
- * The learning runs of agent employees (PAGE-266).
+ * The nightly dream runs of agent employees (PAGE-305), which replace the
+ * learning runs of PAGE-266.
  *
  * @remarks
- * A run reads what is new since the last one in the agent's groups,
- * projects, plan runs and own chats. Without anything new no model runs.
- * Otherwise the agent's own model condenses it in a session of the agent's
- * own account, and the result replaces `MEMORY.md` and changes the archive
- * within both word limits; every applied run records a version.
+ * A run reads what is new since the last one in the agent's chats and
+ * conversations, projects, groups and plan runs, with errors and feedback
+ * among them; confidential chats are left out. Without anything new no
+ * model runs. Otherwise the model derives lessons with evidence and date,
+ * Pages merges them with similar ones in `DREAM.md` and drops the weakest,
+ * then oldest lesson until the file keeps its character limit; every
+ * applied run records a version. `MEMORY.md` is kept current after each
+ * answer and is not touched here.
  */
 export class AgentLearningService {
   private readonly dependencies: AgentLearningDependencies;
@@ -70,31 +70,28 @@ export class AgentLearningService {
     this.dependencies = dependencies;
   }
 
-  /** Whether a run of the agent is due now. */
-  public isDue(agent: StoredAgentEmployee): boolean {
-    return (
-      agent.isLearningEnabled &&
-      nextLearningAt(agent).getTime() <= this.now().getTime()
-    );
+  /** Whether the dream run of the agent is due now. */
+  public async isDue(agent: StoredAgentEmployee): Promise<boolean> {
+    return isDreamDue(agent, this.now(), await this.dreamTime());
   }
 
   /**
-   * Runs one learning run of an agent, whatever its rhythm.
+   * Runs one dream run of an agent, whatever its time.
    *
-   * @returns The result, or `null` when the agent cannot learn now: inactive,
-   * already learning or busy with another session.
+   * @returns The result, or `null` when the agent cannot dream now: inactive,
+   * already dreaming or busy with another session.
    */
   public async run(agentId: string): Promise<AgentLearningResult | null> {
     if (this.running.has(agentId)) return null;
     this.running.add(agentId);
     try {
-      return await this.learn(agentId);
+      return await this.dream(agentId);
     } finally {
       this.running.delete(agentId);
     }
   }
 
-  private async learn(agentId: string): Promise<AgentLearningResult | null> {
+  private async dream(agentId: string): Promise<AgentLearningResult | null> {
     const [agent, employee] = await Promise.all([
       this.dependencies.users.findById(agentId),
       this.dependencies.store.employees().find(agentId),
@@ -108,9 +105,7 @@ export class AgentLearningService {
       return this.finish(agentId, null, result("unchanged"));
     const learnedThrough = sources.at(-1)?.at ?? null;
     try {
-      const answer = await this.ask(agent, employee, sources);
-      if (answer === null) return null;
-      return await this.apply(agentId, learnedThrough, answer);
+      return await this.apply(agent, employee, { sources, learnedThrough });
     } catch (error: unknown) {
       if (error instanceof AgentEmployeeError) {
         if (error.code === "busy") return null;
@@ -129,59 +124,40 @@ export class AgentLearningService {
     }
   }
 
-  /** Starts the run's job and waits for its answer; `null` when no job started. */
-  private async ask(
+  private async apply(
     agent: User,
     employee: StoredAgentEmployee,
-    sources: Parameters<typeof createLearningMessage>[2],
-  ): Promise<string | null> {
-    const archive = await this.dependencies.store.memory().archive(agent.id);
-    const started = await this.dependencies.sessions.run({
-      agent,
-      employee,
-      person: null,
-      purpose: "learning",
-      text: createLearningMessage(employee.memory, archive, sources),
-      clientMessageId: null,
-    });
-    if (!started) return null;
-    return awaitAgentJobAnswer(
-      { agent, sessionId: started.sessionId, jobId: started.start.job.id },
-      {
-        sessions: this.dependencies.sessions,
-        messages: this.dependencies.messages,
-        pollMilliseconds: POLL_MILLISECONDS,
-        timeoutMilliseconds: RUN_TIMEOUT_MILLISECONDS,
-        now: () => this.now(),
-        wait: this.dependencies.wait,
-      },
-    );
-  }
-
-  private async apply(
-    agentId: string,
-    learnedThrough: string | null,
-    answer: string,
+    input: {
+      readonly sources: readonly AgentLearningSource[];
+      readonly learnedThrough: string | null;
+    },
   ): Promise<AgentLearningResult> {
-    const update = readLearningAnswer(answer);
-    if (!update)
+    const today = this.now().toISOString().slice(0, 10);
+    const lessons = await this.dependencies.model.dream(
+      { agent, employee },
+      { dream: employee.dream, sources: input.sources, today },
+    );
+    if (lessons === null)
       return this.finish(
-        agentId,
+        agent.id,
         null,
         result("failed", { errorCode: "invalidAnswer" }),
       );
-    const trimmed = await this.dependencies.memory.applyLearning(
-      agentId,
-      update,
+    const merged = mergeDreamLessons(
+      parseDreamDocument(employee.dream, today),
+      lessons.map((lesson) => ({ ...lesson, strength: 1 })),
+      employee.dreamCharacters,
     );
+    const dream = renderDreamDocument(merged.lessons);
+    if (dream !== employee.dream)
+      await this.dependencies.memory.saveDream(agent.id, dream);
     return this.finish(
-      agentId,
-      learnedThrough,
+      agent.id,
+      input.learnedThrough,
       result("updated", {
-        added: update.added,
-        merged: update.merged,
-        archived: update.archiveAdd.length,
-        removed: update.removed + update.archiveRemove.length + trimmed,
+        added: Math.max(0, lessons.length - merged.merged),
+        merged: merged.merged,
+        removed: merged.removed,
       }),
     );
   }
@@ -199,12 +175,21 @@ export class AgentLearningService {
     await this.dependencies.activity.recordLearning(agentId, outcome);
     logEvent({
       level: "info",
-      event: "agent.learning.finished",
+      event: "agent.dream.finished",
       component: "AgentLearningService",
-      message: "Agent learning run finished",
+      message: "Agent dream run finished",
       metadata: { status: outcome.status },
     });
     return outcome;
+  }
+
+  private async dreamTime(): Promise<string> {
+    try {
+      return (await this.dependencies.store.sessionSettings().read()).dreamTime;
+    } catch (error: unknown) {
+      logCaughtError("AgentLearningService", error);
+      return AGENT_DREAM_DEFAULT_TIME;
+    }
   }
 
   private now(): Date {

@@ -36,6 +36,7 @@ export interface PicaAcpCredentialSource {
 export class PicaAcpCredential {
   private readonly directory: string;
   private readonly isClaude: boolean;
+  /** An agent employee on "Arbeitsplatz" or YOLO uses every tool of the host beside the Pages tools (PAGE-303). */
   private readonly access: AgentRunAccess;
   /** Opened when the job runs, so a job that never ran leaves no token behind. */
   private lease: PicaBridgeLease | null = null;
@@ -102,7 +103,9 @@ export class PicaAcpCredential {
   /** The instruction a prompt carries for reaching the Pages tools. */
   public usage(): string {
     if (!this.isClaude)
-      return "Use the available Pages tools to access the conversation's authorized data.";
+      return this.access === "yolo"
+        ? "Use the available Pages tools for Pages data, and any other tool, program or MCP server of this host the task needs."
+        : "Use the available Pages tools to access the conversation's authorized data.";
     if (!this.file) throw new PicaAcpJobError("general");
     return picaHelperUsage(picaHelperPath(this.file), this.access);
   }

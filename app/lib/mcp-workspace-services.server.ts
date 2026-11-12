@@ -58,6 +58,7 @@ export async function startMcpWorkspace(context: {
     | "googleDriveFileService"
     | "pagesEventPublisher"
     | "taskService"
+    | "taskAttachmentService"
   >;
   readonly serverCache: ServerCache;
   readonly tokenKey: Buffer;
@@ -128,6 +129,12 @@ export async function startMcpWorkspace(context: {
       cache: context.serverCache,
       acp: chat.picaAcpService,
       observer: context.agents,
+      hostFiles: {
+        tickets: context.tasks.taskAttachmentService,
+        ticketKeys: context.tasks.taskService,
+        wiki: context.wiki,
+      },
+      knowledge: { tickets: context.tasks.taskService, wiki: context.wiki },
       conversations: {
         directory,
         events: context.tasks.pagesEventPublisher,

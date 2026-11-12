@@ -44,7 +44,7 @@ import {
   confirmAcpConfiguration,
 } from "./AcpSessionConfiguration";
 import { openCodeToolFailure } from "./OpenCodeAcpErrors";
-import { decidePicaHelperPermission } from "./PicaClaudeHelper";
+import { decideAcpSessionPermission } from "./AcpSessionPermission";
 import {
   createPicaCodexRequests,
   registerPicaCodexRequests,
@@ -60,8 +60,6 @@ import type {
   ClientConnection,
   ContentBlock,
   PromptCapabilities,
-  RequestPermissionRequest,
-  RequestPermissionResponse,
   SessionNotification,
   SessionConfigOption,
   StopReason,
@@ -157,7 +155,8 @@ export class AcpSession implements PlanSession {
     describeAcpSession(this.state, context);
     const client = acpClient({ name: "pages" }).onRequest(
       methods.client.session.requestPermission,
-      (request) => this.decide(request.params),
+      (request) =>
+        decideAcpSessionPermission(this.context, this.state, request.params),
     );
     if (this.picaCodex) registerPicaCodexRequests(client, this.picaCodex);
     this.connection = client
@@ -249,6 +248,25 @@ export class AcpSession implements PlanSession {
     const canTakeInput =
       this.context.acceptsTurnInput === true && !this.closing;
     return Promise.resolve(canTakeInput && this.control.interrupt());
+  }
+
+  /**
+   * Cancels the running prompt of a chat turn, which stops its running tool
+   * call, and continues the same turn with the note (PAGE-303).
+   *
+   * @param note - What the agent reads about the cancellation.
+   * @returns Whether a prompt of Pages was running.
+   *
+   * @remarks
+   * ACP has no cancellation of a single tool call; `session/cancel` ends the
+   * running prompt and with it the call. The note follows at once as the
+   * next prompt of the same turn, so the turn does not end as cancelled.
+   */
+  public cancelTool(note: string): Promise<boolean> {
+    if (this.closing || !this.control.interrupt())
+      return Promise.resolve(false);
+    this.control.add([{ type: "text", text: note }]);
+    return Promise.resolve(true);
   }
 
   /**
@@ -520,30 +538,6 @@ export class AcpSession implements PlanSession {
     if (driver.provider === "opencode")
       this.state.effective.reasoningEffort ??= "default";
     this.expectedConfiguration = { ...this.state.effective };
-  }
-
-  private decide(request: RequestPermissionRequest): RequestPermissionResponse {
-    const helperPath = this.context.listener?.picaHelper;
-    // A full-access session of an agent employee keeps its YOLO decisions (PAGE-266).
-    const decision =
-      helperPath && this.context.profile.mode !== "yolo"
-        ? decidePicaHelperPermission(request, helperPath())
-        : this.context.profile.decide(request);
-    if (decision.isDenied) {
-      logEvent({
-        level: "warn",
-        event: "acp.permission.denied",
-        component: "AcpSession",
-        message: "ACP tool permission denied",
-        metadata: { sessionId: this.state.sessionId },
-      });
-      this.state.permissionDenials += 1;
-      noteSessionEvent(
-        this.state.events,
-        `refused ${request.toolCall.title ?? request.toolCall.kind ?? "request"}`,
-      );
-    }
-    return { outcome: decision.outcome };
   }
 
   private receive(notification: SessionNotification): void {

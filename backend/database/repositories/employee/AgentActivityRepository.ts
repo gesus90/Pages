@@ -7,10 +7,10 @@ import {
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { AgentActivityCost } from "@/definition/AgentEmployee";
 
-/** A learning run, as the activity table stores it. */
+/** A learning run or a change of the access level (PAGE-303), as the activity table stores it. */
 export interface StoredAgentEvent {
   readonly id: string;
-  readonly kind: "learning";
+  readonly kind: "learning" | "access";
   readonly detail: string;
   readonly cost: AgentActivityCost;
   readonly createdAt: string;
@@ -82,7 +82,7 @@ export class AgentActivityRepository {
     this.database = database;
   }
 
-  /** Records a learning run. */
+  /** Records a learning run or a change of the access level. */
   public async record(
     userId: string,
     event: Omit<StoredAgentEvent, "createdAt">,
@@ -140,7 +140,10 @@ export class AgentActivityRepository {
     );
     return rows.map((row) => ({
       id: readTextColumn(row, 0, "id"),
-      kind: "learning" as const,
+      kind:
+        readTextColumn(row, 1, "kind") === "access"
+          ? ("access" as const)
+          : ("learning" as const),
       detail: readTextColumn(row, 2, "detail"),
       cost: readCost(row[3], readTextColumn(row, 4, "cost_state"), false),
       createdAt: readTextColumn(row, 5, "created_at"),
@@ -177,8 +180,12 @@ export class AgentActivityRepository {
     );
     return rows.map((row) => ({
       id: readTextColumn(row, 0, "id"),
-      purpose:
-        readTextColumn(row, 1, "purpose") === "learning" ? "learning" : "chat",
+      // Dream runs and memory updates of PAGE-305 are the agent's own sessions.
+      purpose: ["learning", "memory"].includes(
+        readTextColumn(row, 1, "purpose"),
+      )
+        ? "learning"
+        : "chat",
       personName: readNullableTextColumn(row, 2, "person_name"),
       state: readTextColumn(row, 3, "state"),
       createdAt: readTextColumn(row, 4, "created_at"),

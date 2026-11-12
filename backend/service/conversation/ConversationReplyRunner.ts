@@ -21,6 +21,7 @@ import type {
   ConversationTargetState,
 } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
+import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type {
   ConversationMessage,
   ConversationNotice,
@@ -83,6 +84,7 @@ const NOTICE_TEXTS: Readonly<
     `${name} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.`,
   agent_failed: (name) =>
     `${name} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.`,
+  agent_stopped: (name) => `Die Antwort von ${name} wurde gestoppt.`,
 };
 
 function changedEvent(conversationId: string): PagesEvent {
@@ -111,11 +113,27 @@ function noticeFor(error: unknown): ConversationNotice {
  * missing model leave a hint in the agent's name instead, and the stored
  * state of the answer says so: answered only with a stored answer. Each
  * agent stores at most one answer or hint per round.
+ *
+ * Every agent answers in its own session of the conversation (PAGE-304), so
+ * several agents answer side by side. An answer that waits for the earlier
+ * answer of the same agent, or for a free place among the limits of
+ * concurrent sessions, shows as queued until it begins, and a member can
+ * stop the running answer of one agent.
  */
 export class ConversationReplyRunner {
   private readonly dependencies: ConversationReplyRunnerDependencies;
   private readonly queues = new Map<string, Promise<unknown>>();
   private readonly working = new Map<string, Set<string>>();
+  /** Waiting answers by conversation, keyed by answered message and agent. */
+  private readonly queued = new Map<
+    string,
+    Map<
+      string,
+      { readonly messageId: string; readonly reason: AgentMessageQueue }
+    >
+  >();
+  /** The stop of the running answer, by conversation and agent. */
+  private readonly controllers = new Map<string, AbortController>();
 
   public constructor(dependencies: ConversationReplyRunnerDependencies) {
     this.dependencies = dependencies;
@@ -127,6 +145,34 @@ export class ConversationReplyRunner {
   }
 
   /**
+   * The messages of a conversation whose answer waits, and why (PAGE-304).
+   *
+   * @returns By message ID; `limit` wins over `chat` when several agents wait.
+   */
+  public queuedMessages(
+    conversationId: string,
+  ): ReadonlyMap<string, AgentMessageQueue> {
+    const result = new Map<string, AgentMessageQueue>();
+    for (const { messageId, reason } of this.queued
+      .get(conversationId)
+      ?.values() ?? [])
+      if (result.get(messageId) !== "limit") result.set(messageId, reason);
+    return result;
+  }
+
+  /**
+   * Stops the running answer of one agent in a conversation.
+   *
+   * @returns Whether an answer was running and is stopped now.
+   */
+  public stop(conversationId: string, agentId: string): boolean {
+    const controller = this.controllers.get(`${conversationId}:${agentId}`);
+    if (!controller || controller.signal.aborted) return false;
+    controller.abort();
+    return true;
+  }
+
+  /**
    * Runs a claimed answer after the earlier answers of the same agent in the
    * same conversation.
    *
@@ -134,8 +180,11 @@ export class ConversationReplyRunner {
    */
   public run(job: ConversationReplyJob): Promise<ConversationMessage | null> {
     const queueKey = `${job.round.conversation.id}:${job.agentId}`;
-    const previous = this.queues.get(queueKey) ?? Promise.resolve();
-    const next = previous.catch(() => undefined).then(() => this.reply(job));
+    const previous = this.queues.get(queueKey);
+    if (previous) this.markQueued(job, "chat");
+    const next = (previous ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => this.reply(job));
     this.queues.set(queueKey, next);
     return next.finally(() => {
       if (this.queues.get(queueKey) === next) this.queues.delete(queueKey);
@@ -146,6 +195,7 @@ export class ConversationReplyRunner {
   private async reply(
     job: ConversationReplyJob,
   ): Promise<ConversationMessage | null> {
+    this.unmarkQueued(job);
     const accounts = await this.dependencies.directory.read();
     const agent = accounts.find(job.agentId);
     const membership = await this.dependencies.conversations.findForMember(
@@ -164,12 +214,20 @@ export class ConversationReplyRunner {
       return null;
     }
     await this.setState(job, "running");
+    const controllerKey = `${job.round.conversation.id}:${job.agentId}`;
+    const controller = new AbortController();
+    this.controllers.set(controllerKey, controller);
     this.setWorking(job, true);
     try {
-      const text = await this.ask(job, agent.user, accounts);
+      const text = await this.ask(job, agent.user, {
+        accounts,
+        signal: controller.signal,
+      });
       return await this.post(job, accounts, { text, notice: null });
     } catch (error: unknown) {
-      const notice = noticeFor(error);
+      const notice = controller.signal.aborted
+        ? "agent_stopped"
+        : noticeFor(error);
       this.logFailure(job, notice, error);
       await this.post(job, accounts, {
         text: NOTICE_TEXTS[notice](agent.user.displayName),
@@ -177,16 +235,46 @@ export class ConversationReplyRunner {
       });
       return null;
     } finally {
+      if (this.controllers.get(controllerKey) === controller)
+        this.controllers.delete(controllerKey);
+      this.unmarkQueued(job);
       this.setWorking(job, false);
     }
+  }
+
+  /** Shows the answered message as queued for the agent of the job. */
+  private markQueued(
+    job: ConversationReplyJob,
+    reason: AgentMessageQueue,
+  ): void {
+    const conversationId = job.round.conversation.id;
+    const entries = this.queued.get(conversationId) ?? new Map();
+    entries.set(`${job.triggerMessageId}:${job.agentId}`, {
+      messageId: job.triggerMessageId,
+      reason,
+    });
+    this.queued.set(conversationId, entries);
+    this.dependencies.publisher.publish(changedEvent(conversationId));
+  }
+
+  private unmarkQueued(job: ConversationReplyJob): void {
+    const conversationId = job.round.conversation.id;
+    const entries = this.queued.get(conversationId);
+    if (!entries?.delete(`${job.triggerMessageId}:${job.agentId}`)) return;
+    if (entries.size === 0) this.queued.delete(conversationId);
+    this.dependencies.publisher.publish(changedEvent(conversationId));
   }
 
   /** Asks the agent with the limited context; an empty answer counts as failed. */
   private async ask(
     job: ConversationReplyJob,
     agent: User,
-    accounts: ConversationAccounts,
+    context: {
+      readonly accounts: ConversationAccounts;
+      readonly signal: AbortSignal;
+    },
   ): Promise<string> {
+    const { accounts, signal } = context;
     const { messages } = this.dependencies;
     const { conversation } = job.round;
     const answered = await messages.find(conversation.id, job.triggerMessageId);
@@ -201,7 +289,7 @@ export class ConversationReplyRunner {
       answered.sequence + 1,
       CONVERSATION_AGENT_CONTEXT_MESSAGES,
     );
-    const context =
+    const groupContext =
       conversation.kind === "group"
         ? (await this.dependencies.contexts.promptContext(conversation.id))
             .context
@@ -221,10 +309,13 @@ export class ConversationReplyRunner {
           personId: job.round.person.id,
           originSequence: origin.sequence,
         },
-        context,
+        context: groupContext,
         memberIds: job.round.memberIds,
       }),
       lastMessage: answered.text,
+      signal,
+      onQueued: () => this.markQueued(job, "limit"),
+      onAdmitted: () => this.unmarkQueued(job),
     });
     const text = Array.from(answer.trim())
       .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
@@ -321,7 +412,8 @@ export class ConversationReplyRunner {
     notice: ConversationNotice,
     error: unknown,
   ): void {
-    if (notice === "agent_failed") logCaughtError(COMPONENT, error);
+    if (notice === "agent_failed" || notice === "agent_stopped")
+      logCaughtError(COMPONENT, error);
     logEvent({
       level: "warn",
       event: "conversation.agent_reply.refused",

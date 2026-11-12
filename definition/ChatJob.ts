@@ -143,6 +143,15 @@ export interface ChatJobToolEvent {
   readonly error: string | null;
   /** The tool is an administrator tool; the person sees which calls acted with administrator rights. */
   readonly isPrivileged?: boolean;
+  /**
+   * A tool of the host the agent used beside the Pages tools, such as a shell
+   * command, the browser or an MCP server (PAGE-303).
+   */
+  readonly isNative?: boolean;
+  /** The command or the input of the call, bounded, credentials masked (PAGE-303). */
+  readonly input?: string;
+  /** The result of the call, bounded, credentials masked (PAGE-303). */
+  readonly output?: string;
 }
 
 /** A message sent while the job ran changed its status. */

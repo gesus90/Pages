@@ -415,7 +415,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     try {
       const picaNative = this.selectPicaNative(driver, input, launch, profile);
       picaBundle = picaCodexBundle(picaNative, input.directory, adapter);
-      const { request, isIsolated } = await this.gate.isolateSession(
+      const { request, isIsolated } = await this.isolateWorker(
         acpWorkerRequest({
           driver,
           input,
@@ -432,8 +432,8 @@ export class CliSessionExecution implements PlanSessionRunner {
           onLine: (line) => channel.receive(redact(line)),
         }),
         scoped,
+        input,
       );
-      requireAcpIsolation(isIsolated, mode, input);
       isPidNamespace = isIsolated;
       limited = await this.limit(request, input);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
@@ -483,6 +483,31 @@ export class CliSessionExecution implements PlanSessionRunner {
       );
       throw error;
     }
+  }
+
+  /**
+   * Wraps a worker in the namespace, or refuses it where the namespace is required.
+   *
+   * @remarks
+   * Only the chat of an agent employee on YOLO runs on the host itself, with
+   * the rights of the server account (PAGE-303); every plan node and every
+   * other conversation keeps the rules of {@link requireAcpIsolation}.
+   */
+  private async isolateWorker(
+    worker: CliSessionRequest,
+    scoped: ClaudePlanSessionHome | null,
+    input: AgentPlanSessionInput,
+  ): Promise<{
+    readonly request: CliSessionRequest;
+    readonly isIsolated: boolean;
+  }> {
+    const mode = input.options.access;
+    if (input.chat?.isUnisolated === true && mode === "yolo")
+      return { request: worker, isIsolated: false };
+    const isolated = await this.gate.isolateSession(worker, scoped);
+    if (isAcpPermissionMode(mode))
+      requireAcpIsolation(isolated.isIsolated, mode, input);
+    return isolated;
   }
 
   /**

@@ -30,10 +30,12 @@ export function syntheticAgent(
     documents: { soul: "Calm soul", instructions: "" },
     voice: { voiceId: null, speedTenths: 10 },
     memory: "Fact one",
+    dream: "",
+    memoryLimits: { memoryCharacters: 8_000, dreamCharacters: 4_000 },
     memoryUsage: { coreWords: 2, archiveWords: 0 },
     learning: {
       isEnabled: true,
-      intervalHours: 12,
+      dreamTime: "03:00",
       lastRunAt: null,
       nextRunAt: null,
       lastResult: null,
@@ -55,6 +57,8 @@ export function syntheticDetail(
     memoryDetails: { archive: [], versions: [] },
     activity: [],
     canEdit: true,
+    canChangeAccess: false,
+    accessEnvironment: { isIsolationAvailable: true, mcpServers: [] },
     ...overrides,
   };
 }

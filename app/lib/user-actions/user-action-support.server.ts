@@ -43,6 +43,8 @@ export type UsersErrorCode =
   | "conflict"
   | "modelNotAllowed"
   | "accessUnsupported"
+  | "accessAdminRequired"
+  | "isolationUnavailable"
   | "templateNameTaken";
 
 /** The directory actions a form can ask for. */
@@ -64,6 +66,7 @@ export type UsersIntent =
   | "create-agent"
   | "update-agent"
   | "restore-agent-memory"
+  | "reset-agent-memory"
   | "save-agent-template"
   | "delete-agent-template"
   | "set-user-color";

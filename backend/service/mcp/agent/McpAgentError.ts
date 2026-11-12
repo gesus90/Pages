@@ -32,6 +32,8 @@ const EMPLOYEE_ERROR_CODES: Readonly<
   Record<AgentEmployeeErrorCode, McpAgentErrorCode>
 > = {
   accessUnsupported: "invalid_request",
+  accessAdminRequired: "forbidden",
+  isolationUnavailable: "invalid_request",
   busy: "running",
   conflict: "conflict",
   forbidden: "forbidden",
@@ -42,6 +44,7 @@ const EMPLOYEE_ERROR_CODES: Readonly<
   templateNameTaken: "conflict",
   unavailable: "model_not_allowed",
   usernameTaken: "username_taken",
+  stopped: "running",
 };
 
 /** The codes of the shared body reader of the MCP routes that the agent API answers as they are. */

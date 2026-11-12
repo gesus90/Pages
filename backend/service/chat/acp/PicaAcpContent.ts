@@ -33,6 +33,11 @@ export interface PicaMessageContent {
 /** The fixed part of every prompt of a job: Pica's instructions and the conversation context. */
 export interface PicaTurnBrief {
   readonly instructions: string;
+  /**
+   * Whether a continued agent session receives history and summary again
+   * on every turn (PAGE-305); without it only a new session gets them.
+   */
+  readonly keepsContext?: boolean;
   readonly prompt: Omit<
     ChatPromptInput,
     "message" | "attachments" | "steps" | "isLastStep"

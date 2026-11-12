@@ -132,6 +132,12 @@ export const CHAT_JOB_FLOW: RepositoryFlow = {
     call("ChatJobRepository.latest", (world) =>
       jobs(world).latest(STRANGER, SESSION),
     ),
+    call("ChatJobRepository.recent", (world) =>
+      jobs(world).recent(OWNER, SESSION, 10),
+    ),
+    call("ChatJobRepository.recent", (world) =>
+      jobs(world).recent(STRANGER, SESSION, 10),
+    ),
     call("ChatJobRepository.saveContext", (world) =>
       jobs(world).saveContext(
         "job-a",

@@ -76,6 +76,7 @@ const NOTICES: readonly ConversationNotice[] = [
   "agent_cost_limit",
   "agent_unavailable",
   "agent_failed",
+  "agent_stopped",
 ];
 
 /** The outcome of storing a message. */
