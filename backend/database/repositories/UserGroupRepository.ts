@@ -1,4 +1,8 @@
-import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
+import {
+  readBooleanColumn,
+  readCountColumn,
+  readTextColumn,
+} from "@/backend/database/RowValue";
 
 import type { Database } from "@/backend/database/Database";
 import type { GroupSummary, UserGroup } from "@/definition/UserGroup";
@@ -25,17 +29,21 @@ export class UserGroupRepository {
       "SELECT id, name FROM user_groups ORDER BY lower(name), id;",
     );
     const members = await this.database.query(
-      "SELECT group_id, user_id FROM user_group_members ORDER BY user_id;",
+      "SELECT group_id, user_id, is_leader FROM user_group_members ORDER BY user_id;",
     );
 
     return groups.map((row) => {
       const id = readTextColumn(row, 0, "id");
+      const groupMembers = members.filter((member) => member[0] === id);
 
       return {
         id,
-        memberIds: members
-          .filter((member) => member[0] === id)
+        leaderIds: groupMembers
+          .filter((member) => readBooleanColumn(member, 2, "is_leader"))
           .map((member) => readTextColumn(member, 1, "user_id")),
+        memberIds: groupMembers.map((member) =>
+          readTextColumn(member, 1, "user_id"),
+        ),
         name: readTextColumn(row, 1, "name"),
       };
     });
@@ -104,8 +112,16 @@ export class UserGroupRepository {
     return rows.map((row) => readTextColumn(row, 0, "group_id"));
   }
 
-  /** Inserts or renames a group and replaces its members. */
+  /**
+   * Inserts or renames a group and replaces its members.
+   *
+   * @remarks
+   * Absent `leaderIds` keep the stored leaders among the remaining members.
+   */
   public async save(group: UserGroup): Promise<void> {
+    const leaderIds = new Set(
+      group.leaderIds ?? (await this.leaderIds(group.id)),
+    );
     await this.database.execute(
       `
       INSERT INTO user_groups (id, name)
@@ -121,8 +137,11 @@ export class UserGroupRepository {
 
     for (const userId of new Set(group.memberIds)) {
       await this.database.execute(
-        "INSERT INTO user_group_members (group_id, user_id) VALUES ($id, $user_id);",
-        { id: group.id, user_id: userId },
+        `
+        INSERT INTO user_group_members (group_id, user_id, is_leader)
+        VALUES ($id, $user_id, $is_leader);
+      `,
+        { id: group.id, user_id: userId, is_leader: leaderIds.has(userId) },
       );
     }
   }
@@ -140,5 +159,21 @@ export class UserGroupRepository {
     await this.database.execute("DELETE FROM user_groups WHERE id = $id;", {
       id,
     });
+  }
+
+  /** Returns the leaders of one group. */
+  private async leaderIds(groupId: string): Promise<string[]> {
+    const rows = await this.database.query(
+      `
+      SELECT user_id
+      FROM user_group_members
+      WHERE group_id = $group_id
+          AND is_leader
+      ORDER BY user_id;
+    `,
+      { group_id: groupId },
+    );
+
+    return rows.map((row) => readTextColumn(row, 0, "user_id"));
   }
 }

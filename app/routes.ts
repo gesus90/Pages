@@ -13,6 +13,7 @@ import { mcpAutomationRoutes } from "./lib/mcp-automation-routes";
 import { mcpPlanNotationRoutes } from "./lib/mcp-plan-notation-routes";
 import { mcpPlanRunRoutes } from "./lib/mcp-plan-run-routes";
 import { mcpUserRoutes } from "./lib/mcp-user-routes";
+import { userProfileRoutes } from "./lib/user-profile-routes";
 import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
 import { storageRoutes } from "./lib/storage-routes";
 
@@ -461,7 +462,7 @@ function settingsRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       server: "routes/users-server.ts",
     }),
     resource("users-api/page", "routes/users-data.ts"),
-    resource("users-api/agents/:agentId", "routes/users-agent-data.ts"),
+    ...userProfileRoutes(resource),
     resource("users-api/agent-voice/:agentId", "routes/users-agent-voice.ts"),
     ...page(
       "settings",

@@ -12,17 +12,22 @@ it("lists groups with the members that belong to each of them", async () => {
       ["group-b", "Beta"],
     ],
     [
-      ["group-a", "user-1"],
-      ["group-b", "user-2"],
-      ["group-a", "user-3"],
+      ["group-a", "user-1", 1],
+      ["group-b", "user-2", 0],
+      ["group-a", "user-3", 0],
     ],
   );
 
   await expect(
     new UserGroupRepository(scripted.database).findAll(),
   ).resolves.toEqual([
-    { id: "group-a", memberIds: ["user-1", "user-3"], name: "Alpha" },
-    { id: "group-b", memberIds: ["user-2"], name: "Beta" },
+    {
+      id: "group-a",
+      leaderIds: ["user-1"],
+      memberIds: ["user-1", "user-3"],
+      name: "Alpha",
+    },
+    { id: "group-b", leaderIds: [], memberIds: ["user-2"], name: "Beta" },
   ]);
 });
 
@@ -74,13 +79,15 @@ it("saves a group and replaces its members once each", async () => {
     memberIds: ["user-1", "user-2", "user-1"],
   });
 
+  // Without leaders in the input, the stored leadership is read first and kept.
   expect(scripted.statements.map((entry) => entry.parameters)).toEqual([
+    { group_id: "group-a" },
     { id: "group-a", name: "Alpha" },
     { id: "group-a" },
-    { id: "group-a", user_id: "user-1" },
-    { id: "group-a", user_id: "user-2" },
+    { id: "group-a", user_id: "user-1", is_leader: false },
+    { id: "group-a", user_id: "user-2", is_leader: false },
   ]);
-  expect(scripted.statements[1]?.statement).toContain(
+  expect(scripted.statements[2]?.statement).toContain(
     "DELETE FROM user_group_members",
   );
 });

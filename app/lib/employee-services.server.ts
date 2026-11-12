@@ -25,6 +25,7 @@ import { AgentActivityService } from "@/backend/service/employee/AgentActivitySe
 import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
 import { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
 import { AgentEmployeeModels } from "@/backend/service/employee/AgentEmployeeModels";
+import { AgentProfileReadService } from "@/backend/service/employee/profile/AgentProfileReadService";
 import { AgentEmployeeSessions } from "@/backend/service/employee/AgentEmployeeSessions";
 import { AgentLearningScheduler } from "@/backend/service/employee/AgentLearningScheduler";
 import { AgentLearningService } from "@/backend/service/employee/AgentLearningService";
@@ -75,6 +76,8 @@ export interface EmployeeApplicationServices extends ConversationApplicationServ
   readonly agentEmployeeAdministration: AgentEmployeeAdministration;
   /** The templates of `AGENT.md` (PAGE-283). */
   readonly agentTemplateService: AgentTemplateService;
+  /** The readable profiles of agents for administrators and leaders (PAGE-308). */
+  readonly agentProfileReadService: AgentProfileReadService;
   readonly agentEmployeeSessions: AgentEmployeeSessions;
   /** The limits of concurrent chat sessions of agents (PAGE-304). */
   readonly agentSessionLimitService: AgentSessionLimitService;
@@ -390,6 +393,7 @@ export function createEmployeeServices(
       languages,
       defaults: defaultAgentTemplateTexts,
     }),
+    agentProfileReadService: new AgentProfileReadService({ database, models }),
     agentEmployeeSessions: sessions,
     agentSessionLimitService: new AgentSessionLimitService(
       sessionSettings,

@@ -35,6 +35,10 @@ function validateGroup(
   const name = input.name.trim();
   const memberIds = new Set(input.memberIds);
   const members = membersOf(snapshot, input.memberIds);
+  // A leader is a member; the leadership never outlives the membership.
+  const hasForeignLeader = (input.leaderIds ?? []).some(
+    (leaderId) => !memberIds.has(leaderId),
+  );
 
   if (
     name.length === 0 ||
@@ -42,6 +46,7 @@ function validateGroup(
     memberIds.size === 0 ||
     members.length !== memberIds.size ||
     members.some((member) => !member.isActive) ||
+    hasForeignLeader ||
     existing.some(
       (group) =>
         group.id !== input.id &&
@@ -50,6 +55,17 @@ function validateGroup(
   ) {
     throw new AdministrationError("invalidInput");
   }
+}
+
+/** Whether a save sets leaders that differ from the stored ones. */
+function changesLeaders(
+  current: UserGroup | undefined,
+  input: UserGroup,
+): boolean {
+  if (input.leaderIds === undefined) return false;
+  const next = [...new Set(input.leaderIds)].sort();
+  const stored = [...(current?.leaderIds ?? [])].sort();
+  return JSON.stringify(next) !== JSON.stringify(stored);
 }
 
 /** Manages user groups within the directory scope of the people who manage users. */
@@ -82,13 +98,15 @@ export class GroupAdministrationService {
       const actor = activeAccount(snapshot, userId);
 
       if (!this.policy.canManageGroups(actor)) {
-        return { canManage: false, groups: [] };
+        return { canManage: false, canSetLeaders: false, groups: [] };
       }
+      const isAdministrator = this.policy.isAdministrator(actor);
 
       const groups = await repository.groups().findAll();
 
       return {
         canManage: true,
+        canSetLeaders: isAdministrator,
         groups: groups.flatMap((group) => {
           const members = membersOf(snapshot, group.memberIds);
 
@@ -99,7 +117,17 @@ export class GroupAdministrationService {
           return [
             {
               canEdit: this.policy.canChangeGroup(actor, members),
+              canReadAgents:
+                isAdministrator ||
+                (group.leaderIds ?? []).includes(actor.userId),
               id: group.id,
+              leaderIds: (group.leaderIds ?? []).filter((leaderId) =>
+                members.some(
+                  (member) =>
+                    member.userId === leaderId &&
+                    this.policy.canSee(actor, member),
+                ),
+              ),
               memberCount: group.memberIds.length,
               memberIds: members
                 .filter((member) => this.policy.canSee(actor, member))
@@ -116,8 +144,9 @@ export class GroupAdministrationService {
    * Creates or changes a group.
    *
    * @param userId - Acting user, resolved against current persisted facts.
-   * @param input - Group id, name and the complete new member list.
-   * @throws {AdministrationError} When the actor lacks scope or the input is invalid.
+   * @param input - Group id, name, the complete new member list and, to change it, the leaders.
+   * @throws {AdministrationError} When the actor lacks scope or the input is invalid,
+   * or when a non-administrator changes the leaders.
    */
   public async saveGroup(userId: string, input: UserGroup): Promise<void> {
     await this.repository.transaction(async (repository) => {
@@ -133,6 +162,9 @@ export class GroupAdministrationService {
         ]),
       );
       validateGroup(snapshot, groups, input);
+      requireAdministration(
+        !changesLeaders(current, input) || this.policy.isAdministrator(actor),
+      );
       await repository.groups().save({ ...input, name: input.name.trim() });
     });
     this.cache.invalidateWorkItems();

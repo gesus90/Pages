@@ -1,15 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { Form } from "react-router";
 
-import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
-import { Checkbox } from "@/app/components/ui/checkbox";
 import {
   Dialog,
   DialogClose,
   DialogContent,
   DialogTitle,
 } from "@/app/components/ui/dialog";
+import { GroupMemberFields } from "@/app/components/users/group-member-fields";
 import { UserField } from "@/app/components/users/user-field";
 import { FormError } from "@/app/components/users/form-error";
 import { useCloseAfterAction } from "@/app/components/users/use-close-after-action";
@@ -27,14 +26,17 @@ interface GroupEditorProps {
   readonly onOpenChange: (open: boolean) => void;
   /** People the actor may put into a group. */
   readonly candidates: readonly ManagedUser[];
+  /** Whether the actor marks leaders: administrators only (PAGE-308). */
+  readonly canSetLeaders: boolean;
 }
 
-/** Creates or edits a group with its name and at least one member. */
+/** Creates or edits a group with its name, at least one member and its leaders. */
 export function GroupEditor({
   selected,
   open,
   onOpenChange,
   candidates,
+  canSetLeaders,
 }: GroupEditorProps): React.ReactElement {
   const { t } = useTranslation();
   const error = useUsersError("save-group");
@@ -60,38 +62,11 @@ export function GroupEditor({
             type="text"
             required
           />
-          <fieldset className="flex flex-col gap-3">
-            <legend className="mb-1 text-sm font-medium">
-              {t("users.groups.members")}
-            </legend>
-            <p className="text-xs text-muted-foreground">
-              {t("users.groups.membersHint")}
-            </p>
-            <ScrollViewport
-              axis="vertical"
-              containerClassName="max-h-56"
-              className="flex flex-col gap-3 overflow-y-auto"
-            >
-              {candidates.map((user) => (
-                <label
-                  key={user.id}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <Checkbox
-                    name="member"
-                    value={user.id}
-                    defaultChecked={selected?.memberIds.includes(user.id)}
-                  />
-                  <span className="pages-selectable">{user.displayName}</span>
-                </label>
-              ))}
-            </ScrollViewport>
-            {candidates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {t("users.groups.noCandidates")}
-              </p>
-            ) : null}
-          </fieldset>
+          <GroupMemberFields
+            selected={selected}
+            candidates={candidates}
+            canSetLeaders={canSetLeaders}
+          />
           <FormError error={error} />
           <footer className="mt-6 flex justify-end gap-2">
             <DialogClose asChild>
