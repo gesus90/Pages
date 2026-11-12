@@ -104,7 +104,8 @@ export const AGENT_ERROR_MESSAGES = {
     "Only an active administrator approves the content of script steps.",
   plan_team_forbidden:
     "Only the owner, an administrator or a project manager changes the teams of a plan.",
-  plan_owner_forbidden: "Only an active administrator changes the owner of a plan.",
+  plan_owner_forbidden:
+    "Only an active administrator changes the owner of a plan.",
   plan_owner_invalid: "The new owner must be an active account.",
   plan_script_platform_unsupported:
     "Script execution requires Linux process ownership and cleanup support.",

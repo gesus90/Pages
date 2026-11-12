@@ -72,6 +72,7 @@ the end:
 | VIEW-5 `editing`               | One image, for the explicit editing of the description.                              |
 | VIEW-6 `hidden`                | Three images; the second belongs to SECR-1, a ticket the reader cannot see.          |
 | SECR-1                         | Ticket of a project of the department "Confidential".                               |
+| `Team plan`                    | Empty agent plan of `admin` in project "Plans" (workspace in the instance directory, synthetic GitHub link without token or sync), plus the department "A-Team" (PAGE-329). |
 
 The images are drawn by `support/chart-png.ts`: flat colors and hard edges, no
 text, a dark border, one color per corner, a circle, a diagonal and as many
@@ -88,6 +89,7 @@ tests need no network: the one external link is answered by a Playwright route.
 | `ticket-image-viewer.states.spec.ts`   | `desktop-light`       | Image in a link (no navigation, no editor, link target offered, focus returns to the link); ordinary and external links; deleted attachment; loading state; anonymous access to the attachment route is refused; only the protected route is used.   |
 | `ticket-image-viewer.reader.spec.ts`   | `desktop-light`       | A reader without write right (checked: a write is refused with 403) can open and page through images, no write request; an attachment of an invisible ticket answers 404 and the viewer reports it.                                       |
 | `ticket-image-viewer.mobile.spec.ts`   | `mobile-light`        | Taps, touch targets of at least 44×44, controls inside the screen and not over the picture, no horizontal overflow.                                                                                                                       |
+| `agent-plan-teams.spec.ts`             | `desktop-light`       | PAGE-329: in the plan editor an administrator adds the department "A-Team" as a team (all three rights by default), takes away "run", hands the plan to the reader; the "Admin access" badge appears, the dialog shows the saved rights and owner, and the plan history lists the team and owner changes. |
 | `ticket-image-viewer.visual.spec.ts`   | all four              | Screenshots, see below.                                                                                                                                                                                                                    |
 
 Projects: `desktop-light` and `desktop-dark` at 1440×900, `mobile-light` and

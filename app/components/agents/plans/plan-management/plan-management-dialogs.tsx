@@ -44,9 +44,7 @@ export function PlanManagementDialogs({
       />
     );
   if (management.dialog === "access")
-    return (
-      <PlanAccessDialog page={page} plan={plan} management={management} />
-    );
+    return <PlanAccessDialog page={page} plan={plan} management={management} />;
   if (management.dialog === "history")
     return <PlanHistoryDialog plan={plan} management={management} />;
   if (management.dialog === "approve-scripts")

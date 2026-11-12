@@ -147,7 +147,10 @@ function PlanTeamSearch(props: {
         />
       </label>
       {props.choices.length > 0 ? (
-        <ul className="flex flex-wrap gap-1.5" aria-label={t("plans.access.choices")}>
+        <ul
+          className="flex flex-wrap gap-1.5"
+          aria-label={t("plans.access.choices")}
+        >
           {props.choices.map((choice) => (
             <li key={`${choice.kind}:${choice.id}`}>
               <button

@@ -1,8 +1,5 @@
 import { isUniqueViolationOn } from "@/backend/database/Database";
-import {
-  readCountColumn,
-  readTextColumn,
-} from "@/backend/database/RowValue";
+import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { agentPlanNameKey } from "@/definition/AgentPlanName";
 import { planNameDepartment } from "@/definition/AgentPlanTeam";

@@ -120,7 +120,9 @@ export function planTeamsOf(plan: {
   readonly departmentId?: string | null;
 }): readonly AgentPlanTeam[] {
   if (plan.teams) return plan.teams;
-  return plan.departmentId ? [fullPlanTeam("department", plan.departmentId)] : [];
+  return plan.departmentId
+    ? [fullPlanTeam("department", plan.departmentId)]
+    : [];
 }
 
 /**

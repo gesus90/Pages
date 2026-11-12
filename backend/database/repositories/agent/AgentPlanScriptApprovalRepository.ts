@@ -21,9 +21,7 @@ export interface AgentPlanScriptApproval {
 export class AgentPlanScriptApprovalRepository {
   private readonly database: Pick<DatabaseTransaction, "query" | "execute">;
 
-  public constructor(
-    database: Pick<DatabaseTransaction, "query" | "execute">,
-  ) {
+  public constructor(database: Pick<DatabaseTransaction, "query" | "execute">) {
     this.database = database;
   }
 

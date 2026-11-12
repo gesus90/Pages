@@ -85,11 +85,11 @@ describe("the rights a team gives on a plan (PAGE-329)", () => {
   ])(
     "lets %s, a member of the A-Team, change and run the plan",
     (name, overrides) => {
-      const rights = SHARING.rights(
+      const granted = SHARING.rights(
         A_TEAM_EDIT_RUN,
         viewer(account(name, overrides), [A_TEAM]),
       );
-      expect(rights).toMatchObject({
+      expect(granted).toMatchObject({
         canRead: true,
         canEdit: true,
         canRun: true,
@@ -111,11 +111,11 @@ describe("the rights a team gives on a plan (PAGE-329)", () => {
         },
       ],
     });
-    const rights = SHARING.rights(
+    const granted = SHARING.rights(
       readOnly,
       viewer(account("Mei", { departments: [DEVELOPMENT] })),
     );
-    expect(rights).toMatchObject({
+    expect(granted).toMatchObject({
       canRead: true,
       canEdit: false,
       canRun: false,

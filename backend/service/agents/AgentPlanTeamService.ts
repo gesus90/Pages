@@ -212,8 +212,7 @@ export class AgentPlanTeamService {
   }
 
   private writer(): NonNullable<AgentPlanTeamDependencies["accessChanges"]> {
-    if (!this.dependencies.accessChanges)
-      throw new AgentError("plan_invalid");
+    if (!this.dependencies.accessChanges) throw new AgentError("plan_invalid");
     return this.dependencies.accessChanges;
   }
 
@@ -240,7 +239,8 @@ export class AgentPlanTeamService {
       // An inactive or unknown account cannot own a plan.
       await this.dependencies.access.team(request.ownerId, null);
     } catch (error: unknown) {
-      if (error instanceof AgentError) throw new AgentError("plan_owner_invalid");
+      if (error instanceof AgentError)
+        throw new AgentError("plan_owner_invalid");
       throw error;
     }
   }

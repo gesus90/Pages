@@ -90,6 +90,7 @@ export async function planOwnership(
   return {
     ownerId: userId,
     departmentId,
-    teams: departmentId === null ? [] : [fullPlanTeam("department", departmentId)],
+    teams:
+      departmentId === null ? [] : [fullPlanTeam("department", departmentId)],
   };
 }

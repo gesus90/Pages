@@ -128,9 +128,8 @@ describe("approval of script content (PAGE-329, part C)", () => {
     expect(
       scriptApprovalHash({ ...plan, workspaceId: "other" }, SCRIPT),
     ).not.toBe(hash);
-    expect(scriptApprovalHash(plan, { ...SCRIPT, name: "Umbenannt" })).toBe(
-      hash,
-    );
+    const renamed: AgentPlanScript = { ...SCRIPT, name: "Umbenannt" };
+    expect(scriptApprovalHash(plan, renamed)).toBe(hash);
   });
 
   it("lists a changed script as unapproved", () => {

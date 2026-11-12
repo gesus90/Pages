@@ -7,7 +7,10 @@ import {
 } from "@/definition/AgentPlanScript";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { planBindings } from "./AgentPlanBindings";
-import { localPlanScripts, scriptApprovalState } from "./AgentPlanScriptApproval";
+import {
+  localPlanScripts,
+  scriptApprovalState,
+} from "./AgentPlanScriptApproval";
 import type { AgentPlanScriptApprovalRepository } from "@/backend/database/repositories/agent/AgentPlanScriptApprovalRepository";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { AgentPlan } from "@/definition/AgentPlan";

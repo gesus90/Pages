@@ -61,8 +61,7 @@ function isAccessOnly(request: AgentPlanUpdateRequest): boolean {
 function accessChange(
   request: AgentPlanUpdateRequest,
 ): Pick<AgentPlanUpdateRequest, "teams" | "ownerId"> | null {
-  if (request.teams === undefined && request.ownerId === undefined)
-    return null;
+  if (request.teams === undefined && request.ownerId === undefined) return null;
   return {
     ...(request.teams === undefined ? {} : { teams: request.teams }),
     ...(request.ownerId === undefined ? {} : { ownerId: request.ownerId }),

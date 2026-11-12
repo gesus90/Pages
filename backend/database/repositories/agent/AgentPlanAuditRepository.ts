@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  readCountColumn,
-  readTextColumn,
-} from "@/backend/database/RowValue";
+import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import type {
   DatabaseTransaction,
@@ -69,9 +66,7 @@ function readEntry(row: readonly DatabaseValue[]): StoredAgentPlanAuditEntry {
 export class AgentPlanAuditRepository {
   private readonly database: Pick<DatabaseTransaction, "query" | "execute">;
 
-  public constructor(
-    database: Pick<DatabaseTransaction, "query" | "execute">,
-  ) {
+  public constructor(database: Pick<DatabaseTransaction, "query" | "execute">) {
     this.database = database;
   }
 

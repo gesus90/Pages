@@ -63,7 +63,14 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
       instance.setupToken,
       postgres.url,
     );
-    const { reader, seed } = await seedFixtures(admin, instance.origin);
+    const workspaceDirectory = path.join(instance.directory, "plan-workspace");
+
+    await mkdir(workspaceDirectory, { recursive: true, mode: 0o700 });
+    const { reader, seed } = await seedFixtures(
+      admin,
+      instance.origin,
+      workspaceDirectory,
+    );
     const stateDirectory = path.join(instance.directory, "state");
 
     await mkdir(stateDirectory, { recursive: true, mode: 0o700 });

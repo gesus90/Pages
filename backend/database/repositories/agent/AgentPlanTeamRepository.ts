@@ -1,7 +1,4 @@
-import {
-  readBooleanColumn,
-  readTextColumn,
-} from "@/backend/database/RowValue";
+import { readBooleanColumn, readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentPlanTeamKind } from "@/definition/AgentPlanTeam";
 
@@ -94,9 +91,7 @@ export async function readPlanTeams(
 export class AgentPlanTeamRepository {
   private readonly database: Pick<DatabaseTransaction, "query" | "execute">;
 
-  public constructor(
-    database: Pick<DatabaseTransaction, "query" | "execute">,
-  ) {
+  public constructor(database: Pick<DatabaseTransaction, "query" | "execute">) {
     this.database = database;
   }
 
