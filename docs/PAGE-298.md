@@ -9,7 +9,7 @@ next to the chat (split view).
 
 | Part                                                                         | Place                                                                             |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Tables (attachments, embed domains, link previews, card states, split width) | `backend/database/postgres/migrations/039_conversation_content.sql`               |
+| Tables (attachments, embed domains, link previews, card states, split width) | `backend/database/postgres/migrations/048_conversation_content.sql`               |
 | Contracts and limits                                                         | `definition/ConversationContent.ts`                                               |
 | Attachments: upload, rights, ranges, deletion, sweep                         | `backend/service/conversation/content/ConversationAttachments.ts`                 |
 | File lines of agents `![…](file:/absolute/path)`                             | `backend/service/conversation/content/ConversationAgentFiles.ts`                  |

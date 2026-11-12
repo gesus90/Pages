@@ -21,7 +21,7 @@ Wer Agents führt, soll wissen, wer wofür zuständig ist. Dafür darf ein Agent
 
 Alle anderen sehen wie bisher nur Name, Abteilungen und Gruppen (zum Beispiel über die Zuweisungssuche).
 
-**Gruppenleitung.** Die Leitung ist eine Eigenschaft der Gruppe, keine neue Rolle. Ein Administrator legt in der Benutzerverwaltung (Gruppe bearbeiten, Spalte „Leitung“) eine oder mehrere Leitungen fest. Eine Leitung ist immer auch Mitglied der Gruppe; verlässt sie die Gruppe, endet die Leitung mit. Ändert jemand nur Namen oder Mitglieder der Gruppe, bleibt die Leitung erhalten. Nur Administratoren ändern die Leitung. Gespeichert wird sie als Kennzeichen `is_leader` der Mitgliedschaft (`user_group_members`, Migration `036_group_leaders.sql`).
+**Gruppenleitung.** Die Leitung ist eine Eigenschaft der Gruppe, keine neue Rolle. Ein Administrator legt in der Benutzerverwaltung (Gruppe bearbeiten, Spalte „Leitung“) eine oder mehrere Leitungen fest. Eine Leitung ist immer auch Mitglied der Gruppe; verlässt sie die Gruppe, endet die Leitung mit. Ändert jemand nur Namen oder Mitglieder der Gruppe, bleibt die Leitung erhalten. Nur Administratoren ändern die Leitung. Gespeichert wird sie als Kennzeichen `is_leader` der Mitgliedschaft (`user_group_members`, Migration `049_group_leaders.sql`).
 
 **Projektleitung.** Wer in einem Projekt die Projektrolle „Projektmanager“ (`project_members.role = 'manager'`) hat, liest die Profile der Agents, die Mitglied dieses Projekts sind.
 

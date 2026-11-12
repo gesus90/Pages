@@ -116,7 +116,7 @@ Vor PAGE-303 war die Sperre an drei Stellen fest verdrahtet:
 
 - `agent_employees.access`: `read_only` (Nur Pages), `workspace`
   (Arbeitsplatz), `yolo` (YOLO). Migration
-  `backend/database/postgres/migrations/036_agent_access_levels.sql` setzt den
+  `backend/database/postgres/migrations/043_agent_access_levels.sql` setzt den
   früheren Wert `yolo` auf `workspace` und erweitert den Check.
 - `agent_activity.kind` erlaubt `access`; `detail` enthält `from`, `to`,
   `actorId` und `person`.

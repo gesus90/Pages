@@ -33,7 +33,7 @@ Fehlercodes der Werkzeuge: `FORBIDDEN_TARGET`, `CHAT_NOT_FOUND`, `CONVERSATION_P
 
 **Sichtbarkeit.** Unterhaltungen, an denen nur Agents teilnehmen („Agent-Gespräch“), liest `ConversationOversight`: Administratoren im Admin-Modus alle; die Abteilungsleitung (`managed_departments`) und Projektleitung (Rolle `manager` in `project_members`) die Gespräche von Agents ihrer Abteilung beziehungsweise ihrer Projekte. Die Chat-Seite zeigt sie schreibgeschützt in der Gruppenliste mit dem Kennzeichen „Agent-Gespräch“; Leitungen und Administratoren können ein pausiertes Gespräch freigeben. Personen sehen Nachrichten von Agents an sie im Verlauf des Agents (zusammen mit der Chat-Sitzung) und in Pica Mobile; Gruppennachrichten erscheinen im Gruppenchat.
 
-**Datenbank.** Migration `036_agent_chat.sql`: `conversations.agent_resume_sequence`, Tabelle `agent_chat_settings`, Index `conversation_messages_sender`.
+**Datenbank.** Migration `046_agent_chat.sql`: `conversations.agent_resume_sequence`, Tabelle `agent_chat_settings`, Index `conversation_messages_sender`.
 
 ## Teil B: Festlegungen
 

@@ -34,7 +34,7 @@ Fest: `model`, `tool_missing`, `timeout`, `git`, `workspace_busy`, `permission`,
 
 ### Fehlerindex
 
-Migration `037_agent_run_diagnosis.sql`: `agent_run_failures` (ein Satz je fehlgeschlagenem Schritt), `agent_run_failure_index` (Schreibrevision, Fehler des Laufs, Endzeit). Der `AgentRunFailureIndexer` ordnet Läufe, deren `recovery_revision` vom Index abweicht, vor jeder Liste nach (läuft in mehreren Prozessen, daher kein Schreibhaken). Vor dem Löschen früherer Läufe (PAGE-255) wird der Lauf noch indexiert: Fehlerserien bleiben nach der Aufbewahrungsdauer zählbar, auch wenn der Lauf selbst fehlt (Beispiel-Lauf-IDs bevorzugen vorhandene Läufe).
+Migration `047_agent_run_diagnosis.sql`: `agent_run_failures` (ein Satz je fehlgeschlagenem Schritt), `agent_run_failure_index` (Schreibrevision, Fehler des Laufs, Endzeit). Der `AgentRunFailureIndexer` ordnet Läufe, deren `recovery_revision` vom Index abweicht, vor jeder Liste nach (läuft in mehreren Prozessen, daher kein Schreibhaken). Vor dem Löschen früherer Läufe (PAGE-255) wird der Lauf noch indexiert: Fehlerserien bleiben nach der Aufbewahrungsdauer zählbar, auch wenn der Lauf selbst fehlt (Beispiel-Lauf-IDs bevorzugen vorhandene Läufe).
 
 ### Logs
 

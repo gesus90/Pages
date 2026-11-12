@@ -42,12 +42,13 @@ ALTER TABLE agent_conversations
     ADD COLUMN is_confidential BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- The session that summarizes chats and updates MEMORY.md after an answer.
+-- 038_automations has set the purpose automation before, so the list keeps it.
 ALTER TABLE agent_conversations
     DROP CONSTRAINT agent_conversations_purpose_check;
 
 ALTER TABLE agent_conversations
     ADD CONSTRAINT agent_conversations_purpose_check
-    CHECK (purpose IN ('chat', 'learning', 'conversation', 'memory'));
+    CHECK (purpose IN ('chat', 'learning', 'conversation', 'automation', 'memory'));
 
 ALTER TABLE conversations
     ADD COLUMN is_confidential BOOLEAN NOT NULL DEFAULT FALSE;
