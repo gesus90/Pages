@@ -106,7 +106,8 @@ export type ConversationNotice =
   | "agent_cost_limit"
   | "agent_unavailable"
   | "agent_failed"
-  | "agent_stopped";
+  | "agent_stopped"
+  | "round_limit";
 
 /** Where the text of a voice message stands. */
 export type ConversationTranscriptionState = "pending" | "done" | "failed";

@@ -4,6 +4,7 @@ import { ConversationObserverError } from "@/backend/error/ConversationObserverE
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import {
   CONVERSATION_OBSERVER_LIMITS,
+  CONVERSATION_ROUND_LIMITS_RANGE,
   CONVERSATION_SUMMARY_LIMITS,
 } from "@/definition/ConversationObserver";
 
@@ -98,7 +99,7 @@ const ROUTING_ANSWER = z
           })
           .strict(),
       )
-      .max(CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin),
+      .max(CONVERSATION_ROUND_LIMITS_RANGE.automaticRepliesMaximum),
   })
   .strict();
 

@@ -99,6 +99,10 @@ export class McpConversationApi {
           ? current.defaultResponderId
           : body.defaultResponderId,
       maximumResponders: body.maximumResponders ?? current.maximumResponders,
+      repliesPerAgentPerOrigin:
+        body.repliesPerAgentPerOrigin ?? current.repliesPerAgentPerOrigin,
+      automaticRepliesPerOrigin:
+        body.automaticRepliesPerOrigin ?? current.automaticRepliesPerOrigin,
     });
   }
 }

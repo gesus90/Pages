@@ -3923,7 +3923,8 @@
       "agent_cost_limit": "{{name}} does not answer: the agent's cost limit is reached.",
       "agent_unavailable": "{{name}} does not answer: no model can run the agent right now.",
       "agent_failed": "{{name}} could not answer; the answer failed. Send the message again to try once more.",
-      "agent_stopped": "The answer of {{name}} was stopped."
+      "agent_stopped": "The answer of {{name}} was stopped.",
+      "round_limit": "Discussion ended, limit reached"
     },
     "stop": "Stop",
     "stopAgent": "Stop {{name}}",
@@ -4045,7 +4046,7 @@
     "replySettings": {
       "open": "Who answers?",
       "title": "Who answers in “{{name}}”?",
-      "description": "Sets who answers a message without an @ mention. Whoever is mentioned with @ always answers.",
+      "description": "Choose who answers a message without an @ mention and how many contributions a discussion allows.",
       "mode": "Who answers?",
       "modes": {
         "mentions": {
@@ -4065,6 +4066,10 @@
       "noDefault": "Nobody",
       "defaultHint": "Answers when it is unclear who is addressed and says so openly. Without a default responder a notice appears instead.",
       "maximum": "Most responders per message",
+      "roundLimits": "Limits per discussion round",
+      "repliesPerAgentPerOrigin": "Replies per agent (including follow-ups)",
+      "automaticRepliesPerOrigin": "Total agent contributions",
+      "followUpHint": "At most three additional replies per agent. Replies to questions are collected until everyone answers or three minutes pass.",
       "modelHint": "The model is not chosen per chat: the decision model from Settings → Agents applies.",
       "save": "Save",
       "saved": "Setting saved.",

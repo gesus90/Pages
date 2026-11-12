@@ -3923,7 +3923,8 @@
       "agent_cost_limit": "{{name}} antwortet nicht: Das Kostenlimit des Agents ist erreicht.",
       "agent_unavailable": "{{name}} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.",
       "agent_failed": "{{name}} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.",
-      "agent_stopped": "Die Antwort von {{name}} wurde gestoppt."
+      "agent_stopped": "Die Antwort von {{name}} wurde gestoppt.",
+      "round_limit": "Abstimmung beendet, Grenze erreicht"
     },
     "stop": "Stoppen",
     "stopAgent": "{{name}} stoppen",
@@ -4045,7 +4046,7 @@
     "replySettings": {
       "open": "Wer antwortet?",
       "title": "Wer antwortet in „{{name}}“?",
-      "description": "Legt fest, wer auf eine Nachricht ohne @-Erwähnung antwortet. Wer mit @ angesprochen wird, antwortet immer.",
+      "description": "Legt fest, wer auf eine Nachricht ohne @-Erwähnung antwortet und wie viele Beiträge eine Abstimmung zulässt.",
       "mode": "Wer antwortet?",
       "modes": {
         "mentions": {
@@ -4065,6 +4066,10 @@
       "noDefault": "Niemand",
       "defaultHint": "Antwortet, wenn unklar ist, wer angesprochen ist, und sagt das offen. Ohne Standard-Antwortenden erscheint stattdessen ein Hinweis.",
       "maximum": "Höchstzahl Antwortende je Nachricht",
+      "roundLimits": "Grenzen je Abstimmungsrunde",
+      "repliesPerAgentPerOrigin": "Antworten je Agent (einschließlich Rückfragen)",
+      "automaticRepliesPerOrigin": "Agent-Beiträge insgesamt",
+      "followUpHint": "Höchstens drei zusätzliche Antworten je Agent. Rückfragen werden gebündelt, bis alle antworten oder drei Minuten vergangen sind.",
       "modelHint": "Das Modell wird nicht je Chat gewählt: Es gilt das Entscheidungsmodell aus Einstellungen → Agents.",
       "save": "Speichern",
       "saved": "Einstellung gespeichert.",

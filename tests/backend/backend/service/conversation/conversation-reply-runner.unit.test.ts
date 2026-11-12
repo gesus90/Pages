@@ -165,7 +165,7 @@ it("stores and announces an agent answer with its round state", async () => {
     { type: "conversation.changed", id: "group" },
   );
   expect(rounds.setTargetState).toHaveBeenLastCalledWith(
-    { originMessageId: "origin", agentId: "agent" },
+    { originMessageId: "origin", agentId: "agent", triggerMessageId: "origin" },
     expect.objectContaining({ state: "answered", replyMessageId: "answer" }),
   );
   expect(events.publish).toHaveBeenCalledWith(

@@ -16,6 +16,10 @@ import {
   CONVERSATION_REPLY_MODES,
 } from "@/definition/ConversationDecision";
 
+import { conversationRoundLimits } from "@/definition/ConversationObserver";
+import { ChatPageRoundLimits } from "./chat-page-round-limits";
+
+import type { ConversationRoundLimits } from "@/definition/ConversationObserver";
 import type {
   ConversationReplyMode,
   ConversationReplySettingsView,
@@ -71,7 +75,7 @@ const MAXIMUM_CHOICES = Array.from(
   (_, index) => CONVERSATION_MAXIMUM_RESPONDERS_RANGE.minimum + index,
 );
 
-interface DraftSettings {
+interface DraftSettings extends ConversationRoundLimits {
   readonly mode: ConversationReplyMode;
   readonly defaultResponderId: string;
   readonly maximumResponders: number;
@@ -94,11 +98,12 @@ function ReplySettingsForm({
   const [maximumResponders, setMaximumResponders] = useState(
     settings.maximumResponders,
   );
+  const [limits, setLimits] = useState(conversationRoundLimits(settings));
   const isDisabled = !settings.canManage || isPending;
 
   function handleSubmit(event: React.SyntheticEvent): void {
     event.preventDefault();
-    onSave({ mode, defaultResponderId, maximumResponders });
+    onSave({ mode, defaultResponderId, maximumResponders, ...limits });
   }
 
   return (
@@ -158,6 +163,11 @@ function ReplySettingsForm({
           onValueChange={(count) => setMaximumResponders(Number(count))}
         />
       </div>
+      <ChatPageRoundLimits
+        limits={limits}
+        isDisabled={isDisabled}
+        onChange={setLimits}
+      />
       <p className="text-xs text-muted-foreground">
         {t("chatPage.replySettings.modelHint")}
       </p>
@@ -205,6 +215,14 @@ function ReplySettingsBody({
     formData.set("mode", draft.mode);
     formData.set("defaultResponderId", draft.defaultResponderId);
     formData.set("maximumResponders", String(draft.maximumResponders));
+    formData.set(
+      "repliesPerAgentPerOrigin",
+      String(draft.repliesPerAgentPerOrigin),
+    );
+    formData.set(
+      "automaticRepliesPerOrigin",
+      String(draft.automaticRepliesPerOrigin),
+    );
     void writer.submit(formData, { method: "post" });
   }
   const isSaved =
@@ -215,7 +233,7 @@ function ReplySettingsBody({
   return (
     <>
       <ReplySettingsForm
-        key={`${settings.mode}:${settings.defaultResponderId ?? ""}:${String(settings.maximumResponders)}`}
+        key={`${settings.mode}:${settings.defaultResponderId ?? ""}:${String(settings.maximumResponders)}:${String(settings.repliesPerAgentPerOrigin)}:${String(settings.automaticRepliesPerOrigin)}`}
         settings={settings}
         isPending={isPending}
         onSave={handleSave}

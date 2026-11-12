@@ -9,6 +9,8 @@ import {
   CONVERSATION_REPLY_MODES,
 } from "@/definition/ConversationDecision";
 
+import { conversationRoundLimits } from "@/definition/ConversationObserver";
+
 import type { Database } from "@/backend/database/Database";
 import type {
   ConversationReplyMode,
@@ -52,7 +54,9 @@ export class ConversationReplySettingsRepository {
         SELECT
             mode,
             default_responder_id,
-            max_responders
+            max_responders,
+            replies_per_agent,
+            replies_per_round
         FROM conversation_reply_settings
         WHERE conversation_id = $conversation_id;
       `,
@@ -64,6 +68,7 @@ export class ConversationReplySettingsRepository {
         mode: CONVERSATION_DEFAULT_REPLY_MODE,
         defaultResponderId: null,
         maximumResponders: CONVERSATION_DEFAULT_MAXIMUM_RESPONDERS,
+        ...conversationRoundLimits({}),
       };
     return {
       conversationId,
@@ -74,12 +79,17 @@ export class ConversationReplySettingsRepository {
         "default_responder_id",
       ),
       maximumResponders: readCountColumn(row, 2, "max_responders"),
+      ...conversationRoundLimits({
+        repliesPerAgentPerOrigin: readCountColumn(row, 3, "replies_per_agent"),
+        automaticRepliesPerOrigin: readCountColumn(row, 4, "replies_per_round"),
+      }),
     };
   }
 
   /** Stores the settings of a group, replacing the earlier ones. */
   public async save(change: ConversationReplySettingsChange): Promise<void> {
     const { settings } = change;
+    const limits = conversationRoundLimits(settings);
     await this.database.execute(
       `
         INSERT INTO conversation_reply_settings (
@@ -87,6 +97,8 @@ export class ConversationReplySettingsRepository {
             mode,
             default_responder_id,
             max_responders,
+            replies_per_agent,
+            replies_per_round,
             updated_by,
             updated_at
         )
@@ -95,6 +107,8 @@ export class ConversationReplySettingsRepository {
             $mode,
             $default_responder_id,
             $max_responders,
+            $replies_per_agent,
+            $replies_per_round,
             $updated_by,
             $updated_at
         )
@@ -102,6 +116,8 @@ export class ConversationReplySettingsRepository {
         SET mode = EXCLUDED.mode,
             default_responder_id = EXCLUDED.default_responder_id,
             max_responders = EXCLUDED.max_responders,
+            replies_per_agent = EXCLUDED.replies_per_agent,
+            replies_per_round = EXCLUDED.replies_per_round,
             updated_by = EXCLUDED.updated_by,
             updated_at = EXCLUDED.updated_at;
       `,
@@ -110,6 +126,8 @@ export class ConversationReplySettingsRepository {
         mode: settings.mode,
         default_responder_id: settings.defaultResponderId,
         max_responders: settings.maximumResponders,
+        replies_per_agent: limits.repliesPerAgentPerOrigin,
+        replies_per_round: limits.automaticRepliesPerOrigin,
         updated_by: change.updatedBy,
         updated_at: change.updatedAt,
       },

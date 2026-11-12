@@ -38,8 +38,7 @@ export const CONVERSATION_DEFAULT_MAXIMUM_RESPONDERS = 2;
  * The range of the most agents that answer one message.
  *
  * @remarks
- * The upper end equals the automatic answers a message may start at all
- * (`CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin`).
+ * This bounds the initial selection; the separate round budget includes follow-ups.
  */
 export const CONVERSATION_MAXIMUM_RESPONDERS_RANGE = {
   minimum: 1,
@@ -70,6 +69,10 @@ export interface ConversationReplySettings {
   /** An agent member that answers when it is unclear who is addressed; `null` for none. */
   readonly defaultResponderId: string | null;
   readonly maximumResponders: number;
+  /** Total answers of one agent, including up to three follow-ups; defaults to four. */
+  readonly repliesPerAgentPerOrigin?: number;
+  /** Agent contributions per group round; defaults to eight, at most nine. */
+  readonly automaticRepliesPerOrigin?: number;
 }
 
 /** The settings of a group as a member reads them. */

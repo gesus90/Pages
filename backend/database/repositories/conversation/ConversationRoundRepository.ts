@@ -1,16 +1,21 @@
-import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
+import { conversationRoundLimits } from "@/definition/ConversationObserver";
 import {
   readCountColumn,
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
 
+import { ConversationFollowUpRepository } from "./ConversationFollowUpRepository";
+
 import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
 import type { ConversationNotice } from "@/definition/Conversation";
-import type { ConversationReplyTrigger } from "@/definition/ConversationObserver";
+import type {
+  ConversationRoundLimits,
+  ConversationReplyTrigger,
+} from "@/definition/ConversationObserver";
 
 /** The message of a person a round of answers belongs to. */
 export interface ConversationRoundOrigin {
@@ -31,6 +36,10 @@ export interface ConversationReplyClaim extends ConversationRoundOrigin {
   readonly reason: string;
   /** Whether the answer counts against the limit of automatic answers. */
   readonly isAutomatic: boolean;
+  /** Only a consumed batch of the agent's own question permits another answer. */
+  readonly isFollowUp?: boolean;
+  /** Effective group settings, clamped again before persistence. */
+  readonly limits?: ConversationRoundLimits;
 }
 
 /**
@@ -59,8 +68,12 @@ export interface ConversationReplyOrigin {
 export interface ConversationRoundState {
   readonly personId: string;
   readonly automaticCount: number;
-  /** Every agent asked in the round, answered or not. */
+  /** One entry per claimed answer, including repeated agents and unfinished answers. */
   readonly agentIds: readonly string[];
+  /** A closed round starts no further answers. */
+  readonly endedAt?: string | null;
+  /** All contributions, including the agents the person initially mentioned. */
+  readonly replyCount?: number;
 }
 
 type RoundDatabase = Pick<Database, "query" | "execute" | "transaction">;
@@ -136,7 +149,7 @@ async function insertTarget(
           $created_at,
           $created_at
       )
-      ON CONFLICT (origin_message_id, agent_id) DO NOTHING
+      ON CONFLICT (origin_message_id, agent_id, trigger_message_id) DO NOTHING
       RETURNING agent_id;
     `,
     {
@@ -161,13 +174,16 @@ async function insertTarget(
  * @remarks
  * Everything a loop guard needs is stored, never only held in memory: a
  * claim locks its round, so concurrent jobs, repeated events and a restart
- * can neither ask an agent twice nor exceed the limit of automatic answers.
+ * can neither start a batch twice nor exceed either configured round limit.
  */
 export class ConversationRoundRepository {
   private readonly database: RoundDatabase;
+  /** Durable batches of questions and their addressed replies. */
+  public readonly followUps: ConversationFollowUpRepository;
 
   public constructor(database: RoundDatabase) {
     this.database = database;
+    this.followUps = new ConversationFollowUpRepository(database);
   }
 
   /** Stores the round of a message of a person once. */
@@ -176,7 +192,7 @@ export class ConversationRoundRepository {
   }
 
   /**
-   * Asks an agent to answer a round, once per agent and round.
+   * Claims an initial answer or one consumed question batch within both round limits.
    *
    * @returns `claimed` when the agent may answer now.
    */
@@ -186,34 +202,19 @@ export class ConversationRoundRepository {
     return this.database.transaction(async (transaction) => {
       await ensureRoundRow(transaction, claim);
       // The lock orders concurrent claims of one round, so the limit holds.
-      const rows = await transaction.query(
+      const [round] = await transaction.query(
         `
-          SELECT automatic_count
+          SELECT ended_at
           FROM conversation_reply_rounds
           WHERE origin_message_id = $origin_message_id
           FOR UPDATE;
         `,
         { origin_message_id: claim.originMessageId },
       );
-      const [row] = rows;
-      const automaticCount = row
-        ? readCountColumn(row, 0, "automatic_count")
-        : 0;
-      const known = await transaction.query(
-        `
-          SELECT agent_id
-          FROM conversation_reply_targets
-          WHERE origin_message_id = $origin_message_id
-              AND agent_id = $agent_id;
-        `,
-        { origin_message_id: claim.originMessageId, agent_id: claim.agentId },
-      );
-      if (known.length > 0) return "duplicate";
-      if (
-        claim.isAutomatic &&
-        automaticCount >= CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin
-      )
+      if (round && readNullableTextColumn(round, 0, "ended_at") !== null)
         return "limit";
+      const refusal = await this.refuseClaim(transaction, claim);
+      if (refusal) return refusal;
       if (!(await insertTarget(transaction, claim))) return "duplicate";
       if (claim.isAutomatic)
         await transaction.execute(
@@ -230,7 +231,11 @@ export class ConversationRoundRepository {
 
   /** Records where the answer of an asked agent stands. */
   public async setTargetState(
-    target: { readonly originMessageId: string; readonly agentId: string },
+    target: {
+      readonly originMessageId: string;
+      readonly agentId: string;
+      readonly triggerMessageId?: string;
+    },
     change: {
       readonly state: ConversationTargetState;
       readonly replyMessageId?: string | null;
@@ -247,11 +252,13 @@ export class ConversationRoundRepository {
             notice = COALESCE($notice, notice),
             updated_at = $updated_at
         WHERE origin_message_id = $origin_message_id
-            AND agent_id = $agent_id;
+            AND agent_id = $agent_id
+            AND trigger_message_id = $trigger_message_id;
       `,
       {
         origin_message_id: target.originMessageId,
         agent_id: target.agentId,
+        trigger_message_id: target.triggerMessageId ?? target.originMessageId,
         state: change.state,
         reply_message_id: change.replyMessageId ?? null,
         notice: change.notice ?? null,
@@ -269,7 +276,8 @@ export class ConversationRoundRepository {
         SELECT
             conversation_reply_rounds.person_id,
             conversation_reply_rounds.automatic_count,
-            conversation_reply_targets.agent_id
+            conversation_reply_targets.agent_id,
+            conversation_reply_rounds.ended_at
         FROM conversation_reply_rounds
         LEFT JOIN conversation_reply_targets
             ON conversation_reply_targets.origin_message_id = conversation_reply_rounds.origin_message_id
@@ -282,6 +290,9 @@ export class ConversationRoundRepository {
     return {
       personId: readTextColumn(first, 0, "person_id"),
       automaticCount: readCountColumn(first, 1, "automatic_count"),
+      endedAt: readNullableTextColumn(first, 3, "ended_at"),
+      replyCount: rows.filter((row) => row[2] !== null).length,
+
       agentIds: rows
         .map((row) => readNullableTextColumn(row, 2, "agent_id"))
         .filter((id): id is string => id !== null),
@@ -314,6 +325,44 @@ export class ConversationRoundRepository {
       agentId: readTextColumn(row, 2, "agent_id"),
       trigger: readTrigger(readTextColumn(row, 3, "trigger")),
     };
+  }
+
+  /** Ends a round once; its deterministic notice can then be inserted idempotently. */
+  public async end(originMessageId: string, now: string): Promise<void> {
+    await this.database.execute(
+      `
+      UPDATE conversation_reply_rounds
+      SET ended_at = COALESCE(ended_at, $now)
+      WHERE origin_message_id = $origin;
+    `,
+      { origin: originMessageId, now },
+    );
+  }
+
+  /** Closed rounds whose final notice was not committed before a restart. */
+  public async unannouncedEnds(): Promise<ConversationRoundOrigin[]> {
+    const rows = await this.database.query(`
+      SELECT
+          rounds.origin_message_id,
+          rounds.conversation_id,
+          rounds.person_id,
+          rounds.created_at
+      FROM conversation_reply_rounds AS rounds
+      WHERE rounds.ended_at IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM conversation_messages AS messages
+              WHERE messages.conversation_id = rounds.conversation_id
+                  AND messages.client_message_id = 'round-limit-' || rounds.origin_message_id
+                  AND messages.notice = 'round_limit'
+          );
+    `);
+    return rows.map((row) => ({
+      originMessageId: readTextColumn(row, 0, "origin_message_id"),
+      conversationId: readTextColumn(row, 1, "conversation_id"),
+      personId: readTextColumn(row, 2, "person_id"),
+      createdAt: readTextColumn(row, 3, "created_at"),
+    }));
   }
 
   /**
@@ -421,5 +470,71 @@ export class ConversationRoundRepository {
       { before },
     );
     return rows.length;
+  }
+
+  private async refuseClaim(
+    transaction: Pick<DatabaseTransaction, "query">,
+    claim: ConversationReplyClaim,
+  ): Promise<ConversationClaimOutcome | null> {
+    const [counts] = await transaction.query(
+      `
+        SELECT
+          COUNT(*),
+          COUNT(*) FILTER (WHERE agent_id = $agent_id),
+          COUNT(*) FILTER (WHERE agent_id = $agent_id AND trigger_message_id = $trigger_message_id)
+        FROM conversation_reply_targets
+        WHERE origin_message_id = $origin_message_id;
+      `,
+      {
+        origin_message_id: claim.originMessageId,
+        agent_id: claim.agentId,
+        trigger_message_id: claim.triggerMessageId,
+      },
+    );
+    const ownCount = counts ? readCountColumn(counts, 1, "agent_count") : 0;
+    const duplicateCount = counts
+      ? readCountColumn(counts, 2, "duplicate_count")
+      : 0;
+    if (duplicateCount > 0 || (ownCount > 0 && !claim.isFollowUp))
+      return "duplicate";
+    const limits = conversationRoundLimits(claim.limits ?? {});
+    const totalCount = counts ? readCountColumn(counts, 0, "reply_count") : 0;
+    if (
+      ownCount >= limits.repliesPerAgentPerOrigin ||
+      (claim.trigger !== "direct" &&
+        totalCount >= limits.automaticRepliesPerOrigin)
+    )
+      return "limit";
+    if (claim.isFollowUp && !(await this.hasFollowUp(transaction, claim)))
+      return "duplicate";
+    return null;
+  }
+
+  private async hasFollowUp(
+    transaction: Pick<DatabaseTransaction, "query">,
+    claim: ConversationReplyClaim,
+  ): Promise<boolean> {
+    const rows = await transaction.query(
+      `
+      SELECT questions.question_message_id
+      FROM conversation_follow_up_questions AS questions
+      WHERE questions.question_message_id = $question
+          AND questions.origin_message_id = $origin
+          AND questions.agent_id = $agent
+          AND questions.consumed_at IS NOT NULL
+          AND EXISTS (
+              SELECT 1
+              FROM conversation_follow_up_answers AS answers
+              WHERE answers.question_message_id = questions.question_message_id
+                  AND answers.reply_message_id IS NOT NULL
+          );
+    `,
+      {
+        question: claim.triggerMessageId,
+        origin: claim.originMessageId,
+        agent: claim.agentId,
+      },
+    );
+    return rows.length > 0;
   }
 }

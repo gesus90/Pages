@@ -4,9 +4,13 @@ import { ConversationObserverError } from "@/backend/error/ConversationObserverE
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
 import { CONVERSATION_DECISION_LIMITS } from "@/definition/ConversationDecision";
-import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
+import {
+  CONVERSATION_OBSERVER_LIMITS,
+  conversationRoundLimits,
+} from "@/definition/ConversationObserver";
 
 import { ConversationReplyRunner } from "./ConversationReplyRunner";
+import { ConversationRoundFollowUps } from "./ConversationRoundFollowUps";
 
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
@@ -76,7 +80,10 @@ export interface ConversationAgentRunner {
 
 /** What the answers of agents in conversations use. */
 export interface ConversationAgentRepliesDependencies {
-  readonly conversations: Pick<ConversationRepository, "findForMember">;
+  readonly conversations: Pick<
+    ConversationRepository,
+    "findForMember" | "memberIds"
+  >;
   readonly messages: Pick<
     ConversationMessageRepository,
     "find" | "history" | "insert"
@@ -121,6 +128,8 @@ interface ReplyRequest {
   readonly requestedBy: string | null;
   readonly reason: string;
   readonly isAutomatic: boolean;
+  readonly isFollowUp?: boolean;
+  readonly contextMessageIds?: readonly string[];
 }
 
 /**
@@ -173,9 +182,9 @@ function isAgentMember(
  * starts nobody by the observer and blocks nothing else. An answer can hand the
  * round over: the agents it mentions with @ answer, and an answer without
  * such a mention asks the observer once more. Every answer stays in the
- * round of the person's message: each agent answers a round once at most,
- * and the observer and hand-overs add at most
- * {@link CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin} answers.
+ * round of the person's message: each agent answers once, plus bounded
+ * bundled follow-ups to its questions. Initial answers, the observer and
+ * hand-overs share the group's configured round budget.
  * All of it is stored, so repeated events, concurrent jobs and a restart
  * start nothing twice. Agents start a round only with a message they chose
  * to send (PAGE-311); it asks exactly the agents it mentions, or the partner
@@ -191,10 +200,26 @@ function isAgentMember(
 export class ConversationAgentReplies {
   private readonly dependencies: ConversationAgentRepliesDependencies;
   private readonly replies: ConversationReplyRunner;
+  private readonly followUps: ConversationRoundFollowUps;
 
   public constructor(dependencies: ConversationAgentRepliesDependencies) {
     this.dependencies = dependencies;
     this.replies = new ConversationReplyRunner(dependencies);
+    this.followUps = new ConversationRoundFollowUps(
+      dependencies,
+      async (round, start) => {
+        await this.dispatch(round, {
+          agentId: start.agentId,
+          trigger: "handoff",
+          triggerMessageId: start.questionMessageId,
+          requestedBy: null,
+          reason: start.reason,
+          isAutomatic: true,
+          isFollowUp: true,
+          contextMessageIds: start.contextMessageIds,
+        });
+      },
+    );
   }
 
   /**
@@ -203,9 +228,13 @@ export class ConversationAgentReplies {
    * @returns Stops following.
    */
   public start(): () => void {
-    return this.dependencies.events.subscribe((event) => {
+    const unsubscribe = this.dependencies.events.subscribe((event) => {
       this.receive(event);
     });
+    return () => {
+      unsubscribe();
+      this.followUps.stop();
+    };
   }
 
   /**
@@ -218,6 +247,7 @@ export class ConversationAgentReplies {
     const interrupted = await this.dependencies.rounds.interruptStale(
       startedAt.toISOString(),
     );
+    await this.followUps.recover();
     if (interrupted > 0)
       logEvent({
         level: "info",
@@ -350,15 +380,26 @@ export class ConversationAgentReplies {
     round: ConversationRound,
     request: ReplyRequest,
   ): Promise<void> {
+    const settings = await this.dependencies.replySettings.find(
+      round.conversation.id,
+    );
+    const limits = conversationRoundLimits(settings);
     const outcome = await this.dependencies.rounds.claim({
       originMessageId: round.originMessageId,
       conversationId: round.conversation.id,
       personId: round.person.id,
       createdAt: this.now(),
       ...request,
+      reason: Array.from(request.reason)
+        .slice(0, CONVERSATION_OBSERVER_LIMITS.routingReasonCharacters)
+        .join(""),
+      limits,
     });
     if (outcome !== "claimed") {
-      if (outcome === "limit") this.logLimit(round, request.agentId);
+      if (outcome === "limit") {
+        this.logLimit(round, request.agentId);
+        await this.followUps.end(round);
+      }
       return;
     }
     const answer = await this.replies.run({
@@ -367,9 +408,22 @@ export class ConversationAgentReplies {
       trigger: request.trigger,
       triggerMessageId: request.triggerMessageId,
       reason: request.reason,
+      isFollowUp: request.isFollowUp,
+      contextMessageIds: request.contextMessageIds,
     });
-    if (answer && round.conversation.kind === "group")
-      await this.handOver(round, answer);
+    if (round.conversation.kind !== "group") return;
+    const state = await this.dependencies.rounds.round(round.originMessageId);
+    const ownCount =
+      state?.agentIds.filter((id) => id === request.agentId).length ?? 0;
+    if (
+      state?.endedAt ||
+      ownCount >= limits.repliesPerAgentPerOrigin ||
+      (state?.replyCount ?? 0) >= limits.automaticRepliesPerOrigin
+    ) {
+      await this.followUps.end(round);
+      return;
+    }
+    if (answer) await this.handOver(round, answer);
   }
 
   /**
@@ -430,6 +484,7 @@ export class ConversationAgentReplies {
       );
       return;
     }
+    await this.followUps.observe(round, answer, mentioned);
     const reason = `${answer.sender.name} hat dich in einer Antwort mit @ angesprochen.`;
     await this.dispatchAll(
       round,
@@ -462,9 +517,13 @@ export class ConversationAgentReplies {
     const state = await rounds.round(round.originMessageId);
     const asked = new Set(state?.agentIds ?? []);
     const open = candidates.filter((candidate) => !asked.has(candidate.id));
+    if (state?.endedAt) return;
+    const limits = conversationRoundLimits(
+      await this.dependencies.replySettings.find(round.conversation.id),
+    );
     const maximum =
-      CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin -
-      (state?.automaticCount ?? 0);
+      limits.automaticRepliesPerOrigin -
+      (state?.replyCount ?? state?.automaticCount ?? 0);
     if (open.length === 0 || maximum <= 0) return;
     const isClaimed = await rounds.claimRouting({
       triggerMessageId: judged.trigger.id,

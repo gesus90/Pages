@@ -12,25 +12,65 @@
  * The fixed limits of quiet and cost.
  *
  * @remarks
- * - `automaticRepliesPerOrigin`: answers per message of a person that the
- *   observer or a hand-over of another agent starts; agents the person
- *   mentioned with @ do not count against it and are never cut off.
+ * - `automaticRepliesPerOrigin`: total agent contributions per group round,
+ *   including initial answers and automatic hand-overs.
  * - `repliesPerAgentPerOrigin`: every agent answers a message of a person
- *   once at most, whatever path reaches it again.
+ *   once, plus at most three bundled answers to its own questions.
  * - `routingCallsPerMessage`: observer calls per new message at most.
  * - `routingContextMessages`/`routingContextCharacters`: the history the
  *   observer reads to choose.
  * - `observerTimeoutMinutes`: the longest observer session.
  */
 export const CONVERSATION_OBSERVER_LIMITS = {
-  automaticRepliesPerOrigin: 3,
-  repliesPerAgentPerOrigin: 1,
+  automaticRepliesPerOrigin: 8,
+  repliesPerAgentPerOrigin: 4,
+  followUpTimeoutMilliseconds: 3 * 60_000,
   routingCallsPerMessage: 1,
   routingContextMessages: 20,
   routingContextCharacters: 12_000,
   routingReasonCharacters: 300,
   observerTimeoutMinutes: 5,
 } as const;
+
+/** Configurable round limits stay below the final chain guard of ten messages. */
+export const CONVERSATION_ROUND_LIMITS_RANGE = {
+  minimum: 1,
+  repliesPerAgentMaximum: 4,
+  automaticRepliesMaximum: 9,
+} as const;
+
+/** The effective limits of one group's round. */
+export interface ConversationRoundLimits {
+  readonly repliesPerAgentPerOrigin: number;
+  readonly automaticRepliesPerOrigin: number;
+}
+
+/** Resolves missing settings and clamps every caller to the safe round limits. */
+export function conversationRoundLimits(
+  settings: Partial<ConversationRoundLimits>,
+): ConversationRoundLimits {
+  return {
+    repliesPerAgentPerOrigin: clampLimit(
+      settings.repliesPerAgentPerOrigin,
+      CONVERSATION_OBSERVER_LIMITS.repliesPerAgentPerOrigin,
+      CONVERSATION_ROUND_LIMITS_RANGE.repliesPerAgentMaximum,
+    ),
+    automaticRepliesPerOrigin: clampLimit(
+      settings.automaticRepliesPerOrigin,
+      CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin,
+      CONVERSATION_ROUND_LIMITS_RANGE.automaticRepliesMaximum,
+    ),
+  };
+}
+
+function clampLimit(
+  input: number | undefined,
+  fallback: number,
+  maximum: number,
+): number {
+  if (input === undefined || !Number.isFinite(input)) return fallback;
+  return Math.max(1, Math.min(maximum, Math.floor(input)));
+}
 
 /**
  * The fixed limits of the group summaries.

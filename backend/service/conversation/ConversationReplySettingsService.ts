@@ -6,6 +6,11 @@ import {
   CONVERSATION_REPLY_MODES,
 } from "@/definition/ConversationDecision";
 
+import {
+  CONVERSATION_ROUND_LIMITS_RANGE,
+  conversationRoundLimits,
+} from "@/definition/ConversationObserver";
+
 import { readConversationIdentifier } from "./ConversationReader";
 
 import type { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
@@ -37,6 +42,18 @@ const SETTINGS_INPUT = z
     conversationId: z.string(),
     mode: z.enum(CONVERSATION_REPLY_MODES),
     defaultResponderId: z.string().min(1).max(100).nullable(),
+    repliesPerAgentPerOrigin: z
+      .number()
+      .int()
+      .min(1)
+      .max(CONVERSATION_ROUND_LIMITS_RANGE.repliesPerAgentMaximum)
+      .optional(),
+    automaticRepliesPerOrigin: z
+      .number()
+      .int()
+      .min(1)
+      .max(CONVERSATION_ROUND_LIMITS_RANGE.automaticRepliesMaximum)
+      .optional(),
     maximumResponders: z
       .number()
       .int()
@@ -107,6 +124,14 @@ export class ConversationReplySettingsService {
       mode: parsed.data.mode,
       defaultResponderId: parsed.data.defaultResponderId,
       maximumResponders: parsed.data.maximumResponders,
+      ...conversationRoundLimits({
+        repliesPerAgentPerOrigin:
+          parsed.data.repliesPerAgentPerOrigin ??
+          current.repliesPerAgentPerOrigin,
+        automaticRepliesPerOrigin:
+          parsed.data.automaticRepliesPerOrigin ??
+          current.automaticRepliesPerOrigin,
+      }),
     };
     await this.requireAgentMember(settings, current.agents);
     await this.dependencies.settings.save({
