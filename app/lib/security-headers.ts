@@ -8,7 +8,11 @@ import { normalizePagePath } from "../service-worker/install-service-worker";
  * styles, so both directives allow `'unsafe-inline'`. Everything else is
  * restricted to the own origin. Media may also come from `blob:`: the voice
  * sample of an agent (PAGE-300) is fetched with a `POST` of the own origin
- * and played from a blob URL the page created itself.
+ * and played from a blob URL the page created itself. Only Pages itself may
+ * frame a page of Pages: the chat embeds released web content, Pages
+ * included, in a sandboxed frame without credentials (PAGE-298), and frames
+ * nothing but its own `/chat/embed` document, which carries the policy of
+ * the one embedded origin.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -21,7 +25,7 @@ const CONTENT_SECURITY_POLICY = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
+  "frame-ancestors 'self'",
 ].join("; ");
 
 /**
@@ -43,7 +47,7 @@ export function createSecurityHeaders(): Record<string, string> {
     "Permissions-Policy": "camera=(), microphone=(self), geolocation=()",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
+    "X-Frame-Options": "SAMEORIGIN",
   };
 }
 

@@ -18,6 +18,18 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { AgentChatService } from "@/backend/service/conversation/AgentChatService";
 import { AgentChatSettingsService } from "@/backend/service/conversation/AgentChatSettingsService";
 import { ConversationAgentGuard } from "@/backend/service/conversation/ConversationAgentGuard";
+import { ChatViewPreferenceRepository } from "@/backend/database/repositories/conversation/ChatViewPreferenceRepository";
+import { ConversationAttachmentRepository } from "@/backend/database/repositories/conversation/ConversationAttachmentRepository";
+import { ConversationEmbedDomainRepository } from "@/backend/database/repositories/conversation/ConversationEmbedDomainRepository";
+import { ConversationLinkPreviewRepository } from "@/backend/database/repositories/conversation/ConversationLinkPreviewRepository";
+import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
+import { ChatViewPreferenceService } from "@/backend/service/conversation/content/ChatViewPreferenceService";
+import { ConversationAgentFiles } from "@/backend/service/conversation/content/ConversationAgentFiles";
+import { ConversationAttachments } from "@/backend/service/conversation/content/ConversationAttachments";
+import { ConversationLinks } from "@/backend/service/conversation/content/ConversationLinks";
+import { ConversationMessageContent } from "@/backend/service/conversation/content/ConversationMessageContent";
+import { HttpConversationLinkFetcher } from "@/backend/service/conversation/links/HttpConversationLinkFetcher";
+import { SimulatedConversationLinkFetcher } from "@/backend/service/conversation/links/SimulatedConversationLinkFetcher";
 import { ConversationAgentReplies } from "@/backend/service/conversation/ConversationAgentReplies";
 import { ConversationChatDecisions } from "@/backend/service/conversation/ConversationChatDecisions";
 import { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
@@ -42,6 +54,7 @@ import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { SimulatedConversationDecision } from "@/backend/agents/simulation/SimulatedConversationDecision";
 import type { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import type { Database } from "@/backend/database/Database";
+import type { ConversationLinkFetcher } from "@/backend/service/conversation/links/ConversationLinkFetcher";
 import type { ConversationAgentRunner } from "@/backend/service/conversation/ConversationAgentReplies";
 import type { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
@@ -68,6 +81,12 @@ export interface ConversationApplicationServices {
   readonly conversationOversight: ConversationOversight;
   /** The hourly limit under Settings → Agents (PAGE-311). */
   readonly agentChatSettingsService: AgentChatSettingsService;
+  /** The files of conversation messages (PAGE-298). */
+  readonly conversationAttachments: ConversationAttachments;
+  /** The links of messages and the domains that may be embedded (PAGE-298). */
+  readonly conversationLinks: ConversationLinks;
+  /** The card states and the split width of a person (PAGE-298). */
+  readonly chatViewPreferences: ChatViewPreferenceService;
 }
 
 /** What the conversation services are built from. */
@@ -82,6 +101,13 @@ export interface ConversationServicesInput {
   readonly speech?: SpeechRecognitionSetting;
   /** The group observer on Pica's chat model (PAGE-296). */
   readonly observer: ConversationObserverInput;
+  /** The origin users reach Pages at; links to it embed (PAGE-298). */
+  readonly publicUrl?: string;
+  /**
+   * Fetches the preview data of links (PAGE-298). By default the HTTP fetch,
+   * and while the simulation is on a fetch that contacts no network.
+   */
+  readonly linkFetcher?: ConversationLinkFetcher;
 }
 
 /** What the group observer runs on (PAGE-296). */
@@ -151,12 +177,14 @@ export function createConversationServices(
   });
   const decisions = new ConversationDecisionRepository(database);
   const replySettings = new ConversationReplySettingsRepository(database);
+  const content = createContent(input, conversations);
   const conversationReader = new ConversationReader({
     conversations,
     messages,
     directory,
     files,
     decisions,
+    content: content.reader,
   });
   const events = sharedConversationEvents();
   const observer = createObserver(input, {
@@ -201,16 +229,22 @@ export function createConversationServices(
     events,
     publisher: input.events,
     guard: conversationAgentGuard,
+    agentFiles: new ConversationAgentFiles(),
+    attachments: content.attachments,
+    content: content.reader,
   });
   globalThis.pagesConversationAgentReplies?.();
   globalThis.pagesConversationAgentReplies = conversationAgentReplies.start();
-  if (input.observer.isBackgroundOwner)
+  if (input.observer.isBackgroundOwner) {
     startObserverBackground(conversationAgentReplies, observer.summaries);
+    sweepContent(content);
+  }
   const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
   const conversationService = new ConversationService({
     conversations,
     messages,
     reader: conversationReader,
+    attachments: content.attachments,
     directory,
     voices: new ConversationVoiceStore(files, conversationVoiceMaximumMs),
     files,
@@ -230,6 +264,11 @@ export function createConversationServices(
     }),
     conversationVoiceMaximumMs,
     conversationService,
+    conversationAttachments: content.attachments,
+    conversationLinks: content.links,
+    chatViewPreferences: new ChatViewPreferenceService(
+      new ChatViewPreferenceRepository(database),
+    ),
     conversationAgentGuard,
     agentChatSettingsService: new AgentChatSettingsService(agentChatSettings),
     conversationOversight,
@@ -244,6 +283,59 @@ export function createConversationServices(
       events,
     }),
   };
+}
+
+/** The content of messages: files, links and what reads both (PAGE-298). */
+interface ContentParts {
+  readonly attachments: ConversationAttachments;
+  readonly links: ConversationLinks;
+  readonly reader: ConversationMessageContent;
+}
+
+function hostOf(origin: string | undefined): string[] {
+  return origin === undefined ? [] : [new URL(origin).hostname.toLowerCase()];
+}
+
+function createContent(
+  input: ConversationServicesInput,
+  conversations: ConversationRepository,
+): ContentParts {
+  const { database } = input;
+  const attachments = new ConversationAttachments({
+    attachments: new ConversationAttachmentRepository(database),
+    conversations,
+    files: new WikiFileStore(path.join(input.directory, "conversation-files")),
+  });
+  const ownHosts = hostOf(input.publicUrl);
+  const links = new ConversationLinks({
+    previews: new ConversationLinkPreviewRepository(database),
+    domains: new ConversationEmbedDomainRepository(database),
+    conversations,
+    fetcher:
+      input.linkFetcher ??
+      (currentAgentSimulationMode().isActive
+        ? new SimulatedConversationLinkFetcher()
+        : new HttpConversationLinkFetcher()),
+    files: new WikiFileStore(
+      path.join(input.directory, "conversation-link-images"),
+    ),
+    publisher: input.events,
+    ownHosts: () => ownHosts,
+  });
+  return {
+    attachments,
+    links,
+    reader: new ConversationMessageContent(attachments, links),
+  };
+}
+
+/** Removes files and preview data nothing refers to any more, once at the start. */
+function sweepContent(content: ContentParts): void {
+  void Promise.all([content.attachments.sweep(), content.links.sweep()]).catch(
+    (error: unknown) => {
+      logCaughtError("ConversationContent", error);
+    },
+  );
 }
 
 /** The parts of the group observer (PAGE-296). */

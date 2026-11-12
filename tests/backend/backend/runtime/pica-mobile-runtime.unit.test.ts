@@ -53,6 +53,7 @@ const ANY_PLANS: unknown = expect.any(PagesPicaMobilePlans);
 const ANY_CHAT: unknown = expect.any(PagesPicaMobileChat);
 const ANY_CONVERSATIONS: unknown = expect.any(PagesPicaMobileConversations);
 const ANY_SPEECH: unknown = expect.any(PagesPicaMobileSpeech);
+const ANY_ATTACHMENTS: unknown = expect.any(Function);
 
 const COMPLETED: PagesConfig = {
   databasePath: "/srv/pages/data/pages.duckdb",
@@ -82,9 +83,11 @@ describe("obtainPicaMobileGateway", () => {
       plans: ANY_PLANS,
       chat: ANY_CHAT,
       conversations: ANY_CONVERSATIONS,
+      attachments: ANY_ATTACHMENTS,
       speech: ANY_SPEECH,
       serverVersion: PAGES_VERSION,
       listenAddress: "192.168.0.52",
+      relay: undefined,
       reservedPort: 3000,
     });
 

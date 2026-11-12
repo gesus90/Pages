@@ -125,16 +125,21 @@ it("splits runs when the author changes and back", () => {
 
 it("colors a bubble with the chosen person color", () => {
   renderHistory({ messages: [answer("1", "bob")] });
-  const bubble = screen.getByRole("article", { name: "Bob" });
-  expect(bubble.className).toContain("border-transparent");
-  expect(bubble.style.borderColor).not.toBe("");
+  // The text of an answer stands in a bubble inside its article (PAGE-298).
+  const bubble = screen
+    .getByRole("article", { name: "Bob" })
+    .querySelector<HTMLElement>("[data-message-bubble]");
+  expect(bubble?.className).toContain("border-transparent");
+  expect(bubble?.style.borderColor).not.toBe("");
 });
 
 it("keeps the primary look for an answer without a person color", () => {
   renderHistory({ messages: [answer("1", "ada")] });
-  expect(screen.getByRole("article", { name: "Ada" }).className).toContain(
-    "bg-primary-subtle",
-  );
+  expect(
+    screen
+      .getByRole("article", { name: "Ada" })
+      .querySelector("[data-message-bubble]")?.className,
+  ).toContain("bg-primary-subtle");
 });
 
 it("shows an author outside the list from what the conversation tells", () => {

@@ -9,11 +9,10 @@ import {
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
 } from "@/definition/Conversation";
 
+import { conversationAttachmentIdsSchema } from "@/definition/ConversationContent";
+
 import { findConversationMentions } from "./ConversationMentions";
-import {
-  readConversationIdentifier,
-  toConversationMessage,
-} from "./ConversationReader";
+import { readConversationIdentifier } from "./ConversationReader";
 
 import type {
   ConversationMessageRepository,
@@ -33,6 +32,7 @@ import type {
   ConversationAccounts,
   ConversationDirectory,
 } from "./ConversationDirectory";
+import type { ConversationAttachments } from "./content/ConversationAttachments";
 import type { ConversationEvents } from "./ConversationEvents";
 import type { ConversationReader } from "./ConversationReader";
 import type { ConversationTranscriber } from "./ConversationTranscriber";
@@ -49,8 +49,10 @@ export interface ConversationServiceDependencies {
   readonly messages: ConversationMessageRepository;
   readonly reader: Pick<
     ConversationReader,
-    "summary" | "readState" | "memberIds"
+    "summary" | "readState" | "memberIds" | "messages"
   >;
+  /** The files of messages (PAGE-298). */
+  readonly attachments: Pick<ConversationAttachments, "bind" | "collect">;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly voices: ConversationVoiceStore;
   /** Opens stored audio for the recognition. */
@@ -81,6 +83,8 @@ export interface ConversationSending {
   readonly conversationId: string;
   readonly clientMessageId: unknown;
   readonly text: unknown;
+  /** The uploaded attachments the message carries, in their order (PAGE-298). */
+  readonly attachmentIds?: unknown;
 }
 
 /** A voice message announced for a conversation, whose audio has yet to arrive. */
@@ -101,10 +105,19 @@ function changedEvent(conversationId: string): PagesEvent {
   return { type: "conversation.changed", id: conversationId };
 }
 
-function readText(input: unknown): string {
+/** Reads the attachments a message names; none when it names none. */
+function readAttachmentIds(input: unknown): readonly string[] {
+  if (input === undefined || input === null) return [];
+  const ids = conversationAttachmentIdsSchema.safeParse(input);
+  if (!ids.success) throw new ConversationError("invalid");
+  return ids.data;
+}
+
+/** Reads the text of a message; it may be empty only next to attachments. */
+function readText(input: unknown, hasAttachments: boolean): string {
   if (typeof input !== "string") throw new ConversationError("invalid");
   const text = input.trim();
-  if (text === "") throw new ConversationError("invalid");
+  if (text === "" && !hasAttachments) throw new ConversationError("invalid");
   if (Array.from(text).length > CONVERSATION_TEXT_MAXIMUM_LENGTH)
     throw new ConversationError("too_long");
   return text;
@@ -261,16 +274,18 @@ export class ConversationService {
    * Sends a text message; the same `clientMessageId` returns the stored one.
    *
    * @throws {ConversationError} `not_found` for a conversation of which the
-   * person is no member, `invalid` for an empty text, `too_long` beyond
-   * 16,000 characters, `forbidden` for a direct conversation whose other
-   * participant can no longer be written to.
+   * person is no member, `invalid` for an empty text without attachments
+   * or for an attachment that is not an own unsent upload of this
+   * conversation, `too_long` beyond 16,000 characters, `forbidden` for a
+   * direct conversation whose other participant can no longer be written to.
    */
   public async send(
     person: User,
     sending: ConversationSending,
     options: ConversationChangeOptions = {},
   ): Promise<ConversationMessage> {
-    const text = readText(sending.text);
+    const attachmentIds = readAttachmentIds(sending.attachmentIds);
+    const text = readText(sending.text, attachmentIds.length > 0);
     const clientMessageId = readConversationIdentifier(sending.clientMessageId);
     const context = await this.writable(person, sending.conversationId);
     return this.insert(person, {
@@ -278,6 +293,7 @@ export class ConversationService {
       clientMessageId,
       text,
       voice: null,
+      attachmentIds,
       options,
     });
   }
@@ -344,6 +360,7 @@ export class ConversationService {
         clientMessageId: ticket.clientMessageId,
         text: "",
         voice: file,
+        attachmentIds: [],
         options,
       });
     } catch (error: unknown) {
@@ -355,6 +372,43 @@ export class ConversationService {
   /** Drops stored audio that never became a message. */
   public async discardVoice(file: StoredConversationVoiceFile): Promise<void> {
     await this.dependencies.voices.discard(file);
+  }
+
+  /**
+   * Deletes an own message with its attachments and their preview images
+   * (PAGE-298).
+   *
+   * @throws {ConversationError} `not_found` for a message of a conversation
+   * of which the person is no member, `forbidden` for a message of another
+   * sender.
+   */
+  public async deleteMessage(
+    person: User,
+    messageId: unknown,
+    options: ConversationChangeOptions = {},
+  ): Promise<void> {
+    const { messages, attachments } = this.dependencies;
+    const stored = await messages.findById(
+      readConversationIdentifier(messageId),
+    );
+    if (!stored) throw new ConversationError("not_found");
+    const summary = await this.dependencies.reader.summary(
+      person,
+      stored.conversationId,
+    );
+    const removeFiles = await attachments.collect(stored.id);
+    const removed = await messages.remove(
+      { id: stored.id, senderId: person.id },
+      changedEvent(summary.id),
+    );
+    if (!removed) throw new ConversationError("forbidden");
+    await removeFiles();
+    if (removed.voice) await this.dependencies.voices.discard(removed.voice);
+    this.announce(summary.id, {
+      kind: "conversation",
+      recipientIds: summary.members.map((member) => member.id),
+      originId: options.originId,
+    });
   }
 
   /**
@@ -453,6 +507,7 @@ export class ConversationService {
       readonly clientMessageId: string;
       readonly text: string;
       readonly voice: StoredConversationVoiceFile | null;
+      readonly attachmentIds: readonly string[];
       readonly options: ConversationChangeOptions;
     },
   ): Promise<ConversationMessage> {
@@ -478,7 +533,13 @@ export class ConversationService {
     );
     if (!outcome.isNew && message.voice)
       await this.dependencies.voices.discard(message.voice);
-    const sent = toConversationMessage(outcome.message, accounts);
+    if (outcome.isNew)
+      await this.bindAttachments(outcome.message, message.attachmentIds);
+    const [sent] = await this.dependencies.reader.messages(
+      [outcome.message],
+      accounts,
+    );
+    if (!sent) throw new Error("The stored message is missing.");
     if (!outcome.isNew) return sent;
     this.announce(summary.id, {
       kind: "message",
@@ -488,6 +549,22 @@ export class ConversationService {
     });
     if (outcome.message.voice) this.transcribeLater(outcome.message, memberIds);
     return sent;
+  }
+
+  /** Binds the uploads to a new message; a refused one takes the message back. */
+  private async bindAttachments(
+    stored: StoredConversationMessage,
+    attachmentIds: readonly string[],
+  ): Promise<void> {
+    try {
+      await this.dependencies.attachments.bind(stored, attachmentIds);
+    } catch (error: unknown) {
+      await this.dependencies.messages.remove(
+        stored,
+        changedEvent(stored.conversationId),
+      );
+      throw error;
+    }
   }
 
   private async store(
@@ -579,9 +656,14 @@ export class ConversationService {
       changedEvent(stored.conversationId),
     );
     if (!updated) return;
+    const [message] = await this.dependencies.reader.messages(
+      [updated],
+      accounts,
+    );
+    if (!message) return;
     this.announce(stored.conversationId, {
       kind: "message_updated",
-      message: toConversationMessage(updated, accounts),
+      message,
       recipientIds: memberIds,
     });
   }

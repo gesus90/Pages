@@ -1,6 +1,8 @@
 import { ConversationError } from "@/backend/error/ConversationError";
 import { CONVERSATION_HISTORY_PAGE_SIZE } from "@/definition/Conversation";
 
+import { EMPTY_MESSAGE_CONTENT } from "./content/ConversationMessageContent";
+
 import type { ReadStream } from "node:fs";
 import type { ConversationDecisionRepository } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
@@ -24,6 +26,10 @@ import type {
 } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
 import type {
+  ConversationMessageContentReader,
+  MessageContent,
+} from "./content/ConversationMessageContent";
+import type {
   ConversationAccount,
   ConversationAccounts,
   ConversationDirectory,
@@ -43,6 +49,8 @@ export interface ConversationReaderDependencies {
   readonly files: Pick<WikiFileStore, "open">;
   /** The decisions about messages of groups, which the chat page shows (PAGE-317). */
   readonly decisions: Pick<ConversationDecisionRepository, "forMessages">;
+  /** The attachments and links of messages (PAGE-298). */
+  readonly content: ConversationMessageContentReader;
 }
 
 /** The audio of a voice message, opened for one member. */
@@ -66,11 +74,13 @@ export interface ConversationView {
  *
  * @param stored - The stored message.
  * @param accounts - The accounts that name its sender.
+ * @param content - Its attachments and links; none by default.
  * @returns The message without the name of its audio file.
  */
 export function toConversationMessage(
   stored: StoredConversationMessage,
   accounts: ConversationAccounts,
+  content: MessageContent = EMPTY_MESSAGE_CONTENT,
 ): ConversationMessage {
   const message: ConversationMessage = {
     id: stored.id,
@@ -81,6 +91,8 @@ export function toConversationMessage(
     createdAt: stored.createdAt,
     mentions: stored.mentions,
     ...(stored.notice === null ? {} : { notice: stored.notice }),
+    attachments: content.attachments,
+    links: content.links,
   };
   if (!stored.voice) return message;
   return {
@@ -356,6 +368,23 @@ export class ConversationReader {
     return members.get(conversationId) ?? [];
   }
 
+  /**
+   * Turns stored messages into the messages every client sees, with their
+   * attachments and links (PAGE-298).
+   *
+   * @param stored - The stored messages.
+   * @param accounts - The accounts that name their senders.
+   */
+  public async messages(
+    stored: readonly StoredConversationMessage[],
+    accounts: ConversationAccounts,
+  ): Promise<ConversationMessage[]> {
+    const content = await this.dependencies.content.describe(stored);
+    return stored.map((message) =>
+      toConversationMessage(message, accounts, content.get(message.id)),
+    );
+  }
+
   private async historyPage(
     conversationId: string,
     beforeId: string | null,
@@ -379,9 +408,7 @@ export class ConversationReader {
       this.dependencies.directory.read(),
     ]);
     const page = limitPage(stored);
-    const messages = page.messages.map((message) =>
-      toConversationMessage(message, accounts),
-    );
+    const messages = await this.messages(page.messages, accounts);
     return {
       conversationId,
       messages: options.withDecisions
@@ -406,9 +433,7 @@ export class ConversationReader {
       views.push({
         summary,
         messages: await this.withDecisions(
-          page.messages.map((message) =>
-            toConversationMessage(message, accounts),
-          ),
+          await this.messages(page.messages, accounts),
           accounts,
         ),
         hasMore: page.hasMore,
@@ -471,10 +496,15 @@ export class ConversationReader {
       this.dependencies.messages.latest(ids),
       this.dependencies.directory.read(),
     ]);
+    const lastMessages = new Map(
+      (await this.messages([...latest.values()], accounts)).map((message) => [
+        message.conversationId,
+        message,
+      ]),
+    );
     return records.map((record) => {
       const memberIds = members.get(record.id) ?? [];
       const other = memberIds.find((id) => id !== person.id) ?? person.id;
-      const last = latest.get(record.id);
       return {
         id: record.id,
         kind: record.kind,
@@ -483,7 +513,7 @@ export class ConversationReader {
             ? record.name
             : accounts.participant(other).name,
         members: memberIds.map((id) => accounts.participant(id)),
-        lastMessage: last ? toConversationMessage(last, accounts) : null,
+        lastMessage: lastMessages.get(record.id) ?? null,
         lastActivityAt: record.lastActivityAt,
         unreadCount: record.unreadCount,
         isMuted: record.isMuted,

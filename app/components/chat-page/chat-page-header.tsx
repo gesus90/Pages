@@ -5,6 +5,7 @@ import { Button } from "@/app/components/ui/button";
 
 import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
 import { ConfidentialButton } from "./chat-page-confidential";
+import { ChatPageEmbedDomainsButton } from "./chat-page-embed-domains";
 import { ChatPageGroupContext } from "./chat-page-group-context";
 import {
   AgentConversationBadge,
@@ -135,6 +136,7 @@ function ParticipantHeader({
         <>
           <AccessBadge participant={participant} />
           <ConfidentialButton control={mute.confidential} />
+          {participant.kind === "agent" ? null : <ChatPageEmbedDomainsButton />}
           <MuteButton {...mute} />
           {isAnswering && participant.kind === "agent" ? (
             <Button onClick={onStop} size="sm" type="button" variant="outline">
@@ -260,7 +262,9 @@ function GroupHeader({
  * stop button for every agent answering in it (PAGE-304).
  * A stored conversation with a person or of a group can be muted for the
  * person alone (PAGE-275); a chat with an agent and a group can be marked
- * confidential (PAGE-305).
+ * confidential (PAGE-305). Its settings list the domains released for
+ * embedding (PAGE-298): in the member dialog of a group, behind a button of
+ * their own in a conversation with a person.
  */
 export function ChatPageHeader({
   opened,

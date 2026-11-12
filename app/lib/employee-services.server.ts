@@ -110,6 +110,8 @@ export interface EmployeeServicesInput {
     readonly events: PagesEventPublisher;
     /** The speech model and the longest recording of `config.toml` (PAGE-277). */
     readonly speech?: SpeechRecognitionSetting;
+    /** The origin users reach Pages at; links to it embed (PAGE-298). */
+    readonly publicUrl?: string;
   };
   /** Pica's model choice and the ACP path the group observer runs on (PAGE-296). */
   readonly observer: {

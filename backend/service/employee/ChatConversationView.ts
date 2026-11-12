@@ -42,6 +42,11 @@ export function toVirtualMessage(
     },
     ...(message.notice ? { notice: message.notice } : {}),
     ...(message.decision ? { decision: message.decision } : {}),
+    ...(message.attachments.length > 0
+      ? { attachments: message.attachments }
+      : {}),
+    ...(message.links.length > 0 ? { links: message.links } : {}),
+    ...(isOwn && !message.notice ? { canDelete: true } : {}),
   };
   if (!message.voice) return base;
   return {

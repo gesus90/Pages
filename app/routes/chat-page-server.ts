@@ -57,7 +57,11 @@ export type ChatPageIntent =
   | "reply-settings"
   | "save-reply-settings"
   | "confidential"
-  | "resume-agents";
+  | "resume-agents"
+  | "delete-message"
+  | "embed-domain"
+  | "card-state"
+  | "split-width";
 
 /** What a change yields besides success: a created group, a page of older messages or a group context. */
 interface ChatIntentOutcome {
@@ -85,6 +89,10 @@ const INTENTS: readonly ChatPageIntent[] = [
   "save-reply-settings",
   "confidential",
   "resume-agents",
+  "delete-message",
+  "embed-domain",
+  "card-state",
+  "split-width",
 ];
 
 /** How a refused conversation request reads on the page (PAGE-278). */
@@ -94,7 +102,7 @@ const CONVERSATION_FAILURES: Readonly<
   forbidden: "inactive",
   not_found: "invalidInput",
   invalid: "invalidInput",
-  too_large: "invalidInput",
+  too_large: "tooLarge",
   too_long: "tooLong",
   unsupported_format: "invalidInput",
 };
@@ -147,6 +155,7 @@ async function runConversationIntent(
   const { conversationService } = services;
   const text = formData.get("text");
   const clientMessageId = formData.get("clientMessageId");
+  const attachmentIds = readJson(formData.get("attachmentIds")) ?? undefined;
   if (intent === "read") {
     await conversationService.markRead(person, {
       conversationId: String(formData.get("conversationId") ?? ""),
@@ -163,6 +172,7 @@ async function runConversationIntent(
       conversationId: conversation.id,
       clientMessageId,
       text,
+      attachmentIds,
     });
     await recordParticipantActivity(
       services,
@@ -177,6 +187,7 @@ async function runConversationIntent(
     conversationId: groupId,
     clientMessageId,
     text,
+    attachmentIds,
   });
   if (isOwn)
     await services.chatGroupService.recordActivity(person, {
@@ -270,6 +281,59 @@ async function markConfidential(
   );
 }
 
+/** The changes of the content of messages and of its cards (PAGE-298). */
+type ContentIntent =
+  "delete-message" | "embed-domain" | "card-state" | "split-width";
+
+const CONTENT_INTENTS: readonly ContentIntent[] = [
+  "delete-message",
+  "embed-domain",
+  "card-state",
+  "split-width",
+];
+
+function isContentIntent(intent: ChatPageIntent): intent is ContentIntent {
+  return CONTENT_INTENTS.some((known) => known === intent);
+}
+
+/**
+ * Deletes an own message, releases or withdraws an embed domain of a
+ * conversation, or stores a card state or the split width (PAGE-298).
+ */
+async function runContentIntent(
+  services: ChatServices,
+  person: User,
+  intent: ContentIntent,
+  formData: FormData,
+): Promise<void> {
+  switch (intent) {
+    case "delete-message":
+      await services.conversationService.deleteMessage(
+        person,
+        formData.get("messageId"),
+      );
+      return;
+    case "embed-domain":
+      await services.conversationLinks.setReleased(person, {
+        conversationId: formData.get("conversationId"),
+        domain: formData.get("domain"),
+        isReleased: formData.get("isReleased") === "true",
+      });
+      return;
+    case "card-state":
+      await services.chatViewPreferences.setCardState(person, {
+        cardKey: formData.get("cardKey"),
+        state: formData.get("state"),
+      });
+      return;
+    case "split-width":
+      await services.chatViewPreferences.setSplitWidth(
+        person,
+        formData.get("width"),
+      );
+  }
+}
+
 /** Runs one change of the person; returns a created group or a history page. */
 async function runIntent(
   services: ChatServices,
@@ -279,6 +343,10 @@ async function runIntent(
 ): Promise<ChatIntentOutcome> {
   if (isMemberIntent(intent))
     return runMemberIntent(services, person, intent, formData);
+  if (isContentIntent(intent)) {
+    await runContentIntent(services, person, intent, formData);
+    return {};
+  }
   switch (intent) {
     case "save-contacts":
       await services.chatDirectoryService.saveContacts(
@@ -389,9 +457,21 @@ export async function loader({
   if (!person) throw new Response("Forbidden", { status: 403 });
   const services = await getApplicationServices();
   const directory = await services.chatDirectoryService.directory(person);
+  const conversationIds = [
+    ...directory.groups.map((group) => group.id),
+    ...directory.participants.flatMap((participant) =>
+      participant.conversationId ? [participant.conversationId] : [],
+    ),
+  ];
+  const [embedDomains, viewPreferences] = await Promise.all([
+    services.conversationLinks.embedDomains(conversationIds),
+    services.chatViewPreferences.read(person),
+  ]);
   return {
     ...directory,
     voiceMaximumMs: services.conversationVoiceMaximumMs,
+    embedDomains,
+    viewPreferences,
   };
 }
 

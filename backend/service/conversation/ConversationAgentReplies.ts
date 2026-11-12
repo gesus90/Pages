@@ -21,6 +21,9 @@ import type { ConversationMessage } from "@/definition/Conversation";
 import type { ConversationReplySettings } from "@/definition/ConversationDecision";
 import type { User } from "@/definition/User";
 import type { ConversationAgentGuard } from "./ConversationAgentGuard";
+import type { ConversationAgentFiles } from "./content/ConversationAgentFiles";
+import type { ConversationAttachments } from "./content/ConversationAttachments";
+import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
 import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
   ConversationAccount,
@@ -96,6 +99,12 @@ export interface ConversationAgentRepliesDependencies {
   readonly publisher: { publish(event: PagesEvent): void };
   /** Pauses a chain of agent messages (PAGE-311); without it no chain is limited. */
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
+  /** Reads the file lines of an answer (PAGE-298). */
+  readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
+  /** Stores the files an answer attaches. */
+  readonly attachments: Pick<ConversationAttachments, "attach">;
+  /** The attachments and links of a stored answer. */
+  readonly content: ConversationMessageContentReader;
   readonly now?: () => Date;
   /** Waits for a busy agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;

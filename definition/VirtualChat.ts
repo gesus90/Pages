@@ -14,6 +14,12 @@
 import type { AgentEmployeeAccess } from "./AgentEmployee";
 import type { AgentMessageQueue } from "./AgentSessionLimits";
 import type { ConversationNotice } from "./Conversation";
+import type {
+  ChatEmbedDomains,
+  ChatViewPreferences,
+  ConversationAttachment,
+  ConversationLink,
+} from "./ConversationContent";
 import type { ConversationDecisionView } from "./ConversationDecision";
 
 /** Whether a participant is available, busy with a task, or switched off. */
@@ -149,6 +155,12 @@ export interface VirtualChatMessage {
    * the agent gives in this chat, or for a free place among the limits.
    */
   readonly queue?: AgentMessageQueue;
+  /** The files of a stored message (PAGE-298). */
+  readonly attachments?: readonly ConversationAttachment[];
+  /** What the server knows of the URLs that stand alone in a line (PAGE-298). */
+  readonly links?: readonly ConversationLink[];
+  /** Whether the person may delete the message: their own stored one (PAGE-298). */
+  readonly canDelete?: boolean;
 }
 
 /** What the list can open: a group or a single participant. */
@@ -195,6 +207,10 @@ export interface VirtualChatDirectory {
   readonly contactChoices: readonly VirtualContactChoice[];
   /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
   readonly voiceMaximumMs?: number;
+  /** The domains that may be embedded in conversations (PAGE-298). */
+  readonly embedDomains?: ChatEmbedDomains;
+  /** The person's card states and split width (PAGE-298). */
+  readonly viewPreferences?: ChatViewPreferences;
 }
 
 /** A page of older messages of a stored conversation (PAGE-275). */
@@ -208,7 +224,7 @@ export interface VirtualChatHistoryPage {
 
 /** Why sending to an agent was refused, as the interface translates it. */
 export type VirtualChatSendFailure =
-  "inactive" | "busy" | "unavailable" | "invalidInput" | "tooLong";
+  "inactive" | "busy" | "unavailable" | "invalidInput" | "tooLong" | "tooLarge";
 
 /** The longest group name. */
 export const VIRTUAL_GROUP_NAME_LENGTH = 80;

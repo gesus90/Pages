@@ -450,6 +450,35 @@ export class ConversationMessageRepository {
     });
   }
 
+  /**
+   * Deletes a message of its sender.
+   *
+   * @param message - The message and the account that must have sent it.
+   * @param event - The live event that commits with the deletion.
+   * @returns The deleted message, or `null` when the sender has none with the ID.
+   */
+  public async remove(
+    message: { readonly id: string; readonly senderId: string },
+    event: PagesEventRecord,
+  ): Promise<StoredConversationMessage | null> {
+    return this.database.transaction(async (transaction) => {
+      const rows = await transaction.query(
+        `
+          DELETE FROM conversation_messages
+          WHERE id = $id
+              AND sender_id = $sender_id
+              AND notice IS NULL
+          RETURNING${MESSAGE_COLUMNS};
+        `,
+        { id: message.id, sender_id: message.senderId },
+      );
+      const [row] = rows;
+      if (!row) return null;
+      await new PagesEventOutboxRepository(transaction).append(event);
+      return toMessage(row);
+    });
+  }
+
   /** Returns the audio names the database still lists, for the sweep of the file store. */
   public async voiceStorageNames(): Promise<Set<string>> {
     const rows = await this.database.query(

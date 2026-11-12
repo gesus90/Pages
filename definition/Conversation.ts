@@ -9,6 +9,10 @@
  * audio in the file store of Pages; its text arrives after the sending.
  */
 
+import type {
+  ConversationAttachment,
+  ConversationLink,
+} from "./ConversationContent";
 import type { ConversationDecisionView } from "./ConversationDecision";
 
 /** Longest text of a message, in characters. */
@@ -175,6 +179,10 @@ export interface ConversationMessage {
    * reads it, and only for a message of a person in a group that decided.
    */
   readonly decision?: ConversationDecisionView;
+  /** The files of the message in their order (PAGE-298); empty without any. */
+  readonly attachments: readonly ConversationAttachment[];
+  /** The URLs that stand alone in a line of the text (PAGE-298); empty without any. */
+  readonly links: readonly ConversationLink[];
 }
 
 /** A conversation as one member sees it. */

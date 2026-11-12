@@ -12,10 +12,13 @@ import { participantColors } from "./chat-page-colors";
 import { ChatPageDecision } from "./chat-page-decision";
 import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
+import { MessageContentView } from "./content/message-content-view";
+import { MessageDelete } from "./content/message-delete";
 
 import type {
   VirtualChatMessage,
   VirtualParticipant,
+  VirtualToolUse,
 } from "@/definition/VirtualChat";
 
 function hideImages(): boolean {
@@ -85,38 +88,60 @@ function QueueBadge({
   );
 }
 
+const OWN_BUBBLE =
+  "max-w-[62%] min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground";
+
+/** One own message: its text in primary bubbles, its cards between and below. */
+function OwnMessage({
+  message,
+}: {
+  readonly message: VirtualChatMessage;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <article
+      aria-label={t("chatPage.you")}
+      className="group/message flex w-full min-w-0 flex-col items-end gap-2"
+    >
+      {message.voice ? (
+        <div className={OWN_BUBBLE}>
+          <ChatPageVoice voice={message.voice} text={message.content} isOwn />
+        </div>
+      ) : (
+        <MessageContentView
+          message={message}
+          origin={{
+            senderName: t("chatPage.cards.you"),
+            createdAt: message.createdAt,
+          }}
+          renderText={(text) => (
+            <WikiMarkdown
+              className={cn(OWN_BUBBLE, "text-[15px]")}
+              isDisplayableImage={hideImages}
+              source={text}
+            />
+          )}
+        />
+      )}
+      <QueueBadge queue={message.queue} />
+      {message.canDelete === true ? (
+        <MessageDelete messageId={message.id} />
+      ) : null}
+    </article>
+  );
+}
+
 /** The person's own messages at the right, in primary bubbles. */
 function OwnRun({
   messages,
 }: {
   readonly messages: readonly VirtualChatMessage[];
 }): React.ReactElement {
-  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-end gap-2">
       {messages.map((message) => (
         <Fragment key={message.id}>
-          <article
-            aria-label={t("chatPage.you")}
-            className="flex max-w-[62%] flex-col items-end gap-1"
-          >
-            {message.voice ? (
-              <div className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground">
-                <ChatPageVoice
-                  voice={message.voice}
-                  text={message.content}
-                  isOwn
-                />
-              </div>
-            ) : (
-              <WikiMarkdown
-                className="min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-[15px] text-primary-foreground"
-                isDisplayableImage={hideImages}
-                source={message.content}
-              />
-            )}
-            <QueueBadge queue={message.queue} />
-          </article>
+          <OwnMessage message={message} />
           {message.decision ? (
             <ChatPageDecision decision={message.decision} />
           ) : null}
@@ -126,14 +151,14 @@ function OwnRun({
   );
 }
 
-/** The text, the voice message, or the hint why an agent did not answer (PAGE-276). */
-function AnswerContent({
+/** The voice message, or the hint why an agent did not answer (PAGE-276). */
+function AnswerNotice({
   message,
   name,
 }: {
   readonly message: VirtualChatMessage;
   readonly name: string;
-}): React.ReactElement {
+}): React.ReactElement | null {
   const { t } = useTranslation();
   if (message.notice)
     return (
@@ -145,20 +170,30 @@ function AnswerContent({
         {t(`chatPage.notice.${message.notice}`, { name })}
       </p>
     );
-  if (message.voice)
-    return (
-      <ChatPageVoice
-        voice={message.voice}
-        text={message.content}
-        isOwn={false}
-      />
-    );
+  return message.voice ? (
+    <ChatPageVoice voice={message.voice} text={message.content} isOwn={false} />
+  ) : null;
+}
+
+/** Name and role of the author, the first line of a run of answers. */
+function AuthorLine({
+  author,
+}: {
+  readonly author: VirtualParticipant;
+}): React.ReactElement {
+  const colors = participantColors(author.color);
   return (
-    <WikiMarkdown
-      className="text-[15px] text-foreground"
-      isDisplayableImage={hideImages}
-      source={message.content}
-    />
+    <p className="text-[13px]">
+      <span
+        className={cn("font-semibold", colors.text.className)}
+        style={colors.text.style}
+      >
+        {author.name}
+      </span>
+      {author.role === "" ? null : (
+        <span className="text-muted-foreground"> · {author.role}</span>
+      )}
+    </p>
   );
 }
 
@@ -169,50 +204,97 @@ interface AnswerBubbleProps {
   readonly hasName: boolean;
 }
 
-/** One answer in a bubble in the author's color, with the used tools at its foot. */
+/** A bubble in the author's color. */
+function Bubble({
+  author,
+  children,
+}: {
+  readonly author: VirtualParticipant;
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  const colors = participantColors(author.color);
+  return (
+    <div
+      className={cn(
+        "flex max-w-[62%] min-w-0 flex-col gap-1 rounded-[14px] rounded-bl-[4px] border px-4 py-2.5",
+        colors.bubble.className,
+      )}
+      data-message-bubble=""
+      style={colors.bubble.style}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** The tools an answer used, at its foot. */
+function ToolUses({
+  uses,
+}: {
+  readonly uses: readonly VirtualToolUse[];
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (uses.length === 0) return null;
+  return (
+    <ul
+      aria-label={t("chatPage.toolUses")}
+      className="mt-1 flex flex-col gap-1.5"
+    >
+      {uses.map((use) => (
+        <ChatPageToolUse
+          key={use.callId ?? `${use.name}:${use.detail}`}
+          use={use}
+        />
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * One answer: its text in bubbles in the author's color, its cards between
+ * and below them (PAGE-298), and the used tools at its foot.
+ */
 function AnswerBubble({
   message,
   author,
   hasName,
 }: AnswerBubbleProps): React.ReactElement {
-  const { t } = useTranslation();
-  const colors = participantColors(author.color);
+  const isPlain = message.notice === undefined && message.voice === undefined;
+  // A message that starts with a card names its author above the card.
+  const startsWithText = /^\s*(?!```|~~~|https?:\/\/\S+\s*(?:\n|$))\S/u.test(
+    message.content,
+  );
+  const name = hasName ? <AuthorLine author={author} /> : null;
   return (
     <article
       aria-label={author.name}
-      className={cn(
-        "flex max-w-full min-w-0 flex-col gap-1 rounded-[14px] rounded-bl-[4px] border px-4 py-2.5",
-        colors.bubble.className,
-      )}
-      style={colors.bubble.style}
+      className="flex w-full min-w-0 flex-col items-start gap-2"
     >
-      {hasName ? (
-        <p className="text-[13px]">
-          <span
-            className={cn("font-semibold", colors.text.className)}
-            style={colors.text.style}
-          >
-            {author.name}
-          </span>
-          {author.role === "" ? null : (
-            <span className="text-muted-foreground"> · {author.role}</span>
-          )}
-        </p>
-      ) : null}
-      <AnswerContent message={message} name={author.name} />
-      {message.toolUses.length > 0 ? (
-        <ul
-          aria-label={t("chatPage.toolUses")}
-          className="mt-1 flex flex-col gap-1.5"
-        >
-          {message.toolUses.map((use) => (
-            <ChatPageToolUse
-              key={use.callId ?? `${use.name}:${use.detail}`}
-              use={use}
-            />
-          ))}
-        </ul>
-      ) : null}
+      {isPlain ? (
+        <>
+          {startsWithText ? null : name}
+          <MessageContentView
+            message={message}
+            origin={{ senderName: author.name, createdAt: message.createdAt }}
+            renderText={(text, isFirst) => (
+              <Bubble author={author}>
+                {isFirst ? name : null}
+                <WikiMarkdown
+                  className="text-[15px] text-foreground"
+                  isDisplayableImage={hideImages}
+                  source={text}
+                />
+              </Bubble>
+            )}
+          />
+        </>
+      ) : (
+        <Bubble author={author}>
+          {name}
+          <AnswerNotice message={message} name={author.name} />
+        </Bubble>
+      )}
+      <ToolUses uses={message.toolUses} />
     </article>
   );
 }
@@ -231,7 +313,7 @@ function AnswerRun({ messages, author }: AnswerRunProps): React.ReactElement {
   return (
     <div className="flex items-start gap-3">
       <ParticipantAvatar participant={author} size={32} />
-      <div className="flex max-w-[62%] min-w-0 flex-col items-start gap-2">
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
         {messages.map((message, index) => (
           <Fragment key={message.id}>
             <AnswerBubble

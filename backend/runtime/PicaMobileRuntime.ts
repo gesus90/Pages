@@ -107,6 +107,14 @@ export function obtainPicaMobileGateway(
         },
         events: sharedConversationEvents(),
       }),
+      attachments: async () => {
+        const services = await getApplicationServices();
+
+        return {
+          authService: services.authService,
+          conversationAttachments: services.conversationAttachments,
+        };
+      },
       speech: new PagesPicaMobileSpeech(async () => {
         const services = await getApplicationServices();
 

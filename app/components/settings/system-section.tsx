@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { AcpResourcesCard } from "@/app/components/settings/agents/acp-resources-card";
 import { ChatSettingsCard } from "@/app/components/settings/system/chat-settings-card";
+import { EmbedDomainsCard } from "@/app/components/settings/system/embed-domains-card";
 import { GoogleDriveCard } from "@/app/components/settings/system/google-drive-card";
 import { InterpreterCard } from "@/app/components/settings/system/interpreter-card";
 import { InstanceCard } from "@/app/components/settings/system/instance-card";
@@ -74,6 +75,7 @@ export function SystemSection({
             status={logging.status}
           />
           <ChatSettingsCard settings={chatSettings} />
+          <EmbedDomainsCard />
         </div>
       </div>
     </section>

@@ -11,8 +11,12 @@ import {
 import { createConversationAgentPrompt } from "./ConversationAgentPrompt";
 import { findConversationMentions } from "./ConversationMentions";
 import { toConversationMessage } from "./ConversationReader";
+import { EMPTY_MESSAGE_CONTENT } from "./content/ConversationMessageContent";
 
-import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
+import type {
+  ConversationMessageRepository,
+  StoredConversationMessage,
+} from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
   ConversationRecord,
   ConversationRepository,
@@ -30,6 +34,12 @@ import type {
 import type { ConversationReplyTrigger } from "@/definition/ConversationObserver";
 import type { User } from "@/definition/User";
 import type { ConversationAgentGuard } from "./ConversationAgentGuard";
+import type {
+  AgentFile,
+  ConversationAgentFiles,
+} from "./content/ConversationAgentFiles";
+import type { ConversationAttachments } from "./content/ConversationAttachments";
+import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
 import type { ConversationAgentRunner } from "./ConversationAgentReplies";
 import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
@@ -85,6 +95,12 @@ export interface ConversationReplyRunnerDependencies {
   readonly publisher: { publish(event: PagesEvent): void };
   /** Pauses a chain of agent messages (PAGE-311); without it no chain is limited. */
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
+  /** Reads the file lines of an answer (PAGE-298). */
+  readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
+  /** Stores the files an answer attaches. */
+  readonly attachments: Pick<ConversationAttachments, "attach">;
+  /** The attachments and links of the stored answer. */
+  readonly content: ConversationMessageContentReader;
   readonly now?: () => Date;
   /** Waits for a busy agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
@@ -388,10 +404,18 @@ export class ConversationReplyRunner {
     },
   ): Promise<ConversationMessage | null> {
     const { conversation, memberIds } = job.round;
+    // A hint of Pages attaches nothing; an answer attaches its file lines.
+    const selection =
+      reply.notice === null
+        ? await this.dependencies.agentFiles.select(reply.text)
+        : { text: reply.text, files: [] };
+    const text = Array.from(selection.text)
+      .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
+      .join("");
     // An answer mentions as a person's message does, so it can hand over (PAGE-296).
     const mentions =
       reply.notice === null && conversation.kind === "group"
-        ? findConversationMentions(reply.text, memberIds, {
+        ? findConversationMentions(text, memberIds, {
             accounts,
             senderId: job.agentId,
           })
@@ -403,7 +427,7 @@ export class ConversationReplyRunner {
         senderId: job.agentId,
         // One answer or hint per agent and round, also after a repeated event or a restart.
         clientMessageId: `${CONVERSATION_AGENT_REPLY_PREFIX}${job.round.originMessageId}`,
-        text: reply.text,
+        text,
         mentions,
         createdAt: this.now(),
         voice: null,
@@ -416,7 +440,13 @@ export class ConversationReplyRunner {
       notice: reply.notice,
     });
     if (!outcome.isNew) return null;
-    const message = toConversationMessage(outcome.message, accounts);
+    await this.attachFiles(outcome.message, selection.files);
+    const content = await this.dependencies.content.describe([outcome.message]);
+    const message = toConversationMessage(
+      outcome.message,
+      accounts,
+      content.get(outcome.message.id) ?? EMPTY_MESSAGE_CONTENT,
+    );
     this.dependencies.publisher.publish(changedEvent(conversation.id));
     this.dependencies.events.publish({
       kind: "message",
@@ -424,6 +454,33 @@ export class ConversationReplyRunner {
       recipientIds: memberIds,
     });
     return reply.notice === null ? message : null;
+  }
+
+  /** Copies the files an answer named into the file store, as attachments of the answer. */
+  private async attachFiles(
+    answer: StoredConversationMessage,
+    files: readonly AgentFile[],
+  ): Promise<void> {
+    for (const [position, file] of files.entries()) {
+      try {
+        await this.dependencies.attachments.attach(
+          {
+            conversationId: answer.conversationId,
+            messageId: answer.id,
+            senderId: answer.senderId,
+            position,
+          },
+          {
+            name: file.name,
+            mimeType: file.mimeType,
+            source: this.dependencies.agentFiles.open(file),
+          },
+        );
+      } catch (error: unknown) {
+        // The answer stays; a file that vanished since the check is missing in it.
+        logCaughtError(COMPONENT, error);
+      }
+    }
   }
 
   private async setState(

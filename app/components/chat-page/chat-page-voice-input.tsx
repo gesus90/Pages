@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { FileAudio, Mic, Send, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -16,6 +16,8 @@ interface ChatPageVoiceInputProps {
   readonly sending: VoiceSending;
   /** The longest recording of Pages, in milliseconds. */
   readonly maximumMs: number;
+  /** Receives what starts a recording, for the "+" menu of the composer. */
+  readonly recordRef?: React.RefObject<(() => void) | null>;
 }
 
 /**
@@ -26,14 +28,20 @@ interface ChatPageVoiceInputProps {
 export function ChatPageVoiceInput({
   sending,
   maximumMs,
+  recordRef,
 }: ChatPageVoiceInputProps): React.ReactElement {
   const { t } = useTranslation();
   const picker = useRef<HTMLInputElement | null>(null);
   const recorder = useVoiceRecorder(maximumMs, sending.sendRecording);
 
   async function handleRecord(): Promise<void> {
+    if (sending.isSending) return;
     if (!(await recorder.start())) sending.reportMicrophone();
   }
+
+  useEffect(() => {
+    if (recordRef) recordRef.current = () => void handleRecord();
+  });
 
   function handlePick(event: React.ChangeEvent<HTMLInputElement>): void {
     const [file] = event.currentTarget.files ?? [];
