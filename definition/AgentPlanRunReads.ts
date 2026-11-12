@@ -30,6 +30,8 @@ export interface AgentPlanRunStepEntry extends Partial<AgentRunErrorFields> {
   readonly stepId: string;
   readonly name: string;
   readonly status: "waiting" | "skipped" | AgentPlanRunStatus;
+  /** A disabled script skipped this node; status is succeeded. */
+  readonly skipped?: boolean;
   readonly isBlocked: boolean;
   /** A failed or cancelled predecessor that prevented this node from running. */
   readonly blockedByStepId?: string;

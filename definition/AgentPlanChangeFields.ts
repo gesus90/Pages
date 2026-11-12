@@ -31,6 +31,8 @@ export const PLAN_NODE_FIELDS = {
     "inputs",
     "outputs",
     "timeoutSeconds",
+    "disabled",
+    "disabledOutput",
     "role",
   ],
   // The removed Git closeout (PAGE-285) is only moved or removed, never configured.

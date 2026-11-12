@@ -224,6 +224,17 @@ const SCRIPT_FIELDS: ToolProperties = {
     },
   },
   timeoutSeconds: { type: "integer", minimum: 1, maximum: 86_400 },
+  disabled: {
+    type: "boolean",
+    description:
+      "Skips the script without a process; it succeeds with disabledOutput, needs no administrator mode and is shown as disabled.",
+  },
+  disabledOutput: {
+    type: "string",
+    maxLength: 100_000,
+    description:
+      "Replacement result while disabled. A report or gate output needs a valid passed report here; empty uses a passed skipped report.",
+  },
 };
 
 /** A plan or node execution target, validated by the same Pages service as the editor. */

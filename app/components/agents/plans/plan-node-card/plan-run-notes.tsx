@@ -32,6 +32,7 @@ export function hasPlanRunNotes(
 ): boolean {
   if (!result) return false;
   return (
+    result.skipped === true ||
     (result.activation ?? 1) > 1 ||
     result.passed !== undefined ||
     result.trigger !== undefined
@@ -60,6 +61,18 @@ export function PlanRunNotes(props: {
       data-plan-run-notes=""
       className={cn("flex flex-wrap items-center gap-1", PLAN_NODE_TEXT.meta)}
     >
+      {result.skipped === true ? (
+        <span
+          data-plan-skipped=""
+          className={cn(
+            BADGE_CLASS,
+            "border-success/40 bg-success-subtle text-success",
+          )}
+        >
+          <Check aria-hidden="true" className="size-3" />
+          {t("plans.run.skipped")}
+        </span>
+      ) : null}
       {activation > 1 ? (
         <span
           data-plan-activation={activation}

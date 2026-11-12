@@ -11,6 +11,7 @@ import {
 import { PlanNodeIcon } from "../plan-node-icon";
 import {
   PlanScriptContentField,
+  PlanScriptDisabledField,
   PlanScriptNameField,
   PlanScriptProfileField,
   PlanScriptTimeoutField,
@@ -132,6 +133,7 @@ export function PlanScriptDialog(
             />
             <PlanScriptContentField form={form} />
             <PlanScriptOutputField form={form} />
+            <PlanScriptDisabledField form={form} />
             <PlanScriptOptions form={form} />
           </fieldset>
           <div className="flex justify-end gap-2 border-t border-border pt-4">

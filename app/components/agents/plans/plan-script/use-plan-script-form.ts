@@ -38,6 +38,8 @@ export interface PlanScriptFormValues {
   readonly output: string;
   readonly outputPolicy: "text" | "report" | "gate";
   readonly timeout: string;
+  readonly disabled: boolean;
+  readonly disabledOutput: string;
 }
 
 /** What keeps a field from being applied. */
@@ -50,7 +52,8 @@ export type PlanScriptFieldIssue =
   | "timeout"
   | "inputName"
   | "outputName"
-  | "duplicateName";
+  | "duplicateName"
+  | "disabledOutput";
 
 /** The problems of the typed fields, by field and by input row. */
 export interface PlanScriptFormIssues {
@@ -101,6 +104,8 @@ function initialValues(
       output,
       outputPolicy: "text",
       timeout: String(PLAN_SCRIPT_TIMEOUT.initial),
+      disabled: false,
+      disabledOutput: "",
     };
   return {
     name: script.name,
@@ -116,6 +121,8 @@ function initialValues(
     output: script.outputs[0]?.name ?? "",
     outputPolicy: script.outputs[0]?.policy ?? "text",
     timeout: String(script.timeoutSeconds),
+    disabled: script.disabled === true,
+    disabledOutput: script.disabledOutput ?? "",
   };
 }
 
@@ -146,6 +153,11 @@ function configurationOf(
     timeoutSeconds: /^\d+$/u.test(values.timeout.trim())
       ? Number(values.timeout.trim())
       : Number.NaN,
+    disabled: values.disabled,
+    disabledOutput:
+      values.disabled && values.disabledOutput.trim()
+        ? values.disabledOutput
+        : undefined,
   };
 }
 
@@ -174,7 +186,8 @@ function formIssues(
         issue === "name" ||
         issue === "content" ||
         issue === "contentLength" ||
-        issue === "timeout",
+        issue === "timeout" ||
+        issue === "disabledOutput",
     ),
   );
   const profileId = values.interpreterProfileId;

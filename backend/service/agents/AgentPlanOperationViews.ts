@@ -290,6 +290,7 @@ export function hasReport(step: AgentPlanStepResult): boolean {
   return (
     step.output !== null ||
     step.error !== null ||
+    step.skipped === true ||
     Boolean(step.session ?? step.script)
   );
 }
@@ -308,6 +309,7 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
     ...stepExecutionIdentity(step),
     name: step.name,
     status: step.status,
+    ...(step.skipped === true ? { skipped: true } : {}),
     isBlocked: step.isBlocked,
     ...blockedBy(step),
     error: step.error,

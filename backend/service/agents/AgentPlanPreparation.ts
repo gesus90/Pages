@@ -255,6 +255,7 @@ export class AgentPlanPreparation {
     for (const node of plan.nodes) {
       if (
         (node.type !== "agent" && node.type !== "script") ||
+        (node.type === "script" && node.disabled) ||
         node.executionTarget?.kind !== "remote" ||
         !this.dependencies.remoteExecution
       )
@@ -367,7 +368,7 @@ export class AgentPlanPreparation {
       plan,
       tasks,
     );
-    if (plan.nodes.some(isScriptRuntimeNode) && !scripts)
+    if (plan.nodes.some(isEnabledScriptRuntimeNode) && !scripts)
       throw new AgentError("plan_script_interpreter_unavailable");
     return scripts;
   }
@@ -437,6 +438,11 @@ async function planAssetReadFailure(
 /** Scripts run as processes of the script runtime. */
 function isScriptRuntimeNode(node: AgentPlan["nodes"][number]): boolean {
   return node.type === "script";
+}
+
+/** A disabled script never starts a process, so it needs no interpreter snapshot. */
+function isEnabledScriptRuntimeNode(node: AgentPlan["nodes"][number]): boolean {
+  return node.type === "script" && !node.disabled;
 }
 
 function requirePreparedRuntime(

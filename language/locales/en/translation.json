@@ -5597,7 +5597,8 @@
         "timeout": "Enter whole seconds from {{minimum}} to {{timeout}}.",
         "inputName": "Start with a letter; only letters, digits and underscores, at most 64 characters.",
         "outputName": "Start with a letter; only letters, digits and underscores, at most 64 characters.",
-        "duplicateName": "This name is already used. Inputs and the output need unique names."
+        "duplicateName": "This name is already used. Inputs and the output need unique names.",
+        "disabledOutput": "For a review report or gate, the replacement output must be a valid passing report (at most {{maximum}} characters)."
       },
       "run": {
         "title": "Script process",
@@ -5623,7 +5624,11 @@
         "lifecycle": "Pause drains active scripts; Stop and Timeout terminate their owned process tree.",
         "cause": "Cause"
       },
-      "emptyInput": "Empty text is bound"
+      "emptyInput": "Empty text is bound",
+      "disabled": "Disable",
+      "disabledHint": "The step is skipped without a process and counts as successful. A disabled script needs no administrator mode.",
+      "disabledOutput": "Replacement output",
+      "disabledOutputHint": "Result of the skipped step. For a review report or gate, use only a valid passing report; empty creates a passing note."
     },
     "progress": {
       "filteredOutput": "Credentials were masked or long content was shortened in this view.",
@@ -6351,7 +6356,8 @@
       "history": "Earlier passes",
       "historyEntry": "Pass {{number}} · {{status}}",
       "branchTaken": "Branch {{branch}} activated",
-      "decisionInput": "Read: {{name}} (pass {{number}}) · {{value}}"
+      "decisionInput": "Read: {{name}} (pass {{number}}) · {{value}}",
+      "skipped": "Skipped (disabled)"
     },
     "stack": {
       "defaultName": "Stack",

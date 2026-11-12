@@ -17,9 +17,13 @@ export function planExecutionNodes(
   return withInheritedPlanTarget(plan).nodes.flatMap<
     AgentPlanStep | AgentPlanScript
   >((node) => {
-    if (node.type === "agent" || node.type === "script") return [node];
+    if (node.type === "agent" || node.type === "script")
+      return node.type === "script" && node.disabled ? [] : [node];
     if (node.type === "group") return node.steps;
-    if (node.type === "loop") return planLoopMembers(node);
+    if (node.type === "loop")
+      return planLoopMembers(node).filter(
+        (step) => step.type !== "script" || !step.disabled,
+      );
     return [];
   });
 }

@@ -5597,7 +5597,8 @@
         "timeout": "Gib ganze Sekunden von {{minimum}} bis {{timeout}} ein.",
         "inputName": "Mit einem Buchstaben beginnen; nur Buchstaben, Ziffern und Unterstrich, höchstens 64 Zeichen.",
         "outputName": "Mit einem Buchstaben beginnen; nur Buchstaben, Ziffern und Unterstrich, höchstens 64 Zeichen.",
-        "duplicateName": "Dieser Name ist schon vergeben. Ein- und Ausgaben brauchen eindeutige Namen."
+        "duplicateName": "Dieser Name ist schon vergeben. Ein- und Ausgaben brauchen eindeutige Namen.",
+        "disabledOutput": "Bei Prüfbericht oder Sperre muss die Ersatzausgabe ein gültiger bestandener Bericht sein (höchstens {{maximum}} Zeichen)."
       },
       "run": {
         "title": "Scriptprozess",
@@ -5623,7 +5624,11 @@
         "lifecycle": "Pause lässt aktive Scripts auslaufen; Stop und Timeout beenden deren eigene Prozesskette.",
         "cause": "Ursache"
       },
-      "emptyInput": "Leerer Text ist gebunden"
+      "emptyInput": "Leerer Text ist gebunden",
+      "disabled": "Deaktivieren",
+      "disabledHint": "Der Schritt wird beim Lauf ohne Prozess übersprungen und gilt als erfolgreich. Ein deaktiviertes Script braucht keinen Administratormodus.",
+      "disabledOutput": "Ersatzausgabe",
+      "disabledOutputHint": "Ergebnis des übersprungenen Schritts. Bei Prüfbericht oder Sperre nur ein gültiger bestandener Bericht; leer erzeugt einen bestandenen Hinweis."
     },
     "progress": {
       "filteredOutput": "Zugangsdaten wurden in dieser Anzeige maskiert oder lange Inhalte gekürzt.",
@@ -6351,7 +6356,8 @@
       "history": "Frühere Durchläufe",
       "historyEntry": "Durchlauf {{number}} · {{status}}",
       "branchTaken": "Zweig {{branch}} aktiviert",
-      "decisionInput": "Gelesen: {{name}} (Durchlauf {{number}}) · {{value}}"
+      "decisionInput": "Gelesen: {{name}} (Durchlauf {{number}}) · {{value}}",
+      "skipped": "Übersprungen (deaktiviert)"
     },
     "stack": {
       "defaultName": "Stack",
