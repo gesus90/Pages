@@ -519,3 +519,23 @@ it("uses a connection name as its source key when its ID is absent", () => {
   expect(group.sources[0].key).toBe("Team");
   expect(group.sources[0].choices[0].model.id).toBe("named");
 });
+
+it("sorts identical display names by their technical model IDs", () => {
+  const [group] = groupsOf([
+    pageModel("z", {
+      provider: "claude_code",
+      modelName: "Twin",
+      model: "vendor/z",
+    }),
+    pageModel("a", {
+      provider: "claude_code",
+      modelName: "Twin",
+      model: "vendor/a",
+    }),
+  ]);
+
+  expect(group.sources[0].choices.map((choice) => choice.detail)).toEqual([
+    "vendor/a",
+    "vendor/z",
+  ]);
+});
