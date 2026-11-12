@@ -155,3 +155,30 @@ it("isolates failing event listeners and honors unsubscribe", () => {
   expect(listener).toHaveBeenCalledOnce();
   expect(sharedConversationEvents()).toBe(sharedConversationEvents());
 });
+
+it("passes only the stored summary fields to the routing prompt", () => {
+  expect(
+    observerContextBlock({
+      conversationId: "group",
+      summary: "Summary",
+      decisions: ["Decide"],
+      openItems: ["Open"],
+      responsibilities: ["Agent"],
+      sources: [],
+      throughSequence: 5,
+      hasExcerpts: false,
+      status: "current",
+      errorCode: null,
+      revision: 2,
+      updatedAt: "today",
+      attemptedAt: "today",
+    }),
+  ).toEqual({
+    summary: "Summary",
+    decisions: ["Decide"],
+    openItems: ["Open"],
+    responsibilities: ["Agent"],
+    throughSequence: 5,
+    updatedAt: "today",
+  });
+});

@@ -4,6 +4,7 @@ import {
   clonePlanAction,
   createPlanAction,
   deletePlanAction,
+  keepPlanAction,
 } from "@/app/lib/agent-plan-management.server";
 import { AgentError } from "@/backend/error/AgentErrors";
 
@@ -15,6 +16,7 @@ interface PlanFakes {
   readonly create: ReturnType<typeof vi.fn>;
   readonly clone: ReturnType<typeof vi.fn>;
   readonly remove: ReturnType<typeof vi.fn>;
+  readonly keep: ReturnType<typeof vi.fn>;
   readonly visible: ReturnType<typeof vi.fn>;
 }
 
@@ -23,6 +25,7 @@ function planFakes(): PlanFakes {
     create: vi.fn(async () => "created"),
     clone: vi.fn(async () => "copy"),
     remove: vi.fn(async () => undefined),
+    keep: vi.fn(async () => undefined),
     visible: vi.fn(async () => []),
   };
 }
@@ -33,6 +36,7 @@ function servicesWith(fakes: PlanFakes): ReturnType<typeof servicesOf> {
       create: fakes.create,
       clone: fakes.clone,
       remove: fakes.remove,
+      keep: fakes.keep,
     },
     agentPlanService: { visible: fakes.visible },
   });
@@ -244,4 +248,17 @@ it("clears the selection when no readable plan remains", async () => {
   );
 
   expect(outcome.location).toBe("/agents/plans");
+});
+
+it("keeps a one-time plan using the submitted revision and request key", async () => {
+  const fakes = planFakes();
+  const outcome = await outcomeOf(
+    await keepPlanAction("owner", servicesWith(fakes), formOf(DELETE)),
+  );
+  expect(fakes.keep).toHaveBeenCalledWith("owner", "gone", {
+    revision: 2,
+    requestKey: "page-dialog-3",
+  });
+  expect(outcome.body).toEqual({ ok: true, intent: "keep-plan" });
+  expect(outcome.headers.get("Cache-Control")).toBe("no-store");
 });
