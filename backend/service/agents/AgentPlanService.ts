@@ -1,18 +1,13 @@
 import { randomUUID } from "node:crypto";
 
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
-import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
-import { allPlanSteps, mapPlanSteps } from "@/definition/AgentPlanGroup";
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
-import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
-import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
-import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { withReadScope } from "@/backend/database/ReadScope";
 
 import { planDependenciesForChannel } from "./AgentPlanChannel";
@@ -22,7 +17,6 @@ import {
   readPlanControlRun,
 } from "./AgentPlanControlAccess";
 import { findPlanRun, readAuthorizedPlanRun } from "./AgentPlanRunReader";
-import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { readPlanSources } from "./AgentPlanSources";
 import { readPlanContext, readPlanPage } from "./AgentPlanPage";
 import { AgentPlanControlService } from "./AgentPlanControlService";
@@ -30,8 +24,6 @@ import { isEndedResumable } from "./AgentPlanControl";
 import { AgentPlanEndedRuns } from "./AgentPlanEndedRuns";
 import { recoverPlanStartup } from "./recovery/AgentPlanStartupRecovery";
 import { AgentPlanStartActions } from "./AgentPlanStartActions";
-import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
-import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { validatePlanReferences } from "./AgentPlanReferences";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 import {
@@ -39,6 +31,7 @@ import {
   requireOwnerForProjectChange,
 } from "./AgentPlanOwnership";
 import { AgentPlanScripts } from "./AgentPlanScripts";
+import { AgentPlanConfigurationPins } from "./AgentPlanConfigurationPins";
 import { AgentPlanCloning } from "./AgentPlanCloning";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 import { requireNoNewGitCloseout } from "./AgentPlanGitCloseoutLegacy";
@@ -83,6 +76,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
   private readonly controls: AgentPlanControlService;
   private readonly ended: AgentPlanEndedRuns;
   private readonly scripts: AgentPlanScripts;
+  private readonly pins: AgentPlanConfigurationPins;
   private readonly starts: AgentPlanStartActions;
 
   public constructor(dependencies: PlanDependencies) {
@@ -97,6 +91,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
       sleep: dependencies.sleep,
     });
     this.scripts = dependencies.scripts ?? new AgentPlanScripts(null);
+    this.pins = new AgentPlanConfigurationPins(dependencies, this.scripts);
     this.starts = new AgentPlanStartActions({
       ...dependencies,
       revise: (userId, id, input) => this.revise(userId, id, input),
@@ -235,7 +230,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
         : {}),
     };
     const workspace = await this.resolveWorkspace(userId, plan);
-    const pinned = await this.pinConfigurations(
+    const pinned = await this.pins.pin(
       userId,
       { ...plan, projectId: workspace.projectId },
       null,
@@ -756,7 +751,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
       proposed.projectId !== workspace.projectId
     )
       throw new AgentError("plan_context_changed");
-    proposed = await this.pinConfigurations(
+    proposed = await this.pins.pin(
       userId,
       { ...proposed, projectId: workspace.projectId },
       previous,
@@ -785,86 +780,5 @@ export class AgentPlanService extends AgentPlanTeamReads {
         await this.dependencies.preparation.prepare(userId, plan);
     }
     return plan;
-  }
-
-  private async pinConfigurations(
-    userId: string,
-    plan: AgentPlanInput,
-    previous: AgentPlanView | null,
-  ): Promise<AgentPlanInput> {
-    await this.scripts.requireProfiles(
-      withInheritedPlanTarget(plan).nodes,
-      previous?.nodes ?? [],
-    );
-    const catalog = await this.dependencies.profiles.catalog(
-      userId,
-      plan.projectId ?? null,
-    );
-    const pinned = mapPlanSteps(plan, (node) => {
-      if (node.configuration) return node;
-      const saved = previous
-        ? allPlanSteps(previous).find((entry) => entry.id === node.id)
-        : undefined;
-      if (saved?.agentId === node.agentId && saved.configuration)
-        return { ...node, configuration: structuredClone(saved.configuration) };
-      const source = catalog.find((entry) => entry.id === node.agentId);
-      return source
-        ? { ...node, configuration: copyPlanConfiguration(source) }
-        : node;
-    });
-    const groupConnections = new Map<
-      string,
-      Readonly<Record<string, string>>
-    >();
-    for (const node of await localPlanModelSteps(
-      this.dependencies.remoteExecution,
-      userId,
-      pinned,
-    )) {
-      if (!node.configuration) continue;
-      const resolved = await this.dependencies.profiles.resolveDefinition(
-        userId,
-        {
-          agentId: node.agentId,
-          personalAgentId: node.personalAgentId,
-          projectId: plan.projectId ?? previous?.projectId ?? null,
-          configuration: node.configuration,
-        },
-      );
-      const group = pinned.nodes.find(
-        (entry) =>
-          entry.type === "group" &&
-          entry.steps.some((step) => step.id === node.id),
-      );
-      if (group) {
-        const fields = {
-          "provider/adapter": resolved.assignment.connection.provider,
-          connectionId: resolved.assignment.connection.id,
-        };
-        if (!isAcpProvider(fields["provider/adapter"]))
-          throw new AgentPlanValidationError([
-            {
-              nodeId: node.id,
-              port: "provider/adapter",
-              reason: "groupProvider",
-            },
-          ]);
-        requireCompatibleFields(
-          node.id,
-          fields,
-          groupConnections.get(group.id) ?? null,
-        );
-        groupConnections.set(group.id, fields);
-      }
-      const saved = previous
-        ? allPlanSteps(previous).find((entry) => entry.id === node.id)
-        : undefined;
-      requireAllowedRunOptions(
-        resolved.assignment.connection.provider,
-        node.configuration.template.run,
-        saved?.configuration?.template.run,
-      );
-    }
-    return pinned;
   }
 }

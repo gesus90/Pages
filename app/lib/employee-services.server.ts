@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { CliHostMcpServers } from "@/backend/agents/cli/CliHostMcpServers";
 import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
@@ -55,6 +57,7 @@ import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitio
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { AutomationService } from "@/backend/service/automation/AutomationService";
 import type { AgentDeletionDependencies } from "@/backend/service/employee/AgentDeletionService";
+import type { AgentLearningDependencies } from "@/backend/service/employee/AgentLearningService";
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { AgentHostFileStores } from "@/backend/service/employee/AgentHostFiles";
@@ -160,6 +163,27 @@ function startBackground(
     automationService: input.automations,
     sessions: parts.sessions,
   });
+}
+
+/** The learning service; its runs and the other background work start only in the process that owns it. */
+function createLearning(
+  input: EmployeeServicesInput,
+  parts: {
+    readonly dependencies: AgentLearningDependencies;
+    readonly sessions: AgentEmployeeSessions;
+    readonly isBackgroundOwner: boolean;
+    readonly hasModel: boolean;
+  },
+): AgentLearningService {
+  const learning = new AgentLearningService(parts.dependencies);
+  if (parts.isBackgroundOwner)
+    startBackground(input, {
+      store: parts.dependencies.store,
+      learning,
+      sessions: parts.sessions,
+      hasModel: parts.hasModel,
+    });
+  return learning;
 }
 
 /** What the group observer and the decision model run on, simulated while the simulation is on. */
@@ -288,11 +312,6 @@ function simulatedAgent(
     : null;
 }
 
-/**
- * Wires agents, their sessions and learning runs, the chat directory and
- * person colors on the shared database; the learning scheduler runs only in
- * the process that serves the chat.
- */
 function createDeletionFiles(
   input: EmployeeServicesInput,
 ): NonNullable<AgentDeletionDependencies["files"]> {
@@ -324,7 +343,98 @@ function createDeletionService(
   });
 }
 
-/** Builds the user and agent employee services for one database. */
+/**
+ * The gates of the sessions of agents: the host access, read anew so that
+ * bubblewrap and the MCP configuration of the CLIs change without a restart
+ * (PAGE-303), and one place per running chat session of an agent within the
+ * stored limits (PAGE-304).
+ */
+function createSessionGates(database: Database): {
+  readonly accessEnvironment: AgentAccessEnvironmentService;
+  readonly sessionSettings: AgentSessionSettingsRepository;
+  readonly slots: AgentSessionSlots;
+} {
+  const sessionSettings = new AgentSessionSettingsRepository(database);
+  return {
+    accessEnvironment: new AgentAccessEnvironmentService({
+      isIsolationAvailable: () => probeBubblewrap(),
+      mcp: new CliHostMcpServers(),
+    }),
+    sessionSettings,
+    slots: new AgentSessionSlots(() => sessionSettings.read()),
+  };
+}
+
+/** What the services of the employee area are assembled from once the sessions and conversations are wired. */
+interface EmployeeParts {
+  readonly input: EmployeeServicesInput;
+  readonly store: EmployeeStore;
+  readonly authorization: AuthorizationRepository;
+  readonly users: UserRepository;
+  readonly messages: ChatSessionRepository;
+  readonly models: AgentEmployeeModels;
+  readonly languages: UserSettingsRepository;
+  readonly memory: AgentMemoryService;
+  readonly activity: AgentActivityService;
+  readonly accessEnvironment: AgentAccessEnvironmentService;
+  readonly sessionSettings: AgentSessionSettingsRepository;
+  readonly slots: AgentSessionSlots;
+  readonly sessions: AgentEmployeeSessions;
+  readonly conversations: ConversationApplicationServices;
+  readonly learning: AgentLearningService;
+  readonly privacy: AgentChatPrivacyService;
+}
+
+function assembleEmployeeServices(
+  parts: EmployeeParts,
+): EmployeeApplicationServices {
+  const { input, store, authorization, models, languages, sessions } = parts;
+  return {
+    ...parts.conversations,
+    agentEmployeeAdministration: new AgentEmployeeAdministration({
+      authorization,
+      cache: input.cache,
+      models,
+      memory: parts.memory,
+      activity: parts.activity,
+      accessEnvironment: parts.accessEnvironment,
+    }),
+    agentDeletionService: createDeletionService(input, authorization),
+    agentTemplateService: new AgentTemplateService({
+      store,
+      authorization,
+      languages,
+      defaults: defaultAgentTemplateTexts,
+    }),
+    agentProfileReadService: new AgentProfileReadService({
+      database: input.database,
+      models,
+    }),
+    agentEmployeeSessions: sessions,
+    agentSessionLimitService: new AgentSessionLimitService(
+      parts.sessionSettings,
+      parts.slots,
+    ),
+    agentLearningService: parts.learning,
+    agentChatPrivacyService: parts.privacy,
+    chatDirectoryService: createChatDirectory({
+      database: input.database,
+      store,
+      users: parts.users,
+      messages: parts.messages,
+      sessions,
+      conversations: parts.conversations,
+    }),
+    chatGroupService: new ChatGroupService({ store }),
+    personColorService: new PersonColorService(authorization, input.cache),
+  };
+}
+
+/**
+ * Wires agents, their sessions and learning runs, the chat directory and
+ * person colors on the shared database; the learning scheduler runs only in
+ * the process that serves the chat.
+ */
 export function createEmployeeServices(
   input: EmployeeServicesInput,
 ): EmployeeApplicationServices {
@@ -353,15 +463,8 @@ export function createEmployeeServices(
   const activity = new AgentActivityService(store);
   // The reader exists once the conversations are wired below.
   let contextReader: ConversationContextReader | null = null;
-  // Bubblewrap and the MCP configuration of the CLIs are read anew, so they
-  // change without a restart (PAGE-303).
-  const accessEnvironment = new AgentAccessEnvironmentService({
-    isIsolationAvailable: () => probeBubblewrap(),
-    mcp: new CliHostMcpServers(),
-  });
-  // One place per running chat session of an agent, within the stored limits (PAGE-304).
-  const sessionSettings = new AgentSessionSettingsRepository(database);
-  const slots = new AgentSessionSlots(() => sessionSettings.read());
+  const { accessEnvironment, sessionSettings, slots } =
+    createSessionGates(database);
   const sessions = new AgentEmployeeSessions({
     store,
     users,
@@ -402,55 +505,28 @@ export function createEmployeeServices(
   });
   contextReader = conversations.conversationContextReader;
   agentChat = conversations.agentChatService;
-  const learning = new AgentLearningService({
-    store,
-    users,
-    memory,
-    model: memoryModel,
-    activity,
+  const learning = createLearning(input, {
+    dependencies: { store, users, memory, model: memoryModel, activity },
+    sessions,
+    isBackgroundOwner,
+    hasModel: input.acp !== null || simulation.isActive,
   });
-  if (isBackgroundOwner)
-    startBackground(input, {
-      store,
-      learning,
-      sessions,
-      hasModel: input.acp !== null || simulation.isActive,
-    });
-  return {
-    ...conversations,
-    agentEmployeeAdministration: new AgentEmployeeAdministration({
-      authorization,
-      cache: input.cache,
-      models,
-      memory,
-      activity,
-      accessEnvironment,
-    }),
-    agentDeletionService: createDeletionService(input, authorization),
-    agentTemplateService: new AgentTemplateService({
-      store,
-      authorization,
-      languages,
-      defaults: defaultAgentTemplateTexts,
-    }),
-    agentProfileReadService: new AgentProfileReadService({ database, models }),
-    agentEmployeeSessions: sessions,
-    agentSessionLimitService: new AgentSessionLimitService(
-      sessionSettings,
-      slots,
-    ),
-    agentLearningService: learning,
-    agentChatPrivacyService: privacy,
-    chatDirectoryService: createChatDirectory({
-      database,
-      store,
-      users,
-      messages,
-      sessions,
-      conversations,
-    }),
-    chatGroupService: new ChatGroupService({ store }),
-    personColorService: new PersonColorService(authorization, input.cache),
-  };
+  return assembleEmployeeServices({
+    input,
+    store,
+    authorization,
+    users,
+    messages,
+    models,
+    languages,
+    memory,
+    activity,
+    accessEnvironment,
+    sessionSettings,
+    slots,
+    sessions,
+    conversations,
+    learning,
+    privacy,
+  });
 }
-import path from "node:path";

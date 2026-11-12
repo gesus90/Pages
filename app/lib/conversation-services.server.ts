@@ -56,6 +56,7 @@ import type { SimulatedConversationObserver } from "@/backend/agents/simulation/
 import type { Database } from "@/backend/database/Database";
 import type { ConversationLinkFetcher } from "@/backend/service/conversation/links/ConversationLinkFetcher";
 import type { ConversationAgentRunner } from "@/backend/service/conversation/ConversationAgentReplies";
+import type { ConversationEvents } from "@/backend/service/conversation/ConversationEvents";
 import type { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
@@ -192,46 +193,16 @@ export function createConversationServices(
     messages,
     directory,
   });
-  const agentChat = new ConversationAgentChatRepository(database);
-  const agentChatSettings = new AgentChatSettingsRepository(database);
-  const conversationOversight = new ConversationOversight({
-    authorization: new AuthorizationRepository(database),
-    chat: agentChat,
-    reader: conversationReader,
-  });
-  const conversationAgentGuard = new ConversationAgentGuard({
-    chat: agentChat,
-    settings: agentChatSettings,
-    members: conversationReader,
-    oversight: conversationOversight,
-    publisher: input.events,
-  });
-  const conversationAgentReplies = new ConversationAgentReplies({
-    conversations,
-    messages,
-    directory,
-    runner: input.runner,
-    rounds: observer.rounds,
-    contexts: observer.reader,
-    routing: observer.routing,
+  const agentChat = createAgentChatParts(input, conversationReader);
+  const { guard: conversationAgentGuard } = agentChat;
+  const conversationAgentReplies = createReplies(input, {
+    shared: { conversations, messages, directory },
+    observer,
     replySettings,
-    decisions: new ConversationChatDecisions({
-      messages,
-      rounds: observer.rounds,
-      decisions,
-      model: new ConversationDecisionModel({
-        settings: input.observer.decision,
-        plans: input.observer.plans,
-        simulation: input.observer.decisionSimulation,
-      }),
-      publisher: input.events,
-    }),
+    decisions,
     events,
-    publisher: input.events,
     guard: conversationAgentGuard,
-    agentFiles: new ConversationAgentFiles(),
-    attachments: content.attachments,
-    content: content.reader,
+    content,
   });
   globalThis.pagesConversationAgentReplies?.();
   globalThis.pagesConversationAgentReplies = conversationAgentReplies.start();
@@ -270,8 +241,8 @@ export function createConversationServices(
       new ChatViewPreferenceRepository(database),
     ),
     conversationAgentGuard,
-    agentChatSettingsService: new AgentChatSettingsService(agentChatSettings),
-    conversationOversight,
+    agentChatSettingsService: agentChat.settingsService,
+    conversationOversight: agentChat.oversight,
     agentChatService: new AgentChatService({
       users: new UserRepository(database),
       groups: new UserGroupRepository(database),
@@ -283,6 +254,83 @@ export function createConversationServices(
       events,
     }),
   };
+}
+
+/** The guard, the oversight and the settings of the chat between agents (PAGE-311). */
+function createAgentChatParts(
+  input: ConversationServicesInput,
+  reader: ConversationReader,
+): {
+  readonly guard: ConversationAgentGuard;
+  readonly oversight: ConversationOversight;
+  readonly settingsService: AgentChatSettingsService;
+} {
+  const { database } = input;
+  const chat = new ConversationAgentChatRepository(database);
+  const settings = new AgentChatSettingsRepository(database);
+  const oversight = new ConversationOversight({
+    authorization: new AuthorizationRepository(database),
+    chat,
+    reader,
+  });
+  return {
+    oversight,
+    settingsService: new AgentChatSettingsService(settings),
+    guard: new ConversationAgentGuard({
+      chat,
+      settings,
+      members: reader,
+      oversight,
+      publisher: input.events,
+    }),
+  };
+}
+
+/** What the answers of agents in conversations are wired from. */
+interface ReplyParts {
+  readonly shared: {
+    readonly conversations: ConversationRepository;
+    readonly messages: ConversationMessageRepository;
+    readonly directory: ConversationDirectory;
+  };
+  readonly observer: ObserverParts;
+  readonly replySettings: ConversationReplySettingsRepository;
+  readonly decisions: ConversationDecisionRepository;
+  readonly events: ConversationEvents;
+  readonly guard: ConversationAgentGuard;
+  readonly content: ContentParts;
+}
+
+function createReplies(
+  input: ConversationServicesInput,
+  parts: ReplyParts,
+): ConversationAgentReplies {
+  const { shared, observer, content } = parts;
+  return new ConversationAgentReplies({
+    ...shared,
+    runner: input.runner,
+    rounds: observer.rounds,
+    contexts: observer.reader,
+    routing: observer.routing,
+    replySettings: parts.replySettings,
+    decisions: new ConversationChatDecisions({
+      messages: shared.messages,
+      rounds: observer.rounds,
+      decisions: parts.decisions,
+      model: new ConversationDecisionModel({
+        settings: input.observer.decision,
+        plans: input.observer.plans,
+        simulation: input.observer.decisionSimulation,
+      }),
+      publisher: input.events,
+    }),
+    events: parts.events,
+    publisher: input.events,
+    guard: parts.guard,
+    agentFiles: new ConversationAgentFiles(),
+    attachments: content.attachments,
+    content: content.reader,
+  });
 }
 
 /** The content of messages: files, links and what reads both (PAGE-298). */

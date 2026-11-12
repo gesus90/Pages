@@ -520,6 +520,46 @@ function registerAdministratorTools(
 }
 
 /**
+ * Registers the tools a job of an agent employee offers beside the Pages
+ * tools, and the deletion of agents; each is offered only when the job
+ * provides it.
+ */
+function registerAgentEmployeeTools(
+  registry: RuntimeToolRegistry,
+  input: PicaToolsInput,
+  budget: ToolBudget,
+): void {
+  registerPicaEmployeeTools(registry, input, () => spend(input, budget));
+  const { attachHostFile } = input;
+  if (attachHostFile)
+    registerPicaHostFileTools(registry, {
+      attach: attachHostFile,
+      admit: async (context) => {
+        await input.authorize();
+        context.signal.throwIfAborted();
+        return spend(input, budget);
+      },
+    });
+  const agentChat = input.agentChat;
+  if (agentChat)
+    registerPicaChatTools(registry, {
+      chat: agentChat,
+      searchTargets: (userId, parameters) =>
+        input.tools.run(
+          userId,
+          { operation: "assignment.targets.search", parameters },
+          null,
+        ),
+      authorize: input.authorize,
+      spend: () => spend(input, budget),
+    });
+  if (input.agentDeletions)
+    registerPicaAgentDeletionTools(registry, input.agentDeletions, () =>
+      spend(input, budget),
+    );
+}
+
+/**
  * Creates the native tools with fixed service dispatch and fresh rights.
  *
  * @remarks
@@ -606,34 +646,7 @@ export function createPicaTools(
       execute: (parameters, context) =>
         createAnswerFile(input, budget, { parameters, context }),
     });
-  registerPicaEmployeeTools(registry, input, () => spend(input, budget));
-  const { attachHostFile } = input;
-  if (attachHostFile)
-    registerPicaHostFileTools(registry, {
-      attach: attachHostFile,
-      admit: async (context) => {
-        await input.authorize();
-        context.signal.throwIfAborted();
-        return spend(input, budget);
-      },
-    });
-  const agentChat = input.agentChat;
-  if (agentChat)
-    registerPicaChatTools(registry, {
-      chat: agentChat,
-      searchTargets: (userId, parameters) =>
-        input.tools.run(
-          userId,
-          { operation: "assignment.targets.search", parameters },
-          null,
-        ),
-      authorize: input.authorize,
-      spend: () => spend(input, budget),
-    });
-  if (input.agentDeletions)
-    registerPicaAgentDeletionTools(registry, input.agentDeletions, () =>
-      spend(input, budget),
-    );
+  registerAgentEmployeeTools(registry, input, budget);
   if (input.adminTools)
     registerAdministratorTools(registry, {
       input,

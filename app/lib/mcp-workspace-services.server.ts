@@ -33,11 +33,8 @@ import type { EmployeeApplicationServices } from "./employee-services.server";
 import type { McpApplicationServices } from "./mcp-services.server";
 import type { ApplicationServices } from "./services.server";
 
-/**
- * Builds the agent write services and the chat on the same operation catalog,
- * and shares the existing maintenance scheduler.
- */
-export async function startMcpWorkspace(context: {
+/** What the workspace services are built from. */
+interface McpWorkspaceContext {
   readonly database: Database;
   readonly databasePath: string;
   readonly accounts: {
@@ -62,9 +59,13 @@ export async function startMcpWorkspace(context: {
   >;
   readonly serverCache: ServerCache;
   readonly tokenKey: Buffer;
-}): Promise<
-  McpApplicationServices & ChatApplicationServices & EmployeeApplicationServices
-> {
+}
+
+/** The agent write services on the operation catalog of the chat. */
+function createWorkspaceServices(
+  context: McpWorkspaceContext,
+  directory: string,
+): McpApplicationServices {
   // The publisher of the ticket pages, on its own repository: agent ticket changes
   // follow the same GitHub rule once they are committed.
   const taskRepository = new TaskRepository(context.database);
@@ -75,8 +76,7 @@ export async function startMcpWorkspace(context: {
   );
   publisher.attach(context.tasks.gitHubSyncService);
   const { users, administration } = context.accounts;
-  const directory = path.dirname(context.databasePath);
-  const services = createMcpServices(context.database, users, administration, {
+  return createMcpServices(context.database, users, administration, {
     directory,
     wikiService: context.wiki,
     tickets: { cache: context.serverCache, publisher },
@@ -96,6 +96,19 @@ export async function startMcpWorkspace(context: {
     events: context.tasks.pagesEventPublisher,
     automations: context.agents.automationService,
   });
+}
+
+/**
+ * Builds the agent write services and the chat on the same operation catalog,
+ * and shares the existing maintenance scheduler.
+ */
+export async function startMcpWorkspace(
+  context: McpWorkspaceContext,
+): Promise<
+  McpApplicationServices & ChatApplicationServices & EmployeeApplicationServices
+> {
+  const directory = path.dirname(context.databasePath);
+  const services = createWorkspaceServices(context, directory);
   const runtime = await getPagesRuntime();
   const picaSettings = await picaAcpSettings();
   const chat = createChatServices({

@@ -334,6 +334,58 @@ async function runContentIntent(
   }
 }
 
+/** The changes that stop or release the answers of agents (PAGE-304, PAGE-311). */
+const AGENT_CONTROL_INTENTS = [
+  "stop",
+  "stop-group",
+  "cancel-tool",
+  "resume-agents",
+] as const;
+
+type AgentControlIntent = (typeof AGENT_CONTROL_INTENTS)[number];
+
+function isAgentControlIntent(
+  intent: ChatPageIntent,
+): intent is AgentControlIntent {
+  return AGENT_CONTROL_INTENTS.some((candidate) => candidate === intent);
+}
+
+/** Stops the answer of an agent or one of its tool calls, or lets paused agents go on. */
+async function runAgentControlIntent(
+  services: ChatServices,
+  person: User,
+  intent: AgentControlIntent,
+  formData: FormData,
+): Promise<void> {
+  switch (intent) {
+    case "stop":
+      await services.agentEmployeeSessions.stop(
+        person,
+        formData.get("agentId"),
+      );
+      return;
+    case "stop-group":
+      // Only the answer of this agent in this conversation stops (PAGE-304).
+      await services.conversationAgentReplies.stop(
+        person,
+        String(formData.get("groupId") ?? ""),
+        String(formData.get("agentId") ?? ""),
+      );
+      return;
+    case "cancel-tool":
+      await services.agentEmployeeSessions.cancelTool(
+        person,
+        formData.get("agentId"),
+      );
+      return;
+    case "resume-agents":
+      await services.conversationAgentGuard.resume(
+        person,
+        String(formData.get("conversationId") ?? ""),
+      );
+  }
+}
+
 /** Runs one change of the person; returns a created group or a history page. */
 async function runIntent(
   services: ChatServices,
@@ -345,6 +397,10 @@ async function runIntent(
     return runMemberIntent(services, person, intent, formData);
   if (isContentIntent(intent)) {
     await runContentIntent(services, person, intent, formData);
+    return {};
+  }
+  if (isAgentControlIntent(intent)) {
+    await runAgentControlIntent(services, person, intent, formData);
     return {};
   }
   switch (intent) {
@@ -362,26 +418,6 @@ async function runIntent(
       });
       await recordParticipantActivity(
         services,
-        person,
-        formData.get("agentId"),
-      );
-      return {};
-    case "stop":
-      await services.agentEmployeeSessions.stop(
-        person,
-        formData.get("agentId"),
-      );
-      return {};
-    case "stop-group":
-      // Only the answer of this agent in this conversation stops (PAGE-304).
-      await services.conversationAgentReplies.stop(
-        person,
-        String(formData.get("groupId") ?? ""),
-        String(formData.get("agentId") ?? ""),
-      );
-      return {};
-    case "cancel-tool":
-      await services.agentEmployeeSessions.cancelTool(
         person,
         formData.get("agentId"),
       );
@@ -418,12 +454,6 @@ async function runIntent(
     case "reply-settings":
     case "save-reply-settings":
       return runReplySettingsIntent(services, person, intent, formData);
-    case "resume-agents":
-      await services.conversationAgentGuard.resume(
-        person,
-        String(formData.get("conversationId") ?? ""),
-      );
-      return {};
   }
 }
 

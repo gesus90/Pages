@@ -282,6 +282,32 @@ export async function loader({
   }
 }
 
+/** Stops, pauses or resumes a run of the person and answers with the run as it is now. */
+async function runControlAction(
+  userId: string,
+  plans: AgentPlanService,
+  request: {
+    readonly intent: "stop-plan" | "pause-plan" | "resume-plan";
+    readonly formData: FormData;
+  },
+): Promise<Response> {
+  const { intent, formData } = request;
+  const operations = {
+    "stop-plan": plans.stop.bind(plans),
+    "pause-plan": plans.pause.bind(plans),
+    "resume-plan": plans.resume.bind(plans),
+  };
+  const runId = readPlanText(formData.get("runId"));
+  const run =
+    intent === "resume-plan"
+      ? await plans.resume(userId, runId, Number(formData.get("revision")))
+      : await operations[intent](userId, runId);
+  return Response.json(
+    { ok: true, intent, run: displayPlanRun(run) },
+    { headers: AGENT_NO_STORE },
+  );
+}
+
 /**
  * Save, Create, Clone, Delete, Play, Pause, Resume and Stop use the authenticated executor and live server permissions.
  *
@@ -317,32 +343,11 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       intent === "stop-plan" ||
       intent === "pause-plan" ||
       intent === "resume-plan"
-    ) {
-      const operations = {
-        "stop-plan": services.agentPlanService.stop.bind(
-          services.agentPlanService,
-        ),
-        "pause-plan": services.agentPlanService.pause.bind(
-          services.agentPlanService,
-        ),
-        "resume-plan": services.agentPlanService.resume.bind(
-          services.agentPlanService,
-        ),
-      };
-      const runId = readPlanText(formData.get("runId"));
-      const run =
-        intent === "resume-plan"
-          ? await services.agentPlanService.resume(
-              user.id,
-              runId,
-              Number(formData.get("revision")),
-            )
-          : await operations[intent](user.id, runId);
-      return Response.json(
-        { ok: true, intent, run: displayPlanRun(run) },
-        { headers: AGENT_NO_STORE },
-      );
-    }
+    )
+      return await runControlAction(user.id, services.agentPlanService, {
+        intent,
+        formData,
+      });
     throw new AgentError("plan_invalid");
   } catch (error: unknown) {
     logCaughtError("agent_plans", error);
