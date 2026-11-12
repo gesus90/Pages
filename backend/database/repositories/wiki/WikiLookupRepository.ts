@@ -1,7 +1,4 @@
-import {
-  readNullableTextColumn,
-  readTextColumn,
-} from "@/backend/database/RowValue";
+import { readIdListColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import { escapeLike } from "./WikiLinkRepository";
 import { createInCondition } from "./WikiVisibility";
@@ -178,7 +175,7 @@ export class WikiLookupRepository {
       key: string;
       title: string;
       projectId: string;
-      departmentId: string | null;
+      departmentIds: string[];
     }[]
   > {
     const projects = createInCondition(
@@ -193,7 +190,11 @@ export class WikiLookupRepository {
             epic.key,
             epic.title,
             epic.project_id,
-            epic.department_id
+            COALESCE((
+                SELECT json_agg(epic_department.department_id ORDER BY epic_department.department_id)::text
+                FROM work_item_departments AS epic_department
+                WHERE epic_department.work_item_id = epic.id
+            ), '[]') AS department_ids
         FROM work_items AS epic
         WHERE epic.type = 'epic'
             AND ${projects.sql}
@@ -203,7 +204,7 @@ export class WikiLookupRepository {
     );
 
     return rows.map((row) => ({
-      departmentId: readNullableTextColumn(row, 4, "department_id"),
+      departmentIds: readIdListColumn(row, 4, "department_ids"),
       id: readTextColumn(row, 0, "id"),
       key: readTextColumn(row, 1, "key"),
       projectId: readTextColumn(row, 3, "project_id"),

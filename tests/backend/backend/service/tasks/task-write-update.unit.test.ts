@@ -209,7 +209,7 @@ describe("refused ticket updates", () => {
   });
 
   it("reports a ticket of a foreign department as missing", async () => {
-    world.addTicket("hidden", { departmentId: "design" });
+    world.addTicket("hidden", { departmentIds: ["design"] });
 
     await expect(
       world.tasks.update(world.user("writer"), "hidden", change()),
@@ -222,7 +222,7 @@ describe("hidden parents", () => {
     world.addTicket("secret-epic", {
       type: "epic",
       key: "ALP-7",
-      departmentId: "design",
+      departmentIds: ["design"],
     });
     world.addTicket("child", { parentId: "secret-epic", key: "ALP-8" });
   });

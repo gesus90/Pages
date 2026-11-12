@@ -27,8 +27,11 @@ beforeEach(() => {
   world = new TaskWorld();
   guard = guardOf(world);
   world.addTicket("t1");
-  world.addTicket("hidden", { departmentId: "design" });
-  world.addTicket("beta-ticket", { projectId: "beta", departmentId: "design" });
+  world.addTicket("hidden", { departmentIds: ["design"] });
+  world.addTicket("beta-ticket", {
+    projectId: "beta",
+    departmentIds: ["design"],
+  });
 });
 
 describe("reading a ticket", () => {

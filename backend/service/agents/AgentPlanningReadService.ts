@@ -14,6 +14,7 @@ import {
   readAgentTicketTags,
 } from "./AgentPlanningEnrichment";
 import { createAgentTaskContext } from "./AgentTaskAccess";
+import { describeTicketDepartments } from "./AgentTicketDepartments";
 import { translateAgentTicketError } from "./AgentTicketErrors";
 import {
   readAgentMilestonesRead,
@@ -116,9 +117,7 @@ export class AgentPlanningReadService {
           directory.groups
             .filter(({ id }) => id === ticket.assigneeGroupId)
             .map(({ id, name }) => ({ id, name }))[0] ?? null,
-        department:
-          directory.departments.find(({ id }) => id === ticket.departmentId) ??
-          null,
+        ...describeTicketDepartments(directory.departments, ticket),
       });
     } catch (error: unknown) {
       logCaughtError("AgentPlanningReadService", error);
@@ -205,10 +204,7 @@ export class AgentPlanningReadService {
             directory.groups
               .filter(({ id }) => id === ticket.assigneeGroupId)
               .map(({ id, name }) => ({ id, name }))[0] ?? null,
-          department:
-            directory.departments.find(
-              ({ id }) => id === ticket.departmentId,
-            ) ?? null,
+          ...describeTicketDepartments(directory.departments, ticket),
         })),
       };
       return this.respond({

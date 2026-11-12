@@ -2229,7 +2229,17 @@
       "none": "Keine Automatisierungsregeln konfiguriert"
     },
     "department": {
-      "none": "Keine Abteilung"
+      "none": "Keine Abteilung",
+      "noneChip": "Ohne Abteilung",
+      "noneHint": "Ohne Abteilung sehen alle mit Zugang zum Projekt das Ticket.",
+      "restrictedHint": "Nur Mitglieder dieser Abteilungen sehen und bearbeiten das Ticket.",
+      "add": "Abteilung hinzufügen",
+      "remove": "{{name}} entfernen",
+      "clearConfirm": "Alle Abteilungen entfernen? Das Ticket wird dann für alle mit Zugang zum Projekt sichtbar.",
+      "assigneeNoSight": "{{name}} gehört keiner Abteilung dieses Tickets an und kann es nicht sehen.",
+      "groupNoSight": "Mitglieder der Gruppe „{{name}}“ gehören keiner Abteilung dieses Tickets an und können es nicht sehen.",
+      "assigneeDismiss": "Schließen",
+      "assigneeAddDepartment": "Abteilung „{{department}}“ hinzufügen"
     },
     "permissions": {
       "readOnly": "Du hast nur Leserechte für dieses Ticket. Archivieren und Bearbeiten sind nicht möglich."
@@ -3875,7 +3885,62 @@
     "unmute": "Stummschaltung aufheben",
     "muted": "Stummgeschaltet",
     "loadOlder": "Ältere Nachrichten laden",
-    "loadingOlder": "Lädt …"
+    "loadingOlder": "Lädt …",
+    "decision": {
+      "summary": {
+        "responders": "Entscheidung: {{names}} antwortet",
+        "nobody": "Entscheidung: niemand antwortet"
+      },
+      "chosen": "Gewählt:",
+      "nobody": "niemand",
+      "reason": "Begründung:",
+      "noReason": "Keine Begründung vorhanden.",
+      "needsAnswer": "Frage oder Bitte erkannt:",
+      "needsAnswerYes": "ja",
+      "needsAnswerNo": "nein",
+      "suggested": "Vermutlich zuständig:",
+      "fallback": "Fallback:",
+      "fallbackBadge": "Fallback",
+      "fallbacks": {
+        "none": "Nein, das Entscheidungsmodell hat entschieden.",
+        "no_model": "Ja: Es ist kein Entscheidungsmodell nutzbar.",
+        "model_failed": "Ja: Das Entscheidungsmodell ist fehlgeschlagen oder gab keine gültige Antwort.",
+        "unclear": "Ja: Es war nicht klar, wer angesprochen ist."
+      },
+      "notice": "Niemand hat geantwortet, weil nicht klar war, wer angesprochen ist. Sprich jemanden mit @ direkt an.",
+      "noticeSuggested": "Vermutlich zuständig: {{names}}."
+    },
+    "replySettings": {
+      "open": "Wer antwortet?",
+      "title": "Wer antwortet in „{{name}}“?",
+      "description": "Legt fest, wer auf eine Nachricht ohne @-Erwähnung antwortet. Wer mit @ angesprochen wird, antwortet immer.",
+      "mode": "Wer antwortet?",
+      "modes": {
+        "mentions": {
+          "label": "Alle angesprochenen Agents",
+          "description": "Nur mit @ genannte Agents antworten."
+        },
+        "observer": {
+          "label": "Beobachter-Agent",
+          "description": "Der Beobachter wählt anhand des Gruppenkontexts, wer beiträgt."
+        },
+        "decision": {
+          "label": "Entscheidungsmodell",
+          "description": "Das Entscheidungsmodell der Instanz wählt keinen, einen oder mehrere Agents."
+        }
+      },
+      "defaultResponder": "Standard-Antwortender",
+      "noDefault": "Niemand",
+      "defaultHint": "Antwortet, wenn unklar ist, wer angesprochen ist, und sagt das offen. Ohne Standard-Antwortenden erscheint stattdessen ein Hinweis.",
+      "maximum": "Höchstzahl Antwortende je Nachricht",
+      "modelHint": "Das Modell wird nicht je Chat gewählt: Es gilt das Entscheidungsmodell aus Einstellungen → Agents.",
+      "save": "Speichern",
+      "saved": "Einstellung gespeichert.",
+      "saveFailed": "Die Einstellung konnte nicht gespeichert werden.",
+      "readOnly": "Nur wer den Chat verwaltet, darf das ändern.",
+      "loading": "Einstellung wird geladen …",
+      "failed": "Die Einstellung konnte nicht geladen werden."
+    }
   },
   "workspaces": {
     "title": "Arbeitsverzeichnis",
@@ -4850,6 +4915,7 @@
         },
         "sidebar": {
           "todos": "To-dos {{done}} / {{total}}",
+          "agentTodos": "Agent-TODO {{done}} / {{total}}",
           "noTodos": "Keine To-dos",
           "todoStatus": {
             "done": "erledigt",
@@ -5495,7 +5561,14 @@
         "cycle": "im Zyklus – ohne Nummer"
       },
       "todoLabel": "TODOs",
-      "todoSummary": "{{completed}} erledigt · {{active}} in Arbeit · {{open}} als Nächstes"
+      "todoSummary": "{{completed}} erledigt · {{active}} in Arbeit · {{open}} als Nächstes",
+      "agentTodos": {
+        "heading": "Agent-TODO",
+        "empty": "Keine TODO-Liste gemeldet",
+        "count": "{{done}} von {{total}} erledigt",
+        "current": "Aktuell: {{text}}",
+        "noCurrent": "Kein TODO in Arbeit gemeldet"
+      }
     },
     "loops": {
       "defaultName": "Loop",
@@ -5869,6 +5942,19 @@
       "clone": "Klonen",
       "cloneName": "{{name}} – Kopie",
       "cloneSource": "Kopie von {{name}}",
+      "cloneOneShotItem": "Als Einmal-Plan kopieren",
+      "cloneOneShotTitle": "Als Einmal-Plan kopieren",
+      "cloneOneShotLabel": "einmalig",
+      "cloneOneShotNote": "Die Kopie ist ein Einmal-Plan: Pages löscht sie samt ihren Läufen 5 Minuten nach einem erfolgreich beendeten Lauf.",
+      "oneShot": "Einmal-Plan",
+      "oneShotHint": "Pages löscht den Plan samt Läufen 5 Minuten nach einem erfolgreich beendeten Lauf.",
+      "oneShotConfirmTitle": "Als Einmal-Plan festlegen?",
+      "oneShotConfirmBody": "Endet ein Lauf dieses Plans erfolgreich, löscht Pages den Plan samt allen Läufen, Berichten, Diagnosen, Sitzungsdaten und Arbeitsdateien 5 Minuten später. Bis dahin lässt sich das Löschen mit „Behalten“ abbrechen. Bei fehlgeschlagenen, abgebrochenen oder offenen Läufen bleibt der Plan bestehen.",
+      "oneShotConfirmKept": "Nicht gelöscht werden Commits, gepushte Branches, Änderungen an Tickets und Wiki-Seiten, angehängte Dateien sowie gemeinsam genutzte Arbeitsplätze, Agents, Vorlagen und Parameter anderer Pläne.",
+      "oneShotConfirm": "Als Einmal-Plan festlegen",
+      "oneShotBadge": "Einmal-Plan",
+      "oneShotDeletion": "Wird um {{time}} gelöscht",
+      "oneShotKeep": "Behalten",
       "cloneUnsaved": "Ungespeicherte Änderungen werden weder kopiert noch gespeichert; sie bleiben im Editor.",
       "deleteTitle": "Plan löschen?",
       "deleteQuestion": "Möchtest du „{{name}}“ wirklich löschen?",
@@ -6451,6 +6537,25 @@
       "general": "Die Einstellung konnte nicht gespeichert werden.",
       "accessUnverified": "Der Zugang dieser Anbindung ist nicht bestätigt. Verifiziere sie zuerst in den Agent-Einstellungen.",
       "profileSelectionRequired": "Mehrere Profile sind verfügbar. Bitte einen Zugang ausdrücklich auswählen."
+    }
+  },
+  "chatDecision": {
+    "title": "Entscheidungen in Chats",
+    "description": "Wählt in Gruppenchats ohne @-Erwähnung, welcher Agent antwortet. Das Modell hat keine Werkzeuge und führt keine Aktionen aus. Gilt für die ganze Instanz.",
+    "model": "Modell",
+    "chooseModel": "Modell auswählen …",
+    "noModels": "Keine eingerichtete Anbindung bietet ein Textmodell für Chats. Unter Agents eine Anbindung einrichten und ihren Modellkatalog aktualisieren.",
+    "status": {
+      "ready": "Bereit",
+      "noModel": "Kein Modell gewählt",
+      "modelUnavailable": "Modell nicht verfügbar"
+    },
+    "hint": "Ohne Modell antwortet in Gruppenchats der Standard-Antwortende.",
+    "saved": "Entscheidungsmodell gespeichert.",
+    "error": {
+      "provider_model_not_found": "Das gewählte Modell steht für Entscheidungen in Chats nicht zur Verfügung.",
+      "profile_invalid": "Die Einstellung ist ungültig. Bitte Modell und Reasoning prüfen.",
+      "profile_conflict": "Die Einstellung wurde inzwischen geändert. Seite neu laden und erneut speichern."
     }
   },
   "speechSettings": {

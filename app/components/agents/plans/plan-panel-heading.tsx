@@ -5,6 +5,7 @@ import { isPlanEditLocked } from "@/definition/AgentPlanRunState";
 
 import { Button } from "@/app/components/ui/button";
 
+import { PlanOneShotBadge, PlanOneShotNotice } from "./plan-one-shot-notice";
 import { PlanPanelMenu } from "./plan-panel-menu";
 import { PlanRunActions } from "./plan-run-actions";
 
@@ -85,6 +86,9 @@ export function PlanPanelHeading(
           <p className="text-xs wrap-anywhere text-muted-foreground">
             {planContextLine(props.page, editor, t)}
           </p>
+          {props.page.selected?.oneShot ? (
+            <PlanOneShotBadge className="mt-1" />
+          ) : null}
         </div>
         <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
           <Button
@@ -149,6 +153,12 @@ export function PlanPanelHeading(
           </div>
         </div>
       </div>
+      {props.page.selected ? (
+        <PlanOneShotNotice
+          plan={props.page.selected}
+          status={control?.status}
+        />
+      ) : null}
       <PlanSaveStatus editor={editor} control={control} />
       <PlanControlNotes {...props} />
     </>

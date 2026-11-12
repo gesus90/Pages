@@ -10,6 +10,7 @@ import {
 } from "@/definition/AgentPlanRemoteAccess";
 
 import { readPlanActivationFields } from "./AgentPlanActivationInput";
+import { readAgentTodoList } from "./AgentPlanAgentTodoInput";
 import { readPlanProgress } from "./AgentPlanProgressInput";
 import { readPlanFailureStop } from "./AgentPlanRetryInput";
 import { readPlanText } from "./AgentPlanInput";
@@ -77,7 +78,7 @@ function readStepDisplay(
 
 function readStepArtifacts(
   step: Record<string, unknown>,
-): Pick<AgentPlanStepResult, "script" | "report" | "progress"> {
+): Pick<AgentPlanStepResult, "script" | "report" | "progress" | "agentTodos"> {
   return {
     ...(step.script === undefined
       ? {}
@@ -88,6 +89,9 @@ function readStepArtifacts(
     ...(step.progress === undefined
       ? {}
       : { progress: readPlanProgress(step.progress) }),
+    ...(step.agentTodos === undefined
+      ? {}
+      : { agentTodos: readAgentTodoList(step.agentTodos) }),
   };
 }
 

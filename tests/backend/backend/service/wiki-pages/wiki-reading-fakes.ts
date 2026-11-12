@@ -63,7 +63,7 @@ export class ReadingData {
     key: string;
     title: string;
     projectId: string;
-    departmentId: string | null;
+    departmentIds: string[];
   }[] = [];
   public readonly choiceProjects: string[][] = [];
 }

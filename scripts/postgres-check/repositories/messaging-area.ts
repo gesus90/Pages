@@ -1,5 +1,6 @@
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatAttachmentRepository } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
+import { ChatDecisionSettingsRepository } from "@/backend/database/repositories/chat/ChatDecisionSettingsRepository";
 import { ChatContextRepository } from "@/backend/database/repositories/chat/ChatContextRepository";
 import { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
@@ -71,6 +72,7 @@ export const MESSAGING_AREA_CLASSES: Readonly<
   ChatAcpSessionRepository,
   ChatAttachmentRepository,
   ChatContextRepository,
+  ChatDecisionSettingsRepository,
   ChatJobRepository,
   ChatSessionRepository,
   ChatSettingsRepository,

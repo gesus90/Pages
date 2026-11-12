@@ -30,12 +30,13 @@ export function PlanManagementDialogs({
         management={management}
       />
     );
-  if (management.dialog === "clone")
+  if (management.dialog === "clone" || management.dialog === "clone-one-shot")
     return (
       <PlanCloneDialog
         page={page}
         source={plan}
         isDirty={editor.isDirty}
+        isOneShot={management.dialog === "clone-one-shot"}
         management={management}
       />
     );

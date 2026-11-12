@@ -8,7 +8,7 @@ export function workItem(
   return {
     id,
     projectId: "p1",
-    departmentId: null,
+    departmentIds: [],
     key: `PAGE-${id}`,
     number: 1,
     type: "task",

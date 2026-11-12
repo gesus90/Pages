@@ -1,5 +1,6 @@
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
+import type { AgentPlanAgentTodoService } from "./AgentPlanAgentTodoService";
 import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
@@ -26,6 +27,8 @@ export interface PlanDependencies {
   readonly workGate?: AgentPlanWorkGate;
   /** The live progress `update_step_progress` reported (PAGE-284). */
   readonly stepProgress?: Pick<AgentPlanStepProgressService, "listForRun">;
+  /** The TODO lists CLIs reported as structured plans (PAGE-306). */
+  readonly agentTodos?: Pick<AgentPlanAgentTodoService, "listForRun">;
   readonly workspaceCatalog?: AgentPlanWorkspaces;
   readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly remoteTargets?: AgentPlanRemoteTargets;

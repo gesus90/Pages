@@ -415,6 +415,13 @@ function readGlobals(input: unknown): Readonly<Record<string, string>> {
   );
 }
 
+/** Parses the one-time mark; only `true` is stored, so a normal plan keeps its stored form. */
+function readOneShot(input: unknown): Pick<AgentPlanInput, "oneShot"> {
+  if (input === undefined || input === false) return {};
+  if (input !== true) throw new AgentError("plan_invalid");
+  return { oneShot: true };
+}
+
 /** Parses one bounded plan; graph relationships are validated by the service. */
 export function readPlanInput(input: unknown): AgentPlanInput {
   const plan = readPlanObject(input);
@@ -451,6 +458,7 @@ export function readPlanInput(input: unknown): AgentPlanInput {
       ? {}
       : { sharing: readPlanSharing(plan.sharing) }),
     ...readExecutionTarget(plan.executionTarget),
+    ...readOneShot(plan.oneShot),
     globals: readGlobals(plan.globals),
     nodes,
     edges: plan.edges.map(readEdge),

@@ -125,10 +125,10 @@ it("passes checklist concurrency conditions to the underlying service", async ()
 it("passes department concurrency conditions to the underlying service", async () => {
   const service = createService([]);
   const update = vi
-    .spyOn(TaskService.prototype, "setDepartment")
+    .spyOn(TaskService.prototype, "setDepartments")
     .mockResolvedValue();
-  await service.setDepartment(ACTOR, "t1", "d2", "d1");
-  expect(update).toHaveBeenCalledWith(ACTOR, "t1", "d2", "d1");
+  await service.setDepartments(ACTOR, "t1", ["d2"], ["d1"]);
+  expect(update).toHaveBeenCalledWith(ACTOR, "t1", ["d2"], ["d1"]);
 });
 
 it("passes project move conditions to the underlying service", async () => {
@@ -158,7 +158,7 @@ it("announces the changes of a ticket", async () => {
   vi.spyOn(proto, "updateStatus").mockResolvedValue(result);
   vi.spyOn(proto, "updateParent").mockResolvedValue(result);
   vi.spyOn(proto, "moveToProject").mockResolvedValue(result);
-  vi.spyOn(proto, "setDepartment").mockResolvedValue();
+  vi.spyOn(proto, "setDepartments").mockResolvedValue();
   vi.spyOn(proto, "assignLabel").mockResolvedValue();
   vi.spyOn(proto, "unassignLabel").mockResolvedValue();
   vi.spyOn(proto, "addChecklistItem").mockResolvedValue(checklistItem("t1"));
@@ -181,7 +181,7 @@ it("announces the changes of a ticket", async () => {
     parentId: "p",
   });
   await service.moveToProject(ACTOR, "t1", "p2");
-  await service.setDepartment(ACTOR, "t1", null);
+  await service.setDepartments(ACTOR, "t1", []);
   await service.assignLabel(ACTOR, "t1", "l1");
   await service.unassignLabel(ACTOR, "t1", "l1");
   await service.addChecklistItem(ACTOR, "t1", "Item");

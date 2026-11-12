@@ -29,8 +29,8 @@ pub const BINDING_LENGTH: usize = 64;
 pub struct EventAudience {
     /// Project of the deleted ticket.
     pub project_id: String,
-    /// Department of the deleted ticket, if it had one.
-    pub department_id: Option<String>,
+    /// Departments of the deleted ticket; empty when it had none.
+    pub department_ids: Vec<String>,
 }
 
 /// One committed row of `pages_event_outbox`: kind and object, never content.

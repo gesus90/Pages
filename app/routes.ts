@@ -289,6 +289,10 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ...mcpWikiRoutes(routes.resource),
     ...mcpAgentRoutes(routes.resource),
     ...mcpUserRoutes(routes.resource),
+    resource(
+      "api/mcp/v1/conversations/:conversationId/reply-settings",
+      "routes/api-mcp-v1-conversation-reply-settings.ts",
+    ),
     resource("api/mcp/v1/storage/*", "routes/api-mcp-v1-storage.ts"),
     ...mcpAutomationRoutes(routes.resource),
     resource("health", "routes/health.ts"),
@@ -564,6 +568,7 @@ function projectRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ),
     resource("aufgaben-api/attachments", "routes/ticket-attachments.ts"),
     resource("aufgaben-api/panel/:ticketKey", "routes/task-panel-data.ts"),
+    resource("aufgaben-api/assignee-sight", "routes/ticket-assignee-sight.ts"),
     resource("aufgaben-api/tree", "routes/tasks-layout-data.ts"),
     resource("aufgaben-api/board", "routes/tasks-data.ts"),
     resource("aufgaben-api/tickets/:ticketKey", "routes/task-detail-data.ts"),

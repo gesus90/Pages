@@ -222,15 +222,15 @@ export class AnnouncingTaskService extends TaskService {
     return updated;
   }
 
-  /** Sets the department and announces `ticket.updated`. */
-  public override async setDepartment(
+  /** Sets the departments and announces `ticket.updated`. */
+  public override async setDepartments(
     actor: User,
     id: string,
-    departmentId: string | null,
-    expected?: string | null,
+    departmentIds: readonly string[],
+    expected?: readonly string[],
   ): Promise<void> {
     await this.announceTicket(id, () =>
-      super.setDepartment(actor, id, departmentId, expected),
+      super.setDepartments(actor, id, departmentIds, expected),
     );
   }
 
@@ -474,7 +474,7 @@ export class AnnouncingTaskService extends TaskService {
           type: "ticket.deleted",
           audience: {
             projectId: before.projectId,
-            departmentId: before.departmentId,
+            departmentIds: before.departmentIds,
           },
         },
         ...released.map((child): PagesEvent => ({

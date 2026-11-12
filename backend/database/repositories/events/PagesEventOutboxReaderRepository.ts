@@ -1,5 +1,6 @@
 import {
   readCountColumn,
+  readIdListColumn,
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
@@ -13,7 +14,7 @@ export interface StoredPagesEvent {
   readonly id: string;
   readonly audience: {
     readonly projectId: string;
-    readonly departmentId: string | null;
+    readonly departmentIds: readonly string[];
   } | null;
   /** When the event was written, as ISO 8601 in UTC. */
   readonly createdAt: string;
@@ -56,7 +57,7 @@ const READ_EVENTS = `
       kind,
       object_id,
       audience_project_id,
-      audience_department_id,
+      audience_department_ids,
       to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at
   FROM pages_event_outbox
   WHERE position > $after
@@ -126,11 +127,7 @@ function toStoredEvent(row: readonly DatabaseValue[]): StoredPagesEvent {
         ? null
         : {
             projectId,
-            departmentId: readNullableTextColumn(
-              row,
-              4,
-              "audience_department_id",
-            ),
+            departmentIds: readIdListColumn(row, 4, "audience_department_ids"),
           },
     createdAt: readTextColumn(row, 5, "created_at"),
   };

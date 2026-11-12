@@ -198,25 +198,7 @@ export class AgentPlanCommandOperations {
       });
     const base = { planId: plan.id, revision: plan.revision };
     if (request.operation === "plans.clone") {
-      if (request.name === null)
-        throw new AgentOperationError("INVALID_REQUEST");
-      await this.plans.clone(
-        userId,
-        plan.id,
-        {
-          name: request.name,
-          expectedRevision: request.expectedRevision,
-          ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
-        },
-        (transaction, planId) =>
-          recorder.store(transaction, {
-            planId,
-            revision: 1,
-            sourcePlanId: plan.id,
-            sourceRevision: plan.revision,
-            workspaceId: request.workspaceId ?? plan.workspaceId,
-          }),
-      );
+      await this.clone(userId, { request, plan, recorder });
       return;
     }
     if (request.operation === "plans.delete") {
@@ -232,6 +214,10 @@ export class AgentPlanCommandOperations {
           await recorder.store(transaction, { ...base, deleted: true });
         },
       });
+      return;
+    }
+    if (request.operation === "plans.keep") {
+      await this.keep(userId, plan, recorder);
       return;
     }
     if (request.operation === "plans.templates.save") {
@@ -273,6 +259,52 @@ export class AgentPlanCommandOperations {
     else if (request.operation === "plans.pause")
       await this.plans.pause(userId, run.id, journal);
     else await this.plans.stop(userId, run.id, journal);
+  }
+
+  private async clone(
+    userId: string,
+    context: {
+      readonly request: AgentPlanCommandRequest;
+      readonly plan: AgentPlanView;
+      readonly recorder: OperationRecorder<AgentPlanCommandResult>;
+    },
+  ): Promise<void> {
+    const { request, plan, recorder } = context;
+    if (request.name === null) throw new AgentOperationError("INVALID_REQUEST");
+    await this.plans.clone(
+      userId,
+      plan.id,
+      {
+        name: request.name,
+        expectedRevision: request.expectedRevision,
+        ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
+        ...(request.oneShot ? { oneShot: true } : {}),
+      },
+      (transaction, planId) =>
+        recorder.store(transaction, {
+          planId,
+          revision: 1,
+          sourcePlanId: plan.id,
+          sourceRevision: plan.revision,
+          workspaceId: request.workspaceId ?? plan.workspaceId,
+        }),
+    );
+  }
+
+  private async keep(
+    userId: string,
+    plan: AgentPlanView,
+    recorder: OperationRecorder<AgentPlanCommandResult>,
+  ): Promise<void> {
+    await this.plans.keep(userId, plan.id, {
+      revision: plan.revision,
+      journal: (transaction) =>
+        recorder.store(transaction, {
+          planId: plan.id,
+          // Removing the mark is a saved revision; a plan without it stays as it is.
+          revision: plan.oneShot === true ? plan.revision + 1 : plan.revision,
+        }),
+    });
   }
 
   private journal(

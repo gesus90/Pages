@@ -19,6 +19,8 @@ export interface AgentPlanCloneInput {
   readonly workspaceId?: string;
   /** The plan target of the copy; omission keeps the source's, a local target runs on the Pages host. */
   readonly executionTarget?: AgentPlanExecutionTarget;
+  /** Marks the copy as a one-time plan (PAGE-309); a plain copy never inherits the mark. */
+  readonly oneShot?: boolean;
 }
 
 /** The plan target of a copy, stored only when it names a remote workspace. */
@@ -133,6 +135,7 @@ export function clonePlanGraph(
     usage: "private",
     sharing: { isGlobal: false, targets: [], operator: "or" },
     ...clonedTarget(plan, input),
+    ...(input.oneShot === true ? { oneShot: true } : {}),
     globals: plan.globals,
     nodes: plan.nodes.map(copyNode),
     edges: edges(plan.edges),

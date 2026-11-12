@@ -94,10 +94,34 @@ export async function clonePlanAction(
       name: readPlanText(formData.get("name"), 120),
       workspaceId: readPlanText(formData.get("workspaceId")),
       executionTarget: target ?? { kind: "local" },
+      ...(formData.get("oneShot") === "true" ? { oneShot: true } : {}),
     },
     readRequestKey(formData),
   );
   return planCreated("clone-plan", planId);
+}
+
+/**
+ * Keeps a one-time plan: removes the mark and cancels its scheduled deletion (PAGE-309).
+ *
+ * @param userId - The person who may change the plan.
+ * @param services - The plan services.
+ * @param formData - Plan, revision the person saw and request key.
+ */
+export async function keepPlanAction(
+  userId: string,
+  services: PlanServices,
+  formData: FormData,
+): Promise<Response> {
+  await services.agentPlanManagement.keep(
+    userId,
+    readPlanText(formData.get("planId")),
+    { revision: readRevision(formData), requestKey: readRequestKey(formData) },
+  );
+  return Response.json(
+    { ok: true, intent: "keep-plan" },
+    { headers: AGENT_NO_STORE },
+  );
 }
 
 /**

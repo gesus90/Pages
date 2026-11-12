@@ -114,7 +114,7 @@ describe("parent validation and authorization", () => {
       type: "epic",
       parentId: "ini",
       key: "ALP-7",
-      departmentId: "design",
+      departmentIds: ["design"],
     });
     world.addTicket("hidden-child", {
       parentId: "secret-epic",

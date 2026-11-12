@@ -79,6 +79,7 @@ const RUN_TABLES = [
   "agent_plan_work",
   "agent_plan_step_reports",
   "agent_plan_step_progress",
+  "agent_plan_agent_todos",
   "agent_run_credentials",
   "pica_mobile_notification_deliveries",
   "pica_mobile_notification_occurrences",
@@ -233,5 +234,39 @@ export async function purgeEarlierPlanRuns(
     if (!(await purgeRun(database, readTextColumn(row, 0, "id"))))
       isComplete = false;
   await deleteEarlierRefusals(database, keptRunId);
+  return isComplete;
+}
+
+/**
+ * Deletes every run of a plan with all of its rows, for a one-time plan that goes (PAGE-309).
+ *
+ * @param database - The database; each run goes in a transaction of its own.
+ * @param planId - The plan whose runs go.
+ * @returns Whether no run is left; `false` while one has not settled.
+ *
+ * @remarks
+ * The rows of a run are what Pages remembers about the files and
+ * reservations it made for it: its triggers queue the transcript homes, local
+ * session journals and payload files for removal after the commit, and a run
+ * that still holds a lease, a writer lock, a pending cleanup or an unreleased
+ * local owner stays until that settled. A repeated call finishes it.
+ */
+export async function purgeAllPlanRuns(
+  database: PlanRunPurgeDatabase,
+  planId: string,
+): Promise<boolean> {
+  const runs = await database.query(
+    `
+      SELECT id
+      FROM agent_plan_runs
+      WHERE plan_id = $plan_id
+      ORDER BY creation_order, id;
+    `,
+    { plan_id: planId },
+  );
+  let isComplete = true;
+  for (const row of runs)
+    if (!(await purgeRun(database, readTextColumn(row, 0, "id"))))
+      isComplete = false;
   return isComplete;
 }

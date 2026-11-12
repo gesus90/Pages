@@ -102,7 +102,8 @@ function TodoStatusMark({
   );
 }
 
-function TodoRow({
+/** One read-only row of a TODO list; the mark shows the state and nothing here can change it. */
+export function TodoRow({
   item,
 }: {
   readonly item: AgentPlanProgressItem;

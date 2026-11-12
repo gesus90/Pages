@@ -152,3 +152,33 @@ export function readCountColumn(
 
   throw new Error(`Database returned an invalid count for "${column}".`);
 }
+
+/**
+ * Reads a column that holds a JSON list of text ids, such as `json_agg(id)::text`.
+ *
+ * @param row - Row returned by a query.
+ * @param index - Zero-based column position.
+ * @param column - Column name used in error messages.
+ * @returns The ids in stored order.
+ * @throws When the column is missing, not textual or not a list of text.
+ */
+export function readIdListColumn(
+  row: readonly DatabaseValue[],
+  index: number,
+  column: string,
+): string[] {
+  const parsed: unknown = JSON.parse(readTextColumn(row, index, column));
+  const ids: string[] = [];
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(`Database returned an invalid value for "${column}".`);
+  }
+  for (const id of parsed) {
+    if (typeof id !== "string") {
+      throw new Error(`Database returned an invalid value for "${column}".`);
+    }
+    ids.push(id);
+  }
+
+  return ids;
+}

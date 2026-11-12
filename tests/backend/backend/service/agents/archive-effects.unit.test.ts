@@ -51,7 +51,7 @@ it("archives active descendants recursively and counts only changed rows", async
       kind: "ticket.updated",
       object_id: "root",
       audience_project_id: null,
-      audience_department_id: null,
+      audience_department_ids: "[]",
     },
   ]);
 });
@@ -81,7 +81,7 @@ it("rejects a subtree with hidden descendants atomically", async () => {
   world.addTicket("hidden-child", {
     type: "subtask",
     parentId: "root",
-    departmentId: "design",
+    departmentIds: ["design"],
   });
   const before = world.changes();
   await expect(world.call("manager", "ticket.delete")).rejects.toMatchObject({
@@ -145,7 +145,7 @@ it("archives only the milestone, removing incident dependencies while preserving
       kind: "milestone.updated",
       object_id: "milestone",
       audience_project_id: null,
-      audience_department_id: null,
+      audience_department_ids: "[]",
     },
   ]);
 });

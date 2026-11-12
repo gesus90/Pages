@@ -56,6 +56,8 @@ import type {
   MilestoneReadOptions,
   Label,
   TaskActionPermissions,
+  TicketAssigneeSight,
+  TicketAssigneeTarget,
   TicketDepartmentChoices,
   WorkItemChecklistItem,
   WorkItemDescendants,
@@ -558,14 +560,22 @@ export class TaskService {
     });
   }
 
-  /** Reassigns a work item to a department, or clears it, apart from content edits. */
-  public async setDepartment(
+  /** Replaces the departments of a work item, apart from content edits; empty opens it to the project. */
+  public async setDepartments(
     actor: User,
     id: string,
-    departmentId: string | null,
-    expected?: string | null,
+    departmentIds: readonly string[],
+    expected?: readonly string[],
   ): Promise<void> {
-    return this.departments.setDepartment(actor, id, departmentId, expected);
+    return this.departments.setDepartments(actor, id, departmentIds, expected);
+  }
+
+  /** Tells whether the person or group can see a ticket with the given departments, and what would fix it. */
+  public async assigneeSight(
+    actor: User,
+    target: TicketAssigneeTarget,
+  ): Promise<TicketAssigneeSight> {
+    return this.departments.assigneeSight(actor, target);
   }
 
   /** Returns the departments the actor may select for tickets. */

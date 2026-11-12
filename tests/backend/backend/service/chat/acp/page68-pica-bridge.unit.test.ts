@@ -48,6 +48,7 @@ const WRITE_TOOLS = [
   "tickets_set_description",
   "tickets_set_assignee",
   "tickets_set_tags",
+  "tickets_set_departments",
   "tickets_set_parent",
   "tickets_set_milestone",
   "tickets_delete",

@@ -1,7 +1,9 @@
 import {
+  readJsonTextList,
   readOptionalText,
   readRequiredText,
   readText,
+  readTextList,
   readTextOrEmpty,
 } from "@/app/lib/form-fields.server";
 import { resolveLocalRedirect } from "@/app/lib/redirect.server";
@@ -50,7 +52,7 @@ export const handleCreateTask: TaskActionHandler = async ({
   const input = {
     assigneeGroupId: readOptionalText(formData, "assigneeGroupId"),
     assigneeId: readOptionalText(formData, "assigneeId"),
-    departmentId: readOptionalText(formData, "departmentId"),
+    departmentIds: readTextList(formData, "departmentIds"),
     description: readTextOrEmpty(formData, "description"),
     dueAt: readOptionalText(formData, "dueAt"),
     milestoneId: readOptionalText(formData, "milestoneId"),
@@ -303,29 +305,28 @@ export const handleDeleteTask: TaskActionHandler = async ({
   );
 };
 
-/** Assigns a ticket to a department, or clears its department; separate from content edits. */
+/** Replaces the departments of a ticket, or clears them; separate from content edits. */
 export const handleSetDepartment: TaskActionHandler = async ({
   actor,
   formData,
   services,
 }) => {
   const id = readRequiredText(formData, "id");
-  // An empty value clears the department, so the field itself must be present.
-  const departmentId = readText(formData, "departmentId");
+  // An empty list clears the departments, so the field itself must be present.
+  const departmentIds = readJsonTextList(formData, "departmentIds");
 
-  if (id === null || departmentId === null) {
+  if (id === null || departmentIds === null) {
     return invalidInput("set-department");
   }
 
-  if (formData.has("expectedDepartmentId")) {
-    const expectedText = readText(formData, "expectedDepartmentId");
-    if (expectedText === null) return invalidInput("set-department");
-    const expected = expectedText.trim() || null;
+  if (formData.has("expectedDepartmentIds")) {
+    const expected = readJsonTextList(formData, "expectedDepartmentIds");
+    if (expected === null) return invalidInput("set-department");
     return runTicketUpdateAction("set-department", async () => {
-      await services.taskService.setDepartment(
+      await services.taskService.setDepartments(
         actor,
         id,
-        departmentId,
+        departmentIds,
         expected,
       );
       return services.taskService.getById(actor, id);
@@ -333,7 +334,7 @@ export const handleSetDepartment: TaskActionHandler = async ({
   }
 
   return runTaskAction("set-department", () =>
-    services.taskService.setDepartment(actor, id, departmentId),
+    services.taskService.setDepartments(actor, id, departmentIds),
   );
 };
 

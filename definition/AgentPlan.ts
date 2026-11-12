@@ -8,6 +8,7 @@ import type {
 } from "./AgentPlanExecution";
 import type { AgentPlanCompletionGate } from "./AgentPlanWork";
 import type { AgentPlanProgress } from "./AgentPlanProgress";
+import type { AgentPlanAgentTodoList } from "./AgentPlanAgentTodos";
 import type { PlanRemoteAccess } from "./AgentPlanRemoteAccess";
 import type { AgentPlanControl } from "./AgentPlanControl";
 import type {
@@ -225,6 +226,14 @@ export interface AgentPlanInput {
    * keeps a local workspace of the project as its anchor all the same.
    */
   readonly executionTarget?: AgentPlanExecutionTarget;
+  /**
+   * Marks a one-time plan (PAGE-309).
+   *
+   * @remarks
+   * Pages deletes the plan with its runs five minutes after a run ends as
+   * `succeeded`. Absent means a normal plan.
+   */
+  readonly oneShot?: boolean;
   readonly globals: Readonly<Record<string, string>>;
   readonly nodes: readonly AgentPlanNode[];
   readonly edges: readonly AgentPlanEdge[];
@@ -247,6 +256,14 @@ export interface AgentPlan extends AgentPlanInput {
    * departments. Saving never derives it again.
    */
   readonly departmentId?: string | null;
+  /**
+   * When Pages deletes this one-time plan, as an ISO 8601 UTC time.
+   *
+   * @remarks
+   * Set only between the successful end of a run and the deletion. It is read
+   * from its own column and never stored in the plan graph.
+   */
+  readonly scheduledDeletionAt?: string | null;
 }
 
 /** Current links are derived on read, rather than copied into editable fields. */
@@ -277,6 +294,10 @@ export interface AgentPlanSummary {
   readonly departmentId?: string | null;
   readonly usage: AgentPlanInput["usage"];
   readonly revision: number;
+  /** Whether the plan is a one-time plan that Pages deletes after a successful run. */
+  readonly oneShot?: boolean;
+  /** When Pages deletes the one-time plan, once its run succeeded. */
+  readonly scheduledDeletionAt?: string | null;
   /** The registration is gone; the plan remains editable but cannot start until reassigned. */
   readonly isWorkspaceMissing?: boolean;
   readonly canEdit: boolean;
@@ -444,6 +465,14 @@ export interface AgentPlanStepResult {
   readonly report?: AgentPlanScriptAssessment;
   /** Authorized read-time projection, separate from persisted acceptance. */
   readonly progress?: AgentPlanProgress;
+  /**
+   * The TODO list the CLI reported as a structured plan in this attempt (PAGE-306).
+   *
+   * @remarks
+   * Absent when the CLI reported none. It is read-only information and never
+   * decides the step: `completion` and `completionGate` keep their meaning.
+   */
+  readonly agentTodos?: AgentPlanAgentTodoList;
   /**
    * Which start of the node this result belongs to, counting from 1.
    *

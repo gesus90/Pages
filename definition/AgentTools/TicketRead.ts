@@ -12,7 +12,7 @@ export const TICKET_READ_TOOL: Tool = {
   name: "read_ticket",
   title: "Read ticket",
   description:
-    "Reads the core fields of a visible ticket: title, description, status, parent, milestone, dates, and the statuses its project offers (statuses[].id is what set_ticket_status takes). ticketId is a ticket ID, a key such as PAGE-12, or a Pages address such as /tasks/PAGE-12. A parent you cannot see is reported as null. Missing and hidden tickets both return NOT_FOUND. Responses are limited to 1 MiB UTF-8 JSON.",
+    "Reads the core fields of a visible ticket: title, description, status, parent, milestone, dates, assignee, the list departments (id and name of every department of the ticket; empty when it belongs to none and is visible to everyone with access to the project; set_ticket_departments changes it, expectedDepartmentIds are its ids), department (the first of departments or null, kept for compatibility), and the statuses its project offers (statuses[].id is what set_ticket_status takes). ticketId is a ticket ID, a key such as PAGE-12, or a Pages address such as /tasks/PAGE-12. A parent you cannot see is reported as null. Missing and hidden tickets both return NOT_FOUND. Responses are limited to 1 MiB UTF-8 JSON.",
   inputSchema: {
     type: "object",
     properties: { ticketId: IDENTIFIER_SCHEMA },

@@ -31,9 +31,14 @@ export function PlanPanelContext({
             options={page.plans.map((plan) => ({
               value: plan.id,
               label: plan.name,
-              description: plan.isWorkspaceMissing
-                ? `${plan.projectName} · ${t("plans.manage.withoutWorkspace")}`
-                : plan.projectName,
+              description: [
+                plan.isWorkspaceMissing
+                  ? `${plan.projectName} · ${t("plans.manage.withoutWorkspace")}`
+                  : plan.projectName,
+                plan.oneShot ? t("plans.manage.oneShotBadge") : null,
+              ]
+                .filter(Boolean)
+                .join(" · "),
             }))}
             onValueChange={(id) => {
               void navigate(`/agents/plans?planId=${encodeURIComponent(id)}`);

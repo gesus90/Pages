@@ -21,8 +21,8 @@ export function isTicketVisible(
   if (!visibility) return true;
   const isDepartmentVisible =
     visibility.departmentIds === null ||
-    ticket.departmentId === null ||
-    visibility.departmentIds.includes(ticket.departmentId);
+    ticket.departmentIds.length === 0 ||
+    ticket.departmentIds.some((id) => visibility.departmentIds?.includes(id));
   const isProjectVisible =
     !visibility.projectIds || visibility.projectIds.includes(ticket.projectId);
   return isDepartmentVisible && isProjectVisible;
@@ -230,12 +230,6 @@ export function installTicketWrites(state: TaskState): void {
     state.writes.push("updateParent");
     patch(state, id, { parentId });
   });
-  vi.spyOn(proto, "setDepartment").mockImplementation(
-    async (id, departmentId) => {
-      state.writes.push("setDepartment");
-      patch(state, id, { departmentId });
-    },
-  );
   vi.spyOn(proto, "setGitHubError").mockImplementation(async (id, message) => {
     state.writes.push("setGitHubError");
     patch(state, id, { githubLastError: message });
@@ -279,13 +273,19 @@ export function installConditionalWrites(state: TaskState): void {
       return true;
     },
   );
-  vi.spyOn(proto, "setDepartmentIfCurrent").mockImplementation(
-    async (id, departmentId, expected) => {
+  vi.spyOn(proto, "setDepartments").mockImplementation(
+    async (id, departmentIds, expected) => {
       runBeforeWrite(state);
       const stored = active(id);
-      if (!stored || stored.departmentId !== expected) return false;
-      state.writes.push("setDepartmentIfCurrent");
-      patch(state, id, { departmentId });
+      if (
+        !stored ||
+        (expected &&
+          (stored.departmentIds.length !== expected.length ||
+            expected.some((entry) => !stored.departmentIds.includes(entry))))
+      )
+        return false;
+      state.writes.push("setDepartments");
+      patch(state, id, { departmentIds: [...departmentIds] });
       return true;
     },
   );

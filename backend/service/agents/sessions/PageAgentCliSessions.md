@@ -219,6 +219,21 @@ starts from them; `withPlanProgress` projects them into `step.progress`.
 `cost_currency`) of the attempt; the view sums the tokens per turn, attempt
 (`totals`) and node (`nodeTotals`).
 
+### The TODO list of the CLI (PAGE-306)
+
+A structured ACP `plan` update is recorded as a `plan` event whose text is
+JSON (`{"entries":[{"content","status"}]}`, at most 40 entries of 200
+characters). `AgentSessionRepository.appendEvents` keeps the newest list of a
+batch in `agent_plan_agent_todos` (migration 039), one row per attempt, so
+every loop iteration and group member has its own list. An entry has the
+position as its identifier, its text, `open`, `active` or `done`, and the time
+of its last change; a plan replaces the list, an unchanged entry keeps its
+time. Text outside this structure is never read as a TODO.
+`withAgentTodos` adds the list as `agentTodos` to every node result of a run,
+loop members included, and `read_plan_run` and `read_plan_run_reports` return
+it. It never decides a step: `completion` and `completionGate` keep their
+meaning.
+
 ### One decision for completion and resume
 
 `backend/service/agents/AgentPlanStepDecision.ts` decides for every provider

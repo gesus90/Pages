@@ -104,19 +104,19 @@ async function parentTypeOf(
   }
 }
 
-/** Names the department of a ticket from the departments the account knows. */
-async function departmentOf(
+/** Names the departments of a ticket from the departments the account knows. */
+async function departmentsOf(
   context: McpTicketContext,
   item: WorkItemDetail,
-): Promise<McpTicketNamed | null> {
-  if (item.departmentId === null) return null;
+): Promise<McpTicketNamed[]> {
+  if (item.departmentIds.length === 0) return [];
   const { available } = await context.services.tasks.departmentChoices(
     context.actor,
   );
-  const department = available.find(
-    (candidate) => candidate.id === item.departmentId,
-  );
-  return { id: item.departmentId, name: department?.name ?? "" };
+  return item.departmentIds.map((id) => ({
+    id,
+    name: available.find((candidate) => candidate.id === id)?.name ?? "",
+  }));
 }
 
 /** Reads the related records of a ticket; each read applies the visibility of the account. */
@@ -152,11 +152,11 @@ export async function projectTicket(
   context: McpTicketContext,
   item: WorkItemDetail,
 ): Promise<McpTicket> {
-  const [related, parentType, department, assignee, reporter] =
+  const [related, parentType, departments, assignee, reporter] =
     await Promise.all([
       relatedOf(context, item),
       parentTypeOf(context, item),
-      departmentOf(context, item),
+      departmentsOf(context, item),
       context.person(item.assigneeId),
       context.person(item.createdBy),
     ]);
@@ -172,7 +172,8 @@ export async function projectTicket(
     assignee,
     assigneeGroup: groupOf(item),
     reporter,
-    department,
+    department: departments[0] ?? null,
+    departments,
     parent:
       parentType === null || item.parentKey === null
         ? null

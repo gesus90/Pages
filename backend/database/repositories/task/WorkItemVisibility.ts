@@ -12,10 +12,11 @@ export interface WorkItemVisibilityFragment {
 }
 
 /**
- * Limits a ticket alias to public tickets and the actor's own departments.
+ * Limits a ticket alias to tickets without department and tickets of at least
+ * one of the actor's own departments.
  *
  * @param visibility - Server-resolved scope; absent for trusted internal reads.
- * @param alias - Fixed query alias whose department column is checked.
+ * @param alias - Fixed query alias whose department rows are checked.
  */
 function createDepartmentVisibility(
   visibility: WorkItemVisibility | undefined,
@@ -24,15 +25,26 @@ function createDepartmentVisibility(
   if (!visibility || visibility.departmentIds === null) {
     return { condition: "1 = 1", parameters: {} };
   }
+  const withoutDepartment = `NOT EXISTS (
+              SELECT 1
+              FROM work_item_departments AS ticket_department
+              WHERE ticket_department.work_item_id = ${alias}.id
+          )`;
   if (visibility.departmentIds.length === 0) {
-    return { condition: `${alias}.department_id IS NULL`, parameters: {} };
+    return { condition: withoutDepartment, parameters: {} };
   }
   const { parameters, placeholders } = createInClause(
     "visible_department_id",
     visibility.departmentIds,
   );
   return {
-    condition: `(${alias}.department_id IS NULL OR ${alias}.department_id IN (${placeholders}))`,
+    condition: `(${withoutDepartment}
+          OR EXISTS (
+              SELECT 1
+              FROM work_item_departments AS ticket_department
+              WHERE ticket_department.work_item_id = ${alias}.id
+                  AND ticket_department.department_id IN (${placeholders})
+          ))`,
     parameters,
   };
 }

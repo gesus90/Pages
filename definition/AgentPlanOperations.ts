@@ -8,6 +8,7 @@ import type {
 } from "./AgentPlanExecution.js";
 import type { AgentWorkspaceCleanup } from "./AgentWorkspaceCleanup.js";
 import type { AgentPlanCompletionGate } from "./AgentPlanWork.js";
+import type { AgentPlanAgentTodoList } from "./AgentPlanAgentTodos.js";
 import type { AgentPlanDiagnostic } from "./AgentPlanDiagnostics.js";
 import type { AgentPlanSessionEvents } from "./AgentPlanSessionEvents.js";
 import type { AgentPlanRemoteStatusProblem } from "./AgentPlanRemoteStatus.js";
@@ -31,6 +32,8 @@ import type { AgentParameter, AgentParameterValue } from "./AgentParameters.js";
 import type * as Decision from "./AgentPlanDecisionEntry.js";
 import type { AgentPlanAsset, AgentPlanAssetEntry } from "./AgentPlanAsset.js";
 import type { PageAgentSharingEntry } from "./PageAgentOperations.js";
+import type { AgentPlanOneShotState } from "./AgentPlanOneShot.js";
+import type { AgentPlanCapabilities } from "./AgentPlanCapabilities.js";
 
 /**
  * Reads of agent plans and of the runs of the connected account.
@@ -371,7 +374,7 @@ export interface AgentPlanTeamEntry {
 }
 
 /** A visible plan without its graph. */
-export interface AgentPlanSummary {
+export interface AgentPlanSummary extends AgentPlanOneShotState {
   readonly id: string;
   readonly name: string;
   readonly projectId: string;
@@ -521,6 +524,8 @@ export interface AgentPlanRunStepEntry {
   readonly endedAt: string | null;
   /** Whether {@link AgentPlanReport} has something for this node. */
   readonly hasReport: boolean;
+  /** The last TODO list the CLI reported in this node's attempt; absent when it reported none (PAGE-306). */
+  readonly agentTodos?: AgentPlanAgentTodoList;
   /** Why a failed node stopped: the class of its failure and its attempts. */
   readonly failureStop?: AgentPlanFailureStop;
   /** Persisted automatic retry state, for active waits and finished histories. */
@@ -603,6 +608,13 @@ export interface AgentPlanReport {
   }[];
   readonly decisions: readonly string[];
   readonly issues: readonly string[];
+  /**
+   * The last TODO list the CLI reported as a structured plan in this node's
+   * attempt, with identifier, text, status and time of the last change;
+   * `null` when it reported none (PAGE-306). Unlike `todos`, which holds the
+   * contract todos of the closing report, it is the agent's own list.
+   */
+  readonly agentTodos: AgentPlanAgentTodoList | null;
 }
 
 /** The reports of a run, all assigned to it. */
@@ -639,9 +651,6 @@ export type AgentPlanReadResult =
   | { readonly template: AgentPlanTemplateEntry }
   | { readonly control: AgentPlanControlEntry };
 
-/** Additive contract revision, independently observable from a client's MCP bundle version. */
-export const AGENT_PLAN_CONTRACT_VERSION = 14;
-
 /** An immutable, owner-authorized checkpoint projection encoded as JSON text. */
 export interface AgentPlanCheckpointEntry {
   readonly version: number;
@@ -649,27 +658,6 @@ export interface AgentPlanCheckpointEntry {
   readonly content: string;
   /** At least one stored text value was masked or shortened for display. */
   readonly isFiltered: boolean;
-}
-
-/** Implementation discovery never substitutes for current per-plan access and availability. */
-export interface AgentPlanCapabilities {
-  readonly contractVersion: number;
-  readonly operations: readonly (
-    | AgentPlanReadOperation
-    | AgentPlanWriteOperation
-    | AgentPlanCommandOperation
-    | AgentPlanRecoveryCommandOperation
-  )[];
-  readonly cloneSharing: "create_default";
-  readonly resume: "durable_pause_boundary";
-  /** Human provenance supported by each transport of this implementation. */
-  readonly deletionConfirmation: {
-    readonly stdio: "client_form";
-    readonly http: "unavailable";
-    readonly pica: "target_bound_message";
-    /** A paired Pages MCP machine asks back and confirms with `confirmed: true`. */
-    readonly device: "confirmed_flag";
-  };
 }
 
 /** A node template; only its owner renames, replaces or deletes it. */
@@ -687,7 +675,7 @@ export interface AgentPlanTemplateEntry {
 }
 
 /** Available saved-plan controls, without another executor's results. */
-export interface AgentPlanControlEntry {
+export interface AgentPlanControlEntry extends AgentPlanOneShotState {
   readonly canRestart?: boolean;
   readonly resumeAction?: "paused" | "recovery";
   readonly workspaceWait?: AgentPlanWriterWait;
@@ -723,6 +711,7 @@ export interface AgentPlanControlEntry {
 export const AGENT_PLAN_COMMAND_OPERATIONS = [
   "plans.clone",
   "plans.delete",
+  "plans.keep",
   "plans.play",
   "plans.pause",
   "plans.resume",

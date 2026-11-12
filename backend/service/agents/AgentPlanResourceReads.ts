@@ -1,12 +1,12 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import {
   AGENT_PLAN_COMMAND_OPERATIONS,
-  AGENT_PLAN_CONTRACT_VERSION,
   AGENT_PLAN_READ_OPERATIONS,
   AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS,
   AGENT_PLAN_RESOURCE_READ_OPERATIONS,
   AGENT_PLAN_WRITE_OPERATIONS,
 } from "@/definition/AgentPlanOperations";
+import { AGENT_PLAN_CONTRACT_VERSION } from "@/definition/AgentPlanCapabilities";
 import { readPlanControlEntry } from "./AgentPlanControlViews";
 import { readPlanDiagnostic } from "./AgentPlanDiagnosticRead";
 import { readPlanCheckpoint } from "./AgentPlanCheckpointRead";

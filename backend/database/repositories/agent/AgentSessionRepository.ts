@@ -1,3 +1,10 @@
+import { logCaughtError } from "@/backend/logging/Logger";
+import {
+  mergeAgentTodos,
+  readPlanEventEntries,
+} from "@/definition/AgentPlanAgentTodos";
+
+import { AgentPlanAgentTodoRepository } from "./AgentPlanAgentTodoRepository";
 import { AgentSessionEventRepository } from "./AgentSessionEventRepository";
 import {
   ATTEMPT_COLUMNS,
@@ -70,10 +77,12 @@ function attemptParameters(attempt: AgentSessionAttemptRecord): SqlParameters {
 export class AgentSessionRepository implements AgentSessionStore {
   private readonly database: AgentSessionDatabase;
   private readonly events: AgentSessionEventRepository;
+  private readonly agentTodos: AgentPlanAgentTodoRepository;
 
   public constructor(database: AgentSessionDatabase) {
     this.database = database;
     this.events = new AgentSessionEventRepository(database);
+    this.agentTodos = new AgentPlanAgentTodoRepository(database);
   }
 
   /** Stores the state of an attempt; the event sequence is kept as it is. */
@@ -181,7 +190,9 @@ export class AgentSessionRepository implements AgentSessionStore {
     events: readonly NewAgentSessionEvent[],
     retain: number,
   ): Promise<readonly AgentSessionEvent[]> {
-    return this.events.appendEvents(attemptId, events, retain);
+    const stored = await this.events.appendEvents(attemptId, events, retain);
+    await this.keepAgentTodos(attemptId, stored);
+    return stored;
   }
 
   /** Reads retained events in either storage form with integrity verification. */
@@ -372,5 +383,33 @@ export class AgentSessionRepository implements AgentSessionStore {
       { updated_at: new Date().toISOString() },
     );
     return rows.length;
+  }
+
+  /**
+   * Keeps the list of the newest structured plan among the stored events (PAGE-306).
+   *
+   * @remarks
+   * The journal is already committed, so a failure here is logged and never
+   * fails the append: the plan event stays in the history either way.
+   */
+  private async keepAgentTodos(
+    attemptId: string,
+    stored: readonly AgentSessionEvent[],
+  ): Promise<void> {
+    const plan = stored.findLast(
+      (event) => event.kind === "plan" && !event.isTruncated,
+    );
+    const entries = plan ? readPlanEventEntries(plan.text) : null;
+    if (!plan || entries === null) return;
+    try {
+      const previous = await this.agentTodos.findEntries(attemptId);
+      await this.agentTodos.save(
+        attemptId,
+        mergeAgentTodos(entries, previous, plan.createdAt),
+        plan.createdAt,
+      );
+    } catch (error: unknown) {
+      logCaughtError("AgentSessionRepository", error);
+    }
   }
 }

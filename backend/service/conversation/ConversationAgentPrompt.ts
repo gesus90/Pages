@@ -118,14 +118,23 @@ function triggerLines(input: ConversationAgentPromptInput): string[] {
   const place = `Du antwortest in einer Unterhaltung von Pages in der Gruppe „${input.conversation.name}“.`;
   const origin = `Die Runde gehört zur Nachricht #${String(trigger.originSequence)} von ${person}.`;
   const reason = trigger.reason.trim();
+  const suggested =
+    reason === ""
+      ? "Weise darauf hin, dass man einen Agent der Gruppe mit @Benutzername direkt ansprechen kann."
+      : `Vermutlich zuständig wären: ${reason}. Nenne sie und weise darauf hin, dass man sie mit @ direkt ansprechen kann.`;
   const sentences: Record<ConversationReplyTrigger, string> = {
     direct: `${person} hat dir geschrieben.`,
     mention: `${person} hat dich dort mit @ erwähnt.`,
     context: `Niemand hat dich mit @ erwähnt: Pages hat dich wegen deiner Zuständigkeit hinzugezogen. Grund: ${reason}`,
     handoff: `Ein anderer Agent der Gruppe hat dich hinzugezogen, ${person} hat dich nicht mit @ erwähnt. Grund: ${reason}`,
+    fallback: `Niemand wurde mit @ angesprochen, und Pages konnte nicht klären, wer in der Gruppe zuständig ist. Du bist der Standard-Antwortende der Gruppe und antwortest deshalb. Sage am Anfang deiner Antwort offen, dass nicht klar war, wer angesprochen ist. ${suggested}`,
   };
   const lines = [place, sentences[trigger.kind], origin];
-  if (trigger.kind === "context" || trigger.kind === "handoff")
+  if (
+    trigger.kind === "context" ||
+    trigger.kind === "handoff" ||
+    trigger.kind === "fallback"
+  )
     lines.push(
       `Diese Auswahl ist kein Auftrag und gibt dir keine zusätzlichen Rechte: Schreibende Aktionen nur, wenn ${person} sie in der Unterhaltung ausdrücklich verlangt hat; es gelten deine eigenen Rechte. Wenn du nichts Hilfreiches beitragen kannst, antworte kurz.`,
     );

@@ -84,10 +84,12 @@ export const GITHUB_FLOW: RepositoryFlow = {
       }),
     ),
     prepare(`
-      INSERT INTO work_items (id, project_id, key, number, type, title, status_id, created_by, github_issue_number, department_id)
+      INSERT INTO work_items (id, project_id, key, number, type, title, status_id, created_by, github_issue_number)
       VALUES
-          ('item-git', 'project-git', 'GIT-1', 1, 'task', 'Ticket', 'status-todo', 'user-admin', 3, NULL),
-          ('item-hidden', 'project-git', 'GIT-2', 2, 'task', 'Verborgen', 'status-todo', 'user-admin', NULL, 'department-z');
+          ('item-git', 'project-git', 'GIT-1', 1, 'task', 'Ticket', 'status-todo', 'user-admin', 3),
+          ('item-hidden', 'project-git', 'GIT-2', 2, 'task', 'Verborgen', 'status-todo', 'user-admin', NULL);
+      INSERT INTO work_item_departments (work_item_id, department_id)
+      VALUES ('item-hidden', 'department-z');
     `),
     call("GitHubRepository.findExternalIssues", ({ github }) =>
       github.findExternalIssues("project-git"),
@@ -247,6 +249,7 @@ export const GITHUB_FLOW: RepositoryFlow = {
     call("GitHubRepository.findPullRequestById", ({ github }) =>
       github.findPullRequestById("pull-2"),
     ),
+    prepare("DELETE FROM work_item_departments;"),
     prepare("DELETE FROM work_items WHERE project_id = 'project-git';"),
     prepare("DELETE FROM github_pull_requests;"),
     prepare("DELETE FROM github_external_issues;"),

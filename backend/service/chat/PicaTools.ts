@@ -114,7 +114,7 @@ const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
   },
   tickets_read: {
     description:
-      "Read a visible ticket by ID or key, including the current title, description, status ID, parent, milestone, assignee, tags and descendantCount before a change.",
+      "Read a visible ticket by ID or key, including the current title, description, status ID, parent, milestone, assignee, departments (a list; empty means visible to the whole project), tags and descendantCount before a change.",
     operation: "ticket.read",
   },
   assignment_targets_search: {
@@ -156,7 +156,7 @@ const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
 const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
   tickets_create: {
     description:
-      "Create a ticket in a project. statusId null takes the default status, parentId null creates no parent; without assignee the person works on it.",
+      "Create a ticket in a project. statusId null takes the default status, parentId null creates no parent; without assignee the person works on it. departmentIds (any number of IDs from departments_list, an empty list for none) sets the departments that see the ticket; a ticket without department is visible to everyone with project access; leaving departmentIds out takes the selectable departments of the parent.",
     operation: "ticket.create",
   },
   tickets_set_title: {
@@ -181,6 +181,11 @@ const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
     description:
       "Set the tags of a ticket from the catalog, with the expected old tag IDs.",
     operation: "ticket.setTags",
+  },
+  tickets_set_departments: {
+    description:
+      "Replace the departments of a ticket with departmentIds (any number from departments_list; an empty list makes the ticket visible to everyone with project access), with the expected old department IDs from tickets_read departments.",
+    operation: "ticket.setDepartments",
   },
   tickets_set_parent: {
     description:

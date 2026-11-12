@@ -149,7 +149,12 @@ const EQUALITY_FILTERS: readonly EqualityFilter[] = [
     parameter: "parent_id",
   },
   {
-    condition: "work_items.department_id = $department_id",
+    condition: `EXISTS (
+        SELECT 1
+        FROM work_item_departments AS filter_department
+        WHERE filter_department.work_item_id = work_items.id
+            AND filter_department.department_id = $department_id
+    )`,
     option: "departmentId",
     parameter: "department_id",
   },

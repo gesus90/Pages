@@ -25,6 +25,8 @@ export interface AgentPlanCommandRequest {
   readonly name: string | null;
   readonly workspaceId: string | null;
   readonly confirmation: unknown;
+  /** Set only for a clone that becomes a one-time plan (PAGE-309). */
+  readonly oneShot?: true;
 }
 
 /** Reads bounded command input before any persistence or execution. */
@@ -50,7 +52,7 @@ export function readPlanCommand(
       ...(isClone ? ["name"] : []),
     ],
     [
-      ...(isClone ? ["workspaceId"] : []),
+      ...(isClone ? ["workspaceId", "oneShot"] : []),
       ...(operation === "plans.delete" ? ["confirmation"] : []),
     ],
   );
@@ -64,12 +66,24 @@ export function readPlanCommand(
     name: isTemplate
       ? readPlanTemplateName(parameters.name)
       : cloneName(parameters, isClone),
-    workspaceId:
-      isClone && parameters.workspaceId !== undefined
-        ? readIdentifier(parameters.workspaceId)
-        : null,
     confirmation:
       operation === "plans.delete" ? (parameters.confirmation ?? null) : null,
+    ...readCloneTarget(parameters, isClone),
+  };
+}
+
+/** Where a clone goes and whether the copy is a one-time plan; other commands name neither. */
+function readCloneTarget(
+  parameters: Readonly<Record<string, unknown>>,
+  isClone: boolean,
+): Pick<AgentPlanCommandRequest, "workspaceId" | "oneShot"> {
+  if (!isClone) return { workspaceId: null };
+  const { workspaceId, oneShot } = parameters;
+  if (oneShot !== undefined && typeof oneShot !== "boolean")
+    throw new AgentOperationError("INVALID_REQUEST");
+  return {
+    workspaceId: workspaceId === undefined ? null : readIdentifier(workspaceId),
+    ...(oneShot === true ? { oneShot: true } : {}),
   };
 }
 

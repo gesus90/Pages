@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next";
 
+import { AssigneeSightNotice } from "@/app/components/tasks/assignee-sight-notice";
 import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
+import { useAssigneeSight } from "@/app/components/tasks/use-assignee-sight";
 import { useTicketAccess } from "@/app/components/tasks/ticket-access";
+import { TicketDepartmentChips } from "@/app/components/tasks/ticket-department-chips";
 import { WORK_ITEM_LIMITS } from "@/definition/Task";
 
 import { TaskFormTemplateField } from "./task-form-template-field";
@@ -198,11 +201,16 @@ function PeopleAndDateFields({
   selections,
 }: SectionProps): React.ReactElement {
   const { t } = useTranslation();
-  const { departments } = useTicketAccess();
+  const { departments, knownDepartments } = useTicketAccess();
   const assigneeOptions = useAssigneeOptions(assignees, {
     currentGroupId: initialTask?.assigneeGroupId ?? null,
     projectId: selections.projectId,
   });
+  const { check, dismiss, warning } = useAssigneeSight(
+    initialTask
+      ? { ticketId: initialTask.id }
+      : { departmentIds: selections.departmentIds },
+  );
 
   return (
     <>
@@ -211,7 +219,10 @@ function PeopleAndDateFields({
           id="task-assignee"
           label={t("tasks.fields.assignee")}
           value={selections.assignee}
-          onValueChange={(value) => select("assignee", value)}
+          onValueChange={(value) => {
+            select("assignee", value);
+            check(value);
+          }}
           options={assigneeOptions}
         />
         <TaskFormSelectField
@@ -222,6 +233,23 @@ function PeopleAndDateFields({
           options={milestoneOptions(milestones, selections, t("tasks.none"))}
         />
       </div>
+
+      {warning ? (
+        <AssigneeSightNotice
+          onAddDepartment={(department) => {
+            // A saved ticket keeps its departments in the ticket page; only a new one chooses here.
+            if (mode === "create") {
+              select("departmentIds", [
+                ...selections.departmentIds,
+                department.id,
+              ]);
+            }
+            dismiss();
+          }}
+          onDismiss={dismiss}
+          sight={mode === "create" ? warning : { ...warning, offer: [] }}
+        />
+      ) : null}
 
       <TaskFormTextField
         defaultValue={initialTask?.dueAt ?? ""}
@@ -242,19 +270,19 @@ function PeopleAndDateFields({
           />
         ) : null}
         {mode === "create" ? (
-          <TaskFormSelectField
-            id="task-department"
-            label={t("tasks.fields.department")}
-            value={selections.departmentId}
-            onValueChange={(value) => select("departmentId", value)}
-            options={[
-              { value: "", label: t("tasks.department.none") },
-              ...departments.map((department) => ({
-                value: department.id,
-                label: department.name,
-              })),
-            ]}
-          />
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
+            <span className="text-sm font-medium">
+              {t("tasks.fields.department")}
+            </span>
+            <TicketDepartmentChips
+              known={knownDepartments}
+              onChange={(departmentIds) =>
+                select("departmentIds", departmentIds)
+              }
+              selectable={departments}
+              selectedIds={selections.departmentIds}
+            />
+          </div>
         ) : null}
         <TaskFormTextField
           defaultValue={initialTask?.startAt ?? ""}

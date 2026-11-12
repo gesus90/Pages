@@ -70,6 +70,7 @@ const TRIGGERS: readonly ConversationReplyTrigger[] = [
   "mention",
   "context",
   "handoff",
+  "fallback",
 ];
 
 function readTrigger(value: string): ConversationReplyTrigger {

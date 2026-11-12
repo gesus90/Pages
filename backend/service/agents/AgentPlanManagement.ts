@@ -61,11 +61,17 @@ function readStoredPlanId(stored: StoredAgentOperation): string {
  */
 export class AgentPlanManagement {
   private readonly database: Pick<Database, "transaction">;
-  private readonly plans: Pick<AgentPlanService, "save" | "clone" | "remove">;
+  private readonly plans: Pick<
+    AgentPlanService,
+    "save" | "clone" | "remove" | "keep"
+  >;
 
   public constructor(dependencies: {
     readonly database: Pick<Database, "transaction">;
-    readonly plans: Pick<AgentPlanService, "save" | "clone" | "remove">;
+    readonly plans: Pick<
+      AgentPlanService,
+      "save" | "clone" | "remove" | "keep"
+    >;
   }) {
     this.database = dependencies.database;
     this.plans = dependencies.plans;
@@ -157,6 +163,35 @@ export class AgentPlanManagement {
       },
       async (journal) => {
         await this.plans.remove(userId, planId, {
+          revision: input.revision,
+          journal: (transaction) => journal(transaction, planId),
+        });
+        return planId;
+      },
+    );
+  }
+
+  /**
+   * Keeps a one-time plan: removes the mark and cancels its scheduled deletion (PAGE-309).
+   *
+   * @remarks
+   * Whoever may change the plan keeps it, at the revision the person saw.
+   */
+  public async keep(
+    userId: string,
+    planId: string,
+    input: { readonly revision: number; readonly requestKey: string },
+  ): Promise<void> {
+    await this.once(
+      userId,
+      {
+        operation: "page.plans.keep",
+        operationId: input.requestKey,
+        planId,
+        revision: input.revision,
+      },
+      async (journal) => {
+        await this.plans.keep(userId, planId, {
           revision: input.revision,
           journal: (transaction) => journal(transaction, planId),
         });

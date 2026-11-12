@@ -1,3 +1,4 @@
+import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAgentTodoService";
 import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
 import "./agent-plan-services-mocks";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -243,6 +244,7 @@ it("wires the plan service on one access, preparation and engine", async () => {
   expect(options).toEqual({
     workGate: vi.mocked(AgentPlanWorkGate).mock.instances[1],
     stepProgress: expect.any(AgentPlanStepProgressService) as unknown,
+    agentTodos: expect.any(AgentPlanAgentTodoService) as unknown,
     workspaceCatalog: CATALOG,
     remoteExecution: only(vi.mocked(AgentPlanRemoteExecution)),
     remoteTargets: only(vi.mocked(AgentPlanRemoteTargets)),

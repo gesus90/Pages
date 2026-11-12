@@ -174,7 +174,7 @@ export class AuthorizationRepository {
   /** Deleting a department is the permitted exception to the final-membership rule. */
   public async deleteDepartment(id: string): Promise<void> {
     await this.database.execute(
-      "UPDATE work_items SET department_id = NULL WHERE department_id = $id;",
+      "DELETE FROM work_item_departments WHERE department_id = $id;",
       { id },
     );
     await this.database.execute(

@@ -33,6 +33,9 @@ vi.mock("@/backend/service/agents/runs/PlanRunCommandWorker", () =>
 vi.mock("@/backend/service/agents/AgentWorkspaceCleanupService", () =>
   fakeClasses({ AgentWorkspaceCleanupService: ["start"] }),
 );
+vi.mock("@/app/lib/agent-plan-one-shot-services.server", () => ({
+  startOneShotPlanDeletion: vi.fn(),
+}));
 vi.mock("@/backend/runtime/RunsMode", () => ({
   canProcessRuns: () => true,
   isPagesRunsProcess: () => false,

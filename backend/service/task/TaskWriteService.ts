@@ -63,7 +63,8 @@ export interface CreateWorkItemInput {
   readonly assigneeId?: string | null;
   /** Alternative to `assigneeId`; a ticket is assigned to a person or a group. */
   readonly assigneeGroupId?: string | null;
-  readonly departmentId?: string | null;
+  /** Departments of the new ticket; absent or empty means visible to the whole project. */
+  readonly departmentIds?: readonly string[];
   readonly parentId?: string | null;
   readonly milestoneId?: string | null;
   readonly dueAt?: string | null;
@@ -269,14 +270,14 @@ export class TaskWriteService {
       visibility: await this.access.visibility(actor),
     });
 
-    const departmentId = await this.departments.resolve(
+    const departmentIds = await this.departments.resolve(
       actor,
-      input.departmentId,
+      input.departmentIds,
     );
     const id = await this.insertNumbered(actor, project, {
       assigneeGroupId,
       assigneeId,
-      departmentId,
+      departmentIds,
       description,
       dueAt: trimOrNull(input.dueAt),
       milestoneId,

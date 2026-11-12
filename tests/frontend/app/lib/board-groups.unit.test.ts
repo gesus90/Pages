@@ -88,9 +88,9 @@ describe("grouping work items", () => {
   });
 
   it("groups by department with the department name, an unknown one untitled, none last", () => {
-    const named = workItem("d", { departmentId: "d1" });
-    const accounting = workItem("e", { departmentId: "d2" });
-    const unknown = workItem("f", { departmentId: "d9" });
+    const named = workItem("d", { departmentIds: ["d1"] });
+    const accounting = workItem("e", { departmentIds: ["d2"] });
+    const unknown = workItem("f", { departmentIds: ["d9"] });
     const without = workItem("g");
 
     const sections = groupWorkItems(

@@ -6,6 +6,7 @@ import { Button } from "@/app/components/ui/button";
 
 import { PlanExecutionDetails } from "./plan-execution-details";
 import { PlanStatusActivity } from "./plan-status-activity";
+import { PlanStatusAgentTodos } from "./plan-status-agent-todos";
 import { hasOpenPlanReport, PlanStatusBadge } from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
 import { isPlanDecisionResult, PlanStatusHistory } from "./plan-status-history";
@@ -42,6 +43,23 @@ function isScript(step: AgentPlanStepResult): boolean {
   );
 }
 
+/** An agent node, as opposed to a script or a decision. */
+function isAgentStep(step: AgentPlanStepResult): boolean {
+  return !isScript(step) && !isPlanDecisionResult(step);
+}
+
+/**
+ * Whether the step has ticket or contract todos to list; the list of the
+ * agent beside the details names its own empty state (PAGE-306).
+ */
+function hasTicketTodos(step: AgentPlanStepResult): boolean {
+  return (
+    isAgentStep(step) &&
+    ((step.progress?.todos.length ?? 0) > 0 ||
+      (step.session?.contract?.tickets.length ?? 0) > 0)
+  );
+}
+
 /** The line under the heading: what kind of node the step is. */
 function nodeKind(step: AgentPlanStepResult, translate: TFunction): string {
   if (isPlanDecisionResult(step)) return translate("plans.nodeType.decision");
@@ -68,80 +86,84 @@ export function PlanStatusDetails({
         {t("plans.progress.noSelection")}
       </p>
     );
+  const hasAgentList = isAgentStep(step);
   return (
-    <ScrollViewport
-      axis="vertical"
-      tabIndex={0}
-      role="region"
-      aria-label={t("plans.progress.open")}
-      containerClassName="min-h-0 flex-1"
-      className="flex flex-col gap-4 overflow-y-auto overscroll-contain border-t border-border px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
-    >
-      {isScript(step) || isPlanDecisionResult(step) ? null : (
-        <PlanStatusTodos key={step.id} step={step} number={number} />
-      )}
-      <section aria-label={t("plans.progress.step", { number })}>
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="text-sm leading-5 font-semibold wrap-anywhere">
-              {t("plans.progress.step", { number })} · {step.name}
-              {pass ? ` · ${t("plans.progress.pass", { pass })}` : null}
-            </h3>
-            <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
-              {nodeKind(step, t)}
-            </p>
+    <div className="flex min-h-0 flex-1 flex-col border-t border-border @2xl/status:flex-row">
+      <ScrollViewport
+        axis="vertical"
+        tabIndex={0}
+        role="region"
+        aria-label={t("plans.progress.open")}
+        containerClassName="min-h-0 min-w-0 flex-1"
+        className="flex flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
+      >
+        {hasTicketTodos(step) ? (
+          <PlanStatusTodos key={step.id} step={step} number={number} />
+        ) : null}
+        <section aria-label={t("plans.progress.step", { number })}>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-sm leading-5 font-semibold wrap-anywhere">
+                {t("plans.progress.step", { number })} · {step.name}
+                {pass ? ` · ${t("plans.progress.pass", { pass })}` : null}
+              </h3>
+              <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
+                {nodeKind(step, t)}
+              </p>
+            </div>
+            <PlanStatusBadge
+              status={step.status}
+              isBlocked={step.isBlocked}
+              hasOpenReport={hasOpenPlanReport(step)}
+              className="rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-4"
+            />
           </div>
-          <PlanStatusBadge
-            status={step.status}
-            isBlocked={step.isBlocked}
-            hasOpenReport={hasOpenPlanReport(step)}
-            className="rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-4"
-          />
-        </div>
-        {kind && kind !== "actual" ? (
-          <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
-            {t(`plans.progress.outlook.${kind}`)}
-          </p>
-        ) : null}
-        {hasOpenPlanReport(step) ? (
-          <p className="text-xs leading-4.5 text-warning wrap-anywhere">
-            {t("plans.progress.reportOpenHint")}
-          </p>
-        ) : null}
-        {step.isBlocked && blockedByName ? (
-          <p className="text-xs leading-4.5 text-destructive wrap-anywhere">
-            {t("plans.progress.blockedBy", { name: blockedByName })}
-          </p>
-        ) : null}
-        <PlanStatusStop stop={step.failureStop} />
-        {step.isDisplayFiltered ? (
-          <p className="text-xs text-muted-foreground">
-            {t("plans.progress.filteredOutput")}
-          </p>
-        ) : null}
-        <PlanStatusHistory step={step} />
-        <PlanStatusReport acceptance={step.session?.acceptance} />
-        <PlanScriptReport report={step.report} />
-        <PlanExecutionDetails step={step} />
-        <StepConfiguration step={step} end={end} />
-        {isScript(step) || isPlanDecisionResult(step) ? null : (
-          <PlanStatusActivity step={step} />
-        )}
-        <PlanRemoteHistory step={step} />
-        <Button
-          size="sm"
-          variant="ghost"
-          className="mt-2 h-auto min-h-8 max-w-full justify-start rounded-md px-0 text-xs leading-4.5 text-muted-foreground whitespace-normal xl:min-h-8 xl:px-0 xl:text-xs [@media(pointer:coarse)]:min-h-11"
-          onClick={onLocate}
-          disabled={!canLocate}
-        >
-          <Crosshair aria-hidden="true" className="size-4 shrink-0" />
-          {t(
-            canLocate ? "plans.progress.locate" : "plans.progress.nodeMissing",
-          )}
-        </Button>
-      </section>
-    </ScrollViewport>
+          {kind && kind !== "actual" ? (
+            <p className="text-xs leading-4.5 text-muted-foreground wrap-anywhere">
+              {t(`plans.progress.outlook.${kind}`)}
+            </p>
+          ) : null}
+          {hasOpenPlanReport(step) ? (
+            <p className="text-xs leading-4.5 text-warning wrap-anywhere">
+              {t("plans.progress.reportOpenHint")}
+            </p>
+          ) : null}
+          {step.isBlocked && blockedByName ? (
+            <p className="text-xs leading-4.5 text-destructive wrap-anywhere">
+              {t("plans.progress.blockedBy", { name: blockedByName })}
+            </p>
+          ) : null}
+          <PlanStatusStop stop={step.failureStop} />
+          {step.isDisplayFiltered ? (
+            <p className="text-xs text-muted-foreground">
+              {t("plans.progress.filteredOutput")}
+            </p>
+          ) : null}
+          <PlanStatusHistory step={step} />
+          <PlanStatusReport acceptance={step.session?.acceptance} />
+          <PlanScriptReport report={step.report} />
+          <PlanExecutionDetails step={step} />
+          <StepConfiguration step={step} end={end} />
+          {hasAgentList ? <PlanStatusActivity step={step} /> : null}
+          <PlanRemoteHistory step={step} />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="mt-2 h-auto min-h-8 max-w-full justify-start rounded-md px-0 text-xs leading-4.5 text-muted-foreground whitespace-normal xl:min-h-8 xl:px-0 xl:text-xs [@media(pointer:coarse)]:min-h-11"
+            onClick={onLocate}
+            disabled={!canLocate}
+          >
+            <Crosshair aria-hidden="true" className="size-4 shrink-0" />
+            {t(
+              canLocate
+                ? "plans.progress.locate"
+                : "plans.progress.nodeMissing",
+            )}
+          </Button>
+        </section>
+      </ScrollViewport>
+      {hasAgentList ? <PlanStatusAgentTodos step={step} /> : null}
+    </div>
   );
 }
 

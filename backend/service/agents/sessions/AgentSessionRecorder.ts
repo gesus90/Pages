@@ -1,7 +1,12 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import {
+  AGENT_TODO_LIMIT,
+  AGENT_TODO_TEXT_LENGTH,
+} from "@/definition/AgentPlanAgentTodos";
 
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
+import { MAXIMUM_EVENT_TEXT } from "./AgentSessionJournal";
 import {
   ACP_USAGE_CAPABILITIES,
   readContextUsage,
@@ -153,17 +158,35 @@ function toolText(state: ToolCallState, output = ""): string {
     .join("\n");
 }
 
+/**
+ * The journal text of a structured plan update (PAGE-306): JSON with the status and text of each entry.
+ *
+ * @remarks
+ * The journal shortens a text beyond its limit, which would break the JSON.
+ * A list that does not fit loses its last entries instead, so the text always
+ * stays readable and the entries that are kept stay exact.
+ */
+function planText(
+  entries: Extract<SessionUpdate, { sessionUpdate: "plan" }>["entries"],
+): string {
+  const kept = entries.slice(0, AGENT_TODO_LIMIT).map((entry) => ({
+    content: entry.content.trim().slice(0, AGENT_TODO_TEXT_LENGTH),
+    status: entry.status,
+  }));
+  let text = JSON.stringify({ entries: kept });
+  while (text.length > MAXIMUM_EVENT_TEXT && kept.length > 0) {
+    kept.pop();
+    text = JSON.stringify({ entries: kept });
+  }
+  return text;
+}
+
 /** The event an update of plans or modes is recorded as; `null` for other updates. */
 function activityEvent(
   update: SessionUpdate,
 ): Omit<AgentSessionEventInput, "turn"> | null {
   if (update.sessionUpdate === "plan")
-    return {
-      kind: "plan",
-      text: update.entries
-        .map((entry) => `[${entry.status}] ${entry.content}`)
-        .join("\n"),
-    };
+    return { kind: "plan", text: planText(update.entries) };
   if (update.sessionUpdate === "current_mode_update")
     return { kind: "status", text: `mode ${update.currentModeId}` };
   return null;

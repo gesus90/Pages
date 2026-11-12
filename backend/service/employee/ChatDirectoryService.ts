@@ -228,6 +228,7 @@ export class ChatDirectoryService {
       person,
       target.conversationId,
       target.beforeId,
+      { withDecisions: true },
     );
     return {
       conversationId: page.conversationId,

@@ -84,7 +84,7 @@ export function ticketRecord(
     id,
     projectId: "alpha",
     projectName: "alpha",
-    departmentId: "engineering",
+    departmentIds: ["engineering"],
     key: `ALP-${id}`,
     number: 1,
     type: "task",

@@ -2,6 +2,7 @@ import { ConversationError } from "@/backend/error/ConversationError";
 import { CONVERSATION_HISTORY_PAGE_SIZE } from "@/definition/Conversation";
 
 import type { ReadStream } from "node:fs";
+import type { ConversationDecisionRepository } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
@@ -39,6 +40,8 @@ export interface ConversationReaderDependencies {
   readonly messages: ConversationMessageRepository;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly files: Pick<WikiFileStore, "open">;
+  /** The decisions about messages of groups, which the chat page shows (PAGE-317). */
+  readonly decisions: Pick<ConversationDecisionRepository, "forMessages">;
 }
 
 /** The audio of a voice message, opened for one member. */
@@ -147,6 +150,11 @@ function limitPage(newestFirst: readonly StoredConversationMessage[]): {
   };
 }
 
+/** Whether a history read of a member also carries the decisions about its messages. */
+export interface ConversationHistoryOptions {
+  readonly withDecisions?: boolean;
+}
+
 /**
  * The reads of conversations for one member (PAGE-278): the list, a
  * history, the people and agents to write to, and the audio of a voice
@@ -218,6 +226,7 @@ export class ConversationReader {
     person: User,
     conversationId: string,
     beforeId: string | null,
+    options: ConversationHistoryOptions = {},
   ): Promise<ConversationHistoryPage> {
     await this.requireMember(person, conversationId);
     let beforeSequence: number | null = null;
@@ -238,11 +247,14 @@ export class ConversationReader {
       this.dependencies.directory.read(),
     ]);
     const page = limitPage(stored);
+    const messages = page.messages.map((message) =>
+      toConversationMessage(message, accounts),
+    );
     return {
       conversationId,
-      messages: page.messages.map((message) =>
-        toConversationMessage(message, accounts),
-      ),
+      messages: options.withDecisions
+        ? await this.withDecisions(messages, accounts)
+        : messages,
       hasMore: page.hasMore,
     };
   }
@@ -345,8 +357,11 @@ export class ConversationReader {
       const page = limitPage(stored);
       views.push({
         summary,
-        messages: page.messages.map((message) =>
-          toConversationMessage(message, accounts),
+        messages: await this.withDecisions(
+          page.messages.map((message) =>
+            toConversationMessage(message, accounts),
+          ),
+          accounts,
         ),
         hasMore: page.hasMore,
       });
@@ -360,6 +375,38 @@ export class ConversationReader {
       conversationId,
     ]);
     return members.get(conversationId) ?? [];
+  }
+
+  /** Adds the decision about each message of a person that a group judged (PAGE-317). */
+  private async withDecisions(
+    messages: readonly ConversationMessage[],
+    accounts: ConversationAccounts,
+  ): Promise<ConversationMessage[]> {
+    const decisions = await this.dependencies.decisions.forMessages(
+      messages.map((message) => message.id),
+    );
+    const agent = (
+      id: string,
+    ): { readonly id: string; readonly name: string } => ({
+      id,
+      name: accounts.participant(id).name,
+    });
+    return messages.map((message) => {
+      const stored = decisions.get(message.id);
+      if (!stored) return message;
+      return {
+        ...message,
+        decision: {
+          messageId: message.id,
+          outcome: stored.outcome,
+          fallback: stored.fallback,
+          responders: stored.responderIds.map(agent),
+          suggested: stored.suggestedIds.map(agent),
+          reason: stored.reason,
+          needsAnswer: stored.needsAnswer,
+        },
+      };
+    });
   }
 
   private async requireMember(

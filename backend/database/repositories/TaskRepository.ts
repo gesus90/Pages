@@ -13,6 +13,7 @@ import { WorkItemKeyRepository } from "./task/WorkItemKeyRepository";
 import { WorkItemLifecycleRepository } from "./task/WorkItemLifecycleRepository";
 import { WorkItemLinkRepository } from "./task/WorkItemLinkRepository";
 import { WorkItemQueryRepository } from "./task/WorkItemQueryRepository";
+import { WorkItemDepartmentRepository } from "./task/WorkItemDepartmentRepository";
 import { WorkItemWriteRepository } from "./task/WorkItemWriteRepository";
 import { WorkItemProjectMoveRepository } from "./task/WorkItemProjectMoveRepository";
 
@@ -98,6 +99,7 @@ export class TaskRepository {
   private readonly queries: WorkItemQueryRepository;
   private readonly counts: WorkItemCountRepository;
   private readonly writes: WorkItemWriteRepository;
+  private readonly departments: WorkItemDepartmentRepository;
   private readonly projectMoves: WorkItemProjectMoveRepository;
   private readonly lifecycle: WorkItemLifecycleRepository;
   private readonly labels: TaskLabelRepository;
@@ -122,6 +124,7 @@ export class TaskRepository {
     this.queries = new WorkItemQueryRepository(database);
     this.counts = new WorkItemCountRepository(database);
     this.writes = new WorkItemWriteRepository(database);
+    this.departments = new WorkItemDepartmentRepository(database);
     this.projectMoves = new WorkItemProjectMoveRepository(database);
     this.lifecycle = new WorkItemLifecycleRepository(database);
     this.labels = new TaskLabelRepository(database);
@@ -384,7 +387,8 @@ export class TaskRepository {
 
   /** Inserts a new work item. */
   public async insert(item: NewWorkItem): Promise<void> {
-    return this.writes.insert(item);
+    await this.writes.insert(item);
+    await this.departments.insert(item.id, item.departmentIds);
   }
 
   /** Returns known GitHub links without exposing any ticket details to an actor. */
@@ -466,21 +470,23 @@ export class TaskRepository {
     return this.writes.updateParent(id, parentId);
   }
 
-  /** Assigns a work item to a department, or clears the assignment with `null`. */
-  public async setDepartment(
-    id: string,
-    departmentId: string | null,
-  ): Promise<void> {
-    return this.writes.setDepartment(id, departmentId);
+  /** Returns the department ids of a work item, ordered by department name. */
+  public async findDepartmentIds(id: string): Promise<string[]> {
+    return this.departments.find(id);
   }
 
-  /** Reassigns a department only if its previous value still matches. */
-  public async setDepartmentIfCurrent(
+  /**
+   * Replaces the departments of an active work item; an empty list makes it
+   * visible project-wide.
+   *
+   * @returns `false` when the item is gone or archived, or `expected` is stale.
+   */
+  public async setDepartments(
     id: string,
-    departmentId: string | null,
-    expected: string | null,
+    departmentIds: readonly string[],
+    expected?: readonly string[],
   ): Promise<boolean> {
-    return this.writes.setDepartmentIfCurrent(id, departmentId, expected);
+    return this.departments.replace(id, departmentIds, expected);
   }
 
   /** Returns the ids of a work item and its descendants, optionally limited to a visible scope. */

@@ -20,7 +20,8 @@ export interface TaskFormSelections {
   readonly priority: WorkItemPriority;
   /** A user id, `group:<id>` or empty; see `toAssigneeValue`. */
   readonly assignee: string;
-  readonly departmentId: string;
+  /** Departments of a new ticket; empty means visible to the whole project. */
+  readonly departmentIds: readonly string[];
   readonly milestoneId: string;
   readonly parentId: string;
   readonly reporterId: string;
@@ -72,7 +73,7 @@ function buildSelections(defaults: TaskFormDefaults): TaskFormSelections {
   if (initialTask) {
     return {
       assignee: toAssigneeValue(initialTask),
-      departmentId: initialTask.departmentId ?? "",
+      departmentIds: initialTask.departmentIds,
       milestoneId: initialTask.milestoneId ?? "",
       parentId: initialTask.parentId ?? "",
       priority: initialTask.priority,
@@ -86,7 +87,7 @@ function buildSelections(defaults: TaskFormDefaults): TaskFormSelections {
 
   return {
     assignee: "",
-    departmentId: "",
+    departmentIds: [],
     milestoneId: "",
     parentId: defaults.defaultParentId ?? "",
     priority: WORK_ITEM_PRIORITY.NORMAL,

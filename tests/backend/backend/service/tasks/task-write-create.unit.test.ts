@@ -38,7 +38,7 @@ describe("creating a ticket", () => {
       statusId: "todo",
       createdBy: "writer",
       projectId: "alpha",
-      departmentId: null,
+      departmentIds: [],
     });
     expect(world.actions(created.id)).toEqual(["created"]);
   });
@@ -222,7 +222,7 @@ describe("hierarchy of a new ticket", () => {
     world.addTicket("secret-epic", {
       type: "epic",
       key: "ALP-8",
-      departmentId: "design",
+      departmentIds: ["design"],
     });
 
     await expect(
@@ -305,27 +305,30 @@ describe("assignment and department of a new ticket", () => {
     await expect(
       world.tasks.create(
         world.user("writer"),
-        input({ departmentId: "engineering" }),
+        input({ departmentIds: ["engineering"] }),
       ),
-    ).resolves.toMatchObject({ departmentId: "engineering" });
+    ).resolves.toMatchObject({ departmentIds: ["engineering"] });
     await expect(
       world.tasks.create(
         world.user("writer"),
-        input({ departmentId: "design" }),
+        input({ departmentIds: ["design"] }),
       ),
     ).rejects.toBeInstanceOf(WorkItemAccessDeniedError);
     await expect(
       world.tasks.create(
         world.user("writer"),
-        input({ departmentId: "ghost" }),
+        input({ departmentIds: ["ghost"] }),
       ),
     ).rejects.toMatchObject({ code: "departmentNotFound" });
   });
 
   it("treats a blank department as none", async () => {
     await expect(
-      world.tasks.create(world.user("writer"), input({ departmentId: "  " })),
-    ).resolves.toMatchObject({ departmentId: null });
+      world.tasks.create(
+        world.user("writer"),
+        input({ departmentIds: ["  "] }),
+      ),
+    ).resolves.toMatchObject({ departmentIds: [] });
   });
 });
 

@@ -271,7 +271,7 @@ export const EXTENSION_WRITE_TOOLS: readonly {
     tool: buildWriteTool({
       name: "set_ticket_assignee",
       title: "Set ticket assignee",
-      description: `Replaces the assignee of ticketId with the person, group, department or none named by targetType and targetId. Pass the last-read expectedAssigneeId and expectedAssigneeGroupId; department changes also require expectedDepartmentId. ${WRITE_DESCRIPTION}`,
+      description: `Replaces the assignee of ticketId with the person, group, department or none named by targetType and targetId. Pass the last-read expectedAssigneeId and expectedAssigneeGroupId; department changes also require expectedDepartmentId and work only for a ticket with at most one department; use set_ticket_departments for several. ${WRITE_DESCRIPTION}`,
       properties: {
         ticketId: IDENTIFIER_SCHEMA,
         targetType: {
@@ -328,6 +328,20 @@ export const EXTENSION_WRITE_TOOLS: readonly {
         ticketId: IDENTIFIER_SCHEMA,
         tagIds: IDENTIFIER_LIST,
         expectedTagIds: IDENTIFIER_LIST,
+      },
+      isDestructive: true,
+    }),
+  },
+  {
+    operation: "ticket.setDepartments",
+    tool: buildWriteTool({
+      name: "set_ticket_departments",
+      title: "Set ticket departments",
+      description: `Replaces the departments of a ticket with departmentIds, any number of ids from list_departments; an empty list removes every department, which makes the ticket visible to everyone with access to its project. A ticket with departments is seen and edited only by the members of at least one of them, so keep one you belong to unless the ticket should open up. Pass the department ids read last as expectedDepartmentIds (read_ticket lists them as departments). Adding or removing a department needs the same right as on the ticket page: your own departments always, others only with a manager right for them; removing every department needs only the write right for the ticket. A department you cannot see returns NOT_FOUND, one you may not add or remove FORBIDDEN. ${WRITE_DESCRIPTION}`,
+      properties: {
+        ticketId: IDENTIFIER_SCHEMA,
+        departmentIds: IDENTIFIER_LIST,
+        expectedDepartmentIds: IDENTIFIER_LIST,
       },
       isDestructive: true,
     }),

@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
 import { GitHubSyncBadge } from "@/app/components/tasks/github-sync-badge";
+import { useTicketAssigneeSight } from "@/app/components/tasks/ticket-assignee-sight";
 import { TicketDepartmentSelect } from "@/app/components/tasks/ticket-department-select";
 import { Select } from "@/app/components/ui/select";
 import { toAssigneeValue } from "@/app/lib/assignee-value";
@@ -44,6 +45,12 @@ export function PeopleRows({
     currentGroupId: task.assigneeGroupId,
     projectId: task.projectId,
   });
+  const { checkAssignee, notice } = useTicketAssigneeSight(task);
+
+  function handleAssigneeSelect(assignee: string): void {
+    handleAssigneeChange(assignee);
+    checkAssignee(assignee);
+  }
 
   return (
     <>
@@ -58,12 +65,13 @@ export function PeopleRows({
             ariaLabel={t("tasks.fields.assignee")}
             className="min-w-0"
             disabled={isArchived}
-            onValueChange={handleAssigneeChange}
+            onValueChange={handleAssigneeSelect}
             options={assigneeOptions}
             value={toAssigneeValue(task)}
           />
         </dd>
       </div>
+      {notice}
       <div className="flex items-center justify-between gap-3">
         <dt className="text-muted-foreground">{t("tasks.fields.reporter")}</dt>
         <dd>

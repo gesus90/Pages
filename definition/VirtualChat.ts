@@ -12,6 +12,7 @@
  */
 
 import type { ConversationNotice } from "./Conversation";
+import type { ConversationDecisionView } from "./ConversationDecision";
 
 /** Whether a participant is available, busy with a task, or switched off. */
 export type VirtualParticipantStatus = "active" | "working" | "off";
@@ -100,6 +101,8 @@ export interface VirtualChatMessage {
   readonly voice?: VirtualVoice;
   /** Present only for a hint why an agent did not answer (PAGE-276). */
   readonly notice?: ConversationNotice;
+  /** Present only for a message of a person that the decision of a group judged (PAGE-317). */
+  readonly decision?: ConversationDecisionView;
 }
 
 /** What the list can open: a group or a single participant. */

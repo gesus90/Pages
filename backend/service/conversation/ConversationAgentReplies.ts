@@ -1,6 +1,7 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { CONVERSATION_DECISION_LIMITS } from "@/definition/ConversationDecision";
 import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
 
 import { ConversationReplyRunner } from "./ConversationReplyRunner";
@@ -10,9 +11,11 @@ import type {
   ConversationRecord,
   ConversationRepository,
 } from "@/backend/database/repositories/conversation/ConversationRepository";
+import type { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import type { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type { ConversationMessage } from "@/definition/Conversation";
+import type { ConversationReplySettings } from "@/definition/ConversationDecision";
 import type { User } from "@/definition/User";
 import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
@@ -24,6 +27,7 @@ import type {
   ConversationEvent,
   ConversationEvents,
 } from "./ConversationEvents";
+import type { ConversationChatDecisions } from "./ConversationChatDecisions";
 import type { ConversationObserverRouting } from "./ConversationObserverRouting";
 import type { ObserverCandidate } from "./ConversationObserverPrompts";
 import type {
@@ -72,6 +76,10 @@ export interface ConversationAgentRepliesDependencies {
   readonly contexts: Pick<ConversationContextReader, "promptContext">;
   /** The observer that chooses agents by context (PAGE-296). */
   readonly routing: Pick<ConversationObserverRouting, "choose">;
+  /** How each group decides who answers without an @ (PAGE-317). */
+  readonly replySettings: Pick<ConversationReplySettingsRepository, "find">;
+  /** The decision model that chooses agents for a group in decision mode (PAGE-317). */
+  readonly decisions: Pick<ConversationChatDecisions, "decide">;
   /** The in-process channel: the replies follow it and publish to it. */
   readonly events: Pick<ConversationEvents, "subscribe" | "publish">;
   /** Tells the live view of this process about a change. */
@@ -120,9 +128,12 @@ function isAgentMember(
  * @remarks
  * In a direct conversation the agent answers every message of the person.
  * In a group the agents a person mentions with @ answer at once, each once,
- * and the observer is not asked. A message of a person without such a
- * mention asks the observer once whether an agent should contribute; its
- * failure starts nobody and blocks nothing else. An answer can hand the
+ * and nobody is asked who should answer. A message of a person without such
+ * a mention follows the setting of the group (PAGE-317): in `mentions` mode
+ * nobody else answers, in `observer` mode the observer is asked once whether
+ * an agent should contribute, and in `decision` mode the decision model of
+ * the instance chooses, with the default responder as fallback; a failure
+ * starts nobody by the observer and blocks nothing else. An answer can hand the
  * round over: the agents it mentions with @ answer, and an answer without
  * such a mention asks the observer once more. Every answer stays in the
  * round of the person's message: each agent answers a round once at most,
@@ -227,6 +238,14 @@ export class ConversationAgentReplies {
       );
       return;
     }
+    const settings = await this.dependencies.replySettings.find(
+      conversation.id,
+    );
+    if (settings.mode === "mentions") return;
+    if (settings.mode === "decision") {
+      await this.decide(round, message, settings, accounts);
+      return;
+    }
     await this.route(round, { trigger: message, from: null }, accounts);
   }
 
@@ -274,16 +293,57 @@ export class ConversationAgentReplies {
       await this.handOver(round, answer);
   }
 
-  /** The agents an answer hands over to: those it mentions, or the observer's choice. */
+  /**
+   * Asks the decision model once for a message of a person and starts the
+   * agents it settles on.
+   */
+  private async decide(
+    round: ConversationRound,
+    message: ConversationMessage,
+    settings: ConversationReplySettings,
+    accounts: ConversationAccounts,
+  ): Promise<void> {
+    const starts = await this.dependencies.decisions.decide({
+      conversation: round.conversation,
+      originMessageId: round.originMessageId,
+      person: round.person,
+      message,
+      memberIds: round.memberIds,
+      settings,
+      accounts,
+    });
+    await this.dispatchAll(
+      round,
+      starts.map((start) => ({
+        agentId: start.agentId,
+        trigger: start.trigger,
+        triggerMessageId: message.id,
+        requestedBy: null,
+        reason: start.reason,
+        isAutomatic: true,
+      })),
+    );
+  }
+
+  /**
+   * The agents an answer hands over to: those it mentions, or in `observer`
+   * mode the observer's choice. An answer never starts a decision, and a long
+   * run of agent messages without a person starts no hand-over (PAGE-317).
+   */
   private async handOver(
     round: ConversationRound,
     answer: ConversationMessage,
   ): Promise<void> {
     const accounts = await this.dependencies.directory.read();
+    if (await this.isAgentStreak(round, answer, accounts)) return;
     const mentioned = [...new Set(answer.mentions)].filter((id) =>
       isAgentMember(id, round.memberIds, accounts),
     );
     if (mentioned.length === 0) {
+      const { mode } = await this.dependencies.replySettings.find(
+        round.conversation.id,
+      );
+      if (mode !== "observer") return;
       await this.route(
         round,
         { trigger: answer, from: answer.sender },
@@ -426,6 +486,38 @@ export class ConversationAgentReplies {
         username: account.user.username,
         role: account.role,
       }));
+  }
+
+  /** Whether the newest messages up to the answer are all of agents, without a person between. */
+  private async isAgentStreak(
+    round: ConversationRound,
+    answer: ConversationMessage,
+    accounts: ConversationAccounts,
+  ): Promise<boolean> {
+    const { messages } = this.dependencies;
+    const stored = await messages.find(round.conversation.id, answer.id);
+    if (!stored) return false;
+    const streak = CONVERSATION_DECISION_LIMITS.agentStreak;
+    const newestFirst = await messages.history(
+      round.conversation.id,
+      stored.sequence + 1,
+      streak,
+    );
+    const isStreak =
+      newestFirst.length >= streak &&
+      newestFirst.every(
+        (message) => accounts.find(message.senderId)?.user.isAgent === true,
+      );
+    if (isStreak)
+      logEvent({
+        level: "info",
+        event: "conversation.agent_reply.streak",
+        component: COMPONENT,
+        message:
+          "Agent messages in a row without a person started no further hand-over.",
+        metadata: { conversationId: round.conversation.id, streak },
+      });
+    return isStreak;
   }
 
   private logLimit(round: ConversationRound, agentId: string): void {

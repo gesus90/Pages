@@ -210,7 +210,7 @@ describe("ticket.checklist.setItems applies a bulk change", () => {
         kind: "ticket.updated",
         object_id: CHECKLIST_TICKET_ID,
         audience_project_id: null,
-        audience_department_id: null,
+        audience_department_ids: "[]",
       },
     ]);
   });

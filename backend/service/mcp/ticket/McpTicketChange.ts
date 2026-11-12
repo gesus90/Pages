@@ -36,6 +36,20 @@ export interface McpTicketReferences {
 /** A stored value of a ticket in the form the interface names it. */
 type ComparableValue = string | null | readonly string[];
 
+/**
+ * The department of the older single-department fields.
+ *
+ * @remarks
+ * A ticket with several departments has no single one: the joined ids never
+ * equal what a client read, so a change through the old field conflicts
+ * instead of silently dropping departments.
+ */
+function singleDepartmentId(departmentIds: readonly string[]): string | null {
+  return departmentIds.length <= 1
+    ? (departmentIds[0] ?? null)
+    : departmentIds.join(",");
+}
+
 /** Reads the current value of each field `expected` may name. */
 const CURRENT_VALUE: Readonly<
   Record<
@@ -55,7 +69,8 @@ const CURRENT_VALUE: Readonly<
   assigneeGroupId: async (_, ticket) => ticket.assigneeGroupId,
   reporter: async (context, ticket) =>
     (await context.person(ticket.createdBy))?.username ?? null,
-  departmentId: async (_, ticket) => ticket.departmentId,
+  departmentId: async (_, ticket) => singleDepartmentId(ticket.departmentIds),
+  departmentIds: async (_, ticket) => ticket.departmentIds,
   parent: async (_, ticket) => ticket.parentKey,
   milestoneId: async (_, ticket) => ticket.milestoneId,
   startAt: async (_, ticket) => ticket.startAt?.slice(0, 10) ?? null,

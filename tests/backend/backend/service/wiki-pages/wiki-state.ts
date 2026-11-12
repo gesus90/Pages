@@ -24,7 +24,7 @@ export interface PageRow {
 /** Where an anchor target belongs; a missing target hides the page. */
 export interface TargetFacts {
   readonly projectId: string | null;
-  readonly departmentId: string | null;
+  readonly departmentIds: string[];
 }
 
 /** An account the lookups know. */
@@ -135,8 +135,8 @@ function satisfiesAnchor(
   return (
     readsProject &&
     (scope.isAdmin ||
-      target.departmentId === null ||
-      scope.departmentIds.includes(target.departmentId))
+      target.departmentIds.length === 0 ||
+      target.departmentIds.some((id) => scope.departmentIds.includes(id)))
   );
 }
 

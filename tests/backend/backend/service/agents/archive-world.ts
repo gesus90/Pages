@@ -49,8 +49,8 @@ function isVisible(item: WorkItemDetail, scope?: WorkItemVisibility): boolean {
   const hasDepartment =
     !scope ||
     scope.departmentIds === null ||
-    item.departmentId === null ||
-    scope.departmentIds.includes(item.departmentId);
+    item.departmentIds.length === 0 ||
+    item.departmentIds.some((id) => scope.departmentIds?.includes(id));
   return (
     hasDepartment &&
     (!scope?.projectIds || scope.projectIds.includes(item.projectId))

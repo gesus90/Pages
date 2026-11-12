@@ -128,8 +128,14 @@ function characters(text: string): number {
   return Array.from(text).length;
 }
 
-/** Parses the one JSON object of an answer; a single code fence around it is tolerated. */
-function readJsonObject(output: string): unknown {
+/**
+ * Parses the one JSON object of an answer; a single code fence around it is tolerated.
+ *
+ * @param output - The answer of a model.
+ * @returns The parsed value, still to be validated.
+ * @throws {ConversationObserverError} `observer_output_invalid` for text that is no JSON.
+ */
+export function readJsonObject(output: string): unknown {
   const trimmed = output.trim();
   const fenced = /^```(?:json)?\s*\n([\s\S]*?)\n```$/u.exec(trimmed);
   try {

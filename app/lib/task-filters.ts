@@ -78,10 +78,10 @@ function matchesAssignee(item: WorkItemDetail, assignee: string): boolean {
 
 function matchesDepartment(item: WorkItemDetail, department: string): boolean {
   if (department === BOARD_FILTER_NONE) {
-    return item.departmentId === null;
+    return item.departmentIds.length === 0;
   }
 
-  return department === FILTER_ALL || item.departmentId === department;
+  return department === FILTER_ALL || item.departmentIds.includes(department);
 }
 
 function matchesLabels(

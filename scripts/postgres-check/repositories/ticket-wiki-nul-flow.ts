@@ -57,7 +57,7 @@ const WRITE_STEPS: readonly RepositoryStep[] = [
     new WorkItemWriteRepository(database).insert({
       id: "nul-ticket",
       projectId: PROJECT,
-      departmentId: null,
+      departmentIds: [],
       key: "NUL-1",
       number: 1,
       type: "task",

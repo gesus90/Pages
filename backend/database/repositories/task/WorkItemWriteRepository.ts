@@ -12,7 +12,8 @@ import type { TaskUpdateSnapshot } from "@/definition/TaskUpdateSnapshot";
 export interface NewWorkItem {
   readonly id: string;
   readonly projectId: string;
-  readonly departmentId: string | null;
+  /** Departments the ticket starts in; empty means visible project-wide. */
+  readonly departmentIds: readonly string[];
   readonly key: string;
   readonly number: number;
   readonly type: WorkItemType;
@@ -167,7 +168,6 @@ export class WorkItemWriteRepository {
         INSERT INTO work_items (
             id,
             project_id,
-            department_id,
             key,
             number,
             type,
@@ -189,7 +189,6 @@ export class WorkItemWriteRepository {
         VALUES (
             $id,
             $project_id,
-            $department_id,
             $key,
             $number,
             $type,
@@ -213,7 +212,6 @@ export class WorkItemWriteRepository {
         assignee_group_id: item.assigneeGroupId,
         assignee_id: item.assigneeId,
         created_by: item.createdBy,
-        department_id: item.departmentId,
         description: item.description,
         due_at: item.dueAt,
         id: item.id,
@@ -437,44 +435,6 @@ export class WorkItemWriteRepository {
       `,
       { id, parent_id: parentId },
     );
-  }
-
-  /** Assigns a work item to a department, or clears the assignment with `null`. */
-  public async setDepartment(
-    id: string,
-    departmentId: string | null,
-  ): Promise<void> {
-    await this.database.execute(
-      `
-        UPDATE work_items
-        SET
-            department_id = $department_id,
-            updated_at = utc_now()
-        WHERE id = $id
-            AND archived_at IS NULL;
-      `,
-      { department_id: departmentId, id },
-    );
-  }
-
-  /** Changes the department only while the displayed assignment is current. */
-  public async setDepartmentIfCurrent(
-    id: string,
-    departmentId: string | null,
-    expected: string | null,
-  ): Promise<boolean> {
-    const rows = await this.database.query(
-      `
-        UPDATE work_items
-        SET department_id = $department_id, updated_at = utc_now()
-        WHERE id = $id
-            AND archived_at IS NULL
-            AND department_id IS NOT DISTINCT FROM $expected
-        RETURNING id;
-      `,
-      { department_id: departmentId, expected, id },
-    );
-    return rows.length > 0;
   }
 
   /** Writes GitHub's synchronized fields while preserving all local relationships. */

@@ -61,34 +61,36 @@ const OVERVIEW_SCOPE = {
 const TICKET_ROWS = `
   INSERT INTO work_items (
       id, project_id, key, number, type, parent_id, title, description, status_id, priority,
-      assignee_id, assignee_group_id, department_id, created_by, milestone_id, due_at,
+      assignee_id, assignee_group_id, created_by, milestone_id, due_at,
       sort_order, created_at, updated_at, archived_at, github_issue_number
   )
   VALUES
       ('tie-c', 'project-a', 'TIE-3', 1, 'task', NULL, 'Gleich', '100% fertig', 'status-todo', 'normal',
-       NULL, NULL, NULL, 'user-admin', NULL, NULL,
+       NULL, NULL, 'user-admin', NULL, NULL,
        5, '2026-01-01 00:00:00', '2026-01-01 00:00:00', NULL, 12),
       ('tie-a', 'project-a', 'TIE-1', 2, 'epic', NULL, 'Gleich', 'Text', 'status-todo', 'high',
-       'user-manager', NULL, 'department-a', 'user-admin', 'mile-c', '2026-05-01',
+       'user-manager', NULL, 'user-admin', 'mile-c', '2026-05-01',
        5, '2026-01-01 00:00:00', '2026-01-01 00:00:00', NULL, 11),
       ('tie-b', 'project-a', 'TIE-2', 3, 'task', 'tie-a', 'Pfad C:\\Temp\\', 'hundert fertig', 'status-in-progress', 'normal',
-       NULL, 'group-b', 'department-z', 'user-admin', NULL, NULL,
+       NULL, 'group-b', 'user-admin', NULL, NULL,
        5, '2026-01-01 00:00:00', '2026-01-01 00:00:00', NULL, 14),
       ('tie-d', 'project-a', 'TIE-4', 4, 'subtask', 'tie-a', 'Ähnlich', 'Text', 'status-done', 'low',
-       'user-admin', NULL, NULL, 'user-admin', NULL, '2026-05-01',
+       'user-admin', NULL, 'user-admin', NULL, '2026-05-01',
        5, '2026-01-01 00:00:00', '2026-01-01 00:00:00', NULL, 10),
       ('tie-x', 'project-a', 'TIE-5', 5, 'task', NULL, 'Archiviert', 'Text', 'status-todo', 'normal',
-       NULL, NULL, NULL, 'user-admin', NULL, NULL,
+       NULL, NULL, 'user-admin', NULL, NULL,
        6, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-02-01 00:00:00', 13),
       ('tie-y', 'project-a', 'TIE-6', 6, 'initiative', NULL, 'Initiative', 'Text', 'status-todo', 'normal',
-       NULL, NULL, NULL, 'user-admin', 'mile-c', NULL,
+       NULL, NULL, 'user-admin', 'mile-c', NULL,
        7, '2026-01-01 00:00:00', '2026-01-01 00:00:00', NULL, NULL),
       ('tie-o', 'project-b', 'OTH-1', 1, 'task', NULL, 'Anderes Projekt', 'Text', 'status-todo', 'normal',
-       NULL, NULL, NULL, 'user-admin', NULL, NULL,
+       NULL, NULL, 'user-admin', NULL, NULL,
        5, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-02-01 00:00:00', NULL),
       ('tie-q', 'project-b', 'OTH-2', 2, 'task', NULL, 'Aktiv', 'Text', 'status-done', 'normal',
-       NULL, NULL, NULL, 'user-admin', NULL, NULL,
+       NULL, NULL, 'user-admin', NULL, NULL,
        5, '2026-01-01 00:00:00', '2026-01-01 00:00:00', NULL, NULL);
+  INSERT INTO work_item_departments (work_item_id, department_id)
+  VALUES ('tie-a', 'department-a'), ('tie-b', 'department-z');
   UPDATE work_items SET updated_at = '2026-01-01 00:00:00' WHERE id = 'tie-a';
 `;
 
@@ -551,7 +553,7 @@ export const TICKET_READ_FLOW: RepositoryFlow = {
     prepare("DELETE FROM labels;"),
     prepare("DELETE FROM milestone_dependencies;"),
     prepare(
-      "DELETE FROM work_items WHERE project_id IN ('project-a', 'project-b');",
+      "DELETE FROM work_item_departments; DELETE FROM work_items WHERE project_id IN ('project-a', 'project-b');",
     ),
     prepare("DELETE FROM milestones WHERE project_id = 'project-a';"),
   ],

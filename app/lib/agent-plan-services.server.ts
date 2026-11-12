@@ -11,6 +11,8 @@ import { AgentWorkspaceCleanupService } from "@/backend/service/agents/AgentWork
 import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
+import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAgentTodoService";
+import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
 
 import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
@@ -61,6 +63,7 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
+import { startOneShotPlanDeletion } from "./agent-plan-one-shot-services.server";
 import { createPlanRemoteServices } from "./agent-plan-remote-services.server";
 import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
@@ -168,6 +171,7 @@ function planRecords(input: {
   PlanDependencies,
   | "workGate"
   | "stepProgress"
+  | "agentTodos"
   | "phases"
   | "archive"
   | "startRejections"
@@ -180,6 +184,9 @@ function planRecords(input: {
       reports: new AgentPlanStepReportRepository(input.database),
       progress: new AgentPlanStepProgressRepository(input.database),
     }),
+    agentTodos: new AgentPlanAgentTodoService(
+      new AgentPlanAgentTodoRepository(input.database),
+    ),
     phases: new AgentPlanPhases(input.tasks, input.users),
     archive: input.agents.agentRunArchive,
     startRejections: new AgentPlanStartRejectionRepository(input.database),
@@ -316,6 +323,7 @@ async function startOwnedPlanProcessing(
   const { service, runs, engine, remoteExecution } = parts;
   await recoverRuns(input, service);
   startWorkspaceCleanup(input.database, runs, engine, remoteExecution);
+  startOneShotPlanDeletion(input.database);
   if (!(engine instanceof AgentPlanRunEngine)) return;
   const runtime = await getPagesRuntime();
   const worker = new PlanRunCommandWorker(

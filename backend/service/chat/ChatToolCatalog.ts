@@ -152,7 +152,7 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.run.recovery.resume":
     "{planId, runId, expectedRecoveryRevision, expectedPlanRevision, mode, reviewedStepIds} nach ausdrücklichem Auftrag und Prüfung möglicher Nebenwirkungen einen verknüpften neuen Lauf am verifizierten Zustand fortsetzen",
   "plans.clone":
-    "{planId, expectedRevision, name, workspaceId?} vollständigen gespeicherten Plan atomar mit unabhängigen IDs kopieren; ohne workspaceId im Quellworkspace, mit normalen Create-Rechten und ohne übernommene Lesefreigaben, Historie oder Start",
+    "{planId, expectedRevision, name, workspaceId?, oneShot?} vollständigen gespeicherten Plan atomar mit unabhängigen IDs kopieren (oneShot true: als Einmal-Plan, der fünf Minuten nach einem erfolgreichen Lauf gelöscht wird); ohne workspaceId im Quellworkspace, mit normalen Create-Rechten und ohne übernommene Lesefreigaben, Historie oder Start",
   "plans.templates.list": "{workspaceId} sichtbare Node-Vorlagen lesen",
   "plans.templates.read":
     "{workspaceId, templateId} eine sichtbare Node-Vorlage lesen",
@@ -165,13 +165,15 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
     "{workspaceId, templateId} eigene Node-Vorlage löschen; eingefügte Kopien in Plänen bleiben; exakte Vorlage nennen und bestehendes Bestätigungswort der Person abwarten",
   "plans.delete":
     "{planId, expectedRevision} eigenen Plan löschen, wenn kein Run aktiv ist; exaktes Ziel und Folgen nennen, bestehendes Bestätigungswort der Person in einer späteren Nachricht abwarten",
+  "plans.keep":
+    "{planId, expectedRevision} auf ausdrücklichen Auftrag einen Einmal-Plan behalten: geplantes Löschen abbrechen und oneShot entfernen",
   "plans.play":
     "{planId, expectedRevision} gespeicherte Revision ausdrücklich starten",
   "plans.pause": "{planId, expectedRevision, runId} eigenen Run pausieren",
   "plans.resume":
     "{planId, expectedRevision, runId} eigenen pausierten Run fortsetzen",
   "plans.stop": "{planId, expectedRevision, runId} eigenen Run stoppen",
-  "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, team (Abteilung des Plans), Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun; text sucht im Namen`,
+  "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, team (Abteilung des Plans), Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun, oneShot und scheduledDeletionAt (Einmal-Plan wird fünf Minuten nach einem erfolgreichen Lauf gelöscht); text sucht im Namen`,
   "plans.read":
     "{planId, cursor?, maxBytes?} Agent Plan lesen; über 64 KiB als chunk mit text, Byte-Offsets, SHA-256 und nextCursor (als cursor fortsetzen), höchstens 1 MiB insgesamt; nach Änderung neu lesen. Kleine Antworten mit nodes (label, Agent, Script, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
   "plans.sources.read":
@@ -179,8 +181,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.runs.list": `{planId, order?: newest|oldest, ${WINDOW}} eigene Runs eines Plans mit runId, planId, startedAt und status, seitenweise (Standard 20 pro Seite)`,
   "plans.run.read": `{${RUN}} einen eigenen Run mit Start, Ende, Status und Status jedes Nodes lesen`,
   "plans.run.reports.read": `{${RUN}, stepId?} Berichte eines eigenen Runs lesen: je Node runId, stepId, Ausführungsstatus, Ergebnis, Fehler, Fortschritt, Kriterien und Todos`,
-  "plans.create": `{name, workspaceId, sharing?: {scope: private|global|restricted, operator?, groupIds?, departmentIds?}, ${CHANGES}} Agent Plan anlegen; gehört dem Team der Abteilung der Person (Mitglied oder Leiter, nur bei genau einer Abteilung), ohne Freigabe sonst privat`,
-  "plans.update": `{${PLAN_TARGET}, name?, sharing?, workspaceId?, ${CHANGES}} Struktur, Name, Freigabe oder Arbeitsbereich eines Plans ändern (Eigentümer oder Mitglied/Leiter des Teams; ein anderer Arbeitsbereich nur im Projekt des Plans, ein anderes Projekt nur der Eigentümer); alle changes gelten zusammen oder gar nicht`,
+  "plans.create": `{name, workspaceId, oneShot?, sharing?: {scope: private|global|restricted, operator?, groupIds?, departmentIds?}, ${CHANGES}} Agent Plan anlegen; gehört dem Team der Abteilung der Person (Mitglied oder Leiter, nur bei genau einer Abteilung), ohne Freigabe sonst privat`,
+  "plans.update": `{${PLAN_TARGET}, name?, sharing?, workspaceId?, oneShot?, ${CHANGES}} Struktur, Name, Freigabe oder Arbeitsbereich eines Plans ändern (Eigentümer oder Mitglied/Leiter des Teams; ein anderer Arbeitsbereich nur im Projekt des Plans, ein anderes Projekt nur der Eigentümer); alle changes gelten zusammen oder gar nicht`,
   "plans.parameter.create": `{${PLAN_TARGET}, name, value: {type: text, text}|{type: number, number}|{type: ticket, ticketId}|{type: workspace, workspaceId}|{type: wiki, pageId}, format?: string|number|json|boolean, x?, y?} Parameter-Node anlegen`,
   "plans.parameter.update": `{${PLAN_TARGET}, parameterId, name?, value?, format?, x?, y?} Parameter-Node ändern`,
   "plans.parameter.remove": `{${PLAN_TARGET}, parameterId} Parameter-Node samt seinen Datenverbindungen entfernen`,
@@ -265,6 +267,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "tags.list": `{${WINDOW}} Tag-Katalog; nur diese Tags lassen sich zuweisen`,
   "ticket.setTags":
     "{ticketId, tagIds: [], expectedTagIds: []} Tags eines Tickets setzen, nur Tags des Katalogs",
+  "ticket.setDepartments":
+    "{ticketId, departmentIds: [], expectedDepartmentIds: []} Abteilungen eines Tickets setzen; leere Liste = sichtbar für das ganze Projekt",
   "milestone.initiative.add":
     "{projectId, milestoneId, initiativeId} Initiative mit Meilenstein verknüpfen",
   "milestone.initiative.remove":

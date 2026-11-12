@@ -10,7 +10,7 @@ function outboxRow(kind: string, objectId: string): Record<string, unknown> {
     kind,
     object_id: objectId,
     audience_project_id: null,
-    audience_department_id: null,
+    audience_department_ids: "[]",
   };
 }
 

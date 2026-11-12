@@ -5,19 +5,24 @@ import { ConversationRepository } from "@/backend/database/repositories/conversa
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
+import { ConversationDecisionRepository } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
+import { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import { ConversationGroupContextRepository } from "@/backend/database/repositories/conversation/ConversationGroupContextRepository";
 import { ConversationObserverRunRepository } from "@/backend/database/repositories/conversation/ConversationObserverRunRepository";
 import { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { ConversationAgentReplies } from "@/backend/service/conversation/ConversationAgentReplies";
+import { ConversationChatDecisions } from "@/backend/service/conversation/ConversationChatDecisions";
 import { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
 import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
+import { ConversationDecisionModel } from "@/backend/service/conversation/ConversationDecisionModel";
 import { ConversationGroupSummaries } from "@/backend/service/conversation/ConversationGroupSummaries";
 import { ConversationGroupSummaryScheduler } from "@/backend/service/conversation/ConversationGroupSummaryScheduler";
 import { ConversationObserverModel } from "@/backend/service/conversation/ConversationObserverModel";
 import { ConversationObserverRouting } from "@/backend/service/conversation/ConversationObserverRouting";
 import { ConversationReader } from "@/backend/service/conversation/ConversationReader";
+import { ConversationReplySettingsService } from "@/backend/service/conversation/ConversationReplySettingsService";
 import { ConversationService } from "@/backend/service/conversation/ConversationService";
 import { createConversationTranscriber } from "@/backend/service/conversation/ConversationTranscriber";
 import { ConversationVoiceStore } from "@/backend/service/conversation/ConversationVoiceStore";
@@ -26,9 +31,11 @@ import { voiceMaximumDurationMs } from "@/backend/config/SpeechRecognitionConfig
 
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
+import type { SimulatedConversationDecision } from "@/backend/agents/simulation/SimulatedConversationDecision";
 import type { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import type { Database } from "@/backend/database/Database";
 import type { ConversationAgentRunner } from "@/backend/service/conversation/ConversationAgentReplies";
+import type { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { User } from "@/definition/User";
@@ -41,6 +48,8 @@ export interface ConversationApplicationServices {
   readonly conversationAgentReplies: ConversationAgentReplies;
   /** The stored context of groups (PAGE-296). */
   readonly conversationContextReader: ConversationContextReader;
+  /** Who answers in a group chat (PAGE-317). */
+  readonly conversationReplySettingsService: ConversationReplySettingsService;
   /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
   readonly conversationVoiceMaximumMs: number;
 }
@@ -67,6 +76,10 @@ export interface ConversationObserverInput {
   readonly plans: PlanExecution | null;
   /** The simulated observer; set only while the simulation is on. */
   readonly simulation: SimulatedConversationObserver | null;
+  /** The decision model of the instance, which chooses agents in group chats (PAGE-317). */
+  readonly decision: Pick<ChatDecisionSettingsService, "resolve">;
+  /** The simulated decision model; set only while the simulation is on. */
+  readonly decisionSimulation: SimulatedConversationDecision | null;
   /**
    * Whether this process runs the background work: the summaries and the
    * end of answers an earlier process left open.
@@ -120,11 +133,14 @@ export function createConversationServices(
     lookups: new WikiLookupRepository(database),
     jobTitles: () => store.identities().jobTitles(),
   });
+  const decisions = new ConversationDecisionRepository(database);
+  const replySettings = new ConversationReplySettingsRepository(database);
   const conversationReader = new ConversationReader({
     conversations,
     messages,
     directory,
     files,
+    decisions,
   });
   const events = sharedConversationEvents();
   const observer = createObserver(input, {
@@ -140,6 +156,18 @@ export function createConversationServices(
     rounds: observer.rounds,
     contexts: observer.reader,
     routing: observer.routing,
+    replySettings,
+    decisions: new ConversationChatDecisions({
+      messages,
+      rounds: observer.rounds,
+      decisions,
+      model: new ConversationDecisionModel({
+        settings: input.observer.decision,
+        plans: input.observer.plans,
+        simulation: input.observer.decisionSimulation,
+      }),
+      publisher: input.events,
+    }),
     events,
     publisher: input.events,
   });
@@ -152,6 +180,12 @@ export function createConversationServices(
     conversationReader,
     conversationAgentReplies,
     conversationContextReader: observer.reader,
+    conversationReplySettingsService: new ConversationReplySettingsService({
+      conversations,
+      settings: replySettings,
+      directory,
+      publisher: input.events,
+    }),
     conversationVoiceMaximumMs,
     conversationService: new ConversationService({
       conversations,
