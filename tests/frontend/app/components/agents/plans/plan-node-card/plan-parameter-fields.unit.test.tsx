@@ -155,3 +155,30 @@ it("locks every field without edit rights", () => {
     }),
   ).toHaveProperty("disabled", true);
 });
+
+it("starts a boolean as false and toggles an existing boolean", async () => {
+  const node = parameter();
+  const graph = renderFields(node);
+  await chooseType("notes", "boolean");
+  expect(graph.replaceNode).toHaveBeenCalledWith({
+    ...node,
+    format: "boolean",
+    value: { type: "text", text: "false" },
+  });
+  graph.unmount();
+
+  const booleanNode = parameter({
+    format: "boolean",
+    value: { type: "text", text: "true" },
+  });
+  const booleanGraph = renderFields(booleanNode);
+  const toggle = screen.getByRole("switch", {
+    name: i18n.t("plans.parameterValue", { name: "notes" }),
+  });
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(toggle);
+  expect(booleanGraph.replaceNode).toHaveBeenCalledWith({
+    ...booleanNode,
+    value: { type: "text", text: "false" },
+  });
+});
