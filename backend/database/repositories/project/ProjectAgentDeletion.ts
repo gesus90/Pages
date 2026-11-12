@@ -64,6 +64,29 @@ async function deletePlanRefusals(
   );
 }
 
+/**
+ * Teams and script approvals of the plans go with them.
+ *
+ * @remarks
+ * The trigger `agent_plan_access_cleanup` removes them as well; deleting them
+ * here keeps every table of a project named in this one place. The history in
+ * `agent_plan_audit` stays on purpose (PAGE-329).
+ */
+async function deletePlanAccess(
+  database: DatabaseTransaction,
+  parameters: { project_id: string },
+): Promise<void> {
+  for (const table of ["agent_plan_teams", "agent_plan_script_approvals"]) {
+    await database.execute(
+      `
+        DELETE FROM ${table}
+        WHERE plan_id IN (SELECT id FROM agent_plans WHERE project_id = $project_id);
+      `,
+      parameters,
+    );
+  }
+}
+
 /** Pending cleanup cannot lose the run that proves its owner, even after registration removal. */
 async function requireProjectRunCloseout(
   database: DatabaseTransaction,
@@ -203,6 +226,7 @@ export async function deleteProjectAgentData(
     "DELETE FROM agent_plan_assets WHERE project_id = $project_id;",
     parameters,
   );
+  await deletePlanAccess(database, parameters);
   await database.execute(
     "DELETE FROM agent_plans WHERE project_id = $project_id;",
     parameters,

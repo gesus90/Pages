@@ -91,6 +91,9 @@ const SHARED_TABLES = [
   "sessions",
 ];
 
+/** Tables of a project that its deletion keeps on purpose, so the history stays traceable (PAGE-329). */
+const RETAINED_TABLES = ["agent_plan_audit"];
+
 describe("ProjectLifecycleRepository.delete", () => {
   it("refuses project deletion while a live or uncertain ACP lease still belongs to its runs", async () => {
     const { connection, statements } = recorder([
@@ -320,13 +323,43 @@ describe("every project relation of the schema is part of the deletion", () => {
       )
       .map(([table]) => table);
     // A table added by a later migration that points at a project, a ticket or
-    // a plan has to be handled by the deletion, or this list names it.
+    // a plan has to be handled by the deletion, or RETAINED_TABLES names it.
     expect(
       related.filter(
-        (table) => !new RegExp(`DELETE FROM ${table}\\b`).test(text),
+        (table) =>
+          !RETAINED_TABLES.includes(table) &&
+          !new RegExp(`DELETE FROM ${table}\\b`).test(text),
       ),
     ).toEqual([]);
     expect(related.length).toBeGreaterThan(40);
+  });
+
+  it("keeps the plan history and deletes none of its entries", async () => {
+    const { connection, statements } = recorder();
+    await new ProjectLifecycleRepository(connection).delete("p1");
+    for (const table of RETAINED_TABLES) {
+      expect(schema.get(table)).toContain("plan_id");
+      expect(
+        statements.filter((statement) =>
+          new RegExp(`DELETE FROM ${table}\\b`).test(statement),
+        ),
+      ).toEqual([]);
+    }
+  });
+
+  it("deletes the teams and script approvals of the project's plans before the plans", async () => {
+    const { connection, statements } = recorder();
+    await new ProjectLifecycleRepository(connection).delete("p1");
+    const plans = statements.indexOf(
+      "DELETE FROM agent_plans WHERE project_id = $project_id;",
+    );
+    for (const table of ["agent_plan_teams", "agent_plan_script_approvals"]) {
+      const position = statements.indexOf(
+        `DELETE FROM ${table} WHERE plan_id IN (SELECT id FROM agent_plans WHERE project_id = $project_id);`,
+      );
+      expect(position).toBeGreaterThanOrEqual(0);
+      expect(position).toBeLessThan(plans);
+    }
   });
 
   it("leaves the tables of shared objects out of the deletion", () => {

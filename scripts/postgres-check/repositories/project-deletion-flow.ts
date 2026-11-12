@@ -1,3 +1,5 @@
+import { strict as assert } from "node:assert";
+
 import { deleteProjectAgentData } from "@/backend/database/repositories/project/ProjectAgentDeletion";
 import { ProjectDeletionScopeRepository } from "@/backend/database/repositories/project/ProjectDeletionScopeRepository";
 import { findReleasedBoardPreferences } from "@/backend/database/repositories/project/ProjectReferenceCleanup";
@@ -92,6 +94,23 @@ const AGENT_ROWS = `
   VALUES ('project-gone', 'key', 'wiki', 't', 'h', 1, '{}', 'r', 1, 1);
 `;
 
+/** Access and history of the plan: the access goes with the plan, the history stays (PAGE-329). */
+const PLAN_ACCESS_ROWS = `
+  INSERT INTO agent_plan_teams (plan_id, position, kind, target_id)
+  VALUES ('plan-gone', 1, 'group', 'group-a');
+  INSERT INTO agent_plan_script_approvals (plan_id, step_id, content_hash, approved_by, approved_at)
+  VALUES ('plan-gone', 'step-script', 'hash', 'user-admin', 't');
+  INSERT INTO agent_plan_audit (id, plan_id, actor_id, action, revision, created_at)
+  VALUES ('audit-gone', 'plan-gone', 'user-admin', 'teams_changed', 1, 't');
+`;
+
+const PLAN_ACCESS_REMAINING = `
+  SELECT
+      (SELECT COUNT(*) FROM agent_plan_teams WHERE plan_id = 'plan-gone'),
+      (SELECT COUNT(*) FROM agent_plan_script_approvals WHERE plan_id = 'plan-gone'),
+      (SELECT COUNT(*) FROM agent_plan_audit WHERE plan_id = 'plan-gone');
+`;
+
 const COUNT_REMAINING = `
   SELECT
       (SELECT COUNT(*) FROM projects WHERE id = 'project-gone'),
@@ -132,6 +151,7 @@ export const PROJECT_DELETION_FLOW: RepositoryFlow = {
     prepare(TICKET_ROWS),
     prepare(WIKI_ROWS),
     prepare(AGENT_ROWS),
+    prepare(PLAN_ACCESS_ROWS),
     prepare(
       "UPDATE projects SET parent_id = 'project-gone' WHERE id = 'project-b';",
     ),
@@ -196,6 +216,15 @@ export const PROJECT_DELETION_FLOW: RepositoryFlow = {
       projects.deletePermanently("project-gone"),
     ),
     stored(COUNT_REMAINING),
+    call("deleteProjectAgentData", async ({ database }) => {
+      const remaining = await database.query(PLAN_ACCESS_REMAINING);
+      assert.deepEqual(
+        remaining,
+        [[0, 0, 1]],
+        "Teams and approvals go, the history stays.",
+      );
+      return remaining;
+    }),
     stored("SELECT parent_id FROM projects WHERE id = 'project-b';"),
     call("UserBoardPreferencesRepository.findByUserId", ({ boards }) =>
       boards.findByUserId("user-admin"),
