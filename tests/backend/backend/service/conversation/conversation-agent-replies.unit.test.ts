@@ -108,7 +108,7 @@ function fixture(): {
     events: { subscribe: vi.fn().mockReturnValue(vi.fn()), publish: vi.fn() },
     publisher: { publish: vi.fn() },
     agentFiles: { select: vi.fn(), open: vi.fn() },
-    attachments: { attach: vi.fn() },
+    attachments: { stage: vi.fn(), bind: vi.fn(), release: vi.fn() },
     content: { describe: vi.fn() },
     now: () => new Date("2026-01-01T00:00:00Z"),
   };
