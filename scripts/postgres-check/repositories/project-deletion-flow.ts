@@ -94,7 +94,7 @@ const AGENT_ROWS = `
   VALUES ('project-gone', 'key', 'wiki', 't', 'h', 1, '{}', 'r', 1, 1);
 `;
 
-/** Access and history of the plan: the access goes with the plan, the history stays (PAGE-329). */
+/** Access and history of the plan: the access goes with the plan, the history stays (PAGE-329); a plan of another project keeps its access. */
 const PLAN_ACCESS_ROWS = `
   INSERT INTO agent_plan_teams (plan_id, position, kind, target_id)
   VALUES ('plan-gone', 1, 'group', 'group-a');
@@ -102,13 +102,27 @@ const PLAN_ACCESS_ROWS = `
   VALUES ('plan-gone', 'step-script', 'hash', 'user-admin', 't');
   INSERT INTO agent_plan_audit (id, plan_id, actor_id, action, revision, created_at)
   VALUES ('audit-gone', 'plan-gone', 'user-admin', 'teams_changed', 1, 't');
+  INSERT INTO agent_plan_teams (plan_id, position, kind, target_id)
+  SELECT id, 1, 'group', 'group-stays'
+  FROM agent_plans
+  WHERE project_id <> 'project-gone'
+  ORDER BY id
+  LIMIT 1;
+  INSERT INTO agent_plan_script_approvals (plan_id, step_id, content_hash, approved_by, approved_at)
+  SELECT id, 'step-stays', 'hash', 'user-admin', 't'
+  FROM agent_plans
+  WHERE project_id <> 'project-gone'
+  ORDER BY id
+  LIMIT 1;
 `;
 
 const PLAN_ACCESS_REMAINING = `
   SELECT
       (SELECT COUNT(*) FROM agent_plan_teams WHERE plan_id = 'plan-gone'),
       (SELECT COUNT(*) FROM agent_plan_script_approvals WHERE plan_id = 'plan-gone'),
-      (SELECT COUNT(*) FROM agent_plan_audit WHERE plan_id = 'plan-gone');
+      (SELECT COUNT(*) FROM agent_plan_audit WHERE plan_id = 'plan-gone'),
+      (SELECT COUNT(*) FROM agent_plan_teams WHERE target_id = 'group-stays'),
+      (SELECT COUNT(*) FROM agent_plan_script_approvals WHERE step_id = 'step-stays');
 `;
 
 const COUNT_REMAINING = `
@@ -220,8 +234,8 @@ export const PROJECT_DELETION_FLOW: RepositoryFlow = {
       const remaining = await database.query(PLAN_ACCESS_REMAINING);
       assert.deepEqual(
         remaining,
-        [[0, 0, 1]],
-        "Teams and approvals go, the history stays.",
+        [[0, 0, 1, 1, 1]],
+        "Teams and approvals go, the history and other projects stay.",
       );
       return remaining;
     }),
