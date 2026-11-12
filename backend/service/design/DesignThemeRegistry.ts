@@ -10,6 +10,7 @@ import {
 import { ARCTIC_ICE_INSTALLED_THEME } from "./ArcticIceDesignTheme";
 import { NEURAL_RGB_INSTALLED_THEME } from "./NeuralRgbDesignTheme";
 import { JUNGLE_BOTANICAL_INSTALLED_THEME } from "./JungleBotanicalDesignTheme";
+import { KOI_GARDEN_INSTALLED_THEME } from "./KoiGardenDesignTheme";
 import {
   MANIFEST_FILE_NAME,
   describeFileError,
@@ -45,6 +46,7 @@ const SHIPPED_THEMES: readonly InstalledDesignTheme[] = [
   ARCTIC_ICE_INSTALLED_THEME,
   JUNGLE_BOTANICAL_INSTALLED_THEME,
   NEURAL_RGB_INSTALLED_THEME,
+  KOI_GARDEN_INSTALLED_THEME,
 ];
 
 function findShippedTheme(id: string): InstalledDesignTheme | undefined {
@@ -65,8 +67,9 @@ const INVALID_ID_PROBLEM =
  * so a theme appears and disappears without a restart. A theme that did not
  * change on disk is not parsed again, which keeps the check that every page
  * makes for the theme of its user down to one `stat`. The designs Pages ships
- * (Standard, Arctic Ice, Jungle Botanical and Neural RGB) are built in, so they exist even
- * when the directory does not, and an installed theme cannot take their identifiers. A
+ * (Standard, Arctic Ice, Jungle Botanical, Neural RGB and Koi Garden) are built
+ * in, so they exist even when the directory does not, and an installed theme
+ * cannot take their identifiers. A
  * directory that cannot be read never breaks a page: the affected theme is
  * skipped and the Standard design applies.
  */

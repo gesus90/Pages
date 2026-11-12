@@ -30,7 +30,7 @@ export function WikiSidebarSection({
   return (
     <ScrollViewport
       axis="vertical"
-      containerClassName="mt-1 ml-4 min-h-0 min-w-0 flex-1"
+      containerClassName="pages-sidebar-tree mt-1 ml-4 min-h-0 min-w-0"
       className="overflow-x-hidden overflow-y-auto border-l border-border pl-2"
     >
       <WikiNavigation
