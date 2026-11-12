@@ -1,5 +1,8 @@
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
-import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import {
+  allPlanRunResults,
+  hasUnconfirmedLoopCloseout,
+} from "@/definition/AgentPlanLoopResults";
 
 import {
   endInterruptedSession,
@@ -7,7 +10,7 @@ import {
 } from "../AgentPlanRecovery";
 import { classifyPlanFailure } from "./AgentPlanFailure";
 import { canResumeAfterRestart } from "../AgentPlanStepDecision";
-import { interruptedLoopRuns } from "./AgentPlanLoopRecovery";
+import { interruptedLoopRuns, settledLoopRuns } from "./AgentPlanLoopRecovery";
 import { endInterruptedScript } from "../AgentPlanScriptRecovery";
 import {
   detachedStopRun,
@@ -134,7 +137,10 @@ export class AgentPlanStartupRecovery {
     counts: StartupRecoveryCounts,
   ): Promise<void> {
     for (const reserved of await this.dependencies.runs.reserving()) {
-      const run = await this.reconcileScripts(reserved);
+      const run = await this.reconcileSessions(
+        await this.reconcileScripts(reserved),
+        retained,
+      );
       if (await this.canRelease(run, retained)) {
         await this.dependencies.runs.release(run.id);
         counts.reservationsReleased += 1;
@@ -319,6 +325,56 @@ export class AgentPlanStartupRecovery {
     return reconciled;
   }
 
+  /**
+   * Ends the processes an ended run's sessions left behind, so its reservations can be released.
+   *
+   * @remarks
+   * A run that ended with an unconfirmed closeout keeps its working copies. A
+   * start used to only look at it, so the lock stayed through every restart.
+   * Now the owned processes are ended and the closeout recorded; only a
+   * process that cannot be ruled out keeps the reservation.
+   */
+  private async reconcileSessions(
+    run: AgentPlanRun,
+    retained: ReadonlySet<string>,
+  ): Promise<AgentPlanRun> {
+    const endSession = this.dependencies.endSession ?? endInterruptedSession;
+    const { runs } = this.dependencies;
+    const results = allPlanRunResults(run);
+    if (
+      !runs.update ||
+      !(
+        hasUnconfirmedLoopCloseout(run) ||
+        results.some((step) => hasOpenCloseout(step))
+      )
+    )
+      return run;
+    const end = async (
+      step: AgentPlanStepResult,
+    ): Promise<AgentPlanStepResult> => {
+      if (!hasOpenCloseout(step) || step.script) return step;
+      if (
+        step.session &&
+        this.dependencies.unverifiedLocal?.has(step.session.instanceId)
+      )
+        return step;
+      return retainUnconfirmed(
+        step,
+        await endSession(step, run.startedAt),
+        retained,
+      );
+    };
+    const steps = await Promise.all(run.steps.map(end));
+    const loops = run.loops ? await settledLoopRuns(run.loops, end) : undefined;
+    const reconciled: AgentPlanRun = {
+      ...run,
+      steps,
+      ...(loops ? { loops } : {}),
+    };
+    await runs.update(reconciled);
+    return reconciled;
+  }
+
   private async reconcileScripts(run: AgentPlanRun): Promise<AgentPlanRun> {
     if (
       !this.dependencies.runs.update ||
@@ -332,6 +388,14 @@ export class AgentPlanStartupRecovery {
     await this.dependencies.runs.update(reconciled);
     return reconciled;
   }
+}
+
+function hasOpenCloseout(step: AgentPlanStepResult): boolean {
+  return (
+    step.session !== undefined &&
+    step.session !== null &&
+    (step.session.closeout === "pending" || step.session.closeout === "failed")
+  );
 }
 
 function interruptionCode(step: AgentPlanStepResult): string {

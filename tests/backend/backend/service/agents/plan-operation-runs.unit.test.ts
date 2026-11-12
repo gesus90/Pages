@@ -78,6 +78,7 @@ it("lists the person's runs newest first in pages of twenty, each with date, sta
     planId: "plan-a",
     planName: "Alpha review",
     startedAt: startedAt(25),
+    startedBy: { id: "owner", displayName: "owner" },
     status: "succeeded",
   });
   expect(second.runs.map((run) => run.runId)).toEqual([

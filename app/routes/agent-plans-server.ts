@@ -18,7 +18,9 @@ import {
 } from "@/app/lib/settings-actions/settings-agents-response.server";
 import { readLocalStateAudience } from "@/app/lib/local-state/local-state-audience.server";
 import { readPlanInput, readPlanText } from "@/backend/agents/AgentPlanInput";
+import { planRecoveryFailure } from "@/app/lib/agent-plan-recovery-response.server";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type {
@@ -208,7 +210,11 @@ async function playPlan(
     const revision = Number(formData.get("revision"));
     if (!Number.isSafeInteger(revision) || revision < 1)
       throw new AgentError("plan_invalid");
-    run = await service.play(userId, planId, revision);
+    // The person confirmed in a dialog that the open run ends and a new one begins.
+    run =
+      formData.get("replaceOpenRun") === "true"
+        ? await service.playReplacing(userId, planId, revision)
+        : await service.play(userId, planId, revision);
   }
   return Response.json(
     {
@@ -303,6 +309,10 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       });
     if (intent === "play-plan")
       return await playPlan(user.id, services.agentPlanService, formData);
+    if (intent === "admin-mode") {
+      await services.administrationService.setMode(user.id, "admin");
+      return Response.json({ ok: true, intent }, { headers: AGENT_NO_STORE });
+    }
     if (
       intent === "stop-plan" ||
       intent === "pause-plan" ||
@@ -337,6 +347,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
   } catch (error: unknown) {
     logCaughtError("agent_plans", error);
 
+    if (error instanceof AgentPlanRecoveryError)
+      return planRecoveryFailure(error);
     return agentFailureResponse(
       error instanceof SyntaxError ? new AgentError("plan_invalid") : error,
       intent,

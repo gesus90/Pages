@@ -29,11 +29,13 @@ import type {
   AgentPlanContinuationCapabilities,
   AgentPlanRecoveryBlocker,
   AgentPlanRecoveryCommand,
+  AgentPlanRecoveryOption,
   AgentPlanRecoveryResult,
   AgentPlanRecoveryView,
   AgentPlanRepairAttempt,
 } from "@/definition/AgentPlanRecovery";
 import type { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
+import type { AgentPlanRunJournal } from "../AgentPlanJournal";
 import type { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import type { RecoveryActionDependencies } from "./AgentPlanRecoveryActions";
 import type { RecoveryFacts } from "./AgentPlanRecoveryPlanning";
@@ -275,15 +277,21 @@ export class AgentPlanRecoveryService {
       : null;
   }
 
-  /** Rechecks the executor's current plan, agent, workspace, ticket and asset rights on every read. */
+  /**
+   * Rechecks the current rights on every read.
+   *
+   * @remarks
+   * The executor reads the recovery state with its actions. Everybody else
+   * who may read the plan reads the state without actions (PAGE-307); where
+   * they may not see the content the run used, only the control state.
+   */
   public async view(
     userId: string,
     runId: string,
   ): Promise<AgentPlanRecoveryView> {
-    const hasHistoryAccess = await this.requireControlAccess(userId, runId);
     const record = await this.dependencies.recovery.inspect(runId);
-    if (record.run.userId !== userId)
-      throw new AgentPlanRecoveryError("access_denied");
+    if (record.run.userId !== userId) return this.teamView(userId, record);
+    const hasHistoryAccess = await this.requireControlAccess(userId, runId);
     const options = this.actions
       ? executingOptions(
           (await this.actions.facts(userId, runId, undefined, hasHistoryAccess))
@@ -291,31 +299,7 @@ export class AgentPlanRecoveryService {
         )
       : recordingOnly(record.run);
     if (!hasHistoryAccess) return controlRecoveryView(record, options);
-    return {
-      runId,
-      planId: record.run.planId,
-      stepNames: Object.fromEntries(
-        allPlanRunResults(record.run).map((step) => [
-          step.id,
-          sanitizeArtifactText(step.name),
-        ]),
-      ),
-      revision: record.revision,
-      origin: record.run.origin ?? null,
-      ...options,
-      cleanupResources: options.isCleanupUnconfirmed
-        ? planCleanupResources(record.run)
-        : [],
-      latestCleanupFailure: await this.latestCleanupFailure(userId, runId),
-      state: recoveryState(record.run),
-      checkpoint: record.checkpoint,
-      attempts: record.attempts,
-      nodes: recoveryNodes(record.run, record.attempts, {
-        agentStepIds: record.agentStepIds,
-        canExecute: this.actions !== null,
-      }),
-      allowedActions: recoveryActions(record.run, record.agentStepIds),
-    };
+    return this.fullView(userId, record, options);
   }
 
   /** Reads an immutable original completion without disclosing the private snapshot's prompts. */
@@ -324,7 +308,10 @@ export class AgentPlanRecoveryService {
     runId: string,
     version?: number,
   ): Promise<AgentPlanCheckpoint | null> {
-    await this.dependencies.runs.run(userId, runId);
+    const { runs } = this.dependencies;
+    await (runs.readableRun
+      ? runs.readableRun(userId, runId)
+      : runs.run(userId, runId));
     if (
       version !== undefined &&
       (!Number.isSafeInteger(version) || version < 1)
@@ -346,9 +333,80 @@ export class AgentPlanRecoveryService {
     userId: string,
     runId: string,
     input: unknown,
+    journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRecoveryResult> {
     // The idempotency read must also cover preparation, before another command can create its run.
-    return this.controls.run(() => this.executeControl(userId, runId, input));
+    return this.controls.run(() =>
+      this.executeControl(userId, runId, input, journal),
+    );
+  }
+
+  /**
+   * Whether the run can be continued now, and if not, the one reason.
+   *
+   * @remarks
+   * Reads the facts of a resume without changing anything, so the control of
+   * the run names exactly the reason a resume would refuse with.
+   */
+  public async resumeAvailability(
+    userId: string,
+    runId: string,
+  ): Promise<AgentPlanRecoveryOption> {
+    return this.actions
+      ? this.actions.availability(userId, runId)
+      : UNAVAILABLE;
+  }
+
+  /**
+   * Continues an ended run at its last safe state, with the decision made for the person.
+   *
+   * @param userId - The executor of the run.
+   * @param runId - The ended run to continue.
+   * @param planRevision - The saved plan revision the continuation adopts.
+   * @param journal - Records the caller's command with the new run.
+   * @returns The result naming the new run.
+   *
+   * @remarks
+   * This is what "Fortsetzen" and `resume_plan` do for a failed, interrupted,
+   * blocked, stopped or closeout-open run. The key is fixed per source run
+   * and plan revision, so a repeated request returns the same new run.
+   */
+  public async resumeEnded(
+    userId: string,
+    runId: string,
+    planRevision: number,
+    journal?: AgentPlanRunJournal,
+  ): Promise<AgentPlanRecoveryResult> {
+    const { actions } = this;
+    if (!actions) throw new AgentPlanRecoveryError("action_unavailable");
+    const { revision } = await actions.sourceRevision(runId);
+    return this.control(
+      userId,
+      runId,
+      {
+        action: "resume",
+        expectedRevision: revision,
+        idempotencyKey: `resume-plan-${runId}-${revision}-${planRevision}`,
+        revision: planRevision,
+        confirmContinue: true,
+      },
+      journal,
+    );
+  }
+
+  /**
+   * Ends the own processes of a run and settles its record as stopped.
+   *
+   * @throws {AgentPlanRecoveryError} `cleanup_unconfirmed` while a process is alive or unproven.
+   */
+  public async stopRun(
+    userId: string,
+    runId: string,
+    journal?: AgentPlanRunJournal,
+  ): Promise<void> {
+    const { actions } = this;
+    if (!actions) throw new AgentPlanRecoveryError("action_unavailable");
+    await this.controls.run(() => actions.stop(userId, runId, journal));
   }
 
   /**
@@ -383,6 +441,60 @@ export class AgentPlanRecoveryService {
         requestDigest: planContentDigest(decision),
       });
     });
+  }
+
+  /** The state of a run for a reader who did not start it: no action is offered. */
+  private async teamView(
+    userId: string,
+    record: Awaited<ReturnType<AgentPlanRecoveryRepository["inspect"]>>,
+  ): Promise<AgentPlanRecoveryView> {
+    const readable = await this.dependencies.runs.readableRun?.(
+      userId,
+      record.run.id,
+    );
+    if (!readable) throw new AgentPlanRecoveryError("access_denied");
+    const options = recordingOnly(record.run);
+    if (readable.hiddenFields.length > 0)
+      return controlRecoveryView(record, options);
+    return {
+      ...(await this.fullView(userId, record, options)),
+      allowedActions: [],
+    };
+  }
+
+  private async fullView(
+    userId: string,
+    record: Awaited<ReturnType<AgentPlanRecoveryRepository["inspect"]>>,
+    options: ReturnType<typeof recordingOnly>,
+  ): Promise<AgentPlanRecoveryView> {
+    return {
+      runId: record.run.id,
+      planId: record.run.planId,
+      stepNames: Object.fromEntries(
+        allPlanRunResults(record.run).map((step) => [
+          step.id,
+          sanitizeArtifactText(step.name),
+        ]),
+      ),
+      revision: record.revision,
+      origin: record.run.origin ?? null,
+      ...options,
+      cleanupResources: options.isCleanupUnconfirmed
+        ? planCleanupResources(record.run)
+        : [],
+      latestCleanupFailure: await this.latestCleanupFailure(
+        userId,
+        record.run.id,
+      ),
+      state: recoveryState(record.run),
+      checkpoint: record.checkpoint,
+      attempts: record.attempts,
+      nodes: recoveryNodes(record.run, record.attempts, {
+        agentStepIds: record.agentStepIds,
+        canExecute: this.actions !== null,
+      }),
+      allowedActions: recoveryActions(record.run, record.agentStepIds),
+    };
   }
 
   private async requireControlAccess(
@@ -421,6 +533,7 @@ export class AgentPlanRecoveryService {
     userId: string,
     runId: string,
     input: unknown,
+    journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRecoveryResult> {
     const original = readPlanRecoveryCommand(input);
     const run =
@@ -431,7 +544,10 @@ export class AgentPlanRecoveryService {
     const requestDigest = planContentDigest(original);
     const command = this.sanitize(original);
     try {
-      return await this.dispatchControl(userId, runId, command, requestDigest);
+      return await this.dispatchControl(userId, runId, command, {
+        requestDigest,
+        journal,
+      });
     } catch (error: unknown) {
       return auditCleanupFailure(
         this.dependencies.cleanupFailures,
@@ -446,13 +562,29 @@ export class AgentPlanRecoveryService {
     userId: string,
     runId: string,
     command: AgentPlanRecoveryCommand,
-    requestDigest: string,
+    terms: {
+      readonly requestDigest: string;
+      readonly journal?: AgentPlanRunJournal;
+    },
   ): Promise<AgentPlanRecoveryResult> {
     const { actions } = this;
+    const { requestDigest, journal } = terms;
     if (actions && command.action === "restart")
-      return actions.restart({ userId, runId, command, requestDigest });
+      return actions.restart({
+        userId,
+        runId,
+        command,
+        requestDigest,
+        journal,
+      });
     if (actions && command.action === "resume")
-      return actions.resume({ userId, runId, command, requestDigest });
+      return actions.resume({
+        userId,
+        runId,
+        command,
+        requestDigest,
+        journal,
+      });
     if (actions && command.action === "release")
       return actions.release({ userId, runId, command, requestDigest });
     return this.dependencies.recovery.control(

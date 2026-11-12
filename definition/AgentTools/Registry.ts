@@ -5,7 +5,10 @@ import { AGENT_READ_TOOLS } from "./Agents.js";
 import { AUTOMATION_READ_TOOLS } from "./Automations.js";
 import { CHAT_SESSIONS_LIST_TOOL } from "./ChatSessions.js";
 import { EXTENSION_READ_TOOLS } from "./Extensions.js";
-import { PLAN_RESOURCE_READ_TOOLS } from "./PlanResources.js";
+import {
+  PLAN_DIAGNOSIS_READ_TOOLS,
+  PLAN_RESOURCE_READ_TOOLS,
+} from "./PlanResources.js";
 import { PLAN_READ_TOOLS } from "./Plans.js";
 import { PROJECT_DELETION_SCOPE_TOOL } from "./ProjectDeletion.js";
 import { STRUCTURED_IMPORT_PLAN_TOOL } from "./StructuredImportPlan.js";
@@ -46,6 +49,7 @@ const READ_TOOL_ENTRIES = [
   ...PLAN_READ_TOOLS,
   ...PLAN_RESOURCE_READ_TOOLS,
   ...AUTOMATION_READ_TOOLS,
+  ...PLAN_DIAGNOSIS_READ_TOOLS,
   {
     operation: "projects.resolve",
     tool: {

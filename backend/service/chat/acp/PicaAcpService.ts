@@ -19,6 +19,7 @@ import type {
   ChatRequestRegistry,
 } from "@/backend/service/chat/ChatRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
+import type { AgentChatTools } from "@/definition/AgentChat";
 import type { ChatSendResult } from "@/definition/Chat";
 import type {
   ChatJob,
@@ -106,6 +107,8 @@ export interface PicaAcpEmployeeRun {
    * the place of the session among the limits of the agent (PAGE-304).
    */
   readonly onSettled?: () => void;
+  /** The Pages tools to read chats and send messages (PAGE-311); absent where none run. */
+  readonly agentChat?: AgentChatTools;
 }
 
 /** What a new job is started from; the agent is resolved by the caller for this message. */
@@ -495,6 +498,7 @@ export class PicaAcpService {
       ...(employee.readConversationContext
         ? { readConversationContext: employee.readConversationContext }
         : {}),
+      ...(employee.agentChat ? { agentChat: employee.agentChat } : {}),
       access: {
         requireUser: (userId, connectionId) =>
           employee.requireConnection(connectionId),

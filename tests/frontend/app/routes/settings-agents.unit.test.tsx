@@ -30,6 +30,8 @@ const services = vi.hoisted(() => ({
   speechSynthesisSettingsService: { administration: vi.fn() },
   chatDecisionSettingsService: { administration: vi.fn() },
   agentSessionLimitService: { administration: vi.fn() },
+  agentChatSettingsService: { administration: vi.fn() },
+  agentRunDiagnosisSettingsService: { administration: vi.fn() },
   runnerService: { overview: vi.fn() },
   openCodeProviderLinks: { describe: vi.fn() },
   runnerGitHubMode: "offline",
@@ -71,6 +73,20 @@ vi.mock("@/app/components/settings/agents/pica-settings-card", () => ({
   PicaSettingsCard: (props: {
     readonly models: readonly unknown[];
   }): React.ReactElement => <p>{`pica ${props.models.length}`}</p>,
+}));
+vi.mock("@/app/components/settings/agents/agent-chat-settings-card", () => ({
+  AgentChatSettingsCard: (props: {
+    readonly settings: { readonly hourlyMessageLimit: number };
+  }): React.ReactElement => (
+    <p>{`agent chat ${props.settings.hourlyMessageLimit}`}</p>
+  ),
+}));
+vi.mock("@/app/components/settings/agents/run-diagnosis-settings-card", () => ({
+  RunDiagnosisSettingsCard: (props: {
+    readonly settings: { readonly logRetentionDays: number };
+  }): React.ReactElement => (
+    <p>{`run diagnosis ${props.settings.logRetentionDays}`}</p>
+  ),
 }));
 vi.mock("@/app/components/settings/agents/speech-settings-card", () => ({
   SpeechSettingsCard: (props: {
@@ -136,6 +152,15 @@ beforeEach(() => {
     status: "noModel",
   });
   services.agentSessionLimitService.administration.mockResolvedValue(LIMITS);
+  services.agentChatSettingsService.administration.mockResolvedValue({
+    hourlyMessageLimit: 30,
+    revision: 1,
+  });
+  services.agentRunDiagnosisSettingsService.administration.mockResolvedValue({
+    logRetentionDays: 30,
+    stallMinutes: 15,
+    revision: 1,
+  });
   services.runnerService.overview.mockResolvedValue([]);
   services.openCodeProviderLinks.describe.mockResolvedValue(LINKS);
 });
@@ -186,6 +211,8 @@ it("loads the management data and links OpenCode to its keys", async () => {
     speechSynthesis: { status: "noModel" },
     chatDecision: { status: "noModel" },
     sessionLimits: LIMITS,
+    agentChat: { hourlyMessageLimit: 30, revision: 1 },
+    runDiagnosis: { logRetentionDays: 30, stallMinutes: 15, revision: 1 },
     audience: AUDIENCE,
   });
   expect(result.init).toMatchObject({
@@ -252,6 +279,8 @@ it("renders the management sections for the admin mode", () => {
       speechSynthesis: { status: "ready" },
       chatDecision: { status: "ready" },
       sessionLimits: LIMITS,
+      agentChat: { hourlyMessageLimit: 30, revision: 1 },
+      runDiagnosis: { logRetentionDays: 30, stallMinutes: 15, revision: 1 },
       audience: AUDIENCE,
     },
   });
@@ -266,6 +295,7 @@ it("renders the management sections for the admin mode", () => {
   expect(screen.getByText("speechSynthesis ready")).toBeTruthy();
   expect(screen.getByText("chatDecision ready")).toBeTruthy();
   expect(screen.getByText("session-limits 4")).toBeTruthy();
+  expect(screen.getByText("run diagnosis 30")).toBeTruthy();
   expect(screen.getByRole("link").getAttribute("href")).toBe(
     "/settings/agents/tools",
   );

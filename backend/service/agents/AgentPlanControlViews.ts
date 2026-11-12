@@ -60,38 +60,73 @@ export async function readPlanControlEntry(
     canPlay: control.canPlay,
     canRestart: control.canRestart === true && run !== null,
     resumeAction: control.resumeAction,
+    ...resumeSummary(control),
     cleanup: control.cleanup,
     workspaceWait: control.workspaceWait,
     canPause: control.canPause && readable !== null,
     canResume: control.canResume && readable !== null,
     canStop: control.canStop && run !== null,
     issue: !plan.canEdit ? "plan_read_only" : (context.readError ?? issue),
-    blockers: {
-      delete:
-        plan.ownerId !== userId
-          ? "plan_owner_required"
-          : (isActive && "plan_busy") || null,
-      play: playBlocker(plan, control, issue),
-      pause: runBlocker(control.canPause, readable, "run_not_running", context),
-      // The same reason the panel shows, so an empty history never reads as an unstarted plan.
-      resume:
-        control.resumeBlocker ??
-        runBlocker(
-          control.canResume,
-          readable,
-          issue ?? "run_not_paused",
-          context,
-        ),
-      stop: runBlocker(
-        control.canStop,
-        run,
-        "run_terminal_or_stopping",
-        context,
-      ),
-    },
+    blockers: controlBlockers({
+      plan,
+      userId,
+      control,
+      run,
+      readable,
+      context,
+      issue,
+    }),
     ...startIssues(plan, control),
     ...workspaceDetails(plan, control),
     ...readableRunMetadata(run, continuationVersion),
+  };
+}
+
+/** The state Fortsetzen continues and, while it is off, the reason and action, as the interface shows them. */
+function resumeSummary(
+  control: AgentPlanControl,
+): Pick<AgentPlanControlEntry, "resumeKind" | "resumeBlock"> {
+  return {
+    ...(control.resumeKind ? { resumeKind: control.resumeKind } : {}),
+    ...(control.resumeBlock ? { resumeBlock: control.resumeBlock } : {}),
+  };
+}
+
+/** The one reason per action that is not available now, or `null`. */
+function controlBlockers(input: {
+  readonly plan: AgentPlanView;
+  readonly userId: string;
+  readonly control: AgentPlanControl;
+  readonly run: AgentPlanRun | null;
+  readonly readable: AgentPlanRun | null;
+  readonly context: {
+    readonly plan: AgentPlanView;
+    readonly readError: string | null;
+  };
+  readonly issue: string | null;
+}): AgentPlanControlEntry["blockers"] {
+  const { plan, userId, control, run, readable, context, issue } = input;
+  const isActive = ["running", "pausing", "paused", "stopping"].includes(
+    control.status,
+  );
+  return {
+    delete:
+      plan.ownerId !== userId
+        ? "plan_owner_required"
+        : (isActive && "plan_busy") || null,
+    play: playBlocker(plan, control, issue),
+    pause: runBlocker(control.canPause, readable, "run_not_running", context),
+    // The same reason the panel shows, so an empty history never reads as an unstarted plan.
+    resume:
+      control.resumeBlocker ??
+      control.resumeBlock?.code ??
+      runBlocker(
+        control.canResume,
+        readable,
+        issue ?? "run_not_paused",
+        context,
+      ),
+    stop: runBlocker(control.canStop, run, "run_terminal_or_stopping", context),
   };
 }
 

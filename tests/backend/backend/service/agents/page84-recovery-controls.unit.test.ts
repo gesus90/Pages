@@ -239,7 +239,7 @@ it("never grants another user access or offers repair of an already successful n
   const view = await world.service.view("owner", "run");
 
   await expect(world.service.view("other", "run")).rejects.toMatchObject({
-    code: "plan_access_denied",
+    code: "access_denied",
   });
   await expect(
     world.service.checkpoint("other", "run", 1),

@@ -32,6 +32,7 @@ import type {
   PicaAcpService,
   PicaAcpStart,
 } from "../chat/acp/PicaAcpService";
+import type { AgentChatTools } from "@/definition/AgentChat";
 import type {
   ChatJob,
   ChatJobStart,
@@ -104,6 +105,11 @@ export interface AgentEmployeeSessionDependencies {
   readonly hostFiles?: Pick<AgentHostFiles, "attach">;
   /** Keeps `MEMORY.md` current after each answer of a direct chat (PAGE-305); absent records nothing. */
   readonly recorder?: Pick<AgentMemoryRecorder, "record">;
+  /**
+   * The Pages tools to read chats and send messages (PAGE-311). A function,
+   * because the conversations are wired after the sessions; `null` where none.
+   */
+  readonly agentChat?: () => AgentChatTools | null;
   /** An unused ID for a new chat session. */
   readonly createSessionId: () => string;
   /**
@@ -650,7 +656,9 @@ export class AgentEmployeeSessions {
         access,
       )) ?? [];
     const { hostFiles } = this.dependencies;
+    const agentChat = this.dependencies.agentChat?.() ?? null;
     return {
+      ...(agentChat ? { agentChat } : {}),
       runner: employeeAcpRunner(assignment, access, hostServers),
       ...(hostFiles && hasHostTools(access)
         ? {

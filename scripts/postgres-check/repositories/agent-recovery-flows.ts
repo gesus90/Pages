@@ -45,6 +45,11 @@ const STOPPED_RUN = runFixture("run-released", PLAN.id, {
   stopRequested: true,
   steps: [stepFixture("review", { status: "running" })],
 });
+const SETTLE_RUN = runFixture("run-settle", PLAN.id, {
+  status: "stopping",
+  stopRequested: true,
+  steps: [stepFixture("review", { status: "running" })],
+});
 const ITERATION: AgentPlanLoopIterationCheckpoint = {
   schemaVersion: 1,
   runId: "run-loop",
@@ -474,6 +479,26 @@ export const RECOVERY_EXECUTION_FLOW: RepositoryFlow = {
     ),
     stored(
       "SELECT COUNT(*) FROM agent_plan_workspace_locks WHERE run_id = 'run-released';",
+    ),
+    call("AgentPlanRunRepository.create", (world) =>
+      insertRun(world, SETTLE_RUN),
+    ),
+    prepare(`
+      INSERT INTO agent_plan_workspace_locks (workspace_id, run_id)
+      VALUES ('settle-lock', 'run-settle');
+    `),
+    callAtAnyTime(
+      "AgentPlanRecoveryExecutionRepository.settleStopped",
+      async (world) =>
+        executions(world).settleStopped(
+          (await executions(world).source("run-settle")).run,
+        ),
+    ),
+    stored(
+      "SELECT status, recovery_revision FROM agent_plan_runs WHERE id = 'run-settle';",
+    ),
+    stored(
+      "SELECT COUNT(*) FROM agent_plan_workspace_locks WHERE run_id = 'run-settle';",
     ),
   ],
 };

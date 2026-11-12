@@ -17,6 +17,7 @@ import { loggingFailureCode, writeLogFallback } from "./LogFallback";
 import { redactLogText, safeLogMetadata } from "./LogRedaction";
 import { LogRetention } from "./LogRetention";
 import { isPollingLogContext } from "./PollingLogPolicy";
+import { emitRunLog } from "./RunLogSink";
 
 import type { LoggingStatus } from "@/definition/Logging";
 
@@ -25,6 +26,7 @@ export interface LogContext {
   readonly requestId?: string;
   readonly correlationId?: string;
   readonly runId?: string;
+  readonly stepId?: string;
   readonly jobId?: string;
   readonly attemptId?: string;
 }
@@ -145,6 +147,7 @@ export function logEvent(event: ServerLogEvent): void {
       },
       redactLogText(event.message),
     );
+    forwardRunLog(event);
   } catch {
     writer.recordSerializationLoss();
     const captured = new Date();
@@ -152,6 +155,34 @@ export function logEvent(event: ServerLogEvent): void {
     writeLogFallback(line);
     writer.append(line, logDate(captured));
   }
+}
+
+const RUN_LOG_LEVELS: Readonly<
+  Record<ServerLogEvent["level"], "debug" | "info" | "warn" | "error" | null>
+> = {
+  trace: null,
+  debug: "debug",
+  info: "info",
+  warn: "warn",
+  error: "error",
+  fatal: "error",
+};
+
+/** Passes an event of a plan run, step or attempt to the store of run logs (PAGE-307). */
+function forwardRunLog(event: ServerLogEvent): void {
+  const { runId, stepId, attemptId, jobId } = currentLogContext();
+  const level = RUN_LOG_LEVELS[event.level];
+  // Chat jobs reuse the run field with a job; only plan runs have a log.
+  if (level === null || runId === undefined || jobId !== undefined) return;
+  emitRunLog({
+    runId,
+    stepId: stepId ?? null,
+    attemptId: attemptId ?? null,
+    at: new Date().toISOString(),
+    level,
+    source: "server",
+    message: `${event.component}: ${event.message}`,
+  });
 }
 
 function identifyError(

@@ -121,8 +121,9 @@ export function restartOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
  * A resume continues only the newest ended, unfinished run of the plan, once.
  *
  * @remarks
- * An explicit stop ends the original run; a reviewed resume starts a new linked run.
- * A successful run has nothing to resume.
+ * A stopped run continues like a failed one, as long as a verified
+ * completion is saved to continue from; without one it names that a restart
+ * is the way. A successful run has nothing to resume.
  * Uncertain cleanup is settled by the resume itself, or named when it cannot be.
  */
 export function resumeOption(
@@ -134,9 +135,12 @@ export function resumeOption(
   const { run } = facts;
   if (isActivePlanRun(run.status) || facts.isEngineActive !== false)
     return blocked("run_active");
-  if (run.stopRequested || run.status === "cancelled")
-    return blocked("cancelled_by_user");
   if (run.status === "succeeded") return blocked("succeeded");
+  if (
+    (run.stopRequested || run.status === "cancelled") &&
+    facts.checkpoints.length === 0
+  )
+    return blocked("no_safe_state");
   if (continuedRun(facts.executions) !== null)
     return blocked("already_continued");
   // A cycle's earlier rounds are not part of a checkpoint, so no result of it can be taken over.

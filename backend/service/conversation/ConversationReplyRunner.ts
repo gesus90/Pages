@@ -4,6 +4,7 @@ import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
   CONVERSATION_AGENT_CONTEXT_MESSAGES,
+  CONVERSATION_AGENT_REPLY_PREFIX,
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
 } from "@/definition/Conversation";
 
@@ -28,6 +29,7 @@ import type {
 } from "@/definition/Conversation";
 import type { ConversationReplyTrigger } from "@/definition/ConversationObserver";
 import type { User } from "@/definition/User";
+import type { ConversationAgentGuard } from "./ConversationAgentGuard";
 import type { ConversationAgentRunner } from "./ConversationAgentReplies";
 import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
@@ -37,6 +39,17 @@ import type {
 import type { ConversationEvents } from "./ConversationEvents";
 
 const COMPONENT = "ConversationAgentReplies";
+
+/** How long an answer waits for an agent that is busy before it tries again. */
+const BUSY_RETRY_MILLISECONDS = 5_000;
+/** How long a message waits for a busy agent at most: it is queued, never refused. */
+const BUSY_WAIT_MAXIMUM_MILLISECONDS = 6 * 3_600_000;
+
+function defaultWait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds).unref();
+  });
+}
 
 /** The message of a person and the conversation its round of answers belongs to. */
 export interface ConversationRound {
@@ -70,7 +83,11 @@ export interface ConversationReplyRunnerDependencies {
   readonly contexts: Pick<ConversationContextReader, "promptContext">;
   readonly events: Pick<ConversationEvents, "publish">;
   readonly publisher: { publish(event: PagesEvent): void };
+  /** Pauses a chain of agent messages (PAGE-311); without it no chain is limited. */
+  readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
   readonly now?: () => Date;
+  /** Waits for a busy agent; tests pass a fast one. */
+  readonly wait?: (milliseconds: number) => Promise<void>;
 }
 
 const NOTICE_TEXTS: Readonly<
@@ -213,13 +230,17 @@ export class ConversationReplyRunner {
       });
       return null;
     }
+    if (await this.isPausedChain(job)) {
+      await this.setState(job, "failed");
+      return null;
+    }
     await this.setState(job, "running");
     const controllerKey = `${job.round.conversation.id}:${job.agentId}`;
     const controller = new AbortController();
     this.controllers.set(controllerKey, controller);
     this.setWorking(job, true);
     try {
-      const text = await this.ask(job, agent.user, {
+      const text = await this.askWhenFree(job, agent.user, {
         accounts,
         signal: controller.signal,
       });
@@ -239,6 +260,35 @@ export class ConversationReplyRunner {
         this.controllers.delete(controllerKey);
       this.unmarkQueued(job);
       this.setWorking(job, false);
+    }
+  }
+
+  /** Whether the round began with an agent in a conversation whose chain of agent messages is used up (PAGE-311). */
+  private async isPausedChain(job: ConversationReplyJob): Promise<boolean> {
+    if (job.round.person.isAgent !== true || !this.dependencies.guard)
+      return false;
+    return this.dependencies.guard.isPaused(job.round.conversation.id);
+  }
+
+  /** Asks the agent; while it is busy with another job the message waits for its turn (PAGE-311). */
+  private async askWhenFree(
+    job: ConversationReplyJob,
+    agent: User,
+    context: {
+      readonly accounts: ConversationAccounts;
+      readonly signal: AbortSignal;
+    },
+  ): Promise<string> {
+    const deadline = this.nowMilliseconds() + BUSY_WAIT_MAXIMUM_MILLISECONDS;
+    for (;;) {
+      try {
+        return await this.ask(job, agent, context);
+      } catch (error: unknown) {
+        const isBusy =
+          error instanceof AgentEmployeeError && error.code === "busy";
+        if (!isBusy || this.nowMilliseconds() > deadline) throw error;
+        await (this.dependencies.wait ?? defaultWait)(BUSY_RETRY_MILLISECONDS);
+      }
     }
   }
 
@@ -352,7 +402,7 @@ export class ConversationReplyRunner {
         conversationId: conversation.id,
         senderId: job.agentId,
         // One answer or hint per agent and round, also after a repeated event or a restart.
-        clientMessageId: `reply-${job.round.originMessageId}`,
+        clientMessageId: `${CONVERSATION_AGENT_REPLY_PREFIX}${job.round.originMessageId}`,
         text: reply.text,
         mentions,
         createdAt: this.now(),
@@ -430,5 +480,9 @@ export class ConversationReplyRunner {
 
   private now(): string {
     return (this.dependencies.now?.() ?? new Date()).toISOString();
+  }
+
+  private nowMilliseconds(): number {
+    return (this.dependencies.now?.() ?? new Date()).getTime();
   }
 }

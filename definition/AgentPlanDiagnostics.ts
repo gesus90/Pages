@@ -1,5 +1,6 @@
 import type { AgentPlanStepExecution } from "./AgentPlanExecution.js";
 import type { AgentPlanRetryAttempt } from "./AgentPlanRetry.js";
+import type { AgentRunErrorFields } from "./AgentRunDiagnosis.js";
 
 /** A recorded stream, with its completeness stated independently of its text. */
 export interface AgentPlanDiagnosticStream {
@@ -10,7 +11,7 @@ export interface AgentPlanDiagnosticStream {
 }
 
 /** One authorized run attempt; it contains no environment values or provider credentials. */
-export interface AgentPlanDiagnostic {
+export interface AgentPlanDiagnostic extends Partial<AgentRunErrorFields> {
   readonly planId: string;
   readonly runId: string;
   readonly stepId: string;

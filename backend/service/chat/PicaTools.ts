@@ -2,6 +2,7 @@ import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistr
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 import { ChatResultBudget } from "./ChatResultBudget";
+import { registerPicaChatTools } from "./PicaChatTools";
 import { registerPicaEmployeeTools } from "./PicaEmployeeTools";
 import { registerPicaHostFileTools } from "./PicaHostFileTools";
 import { registerPicaPlanTools } from "./PicaPlanTools";
@@ -26,6 +27,7 @@ import {
 import type { z } from "zod";
 import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { AgentChatTools } from "@/definition/AgentChat";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { PicaHostFileAttach } from "./PicaHostFileTools";
 import type { ChatSessionService } from "./ChatSessionService";
@@ -72,6 +74,11 @@ export interface PicaToolsInput {
    * are not offered.
    */
   readonly attachHostFile?: PicaHostFileAttach | undefined;
+  /**
+   * Reads chats and sends messages as the agent employee whose job runs
+   * (PAGE-311); without it the chat tools are not offered.
+   */
+  readonly agentChat?: AgentChatTools | undefined;
 }
 
 type PicaFileParameters = z.infer<typeof PICA_FILE_SCHEMA>;
@@ -635,6 +642,19 @@ export function createPicaTools(
         context.signal.throwIfAborted();
         return spend(input, budget);
       },
+    });
+  const agentChat = input.agentChat;
+  if (agentChat)
+    registerPicaChatTools(registry, {
+      chat: agentChat,
+      searchTargets: (userId, parameters) =>
+        input.tools.run(
+          userId,
+          { operation: "assignment.targets.search", parameters },
+          null,
+        ),
+      authorize: input.authorize,
+      spend: () => spend(input, budget),
     });
   if (input.adminTools)
     registerAdministratorTools(registry, {

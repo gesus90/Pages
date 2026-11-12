@@ -101,6 +101,12 @@ const REJECTION_REASONS: Readonly<
   read_only: true,
   confirmation_required: true,
   validation: true,
+  unknown_parameter: true,
+  parameter_invalid: true,
+  limit_out_of_range: true,
+  time_invalid: true,
+  time_range_reversed: true,
+  cursor_invalid: true,
 };
 
 /** The reasons whose problems tell an agent what to correct in its step report. */

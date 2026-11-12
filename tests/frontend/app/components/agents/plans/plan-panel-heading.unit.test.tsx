@@ -41,12 +41,11 @@ function renderHeading(
         isPending={options.isPending ?? false}
         pendingIntent={null}
         hasDeletedFrontier={false}
-        recovery={null}
         isOpen={options.isOpen ?? false}
         detailsId="details"
         onToggle={onToggle}
         onAction={vi.fn()}
-        onRecover={vi.fn()}
+        onResolveBlock={vi.fn()}
         onManage={vi.fn()}
       />
     );
@@ -221,12 +220,11 @@ it("names a remote target of a new plan before it has a known workspace", () => 
         isPending={false}
         pendingIntent={null}
         hasDeletedFrontier={false}
-        recovery={null}
         isOpen={false}
         detailsId="details"
         onToggle={vi.fn()}
         onAction={vi.fn()}
-        onRecover={vi.fn()}
+        onResolveBlock={vi.fn()}
         onManage={vi.fn()}
       />
     </>

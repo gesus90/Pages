@@ -112,6 +112,24 @@ function UnreadPill({
   );
 }
 
+/** Marks a conversation of agents only, which the person reads without taking part (PAGE-311). */
+export function AgentConversationBadge({
+  group,
+}: {
+  readonly group: Pick<VirtualGroup, "isAgentConversation" | "isAgentPaused">;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (group.isAgentConversation !== true && group.isAgentPaused !== true)
+    return null;
+  return (
+    <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+      {group.isAgentPaused === true
+        ? t("chatPage.agentPaused.title")
+        : t("chatPage.agentConversation")}
+    </span>
+  );
+}
+
 interface GroupEntryProps {
   readonly group: VirtualGroup;
   readonly members: readonly VirtualParticipant[];
@@ -135,6 +153,7 @@ export function GroupEntry({
         title={group.name}
         subtitle={members.map((member) => member.name).join(", ")}
       />
+      <AgentConversationBadge group={group} />
       <UnreadPill count={group.unreadCount} isMuted={group.isMuted} />
     </EntryButton>
   );

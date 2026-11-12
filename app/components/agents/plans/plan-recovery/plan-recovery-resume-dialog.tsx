@@ -10,7 +10,6 @@ import {
 
 import { recoveryErrorText } from "../plan-recovery-panel";
 import { PlanRecoveryRestart } from "./plan-recovery-restart";
-import { PlanRecoveryResume } from "./plan-recovery-resume";
 import { PlanRecoveryState } from "./plan-recovery-state";
 
 import type {
@@ -19,31 +18,25 @@ import type {
 } from "../use-plan-recovery";
 
 /**
- * Continues an ended run from its last safe state, or starts it from the beginning, after the executor's decision.
+ * Starts an ended run from the beginning, after the executor's decision.
  *
  * @remarks
- * A resume asks one short question (PAGE-269); a restart names what runs
- * again and asks for each possible repeated effect. The server checks the
- * checkpoints, the revision, the rights and leftover processes again and
+ * A restart names what runs again and asks for each possible repeated
+ * effect. Continuing needs no dialog: Fortsetzen does it in one click. The
+ * server checks the revision, the rights and leftover processes again and
  * starts a new run linked to the ended one, or refuses with the reason. The
  * dialog closes once that run started.
  */
 export function PlanRecoveryResumeDialog({
   recovery,
-  action = "resume",
   onClose,
 }: {
   readonly recovery: ReturnType<typeof usePlanRecovery>;
-  readonly action?: "restart" | "resume";
   readonly onClose: () => void;
 }): React.ReactElement | null {
   const { t } = useTranslation();
   const { view } = recovery;
   if (!view) return null;
-  if (action === "resume")
-    return (
-      <PlanRecoveryResume view={view} recovery={recovery} onClose={onClose} />
-    );
   async function submit(request: PlanRecoveryRequest): Promise<void> {
     const answer = await recovery.submit(request);
     if (answer?.runId) onClose();

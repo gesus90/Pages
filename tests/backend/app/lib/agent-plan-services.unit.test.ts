@@ -6,6 +6,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { AgentLocalSessionPreparation } from "@/backend/service/agents/AgentLocalSessionPreparation";
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { createAgentPlanService } from "@/app/lib/agent-plan-services.server";
+import { AgentRunDiagnosisSettingsService } from "@/backend/service/agents/diagnosis/AgentRunDiagnosisSettingsService";
 import { createPicaMobileNotificationServices } from "@/app/lib/pica-mobile-notification-services.server";
 import { createPlanWorkspaceAccess } from "@/app/lib/plan-access-services.server";
 import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanConfigurationUpgrade";
@@ -88,8 +89,15 @@ const DATABASE = partial<Database>({
       statement.includes("state = 'pending'")
     )
       return [];
+    if (statement.includes("FROM agent_run_diagnosis_settings")) return [];
+    if (statement.includes("agent_run_logs")) return [];
     throw new Error(`Unexpected wiring query ${statement}`);
   },
+  transaction: async (work: (tx: unknown) => Promise<unknown>) =>
+    work({
+      execute: async () => undefined,
+      query: async () => [],
+    }),
 });
 const TASKS = opaque<TaskService>("tasks");
 const USERS = opaque<UserService>("users");
@@ -219,6 +227,9 @@ it("returns the plan service with its management, templates, sessions and recove
     agentPlanTemplateService: only(vi.mocked(AgentPlanTemplateService)),
     agentSessionService: only(vi.mocked(AgentSessionService)),
     agentPlanRecoveryService: only(vi.mocked(AgentPlanRecoveryService)),
+    agentRunDiagnosisSettingsService: expect.any(
+      AgentRunDiagnosisSettingsService,
+    ) as unknown,
   });
   expect(vi.mocked(createPicaMobileNotificationServices)).toHaveBeenCalledWith({
     database: DATABASE,
@@ -242,6 +253,8 @@ it("wires the plan service on one access, preparation and engine", async () => {
 
   const [options] = vi.mocked(AgentPlanService).mock.calls[0];
   expect(options).toEqual({
+    diagnosisStores: expect.any(Object) as unknown,
+    starters: { displayName: expect.any(Function) as unknown },
     workGate: vi.mocked(AgentPlanWorkGate).mock.instances[1],
     stepProgress: expect.any(AgentPlanStepProgressService) as unknown,
     agentTodos: expect.any(AgentPlanAgentTodoService) as unknown,
@@ -263,6 +276,7 @@ it("wires the plan service on one access, preparation and engine", async () => {
     scripts: only(vi.mocked(AgentPlanScripts)),
     startRejections: only(vi.mocked(AgentPlanStartRejectionRepository)),
     workspaceCleanup: new AgentWorkspaceCleanupRepository(DATABASE),
+    resumeAdvisor: { current: expect.anything() as unknown },
   });
   expect(vi.mocked(AgentPlanStartRejectionRepository).mock.calls).toEqual([
     [DATABASE],

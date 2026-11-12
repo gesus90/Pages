@@ -6,7 +6,9 @@ import {
   logEvent,
   withLogContext,
 } from "@/backend/logging/Logger";
+import { emitRunLog } from "@/backend/logging/RunLogSink";
 
+import type { AgentRunLogLevel } from "@/definition/AgentRunDiagnosis";
 import type {
   AgentSessionEvent,
   AgentSessionEventKind,
@@ -24,6 +26,11 @@ export const MAXIMUM_EVENT_TEXT = 4_000;
 export const RETAINED_EVENTS = 2_000;
 /** The largest page a reader gets at once. */
 export const MAXIMUM_PAGE = 200;
+
+/** The events that explain what went wrong in a session, copied into the log of the run (PAGE-307). */
+const RUN_LOG_EVENT_LEVELS: Readonly<
+  Partial<Record<AgentSessionEventKind, AgentRunLogLevel>>
+> = { error: "error", tool_failed: "warn", recovery: "warn", status: "info" };
 
 /** What a caller reports; the journal redacts, shortens and numbers it. */
 export interface AgentSessionEventInput {
@@ -109,6 +116,7 @@ export class AgentSessionJournal {
           metadata: { kind: event.kind, sequence: event.sequence },
         }),
       );
+      this.logRunLine(attemptId, event);
       this.publish(attemptId, event);
     }
     return stored;
@@ -179,6 +187,21 @@ export class AgentSessionJournal {
       throw error;
     }
     return stop;
+  }
+
+  /** Copies the events that explain a failure into the log of the run, which finds the run by the attempt. */
+  private logRunLine(attemptId: string, event: AgentSessionEvent): void {
+    const level = RUN_LOG_EVENT_LEVELS[event.kind];
+    if (level === undefined) return;
+    emitRunLog({
+      runId: null,
+      stepId: event.stepId,
+      attemptId,
+      at: event.createdAt,
+      level,
+      source: "cli",
+      message: event.text,
+    });
   }
 
   private followExternal(attemptId: string, follower: Follower): void {

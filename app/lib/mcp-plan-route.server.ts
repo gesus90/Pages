@@ -10,7 +10,10 @@ import {
   toMcpPlanError,
 } from "@/backend/service/mcp/plan/McpPlanError";
 
-import type { McpPlanRequest } from "@/backend/service/mcp/plan/McpPlanApi";
+import type {
+  McpPlanOperation,
+  McpPlanRequest,
+} from "@/backend/service/mcp/plan/McpPlanApi";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 
 /** Largest JSON body of the plan API, as large as a plan the interface saves. */
@@ -20,6 +23,10 @@ const MAXIMUM_BODY_BYTES = 2_000_000;
 const NUMBER_QUERY_PARAMETERS: ReadonlySet<string> = new Set([
   "limit",
   "maxBytes",
+  "after",
+  "before",
+  "version",
+  "iteration",
 ]);
 
 /** The methods the plan API serves. */
@@ -244,4 +251,27 @@ export function mcpPlanQueryRequest(
   path: Readonly<Record<string, string>> = {},
 ): McpPlanRequest {
   return { parameters: readMcpPlanQuery(request), path };
+}
+
+/**
+ * The handlers of a resource that only reads one operation (PAGE-307).
+ *
+ * @param operation - The operation of the read.
+ * @param path - Reads the path parameters of the resource, after the token check.
+ * @returns A `GET` handler that answers the `result` of the operation unchanged.
+ */
+export function mcpPlanReadHandlers(
+  operation: McpPlanOperation,
+  path: () => Readonly<Record<string, string>>,
+): McpPlanHandlers {
+  return {
+    GET: async ({ api, identity, request }) =>
+      mcpPlanResponse(
+        await api.run(
+          identity,
+          operation,
+          mcpPlanQueryRequest(request, path()),
+        ),
+      ),
+  };
 }

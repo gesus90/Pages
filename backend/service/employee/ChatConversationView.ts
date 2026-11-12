@@ -1,3 +1,5 @@
+import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
+
 import type { ConversationView } from "@/backend/service/conversation/ConversationReader";
 import type {
   ConversationMessage,
@@ -85,6 +87,43 @@ export function splitConversations(
     if (other?.kind === "human") direct.set(other.id, view);
   }
   return { direct, groups };
+}
+
+/**
+ * The messages an agent chose to write to the person (PAGE-311), by agent.
+ *
+ * @param views - Every conversation of the person.
+ * @param person - The signed-in person.
+ * @returns The direct conversations with agents that hold such a message. The
+ * page shows these messages with the agent's chat session, which stays the
+ * history of what the person and the agent wrote to each other there.
+ */
+export function agentWrittenConversations(
+  views: readonly ConversationView[],
+  person: User,
+): ReadonlyMap<string, ConversationView> {
+  const written = new Map<string, ConversationView>();
+  for (const view of views) {
+    if (view.summary.kind !== "direct") continue;
+    const other = view.summary.members.find(
+      (member: ConversationParticipant) => member.id !== person.id,
+    );
+    if (other?.kind !== "agent") continue;
+    if (view.messages.some((message) => isAgentWritten(message, other.id)))
+      written.set(other.id, view);
+  }
+  return written;
+}
+
+/** Whether the agent chose to write the message (PAGE-311), instead of answering one. */
+export function isAgentWritten(
+  message: ConversationMessage,
+  agentId: string,
+): boolean {
+  return (
+    message.sender.id === agentId &&
+    message.clientMessageId.startsWith(CONVERSATION_AGENT_SEND_PREFIX)
+  );
 }
 
 /**

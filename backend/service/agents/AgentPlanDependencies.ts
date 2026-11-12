@@ -19,7 +19,10 @@ import type { AgentPlanSessionGrants } from "./AgentPlanSessionAccess";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentPlanScripts } from "./AgentPlanScripts";
 import type { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
+import type { AgentPlanResumeAdvisorSlot } from "./AgentPlanResumeAdvisor";
 import type { PlanAssetService } from "./assets/PlanAssetService";
+import type { RunStarterDirectory } from "./diagnosis/AgentPlanRunTeamReader";
+import type { AgentRunDiagnosisStores } from "./diagnosis/AgentRunDiagnosisStores";
 
 /** What the plan service and its parts work with. */
 export interface PlanDependencies {
@@ -51,4 +54,12 @@ export interface PlanDependencies {
   readonly startRejections?: AgentPlanStartRejectionRepository;
   /** The files of asset nodes and asset stack entries (PAGE-268). */
   readonly planAssets?: PlanAssetService;
+  /** Names the people who started runs, for the team-wide reading of runs (PAGE-307). */
+  readonly starters?: RunStarterDirectory;
+  /** The tables of the run diagnosis; absent, there is no list, overview, timeline or log of runs. */
+  readonly diagnosisStores?: AgentRunDiagnosisStores;
+  /** Waits; replaced in a stand-in run so ending an open run needs no real time. */
+  readonly sleep?: (milliseconds: number) => Promise<void>;
+  /** How a run that ended unfinished is continued and stopped; see {@link AgentPlanResumeAdvisorSlot}. */
+  readonly resumeAdvisor?: AgentPlanResumeAdvisorSlot;
 }

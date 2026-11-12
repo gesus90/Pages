@@ -6,7 +6,10 @@ import { Button } from "@/app/components/ui/button";
 import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
 import { ConfidentialButton } from "./chat-page-confidential";
 import { ChatPageGroupContext } from "./chat-page-group-context";
-import { participantSubtitle } from "./chat-page-list-entries";
+import {
+  AgentConversationBadge,
+  participantSubtitle,
+} from "./chat-page-list-entries";
 import { ChatPageMemberDialog } from "./chat-page-member-dialog";
 import { ChatPageReplySettings } from "./chat-page-reply-settings";
 
@@ -201,6 +204,15 @@ function GroupHeader({
   readonly mute: MuteControl;
 }): React.ReactElement {
   const { t } = useTranslation();
+  if (group.isAgentConversation === true)
+    return (
+      <HeaderFrame
+        avatar={<GroupAvatars members={members} size="header" />}
+        title={group.name}
+        subtitle={t("chatPage.agentConversationSubtitle")}
+        aside={<AgentConversationBadge group={group} />}
+      />
+    );
   return (
     <HeaderFrame
       avatar={<GroupAvatars members={members} size="header" />}

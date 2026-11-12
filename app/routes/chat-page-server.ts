@@ -56,7 +56,8 @@ export type ChatPageIntent =
   | "group-context"
   | "reply-settings"
   | "save-reply-settings"
-  | "confidential";
+  | "confidential"
+  | "resume-agents";
 
 /** What a change yields besides success: a created group, a page of older messages or a group context. */
 interface ChatIntentOutcome {
@@ -83,6 +84,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "reply-settings",
   "save-reply-settings",
   "confidential",
+  "resume-agents",
 ];
 
 /** How a refused conversation request reads on the page (PAGE-278). */
@@ -348,6 +350,12 @@ async function runIntent(
     case "reply-settings":
     case "save-reply-settings":
       return runReplySettingsIntent(services, person, intent, formData);
+    case "resume-agents":
+      await services.conversationAgentGuard.resume(
+        person,
+        String(formData.get("conversationId") ?? ""),
+      );
+      return {};
   }
 }
 

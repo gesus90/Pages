@@ -2,6 +2,7 @@ import { withBackgroundDatabaseWork } from "@/backend/database/executor/Database
 import { ConversationError } from "@/backend/error/ConversationError";
 import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
 import { CONVERSATION_DECISION_LIMITS } from "@/definition/ConversationDecision";
 import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
 
@@ -19,6 +20,7 @@ import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type { ConversationMessage } from "@/definition/Conversation";
 import type { ConversationReplySettings } from "@/definition/ConversationDecision";
 import type { User } from "@/definition/User";
+import type { ConversationAgentGuard } from "./ConversationAgentGuard";
 import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
   ConversationAccount,
@@ -42,7 +44,7 @@ const COMPONENT = "ConversationAgentReplies";
 /** One answer an agent is asked for. */
 export interface ConversationAgentRequest {
   readonly agent: User;
-  /** The person whose message opened the round the agent answers. */
+  /** The person, or the agent (PAGE-311), whose message opened the round the agent answers. */
   readonly person: User;
   readonly conversation: Pick<ConversationRecord, "id" | "kind" | "name">;
   /** The task with the limited context of the conversation. */
@@ -92,7 +94,11 @@ export interface ConversationAgentRepliesDependencies {
   readonly events: Pick<ConversationEvents, "subscribe" | "publish">;
   /** Tells the live view of this process about a change. */
   readonly publisher: { publish(event: PagesEvent): void };
+  /** Pauses a chain of agent messages (PAGE-311); without it no chain is limited. */
+  readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
   readonly now?: () => Date;
+  /** Waits for a busy agent; tests pass a fast one. */
+  readonly wait?: (milliseconds: number) => Promise<void>;
 }
 
 /** One agent a round asks for, and why. */
@@ -105,7 +111,19 @@ interface ReplyRequest {
   readonly isAutomatic: boolean;
 }
 
-/** The message of a person whose text is known now, or `null` for every other change. */
+/**
+ * Whether a message asks for an answer: one a person wrote, or one an agent
+ * chose to send (PAGE-311). The answer of an agent asks nobody, so two agents
+ * never answer each other on their own.
+ */
+function isAskingMessage(message: ConversationMessage): boolean {
+  return (
+    message.sender.kind === "human" ||
+    message.clientMessageId.startsWith(CONVERSATION_AGENT_SEND_PREFIX)
+  );
+}
+
+/** The message of a person, or one an agent chose to send, whose text is known now; `null` for every other change. */
 function answerableMessage(
   event: ConversationEvent,
 ): ConversationMessage | null {
@@ -117,9 +135,8 @@ function answerableMessage(
   if (event.kind === "message_updated" && message.voice === undefined)
     return null;
   if (isWaiting || message.notice !== undefined) return null;
-  if (message.sender.kind !== "human" || message.text.trim() === "")
-    return null;
-  return message;
+  if (message.text.trim() === "") return null;
+  return isAskingMessage(message) ? message : null;
 }
 
 function isAgentMember(
@@ -148,7 +165,10 @@ function isAgentMember(
  * and the observer and hand-overs add at most
  * {@link CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin} answers.
  * All of it is stored, so repeated events, concurrent jobs and a restart
- * start nothing twice. Agents never start a round of their own.
+ * start nothing twice. Agents start a round only with a message they chose
+ * to send (PAGE-311); it asks exactly the agents it mentions, or the partner
+ * of a direct conversation, and a conversation paused after a chain of agent
+ * messages gets no answer.
  *
  * Every agent answers in its own session of the conversation (PAGE-304), so
  * several agents answer side by side. A message that waits for the earlier
@@ -245,7 +265,7 @@ export class ConversationAgentReplies {
   ): Promise<void> {
     const accounts = await this.dependencies.directory.read();
     const sender = accounts.find(message.sender.id);
-    if (!sender || sender.user.isAgent === true) return;
+    if (!sender || !isAskingMessage(message)) return;
     const conversation = await this.dependencies.conversations.findForMember(
       message.conversationId,
       sender.user.id,
@@ -283,6 +303,8 @@ export class ConversationAgentReplies {
       );
       return;
     }
+    // A message an agent chose to send asks only the agents it mentions.
+    if (sender.user.isAgent === true) return;
     const settings = await this.dependencies.replySettings.find(
       conversation.id,
     );

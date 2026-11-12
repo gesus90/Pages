@@ -42,6 +42,7 @@ import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine"
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
 import { AgentPlanRunHistoryService } from "@/backend/service/agents/AgentPlanRunHistoryService";
+
 import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
@@ -64,6 +65,10 @@ import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
 import { startOneShotPlanDeletion } from "./agent-plan-one-shot-services.server";
+import {
+  createRunDiagnosis,
+  readableSessionRun,
+} from "./run-diagnosis-services.server";
 import { createPlanRemoteServices } from "./agent-plan-remote-services.server";
 import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
@@ -81,7 +86,9 @@ import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/Ag
 import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
 import type { PlanDependencies } from "@/backend/service/agents/AgentPlanService";
+import type { AgentPlanResumeAdvisorSlot } from "@/backend/service/agents/AgentPlanResumeAdvisor";
 import type { PicaMobileNotificationService } from "@/backend/service/mobile/notifications/PicaMobileNotificationService";
+import type { AgentRunDiagnosisSettingsService } from "@/backend/service/agents/diagnosis/AgentRunDiagnosisSettingsService";
 import type { AgentApplicationServices } from "./agent-services.server";
 
 /** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
@@ -107,6 +114,8 @@ export interface AgentPlanServices {
   readonly agentPlanTemplateService: AgentPlanTemplateService;
   readonly agentSessionService: AgentSessionService;
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;
+  /** The retention and stall time of the run diagnosis under Settings → Agents (PAGE-307). */
+  readonly agentRunDiagnosisSettingsService: AgentRunDiagnosisSettingsService;
 }
 
 /** The plan services that loaders and actions reach directly besides the plan service. */
@@ -120,6 +129,7 @@ export type AgentPlanLoaderServices = Pick<
   | "planBridgeGrants"
   | "agentPlanManagement"
   | "agentPlanTemplateService"
+  | "agentRunDiagnosisSettingsService"
 >;
 
 /** The interpreter profiles of script nodes, read when needed so a changed list applies without a restart. */
@@ -223,6 +233,7 @@ export async function createAgentPlanService(input: {
   );
   const pageAgentSessions = await createPageAgentSessions(input, {
     run: (userId, id) => service.run(userId, id),
+    readableRun: (userId, id) => readableSessionRun(service, userId, id),
     stop: (userId, id) => service.stop(userId, id),
   });
   const { remoteTargets, remoteExecution, pages } =
@@ -237,11 +248,7 @@ export async function createAgentPlanService(input: {
     pageAgentSessions,
   });
   // The runner services are built first; runner facts learn which runs an engine still drives.
-  const localEngine: AgentPlanRunEngine | null =
-    engine instanceof AgentPlanRunEngine ? engine : null;
-  input.agents.runnerService.attachRunOwnership(
-    (id) => localEngine?.isActive(id) ?? true,
-  );
+  attachRunOwnership(input.agents.runnerService, engine);
   const preparation = new AgentPlanPreparation({
     workspaceCatalog,
     remoteExecution,
@@ -252,8 +259,12 @@ export async function createAgentPlanService(input: {
     tasks,
     ...planAssetsOf(input.agents),
   });
+  const resumeAdvisor: AgentPlanResumeAdvisorSlot = { current: null };
+  const diagnosis = createRunDiagnosis(input);
   const dependencies: PlanDependencies = {
     ...planRecords(input),
+    ...diagnosis.dependencies,
+    resumeAdvisor,
     workspaceCatalog,
     remoteExecution,
     remoteTargets,
@@ -277,6 +288,15 @@ export async function createAgentPlanService(input: {
     engine,
     remoteExecution,
   });
+  const recovery = startPlanRecovery(input, {
+    service,
+    access,
+    preparation,
+    engine,
+    runs,
+    remoteExecution,
+  });
+  resumeAdvisor.current = recovery;
   return {
     runnerPagesAccessService: pages,
     planBridgeGrants: grants,
@@ -284,15 +304,19 @@ export async function createAgentPlanService(input: {
     agentLocalSessionPreparation: new AgentLocalSessionPreparation(runs, start),
     ...views,
     agentSessionService: pageAgentSessions,
-    agentPlanRecoveryService: startPlanRecovery(input, {
-      service,
-      access,
-      preparation,
-      engine,
-      runs,
-      remoteExecution,
-    }),
+    agentPlanRecoveryService: recovery,
+    agentRunDiagnosisSettingsService: diagnosis.settings,
   };
+}
+
+/** The runner facts learn which runs an engine of this process still drives. */
+function attachRunOwnership(
+  runners: AgentApplicationServices["runnerService"],
+  engine: PlanRunEnginePort,
+): void {
+  const localEngine: AgentPlanRunEngine | null =
+    engine instanceof AgentPlanRunEngine ? engine : null;
+  runners.attachRunOwnership((id) => localEngine?.isActive(id) ?? true);
 }
 
 function createPlanStepStart(

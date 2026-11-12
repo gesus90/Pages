@@ -20,6 +20,7 @@ import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
+import type { AgentPlanRunJournal } from "@/backend/service/agents/AgentPlanJournal";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
   AgentPlanRecoveryCommand,
@@ -252,6 +253,60 @@ export class AgentPlanRecoveryExecutionRepository {
     });
   }
 
+  /**
+   * Ends a run as cancelled after the end of its own processes was proven.
+   *
+   * @param run - The run as the process checks read it; a run that changed since is refused.
+   * @returns The cancelled run.
+   *
+   * @remarks
+   * It serves Stop on a run nothing drives anymore, on a run that ended at a
+   * failure and on one whose stop hangs. Finished work keeps its result;
+   * everything unfinished becomes cancelled, and the working copies are released.
+   */
+  public async settleStopped(
+    run: AgentPlanRun,
+    journal?: AgentPlanRunJournal,
+  ): Promise<AgentPlanRun> {
+    if (run.status === "succeeded" || run.status === "cancelled") return run;
+    const cancelled = cancelledRun(run);
+    await this.database.transaction(async (transaction) => {
+      await requireUnchangedRun(transaction, run);
+      const [current] = await transaction.query(
+        "SELECT recovery_revision FROM agent_plan_runs WHERE id = $id;",
+        { id: run.id },
+      );
+      const previous = Number(current?.[0]);
+      await transaction.execute(
+        `
+        UPDATE agent_plan_runs
+        SET status = $status,
+            view_json = $view_json,
+            recovery_revision = $revision
+        WHERE id = $id
+            AND recovery_revision = $previous_revision;
+        `,
+        {
+          id: run.id,
+          status: cancelled.status,
+          view_json: JSON.stringify(cancelled),
+          revision: previous + 1,
+          previous_revision: previous,
+        },
+      );
+      await transaction.execute(
+        "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
+        { run_id: run.id },
+      );
+      await journal?.(transaction, cancelled);
+      transaction.onCommit?.(() => {
+        sharedAgentPlanRunObservers().notify(run, cancelled);
+        return Promise.resolve();
+      });
+    });
+    return cancelled;
+  }
+
   /** Journals a decision that starts no run, such as a release, in its own transaction. */
   public async recordAlone(
     write: RecoveryExecutionWrite,
@@ -322,4 +377,37 @@ async function requireUnchangedRun(
   const current = readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")));
   if (!isDeepStrictEqual(current, expected))
     throw new AgentPlanRecoveryError("revision_conflict");
+}
+
+const UNFINISHED_STEPS: ReadonlySet<string> = new Set([
+  "running",
+  "waiting",
+  "paused",
+]);
+
+/** The run as a stop leaves it: unfinished work cancelled, finished work untouched. */
+function cancelledRun(run: AgentPlanRun): AgentPlanRun {
+  return {
+    ...run,
+    status: "cancelled",
+    stopRequested: true,
+    isWaitingForWorkspace: undefined,
+    workspaceWait: undefined,
+    recovery: undefined,
+    endedAt: run.endedAt ?? new Date().toISOString(),
+    steps: run.steps.map((step) =>
+      UNFINISHED_STEPS.has(step.status)
+        ? {
+            ...step,
+            status: "cancelled" as const,
+            cancellation:
+              step.status === "running"
+                ? ("confirmed" as const)
+                : ("not_started" as const),
+            isBlocked: false,
+            blockedByStepId: undefined,
+          }
+        : step,
+    ),
+  };
 }

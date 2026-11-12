@@ -18,13 +18,15 @@ import type {
 } from "@/definition/VirtualChat";
 
 /**
- * Sends a stop or a tool cancellation for the opened agent, or the stop of
- * one agent's answer in the opened group (PAGE-304).
+ * Sends a stop or a tool cancellation for the opened agent, the stop of
+ * one agent's answer in the opened group (PAGE-304), or the release of a
+ * paused conversation of agents (PAGE-311).
  */
 function useAgentControls(opened: OpenedConversation | null): {
   readonly stop: () => void;
   readonly cancelTool: () => void;
   readonly stopGroupAgent: (agentId: string) => void;
+  readonly resumeAgents: () => void;
 } {
   const fetcher = useFetcher();
   function submit(intent: "stop" | "cancel-tool"): void {
@@ -42,10 +44,18 @@ function useAgentControls(opened: OpenedConversation | null): {
     formData.set("agentId", agentId);
     void fetcher.submit(formData, { method: "post" });
   }
+  function resumeAgents(): void {
+    if (opened?.kind !== "group") return;
+    const formData = new FormData();
+    formData.set("intent", "resume-agents");
+    formData.set("conversationId", opened.group.id);
+    void fetcher.submit(formData, { method: "post" });
+  }
   return {
     stop: () => submit("stop"),
     cancelTool: () => submit("cancel-tool"),
     stopGroupAgent,
+    resumeAgents,
   };
 }
 
@@ -110,6 +120,8 @@ export interface ChatPageState {
   readonly liveTools: readonly VirtualToolUse[];
   /** Cancels the running tool call of the opened agent; its answer goes on (PAGE-303). */
   cancelTool(): void;
+  /** Lets the agents of the opened paused conversation go on (PAGE-311). */
+  resumeAgents(): void;
   findParticipant(id: string): VirtualParticipant | undefined;
   /** The known members of a group, in its order. */
   findMembers(group: VirtualGroup): VirtualParticipant[];
@@ -145,6 +157,7 @@ function membersOf(
   group: VirtualGroup,
   participants: readonly VirtualParticipant[],
 ): VirtualParticipant[] {
+  if (group.agentMembers) return [...group.agentMembers];
   return group.memberIds.flatMap((id) => {
     const member = participants.find((participant) => participant.id === id);
     return member ? [member] : [];
@@ -405,6 +418,7 @@ export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
     stopGroupAgent: controls.stopGroupAgent,
     liveTools: isAnswering ? (directory.liveToolUses?.[historyId] ?? []) : [],
     cancelTool: controls.cancelTool,
+    resumeAgents: controls.resumeAgents,
     findParticipant,
     findMembers,
   };

@@ -17,7 +17,6 @@ function input(
     actionError: null,
     hasRefusedIssues: false,
     isRunBlocked: false,
-    recovery: null,
     ...overrides,
   };
 }
@@ -100,22 +99,30 @@ it("names how the last run ended and whether a failure may be resumed", () => {
 
   expect(
     planPanelState(
-      input({ control: failed, recovery: { isAvailable: true, reason: null } }),
+      input({ control: { ...failed, canResume: true, resumeKind: "failed" } }),
     ),
   ).toEqual({ state: "failed", tone: "blocked", variant: "resumable" });
   expect(
     planPanelState(
       input({
-        control: failed,
-        recovery: { isAvailable: false, reason: "No" },
+        control: { ...failed, canResume: true, resumeKind: "interrupted" },
       }),
     ),
-  ).toEqual({ state: "failed", tone: "blocked", variant: undefined });
+  ).toEqual({ state: "interrupted", tone: "blocked", variant: "resumable" });
   expect(planPanelState(input({ control: failed }))).toEqual({
-    state: "blocked",
+    state: "failed",
     tone: "blocked",
+    variant: undefined,
   });
   expect(
-    planPanelState(input({ control: planControl({ status: "failed" }) })),
-  ).toEqual({ state: "ready", tone: "ready" });
+    planPanelState(
+      input({
+        control: planControl({
+          status: "cancelled",
+          resumeKind: "stopped",
+          canResume: true,
+        }),
+      }),
+    ),
+  ).toEqual({ state: "stopped", tone: "open", variant: "resumable" });
 });

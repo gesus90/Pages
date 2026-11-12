@@ -1,5 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logEvent } from "@/backend/logging/Logger";
+import { emitRunLog } from "@/backend/logging/RunLogSink";
 import { requirePlanModelResources } from "@/backend/service/agents/AgentPlanModel";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { requirePlanDispatchFence } from "@/backend/agents/AgentPlanDispatchFence";
@@ -256,6 +257,7 @@ export class RunnerPlanEventService {
       )
         continue;
       const binding = job.plan;
+      logRunnerJob(connectionId, job, binding);
       await this.repository.apply(
         transaction,
         binding.runId,
@@ -279,6 +281,24 @@ export class RunnerPlanEventService {
       );
     }
   }
+}
+
+/** Copies what a runner reported about a job into the log of the run (PAGE-307). */
+function logRunnerJob(
+  connectionId: string,
+  job: RunnerJob,
+  binding: RunnerPlanBinding,
+): void {
+  const isFailure = job.status === "failed" || job.status === "lost";
+  emitRunLog({
+    runId: binding.runId,
+    stepId: binding.stepId,
+    attemptId: binding.attemptId,
+    at: new Date().toISOString(),
+    level: isFailure ? "error" : "info",
+    source: "runner",
+    message: `Runner ${connectionId} reported job ${job.jobId} as ${job.status}`,
+  });
 }
 
 function logSettledStepFact(connectionId: string, job: RunnerJob): void {

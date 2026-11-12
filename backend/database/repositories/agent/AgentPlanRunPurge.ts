@@ -1,4 +1,6 @@
 import { readTextColumn } from "@/backend/database/RowValue";
+import { AgentRunFailureRepository } from "@/backend/database/repositories/diagnosis/AgentRunFailureRepository";
+import { indexRunFailures } from "@/backend/service/agents/diagnosis/AgentRunFailureIndexer";
 
 import type {
   Database,
@@ -80,6 +82,7 @@ const RUN_TABLES = [
   "agent_plan_step_reports",
   "agent_plan_step_progress",
   "agent_plan_agent_todos",
+  "agent_run_failure_index",
   "agent_run_credentials",
   "pica_mobile_notification_deliveries",
   "pica_mobile_notification_occurrences",
@@ -154,6 +157,8 @@ async function purgeRun(
   database: PlanRunPurgeDatabase,
   runId: string,
 ): Promise<boolean> {
+  // The failures of the run stay countable after it is gone (PAGE-307).
+  await indexRunFailures(new AgentRunFailureRepository(database), runId);
   return database.transaction(async (transaction) => {
     const [settled] = await transaction.query(SETTLED_RUN, { run_id: runId });
     if (!settled) return false;

@@ -100,3 +100,50 @@ export async function interruptedLoopRuns(
     }),
   );
 }
+
+/** The cleanup of an ended loop once its nodes were settled: failed, confirmed, or as it was. */
+function settledCleanup(
+  loop: AgentPlanLoopRun,
+  hasFailedCleanup: boolean,
+): AgentPlanLoopRun["cleanup"] {
+  if (hasFailedCleanup) return "failed";
+  return loop.cleanup === "pending" || loop.cleanup === "failed"
+    ? "confirmed"
+    : loop.cleanup;
+}
+
+/**
+ * Settles the leftover sessions of the loops of a run that already ended.
+ *
+ * @param loops - The loop states as stored.
+ * @param end - Ends the processes a node's session left behind and reports its closeout.
+ * @returns The loops with every node's closeout settled; a loop whose sessions
+ * are all confirmed reports its cleanup as confirmed. No result, iteration
+ * status or error changes, because the run ended with them.
+ */
+export async function settledLoopRuns(
+  loops: readonly AgentPlanLoopRun[],
+  end: LoopRecoveryActions["end"],
+): Promise<readonly AgentPlanLoopRun[]> {
+  return Promise.all(
+    loops.map(async (loop): Promise<AgentPlanLoopRun> => {
+      const iterations = await Promise.all(
+        loop.iterations.map(async (iteration) => ({
+          ...iteration,
+          nodes: await Promise.all(iteration.nodes.map(end)),
+        })),
+      );
+      const hasFailedCleanup = iterations.some((iteration) =>
+        iteration.nodes.some((node) => node.session?.closeout === "failed"),
+      );
+      return {
+        ...loop,
+        iterations,
+        sessions: loop.sessions.map((session) =>
+          settledSession(session, iterations),
+        ),
+        cleanup: settledCleanup(loop, hasFailedCleanup),
+      };
+    }),
+  );
+}

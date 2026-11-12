@@ -46,6 +46,15 @@ export interface VirtualParticipant {
   readonly conversationId?: string | null;
   /** Whether the person muted the stored direct conversation for themselves alone (PAGE-275). */
   readonly isMuted?: boolean;
+  /**
+   * The direct conversation in which the agent wrote to the person (PAGE-311);
+   * its messages stand in the history, and reading marks it read up to the
+   * newest of them.
+   */
+  readonly agentChat?: {
+    readonly conversationId: string;
+    readonly newestMessageId: string;
+  };
   /** ISO time of the adding or the last sent message. */
   readonly lastActivityAt: string;
   /** The access level of an agent, shown in the head of its chat (PAGE-303). */
@@ -75,6 +84,16 @@ export interface VirtualGroup {
   }[];
   /** Whether the group is marked confidential: its agents share and learn nothing from it (PAGE-305). */
   readonly isConfidential?: boolean;
+  /**
+   * A conversation in which only agents take part, which the person reads as
+   * an administrator or leader without being a member (PAGE-311); nobody
+   * writes in it from the page.
+   */
+  readonly isAgentConversation?: boolean;
+  /** The agents of an {@link VirtualGroup.isAgentConversation}, which the person's list does not hold. */
+  readonly agentMembers?: readonly VirtualParticipant[];
+  /** Agents wrote the most they may in a row and wait for a person to allow it to go on (PAGE-311). */
+  readonly isAgentPaused?: boolean;
 }
 
 /** A tool a participant used for an answer, for example `list_tickets · 3 offen`. */

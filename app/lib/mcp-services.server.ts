@@ -296,12 +296,16 @@ function createMcpPlanServices(
   database: Database,
   channelPlans: AgentPlanService,
   identities: AgentIdentityService,
+  runs: Pick<RouterContext, "planRecovery" | "planSessions">,
 ): McpPlanServices {
   return {
     operations: new AgentPlanOperationService({
       database,
       plans: channelPlans,
       resources: {
+        // The reads of runs for the whole team need the journal and the recovery state (PAGE-307).
+        sessions: runs.planSessions,
+        recovery: runs.planRecovery,
         plans: channelPlans,
         templates: new AgentPlanTemplateService({
           plans: channelPlans,
@@ -335,10 +339,16 @@ function lazyMcpPlanServices(
   database: Database,
   channelPlans: () => AgentPlanService,
   identities: AgentIdentityService,
+  runs: Pick<RouterContext, "planRecovery" | "planSessions">,
 ): () => McpPlanServices {
   let services: McpPlanServices | null = null;
   return () => {
-    services ??= createMcpPlanServices(database, channelPlans(), identities);
+    services ??= createMcpPlanServices(
+      database,
+      channelPlans(),
+      identities,
+      runs,
+    );
     return services;
   };
 }
@@ -568,7 +578,12 @@ export function createMcpServices(
         workspace.pageAgents,
       ),
     ),
-    mcpPlanServices: lazyMcpPlanServices(database, mcpPlanService, identities),
+    mcpPlanServices: lazyMcpPlanServices(
+      database,
+      mcpPlanService,
+      identities,
+      workspace,
+    ),
     mcpPlanService,
     mcpWikiOperations: new AgentOperationKeyRepository(database),
     mcpUserApi: new McpUserApi({

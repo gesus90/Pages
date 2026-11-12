@@ -93,6 +93,28 @@ function title(element: HTMLElement): string | undefined {
   return element.parentElement?.title;
 }
 
+function renderPanelWithBlock(
+  block: NonNullable<AgentPlanControl["resumeBlock"]>,
+): { readonly unmount: () => void } {
+  const scene = actionScene();
+  const page = planPage();
+  return renderWithEditor(page, scene, (editor: PlanEditor) => (
+    <PlanRunPanel
+      page={page}
+      editor={editor}
+      control={planControl({
+        ...FAILED,
+        resumeKind: "failed",
+        resumeBlock: block,
+      })}
+      run={null}
+      error={null}
+      onRunStarted={vi.fn()}
+      onRecoveryDecided={vi.fn()}
+    />
+  ));
+}
+
 function recovery(overrides: Partial<PlanRecovery> = {}): void {
   recoveryHook.state = recoveryState(overrides);
 }
@@ -293,103 +315,107 @@ it("asks before a new run begins beside the ended run of another executor", asyn
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-it("continues an ended run through the resume dialog", async () => {
-  recovery({ view: RESUMABLE });
-  renderPanel({ control: planControl({ ...FAILED, canResume: true }) });
+it("continues an ended run with one click and no dialog", async () => {
+  const { scene } = renderPanel({
+    control: planControl({
+      ...FAILED,
+      resumeKind: "failed",
+      canResume: true,
+    }),
+  });
 
   fireEvent.click(button("resume"));
 
+  await waitFor(() => expect(scene.submissions).toHaveLength(1));
+  expect(scene.submissions[0]?.get("intent")).toBe("resume-plan");
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("shows why Fortsetzen is off as text and carries out the action that lifts it", async () => {
+  const submit = vi.fn<PlanRecovery["submit"]>(async () => null);
+  recovery({ view: RESUMABLE, submit });
+  const fetchMock = vi.fn(async () => new Response("{}"));
+  vi.stubGlobal("fetch", fetchMock);
+  const onDecided = renderPanel({
+    control: planControl({
+      ...FAILED,
+      resumeKind: "failed",
+      resumeBlock: {
+        code: "plan_script_permission_denied",
+        action: "admin_mode",
+      },
+    }),
+  }).onRecoveryDecided;
+
+  expect(button("resume").hasAttribute("disabled")).toBe(true);
+  expect(
+    screen
+      .getAllByRole("status")
+      .some((element) =>
+        element.textContent?.includes(
+          i18n.t("plans.resumeBlock.reason.plan_script_permission_denied"),
+        ),
+      ),
+  ).toBe(true);
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: i18n.t("plans.resumeBlock.button.admin_mode"),
+    }),
+  );
+
+  await waitFor(() => expect(onDecided).toHaveBeenCalledOnce());
+  expect(fetchMock).toHaveBeenCalledOnce();
+  vi.unstubAllGlobals();
+});
+
+it("releases the reservations or opens the restart when the block names that action", async () => {
+  const submit = vi.fn<PlanRecovery["submit"]>(async () => null);
+  recovery({ view: RESUMABLE, submit });
+  const { unmount } = renderPanelWithBlock({
+    code: "cleanup_unconfirmed",
+    action: "release",
+  });
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: i18n.t("plans.resumeBlock.button.release"),
+    }),
+  );
+  expect(submit).toHaveBeenCalledWith({ action: "release" });
+  unmount();
+  renderPanelWithBlock({ code: "no_safe_state", action: "restart" });
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: i18n.t("plans.resumeBlock.button.restart"),
+    }),
+  );
   expect(
     await screen.findByRole("dialog", {
-      name: i18n.t("plans.recovery.resumeTitle"),
+      name: i18n.t("plans.recovery.restart"),
     }),
   ).toBeDefined();
 });
 
-it.each<[string, Partial<AgentPlanControl>, Partial<PlanRecovery>, string]>([
-  [
-    "a plan the person may not edit",
-    { canEdit: false },
-    {},
-    "plans.recovery.blocker.plan_read_only",
-  ],
-  [
-    "a run of another executor",
-    { resumeBlocker: "own_run_required" },
-    {},
-    "plans.recovery.blocker.own_run_required",
-  ],
-  [
-    "a run without identity",
-    { runId: null },
-    {},
-    "plans.recovery.blocker.own_run_required",
-  ],
-  ["a view that is still loading", {}, {}, "plans.panel.checking"],
-])(
-  "explains why an ended run cannot continue without a view: %s",
-  (_, control, hook, key) => {
-    recovery(hook);
-    renderPanel({ control: planControl({ ...FAILED, ...control }) });
-
-    expect(title(button("resume"))).toBe(i18n.t(key));
-    expect(button("resume").hasAttribute("disabled")).toBe(true);
-  },
-);
-
-it("names the refusal of the recovery view as the reason", () => {
-  recovery({ error: "recovery_unavailable" });
-  renderPanel({ control: FAILED });
-
-  expect(title(button("resume"))).toBe(
-    i18n.t([
-      "plans.recovery.error.recovery_unavailable",
-      "settings.agents.error.recovery_unavailable",
-      "plans.panel.error",
-    ]),
-  );
-});
-
-it("takes the reason of an unavailable resume from the view, else from the control", () => {
-  recovery({
-    view: recoveryView({
-      resume: {
-        available: false,
-        reason: "already_continued",
-        modes: [],
-        reusedStepIds: [],
-        reviewStepIds: [],
-      },
-    }),
-  });
-  renderPanel({ control: FAILED });
-
-  expect(title(button("resume"))).toBe(
-    i18n.t("plans.recovery.blocker.already_continued"),
-  );
-});
-
-it("holds back a resume the view offers while the control names a current blocker", () => {
-  recovery({ view: RESUMABLE });
-  renderPanel({
+it("asks before it ends an open run for a new one, and sends the confirmation", async () => {
+  const { scene } = renderPanel({
     control: planControl({
-      ...FAILED,
-      canResume: false,
-      issue: "plan_invalid",
+      runId: "run-1",
+      status: "running",
+      canPlay: true,
+      canRestart: true,
+      canStop: true,
     }),
   });
 
-  expect(button("resume").hasAttribute("disabled")).toBe(true);
-  expect(title(button("resume"))).toBe(
-    i18n.t(["settings.agents.error.plan_invalid", "plans.panel.blockedHint"]),
+  fireEvent.click(button("play"));
+  expect(scene.submissions).toHaveLength(0);
+  fireEvent.click(
+    screen.getByRole("button", { name: i18n.t("plans.openRun.confirm") }),
   );
-});
 
-it("holds back a resume while a recovery request is on its way", () => {
-  recovery({ view: RESUMABLE, isPending: true });
-  renderPanel({ control: planControl({ ...FAILED, canResume: true }) });
-
-  expect(button("resume").hasAttribute("disabled")).toBe(true);
+  await waitFor(() => expect(scene.submissions).toHaveLength(1));
+  expect(scene.submissions[0]?.get("replaceOpenRun")).toBe("true");
 });
 
 it("names a paused run whose continuation node was deleted", () => {

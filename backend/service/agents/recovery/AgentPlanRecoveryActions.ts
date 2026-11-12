@@ -11,6 +11,7 @@ import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import {
   recoveredAgentContext,
@@ -59,12 +60,13 @@ import type { AgentPlanRunEngine } from "../AgentPlanRunEngine";
 import type { RecoveredRunStart } from "../AgentPlanRunStart";
 import type { AgentPlanService } from "../AgentPlanService";
 import type { AgentPlanSnapshot } from "../AgentPlanSnapshot";
+import type { AgentPlanRunJournal } from "../AgentPlanJournal";
 import type { RecoveryFacts } from "./AgentPlanRecoveryPlanning";
 
 /** The boundaries of executing recovery; each check stays on the server. */
 export interface RecoveryActionDependencies {
   readonly runs: Pick<AgentPlanService, "run"> &
-    Partial<Pick<AgentPlanService, "controlRun">>;
+    Partial<Pick<AgentPlanService, "controlRun" | "readableRun">>;
   readonly remoteExecution?: Pick<AgentPlanRemoteExecution, "stop">;
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly preparation: Pick<AgentPlanPreparation, "prepare">;
@@ -103,6 +105,8 @@ export interface RecoveryRequest<
   readonly requestDigest: string;
   /** Set by the automatic continuation after a restart, never by a request of a person. */
   readonly automaticAttempt?: number;
+  /** Records the caller's own command in the transaction that creates the new run. */
+  readonly journal?: AgentPlanRunJournal;
 }
 
 /** A stored result returned instead of a second start in the same transaction. */
@@ -208,6 +212,53 @@ export class AgentPlanRecoveryActions {
         ...frozenNodes(snapshot),
       },
     };
+  }
+
+  /**
+   * Whether the run could be continued now, without starting or changing anything.
+   *
+   * @remarks
+   * It is the same check a resume makes first, so the control of a run and the
+   * resume agree on every reason.
+   */
+  public async availability(
+    userId: string,
+    runId: string,
+  ): Promise<AgentPlanRecoveryOption> {
+    const { facts } = await this.facts(userId, runId, undefined, false);
+    return resumeOption(facts, planResume(facts));
+  }
+
+  /**
+   * Ends what a stop leaves behind: the run's own processes, its leases and its record.
+   *
+   * @throws {AgentPlanRecoveryError} `cleanup_unconfirmed` while a process of
+   * the run is still alive or cannot be ruled out.
+   *
+   * @remarks
+   * A run that an engine still drives only has its hung processes ended; the
+   * engine closes the record itself. Every other run, ended at a failure or
+   * orphaned, becomes `cancelled` once the end of its processes is proven, and
+   * can be continued from its last safe state.
+   */
+  public async stop(
+    userId: string,
+    runId: string,
+    journal?: AgentPlanRunJournal,
+  ): Promise<void> {
+    const { facts } = await this.facts(userId, runId, undefined, false);
+    const { run } = facts;
+    if (run.status === "succeeded") return;
+    if (isActivePlanRun(run.status) && facts.isEngineActive !== false) {
+      await this.requestRemoteCleanup(run);
+      await this.endLocalProcesses(
+        run,
+        await readScopeSince(run.startedAt).catch(() => null),
+      );
+      return;
+    }
+    const settled = await this.settleCleanup(facts, false);
+    await this.dependencies.executions.settleStopped(settled, journal);
   }
 
   /** The recovery revision of a run, which every command names. */
@@ -540,6 +591,7 @@ export class AgentPlanRecoveryActions {
             result,
             execution: this.execution(request, result, run),
           });
+          await request.journal?.(transaction, run);
           // The new run carries the completions it took over, so a later resume can verify them.
           for (const checkpoint of start.checkpoints)
             await checkpoints.append(

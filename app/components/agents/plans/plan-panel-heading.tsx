@@ -8,15 +8,16 @@ import { Button } from "@/app/components/ui/button";
 import { PlanOneShotBadge, PlanOneShotNotice } from "./plan-one-shot-notice";
 import { PlanPanelMenu } from "./plan-panel-menu";
 import { PlanRunActions } from "./plan-run-actions";
+import { PlanResumeBlockNotice } from "./plan-resume-block-notice";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanPage } from "@/definition/AgentPlan";
-import type { AgentPlanControl } from "@/definition/AgentPlanControl";
-import type { PlanManagementDialog } from "./plan-management/use-plan-management";
 import type {
-  PlanRecoveryResumeState,
-  PlanRunIntent,
-} from "./plan-run-actions";
+  AgentPlanControl,
+  AgentPlanResumeAction,
+} from "@/definition/AgentPlanControl";
+import type { PlanManagementDialog } from "./plan-management/use-plan-management";
+import type { PlanRunIntent } from "./plan-run-actions";
 import type { usePlanEditor } from "./use-plan-editor";
 
 /** Project and workspace of the plan; a remote target names its host. */
@@ -52,12 +53,12 @@ interface PlanPanelHeadingProps {
   readonly isPending: boolean;
   readonly pendingIntent: PlanRunIntent | null;
   readonly hasDeletedFrontier: boolean;
-  readonly recovery: PlanRecoveryResumeState | null;
   readonly isOpen: boolean;
   readonly detailsId: string;
   readonly onToggle: () => void;
   readonly onAction: (intent: PlanRunIntent) => void;
-  readonly onRecover: () => void;
+  /** Carries out the action that lifts the block of Fortsetzen. */
+  readonly onResolveBlock: (action: AgentPlanResumeAction) => void;
   readonly onManage: (dialog: PlanManagementDialog) => void;
 }
 
@@ -121,9 +122,7 @@ export function PlanPanelHeading(
               pendingIntent={props.pendingIntent}
               isDirty={editor.isDirty}
               hasDeletedFrontier={props.hasDeletedFrontier}
-              recovery={props.recovery}
               onAction={props.onAction}
-              onRecover={props.onRecover}
             />
           </div>
           <div className="flex items-center gap-1">
@@ -170,6 +169,11 @@ function PlanControlNotes(props: PlanPanelHeadingProps): React.ReactElement {
   const { control } = props;
   return (
     <>
+      <PlanResumeBlockNotice
+        control={control}
+        isPending={props.isPending}
+        onResolve={props.onResolveBlock}
+      />
       {control?.workspaceWait ? (
         <p
           role="status"

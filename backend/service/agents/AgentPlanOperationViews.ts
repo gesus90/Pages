@@ -9,6 +9,11 @@ import {
   failedPlanAttempts,
   planBlockerClassOf,
 } from "./AgentPlanBlockerRules";
+import { classifyAgentRunError } from "./diagnosis/AgentRunErrorClassifier";
+import {
+  extractRunFailures,
+  summarizeRunFailure,
+} from "./diagnosis/RunFailures";
 import { sharingEntry } from "./PageAgentOperationDefinition";
 import { sanitizeArtifactText } from "./AgentPlanOutput";
 
@@ -35,6 +40,10 @@ import type {
 } from "@/definition/AgentPlanOperations";
 import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { PageAgentSharingEntry } from "@/definition/PageAgentOperations";
+import type {
+  AgentRunErrorFields,
+  AgentRunStarter,
+} from "@/definition/AgentRunDiagnosis";
 
 /**
  * The share of a plan as a client reads it.
@@ -72,7 +81,8 @@ function planTeam(
 /** A run of the plan by its start and status. */
 export function runSummary(
   plan: Pick<AgentPlanView, "id" | "name">,
-  entry: AgentPlanRunEntry,
+  entry: AgentPlanRunEntry & { readonly userId?: string },
+  startedBy: AgentRunStarter = unnamedStarter(entry.userId),
 ): AgentPlanRunSummary {
   return {
     runId: entry.id,
@@ -80,7 +90,22 @@ export function runSummary(
     planName: plan.name,
     startedAt: entry.startedAt,
     status: entry.status,
+    startedBy,
   };
+}
+
+/** The starter of a run nobody could name: the identifier alone, or empty without one. */
+function unnamedStarter(userId = ""): AgentRunStarter {
+  return { id: userId, displayName: userId };
+}
+
+/** The fixed class, code and hint of an error; nothing for a step or run without one. */
+export function errorFields(
+  error: string | null,
+): Partial<AgentRunErrorFields> {
+  if (error === null) return {};
+  const { errorClass, errorCode, errorHint } = classifyAgentRunError(error);
+  return { errorClass, errorCode, errorHint };
 }
 
 /**
@@ -91,15 +116,34 @@ export function runSummary(
  */
 export function planState(
   plan: AgentPlanView,
-  entries: readonly AgentPlanRunEntry[],
+  entries: readonly TeamRunEntry[],
+  starters: ReadonlyMap<string, AgentRunStarter>,
 ): Pick<AgentPlanStatusEntry, "state" | "latestRun" | "runCount"> {
   const active = entries.find((entry) => isActivePlanRun(entry.status));
   const latest = entries.at(0);
   return {
     state: active && isActivePlanRun(active.status) ? active.status : "idle",
-    latestRun: latest ? runSummary(plan, latest) : null,
+    latestRun: latest
+      ? runSummary(plan, latest, starterOf(starters, latest))
+      : null,
     runCount: entries.length,
   };
+}
+
+/** A run of a plan with the account that started it. */
+export type TeamRunEntry = AgentPlanRunEntry & { readonly userId: string };
+
+/** The starter of a run; an account nobody could name keeps its identifier. */
+export function starterOf(
+  starters: ReadonlyMap<string, AgentRunStarter>,
+  entry: TeamRunEntry,
+): AgentRunStarter {
+  return (
+    starters.get(entry.userId) ?? {
+      id: entry.userId,
+      displayName: entry.userId,
+    }
+  );
 }
 
 /** What a summary and a detailed read of a plan share. */
@@ -130,9 +174,10 @@ function planBase(
 export function planSummary(
   plan: AgentPlanView,
   directory: AgentProfileDirectory,
-  entries: readonly AgentPlanRunEntry[],
+  entries: readonly TeamRunEntry[],
+  starters: ReadonlyMap<string, AgentRunStarter>,
 ): AgentPlanSummary {
-  const { state, latestRun } = planState(plan, entries);
+  const { state, latestRun } = planState(plan, entries, starters);
   return { ...planBase(plan, directory), state, latestRun };
 }
 
@@ -181,7 +226,8 @@ function nodeEntry(
 export interface AgentPlanDetailContext {
   readonly directory: AgentProfileDirectory;
   readonly sources: AgentPlanSources;
-  readonly entries: readonly AgentPlanRunEntry[];
+  readonly entries: readonly TeamRunEntry[];
+  readonly starters: ReadonlyMap<string, AgentRunStarter>;
   /** Live availability from the shared control service, when composed by Pages. */
   readonly isRunnable?: boolean;
 }
@@ -210,7 +256,7 @@ export function planDetail(
     executionTarget: plan.executionTarget ?? null,
     // The status comes before the graph, so a chat that shortens a long plan keeps it.
     status: {
-      ...planState(plan, context.entries),
+      ...planState(plan, context.entries, context.starters),
       isRunnable: context.isRunnable ?? issues.length === 0,
       issues,
     },
@@ -265,6 +311,7 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
     isBlocked: step.isBlocked,
     ...blockedBy(step),
     error: step.error,
+    ...errorFields(step.error),
     verdict:
       session?.acceptance?.verdict ?? scriptAssessmentVerdict(step.report),
     ...stepTimes(step),
@@ -335,11 +382,24 @@ function runEnd(run: AgentPlanRun): string | null {
 }
 
 /** A run with the state of its nodes, without their result texts. */
-export function runDetail(run: AgentPlanRun): AgentPlanRunDetail {
+export function runDetail(
+  run: AgentPlanRun,
+  startedBy: AgentRunStarter = unnamedStarter(run.userId),
+): AgentPlanRunDetail {
+  const failure = summarizeRunFailure(run, extractRunFailures(run));
   return {
     runId: run.id,
     planId: run.planId,
     planName: run.planName,
+    startedBy,
+    ...(failure
+      ? {
+          failedStepId: failure.failedStepId,
+          errorClass: failure.errorClass,
+          errorCode: failure.errorCode,
+          errorHint: failure.errorHint,
+        }
+      : {}),
     planRevision: run.planRevision,
     appliedPlanRevision: run.continuation?.planRevision ?? run.planRevision,
     continuationVersion: run.continuation?.version ?? 0,
@@ -391,6 +451,7 @@ export function stepReport(
     output,
     isOutputFiltered: output !== step.output,
     error: step.error,
+    ...errorFields(step.error),
     ...blockedBy(step),
     verdict: status.verdict,
     ...reportDetails(step),

@@ -5,10 +5,19 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
 import { isSamePlanTarget } from "@/definition/AgentPlanTarget";
+import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { planControl } from "./AgentPlanControl";
+import {
+  resumeBlockFromIssue,
+  resumeBlockFromRecovery,
+} from "./AgentPlanResumeBlocks";
 import { visibleStartRejection } from "./AgentPlanStartRejectionVisibility";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
-import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type {
+  AgentPlanControl,
+  AgentPlanResumeBlock,
+} from "@/definition/AgentPlanControl";
+import type { AgentPlanResumeAdvisorSlot } from "./AgentPlanResumeAdvisor";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentProfileService } from "./AgentProfileService";
@@ -36,10 +45,21 @@ interface ControlDependencies {
     Partial<Pick<AgentPlanStartRejectionRepository, "page">>;
   readonly workspaceCatalog?: Pick<AgentPlanWorkspaces, "requireAccess">;
   readonly workspaces?: Pick<AgentWorkspaceService, "requireAccess">;
+  readonly resumeAdvisor?: AgentPlanResumeAdvisorSlot;
   readonly runs: Pick<
     AgentPlanRunRepository,
     "latest" | "hasReservation" | "findWorkspaceReservation" | "resources"
-  >;
+  > &
+    Partial<
+      Pick<AgentPlanRunRepository, "find" | "workspaceReservationHolder">
+    >;
+}
+
+/** What the continuation of a run is judged on beyond the plan's own findings. */
+interface ResumeContext {
+  readonly userId: string;
+  readonly run: AgentPlanRun | null;
+  readonly conflict: AgentPlanWorkspaceConflict | undefined;
 }
 
 interface ExecutionIssue {
@@ -91,15 +111,19 @@ export class AgentPlanControlService {
     const rejection = plan.canEdit
       ? await this.visibleStartRejection(userId, plan)
       : null;
+    const context: ResumeContext = { userId, run, conflict: undefined };
     if (plan.isWorkspaceMissing)
-      return withStartRejection(
-        {
-          ...control,
-          canPlay: control.canRestart === true,
-          canResume: false,
-          issue: "workspace_not_found",
-        },
-        rejection,
+      return this.withResume(
+        withStartRejection(
+          {
+            ...control,
+            canPlay: control.canRestart === true,
+            canResume: false,
+            issue: "workspace_not_found",
+          },
+          rejection,
+        ),
+        context,
       );
     if (!plan.canEdit) return control;
     if (
@@ -119,14 +143,13 @@ export class AgentPlanControlService {
     let issue = execution.code ?? control.issue;
     if (run?.status === "paused" && (await this.hasChangedContext(run, plan)))
       issue = "plan_context_changed";
-    return withStartRejection(
-      withExecutionIssue(
-        control,
-        issues,
-        issue,
-        issue === execution.code ? execution.conflict : undefined,
+    const conflict = issue === execution.code ? execution.conflict : undefined;
+    return this.withResume(
+      withStartRejection(
+        withExecutionIssue(control, issues, issue, conflict),
+        rejection,
       ),
-      rejection,
+      { userId, run, conflict },
     );
   }
 
@@ -219,4 +242,86 @@ export class AgentPlanControlService {
       return { code: error.code };
     }
   }
+
+  /**
+   * Settles whether "Fortsetzen" works and, when it does not, names why and what lifts it.
+   *
+   * @remarks
+   * The answer of the recovery for an ended run is part of it, so the control
+   * the interface polls and the control the Pages tools read cannot differ. A
+   * run never holds a block without a reason, and the run's own reservation
+   * is no block: continuing releases it after its processes ended.
+   */
+  private async withResume(
+    control: AgentPlanControl,
+    context: ResumeContext,
+  ): Promise<AgentPlanControl> {
+    const { run } = context;
+    if (!run || !control.resumeKind) return control;
+    let canResume = control.canResume;
+    let block: AgentPlanResumeBlock | null = null;
+    const conflict = await this.conflictOfOthers(control, context);
+    if (conflict === "own") canResume = !control.issues?.length;
+    else if (conflict) {
+      canResume = false;
+      block = conflict;
+    }
+    if (canResume && control.resumeKind !== "paused") {
+      block = await this.recoveryBlock(context.userId, run.id);
+      canResume = block === null;
+    }
+    if (canResume) return { ...control, canResume: true };
+    return {
+      ...control,
+      canResume: false,
+      resumeBlock: block ?? resumeBlockFromIssue(blockedCode(control)),
+    };
+  }
+
+  /** Names the other run that holds the workspace; the run's own hold is "own". */
+  private async conflictOfOthers(
+    control: AgentPlanControl,
+    context: ResumeContext,
+  ): Promise<AgentPlanResumeBlock | "own" | null> {
+    const { run, conflict, userId } = context;
+    if (!run || control.issue !== "plan_workspace_conflict" || !conflict)
+      return null;
+    if (conflict.kind !== "reserved") return null;
+    const { runs } = this.dependencies;
+    const holderId = await runs.workspaceReservationHolder?.(
+      conflict.targets.map((target) => target.workspaceId),
+    );
+    if (holderId === run.id) return "own";
+    const holder = holderId ? await runs.find?.(holderId) : null;
+    return resumeBlockFromIssue(
+      "plan_workspace_conflict",
+      holder?.userId === userId ? holder.id : undefined,
+    );
+  }
+
+  /** The reason the recovery refuses to continue an ended run, or `null` when it can. */
+  private async recoveryBlock(
+    userId: string,
+    runId: string,
+  ): Promise<AgentPlanResumeBlock | null> {
+    const advisor = this.dependencies.resumeAdvisor?.current;
+    if (!advisor) return null;
+    try {
+      const option = await advisor.resumeAvailability(userId, runId);
+      return option.available
+        ? null
+        : resumeBlockFromRecovery(option.reason ?? "workflow_unavailable");
+    } catch (error: unknown) {
+      if (error instanceof AgentPlanRecoveryError)
+        return resumeBlockFromIssue(error.code);
+      if (error instanceof AgentError) return resumeBlockFromIssue(error.code);
+      throw error;
+    }
+  }
+}
+
+/** The code a refused continuation names when nothing more specific is known. */
+function blockedCode(control: AgentPlanControl): string {
+  if (control.issues?.length) return "plan_invalid";
+  return control.issue ?? "plan_run_unavailable";
 }

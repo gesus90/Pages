@@ -308,7 +308,11 @@ export interface AgentRevisionConflict {
  * all `INVALID_REQUEST`: `checklist_items_invalid` (the list is not an
  * array, empty, too long or an entry is malformed), `checklist_item_duplicate` (an
  * entry is named twice) and `checklist_item_unknown` (an entry is not in the
- * checklist at the revision that was read).
+ * checklist at the revision that was read). The reads of the run diagnosis
+ * (PAGE-307) answer `INVALID_REQUEST` with `unknown_parameter` (a parameter
+ * the read does not have), `parameter_invalid` (a malformed value),
+ * `limit_out_of_range`, `time_invalid`, `time_range_reversed` (`from` after
+ * `to`) and `cursor_invalid`.
  */
 export const AGENT_REJECTION_REASONS = [
   "ticket_attachment_upload_required",
@@ -386,6 +390,12 @@ export const AGENT_REJECTION_REASONS = [
   "read_only",
   "confirmation_required",
   "validation",
+  "unknown_parameter",
+  "parameter_invalid",
+  "limit_out_of_range",
+  "time_invalid",
+  "time_range_reversed",
+  "cursor_invalid",
 ] as const;
 
 export interface AgentRejectionReason {

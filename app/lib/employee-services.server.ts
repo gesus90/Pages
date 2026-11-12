@@ -46,6 +46,7 @@ import { startAutomationAgentWorker } from "./automation-services.server";
 import { createConversationServices } from "./conversation-services.server";
 import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 
+import type { AgentChatTools } from "@/definition/AgentChat";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { AutomationService } from "@/backend/service/automation/AutomationService";
@@ -193,6 +194,8 @@ function createChatDirectory(parts: {
     toolCalls: (agent, sessionId) => sessions.toolCalls(agent, sessionId),
     workingAgentIds: (conversationId) =>
       replies.workingAgentIds(conversationId),
+    oversight: conversations.conversationOversight,
+    guard: conversations.conversationAgentGuard,
     queuedMessages: (conversationId) => replies.queuedMessages(conversationId),
     waitingInJob: (agent, sessionId) => sessions.waitingInJob(agent, sessionId),
     queuedAgentMessages: (agentId, personId) =>
@@ -301,6 +304,8 @@ export function createEmployeeServices(
     isSimulated: simulation.isActive,
     sessions: () => sessions,
   });
+  // The conversations are wired after the sessions, which need their chat tools.
+  let agentChat: AgentChatTools | null = null;
   const activity = new AgentActivityService(store);
   // The reader exists once the conversations are wired below.
   let contextReader: ConversationContextReader | null = null;
@@ -328,6 +333,7 @@ export function createEmployeeServices(
       ? { hostFiles: new AgentHostFiles(input.hostFiles) }
       : {}),
     recorder,
+    agentChat: () => agentChat,
     createSessionId: () => createChatSessionId(),
     conversationContext: {
       readForAgent: (agentId, request) =>
@@ -351,6 +357,7 @@ export function createEmployeeServices(
     }),
   });
   contextReader = conversations.conversationContextReader;
+  agentChat = conversations.agentChatService;
   const learning = new AgentLearningService({
     store,
     users,

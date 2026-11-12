@@ -1,8 +1,6 @@
 import { withReadScope } from "@/backend/database/ReadScope";
-import {
-  isActivePlanRun,
-  isResumablePlanRunEnd,
-} from "@/definition/AgentPlanRunState";
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import { isEndedResumable, planResumeKind } from "./AgentPlanControl";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 
@@ -111,17 +109,31 @@ export function controlOnlyPlanControl(
     canPause: false,
     canResume: false,
     // Resuming reuses the run's results and context, so it needs the content rights the history needs.
-    ...(access.run.status === "paused" ||
-    isResumablePlanRunEnd(access.run.status)
-      ? { resumeBlocker: "plan_access_denied" as const }
+    ...(access.run.status === "paused" || isEndedResumable(access.run)
+      ? {
+          resumeBlocker: "plan_access_denied" as const,
+          ...deniedResumeKind(access.run),
+        }
       : {}),
     canStop:
       control.canStop &&
-      !access.run.stopRequested &&
-      isActivePlanRun(access.run.status),
+      (access.run.status === "stopping" ||
+        (!access.run.stopRequested && isActivePlanRun(access.run.status)) ||
+        isEndedResumable(access.run)),
     issue: "plan_access_denied",
     planRevision: access.run.planRevision,
     continuationVersion: access.continuationVersion,
     frontierStepIds: [],
+  };
+}
+
+/** The state and the block of a continuable run whose content the reader may not see. */
+function deniedResumeKind(
+  run: AgentPlanRun,
+): Pick<AgentPlanControl, "resumeKind" | "resumeBlock"> {
+  const kind = planResumeKind(run);
+  return {
+    ...(kind ? { resumeKind: kind } : {}),
+    resumeBlock: { code: "plan_access_denied", action: "none" },
   };
 }

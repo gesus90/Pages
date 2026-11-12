@@ -3,6 +3,8 @@ import { scriptAssessmentVerdict } from "@/definition/AgentPlanScriptReport";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
 import { chunkAgentRead } from "./AgentReadChunking";
+import { errorFields } from "./AgentPlanOperationViews";
+import { readRunForReading } from "./diagnosis/RunReading";
 import { PLAN_OUTPUT_LIMIT, sanitizeArtifactText } from "./AgentPlanOutput";
 import {
   readIdentifier,
@@ -16,7 +18,7 @@ import type {
   AgentPlanDiagnosticStream,
 } from "@/definition/AgentPlanDiagnostics";
 import type { AgentPlanReadResult } from "@/definition/AgentPlanOperations";
-import type { AgentPlanService } from "./AgentPlanService";
+import type { RunReadingPlans } from "./diagnosis/RunReading";
 
 interface DiagnosticRequest {
   readonly planId: string;
@@ -419,17 +421,32 @@ function diagnostic(
   };
 }
 
-/** Reads one own attempt using the plan service's current run and resource checks. */
+/** Reads one attempt of any run the reader may see, using the current rights of the plan page. */
 export async function readPlanDiagnostic(
-  plans: Pick<AgentPlanService, "run">,
+  plans: RunReadingPlans,
   userId: string,
   input: unknown,
 ): Promise<AgentPlanReadResult> {
   const request = readRequest(input);
-  const run = await plans.run(userId, request.runId);
+  const { run, startedBy, hiddenFields } = await readRunForReading(
+    plans,
+    userId,
+    request.runId,
+  );
   if (run.planId !== request.planId) throw new AgentOperationError("NOT_FOUND");
+  const step = findStep(run, request);
+  const isHidden = hiddenFields.length > 0;
   const result = {
-    diagnostic: diagnostic(run, findStep(run, request), request),
+    diagnostic: {
+      ...diagnostic(run, step, request),
+      ...errorFields(step.error),
+      // Paths name the workspaces, which a reader without access may not see.
+      ...(isHidden ? { directory: null, workspace: null } : {}),
+    },
+    startedBy,
+    hiddenFields: isHidden
+      ? [...hiddenFields, "diagnostic.directory", "diagnostic.workspace"]
+      : hiddenFields,
   };
   return chunkAgentRead(result, {
     context: JSON.stringify([

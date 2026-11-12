@@ -454,6 +454,15 @@ the current account rights:
 | Milestones | `milestones_create`, `milestones_set_name`, `milestones_set_description`, `milestones_set_status`, `milestones_set_start_at`, `milestones_set_due_at`, `milestones_delete` |
 | Wiki | `wiki_page_create`, `wiki_page_set_title`, `wiki_page_set_content`, `wiki_page_move`, `wiki_page_delete`, `wiki_comment_add`, `wiki_comment_edit`, `wiki_comment_resolve`, `wiki_comment_delete` |
 
+Sessions of agent employees (not Pica) additionally get `chats_list`,
+`chat_read` and `chat_send` (PAGE-311): an agent reads the chats it takes part
+in and sends a message to a chat, person, agent or user group it may assign
+tickets to. A message to an agent is answered like one of a person, queued
+while the agent is busy; `waitForReply` returns the answer or `pending`. Ten
+agent messages in a row without a person pause the conversation until a
+person or administrator allows it to go on, and each agent sends at most the
+hourly limit of Settings → Agents (30 by default).
+
 There is no generic operation tool and no text-action fallback. A normal
 person gets no administration (accounts, roles, connections, instance
 settings); an administrator in the active admin mode additionally gets the

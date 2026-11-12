@@ -5,10 +5,7 @@ import { PlanRunActions } from "@/app/components/agents/plans/plan-run-actions";
 
 import { i18n, planControl, renderTranslated } from "./plan-panel-fixture";
 
-import type {
-  PlanRecoveryResumeState,
-  PlanRunIntent,
-} from "@/app/components/agents/plans/plan-run-actions";
+import type { PlanRunIntent } from "@/app/components/agents/plans/plan-run-actions";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 
 interface ActionsOptions {
@@ -18,15 +15,12 @@ interface ActionsOptions {
   readonly pendingIntent?: PlanRunIntent | null;
   readonly isDirty?: boolean;
   readonly hasDeletedFrontier?: boolean;
-  readonly recovery?: PlanRecoveryResumeState | null;
 }
 
 function renderActions(options: ActionsOptions = {}): {
   readonly onAction: ReturnType<typeof vi.fn>;
-  readonly onRecover: ReturnType<typeof vi.fn>;
 } {
   const onAction = vi.fn();
-  const onRecover = vi.fn();
   renderTranslated(
     <PlanRunActions
       control={"control" in options ? options.control : planControl()}
@@ -35,12 +29,10 @@ function renderActions(options: ActionsOptions = {}): {
       pendingIntent={options.pendingIntent ?? null}
       isDirty={options.isDirty ?? false}
       hasDeletedFrontier={options.hasDeletedFrontier ?? false}
-      recovery={options.recovery ?? null}
       onAction={onAction}
-      onRecover={onRecover}
     />,
   );
-  return { onAction, onRecover };
+  return { onAction };
 }
 
 function action(name: "play" | "pause" | "resume" | "stop"): HTMLElement {
@@ -153,12 +145,12 @@ it("shows a requested pause and stop as in progress", () => {
   expect(view.onAction).not.toHaveBeenCalled();
 });
 
-it("names a stopping run on its Stop button and keeps it closed", () => {
+it("names a stopping run on its Stop button and lets a second click force it", () => {
   renderActions({
     control: planControl({ status: "stopping", canStop: true }),
   });
 
-  expect(action("stop").hasAttribute("disabled")).toBe(true);
+  expect(action("stop").hasAttribute("disabled")).toBe(false);
   expect(isBusy(action("stop"))).toBe(true);
   expect(title(action("stop"))).toBe(i18n.t("plans.panel.stoppingHint"));
 });
@@ -207,29 +199,46 @@ it.each<[string, ActionsOptions, string]>([
   expect(resume.className).not.toContain("bg-primary");
 });
 
-it("opens the decision how a failed run continues, and names why it cannot", () => {
-  const { onRecover, onAction } = renderActions({
-    control: planControl({ status: "failed" }),
-    recovery: { isAvailable: true, reason: null },
-    pendingIntent: "pause-plan",
+it.each<[string, AgentPlanControl["resumeKind"]]>([
+  ["a failed run", "failed"],
+  ["an interrupted run", "interrupted"],
+  ["a blocked step", "blocked"],
+  ["a stopped run", "stopped"],
+  ["an open closeout", "closeout_open"],
+])("continues %s with one click", (name, resumeKind) => {
+  const { onAction } = renderActions({
+    control: planControl({
+      status:
+        resumeKind === "closeout_open" ? "work_done_closeout_open" : "failed",
+      resumeKind,
+      canResume: true,
+    }),
   });
   const resume = action("resume");
 
-  expect(title(resume)).toBe(i18n.t("plans.panel.recoverHint"));
-  expect(resume.className).not.toContain("bg-primary");
-  expect(isBusy(resume)).toBe(true);
+  expect(title(resume)).toBe(
+    i18n.t("plans.panel.resumeHint", { context: resumeKind }),
+  );
+  expect(resume.hasAttribute("disabled")).toBe(false);
   fireEvent.click(resume);
 
-  expect(onRecover).toHaveBeenCalledOnce();
-  expect(onAction).not.toHaveBeenCalled();
+  expect(onAction).toHaveBeenCalledWith("resume-plan");
 });
 
-it("names why a failed run cannot be continued", () => {
+it("names why a failed run cannot be continued and what to do", () => {
   renderActions({
-    control: planControl({ status: "failed" }),
-    recovery: { isAvailable: false, reason: "A newer run exists." },
+    control: planControl({
+      status: "failed",
+      resumeKind: "failed",
+      resumeBlock: {
+        code: "plan_script_permission_denied",
+        action: "admin_mode",
+      },
+    }),
   });
 
   expect(action("resume").hasAttribute("disabled")).toBe(true);
-  expect(title(action("resume"))).toBe("A newer run exists.");
+  expect(title(action("resume"))).toBe(
+    `${i18n.t("plans.resumeBlock.reason.plan_script_permission_denied")} ${i18n.t("plans.resumeBlock.next.admin_mode")}`,
+  );
 });

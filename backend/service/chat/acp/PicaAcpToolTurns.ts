@@ -27,6 +27,7 @@ export class PicaAcpToolTurns {
     | "searchMemory"
     | "readConversationContext"
     | "attachHostFile"
+    | "agentChat"
   >;
   private readonly controller = new AbortController();
   private turn = 0;
@@ -43,6 +44,7 @@ export class PicaAcpToolTurns {
       | "searchMemory"
       | "readConversationContext"
       | "attachHostFile"
+      | "agentChat"
     >,
     answerRunId: (turn: number) => string,
   ) {
@@ -78,6 +80,7 @@ export class PicaAcpToolTurns {
       searchMemory: this.dependencies.searchMemory,
       readConversationContext: this.dependencies.readConversationContext,
       attachHostFile: this.dependencies.attachHostFile,
+      agentChat: this.dependencies.agentChat,
     }).describe({ includeAdministrator: await this.isAdministrator(userId) });
   }
 
@@ -183,6 +186,9 @@ export class PicaAcpToolTurns {
           : {}),
         ...(this.dependencies.attachHostFile
           ? { attachHostFile: this.dependencies.attachHostFile }
+          : {}),
+        ...(this.dependencies.agentChat
+          ? { agentChat: this.dependencies.agentChat }
           : {}),
       },
       state,

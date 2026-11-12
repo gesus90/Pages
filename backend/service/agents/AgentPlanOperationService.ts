@@ -54,7 +54,8 @@ function isPersonalEvidenceRead(operation: unknown, input: unknown): boolean {
     operation === "plans.run.recovery.read" ||
     operation === "plans.run.diagnostics.read" ||
     operation === "plans.run.session.events.read" ||
-    operation === "plans.run.checkpoint.read"
+    operation === "plans.run.checkpoint.read" ||
+    operation === "plans.run.logs.read"
   );
 }
 

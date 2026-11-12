@@ -42,7 +42,7 @@ it("reads an immutable checkpoint through the actual owner-checked recovery serv
 
   if (!("checkpoint" in result) || !result.checkpoint)
     throw new Error("Expected a checkpoint");
-  const content: unknown = JSON.parse(result.checkpoint.content);
+  const content: unknown = JSON.parse(result.checkpoint.content ?? "");
   expect(result.checkpoint.version).toBe(1);
   expect(content).toMatchObject({
     planId: fixture.completed.planId,
@@ -76,7 +76,7 @@ it("masks historical credential-shaped text and marks the display output reduced
 
   if (!("checkpoint" in result) || !result.checkpoint)
     throw new Error("Expected a checkpoint");
-  const content: unknown = JSON.parse(result.checkpoint.content);
+  const content: unknown = JSON.parse(result.checkpoint.content ?? "");
   expect(result.checkpoint.isFiltered).toBe(true);
   expect(result.checkpoint.content).not.toContain("synthetic-secret");
   expect(content).toMatchObject({

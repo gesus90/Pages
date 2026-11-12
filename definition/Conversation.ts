@@ -32,6 +32,31 @@ export const CONVERSATION_AGENT_CONTEXT_MESSAGES = 20;
  */
 export const CONVERSATION_AGENT_CONTEXT_CHARACTERS = 12_000;
 
+/**
+ * Most messages in a row that agents may write in a conversation without a
+ * person writing in between (PAGE-311); after them the conversation is
+ * paused until a person allows it to go on.
+ */
+export const CONVERSATION_AGENT_CHAIN_MAXIMUM = 10;
+
+/** Prefix of the `clientMessageId` of a message an agent chose to send (PAGE-311). */
+export const CONVERSATION_AGENT_SEND_PREFIX = "agent-send-";
+
+/** Prefix of the `clientMessageId` of the answer to a message (PAGE-276). */
+export const CONVERSATION_AGENT_REPLY_PREFIX = "reply-";
+
+/** Messages one agent may send per hour while the instance sets no other limit (PAGE-311). */
+export const AGENT_CHAT_HOURLY_LIMIT_DEFAULT = 30;
+
+/** The range an administrator may set the hourly limit of an agent in (PAGE-311). */
+export const AGENT_CHAT_HOURLY_LIMIT_RANGE = {
+  minimum: 1,
+  maximum: 1000,
+} as const;
+
+/** The longest wait of a sending agent for the reply, in seconds: ten minutes (PAGE-311). */
+export const AGENT_CHAT_WAIT_MAXIMUM_SECONDS = 600;
+
 /** Most messages one page of the history holds. */
 export const CONVERSATION_HISTORY_PAGE_SIZE = 50;
 
@@ -182,3 +207,26 @@ export type ConversationErrorCode =
   | "too_large"
   | "too_long"
   | "unsupported_format";
+
+/**
+ * Why a message of an agent was not sent (PAGE-311): the target is none it
+ * may write to, the chat is none it takes part in, the conversation is paused
+ * after a chain of agent messages, its hourly limit is reached, the text is
+ * empty or too long or holds credentials, or the agent cannot act.
+ */
+export type AgentChatErrorCode =
+  | "forbidden_target"
+  | "chat_not_found"
+  | "conversation_paused"
+  | "rate_limited"
+  | "invalid_message"
+  | "credentials_in_message"
+  | "invalid_request"
+  | "agent_unavailable";
+
+/** The settings of the chat of agents (PAGE-311). */
+export interface AgentChatSettings {
+  /** Messages one agent may send per hour. */
+  readonly hourlyMessageLimit: number;
+  readonly revision: number;
+}

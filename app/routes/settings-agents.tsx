@@ -7,6 +7,8 @@ import { AdminModeRequired } from "@/app/components/settings/admin-mode-required
 import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { PicaSettingsCard } from "@/app/components/settings/agents/pica-settings-card";
 import { ChatDecisionCard } from "@/app/components/settings/agents/chat-decision-card";
+import { AgentChatSettingsCard } from "@/app/components/settings/agents/agent-chat-settings-card";
+import { RunDiagnosisSettingsCard } from "@/app/components/settings/agents/run-diagnosis-settings-card";
 import { SpeechSettingsCard } from "@/app/components/settings/agents/speech-settings-card";
 import { SpeechSynthesisCard } from "@/app/components/settings/agents/speech-synthesis-card";
 import { AgentSessionLimitsCard } from "@/app/components/settings/agents/agent-session-limits-card";
@@ -36,6 +38,8 @@ import type {
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { PicaAdministration } from "@/definition/PicaSettings";
 import type { ChatDecisionAdministration } from "@/definition/ConversationDecision";
+import type { AgentChatSettings } from "@/definition/Conversation";
+import type { AgentRunDiagnosisSettings } from "@/definition/AgentRunDiagnosis";
 import type { SpeechAdministration } from "@/definition/SpeechRecognition";
 import type { SpeechSynthesisAdministration } from "@/definition/SpeechSynthesis";
 import type { AgentSessionLimitsAdministration } from "@/definition/AgentSessionLimits";
@@ -62,6 +66,10 @@ export type AgentsLoaderData =
       readonly chatDecision: ChatDecisionAdministration;
       /** The limits of concurrent chat sessions of agents (PAGE-304); absent in an older kept answer. */
       readonly sessionLimits?: AgentSessionLimitsAdministration;
+      /** The hourly limit of messages one agent sends (PAGE-311). */
+      readonly agentChat: AgentChatSettings;
+      /** How long run logs are kept and when a silent step counts as stalled (PAGE-307). */
+      readonly runDiagnosis: AgentRunDiagnosisSettings;
       readonly audience: LocalStateAudience;
     };
 
@@ -106,7 +114,7 @@ function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
  * metadata; the request for the admin mode is not kept.
  */
 const SETTINGS_AGENTS_STATE: LocalStateRouteKind<AgentsLoaderData> = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   isPayload: isAgentsRouteData,
   isCurrent: (agents) =>
     agents.access === "granted" && isCurrentLocalStateAudience(agents.audience),
@@ -182,6 +190,8 @@ export default function SettingsAgentsRoute(): React.ReactElement {
         administration={result.chatDecision}
         isCatalogFailed={hasFailedCatalog(result.catalogs)}
       />
+      <AgentChatSettingsCard settings={result.agentChat} />
+      <RunDiagnosisSettingsCard settings={result.runDiagnosis} />
       <PicaSettingsCard
         settings={result.pica.settings}
         models={result.pica.models}

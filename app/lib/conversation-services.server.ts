@@ -1,8 +1,12 @@
 import path from "node:path";
 
+import { AgentChatSettingsRepository } from "@/backend/database/repositories/conversation/AgentChatSettingsRepository";
+import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
+import { ConversationAgentChatRepository } from "@/backend/database/repositories/conversation/ConversationAgentChatRepository";
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
+import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import { ConversationDecisionRepository } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
@@ -11,6 +15,9 @@ import { ConversationGroupContextRepository } from "@/backend/database/repositor
 import { ConversationObserverRunRepository } from "@/backend/database/repositories/conversation/ConversationObserverRunRepository";
 import { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { AgentChatService } from "@/backend/service/conversation/AgentChatService";
+import { AgentChatSettingsService } from "@/backend/service/conversation/AgentChatSettingsService";
+import { ConversationAgentGuard } from "@/backend/service/conversation/ConversationAgentGuard";
 import { ConversationAgentReplies } from "@/backend/service/conversation/ConversationAgentReplies";
 import { ConversationChatDecisions } from "@/backend/service/conversation/ConversationChatDecisions";
 import { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
@@ -21,6 +28,7 @@ import { ConversationGroupSummaries } from "@/backend/service/conversation/Conve
 import { ConversationGroupSummaryScheduler } from "@/backend/service/conversation/ConversationGroupSummaryScheduler";
 import { ConversationObserverModel } from "@/backend/service/conversation/ConversationObserverModel";
 import { ConversationObserverRouting } from "@/backend/service/conversation/ConversationObserverRouting";
+import { ConversationOversight } from "@/backend/service/conversation/ConversationOversight";
 import { ConversationReader } from "@/backend/service/conversation/ConversationReader";
 import { ConversationReplySettingsService } from "@/backend/service/conversation/ConversationReplySettingsService";
 import { ConversationService } from "@/backend/service/conversation/ConversationService";
@@ -52,6 +60,14 @@ export interface ConversationApplicationServices {
   readonly conversationReplySettingsService: ConversationReplySettingsService;
   /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
   readonly conversationVoiceMaximumMs: number;
+  /** The Pages tools with which agents read chats and send messages (PAGE-311). */
+  readonly agentChatService: AgentChatService;
+  /** The chain and hourly limits of the chat of agents, and the release of a paused one (PAGE-311). */
+  readonly conversationAgentGuard: ConversationAgentGuard;
+  /** Who reads the conversations that only agents take part in (PAGE-311). */
+  readonly conversationOversight: ConversationOversight;
+  /** The hourly limit under Settings → Agents (PAGE-311). */
+  readonly agentChatSettingsService: AgentChatSettingsService;
 }
 
 /** What the conversation services are built from. */
@@ -148,6 +164,20 @@ export function createConversationServices(
     messages,
     directory,
   });
+  const agentChat = new ConversationAgentChatRepository(database);
+  const agentChatSettings = new AgentChatSettingsRepository(database);
+  const conversationOversight = new ConversationOversight({
+    authorization: new AuthorizationRepository(database),
+    chat: agentChat,
+    reader: conversationReader,
+  });
+  const conversationAgentGuard = new ConversationAgentGuard({
+    chat: agentChat,
+    settings: agentChatSettings,
+    members: conversationReader,
+    oversight: conversationOversight,
+    publisher: input.events,
+  });
   const conversationAgentReplies = new ConversationAgentReplies({
     conversations,
     messages,
@@ -170,12 +200,24 @@ export function createConversationServices(
     }),
     events,
     publisher: input.events,
+    guard: conversationAgentGuard,
   });
   globalThis.pagesConversationAgentReplies?.();
   globalThis.pagesConversationAgentReplies = conversationAgentReplies.start();
   if (input.observer.isBackgroundOwner)
     startObserverBackground(conversationAgentReplies, observer.summaries);
   const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
+  const conversationService = new ConversationService({
+    conversations,
+    messages,
+    reader: conversationReader,
+    directory,
+    voices: new ConversationVoiceStore(files, conversationVoiceMaximumMs),
+    files,
+    transcriber: createConversationTranscriber({ speech: input.speech }),
+    events,
+    publisher: input.events,
+  });
   return {
     conversationReader,
     conversationAgentReplies,
@@ -187,16 +229,19 @@ export function createConversationServices(
       publisher: input.events,
     }),
     conversationVoiceMaximumMs,
-    conversationService: new ConversationService({
+    conversationService,
+    conversationAgentGuard,
+    agentChatSettingsService: new AgentChatSettingsService(agentChatSettings),
+    conversationOversight,
+    agentChatService: new AgentChatService({
+      users: new UserRepository(database),
+      groups: new UserGroupRepository(database),
       conversations,
-      messages,
       reader: conversationReader,
+      service: conversationService,
       directory,
-      voices: new ConversationVoiceStore(files, conversationVoiceMaximumMs),
-      files,
-      transcriber: createConversationTranscriber({ speech: input.speech }),
+      guard: conversationAgentGuard,
       events,
-      publisher: input.events,
     }),
   };
 }
