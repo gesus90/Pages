@@ -36,6 +36,8 @@ import { AgentPlanCloning } from "./AgentPlanCloning";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
 import { requireNoNewGitCloseout } from "./AgentPlanGitCloseoutLegacy";
 import { AgentPlanTeamReads } from "./diagnosis/AgentPlanTeamReads";
+import { AgentPlanTeamService } from "./AgentPlanTeamService";
+import { canRunPlan, isPlanAdministrator } from "@/definition/AgentPlanTeam";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { PlanDependencies } from "./AgentPlanDependencies";
@@ -68,6 +70,8 @@ import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentTaskAssignment } from "@/definition/AgentUsage";
 import type { AgentPlanTeam } from "./AgentPlanAccess";
 import type { AgentPlanStartRejectionPage } from "@/definition/AgentPlanStartRejection";
+import type { AgentPlanAuditEntry } from "@/definition/AgentPlanTeam";
+import type { AgentPlanAccessRequest } from "./AgentPlanTeamService";
 
 export type { PlanDependencies } from "./AgentPlanDependencies";
 
@@ -78,9 +82,17 @@ export class AgentPlanService extends AgentPlanTeamReads {
   private readonly scripts: AgentPlanScripts;
   private readonly pins: AgentPlanConfigurationPins;
   private readonly starts: AgentPlanStartActions;
+  private readonly teams: AgentPlanTeamService;
 
   public constructor(dependencies: PlanDependencies) {
     super(dependencies);
+    this.teams = new AgentPlanTeamService({
+      access: dependencies.access,
+      accessChanges: dependencies.accessChanges,
+      audit: dependencies.planAudit,
+      approvals: dependencies.scriptApprovals,
+      starters: dependencies.starters,
+    });
     this.controls = new AgentPlanControlService(dependencies);
     this.ended = new AgentPlanEndedRuns({
       advisor: dependencies.resumeAdvisor,
@@ -296,6 +308,54 @@ export class AgentPlanService extends AgentPlanTeamReads {
     return this.dependencies.access.require(userId, id);
   }
 
+  /**
+   * Returns one readable plan with the approval state of its script steps.
+   *
+   * @throws {AgentError} `plan_access_denied` for a missing or hidden plan alike.
+   */
+  public async detailedView(
+    userId: string,
+    id: string,
+  ): Promise<AgentPlanView> {
+    const plan = await this.dependencies.access.require(userId, id);
+    return { ...plan, scriptApproval: await this.teams.scriptApproval(plan) };
+  }
+
+  /**
+   * Changes the teams and/or the owner of a plan (PAGE-329).
+   *
+   * @returns The new revision of the plan.
+   * @throws {AgentError} See {@link AgentPlanTeamService.change}.
+   */
+  public async changeAccess(
+    userId: string,
+    id: string,
+    request: AgentPlanAccessRequest,
+  ): Promise<number> {
+    return this.teams.change(userId, id, request);
+  }
+
+  /**
+   * Approves the current content of the plan's script steps; administrators only.
+   *
+   * @returns The steps approved now.
+   */
+  public async approveScripts(
+    userId: string,
+    id: string,
+    revision: number,
+  ): Promise<readonly string[]> {
+    return this.teams.approveScripts(userId, id, revision);
+  }
+
+  /** Reads the history of a readable plan, newest first. */
+  public async history(
+    userId: string,
+    id: string,
+  ): Promise<readonly AgentPlanAuditEntry[]> {
+    return this.teams.history(userId, id);
+  }
+
   /** Names the groups and departments a plan share may refer to. */
   public async directory(userId: string): Promise<AgentProfileDirectory> {
     return this.dependencies.access.directory(userId);
@@ -376,6 +436,12 @@ export class AgentPlanService extends AgentPlanTeamReads {
         journal && ((transaction) => journal(transaction, plan.id)),
         userId,
       );
+      if (id !== null)
+        await this.teams.recordAdminAction(
+          userId,
+          await this.dependencies.access.require(userId, id),
+          "admin_saved",
+        );
       return plan.id;
     });
   }
@@ -401,7 +467,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
   }
 
   /**
-   * Deletes a plan; only its owner may, however many people share it.
+   * Deletes a plan; only its owner or an active administrator may, however many people share it.
    *
    * @param userId - The authenticated requester.
    * @param id - The plan to delete.
@@ -418,8 +484,15 @@ export class AgentPlanService extends AgentPlanTeamReads {
     },
   ): Promise<void> {
     const plan = await this.dependencies.access.require(userId, id);
-    if (plan.ownerId !== userId) throw new AgentError("plan_access_denied");
-    await this.dependencies.plans.remove(plan.id, userId, options);
+    const isAdministrator = isPlanAdministrator(plan);
+    if (plan.ownerId !== userId && !isAdministrator)
+      throw new AgentError("plan_access_denied");
+    await this.dependencies.plans.remove(
+      plan.id,
+      isAdministrator ? null : userId,
+      options,
+    );
+    await this.teams.recordAdminAction(userId, plan, "admin_deleted");
   }
 
   /**
@@ -462,7 +535,9 @@ export class AgentPlanService extends AgentPlanTeamReads {
     revision: number,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
-    return this.starts.play(userId, id, revision, journal);
+    const run = await this.starts.play(userId, id, revision, journal);
+    await this.teams.recordRunAction(userId, run, "admin_started");
+    return run;
   }
 
   /**
@@ -510,7 +585,9 @@ export class AgentPlanService extends AgentPlanTeamReads {
     id: string,
     input: unknown,
   ): Promise<AgentPlanRun> {
-    return this.starts.saveAndPlay(userId, id, input);
+    const run = await this.starts.saveAndPlay(userId, id, input);
+    await this.teams.recordRunAction(userId, run, "admin_started");
+    return run;
   }
 
   /** Run output stays private to its executor and still requires current plan/workspace permission. */
@@ -521,10 +598,12 @@ export class AgentPlanService extends AgentPlanTeamReads {
   /** Authorizes control of an own run without granting access to historical ticket or provider content. */
   public async controlRun(userId: string, id: string): Promise<AgentPlanRun> {
     const run = await findPlanRun(this.dependencies, userId, id);
+    if (!run) throw new AgentError("plan_access_denied");
+    const plan = await this.dependencies.access.require(userId, run.planId);
+    // An administrator controls every run, also one somebody else started (PAGE-329).
     if (
-      !run ||
-      run.userId !== userId ||
-      !(await this.dependencies.access.require(userId, run.planId)).canEdit
+      !canRunPlan(plan) ||
+      (run.userId !== userId && !isPlanAdministrator(plan))
     )
       throw new AgentError("plan_access_denied");
     return withRunCommand(this.dependencies.engine, run);
@@ -546,6 +625,9 @@ export class AgentPlanService extends AgentPlanTeamReads {
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     const run = await this.controlRun(userId, id);
+    await this.teams.recordRunAction(userId, run, "admin_run_controlled", {
+      command: "stop",
+    });
     if (!(await this.ended.settleEnded(userId, run, journal))) {
       await this.dependencies.engine.stop(id, journal);
       if (!this.dependencies.engine.commandReceipt)
@@ -562,8 +644,11 @@ export class AgentPlanService extends AgentPlanTeamReads {
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     const run = await this.run(userId, id);
-    if (!(await this.dependencies.access.require(userId, run.planId)).canEdit)
+    if (!canRunPlan(await this.dependencies.access.require(userId, run.planId)))
       throw new AgentError("plan_access_denied");
+    await this.teams.recordRunAction(userId, run, "admin_run_controlled", {
+      command: "pause",
+    });
     await this.dependencies.engine.pause(id, journal);
     return this.run(userId, id);
   }
@@ -577,9 +662,13 @@ export class AgentPlanService extends AgentPlanTeamReads {
   ): Promise<AgentPlanRun> {
     const run = await this.run(userId, id);
     const plan = await this.dependencies.access.require(userId, run.planId);
-    if (!plan.canEdit) throw new AgentError("plan_access_denied");
+    if (!canRunPlan(plan)) throw new AgentError("plan_access_denied");
     if (revision === undefined || plan.revision !== revision)
       throw new AgentError("plan_conflict");
+    await this.teams.recordAdminAction(userId, plan, "admin_run_controlled", {
+      runId: id,
+      command: "resume",
+    });
     if (
       run.status === "running" &&
       !run.stopRequested &&

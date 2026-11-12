@@ -165,6 +165,8 @@ export class RemovalDatabase {
     if (statement.includes("FROM agent_profile_purposes"))
       return this.profiles.map((profile) => [profile.id, "agent"]);
     if (statement.includes("FROM agent_profile_targets")) return [];
+    // Plans of these tests have no teams (PAGE-329).
+    if (statement.includes("FROM agent_plan_teams")) return [];
     throw new Error(`Unexpected query: ${statement}`);
   }
 

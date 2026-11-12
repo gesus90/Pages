@@ -88,6 +88,8 @@ export class PlanDatabase {
     statement: string,
     parameters: SqlParameters,
   ): DatabaseValue[][] {
+    // Plans of these tests have no teams (PAGE-329).
+    if (statement.includes("FROM agent_plan_teams")) return [];
     if (statement.includes("FROM agent_plan_runs")) {
       // Each check names the run states it counts; the delete check counts a pause, the edit lock does not.
       const statuses = [...statement.matchAll(/'(\w+)'/gu)].map(
@@ -134,6 +136,7 @@ export class PlanDatabase {
   }
 
   private execute(statement: string, parameters: SqlParameters): void {
+    if (statement.includes("agent_plan_teams")) return;
     if (statement.includes("DELETE FROM agent_plan_start_rejections")) {
       this.rejections = this.rejections.filter(
         (planId) => planId !== parameter(parameters, "id"),

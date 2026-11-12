@@ -60,6 +60,11 @@ import type {
   AgentPlanRecoveryReason,
   AgentPlanRunOrigin,
 } from "./AgentPlanRecovery";
+import type {
+  AgentPlanRightsView,
+  AgentPlanScriptApprovalState,
+  AgentPlanTeam,
+} from "./AgentPlanTeam";
 
 /**
  * Plan sources and execution dependencies are deliberately separate contracts.
@@ -242,7 +247,7 @@ export interface AgentPlanInput {
 
 export interface AgentPlan extends AgentPlanInput {
   readonly id: string;
-  /** The creator; saving by another person never changes it. */
+  /** The creator; saving never changes it, only an administrator moves it to another person. */
   readonly ownerId: string;
   readonly projectId: string;
   readonly revision: number;
@@ -254,8 +259,19 @@ export interface AgentPlan extends AgentPlanInput {
    * runs the plan besides its owner. Absent or `null` for a plan without a
    * team: one stored before teams, or created by a person with no or several
    * departments. Saving never derives it again.
+   *
+   * Since PAGE-329 it is the name space of the plan: the first department of
+   * {@link teams}. The rights come from {@link teams}.
    */
   readonly departmentId?: string | null;
+  /**
+   * The groups and departments that share the plan, each with its rights (PAGE-329).
+   *
+   * @remarks
+   * Read from their own table and never stored in the plan graph; a save of
+   * the graph never changes them. Absent only in plans built without storage.
+   */
+  readonly teams?: readonly AgentPlanTeam[];
   /**
    * When Pages deletes this one-time plan, as an ISO 8601 UTC time.
    *
@@ -270,8 +286,12 @@ export interface AgentPlan extends AgentPlanInput {
 export interface AgentPlanView extends AgentPlan {
   /** The registration is gone; the graph remains editable but cannot start until reassigned. */
   readonly isWorkspaceMissing?: boolean;
-  /** Whether the person changes and runs the plan: its owner, or a member or leader of its team. */
+  /** Whether the person changes the plan: its owner, an administrator or a team member with the right to change. */
   readonly canEdit: boolean;
+  /** Every right of the person on the plan; absent in views made before team rights. */
+  readonly rights?: AgentPlanRightsView;
+  /** Which script steps still wait for the approval of an administrator. */
+  readonly scriptApproval?: AgentPlanScriptApprovalState;
   readonly projectName: string;
   readonly github: WorkspaceGitHub | null;
 }
@@ -292,8 +312,16 @@ export interface AgentPlanSummary {
   readonly projectName: string;
   readonly workspaceId: string;
   readonly departmentId?: string | null;
+  /** The teams of the plan with their rights. */
+  readonly teams?: readonly AgentPlanTeam[];
   readonly usage: AgentPlanInput["usage"];
   readonly revision: number;
+  /** Whether the person runs the plan; absent means `canEdit` decides. */
+  readonly canRun?: boolean;
+  /** The person reads the plan only through the administrator role. */
+  readonly isAdminAccess?: boolean;
+  /** Whether the person is a member of one of the teams of the plan. */
+  readonly isTeamMember?: boolean;
   /** Whether the plan is a one-time plan that Pages deletes after a successful run. */
   readonly oneShot?: boolean;
   /** When Pages deletes the one-time plan, once its run succeeded. */

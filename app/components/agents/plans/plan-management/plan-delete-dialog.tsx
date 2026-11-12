@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+
 import { planRequestError } from "./plan-context-model";
 import { PlanDialogFrame } from "./plan-dialog-frame";
 import { useRequestKey } from "./use-plan-management";
@@ -11,7 +13,9 @@ import type { usePlanManagement } from "./use-plan-management";
  * A short confirmation before the plan is deleted: name, context, Abbrechen or Löschen.
  *
  * @remarks
- * The server checks again that the person owns the plan and that no run of
+ * A preview names the plan, its revision and whether a run of it is active.
+ * The server checks again that the person owns the plan or is an
+ * administrator and that no run of
  * it is active; it deletes the revision shown here and nothing else. The
  * files of the workspace and the run history stay. Another plan opens
  * afterwards.
@@ -57,6 +61,24 @@ export function PlanDeleteDialog({
         {t("plans.manage.deleteContext", { context })}
         {isDirty ? ` ${t("plans.manage.deleteUnsaved")}` : null}
       </p>
+      <p className="text-xs text-foreground" data-plan-delete-preview>
+        {t("plans.access.deletePreview", {
+          name: plan.name,
+          revision: plan.revision,
+          runs: t(
+            page.control &&
+              page.control.status !== "idle" &&
+              isActivePlanRun(page.control.status)
+              ? "plans.access.deleteRunActive"
+              : "plans.access.deleteNoRun",
+          ),
+        })}
+      </p>
+      {plan.rights?.isAdminAccess ? (
+        <p className="text-xs text-warning" data-plan-delete-admin>
+          {t("plans.access.deleteAdmin")}
+        </p>
+      ) : null}
     </PlanDialogFrame>
   );
 }

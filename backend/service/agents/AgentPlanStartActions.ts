@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 
 import { executePlanStart } from "./AgentPlanStartRejections";
@@ -40,7 +41,7 @@ export class AgentPlanStartActions {
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     const plan = await this.dependencies.access.require(userId, id);
-    if (!plan.canEdit) throw new AgentError("plan_access_denied");
+    if (!canRunPlan(plan)) throw new AgentError("plan_access_denied");
     if (plan.revision !== revision) throw new AgentError("plan_conflict");
     return executePlanStart(
       this.dependencies,
@@ -70,6 +71,8 @@ export class AgentPlanStartActions {
     id: string,
     input: unknown,
   ): Promise<AgentPlanRun> {
+    if (!canRunPlan(await this.dependencies.access.require(userId, id)))
+      throw new AgentError("plan_access_denied");
     const plan = await this.dependencies.revise(userId, id, input);
     return executePlanStart(
       this.dependencies,

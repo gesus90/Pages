@@ -7,6 +7,7 @@ import { planStartRejectionIssuesSchema } from "@/backend/agents/AgentPlanStartR
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
 import { isPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
+import { canRunPlan, isPlanAdministrator } from "@/definition/AgentPlanTeam";
 
 import {
   fingerprintOperation,
@@ -35,6 +36,30 @@ import type {
 import type { AgentPlanCommandRequest } from "./AgentPlanCommandInput";
 import type { AgentPlanService } from "./AgentPlanService";
 import type { AgentPlanTemplateService } from "./AgentPlanTemplateService";
+
+/** The commands that run a plan or control its runs; the right to run decides them (PAGE-329). */
+const RUN_COMMANDS: ReadonlySet<AgentPlanCommandOperation> = new Set([
+  "plans.play",
+  "plans.pause",
+  "plans.resume",
+  "plans.stop",
+]);
+
+/**
+ * Whether the person may give the command on the plan.
+ *
+ * @remarks
+ * A clone only needs reading. Running and controlling runs needs the right to
+ * run; everything else changes the plan. Deleting additionally needs the
+ * ownership or the administrator role, which the delete itself checks.
+ */
+function mayCommand(
+  plan: AgentPlanView,
+  operation: AgentPlanCommandOperation,
+): boolean {
+  if (operation === "plans.clone") return true;
+  return RUN_COMMANDS.has(operation) ? canRunPlan(plan) : plan.canEdit;
+}
 
 /** Explicit saved-plan and private-run commands share the editor services and transaction journal. */
 export class AgentPlanCommandOperations {
@@ -116,7 +141,7 @@ export class AgentPlanCommandOperations {
         status: "deleted",
       };
     const plan = await this.plans.view(userId, request.planId);
-    if (request.operation !== "plans.clone" && !plan.canEdit)
+    if (!mayCommand(plan, request.operation))
       throw new AgentOperationError("FORBIDDEN");
     const rejection = readCommandRejection(stored.resultJson);
     if (rejection) {
@@ -185,7 +210,7 @@ export class AgentPlanCommandOperations {
     recorder: OperationRecorder<AgentPlanCommandResult>,
   ): Promise<void> {
     const plan = await this.plans.view(userId, request.planId);
-    if (request.operation !== "plans.clone" && !plan.canEdit)
+    if (!mayCommand(plan, request.operation))
       throw new AgentOperationError("FORBIDDEN");
     if (plan.revision !== request.expectedRevision)
       throw new AgentOperationError("CONFLICT", {
@@ -197,7 +222,8 @@ export class AgentPlanCommandOperations {
       return;
     }
     if (request.operation === "plans.delete") {
-      if (plan.ownerId !== userId) throw new AgentOperationError("FORBIDDEN");
+      if (plan.ownerId !== userId && !isPlanAdministrator(plan))
+        throw new AgentOperationError("FORBIDDEN");
       await this.plans.remove(userId, plan.id, {
         revision: plan.revision,
         journal: async (transaction) => {

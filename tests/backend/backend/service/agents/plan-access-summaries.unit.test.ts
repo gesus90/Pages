@@ -102,11 +102,13 @@ function worldOf(
     partial<AgentPlanRepository>({ list, listings, find }),
     partial<AgentWorkspaceService>({}),
     sharing,
-    partial<AgentPlanWorkspaces>({
-      choices: async () => options.workspaces ?? [CHOICE],
-      registeredIds,
-      projects,
-    }),
+    {
+      catalog: partial<AgentPlanWorkspaces>({
+        choices: async () => options.workspaces ?? [CHOICE],
+        registeredIds,
+        projects,
+      }),
+    },
   );
   return { access, list, listings, find, registeredIds, projects };
 }

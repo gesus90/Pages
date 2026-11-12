@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { logEvent } from "@/backend/logging/Logger";
 import { emitRunLog } from "@/backend/logging/RunLogSink";
 import { requirePlanModelResources } from "@/backend/service/agents/AgentPlanModel";
@@ -87,7 +88,7 @@ export class RunnerPlanEventService {
   ): Promise<void> {
     const plan = await this.access.plans.require(userId, binding.planId);
     const run = requireDispatchRun(await this.access.runs.find(binding.runId), {
-      canEdit: plan.canEdit,
+      canEdit: canRunPlan(plan),
       userId,
       binding,
     });

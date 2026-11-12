@@ -7,7 +7,20 @@ import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 
 /** The dialogs of the plan menu. */
 export type PlanManagementDialog =
-  "create" | "edit" | "clone" | "clone-one-shot" | "delete";
+  | "create"
+  | "edit"
+  | "clone"
+  | "clone-one-shot"
+  | "delete"
+  | "access"
+  | "history"
+  | "approve-scripts";
+
+/** The requests whose success closes their dialog and reloads the plan. */
+const CLOSING_INTENTS: ReadonlySet<string> = new Set([
+  "plan-access",
+  "approve-plan-scripts",
+]);
 
 /** The request of a create, clone or delete dialog, without its key. */
 export type PlanManagementRequest = Readonly<Record<string, string>>;
@@ -34,6 +47,9 @@ export function usePlanManagement(): {
   const [dialog, setDialog] = useState<PlanManagementDialog | null>(null);
   const [answered, setAnswered] = useState<AgentPlanActionResult | null>(null);
   const result = fetcher.state === "idle" ? fetcher.data : undefined;
+  useEffect(() => {
+    if (result?.ok && CLOSING_INTENTS.has(result.intent)) setDialog(null);
+  }, [result]);
   useEffect(() => {
     if (!result?.ok || !result.planId) return;
     if (result.intent !== "create-plan" && result.intent !== "clone-plan")

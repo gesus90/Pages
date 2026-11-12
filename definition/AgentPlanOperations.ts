@@ -389,6 +389,14 @@ export interface AgentPlanTeamEntry {
   readonly name: string;
 }
 
+/** One team of a plan with its name and rights (PAGE-329). */
+export interface AgentPlanTeamRightsEntry extends AgentPlanTeamEntry {
+  readonly kind: "group" | "department";
+  readonly read: boolean;
+  readonly edit: boolean;
+  readonly run: boolean;
+}
+
 /** A visible plan without its graph. */
 export interface AgentPlanSummary extends AgentPlanOneShotState {
   readonly id: string;
@@ -398,12 +406,18 @@ export interface AgentPlanSummary extends AgentPlanOneShotState {
   readonly workspaceId: string;
   readonly ownerId: string;
   /**
-   * Whether the connected account may change and run the plan: its owner, or
-   * a member or leader of its team who can open the project.
+   * Whether the connected account may change the plan: its owner, an active
+   * administrator, or a member or leader of a team with the right to change.
    */
   readonly canEdit: boolean;
-  /** The team of the plan, or `null` when only its owner works with it. */
+  /** Whether the connected account may run the plan and control its own runs. */
+  readonly canRun: boolean;
+  /** The rights come from the administrator role alone; the plan is somebody else's. */
+  readonly adminAccess: boolean;
+  /** The first department team of the plan, or `null`; kept for older clients. */
   readonly team: AgentPlanTeamEntry | null;
+  /** Every team of the plan, groups and departments, with their rights. */
+  readonly teams: readonly AgentPlanTeamRightsEntry[];
   /** The read-only usage share; it never lets anyone change the plan. */
   readonly sharing: PageAgentSharingEntry;
   /** Value to pass as `expectedRevision` to a change. */

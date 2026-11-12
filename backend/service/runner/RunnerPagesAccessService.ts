@@ -1,4 +1,5 @@
 import { readPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
+import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { isOriginalRemoteJob } from "@/backend/service/agents/AgentPlanRemoteCancellation";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
@@ -221,7 +222,7 @@ export class RunnerPagesAccessService {
         run.userId,
         run.planId,
       );
-      if (!plan.canEdit) return;
+      if (!canRunPlan(plan)) return;
       if (remote.parameters)
         await this.dependencies.parameters.authorize(
           run.userId,
@@ -267,7 +268,7 @@ export class RunnerPagesAccessService {
     )
       throw new AgentError("plan_mcp_unavailable");
     const plan = await this.dependencies.plans.require(run.userId, run.planId);
-    if (!plan.canEdit) throw new AgentError("plan_access_denied");
+    if (!canRunPlan(plan)) throw new AgentError("plan_access_denied");
     if (access.remote.parameters)
       await this.dependencies.parameters.authorize(
         run.userId,

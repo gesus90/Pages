@@ -23,7 +23,7 @@ function row(
   return values;
 }
 
-it("lists the identity and sharing of every plan in one query that never selects the graph", async () => {
+it("lists the identity, sharing and teams of every plan in one plan query that never selects the graph", async () => {
   const script = scriptedDatabase();
   script.answer([
     row(),
@@ -51,6 +51,7 @@ it("lists the identity and sharing of every plan in one query that never selects
       name: "Release",
       usage: "workspace",
       revision: 4,
+      teams: [],
     },
     {
       id: "plan-2",
@@ -66,10 +67,13 @@ it("lists the identity and sharing of every plan in one query that never selects
         operator: "and",
         targets: [{ kind: "group", targetId: "group-1" }],
       },
+      teams: [],
     },
   ]);
-  expect(script.statements).toHaveLength(1);
-  const [{ statement }] = script.statements;
+  // The teams of all plans come from one second query (PAGE-329).
+  expect(script.statements).toHaveLength(2);
+  const [{ statement }, teams] = script.statements;
+  expect(teams?.statement).toContain("FROM agent_plan_teams");
   expect(statement).toContain("FROM agent_plans");
   expect(statement).toContain("ORDER BY lower(name), id");
   expect(statement).not.toMatch(/^\s*plan_json,?\s*$/mu);

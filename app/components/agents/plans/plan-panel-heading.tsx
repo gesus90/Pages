@@ -2,10 +2,12 @@ import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { isPlanEditLocked } from "@/definition/AgentPlanRunState";
+import { canRunPlan } from "@/definition/AgentPlanTeam";
 
 import { Button } from "@/app/components/ui/button";
 
 import { PlanOneShotBadge, PlanOneShotNotice } from "./plan-one-shot-notice";
+import { PlanAccessBadges } from "./plan-access-badges";
 import { PlanPanelMenu } from "./plan-panel-menu";
 import { PlanRunActions } from "./plan-run-actions";
 import { PlanResumeBlockNotice } from "./plan-resume-block-notice";
@@ -90,6 +92,9 @@ export function PlanPanelHeading(
           {props.page.selected?.oneShot ? (
             <PlanOneShotBadge className="mt-1" />
           ) : null}
+          {props.page.selected ? (
+            <PlanAccessBadges plan={props.page.selected} />
+          ) : null}
         </div>
         <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
           <Button
@@ -116,7 +121,9 @@ export function PlanPanelHeading(
           {/* On narrow screens the run controls take their own row below. */}
           <div className="max-sm:order-last max-sm:basis-full">
             <PlanRunActions
-              isReadOnly={props.page.selected?.canEdit === false}
+              isReadOnly={
+                props.page.selected ? !canRunPlan(props.page.selected) : false
+              }
               control={control}
               isPending={props.isPending}
               pendingIntent={props.pendingIntent}

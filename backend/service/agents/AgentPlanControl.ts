@@ -1,4 +1,5 @@
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+import { canRunPlan, isPlanAdministrator } from "@/definition/AgentPlanTeam";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
   isActivePlanRun,
@@ -65,7 +66,7 @@ export function planControl(
     return {
       runId: null,
       status: "idle",
-      canPlay: plan.canEdit,
+      canPlay: canRunPlan(plan),
       canEdit: plan.canEdit,
       canPause: false,
       canResume: false,
@@ -76,11 +77,14 @@ export function planControl(
       frontierStepIds: [],
     };
   const isActive = isActivePlanRun(run.status);
-  const canIdentify = plan.canEdit && run.userId === context.userId;
+  // An administrator controls every run, also one somebody else started (PAGE-329).
+  const canIdentify =
+    canRunPlan(plan) &&
+    (run.userId === context.userId || isPlanAdministrator(plan));
   const issue = continuationIssue(plan, run);
   return {
     ...runControlMetadata(run, canIdentify),
-    canPlay: plan.canEdit && (!isActive || canIdentify),
+    canPlay: canRunPlan(plan) && (!isActive || canIdentify),
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
         ? run.workspaceWait
@@ -123,7 +127,7 @@ function foreignRunBlocker(
   run: AgentPlanRun,
   canIdentify: boolean,
 ): Pick<AgentPlanControl, "resumeBlocker"> {
-  if (canIdentify || !plan.canEdit) return {};
+  if (canIdentify || !canRunPlan(plan)) return {};
   return run.status === "paused" || isEndedResumable(run)
     ? { resumeBlocker: "own_run_required" }
     : {};

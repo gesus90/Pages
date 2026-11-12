@@ -8,6 +8,11 @@ import {
   createPlanAction,
   deletePlanAction,
 } from "@/app/lib/agent-plan-management.server";
+import {
+  approvePlanScriptsAction,
+  changePlanAccessAction,
+  planHistoryAction,
+} from "@/app/lib/agent-plan-access-actions.server";
 import { lastSelectedPlan } from "@/app/lib/agent-plan-selection.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
@@ -28,6 +33,7 @@ import type {
   PlanSelectionScope,
 } from "@/app/lib/agent-plan-selection";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
+import type { ApplicationServices } from "@/app/lib/services.server";
 import type {
   AgentPlanInput,
   AgentPlanPage,
@@ -308,6 +314,33 @@ async function runControlAction(
   );
 }
 
+/** A request of the plan menu that only needs the person, the services and the form. */
+type ManagementAction = (
+  userId: string,
+  services: ApplicationServices,
+  formData: FormData,
+) => Promise<Response>;
+
+/** The handler of a plan menu request, read when the request arrives. */
+function managementAction(intent: string): ManagementAction | null {
+  switch (intent) {
+    case "create-plan":
+      return createPlanAction;
+    case "clone-plan":
+      return clonePlanAction;
+    case "keep-plan":
+      return keepPlanAction;
+    case "plan-access":
+      return changePlanAccessAction;
+    case "approve-plan-scripts":
+      return approvePlanScriptsAction;
+    case "plan-history":
+      return planHistoryAction;
+    default:
+      return null;
+  }
+}
+
 /**
  * Save, Create, Clone, Delete, Play, Pause, Resume and Stop use the authenticated executor and live server permissions.
  *
@@ -322,12 +355,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
     intent = String(formData.get("intent") ?? "");
     if (intent === "save-plan")
       return await savePlan(user.id, services.agentPlanService, formData);
-    if (intent === "create-plan")
-      return await createPlanAction(user.id, services, formData);
-    if (intent === "clone-plan")
-      return await clonePlanAction(user.id, services, formData);
-    if (intent === "keep-plan")
-      return await keepPlanAction(user.id, services, formData);
+    const management = managementAction(intent);
+    if (management) return await management(user.id, services, formData);
     if (intent === "delete-plan")
       return await deletePlanAction(user.id, services, {
         request: args.request,

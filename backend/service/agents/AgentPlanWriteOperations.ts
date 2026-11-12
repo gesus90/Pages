@@ -40,7 +40,50 @@ export interface AgentPlanWriteDependencies {
   readonly plans: Pick<
     AgentPlanService,
     "view" | "agents" | "save" | "workspaces" | "sources"
-  >;
+  > &
+    Partial<Pick<AgentPlanService, "changeAccess">>;
+}
+
+/** Whether an update changes nothing but teams and owner. */
+function isAccessOnly(request: AgentPlanUpdateRequest): boolean {
+  return (
+    request.name === null &&
+    request.sharing === null &&
+    (request.workspaceId ?? null) === null &&
+    request.executionTarget === undefined &&
+    request.oneShot === undefined &&
+    request.changes.length === 0 &&
+    request.parameterId === null
+  );
+}
+
+/** The teams and owner an update asks for, or `null` when it keeps both. */
+function accessChange(
+  request: AgentPlanUpdateRequest,
+): Pick<AgentPlanUpdateRequest, "teams" | "ownerId"> | null {
+  if (request.teams === undefined && request.ownerId === undefined)
+    return null;
+  return {
+    ...(request.teams === undefined ? {} : { teams: request.teams }),
+    ...(request.ownerId === undefined ? {} : { ownerId: request.ownerId }),
+  };
+}
+
+/**
+ * Refuses an access change the person may not make before anything is written.
+ *
+ * @throws {AgentOperationError} `FORBIDDEN` for teams without the right to
+ * manage them or an owner change by a non-administrator.
+ */
+function requireAccessRights(
+  plan: AgentPlanView,
+  change: Pick<AgentPlanUpdateRequest, "teams" | "ownerId">,
+): void {
+  if (
+    (change.teams !== undefined && plan.rights?.canManageTeams !== true) ||
+    (change.ownerId !== undefined && plan.rights?.canChangeOwner !== true)
+  )
+    throw new AgentOperationError("FORBIDDEN");
 }
 
 /** The usage and share a plan stores for a requested share. */
@@ -289,7 +332,13 @@ export class AgentPlanWriteOperations {
     request: AgentPlanUpdateRequest,
   ): Promise<AgentPlanView> {
     const plan = await this.dependencies.plans.view(userId, request.planId);
-    if (!plan.canEdit) throw new AgentOperationError("FORBIDDEN");
+    // A project manager may change only the teams of a plan they cannot change.
+    const isTeamsOnly =
+      request.teams !== undefined &&
+      plan.rights?.canManageTeams === true &&
+      isAccessOnly(request);
+    if (!plan.canEdit && !isTeamsOnly)
+      throw new AgentOperationError("FORBIDDEN");
     if (plan.revision !== request.expectedRevision)
       throw new AgentOperationError("CONFLICT", {
         currentRevision: plan.revision,
@@ -311,6 +360,8 @@ export class AgentPlanWriteOperations {
     recorder: OperationRecorder<AgentPlanChanged>,
   ): Promise<void> {
     const current = await this.current(userId, request);
+    const access = accessChange(request);
+    if (access) requireAccessRights(current, access);
     const workspace = await this.targetWorkspace(userId, current, request);
     const before = editable(current);
     const changed = applyPlanChanges(before, request.changes, {
@@ -333,7 +384,18 @@ export class AgentPlanWriteOperations {
       projectId: workspace.projectId,
     };
     const revision = request.expectedRevision;
-    if (planKey(proposed) === planKey(before)) {
+    const isSameGraph = planKey(proposed) === planKey(before);
+    if (access) {
+      await this.saveWithAccess(userId, {
+        current,
+        proposed: isSameGraph ? null : proposed,
+        access,
+        recorder,
+        createdNodeIds: changed.createdNodeIds,
+      });
+      return;
+    }
+    if (isSameGraph) {
       await this.dependencies.database.transaction(async (transaction) => {
         await requirePlanRevision(transaction, current.id, revision);
         await recorder.store(transaction, {
@@ -358,6 +420,52 @@ export class AgentPlanWriteOperations {
             createdNodeIds: changed.createdNodeIds,
           }),
       );
+    } catch (error: unknown) {
+      logCaughtError("AgentPlanWriteOperations", error);
+
+      if (error instanceof AgentError && error.code === "plan_conflict")
+        throw await this.conflict(userId, current.id);
+      throw error;
+    }
+  }
+
+  /**
+   * Saves the graph, if it changed, and then the teams and owner, each as a revision of its own.
+   *
+   * @remarks
+   * The result is recorded with the commit of the access change, so a
+   * repeated call returns it. The revision of the result counts both writes.
+   */
+  private async saveWithAccess(
+    userId: string,
+    write: {
+      readonly current: AgentPlanView;
+      readonly proposed: AgentPlanInput | null;
+      readonly access: Pick<AgentPlanUpdateRequest, "teams" | "ownerId">;
+      readonly recorder: OperationRecorder<AgentPlanChanged>;
+      readonly createdNodeIds: readonly string[];
+    },
+  ): Promise<void> {
+    const { current, recorder } = write;
+    const { changeAccess } = this.dependencies.plans;
+    if (!changeAccess) throw new AgentOperationError("INVALID_REQUEST");
+    let revision = current.revision;
+    try {
+      if (write.proposed) {
+        await this.dependencies.plans.save(userId, current.id, write.proposed);
+        revision += 1;
+      }
+      await changeAccess.call(this.dependencies.plans, userId, current.id, {
+        revision,
+        ...write.access,
+        journal: (transaction) =>
+          recorder.store(transaction, {
+            planId: current.id,
+            changed: true,
+            revision: revision + 1,
+            createdNodeIds: [...write.createdNodeIds],
+          }),
+      });
     } catch (error: unknown) {
       logCaughtError("AgentPlanWriteOperations", error);
 

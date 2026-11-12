@@ -6,6 +6,7 @@ const { fakeClasses, runRepositoryFake } = await vi.hoisted(
 
 vi.mock("@/app/lib/plan-access-services.server", () => ({
   createPlanWorkspaceAccess: vi.fn(),
+  planAccessRecords: vi.fn(() => ({})),
 }));
 vi.mock("@/app/lib/pica-mobile-notification-services.server", () => ({
   createPicaMobileNotificationServices: vi.fn(),

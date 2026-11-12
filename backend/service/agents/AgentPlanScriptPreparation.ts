@@ -5,7 +5,10 @@ import {
   planScriptIssues,
   planScriptParameters,
 } from "@/definition/AgentPlanScript";
+import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { planBindings } from "./AgentPlanBindings";
+import { localPlanScripts, scriptApprovalState } from "./AgentPlanScriptApproval";
+import type { AgentPlanScriptApprovalRepository } from "@/backend/database/repositories/agent/AgentPlanScriptApprovalRepository";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { AgentPlan } from "@/definition/AgentPlan";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
@@ -32,6 +35,8 @@ interface ScriptPreparationDependencies {
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
+  /** The approved script hashes; without them only administrators run scripts. */
+  readonly approvals?: Pick<AgentPlanScriptApprovalRepository, "list">;
 }
 
 /** Resolves direct process execution through live account, plan and workspace rights. */
@@ -51,7 +56,7 @@ export class AgentPlanScriptPreparation {
   public async validate(userId: string, plan: AgentPlan): Promise<void> {
     if (plan.nodes.some((node) => node.type === "git_closeout"))
       throw new AgentError("plan_git_closeout_unsupported");
-    const scripts = localScripts(plan);
+    const scripts = localPlanScripts(plan);
     if (scripts.length === 0) return;
     await this.authorize(userId, plan);
     for (const script of scripts) {
@@ -69,7 +74,7 @@ export class AgentPlanScriptPreparation {
   ): Promise<readonly AgentPlanScriptSnapshot[]> {
     if (plan.nodes.some((node) => node.type === "git_closeout"))
       throw new AgentError("plan_git_closeout_unsupported");
-    const scripts = localScripts(plan);
+    const scripts = localPlanScripts(plan);
     if (scripts.length === 0) return [];
     const workspace = await this.authorize(userId, plan);
     const snapshots: AgentPlanScriptSnapshot[] = [];
@@ -131,6 +136,24 @@ export class AgentPlanScriptPreparation {
       await this.dependencies.tasks.snapshot(userId, plan.projectId, taskId);
   }
 
+  /**
+   * Requires an approval of the current content of every local script (PAGE-329, part C).
+   *
+   * @throws {AgentError} `plan_script_approval_required` when an administrator
+   * has not approved the current content, `plan_script_permission_denied`
+   * where approvals are not available at all.
+   */
+  private async requireApproval(plan: AgentPlan): Promise<void> {
+    if (!this.dependencies.approvals)
+      throw new AgentError("plan_script_permission_denied");
+    const state = scriptApprovalState(
+      plan,
+      await this.dependencies.approvals.list(plan.id),
+    );
+    if (state.unapprovedStepIds.length > 0)
+      throw new AgentError("plan_script_approval_required");
+  }
+
   private async authorize(
     userId: string,
     plan: AgentPlan,
@@ -138,10 +161,11 @@ export class AgentPlanScriptPreparation {
     const actor = (
       await this.dependencies.authorization.snapshot()
     ).accounts.find((account) => account.userId === userId);
-    if (!actor || !new UserPolicyService().isAdministrator(actor))
-      throw new AgentError("plan_script_permission_denied");
+    if (!actor) throw new AgentError("plan_script_permission_denied");
     const current = await this.dependencies.access.require(userId, plan.id);
-    if (!current.canEdit) throw new AgentError("plan_access_denied");
+    if (!canRunPlan(current)) throw new AgentError("plan_access_denied");
+    if (!new UserPolicyService().isAdministrator(actor))
+      await this.requireApproval(plan);
     if (
       current.projectId !== plan.projectId ||
       current.workspaceId !== plan.workspaceId
@@ -160,15 +184,6 @@ export class AgentPlanScriptPreparation {
       plan.projectId,
     );
   }
-}
-
-function localScripts(plan: AgentPlan): readonly AgentPlanScript[] {
-  return plan.nodes.filter(
-    (node): node is AgentPlanScript =>
-      node.type === "script" &&
-      !node.disabled &&
-      node.executionTarget?.kind !== "remote",
-  );
 }
 
 function sourceInputs(

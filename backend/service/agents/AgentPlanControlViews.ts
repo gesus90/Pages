@@ -1,4 +1,5 @@
 import { isPlanEditLocked } from "@/definition/AgentPlanRunState";
+import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { isAgentErrorCode } from "@/backend/error/AgentErrors";
 import {
   controlOnlyPlanControl,
@@ -16,7 +17,7 @@ function playBlocker(
   issue: string | null,
 ): string | null {
   if (control.canPlay) return null;
-  if (!plan.canEdit) return "plan_read_only";
+  if (!canRunPlan(plan)) return "plan_read_only";
   if (["running", "pausing", "paused", "stopping"].includes(control.status))
     return "plan_busy";
   return issue ?? "plan_run_unavailable";
@@ -28,7 +29,7 @@ function runBlocker(
   reason: string,
   context: { readonly plan: AgentPlanView; readonly readError: string | null },
 ): string | null {
-  if (!context.plan.canEdit) return "plan_read_only";
+  if (!canRunPlan(context.plan)) return "plan_read_only";
   if (!run) return context.readError ?? "own_run_required";
   return canAct ? null : reason;
 }
@@ -45,7 +46,8 @@ export async function readPlanControlEntry(
   const isActive = ["running", "pausing", "paused", "stopping"].includes(
     control.status,
   );
-  const canDelete = plan.ownerId === userId && !isActive;
+  const canDelete =
+    (plan.rights?.canDelete ?? plan.ownerId === userId) && !isActive;
   const issue = visibleControlIssue(control);
   return {
     planId,
@@ -66,7 +68,10 @@ export async function readPlanControlEntry(
     canPause: control.canPause && readable !== null,
     canResume: control.canResume && readable !== null,
     canStop: control.canStop && run !== null,
-    issue: !plan.canEdit ? "plan_read_only" : (context.readError ?? issue),
+    issue:
+      !plan.canEdit && !canRunPlan(plan)
+        ? "plan_read_only"
+        : (context.readError ?? issue),
     blockers: controlBlockers({
       plan,
       userId,
@@ -146,7 +151,7 @@ async function controlAccess(
 }> {
   const initialControl = await plans.control(userId, plan.id);
   const access =
-    plan.canEdit && initialControl.runId
+    canRunPlan(plan) && initialControl.runId
       ? await readPlanControlRun(plans, userId, plan.id, initialControl.runId)
       : null;
   const control =
@@ -172,7 +177,7 @@ function workspaceDetails(
   plan: AgentPlanView,
   control: AgentPlanControl,
 ): Pick<AgentPlanControlEntry, "workspaceConflict" | "lastStartRejection"> {
-  if (!plan.canEdit) return {};
+  if (!canRunPlan(plan)) return {};
   return {
     ...(control.workspaceConflict
       ? { workspaceConflict: control.workspaceConflict }
@@ -188,7 +193,7 @@ function startIssues(
   plan: AgentPlanView,
   control: AgentPlanControl,
 ): Pick<AgentPlanControlEntry, "issues"> {
-  if (!plan.canEdit || !control.issues?.length) return {};
+  if (!canRunPlan(plan) || !control.issues?.length) return {};
   return {
     issues: control.issues.map((issue) => ({
       nodeId: issue.nodeId,

@@ -44,6 +44,7 @@ const FAILURE_CLASSES: Readonly<Record<string, AgentPlanFailureClass>> = {
   plan_script_interrupted: "interruption",
   plan_script_cleanup: "cleanup",
   plan_script_permission_denied: "approval",
+  plan_script_approval_required: "approval",
   plan_script_interpreter_unavailable: "configuration",
   plan_script_profile_missing: "configuration",
   check_timeout: "timeout",

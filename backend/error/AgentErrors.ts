@@ -98,6 +98,14 @@ export const AGENT_ERROR_MESSAGES = {
     "The configured interpreter is unavailable or not executable. Check this exact profile on the server.",
   plan_script_permission_denied:
     "Direct scripts require active administrator mode and current plan, project and approved workspace access.",
+  plan_script_approval_required:
+    "An administrator has to approve the current content of the script steps before team members can start this plan.",
+  plan_script_approval_forbidden:
+    "Only an active administrator approves the content of script steps.",
+  plan_team_forbidden:
+    "Only the owner, an administrator or a project manager changes the teams of a plan.",
+  plan_owner_forbidden: "Only an active administrator changes the owner of a plan.",
+  plan_owner_invalid: "The new owner must be an active account.",
   plan_script_platform_unsupported:
     "Script execution requires Linux process ownership and cleanup support.",
   plan_script_input_required:
