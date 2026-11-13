@@ -13,7 +13,7 @@ it("renders hostile SVG as a PNG and changes the complete user revision", async 
     throw new Error("Missing revision");
   let stored: Buffer | undefined;
   vi.spyOn(MemoryUserRepository.prototype, "upsertAvatar").mockImplementation(
-    async (_id, avatar) => {
+    async (id, avatar) => {
       expect(avatar.mimeType).toBe("image/png");
       stored = avatar.data;
     },
@@ -26,10 +26,11 @@ it("renders hostile SVG as a PNG and changes the complete user revision", async 
     contentType: "image/svg+xml",
     dataBase64: Buffer.from(svg).toString("base64"),
   });
-  expect(response).toMatchObject({
-    id: "emp-sales",
-    avatarUrl: expect.stringMatching(/^\/users\/emp-sales\/avatar\?v=/u),
-  });
+  expect(response).toMatchObject({ id: "emp-sales" });
+  expect(response).toHaveProperty(
+    "avatarUrl",
+    expect.stringMatching(/^\/users\/emp-sales\/avatar\?v=/u),
+  );
   if (!stored) throw new Error("Expected stored PNG");
   expect(stored.subarray(0, 8)).toEqual(
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),

@@ -46,7 +46,7 @@ beforeEach(() => {
     accountFixture({ userId: "management", roleId: ADMINISTRATION_ROLE_ID }),
   );
   boundaries.audit.mockImplementation(
-    async (_actor, _action, _target, work: () => Promise<Response>) => work(),
+    async (actor, action, target, work: () => Promise<Response>) => work(),
   );
   boundaries.call.mockResolvedValue({ id: "target", revision: "new-revision" });
 });

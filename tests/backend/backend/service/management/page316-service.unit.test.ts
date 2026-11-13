@@ -39,7 +39,7 @@ function identity(result: unknown): string {
   throw new Error("Missing ID");
 }
 
-describe("PAGE-316 production management service", () => {
+describe("PAGE-316 production management service: people", () => {
   it("creates, reads, patches, filters and deactivates a person with no public credential", async () => {
     const { service, send, database } = managementFixture();
     const created = await service.call("management", "users_create", input);
@@ -107,7 +107,9 @@ describe("PAGE-316 production management service", () => {
       }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
   });
+});
 
+describe("PAGE-316 production management service: protection and paging", () => {
   it("refuses stale and protected writes before any mutation", async () => {
     const { service, world } = managementFixture();
     const read = await service.call("management", "users_read", {
@@ -115,16 +117,16 @@ describe("PAGE-316 production management service", () => {
     });
     await world.service().setActive("admin", "emp-sales", false);
     const writes = world.writes.length;
-    await expect(
-      service.call("management", "users_update", {
-        userId: "emp-sales",
-        expectedRevision: revision(read),
-        displayName: "Stale",
-      }),
-    ).rejects.toMatchObject({
-      code: "CONFLICT",
-      details: { currentRevision: expect.any(String) },
+    const stale = service.call("management", "users_update", {
+      userId: "emp-sales",
+      expectedRevision: revision(read),
+      displayName: "Stale",
     });
+    await expect(stale).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(stale).rejects.toHaveProperty(
+      "details.currentRevision",
+      expect.any(String),
+    );
     expect(world.writes.length).toBe(writes);
     await expect(
       service.call("management", "users_set_status", {
@@ -174,7 +176,9 @@ describe("PAGE-316 production management service", () => {
       }),
     ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   });
+});
 
+describe("PAGE-316 production management service: groups", () => {
   it("creates and patches group description, members and leadership with revision protection", async () => {
     const { service } = managementFixture();
     const created = await service.call("management", "groups_create", {
@@ -205,7 +209,9 @@ describe("PAGE-316 production management service", () => {
       details: { currentRevision: revision(changed) },
     });
   });
+});
 
+describe("PAGE-316 production management service: projects", () => {
   it("replaces project members/roles and departments and enforces catalog minimums", async () => {
     const { service, world } = managementFixture();
     let project: Project = {
@@ -237,7 +243,7 @@ describe("PAGE-316 production management service", () => {
       false,
     );
     vi.spyOn(ProjectRepository.prototype, "addMember").mockImplementation(
-      async (_projectId, userId, role) => {
+      async (projectId, userId, role) => {
         members.push({
           userId,
           username: userId,
@@ -253,7 +259,7 @@ describe("PAGE-316 production management service", () => {
       },
     );
     vi.spyOn(ProjectRepository.prototype, "setDepartments").mockImplementation(
-      async (_projectId, ids) => {
+      async (projectId, ids) => {
         project = {
           ...project,
           departments: world.store.departments.filter((department) =>

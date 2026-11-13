@@ -4,12 +4,54 @@ import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 
 import { managementFixture } from "./page316-service-fixture";
 
+import type { AgentEmployeeInput } from "@/backend/service/employee/AgentEmployeeInput";
 import type { AgentEmployee } from "@/definition/AgentEmployee";
 
-it("creates, reads, updates and deactivates an agent through the shared contract", async () => {
-  const { service, world, agents } = managementFixture();
+type Fixture = ReturnType<typeof managementFixture>;
+
+/** The agent as the administration reads it back after the given input was created. */
+function agentEmployeeFor(
+  id: string,
+  input: AgentEmployeeInput,
+): AgentEmployee {
+  return {
+    id,
+    username: input.username,
+    displayName: input.displayName,
+    position: null,
+    avatarColor: null,
+    avatarImageUrl: null,
+    isActive: true,
+    modelName: input.settings.model,
+    provider: "codex",
+    roleId: input.roleId,
+    roleName: "Employee",
+    departmentIds: input.departments,
+    settings: input.settings,
+    documents: input.documents,
+    voice: input.voice,
+    memory: "",
+    dream: "",
+    memoryLimits: input.limits,
+    memoryUsage: { coreWords: 0, archiveWords: 0 },
+    learning: {
+      isEnabled: false,
+      dreamTime: "01:00",
+      lastRunAt: null,
+      nextRunAt: null,
+      lastResult: null,
+    },
+    cost: { spent: 0, unknownSessions: 0, month: "2026-11" },
+    revision: 1,
+    createdAt: "2026-11-01T00:00:00Z",
+    updatedAt: "2026-11-01T00:00:00Z",
+  };
+}
+
+/** Replaces the agent administration with an in-memory one that keeps a single agent. */
+function mockAgentAdministration({ world, agents }: Fixture): void {
   let employee: AgentEmployee | null = null;
-  vi.spyOn(agents, "create").mockImplementation(async (_actor, input) => {
+  vi.spyOn(agents, "create").mockImplementation(async (actorId, input) => {
     const account = world.addAccount({
       userId: "new-agent",
       roleId: input.roleId,
@@ -17,38 +59,7 @@ it("creates, reads, updates and deactivates an agent through the shared contract
       username: input.username,
     });
     world.store.accounts.set(account.userId, { ...account, isAgent: true });
-    employee = {
-      id: account.userId,
-      username: input.username,
-      displayName: input.displayName,
-      position: null,
-      avatarColor: null,
-      avatarImageUrl: null,
-      isActive: true,
-      modelName: input.settings.model,
-      provider: "codex",
-      roleId: input.roleId,
-      roleName: "Employee",
-      departmentIds: input.departments,
-      settings: input.settings,
-      documents: input.documents,
-      voice: input.voice,
-      memory: "",
-      dream: "",
-      memoryLimits: input.limits,
-      memoryUsage: { coreWords: 0, archiveWords: 0 },
-      learning: {
-        isEnabled: false,
-        dreamTime: "01:00",
-        lastRunAt: null,
-        nextRunAt: null,
-        lastResult: null,
-      },
-      cost: { spent: 0, unknownSessions: 0, month: "2026-11" },
-      revision: 1,
-      createdAt: "2026-11-01T00:00:00Z",
-      updatedAt: "2026-11-01T00:00:00Z",
-    };
+    employee = agentEmployeeFor(account.userId, input);
     return account.userId;
   });
   vi.spyOn(agents, "detail").mockImplementation(async () => {
@@ -62,7 +73,7 @@ it("creates, reads, updates and deactivates an agent through the shared contract
       accessEnvironment: { isIsolationAvailable: false, mcpServers: [] },
     };
   });
-  vi.spyOn(agents, "update").mockImplementation(async (_actor, _id, change) => {
+  vi.spyOn(agents, "update").mockImplementation(async (actorId, id, change) => {
     if (!employee) throw new Error("Agent not created");
     employee = {
       ...employee,
@@ -72,7 +83,7 @@ it("creates, reads, updates and deactivates an agent through the shared contract
     };
   });
   vi.spyOn(agents, "setActive").mockImplementation(
-    async (_actor, id, change) => {
+    async (actorId, id, change) => {
       world.setUserActive(id, change.isActive);
       if (!employee) throw new Error("Agent not created");
       employee = {
@@ -82,6 +93,12 @@ it("creates, reads, updates and deactivates an agent through the shared contract
       };
     },
   );
+}
+
+it("creates, reads, updates and deactivates an agent through the shared contract", async () => {
+  const fixture = managementFixture();
+  mockAgentAdministration(fixture);
+  const { service, agents } = fixture;
   await service.call("management", "users_create", {
     kind: "agent",
     displayName: "Agent",

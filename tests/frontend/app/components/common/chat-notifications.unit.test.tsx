@@ -14,13 +14,18 @@ import {
   participant,
 } from "../chat-page/chat-page-fixture";
 
+import type { RouteDataRequest } from "@/app/lib/local-state/route-data";
 import type {
   VirtualChatDirectory,
   VirtualChatSelection,
 } from "@/definition/VirtualChat";
 
 const boundary = vi.hoisted(() => ({
-  read: vi.fn(),
+  read: vi.fn<
+    (
+      request: RouteDataRequest<VirtualChatDirectory>,
+    ) => Promise<VirtualChatDirectory>
+  >(),
   navigate: vi.fn(),
 }));
 vi.mock("@/app/lib/local-state/route-data", () => ({

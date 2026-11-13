@@ -9,11 +9,16 @@ import { createI18n } from "@/app/lib/i18n";
 import type { ReactNode } from "react";
 import type { ProjectDetailActionResult } from "@/app/lib/project-actions/project-action-support.server";
 
+type SubmitCall = (
+  form: FormData,
+  options: { readonly method: string },
+) => void;
+
 const boundary = vi.hoisted(
   (): {
     result: ProjectDetailActionResult | undefined;
-    submit: ReturnType<typeof vi.fn>;
-  } => ({ result: undefined, submit: vi.fn() }),
+    submit: ReturnType<typeof vi.fn<SubmitCall>>;
+  } => ({ result: undefined, submit: vi.fn<SubmitCall>() }),
 );
 
 vi.mock("react-router", () => ({
@@ -59,7 +64,7 @@ it("reports a refused save through the shared error toaster and retries the same
   expect(screen.getByRole("alert").textContent).toContain("Save failed");
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect(boundary.submit).toHaveBeenCalledOnce();
-  const [form, options] = boundary.submit.mock.calls[0] ?? [];
+  const [form, options] = boundary.submit.mock.calls[0];
   expect(form).toBeInstanceOf(FormData);
   expect(form.get("intent")).toBe("save-template");
   expect(options).toEqual({ method: "post" });

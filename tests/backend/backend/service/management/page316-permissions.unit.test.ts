@@ -13,6 +13,8 @@ import { ADMINISTRATION_ROLE_ID, CAPABILITY } from "@/definition/Authorization";
 import { organizationWorld } from "../accounts/administration-directory";
 import { accountFixture } from "../../auth/account-fixture";
 
+import type { AccountInvitationDelivery } from "@/definition/Management";
+
 function worldWithManagement(): ReturnType<typeof organizationWorld> {
   const world = organizationWorld();
   world.addAccount({
@@ -93,7 +95,9 @@ describe("PAGE-316 protected role", () => {
     expect(projects.canDelete(actor)).toBe(false);
     expect(new TicketDepartmentPolicy().canSelect(actor, "foreign")).toBe(true);
   });
+});
 
+describe("PAGE-316 people and credentials", () => {
   it("changes and deactivates people across departments", async () => {
     const world = worldWithManagement();
     await world.service().updateProfile("management", "emp-legal", {
@@ -111,7 +115,9 @@ describe("PAGE-316 protected role", () => {
 
   it("delivers human credentials only to the replaceable email boundary", async () => {
     const world = worldWithManagement();
-    const send = vi.fn().mockResolvedValue(undefined);
+    const send = vi
+      .fn<AccountInvitationDelivery["send"]>()
+      .mockResolvedValue(undefined);
     const response = await world.service().createUser(
       "management",
       {
@@ -130,9 +136,10 @@ describe("PAGE-316 protected role", () => {
       expect.objectContaining({
         email: "person@example.test",
         username: "new-person",
-        temporaryPassword: expect.stringMatching(/^[A-Za-z2-9-]+$/u),
       }),
     );
+    const [invitation] = send.mock.calls[0];
+    expect(invitation.temporaryPassword).toMatch(/^[A-Za-z2-9-]+$/u);
     expect(world.findByUsername("new-person")?.mustChangePassword).toBe(true);
     await expect(
       world.service().createUser("management", {
@@ -178,7 +185,9 @@ describe("PAGE-316 protected role", () => {
       });
     },
   );
+});
 
+describe("PAGE-316 administrator targets and groups", () => {
   it("rejects administrator targets and changes of own rights with specific reasons", () => {
     const world = worldWithManagement();
     const actor = world.account("management");

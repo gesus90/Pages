@@ -100,6 +100,9 @@ describe("PAGE-316 contract", () => {
       }),
     );
   });
+});
+
+describe("PAGE-316 contract avatars and tool catalog", () => {
   it("drops executable SVG, handlers, styles, external references and entities", () => {
     const svg = sanitizeManagementSvg(
       '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" onload="alert(1)"><script>alert(1)</script><image href="https://example.test/tracker"/><foreignObject><iframe/></foreignObject><rect width="32" height="32" fill="red" style="fill:url(https://example.test)"/></svg>',
