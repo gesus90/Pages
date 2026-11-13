@@ -72,6 +72,8 @@ export interface PageAgentModel {
    * is shown as unavailable. Absent where the catalog states nothing.
    */
   readonly isChatCapable?: boolean;
+  /** Text-only decisions may use a text model even when it cannot call tools. */
+  readonly isTextCapable?: boolean;
   /**
    * `true` for a model that recognizes speech (PAGE-273): its catalog states
    * audio input and text output alone, or Pages documents it as a

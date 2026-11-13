@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 
 import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { isApiProvider } from "@/definition/AgentConnection";
 import { CONVERSATION_DECISION_LIMITS } from "@/definition/ConversationDecision";
 
 import { turnFailureCode } from "../agents/AgentPlanSessionRecords";
@@ -46,7 +47,7 @@ export interface ConversationDecisionModelDependencies {
   /** The decision model of the instance. */
   readonly settings: Pick<ChatDecisionSettingsService, "resolve">;
   /** The ACP path; `null` where the server runs none. */
-  readonly plans: Pick<PlanExecution, "open"> | null;
+  readonly plans: Pick<PlanExecution, "open" | "run"> | null;
   /** The simulated model; set only while the simulation is on. */
   readonly simulation: SimulatedConversationDecision | null;
   /** Where its working directories are made; see `conversationModelRoot`. */
@@ -57,8 +58,9 @@ export interface ConversationDecisionModelDependencies {
  * Asks the decision model of the instance which agents answer (PAGE-317).
  *
  * @remarks
- * The call runs in a short ACP session of its own in an empty directory:
- * read-only, without any tool, web or MCP server, and with a hard deadline.
+ * API models receive a bounded text request. CLI models run in a short ACP
+ * session in an empty directory: read-only, without tools, web or MCP
+ * server. Both paths have a hard deadline.
  * It gets the prompt of {@link decisionPrompt} and nothing else, no
  * credentials and no memory. No call is repeated.
  */
@@ -84,13 +86,25 @@ export class ConversationDecisionModel {
     const { simulation, plans } = this.dependencies;
     if (simulation) return simulation.decide(question.material);
     if (!plans) throw new ConversationObserverError("observer_unavailable");
+    const prompt = decisionPrompt(question.material);
+    if (isApiProvider(assignment.connection.provider))
+      return plans.run(
+        {
+          agent: assignment,
+          userId: question.personId,
+          directory: null,
+          instructions: prompt.instructions,
+          prompt: prompt.prompt,
+          webSearch: false,
+        },
+        AbortSignal.timeout(CONVERSATION_DECISION_LIMITS.timeoutSeconds * 1000),
+      );
     const directory = await createConversationModelDirectory(
       this.dependencies.directoryRoot,
       "decision-",
     );
     let session: PlanSession | null = null;
     try {
-      const prompt = decisionPrompt(question.material);
       session = await plans.open(
         {
           agent: assignment,

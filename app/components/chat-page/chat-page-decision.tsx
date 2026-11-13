@@ -55,11 +55,6 @@ function DecisionDetails({
           ? names(decision.responders)
           : t("chatPage.decision.nobody")}
       </DetailRow>
-      <DetailRow label={t("chatPage.decision.reason")}>
-        {decision.reason === ""
-          ? t("chatPage.decision.noReason")
-          : decision.reason}
-      </DetailRow>
       {needs === null ? null : (
         <DetailRow label={t("chatPage.decision.needsAnswer")}>
           {needs}
@@ -100,9 +95,21 @@ function NoAnswerNotice({
   );
 }
 
+function visibleReason(
+  decision: ConversationDecisionView,
+  translate: ReturnType<typeof useTranslation>["t"],
+): string {
+  if (decision.reason !== "") return decision.reason;
+  return translate(
+    decision.fallback === "none"
+      ? "chatPage.decision.noReason"
+      : `chatPage.decision.fallbacks.${decision.fallback}`,
+  );
+}
+
 /**
  * The decision about who answers a message of a group (PAGE-317), as a
- * collapsible line: the chosen agents or nobody, the reason of the model and
+ * collapsible line with a visible reason: the chosen agent or nobody, and
  * whether a fallback applied. Where nobody answered because it was unclear
  * who is addressed, a hint says so openly.
  */
@@ -131,6 +138,9 @@ export function ChatPageDecision({
           <DecisionDetails decision={decision} />
         </div>
       </details>
+      <p className="text-xs text-muted-foreground" data-decision-reason="">
+        {visibleReason(decision, t)}
+      </p>
       {decision.outcome === "notice" ? (
         <NoAnswerNotice decision={decision} />
       ) : null}

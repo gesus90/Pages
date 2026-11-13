@@ -27,12 +27,12 @@ export const CONVERSATION_REPLY_MODES = [
 /** One way of {@link CONVERSATION_REPLY_MODES}. */
 export type ConversationReplyMode = (typeof CONVERSATION_REPLY_MODES)[number];
 
-/** The mode a group has until its managers choose one: the behavior before PAGE-317. */
+/** The mode a group has until its managers choose one: the instance decision model (PAGE-326). */
 export const CONVERSATION_DEFAULT_REPLY_MODE: ConversationReplyMode =
-  "observer";
+  "decision";
 
 /** The most agents that answer one message, by default. */
-export const CONVERSATION_DEFAULT_MAXIMUM_RESPONDERS = 2;
+export const CONVERSATION_DEFAULT_MAXIMUM_RESPONDERS = 1;
 
 /**
  * The range of the most agents that answer one message.
@@ -138,9 +138,19 @@ export interface ChatDecisionSettings {
  */
 export type ChatDecisionStatus = "noModel" | "modelUnavailable" | "ready";
 
+/** The catalog or connection issue the administrator can resolve. */
+export type ChatDecisionEmptyReason =
+  | "noConnections"
+  | "noVisibleConnections"
+  | "connectionUnavailable"
+  | "emptyCatalog"
+  | "noTextModels";
+
 /** What the settings card of the decision model shows. */
 export interface ChatDecisionAdministration {
   readonly settings: ChatDecisionSettings;
   readonly status: ChatDecisionStatus;
   readonly models: readonly PageAgentModel[];
+  /** Why the choice is empty, with recovery instructions in the card. */
+  readonly emptyReason?: ChatDecisionEmptyReason | null;
 }

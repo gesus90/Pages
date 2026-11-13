@@ -98,7 +98,11 @@ function ReplySettingsForm({
 
   function handleSubmit(event: React.SyntheticEvent): void {
     event.preventDefault();
-    onSave({ mode, defaultResponderId, maximumResponders });
+    onSave({
+      mode,
+      defaultResponderId,
+      maximumResponders: mode === "decision" ? 1 : maximumResponders,
+    });
   }
 
   return (
@@ -149,8 +153,8 @@ function ReplySettingsForm({
         <Select
           id="reply-maximum"
           ariaLabel={t("chatPage.replySettings.maximum")}
-          value={String(maximumResponders)}
-          disabled={isDisabled}
+          value={String(mode === "decision" ? 1 : maximumResponders)}
+          disabled={isDisabled || mode === "decision"}
           options={MAXIMUM_CHOICES.map((count) => ({
             value: String(count),
             label: String(count),

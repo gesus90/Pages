@@ -10,6 +10,7 @@ import {
   serializeMarkdownFragment,
 } from "@/app/lib/editor/editor-markdown";
 
+import type { AnyExtension } from "@tiptap/core";
 import type { Editor } from "@tiptap/react";
 import type { EditorView } from "@tiptap/pm/view";
 import type { BlockEditorFeatures } from "@/app/components/editor/block-editor-types";
@@ -23,6 +24,8 @@ interface ChatEditorOptions {
   readonly placeholder: string;
   /** Sends the current text; Enter outside code blocks or Mod+Enter. */
   readonly onSubmit: () => void;
+  readonly extensions?: readonly AnyExtension[];
+  readonly onKeyDown?: (view: EditorView, event: KeyboardEvent) => boolean;
 }
 
 /** The input field of the chat with its Markdown text. */
@@ -50,13 +53,14 @@ function isInCode(view: EditorView): boolean {
 export function useChatEditor(options: ChatEditorOptions): ChatEditor {
   const optionsRef = useRef(options);
   const [markdown, setMarkdownState] = useState("");
-  const [extensions] = useState(() =>
-    createSchemaExtensions({
+  const [extensions] = useState(() => [
+    ...createSchemaExtensions({
       checkboxLabel: () => "",
       isDisplayableImage: CHAT_FEATURES.isDisplayableImage,
       placeholder: options.placeholder,
     }),
-  );
+    ...(options.extensions ?? []),
+  ]);
 
   useEffect(() => {
     optionsRef.current = options;
@@ -76,6 +80,7 @@ export function useChatEditor(options: ChatEditorOptions): ChatEditor {
         clipboardTextSerializer: (slice) =>
           serializeMarkdownFragment(slice.content),
         handleKeyDown: (view, event) => {
+          if (optionsRef.current.onKeyDown?.(view, event)) return true;
           if (event.key !== "Enter" || event.isComposing) return false;
           const isSend =
             event.ctrlKey ||

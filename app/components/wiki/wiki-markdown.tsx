@@ -21,6 +21,7 @@ import { extractHeadings } from "@/app/lib/wiki-headings";
 import { isWikiAttachmentPath } from "@/app/lib/wiki-upload";
 import { remarkWikiBlocks } from "@/app/lib/wiki-remark";
 
+import type { PluggableList } from "unified";
 import type { Components } from "react-markdown";
 import type { WikiHeading } from "@/app/lib/wiki-headings";
 import type { WikiCalloutKind } from "@/app/lib/wiki-remark";
@@ -29,6 +30,8 @@ interface WikiMarkdownProps {
   /** Markdown source of the page; raw HTML in it is shown as text. */
   readonly source: string;
   readonly className?: string;
+  /** Optional text annotations supplied by a consuming view. */
+  readonly rehypePlugins?: PluggableList;
   /**
    * Tells whether an image may be shown; wiki attachments by default, ticket
    * descriptions also allow their own attachments (A8.2).
@@ -171,6 +174,7 @@ export function WikiMarkdown({
   className,
   isDisplayableImage = isWikiAttachmentPath,
   onOpenImage,
+  rehypePlugins,
 }: WikiMarkdownProps): React.ReactElement {
   const hasImageViewer = onOpenImage !== undefined;
   // The map is built once per text. Components that change identity on every
@@ -196,6 +200,7 @@ export function WikiMarkdown({
       <ImageOpenContext value={onOpenImage ?? null}>
         <Markdown
           components={components}
+          rehypePlugins={rehypePlugins}
           remarkPlugins={REMARK_PLUGINS}
           urlTransform={transformMarkdownUrl}
         >

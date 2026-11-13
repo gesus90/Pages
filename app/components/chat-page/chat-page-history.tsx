@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
-import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { cn } from "@/app/lib/cn";
 
+import { MentionMarkdown } from "./mentions/mention-markdown";
+import { useMentionDirectory } from "./mentions/mention-context";
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
 import { ChatPageDecision } from "./chat-page-decision";
@@ -115,7 +116,7 @@ function OwnMessage({
             createdAt: message.createdAt,
           }}
           renderText={(text) => (
-            <WikiMarkdown
+            <MentionMarkdown
               className={cn(OWN_BUBBLE, "text-[15px]")}
               isDisplayableImage={hideImages}
               source={text}
@@ -259,6 +260,10 @@ function AnswerBubble({
   author,
   hasName,
 }: AnswerBubbleProps): React.ReactElement {
+  const directory = useMentionDirectory();
+  const isOwnMention =
+    directory !== undefined &&
+    message.mentions?.includes(directory.selfId) === true;
   const isPlain = message.notice === undefined && message.voice === undefined;
   // A message that starts with a card names its author above the card.
   const startsWithText = /^\s*(?!```|~~~|https?:\/\/\S+\s*(?:\n|$))\S/u.test(
@@ -268,7 +273,11 @@ function AnswerBubble({
   return (
     <article
       aria-label={author.name}
-      className="flex w-full min-w-0 flex-col items-start gap-2"
+      data-own-mention={isOwnMention ? "true" : undefined}
+      className={cn(
+        "flex w-full min-w-0 flex-col items-start gap-2",
+        isOwnMention && "border-l-[3px] border-primary pl-2",
+      )}
     >
       {isPlain ? (
         <>
@@ -279,7 +288,7 @@ function AnswerBubble({
             renderText={(text, isFirst) => (
               <Bubble author={author}>
                 {isFirst ? name : null}
-                <WikiMarkdown
+                <MentionMarkdown
                   className="text-[15px] text-foreground"
                   isDisplayableImage={hideImages}
                   source={text}

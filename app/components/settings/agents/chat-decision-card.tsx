@@ -117,7 +117,7 @@ function ChatDecisionForm({
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const models = consumerModels("pica", administration.models);
+  const models = consumerModels("decision", administration.models);
   const draft = useChatDecisionDraft(administration, models);
   const model = models.find((entry) => entry.id === draft.modelKey);
   const effortOptions = reasoningOptions({
@@ -131,21 +131,17 @@ function ChatDecisionForm({
   const isPending = fetcher.state !== "idle";
   return (
     <fetcher.Form method="post" className="space-y-4">
-      <input type="hidden" name="intent" value="save-chat-decision" />
-      <input
-        type="hidden"
-        name="revision"
-        value={administration.settings.revision}
-      />
-      <input
-        type="hidden"
-        name="modelConnectionId"
-        value={draft.selection?.connectionId ?? ""}
-      />
-      <input type="hidden" name="model" value={draft.selection?.model ?? ""} />
-      <input type="hidden" name="reasoningEffort" value={draft.effort} />
+      <ChatDecisionFields administration={administration} draft={draft} />
+      {models.length === 0 ? (
+        <p role="note" className="text-sm text-muted-foreground">
+          {t(
+            `chatDecision.empty.${administration.emptyReason ?? "noTextModels"}`,
+          )}
+        </p>
+      ) : null}
       <ModelFieldRow>
         <ModelPicker
+          consumer="decision"
           value={draft.modelKey}
           models={models}
           savedModel={administration.settings.selection?.model ?? ""}
@@ -189,6 +185,32 @@ function ChatDecisionForm({
       </div>
       <ChatDecisionFeedback result={isPending ? undefined : fetcher.data} />
     </fetcher.Form>
+  );
+}
+
+function ChatDecisionFields({
+  administration,
+  draft,
+}: {
+  readonly administration: ChatDecisionAdministration;
+  readonly draft: ChatDecisionDraft;
+}): React.ReactElement {
+  return (
+    <>
+      <input type="hidden" name="intent" value="save-chat-decision" />
+      <input
+        type="hidden"
+        name="revision"
+        value={administration.settings.revision}
+      />
+      <input
+        type="hidden"
+        name="modelConnectionId"
+        value={draft.selection?.connectionId ?? ""}
+      />
+      <input type="hidden" name="model" value={draft.selection?.model ?? ""} />
+      <input type="hidden" name="reasoningEffort" value={draft.effort} />
+    </>
   );
 }
 

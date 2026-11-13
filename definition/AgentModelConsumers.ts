@@ -1,5 +1,6 @@
 import {
   AGENT_PROVIDERS,
+  isApiProvider,
   OPENCODE_FREE_PROVIDER,
   openCodeModelProvider,
 } from "./AgentConnection";
@@ -14,7 +15,8 @@ import type { PageAgentModel } from "./PageAgent";
  * Every consumer reads the same models of the same connections; it only
  * leaves out what it cannot run, for one of the reasons below.
  */
-export type AgentModelConsumer = "pica" | "plan" | "employee" | "stt" | "tts";
+export type AgentModelConsumer =
+  "pica" | "plan" | "employee" | "decision" | "stt" | "tts";
 
 /**
  * Why a consumer cannot run a model.
@@ -60,6 +62,7 @@ type ConsumerModel = Pick<
   | "isFree"
   | "isToolCapable"
   | "isChatCapable"
+  | "isTextCapable"
   | "isSpeechCapable"
   | "isSpeechOutputCapable"
   | "isTranscriptionOnly"
@@ -145,6 +148,17 @@ function ttsRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   return model.isSpeechOutputCapable === true ? null : "noSpeechOutput";
 }
 
+// Decisions need text output alone; the API request path uses no tools.
+function decisionRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
+  const speechRefusal = speechOutputRefusal(model);
+  if (speechRefusal !== null) return speechRefusal;
+  if (model.isChatCapable === false && model.isTextCapable !== true)
+    return "noChat";
+  if (isApiProvider(model.provider)) return null;
+  if (!hasChatAdapter(model.provider)) return "noChatAdapter";
+  return isZenToolModel(model) ? "zenToolsMissing" : null;
+}
+
 const CONSUMER_RULES: Readonly<
   Record<
     AgentModelConsumer,
@@ -152,6 +166,7 @@ const CONSUMER_RULES: Readonly<
   >
 > = {
   pica: picaRefusal,
+  decision: decisionRefusal,
   plan: planRefusal,
   employee: employeeRefusal,
   stt: sttRefusal,

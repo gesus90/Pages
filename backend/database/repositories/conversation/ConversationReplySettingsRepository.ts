@@ -33,8 +33,8 @@ function readMode(value: string): ConversationReplyMode {
  * How each group decides who answers a message without an @ (PAGE-317).
  *
  * @remarks
- * A group without a stored row has the defaults: the observer of PAGE-296,
- * no default responder and two answering agents at most.
+ * A group without a stored row has the defaults: the instance decision model,
+ * no default responder.
  */
 export class ConversationReplySettingsRepository {
   private readonly database: Pick<Database, "query" | "execute">;

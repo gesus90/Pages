@@ -44,7 +44,7 @@ export interface DecisionAnswer {
 const DECISION_ANSWER = z.object({
   responders: z.array(z.string().min(1).max(100)).max(50),
   needsAnswer: z.boolean(),
-  reason: z.string().trim().default(""),
+  reason: z.string().trim().min(1),
   suggested: z.array(z.string().min(1).max(100)).max(50).default([]),
 });
 
@@ -79,8 +79,9 @@ function candidateList(candidates: readonly DecisionCandidate[]): string {
 export function decisionPrompt(material: DecisionMaterial): DecisionPrompt {
   const instructions = [
     `Du bist der interne Verteiler der Pages-Gruppe „${material.groupName}“. Du bist kein Chatteilnehmer und schreibst nichts in die Gruppe.`,
-    "Die letzte Nachricht hat ein Mensch geschrieben, ohne einen Agent mit @ anzusprechen. Entscheide, welche der aufgeführten Agents darauf antworten sollen: keiner, einer oder mehrere.",
+    "Die letzte Nachricht hat ein Mensch geschrieben, ohne einen Agent mit @ anzusprechen. Entscheide, welcher der aufgeführten Agents darauf antworten soll: höchstens einer oder keiner.",
     "Regeln:",
+    "- reason begründet die Wahl oder Nichtwahl immer sichtbar in einem kurzen Satz.",
     "- Wähle nur Agents aus der Liste und nur, wenn ihre Rolle zur Nachricht passt oder die Nachricht sie erkennbar meint.",
     "- Gespräche zwischen Menschen, Grüße, Dank und beiläufige Bemerkungen brauchen keine Antwort: responders ist dann leer und needsAnswer false.",
     "- needsAnswer ist wahr, wenn die Nachricht eine Frage oder Bitte an die Gruppe enthält, die jemand beantworten sollte, auch wenn du keinen Agent sicher bestimmen kannst.",

@@ -4179,6 +4179,22 @@
       "empty": "No domain released.",
       "remove": "Remove",
       "removeDomain": "Remove the release for {{domain}}"
+    },
+    "mentions": {
+      "label": "Mentions",
+      "aliases": "Aliases",
+      "members": "In this group",
+      "outside": "Not in this group",
+      "cannotAnswer": "cannot answer here",
+      "agents_one": "{{count}} agent of this group",
+      "agents_other": "{{count}} agents of this group",
+      "noMatch": "Nobody matches “@{{query}}”.",
+      "keys": "↑ ↓ select · Enter / Tab insert · Esc close"
+    },
+    "decisionHealth": {
+      "ready": "Decision model active",
+      "noModel": "No decision model · fallback",
+      "modelUnavailable": "Decision model unavailable · fallback"
     }
   },
   "workspaces": {
@@ -7011,12 +7027,19 @@
       "noModel": "No model chosen",
       "modelUnavailable": "Model unavailable"
     },
-    "hint": "Without a model, the default responder answers in group chats.",
+    "hint": "Without a model, groups use the default responder or show a fallback notice.",
     "saved": "Decision model saved.",
     "error": {
       "provider_model_not_found": "The chosen model is not available for decisions in chats.",
       "profile_invalid": "The setting is invalid. Please check the model and reasoning.",
       "profile_conflict": "The setting has changed in the meantime. Reload the page and save again."
+    },
+    "empty": {
+      "noConnections": "No active connection. In Agents, add and activate an API or CLI connection, verify its access and load its model catalog.",
+      "noTextModels": "The available catalog offers no usable text model for decisions. Choose an API text model or a supported ACP chat model; check linked provider scopes. Speech, image and classification models cannot decide.",
+      "noVisibleConnections": "No active connection is shared with this administrator. Add this account, a group or a department to the connection scope, or use a globally shared connection.",
+      "connectionUnavailable": "The visible connections are not authenticated. Sign in to the CLI or add an API key and pass the access check in Agents.",
+      "emptyCatalog": "The authenticated connections have no stored model catalog. Load or refresh the catalog in Agents and check its reported error."
     }
   },
   "agentSessionLimits": {

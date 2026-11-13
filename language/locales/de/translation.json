@@ -4179,6 +4179,22 @@
       "empty": "Keine Domain freigegeben.",
       "remove": "Entfernen",
       "removeDomain": "Freigabe für {{domain}} entfernen"
+    },
+    "mentions": {
+      "label": "Erwähnungen",
+      "aliases": "Aliasse",
+      "members": "In dieser Gruppe",
+      "outside": "Nicht in dieser Gruppe",
+      "cannotAnswer": "kann hier nicht antworten",
+      "agents_one": "{{count}} Agent der Gruppe",
+      "agents_other": "{{count}} Agents der Gruppe",
+      "noMatch": "Niemand passt zu „@{{query}}“.",
+      "keys": "↑ ↓ wählen · Enter / Tab einfügen · Esc schließen"
+    },
+    "decisionHealth": {
+      "ready": "Entscheidungsmodell aktiv",
+      "noModel": "Kein Entscheidungsmodell · Fallback",
+      "modelUnavailable": "Entscheidungsmodell nicht verfügbar · Fallback"
     }
   },
   "workspaces": {
@@ -7011,12 +7027,19 @@
       "noModel": "Kein Modell gewählt",
       "modelUnavailable": "Modell nicht verfügbar"
     },
-    "hint": "Ohne Modell antwortet in Gruppenchats der Standard-Antwortende.",
+    "hint": "Ohne Modell antwortet der Standard-Antwortende der Gruppe oder es erscheint ein Fallback-Hinweis.",
     "saved": "Entscheidungsmodell gespeichert.",
     "error": {
       "provider_model_not_found": "Das gewählte Modell steht für Entscheidungen in Chats nicht zur Verfügung.",
       "profile_invalid": "Die Einstellung ist ungültig. Bitte Modell und Reasoning prüfen.",
       "profile_conflict": "Die Einstellung wurde inzwischen geändert. Seite neu laden und erneut speichern."
+    },
+    "empty": {
+      "noConnections": "Keine aktive Verbindung. Unter Agents eine API- oder CLI-Verbindung einrichten, aktivieren, den Zugang prüfen und den Modellkatalog laden.",
+      "noTextModels": "Der verfügbare Katalog bietet kein nutzbares Textmodell für Entscheidungen. Ein API-Textmodell oder unterstütztes ACP-Chatmodell wählen und die Freigaben verknüpfter Anbieter prüfen. Sprach-, Bild- und Klassifikationsmodelle können nicht entscheiden.",
+      "noVisibleConnections": "Keine aktive Verbindung ist für diesen Admin freigegeben. Unter Agents das Konto, eine Gruppe oder Abteilung im Geltungsbereich der Verbindung ergänzen oder eine global freigegebene Verbindung verwenden.",
+      "connectionUnavailable": "Die sichtbaren Verbindungen sind nicht angemeldet. Unter Agents die CLI anmelden oder einen API-Schlüssel hinterlegen und die Zugangsprüfung erfolgreich ausführen.",
+      "emptyCatalog": "Die angemeldeten Verbindungen haben keinen gespeicherten Modellkatalog. Unter Agents den Katalog laden oder aktualisieren und dessen Fehlermeldung prüfen."
     }
   },
   "agentSessionLimits": {

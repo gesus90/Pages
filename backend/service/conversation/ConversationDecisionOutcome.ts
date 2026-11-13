@@ -69,9 +69,9 @@ export function settleDecision(
   if (input.kind === "failure")
     return fallbackOutcome(rules, input.fallback, null);
   const { answer } = input;
-  const responderIds = answer.responderIds
+  const responderIds = [...new Set(answer.responderIds)]
     .filter((id) => rules.candidateIds.includes(id))
-    .slice(0, rules.maximum);
+    .slice(0, Math.min(1, rules.maximum));
   if (responderIds.length > 0)
     return {
       outcome: "responders",

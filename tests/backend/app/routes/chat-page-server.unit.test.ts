@@ -12,6 +12,8 @@ const services = vi.hoisted(() => ({
     saveContacts: vi.fn(),
     olderMessages: vi.fn(),
   },
+  conversationDirectory: { read: vi.fn() },
+  chatDecisionSettingsService: { currentStatus: vi.fn() },
   conversationLinks: { embedDomains: vi.fn(), setReleased: vi.fn() },
   chatViewPreferences: {
     read: vi.fn(),
@@ -54,6 +56,13 @@ it("loads domains for group and direct conversations with the user's preferences
   });
   services.conversationLinks.embedDomains.mockResolvedValue(["example.org"]);
   services.chatViewPreferences.read.mockResolvedValue({ width: 300 });
+  services.conversationDirectory.read.mockResolvedValue({
+    mentionsFor: () => ({ selfId: EMPLOYEE.id, members: [], aliases: [] }),
+  });
+  services.chatDecisionSettingsService.currentStatus.mockResolvedValue("ready");
+  services.conversationReplySettingsService.read.mockResolvedValue({
+    mode: "decision",
+  });
   const result = await loader(
     routeArguments(new Request("http://pages.invalid/chat"), EMPLOYEE, {}),
   );
@@ -65,6 +74,9 @@ it("loads domains for group and direct conversations with the user's preferences
     embedDomains: ["example.org"],
     viewPreferences: { width: 300 },
     voiceMaximumMs: 1200,
+    chatDecisionStatus: "ready",
+    mentionDirectory: { selfId: EMPLOYEE.id, members: [], aliases: [] },
+    groups: [{ id: "group", replyMode: "decision" }],
   });
 });
 

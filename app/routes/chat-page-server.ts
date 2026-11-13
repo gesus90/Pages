@@ -4,6 +4,7 @@ import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { shareChatGroup } from "@/app/lib/chat-page-conversations.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
+import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -493,12 +494,39 @@ export async function loader({
       participant.conversationId ? [participant.conversationId] : [],
     ),
   ];
-  const [embedDomains, viewPreferences] = await Promise.all([
-    services.conversationLinks.embedDomains(conversationIds),
-    services.chatViewPreferences.read(person),
-  ]);
+  const [embedDomains, viewPreferences, accounts, chatDecisionStatus, groups] =
+    await Promise.all([
+      services.conversationLinks.embedDomains(conversationIds),
+      services.chatViewPreferences.read(person),
+      services.conversationDirectory.read(),
+      services.chatDecisionSettingsService.currentStatus(),
+      Promise.all(
+        directory.groups.map(async (group) => {
+          if (group.isAgentConversation) return group;
+          try {
+            const settings =
+              await services.conversationReplySettingsService.read(
+                person,
+                group.id,
+              );
+            return { ...group, replyMode: settings.mode };
+          } catch (error: unknown) {
+            // A personal group is adopted into a shared conversation on its first use.
+            if (
+              error instanceof ConversationError &&
+              error.code === "not_found"
+            )
+              return { ...group, replyMode: CONVERSATION_DEFAULT_REPLY_MODE };
+            throw error;
+          }
+        }),
+      ),
+    ]);
   return {
     ...directory,
+    groups,
+    mentionDirectory: accounts.mentionsFor(person.id),
+    chatDecisionStatus,
     voiceMaximumMs: services.conversationVoiceMaximumMs,
     embedDomains,
     viewPreferences,

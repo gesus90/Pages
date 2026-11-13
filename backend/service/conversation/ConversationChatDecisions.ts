@@ -146,7 +146,7 @@ export class ConversationChatDecisions {
     const settled = settleDecision(input, {
       candidateIds: candidates.map((candidate) => candidate.id),
       defaultResponderId: request.settings.defaultResponderId,
-      maximum: request.settings.maximumResponders,
+      maximum: 1,
     });
     await this.store(request, settled);
     await rounds.finishRouting(request.message.id, {
@@ -187,7 +187,7 @@ export class ConversationChatDecisions {
         groupName: request.conversation.name,
         candidates,
         lines: await this.history(request),
-        maximum: request.settings.maximumResponders,
+        maximum: 1,
       };
       const output = await this.dependencies.model.ask({
         personId: request.person.id,
