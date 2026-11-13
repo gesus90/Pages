@@ -80,6 +80,41 @@ it.each([
   },
 );
 
+it.each([
+  {
+    language: "de" as const,
+    builtAt: "2026-03-29T00:30:00Z",
+    date: "29.03.2026 01:30",
+  },
+  {
+    language: "de" as const,
+    builtAt: "2026-03-29T01:30:00Z",
+    date: "29.03.2026 03:30",
+  },
+  {
+    language: "en" as const,
+    builtAt: "2026-03-29T00:30:00Z",
+    date: "03/29/2026 01:30",
+  },
+  {
+    language: "en" as const,
+    builtAt: "2026-03-29T01:30:00Z",
+    date: "03/29/2026 03:30",
+  },
+])(
+  "uses the build instant's local offset across daylight saving in $language: $builtAt",
+  ({ language, builtAt, date }) => {
+    renderFacts({
+      language,
+      facts: { ...FACTS, build: { ...BUILD, builtAt } },
+    });
+
+    expect(screen.getByText("Build 281a4895").parentElement?.textContent).toBe(
+      `0.1.0 · Build 281a4895 · ${date}`,
+    );
+  },
+);
+
 it("uses the browser's local zone when the visitor has no explicit zone", () => {
   const resolvedOptions = Intl.DateTimeFormat.prototype.resolvedOptions;
   vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockImplementation(

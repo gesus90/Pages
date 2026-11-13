@@ -12,13 +12,15 @@ const BUILD = {
   builtAt: "2026-11-13T10:12:00+01:00",
 };
 
-function createDashboard(manifest: string | null): {
+function createDashboard(manifest: string | Error | null): {
   readonly service: SystemDashboardService;
   readonly readText: ReturnType<typeof vi.fn<SystemSources["readText"]>>;
 } {
-  const readText = vi.fn<SystemSources["readText"]>(async (location) =>
-    location.endsWith("/deployment.json") ? manifest : null,
-  );
+  const readText = vi.fn<SystemSources["readText"]>(async (location) => {
+    if (!location.endsWith("/deployment.json")) return null;
+    if (manifest instanceof Error) throw manifest;
+    return manifest;
+  });
   return {
     readText,
     service: new SystemDashboardService({
@@ -68,8 +70,8 @@ it("includes validated build metadata with the version in the shared dashboard a
   ).toHaveLength(1);
 });
 
-it.each([null, "{broken"])(
-  "keeps the system dashboard available without usable deployment metadata: %j",
+it.each([null, "{broken", new Error("Permission denied")])(
+  "keeps the system dashboard available without usable deployment metadata: %s",
   async (manifest) => {
     const { service } = createDashboard(manifest);
     const pending = service.read(administratorFixture());

@@ -117,3 +117,41 @@ it("records a gap after a hidden period and ignores an invalid response", async 
   });
   expect(result.current.dashboard).toEqual(MEASUREMENT);
 });
+
+it("accepts missing build metadata and replaces an earlier build after polling", async () => {
+  let poll: ((wasHidden: boolean) => Promise<number | null>) | undefined;
+  vi.mocked(startVisiblePolling).mockImplementation((read) => {
+    poll = read;
+    return vi.fn();
+  });
+  vi.mocked(readServiceStatusDetails).mockResolvedValue({
+    kind: "unreachable",
+  });
+  const withoutBuild: SystemDashboard = {
+    ...MEASUREMENT,
+    facts: { ...MEASUREMENT.facts, build: null },
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(MEASUREMENT)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(withoutBuild))),
+  );
+  const { result } = renderHook(() => useSystemDashboard());
+  if (!poll) throw new Error("Polling did not start");
+  const read = poll;
+
+  await act(async () => {
+    await read(false);
+  });
+  expect(result.current.dashboard?.facts.build).toEqual(
+    MEASUREMENT.facts.build,
+  );
+  await act(async () => {
+    await read(false);
+  });
+
+  expect(result.current.dashboard).toEqual(withoutBuild);
+  expect(result.current.history.processor).toHaveLength(2);
+});
