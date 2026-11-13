@@ -167,6 +167,7 @@ function simulatedExecution(
 function createAccessServices(
   database: Database,
   repository: AgentConnectionRepository,
+  cipher: InstanceSecretCipher,
 ): {
   readonly access: AgentConnectionAccess;
 } & ChatDecisionApplicationServices {
@@ -180,6 +181,7 @@ function createAccessServices(
     ...createChatDecisionServices({
       database,
       connections: repository,
+      cipher,
       groups,
     }),
   };
@@ -445,7 +447,11 @@ export function createAgentServices(
     operations,
     catalog: refresh,
   });
-  const { access, ...decision } = createAccessServices(database, repository);
+  const { access, ...decision } = createAccessServices(
+    database,
+    repository,
+    cipher,
+  );
   const github = createGitHubCredentials({
     database,
     dataDirectory,

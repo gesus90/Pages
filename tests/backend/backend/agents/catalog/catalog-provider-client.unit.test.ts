@@ -162,3 +162,43 @@ it("uses a default transport over the global fetch", async () => {
 
   expect(models.map(({ id }) => id)).toEqual(["glm-a", "glm-b"]);
 });
+
+it("adds OpenRouter's decision models from their own listing and keeps what the text listing named", async () => {
+  const decider = {
+    id: "perplexity/pplx-decider-v1.3",
+    name: "Perplexity: Decider V1.3",
+    architecture: {
+      input_modalities: ["text", "image"],
+      output_modalities: ["decisions"],
+    },
+  };
+  const { client, urls } = pages({ data: [decider], total_count: 1 });
+  const listed = await client.addDecisionModels(
+    [
+      {
+        id: "vendor/chat",
+        name: "Chat",
+        contextWindow: null,
+        promptPrice: null,
+        completionPrice: null,
+        isFree: false,
+        reasoning: "none",
+        reasoningEfforts: [],
+        defaultReasoningEffort: null,
+      },
+    ],
+    "key",
+    SIGNAL,
+  );
+  expect(urls).toEqual([
+    "https://openrouter.ai/api/v1/models?output_modalities=decisions&limit=1000&offset=0",
+  ]);
+  expect(listed.map((model) => model.id)).toEqual([
+    "perplexity/pplx-decider-v1.3",
+    "vendor/chat",
+  ]);
+  expect(
+    listed.find((model) => model.id === "perplexity/pplx-decider-v1.3")
+      ?.outputModalities,
+  ).toEqual(["decisions"]);
+});

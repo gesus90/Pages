@@ -20,6 +20,8 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 
+import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
+
 import { ChatPageMenuEntry, MENU_SECTION_LABEL } from "./chat-page-menu-entry";
 
 import type { VirtualGroup } from "@/definition/VirtualChat";
@@ -61,8 +63,8 @@ function ConfidentialEntry({
 }
 
 /**
- * The one menu of a group in the head of the chat (PAGE-376): who answers,
- * the group context, the sessions of the agents, confidentiality, muting and
+ * The one menu of a group in the head of the chat (PAGE-376): who answers
+ * (with the current mode as its remark, PAGE-379), the group context, the sessions of the agents, confidentiality, muting and
  * the members.
  *
  * @remarks
@@ -96,6 +98,9 @@ export function ChatPageGroupMenu({
         <ChatPageMenuEntry
           icon={MessageCircleQuestionMark}
           label={t("chatPage.groupMenu.reply")}
+          note={t(
+            `chatPage.replySettings.modes.${group.replyMode ?? CONVERSATION_DEFAULT_REPLY_MODE}.short`,
+          )}
           onSelect={() => onOpenDialog("reply")}
         />
         <ChatPageMenuEntry

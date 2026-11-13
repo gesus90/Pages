@@ -131,7 +131,7 @@ it("replaces the single buttons of the head by one menu", () => {
   openMenu();
   expect(screen.getByText("Group “Team”")).toBeTruthy();
   for (const name of [
-    "Who answers? …",
+    /^Who answers\? …/,
     "Group context …",
     "Sessions of the agents in this chat …",
     /^Confidentiality\s*Not confidential$/,
@@ -142,15 +142,33 @@ it("replaces the single buttons of the head by one menu", () => {
   }
 });
 
-it("opens who answers and reads its settings", () => {
+it("names the current mode as the remark of the entry who answers", () => {
+  renderGroup({ replyMode: "mentions" });
+  openMenu();
+  expect(within(entry(/^Who answers\? …/)).getByText("@ only")).toBeTruthy();
+});
+
+it("names \"@ + Decision\" for a group without a mode of its own", () => {
   renderGroup();
   openMenu();
-  fireEvent.click(entry("Who answers? …"));
+  expect(
+    within(entry(/^Who answers\? …/)).getByText("@ + Decision"),
+  ).toBeTruthy();
+});
+
+it("opens who answers and reads its settings and its last decisions", () => {
+  renderGroup();
+  openMenu();
+  fireEvent.click(entry(/^Who answers\? …/));
   expect(
     screen.getByRole("dialog", { name: "Who answers in “Team”?" }),
   ).toBeTruthy();
   expect(submitted(0)).toEqual({
     intent: "reply-settings",
+    conversationId: "g",
+  });
+  expect(submitted(1)).toEqual({
+    intent: "reply-decisions",
     conversationId: "g",
   });
 });

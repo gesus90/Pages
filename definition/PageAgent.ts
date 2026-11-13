@@ -91,6 +91,12 @@ export interface PageAgentModel {
    */
   readonly isTranscriptionOnly?: boolean;
   /**
+   * `true` for a decision model (PAGE-379): its catalog states `decisions`
+   * among the outputs. Only the decisions of group chats take such a model;
+   * Pica, agents and plan nodes refuse it.
+   */
+  readonly isDecisionCapable?: boolean;
+  /**
    * `true` when the last server refresh of the model's catalog failed.
    *
    * @remarks

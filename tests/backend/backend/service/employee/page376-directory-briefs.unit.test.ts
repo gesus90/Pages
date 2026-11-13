@@ -95,3 +95,53 @@ it("gives the head of a chat the session of each agent in it", async () => {
   expect(directory.groups[0]?.agentSessions).toEqual([GROUP]);
   expect(groupBriefs).toHaveBeenCalledWith("group-1", expect.any(Function));
 });
+
+it("names the reply mode of each group for the entry \"Wer antwortet?\" of the group menu (PAGE-379)", async () => {
+  const database: Pick<Database, "query" | "execute" | "transaction"> = {
+    query: vi.fn(),
+    execute: vi.fn(),
+    transaction: vi.fn(),
+  };
+  vi.spyOn(ChatContactRepository.prototype, "list").mockResolvedValue([]);
+  vi.spyOn(ChatGroupRepository.prototype, "list").mockResolvedValue([
+    { id: "mentions-group", name: "Nur @", description: "", memberIds: ["agent"], lastActivityAt: "2026-01-02" },
+    { id: "decision-group", name: "Decision", description: "", memberIds: ["agent"], lastActivityAt: "2026-01-01" },
+  ]);
+  vi.spyOn(AccountIdentityRepository.prototype, "jobTitles").mockResolvedValue(new Map());
+  vi.spyOn(AgentConversationRepository.prototype, "find").mockResolvedValue(null);
+  vi.spyOn(AgentEmployeeRepository.prototype, "find").mockResolvedValue(null);
+  vi.spyOn(AgentChatMemoryRepository.prototype, "confidentialAgents").mockResolvedValue(new Set());
+  vi.spyOn(AgentChatMemoryRepository.prototype, "confidentialConversations").mockResolvedValue(new Set());
+  const view = (id: string): unknown => ({
+    summary: {
+      id,
+      kind: "group",
+      name: id,
+      members: [],
+      lastMessage: null,
+      lastActivityAt: "2026-01-01",
+      unreadCount: 0,
+      isMuted: false,
+    },
+    messages: [],
+    hasMore: false,
+  });
+  const replyModes = vi.fn(async () => new Map([["mentions-group", "mentions" as const]]));
+  const service = new ChatDirectoryService({
+    store: new EmployeeStore(database),
+    users: { findAll: vi.fn().mockResolvedValue([person, agent]) },
+    lookups: { listActiveUsers: vi.fn().mockResolvedValue([person, agent]) },
+    messages: { messages: vi.fn().mockResolvedValue([]) },
+    conversations: {
+      views: vi.fn().mockResolvedValue([view("mentions-group"), view("decision-group")]),
+      history: vi.fn(),
+    },
+    isWorking: vi.fn().mockResolvedValue(false),
+    replyModes,
+  });
+  const { groups } = await service.directory(person);
+  expect(replyModes).toHaveBeenCalledWith(["mentions-group", "decision-group"]);
+  expect(
+    Object.fromEntries(groups.map((group) => [group.id, group.replyMode])),
+  ).toEqual({ "mentions-group": "mentions", "decision-group": "decision" });
+});

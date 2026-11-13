@@ -46,6 +46,8 @@ const REFUSAL_ERRORS: Readonly<
   noSpeechOutput: "picaModelUnsupported",
   speechOutputOnly: "picaModelUnsupported",
   transcriptionOnly: "picaModelUnsupported",
+  noDecision: "picaModelUnsupported",
+  decisionOnly: "picaModelUnsupported",
 };
 
 interface PicaDependencies extends Pick<

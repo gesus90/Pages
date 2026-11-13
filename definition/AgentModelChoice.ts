@@ -2,6 +2,7 @@ import { AGENT_PROVIDERS } from "./AgentConnection";
 import { supportsModelCatalog } from "./AgentModelCatalog";
 import { isChatCapableModel } from "./AgentModelFilter";
 import { agentModelKey } from "./AgentPlanConfiguration";
+import { isDecisionModel } from "./ConversationDecision";
 import { isTranscriptionModel } from "./SpeechRecognition";
 import { isSpeechSynthesisModel } from "./SpeechSynthesis";
 
@@ -58,5 +59,7 @@ export function catalogModelChoice(
     ...(isSpeechSynthesisModel(model) ? { isSpeechOutputCapable: true } : {}),
     // Likewise for a transcription model, which only speech recognition runs (PAGE-302).
     ...(isTranscriptionModel(model) ? { isTranscriptionOnly: true } : {}),
+    // Likewise for a decision model, which only the decisions of group chats run (PAGE-379).
+    ...(isDecisionModel(model) ? { isDecisionCapable: true } : {}),
   };
 }

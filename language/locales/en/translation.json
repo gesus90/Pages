@@ -4018,58 +4018,76 @@
     "loadOlder": "Load older messages",
     "loadingOlder": "Loading …",
     "decision": {
-      "summary": {
-        "responders": "Decision: {{names}} answers",
-        "nobody": "Decision: nobody answers"
-      },
-      "chosen": "Chosen:",
+      "why": "Why?",
+      "expected": "Answer expected {{probability}}",
       "nobody": "nobody",
-      "reason": "Reason:",
-      "noReason": "No reason given.",
-      "needsAnswer": "Question or request found:",
-      "needsAnswerYes": "yes",
-      "needsAnswerNo": "no",
-      "suggested": "Probably responsible:",
-      "fallback": "Fallback:",
-      "fallbackBadge": "Fallback",
-      "fallbacks": {
-        "none": "No, the decision model decided.",
-        "no_model": "Yes: no decision model is usable.",
-        "model_failed": "Yes: the decision model failed or gave no valid answer.",
-        "unclear": "Yes: it was unclear who was addressed."
-      },
-      "notice": "Nobody answered because it was unclear who was addressed. Address someone directly with @.",
-      "noticeSuggested": "Probably responsible: {{names}}."
+      "noAnswer": "no answer",
+      "noAnswerWith": "no answer · nobody {{probability}}",
+      "modelLine": "Decision model: {{model}}"
     },
     "replySettings": {
       "title": "Who answers in “{{name}}”?",
-      "description": "Sets who answers a message without an @ mention. Whoever is mentioned with @ always answers.",
+      "description": "Sets who answers a message. Whoever is named with @ always answers.",
+      "close": "Close",
+      "tabsLabel": "Sections of “Who answers?”",
+      "tabs": {
+        "answers": "Answers",
+        "decisions": "Latest decisions"
+      },
       "mode": "Who answers?",
       "modes": {
         "mentions": {
-          "label": "All addressed agents",
-          "description": "Only agents named with @ answer."
-        },
-        "observer": {
-          "label": "Observer agent",
-          "description": "The observer chooses who contributes from the group context."
+          "label": "@ only",
+          "short": "@ only",
+          "description": "Only the agents named with @Name answer."
         },
         "decision": {
-          "label": "Decision model",
-          "description": "The instance's decision model chooses no agent, one or several."
+          "label": "@ + Decision",
+          "short": "@ + Decision",
+          "description": "Like “@ only”. When a message contains no @, the decision model also decides whether an agent is meant and which one."
         }
       },
-      "defaultResponder": "Default responder",
-      "noDefault": "Nobody",
-      "defaultHint": "Answers when it is unclear who is addressed and says so openly. Without a default responder a notice appears instead.",
-      "maximum": "Most responders per message",
-      "modelHint": "The model is not chosen per chat: the decision model from Settings → Agents applies.",
+      "model": {
+        "label": "Decision model of the instance",
+        "none": "No model chosen",
+        "where": "chosen under Settings → Agents",
+        "status": {
+          "ready": "ready",
+          "noModel": "not set",
+          "modelUnavailable": "unavailable"
+        }
+      },
+      "hint": {
+        "noModel": "No decision model is set. The group behaves like “@ only” until an administrator chooses one under Settings → Agents.",
+        "modelUnavailable": "The chosen decision model is no longer available. The group behaves like “@ only” until an administrator chooses a model under Settings → Agents.",
+        "modelFailed": "The decision model was last unreachable or gave no valid answer. The group then behaves like “@ only”."
+      },
+      "reset": "Reset to default",
       "save": "Save",
       "saved": "Setting saved.",
       "saveFailed": "The setting could not be saved.",
       "readOnly": "Only whoever manages the chat may change this.",
-      "loading": "Loading setting …",
-      "failed": "The setting could not be loaded."
+      "loading": "Loading the setting …",
+      "failed": "The setting could not be loaded.",
+      "decisions": {
+        "time": "Time",
+        "message": "Message",
+        "expected": "Answer expected",
+        "distribution": "Distribution",
+        "result": {
+          "label": "Result",
+          "responders": "Answer from {{names}}",
+          "mention": "@ → {{names}}",
+          "nobody": "no answer",
+          "unavailable": {
+            "none": "Decision model unavailable",
+            "no_model": "No decision model · like “@ only”",
+            "model_failed": "Decision model failed · like “@ only”"
+          }
+        },
+        "loading": "Loading decisions …",
+        "empty": "No decisions yet."
+      }
     },
     "accessLabel": "Access: {{level}}",
     "toolStatus": {
@@ -7046,21 +7064,43 @@
   },
   "chatDecision": {
     "title": "Decisions in chats",
-    "description": "Chooses which agent answers in group chats when nobody is mentioned with @. The model has no tools and runs no actions. Applies to the whole instance.",
-    "model": "Model",
-    "chooseModel": "Choose a model …",
-    "noModels": "No configured connection offers a text model for chats. Set up a connection under Agents and refresh its model catalog.",
+    "description": "In group chats the decision model judges whether a message without an @ expects an answer from an agent and which agent is meant. It only gives probabilities; Pages decides whether and who answers with the thresholds. Applies to the whole instance.",
+    "model": "Decision model",
+    "chooseModel": "Choose a decision model …",
+    "noModels": "No connected OpenRouter connection offers a decision model (output type “decisions”, for example Perplexity Decider V1.3). Set up the OpenRouter connection under Agents and refresh its model catalog.",
+    "defaults": {
+      "title": "Defaults for groups",
+      "description": "These values apply to every group that does not set its own."
+    },
     "status": {
       "ready": "Ready",
       "noModel": "No model chosen",
       "modelUnavailable": "Model unavailable"
     },
-    "hint": "Without a model, the default responder answers in group chats.",
-    "saved": "Decision model saved.",
+    "hint": "Without a decision model only agents named with @ answer in group chats.",
+    "saved": "Decision model and defaults saved.",
     "error": {
       "provider_model_not_found": "The chosen model is not available for decisions in chats.",
-      "profile_invalid": "The setting is invalid. Please check the model and reasoning.",
-      "profile_conflict": "The setting has changed in the meantime. Reload the page and save again."
+      "profile_invalid": "The setting is invalid. Please check the model and the values.",
+      "profile_conflict": "The setting was changed in the meantime. Reload the page and save again."
+    }
+  },
+  "decisionRules": {
+    "answerThreshold": {
+      "label": "Answer threshold",
+      "hint": "From this probability a message expects an answer from an agent; below it nobody answers."
+    },
+    "responsibilityThreshold": {
+      "label": "Responsibility threshold",
+      "hint": "The most probable agent answers once it reaches this probability."
+    },
+    "secondThreshold": {
+      "label": "Second threshold",
+      "hint": "Further agents answer once they reach this probability."
+    },
+    "maximumResponders": {
+      "label": "Most answering agents",
+      "hint": "No more agents than this answer one message."
     }
   },
   "agentSessionLimits": {

@@ -173,13 +173,18 @@ export class AgentCatalogRefresh {
       connection.zaiAccountType,
     );
     if (provider !== "openrouter") return models;
-    // OpenRouter names its speech-to-text (PAGE-294) and text-to-speech
-    // (PAGE-300) models only in listings of their own.
+    // OpenRouter names its speech-to-text (PAGE-294), text-to-speech
+    // (PAGE-300) and decision (PAGE-379) models only in listings of their own.
     const withTranscription = await client.addTranscriptionModels(
       models,
       apiKey,
       signal,
     );
-    return client.addSpeechOutputModels(withTranscription, apiKey, signal);
+    const withSpeech = await client.addSpeechOutputModels(
+      withTranscription,
+      apiKey,
+      signal,
+    );
+    return client.addDecisionModels(withSpeech, apiKey, signal);
   }
 }

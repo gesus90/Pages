@@ -16,19 +16,24 @@ interface ChatDecisionActionContext {
 const chatDecisionFormSchema = z.object({
   modelConnectionId: z.string().max(100),
   model: z.string().max(500),
-  reasoningEffort: z.string().max(100),
+  answerThreshold: z.coerce.number().int(),
+  responsibilityThreshold: z.coerce.number().int(),
+  secondThreshold: z.coerce.number().int(),
+  maximumResponders: z.coerce.number().int(),
   revision: z.coerce.number().int().nonnegative(),
 });
 
 /**
- * Saves the decision model of the instance (PAGE-317).
+ * Saves the decision model and the default thresholds of the instance
+ * (PAGE-317, PAGE-379).
  *
  * @param context - The administrator in the admin mode and the form.
  * @returns Success; a refused choice throws an {@link AgentError}.
  *
  * @remarks
- * The service checks the administrator, the admin mode and that the model is
- * one of the chat models the instance lists.
+ * The service checks the administrator, the admin mode, that the model is
+ * one of the decision models the instance lists and that the thresholds are
+ * whole percents in range.
  */
 export async function saveChatDecisionSettings({
   actor,
@@ -38,20 +43,20 @@ export async function saveChatDecisionSettings({
   const form = chatDecisionFormSchema.safeParse({
     modelConnectionId: formData.get("modelConnectionId") ?? "",
     model: formData.get("model") ?? "",
-    reasoningEffort: formData.get("reasoningEffort") ?? "",
+    answerThreshold: formData.get("answerThreshold"),
+    responsibilityThreshold: formData.get("responsibilityThreshold"),
+    secondThreshold: formData.get("secondThreshold"),
+    maximumResponders: formData.get("maximumResponders"),
     revision: formData.get("revision"),
   });
   if (!form.success) throw new AgentError("profile_invalid");
-  const { modelConnectionId, model, reasoningEffort, revision } = form.data;
+  const { modelConnectionId, model, revision, ...rules } = form.data;
   await services.chatDecisionSettingsService.save(actor, {
     selection:
       modelConnectionId && model
-        ? {
-            connectionId: modelConnectionId,
-            model,
-            reasoningEffort: reasoningEffort || null,
-          }
+        ? { connectionId: modelConnectionId, model, reasoningEffort: null }
         : null,
+    rules,
     revision,
   });
   return { ok: true };

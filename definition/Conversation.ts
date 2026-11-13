@@ -175,8 +175,10 @@ export interface ConversationMessage {
   /** Present only for a hint why an agent did not answer; `text` then says it in German. */
   readonly notice?: ConversationNotice;
   /**
-   * The decision about who answers this message (PAGE-317); only the chat page
-   * reads it, and only for a message of a person in a group that decided.
+   * The decision of the decision model (PAGE-379); only the chat page reads it.
+   * On the message of a person it is the decision that nobody answers, which
+   * the chat shows as a quiet line; on the answer of an agent it is the
+   * decision that chose the agent, which the chat shows as "Why?".
    */
   readonly decision?: ConversationDecisionView;
   /** The files of the message in their order (PAGE-298); empty without any. */

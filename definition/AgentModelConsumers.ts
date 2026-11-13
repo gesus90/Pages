@@ -14,7 +14,8 @@ import type { PageAgentModel } from "./PageAgent";
  * Every consumer reads the same models of the same connections; it only
  * leaves out what it cannot run, for one of the reasons below.
  */
-export type AgentModelConsumer = "pica" | "plan" | "employee" | "stt" | "tts";
+export type AgentModelConsumer =
+  "pica" | "plan" | "employee" | "stt" | "tts" | "decision";
 
 /**
  * Why a consumer cannot run a model.
@@ -35,6 +36,10 @@ export type AgentModelConsumer = "pica" | "plan" | "employee" | "stt" | "tts";
  *   chats nor works on a plan node, whatever else its catalog states.
  * - `transcriptionOnly`: the model transcribes speech (PAGE-302); it neither
  *   chats nor works on a plan node, whatever else its catalog states.
+ * - `noDecision`: the model is not known to give decisions, which the decisions
+ *   of group chats (PAGE-379) need.
+ * - `decisionOnly`: the model gives decisions (PAGE-379); it neither chats nor
+ *   works on a plan node, whatever else its catalog states.
  */
 export type ModelConsumerRefusal =
   | "noChatAdapter"
@@ -44,7 +49,9 @@ export type ModelConsumerRefusal =
   | "noSpeech"
   | "noSpeechOutput"
   | "speechOutputOnly"
-  | "transcriptionOnly";
+  | "transcriptionOnly"
+  | "noDecision"
+  | "decisionOnly";
 
 /** The providers Pica has an ACP adapter for, as registered in {@link AGENT_PROVIDERS}. */
 export type ChatAdapterProviderId = {
@@ -63,6 +70,7 @@ type ConsumerModel = Pick<
   | "isSpeechCapable"
   | "isSpeechOutputCapable"
   | "isTranscriptionOnly"
+  | "isDecisionCapable"
 >;
 
 /**
@@ -93,12 +101,14 @@ export function isZenToolModel(
   );
 }
 
-// A speech output model (PAGE-300) or a transcription model (PAGE-302) is no
-// chat or agent model, even where its catalog states nothing about tools.
+// A speech output model (PAGE-300), a transcription model (PAGE-302) or a
+// decision model (PAGE-379) is no chat or agent model, even where its catalog
+// states nothing about tools.
 function speechOutputRefusal(
   model: ConsumerModel,
 ): ModelConsumerRefusal | null {
   if (model.isSpeechOutputCapable === true) return "speechOutputOnly";
+  if (model.isDecisionCapable === true) return "decisionOnly";
   return model.isTranscriptionOnly === true ? "transcriptionOnly" : null;
 }
 
@@ -145,6 +155,15 @@ function ttsRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   return model.isSpeechOutputCapable === true ? null : "noSpeechOutput";
 }
 
+/**
+ * The decisions of group chats (PAGE-379) take only a model whose catalog
+ * states `decisions` among its outputs; chat, agent, speech and CLI models
+ * stay out.
+ */
+function decisionRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
+  return model.isDecisionCapable === true ? null : "noDecision";
+}
+
 const CONSUMER_RULES: Readonly<
   Record<
     AgentModelConsumer,
@@ -156,6 +175,7 @@ const CONSUMER_RULES: Readonly<
   employee: employeeRefusal,
   stt: sttRefusal,
   tts: ttsRefusal,
+  decision: decisionRefusal,
 };
 
 /**

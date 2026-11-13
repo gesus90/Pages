@@ -4018,58 +4018,76 @@
     "loadOlder": "Ältere Nachrichten laden",
     "loadingOlder": "Lädt …",
     "decision": {
-      "summary": {
-        "responders": "Entscheidung: {{names}} antwortet",
-        "nobody": "Entscheidung: niemand antwortet"
-      },
-      "chosen": "Gewählt:",
+      "why": "Warum?",
+      "expected": "Antwort erwartet {{probability}}",
       "nobody": "niemand",
-      "reason": "Begründung:",
-      "noReason": "Keine Begründung vorhanden.",
-      "needsAnswer": "Frage oder Bitte erkannt:",
-      "needsAnswerYes": "ja",
-      "needsAnswerNo": "nein",
-      "suggested": "Vermutlich zuständig:",
-      "fallback": "Fallback:",
-      "fallbackBadge": "Fallback",
-      "fallbacks": {
-        "none": "Nein, das Entscheidungsmodell hat entschieden.",
-        "no_model": "Ja: Es ist kein Entscheidungsmodell nutzbar.",
-        "model_failed": "Ja: Das Entscheidungsmodell ist fehlgeschlagen oder gab keine gültige Antwort.",
-        "unclear": "Ja: Es war nicht klar, wer angesprochen ist."
-      },
-      "notice": "Niemand hat geantwortet, weil nicht klar war, wer angesprochen ist. Sprich jemanden mit @ direkt an.",
-      "noticeSuggested": "Vermutlich zuständig: {{names}}."
+      "noAnswer": "keine Antwort",
+      "noAnswerWith": "keine Antwort · niemand {{probability}}",
+      "modelLine": "Decision-Modell: {{model}}"
     },
     "replySettings": {
       "title": "Wer antwortet in „{{name}}“?",
-      "description": "Legt fest, wer auf eine Nachricht ohne @-Erwähnung antwortet. Wer mit @ angesprochen wird, antwortet immer.",
+      "description": "Legt fest, wer auf eine Nachricht antwortet. Wer mit @ angesprochen wird, antwortet immer.",
+      "close": "Schließen",
+      "tabsLabel": "Bereiche von „Wer antwortet?“",
+      "tabs": {
+        "answers": "Antworten",
+        "decisions": "Letzte Entscheidungen"
+      },
       "mode": "Wer antwortet?",
       "modes": {
         "mentions": {
-          "label": "Alle angesprochenen Agents",
-          "description": "Nur mit @ genannte Agents antworten."
-        },
-        "observer": {
-          "label": "Beobachter-Agent",
-          "description": "Der Beobachter wählt anhand des Gruppenkontexts, wer beiträgt."
+          "label": "Nur @",
+          "short": "Nur @",
+          "description": "Es antworten ausschließlich die Agents, die mit @Name angesprochen werden."
         },
         "decision": {
-          "label": "Entscheidungsmodell",
-          "description": "Das Entscheidungsmodell der Instanz wählt keinen, einen oder mehrere Agents."
+          "label": "@ + Decision",
+          "short": "@ + Decision",
+          "description": "Wie „Nur @“. Enthält eine Nachricht kein @, entscheidet zusätzlich das Decision-Modell, ob und welcher Agent gemeint ist."
         }
       },
-      "defaultResponder": "Standard-Antwortender",
-      "noDefault": "Niemand",
-      "defaultHint": "Antwortet, wenn unklar ist, wer angesprochen ist, und sagt das offen. Ohne Standard-Antwortenden erscheint stattdessen ein Hinweis.",
-      "maximum": "Höchstzahl Antwortende je Nachricht",
-      "modelHint": "Das Modell wird nicht je Chat gewählt: Es gilt das Entscheidungsmodell aus Einstellungen → Agents.",
+      "model": {
+        "label": "Decision-Modell der Instanz",
+        "none": "Kein Modell gewählt",
+        "where": "gewählt unter Einstellungen → Agents",
+        "status": {
+          "ready": "bereit",
+          "noModel": "nicht eingestellt",
+          "modelUnavailable": "nicht verfügbar"
+        }
+      },
+      "hint": {
+        "noModel": "Es ist kein Decision-Modell eingestellt. Die Gruppe verhält sich wie „Nur @“, bis ein Administrator unter Einstellungen → Agents eines wählt.",
+        "modelUnavailable": "Das gewählte Decision-Modell ist nicht mehr verfügbar. Die Gruppe verhält sich wie „Nur @“, bis ein Administrator unter Einstellungen → Agents ein Modell wählt.",
+        "modelFailed": "Das Decision-Modell war zuletzt nicht erreichbar oder gab keine gültige Antwort. Die Gruppe verhält sich dann wie „Nur @“."
+      },
+      "reset": "Auf Standard zurücksetzen",
       "save": "Speichern",
       "saved": "Einstellung gespeichert.",
       "saveFailed": "Die Einstellung konnte nicht gespeichert werden.",
       "readOnly": "Nur wer den Chat verwaltet, darf das ändern.",
       "loading": "Einstellung wird geladen …",
-      "failed": "Die Einstellung konnte nicht geladen werden."
+      "failed": "Die Einstellung konnte nicht geladen werden.",
+      "decisions": {
+        "time": "Zeit",
+        "message": "Nachricht",
+        "expected": "Antwort erwartet",
+        "distribution": "Verteilung",
+        "result": {
+          "label": "Ergebnis",
+          "responders": "Antwort von {{names}}",
+          "mention": "@ → {{names}}",
+          "nobody": "keine Antwort",
+          "unavailable": {
+            "none": "Decision-Modell nicht verfügbar",
+            "no_model": "Kein Decision-Modell · wie „Nur @“",
+            "model_failed": "Decision-Modell ausgefallen · wie „Nur @“"
+          }
+        },
+        "loading": "Entscheidungen werden geladen …",
+        "empty": "Noch keine Entscheidungen."
+      }
     },
     "accessLabel": "Zugriff: {{level}}",
     "toolStatus": {
@@ -7046,21 +7064,43 @@
   },
   "chatDecision": {
     "title": "Entscheidungen in Chats",
-    "description": "Wählt in Gruppenchats ohne @-Erwähnung, welcher Agent antwortet. Das Modell hat keine Werkzeuge und führt keine Aktionen aus. Gilt für die ganze Instanz.",
-    "model": "Modell",
-    "chooseModel": "Modell auswählen …",
-    "noModels": "Keine eingerichtete Anbindung bietet ein Textmodell für Chats. Unter Agents eine Anbindung einrichten und ihren Modellkatalog aktualisieren.",
+    "description": "Das Decision-Modell beurteilt in Gruppenchats, ob eine Nachricht ohne @ eine Antwort eines Agents erwartet und welcher Agent gemeint ist. Es gibt nur Wahrscheinlichkeiten; ob und wer antwortet, entscheidet Pages mit den Schwellen. Gilt für die ganze Instanz.",
+    "model": "Decision-Modell",
+    "chooseModel": "Decision-Modell auswählen …",
+    "noModels": "Keine eingerichtete OpenRouter-Anbindung bietet ein Decision-Modell (Ausgabeart „decisions“, zum Beispiel Perplexity Decider V1.3). Unter Agents die OpenRouter-Anbindung einrichten und ihren Modellkatalog aktualisieren.",
+    "defaults": {
+      "title": "Standardwerte der Gruppen",
+      "description": "Diese Werte gelten für jede Gruppe, die keine eigenen festlegt."
+    },
     "status": {
       "ready": "Bereit",
       "noModel": "Kein Modell gewählt",
       "modelUnavailable": "Modell nicht verfügbar"
     },
-    "hint": "Ohne Modell antwortet in Gruppenchats der Standard-Antwortende.",
-    "saved": "Entscheidungsmodell gespeichert.",
+    "hint": "Ohne Decision-Modell antworten in Gruppenchats nur Agents, die mit @ angesprochen werden.",
+    "saved": "Decision-Modell und Standardwerte gespeichert.",
     "error": {
       "provider_model_not_found": "Das gewählte Modell steht für Entscheidungen in Chats nicht zur Verfügung.",
-      "profile_invalid": "Die Einstellung ist ungültig. Bitte Modell und Reasoning prüfen.",
+      "profile_invalid": "Die Einstellung ist ungültig. Bitte Modell und Werte prüfen.",
       "profile_conflict": "Die Einstellung wurde inzwischen geändert. Seite neu laden und erneut speichern."
+    }
+  },
+  "decisionRules": {
+    "answerThreshold": {
+      "label": "Antwort-Schwelle",
+      "hint": "Ab dieser Wahrscheinlichkeit erwartet eine Nachricht eine Antwort eines Agents; darunter antwortet niemand."
+    },
+    "responsibilityThreshold": {
+      "label": "Zuständigkeits-Schwelle",
+      "hint": "Der wahrscheinlichste Agent antwortet, sobald er diese Wahrscheinlichkeit erreicht."
+    },
+    "secondThreshold": {
+      "label": "Zweit-Schwelle",
+      "hint": "Weitere Agents antworten, sobald sie diese Wahrscheinlichkeit erreichen."
+    },
+    "maximumResponders": {
+      "label": "Höchstzahl Antwortende",
+      "hint": "Mehr Agents antworten auf eine Nachricht nie."
     }
   },
   "agentSessionLimits": {

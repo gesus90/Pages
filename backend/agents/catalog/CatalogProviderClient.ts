@@ -50,6 +50,11 @@ function speechOutputPath(cursor: string | null): string {
   return `/models?output_modalities=speech&limit=1000&offset=${cursor ?? "0"}`;
 }
 
+// OpenRouter's listing of its decision models, the one place it names them (PAGE-379).
+function decisionPath(cursor: string | null): string {
+  return `/models?output_modalities=decisions&limit=1000&offset=${cursor ?? "0"}`;
+}
+
 // Anthropic documents its listing as newest first; other listings follow no stated order.
 function orderCatalog(
   provider: ApiProviderId,
@@ -138,6 +143,33 @@ export class CatalogProviderClient {
       apiKey,
       signal,
       path: speechOutputPath,
+    });
+  }
+
+  /**
+   * Adds OpenRouter's decision models to its listed catalog (PAGE-379).
+   *
+   * @param models - The OpenRouter catalog listed so far.
+   * @param apiKey - The key of the same connection.
+   * @param signal - Cancels the listing.
+   * @returns Both listings merged by model ID, in the catalog's order.
+   *
+   * @remarks
+   * OpenRouter lists its decision models only under
+   * `GET /models?output_modalities=decisions`
+   * (https://openrouter.ai/docs/guides/community/multimodal-decisions).
+   * Merging and failures follow {@link CatalogProviderClient.addTranscriptionModels}.
+   */
+  public async addDecisionModels(
+    models: readonly AgentCatalogModel[],
+    apiKey: string,
+    signal: AbortSignal,
+  ): Promise<readonly AgentCatalogModel[]> {
+    return this.addListing(models, {
+      provider: "openrouter",
+      apiKey,
+      signal,
+      path: decisionPath,
     });
   }
 

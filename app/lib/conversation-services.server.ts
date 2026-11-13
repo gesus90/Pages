@@ -35,12 +35,10 @@ import { ConversationChatDecisions } from "@/backend/service/conversation/Conver
 import { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
 import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
-import { ConversationDecisionModel } from "@/backend/service/conversation/ConversationDecisionModel";
 import { ConversationGroupSummaries } from "@/backend/service/conversation/ConversationGroupSummaries";
 import { ConversationGroupSummaryScheduler } from "@/backend/service/conversation/ConversationGroupSummaryScheduler";
 import { ConversationObserverModel } from "@/backend/service/conversation/ConversationObserverModel";
 import { ConversationObserverMonitor } from "@/backend/service/conversation/ConversationObserverMonitor";
-import { ConversationObserverRouting } from "@/backend/service/conversation/ConversationObserverRouting";
 import { ConversationOversight } from "@/backend/service/conversation/ConversationOversight";
 import { ConversationReader } from "@/backend/service/conversation/ConversationReader";
 import { ConversationReplySettingsService } from "@/backend/service/conversation/ConversationReplySettingsService";
@@ -52,13 +50,14 @@ import { voiceMaximumDurationMs } from "@/backend/config/SpeechRecognitionConfig
 
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
-import type { SimulatedConversationDecision } from "@/backend/agents/simulation/SimulatedConversationDecision";
 import type { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import type { Database } from "@/backend/database/Database";
+import type { AgentEmployeeRepository } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { ConversationLinkFetcher } from "@/backend/service/conversation/links/ConversationLinkFetcher";
 import type { ConversationAgentRunner } from "@/backend/service/conversation/ConversationAgentReplies";
 import type { ConversationEvents } from "@/backend/service/conversation/ConversationEvents";
 import type { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
+import type { ConversationDecisionModel } from "@/backend/service/conversation/ConversationDecisionModel";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { User } from "@/definition/User";
@@ -122,13 +121,17 @@ export interface ConversationObserverInput {
   readonly plans: PlanExecution | null;
   /** The simulated observer; set only while the simulation is on. */
   readonly simulation: SimulatedConversationObserver | null;
-  /** The decision model of the instance, which chooses agents in group chats (PAGE-317). */
-  readonly decision: Pick<ChatDecisionSettingsService, "resolve">;
-  /** The simulated decision model; set only while the simulation is on. */
-  readonly decisionSimulation: SimulatedConversationDecision | null;
   /**
-   * Where observer and decision sessions get their working directories: a
-   * folder the worker units of the service manager see (PAGE-340).
+   * The decision model of the instance with its default rules, which chooses
+   * agents in group chats (PAGE-317, PAGE-379).
+   */
+  readonly decision: {
+    readonly model: Pick<ConversationDecisionModel, "ask">;
+    readonly settings: Pick<ChatDecisionSettingsService, "rules" | "modelView">;
+  };
+  /**
+   * Where observer sessions get their working directories: a folder the
+   * worker units of the service manager see (PAGE-340).
    */
   readonly directoryRoot: string;
   /**
@@ -208,6 +211,7 @@ export function createConversationServices(
     observer,
     replySettings,
     decisions,
+    agents: store.employees(),
     events,
     guard: conversationAgentGuard,
     content,
@@ -239,6 +243,8 @@ export function createConversationServices(
     conversationReplySettingsService: new ConversationReplySettingsService({
       conversations,
       settings: replySettings,
+      decisions,
+      instance: input.observer.decision.settings,
       directory,
       publisher: input.events,
     }),
@@ -305,6 +311,8 @@ interface ReplyParts {
   readonly observer: ObserverParts;
   readonly replySettings: ConversationReplySettingsRepository;
   readonly decisions: ConversationDecisionRepository;
+  /** The agents with their `AGENT.md`, which the decision model reads the specialization of. */
+  readonly agents: AgentEmployeeRepository;
   readonly events: ConversationEvents;
   readonly guard: ConversationAgentGuard;
   readonly content: ContentParts;
@@ -320,18 +328,14 @@ function createReplies(
     runner: input.runner,
     rounds: observer.rounds,
     contexts: observer.reader,
-    routing: observer.routing,
     replySettings: parts.replySettings,
     decisions: new ConversationChatDecisions({
       messages: shared.messages,
       rounds: observer.rounds,
       decisions: parts.decisions,
-      model: new ConversationDecisionModel({
-        settings: input.observer.decision,
-        plans: input.observer.plans,
-        simulation: input.observer.decisionSimulation,
-        directoryRoot: input.observer.directoryRoot,
-      }),
+      model: input.observer.decision.model,
+      defaults: input.observer.decision.settings,
+      agents: parts.agents,
       publisher: input.events,
     }),
     events: parts.events,
@@ -401,7 +405,6 @@ interface ObserverParts {
   readonly rounds: ConversationRoundRepository;
   readonly reader: ConversationContextReader;
   readonly monitor: ConversationObserverMonitor;
-  readonly routing: ConversationObserverRouting;
   readonly summaries: ConversationGroupSummaries;
 }
 
@@ -434,11 +437,6 @@ function createObserver(
     rounds,
     reader,
     monitor,
-    routing: new ConversationObserverRouting({
-      messages: shared.messages,
-      contexts: reader,
-      model,
-    }),
     summaries: new ConversationGroupSummaries({
       ...shared,
       contexts,

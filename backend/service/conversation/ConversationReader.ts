@@ -2,6 +2,7 @@ import { ConversationError } from "@/backend/error/ConversationError";
 import { CONVERSATION_HISTORY_PAGE_SIZE } from "@/definition/Conversation";
 
 import { EMPTY_MESSAGE_CONTENT } from "./content/ConversationMessageContent";
+import { decisionView } from "./ConversationDecisionViews";
 
 import type { ReadStream } from "node:fs";
 import type { ConversationDecisionRepository } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
@@ -47,8 +48,11 @@ export interface ConversationReaderDependencies {
   readonly messages: ConversationMessageRepository;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly files: Pick<WikiFileStore, "open">;
-  /** The decisions about messages of groups, which the chat page shows (PAGE-317). */
-  readonly decisions: Pick<ConversationDecisionRepository, "forMessages">;
+  /** The decisions about messages of groups, which the chat page shows (PAGE-317, PAGE-379). */
+  readonly decisions: Pick<
+    ConversationDecisionRepository,
+    "forMessages" | "forReplies"
+  >;
   /** The attachments and links of messages (PAGE-298). */
   readonly content: ConversationMessageContentReader;
 }
@@ -442,35 +446,34 @@ export class ConversationReader {
     return views;
   }
 
-  /** Adds the decision about each message of a person that a group judged (PAGE-317). */
+  /**
+   * Adds the decisions the chat shows (PAGE-379): to the message of a person
+   * that nobody answered, so the chat can say so under it, and to the answer an
+   * agent gave because the decision model chose it, for its "Why?".
+   */
   private async withDecisions(
     messages: readonly ConversationMessage[],
     accounts: ConversationAccounts,
   ): Promise<ConversationMessage[]> {
-    const decisions = await this.dependencies.decisions.forMessages(
-      messages.map((message) => message.id),
-    );
-    const agent = (
-      id: string,
-    ): { readonly id: string; readonly name: string } => ({
-      id,
-      name: accounts.participant(id).name,
-    });
+    const isPerson = (message: ConversationMessage): boolean =>
+      message.sender.kind === "human";
+    const { decisions } = this.dependencies;
+    const [aboutMessages, aboutReplies] = await Promise.all([
+      decisions.forMessages(
+        messages.filter(isPerson).map((message) => message.id),
+      ),
+      decisions.forReplies(
+        messages.filter((message) => !isPerson(message)).map((message) => message.id),
+      ),
+    ]);
     return messages.map((message) => {
-      const stored = decisions.get(message.id);
-      if (!stored) return message;
-      return {
-        ...message,
-        decision: {
-          messageId: message.id,
-          outcome: stored.outcome,
-          fallback: stored.fallback,
-          responders: stored.responderIds.map(agent),
-          suggested: stored.suggestedIds.map(agent),
-          reason: stored.reason,
-          needsAnswer: stored.needsAnswer,
-        },
-      };
+      const stored = isPerson(message)
+        ? aboutMessages.get(message.id)
+        : aboutReplies.get(message.id);
+      if (stored === undefined) return message;
+      // A person's message shows only the decision that nobody answers.
+      if (isPerson(message) && stored.outcome !== "nobody") return message;
+      return { ...message, decision: decisionView(stored, accounts) };
     });
   }
 

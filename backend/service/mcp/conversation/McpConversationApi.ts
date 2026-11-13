@@ -15,7 +15,7 @@ export interface McpConversationAccess {
 
 /**
  * The settings "Wer antwortet?" of group chats for the stand-alone Pages MCP
- * program (PAGE-317).
+ * program (PAGE-317, PAGE-379).
  *
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
@@ -80,7 +80,10 @@ export class McpConversationApi {
    *
    * @param account - The paired account.
    * @param conversationId - The group.
-   * @param body - `mode`, `defaultResponderId` (`null` for none) and `maximumResponders`.
+   * @param body - `mode` (`mentions` or `decision`), the rules `answerThreshold`,
+   * `responsibilityThreshold`, `secondThreshold` (whole percent) and
+   * `maximumResponders`, or `useDefaults: true` to follow the defaults of the
+   * instance again.
    * @returns The stored settings.
    * @throws {ConversationError} As {@link ConversationReplySettingsService.save}.
    */
@@ -94,11 +97,27 @@ export class McpConversationApi {
     return this.settings.save(account, {
       conversationId: id,
       mode: body.mode ?? current.mode,
-      defaultResponderId:
-        body.defaultResponderId === undefined
-          ? current.defaultResponderId
-          : body.defaultResponderId,
-      maximumResponders: body.maximumResponders ?? current.maximumResponders,
+      rules: nextRules(current, body),
     });
   }
+}
+
+const RULE_FIELDS = [
+  "answerThreshold",
+  "responsibilityThreshold",
+  "secondThreshold",
+  "maximumResponders",
+] as const;
+
+/** The rules a request asks for: the defaults again, the changed values, or what the group has. */
+function nextRules(
+  current: ConversationReplySettingsView,
+  body: Readonly<Record<string, unknown>>,
+): unknown {
+  if (body.useDefaults === true) return null;
+  if (RULE_FIELDS.every((field) => body[field] === undefined))
+    return current.isDefault ? null : current.rules;
+  return Object.fromEntries(
+    RULE_FIELDS.map((field) => [field, body[field] ?? current.rules[field]]),
+  );
 }

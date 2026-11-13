@@ -1,12 +1,21 @@
 import type {
   ConversationDecisionFallback,
   ConversationDecisionOutcome,
+  ConversationDecisionRules,
 } from "@/definition/ConversationDecision";
-import type { DecisionAnswer } from "./ConversationDecisionPrompt";
+import type {
+  DecisionOption,
+  DecisionProbabilities,
+} from "./ConversationDecisionPrompt";
 
 /** What the model gave, or why it gave nothing. */
 export type DecisionInput =
-  | { readonly kind: "answer"; readonly answer: DecisionAnswer }
+  | {
+      readonly kind: "answer";
+      /** The model build that answered. */
+      readonly model: string;
+      readonly probabilities: DecisionProbabilities;
+    }
   | {
       readonly kind: "failure";
       readonly fallback: "no_model" | "model_failed";
@@ -14,80 +23,107 @@ export type DecisionInput =
 
 /** What one decision settled. */
 export interface SettledDecision {
-  readonly outcome: ConversationDecisionOutcome;
+  readonly outcome: Extract<
+    ConversationDecisionOutcome,
+    "responders" | "nobody" | "unavailable"
+  >;
   readonly fallback: ConversationDecisionFallback;
-  /** The agents that answer; the default responder for a fallback. */
+  /** The agents that answer; empty unless `responders`. */
   readonly responderIds: readonly string[];
-  /** The agents thought responsible, which a fallback names. */
-  readonly suggestedIds: readonly string[];
-  readonly reason: string;
-  readonly needsAnswer: boolean | null;
+  /** The model build that answered; `null` without an answer. */
+  readonly model: string | null;
+  readonly answerProbability: number | null;
+  /** Every agent and nobody with their probability, the most probable first. */
+  readonly options: readonly DecisionOption[];
 }
 
-/** What settling a decision needs besides the model's answer. */
-export interface DecisionRules {
-  /** The agent members the decision may choose. */
-  readonly candidateIds: readonly string[];
-  /** The default responder of the group; `null` for none. */
-  readonly defaultResponderId: string | null;
-  /** How many agents answer at most. */
-  readonly maximum: number;
+/** An option that names an agent. */
+interface AgentOption extends DecisionOption {
+  readonly agentId: string;
 }
 
-function fallbackOutcome(
-  rules: DecisionRules,
-  fallback: Exclude<ConversationDecisionFallback, "none">,
-  answer: DecisionAnswer | null,
+function isAgentOption(option: DecisionOption): option is AgentOption {
+  return option.agentId !== null;
+}
+
+/** A threshold in whole percent as a probability. */
+function atLeast(probability: number, thresholdPercent: number): boolean {
+  return probability >= thresholdPercent / 100;
+}
+
+/** The most probable first; nobody after an agent of the same probability. */
+function ranked(options: readonly DecisionOption[]): DecisionOption[] {
+  return [...options].sort((left, right) => {
+    if (right.probability !== left.probability)
+      return right.probability - left.probability;
+    return Number(left.agentId === null) - Number(right.agentId === null);
+  });
+}
+
+function nobodyOutcome(
+  model: string,
+  probabilities: DecisionProbabilities,
+  options: readonly DecisionOption[],
 ): SettledDecision {
-  const defaultId = rules.defaultResponderId;
-  const hasDefault =
-    defaultId !== null && rules.candidateIds.includes(defaultId);
-  return {
-    outcome: hasDefault ? "default" : "notice",
-    fallback,
-    responderIds: hasDefault ? [defaultId] : [],
-    suggestedIds: answer?.suggestedIds ?? [],
-    reason: answer?.reason ?? "",
-    needsAnswer: answer?.needsAnswer ?? null,
-  };
-}
-
-/**
- * Settles one decision from the answer of the model (PAGE-317).
- *
- * @param input - The answer, or why there is none.
- * @param rules - The agents of the chat, the default responder and the limit.
- * @returns The outcome: the chosen agents, at most the limit and only agents
- * of the chat; the default responder or a hint when it was unclear who is
- * addressed or the model gave nothing; nobody when the model chose nobody and
- * saw no question or request.
- */
-export function settleDecision(
-  input: DecisionInput,
-  rules: DecisionRules,
-): SettledDecision {
-  if (input.kind === "failure")
-    return fallbackOutcome(rules, input.fallback, null);
-  const { answer } = input;
-  const responderIds = answer.responderIds
-    .filter((id) => rules.candidateIds.includes(id))
-    .slice(0, rules.maximum);
-  if (responderIds.length > 0)
-    return {
-      outcome: "responders",
-      fallback: "none",
-      responderIds,
-      suggestedIds: answer.suggestedIds,
-      reason: answer.reason,
-      needsAnswer: answer.needsAnswer,
-    };
-  if (answer.needsAnswer) return fallbackOutcome(rules, "unclear", answer);
   return {
     outcome: "nobody",
     fallback: "none",
     responderIds: [],
-    suggestedIds: answer.suggestedIds,
-    reason: answer.reason,
-    needsAnswer: false,
+    model,
+    answerProbability: probabilities.answerProbability,
+    options,
+  };
+}
+
+/**
+ * Settles one decision from the probabilities of the model (PAGE-379).
+ *
+ * @param input - The answer of the model, or why there is none.
+ * @param rules - The thresholds and the most answering agents that apply.
+ * @returns The outcome. Pages decides, not the model: nobody answers when the
+ * chance that an answer is expected stays below the answer threshold or nobody
+ * is at least as probable as every agent; otherwise the most probable agent
+ * answers once it reaches the responsibility threshold, and each further
+ * agent once it reaches the second threshold, never more than the limit. A
+ * missing model or a failed call gives `unavailable`, which starts nobody.
+ */
+export function settleDecision(
+  input: DecisionInput,
+  rules: ConversationDecisionRules,
+): SettledDecision {
+  if (input.kind === "failure")
+    return {
+      outcome: "unavailable",
+      fallback: input.fallback,
+      responderIds: [],
+      model: null,
+      answerProbability: null,
+      options: [],
+    };
+  const { probabilities, model } = input;
+  const options = ranked(probabilities.options);
+  if (!atLeast(probabilities.answerProbability, rules.answerThreshold))
+    return nobodyOutcome(model, probabilities, options);
+  const [first, ...others] = options.filter(isAgentOption);
+  const nobody = options.find((option) => option.agentId === null);
+  if (
+    first === undefined ||
+    (nobody !== undefined && nobody.probability >= first.probability) ||
+    !atLeast(first.probability, rules.responsibilityThreshold)
+  )
+    return nobodyOutcome(model, probabilities, options);
+  const responderIds = [first.agentId];
+  for (const option of others) {
+    if (responderIds.length >= rules.maximumResponders) break;
+    if (atLeast(option.probability, rules.secondThreshold))
+      responderIds.push(option.agentId);
+  }
+  return {
+    outcome: "responders",
+    fallback: "none",
+    responderIds,
+    model,
+    answerProbability: probabilities.answerProbability,
+    options,
   };
 }

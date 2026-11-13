@@ -4,6 +4,7 @@ import { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobR
 import { ChatSettingsRepository } from "@/backend/database/repositories/chat/ChatSettingsRepository";
 import { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
 import { PicaSettingsRepository } from "@/backend/database/repositories/chat/PicaSettingsRepository";
+import { CONVERSATION_DEFAULT_DECISION_RULES } from "@/definition/ConversationDecision";
 
 import {
   call,
@@ -444,6 +445,7 @@ export const CHAT_SETTINGS_FLOW: RepositoryFlow = {
     refused("ChatDecisionSettingsRepository.save", ({ database }) =>
       new ChatDecisionSettingsRepository(database).save({
         selection: null,
+        rules: CONVERSATION_DEFAULT_DECISION_RULES,
         revision: 0,
       }),
     ),

@@ -6,13 +6,13 @@ import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { SimulatedAgentMemoryModel } from "@/backend/agents/simulation/SimulatedAgentMemoryModel";
 import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
-import { SimulatedConversationDecision } from "@/backend/agents/simulation/SimulatedConversationDecision";
 import { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
+import { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
@@ -85,6 +85,7 @@ import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
 import type { PicaAcpSessionPool } from "@/backend/service/chat/acp/PicaAcpSessionPool";
 import type { AgentChatService } from "@/backend/service/conversation/AgentChatService";
 import type { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
+import type { ConversationDecisionModel } from "@/backend/service/conversation/ConversationDecisionModel";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
@@ -162,11 +163,13 @@ export interface EmployeeServicesInput {
       "resolve" | "requireCurrent"
     >;
     readonly agentPlanExecution: PlanExecution | null;
-    /** The decision model of the instance (PAGE-317). */
+    /** The decision model of the instance and its default rules (PAGE-317, PAGE-379). */
     readonly chatDecisionSettingsService: Pick<
       ChatDecisionSettingsService,
-      "resolve"
+      "rules" | "modelView"
     >;
+    /** The decision model that gives the probabilities (PAGE-379). */
+    readonly chatDecisionModel: Pick<ConversationDecisionModel, "ask">;
   };
 }
 
@@ -232,10 +235,10 @@ function groupObserverInput(
     simulation: simulation.isActive
       ? new SimulatedConversationObserver(simulation)
       : null,
-    decision: observer.chatDecisionSettingsService,
-    decisionSimulation: simulation.isActive
-      ? new SimulatedConversationDecision(simulation)
-      : null,
+    decision: {
+      model: observer.chatDecisionModel,
+      settings: observer.chatDecisionSettingsService,
+    },
     isBackgroundOwner,
     directoryRoot: conversationModelRoot(input.workspaceRoot),
   };
@@ -275,6 +278,10 @@ function createChatDirectory(parts: {
     agentSessions: parts.agentSessions,
     queuedFor: (conversationId, agentId) =>
       replies.queuedFor(conversationId, agentId),
+    replyModes: (conversationIds) =>
+      new ConversationReplySettingsRepository(parts.database).modes(
+        conversationIds,
+      ),
   });
 }
 

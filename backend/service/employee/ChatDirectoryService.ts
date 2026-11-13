@@ -1,5 +1,6 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { ConversationError } from "@/backend/error/ConversationError";
+import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
 
 import {
   agentWrittenConversations,
@@ -30,6 +31,7 @@ import type { WikiLookupRepository } from "@/backend/database/repositories/wiki/
 import type { AgentChatSessionBrief } from "@/definition/AgentChatSession";
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
 import type { ConversationHistoryPage } from "@/definition/Conversation";
+import type { ConversationReplyMode } from "@/definition/ConversationDecision";
 import type { User } from "@/definition/User";
 import type { AgentToolCallView } from "./AgentToolCallView";
 import type { QueuedAgentMessage } from "./AgentEmployeeSessions";
@@ -104,6 +106,10 @@ export interface ChatDirectoryDependencies {
     agentId: string,
     personId: string,
   ) => readonly QueuedAgentMessage[];
+  /** The reply mode of groups, which the group menu names (PAGE-379); absent shows none. */
+  readonly replyModes?: (
+    conversationIds: readonly string[],
+  ) => Promise<ReadonlyMap<string, ConversationReplyMode>>;
   /** The conversations of agents only that administrators and leaders read (PAGE-311). */
   readonly oversight?: Pick<ConversationOversight, "views" | "history">;
   /** Tells whether a chain of agent messages paused a conversation (PAGE-311). */
@@ -296,6 +302,9 @@ export class ChatDirectoryService {
     const overseen = await this.overseenConversations(person, accounts);
     Object.assign(histories, overseen.histories);
     const paused = await this.pausedGroupIds(conversations);
+    const replyModes = await this.dependencies.replyModes?.([
+      ...conversations.groups.keys(),
+    ]);
     const shownIds = new Set(participants.map((participant) => participant.id));
     const chats = this.dependencies.store.chats();
     // Which chats nothing is shared from (PAGE-305).
@@ -326,6 +335,13 @@ export class ChatDirectoryService {
                 workingAgentNames: working.map((agent) => agent.name),
                 workingAgents: working,
                 isConfidential: confidentialGroups.has(entry.id),
+                ...(replyModes === undefined
+                  ? {}
+                  : {
+                      replyMode:
+                        replyModes.get(entry.id) ??
+                        CONVERSATION_DEFAULT_REPLY_MODE,
+                    }),
                 ...(paused.has(entry.id) ? { isAgentPaused: true } : {}),
                 ...(agentSessions.length > 0 ? { agentSessions } : {}),
               };
