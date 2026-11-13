@@ -54,6 +54,12 @@ export interface ConversationAgentRequest {
   readonly prompt: string;
   /** The text of the answered message alone. */
   readonly lastMessage: string;
+  /**
+   * The sequence of the answered message, the newest one this round carries;
+   * the agent's session of the chat counts the messages up to it as received
+   * once the round is delivered (PAGE-376).
+   */
+  readonly throughSequence?: number;
   /** Stops the answer, also while it waits for a free place (PAGE-304). */
   readonly signal?: AbortSignal;
   /** Called when the answer waits because the limits of concurrent sessions are reached. */
@@ -72,6 +78,19 @@ export interface ConversationAgentRequest {
  */
 export interface ConversationAgentRunner {
   answer(request: ConversationAgentRequest): Promise<string>;
+  /**
+   * Hands the round to the answer the agent is giving in this conversation
+   * now, instead of starting a second one (PAGE-376).
+   *
+   * @returns Whether the running answer took it; `false` when none runs or it
+   * no longer takes messages, so the round waits for its own turn.
+   */
+  steer?(request: ConversationAgentRequest): Promise<boolean>;
+  /**
+   * The newest message of the conversation the agent's session received; `0`
+   * before the first round (PAGE-376).
+   */
+  deliveredThrough?(agentId: string, conversationId: string): Promise<number>;
 }
 
 /** What the answers of agents in conversations use. */
@@ -242,6 +261,11 @@ export class ConversationAgentReplies {
     conversationId: string,
   ): ReadonlyMap<string, AgentMessageQueue> {
     return this.replies.queuedMessages(conversationId);
+  }
+
+  /** How many messages of a conversation wait for the answer of one agent (PAGE-376). */
+  public queuedFor(conversationId: string, agentId: string): number {
+    return this.replies.queuedFor(conversationId, agentId);
   }
 
   /**

@@ -1,6 +1,7 @@
 import { AccountIdentityRepository } from "./AccountIdentityRepository";
 import { AgentActivityRepository } from "./AgentActivityRepository";
 import { AgentChatMemoryRepository } from "./AgentChatMemoryRepository";
+import { AgentChatSessionRepository } from "./AgentChatSessionRepository";
 import { AgentConversationRepository } from "./AgentConversationRepository";
 import { AgentDeletionRepository } from "./AgentDeletionRepository";
 import { AgentDeletionPurgeRepository } from "./AgentDeletionPurgeRepository";
@@ -79,6 +80,11 @@ export class EmployeeStore {
   /** The chat sessions of agents with people. */
   public conversations(): AgentConversationRepository {
     return new AgentConversationRepository(this.database);
+  }
+
+  /** The state of the chat sessions of agents: inbox position, context and tokens (PAGE-376). */
+  public chatSessions(): AgentChatSessionRepository {
+    return new AgentChatSessionRepository(this.database);
   }
 
   /** Summaries and confidentiality of chats for the memory (PAGE-305). */

@@ -1,6 +1,6 @@
 import { EditorContent } from "@tiptap/react";
 import { SendHorizontal } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import styles from "@/app/components/chat/chat-composer.module.css";
@@ -33,6 +33,8 @@ interface ChatPageComposerProps {
   };
   /** Attachments of a stored conversation (PAGE-298); missing for an agent's chat. */
   readonly attachments?: { readonly selection: VirtualChatSelection };
+  /** Receives what puts `@username ` into the field, for the menu of an agent in the chat head (PAGE-376). */
+  readonly mentionRef?: React.RefObject<((username: string) => void) | null>;
 }
 
 /** A web address alone, which the chat shows as a link card. */
@@ -71,6 +73,19 @@ function appendTemplate(editor: Editor, text: string): void {
     .run();
 }
 
+/**
+ * Puts `@username ` at the end of the message and focuses the field.
+ *
+ * @remarks
+ * The mention goes where the person writes on: a space separates it from
+ * text already there, and the field keeps the one that follows it.
+ */
+function appendMention(editor: Editor, username: string): void {
+  const text = editor.state.doc.textContent;
+  const separator = text === "" || /\s$/u.test(text) ? "" : " ";
+  editor.chain().focus("end").insertContent(`${separator}@${username} `).run();
+}
+
 /** The files of a paste; none when it carries formatted text, which the editor takes. */
 function pastedFiles(event: React.ClipboardEvent): File[] {
   const clipboard = event.clipboardData;
@@ -89,8 +104,10 @@ function pastedFiles(event: React.ClipboardEvent): File[] {
  * send a voice message (PAGE-277), and files chosen in the "+" menu, dropped
  * on the conversation or pasted are uploaded and go out with the next
  * message (PAGE-298); a message of attachments alone needs no text, and
- * nothing is sent while an upload runs. The field ends 88 px before the right
- * edge of the chat, so Pica's launcher never covers it.
+ * nothing is sent while an upload runs. The menu of an agent in the chat head
+ * puts its mention into the field through `mentionRef` (PAGE-376). The field
+ * ends 88 px before the right edge of the chat, so Pica's launcher never
+ * covers it.
  */
 export function ChatPageComposer({
   placeholder,
@@ -98,6 +115,7 @@ export function ChatPageComposer({
   onSend,
   voice,
   attachments,
+  mentionRef,
 }: ChatPageComposerProps): React.ReactElement {
   const { t } = useTranslation();
   const canAttach = attachments !== undefined;
@@ -132,6 +150,16 @@ export function ChatPageComposer({
   function handleInsert(text: string): void {
     if (input.editor) appendTemplate(input.editor, text);
   }
+
+  useEffect(() => {
+    if (!mentionRef) return undefined;
+    mentionRef.current = (username) => {
+      if (input.editor) appendMention(input.editor, username);
+    };
+    return () => {
+      mentionRef.current = null;
+    };
+  });
 
   return (
     <footer

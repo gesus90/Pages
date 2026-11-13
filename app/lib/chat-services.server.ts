@@ -25,6 +25,7 @@ import { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
 import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
 import { PicaAcpSessionPool } from "@/backend/service/chat/acp/PicaAcpSessionPool";
+import { AgentChatSessionRepository } from "@/backend/database/repositories/employee/AgentChatSessionRepository";
 import { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
@@ -110,8 +111,12 @@ function createPicaAcp(
     return { picaAcpService: null, picaBridge: null, picaAcpSessionPool: null };
   const picaBridge = new PicaBridge(settings.bridgeUrl);
   const sessionSettings = new AgentSessionSettingsRepository(parts.database);
+  const chatSessions = new AgentChatSessionRepository(parts.database);
   const picaAcpSessionPool = new PicaAcpSessionPool({
-    idleMinutes: async () => (await sessionSettings.read()).idleMinutes,
+    // The agent's own idle time wins; without one the instance setting applies (PAGE-376).
+    idleMinutes: async (agentId) =>
+      (await chatSessions.settings(agentId))?.idleMinutes ??
+      (await sessionSettings.read()).idleMinutes,
   });
   parts.resources?.setIdleReclaimer(() => picaAcpSessionPool.reclaimIdle());
   const picaAcpService = new PicaAcpService({

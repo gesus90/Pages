@@ -31,6 +31,12 @@ const DREAM_TIMEOUT_MILLISECONDS = 30 * 60_000;
 export interface AgentMemoryCaller {
   readonly agent: User;
   readonly employee: StoredAgentEmployee;
+  /**
+   * The call belongs to the life of a chat session, such as the summary
+   * before its restart (PAGE-376), and does not wait until the agent has no
+   * chat to work in.
+   */
+  readonly runsNow?: boolean;
 }
 
 /**
@@ -72,7 +78,8 @@ export interface AgentMemoryModel {
 
 /** What the model calls over the agent's own sessions use. */
 export interface AgentSessionMemoryModelDependencies {
-  readonly sessions: Pick<AgentEmployeeSessions, "run" | "job">;
+  readonly sessions: Pick<AgentEmployeeSessions, "run" | "job"> &
+    Partial<Pick<AgentEmployeeSessions, "whenOutOfChats">>;
   readonly messages: Pick<ChatSessionRepository, "messages">;
   readonly now?: () => Date;
   readonly wait?: (milliseconds: number) => Promise<void>;
@@ -82,6 +89,12 @@ export interface AgentSessionMemoryModelDependencies {
  * The model calls of the memory in sessions of the agent's own account,
  * with its own model: topic updates and summaries in its memory session,
  * the dream run in its dream session.
+ *
+ * @remarks
+ * Each call is a short run of its own that continues no earlier session
+ * (PAGE-376), and it starts only while the agent works in no chat; the
+ * summary before the restart of a chat session is the one call that does
+ * not wait.
  */
 export class AgentSessionMemoryModel implements AgentMemoryModel {
   private readonly dependencies: AgentSessionMemoryModelDependencies;
@@ -137,6 +150,13 @@ export class AgentSessionMemoryModel implements AgentMemoryModel {
       readonly timeoutMilliseconds: number;
     },
   ): Promise<string | null> {
+    // Background work runs only while the agent works in no chat (PAGE-376).
+    if (
+      caller.runsNow !== true &&
+      this.dependencies.sessions.whenOutOfChats &&
+      !(await this.dependencies.sessions.whenOutOfChats(caller.agent.id))
+    )
+      return null;
     const started = await this.dependencies.sessions.run({
       agent: caller.agent,
       employee: caller.employee,

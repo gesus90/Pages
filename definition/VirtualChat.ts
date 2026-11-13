@@ -12,6 +12,7 @@
  */
 
 import type { AgentEmployeeAccess } from "./AgentEmployee";
+import type { AgentChatSessionBrief } from "./AgentChatSession";
 import type { AgentMessageQueue } from "./AgentSessionLimits";
 import type { ConversationNotice } from "./Conversation";
 import type {
@@ -67,6 +68,8 @@ export interface VirtualParticipant {
   readonly accessLevel?: AgentEmployeeAccess;
   /** Whether the person marked the direct chat with this agent confidential (PAGE-305). */
   readonly isConfidential?: boolean;
+  /** The session of this agent in its direct chat with the person (PAGE-376); absent before the first message. */
+  readonly session?: AgentChatSessionBrief;
 }
 
 /** A group of participants with one shared history. */
@@ -100,6 +103,8 @@ export interface VirtualGroup {
   readonly agentMembers?: readonly VirtualParticipant[];
   /** Agents wrote the most they may in a row and wait for a person to allow it to go on (PAGE-311). */
   readonly isAgentPaused?: boolean;
+  /** The sessions of the agents of the group in this group, one per agent (PAGE-376). */
+  readonly agentSessions?: readonly AgentChatSessionBrief[];
 }
 
 /** A tool a participant used for an answer, for example `list_tickets · 3 offen`. */

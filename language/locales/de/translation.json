@@ -3960,7 +3960,6 @@
       "allMembers": "Alle deine Teilnehmer sind schon Mitglied dieser Gruppe."
     },
     "groupContext": {
-      "open": "Gruppenkontext",
       "title": "Gruppenkontext von {{name}}",
       "description": "Eine im Hintergrund gepflegte Zusammenfassung dieser Gruppe für ihre Mitglieder und Agents. Sie ist abgeleitet; verbindlich bleiben die Nachrichten selbst.",
       "loading": "Gruppenkontext wird geladen …",
@@ -4043,7 +4042,6 @@
       "noticeSuggested": "Vermutlich zuständig: {{names}}."
     },
     "replySettings": {
-      "open": "Wer antwortet?",
       "title": "Wer antwortet in „{{name}}“?",
       "description": "Legt fest, wer auf eine Nachricht ohne @-Erwähnung antwortet. Wer mit @ angesprochen wird, antwortet immer.",
       "mode": "Wer antwortet?",
@@ -4179,6 +4177,52 @@
       "empty": "Keine Domain freigegeben.",
       "remove": "Entfernen",
       "removeDomain": "Freigabe für {{domain}} entfernen"
+    },
+    "agentStatus": {
+      "working": "arbeitet …",
+      "ready": "bereit",
+      "resting": "ruht",
+      "restart_needed": "Neustart nötig",
+      "waiting_one": "{{count}} Nachricht wartet",
+      "waiting_other": "{{count}} Nachrichten warten"
+    },
+    "agentMenu": {
+      "hint": "Klick oder Rechtsklick für Sitzungs- und Agent-Funktionen",
+      "trigger": "Agent",
+      "triggerLabel": "Agent-Menü",
+      "section": "{{name}} · in diesem Chat",
+      "status": "Status: {{state}} · {{percent}} % Kontext",
+      "statusPlain": "Status: {{state}}",
+      "noSession": "Noch keine Sitzung in diesem Chat",
+      "stop": "Sitzung anhalten",
+      "summarize": "Sitzung zusammenfassen",
+      "restart": "Sitzung neu starten",
+      "agentSection": "Agent",
+      "settings": "Agent-Einstellungen …",
+      "settingsNote": "Sitzungen",
+      "logbook": "Lagebuch …",
+      "dreaming": "Dreaming, Lektionen & Rezepte …",
+      "soon": "folgt",
+      "openDirect": "Direkt-Chat mit {{name}} öffnen",
+      "mention": "{{name}} erwähnen",
+      "failed": "Die Sitzungsaktion ist fehlgeschlagen."
+    },
+    "groupMenu": {
+      "trigger": "Gruppe",
+      "label": "Gruppen-Menü",
+      "section": "Gruppe „{{name}}“",
+      "reply": "Wer antwortet? …",
+      "context": "Gruppenkontext …",
+      "sessions": "Sitzungen der Agenten in diesem Chat …",
+      "confidential": "Vertraulichkeit",
+      "members": "Mitglieder verwalten …"
+    },
+    "agentSessions": {
+      "title": "Sitzungen der Agenten in {{name}}",
+      "description": "Die Sitzung, die jeder Agent in diesem Chat führt. Einstellungen und die Sitzungen in anderen Chats stehen in den Agent-Einstellungen.",
+      "list": "Agents und ihre Sitzungen in diesem Chat",
+      "empty": "In diesem Chat nimmt kein Agent teil.",
+      "noSession": "Noch keine Sitzung"
     }
   },
   "workspaces": {
@@ -7517,7 +7561,8 @@
       "view": "Ansehen",
       "deactivate": "Deaktivieren",
       "activate": "Aktivieren",
-      "delete": "Agent löschen"
+      "delete": "Agent löschen",
+      "settings": "Agent-Einstellungen …"
     },
     "deletion": {
       "title": "{{name}} löschen?",
@@ -7866,7 +7911,8 @@
         "always": "Skript → immer {{agent}} wecken",
         "nonzero": "Skript → bei Fehler {{agent}} wecken",
         "zero": "Skript → bei Erfolg {{agent}} wecken"
-      }
+      },
+      "agentChat": "Agent · {{agent}} · Chat: {{chat}}"
     },
     "description": {
       "agent": {
@@ -7891,7 +7937,9 @@
         "nonzero": "Nur wenn es etwas findet, weckt es {{agent}} mit seinem Ergebnis.",
         "zero": "Nur wenn es fehlerfrei endet, weckt es {{agent}} mit seinem Ergebnis."
       },
-      "deleteAfter": "Danach löscht sich die Automation selbst."
+      "deleteAfter": "Danach löscht sich die Automation selbst.",
+      "chatDirect": "Das Ergebnis erscheint im Direkt-Chat mit {{chat}}.",
+      "chatGroup": "Das Ergebnis erscheint in der Gruppe „{{chat}}“."
     },
     "time": {
       "today": "heute {{time}}",
@@ -8030,7 +8078,10 @@
         "off": "Aus",
         "error": "Bei Fehler",
         "always": "Immer"
-      }
+      },
+      "chat": "Ziel-Chat (optional)",
+      "chatHint": "@Agentname = persönlicher Direkt-Chat, [[Chatname]] = Gruppe; leer = Direkt-Chat des Eigentümers mit dem Agenten",
+      "chatPlaceholder": "@Agentname oder [[Chatname]]"
     },
     "timeZone": {
       "placeholder": "Zeitzone wählen",
@@ -8059,7 +8110,8 @@
       "content": "Bitte den Skript-Inhalt eintragen.",
       "timeout": "Bitte ein gültiges Zeitlimit eintragen.",
       "plan": "Bitte einen Plan wählen.",
-      "notificationAgent": "Bitte den Agent für die Benachrichtigung wählen."
+      "notificationAgent": "Bitte den Agent für die Benachrichtigung wählen.",
+      "chat": "Bitte den Ziel-Chat als @Agentname oder [[Chatname]] eintragen oder leer lassen."
     },
     "errors": {
       "time_required": "Zum Einschalten eine neue Zeit in der Zukunft eintragen.",
@@ -8341,5 +8393,92 @@
       "observer_failed": "Der Beobachter hat kein verwertbares Ergebnis geliefert."
     },
     "unknownCode": "Der Beobachter-Aufruf ist fehlgeschlagen (Fehlercode {{code}}). Details stehen im Serverlog."
+  },
+  "agentSettings": {
+    "title": "{{name}} · Agent-Einstellungen",
+    "titleUnknown": "Agent-Einstellungen",
+    "description": "Chat-Sitzungen und Verhalten des Agents.",
+    "close": "Schließen",
+    "tabsLabel": "Bereiche der Agent-Einstellungen",
+    "tabs": {
+      "sessions": "Sitzungen",
+      "logbook": "Lagebuch",
+      "dreaming": "Dreaming",
+      "lessons": "Lektionen & Rezepte"
+    },
+    "soon": "Folgt mit der jeweiligen Funktion.",
+    "soonNote": "Lagebuch, Dreaming sowie Lektionen & Rezepte folgen mit der jeweiligen Funktion."
+  },
+  "agentSessions": {
+    "state": {
+      "working": "arbeitet",
+      "ready": "bereit",
+      "resting": "ruht",
+      "restart_needed": "Neustart nötig"
+    },
+    "loading": "Die Sitzungen werden geladen …",
+    "retry": "Erneut versuchen",
+    "empty": "Dieser Agent hat noch keine Sitzungen.",
+    "failure": {
+      "forbidden": "Dazu fehlt dir die Berechtigung.",
+      "notFound": "Den Agent oder seine Sitzung gibt es nicht mehr.",
+      "invalidInput": "Die Eingabe wurde nicht angenommen.",
+      "unavailable": "Die Sitzungen sind gerade nicht erreichbar. Versuche es gleich noch einmal."
+    },
+    "cards": {
+      "open": "Offene Sitzungen",
+      "openDetail": "{{active}} aktiv · {{resting}} ruhen",
+      "tokens": "Token heute",
+      "behavior": "Verhalten"
+    },
+    "settings": {
+      "idleLabel": "Ruhezustand nach",
+      "idleUnit": "Min.",
+      "idleInvalid": "Gib ganze Minuten von {{minimum}} bis {{maximum}} ein.",
+      "restartLabel": "Automatischer Neustart ab",
+      "restartUnit": "% Kontext",
+      "restartInvalid": "Gib einen Prozentwert von {{minimum}} bis {{maximum}} ein.",
+      "hint": "Ruhende Sitzungen werden geschlossen, nicht gelöscht, und beim nächsten Schreiben fortgesetzt.",
+      "readOnly": "Du kannst diese Einstellungen ansehen, aber nicht ändern.",
+      "saved": "Einstellungen gespeichert."
+    },
+    "tableLabel": "Chat-Sitzungen von {{name}}",
+    "columns": {
+      "chat": "Chat",
+      "kind": "Art",
+      "state": "Zustand",
+      "context": "Kontext",
+      "waiting": "Wartend",
+      "tokens": "Token",
+      "lastActivity": "Letzte Aktivität",
+      "actions": "Aktionen"
+    },
+    "thisChat": "dieser Chat",
+    "kind": {
+      "direct": "Direkt",
+      "group": "Gruppe",
+      "confidential": "vertraulich"
+    },
+    "chat": {
+      "direct": "Direkt · {{name}}",
+      "group": "Gruppe „{{name}}“"
+    },
+    "contextMeter": "Kontext-Füllstand von {{chat}}",
+    "tokens": {
+      "thousand": "{{value}} k",
+      "million": "{{value}} Mio."
+    },
+    "actions": {
+      "stop": "Anhalten",
+      "summarize": "Zusammenfassen",
+      "restart": "Neu starten"
+    },
+    "actionFor": {
+      "stop": "Sitzung anhalten: {{chat}}",
+      "summarize": "Sitzung zusammenfassen: {{chat}}",
+      "restart": "Sitzung neu starten: {{chat}}"
+    },
+    "cancel": "Abbrechen",
+    "save": "Speichern"
   }
 }

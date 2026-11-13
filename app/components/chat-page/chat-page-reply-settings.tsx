@@ -1,5 +1,4 @@
-import { MessageCircleQuestionMark } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
@@ -241,55 +240,49 @@ function ReplySettingsBody({
  * @remarks
  * Every member reads it; only the one who manages the group changes it, which
  * the server checks again. The model is not chosen here: the decision model of
- * the instance applies, which is set in Settings → Agents.
+ * the instance applies, which is set in Settings → Agents. The settings are
+ * read whenever the dialog opens; the group menu in the head of the chat opens
+ * it (PAGE-376).
  */
 export function ChatPageReplySettings({
   group,
+  isOpen,
+  onOpenChange,
 }: {
   readonly group: VirtualGroup;
+  readonly isOpen: boolean;
+  readonly onOpenChange: (isOpen: boolean) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
   const reader = useFetcher();
   const writer = useFetcher();
+  const { submit } = reader;
   const settings =
     readSettings(writer.data, group.id) ?? readSettings(reader.data, group.id);
 
-  function handleOpen(): void {
-    setIsOpen(true);
+  useEffect(() => {
+    if (!isOpen) return;
     const formData = new FormData();
     formData.set("intent", "reply-settings");
     formData.set("conversationId", group.id);
-    void reader.submit(formData, { method: "post" });
-  }
+    void submit(formData, { method: "post" });
+  }, [isOpen, group.id, submit]);
 
   return (
-    <>
-      <Button
-        aria-haspopup="dialog"
-        onClick={handleOpen}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        <MessageCircleQuestionMark aria-hidden="true" className="size-3.5" />
-        {t("chatPage.replySettings.open")}
-      </Button>
-      <Dialog onOpenChange={setIsOpen} open={isOpen}>
-        <DialogContent size="md">
-          <DialogTitle className="text-lg font-semibold">
-            {t("chatPage.replySettings.title", { name: group.name })}
-          </DialogTitle>
-          <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            {t("chatPage.replySettings.description")}
-          </DialogDescription>
-          <ReplySettingsBody
-            group={group}
-            settings={settings}
-            fetchers={{ reader, writer }}
-          />
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog onOpenChange={onOpenChange} open={isOpen}>
+      <DialogContent size="md">
+        <DialogTitle className="text-lg font-semibold">
+          {t("chatPage.replySettings.title", { name: group.name })}
+        </DialogTitle>
+        <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {t("chatPage.replySettings.description")}
+        </DialogDescription>
+        <ReplySettingsBody
+          group={group}
+          settings={settings}
+          fetchers={{ reader, writer }}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }

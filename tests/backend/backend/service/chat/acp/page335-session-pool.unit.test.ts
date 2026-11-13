@@ -210,7 +210,10 @@ it("keeps the default idle time when the settings cannot be read", async () => {
     turn: () => TURN_INPUT,
   });
   await session.close();
-  await vi.advanceTimersByTimeAsync(10 * 60_000);
+  // PAGE-376: a resting session keeps its process for 30 minutes by default.
+  await vi.advanceTimersByTimeAsync(29 * 60_000);
+  expect(natives[0]?.close).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(60_000);
   expect(natives[0]?.close).toHaveBeenCalledOnce();
 });
 
@@ -361,4 +364,74 @@ it("frees the chat when the start fails", async () => {
   expect(pool.describe()).toEqual([]);
   const session = await open();
   await session.close();
+});
+
+it("ends the process of each agent after its own idle time and keeps the other one's", async () => {
+  const natives: FakeNative[] = [];
+  const asked: string[] = [];
+  const pool = new PicaAcpSessionPool({
+    idleMinutes: async (agentId) => {
+      asked.push(agentId);
+      return agentId === "agent-1" ? 5 : 45;
+    },
+  });
+  for (const agentId of ["agent-1", "agent-2"]) {
+    const session = await pool.open({
+      session: { ...GROUP, agentId, chatSessionId: `chat-${agentId}` },
+      signal: new AbortController().signal,
+      observer: { started: () => undefined, identified: () => undefined },
+      listener: listener(),
+      start: async () => {
+        const native = fakeNative(Promise.resolve(completedTurn()));
+        natives.push(native);
+        return { session: native, instanceId: agentId };
+      },
+      turn: () => TURN_INPUT,
+    });
+    await session.close();
+  }
+  expect(asked).toEqual(["agent-1", "agent-2"]);
+  await vi.advanceTimersByTimeAsync(5 * 60_000);
+  expect(natives[0]?.close).toHaveBeenCalledOnce();
+  expect(natives[1]?.close).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(40 * 60_000);
+  expect(natives[1]?.close).toHaveBeenCalledOnce();
+  // The process is gone; the chat session itself is kept by Pages.
+  expect(pool.stateOf("chat-agent-1")).toBeNull();
+});
+
+it("tells whether a chat has a live process", async () => {
+  const { pool, open } = world();
+  expect(pool.stateOf(GROUP.chatSessionId)).toBeNull();
+  const session = await open();
+  expect(pool.stateOf(GROUP.chatSessionId)).toBe("busy");
+  await session.turn;
+  await session.close();
+  expect(pool.stateOf(GROUP.chatSessionId)).toBe("idle");
+});
+
+it("hands the agent session identifier to every job, so the resume after the idle time finds the newest state", async () => {
+  const { open } = world();
+  const identified: string[] = [];
+  const observer = {
+    started: () => undefined,
+    identified: (sessionId: string) => identified.push(sessionId),
+  };
+  const first = await open({
+    observer,
+    start: async (start) => {
+      // The native session reports its identifier to the observer of the pool.
+      start.observer.identified("native-session");
+      return {
+        session: fakeNative(Promise.resolve(completedTurn())),
+        instanceId: "instance",
+      };
+    },
+  });
+  await first.turn;
+  await first.close();
+  const second = await open({ observer });
+  await second.turn;
+  await second.close();
+  expect(identified).toEqual(["native-session", "native-session"]);
 });

@@ -78,6 +78,11 @@ export interface PicaToolsInput {
   readonly readConversationContext?:
     ((input: unknown) => Promise<unknown>) | undefined;
   /**
+   * Reads the messages of the chat this session belongs to, after a position
+   * (PAGE-376); without it `chat_lesen` is not offered.
+   */
+  readonly readOwnChat?: ((input: unknown) => Promise<unknown>) | undefined;
+  /**
    * Attaches a file of the chat's working folder to a ticket or a wiki page,
    * for an agent employee with host tools (PAGE-303); without it the tools
    * are not offered.

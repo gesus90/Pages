@@ -15,6 +15,7 @@ import {
   employeeAcpRunner,
   employeeRunMode,
 } from "../chat/acp/EmployeeAcpRunners";
+import { AgentChatActivity } from "./AgentChatActivity";
 import { AgentChatContext } from "./AgentChatContext";
 import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
 import { foldJobToolCalls } from "./AgentToolCallView";
@@ -43,6 +44,12 @@ import type { User } from "@/definition/User";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
 import type { AgentMemoryService } from "./AgentMemoryService";
 import type { AgentMemoryRecorder } from "./AgentMemoryRecorder";
+import type { AgentChatReader } from "./AgentChatReader";
+import type { AgentChatSessionLifecycle } from "./AgentChatSessionLifecycle";
+import type {
+  AgentChatToolGuard,
+  AgentChatToolScope,
+} from "./AgentChatToolGuard";
 import type { AgentMemoryAudience } from "./AgentMemorySharing";
 import type { AgentAccessEnvironmentService } from "./AgentAccessEnvironmentService";
 import type { AgentHostFiles } from "./AgentHostFiles";
@@ -120,7 +127,22 @@ export interface AgentEmployeeSessionDependencies {
   readonly conversationContext?: {
     readForAgent(agentId: string, input: unknown): Promise<unknown>;
   };
+  /**
+   * What happens to a chat session after its rounds, such as the restart at
+   * a full context (PAGE-376). A function, because it is wired after the
+   * sessions; `null` runs without it.
+   */
+  readonly lifecycle?: () => Pick<
+    AgentChatSessionLifecycle,
+    "restartIfNeeded" | "afterRound"
+  > | null;
+  /** Reads the own chat of a session for `chat_lesen` (PAGE-376); absent offers no such tool. */
+  readonly chatReader?: Pick<AgentChatReader, "read">;
+  /** Keeps a confidential chat inside its own session (PAGE-376); absent leaves the chat tools as they are. */
+  readonly toolGuard?: Pick<AgentChatToolGuard, "tools" | "contextReader">;
   readonly today?: () => string;
+  /** Waits between two looks of a background run at the chats of its agent; tests pass a fast one. */
+  readonly wait?: (milliseconds: number) => Promise<void>;
 }
 
 /** A message a person sends to an agent. */
@@ -143,6 +165,12 @@ export interface AgentJobRequest {
   readonly conversationLabel?: string;
   readonly text: string;
   readonly clientMessageId: string | null;
+  /**
+   * The message is a scheduled one, such as the work of an automation
+   * (PAGE-376): it waits for the running answer of its chat instead of
+   * joining it, so its own answer exists.
+   */
+  readonly isScheduled?: boolean;
   /** Ends the wait of the message in the queue (PAGE-304). */
   readonly signal?: AbortSignal;
   /** Called once when the message waits for a free place among the limits. */
@@ -180,6 +208,22 @@ function keptSessionOf(
     request.conversationLabel ??
     (person ? `Chat mit ${person.displayName}` : request.agent.displayName);
   return { conversation, revision: employee.revision };
+}
+
+/** A direct chat and a conversation are chats; every other purpose is a run of the agent's own. */
+function isChatPurpose(purpose: AgentConversationPurpose): boolean {
+  return purpose === "chat" || purpose === "conversation";
+}
+
+/** The chat of a job: what its tools are bound to and what `chat_lesen` reads. */
+interface AgentChatScope {
+  readonly scope: AgentChatToolScope;
+  /** The session and its chat; `null` for a run of the agent's own. */
+  readonly own: {
+    readonly sessionId: string;
+    readonly kind: "direct" | "group";
+    readonly chatId: string;
+  } | null;
 }
 
 function isSessionBusy(error: unknown): boolean {
@@ -235,6 +279,8 @@ export class AgentEmployeeSessions {
   private readonly context: AgentChatContext;
   /** Direct messages that wait for a free place, by direct chat. */
   private readonly waiting = new Map<string, WaitingMessage[]>();
+  /** The rounds the agents answer in chats now (PAGE-376). */
+  private readonly activity = new AgentChatActivity();
 
   public constructor(dependencies: AgentEmployeeSessionDependencies) {
     this.dependencies = dependencies;
@@ -427,6 +473,63 @@ export class AgentEmployeeSessions {
   }
 
   /**
+   * Hands a message to the running job of a chat of the agent (PAGE-376).
+   *
+   * @param agent - The agent whose job runs.
+   * @param target - The chat: the direct chat with a person or a conversation.
+   * @param text - The message as the agent reads it.
+   * @returns Whether the running job took it; `false` when none runs, so the
+   * message waits for its own turn.
+   */
+  public async steerChat(
+    agent: User,
+    target: {
+      readonly purpose: "chat" | "conversation";
+      readonly personId?: string;
+      readonly conversationId?: string;
+    },
+    text: string,
+  ): Promise<boolean> {
+    const acp = this.dependencies.acp;
+    if (!acp) return false;
+    const conversation = await this.dependencies.store
+      .conversations()
+      .find(
+        agent.id,
+        target.conversationId ?? target.personId ?? agent.id,
+        target.purpose,
+      );
+    if (!conversation) return false;
+    const steer = await acp.steer(agent, {
+      clientMessageId: null,
+      sessionId: conversation.sessionId,
+      text,
+      attachmentIds: [],
+    });
+    return steer !== null;
+  }
+
+  /** Whether the agent works in a chat now: a round runs or one waits for a place. */
+  public isWorkingInChat(agentId: string): boolean {
+    if (this.activity.isWorking(agentId)) return true;
+    return [...this.waiting.keys()].some((key) =>
+      key.startsWith(`${agentId}:`),
+    );
+  }
+
+  /**
+   * Waits until the agent works in no chat, for its background runs (PAGE-376).
+   *
+   * @returns Whether the agent is free; `false` after the longest wait.
+   */
+  public whenOutOfChats(agentId: string): Promise<boolean> {
+    return this.activity.whenIdle({
+      isBusy: () => this.isWorkingInChat(agentId),
+      ...(this.dependencies.wait ? { wait: this.dependencies.wait } : {}),
+    });
+  }
+
+  /**
    * Starts a job of an agent, or steers the message into its running one.
    *
    * @returns The started job with its session, or `null` for a steered message.
@@ -479,6 +582,7 @@ export class AgentEmployeeSessions {
     const { sessionId } = chatRequest;
     const steered = async (): Promise<boolean> =>
       request.purpose === "chat" &&
+      request.isScheduled !== true &&
       (await acp.steer(agent, chatRequest)) !== null;
     for (let attempt = 1; ; attempt += 1) {
       if (await steered()) {
@@ -490,17 +594,21 @@ export class AgentEmployeeSessions {
         onQueued: request.onQueued,
       });
       request.onAdmitted?.();
+      const endRound = this.beginRound(request);
       try {
         if (slot.hasWaited && (await steered())) {
+          endRound();
           slot.release();
           return null;
         }
+        await this.restartIfNeeded(request, sessionId);
         const assignment = await this.assignment(employee);
         const { brief, audience } = await this.brief(request, sessionId);
         const run = await this.employeeRun(agent, employee, {
           assignment,
           audience,
           keptSession: keptSessionOf(request),
+          chat: this.chatScope(request, sessionId),
         });
         const start = await acp.start({
           actor: agent,
@@ -510,19 +618,75 @@ export class AgentEmployeeSessions {
           employee: {
             ...run,
             onSettled: () => {
+              endRound();
               slot.release();
               this.recordAnswer(request, sessionId);
+              this.afterRound(request, sessionId);
             },
           },
         });
         return { start, sessionId };
       } catch (error: unknown) {
+        endRound();
         slot.release();
         if (!isSessionBusy(error) || attempt >= SESSION_BUSY_ATTEMPTS)
           throw error;
         await acp.settled(agent, sessionId);
       }
     }
+  }
+
+  /** Notes a round of a chat of the agent; a run of the agent's own is no chat round. */
+  private beginRound(request: AgentJobRequest): () => void {
+    return isChatPurpose(request.purpose)
+      ? this.activity.begin(request.agent.id)
+      : () => undefined;
+  }
+
+  /** Restarts a session that reached its context threshold before its next round (PAGE-376). */
+  private async restartIfNeeded(
+    request: AgentJobRequest,
+    sessionId: string,
+  ): Promise<void> {
+    if (!isChatPurpose(request.purpose)) return;
+    await this.dependencies.lifecycle?.()?.restartIfNeeded(
+      request.agent,
+      sessionId,
+    );
+  }
+
+  /** Records what the finished round used and restarts the session at a full context (PAGE-376). */
+  private afterRound(request: AgentJobRequest, sessionId: string): void {
+    const lifecycle = this.dependencies.lifecycle?.();
+    if (!lifecycle || !isChatPurpose(request.purpose)) return;
+    void withBackgroundDatabaseWork("agent_chat_round", () =>
+      lifecycle.afterRound(request.agent, sessionId),
+    ).catch((error: unknown) => {
+      logCaughtError("AgentEmployeeSessions", error);
+    });
+  }
+
+  /** The chat of a job as the chat tools and `chat_lesen` see it. */
+  private chatScope(
+    request: AgentJobRequest,
+    sessionId: string,
+  ): AgentChatScope {
+    const { purpose, person, conversationId } = request;
+    const scope: AgentChatToolScope = {
+      agentId: request.agent.id,
+      conversationId: purpose === "conversation" ? (conversationId ?? null) : null,
+    };
+    if (purpose === "conversation" && conversationId !== undefined)
+      return {
+        scope,
+        own: { sessionId, kind: "group", chatId: conversationId },
+      };
+    if (purpose === "chat" && person)
+      return {
+        scope,
+        own: { sessionId, kind: "direct", chatId: person.id },
+      };
+    return { scope, own: null };
   }
 
   private forgetWaiting(key: string, entry: WaitingMessage): void {
@@ -588,8 +752,9 @@ export class AgentEmployeeSessions {
           access: employee.access,
           personName: context.isChat ? (person?.displayName ?? null) : null,
         }),
-        // A continued agent session receives its history again (PAGE-305).
-        keepsContext: true,
+        // A continued agent session knows its chat; only a new or restarted one
+        // gets the summary and the last messages (PAGE-376).
+        keepsContext: false,
         prompt: {
           personName: person?.displayName ?? agent.displayName,
           interfaceLanguage: settings?.language ?? "de",
@@ -670,9 +835,11 @@ export class AgentEmployeeSessions {
       /** The chat whose rules of sharing `memory_search` applies (PAGE-305). */
       readonly audience: AgentMemoryAudience;
       readonly keptSession: PicaAcpEmployeeRun["keptSession"];
+      /** The chat the job runs in (PAGE-376). */
+      readonly chat: AgentChatScope;
     },
   ): Promise<NonNullable<PicaAcpStart["employee"]>> {
-    const { assignment, audience, keptSession } = job;
+    const { assignment, audience, keptSession, chat } = job;
     const { access } = employee;
     const hostServers =
       (await this.dependencies.accessEnvironment?.chatServers(
@@ -680,10 +847,11 @@ export class AgentEmployeeSessions {
         access,
       )) ?? [];
     const { hostFiles } = this.dependencies;
-    const agentChat = this.dependencies.agentChat?.() ?? null;
     return {
-      ...(agentChat ? { agentChat } : {}),
+      ...this.chatTools(agent, chat),
       ...(keptSession ? { keptSession } : {}),
+      // A run of the agent's own is short and carries no chat (PAGE-376).
+      ...(keptSession ? {} : { isFreshSession: true }),
       runner: employeeAcpRunner(assignment, access, hostServers),
       hasBrowser: hasHostTools(access),
       ...(hostFiles && hasHostTools(access)
@@ -704,18 +872,44 @@ export class AgentEmployeeSessions {
           audience,
         ),
       }),
-      ...this.contextReading(agent.id),
     };
   }
 
-  /** The reading of group contexts, bound to the agent's own account. */
-  private contextReading(
-    agentId: string,
-  ): Pick<NonNullable<PicaAcpStart["employee"]>, "readConversationContext"> {
-    const reader = this.dependencies.conversationContext;
-    if (!reader) return {};
+  /**
+   * The tools that read chats, bound to the chat of the job (PAGE-376): the
+   * Pages chat tools and the reading of group contexts keep a confidential
+   * chat inside its own session, and `chat_lesen` reads the job's own chat.
+   */
+  private chatTools(
+    agent: User,
+    chat: AgentChatScope,
+  ): Pick<
+    NonNullable<PicaAcpStart["employee"]>,
+    "agentChat" | "readConversationContext" | "readOwnChat"
+  > {
+    const { toolGuard, chatReader, conversationContext } = this.dependencies;
+    const agentChat = this.dependencies.agentChat?.() ?? null;
+    const readContext = conversationContext
+      ? (input: unknown): Promise<unknown> =>
+          conversationContext.readForAgent(agent.id, input)
+      : null;
+    const { own } = chat;
     return {
-      readConversationContext: (input) => reader.readForAgent(agentId, input),
+      ...(agentChat
+        ? { agentChat: toolGuard?.tools(agentChat, chat.scope) ?? agentChat }
+        : {}),
+      ...(readContext
+        ? {
+            readConversationContext:
+              toolGuard?.contextReader(readContext, chat.scope) ?? readContext,
+          }
+        : {}),
+      ...(chatReader && own
+        ? {
+            readOwnChat: (input: unknown) =>
+              chatReader.read(own, agent.displayName, input),
+          }
+        : {}),
     };
   }
 

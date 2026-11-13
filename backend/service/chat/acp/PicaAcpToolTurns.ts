@@ -28,6 +28,7 @@ export class PicaAcpToolTurns {
     | "agentDeletions"
     | "searchMemory"
     | "readConversationContext"
+    | "readOwnChat"
     | "attachHostFile"
     | "agentChat"
   >;
@@ -47,6 +48,7 @@ export class PicaAcpToolTurns {
       | "agentDeletions"
       | "searchMemory"
       | "readConversationContext"
+      | "readOwnChat"
       | "attachHostFile"
       | "agentChat"
     >,
@@ -85,6 +87,7 @@ export class PicaAcpToolTurns {
       agentDeletions: this.dependencies.agentDeletions,
       searchMemory: this.dependencies.searchMemory,
       readConversationContext: this.dependencies.readConversationContext,
+      readOwnChat: this.dependencies.readOwnChat,
       attachHostFile: this.dependencies.attachHostFile,
       agentChat: this.dependencies.agentChat,
     }).describe({ includeAdministrator: await this.isAdministrator(userId) });
@@ -191,6 +194,9 @@ export class PicaAcpToolTurns {
               readConversationContext:
                 this.dependencies.readConversationContext,
             }
+          : {}),
+        ...(this.dependencies.readOwnChat
+          ? { readOwnChat: this.dependencies.readOwnChat }
           : {}),
         ...(this.dependencies.attachHostFile
           ? { attachHostFile: this.dependencies.attachHostFile }

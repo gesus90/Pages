@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -78,10 +78,9 @@ function observer(
 function renderContext(): void {
   render(
     <I18nextProvider i18n={i18n}>
-      <ChatPageGroupContext group={GROUP} />
+      <ChatPageGroupContext group={GROUP} isOpen onOpenChange={vi.fn()} />
     </I18nextProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Group context" }));
 }
 
 function contextWithData(
@@ -134,4 +133,28 @@ it("shows no failure notice without observer status", () => {
   contextWithData({});
   renderContext();
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("reads the context whenever the dialog opens and not while it is closed", () => {
+  function dialog(isOpen: boolean): React.ReactElement {
+    return (
+      <I18nextProvider i18n={i18n}>
+        <ChatPageGroupContext
+          group={GROUP}
+          isOpen={isOpen}
+          onOpenChange={vi.fn()}
+        />
+      </I18nextProvider>
+    );
+  }
+  const { rerender } = render(dialog(false));
+  expect(fetcher.submit).not.toHaveBeenCalled();
+  rerender(dialog(true));
+  expect(fetcher.submit).toHaveBeenCalledTimes(1);
+  const [formData, options] = fetcher.submit.mock.calls[0] ?? [];
+  expect(Object.fromEntries(formData?.entries() ?? [])).toEqual({
+    intent: "group-context",
+    conversationId: "group-1",
+  });
+  expect(options).toEqual({ method: "post" });
 });

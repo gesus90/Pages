@@ -75,30 +75,58 @@ function CandidateList({
   );
 }
 
+/**
+ * The dashed plus after the member chips of a group, which opens the choice
+ * of the member dialog (PAGE-259).
+ */
+export function ChatPageAddMemberButton({
+  onClick,
+}: {
+  readonly onClick: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <button
+      aria-haspopup="dialog"
+      aria-label={t("chatPage.addMember")}
+      className="inline-flex size-7 items-center justify-center rounded-full border-[1.5px] border-dashed border-current text-muted-foreground hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+      onClick={onClick}
+      title={t("chatPage.addMember")}
+      type="button"
+    >
+      <Plus aria-hidden="true" className="size-3.5" />
+    </button>
+  );
+}
+
 interface ChatPageMemberDialogProps {
   readonly group: VirtualGroup;
   /** The person's own participants. */
   readonly participants: readonly VirtualParticipant[];
   readonly onAdd: (groupId: string, participantId: string) => void;
+  readonly isOpen: boolean;
+  readonly onOpenChange: (isOpen: boolean) => void;
 }
 
 /**
- * The dashed plus in the head of a group and the searchable choice it opens
+ * The searchable choice behind the dashed plus in the head of a group
  * (PAGE-259): the person's own participants that are not yet members.
  *
  * @remarks
  * Choosing one adds it at once and stores it; the dialog closes and the
  * chips show the new member. When everyone is a member already, the choice
  * says so. Below the choice the dialog lists the domains released for
- * embedding in the group's conversation (PAGE-298).
+ * embedding in the group's conversation (PAGE-298). The plus and the entry
+ * "Mitglieder verwalten" of the group menu open it (PAGE-376).
  */
 export function ChatPageMemberDialog({
   group,
   participants,
   onAdd,
+  isOpen,
+  onOpenChange,
 }: ChatPageMemberDialogProps): React.ReactElement {
   const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const available = participants.filter(
     (participant) => !group.memberIds.includes(participant.id),
@@ -108,7 +136,7 @@ export function ChatPageMemberDialog({
   );
 
   function handleOpenChange(open: boolean): void {
-    setIsOpen(open);
+    onOpenChange(open);
     if (!open) setQuery("");
   }
 
@@ -118,51 +146,39 @@ export function ChatPageMemberDialog({
   }
 
   return (
-    <>
-      <button
-        aria-haspopup="dialog"
-        aria-label={t("chatPage.addMember")}
-        className="inline-flex size-7 items-center justify-center rounded-full border-[1.5px] border-dashed border-current text-muted-foreground hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-        onClick={() => setIsOpen(true)}
-        title={t("chatPage.addMember")}
-        type="button"
-      >
-        <Plus aria-hidden="true" className="size-3.5" />
-      </button>
-      <Dialog onOpenChange={handleOpenChange} open={isOpen}>
-        <DialogContent size="sm">
-          <DialogTitle className="text-lg font-semibold">
-            {t("chatPage.memberDialog.title", { name: group.name })}
-          </DialogTitle>
-          <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            {t("chatPage.memberDialog.description")}
-          </DialogDescription>
-          <label className="relative mt-4 block">
-            <span className="sr-only">{t("chatPage.memberDialog.search")}</span>
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              className="h-10 w-full rounded-xl border border-border bg-surface pr-3 pl-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("chatPage.memberDialog.search")}
-              type="search"
-              value={query}
-            />
-          </label>
-          <div className="mt-3 max-h-[50dvh] overflow-y-auto">
-            <CandidateList
-              candidates={candidates}
-              hasCandidates={available.length > 0}
-              onChoose={handleChoose}
-            />
-          </div>
-          <div className="mt-4 border-t border-border pt-4 empty:hidden">
-            <ChatPageOpenedEmbedDomains />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog onOpenChange={handleOpenChange} open={isOpen}>
+      <DialogContent size="sm">
+        <DialogTitle className="text-lg font-semibold">
+          {t("chatPage.memberDialog.title", { name: group.name })}
+        </DialogTitle>
+        <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {t("chatPage.memberDialog.description")}
+        </DialogDescription>
+        <label className="relative mt-4 block">
+          <span className="sr-only">{t("chatPage.memberDialog.search")}</span>
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <input
+            className="h-10 w-full rounded-xl border border-border bg-surface pr-3 pl-9 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("chatPage.memberDialog.search")}
+            type="search"
+            value={query}
+          />
+        </label>
+        <div className="mt-3 max-h-[50dvh] overflow-y-auto">
+          <CandidateList
+            candidates={candidates}
+            hasCandidates={available.length > 0}
+            onChoose={handleChoose}
+          />
+        </div>
+        <div className="mt-4 border-t border-border pt-4 empty:hidden">
+          <ChatPageOpenedEmbedDomains />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

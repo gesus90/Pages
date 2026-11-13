@@ -18,7 +18,7 @@ export const AGENT_SESSION_LIMIT_MAXIMUM = 64;
  * Minutes a chat session of an agent rests after its last round before it
  * ends and releases its process (PAGE-335).
  */
-export const AGENT_CHAT_IDLE_DEFAULT_MINUTES = 10;
+export const AGENT_CHAT_IDLE_DEFAULT_MINUTES = 30;
 /** The longest idle time of a resting chat session, one day. */
 export const AGENT_CHAT_IDLE_MAXIMUM_MINUTES = 1440;
 

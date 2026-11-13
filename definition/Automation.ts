@@ -228,11 +228,23 @@ export type AutomationTrigger =
   | AutomationWeeklyTrigger
   | AutomationEventTrigger;
 
-/** Wakes an agent with an instruction in its own automation session. */
+/** The longest target chat of an agent action. */
+export const AUTOMATION_TARGET_CHAT_LENGTH = 200;
+
+/**
+ * Wakes an agent with an instruction in the session of a chat (PAGE-376).
+ *
+ * @remarks
+ * `chat` names the target chat: `@Agentname` for the direct chat of the
+ * owner of the automation with that agent, `[[Chatname]]` for a group the
+ * owner and the agent belong to. Without it the direct chat of the owner
+ * with the agent applies. The result appears there as a message of the agent.
+ */
 export interface AutomationAgentAction {
   readonly type: "agent";
   readonly agentId: string;
   readonly instruction: string;
+  readonly chat?: string | null;
 }
 
 /** Hands the exit code and the end of the output of a script to an agent. */

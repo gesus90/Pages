@@ -26,7 +26,9 @@ export type DraftIntervalMode = "every" | "weekly";
  * @remarks
  * Numbers stay text while typed; `sharing` is `private`, `project:<id>` or
  * `group:<id>`; an empty reference means "none" or "all". `content` is
- * `null` when the account may not read the script.
+ * `null` when the account may not read the script. `chat` is the target chat
+ * of an agent action as typed (`@Agentname` or `[[Chatname]]`); empty means
+ * the direct chat of the owner with the agent.
  */
 export interface AutomationDraft {
   readonly name: string;
@@ -53,6 +55,7 @@ export interface AutomationDraft {
   readonly actionType: AutomationActionType;
   readonly agentId: string;
   readonly instruction: string;
+  readonly chat: string;
   readonly workspaceId: string;
   readonly interpreterProfileId: string;
   readonly content: string | null;
@@ -113,6 +116,7 @@ export function emptyDraft(
     actionType: "agent",
     agentId: firstAgent,
     instruction: "",
+    chat: "",
     workspaceId: options.workspaces[0]?.id ?? "",
     interpreterProfileId: options.interpreterProfiles[0]?.id ?? "",
     content: "",
@@ -184,6 +188,7 @@ function actionFields(action: AutomationAction): Partial<AutomationDraft> {
         actionType: "agent",
         agentId: action.agentId,
         instruction: action.instruction,
+        chat: action.chat ?? "",
       };
     case "plan":
       return { actionType: "plan", actionPlanId: action.planId };

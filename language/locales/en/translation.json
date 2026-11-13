@@ -3960,7 +3960,6 @@
       "allMembers": "All your participants are already members of this group."
     },
     "groupContext": {
-      "open": "Group context",
       "title": "Group context of {{name}}",
       "description": "A summary of this group kept in the background for its members and agents. It is derived; the messages themselves stay binding.",
       "loading": "Loading the group context …",
@@ -4043,7 +4042,6 @@
       "noticeSuggested": "Probably responsible: {{names}}."
     },
     "replySettings": {
-      "open": "Who answers?",
       "title": "Who answers in “{{name}}”?",
       "description": "Sets who answers a message without an @ mention. Whoever is mentioned with @ always answers.",
       "mode": "Who answers?",
@@ -4179,6 +4177,52 @@
       "empty": "No domain released.",
       "remove": "Remove",
       "removeDomain": "Remove the release for {{domain}}"
+    },
+    "agentStatus": {
+      "working": "working …",
+      "ready": "ready",
+      "resting": "resting",
+      "restart_needed": "restart needed",
+      "waiting_one": "{{count}} message waiting",
+      "waiting_other": "{{count}} messages waiting"
+    },
+    "agentMenu": {
+      "hint": "Click or right-click for session and agent functions",
+      "trigger": "Agent",
+      "triggerLabel": "Agent menu",
+      "section": "{{name}} · in this chat",
+      "status": "Status: {{state}} · {{percent}} % context",
+      "statusPlain": "Status: {{state}}",
+      "noSession": "No session in this chat yet",
+      "stop": "Stop session",
+      "summarize": "Summarize session",
+      "restart": "Restart session",
+      "agentSection": "Agent",
+      "settings": "Agent settings …",
+      "settingsNote": "Sessions",
+      "logbook": "Logbook …",
+      "dreaming": "Dreaming, lessons & recipes …",
+      "soon": "soon",
+      "openDirect": "Open direct chat with {{name}}",
+      "mention": "Mention {{name}}",
+      "failed": "The session action failed."
+    },
+    "groupMenu": {
+      "trigger": "Group",
+      "label": "Group menu",
+      "section": "Group “{{name}}”",
+      "reply": "Who answers? …",
+      "context": "Group context …",
+      "sessions": "Sessions of the agents in this chat …",
+      "confidential": "Confidentiality",
+      "members": "Manage members …"
+    },
+    "agentSessions": {
+      "title": "Sessions of the agents in {{name}}",
+      "description": "The session each agent keeps in this chat. Settings and the sessions in other chats are in the agent settings.",
+      "list": "Agents and their sessions in this chat",
+      "empty": "No agent takes part in this chat.",
+      "noSession": "No session yet"
     }
   },
   "workspaces": {
@@ -7517,7 +7561,8 @@
       "view": "View",
       "deactivate": "Deactivate",
       "activate": "Activate",
-      "delete": "Delete agent"
+      "delete": "Delete agent",
+      "settings": "Agent settings …"
     },
     "deletion": {
       "title": "Delete {{name}}?",
@@ -7866,7 +7911,8 @@
         "always": "Script → always wake {{agent}}",
         "nonzero": "Script → wake {{agent}} on errors",
         "zero": "Script → wake {{agent}} on success"
-      }
+      },
+      "agentChat": "Agent · {{agent}} · Chat: {{chat}}"
     },
     "description": {
       "agent": {
@@ -7891,7 +7937,9 @@
         "nonzero": "Only when it finds something does it wake {{agent}} with its result.",
         "zero": "Only when it ends without errors does it wake {{agent}} with its result."
       },
-      "deleteAfter": "Then the automation deletes itself."
+      "deleteAfter": "Then the automation deletes itself.",
+      "chatDirect": "The result appears in the direct chat with {{chat}}.",
+      "chatGroup": "The result appears in the group “{{chat}}”."
     },
     "time": {
       "today": "today {{time}}",
@@ -8030,7 +8078,10 @@
         "off": "Off",
         "error": "On errors",
         "always": "Always"
-      }
+      },
+      "chat": "Target chat (optional)",
+      "chatHint": "@Agentname = personal direct chat, [[Chatname]] = group; empty = the owner's direct chat with the agent",
+      "chatPlaceholder": "@Agentname or [[Chatname]]"
     },
     "timeZone": {
       "placeholder": "Choose a time zone",
@@ -8059,7 +8110,8 @@
       "content": "Please enter the script content.",
       "timeout": "Please enter a valid timeout.",
       "plan": "Please choose a plan.",
-      "notificationAgent": "Please choose the agent for the notification."
+      "notificationAgent": "Please choose the agent for the notification.",
+      "chat": "Please enter the target chat as @Agentname or [[Chatname]], or leave it empty."
     },
     "errors": {
       "time_required": "Enter a new time in the future to switch it on.",
@@ -8341,5 +8393,92 @@
       "observer_failed": "The observer gave no usable result."
     },
     "unknownCode": "The observer call failed (error code {{code}}). Details are in the server log."
+  },
+  "agentSettings": {
+    "title": "{{name}} · Agent settings",
+    "titleUnknown": "Agent settings",
+    "description": "Chat sessions and behavior of the agent.",
+    "close": "Close",
+    "tabsLabel": "Sections of the agent settings",
+    "tabs": {
+      "sessions": "Sessions",
+      "logbook": "Logbook",
+      "dreaming": "Dreaming",
+      "lessons": "Lessons & recipes"
+    },
+    "soon": "Follows with the respective feature.",
+    "soonNote": "Logbook, dreaming, and lessons & recipes follow with the respective feature."
+  },
+  "agentSessions": {
+    "state": {
+      "working": "working",
+      "ready": "ready",
+      "resting": "resting",
+      "restart_needed": "restart needed"
+    },
+    "loading": "Loading the sessions …",
+    "retry": "Try again",
+    "empty": "This agent has no sessions yet.",
+    "failure": {
+      "forbidden": "You are not allowed to do this.",
+      "notFound": "The agent or its session no longer exists.",
+      "invalidInput": "The entry was not accepted.",
+      "unavailable": "The sessions are not available right now. Try again shortly."
+    },
+    "cards": {
+      "open": "Open sessions",
+      "openDetail": "{{active}} active · {{resting}} resting",
+      "tokens": "Tokens today",
+      "behavior": "Behavior"
+    },
+    "settings": {
+      "idleLabel": "Rest after",
+      "idleUnit": "min.",
+      "idleInvalid": "Enter whole minutes from {{minimum}} to {{maximum}}.",
+      "restartLabel": "Restart automatically from",
+      "restartUnit": "% context",
+      "restartInvalid": "Enter a percentage from {{minimum}} to {{maximum}}.",
+      "hint": "Resting sessions are closed, not deleted, and continue with the next message.",
+      "readOnly": "You can view these settings but not change them.",
+      "saved": "Settings saved."
+    },
+    "tableLabel": "Chat sessions of {{name}}",
+    "columns": {
+      "chat": "Chat",
+      "kind": "Type",
+      "state": "State",
+      "context": "Context",
+      "waiting": "Waiting",
+      "tokens": "Tokens",
+      "lastActivity": "Last activity",
+      "actions": "Actions"
+    },
+    "thisChat": "this chat",
+    "kind": {
+      "direct": "Direct",
+      "group": "Group",
+      "confidential": "confidential"
+    },
+    "chat": {
+      "direct": "Direct · {{name}}",
+      "group": "Group “{{name}}”"
+    },
+    "contextMeter": "Context fill of {{chat}}",
+    "tokens": {
+      "thousand": "{{value}} k",
+      "million": "{{value}} M"
+    },
+    "actions": {
+      "stop": "Stop",
+      "summarize": "Summarize",
+      "restart": "Restart"
+    },
+    "actionFor": {
+      "stop": "Stop session: {{chat}}",
+      "summarize": "Summarize session: {{chat}}",
+      "restart": "Restart session: {{chat}}"
+    },
+    "cancel": "Cancel",
+    "save": "Save"
   }
 }

@@ -10,7 +10,10 @@ import { SimulatedConversationDecision } from "@/backend/agents/simulation/Simul
 import { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
+import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
+import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
@@ -18,10 +21,15 @@ import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import { ConversationError } from "@/backend/error/ConversationError";
+import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
 import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
 import { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPrivacyService";
+import { AgentChatReader } from "@/backend/service/employee/AgentChatReader";
+import { AgentChatSessionLifecycle } from "@/backend/service/employee/AgentChatSessionLifecycle";
+import { AgentChatSessionService } from "@/backend/service/employee/AgentChatSessionService";
+import { AgentChatToolGuard } from "@/backend/service/employee/AgentChatToolGuard";
 import { AgentHostFiles } from "@/backend/service/employee/AgentHostFiles";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
 import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
@@ -67,6 +75,8 @@ import type { AgentMemoryModel } from "@/backend/service/employee/AgentMemoryMod
 import type { TaskService } from "@/backend/service/TaskService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
+import type { PicaAcpSessionPool } from "@/backend/service/chat/acp/PicaAcpSessionPool";
+import type { AgentChatService } from "@/backend/service/conversation/AgentChatService";
 import type { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
@@ -89,6 +99,8 @@ export interface EmployeeApplicationServices extends ConversationApplicationServ
   /** The readable profiles of agents for administrators and leaders (PAGE-308). */
   readonly agentProfileReadService: AgentProfileReadService;
   readonly agentEmployeeSessions: AgentEmployeeSessions;
+  /** The chat sessions of agents: the popup "Agent-Einstellungen" and the head of a chat (PAGE-376). */
+  readonly agentChatSessionService: AgentChatSessionService;
   /** The limits of concurrent chat sessions of agents (PAGE-304). */
   readonly agentSessionLimitService: AgentSessionLimitService;
   readonly agentLearningService: AgentLearningService;
@@ -107,6 +119,8 @@ export interface EmployeeServicesInput {
   readonly cache: ServerCache;
   /** Pica's ACP path, which agent sessions share; `null` without ACP chat. */
   readonly acp: PicaAcpService | null;
+  /** The live processes of the chat sessions (PAGE-376); `null` without ACP chat. */
+  readonly pool?: PicaAcpSessionPool | null;
   /** The ticket and wiki attachments the file tools of an agent with host tools use (PAGE-303). */
   readonly hostFiles?: AgentHostFileStores;
   /**
@@ -154,6 +168,7 @@ function startBackground(
     readonly store: EmployeeStore;
     readonly learning: AgentLearningService;
     readonly sessions: AgentEmployeeSessions;
+    readonly chatPoster: AgentChatService | null;
     readonly hasModel: boolean;
   },
 ): void {
@@ -164,6 +179,7 @@ function startBackground(
     database: input.database,
     automationService: input.automations,
     sessions: parts.sessions,
+    ...(parts.chatPoster ? { chatPoster: parts.chatPoster } : {}),
   });
 }
 
@@ -173,6 +189,7 @@ function createLearning(
   parts: {
     readonly dependencies: AgentLearningDependencies;
     readonly sessions: AgentEmployeeSessions;
+    readonly chatPoster: AgentChatService | null;
     readonly isBackgroundOwner: boolean;
     readonly hasModel: boolean;
   },
@@ -183,6 +200,7 @@ function createLearning(
       store: parts.dependencies.store,
       learning,
       sessions: parts.sessions,
+      chatPoster: parts.chatPoster,
       hasModel: parts.hasModel,
     });
   return learning;
@@ -220,6 +238,7 @@ function createChatDirectory(parts: {
   readonly users: UserRepository;
   readonly messages: ChatSessionRepository;
   readonly sessions: AgentEmployeeSessions;
+  readonly agentSessions: AgentChatSessionService;
   readonly conversations: ConversationApplicationServices;
 }): ChatDirectoryService {
   const { sessions, conversations } = parts;
@@ -240,6 +259,9 @@ function createChatDirectory(parts: {
     waitingInJob: (agent, sessionId) => sessions.waitingInJob(agent, sessionId),
     queuedAgentMessages: (agentId, personId) =>
       sessions.queuedMessages(agentId, personId),
+    agentSessions: parts.agentSessions,
+    queuedFor: (conversationId, agentId) =>
+      replies.queuedFor(conversationId, agentId),
   });
 }
 
@@ -287,6 +309,7 @@ function createMemoryParts(parts: {
           run: (request) => parts.sessions().run(request),
           job: (agent, sessionId, jobId) =>
             parts.sessions().job(agent, sessionId, jobId),
+          whenOutOfChats: (agentId) => parts.sessions().whenOutOfChats(agentId),
         },
         messages,
       });
@@ -384,6 +407,7 @@ interface EmployeeParts {
   readonly sessionSettings: AgentSessionSettingsRepository;
   readonly slots: AgentSessionSlots;
   readonly sessions: AgentEmployeeSessions;
+  readonly agentSessions: AgentChatSessionService;
   readonly conversations: ConversationApplicationServices;
   readonly learning: AgentLearningService;
   readonly privacy: AgentChatPrivacyService;
@@ -415,6 +439,7 @@ function assembleEmployeeServices(
       models,
     }),
     agentEmployeeSessions: sessions,
+    agentChatSessionService: parts.agentSessions,
     agentSessionLimitService: new AgentSessionLimitService(
       parts.sessionSettings,
       parts.slots,
@@ -427,6 +452,7 @@ function assembleEmployeeServices(
       users: parts.users,
       messages: parts.messages,
       sessions,
+      agentSessions: parts.agentSessions,
       conversations: parts.conversations,
     }),
     chatGroupService: new ChatGroupService({ store }),
@@ -469,6 +495,14 @@ export function createEmployeeServices(
   let contextReader: ConversationContextReader | null = null;
   const { accessEnvironment, sessionSettings, slots } =
     createSessionGates(database);
+  const lifecycle = new AgentChatSessionLifecycle({
+    store,
+    messages,
+    acp: input.acp,
+    pool: input.pool ?? null,
+    acpSessions: new ChatAcpSessionRepository(database),
+    summaries: () => memoryModel,
+  });
   const sessions = new AgentEmployeeSessions({
     store,
     users,
@@ -492,6 +526,17 @@ export function createEmployeeServices(
           ? contextReader.readForAgent(agentId, request)
           : Promise.reject(new ConversationError("not_found")),
     },
+    lifecycle: () => lifecycle,
+    chatReader: new AgentChatReader({
+      messages,
+      conversationMessages: new ConversationMessageRepository(database),
+      directory: new ConversationDirectory({
+        users,
+        lookups: new WikiLookupRepository(database),
+        jobTitles: () => store.identities().jobTitles(),
+      }),
+    }),
+    toolGuard: new AgentChatToolGuard({ store }),
   });
   const isBackgroundOwner = !isLocalSessionOwner() && !isPagesRunsProcess();
   const conversations = createConversationServices({
@@ -512,8 +557,30 @@ export function createEmployeeServices(
   const learning = createLearning(input, {
     dependencies: { store, users, memory, model: memoryModel, activity },
     sessions,
+    chatPoster: conversations.agentChatService,
     isBackgroundOwner,
     hasModel: input.acp !== null || simulation.isActive,
+  });
+  const agentSessions = new AgentChatSessionService({
+    store,
+    users,
+    lifecycle,
+    pool: input.pool ?? null,
+    isWorking: (agent, sessionId) => sessions.isWorking(agent, sessionId),
+    waitingMessages: async (agent, session) =>
+      session.kind === "direct"
+        ? (await sessions.waitingInJob(agent, session.sessionId)).size +
+          sessions.queuedMessages(agent.id, session.chatId).length
+        : conversations.conversationAgentReplies.queuedFor(
+            session.chatId,
+            agent.id,
+          ),
+    isMember: async (conversationId, userId) =>
+      (await new ConversationRepository(database).findForMember(
+        conversationId,
+        userId,
+      )) !== null,
+    defaultIdleMinutes: async () => (await sessionSettings.read()).idleMinutes,
   });
   return assembleEmployeeServices({
     input,
@@ -529,6 +596,7 @@ export function createEmployeeServices(
     sessionSettings,
     slots,
     sessions,
+    agentSessions,
     conversations,
     learning,
     privacy,

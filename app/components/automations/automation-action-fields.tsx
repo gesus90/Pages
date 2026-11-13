@@ -2,6 +2,7 @@ import { useId } from "react";
 
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
+import { AUTOMATION_TARGET_CHAT_LENGTH } from "@/definition/Automation";
 
 import { withSavedChoice } from "./automation-event-fields";
 import { ChoiceRow, FieldSelect, FormField } from "./automation-form-controls";
@@ -30,7 +31,7 @@ export function agentChoices(
   }));
 }
 
-/** The agent and the instruction it receives. */
+/** The agent, the instruction it receives and the chat the result goes to. */
 function AgentFields({
   draft,
   change,
@@ -40,6 +41,7 @@ function AgentFields({
 }: SectionProps): React.ReactElement {
   const { t } = context;
   const id = useId();
+  const chatId = useId();
   return (
     <>
       <FieldSelect
@@ -59,6 +61,20 @@ function AgentFields({
           onChange={(event) =>
             change({ instruction: event.currentTarget.value })
           }
+        />
+      </FormField>
+      <FormField
+        label={t("automations.fields.chat")}
+        htmlFor={chatId}
+        hint={t("automations.fields.chatHint")}
+      >
+        <Input
+          id={chatId}
+          maxLength={AUTOMATION_TARGET_CHAT_LENGTH}
+          placeholder={t("automations.fields.chatPlaceholder")}
+          readOnly={isReadOnly}
+          value={draft.chat}
+          onChange={(event) => change({ chat: event.currentTarget.value })}
         />
       </FormField>
     </>

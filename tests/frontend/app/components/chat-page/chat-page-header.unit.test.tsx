@@ -15,7 +15,10 @@ const fetcher = vi.hoisted(() => ({
   state: "idle",
   submit: vi.fn(),
 }));
-vi.mock("react-router", () => ({ useFetcher: () => fetcher }));
+vi.mock("react-router", () => ({
+  useFetcher: () => fetcher,
+  useRevalidator: () => ({ state: "idle", revalidate: vi.fn() }),
+}));
 
 const i18n = createI18n("en");
 const ADA = participant("ada", { name: "Ada", role: "Planner" });
@@ -142,12 +145,17 @@ it("offers no stop button in a group", () => {
   expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
 });
 
-it("mutes a group", () => {
+it("mutes a group from the group menu", () => {
   const { onToggleMute } = renderHeader({
     opened: groupOpened([ADA]),
     isMuted: false,
   });
-  fireEvent.click(screen.getByRole("button", { name: "Mute" }));
+  expect(screen.queryByRole("button", { name: "Mute" })).toBeNull();
+  fireEvent.pointerDown(screen.getByRole("button", { name: "Group menu" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+  fireEvent.click(screen.getByRole("menuitem", { name: "Mute" }));
   expect(onToggleMute).toHaveBeenCalledTimes(1);
 });
 

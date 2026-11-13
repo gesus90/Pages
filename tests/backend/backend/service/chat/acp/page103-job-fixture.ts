@@ -20,6 +20,7 @@ import type {
   PicaBridgeTurn,
 } from "@/backend/service/chat/acp/PicaBridge";
 import type { PicaAcpJobDependencies } from "@/backend/service/chat/acp/PicaAcpJob";
+import type { PicaTurnBrief } from "@/backend/service/chat/acp/PicaAcpContent";
 import type { PicaAcpProvider } from "@/backend/service/chat/acp/PicaAcpRunners";
 import type { StoredChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { ChatJobEvent } from "@/definition/ChatJob";
@@ -113,10 +114,10 @@ export class PicaJobWorld {
     resumeSessionId: string | null = null,
     administration: Partial<
       Pick<PicaAcpJobDependencies, "adminTools" | "tools" | "agentBrowsers">
-    > & { readonly actor?: User } = {},
+    > & { readonly actor?: User; readonly brief?: PicaTurnBrief } = {},
     pool?: PicaAcpJobPool,
   ) {
-    const { actor = OWNER, ...overrides } = administration;
+    const { actor = OWNER, brief, ...overrides } = administration;
     const agent = {
       ...ASSIGNMENT,
       connection: { ...ASSIGNMENT.connection, provider },
@@ -170,7 +171,7 @@ export class PicaJobWorld {
         run: { runner, options: runner.runOptions(agent) },
         directory: "/synthetic",
         message: { id: "question", text: "Read", attachments: [] },
-        brief: {
+        brief: brief ?? {
           instructions: "Synthetic",
           prompt: {
             personName: "Owner",

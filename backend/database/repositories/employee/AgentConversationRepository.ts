@@ -68,6 +68,46 @@ export class AgentConversationRepository {
   }
 
   /**
+   * Finds the group a name stands for among the groups all given accounts
+   * belong to (PAGE-376); the newest when several carry the name.
+   *
+   * @param name - The name of the group, compared without regard to case.
+   * @param memberIds - The accounts that must all be members.
+   * @returns The ID of the group, or `null`.
+   */
+  public async findGroupByName(
+    name: string,
+    memberIds: readonly string[],
+  ): Promise<string | null> {
+    const [first = "", second = first] = memberIds;
+    const rows = await this.database.query(
+      `
+        SELECT conversations.id
+        FROM conversations
+        WHERE conversations.kind = 'group'
+            AND lower(conversations.name) = lower($name)
+            AND EXISTS (
+                SELECT 1
+                FROM conversation_members
+                WHERE conversation_members.conversation_id = conversations.id
+                    AND conversation_members.user_id = $first_member
+            )
+            AND EXISTS (
+                SELECT 1
+                FROM conversation_members
+                WHERE conversation_members.conversation_id = conversations.id
+                    AND conversation_members.user_id = $second_member
+            )
+        ORDER BY conversations.last_activity_at DESC
+        LIMIT 1;
+      `,
+      { name, first_member: first, second_member: second },
+    );
+    const [row] = rows;
+    return row ? readTextColumn(row, 0, "id") : null;
+  }
+
+  /**
    * Returns the conversation, creating it and its chat session owned by the
    * agent when it does not exist yet.
    *

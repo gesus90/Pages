@@ -154,6 +154,7 @@ export async function startMcpWorkspace(
     database: context.database,
     cache: context.serverCache,
     acp: chat.picaAcpService,
+    pool: chat.picaAcpSessionPool,
     workspaceRoot: picaSettings.workspaceRoot,
     observer: context.agents,
     hostFiles: {

@@ -1,9 +1,7 @@
-import { NotebookText } from "lucide-react";
-import { useState } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
-import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -189,50 +187,43 @@ function ContextBody({
  * whether it is current, behind or unavailable.
  *
  * @remarks
- * The server answers only a member of the group. The context is read when
- * the dialog opens; it is derived and never replaces the messages.
+ * The server answers only a member of the group. The context is read whenever
+ * the dialog opens; it is derived and never replaces the messages. The group
+ * menu in the head of the chat opens it (PAGE-376).
  */
 export function ChatPageGroupContext({
   group,
+  isOpen,
+  onOpenChange,
 }: {
   readonly group: VirtualGroup;
+  readonly isOpen: boolean;
+  readonly onOpenChange: (isOpen: boolean) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
   const loader = useFetcher();
+  const { submit } = loader;
   const view = readView(loader.data, group.id);
 
-  function handleOpen(): void {
-    setIsOpen(true);
+  useEffect(() => {
+    if (!isOpen) return;
     const formData = new FormData();
     formData.set("intent", "group-context");
     formData.set("conversationId", group.id);
-    void loader.submit(formData, { method: "post" });
-  }
+    void submit(formData, { method: "post" });
+  }, [isOpen, group.id, submit]);
 
   return (
-    <>
-      <Button
-        aria-haspopup="dialog"
-        onClick={handleOpen}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        <NotebookText aria-hidden="true" className="size-3.5" />
-        {t("chatPage.groupContext.open")}
-      </Button>
-      <Dialog onOpenChange={setIsOpen} open={isOpen}>
-        <DialogContent size="md">
-          <DialogTitle className="text-lg font-semibold">
-            {t("chatPage.groupContext.title", { name: group.name })}
-          </DialogTitle>
-          <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            {t("chatPage.groupContext.description")}
-          </DialogDescription>
-          <ContextBody view={view} isLoading={loader.state !== "idle"} />
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog onOpenChange={onOpenChange} open={isOpen}>
+      <DialogContent size="md">
+        <DialogTitle className="text-lg font-semibold">
+          {t("chatPage.groupContext.title", { name: group.name })}
+        </DialogTitle>
+        <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {t("chatPage.groupContext.description")}
+        </DialogDescription>
+        <ContextBody view={view} isLoading={loader.state !== "idle"} />
+      </DialogContent>
+    </Dialog>
   );
 }

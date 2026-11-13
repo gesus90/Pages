@@ -46,6 +46,8 @@ export interface PicaAcpJobDependencies {
   readonly searchMemory?: (query: string) => Promise<unknown>;
   /** `read_conversation_context` of an agent employee (PAGE-296); absent for Pica. */
   readonly readConversationContext?: (input: unknown) => Promise<unknown>;
+  /** `chat_lesen` of an agent employee: its own chat after a position (PAGE-376); absent for Pica. */
+  readonly readOwnChat?: (input: unknown) => Promise<unknown>;
   /** Attaches a file of the job's working folder for an agent employee with host tools (PAGE-303). */
   readonly attachHostFile?: PicaHostFileAttach;
   /** The chat tools of an agent employee (PAGE-311); absent for Pica. */

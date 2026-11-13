@@ -17,6 +17,13 @@ import type {
 } from "./AgentMemoryService";
 import type { AgentMemoryAudience } from "./AgentMemorySharing";
 
+/**
+ * The newest messages of a chat a new or restarted session gets even when a
+ * summary covers them, so it never starts without the end of the chat
+ * (PAGE-376).
+ */
+const RECENT_MESSAGES = 10;
+
 /** The chat a job of an agent answers in. */
 export interface AgentChatTarget {
   readonly agentId: string;
@@ -68,8 +75,9 @@ export function chatOfTarget(target: AgentChatTarget): AgentMemoryChat | null {
 
 /**
  * Builds what a session of an agent knows about its chat (PAGE-305): the
- * history after the summary, the summary itself, the topics of `MEMORY.md`
- * and the related archive entries its chat may receive.
+ * history after the summary and at least its last messages (PAGE-376), the
+ * summary itself, the topics of `MEMORY.md` and the related archive entries
+ * its chat may receive.
  */
 export class AgentChatContext {
   private readonly dependencies: AgentChatContextDependencies;
@@ -155,7 +163,15 @@ export class AgentChatContext {
         // A topic already loaded with MEMORY.md is not repeated.
         (match) => !entries.some((entry) => entry.title === match.title),
       ),
-      history: boundary < 0 ? transcript : transcript.slice(boundary + 1),
+      history:
+        boundary < 0
+          ? transcript
+          : transcript.slice(
+              Math.min(
+                boundary + 1,
+                Math.max(0, transcript.length - RECENT_MESSAGES),
+              ),
+            ),
       // A stale boundary never hides the transcript behind a summary.
       summary: stored && boundary >= 0 ? stored.summary : null,
     };

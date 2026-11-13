@@ -1,6 +1,7 @@
-import { ChatBrowserPanel } from "@/app/components/chat/browser/chat-browser-panel";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ChatBrowserPanel } from "@/app/components/chat/browser/chat-browser-panel";
 import { Button } from "@/app/components/ui/button";
 
 import { ChatPageComposer } from "./chat-page-composer";
@@ -69,9 +70,12 @@ function AgentPausedBanner({
 function ConversationFoot({
   page,
   opened,
+  mentionRef,
 }: {
   readonly page: ChatPageState;
   readonly opened: OpenedConversation;
+  /** Receives what the menu of an agent in the head uses to mention it (PAGE-376). */
+  readonly mentionRef: React.RefObject<((username: string) => void) | null>;
 }): React.ReactElement {
   const { t } = useTranslation();
   const sending = useVoiceSending(page.selection, page.voiceMaximumMs);
@@ -118,6 +122,7 @@ function ConversationFoot({
         voice={
           hasVoice ? { sending, maximumMs: page.voiceMaximumMs } : undefined
         }
+        mentionRef={mentionRef}
       />
     </div>
   );
@@ -132,6 +137,7 @@ function ChatPageConversation({
   const { t } = useTranslation();
   const { opened } = page;
   const confidential = useConfidential(opened);
+  const mentionRef = useRef<((username: string) => void) | null>(null);
   if (!opened)
     return (
       <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -153,6 +159,8 @@ function ChatPageConversation({
         onStop={page.stop}
         onStopAgent={page.stopGroupAgent}
         onAddMember={page.addMember}
+        onSelect={page.select}
+        onMention={(username) => mentionRef.current?.(username)}
         isMuted={page.isMuted}
         onToggleMute={page.toggleMute}
         confidential={confidential}
@@ -178,6 +186,7 @@ function ChatPageConversation({
         key={conversationKey(opened)}
         page={page}
         opened={opened}
+        mentionRef={mentionRef}
       />
     </ChatPageDropZone>
   );
