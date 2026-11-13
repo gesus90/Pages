@@ -211,11 +211,9 @@ describe("PAGE-369 private snapshot verification", () => {
     await expect(snapshots.open(snapshot, ASSET)).rejects.toMatchObject({
       code: "parameter_asset_unavailable",
     });
-    expect(logEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({ code: "ELOOP" }),
-      }),
-    );
+    expect(vi.mocked(logEvent).mock.calls.at(-1)?.[0]).toMatchObject({
+      error: { code: "ELOOP" },
+    });
   });
 });
 
