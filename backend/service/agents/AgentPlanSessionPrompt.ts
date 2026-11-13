@@ -115,6 +115,7 @@ export async function buildPlanSessionInput(
     mcp: terms.mcp,
     resumeSessionId,
     resourceContext: {
+      planId: node.run.planId,
       runId: node.run.id,
       stepId: node.step.step.id,
       sessionScopeId: node.sessionGroup ?? node.step.step.id,

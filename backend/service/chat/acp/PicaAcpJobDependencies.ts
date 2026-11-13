@@ -18,6 +18,10 @@ import type { PicaHostFileAttach } from "../PicaHostFileTools";
 
 /** What a job needs from Pages; every write path is an existing one. */
 export interface PicaAcpJobDependencies {
+  /** Copies a conversation reply's file lines before workspace deletion. */
+  readonly consumeAnswer?: (answer: string) => Promise<void>;
+  /** Removes the workspace after the native session and all answer consumers settled. */
+  readonly workspaceClosed?: () => Promise<void>;
   readonly adminTools?: PicaAdminService;
   readonly agentBrowsers?: AgentBrowserService | undefined;
   readonly agentDeletions?: AgentDeletionService;

@@ -67,7 +67,10 @@ export interface PicaAcpServiceDependencies extends PicaAcpJobDependencies {
     assignment: ResolvedAgentAssignment,
   ) => Promise<void>;
   /** The chat sessions agent employees keep between rounds (PAGE-335); absent opens one per job. */
-  readonly pool?: Pick<PicaAcpSessionPool, "open" | "close">;
+  readonly pool?: Pick<
+    PicaAcpSessionPool,
+    "open" | "close" | "closeForWorkspace"
+  >;
 }
 
 /** A sent message after validation. */
@@ -88,6 +91,8 @@ export interface PicaAcpRequest {
  * every turn and tool call, and Pica's switch does not admit it.
  */
 export interface PicaAcpEmployeeRun {
+  /** Stages conversation file attachments while the workspace still exists. */
+  readonly consumeAnswer?: (answer: string) => Promise<void>;
   readonly runner: PicaAcpRunner;
   /** Browser access derived from the stored employee level, never model input. */
   readonly hasBrowser?: boolean;
@@ -232,12 +237,19 @@ export class PicaAcpService {
       input.actor,
       input.request.sessionId,
     );
+    const release = this.dependencies.workspace.reserve(session.id);
+    let hasLaunched = false;
     const launch = (): Promise<ChatJobStart> =>
-      this.gate(session.id, () => this.launch(input, session.id, run));
-    // Pica's switch admits Pica's jobs only; an agent employee has its own state.
-    return this.dependencies.admit && !input.employee
-      ? this.dependencies.admit(launch)
-      : launch();
+      this.gate(session.id, () => this.launch(input, session.id, run, release));
+    try {
+      const started = await (this.dependencies.admit && !input.employee
+        ? this.dependencies.admit(launch)
+        : launch());
+      hasLaunched = true;
+      return started;
+    } finally {
+      if (!hasLaunched) await release();
+    }
   }
 
   /**
@@ -418,6 +430,11 @@ export class PicaAcpService {
     }
   }
 
+  /** Periodic recovery of workspaces left by a crash, independent of chat deletion. */
+  public async runMaintenance(): Promise<void> {
+    await this.dependencies.workspace.sweep();
+  }
+
   private cancel(userId: string, sessionId: string): void {
     const entry = this.running.get(sessionId);
     if (entry?.job.userId !== userId) return;
@@ -457,9 +474,19 @@ export class PicaAcpService {
     input: PicaAcpStart,
     sessionId: string,
     run: PicaAcpRun,
+    releaseWorkspace: () => Promise<void>,
   ): Promise<ChatJobStart> {
     const { actor, agent } = input;
-    const dependencies = this.jobDependencies(input.employee);
+    const dependencies = {
+      ...this.jobDependencies(input.employee),
+      consumeAnswer: input.employee?.consumeAnswer,
+      workspaceClosed: async () => {
+        // A pooled process still owns its cwd inode. End it before unlinking;
+        // the saved native session ID resumes it in the recreated directory.
+        await this.dependencies.pool?.closeForWorkspace(sessionId);
+        await releaseWorkspace();
+      },
+    };
     await dependencies.requireCurrent?.(actor.id, agent);
     if (this.deleting.has(sessionId)) throw new ChatError("sessionMissing");
     if (this.running.has(sessionId))
@@ -505,12 +532,12 @@ export class PicaAcpService {
         pool: this.keptSession(input, { sessionId, run, directory }),
       },
     );
+    const started = await this.dependencies.jobs.find(actor.id, id);
+    if (started === null) throw new ChatError("sessionMissing");
     this.register(sessionId, job, {
       admission,
       onSettled: input.employee?.onSettled,
     });
-    const started = await this.dependencies.jobs.find(actor.id, id);
-    if (started === null) throw new ChatError("sessionMissing");
     return { job: started, messageId: message.id };
   }
 

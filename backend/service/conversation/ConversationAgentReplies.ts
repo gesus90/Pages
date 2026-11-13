@@ -54,6 +54,8 @@ export interface ConversationAgentRequest {
   readonly prompt: string;
   /** The text of the answered message alone. */
   readonly lastMessage: string;
+  /** Copies file attachments before the agent job removes its temporary workspace. */
+  readonly consumeAnswer?: (answer: string) => Promise<void>;
   /** Stops the answer, also while it waits for a free place (PAGE-304). */
   readonly signal?: AbortSignal;
   /** Called when the answer waits because the limits of concurrent sessions are reached. */

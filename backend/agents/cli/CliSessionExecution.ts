@@ -42,6 +42,7 @@ import {
   picaNativeRunner,
   planAcpLaunch,
 } from "./CliAcpLaunch";
+import { prepareSharedAgentEnvironment } from "./AgentSharedEnvironment";
 import { prepareClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import { captureOwnedNamespace } from "./CliOwnedNamespace";
 import { acpSessionSecrets, createAcpRedactor } from "./CliAcpRedaction";
@@ -311,6 +312,8 @@ export class CliSessionExecution implements PlanSessionRunner {
     const { store, locator } = this.dependencies;
     const home = await store.prepare(id, provider);
     try {
+      if (home.sharedEnvironment)
+        await prepareSharedAgentEnvironment(home.sharedEnvironment);
       const pinned = locations?.get(providerToolIds(provider)[0])?.file;
       const status = await this.readStatus(provider, home, signal, pinned);
       this.dependencies.tools?.recordAuthentication(
@@ -576,8 +579,12 @@ export class CliSessionExecution implements PlanSessionRunner {
     const prepare =
       this.dependencies.claudeHome ?? prepareClaudePlanSessionHome;
     return prepare(start.home, {
+      planId: input.resourceContext?.planId ?? "",
       runId: input.resourceContext?.runId ?? "",
-      scopeId: input.resourceContext?.sessionScopeId ?? "",
+      scopeId:
+        input.resourceContext?.sessionScopeId ??
+        input.resourceContext?.stepId ??
+        "",
       sourceRunId: input.resourceContext?.sourceRunId,
     });
   }

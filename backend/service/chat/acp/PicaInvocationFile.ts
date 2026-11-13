@@ -9,6 +9,7 @@ import {
   openSync,
   readSync,
   realpathSync,
+  rmdirSync,
   unlinkSync,
   writeSync,
 } from "node:fs";
@@ -275,7 +276,7 @@ export function picaHelperPath(file: string): string {
   return path.join(path.dirname(file), HELPER_NAME);
 }
 
-/** Removes the credential and the helper; workspace deletion later reclaims the empty directory. */
+/** Removes the credential, helper and their private invocation directory. */
 export function removePicaInvocationFile(
   expectedWorkspace: string,
   file: string,
@@ -283,7 +284,7 @@ export function removePicaInvocationFile(
   const { workspace, name } = descriptorPaths(file);
   if (workspace !== expectedWorkspace)
     throw new Error("Invalid Pica invocation workspace");
-  withHandle(openDirectory(workspace), (parent) =>
+  withHandle(openDirectory(workspace), (parent) => {
     withHandle(openPrivateChild(parent, name), (directory) => {
       const entry = lstatSync(child(parent, name));
       const opened = fstatSync(directory);
@@ -291,8 +292,9 @@ export function removePicaInvocationFile(
         throw new Error("Pica invocation directory changed");
       for (const entryName of [DESCRIPTOR_NAME, HELPER_NAME])
         unlinkEntry(directory, entryName);
-    }),
-  );
+    });
+    rmdirSync(child(parent, name));
+  });
 }
 
 /** Reads a bounded descriptor only for its independently expected destination. */

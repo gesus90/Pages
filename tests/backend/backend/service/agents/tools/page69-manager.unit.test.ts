@@ -5,6 +5,8 @@ import {
   isAgentToolVersionSupported,
 } from "@/backend/service/agents/tools/AgentToolRegistry";
 
+import type { AgentToolDefinition } from "@/backend/service/agents/tools/AgentToolRegistry";
+
 import { TOOL_ADMIN, toolLocation, toolWorld } from "./page69-tool-world";
 
 beforeEach(() => {
@@ -274,4 +276,18 @@ it("installs the official Antigravity binary distribution without an npm package
     installedVersion: "1.4.4",
     approvedVersion: "1.4.4",
   });
+});
+
+it("defers release cleanup while a native session uses a tool", async () => {
+  const world = toolWorld();
+  const prune = vi.fn<(tool: AgentToolDefinition) => Promise<void>>(
+    async () => undefined,
+  );
+  world.storage.prune = prune;
+  world.manager.supervisor.reserve("worker", ["claude"]);
+  await world.manager.runMaintenance();
+  expect(prune.mock.calls.some(([tool]) => tool.id === "claude")).toBe(false);
+  world.manager.supervisor.release("worker");
+  await world.manager.runMaintenance();
+  expect(prune.mock.calls.some(([tool]) => tool.id === "claude")).toBe(true);
 });

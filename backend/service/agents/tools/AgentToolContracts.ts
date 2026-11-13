@@ -43,6 +43,7 @@ export interface AgentToolStorage {
   previous(tool: AgentToolDefinition): Promise<AgentToolLocation | null>;
   discard(location: AgentToolLocation): Promise<void>;
   remove(tool: AgentToolDefinition): Promise<void>;
+  prune?(tool: AgentToolDefinition): Promise<void>;
   readEnabled(): Promise<readonly AgentToolId[]>;
   writeEnabled(ids: readonly AgentToolId[]): Promise<void>;
 }

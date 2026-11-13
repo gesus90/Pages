@@ -33,6 +33,8 @@ export interface CliHome {
   readonly config: string;
   readonly work: string;
   /** Operator-bound contexts can retain the provider's dedicated XDG locations. */
+  /** Instance-wide packages and caches, mounted writable without sharing credentials. */
+  readonly sharedEnvironment?: string;
   readonly xdgConfig?: string;
   readonly xdgCache?: string;
 }

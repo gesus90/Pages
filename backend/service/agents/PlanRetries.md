@@ -97,29 +97,27 @@ The Claude plan profiles keep their session (`persistSession: true`,
 may use it. Pica's chat profile is unchanged.
 
 A plan session never writes into the connection's own Claude folder. Inside
-the bubblewrap namespace it gets a private home below the connection:
-`plan-sessions/<runId>/<sha256(scope)>/{home,claude,work}`. The scope is the
-node, or the group or loop whose members share one native session, so another
-node, run, workspace, user or Pica chat cannot read its transcripts. Only the
-connection's one `.credentials.json` is bound into that home, writable so a
-refreshed login reaches the connection; settings, other transcripts, user MCP
-servers and every other credential stay hidden. A missing or linked login
-fails closed. Session ID, transcripts, working directory and connection are
-the same on every attempt, so the resume finds its files.
+bubblewrap it gets a private home below the connection at
+`plan-homes/<planId>/<sha256(scope)>/{home,claude,work}`. The scope is the node,
+or the group or loop whose members share one native session. Runs of the same
+plan and scope, including native recovery, reuse that path. Other plans and
+scopes and Pica chats cannot reach it. Only the connection's one
+`.credentials.json` is bound into the home, writable so a refreshed login
+reaches the connection. Other connection settings and credentials stay hidden.
+A missing or linked login fails closed.
 
-A recovery that resumes natively starts a linked run with a new run ID. Its
-first session of a node moves that node's transcripts from the failed source
-run, so the history has exactly one owner and the source run offers no second
-recovery.
+pnpm, npm and Playwright use the instance-wide `data/shared-env/`, mounted
+writable separately. The repository-pinned pnpm is provisioned there before
+any session starts; stores, package-manager versions, caches and browsers stay
+outside session homes, also when several workers use them at once.
 
-Retention and resume lifetime belong together (PAGE-255): a run keeps its
-transcripts, whether it succeeded, stopped, failed or paused, until its plan
-starts a genuinely new run. Stopping, pausing, resuming, recovering and
-repairing delete nothing. The new run's start removes the earlier runs of the
-same plan in the background (`AgentPlanRunPurge`), and their transcript
-folders go with their run records. A resume after that reports
-`resume_unavailable` instead of a silent new session. A connection's removal
-deletes its transcripts with it.
+Periodic maintenance empties completed/cancelled plan homes after their
+resources have settled, without requiring another plan start. Stable directory
+paths remain reusable. Failed and paused runs retain the transcripts needed for
+native recovery. Deleting the plan queues removal of its homes; removing a
+connection removes its homes as well. Legacy `plan-sessions/<runId>` folders
+are swept across every connection once their run and recovery have ended; a
+native recovery adopts its legacy scope into the stable home when needed.
 
 On a host without bubblewrap nothing separates folders at all, so such a
 session keeps the connection's own home, which holds the login; Claude Code's

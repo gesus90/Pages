@@ -262,6 +262,7 @@ export class AgentPlanDecisionModel {
           mcp: null,
           purpose: "decision",
           resourceContext: {
+            planId: request.run.planId,
             runId: request.run.id,
             stepId: request.decision.id,
           },

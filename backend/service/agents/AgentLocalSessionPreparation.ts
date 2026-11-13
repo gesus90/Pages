@@ -91,6 +91,7 @@ export class AgentLocalSessionPreparation {
             : { ...launch.mcp, token: bearer },
         resumeSessionId: launch.resumeSessionId,
         resourceContext: {
+          planId: run.planId,
           runId: run.id,
           stepId: step.step.id,
           sessionScopeId: launch.sessionScopeId,

@@ -271,3 +271,46 @@ it("releases the stored files of a repeated answer", async () => {
     "attachment-1",
   ]);
 });
+
+it("copies and binds workspace files inside the job callback before its workspace disappears", async () => {
+  const { runner, answer, dependencies, messages } = fixture();
+  let workspaceExists = true;
+  vi.mocked(dependencies.agentFiles.select).mockImplementation(async () => {
+    if (!workspaceExists) throw new Error("Workspace already removed");
+    return {
+      text: "Answer",
+      lines: ["Answer", "![File](file:/workspace/report.txt)"],
+      files: [
+        {
+          path: "/workspace/report.txt",
+          name: "report.txt",
+          mimeType: "text/plain",
+          sizeBytes: 3,
+          lineIndex: 1,
+        },
+      ],
+    };
+  });
+  vi.mocked(dependencies.attachments.stage).mockImplementation(async () => {
+    expect(workspaceExists).toBe(true);
+    return staged;
+  });
+  answer.mockImplementation(
+    async (
+      request: import("@/backend/service/conversation/ConversationAgentReplies").ConversationAgentRequest,
+    ) => {
+      await request.consumeAnswer?.("Answer");
+      workspaceExists = false;
+      return "Answer";
+    },
+  );
+  const result = await runner.run(job);
+  expect(result?.id).toBe("answer");
+  expect(workspaceExists).toBe(false);
+  expect(dependencies.attachments.bind).toHaveBeenCalledWith(
+    expect.anything(),
+    [staged.id],
+  );
+  expect(dependencies.attachments.stage).toHaveBeenCalledOnce();
+  expect(messages.insert).toHaveBeenCalledOnce();
+});

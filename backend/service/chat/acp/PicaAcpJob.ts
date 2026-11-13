@@ -104,6 +104,7 @@ export interface PicaAcpJobSpecification {
 export class PicaAcpJob {
   public readonly id: string;
   public readonly userId: string;
+  private isSessionClosed = false;
   private readonly dependencies: PicaAcpJobDependencies;
   private readonly specification: PicaAcpJobSpecification;
   private readonly journal: PicaAcpJournal;
@@ -679,17 +680,25 @@ export class PicaAcpJob {
     this.credential.close();
     await attemptPicaCloseoutStep(() => this.answerOutput.discard());
     await attemptPicaCloseoutStep(() => this.steering.close());
-    await attemptPicaCloseoutStep(() =>
-      savePicaAcpSession(
-        this.dependencies,
-        this.specification,
-        this.acpSessionId,
-      ),
-    );
+
     await attemptPicaCloseoutStep(async () => {
       await this.usage.idle();
       await this.journal.record({ kind: "end", ...outcome });
       await this.journal.drain();
+    });
+    await attemptPicaCloseoutStep(async () => {
+      await savePicaAcpSession(
+        this.dependencies,
+        this.specification,
+        this.acpSessionId,
+      );
+      const messages = await this.dependencies.messages.messages(
+        this.specification.sessionId,
+      );
+      const answer = messages.at(-1);
+      if (outcome.state === "completed" && answer?.role === "assistant")
+        await this.dependencies.consumeAnswer?.(answer.content);
+      if (this.isSessionClosed) await this.dependencies.workspaceClosed?.();
     });
     await attemptPicaCloseoutStep(() =>
       this.dependencies.jobs.finish(this.id, outcome.state, outcome.errorCode),
@@ -710,9 +719,13 @@ export class PicaAcpJob {
   private async closeSession(): Promise<void> {
     const session = this.session;
     this.session = null;
-    if (session === null) return;
+    if (session === null) {
+      this.isSessionClosed = true;
+      return;
+    }
     await attemptPicaCloseoutStep(async () => {
-      await session.close();
+      const closed = await session.close();
+      this.isSessionClosed = closed.isConfirmed;
     });
   }
 }

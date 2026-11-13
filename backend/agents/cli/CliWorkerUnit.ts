@@ -10,7 +10,7 @@ import {
   logEvent,
 } from "@/backend/logging/Logger";
 
-import { createCliEnvironment } from "./CliEnvironment";
+import { createCliRequestEnvironment } from "./CliEnvironment";
 
 import type {
   CliSessionRequest,
@@ -339,14 +339,7 @@ export class CliWorkerUnits {
   }> {
     await this.limitSlice();
     const name = `${UNIT_PREFIX}${instanceId}-${randomBytes(4).toString("hex")}.service`;
-    const environment = {
-      ...createCliEnvironment(
-        request.home,
-        request.provider,
-        request.toolFile ?? request.file,
-      ),
-      ...request.environment,
-    };
+    const environment = createCliRequestEnvironment(request);
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const file = path.join(this.directory, `${name}.env`);
     await writeFile(

@@ -46,6 +46,7 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
   readonly acceptanceInstruction?: string;
   /** Ownership retained across queued starts and group turns; contains no credentials. */
   readonly resourceContext?: {
+    readonly planId?: string;
     readonly runId: string;
     readonly stepId: string;
     readonly sessionScopeId?: string;

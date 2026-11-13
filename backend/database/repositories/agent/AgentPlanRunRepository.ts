@@ -172,7 +172,7 @@ export class AgentPlanRunRepository {
     if (!reference)
       throw new Error("Snapshot must be synchronized before its transaction.");
     const [plan] = await transaction.query(
-      "SELECT revision FROM agent_plans WHERE id = $id;",
+      "SELECT revision FROM agent_plans WHERE id = $id FOR UPDATE;",
       { id: run.planId },
     );
     if (!plan || Number(plan[0]) !== run.planRevision)

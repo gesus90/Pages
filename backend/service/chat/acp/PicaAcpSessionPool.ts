@@ -1,7 +1,7 @@
+import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { AGENT_CHAT_IDLE_DEFAULT_MINUTES } from "@/definition/AgentSessionLimits";
-
 import { PicaAcpPooledListener } from "./PicaAcpPooledListener";
 
 import type { ContentBlock } from "@agentclientprotocol/sdk";
@@ -134,6 +134,17 @@ export class PicaAcpSessionPool {
       return this.reuse(existing, existing.native, opening);
     if (existing) await this.end(existing);
     return this.startNew(opening);
+  }
+
+  /** Ends the native cwd owner before workspace deletion, refusing an unconfirmed closeout. */
+  public async closeForWorkspace(chatSessionId: string): Promise<void> {
+    const entry = this.entries.get(chatSessionId);
+    if (!entry) return;
+    entry.isEnding = true;
+    this.clearTimer(entry);
+    const closed = await entry.native?.close();
+    if (closed && !closed.isConfirmed) throw new AcpCleanupUnconfirmedError();
+    this.forget(entry);
   }
 
   /** Ends the session of a chat, such as before the chat is deleted. */

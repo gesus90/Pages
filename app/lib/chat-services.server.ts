@@ -1,5 +1,10 @@
 import path from "node:path";
 
+import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
+import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
+import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
+import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
+
 import { AgentBrowserRuntimeFiles } from "@/backend/service/chat/browser/AgentBrowserRuntimeFiles";
 import { AgentBrowserSessions } from "@/backend/service/chat/browser/AgentBrowserSessions";
 import { AgentBrowserService } from "@/backend/service/chat/browser/AgentBrowserService";
@@ -135,6 +140,7 @@ function createPicaAcp(
       parts.pica?.requireCurrent(userId, assignment) ?? Promise.resolve(),
     pool: picaAcpSessionPool,
   });
+  startWorkspaceMaintenance(picaAcpService);
   parts.sessions.setDeletionEffects({
     before: (userId, sessionId) => picaAcpService.forget(userId, sessionId),
     after: (sessionId) => picaAcpService.cleanup(sessionId),
@@ -376,4 +382,20 @@ function createBrowserServices(input: ChatServicesInput): {
   });
   if (input.protectedOrigin) adminTools.protectOrigin(input.protectedOrigin);
   return { adminTools, agentBrowsers, agentBrowserSessions };
+}
+
+/** Only the API owner runs Pica jobs and may sweep its process-local reservations. */
+function startWorkspaceMaintenance(service: PicaAcpService): void {
+  if (isLocalSessionOwner() || isPagesRunsProcess()) return;
+  const maintenance = new WikiMaintenanceScheduler(
+    { runMaintenance: () => service.runMaintenance() },
+    60_000,
+  );
+  maintenance.start();
+  registerShutdownTask(
+    async () => {
+      maintenance.stop();
+    },
+    { step: "pica_workspace_maintenance" },
+  );
 }

@@ -260,10 +260,20 @@ export class ConversationReplyRunner {
     this.controllers.set(controllerKey, controller);
     this.setWorking(job, true);
     try {
+      let posted: { readonly message: ConversationMessage | null } | undefined;
       const text = await this.askWhenFree(job, agent.user, {
         accounts,
         signal: controller.signal,
+        consumeAnswer: async (answer) => {
+          posted = {
+            message: await this.post(job, accounts, {
+              text: this.answerText(answer),
+              notice: null,
+            }),
+          };
+        },
       });
+      if (posted) return posted.message;
       return await this.post(job, accounts, { text, notice: null });
     } catch (error: unknown) {
       const notice = controller.signal.aborted
@@ -297,6 +307,7 @@ export class ConversationReplyRunner {
     context: {
       readonly accounts: ConversationAccounts;
       readonly signal: AbortSignal;
+      readonly consumeAnswer: (answer: string) => Promise<void>;
     },
   ): Promise<string> {
     const deadline = this.nowMilliseconds() + BUSY_WAIT_MAXIMUM_MILLISECONDS;
@@ -342,6 +353,7 @@ export class ConversationReplyRunner {
     context: {
       readonly accounts: ConversationAccounts;
       readonly signal: AbortSignal;
+      readonly consumeAnswer: (answer: string) => Promise<void>;
     },
   ): Promise<string> {
     const { accounts, signal } = context;
@@ -383,10 +395,15 @@ export class ConversationReplyRunner {
         memberIds: job.round.memberIds,
       }),
       lastMessage: answered.text,
+      consumeAnswer: context.consumeAnswer,
       signal,
       onQueued: () => this.markQueued(job, "limit"),
       onAdmitted: () => this.unmarkQueued(job),
     });
+    return this.answerText(answer);
+  }
+
+  private answerText(answer: string): string {
     const text = Array.from(answer.trim())
       .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
       .join("");

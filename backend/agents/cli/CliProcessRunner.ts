@@ -6,7 +6,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { CliChildProcess } from "./CliChildProcess";
-import { createCliEnvironment } from "./CliEnvironment";
+import { createCliRequestEnvironment } from "./CliEnvironment";
 import { CliSessionProcess } from "./CliSessionProcess";
 
 import type { AgentToolActivity } from "@/definition/AgentTools";
@@ -54,14 +54,7 @@ export class CliProcessRunner {
         shell: false,
         detached: true,
         cwd: request.workingDirectory ?? request.home.work,
-        env: {
-          ...createCliEnvironment(
-            request.home,
-            request.provider,
-            request.toolFile ?? request.file,
-          ),
-          ...request.environment,
-        },
+        env: createCliRequestEnvironment(request),
         stdio: [request.stdin, "pipe", "pipe"],
       });
       running = new CliChildProcess(child, request, this.signalGroup);
@@ -119,14 +112,7 @@ export class CliProcessRunner {
         shell: false,
         detached: true,
         cwd: request.workingDirectory,
-        env: {
-          ...createCliEnvironment(
-            request.home,
-            request.provider,
-            request.toolFile ?? request.file,
-          ),
-          ...request.environment,
-        },
+        env: createCliRequestEnvironment(request),
         stdio: ["pipe", "pipe", "pipe"],
       });
       session = new CliSessionProcess(child, request, this.signalGroup);
