@@ -9,10 +9,12 @@ import {
 import type { PicaBrowserTarget } from "@/backend/service/chat/browser/PicaBrowserTargets";
 
 vi.mock("node:dns/promises", () => ({
-  lookup: async (_host: string, options: { all?: boolean }) =>
-    options.all
+  lookup: async (host: string, options: { all?: boolean }) => {
+    void host;
+    return options.all
       ? [{ address: "93.184.216.34", family: 4 }]
-      : { address: "127.0.0.1", family: 4 },
+      : { address: "127.0.0.1", family: 4 };
+  },
 }));
 
 const origins = {
