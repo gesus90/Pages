@@ -225,7 +225,7 @@ it("stores references and digests without copying original instructions, literal
   expect(serialized).not.toContain("Original private assignment");
   expect(serialized).not.toContain("Original sensitive input");
   expect(serialized).not.toContain("synthetic-secret");
-  expect(checkpoint.result.output).toBe("password=[redacted]");
+  expect(checkpoint.result.output).toBe("[redacted]");
   expect(checkpoint.inputs).toMatchObject([
     { name: "privateText", kind: "literal", reference: null },
     { name: "previous", kind: "result", reference: "prior" },
