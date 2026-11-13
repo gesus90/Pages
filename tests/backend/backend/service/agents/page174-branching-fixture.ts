@@ -223,7 +223,7 @@ export async function branchEngine(
     ...base.step.step,
     id,
     x,
-    instruction: `Instruction ${id}\n- [ ] Carry out the work`,
+    instruction: `Instruction ${id}`,
     configuration: copyPlanConfiguration(source),
     bindings: {},
   });

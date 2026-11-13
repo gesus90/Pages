@@ -168,7 +168,17 @@ it.each([
     ].includes(name);
     const runtime = executionFixture();
     const world = await groupEngine(runtime.execution);
-    const run = await world.engine.start("owner", world.snapshot);
+    const snapshot = {
+      ...world.snapshot,
+      steps: world.snapshot.steps.map((step) => ({
+        ...step,
+        step: {
+          ...step.step,
+          instruction: `${step.step.instruction}\n- [ ] Carry out the work`,
+        },
+      })),
+    };
+    const run = await world.engine.start("owner", snapshot);
     await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
     runtime.first.resolve(groupTurn({ output }));
     if (needsReturn) {
@@ -401,7 +411,11 @@ it("applies the group acceptance gate to TODO-only steps as well", async () => {
     ...world.snapshot,
     steps: world.snapshot.steps.map((step) => ({
       ...step,
-      step: { ...step.step, completion: "todos" as const },
+      step: {
+        ...step.step,
+        instruction: "- [ ] Carry out the work",
+        completion: "todos" as const,
+      },
     })),
   };
   const run = await world.engine.start("owner", snapshot);

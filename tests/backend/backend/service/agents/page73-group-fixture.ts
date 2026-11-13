@@ -76,7 +76,7 @@ export async function groupFixture(): Promise<GroupFixture> {
     steps: ["first", "second"].map((id) => ({
       ...base.step.step,
       id,
-      instruction: `Instruction ${id}\n- [ ] Carry out the work`,
+      instruction: `Instruction ${id}`,
       configuration: copyPlanConfiguration(source),
       bindings: { shared: { kind: "source", nodeId: "interface" } },
     })),
