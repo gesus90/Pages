@@ -20,6 +20,7 @@ import { createMcpServices } from "./mcp-services.server";
 import { picaBrowserOptions } from "./pica-browser.server";
 import { startWikiMaintenanceScheduler } from "./services-background.server";
 
+import type { SessionService } from "@/backend/auth/SessionService";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
@@ -36,6 +37,7 @@ import type { ApplicationServices } from "./services.server";
 
 /** What the workspace services are built from. */
 interface McpWorkspaceContext {
+  readonly browserAuthentication?: Pick<SessionService, "setAgentBrowsers">;
   readonly database: Database;
   readonly databasePath: string;
   readonly accounts: {
@@ -136,6 +138,7 @@ export async function startMcpWorkspace(
       config: () => runtime.getConfig(),
     }),
   });
+  context.browserAuthentication?.setAgentBrowsers(chat.agentBrowserSessions);
   const employees = createEmployeeServices({
     automations: context.agents.automationService,
     database: context.database,

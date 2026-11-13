@@ -12,7 +12,10 @@ import { registerPicaAutomationTools } from "./PicaAutomationTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
 import { registerPicaStorageTools } from "./admin/PicaStorageTools";
-import { registerPicaBrowserTools } from "./browser/PicaBrowserTools";
+import {
+  registerAgentBrowserTools,
+  registerPicaBrowserTools,
+} from "./browser/PicaBrowserTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
 import {
@@ -25,6 +28,7 @@ import {
   isPicaWriteTool,
 } from "./PicaToolSchemas";
 
+import type { AgentBrowserService } from "./browser/AgentBrowserService";
 import type { z } from "zod";
 import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
@@ -55,6 +59,8 @@ export interface PicaToolsInput {
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
   readonly adminTools?: PicaAdminService | undefined;
+  /** Present only for an employee whose stored access allows a browser. */
+  readonly agentBrowsers?: AgentBrowserService | undefined;
   readonly agentDeletions?: AgentDeletionService | undefined;
   /** Ends or marks the run when a call would exceed the actual execution budget. */
   readonly onLimit?: () => void;
@@ -493,7 +499,8 @@ function registerAdministratorTools(
 ): void {
   const { input, service, budget, execute } = parts;
   registerPicaAdminTools(registry, service, () => spend(input, budget));
-  registerPicaBrowserTools(registry, service, () => spend(input, budget));
+  if (!input.agentBrowsers)
+    registerPicaBrowserTools(registry, service, () => spend(input, budget));
   registerPicaOperatorTools(registry, {
     native: PICA_NATIVE_OPERATIONS,
     run: (entry, parameters, context) =>
@@ -654,6 +661,10 @@ export function createPicaTools(
         createAnswerFile(input, budget, { parameters, context }),
     });
   registerAgentEmployeeTools(registry, input, budget);
+  if (input.agentBrowsers)
+    registerAgentBrowserTools(registry, input.agentBrowsers, () =>
+      spend(input, budget),
+    );
   if (input.adminTools)
     registerAdministratorTools(registry, {
       input,

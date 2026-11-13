@@ -1,5 +1,9 @@
 import path from "node:path";
 
+import { AgentBrowserRuntimeFiles } from "@/backend/service/chat/browser/AgentBrowserRuntimeFiles";
+import { AgentBrowserSessions } from "@/backend/service/chat/browser/AgentBrowserSessions";
+import { AgentBrowserService } from "@/backend/service/chat/browser/AgentBrowserService";
+import { AgentEmployeeRepository } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import { PicaAdminService } from "@/backend/service/chat/admin/PicaAdminService";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
@@ -51,6 +55,7 @@ import type {
 /** The global chat agent Pica: sessions, attachments, settings and turns (A11.4). */
 export interface ChatApplicationServices {
   readonly picaAdminService: PicaAdminService;
+  readonly agentBrowserSessions: AgentBrowserSessions;
   readonly chatService: ChatService;
   readonly chatContextService: ChatContextService;
   readonly chatSessionService: ChatSessionService;
@@ -85,6 +90,7 @@ interface PicaAcpParts {
   readonly answerFiles: ChatAnswerFileService;
   readonly tools: ChatToolExecutor;
   readonly adminTools: PicaAdminService;
+  readonly agentBrowsers: AgentBrowserService;
   readonly pica?: PicaSettingsService;
   /** Lets a waiting start take the place of a resting chat session (PAGE-335). */
   readonly resources?: Pick<AcpResourceScheduler, "setIdleReclaimer">;
@@ -117,6 +123,7 @@ function createPicaAcp(
     bridge: picaBridge,
     tools: parts.tools,
     adminTools: parts.adminTools,
+    agentBrowsers: parts.agentBrowsers,
     access,
     sessions: parts.sessions,
     requests: parts.requests,
@@ -241,13 +248,8 @@ export function createChatServices(
     chatSessionService,
     adapterContext,
   });
-  const adminTools = new PicaAdminService(
-    input.accounts,
-    input.storage
-      ? { ...input.picaBrowser, storage: input.storage }
-      : input.picaBrowser,
-  );
-  if (input.protectedOrigin) adminTools.protectOrigin(input.protectedOrigin);
+  const { adminTools, agentBrowsers, agentBrowserSessions } =
+    createBrowserServices(input);
   const tools = new ChatToolExecutor({
     repositoryReads: input.repositoryReads,
     router: input.router,
@@ -269,12 +271,14 @@ export function createChatServices(
     tools,
     pica: input.agents.picaSettingsService,
     adminTools,
+    agentBrowsers,
     resources: input.agents.acpResourceScheduler,
   });
   configurePicaStop(input, acp);
   return {
     ...acp,
     picaAdminService: adminTools,
+    agentBrowserSessions,
     chatContextService,
     chatSessionService,
     chatAttachmentService,
@@ -331,4 +335,38 @@ function configurePicaStop(
       input.agents.chatRequests.cancelAll(),
     ]);
   });
+}
+
+/** Builds the separate employee and administrator browser paths on the same configured origins. */
+function createBrowserServices(input: ChatServicesInput): {
+  readonly adminTools: PicaAdminService;
+  readonly agentBrowsers: AgentBrowserService;
+  readonly agentBrowserSessions: AgentBrowserSessions;
+} {
+  const origins =
+    input.picaBrowser?.localOrigins ?? (() => ({ pages: [], services: [] }));
+  const employees = new AgentEmployeeRepository(input.database);
+  const agentBrowserSessions = new AgentBrowserSessions(
+    {
+      user: (id) => input.accounts.users.getById(id),
+      employee: (id) => employees.find(id),
+      origins: () => origins().pages,
+    },
+    new AgentBrowserRuntimeFiles(
+      path.join(input.directory, "agent-browser-runtime"),
+    ),
+  );
+  const agentBrowsers = new AgentBrowserService(agentBrowserSessions, {
+    origins,
+    ...(input.picaBrowser?.launchBrowser
+      ? { launch: input.picaBrowser.launchBrowser }
+      : {}),
+  });
+  const adminTools = new PicaAdminService(input.accounts, {
+    ...input.picaBrowser,
+    agentBrowsers,
+    ...(input.storage ? { storage: input.storage } : {}),
+  });
+  if (input.protectedOrigin) adminTools.protectOrigin(input.protectedOrigin);
+  return { adminTools, agentBrowsers, agentBrowserSessions };
 }

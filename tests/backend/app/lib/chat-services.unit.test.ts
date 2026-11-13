@@ -1,5 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { AgentBrowserService } from "@/backend/service/chat/browser/AgentBrowserService";
+import { AgentBrowserSessions } from "@/backend/service/chat/browser/AgentBrowserSessions";
+import { AgentEmployeeRepository } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import { createChatServices } from "@/app/lib/chat-services.server";
 import { isSafeSvg } from "@/app/lib/settings-actions/svg-safety.server";
 import { PicaAdminService } from "@/backend/service/chat/admin/PicaAdminService";
@@ -37,6 +40,16 @@ const { fakeClasses, opaque, partial } = await vi.hoisted(
   async () => import("./service-wiring-fakes"),
 );
 
+vi.mock("@/backend/service/chat/browser/AgentBrowserService", () =>
+  fakeClasses({ AgentBrowserService: [] }),
+);
+vi.mock("@/backend/service/chat/browser/AgentBrowserSessions", () =>
+  fakeClasses({ AgentBrowserSessions: [] }),
+);
+vi.mock(
+  "@/backend/database/repositories/employee/AgentEmployeeRepository",
+  () => fakeClasses({ AgentEmployeeRepository: ["find"] }),
+);
 vi.mock("@/app/lib/settings-actions/svg-safety.server", () => ({
   isSafeSvg: vi.fn(),
 }));
@@ -322,7 +335,14 @@ it("gives Pica's administration tools the file storage next to the browser optio
   createChatServices(chatInput({ storage, picaBrowser: { launchBrowser } }));
 
   expect(vi.mocked(PicaAdminService).mock.calls).toEqual([
-    [ACCOUNTS, { launchBrowser, storage }],
+    [
+      ACCOUNTS,
+      {
+        launchBrowser,
+        storage,
+        agentBrowsers: vi.mocked(AgentBrowserService).mock.instances[0],
+      },
+    ],
   ]);
 });
 
@@ -407,7 +427,10 @@ it("runs tools as the current identity over the shared operation router", () => 
     identities: vi.mocked(PicaIdentityService).mock.instances[0],
   });
   expect(vi.mocked(PicaAdminService).mock.calls).toEqual([
-    [ACCOUNTS, undefined],
+    [
+      ACCOUNTS,
+      { agentBrowsers: vi.mocked(AgentBrowserService).mock.instances[0] },
+    ],
   ]);
   expect(services.picaAdminService).toBe(
     vi.mocked(PicaAdminService).mock.instances[0],

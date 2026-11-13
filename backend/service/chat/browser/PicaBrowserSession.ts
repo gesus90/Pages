@@ -62,8 +62,11 @@ export interface PicaBrowserSessionInit {
   readonly profile: string | null;
   readonly device: PicaBrowserDevice;
   readonly browser: Browser;
+  /** Marks the own-account agent path, which refuses downloads and keeps administrator handover separate. */
+  readonly isAgent?: boolean;
+  readonly ownerName?: string | undefined;
   readonly origins: () => PicaBrowserOrigins;
-  /** Rechecks the administrator right and the job; throws when either ended. */
+  /** Rechecks the owning account and the job; throws when either ended. */
   readonly authorize: () => Promise<void>;
   /** The signal of the job; its end closes the browser. */
   readonly signal: AbortSignal;
@@ -94,7 +97,7 @@ function delay(milliseconds: number): Promise<void> {
  * One operator browser: an isolated Chromium, its tabs and the control state.
  *
  * @remarks
- * The session belongs to one administrator and one job. It knows who controls
+ * The session belongs to one account and one job. It knows who controls
  * the browser (`running`, `paused`, `takeover`, `stopped`), keeps the action
  * log and the last picture for the live view, and holds files the page
  * downloaded. Nothing in it is ever sent to a model except what the
@@ -145,6 +148,7 @@ export class PicaBrowserSession {
   private lastAddress = "";
   private isCapturing = false;
   private isClosed = false;
+  private closing: Promise<void> | null = null;
 
   /**
    * Creates a session around a started browser; call {@link start} next.
@@ -360,6 +364,10 @@ export class PicaBrowserSession {
 
   /** Keeps a downloaded file; oversized files and files beyond the budget are refused with a note. */
   public keepDownload(file: PicaBrowserCapturedFile): void {
+    if (this.init.isAgent === true) {
+      this.note("Downloads are disabled for agent browsers.");
+      return;
+    }
     const total = this.downloads.reduce((sum, entry) => sum + entry.size, 0);
     if (
       file.bytes.length > MAXIMUM_DOWNLOAD_BYTES ||
@@ -402,6 +410,9 @@ export class PicaBrowserSession {
     const page = this.tabs[this.active] ?? this.tabs[0];
     return {
       browserId: this.id,
+      ...(this.init.isAgent === true
+        ? { isAgent: true, ownerName: this.init.ownerName }
+        : {}),
       task: shorten(this.task, 500),
       state: this.state,
       url: page ? shorten(page.url(), 500) : this.lastAddress,
@@ -468,7 +479,17 @@ export class PicaBrowserSession {
   }
 
   /** Closes the browser and everything it holds; safe to call twice. */
-  public async close(): Promise<void> {
+  public close(): Promise<void> {
+    this.closing ??= this.closeResources();
+    return this.closing;
+  }
+
+  private transition(next: PicaBrowserState, summary: string): void {
+    this.state = next;
+    this.record("admin", summary, "completed");
+  }
+
+  private async closeResources(): Promise<void> {
     if (this.isClosed) return;
     this.isClosed = true;
     // A stopped browser keeps showing where it was.
@@ -484,11 +505,6 @@ export class PicaBrowserSession {
     }
     this.tabs.length = 0;
     this.downloads.length = 0;
-  }
-
-  private transition(next: PicaBrowserState, summary: string): void {
-    this.state = next;
-    this.record("admin", summary, "completed");
   }
 
   private async openContext(storage?: PicaBrowserStorageState): Promise<void> {
@@ -519,6 +535,7 @@ export class PicaBrowserSession {
         authorize: this.init.authorize,
         note: (message) => this.note(message),
         capture: (file) => this.keepDownload(file),
+        hasOwnAccount: this.init.isAgent === true,
       },
       context,
       this.transport,

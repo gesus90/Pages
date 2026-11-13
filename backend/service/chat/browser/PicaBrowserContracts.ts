@@ -162,6 +162,15 @@ export type PicaBrowserTool = keyof typeof PICA_BROWSER_SCHEMAS;
 export type PicaBrowserPoint = z.infer<typeof point>;
 export type PicaBrowserFormField = z.infer<typeof formField>;
 
+/** Limits employee browsers to visual actions without transfers or signing in as another account. */
+export function isAgentBrowserTool(tool: PicaBrowserTool): boolean {
+  return (
+    tool !== "browser_upload" &&
+    tool !== "browser_downloads" &&
+    tool !== "browser_handover"
+  );
+}
+
 /** Narrows names before the registry dispatches an operator browser tool. */
 export function isPicaBrowserTool(name: string): name is PicaBrowserTool {
   return Object.hasOwn(PICA_BROWSER_SCHEMAS, name);

@@ -7,6 +7,7 @@ import { PICA_TOOL_OUTCOME } from "@/backend/service/chat/PicaToolSchemas";
 import { deferred } from "../../agents/page81-resource-fixture";
 import { ASSIGNMENT, FIRST, OWNER, SESSION } from "../page48-chat-fixture";
 
+import type { User } from "@/definition/User";
 import type { PicaAcpJobPool } from "@/backend/service/chat/acp/PicaAcpPoolOpening";
 import type {
   AcpSessionListener,
@@ -111,10 +112,11 @@ export class PicaJobWorld {
     provider: PicaAcpProvider = "codex_cli",
     resumeSessionId: string | null = null,
     administration: Partial<
-      Pick<PicaAcpJobDependencies, "adminTools" | "tools">
-    > = {},
+      Pick<PicaAcpJobDependencies, "adminTools" | "tools" | "agentBrowsers">
+    > & { readonly actor?: User } = {},
     pool?: PicaAcpJobPool,
   ) {
+    const { actor = OWNER, ...overrides } = administration;
     const agent = {
       ...ASSIGNMENT,
       connection: { ...ASSIGNMENT.connection, provider },
@@ -151,7 +153,7 @@ export class PicaJobWorld {
         },
         bridge: { open: (owner) => this.openBridge(owner.catalog) },
         tools: { run: this.tools },
-        ...administration,
+        ...overrides,
         access: {
           requireUser: this.authorize,
         },
@@ -162,7 +164,7 @@ export class PicaJobWorld {
       },
       {
         id: "job",
-        actor: OWNER,
+        actor,
         sessionId: FIRST,
         agent,
         run: { runner, options: runner.runOptions(agent) },

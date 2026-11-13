@@ -1,3 +1,4 @@
+import { ChatBrowserPanel } from "@/app/components/chat/browser/chat-browser-panel";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -172,6 +173,7 @@ function ChatPageConversation({
         answeringNames={page.answeringNames}
       />
       <ChatPageLiveTools tools={page.liveTools} onCancel={page.cancelTool} />
+      <ChatBrowserPanel isOpen />
       <ConversationFoot
         key={conversationKey(opened)}
         page={page}

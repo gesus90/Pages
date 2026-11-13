@@ -1,24 +1,10 @@
-import { createCookie } from "react-router";
+import { browserSessionCookie } from "@/backend/auth/BrowserSessionCookie";
 
 import { resolveCookieSecure } from "@/app/lib/cookie-security.server";
-import { SESSION_LIFETIME_SECONDS } from "@/backend/auth/SessionService";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-const SESSION_COOKIE_NAME = "pages_session";
-
-/**
- * Cookie configuration shared by Pages authentication route actions.
- *
- * @remarks
- * The `Secure` attribute depends on the request, so callers pass
- * `{ secure: resolveCookieSecure(request) }` to `serialize`.
- */
-export const sessionCookie = createCookie(SESSION_COOKIE_NAME, {
-  httpOnly: true,
-  maxAge: SESSION_LIFETIME_SECONDS,
-  path: "/",
-  sameSite: "lax",
-});
+/** Shared browser cookie; callers select Secure from the trusted request origin. */
+export const sessionCookie = browserSessionCookie;
 
 /** Reads a valid session token from an incoming request. */
 export async function getSessionToken(

@@ -136,7 +136,9 @@ export function requireWriteApproval(
   target: PicaBrowserTarget,
   method: string,
   areWritesApproved: boolean,
+  hasOwnAccount = false,
 ): void {
+  if (target.kind === "pages" && hasOwnAccount) return;
   if (
     target.kind !== "public" &&
     !SAFE_METHODS.has(method.toUpperCase()) &&

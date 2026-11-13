@@ -489,3 +489,21 @@ describe("downloads", () => {
     ]);
   });
 });
+
+it("discards downloads in an agent browser and exposes only its own-account live facts", async () => {
+  const { session } = await startWorld({
+    isAgent: true,
+    ownerName: "Bakuman",
+  });
+  session.keepDownload(file("report.pdf", 1234));
+  expect(session.storedDownloads()).toEqual([]);
+  expect(session.view()).toMatchObject({
+    isAgent: true,
+    ownerName: "Bakuman",
+    downloads: [],
+  });
+  expect(session.takeNotes()).toContain(
+    "Downloads are disabled for agent browsers.",
+  );
+  await session.close();
+});

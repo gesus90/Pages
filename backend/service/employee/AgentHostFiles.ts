@@ -2,6 +2,8 @@ import { createReadStream } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
+import { containsAgentBrowserSecret } from "@/backend/security/AgentBrowserSecrets";
+
 import {
   WikiAccessDeniedError,
   WikiPageNotFoundError,
@@ -69,12 +71,27 @@ async function resolveFile(
   try {
     const root = await realpath(directory);
     const resolved = await realpath(path.resolve(root, file));
+    if (containsAgentBrowserSecret(resolved)) return null;
     if (!resolved.startsWith(`${root}${path.sep}`)) return null;
     return (await stat(resolved)).isFile() ? resolved : null;
   } catch (error: unknown) {
     logCaughtError("AgentHostFiles", error);
     return null;
   }
+}
+
+async function hasBrowserSecret(file: string): Promise<boolean> {
+  let tail = "";
+  const source: AsyncIterable<unknown> = createReadStream(file, {
+    encoding: "utf8",
+  });
+  for await (const chunk of source) {
+    if (typeof chunk !== "string") throw new Error("Expected a text stream");
+    const text = tail + chunk;
+    if (containsAgentBrowserSecret(text)) return true;
+    tail = text.slice(-256);
+  }
+  return false;
 }
 
 function translate(error: unknown): AgentHostFileOutcome {
@@ -129,6 +146,8 @@ export class AgentHostFiles {
   ): Promise<AgentHostFileOutcome> {
     const resolved = await resolveFile(upload.directory, upload.file);
     if (resolved === null) return refused("INVALID_REQUEST", "file_unusable");
+    if (await hasBrowserSecret(resolved))
+      return refused("INVALID_REQUEST", "file_credentials");
     const size = (await stat(resolved)).size;
     const file = {
       fileName: path.basename(resolved),

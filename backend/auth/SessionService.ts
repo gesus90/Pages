@@ -6,6 +6,7 @@ import { parseUserAgent } from "@/backend/auth/UserAgent";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { holdsNulCharacter } from "@/backend/security/IdentityText";
 
+import type { AgentBrowserSessions } from "@/backend/service/chat/browser/AgentBrowserSessions";
 import type { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import type { UserService } from "@/backend/service/UserService";
 import type { User } from "@/definition/User";
@@ -29,6 +30,8 @@ const MAXIMUM_REMEMBERED_TOUCHES = 10_000;
 export class SessionService {
   private readonly sessionRepository: SessionRepository;
   private readonly userService: UserService;
+  private agentBrowsers:
+    Pick<AgentBrowserSessions, "authenticate" | "revoke"> | undefined;
   /** When each token hash was last sent to the repository as used. */
   private readonly touches = new LRUCache<string, number>({
     max: MAXIMUM_REMEMBERED_TOUCHES,
@@ -46,6 +49,13 @@ export class SessionService {
   ) {
     this.sessionRepository = sessionRepository;
     this.userService = userService;
+  }
+
+  /** Wires the ephemeral own-account path separately from persisted human logins. */
+  public setAgentBrowsers(
+    sessions: Pick<AgentBrowserSessions, "authenticate" | "revoke">,
+  ): void {
+    this.agentBrowsers = sessions;
   }
 
   /**
@@ -87,6 +97,9 @@ export class SessionService {
     if (!token || holdsNulCharacter(token)) {
       return null;
     }
+
+    if (token.startsWith("pabs_"))
+      return this.agentBrowsers?.authenticate(token) ?? null;
 
     const tokenHash = this.hashToken(token);
     const userId =
@@ -218,6 +231,10 @@ export class SessionService {
       return;
     }
 
+    if (token.startsWith("pabs_")) {
+      await this.agentBrowsers?.revoke(token);
+      return;
+    }
     await this.sessionRepository.deleteByTokenHash(this.hashToken(token));
   }
 

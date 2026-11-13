@@ -89,6 +89,8 @@ export interface PicaAcpRequest {
  */
 export interface PicaAcpEmployeeRun {
   readonly runner: PicaAcpRunner;
+  /** Browser access derived from the stored employee level, never model input. */
+  readonly hasBrowser?: boolean;
   /** Fails when the agent was deactivated, changed or reached its cost limit. */
   readonly requireCurrent: () => Promise<void>;
   /** Fails when the connection of the job is no longer the agent's. */
@@ -557,10 +559,17 @@ export class PicaAcpService {
     employee: PicaAcpEmployeeRun | undefined,
   ): PicaAcpServiceDependencies {
     if (!employee)
-      return { ...this.dependencies, agentDeletions: this.agentDeletions };
+      return {
+        ...this.dependencies,
+        agentBrowsers: undefined,
+        agentDeletions: this.agentDeletions,
+      };
     return {
       ...this.dependencies,
       agentDeletions: undefined,
+      agentBrowsers: employee.hasBrowser
+        ? this.dependencies.agentBrowsers
+        : undefined,
       requireCurrent: () => employee.requireCurrent(),
       searchMemory: (query) => employee.searchMemory(query),
       ...(employee.readConversationContext

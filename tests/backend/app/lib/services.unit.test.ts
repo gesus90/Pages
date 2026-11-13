@@ -437,3 +437,10 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
     protectedOrigin: undefined,
   });
 });
+
+it("wires the issued own-account sessions into the same browser authentication service", async () => {
+  await activateApplicationServices(world.database, DATABASE_PATH);
+  expect(SessionService.prototype.setAgentBrowsers).toHaveBeenCalledWith(
+    world.chat.agentBrowserSessions,
+  );
+});

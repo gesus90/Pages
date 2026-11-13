@@ -1,3 +1,5 @@
+import { redactAgentBrowserSecrets } from "@/backend/security/AgentBrowserSecrets";
+
 const REDACTED = "[REDACTED]";
 const MAXIMUM_TEXT = 4_000;
 const SECRET_KEY =
@@ -16,7 +18,7 @@ export function registerLogSecret(secret: string): void {
 
 /** Redacts known secrets and common credential syntax before any destination. */
 export function redactLogText(text: string): string {
-  let safe = text
+  let safe = redactAgentBrowserSecrets(text)
     .replace(
       /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?(?:-----END [^-]*PRIVATE KEY-----|$)/giu,
       REDACTED,

@@ -7732,6 +7732,8 @@
       "adminOnly": "Only administrators in active admin mode can change the level.",
       "createHint": "New agents start on “Pages only”. The level can be changed after creation.",
       "isolationMissing": "No isolation (bubblewrap) is available on this host, so “Workspace” cannot be chosen.",
+      "browserAllowed": "Browser allowed · Profiles: self (own agent account)",
+      "browserDenied": "Browser not allowed · No profiles",
       "mcpTitle": "Detected MCP servers",
       "mcpHint": "Pages reads the MCP configuration of this agent’s CLI anew for every chat. A server set up later is available from the next chat on, in “Workspace” and “YOLO”.",
       "mcpEmpty": "No MCP server is configured on this host for this agent’s CLI.",

@@ -138,8 +138,12 @@ export function ChatBrowserExtras({
         />
         <span>{t("chat.browser.approveWrites")}</span>
       </label>
-      <SaveSessionForm browser={browser} controller={controller} />
-      <SavedSessions browser={browser} controller={controller} />
+      {!browser.isAgent ? (
+        <SaveSessionForm browser={browser} controller={controller} />
+      ) : null}
+      {!browser.isAgent ? (
+        <SavedSessions browser={browser} controller={controller} />
+      ) : null}
       <BrowserDownloads browser={browser} />
     </details>
   );

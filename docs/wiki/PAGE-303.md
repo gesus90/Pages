@@ -197,3 +197,61 @@ dem Pages läuft:
 - Austauschbar: `CliHostMcpServers` nimmt Home, Umgebung und Leser als
   Abhängigkeit, `AgentAccessEnvironmentService` die Isolationsprobe und die
   MCP-Erkennung – so lassen sie sich in der Entwicklungsumgebung nachstellen.
+
+## Ergänzung PAGE-328 – Browser und eigenes Agent-Konto
+
+Für **Arbeitsplatz** und **YOLO** bietet Pages zusätzlich die visuellen
+Browser-Werkzeuge an (`browser_open`, `browser_observe`, Klick, Eingabe,
+Navigation, Tabs und `browser_close`). **Nur Pages** erhält weder diese
+Werkzeuge noch eine Browser-Sitzung. Unter Einstellungen → Agents → Zugriff
+steht die gespeicherte Browser-Erlaubnis mit der Profilliste. Das einzige
+Agent-Profil ist zunächst `self`; zusätzliche Fremdprofile werden nicht angeboten.
+
+`browser_open` verwendet für Agents automatisch `self`. Pages stellt dafür
+eine Sitzung **des eigenen Agent-Kontos** aus. Der Agent bekommt kein Passwort,
+kein fremdes Konto und keine Administrator-Sitzung. Seiten und Änderungen
+unterliegen seinen normalen Pages-Rechten; Administrator-Seiten und -APIs
+bleiben gesperrt. Seiteninhalt bleibt unvertrauenswürdiger Inhalt. Browser-Tools
+führen keine vom Agent gelieferten Skripte aus; Downloads und Dateiübertragung
+über diesen Browserpfad sind gesperrt.
+
+Für Playwright nennt die Auftragsvorgabe eine private `storageState`-Datei,
+die als `storageState` an `browser.newContext` übergeben wird. Sie liegt
+**außerhalb des Arbeits- und Chatordners** in einem privaten Laufzeitverzeichnis
+(geschützter Instanz-Laufzeitbereich `agent-browser-runtime`, Verzeichnis 0700,
+Datei 0600). In Arbeitsplatz bindet Pages ausschließlich das
+Laufzeitverzeichnis dieser Unterhaltung schreibgeschützt ein. Die Datei wird
+am Auftragsende gelöscht und die Sitzung widerrufen, auch nach Fehler oder
+Abbruch. Ein weiterverwendeter Chat-Prozess erhält für die nächste Antwort
+am selben privaten Pfad eine neue Sitzung. Es werden keine Zugangsdateien
+unter `~/Agents/` gelesen.
+
+Die Sitzung gilt höchstens acht Stunden und höchstens bis zum Auftragsende.
+Jede authentifizierte Anfrage prüft den aktuellen Kontostatus und die
+unveränderte Zugriffskonfiguration; Deaktivierung oder Herabstufung macht die
+Sitzung sofort unbrauchbar. Eine laufende Browserinstanz wird bei der
+nächsten Berechtigungsüberwachung geschlossen. Administratoren sehen die
+Agent-Browser mit Agent-Namen in der Live-Ansicht im Chat und auf der Chats-Seite
+und können pausieren, fortsetzen oder beenden. Beenden widerruft auch die
+Sitzung und entfernt ihre Datei; ein Neustart im selben Auftrag wird verweigert.
+Eine Übernahme zur Anmeldung mit einem anderen Konto ist dort nicht vorgesehen.
+
+Erlaubt sind diese Pages-Instanz, öffentliche HTTPS-Seiten und die vom Betreiber
+in `picaBrowserLocalOrigins` ausdrücklich freigegebenen lokalen Dienste.
+Andere lokale Ports bleiben gesperrt. Änderungen an einem freigegebenen lokalen
+Dienst benötigen weiterhin die Freigabe im Live-Panel; Pages-Änderungen werden
+mit den Rechten des Agent-Kontos geprüft. Das Pages-Cookie wird an keinen
+externen oder lokalen Testdienst weitergegeben.
+
+Sitzungstoken, kodierter Cookie-Inhalt und privater Dateipfad werden in
+Protokollen, Chat-Werkzeugausgaben und Laufberichten maskiert. Die private Datei
+lässt sich weder direkt noch über einen symbolischen Link aus dem Arbeitsordner
+anhängen; auch kopierter Sitzungsinhalt wird vor dem Anhängen abgewiesen.
+
+Die Zugriffsstufen gelten wie bisher für Aufträge des Agent-Kontos in Chats,
+Gruppen, Lernen und Automationen. Plan-Schritte behalten ihre eigenen
+Laufoptionen und ihre ausführende Identität; ein Plan mit einem menschlichen
+Ausführungskonto wird dadurch nicht zu einem Agent-Konto.
+
+Diese Ergänzung ist die lokale Wiki-Vorlage für die Veröffentlichung nach der
+Abschluss-QA. Der Ticket-Schritt verändert keine Live-Wiki oder Live-Konfiguration.

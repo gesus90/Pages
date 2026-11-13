@@ -22,7 +22,11 @@ const agent: User = {
   displayName: "Ed",
   isAgent: true,
 };
-const employee = { revision: 7, access: "pages", connectionId: "connection" };
+const employee = {
+  revision: 7,
+  access: "read_only",
+  connectionId: "connection",
+};
 
 function fixture(): {
   readonly service: AgentEmployeeSessions;
@@ -117,3 +121,18 @@ it("keeps the session of a direct chat and none for a run of the agent's own", a
   const learning: unknown = start.mock.calls[1]?.[0];
   expect(JSON.stringify(learning)).not.toContain("keptSession");
 });
+
+it.each(["read_only", "workspace", "yolo"] as const)(
+  "derives the browser grant of an employee job from %s",
+  async (access) => {
+    const { service, start } = fixture();
+    const request = round("chat");
+    await service.run({
+      ...request,
+      employee: { ...request.employee, access },
+    });
+    expect(start.mock.calls[0]?.[0]).toMatchObject({
+      employee: { hasBrowser: access !== "read_only" },
+    });
+  },
+);

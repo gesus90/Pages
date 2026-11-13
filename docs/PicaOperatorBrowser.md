@@ -120,3 +120,51 @@ Tool calls use the existing `pica.admin.tool` audit (tool name, hash of the
 arguments, status). Controls of the administrator (pause, takeover, input,
 stop, save session, approval) are audited as `pica.browser.control` with the
 command name only.
+
+## Agent-Konten (PAGE-328)
+
+Der Administratorpfad bleibt bestehen. Daneben betreibt `AgentBrowserService`
+einen eigenen Browsermanager für Agent-Aufträge mit Arbeitsplatz oder YOLO.
+Er prüft die eigene Agent-Identität bei jeder Nutzung. Sein Katalog bietet
+visuelle Browseraktionen als normale Benutzerwerkzeuge an; Administratorwerkzeuge,
+Uploads, Downloads und die Übernahme zur Fremdanmeldung gehören nicht dazu.
+
+`AgentBrowserSessions` stellt das Profil `self` und einen Playwright-Zustand
+mit dem gemeinsamen `pages_session`-Cookie-Codec aus. Die Authentifizierung
+läuft über `SessionService`, getrennt von persistierten menschlichen Logins.
+Die Registry lebt ausschließlich im Serverprozess: Neustarts widerrufen alle
+so ausgestellten Cookies. Token laufen nach spätestens acht Stunden ab;
+Auftragsende, Stoppen, Kontodeaktivierung oder eine geänderte Zugriffskonfiguration
+widerrufen sie früher. Bei jeder Anmeldung werden Konto und Konfiguration frisch
+geprüft. Die Browserüberwachung schließt eine entzogene Instanz zusätzlich.
+
+`AgentBrowserRuntimeFiles` hält den Zustand in einem privaten Laufzeitbereich
+`agent-browser-runtime` im geschützten Instanzverzeichnis (0700/0600), außerhalb
+von Arbeits-, Chat- und Agent-Home. Die Registrierung von Arbeitsplätzen
+schließt das Instanzverzeichnis aus; auch ein breiter temporärer Arbeitsplatz
+schließt diese Dateien deshalb nicht ein.
+Nur das Verzeichnis der eigenen Unterhaltung wird im Namespace schreibgeschützt
+sichtbar. Es bleibt als leeres Mount bestehen, damit gepoolte Chat-Prozesse
+die nächste ausgestellte Datei sehen; die Sitzungsdatei selbst wird nach jedem
+Auftrag entfernt. Der Prozess-Shutdown entfernt auch die Laufzeitverzeichnisse.
+Ein Serverabsturz kann eine private, nicht mehr authentifizierbare Datei im
+privaten Laufzeitverzeichnis zurücklassen; ihr Token verliert mit dem Serverprozess
+seine Gültigkeit.
+
+Die Live-Administratoroberfläche zeigt diese Instanzen zusätzlich mit dem
+Agent-Namen an. Pause und Fortsetzen steuern den Browser; Stoppen widerruft die
+ganze Browserberechtigung des aktuellen Auftrags. Administratorprofile werden
+nicht an Agents weitergegeben. Weitere freigegebene Fremdprofile sind optional
+und werden in dieser Version nicht angeboten.
+
+Die isolierten PAGE-328-Unit-Tests ersetzen Browser, Dateisystem, DNS,
+Ausführung und Persistenz durch Mocks. Sie prüfen den Cookie-Vertrag,
+Authentifizierung von `/settings`, 403 für Admin-Seite und -API, Widerruf,
+private Mounts, Maskierung und Anhangsverweigerung. Es gibt keine Screenshot-
+oder echte Browser-Abnahme im Ticket-Schritt.
+
+Das Chat-Journal hält bei Zwischenständen das letzte unvollständige Wort
+zurück. Dadurch bleiben Sitzungstoken, kodierte Cookies und private Pfade auch
+dann maskiert, wenn sie über mehrere Text-Updates und zeitgesteuerte
+Schreibvorgänge verteilt ankommen. Reset, Rundenwechsel und Auftragsende geben
+den zurückgehaltenen Text nach der Filterung vollständig frei.

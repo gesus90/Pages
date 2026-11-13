@@ -1,3 +1,4 @@
+import type { AgentBrowserService } from "../browser/AgentBrowserService";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { PicaAdminService } from "../admin/PicaAdminService";
 import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
@@ -18,6 +19,7 @@ import type { PicaHostFileAttach } from "../PicaHostFileTools";
 /** What a job needs from Pages; every write path is an existing one. */
 export interface PicaAcpJobDependencies {
   readonly adminTools?: PicaAdminService;
+  readonly agentBrowsers?: AgentBrowserService | undefined;
   readonly agentDeletions?: AgentDeletionService;
   readonly requireCurrent?: (
     userId: string,

@@ -1,5 +1,7 @@
 import { Readable } from "node:stream";
 
+import { containsAgentBrowserSecret } from "@/backend/security/AgentBrowserSecrets";
+
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
@@ -19,6 +21,7 @@ import type { ChatAttachment } from "@/definition/Chat";
 
 /** Why Pica could not attach a file; the codes reach the model as tool errors. */
 export type ChatAnswerFileErrorCode =
+  | "FILE_CREDENTIALS"
   | "FILE_NAME_INVALID"
   | "FILE_TYPE_NOT_ALLOWED"
   | "FILE_TOO_LARGE"
@@ -169,6 +172,8 @@ export class ChatAnswerFileService {
     run: ChatAnswerRun,
     file: ChatAnswerFileInput,
   ): Promise<ChatAttachment> {
+    if (containsAgentBrowserSecret(file.bytes.toString("utf8")))
+      throw new ChatAnswerFileError("FILE_CREDENTIALS");
     const fileName = sanitizeFileName(file.fileName);
     // A name is never a path: a model that names folders gets a refusal, not a cleaned name.
     if (

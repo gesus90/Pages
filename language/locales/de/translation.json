@@ -7732,6 +7732,8 @@
       "adminOnly": "Nur Administratoren im aktiven Admin-Modus können die Stufe ändern.",
       "createHint": "Neue Agents starten auf „Nur Pages“. Die Stufe lässt sich nach dem Anlegen ändern.",
       "isolationMissing": "Auf diesem Rechner ist keine Isolation (bubblewrap) verfügbar. „Arbeitsplatz“ kann deshalb nicht gewählt werden.",
+      "browserAllowed": "Browser erlaubt · Profile: self (eigenes Agent-Konto)",
+      "browserDenied": "Browser nicht erlaubt · Keine Profile",
       "mcpTitle": "Erkannte MCP-Server",
       "mcpHint": "Pages liest die MCP-Konfiguration der CLI dieses Agents bei jedem Chat neu. Ein nachträglich eingerichteter Server steht ab dem nächsten Chat bereit, in „Arbeitsplatz“ und „YOLO“.",
       "mcpEmpty": "Für die CLI dieses Agents ist auf dem Rechner kein MCP-Server eingerichtet.",
