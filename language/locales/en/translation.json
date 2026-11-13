@@ -1417,6 +1417,28 @@
       },
       "resources": {
         "title": "ACP resources",
+        "unconfirmedNotice": "{{count}} reservations unconfirmed. Pages releases them once cleanup is confirmed.",
+        "filter": {
+          "label": "Filter reservations",
+          "all": "All",
+          "unconfirmed": "Unconfirmed",
+          "active": "Active",
+          "waiting": "Waiting"
+        },
+        "group": {
+          "unconfirmed": "Cleanup unconfirmed",
+          "active": "Active",
+          "waiting": "Waiting"
+        },
+        "badge": {
+          "cleanup_failed": "Unconfirmed",
+          "running": "Running",
+          "starting": "Starting",
+          "closing": "Closing",
+          "idle": "Idle",
+          "paused": "Paused",
+          "waiting": "Waiting"
+        },
         "unavailable": "Resource status is loading or unavailable.",
         "summary": "Reserved slots: {{active}} (cleanup unconfirmed: {{unconfirmed}}) · Limit: {{limit}} · Waiting requests: {{waiting}}",
         "ram": "Measured available host RAM: {{available}} MiB · Reserve: {{reserve}} MiB",

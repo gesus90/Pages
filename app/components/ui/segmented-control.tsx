@@ -7,6 +7,7 @@ export interface SegmentedControlOption<Value extends string = string> {
   readonly value: Value;
   readonly label: string;
   readonly icon?: ReactNode;
+  readonly trailing?: ReactNode;
 }
 
 interface SegmentedControlProps<Value extends string> {
@@ -61,6 +62,8 @@ export function SegmentedControl<Value extends string>({
           >
             {option.icon}
             {option.label}
+            {option.trailing ? " " : null}
+            {option.trailing}
           </button>
         );
       })}

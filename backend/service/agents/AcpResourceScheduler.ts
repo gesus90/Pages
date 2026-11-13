@@ -1,8 +1,10 @@
+import { hasRunningWorkerUnit } from "@/backend/agents/cli/CliWorkerUnit";
+import { inspectManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
 import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
@@ -70,6 +72,8 @@ export class AcpResourceScheduler {
   private availableMemory: number | null = null;
   private problem: AcpResourceSnapshot["problem"] = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private reconcileTimer: ReturnType<typeof setTimeout> | undefined;
+  private reconcileTask: Promise<void> | null = null;
   private isReady = false;
   private isClosing = false;
   private isPumping = false;
@@ -144,6 +148,7 @@ export class AcpResourceScheduler {
     this.wake();
     // The periodic check runs with the service, also without queue or open settings page.
     this.checks.start();
+    this.scheduleReconcile(0);
   }
 
   /** Waits without a native process; the durable starting lease precedes the callback. */
@@ -310,19 +315,38 @@ export class AcpResourceScheduler {
     const uncertain = [...this.active.values()].filter(
       (record) =>
         record.state === "cleanup_failed" &&
-        !this.sessions.has(record.instanceId) &&
         (runId === undefined || record.runId === runId),
     );
     let remaining = 0;
     for (const record of uncertain) {
-      let isConfirmed = false;
+      let reason: string | null = null;
       try {
-        isConfirmed =
-          (await this.cleanupRecord(record, record.since)).remaining === 0;
+        if (
+          record.runId === null &&
+          !record.namespace &&
+          !this.unverifiedLocal.has(record.instanceId) &&
+          inspectManagedLocalOwner(record.instanceId) !== "owned"
+        ) {
+          if (record.workerUnit) {
+            if (!(await hasRunningWorkerUnit(record.instanceId)))
+              reason = "unit_inactive";
+          } else if (Date.now() - Date.parse(record.since) >= 15 * 60_000) {
+            reason = "unbound_expired";
+          }
+        }
+        if (reason && (await this.checks.releaseIfUnchanged(record))) {
+          logEvent({
+            level: "info",
+            event: "agent.acp_lease.released",
+            component: "AcpResourceScheduler",
+            message: `Released ACP reservation ${record.instanceId}: ${reason}, age ${Date.now() - Date.parse(record.since)} ms`,
+          });
+          continue;
+        }
       } catch (caughtError: unknown) {
         logCaughtError("AcpResourceScheduler", caughtError);
       }
-      if (!(await this.finish(record.instanceId, isConfirmed))) remaining += 1;
+      remaining += 1;
     }
     return remaining;
   }
@@ -331,6 +355,8 @@ export class AcpResourceScheduler {
   public async shutdown(): Promise<void> {
     this.isClosing = true;
     clearTimeout(this.timer);
+    clearTimeout(this.reconcileTimer);
+    await this.reconcileTask;
     this.shutdownController.abort();
     await this.checks.stop();
     await Promise.allSettled([...this.opening]);
@@ -339,6 +365,22 @@ export class AcpResourceScheduler {
         .filter((session) => !session.isDetached)
         .map((session) => session.close()),
     );
+  }
+
+  private scheduleReconcile(delay: number): void {
+    if (this.isClosing) return;
+    this.reconcileTimer = setTimeout(() => {
+      this.reconcileTask = this.reconcile()
+        .then(() => undefined)
+        .catch((error: unknown) => {
+          logCaughtError("AcpResourceScheduler", error);
+        })
+        .finally(() => {
+          this.reconcileTask = null;
+          this.scheduleReconcile(5 * 60_000);
+        });
+    }, delay);
+    this.reconcileTimer.unref();
   }
 
   private async recoverRecord(

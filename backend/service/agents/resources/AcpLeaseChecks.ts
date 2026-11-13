@@ -54,7 +54,9 @@ export class AcpLeaseChecks {
     this.audit = new AcpLeaseAudit(
       {
         candidates: () =>
-          [...host.active.values()].filter((record) => this.isIdle(record)),
+          [...host.active.values()].filter(
+            (record) => record.runId === null && this.isIdle(record),
+          ),
         isUnverifiedLocal: (instanceId) =>
           host.unverifiedLocal().has(instanceId),
         release: (instanceId) => this.release(instanceId),
@@ -189,6 +191,24 @@ export class AcpLeaseChecks {
       !this.host.sessions.has(record.instanceId) &&
       !this.openingIds.has(record.instanceId)
     );
+  }
+
+  /** Releases only the exact idle reservation that was checked. */
+  public async releaseIfUnchanged(record: AcpResourceRecord): Promise<boolean> {
+    const released = await this.host.persist(async () => {
+      const current = this.host.active.get(record.instanceId);
+      if (current !== record || !this.isIdle(current)) return false;
+      const result = this.host.store.releaseUncertain
+        ? await this.host.store.releaseUncertain(record.instanceId)
+        : await this.host.store
+            .remove(record.instanceId)
+            .then(() => "released" as const);
+      if (result === "changed") return false;
+      this.host.active.delete(record.instanceId);
+      return true;
+    });
+    if (released) this.host.wake();
+    return released;
   }
 
   /** Releases a checked lease idempotently and only while it is still idle and unconfirmed. */

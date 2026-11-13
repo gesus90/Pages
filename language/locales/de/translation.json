@@ -1417,6 +1417,28 @@
       },
       "resources": {
         "title": "ACP-Ressourcen",
+        "unconfirmedNotice": "{{count}} Reservierungen unbestätigt. Pages gibt sie frei, sobald die Bereinigung bestätigt ist.",
+        "filter": {
+          "label": "Reservierungen filtern",
+          "all": "Alle",
+          "unconfirmed": "Unbestätigt",
+          "active": "Aktiv",
+          "waiting": "Wartend"
+        },
+        "group": {
+          "unconfirmed": "Bereinigung unbestätigt",
+          "active": "Aktiv",
+          "waiting": "Wartend"
+        },
+        "badge": {
+          "cleanup_failed": "Unbestätigt",
+          "running": "Läuft",
+          "starting": "Startet",
+          "closing": "Wird beendet",
+          "idle": "Inaktiv",
+          "paused": "Pausiert",
+          "waiting": "Wartet"
+        },
         "unavailable": "Ressourcenstatus wird geladen oder ist nicht verfügbar.",
         "summary": "Reservierte Plätze: {{active}} (davon Bereinigung unbestätigt: {{unconfirmed}}) · Limit: {{limit}} · Wartende Anfragen: {{waiting}}",
         "ram": "Gemessener verfügbarer Host-RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
