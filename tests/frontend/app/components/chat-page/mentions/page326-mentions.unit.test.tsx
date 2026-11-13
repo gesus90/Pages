@@ -175,17 +175,23 @@ it("inserts a filtered member by mouse and Enter while Escape and no-match space
   expect(editor.textContent).toContain("Please @bakuman");
   expect(screen.queryByRole("listbox")).toBeNull();
   act(() => input?.setMarkdown(""));
-  act(() => input?.editor?.commands.insertContent("@ed"));
+  act(() => {
+    input?.editor?.commands.insertContent("@ed");
+  });
   fireEvent.keyDown(editor, { key: "Enter" });
   expect(editor.querySelector("[data-chat-mention='ed']")).toBeTruthy();
   expect(onSend).not.toHaveBeenCalled();
   act(() => input?.setMarkdown(""));
-  act(() => input?.editor?.commands.insertContent("@nobody"));
+  act(() => {
+    input?.editor?.commands.insertContent("@nobody");
+  });
   expect(screen.getByText("Nobody matches “@nobody”.")).toBeTruthy();
   fireEvent.keyDown(editor, { key: " " });
   expect(screen.queryByRole("listbox")).toBeNull();
   act(() => input?.setMarkdown(""));
-  act(() => input?.editor?.commands.insertContent("@"));
+  act(() => {
+    input?.editor?.commands.insertContent("@");
+  });
   fireEvent.keyDown(editor, { key: "Escape" });
   expect(screen.queryByRole("listbox")).toBeNull();
 });

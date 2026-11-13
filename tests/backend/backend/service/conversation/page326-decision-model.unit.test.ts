@@ -34,8 +34,8 @@ it("runs an API decision as a bounded text request without ACP, tools or a works
       userId: "person",
       directory: null,
       webSearch: false,
-      instructions: expect.stringContaining("höchstens einer"),
-      prompt: expect.stringContaining("Developer"),
+      instructions: expect.stringContaining("höchstens einer") as unknown,
+      prompt: expect.stringContaining("Developer") as unknown,
     }),
     expect.any(AbortSignal),
   );

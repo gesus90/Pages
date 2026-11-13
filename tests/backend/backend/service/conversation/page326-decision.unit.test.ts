@@ -4,6 +4,7 @@ import { ConversationChatDecisions } from "@/backend/service/conversation/Conver
 import { ConversationAccounts } from "@/backend/service/conversation/ConversationDirectory";
 import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
 import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
+import { ROLE } from "@/definition/Role";
 
 import type { ConversationDecisionRequest } from "@/backend/service/conversation/ConversationChatDecisions";
 
@@ -17,7 +18,7 @@ function fixture(): {
     id: "person",
     username: "person",
     displayName: "Igor",
-    role: "employee",
+    role: ROLE.EMPLOYEE,
     isActive: true,
     mustChangePassword: false,
   };
@@ -108,7 +109,7 @@ it("decides an unmentioned question once, selects at most one eligible agent and
   ]);
   expect(ask).toHaveBeenCalledWith(
     expect.objectContaining({
-      material: expect.objectContaining({ maximum: 1 }),
+      material: expect.objectContaining({ maximum: 1 }) as unknown,
     }),
   );
   expect(record).toHaveBeenCalledWith(

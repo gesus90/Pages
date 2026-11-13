@@ -370,14 +370,16 @@ it("PAGE-326 starts and stores the chosen agent's answer to a message without @ 
     expect.objectContaining({
       agent,
       lastMessage: stored.text,
-      prompt: expect.stringContaining("Der Agent entwickelt den Chat."),
+      prompt: expect.stringContaining(
+        "Der Agent entwickelt den Chat.",
+      ) as unknown,
     }),
   );
   expect(dependencies.messages.insert).toHaveBeenCalledOnce();
   expect(dependencies.messages.insert).toHaveBeenCalledWith(
     expect.objectContaining({
       senderId: "agent",
-      clientMessageId: expect.stringContaining("origin"),
+      clientMessageId: expect.stringContaining("origin") as unknown,
       text: "Ich übernehme die Chat-Reparatur.",
     }),
     expect.anything(),

@@ -36,17 +36,20 @@ export interface ConversationAccount {
 /** Every account of one reading, by ID. */
 export class ConversationAccounts {
   private readonly accounts: ReadonlyMap<string, ConversationAccount>;
+  private readonly aliasDirectory: ConversationAliasDirectory | undefined;
 
   /**
    * Wraps one reading of the accounts.
    *
    * @param accounts - The accounts by ID.
+   * @param aliasDirectory - Aliases visible to each sender, when the chat has any.
    */
   public constructor(
     accounts: ReadonlyMap<string, ConversationAccount>,
-    private readonly aliasDirectory?: ConversationAliasDirectory,
+    aliasDirectory?: ConversationAliasDirectory,
   ) {
     this.accounts = accounts;
+    this.aliasDirectory = aliasDirectory;
   }
 
   /** Only aliases visible to the sender may expand into recipients. */
