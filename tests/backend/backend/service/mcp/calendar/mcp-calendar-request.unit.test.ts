@@ -108,7 +108,8 @@ describe("calendar API bodies", () => {
   });
 
   it("refuses a missing or non-UUID operation ID, unknown fields and a creator", () => {
-    const { operationId: _omitted, ...withoutId } = EVENT;
+    const withoutId: Partial<typeof EVENT> = { ...EVENT };
+    delete withoutId.operationId;
     for (const body of [
       withoutId,
       { ...EVENT, operationId: "op-1" },

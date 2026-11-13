@@ -33,10 +33,10 @@ const REGISTRATION = {
 
 function settingsOf(change: {
   readonly language?: "de" | "en";
-  readonly timezone?: string | null;
+  readonly timezone?: UserSettings["timezone"];
   readonly calendarInvitations?: boolean;
 }): UserSettings {
-  return {
+  const settings: UserSettings = {
     ...DEFAULT_USER_SETTINGS,
     language: change.language ?? "de",
     timezone: change.timezone === undefined ? "Europe/Berlin" : change.timezone,
@@ -44,7 +44,8 @@ function settingsOf(change: {
       ...DEFAULT_USER_SETTINGS.notifications,
       calendarInvitations: change.calendarInvitations ?? true,
     },
-  } as UserSettings;
+  };
+  return settings;
 }
 
 /** A push over the real device delivery with a sender that records the messages. */

@@ -135,10 +135,14 @@ beforeEach(() => {
     })),
     delete: vi.fn(async () => ({ eventId: "event" })),
     runOnce: vi.fn(
-      async (_actor: User, _operation: unknown, work: () => unknown) => ({
-        kind: "fresh",
-        result: await work(),
-      }),
+      async (actor: User, operation: unknown, work: () => unknown) => (
+        void actor,
+        void operation,
+        {
+          kind: "fresh",
+          result: await work(),
+        }
+      ),
     ),
   };
   users = { getById: vi.fn(async () => PERSON) };
@@ -245,9 +249,10 @@ it("creates a weekly series once per server-owned operation ID", async () => {
     invitees: [{ kind: "group", id: "pages" }],
     recurrence: { frequency: "weekly", weekdays: ["mo"], interval: 1 },
   });
-  const [, operation] = calendar.runOnce.mock.calls[0] ?? [];
+  const call: unknown[] = calendar.runOnce.mock.calls[0] ?? [];
+  const operation: unknown = call[1];
   expect(operation).toMatchObject({
-    operationId: expect.any(String),
+    operationId: expect.any(String) as unknown,
     request: { operation: "calendar.event.create" },
   });
 });
@@ -444,9 +449,7 @@ it("leaves every other operation to the next handler", async () => {
 
 describe("read-only agents in the calendar tools", () => {
   it("refuses changes of an agent with read-only access but lets it read", async () => {
-    const { PicaCalendarToolService } =
-      await import("@/backend/service/chat/PicaCalendarToolService");
-    const calendar = {
+    const agentCalendar = {
       readRange: vi.fn(async () => ({
         from: "a",
         to: "b",
@@ -461,7 +464,7 @@ describe("read-only agents in the calendar tools", () => {
       delete: vi.fn(),
       runOnce: vi.fn(),
     };
-    const service = new PicaCalendarToolService({
+    const agentService = new PicaCalendarToolService({
       users: {
         getById: vi.fn(async () => ({
           id: "agent",
@@ -473,20 +476,20 @@ describe("read-only agents in the calendar tools", () => {
           isAgent: true,
         })),
       },
-      calendar: async () => calendar,
+      calendar: async () => agentCalendar,
       agentAccess: async () => ({
         find: async () => ({ access: "read_only" }),
       }),
     });
     await expect(
-      service.handle("agent", "calendar.event.respond", {
+      agentService.handle("agent", "calendar.event.respond", {
         id: "e",
         response: "accepted",
       }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(calendar.runOnce).not.toHaveBeenCalled();
     await expect(
-      service.handle("agent", "calendar.read", {
+      agentService.handle("agent", "calendar.read", {
         from: "2026-11-09",
         to: "2026-11-10",
       }),

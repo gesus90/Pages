@@ -49,7 +49,9 @@ describe("calendar service visibility and invitations", () => {
     expect(world.pushed[0]?.userIds).toEqual(["bob", "cleo"]);
     expect(world.published[0]?.type).toBe("calendar.changed");
   });
+});
 
+describe("calendar service visibility and invitations", () => {
   it("counts answers per person, keeps agents open and lets only invitees answer", async () => {
     const world = createCalendarWorld();
     const created = await world.service.create(world.user("ada"), WEEKLY);
@@ -84,7 +86,9 @@ describe("calendar service visibility and invitations", () => {
       "not_found",
     );
   });
+});
 
+describe("calendar service visibility and invitations", () => {
   it("lets only the creator or an administrator change and delete; deleted events vanish for all", async () => {
     const world = createCalendarWorld();
     const created = await world.service.create(world.user("ada"), {
@@ -122,7 +126,9 @@ describe("calendar service visibility and invitations", () => {
     const bob = await world.service.readRange(world.user("bob"), WEEK);
     expect(bob.entries.some((item) => item.details.eventId === id)).toBe(false);
   });
+});
 
+describe("calendar service visibility and invitations", () => {
   it("reopens acceptances but keeps declines when the time changes", async () => {
     const world = createCalendarWorld();
     const created = await world.service.create(world.user("ada"), {
@@ -146,7 +152,9 @@ describe("calendar service visibility and invitations", () => {
       "open",
     ]);
   });
+});
 
+describe("calendar service visibility and invitations", () => {
   it("refuses an end before the start, a range over 92 days and a foreign project", async () => {
     const world = createCalendarWorld();
     await expectCode(
@@ -224,7 +232,9 @@ describe("calendar service series scopes", () => {
       "Later 2026-11-30T10:00:00+01:00",
     ]);
   });
+});
 
+describe("calendar service series scopes", () => {
   it("deletes this, following or all occurrences and previews the deletion", async () => {
     const world = createCalendarWorld();
     const created = await world.service.create(world.user("ada"), {
@@ -258,7 +268,9 @@ describe("calendar service series scopes", () => {
     });
     expect(await eventEntries(world, month)).toHaveLength(0);
   });
+});
 
+describe("calendar service series scopes", () => {
   it("shows multi-day all-day events, project dates, due tickets and milestones with links", async () => {
     const world = createCalendarWorld();
     await world.service.create(world.user("ada"), {
@@ -293,7 +305,9 @@ describe("calendar service series scopes", () => {
         .every((item) => !item.editable),
     ).toBe(true);
   });
+});
 
+describe("calendar service series scopes", () => {
   it("answers in the zone of the viewer", async () => {
     const world = createCalendarWorld("America/New_York");
     const entry = await world.service.create(world.user("ada"), {
@@ -304,7 +318,9 @@ describe("calendar service series scopes", () => {
     });
     expect(entry.start).toBe("2026-11-09T10:00:00-05:00");
   });
+});
 
+describe("calendar service series scopes", () => {
   it("replays an operation and refuses a reused ID with another request", async () => {
     const world = createCalendarWorld();
     const work = async (): Promise<string> => "done";

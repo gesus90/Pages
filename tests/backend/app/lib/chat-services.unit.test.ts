@@ -1,8 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { AgentBrowserService } from "@/backend/service/chat/browser/AgentBrowserService";
-import { AgentBrowserSessions } from "@/backend/service/chat/browser/AgentBrowserSessions";
-import { AgentEmployeeRepository } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import { createChatServices } from "@/app/lib/chat-services.server";
 import { isSafeSvg } from "@/app/lib/settings-actions/svg-safety.server";
 import { PicaAdminService } from "@/backend/service/chat/admin/PicaAdminService";
@@ -442,8 +440,8 @@ it("runs tools as the current identity over the shared operation router", async 
     [
       {
         users: ACCOUNTS.users,
-        calendar: expect.any(Function),
-        agentAccess: expect.any(Function),
+        calendar: expect.any(Function) as unknown,
+        agentAccess: expect.any(Function) as unknown,
       },
     ],
   ]);

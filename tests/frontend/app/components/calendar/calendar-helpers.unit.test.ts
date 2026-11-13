@@ -71,7 +71,9 @@ describe("calendar dates", () => {
     });
     expect(visibleRange("month", "2026-11-12").to).toBe("2026-12-06");
   });
+});
 
+describe("calendar dates", () => {
   it("moves anchors and checks dates", () => {
     expect(shiftAnchor("week", "2026-11-12", -1)).toBe("2026-11-05");
     expect(shiftAnchor("month", "2026-01-31", 1)).toBe("2026-02-01");
@@ -106,7 +108,9 @@ describe("calendar layout", () => {
       endMinute: 900,
     });
   });
+});
 
+describe("calendar layout", () => {
   it("clips entries across midnight and orders a day", () => {
     const late = entry(
       "late",
@@ -159,7 +163,9 @@ describe("calendar event draft", () => {
       },
     });
   });
+});
 
+describe("calendar event draft", () => {
   it("rejects missing titles and ends before the start", () => {
     const draft = draftForNew({ date: "2026-11-12", minute: null });
     expect(fieldsOfDraft(draft, "UTC")).toEqual({
@@ -180,7 +186,9 @@ describe("calendar event draft", () => {
       "2026-11-13T01:00:00+00:00",
     );
   });
+});
 
+describe("calendar event draft", () => {
   it("sends only changed fields and no rule for one occurrence", () => {
     const series = entry(
       "s~1",
@@ -220,7 +228,9 @@ describe("calendar event draft", () => {
       },
     });
   });
+});
 
+describe("calendar event draft", () => {
   it("maps workdays and custom rules", () => {
     const workdays = repeatFieldsOf(
       {

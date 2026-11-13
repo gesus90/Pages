@@ -34,7 +34,7 @@ function audience(
 
 it("announces a calendar change only to affected accounts", async () => {
   const isAffected = vi.fn(
-    async (_actor: User, id: string) => id === "event-1",
+    async (actor: User, id: string) => (void actor, id === "event-1"),
   );
   const check = audience(isAffected);
 

@@ -79,14 +79,14 @@ export function mockCalendar(): {
 } {
   const runOnce = vi.fn();
   runOnce.mockImplementation(
-    async (
-      _actor: User,
-      _operation: unknown,
-      work: () => Promise<unknown>,
-    ) => ({
-      kind: "fresh",
-      result: await work(),
-    }),
+    async (actor: User, operation: unknown, work: () => Promise<unknown>) => (
+      void actor,
+      void operation,
+      {
+        kind: "fresh",
+        result: await work(),
+      }
+    ),
   );
   return {
     readRange: vi.fn(),

@@ -222,12 +222,93 @@ function createSessionAuth(
   return new AuthService(users, sessions, hasher, new LoginThrottle());
 }
 
-async function initializeServices(
+function prepareCalendarService(
   database: Database,
-  databasePath: string,
-): Promise<ApplicationServices> {
-  await prepareServiceDatabase(database);
+  projectService: ProjectService,
+  permissionService: PermissionService,
+  dependencies: {
+    settingsService: ApplicationServices["settingsService"];
+    events: PagesEventPublisher;
+  },
+): ApplicationServices["calendarService"] {
+  const { settingsService, events: pagesEventPublisher } = dependencies;
+  return createCalendarService({
+    database,
+    projectService,
+    permissionService,
+    settingsService,
+    events: pagesEventPublisher,
+    push: async () => {
+      const services = await getApplicationServices();
+      return {
+        picaMobileNotifications: services.picaMobileNotifications,
+        picaMobileAutomationPush: services.picaMobileAutomationPush,
+        settingsService: services.settingsService,
+      };
+    },
+  });
+}
 
+function createUserServices(
+  database: Database,
+  permissionService: PermissionService,
+  administrationService: AdministrationService,
+): { userRepository: UserRepository; userService: UserService } {
+  const userRepository = new UserRepository(database);
+  return {
+    userRepository,
+    userService: new UserService(
+      userRepository,
+      permissionService,
+      administrationService,
+    ),
+  };
+}
+
+function createProjectServices(
+  database: Database,
+  permissionService: PermissionService,
+  tokenKey: ReturnType<typeof resolveGitHubTokenKey>,
+  serverCache: Awaited<ReturnType<typeof createServiceCache>>,
+): { projectRepository: ProjectRepository; projectService: ProjectService } {
+  const projectRepository = new ProjectRepository(database);
+  return {
+    projectRepository,
+    projectService: new ProjectService(
+      projectRepository,
+      permissionService,
+      tokenKey,
+      serverCache,
+    ),
+  };
+}
+
+async function createApplicationSessions(
+  database: Database,
+  users: UserRepository,
+  userService: UserService,
+  passwordHasher: PasswordHasher,
+): Promise<SessionService> {
+  return prepareSessions(
+    new SetupService(users, passwordHasher),
+    new SessionService(new SessionRepository(database), userService),
+  );
+}
+
+async function prepareServiceFoundation(database: Database): Promise<
+  Pick<
+    ApplicationServices,
+    | "administrationService"
+    | "groupAdministrationService"
+    | "permissionService"
+    | "userService"
+  > & {
+    passwordHasher: PasswordHasher;
+    serverCache: Awaited<ReturnType<typeof createServiceCache>>;
+    userRepository: UserRepository;
+  }
+> {
+  await prepareServiceDatabase(database);
   const passwordHasher = new PasswordHasher();
   const serverCache = await createServiceCache();
   const {
@@ -235,18 +316,40 @@ async function initializeServices(
     groupAdministrationService,
     permissionService,
   } = createAuthorizationServices(database, passwordHasher, serverCache);
-  const userRepository = new UserRepository(database);
-  const projectRepository = new ProjectRepository(database);
-  const userService = new UserService(
-    userRepository,
+  const { userRepository, userService } = createUserServices(
+    database,
     permissionService,
     administrationService,
   );
+  return {
+    passwordHasher,
+    serverCache,
+    administrationService,
+    groupAdministrationService,
+    permissionService,
+    userRepository,
+    userService,
+  };
+}
+
+async function initializeServices(
+  database: Database,
+  databasePath: string,
+): Promise<ApplicationServices> {
+  const {
+    passwordHasher,
+    serverCache,
+    administrationService,
+    groupAdministrationService,
+    permissionService,
+    userRepository,
+    userService,
+  } = await prepareServiceFoundation(database);
   const { settingsService, designThemeService, boardPreferencesService } =
     createPreferenceServices(database, databasePath);
   const tokenKey = resolveGitHubTokenKey(databasePath);
-  const projectService = new ProjectService(
-    projectRepository,
+  const { projectRepository, projectService } = createProjectServices(
+    database,
     permissionService,
     tokenKey,
     serverCache,
@@ -286,9 +389,11 @@ async function initializeServices(
     tasks: taskServices.taskService,
     users: userService,
   });
-  const sessionService = await prepareSessions(
-    new SetupService(userRepository, passwordHasher),
-    new SessionService(new SessionRepository(database), userService),
+  const sessionService = await createApplicationSessions(
+    database,
+    userRepository,
+    userService,
+    passwordHasher,
   );
 
   const mcpServices = await startMcpWorkspace({
@@ -304,26 +409,16 @@ async function initializeServices(
     serverCache,
     tokenKey,
   });
-  const calendarService = createCalendarService({
-    database,
-    projectService,
-    permissionService,
-    settingsService,
-    events: pagesEventPublisher,
-    push: async () => {
-      const services = await getApplicationServices();
-      return {
-        picaMobileNotifications: services.picaMobileNotifications,
-        picaMobileAutomationPush: services.picaMobileAutomationPush,
-        settingsService: services.settingsService,
-      };
-    },
-  });
   return {
     ...agentServices,
     ...planServices,
     ...mcpServices,
-    calendarService,
+    calendarService: prepareCalendarService(
+      database,
+      projectService,
+      permissionService,
+      { settingsService, events: pagesEventPublisher },
+    ),
     administrationService,
     authService: createSessionAuth(userService, sessionService, passwordHasher),
     boardPreferencesService,

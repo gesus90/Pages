@@ -36,6 +36,19 @@ function createRelay(config: PagesConfig): PicaMobileRelay | undefined {
       });
 }
 
+function createMobileCalendar(): PagesPicaMobileCalendar {
+  return new PagesPicaMobileCalendar(async () => {
+    const services = await getApplicationServices();
+
+    return {
+      authService: services.authService,
+      calendarService: services.calendarService,
+      liveChangeAudience: services.liveChangeAudience,
+      pagesEventPublisher: services.pagesEventPublisher,
+    };
+  });
+}
+
 /**
  * Returns the Pica Mobile endpoint of the process, creating it on first use.
  *
@@ -124,16 +137,7 @@ export function obtainPicaMobileGateway(
           speechRecognitionService: services.speechRecognitionService,
         };
       }),
-      calendar: new PagesPicaMobileCalendar(async () => {
-        const services = await getApplicationServices();
-
-        return {
-          authService: services.authService,
-          calendarService: services.calendarService,
-          liveChangeAudience: services.liveChangeAudience,
-          pagesEventPublisher: services.pagesEventPublisher,
-        };
-      }),
+      calendar: createMobileCalendar(),
       serverVersion: PAGES_VERSION,
       listenAddress: runtime.getConfig().listenAddress,
       relay: createRelay(runtime.getConfig()),

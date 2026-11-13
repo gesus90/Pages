@@ -59,11 +59,14 @@ function world(overrides: Partial<PicaMobileCalendarProvider> = {}): World {
         listener = null;
       };
     }),
-    visibleChanges: vi.fn((_session: unknown, events: readonly PagesEvent[]) =>
-      Promise.resolve({
-        kind: "changes" as const,
-        ids: events.map((event) => event.id),
-      }),
+    visibleChanges: vi.fn(
+      (session: unknown, events: readonly PagesEvent[]) => (
+        void session,
+        Promise.resolve({
+          kind: "changes" as const,
+          ids: events.map((event) => event.id),
+        })
+      ),
     ),
     ...overrides,
   };

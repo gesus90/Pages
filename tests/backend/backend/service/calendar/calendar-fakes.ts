@@ -78,6 +78,303 @@ function membersOf(
   );
 }
 
+interface CalendarWorldState {
+  readonly events: Map<string, CalendarEventRecord>;
+  readonly exceptions: CalendarExceptionRecord[];
+  invitations: CalendarInvitationRecord[];
+  responses: CalendarResponseRecord[];
+  readonly operations: Map<string, CalendarOperationRecord>;
+  readonly published: PagesEvent[];
+  readonly pushed: CalendarWorld["pushed"];
+  readonly timeZone: string;
+}
+
+function createEvents(
+  state: CalendarWorldState,
+): CalendarDependencies["events"] {
+  const { events, exceptions } = state;
+  const store = (event: NewCalendarEvent, revision: number): void => {
+    events.set(event.id, { ...event, revision, deletedAt: null });
+  };
+  return {
+    findById: async (id) => events.get(id) ?? null,
+    findVisible: async (scope) =>
+      [...events.values()].filter(
+        (event) =>
+          event.deletedAt === null &&
+          (event.createdBy === scope.userId ||
+            (event.projectId !== null &&
+              scope.projectIds.includes(event.projectId)) ||
+            isInvited(state.invitations, event, scope)),
+      ),
+    findExceptions: async (ids) =>
+      exceptions.filter((entry) => ids.includes(entry.eventId)),
+    insert: async (event) => store(event, 1),
+    update: async (event) =>
+      store(event, (events.get(event.id)?.revision ?? 0) + 1),
+    touch: async (id) => {
+      const event = events.get(id);
+      if (event) events.set(id, { ...event, revision: event.revision + 1 });
+    },
+    markDeleted: async (id) => {
+      const event = events.get(id);
+      if (event)
+        events.set(id, {
+          ...event,
+          deletedAt: "now",
+          revision: event.revision + 1,
+        });
+    },
+    saveException: async (exception) => {
+      const index = exceptions.findIndex(
+        (entry) =>
+          entry.eventId === exception.eventId &&
+          entry.occurrenceStart === exception.occurrenceStart,
+      );
+      if (index >= 0) exceptions.splice(index, 1);
+      exceptions.push(exception);
+    },
+    deleteExceptions: async (eventId, options = {}) => {
+      for (let index = exceptions.length - 1; index >= 0; index -= 1) {
+        const entry = exceptions[index];
+        if (
+          entry !== undefined &&
+          entry.eventId === eventId &&
+          (options.fromOccurrence === undefined ||
+            entry.occurrenceStart >= options.fromOccurrence)
+        )
+          exceptions.splice(index, 1);
+      }
+    },
+  };
+}
+
+function createParticipation(
+  state: CalendarWorldState,
+): CalendarDependencies["participation"] {
+  const { operations } = state;
+  return {
+    findInvitations: async (ids) =>
+      state.invitations.filter((entry) => ids.includes(entry.eventId)),
+    replaceInvitations: async (
+      eventId,
+      list: readonly CalendarInviteeReference[],
+    ) => {
+      state.invitations = [
+        ...state.invitations.filter((entry) => entry.eventId !== eventId),
+        ...list.map((entry) => ({
+          eventId,
+          kind: entry.kind,
+          inviteeId: entry.id,
+        })),
+      ];
+    },
+    findResponses: async (ids) =>
+      state.responses.filter((entry) => ids.includes(entry.eventId)),
+    saveResponse: async (record) => {
+      state.responses = [
+        ...state.responses.filter(
+          (entry) =>
+            !(
+              entry.eventId === record.eventId && entry.userId === record.userId
+            ),
+        ),
+        record,
+      ];
+    },
+    copyResponses: async (from, to) => {
+      state.responses = [
+        ...state.responses,
+        ...state.responses
+          .filter((entry) => entry.eventId === from)
+          .map((entry) => ({ ...entry, eventId: to })),
+      ];
+    },
+    reopenAcceptances: async (eventId) => {
+      state.responses = state.responses.filter(
+        (entry) =>
+          !(entry.eventId === eventId && entry.response === "accepted"),
+      );
+    },
+    isAffected: async () => true,
+    findOperation: async (account, id) =>
+      operations.get(`${account}:${id}`) ?? null,
+    saveOperation: async (account, id, record) => {
+      operations.set(`${account}:${id}`, record);
+    },
+  };
+}
+
+function createDirectory(): CalendarDependencies["directory"] {
+  return {
+    findMemberships: async (userId) => ({
+      groupIds: Object.keys(GROUPS).filter((id) =>
+        GROUPS[id]?.includes(userId),
+      ),
+      departmentIds: Object.keys(DEPARTMENTS).filter((id) =>
+        DEPARTMENTS[id]?.includes(userId),
+      ),
+    }),
+    findAccounts: async (ids) =>
+      ACCOUNTS.filter((account) => ids.includes(account.id)),
+    findGroups: async (ids) =>
+      ids
+        .filter((id) => id in GROUPS)
+        .map((id) => ({ id, name: `Gruppe ${id}` })),
+    findDepartments: async (ids) =>
+      ids
+        .filter((id) => id in DEPARTMENTS)
+        .map((id) => ({ id, name: `Abteilung ${id}` })),
+    findGroupMembers: async (ids) => membersOf(GROUPS, ids),
+    findDepartmentMembers: async (ids) => membersOf(DEPARTMENTS, ids),
+    searchInvitees: async (text, limit) =>
+      ACCOUNTS.filter((account) =>
+        account.name.toLowerCase().includes(text.toLowerCase()),
+      )
+        .map((account) => ({
+          kind: account.isAgent ? ("agent" as const) : ("person" as const),
+          id: account.id,
+          name: account.name,
+        }))
+        .slice(0, limit),
+  };
+}
+
+function createSources(): CalendarDependencies["sources"] {
+  return {
+    findProjectDates: async (ids) =>
+      ids.includes("p1")
+        ? [
+            {
+              id: "pd1",
+              projectId: "p1",
+              projectName: "Pages",
+              title: "Release",
+              description: "",
+              date: "2026-11-12",
+              time: "14:00",
+            },
+          ]
+        : [],
+    findDueTickets: async (assignee) =>
+      assignee.userId === "ada"
+        ? [
+            {
+              id: "t1",
+              key: "PAGE-297",
+              title: "Calendar",
+              projectId: "p1",
+              projectName: "Pages",
+              date: "2026-11-10",
+            },
+          ]
+        : [],
+    findMilestones: async (ids) =>
+      ids.includes("p1")
+        ? [
+            {
+              id: "m1",
+              name: "Version 1.0",
+              description: "",
+              projectId: "p1",
+              projectName: "Pages",
+              date: "2026-11-13",
+            },
+          ]
+        : [],
+    findProjectNames: async (ids) =>
+      ids.map((id) => ({ id, name: `Projekt ${id}` })),
+  };
+}
+
+function createProjects(): CalendarDependencies["projects"] {
+  return {
+    findAssigned: async (actor) =>
+      Object.entries(PROJECTS)
+        .filter(([, members]) => members.includes(actor.id))
+        .map(([id]) => ({
+          project: {
+            id,
+            name: "Pages",
+            departments: [],
+            parentId: null,
+            description: "",
+            status: "active",
+            progress: 0,
+            placeholderColor: "",
+            hasIcon: false,
+            managerId: null,
+            managerName: null,
+            startDate: null,
+            targetDate: null,
+            notes: "",
+            createdAt: "",
+            updatedAt: "",
+          },
+          goalCount: 0,
+          completedGoalCount: 0,
+        })),
+    canWriteProject: async (actor, projectId) =>
+      PROJECTS[projectId]?.includes(actor.id) ?? false,
+    workItemVisibility: async () => ({ departmentIds: null }),
+  };
+}
+
+function createPermissions(): CalendarDependencies["permissions"] {
+  return { allows: async (actor) => actor.role === "admin" };
+}
+
+function createSettings(
+  state: CalendarWorldState,
+): CalendarDependencies["settings"] {
+  const { timeZone } = state;
+  return {
+    getUserSettings: async () => ({
+      language: "de",
+      theme: "system",
+      timezone: timeZone as never,
+      dateFormat: "DD.MM.YYYY",
+      weekStart: "monday",
+      notifications: {
+        email: true,
+        desktop: true,
+        mentions: true,
+        assignments: true,
+        dueDates: true,
+        weeklySummary: false,
+        calendarInvitations: true,
+      },
+    }),
+  };
+}
+
+function createPublisher(
+  state: CalendarWorldState,
+): CalendarDependencies["publisher"] {
+  const { published } = state;
+  return {
+    announce: async (work, decide) => {
+      const result = await work();
+      published.push(...decide(result));
+      return result;
+    },
+    publish: (event) => {
+      published.push(event);
+    },
+  };
+}
+
+function createInvitations(
+  state: CalendarWorldState,
+): CalendarDependencies["invitations"] {
+  const { pushed } = state;
+  return () => ({
+    invited: async (notice, userIds) => {
+      pushed.push({ notice, userIds });
+    },
+  });
+}
+
 /**
  * Creates the in-memory calendar.
  *
@@ -86,8 +383,8 @@ function membersOf(
 export function createCalendarWorld(timeZone = "Europe/Berlin"): CalendarWorld {
   const events = new Map<string, CalendarEventRecord>();
   const exceptions: CalendarExceptionRecord[] = [];
-  let invitations: CalendarInvitationRecord[] = [];
-  let responses: CalendarResponseRecord[] = [];
+  const invitations: CalendarInvitationRecord[] = [];
+  const responses: CalendarResponseRecord[] = [];
   const operations = new Map<string, CalendarOperationRecord>();
   const published: PagesEvent[] = [];
   const pushed: CalendarWorld["pushed"] = [];
@@ -100,245 +397,36 @@ export function createCalendarWorld(timeZone = "Europe/Berlin"): CalendarWorld {
     mustChangePassword: false,
     isAgent: id === "pica",
   });
-  const store = (event: NewCalendarEvent, revision: number): void => {
-    events.set(event.id, { ...event, revision, deletedAt: null });
+  const state: CalendarWorldState = {
+    events,
+    exceptions,
+    invitations,
+    responses,
+    operations,
+    published,
+    pushed,
+    timeZone,
   };
   const dependencies: CalendarDependencies = {
-    events: {
-      findById: async (id) => events.get(id) ?? null,
-      findVisible: async (scope) =>
-        [...events.values()].filter(
-          (event) =>
-            event.deletedAt === null &&
-            (event.createdBy === scope.userId ||
-              (event.projectId !== null &&
-                scope.projectIds.includes(event.projectId)) ||
-              isInvited(invitations, event, scope)),
-        ),
-      findExceptions: async (ids) =>
-        exceptions.filter((entry) => ids.includes(entry.eventId)),
-      insert: async (event) => store(event, 1),
-      update: async (event) =>
-        store(event, (events.get(event.id)?.revision ?? 0) + 1),
-      touch: async (id) => {
-        const event = events.get(id);
-        if (event) events.set(id, { ...event, revision: event.revision + 1 });
-      },
-      markDeleted: async (id) => {
-        const event = events.get(id);
-        if (event)
-          events.set(id, {
-            ...event,
-            deletedAt: "now",
-            revision: event.revision + 1,
-          });
-      },
-      saveException: async (exception) => {
-        const index = exceptions.findIndex(
-          (entry) =>
-            entry.eventId === exception.eventId &&
-            entry.occurrenceStart === exception.occurrenceStart,
-        );
-        if (index >= 0) exceptions.splice(index, 1);
-        exceptions.push(exception);
-      },
-      deleteExceptions: async (eventId, options = {}) => {
-        for (let index = exceptions.length - 1; index >= 0; index -= 1) {
-          const entry = exceptions[index];
-          if (
-            entry !== undefined &&
-            entry.eventId === eventId &&
-            (options.fromOccurrence === undefined ||
-              entry.occurrenceStart >= options.fromOccurrence)
-          )
-            exceptions.splice(index, 1);
-        }
-      },
-    },
-    participation: {
-      findInvitations: async (ids) =>
-        invitations.filter((entry) => ids.includes(entry.eventId)),
-      replaceInvitations: async (
-        eventId,
-        list: readonly CalendarInviteeReference[],
-      ) => {
-        invitations = [
-          ...invitations.filter((entry) => entry.eventId !== eventId),
-          ...list.map((entry) => ({
-            eventId,
-            kind: entry.kind,
-            inviteeId: entry.id,
-          })),
-        ];
-      },
-      findResponses: async (ids) =>
-        responses.filter((entry) => ids.includes(entry.eventId)),
-      saveResponse: async (record) => {
-        responses = [
-          ...responses.filter(
-            (entry) =>
-              !(
-                entry.eventId === record.eventId &&
-                entry.userId === record.userId
-              ),
-          ),
-          record,
-        ];
-      },
-      copyResponses: async (from, to) => {
-        responses = [
-          ...responses,
-          ...responses
-            .filter((entry) => entry.eventId === from)
-            .map((entry) => ({ ...entry, eventId: to })),
-        ];
-      },
-      reopenAcceptances: async (eventId) => {
-        responses = responses.filter(
-          (entry) =>
-            !(entry.eventId === eventId && entry.response === "accepted"),
-        );
-      },
-      isAffected: async () => true,
-      findOperation: async (account, id) =>
-        operations.get(`${account}:${id}`) ?? null,
-      saveOperation: async (account, id, record) => {
-        operations.set(`${account}:${id}`, record);
-      },
-    },
-    directory: {
-      findMemberships: async (userId) => ({
-        groupIds: Object.keys(GROUPS).filter((id) =>
-          GROUPS[id]?.includes(userId),
-        ),
-        departmentIds: Object.keys(DEPARTMENTS).filter((id) =>
-          DEPARTMENTS[id]?.includes(userId),
-        ),
-      }),
-      findAccounts: async (ids) =>
-        ACCOUNTS.filter((account) => ids.includes(account.id)),
-      findGroups: async (ids) =>
-        ids
-          .filter((id) => id in GROUPS)
-          .map((id) => ({ id, name: `Gruppe ${id}` })),
-      findDepartments: async (ids) =>
-        ids
-          .filter((id) => id in DEPARTMENTS)
-          .map((id) => ({ id, name: `Abteilung ${id}` })),
-      findGroupMembers: async (ids) => membersOf(GROUPS, ids),
-      findDepartmentMembers: async (ids) => membersOf(DEPARTMENTS, ids),
-      searchInvitees: async (text, limit) =>
-        ACCOUNTS.filter((account) =>
-          account.name.toLowerCase().includes(text.toLowerCase()),
-        )
-          .map((account) => ({
-            kind: account.isAgent ? ("agent" as const) : ("person" as const),
-            id: account.id,
-            name: account.name,
-          }))
-          .slice(0, limit),
-    },
-    sources: {
-      findProjectDates: async (ids) =>
-        ids.includes("p1")
-          ? [
-              {
-                id: "pd1",
-                projectId: "p1",
-                projectName: "Pages",
-                title: "Release",
-                description: "",
-                date: "2026-11-12",
-                time: "14:00",
-              },
-            ]
-          : [],
-      findDueTickets: async (assignee) =>
-        assignee.userId === "ada"
-          ? [
-              {
-                id: "t1",
-                key: "PAGE-297",
-                title: "Calendar",
-                projectId: "p1",
-                projectName: "Pages",
-                date: "2026-11-10",
-              },
-            ]
-          : [],
-      findMilestones: async (ids) =>
-        ids.includes("p1")
-          ? [
-              {
-                id: "m1",
-                name: "Version 1.0",
-                description: "",
-                projectId: "p1",
-                projectName: "Pages",
-                date: "2026-11-13",
-              },
-            ]
-          : [],
-      findProjectNames: async (ids) =>
-        ids.map((id) => ({ id, name: `Projekt ${id}` })),
-    },
-    projects: {
-      findAssigned: async (actor) =>
-        Object.entries(PROJECTS)
-          .filter(([, members]) => members.includes(actor.id))
-          .map(([id]) => ({
-            project: { id, name: "Pages" } as never,
-            goalCount: 0,
-            completedGoalCount: 0,
-          })),
-      canWriteProject: async (actor, projectId) =>
-        PROJECTS[projectId]?.includes(actor.id) ?? false,
-      workItemVisibility: async () => ({ departmentIds: null }),
-    },
-    permissions: { allows: async (actor) => actor.role === "admin" },
-    settings: {
-      getUserSettings: async () => ({
-        language: "de",
-        theme: "system",
-        timezone: timeZone as never,
-        dateFormat: "DD.MM.YYYY",
-        weekStart: "monday",
-        notifications: {
-          email: true,
-          desktop: true,
-          mentions: true,
-          assignments: true,
-          dueDates: true,
-          weeklySummary: false,
-          calendarInvitations: true,
-        },
-      }),
-    },
-    publisher: {
-      announce: async (work, decide) => {
-        const result = await work();
-        published.push(...decide(result));
-        return result;
-      },
-      publish: (event) => {
-        published.push(event);
-      },
-    },
-    invitations: () => ({
-      invited: async (notice, userIds) => {
-        pushed.push({ notice, userIds });
-      },
-    }),
+    events: createEvents(state),
+    participation: createParticipation(state),
+    directory: createDirectory(),
+    sources: createSources(),
+    projects: createProjects(),
+    permissions: createPermissions(),
+    settings: createSettings(state),
+    publisher: createPublisher(state),
+    invitations: createInvitations(state),
   };
   return {
     service: new CalendarService(dependencies),
     events,
     exceptions,
     get invitations() {
-      return invitations;
+      return state.invitations;
     },
     get responses() {
-      return responses;
+      return state.responses;
     },
     published,
     pushed,

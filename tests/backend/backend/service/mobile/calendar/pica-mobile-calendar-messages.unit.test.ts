@@ -55,7 +55,9 @@ describe("calendar messages", () => {
     );
     expect(parsePicaMobileCalendarPayload("other", "r", {})).toBeNull();
   });
+});
 
+describe("calendar messages", () => {
   it("reads a new event and a change with its scope", () => {
     expect(
       parsePicaMobileCalendarPayload("calendar_event_save", "r", {
@@ -74,7 +76,9 @@ describe("calendar messages", () => {
       }),
     ).toMatchObject({ ok: true, message: { payload: { scope: "following" } } });
   });
+});
 
+describe("calendar messages", () => {
   it("refuses broken payloads with invalid_request", () => {
     const refused = {
       ok: false,
@@ -103,7 +107,9 @@ describe("calendar messages", () => {
       parsePicaMobileCalendarPayload("calendar_range", "r", { from: "x" }),
     ).toMatchObject(refused);
   });
+});
 
+describe("calendar messages", () => {
   it("is part of the parse chain of every frame", () => {
     const parsed = parsePicaMobileMessage(
       JSON.stringify({
@@ -118,7 +124,9 @@ describe("calendar messages", () => {
       message: { type: "calendar_targets", requestId: "t", payload: {} },
     });
   });
+});
 
+describe("calendar messages", () => {
   it("drops the details of the interface and encodes the envelope", () => {
     const entry = toPicaMobileCalendarEntry(ENTRY);
     expect(entry).not.toHaveProperty("details");
@@ -137,7 +145,9 @@ describe("calendar messages", () => {
       payload: { ids: ["event"] },
     });
   });
+});
 
+describe("calendar messages", () => {
   it("lets calendar_event_save exceed 16 KiB", () => {
     expect(
       describePicaMobileFrameMismatch("calendar_event_save", {
@@ -152,7 +162,9 @@ describe("calendar messages", () => {
       }),
     ).not.toBeNull();
   });
+});
 
+describe("calendar messages", () => {
   it("announces calendar.v1 only with a provider", async () => {
     const session = { userId: "anna", sessionToken: "token" };
     const calendar: PicaMobileCalendarProvider = {

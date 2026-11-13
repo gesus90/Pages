@@ -52,6 +52,37 @@ function hasTimePatch(patch: CalendarEventPatch): boolean {
   );
 }
 
+function exceptionTime(
+  time: StoredCalendarTime | null,
+  existing: CalendarExceptionRecord | undefined,
+): Pick<CalendarExceptionRecord, "allDay" | "startAt" | "endAt"> {
+  return {
+    allDay: time?.allDay ?? existing?.allDay ?? null,
+    startAt: time?.startAt ?? existing?.startAt ?? null,
+    endAt: time?.endAt ?? existing?.endAt ?? null,
+  };
+}
+
+function createOccurrenceException(
+  event: CalendarEventRecord,
+  occurrence: CalendarOccurrence & { readonly key: string },
+  patch: CalendarEventPatch,
+  options: {
+    readonly existing: CalendarExceptionRecord | undefined;
+    readonly time: StoredCalendarTime | null;
+  },
+): CalendarExceptionRecord {
+  const { existing, time } = options;
+  return {
+    eventId: event.id,
+    occurrenceStart: occurrence.key,
+    isCancelled: false,
+    title: patch.title ?? existing?.title ?? null,
+    description: patch.description ?? existing?.description ?? null,
+    ...exceptionTime(time, existing),
+  };
+}
+
 function sameRule(
   left: CalendarEventRecord["recurrence"],
   right: CalendarEventRecord["recurrence"],
@@ -219,16 +250,10 @@ export class CalendarSeriesChanges {
     const time = hasTimePatch(patch)
       ? patchedOccurrenceTime(occurrence, patch, viewer)
       : null;
-    const exception: CalendarExceptionRecord = {
-      eventId: event.id,
-      occurrenceStart: occurrence.key,
-      isCancelled: false,
-      title: patch.title ?? existing?.title ?? null,
-      description: patch.description ?? existing?.description ?? null,
-      allDay: time?.allDay ?? existing?.allDay ?? null,
-      startAt: time?.startAt ?? existing?.startAt ?? null,
-      endAt: time?.endAt ?? existing?.endAt ?? null,
-    };
+    const exception = createOccurrenceException(event, occurrence, patch, {
+      existing,
+      time,
+    });
     await events.saveException(exception);
     await events.touch(event.id);
     if (time !== null) await participation.reopenAcceptances(event.id);

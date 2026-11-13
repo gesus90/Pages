@@ -441,6 +441,28 @@ export class PicaMobileConnection {
 
       return;
     }
+    await this.dispatchCore(message);
+  }
+
+  private async dispatchCore(
+    message: Extract<
+      PicaMobileClientMessage,
+      {
+        type:
+          | "auth"
+          | "ping"
+          | "dashboard_get"
+          | "avatar_get"
+          | "notification_register"
+          | "notification_unregister"
+          | "notification_event_get"
+          | "notification_settings_get"
+          | "notification_settings_set"
+          | "plans_sync"
+          | "plan_get";
+      }
+    >,
+  ): Promise<void> {
     switch (message.type) {
       case "auth":
         await this.authenticate(message);

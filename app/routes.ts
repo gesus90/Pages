@@ -7,6 +7,8 @@ import {
 } from "@react-router/dev/routes";
 
 import { agentRunRoutes } from "./lib/agent-run-routes";
+import { mcpWorkspaceRoutes } from "./lib/mcp-workspace-routes";
+import { mcpCalendarRoutes } from "./lib/mcp-calendar-routes";
 import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
 import { automationRoutes } from "./lib/automation-routes";
 import { mcpAutomationRoutes } from "./lib/mcp-automation-routes";
@@ -183,60 +185,6 @@ function mcpProjectRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     ),
     resource(`${project}/archive`, "routes/api-mcp-v1-project-archive.ts"),
     resource(`${project}/delete`, "routes/api-mcp-v1-project-delete.ts"),
-  ];
-}
-
-/** The calendar API of the stand-alone Pages MCP program, admitted by the device token (PAGE-301). */
-function mcpCalendarRoutes(routes: RouteBuilder): RouteConfigEntry[] {
-  const { resource } = routes;
-  const calendar = "api/mcp/v1/calendar";
-  const event = `${calendar}/events/:eventId`;
-  return [
-    resource(`${calendar}/options`, "routes/api-mcp-v1-calendar-options.ts"),
-    resource(`${calendar}/invitees`, "routes/api-mcp-v1-calendar-invitees.ts"),
-    resource(`${calendar}/entries`, "routes/api-mcp-v1-calendar-entries.ts"),
-    resource(`${calendar}/events`, "routes/api-mcp-v1-calendar-events.ts"),
-    resource(event, "routes/api-mcp-v1-calendar-event.ts"),
-    resource(
-      `${event}/response`,
-      "routes/api-mcp-v1-calendar-event-response.ts",
-    ),
-    resource(`${event}/delete`, "routes/api-mcp-v1-calendar-event-delete.ts"),
-  ];
-}
-
-/** The workspace and remote connection API of the stand-alone Pages MCP program, admitted by the device token (PAGE-245). */
-function mcpWorkspaceRoutes(routes: RouteBuilder): RouteConfigEntry[] {
-  const { resource } = routes;
-  const workspaces = "api/mcp/v1/workspaces";
-  const workspace = `${workspaces}/:id`;
-  const connections = "api/mcp/v1/remote-connections";
-  const connection = `${connections}/:id`;
-  return [
-    resource(workspaces, "routes/api-mcp-v1-workspaces.ts"),
-    resource(`${workspaces}/folders`, "routes/api-mcp-v1-workspace-folders.ts"),
-    resource(workspace, "routes/api-mcp-v1-workspace.ts"),
-    resource(`${workspace}/check`, "routes/api-mcp-v1-workspace-check.ts"),
-    resource(`${workspace}/usages`, "routes/api-mcp-v1-workspace-usages.ts"),
-    resource(`${workspace}/remove`, "routes/api-mcp-v1-workspace-remove.ts"),
-    resource(connections, "routes/api-mcp-v1-remote-connections.ts"),
-    resource(
-      `${connections}/test`,
-      "routes/api-mcp-v1-remote-connection-test.ts",
-    ),
-    resource(connection, "routes/api-mcp-v1-remote-connection.ts"),
-    resource(
-      `${connection}/check`,
-      "routes/api-mcp-v1-remote-connection-check.ts",
-    ),
-    resource(
-      `${connection}/reconnect`,
-      "routes/api-mcp-v1-remote-connection-reconnect.ts",
-    ),
-    resource(
-      `${connection}/remove`,
-      "routes/api-mcp-v1-remote-connection-remove.ts",
-    ),
   ];
 }
 

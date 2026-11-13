@@ -78,16 +78,22 @@ function services(user: User | null = USER): {
       targets: vi.fn(() =>
         Promise.resolve([{ projectId: null, name: "Meine Termine" }]),
       ),
-      isAffected: vi.fn((_user: User, id: string) =>
-        Promise.resolve(id !== "hidden"),
+      isAffected: vi.fn(
+        (actor: User, id: string) => (
+          void actor,
+          Promise.resolve(id !== "hidden")
+        ),
       ),
     },
     liveChangeAudience: {
-      notice: vi.fn((_user: User, event: PagesEvent) =>
-        Promise.resolve(
-          event.id === "hidden"
-            ? null
-            : { kind: "ticket" as const, id: event.id },
+      notice: vi.fn(
+        (actor: User, event: PagesEvent) => (
+          void actor,
+          Promise.resolve(
+            event.id === "hidden"
+              ? null
+              : { kind: "ticket" as const, id: event.id },
+          )
         ),
       ),
     },
@@ -126,7 +132,9 @@ describe("PagesPicaMobileCalendar", () => {
       throw new Error("no range");
     expect(outcome.answer.payload.entries[0]).not.toHaveProperty("details");
   });
+});
 
+describe("PagesPicaMobileCalendar", () => {
   it("creates without an id and updates with id and scope", async () => {
     const { provider, resolved } = services();
     await provider.answer(SESSION, {
@@ -147,7 +155,9 @@ describe("PagesPicaMobileCalendar", () => {
       answer: { type: "calendar_event", payload: { entry: { id: "event" } } },
     });
   });
+});
 
+describe("PagesPicaMobileCalendar", () => {
   it("deletes, responds, searches and lists targets", async () => {
     const { provider, resolved } = services();
     const requests: PicaMobileCalendarRequest[] = [
@@ -190,7 +200,9 @@ describe("PagesPicaMobileCalendar", () => {
       "declined",
     );
   });
+});
 
+describe("PagesPicaMobileCalendar", () => {
   it("maps calendar refusals and ends ended sessions", async () => {
     const targets: PicaMobileCalendarRequest = {
       type: "calendar_targets",
@@ -224,7 +236,9 @@ describe("PagesPicaMobileCalendar", () => {
       kind: "sessionEnded",
     });
   });
+});
 
+describe("PagesPicaMobileCalendar", () => {
   it("names only the visible changes", async () => {
     const { provider } = services();
     expect(
@@ -242,7 +256,9 @@ describe("PagesPicaMobileCalendar", () => {
       ]),
     ).toEqual({ kind: "sessionEnded" });
   });
+});
 
+describe("PagesPicaMobileCalendar", () => {
   it("follows only events that change entries", async () => {
     const { provider, listeners } = services();
     const heard: PagesEvent[] = [];
