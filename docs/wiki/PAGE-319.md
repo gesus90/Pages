@@ -1,5 +1,20 @@
 # PAGE-319: Wiki-Aufteilung umgesetzt
 
+## Erneute Abnahme in Iteration 2
+
+Die aktuelle Pages-Verbindung ist an PAGE-319 gebunden. In Session `71269883-2af3-4bb0-a801-f19108496edd` wurden Ticket und Checkliste sowie 25 Wiki-Seiten mit ihren aktuellen Revisionen und vollständigen Linklisten erneut über die Pages-Werkzeuge gelesen. Die Aufteilung war bereits gespeichert. Alle zehn Zieltexte und alle 21 zuvor geänderten Metadatenstände stimmen mit den vorhandenen Nachweisen überein; es gab keine zwischenzeitliche Abweichung. Deshalb waren keine weiteren Wiki-Schreibzugriffe oder doppelten Unterseiten erforderlich. Frühere Ticketänderungen bleiben erhalten.
+
+Die tatsächlichen Funktionstests dieser Iteration sind in [revalidation.json](PAGE-319/revalidation.json) protokolliert:
+
+- **T1 bestanden:** Alle zehn aktuellen Wiki-Texte stimmen zeichengetreu mit den lokalen Abbildern überein. Aus 26 Fragmenten lassen sich sämtliche 45.079 Originalzeichen ohne Lücken oder Überlappungen rekonstruieren; beide SHA-256-Hashes stimmen mit dem ursprünglichen Manifest überein. Die historischen Quellrevisionen 23 und 1 wurden in dieser Iteration nicht erneut aus der Versionshistorie abgerufen; geprüft wurden ihre dokumentierten Hashes gegen die aktuellen Zielinhalte.
+- **T2 bestanden:** Alle zehn gegliederten Seiten liegen sowohl in UTF-16-Codeeinheiten als auch Unicode-Codepunkten unter 20.000 Zeichen; Maximum 11.535. Andere technische Wiki-Seiten, auf denen nur Verweise angepasst wurden, gehören nicht zur aufzuteilenden Seite.
+- **T3 bestanden:** Der vollständig gelesene Wiki-Baum bestätigt genau neun Unterseiten. Alle neun sind auf der Hauptseite verlinkt und verweisen zurück. Auf 25 Seiten wurden insgesamt 174 unterschiedliche Wiki-Ziele je Seite durch die zurückgegebenen ausgehenden Links bestätigt. Alle 20 fachlich angepassten Verweise auf elf Seiten und die vier allgemeinen Verweise bestehen weiterhin.
+- **T4 bestanden:** Jede der neun Unterseiten enthält die vier getrennten, nicht leeren Statusabschnitte. Alle 25 klassifizierten Originalfragmente liegen im vorgesehenen Abschnitt. Die umgesetzte Fortsetzen-Präzisierung vom 11.11.2026 und die noch nicht umgesetzte Entscheidung zum Chatmodell sind getrennt. Unklare historische Umsetzungsstände bleiben ausdrücklich gesondert. Ein anfänglicher Fehler im temporären Prüfskript (`decided` statt Manifestwert `pending`) wurde korrigiert; die erneute T4-Prüfung bestand.
+
+Die vier bereits gesetzten Ticket-Checkboxen wurden nach diesen Nachweisen einzeln mit aktueller Checklistenrevision 5 bestätigt; Pages meldete jeweils `changed: false`. Das Ticket wurde zu Beginn auf **In Arbeit** gesetzt. Nach lokalem Commit der ergänzten Nachweise wird es auf **Review** gesetzt. Keine Produktcodeänderung und daher keine Unit-Tests; ausschließlich dokumentbezogene Assertions gegen echte Pages-Rückleseergebnisse. Lint, Check, Typecheck, Build, Formatprüfung, vollständige Testsuiten und Coverage: **an die Abschluss-QA übergeben**. Keine offenen technischen Todos; die fachliche Abnahme bleibt bei Igor.
+
+## Ursprüngliche Umsetzung und Nachweise
+
 Die Wiki-Aufteilung wurde am 13.11.2026 über die Pages-Werkzeuge tatsächlich gespeichert und zurückgelesen. Die für PAGE-319 ausdrücklich freigegebene Wiki-Ausnahme wurde genutzt. Kein Produktcode, keine Datenbank, kein Dienst und keine Zugangsdaten wurden geändert. Der vorbereitete Session-Branch bleibt erhalten; kein Push, Rebase oder Branchwechsel.
 
 Die [Hauptseite](/wiki/93eb063a-a63c-4cac-8393-af182291a582) ist jetzt eine Übersicht mit kurzer Einleitung und Links auf neun Unterseiten. Acht Unterseiten wurden angelegt; die vorhandene [Unterseite zum Entscheidungsmodell](/wiki/d645e528-e900-4673-9de1-4d817173ccf1) wurde unter ihrer bisherigen Kennung aktualisiert.
