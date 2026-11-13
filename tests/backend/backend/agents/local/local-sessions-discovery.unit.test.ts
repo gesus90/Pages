@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { inspectManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
+import {
+  inspectManagedLocalOwner,
+  settleManagedLocalOwner,
+} from "@/backend/agents/local/LocalOwnerControl";
 
 import {
   CLOSED,
@@ -303,6 +306,68 @@ describe("run ownership queries", () => {
 });
 
 describe("settleFinished", () => {
+  it("bounds startup across live orphans and retains capacity until background closeout confirms", async () => {
+    vi.useFakeTimers();
+    let unblock: (answer: unknown) => void = () => {};
+    try {
+      mocks.runs.find.mockResolvedValue(runOf("failed"));
+      mocks.owners.list.mockResolvedValue([
+        entryOf(),
+        entryOf({ instanceId: OTHER_INSTANCE_ID }),
+      ]);
+      const sessions = createSessions();
+      await sessions.discover();
+      mocks.transport.sendLocalCommand.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            unblock = resolve;
+          }),
+      );
+      let isReady = false;
+      const startup = sessions.settleFinished().then(() => {
+        isReady = true;
+      });
+
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(isReady).toBe(false);
+      expect(resources.completeAdopted).toHaveBeenCalledWith(
+        OTHER_INSTANCE_ID,
+        CLOSED,
+      );
+      const repeated = sessions.settleFinished();
+      await vi.advanceTimersByTimeAsync(1);
+      await startup;
+
+      expect(isReady).toBe(true);
+      expect(sessions.has(INSTANCE_ID)).toBe(true);
+      expect(mocks.owners.released).not.toHaveBeenCalledWith(INSTANCE_ID);
+      expect(resources.completeAdopted).not.toHaveBeenCalledWith(
+        INSTANCE_ID,
+        expect.anything(),
+      );
+      const controls = mocks.transport.sendLocalCommand.mock.calls.length;
+      await expect(settleManagedLocalOwner(INSTANCE_ID)).resolves.toBe(false);
+      expect(mocks.transport.sendLocalCommand).toHaveBeenCalledTimes(controls);
+      expect(mocks.logger.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "agent.local_owner.settlement_deferred",
+        }),
+      );
+
+      unblock({});
+      await vi.advanceTimersByTimeAsync(0);
+      await repeated;
+
+      expect(resources.completeAdopted).toHaveBeenCalledWith(INSTANCE_ID, CLOSED);
+      expect(mocks.owners.released).toHaveBeenCalledWith(INSTANCE_ID);
+      expect(inspectManagedLocalOwner(INSTANCE_ID)).toBe("released");
+    } finally {
+      unblock({});
+      await vi.advanceTimersByTimeAsync(0);
+      vi.useRealTimers();
+    }
+  });
+
   it("imports, closes and releases the owner of a finished run", async () => {
     mocks.runs.find.mockResolvedValue(runOf("succeeded"));
     const sessions = createSessions();

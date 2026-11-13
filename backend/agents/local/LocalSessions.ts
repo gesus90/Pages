@@ -33,6 +33,7 @@ import {
   registerLocalOwnerSettlement,
 } from "./LocalOwnerControl";
 import { pinLocalSessionTools } from "./LocalSessionTools";
+import { LocalFinishedSessions } from "./LocalFinishedSessions";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
@@ -80,6 +81,9 @@ export class LocalSessions {
   private readonly launching = new Set<string>();
   private readonly attachments = new Map<string, string>();
   private isDetaching = false;
+  private readonly finished = new LocalFinishedSessions((entry) =>
+    this.settleFinishedEntry(entry),
+  );
 
   public constructor(input: LocalSessionsInput) {
     this.input = input;
@@ -145,26 +149,13 @@ export class LocalSessions {
     return { adopted: this.proven, uncertain: this.uncertain };
   }
 
-  /** Imports and releases completed runs left between final persistence and owner retirement. */
+  /** Imports and releases completed runs with one bounded startup wait; slow cleanup continues independently. */
   public async settleFinished(): Promise<void> {
-    for (const entry of this.entries.values()) {
-      if (!this.proven.has(entry.instanceId)) continue;
-      const run = await this.runs.find(entry.runId);
-      if (!run || isActivePlanRun(run.status)) continue;
-      try {
-        const raw = await this.bind(
-          entry,
-          await this.currentLaunch(entry.instanceId),
-          new AbortController().signal,
-          { started: () => undefined, identified: () => undefined },
-        );
-        const closed = await raw.close();
-        await this.input.resources.completeAdopted(entry.instanceId, closed);
-        if (closed.isConfirmed) await this.release(entry);
-      } catch (error: unknown) {
-        logCaughtError("LocalSessions", error);
-      }
-    }
+    await this.finished.start(
+      [...this.entries.values()].filter((entry) =>
+        this.proven.has(entry.instanceId),
+      ),
+    );
   }
 
   /** Whether an unfinished run has independently proven local work to restore. */
@@ -542,6 +533,7 @@ export class LocalSessions {
     const entry = this.entries.get(instanceId);
     if (!entry) return null;
     if (entry.releasedAt) return true;
+    if (this.finished.has(instanceId)) return false;
     const owned = await proveLocalOwner(
       this.requireEntry(instanceId),
       this.directory(instanceId),
@@ -557,6 +549,20 @@ export class LocalSessions {
       throw new Error("Missing native closeout");
     const closed = localClosedSchema.parse(result.closed);
     return closed.isConfirmed;
+  }
+
+  private async settleFinishedEntry(entry: LocalSessionEntry): Promise<void> {
+    const run = await this.runs.find(entry.runId);
+    if (!run || isActivePlanRun(run.status)) return;
+    const raw = await this.bind(
+      entry,
+      await this.currentLaunch(entry.instanceId),
+      new AbortController().signal,
+      { started: () => undefined, identified: () => undefined },
+    );
+    const closed = await raw.close();
+    await this.input.resources.completeAdopted(entry.instanceId, closed);
+    if (closed.isConfirmed) await this.release(entry);
   }
 
   private async release(entry: LocalSessionEntry): Promise<void> {

@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   ATTEMPT_ID,
+  CLOSED,
   DIRECTORY,
   GOOD_TURN,
+  INSTANCE_ID,
+  STEP_ID,
   appended,
   doubles,
   endlessTurn,
@@ -13,6 +16,7 @@ import {
   newSession,
   recorderOf,
   resetDoubles,
+  runWithAttempt,
   stub,
 } from "./local-owner-session-fixture";
 import { newOwner } from "./local-owner-session-harness";
@@ -66,6 +70,102 @@ async function startedOwner(
 }
 
 describe("LocalOwnerSession stop polling", () => {
+  it.each([
+    "failed",
+    "cancelled",
+    "succeeded",
+    "work_done_closeout_open",
+    "stopping",
+  ])(
+    "ends a still-running native agent when its run becomes %s",
+    async (status) => {
+      const session = newSession({ turn: endlessTurn() });
+      await startedOwner(session);
+      doubles.findRun.mockResolvedValue({ ...runWithAttempt(), status });
+
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(doubles.open.mock.calls[0]?.[1]).toHaveProperty("aborted", true);
+      expect(session.close).toHaveBeenCalledOnce();
+      expect(appended("closed")).toEqual([]);
+    },
+  );
+
+  it.each(["failed", "cancelled", "replaced", "closeout_failed", "loop_failed"])(
+    "ends the orphaned attempt for %s even while its run is active",
+    async (reason) => {
+      const session = newSession({ turn: endlessTurn() });
+      await startedOwner(session);
+      const step = {
+        id: STEP_ID,
+        status: reason === "closeout_failed" ? "running" : reason,
+        session: {
+          instanceId: INSTANCE_ID,
+          attemptId: reason === "replaced" ? "new-attempt" : ATTEMPT_ID,
+          closeout: reason === "closeout_failed" ? "failed" : "pending",
+        },
+      };
+      doubles.findRun.mockResolvedValue({
+        ...runWithAttempt(),
+        steps: reason === "loop_failed" ? [] : [step],
+        loops:
+          reason === "loop_failed"
+            ? [{ iterations: [{ nodes: [{ ...step, status: "failed" }] }] }]
+            : [],
+      });
+
+      await vi.advanceTimersByTimeAsync(250);
+
+      expect(doubles.open.mock.calls[0]?.[1]).toHaveProperty("aborted", true);
+      expect(session.close).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(["running", "pausing", "paused"])(
+    "preserves the same running attempt across observer restarts while %s",
+    async (status) => {
+      const session = newSession({ turn: endlessTurn() });
+      await startedOwner(session);
+      doubles.findRun.mockResolvedValue({ ...runWithAttempt(), status });
+
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(session.close).not.toHaveBeenCalled();
+      expect(doubles.open.mock.calls[0]?.[1]).toHaveProperty("aborted", false);
+    },
+  );
+
+  it("aborts pending native work before awaiting its closeout and journal drain", async () => {
+    let finishTurn: (turn: PlanSessionTurn) => void = () => {};
+    const session = newSession({
+      turn: new Promise<PlanSessionTurn>((resolve) => {
+        finishTurn = resolve;
+      }),
+    });
+    const owner = await startedOwner(session);
+    let answerRun: (run: unknown) => void = () => {};
+    doubles.findRun.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answerRun = resolve;
+        }),
+    );
+
+    const closing = owner.close();
+    expect(doubles.open.mock.calls[0]?.[1]).toHaveProperty("aborted", true);
+    await flush();
+    expect(session.close).not.toHaveBeenCalled();
+    answerRun(runWithAttempt());
+    await flush();
+
+    expect(doubles.open.mock.calls[0]?.[1]).toHaveProperty("aborted", true);
+    expect(session.close).toHaveBeenCalledOnce();
+    expect(appended("closed")).toEqual([]);
+    finishTurn({ ...GOOD_TURN, failure: "cancelled" });
+    await expect(closing).resolves.toEqual(CLOSED);
+    expect(appended("closed")).toHaveLength(1);
+  });
+
   it("cancels when the database reports a requested stop", async () => {
     const session = newSession({ turn: endlessTurn() });
     await startedOwner(session);
@@ -116,7 +216,7 @@ describe("LocalOwnerSession stop polling", () => {
 
     await vi.advanceTimersByTimeAsync(750);
     expect(doubles.findRun).toHaveBeenCalledTimes(1);
-    answer({ stopRequested: false });
+    answer(runWithAttempt());
     await vi.advanceTimersByTimeAsync(250);
 
     expect(doubles.findRun).toHaveBeenCalledTimes(2);
@@ -134,6 +234,19 @@ describe("LocalOwnerSession stop polling", () => {
 });
 
 describe("LocalOwnerSession next refusals", () => {
+  it("does not dispatch another prompt after the durable attempt failed", async () => {
+    const session = newSession();
+    const owner = await startedOwner(session);
+    doubles.findRun.mockResolvedValue({ ...runWithAttempt(), status: "failed" });
+
+    await expect(owner.next(launchOf({ turnId: "turn-2" }))).rejects.toThrow();
+
+    expect(session.next).not.toHaveBeenCalled();
+    expect(doubles.write).not.toHaveBeenCalledWith(
+      `${DIRECTORY}/turn-turn-2.json`,
+      stub(expect.anything()),
+    );
+  });
   it("rejects a launch of another instance or run", async () => {
     const owner = await startedOwner();
 

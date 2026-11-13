@@ -17,6 +17,9 @@ import type {
 import type { LocalSessionEntry } from "@/backend/database/repositories/agent/LocalSessionRepository";
 
 const runFile = promisify(execFile);
+const UNIT_READ_ATTEMPTS = 3;
+const UNIT_READ_TIMEOUT_MS = 2_000;
+const UNIT_READ_RETRY_MS = 250;
 
 /** Uses only the server account's manager, never inherited agent bus settings. */
 export function localManagerEnvironment(): Record<string, string> {
@@ -73,8 +76,8 @@ export async function proveLocalOwner(
     throw new Error("Local owner directory binding mismatch");
   requireLaunchBinding(entry, manifest);
   requireProofBinding(entry, manifest, proof);
-  await requireProcessBinding(manifest, proof);
   await requireUnitBinding(manifest, proof);
+  await requireProcessBinding(manifest, proof);
   return { manifest, proof };
 }
 
@@ -141,16 +144,7 @@ async function requireUnitBinding(
   manifest: LocalOwnerManifest,
   proof: LocalOwnerProof,
 ): Promise<void> {
-  const shown = await runFile(
-    "/usr/bin/systemctl",
-    [
-      "--user",
-      "show",
-      manifest.unit,
-      "--property=MainPID,InvocationID,ControlGroup,ActiveState",
-    ],
-    { env: localManagerEnvironment(), timeout: 10_000 },
-  );
+  const shown = await readUnitBinding(manifest, proof);
   const properties = new Map(
     shown.stdout
       .trim()
@@ -167,6 +161,33 @@ async function requireUnitBinding(
     properties.get("ActiveState") !== "active"
   )
     throw new Error("Local owner unit identity changed");
+}
+
+async function readUnitBinding(
+  manifest: LocalOwnerManifest,
+  proof: LocalOwnerProof,
+): Promise<{ readonly stdout: string }> {
+  for (let attempt = 1; ; attempt += 1) {
+    // A manager outage must never extend the lifetime of stale PID evidence.
+    await requireProcessBinding(manifest, proof);
+    try {
+      return await runFile(
+        "/usr/bin/systemctl",
+        [
+          "--user",
+          "show",
+          manifest.unit,
+          "--property=MainPID,InvocationID,ControlGroup,ActiveState",
+        ],
+        { env: localManagerEnvironment(), timeout: UNIT_READ_TIMEOUT_MS },
+      );
+    } catch (error: unknown) {
+      if (attempt >= UNIT_READ_ATTEMPTS) throw error;
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, UNIT_READ_RETRY_MS * attempt);
+      });
+    }
+  }
 }
 
 async function readIdentity(pid: number): Promise<{

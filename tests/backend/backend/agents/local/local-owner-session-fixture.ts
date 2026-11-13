@@ -209,11 +209,15 @@ export function runWithAttempt(): Record<string, unknown> {
     planId: PLAN_ID,
     userId: "user-1",
     stopRequested: false,
+    status: "running",
     steps: [
       {
         id: STEP_ID,
+        status: "running",
         groupId: "group-1",
         session: {
+          instanceId: INSTANCE_ID,
+          closeout: "pending",
           attemptId: ATTEMPT_ID,
           runner: "codex_cli",
           requested: { directory: "/work" },
@@ -255,7 +259,7 @@ export function resetDoubles(): void {
     .mockResolvedValue({ checked: "workspace" });
   doubles.sessionStart.mockReset();
   doubles.append.mockReset().mockResolvedValue(undefined);
-  doubles.findRun.mockReset().mockResolvedValue({ stopRequested: false });
+  doubles.findRun.mockReset().mockResolvedValue(runWithAttempt());
   doubles.prepare.mockReset().mockResolvedValue({
     recording: { key: { attemptId: ATTEMPT_ID }, provider: "codex_cli" },
     input: { directory: "/work", prompt: "implement it" },

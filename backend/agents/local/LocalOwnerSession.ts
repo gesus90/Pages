@@ -17,6 +17,7 @@ import { LocalSessionOutbox } from "./LocalSessionOutbox";
 import { localDeferred } from "./LocalDeferred";
 import { LocalAcpJournalListener } from "./LocalAcpJournalListener";
 import { readLocalRecord, writeLocalRecord } from "./LocalSessionFiles";
+import { canContinueLocalTurn } from "./LocalOwnerRunAuthorization";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentSessionState } from "@/definition/AgentSessionJournal";
@@ -112,6 +113,13 @@ export class LocalOwnerSession {
     if (!this.session?.next || this.closing || this.isTurnPending)
       throw new Error("Native session cannot continue");
     const input = await this.prepare(launch);
+    if (
+      !canContinueLocalTurn(
+        await this.dependencies.runs.find(launch.runId),
+        launch,
+      )
+    )
+      throw new AgentPlanCancelledError();
     await writeLocalRecord(file, launch);
     this.launch = launch;
     await writeLocalRecord(
@@ -212,8 +220,7 @@ export class LocalOwnerSession {
     }, 250);
     const currentRun = await this.dependencies.runs.find(this.launch.runId);
     if (
-      !currentRun ||
-      currentRun.stopRequested ||
+      !canContinueLocalTurn(currentRun, this.launch) ||
       this.closing ||
       this.controller.signal.aborted
     ) {
@@ -408,10 +415,11 @@ export class LocalOwnerSession {
   }
 
   private async markCancelled(): Promise<void> {
+    // End native work even if recording the cancellation fails.
+    this.controller.abort();
     await writeLocalRecord(path.join(this.manifest.directory, "cancel.json"), {
       requestedAt: new Date().toISOString(),
     });
-    this.controller.abort();
   }
 
   private async position(launch: LocalSessionLaunch): Promise<void> {
@@ -425,8 +433,12 @@ export class LocalOwnerSession {
   }
 
   private async closeOnce(): Promise<PlanSessionClosed> {
+    // Containment must start before any database or journal operation can block it.
+    if (this.isTurnPending || (this.opening !== null && this.session === null))
+      this.controller.abort();
     const run = await this.dependencies.runs.find(this.launch.runId);
-    if (run?.stopRequested) await this.markCancelled();
+    if (!canContinueLocalTurn(run, this.launch) || this.isTurnPending)
+      await this.markCancelled();
     await this.startupReady.promise;
     if (this.stopTimer) clearInterval(this.stopTimer);
     const native =
@@ -505,7 +517,7 @@ export class LocalOwnerSession {
     this.checkingStop = true;
     try {
       const run = await this.dependencies.runs.find(this.launch.runId);
-      if (!run || run.stopRequested) await this.cancel();
+      if (!canContinueLocalTurn(run, this.launch)) await this.cancel();
     } catch (error: unknown) {
       // Database loss does not fabricate a user Stop or terminate a surviving native session.
       logCaughtError("LocalOwnerSession", error);
