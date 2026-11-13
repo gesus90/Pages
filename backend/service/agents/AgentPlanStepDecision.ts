@@ -337,6 +337,8 @@ export function decidePlanStepRetry(
   work: PlanRetryWork,
   previous: AgentPlanRetry | null,
 ): AgentPlanRetry | null {
+  if (result.session?.acceptance?.issues.includes("todo_returns_exhausted"))
+    return null;
   if (result.status !== "failed" || work.isScript) return null;
   const session = result.session;
   const code = result.error ?? "plan_step_failed";

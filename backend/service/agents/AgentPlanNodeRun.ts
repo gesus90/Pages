@@ -50,6 +50,10 @@ export function createNodeRun(
     control,
     record: retry ? (previous ?? null) : null,
     hasStarted: false,
+    todoReturns:
+      !control.event && previous?.loop?.iteration === loop?.iteration
+        ? (previous?.todoReturns ?? 0)
+        : 0,
     retry,
     retryResumeSessionId: null,
     retryAttemptNumber: 1,

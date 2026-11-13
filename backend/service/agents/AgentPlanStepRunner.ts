@@ -37,7 +37,11 @@ import { createNodeRun } from "./AgentPlanNodeRun";
 import { openEventTurn } from "./branching/AgentPlanEventSession";
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
 import { AgentPlanTurnReports } from "./AgentPlanTurnReports";
-import { buildPlanContract } from "./AgentPlanContract";
+import { runPlanTodoTurns } from "./AgentPlanTodoContinuation";
+import {
+  buildSessionContract,
+  initializeSessionTodos,
+} from "./AgentPlanSessionContract";
 import {
   buildPlanSessionInput,
   planRequestPrompt,
@@ -45,13 +49,11 @@ import {
 } from "./AgentPlanSessionPrompt";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { runPlanNodeAttempts } from "./AgentPlanStepAttempts";
-import { planSessionReach } from "./AgentPlanSessionAccess";
 import {
   createSessionRecord,
   initialStepAttemptId,
   closedSessionChanges,
   isConfirmedPlanCancellation,
-  withTurn,
 } from "./AgentPlanSessionRecords";
 import { planStackNodeInput } from "./stack/AgentPlanStackInputs";
 
@@ -97,7 +99,8 @@ interface StepRunnerDependencies {
   /** Takes what a session reports through `report_step_result`. */
   readonly stepReports?: Pick<AgentPlanStepReportService, "open" | "close">;
   /** The live progress of a step, which a new session after a failure continues from (PAGE-284). */
-  readonly stepProgress?: Pick<AgentPlanStepProgressService, "find">;
+  readonly stepProgress?: Pick<AgentPlanStepProgressService, "find"> &
+    Partial<Pick<AgentPlanStepProgressService, "initialize" | "current">>;
   readonly archive?: Pick<AgentRunArchive, "input">;
   /** Records the PageAgentCLI history and usage of every ACP node. */
   readonly sessions?: Pick<
@@ -130,6 +133,13 @@ export class AgentPlanStepRunner {
     this.turnReports = new AgentPlanTurnReports(
       dependencies.stepReports,
       dependencies.tasks,
+      dependencies.stepProgress?.current
+        ? {
+            current: dependencies.stepProgress.current.bind(
+              dependencies.stepProgress,
+            ),
+          }
+        : undefined,
     );
   }
 
@@ -353,29 +363,16 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     prepared: PreparedPlanStep,
   ): Promise<Partial<AgentPlanStepResult>> {
-    const { run, step, snapshot } = node;
-    const directory = prepared.input.directory;
-    if (directory === null) throw new AgentError("plan_directory_required");
-    const tickets = await Promise.all(
-      step.taskIds.map((taskId) =>
-        this.dependencies.tasks.checklist(
-          run.userId,
-          snapshot.plan.projectId,
-          taskId,
-        ),
-      ),
+    const { run, step } = node;
+    if (prepared.input.directory === null)
+      throw new AgentError("plan_directory_required");
+    const initialTerms = await buildSessionContract(
+      node,
+      prepared,
+      this.dependencies.tasks,
     );
-    const reach = planSessionReach(
-      prepared.input.agent.connection.provider,
-      prepared.options,
-    );
-    const isReadOnly = reach === "read";
-    const instruction = prepared.instruction ?? step.step.instruction;
-    const contract = buildPlanContract(instruction, tickets, {
-      isReadOnly,
-      completion: step.step.completion,
-      completionGate: step.step.completionGate,
-    });
+    const { reach, instruction } = initialTerms;
+    let { contract } = initialTerms;
     const groupKey = `${run.id}/${node.sessionGroup ?? step.step.id}`;
     await openEventTurn(this.groups, node, groupKey);
     const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
@@ -388,12 +385,19 @@ export class AgentPlanStepRunner {
         contract,
         usesMcp: reach !== "tickets" || contract.tickets.length > 0,
       }),
+      todoReturns: node.todoReturns ?? 0,
       ...planSharedSessionLink(node, prepared, {
         groups: this.groups,
         key: groupKey,
         resume: groupResume,
       }),
     });
+    contract = await initializeSessionTodos(
+      node,
+      contract,
+      this.dependencies.stepProgress,
+    );
+    await this.complete(node, { contract });
     const mcp = this.groups.instanceId(groupKey)
       ? this.groups.mcp(groupKey)
       : await this.dependencies.access.grant({
@@ -481,21 +485,23 @@ export class AgentPlanStepRunner {
     session: PlanSession,
     terms: AgentPlanSessionTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
-    const turn = await session.turn;
-    if (node.record) node.record = withTurn(node.record, turn);
-    await this.dependencies.sessions?.settle(node.record, turn);
-    const reported = await this.turnReports.assess(node, turn, terms);
-    const { assessed, output } = reported;
+    const { assessed, output, turn } = await runPlanTodoTurns(
+      { node, session, terms },
+      {
+        reports: this.turnReports,
+        start: this.dependencies.start,
+        sessions: this.dependencies.sessions,
+        hasDurableLocalSessions:
+          this.dependencies.execution.hasDurableLocalSessions,
+        observer: this.observer(node),
+        save: (changes) => this.complete(node, changes),
+      },
+    );
     const acceptance = assessed?.acceptance ?? null;
     const outcome = planAcceptanceOutcome(node, acceptance);
     const acceptanceFailure = outcome.failure;
     const passed =
       outcome.passed === undefined ? {} : { passed: outcome.passed };
-    // The closing report and the verdict are kept before the session is ended.
-    await this.complete(node, {
-      acceptance,
-      ...(assessed ? { contract: assessed.contract } : {}),
-    });
     if (!acceptanceFailure && this.retain(node, turn))
       return {
         status: "succeeded",

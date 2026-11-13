@@ -34,7 +34,7 @@ function contractItems(
     status: contractStatus(
       step.session?.acceptance?.todos.find((entry) => entry.id === item.id)
         ?.status,
-      liveStatus(live, item.id),
+      item.checked ? "done" : liveStatus(live, item.id),
     ),
   }));
 }
@@ -45,7 +45,7 @@ function contractStatus(
   live: AgentPlanProgressItem["status"] | null,
 ): AgentPlanProgressItem["status"] {
   if (accepted === "done" || accepted === "open") return accepted;
-  return live ?? accepted ?? "unreported";
+  return live ?? accepted ?? "open";
 }
 
 /** The contract ID under which the agent reports a ticket entry, such as `T3`. */
@@ -64,8 +64,8 @@ function progressTicketIds(
   bindings: Readonly<Record<string, readonly string[]>> | undefined,
 ): readonly string[] {
   return (
-    bindings?.[step.id] ??
     step.session?.contract?.tickets.map((ticket) => ticket.id) ??
+    bindings?.[step.id] ??
     []
   );
 }
@@ -174,35 +174,49 @@ export async function withPlanProgress(
     return pending;
   }
   const observedAt = new Date().toISOString();
-  const steps = await Promise.all(
-    run.steps.map(async (step): Promise<AgentPlanStepResult> => {
-      const contract = step.session?.contract;
-      const ticketIds = progressTicketIds(step, context.stepTickets);
-      if (!contract && ticketIds.length === 0) return step;
-      const isLive =
-        ["running", "pausing", "paused", "stopping"].includes(run.status) &&
-        (step.status === "running" || step.status === "paused");
-      const readsTicket = isLive || ticketIds.length > 0;
-      const live = context.live?.get(step.id);
-      const projection = readsTicket
-        ? await liveProgress(step, ticketIds, readTicket, live)
-        : { todos: contractItems(step, live) };
-      return {
-        ...step,
-        progress: {
-          source: readsTicket ? "live" : "historical",
-          observedAt,
-          scope: {
-            runId: run.id,
-            stepId: step.id,
-            attemptId:
-              step.session?.attemptId ?? step.execution?.attemptId ?? null,
-          },
-          ...projection,
-          ...liveActivity(live),
+  const steps = await Promise.all(run.steps.map(projectStep));
+  async function projectStep(
+    step: AgentPlanStepResult,
+  ): Promise<AgentPlanStepResult> {
+    const contract = step.session?.contract;
+    const ticketIds = progressTicketIds(step, context.stepTickets);
+    if (!contract && ticketIds.length === 0) return step;
+    const isLive =
+      ["running", "pausing", "paused", "stopping"].includes(run.status) &&
+      (step.status === "running" || step.status === "paused");
+    const readsTicket = isLive || ticketIds.length > 0;
+    const reported = context.live?.get(step.id);
+    const live =
+      reported?.attemptId === step.session?.attemptId ? reported : undefined;
+    const projection = readsTicket
+      ? await liveProgress(step, ticketIds, readTicket, live)
+      : { todos: contractItems(step, live) };
+    return {
+      ...step,
+      progress: {
+        source: readsTicket ? "live" : "historical",
+        observedAt,
+        scope: {
+          runId: run.id,
+          stepId: step.id,
+          attemptId:
+            step.session?.attemptId ?? step.execution?.attemptId ?? null,
         },
-      };
-    }),
+        ...projection,
+        ...liveActivity(live),
+      },
+    };
+  }
+  const loops = await Promise.all(
+    (run.loops ?? []).map(async (loop) => ({
+      ...loop,
+      iterations: await Promise.all(
+        loop.iterations.map(async (iteration) => ({
+          ...iteration,
+          nodes: await Promise.all(iteration.nodes.map(projectStep)),
+        })),
+      ),
+    })),
   );
-  return { ...run, steps };
+  return { ...run, steps, ...(run.loops ? { loops } : {}) };
 }

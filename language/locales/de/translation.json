@@ -5833,8 +5833,8 @@
       "todoSummary": "{{completed}} erledigt · {{active}} in Arbeit · {{open}} als Nächstes",
       "agentTodos": {
         "heading": "Agent-TODO",
-        "empty": "Keine TODO-Liste gemeldet",
-        "count": "{{done}} von {{total}} erledigt",
+        "empty": "Keine TODOs",
+        "count": "{{done}} / {{total}} TODOs",
         "current": "Aktuell: {{text}}",
         "noCurrent": "Kein TODO in Arbeit gemeldet"
       }

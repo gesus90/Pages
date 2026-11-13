@@ -363,7 +363,7 @@ export class AgentPlanGroupSessions {
       const turn = this.confirmTurn(entry, session.turn).finally(() =>
         signal.removeEventListener("abort", cancel),
       );
-      return { turn, close: () => this.close(key, entry) };
+      return this.sessionView(key, entry, request, turn);
     } catch (error: unknown) {
       logCaughtError("AgentPlanGroupSessions", error);
 
@@ -448,15 +448,38 @@ export class AgentPlanGroupSessions {
       });
     current.turns += 1;
     if (current.capabilities) observer.capabilities?.(current.capabilities);
-    return {
-      turn: this.confirmTurn(
-        current,
-        current.session.next(
-          input,
-          signal,
-          this.watch({ entry: current }, observer),
-        ),
+    const turn = this.confirmTurn(
+      current,
+      current.session.next(
+        input,
+        signal,
+        this.watch({ entry: current }, observer),
       ),
+    );
+    return this.sessionView(key, current, request, turn);
+  }
+
+  private sessionView(
+    key: string,
+    current: GroupSession,
+    request: GroupTurnInput,
+    turn: Promise<PlanSessionTurn>,
+  ): PlanSession {
+    return {
+      turn,
+      next: async (next, signal, observer) => {
+        const continued = await this.continueTurn(key, current, {
+          key,
+          input: {
+            ...request.input,
+            ...next,
+            directory: request.input.directory,
+          },
+          signal,
+          observer,
+        });
+        return continued.turn;
+      },
       close: () => this.close(key, current),
     };
   }

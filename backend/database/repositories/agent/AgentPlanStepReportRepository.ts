@@ -55,13 +55,10 @@ export class AgentPlanStepReportRepository {
           step_id = excluded.step_id,
           attempt_id = excluded.attempt_id,
           terms_json = excluded.terms_json,
-          closed_at = CASE
-              WHEN agent_plan_step_reports.attempt_id = excluded.attempt_id
-                  THEN agent_plan_step_reports.closed_at
-              ELSE NULL
-          END,
+          closed_at = NULL,
           report_json = CASE
               WHEN agent_plan_step_reports.attempt_id = excluded.attempt_id
+                  AND agent_plan_step_reports.closed_at IS NULL
                   THEN agent_plan_step_reports.report_json
               ELSE NULL
           END;

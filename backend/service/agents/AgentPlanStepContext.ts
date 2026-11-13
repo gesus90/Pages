@@ -48,6 +48,8 @@ export interface NodeRun {
   control: StepRunControl;
   record: AgentPlanSessionRecord | null;
   hasStarted: boolean;
+  /** Corrective TODO turns in this iteration, retained after pause or reattachment. */
+  todoReturns?: number;
   retry: AgentPlanRetry | null;
   /** The native session this retry continues, or `null` for a fresh one. */
   retryResumeSessionId: string | null;

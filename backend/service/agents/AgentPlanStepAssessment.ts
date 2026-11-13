@@ -8,6 +8,7 @@ import type {
   AgentPlanAcceptance,
   AgentPlanContract,
 } from "@/definition/AgentPlanSession";
+import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanStepReport } from "@/definition/AgentPlanStepReport";
 import type { AgentRunReach } from "@/definition/McpAuthorization";
@@ -25,6 +26,11 @@ export interface AgentPlanSessionTerms {
 }
 
 interface AssessmentScope {
+  readonly progress?: {
+    readonly runId: string;
+    readonly stepId: string;
+    readonly attemptId: string;
+  };
   readonly userId: string;
   readonly projectId: string;
   readonly provider: AgentProviderId;
@@ -33,9 +39,15 @@ interface AssessmentScope {
 /** Reconciles the closing report with live ticket checklists, separately from process cleanup. */
 export class AgentPlanStepAssessment {
   private readonly tasks: Pick<AgentPlanTasks, "checklist">;
+  private readonly progress:
+    Pick<AgentPlanStepProgressService, "current"> | undefined;
 
-  public constructor(tasks: Pick<AgentPlanTasks, "checklist">) {
+  public constructor(
+    tasks: Pick<AgentPlanTasks, "checklist">,
+    progress?: Pick<AgentPlanStepProgressService, "current">,
+  ) {
     this.tasks = tasks;
+    this.progress = progress;
   }
 
   /** Preserves report IDs for unchanged requirements and never infers business success from ACP completion. */
@@ -57,9 +69,12 @@ export class AgentPlanStepAssessment {
       ...this.ticketStates(terms, tickets),
       canReportTicketTodos: terms.reach === "read",
     };
+    const current = scope.progress
+      ? await this.progress?.current(scope.progress, terms.contract)
+      : undefined;
     const contract = refreshPlanContract(
       terms.instruction,
-      terms.contract,
+      current ?? terms.contract,
       tickets,
       { isReadOnly: terms.reach === "read" },
     );
