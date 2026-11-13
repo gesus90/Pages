@@ -1,0 +1,282 @@
+{
+  "version": 1,
+  "status": "local-draft-not-applied",
+  "offsetUnit": "UTF-16 code units, zero-based, end-exclusive",
+  "sources": [
+    {
+      "id": "93eb063a-a63c-4cac-8393-af182291a582",
+      "revision": 23,
+      "characters": 42794,
+      "sha256": "9daa6254e61617a2d3f21b14eba8bf746d8f636648fd05fc398dd545a434e741"
+    },
+    {
+      "id": "d645e528-e900-4673-9de1-4d817173ccf1",
+      "revision": 1,
+      "characters": 2285,
+      "sha256": "42e577dae6da476469cd58482b07a660f9c8ba8f885d36f25480b4d737174e81"
+    }
+  ],
+  "pages": [
+    {
+      "file": "index.md",
+      "title": "Agents: Festlegungen",
+      "pageId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "characters": 1601
+    },
+    {
+      "file": "anbindungen.md",
+      "title": "Anbindungen",
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "pageId": null,
+      "characters": 5474
+    },
+    {
+      "file": "modell-reasoning.md",
+      "title": "Modell und Reasoning",
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "pageId": null,
+      "characters": 3438
+    },
+    {
+      "file": "agent-verwaltung-editor.md",
+      "title": "Agent-Verwaltung und Editor",
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "pageId": null,
+      "characters": 7290
+    },
+    {
+      "file": "arbeitsplaetze.md",
+      "title": "Arbeitsplätze",
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "pageId": null,
+      "characters": 4572
+    },
+    {
+      "file": "remote-runner.md",
+      "title": "Remote-Verbindungen und Runner",
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "pageId": null,
+      "characters": 6462
+    },
+    {
+      "file": "agent-plan.md",
+      "title": "Agent-Plan",
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "pageId": null,
+      "characters": 11282
+    },
+    {
+      "file": "laufsteuerung.md",
+      "title": "Laufsteuerung und Planpanel",
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "pageId": null,
+      "characters": 6832
+    },
+    {
+      "file": "gedaechtnis.md",
+      "title": "Gedächtnis und Dreaming",
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "pageId": null,
+      "characters": 1136
+    },
+    {
+      "file": "entscheidungsmodell.md",
+      "title": "Entscheidungsmodell für Chats: Festlegungen",
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "pageId": "d645e528-e900-4673-9de1-4d817173ccf1",
+      "characters": 2637
+    }
+  ],
+  "fragments": [
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 0,
+      "end": 459,
+      "file": "index.md",
+      "status": null,
+      "targetStart": 0,
+      "targetEnd": 459
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 459,
+      "end": 4092,
+      "file": "anbindungen.md",
+      "status": "decided",
+      "targetStart": 386,
+      "targetEnd": 4019
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 4092,
+      "end": 6993,
+      "file": "modell-reasoning.md",
+      "status": "decided",
+      "targetStart": 376,
+      "targetEnd": 3277
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 6993,
+      "end": 11940,
+      "file": "agent-verwaltung-editor.md",
+      "status": "decided",
+      "targetStart": 408,
+      "targetEnd": 5355
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 11940,
+      "end": 13799,
+      "file": "arbeitsplaetze.md",
+      "status": "decided",
+      "targetStart": 392,
+      "targetEnd": 2251
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 13799,
+      "end": 15673,
+      "file": "agent-plan.md",
+      "status": "decided",
+      "targetStart": 565,
+      "targetEnd": 2439
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 15673,
+      "end": 15812,
+      "file": "agent-plan.md",
+      "status": "open",
+      "targetStart": 10871,
+      "targetEnd": 11010
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 15812,
+      "end": 15918,
+      "file": "agent-plan.md",
+      "status": "decided",
+      "targetStart": 2441,
+      "targetEnd": 2547
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 15918,
+      "end": 16140,
+      "file": "agent-plan.md",
+      "status": "implemented",
+      "targetStart": 113,
+      "targetEnd": 335
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 16140,
+      "end": 16409,
+      "file": "agent-plan.md",
+      "status": "open",
+      "targetStart": 11012,
+      "targetEnd": 11281
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 16409,
+      "end": 24324,
+      "file": "agent-plan.md",
+      "status": "decided",
+      "targetStart": 2549,
+      "targetEnd": 10464
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 24324,
+      "end": 24829,
+      "file": "gedaechtnis.md",
+      "status": "decided",
+      "targetStart": 374,
+      "targetEnd": 879
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 24829,
+      "end": 26139,
+      "file": "anbindungen.md",
+      "status": "decided",
+      "targetStart": 4019,
+      "targetEnd": 5329
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 26139,
+      "end": 26272,
+      "file": "anbindungen.md",
+      "status": "open",
+      "targetStart": 5340,
+      "targetEnd": 5473
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 26272,
+      "end": 28264,
+      "file": "arbeitsplaetze.md",
+      "status": "decided",
+      "targetStart": 2251,
+      "targetEnd": 4243
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 28264,
+      "end": 28581,
+      "file": "arbeitsplaetze.md",
+      "status": "open",
+      "targetStart": 4254,
+      "targetEnd": 4571
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 28581,
+      "end": 34692,
+      "file": "remote-runner.md",
+      "status": "decided",
+      "targetStart": 183,
+      "targetEnd": 6294
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 34692,
+      "end": 36466,
+      "file": "agent-verwaltung-editor.md",
+      "status": "decided",
+      "targetStart": 5355,
+      "targetEnd": 7129
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 36466,
+      "end": 39774,
+      "file": "laufsteuerung.md",
+      "status": "decided",
+      "targetStart": 3363,
+      "targetEnd": 6671
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 39774,
+      "end": 42794,
+      "file": "laufsteuerung.md",
+      "status": "implemented",
+      "targetStart": 113,
+      "targetEnd": 3133
+    },
+    {
+      "sourceId": "d645e528-e900-4673-9de1-4d817173ccf1",
+      "start": 0,
+      "end": 2285,
+      "file": "entscheidungsmodell.md",
+      "status": "decided",
+      "targetStart": 189,
+      "targetEnd": 2474
+    }
+  ]
+}
