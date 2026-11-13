@@ -2,7 +2,8 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
-import { consumerModels } from "@/definition/AgentModelConsumers";
+import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
+import { catalogModelChoice } from "@/definition/AgentModelChoice";
 
 import { resolveAgentAssignment } from "../agents/AgentAssignmentResolution";
 import { connectionModels } from "../agents/AgentConnectionModels";
@@ -56,10 +57,10 @@ function findListed(
  * @remarks
  * It is one setting of the instance next to the speech recognition. Only an
  * administrator in the active admin mode reads the form and saves. The model
- * comes from the text models the shared catalog releases for chats (the rule
- * `pica` of `modelConsumerRefusal`); it has no tools and runs no action,
+ * choice shows every accessible model; the `pica` rule of
+ * `modelConsumerRefusal` disables incompatible entries. It has no tools and runs no action,
  * because its session is read-only and gets no MCP server. A saved model the
- * selection no longer lists keeps its value and counts as unavailable.
+ * selection refuses keeps its value and counts as unavailable.
  */
 export class ChatDecisionSettingsService {
   private readonly dependencies: ChatDecisionSettingsDependencies;
@@ -110,7 +111,8 @@ export class ChatDecisionSettingsService {
         await this.listedModels(await this.viewer(actor)),
         selection,
       );
-      if (model === null) throw new AgentError("provider_model_not_found");
+      if (model === null || modelConsumerRefusal("pica", model) !== null)
+        throw new AgentError("provider_model_not_found");
       if (
         selection.reasoningEffort !== null &&
         !model.reasoningEfforts.includes(selection.reasoningEffort)
@@ -136,6 +138,20 @@ export class ChatDecisionSettingsService {
         this.dependencies.connections,
         selection,
       );
+      const catalog = await this.dependencies.connections
+        .catalogs()
+        .find(assignment.connection.id);
+      const model = catalog.models.find(
+        (entry) => entry.id === assignment.model,
+      );
+      if (
+        !model ||
+        modelConsumerRefusal(
+          "pica",
+          catalogModelChoice(assignment.connection, model),
+        ) !== null
+      )
+        return null;
       // The runner must accept the choice; its own run mode stays out.
       picaAcpRunner(assignment).runOptions(assignment);
       return assignment;
@@ -149,10 +165,7 @@ export class ChatDecisionSettingsService {
   private async listedModels(
     viewer: AgentViewer,
   ): Promise<readonly PageAgentModel[]> {
-    return consumerModels(
-      "pica",
-      await connectionModels(this.dependencies.connections, viewer),
-    );
+    return connectionModels(this.dependencies.connections, viewer);
   }
 
   private status(
@@ -160,7 +173,8 @@ export class ChatDecisionSettingsService {
     models: readonly PageAgentModel[],
   ): ChatDecisionStatus {
     if (selection === null) return "noModel";
-    return findListed(models, selection) === null
+    const model = findListed(models, selection);
+    return model === null || modelConsumerRefusal("pica", model) !== null
       ? "modelUnavailable"
       : "ready";
   }

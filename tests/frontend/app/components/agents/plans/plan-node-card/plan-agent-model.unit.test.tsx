@@ -160,7 +160,7 @@ it("lists the released models with their free badge and pins a chosen one", asyn
       runnerRoute: undefined,
       model: "vendor/other",
       provider: "openai",
-      reasoningEffort: "low",
+      reasoningEffort: null,
     },
   });
 });
@@ -192,16 +192,16 @@ it("sets a supported reasoning level and returns to the default", async () => {
   });
 });
 
-it("keeps a withdrawn model selected as missing and changes no level without a model", async () => {
+it("keeps a withdrawn model selected as missing and changes no level without a model", () => {
   const node = step({ model: "vendor/gone", reasoningEffort: "high" });
   const graph = renderModel({ step: node, models: [LEVELS] });
   expect(modelTrigger(MODEL).textContent).toContain(
     `vendor/gone · ${i18n.t("pageAgents.missingModel")}`,
   );
-  await openSelect(REASONING);
-  fireEvent.click(
-    screen.getByRole("option", { name: i18n.t("pageAgents.defaultReasoning") }),
-  );
+  const reasoning = screen.getByRole("combobox", { name: REASONING });
+  expect(reasoning.hasAttribute("disabled")).toBe(true);
+  fireEvent.keyDown(reasoning, { key: "Enter" });
+  expect(screen.queryByRole("listbox")).toBeNull();
   expect(graph.replaceNode).not.toHaveBeenCalled();
   expect(modelTrigger(MODEL).getAttribute("aria-expanded")).toBe("false");
 });

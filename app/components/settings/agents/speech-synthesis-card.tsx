@@ -183,6 +183,7 @@ function SpeechSynthesisForm({
       <input type="hidden" name="maxDurationMs" value={draft.maxDurationMs} />
       <div className="grid min-w-0 grid-cols-1 items-start gap-3 sm:grid-cols-2">
         <ModelPicker
+          consumer="tts"
           value={draft.modelKey}
           models={models}
           savedModel={administration.settings.selection?.model ?? ""}

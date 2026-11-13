@@ -4,6 +4,9 @@ import {
   openCodeModelProvider,
 } from "./AgentConnection";
 
+import { hasHostTools } from "./AgentEmployee";
+
+import type { AgentEmployeeAccess } from "./AgentEmployee";
 import type { AgentProviderId } from "./AgentConnection";
 import type { PageAgentModel } from "./PageAgent";
 
@@ -12,7 +15,8 @@ import type { PageAgentModel } from "./PageAgent";
  *
  * @remarks
  * Every consumer reads the same models of the same connections; it only
- * leaves out what it cannot run, for one of the reasons below.
+ * shows what it cannot run disabled, for one of the reasons below. Only
+ * speech consumers leave out models outside their domain.
  */
 export type AgentModelConsumer = "pica" | "plan" | "employee" | "stt" | "tts";
 
@@ -25,6 +29,8 @@ export type AgentModelConsumer = "pica" | "plan" | "employee" | "stt" | "tts";
  *   calls no tools, so Pica could neither answer nor reach its tools with it.
  * - `zenToolsMissing`: a free OpenCode Zen model needs OpenCode's own tools,
  *   which Pica's read-only session does not grant.
+ * - `employeeToolsMissing`: a free OpenCode Zen model requires host tools,
+ *   but the agent's access level grants only Pages tools.
  * - `noToolCalls`: the catalog states that the model calls no tools, which an
  *   agent of a plan needs.
  * - `noSpeech`: the model is not known to recognize speech, which the speech
@@ -40,6 +46,7 @@ export type ModelConsumerRefusal =
   | "noChatAdapter"
   | "noChat"
   | "zenToolsMissing"
+  | "employeeToolsMissing"
   | "noToolCalls"
   | "noSpeech"
   | "noSpeechOutput"
@@ -63,6 +70,7 @@ type ConsumerModel = Pick<
   | "isSpeechCapable"
   | "isSpeechOutputCapable"
   | "isTranscriptionOnly"
+  | "isSimulation"
 >;
 
 /**
@@ -111,10 +119,16 @@ function picaRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   return isZenToolModel(model) ? "zenToolsMissing" : null;
 }
 
-// A model whose catalog does not say whether it calls tools stays listed.
+// Simulated plan models keep their separate execution path. The previous
+// picker-wide non-chat exclusion is a refusal here so such models stay visible.
+// A model whose catalog does not say whether it calls tools stays usable.
 function planRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
+  if (model.isSimulation === true) return null;
   if (model.isToolCapable === false) return "noToolCalls";
-  return speechOutputRefusal(model);
+  return (
+    speechOutputRefusal(model) ??
+    (model.isChatCapable === false ? "noChat" : null)
+  );
 }
 
 /**
@@ -122,8 +136,18 @@ function planRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
  * tools, so it needs both: a chat adapter and a model that calls tools. Pure
  * image, audio or other special generators never qualify.
  */
-function employeeRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
-  return picaRefusal(model) ?? planRefusal(model);
+function employeeRefusal(
+  model: ConsumerModel,
+  context: ModelConsumerContext,
+): ModelConsumerRefusal | null {
+  if (!hasChatAdapter(model.provider)) return "noChatAdapter";
+  if (model.isChatCapable === false) return "noChat";
+  const refusal = planRefusal(model);
+  if (refusal !== null) return refusal;
+  return isZenToolModel(model) &&
+    !hasHostTools(context.employeeAccess ?? "read_only")
+    ? "employeeToolsMissing"
+    : null;
 }
 
 /**
@@ -145,10 +169,18 @@ function ttsRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   return model.isSpeechOutputCapable === true ? null : "noSpeechOutput";
 }
 
+/** Runtime access used by the employee rule; omitted access grants no host tools. */
+export interface ModelConsumerContext {
+  readonly employeeAccess?: AgentEmployeeAccess;
+}
+
 const CONSUMER_RULES: Readonly<
   Record<
     AgentModelConsumer,
-    (model: ConsumerModel) => ModelConsumerRefusal | null
+    (
+      model: ConsumerModel,
+      context: ModelConsumerContext,
+    ) => ModelConsumerRefusal | null
   >
 > = {
   pica: picaRefusal,
@@ -165,19 +197,21 @@ const CONSUMER_RULES: Readonly<
  * These rules are the only place where Pica and plans differ in their
  * models. A provider that registers a chat adapter in
  * {@link AGENT_PROVIDERS} releases its models for Pica without any change to
- * a model choice. The server applies the same rules before it lists, saves
- * or runs a model, and a model choice lists only the models without a
- * refusal; a listed model is no grant of use.
+ * a model choice. The server applies the same rules before it saves
+ * or runs a model. The choice shows refused models disabled with their
+ * reason; a listed model is no grant of use.
  *
  * @param consumer - The place that chooses the model.
  * @param model - Provider, model ID and catalog traits of the model.
+ * @param context - Access level of an agent employee.
  * @returns The reason, or `null` when the consumer can run the model.
  */
 export function modelConsumerRefusal(
   consumer: AgentModelConsumer,
   model: ConsumerModel,
+  context: ModelConsumerContext = {},
 ): ModelConsumerRefusal | null {
-  return CONSUMER_RULES[consumer](model);
+  return CONSUMER_RULES[consumer](model, context);
 }
 
 /**

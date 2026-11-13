@@ -1,7 +1,6 @@
 import {
   AGENT_PROVIDERS,
   OPENCODE_FREE_PROVIDER,
-  linkedApiProviderOf,
   openCodeModelProvider,
 } from "@/definition/AgentConnection";
 
@@ -24,23 +23,11 @@ const TOOL_ORDER: readonly AgentProviderId[] = [
   "zai",
 ];
 
-/**
- * Tools whose models form one list, whichever access reaches them: OpenCode
- * with a linked key or the direct API connection. Each model appears once.
- */
-const MERGED_TOOLS: ReadonlySet<AgentProviderId> = new Set([
-  "openrouter",
-  "zai",
-]);
-
 /** OpenCode's own models first, then those of other linked providers. */
 const OPENCODE_SOURCE_ORDER = [OPENCODE_FREE_PROVIDER];
 
 /** The execution target of models on this host. */
 const LOCAL_TARGET = "local";
-
-/** The one source of a merged tool. */
-const MERGED_SOURCE = "models";
 
 // A trailing "Free", such as in "GLM-5.3-Flash Free" or "Model (free)"; the
 // badge says it instead.
@@ -121,49 +108,6 @@ function targetKey(model: PageAgentModel): string {
 }
 
 /**
- * The tool a model is listed under.
- *
- * @remarks
- * OpenCode runs the models of OpenRouter and Z.AI with their linked keys;
- * the choice lists them under OpenRouter and Z.AI, beside the models of the
- * direct API connections. Execution stays as the model's entry says.
- */
-function toolOf(model: PageAgentModel): AgentProviderId {
-  if (model.provider !== "opencode") return model.provider;
-  const linked = linkedApiProviderOf(openCodeModelProvider(model.model));
-  return linked !== null && MERGED_TOOLS.has(linked) ? linked : "opencode";
-}
-
-// The model behind an entry, without the OpenCode provider in front, so the
-// same model of OpenCode and of the direct API connection is recognised.
-function sameModelKey(model: PageAgentModel): string {
-  if (model.provider !== "opencode") return model.model;
-  return model.model.slice(model.model.indexOf("/") + 1);
-}
-
-// The chosen entry stays; otherwise one the place can use, preferably run by
-// OpenCode, which executes these tools' models.
-function entryRank(model: PageAgentModel, options: ModelGroupOptions): number {
-  if (model.id === options.selectedId) return 0;
-  if ((options.refusalOf?.(model) ?? null) !== null) return 3;
-  return model.provider === "opencode" ? 1 : 2;
-}
-
-function withoutDuplicates(
-  models: readonly PageAgentModel[],
-  options: ModelGroupOptions,
-): PageAgentModel[] {
-  const kept = new Map<string, PageAgentModel>();
-  for (const model of models) {
-    const key = sameModelKey(model);
-    const current = kept.get(key);
-    if (!current || entryRank(model, options) < entryRank(current, options))
-      kept.set(key, model);
-  }
-  return [...kept.values()];
-}
-
-/**
  * The name of a tool, from the provider registry, for its group header.
  *
  * @param provider - The provider of the tool's connections.
@@ -182,16 +126,11 @@ export function modelToolLabel(
   });
 }
 
-// An OpenCode model belongs to the provider OpenCode runs it with; a merged
-// tool holds one list; any other model belongs to its connection, so two
-// accounts of one tool stay apart.
+// OpenCode models name their upstream provider; other providers name the connection.
 function sourceOf(
   model: PageAgentModel,
-  tool: AgentProviderId,
   translate: TFunction,
 ): Omit<SourceDraft, "models"> {
-  if (MERGED_TOOLS.has(tool))
-    return { key: MERGED_SOURCE, name: modelToolLabel(tool, translate) };
   if (model.provider === "opencode") {
     const provider = openCodeModelProvider(model.model);
     return {
@@ -230,8 +169,6 @@ function groupAccess(
   sources: readonly SourceDraft[],
   translate: TFunction,
 ): string {
-  if (MERGED_TOOLS.has(draft.tool))
-    return translate(`plans.modelPicker.access.${draft.tool}`);
   if (draft.tool === "opencode") {
     // Without an OpenCode key the catalog holds only OpenCode's free models.
     if (draft.models.every((model) => model.isFree === true))
@@ -297,12 +234,10 @@ function choicesOf(
 
 function buildGroup(draft: GroupDraft, options: ModelGroupOptions): ModelGroup {
   const { translate } = options;
-  const models = MERGED_TOOLS.has(draft.tool)
-    ? withoutDuplicates(draft.models, options)
-    : draft.models;
+  const models = draft.models;
   const drafts = new Map<string, SourceDraft>();
   for (const model of models) {
-    const source = sourceOf(model, draft.tool, translate);
+    const source = sourceOf(model, translate);
     const sourceDraft = drafts.get(source.key) ?? { ...source, models: [] };
     sourceDraft.models.push(model);
     drafts.set(source.key, sourceDraft);
@@ -360,12 +295,10 @@ function compareGroups(
  * models look, group and search the same everywhere. Groups come from the
  * tools the catalog lists, never from a fixed list, and take their names and
  * marks from the provider registry: Claude Code, Codex, Antigravity,
- * OpenCode, OpenRouter and Z.AI first, in this order. OpenRouter and Z.AI
- * are tools of their own; their models appear there once, also where both
- * OpenCode and the direct API connection reach them. Models whose catalog
- * rules out chatting are left out; a saved assignment to one is then shown
- * as unavailable. Models of a remote target never share a group with this
- * host's.
+ * OpenCode, OpenRouter and Z.AI first, in this order. Each provider keeps its
+ * own models, including another access to the same upstream model. Refused
+ * entries remain visible with their reason. Models of a remote target never
+ * share a group with this host's.
  *
  * @param models - The models the place may offer.
  * @param options - Translation, the place's reason a model cannot be chosen and the chosen model.
@@ -375,17 +308,13 @@ export function modelGroups(
   models: readonly PageAgentModel[],
   options: ModelGroupOptions,
 ): readonly ModelGroup[] {
-  const unique = new Map(
-    models
-      .filter((model) => model.isChatCapable !== false)
-      .map((model) => [model.id, model]),
-  );
+  const unique = new Map(models.map((model) => [model.id, model]));
   const drafts = new Map<string, GroupDraft>();
   const simulated = [...unique.values()].filter((model) => model.isSimulation);
   for (const model of unique.values()) {
     if (model.isSimulation) continue;
     const target = targetKey(model);
-    const tool = toolOf(model);
+    const tool = model.provider;
     const key = target === LOCAL_TARGET ? tool : `${target}:${tool}`;
     const draft = drafts.get(key) ?? {
       key,

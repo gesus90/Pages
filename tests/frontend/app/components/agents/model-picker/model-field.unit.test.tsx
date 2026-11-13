@@ -92,3 +92,18 @@ it("lays its children out in two columns", () => {
   expect(row?.className).toContain("grid-cols-2");
   expect(row?.children).toHaveLength(2);
 });
+
+it("disables reasoning when only sibling models support the listed levels", () => {
+  renderField({
+    options: [
+      { value: "", label: "Default" },
+      { value: "high", label: "high", disabled: true },
+    ],
+    value: "",
+  });
+  expect(
+    screen
+      .getByRole("combobox", { name: "Reasoning" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+});

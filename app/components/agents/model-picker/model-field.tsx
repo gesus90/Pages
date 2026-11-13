@@ -69,7 +69,12 @@ export function ReasoningField(props: {
         ariaLabel={label}
         value={props.value}
         options={props.options}
-        disabled={props.disabled || props.options.length === 1}
+        disabled={
+          props.disabled ||
+          !props.options.some(
+            (option) => option.value !== "" && !option.disabled,
+          )
+        }
         className={cn(
           MODEL_FIELD_CLASS,
           "font-normal hover:bg-surface-hover [&>span]:min-w-0 [&>span]:truncate [&>svg]:size-4",

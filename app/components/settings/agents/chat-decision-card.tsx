@@ -12,7 +12,6 @@ import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
-import { consumerModels } from "@/definition/AgentModelConsumers";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
@@ -117,7 +116,7 @@ function ChatDecisionForm({
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const models = consumerModels("pica", administration.models);
+  const models = administration.models;
   const draft = useChatDecisionDraft(administration, models);
   const model = models.find((entry) => entry.id === draft.modelKey);
   const effortOptions = reasoningOptions({
@@ -146,6 +145,7 @@ function ChatDecisionForm({
       <input type="hidden" name="reasoningEffort" value={draft.effort} />
       <ModelFieldRow>
         <ModelPicker
+          consumer="pica"
           value={draft.modelKey}
           models={models}
           savedModel={administration.settings.selection?.model ?? ""}

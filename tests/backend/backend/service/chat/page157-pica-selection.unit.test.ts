@@ -149,6 +149,9 @@ it("proposes an exact linked API model and effort without mutating settings or s
   const view = await world.service.administration("owner");
   // PAGE-248: the form lists every usable model; Pica's own rule refuses rows there.
   expect(view.models.some(isPicaModel)).toBe(true);
+  expect(new Set(view.models.map((model) => model.provider))).toEqual(
+    new Set(["opencode", "google_ai_studio"]),
+  );
   expect(view.settings.selection).toEqual(SELECTION);
   expect(view.settings.adoption).toMatchObject({
     connectionId: CLI.id,
@@ -245,10 +248,10 @@ it("refuses a saved or newly submitted free Zen choice server-side without repla
   const view = await world.service.administration("owner");
   expect(view.settings.selection).toEqual(world.stored.selection);
   expect(view.settings.error).toBe("picaZenUnsupported");
-  // PAGE-261: the saved Zen choice keeps its value, but Pica's list leaves it out.
-  expect(view.models.every((entry) => isPicaModel(entry))).toBe(true);
+  // PAGE-347: unsupported entries remain visible; server-side refusal is unchanged.
+  expect(view.models.every((entry) => isPicaModel(entry))).toBe(false);
   expect(view.models.some((entry) => entry.model === "opencode/free")).toBe(
-    false,
+    true,
   );
   await expect(
     world.service.save("owner", {

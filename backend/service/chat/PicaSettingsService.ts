@@ -4,11 +4,8 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { defaultAgentRunOptions } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
-import {
-  consumerModels,
-  modelConsumerRefusal,
-} from "@/definition/AgentModelConsumers";
-import { isChatCapableModel } from "@/definition/AgentModelFilter";
+import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
+import { catalogModelChoice } from "@/definition/AgentModelChoice";
 
 import {
   resolveAgentAssignment,
@@ -41,6 +38,7 @@ const REFUSAL_ERRORS: Readonly<
   noChatAdapter: "picaModelSelectionRequired",
   noChat: "picaModelUnsupported",
   zenToolsMissing: "picaZenUnsupported",
+  employeeToolsMissing: "picaModelUnsupported",
   noToolCalls: "picaModelUnsupported",
   noSpeech: "picaModelUnsupported",
   noSpeechOutput: "picaModelUnsupported",
@@ -129,12 +127,11 @@ export class PicaSettingsService {
   }
 
   /**
-   * Supplies the protected form with the saved choice and the models Pica can run.
+   * Supplies the protected form with the saved choice and all accessible models.
    *
    * @remarks
-   * The form lists only the models of the administrator's connections that
-   * pass Pica's central rule (`modelConsumerRefusal`); a model Pica cannot
-   * run is not listed at all. A saved choice outside that list keeps its
+   * The form lists all models of the administrator's connections and marks
+   * refusals with Pica's central rule. A saved invalid choice keeps its
    * value and is reported through `error`; saving and starting check the
    * choice here again, whatever a client sends.
    */
@@ -149,11 +146,10 @@ export class PicaSettingsService {
       this.dependencies.connections,
       viewer,
     );
-    const picaModels = consumerModels("pica", models);
     const adoption = await picaSelectionAdoption(
       this.dependencies.connections,
       settings.selection,
-      picaModels,
+      models,
     );
     let error: PicaAdministration["error"] = null;
     try {
@@ -176,7 +172,7 @@ export class PicaSettingsService {
     }
     return {
       settings: { ...settings, error, ...(adoption ? { adoption } : {}) },
-      models: picaModels,
+      models,
     };
   }
 
@@ -325,12 +321,15 @@ export class PicaSettingsService {
       .catalogs()
       .find(assignment.connection.id);
     const model = catalog.models.find((entry) => entry.id === assignment.model);
-    const refusal = modelConsumerRefusal("pica", {
-      provider: assignment.connection.provider,
-      model: assignment.model,
-      isFree: model?.isFree,
-      ...(model && !isChatCapableModel(model) ? { isChatCapable: false } : {}),
-    });
+    const refusal = modelConsumerRefusal(
+      "pica",
+      model
+        ? {
+            ...catalogModelChoice(assignment.connection, model),
+            isFree: model.isFree,
+          }
+        : { provider: assignment.connection.provider, model: assignment.model },
+    );
     if (refusal !== null)
       throw new AgentExecutionError(REFUSAL_ERRORS[refusal]);
     try {

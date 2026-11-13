@@ -1581,7 +1581,15 @@
         "aliasResolved": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); beim Speichern wird diese konkrete Version hinterlegt.",
         "refusal": {
           "connectionUnavailable": "Anbindung ist ausgeschaltet.",
-          "accessUnverified": "Zugang der Anbindung ist nicht verifiziert."
+          "accessUnverified": "Zugang der Anbindung ist nicht verifiziert.",
+          "noChatAdapter": "Dieser Provider hat keinen Chat-Adapter für diese Verwendung.",
+          "noChat": "Dieses Modell kann keinen Chat mit den Pages-Werkzeugen führen.",
+          "employeeToolsMissing": "Dieses freie OpenCode-Modell benötigt Host-Werkzeuge. Für diesen Agent die Zugriffsstufe Arbeitsplatz oder YOLO wählen.",
+          "noToolCalls": "Dieses Modell kann die Werkzeuge eines Agent-Plans nicht aufrufen.",
+          "noSpeech": "Dieses Modell kann keine Sprache erkennen.",
+          "noSpeechOutput": "Dieses Modell kann keinen Text vorlesen.",
+          "speechOutputOnly": "Dieses Modell erzeugt ausschließlich Sprachausgabe.",
+          "transcriptionOnly": "Dieses Modell transkribiert ausschließlich Sprache."
         }
       },
       "runner": {

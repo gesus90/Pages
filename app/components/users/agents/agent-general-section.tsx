@@ -149,6 +149,8 @@ function AgentModelRow({
   return (
     <ModelFieldRow>
       <ModelPicker
+        consumer="employee"
+        employeeAccess={draft.access}
         value={draft.modelKey}
         models={models}
         savedModel={savedModel}

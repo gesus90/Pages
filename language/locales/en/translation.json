@@ -1581,7 +1581,15 @@
         "aliasResolved": "The saved value is the alias “{{alias}}”. It stands for {{model}} ({{id}}); saving stores this concrete version.",
         "refusal": {
           "connectionUnavailable": "The connection is switched off.",
-          "accessUnverified": "The connection's access is not verified."
+          "accessUnverified": "The connection's access is not verified.",
+          "noChatAdapter": "This provider has no chat adapter for this consumer.",
+          "noChat": "This model cannot chat with Pages tools.",
+          "employeeToolsMissing": "This free OpenCode model requires host tools. Choose Workspace or YOLO access for this agent.",
+          "noToolCalls": "This model cannot call the tools an agent plan needs.",
+          "noSpeech": "This model cannot transcribe speech.",
+          "noSpeechOutput": "This model cannot speak text aloud.",
+          "speechOutputOnly": "This model only generates speech.",
+          "transcriptionOnly": "This model only transcribes speech."
         }
       },
       "runner": {

@@ -13,7 +13,6 @@ import {
   scanAgentPlaceholders,
 } from "@/definition/AgentParameters";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { consumerModels } from "@/definition/AgentModelConsumers";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
@@ -82,8 +81,8 @@ export class AgentAvailabilityService {
    * Lists the released model choices for independent plan nodes.
    *
    * @remarks
-   * The global model filter keeps agents to models that call tools; a model
-   * whose catalog does not say stays listed.
+   * The choice marks models that cannot call tools disabled; all providers
+   * remain visible, including models whose catalog states no capability.
    */
   public async models(
     userId: string,
@@ -95,7 +94,7 @@ export class AgentAvailabilityService {
       context.viewer,
     );
     return [
-      ...consumerModels("plan", models),
+      ...models,
       ...agentSimulationModels(
         this.dependencies.simulation ?? currentAgentSimulationMode(),
       ),
