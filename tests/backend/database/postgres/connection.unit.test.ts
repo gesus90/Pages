@@ -1,5 +1,4 @@
-import { EventEmitter } from "node:events";
-
+import { Client } from "pg";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -20,15 +19,17 @@ vi.mock("@/backend/logging/Logger", () => ({ logEvent: vi.fn() }));
 
 function createClient(): {
   client: PoolClient;
-  emitter: EventEmitter;
+  emitter: Client;
   query: Mock<(request: QueryConfig) => Promise<QueryResult | QueryResult[]>>;
   release: ReturnType<typeof vi.fn>;
 } {
-  const emitter = new EventEmitter();
+  // An unconnected pg Client supplies the full PoolClient shape and the real
+  // EventEmitter; only query and release are replaced by mocks.
+  const emitter = new Client();
   const query =
     vi.fn<(request: QueryConfig) => Promise<QueryResult | QueryResult[]>>();
   const release = vi.fn();
-  const client = Object.assign(emitter, { query, release });
+  const client: PoolClient = Object.assign(emitter, { query, release });
   return { client, emitter, query, release };
 }
 
