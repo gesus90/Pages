@@ -1,6 +1,7 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { conversationTurnPreparation } from "./AgentConversationContent";
 import { awaitAgentJobAnswer } from "./AgentJobAnswer";
 
 import type { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
@@ -92,6 +93,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
       conversationId: request.conversation.id,
       conversationLabel: conversationLabel(request),
       text: request.prompt,
+      prepareTurn: conversationTurnPreparation(request),
       clientMessageId: null,
       signal,
       onQueued: request.onQueued,

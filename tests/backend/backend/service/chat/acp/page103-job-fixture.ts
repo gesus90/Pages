@@ -99,6 +99,8 @@ export class PicaJobWorld {
     },
   );
   public readonly job: PicaAcpJob;
+  /** External boundaries shared with service-level lifecycle regressions. */
+  public readonly dependencies: PicaAcpJobDependencies;
   public listener: AcpSessionListener | null = null;
   public resumeSessionId: string | null = null;
   /** The tools the job offered its agent session. */
@@ -120,68 +122,66 @@ export class PicaJobWorld {
       connection: { ...ASSIGNMENT.connection, provider },
     };
     const runner = picaAcpRunner(agent);
-    this.job = new PicaAcpJob(
-      {
-        plans: { open: this.opened },
-        jobs: {
-          append: async (jobId, sequence, event) => {
-            this.events.push(event);
-          },
-          finish: this.finish,
-          saveContext: async () => undefined,
-          saveTurn: async () => undefined,
+    this.dependencies = {
+      plans: { open: this.opened },
+      jobs: {
+        append: async (jobId, sequence, event) => {
+          this.events.push(event);
         },
-        steers: this.steers,
-        acpSessions: { save: async () => undefined },
-        messages: {
-          append: async (userId, sessionId, input) => {
-            const message = {
-              ...input,
-              id: `message-${this.messages.length}`,
-              createdAt: "2026-10-18",
-            };
-            this.messages.push(message);
-            return message;
-          },
-          messages: async () => this.messages,
+        finish: this.finish,
+        saveContext: async () => undefined,
+        saveTurn: async () => undefined,
+      },
+      steers: this.steers,
+      acpSessions: { save: async () => undefined },
+      messages: {
+        append: async (userId, sessionId, input) => {
+          const message = {
+            ...input,
+            id: `message-${this.messages.length}`,
+            createdAt: "2026-10-18",
+          };
+          this.messages.push(message);
+          return message;
         },
-        attachments: {
-          readText: async () => "",
-          readBytes: async () => Buffer.from(""),
-        },
-        bridge: { open: (owner) => this.openBridge(owner.catalog) },
-        tools: { run: this.tools },
-        ...administration,
-        access: {
-          requireUser: this.authorize,
-        },
-        sessions: {
-          require: async () => SESSION,
-          confirmationWord: async () => "LÖSCHEN",
+        messages: async () => this.messages,
+      },
+      attachments: {
+        readText: async () => "",
+        readBytes: async () => Buffer.from(""),
+      },
+      bridge: { open: (owner) => this.openBridge(owner.catalog) },
+      tools: { run: this.tools },
+      ...administration,
+      access: {
+        requireUser: this.authorize,
+      },
+      sessions: {
+        require: async () => SESSION,
+        confirmationWord: async () => "LÖSCHEN",
+      },
+    };
+    this.job = new PicaAcpJob(this.dependencies, {
+      id: "job",
+      actor: OWNER,
+      sessionId: FIRST,
+      agent,
+      run: { runner, options: runner.runOptions(agent) },
+      directory: "/synthetic",
+      message: { id: "question", text: "Read", attachments: [] },
+      brief: {
+        instructions: "Synthetic",
+        prompt: {
+          personName: "Owner",
+          interfaceLanguage: "de",
+          today: "2026-10-18",
+          history: [],
         },
       },
-      {
-        id: "job",
-        actor: OWNER,
-        sessionId: FIRST,
-        agent,
-        run: { runner, options: runner.runOptions(agent) },
-        directory: "/synthetic",
-        message: { id: "question", text: "Read", attachments: [] },
-        brief: {
-          instructions: "Synthetic",
-          prompt: {
-            personName: "Owner",
-            interfaceLanguage: "de",
-            today: "2026-10-18",
-            history: [],
-          },
-        },
-        resumeSessionId,
-        gate: (task) => task(),
-        ...(pool ? { pool } : {}),
-      },
-    );
+      resumeSessionId,
+      gate: (task) => task(),
+      ...(pool ? { pool } : {}),
+    });
   }
 
   public steer: () => Promise<AcpSteerOutcome> = async () => "injected";

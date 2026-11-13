@@ -32,7 +32,7 @@ export class PicaAcpSelections {
     if (!content) {
       content = readPicaAttachments(
         message.attachments,
-        this.reader,
+        message.attachmentReader ?? this.reader,
         capabilities,
       );
       this.contents.set(message.id, content);

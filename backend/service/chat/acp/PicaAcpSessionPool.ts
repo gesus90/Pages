@@ -29,7 +29,7 @@ export interface PicaAcpPoolSession {
   readonly agentName: string;
   /** The conversation, as the memory of the agent names it. */
   readonly conversation: string;
-  /** Connection, model, effort, profile, access, folder and revision; another value starts anew. */
+  /** Connection, model, effort, profile, access, folder and credentials; another value starts anew. */
   readonly fingerprint: string;
 }
 
@@ -45,6 +45,7 @@ export interface PicaAcpPoolStart {
 /** How a job asks the pool for its chat session. */
 export interface PicaAcpPoolOpening {
   readonly session: PicaAcpPoolSession;
+  readonly prepare?: (afterSequence: number | null) => Promise<number>;
   /** The stop, the deadline and the shutdown of the job. */
   readonly signal: AbortSignal;
   readonly observer: PlanSessionObserver;
@@ -76,6 +77,7 @@ interface PoolEntry {
   readonly listener: PicaAcpPooledListener;
   readonly channel: PicaBridgeMcpChannel | null;
   native: PlanSession | null;
+  throughSequence: number | null;
   instanceId: string;
   isLent: boolean;
   isEnding: boolean;
@@ -190,6 +192,7 @@ export class PicaAcpSessionPool {
       listener: new PicaAcpPooledListener(opening.listener),
       channel: opening.bridge?.open() ?? null,
       native: null,
+      throughSequence: null,
       instanceId: "",
       isLent: true,
       isEnding: false,
@@ -200,6 +203,7 @@ export class PicaAcpSessionPool {
     this.entries.set(opening.session.chatSessionId, entry);
     const unlink = linkSignal(opening.signal, entry.controller);
     try {
+      entry.throughSequence = (await opening.prepare?.(null)) ?? null;
       const started = await opening.start({
         signal: entry.controller.signal,
         listener: entry.listener,
@@ -219,11 +223,11 @@ export class PicaAcpSessionPool {
     }
   }
 
-  private reuse(
+  private async reuse(
     entry: PoolEntry,
     native: PlanSession,
     opening: PicaAcpPoolOpening,
-  ): PlanSession {
+  ): Promise<PlanSession> {
     if (!native.next) throw new PicaAcpJobError("general");
     this.clearTimer(entry);
     entry.isLent = true;
@@ -231,10 +235,19 @@ export class PicaAcpSessionPool {
     entry.listener.attach(opening.listener);
     if (entry.channel) opening.bridge?.attach(entry.channel);
     const unlink = linkSignal(opening.signal, entry.controller);
-    return this.lend(entry, native, {
-      turn: native.next(opening.turn(), opening.signal, opening.observer),
-      unlink,
-    });
+    try {
+      entry.throughSequence =
+        (await opening.prepare?.(entry.throughSequence)) ??
+        entry.throughSequence;
+      return this.lend(entry, native, {
+        turn: native.next(opening.turn(), opening.signal, opening.observer),
+        unlink,
+      });
+    } catch (error: unknown) {
+      unlink();
+      await this.end(entry);
+      throw error;
+    }
   }
 
   /** The session as the job sees it: closing it lets the session rest instead of ending it. */
@@ -253,7 +266,8 @@ export class PicaAcpSessionPool {
     ): Promise<PlanSessionTurn> => {
       try {
         const result = await pending;
-        if (result.failure !== null) isHealthy = false;
+        if (result.failure !== null || result.errorCode !== null)
+          isHealthy = false;
         return result;
       } catch (error: unknown) {
         isHealthy = false;

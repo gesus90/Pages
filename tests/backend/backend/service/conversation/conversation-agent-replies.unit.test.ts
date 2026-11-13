@@ -87,7 +87,12 @@ function fixture(): {
   vi.spyOn(rounds, "interruptStale").mockResolvedValue(2);
   const dependencies: ConversationAgentRepliesDependencies = {
     conversations: { findForMember: vi.fn().mockResolvedValue(conversation) },
-    messages: { find: vi.fn(), history: vi.fn(), insert: vi.fn() },
+    messages: {
+      find: vi.fn(),
+      history: vi.fn(),
+      insert: vi.fn(),
+      contextCount: vi.fn(),
+    },
     directory: { read: vi.fn().mockResolvedValue(accounts) },
     runner: { answer: vi.fn() },
     rounds,
@@ -108,7 +113,12 @@ function fixture(): {
     events: { subscribe: vi.fn().mockReturnValue(vi.fn()), publish: vi.fn() },
     publisher: { publish: vi.fn() },
     agentFiles: { select: vi.fn(), open: vi.fn() },
-    attachments: { stage: vi.fn(), bind: vi.fn(), release: vi.fn() },
+    attachments: {
+      stage: vi.fn(),
+      bind: vi.fn(),
+      release: vi.fn(),
+      open: vi.fn(),
+    },
     content: { describe: vi.fn() },
     now: () => new Date("2026-01-01T00:00:00Z"),
   };
@@ -241,4 +251,35 @@ it("requires membership to stop and interrupts stale work during recovery", asyn
   );
   expect(service.workingAgentIds("group")).toEqual([]);
   expect(service.queuedMessages("group").size).toBe(0);
+});
+
+it("PAGE-344 starts a reply for an image-only message", async () => {
+  const { service, dependencies, rounds } = fixture();
+  service.start();
+  const receive = vi.mocked(dependencies.events.subscribe).mock.calls[0]?.[0];
+  if (!receive) throw new Error("Missing subscriber");
+  receive({
+    kind: "message",
+    recipientIds: ["person", "agent"],
+    message: {
+      ...message,
+      text: "",
+      mentions: ["agent"],
+      attachments: [
+        {
+          id: "image",
+          name: "image.png",
+          mimeType: "image/png",
+          kind: "image",
+          sizeBytes: 3,
+          url: "/chat/files/image",
+        },
+      ],
+    },
+  });
+  await vi.waitFor(() =>
+    expect(rounds.claim).toHaveBeenCalledWith(
+      expect.objectContaining({ trigger: "mention", agentId: "agent" }),
+    ),
+  );
 });

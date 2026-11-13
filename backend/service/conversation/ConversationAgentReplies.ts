@@ -19,6 +19,7 @@ import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type { ConversationMessage } from "@/definition/Conversation";
 import type { ConversationReplySettings } from "@/definition/ConversationDecision";
+import type { ConversationAttachment } from "@/definition/ConversationContent";
 import type { User } from "@/definition/User";
 import type { ConversationAgentGuard } from "./ConversationAgentGuard";
 import type { ConversationAgentFiles } from "./content/ConversationAgentFiles";
@@ -44,6 +45,13 @@ import type {
 
 const COMPONENT = "ConversationAgentReplies";
 
+/** Context selected after the native session is known to be fresh or continued. */
+export interface ConversationAgentTurn {
+  readonly prompt: string;
+  readonly attachments: readonly ConversationAttachment[];
+  readonly throughSequence: number;
+}
+
 /** One answer an agent is asked for. */
 export interface ConversationAgentRequest {
   readonly agent: User;
@@ -54,6 +62,15 @@ export interface ConversationAgentRequest {
   readonly prompt: string;
   /** The text of the answered message alone. */
   readonly lastMessage: string;
+  readonly attachments?: readonly ConversationAttachment[];
+  /** Null starts with the bounded history; a cursor receives every later message. */
+  readonly prepareTurn?: (
+    afterSequence: number | null,
+  ) => Promise<ConversationAgentTurn>;
+  /** Reads only an attachment of this conversation, with the agent's current membership. */
+  readonly openAttachment?: (
+    attachmentId: string,
+  ) => Promise<AsyncIterable<Uint8Array>>;
   /** Stops the answer, also while it waits for a free place (PAGE-304). */
   readonly signal?: AbortSignal;
   /** Called when the answer waits because the limits of concurrent sessions are reached. */
@@ -79,7 +96,7 @@ export interface ConversationAgentRepliesDependencies {
   readonly conversations: Pick<ConversationRepository, "findForMember">;
   readonly messages: Pick<
     ConversationMessageRepository,
-    "find" | "history" | "insert"
+    "find" | "history" | "insert" | "contextCount"
   >;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly runner: ConversationAgentRunner;
@@ -104,7 +121,7 @@ export interface ConversationAgentRepliesDependencies {
   /** Stores the files an answer attaches and binds them to it. */
   readonly attachments: Pick<
     ConversationAttachments,
-    "stage" | "bind" | "release"
+    "stage" | "bind" | "release" | "open"
   >;
   /** The attachments and links of a stored answer. */
   readonly content: ConversationMessageContentReader;
@@ -147,7 +164,8 @@ function answerableMessage(
   if (event.kind === "message_updated" && message.voice === undefined)
     return null;
   if (isWaiting || message.notice !== undefined) return null;
-  if (message.text.trim() === "") return null;
+  if (message.text.trim() === "" && message.attachments.length === 0)
+    return null;
   return isAskingMessage(message) ? message : null;
 }
 

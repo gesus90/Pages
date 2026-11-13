@@ -362,3 +362,51 @@ it("frees the chat when the start fails", async () => {
   const session = await open();
   await session.close();
 });
+
+it("PAGE-344 prepares the next round against the actual session cursor and resets after idle expiry", async () => {
+  const { pool, open, natives } = world(1);
+  const prepare = vi.fn<(afterSequence: number | null) => Promise<number>>(
+    async () => 1,
+  );
+  const first = await open({ prepare });
+  await first.turn;
+  await first.close();
+  prepare.mockResolvedValueOnce(31);
+  const next = await open({ prepare });
+  await next.turn;
+  await next.close();
+  expect(prepare.mock.calls).toEqual([[null], [1]]);
+  expect(natives).toHaveLength(1);
+  expect(natives[0]?.next).toHaveBeenCalledOnce();
+  await vi.advanceTimersByTimeAsync(60_000);
+  const restarted = await open({ prepare });
+  await restarted.turn;
+  await restarted.close();
+  expect(prepare).toHaveBeenLastCalledWith(null);
+  expect(natives).toHaveLength(2);
+  await pool.closeAll();
+});
+
+it("PAGE-344 discards a cursor after failure and never reclaims an active session", async () => {
+  const { pool, open, natives } = world();
+  const prepare = vi.fn<(afterSequence: number | null) => Promise<number>>(
+    async () => 5,
+  );
+  const first = await open({ prepare });
+  await first.turn;
+  expect(pool.reclaimIdle()).toBe(false);
+  await first.close();
+  natives[0]?.next.mockResolvedValueOnce({
+    ...completedTurn(),
+    failure: "cancelled",
+  });
+  const interrupted = await open({ prepare });
+  await interrupted.turn;
+  await interrupted.close();
+  const retry = await open({ prepare });
+  await retry.turn;
+  await retry.close();
+  expect(prepare.mock.calls).toEqual([[null], [5], [null]]);
+  expect(natives).toHaveLength(2);
+  await pool.closeAll();
+});

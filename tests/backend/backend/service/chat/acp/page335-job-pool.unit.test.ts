@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { PicaAcpSessionPool } from "@/backend/service/chat/acp/PicaAcpSessionPool";
 
 import { FIRST } from "../page48-chat-fixture";
-import { PicaJobWorld } from "./page103-job-fixture";
+import { completedTurn, PicaJobWorld } from "./page103-job-fixture";
 
 import type { PicaAcpJobPool } from "@/backend/service/chat/acp/PicaAcpPoolOpening";
 
@@ -57,6 +57,17 @@ it("ends the kept session when the person stops its job", async () => {
   world.job.stop();
   world.controller.abort();
   await completion;
+  expect(world.close).toHaveBeenCalledOnce();
+  expect(pool.describe()).toEqual([]);
+});
+
+it("PAGE-344 preserves a native cancellation so the conversation can retry it once", async () => {
+  const pool = new PicaAcpSessionPool({ idleMinutes: async () => 10 });
+  const world = new PicaJobWorld("claude_code", null, {}, keptSession(pool));
+  const { completion } = await world.start();
+  world.complete({ ...completedTurn(), failure: "cancelled", errorCode: null });
+  await completion;
+  expect(world.finish).toHaveBeenCalledWith("job", "failed", "cancelled");
   expect(world.close).toHaveBeenCalledOnce();
   expect(pool.describe()).toEqual([]);
 });

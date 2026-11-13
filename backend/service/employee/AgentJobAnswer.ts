@@ -1,4 +1,4 @@
-import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
+import { AgentJobAnswerError } from "@/backend/error/AgentJobAnswerError";
 
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { User } from "@/definition/User";
@@ -33,7 +33,7 @@ function defaultWait(milliseconds: number): Promise<void> {
  * @param job - The started job.
  * @param waiting - The reads and the limits of the wait.
  * @returns The last assistant message of the session; empty without one.
- * @throws {AgentEmployeeError} `unavailable` when the job ends other than
+ * @throws {AgentJobAnswerError} With the terminal state and original `failureCode` when the job ends other than
  * completed or outlasts the timeout.
  */
 export async function awaitAgentJobAnswer(
@@ -49,11 +49,11 @@ export async function awaitAgentJobAnswer(
     );
     if (current && current.state !== "running") {
       if (current.state !== "completed")
-        throw new AgentEmployeeError("unavailable");
+        throw new AgentJobAnswerError(current.state, current.errorCode);
       break;
     }
     if (waiting.now().getTime() > deadline)
-      throw new AgentEmployeeError("unavailable");
+      throw new AgentJobAnswerError("failed", "timeout");
     await (waiting.wait ?? defaultWait)(waiting.pollMilliseconds);
   }
   const messages = await waiting.messages.messages(job.sessionId);

@@ -12,6 +12,7 @@ import { CliSessionProcess } from "./CliSessionProcess";
 import type { AgentToolActivity } from "@/definition/AgentTools";
 
 import type {
+  CliHome,
   CliGroupSignal,
   CliProcessResult,
   CliRunningProcess,
@@ -144,6 +145,14 @@ export class CliProcessRunner {
       this.requests.delete(session);
     });
     return session;
+  }
+
+  /** Whether a native session still uses this connection's credential home. */
+  public hasSession(home: CliHome): boolean {
+    return [...this.requests].some(
+      ([child, request]) =>
+        child instanceof CliSessionProcess && request.home.root === home.root,
+    );
   }
 
   /** Checks expose a structured failure instead of a native spawn error. */

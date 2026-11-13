@@ -19,6 +19,7 @@ import { AgentChatContext } from "./AgentChatContext";
 import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
 import { foldJobToolCalls } from "./AgentToolCallView";
 
+import type { PicaAcpConversationTurn } from "@/backend/service/chat/acp/PicaAcpSteering";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { AgentConversationPurpose } from "@/backend/database/repositories/employee/AgentConversationRepository";
@@ -141,6 +142,9 @@ export interface AgentJobRequest {
   readonly conversationId?: string;
   /** How the resource view names the conversation of a kept session (PAGE-335). */
   readonly conversationLabel?: string;
+  readonly prepareTurn?: (
+    afterSequence: number | null,
+  ) => Promise<PicaAcpConversationTurn>;
   readonly text: string;
   readonly clientMessageId: string | null;
   /** Ends the wait of the message in the queue (PAGE-304). */
@@ -509,6 +513,7 @@ export class AgentEmployeeSessions {
           brief,
           employee: {
             ...run,
+            prepareTurn: request.prepareTurn,
             onSettled: () => {
               slot.release();
               this.recordAnswer(request, sessionId);
@@ -691,7 +696,7 @@ export class AgentEmployeeSessions {
               hostFiles.attach(agent, { directory, file, target }),
           }
         : {}),
-      requireCurrent: () => this.requireCurrent(agent.id, employee.revision),
+      requireCurrent: () => this.requireCurrent(agent.id),
       requireConnection: (connectionId) =>
         connectionId === employee.connectionId
           ? Promise.resolve()
@@ -720,19 +725,16 @@ export class AgentEmployeeSessions {
 
   /**
    * Checks a running job against the current state of its agent: still
-   * active and unchanged; otherwise the job ends.
+   * active and present; configuration changes apply to the next round.
    */
-  private async requireCurrent(
-    agentId: string,
-    revision: number,
-  ): Promise<void> {
+  private async requireCurrent(agentId: string): Promise<void> {
     const [agent, employee] = await Promise.all([
       this.dependencies.users.findById(agentId),
       this.dependencies.store.employees().find(agentId),
     ]);
     if (!agent?.isActive || agent.isAgent !== true || !employee)
       throw new ChatError("accessDenied");
-    if (employee.revision !== revision) throw new ChatError("contextChanged");
+    // Configuration is pinned for this turn; the next round reads the new settings.
   }
 
   private translate(error: unknown): unknown {

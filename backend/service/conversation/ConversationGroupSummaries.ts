@@ -38,6 +38,9 @@ const GROUPS_PER_TICK = 20;
 
 /** After a failed attempt a group waits this long before the next one. */
 const FAILURE_PAUSE_MILLISECONDS = 30 * 60_000;
+/** Quota may recover before other failures: try again on the next regular tick. */
+const QUOTA_PAUSE_MILLISECONDS =
+  CONVERSATION_SUMMARY_LIMITS.intervalMilliseconds;
 
 /** What the summaries of groups read, ask and store. */
 export interface ConversationGroupSummariesDependencies {
@@ -339,7 +342,11 @@ export class ConversationGroupSummaries {
     const elapsed =
       (this.dependencies.now?.() ?? new Date()).getTime() -
       Date.parse(stored.attemptedAt);
-    return elapsed >= 0 && elapsed < FAILURE_PAUSE_MILLISECONDS;
+    const pause =
+      stored.errorCode === "provider_quota_exhausted"
+        ? QUOTA_PAUSE_MILLISECONDS
+        : FAILURE_PAUSE_MILLISECONDS;
+    return elapsed >= 0 && elapsed < pause;
   }
 
   private async fail(

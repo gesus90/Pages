@@ -10,11 +10,7 @@ import {
   withLogContext,
 } from "@/backend/logging/Logger";
 
-import {
-  continuedPicaBrief,
-  picaSteerText,
-  picaTurnPrompt,
-} from "./PicaAcpContent";
+import { continuedPicaBrief, picaSteerText } from "./PicaAcpContent";
 import { PicaAcpJournal } from "./PicaAcpJournal";
 import { PicaAcpCredential } from "./PicaAcpCredential";
 import { PicaAcpUsage } from "./PicaAcpUsage";
@@ -32,9 +28,9 @@ import {
 } from "./PicaAcpTurnResult";
 import { PicaAcpUpdates } from "./PicaAcpUpdates";
 import { chatMcpServers } from "./PicaAcpRunners";
+import { PicaAcpPrompt } from "./PicaAcpPrompt";
 import { openPicaSession } from "./PicaAcpPoolOpening";
 
-import type { PromptCapabilities } from "@agentclientprotocol/sdk";
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
 import type { AcpSteerOutcome } from "@/backend/agents/acp/AcpChat";
 import type {
@@ -52,7 +48,10 @@ import type { ChatSteerStatus } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { PicaMessageContent, PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
-import type { PicaAcpMessage } from "./PicaAcpSteering";
+import type {
+  PicaAcpConversationTurn,
+  PicaAcpMessage,
+} from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 import type { PicaAcpJobPool, PicaAcpPooledInput } from "./PicaAcpPoolOpening";
@@ -83,6 +82,9 @@ export interface PicaAcpJobSpecification {
   readonly brief: PicaTurnBrief;
   /** The agent session to continue; `null` starts a new one. */
   readonly resumeSessionId: string | null;
+  readonly prepareTurn?: (
+    afterSequence: number | null,
+  ) => Promise<PicaAcpConversationTurn>;
   /** Runs a task in the queue of the conversation. */
   readonly gate: <Result>(task: () => Promise<Result>) => Promise<Result>;
   /** The chat session of an agent employee kept between rounds (PAGE-335); absent opens one per job. */
@@ -114,6 +116,7 @@ export class PicaAcpJob {
   private readonly usage: PicaAcpUsage;
   private readonly credential: PicaAcpCredential;
   private readonly selections: PicaAcpSelections;
+  private readonly prompt: PicaAcpPrompt;
   private readonly answerOutput: PicaAcpAnswerOutput;
   private isSteerBinding = false;
   private endedDuringSteer = false;
@@ -121,7 +124,7 @@ export class PicaAcpJob {
   private context: RuntimeExecutionContext | null = null;
   private session: PlanSession | null = null;
   private acpSessionId: string | null = null;
-  private capabilities: PromptCapabilities | null | undefined;
+
   private turn = 0;
   private readonly toolTurns: PicaAcpToolTurns;
   private isTurnRunning = false;
@@ -156,6 +159,11 @@ export class PicaAcpJob {
       (selection) =>
         dependencies.steers.select(specification.sessionId, selection),
     );
+    this.prompt = new PicaAcpPrompt(
+      this.selections,
+      () => this.credential.usage(),
+      specification.agent.supportsImages,
+    );
     this.updates = new PicaAcpUpdates(
       {
         picaCodex: {
@@ -166,7 +174,7 @@ export class PicaAcpJob {
           ? { picaHelper: () => this.credential.helperPath() }
           : {}),
         steering: (canSteer, capabilities) => {
-          this.capabilities = capabilities;
+          this.prompt.negotiated(capabilities);
           this.hasSteering = canSteer;
           this.journal.note({ kind: "capabilities", canSteer });
         },
@@ -353,13 +361,21 @@ export class PicaAcpJob {
     resumeSessionId: string | null,
     signal: AbortSignal,
   ): Promise<PlanSessionTurn> {
-    const { message, brief } = this.specification;
+    const { brief, prepareTurn } = this.specification;
+    let message = this.specification.message;
     // A continued agent session knows the conversation; a new one gets the
     // transcript, and a brief that keeps its context gets it on every turn.
     const turnBrief =
       resumeSessionId === null ? brief : continuedPicaBrief(brief);
     const session = await openPicaSession({
       pool: this.specification.pool,
+      prepare: prepareTurn
+        ? async (afterSequence) => {
+            const prepared = await prepareTurn(afterSequence);
+            message = { ...message, ...prepared };
+            return prepared.throughSequence;
+          }
+        : undefined,
       plans: this.dependencies.plans,
       signal,
       observer: this.observer(),
@@ -421,7 +437,10 @@ export class PicaAcpJob {
 
   private followUpInput(message: PicaAcpMessage): AgentPlanExecutionInput {
     return {
-      ...this.turnInput(message, continuedPicaBrief(this.specification.brief)),
+      ...this.prompt.create(
+        message,
+        continuedPicaBrief(this.specification.brief),
+      ),
       agent: this.specification.agent,
       userId: this.userId,
       directory: this.specification.directory,
@@ -468,7 +487,7 @@ export class PicaAcpJob {
   ): AgentPlanSessionInput {
     const { agent, directory, run } = this.specification;
     return {
-      ...this.turnInput(message, brief),
+      ...this.prompt.create(message, brief),
       agent,
       userId: this.userId,
       directory,
@@ -487,24 +506,6 @@ export class PicaAcpJob {
     };
   }
 
-  private turnInput(
-    message: PicaAcpMessage,
-    brief: PicaTurnBrief,
-  ): Pick<AgentPlanExecutionInput, "prompt" | "promptContent"> {
-    return {
-      prompt: [
-        picaTurnPrompt(brief, message.text, message.attachments),
-        this.credential.usage(),
-      ].join("\n\n"),
-      promptContent: async (capabilities) => {
-        this.capabilities = capabilities;
-        const content = await this.selections.read(message, capabilities);
-        await this.selections.select(message.id, content.items);
-        return content.blocks;
-      },
-    };
-  }
-
   private async deliver(message: PicaAcpMessage): Promise<AcpSteerOutcome> {
     return this.deliveryQueue.run(() => this.deliverMessage(message));
   }
@@ -514,7 +515,7 @@ export class PicaAcpJob {
   ): Promise<AcpSteerOutcome> {
     const steer = this.session?.steer?.bind(this.session);
     if (!steer || !this.isTurnRunning) return "inactive";
-    const content = await this.selections.read(message, this.capabilities);
+    const content = await this.prompt.read(message);
     if (!this.isTurnRunning) return "inactive";
     const sent = await this.sendSteer(steer, message, content);
     if (sent === null) return "inactive";
